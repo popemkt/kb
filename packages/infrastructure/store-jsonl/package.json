@@ -17,7 +17,6 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@kb/query": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"
   },
