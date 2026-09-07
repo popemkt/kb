@@ -6,7 +6,7 @@ import { toast } from "@/lib/toast";
 import { getViewConfig, serializeViewFilter, type ViewFilter } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
-import { PrefFieldRow } from "./fields-section";
+import { PrefFieldRow } from "@/components/ui/pref-field-row";
 import { listFilterFieldOptions } from "./view-filter-fields";
 import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
@@ -58,7 +58,8 @@ export function ViewFilterPopoverHost() {
   const fields = useMemo(() => {
     if (frameId === null) return [];
     return listFilterFieldOptions(frameId, useOutlineStore.getState().nodes);
-  }, [frameId, generation]); // oxlint-disable-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
+  }, [frameId, generation]);
 
   const config = getViewConfig(frame?.props);
 
