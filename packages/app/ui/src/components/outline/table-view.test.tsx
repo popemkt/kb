@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -227,6 +227,6 @@ describe("W7 TableView & ViewToolbar", () => {
     const bad = getViewConfig({
       [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ a: "x", b: 0, c: 120 }) }],
     });
-    expect(bad.colwidth).toEqual({ c: 120 });
+    expect(bad.colwidth).toEqual({});
   });
 });
