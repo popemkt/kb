@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useRefNavigation } from "@/stores/ref-navigation";
 import {
   queryFieldCarriers,
   queryTaggedInstances,
   schemaZoomKind,
   type SchemaHit,
 } from "@/lib/schema-zoom";
-import { MdView } from "@/components/outline/md-view";
+import { MdView } from "@/components/ui/md-view";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagFieldsConfig } from "./tag-fields-config";
@@ -30,7 +31,8 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
     return kind === "tag"
       ? queryTaggedInstances(queryDb, nodeId)
       : queryFieldCarriers(queryDb, nodeId);
-  }, [queryDb, nodeId, kind, generation]); // oxlint-disable-line react-hooks/exhaustive-deps -- generation, not queryDb identity, tracks graph content
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation, not queryDb identity, tracks graph content
+  }, [queryDb, nodeId, kind, generation]);
 
   if (!kind) return null;
 
@@ -74,6 +76,7 @@ function SchemaInstanceRow({
   onZoom: () => void;
 }) {
   const nodes = useOutlineStore((s) => s.nodes);
+  const onRefClick = useRefNavigation();
   const node = nodes.get(hit.id);
   const tags = node?.tags ?? [];
 
@@ -108,7 +111,11 @@ function SchemaInstanceRow({
         }
         content={
           <>
-            <MdView text={hit.text || "(empty)"} className="min-w-0 flex-1 text-foreground/85" />
+            <MdView
+              text={hit.text || "(empty)"}
+              className="min-w-0 flex-1 text-foreground/85"
+              onRefClick={onRefClick}
+            />
             {tags.length > 0 && (
               <TagChipGroup
                 tags={tags}
