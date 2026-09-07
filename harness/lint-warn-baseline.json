@@ -1,7 +1,7 @@
 {
   "lanes": {
     "blocking": {
-      "eslint/max-lines-per-function": 31
+      "eslint/max-lines-per-function": 29
     },
     "advisory": {},
     "knip": {
@@ -26,7 +26,6 @@
       "exports:packages/app/ui/src/lib/canvas-tool.ts:isShapeTool": 1,
       "exports:packages/app/ui/src/lib/css-color.ts:FORCE3D_SAFE_COLOR": 1,
       "exports:packages/app/ui/src/lib/field-type.ts:expectedPropKind": 1,
-      "exports:packages/app/ui/src/lib/field-type.ts:FIELD_TYPES": 1,
       "exports:packages/app/ui/src/lib/field-type.ts:isFieldType": 1,
       "exports:packages/app/ui/src/lib/field-visibility.ts:isPropHiddenByDefault": 1,
       "exports:packages/app/ui/src/lib/field-visibility.ts:SCHEMA_SURFACE_FIELDS": 1,
@@ -61,8 +60,8 @@
       "types:packages/app/ui/src/api/action.ts:ActionInvocation": 1,
       "types:packages/app/ui/src/api/graph.ts:GraphLoadSource": 1,
       "types:packages/app/ui/src/components/graph/sigma-graph.tsx:GraphSelection": 1,
-      "types:packages/app/ui/src/components/outline/caret.ts:VerticalDirection": 1,
       "types:packages/app/ui/src/lib/canvas-color.ts:CanvasColorPresetId": 1,
+      "types:packages/app/ui/src/lib/caret.ts:VerticalDirection": 1,
       "types:packages/app/ui/src/lib/md-inline.ts:AssetMediaKind": 1,
       "types:packages/app/ui/src/lib/ontology-scope.ts:MemberReason": 1,
       "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntry": 1,
