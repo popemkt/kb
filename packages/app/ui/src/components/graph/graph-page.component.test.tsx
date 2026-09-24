@@ -6,7 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -97,5 +97,31 @@ describe("GraphPage (smoke)", () => {
     expect(container.querySelector('[data-renderer-switch="true"]')).not.toBeNull();
     const canvas = present(container.querySelector('[data-testid="sigma-graph"]'), "sigma graph");
     expect(Number(canvas.getAttribute("data-node-count"))).toBeGreaterThan(0);
+  });
+
+  it("reports a max-nodes cap in the header, not over the canvas chrome", async () => {
+    resetOutlineStore();
+    const capped = fixtureGraph.nodes.map((node) =>
+      node.id === SYSTEM_IDS.lensAllMentions
+        ? {
+            ...node,
+            props: { ...node.props, [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num" as const, v: 2 }] },
+          }
+        : node,
+    );
+    useOutlineStore.getState().hydrateFromWire(capped, fixtureGraph.rev, "fixtures");
+    await act(async () => {
+      root.render(createElement(GraphPage, { perspectiveId: SYSTEM_IDS.lensAllMentions }));
+      await new Promise((r) => setTimeout(r, 350));
+    });
+
+    const header = present(container.querySelector("header"), "graph header");
+    expect(header.textContent).toMatch(/top 2 of \d+ nodes by degree/);
+    const edit = [...header.querySelectorAll("button")].find(
+      (button) => button.textContent === "edit max-nodes",
+    );
+    expect(edit).toBeDefined();
+    const canvas = present(container.querySelector('[data-testid="sigma-graph"]'), "sigma graph");
+    expect(Number(canvas.getAttribute("data-node-count"))).toBe(2);
   });
 });
