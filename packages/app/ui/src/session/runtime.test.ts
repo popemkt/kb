@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { DatascriptIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { invoke, invokeLocal, setBrowserReconciler, waitForBrowserPushes } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -30,6 +30,25 @@ describe("browser action runtime", () => {
       id: "node.update",
       input: { id: "n.root-a", text: "local first" },
     });
+  });
+
+  it("refuses a local write its field cannot hold, before anything is pushed", async () => {
+    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const post = vi.fn();
+    setPostAction(post);
+
+    // `sys.f.hidden` is a checkbox field; the local replica commits through
+    // the same integrity check the server does.
+    const receipt = await invoke("node.update", {
+      id: "n.root-a",
+      setProps: [{ field: "sys.f.hidden", value: { t: "str", v: "yes" } }],
+    });
+    expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(useOutlineStore.getState().index?.getNode("n.root-a")?.props["sys.f.hidden"]).toBe(
+      undefined,
+    );
+    await waitForBrowserPushes();
+    expect(post).not.toHaveBeenCalled();
   });
 
   it("keeps fifty local node updates incremental", async () => {
