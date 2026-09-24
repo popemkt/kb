@@ -3,12 +3,11 @@
  * List mode → NodeBlock refs. Table/board/cards → shared FrameChildrenView
  * with query-result instance keys (W7.1 / W8e).
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { getLiveClient } from "@/api/live"; // GAP [[01M1RXMS5Z0A5H46MF63Q9AAPM]]
-import { runQuery } from "@/ds"; // GAP [[01M1RXMRZKE1AJC850BRTHHHCW]]
+import type { ReactNode } from "react";
 import { indentStyle } from "@/lib/indent";
 import { queryResultInstanceKey } from "@/lib/instance-key";
-import { queryDefOf, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
+import { queryDefOf, resultNodeIds } from "@/lib/query-node";
+import { useQueryNodeRows } from "@/lib/use-query-node-rows";
 import type { ViewMode } from "@/lib/view-config";
 import { isProjectedViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -48,43 +47,17 @@ export function QueryResultsSection({
 
   const def = queryDefOf(node);
   const edn = def?.edn ?? null;
-  const liveEdn = wsStatus === "open" ? edn : null;
 
-  const [liveRows, setLiveRows] = useState<unknown[][] | null>(null);
-  const [liveError, setLiveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (liveEdn === null) return undefined;
-    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, liveEdn, (rows) => {
-      setLiveRows(rows);
-      setLiveError(null);
-    });
-    return () => {
-      unsubscribe();
-      setLiveRows(null);
-    };
-  }, [liveEdn, nodeId]);
-
-  const local = useMemo((): {
-    rows: unknown[][] | null;
-    error: string | null;
-  } => {
-    if (liveEdn !== null || edn === null || !queryDb) return { rows: null, error: null };
-    try {
-      return { rows: runQuery(queryDb, edn), error: null };
-    } catch (err) {
-      return {
-        rows: null,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveEdn, edn, queryDb, generation]);
+  const { rows, error } = useQueryNodeRows({
+    nodeId,
+    edn,
+    live: wsStatus === "open",
+    index: queryDb,
+    generation,
+  });
 
   if (!def || edn === null) return null;
 
-  const rows = liveEdn === null ? local.rows : liveRows;
-  const error = liveEdn === null ? local.error : liveError;
   const ids = rows ? resultNodeIds(rows, nodes, { limit: def.limit, excludeId: nodeId }) : [];
 
   const indent = indentStyle(depth + 1);
@@ -92,7 +65,7 @@ export function QueryResultsSection({
   if (hasText(error)) {
     return (
       <div className="query-results" data-query-results-for={nodeId}>
-        <p className="px-1 py-0.5 text-[12px] text-destructive" style={indent}>
+        <p className="px-1 py-0.5 text-meta text-destructive" style={indent}>
           {error}
         </p>
       </div>
@@ -107,7 +80,7 @@ export function QueryResultsSection({
         aria-busy="true"
         aria-live="polite"
       >
-        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={indent}>
+        <p className="px-1 py-0.5 text-meta text-foreground/50" style={indent}>
           Loading results…
         </p>
       </div>
@@ -118,7 +91,7 @@ export function QueryResultsSection({
     return (
       <div className="query-results" data-query-results-for={nodeId} style={indent}>
         {ids.length === 0 ? (
-          <p className="px-1 py-0.5 text-[12px] text-foreground/50">No results yet</p>
+          <p className="px-1 py-0.5 text-meta text-foreground/50">No results yet</p>
         ) : (
           <FrameChildrenView
             frameId={nodeId}
@@ -134,7 +107,7 @@ export function QueryResultsSection({
   return (
     <div className="query-results" data-query-results-for={nodeId}>
       {ids.length === 0 ? (
-        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={indent}>
+        <p className="px-1 py-0.5 text-meta text-foreground/50" style={indent}>
           No results
         </p>
       ) : (

@@ -1,8 +1,9 @@
 import { ArrowUUpLeftIcon, PushPinIcon, PushPinSlashIcon, XIcon } from "@phosphor-icons/react";
 import { describeReason } from "@kb/model";
 import { cn } from "@/lib/cn";
-import { MdView } from "@/components/outline/md-view"; // GAP [[01M1RXNKKK31EGJWCA1KCV6V20]]
+import { MdView } from "@/components/ui/md-view";
 import type { MemberRowModel } from "@/lib/ontology-scope";
+import { useRefNavigation } from "@/stores/ref-navigation";
 
 export interface MemberRowProps {
   row: MemberRowModel;
@@ -35,6 +36,7 @@ export function MemberRow({
   onRestore,
   excluded = false,
 }: MemberRowProps) {
+  const onRefClick = useRefNavigation();
   const provenance = excluded
     ? "excluded"
     : row.reasons.map((r) => describeReason(r, labelOf)).join(" · ") || "member";
@@ -52,7 +54,7 @@ export function MemberRow({
       <span
         aria-hidden
         className={cn(
-          "shrink-0 text-[10px] leading-none",
+          "shrink-0 text-caption leading-none",
           excluded ? "text-foreground/20" : "text-foreground/35",
         )}
       >
@@ -73,12 +75,12 @@ export function MemberRow({
         {/* Same renderer as the outline: a member row showed its node text as
             raw source, so bold markers and [[id|label]] refs leaked verbatim
             into the list. Clamped, because these rows are one line tall. */}
-        <MdView text={row.label} className="min-w-0 flex-1" clamp />
+        <MdView text={row.label} className="min-w-0 flex-1" clamp onRefClick={onRefClick} />
       </button>
 
       <span
         className={cn(
-          "shrink-0 truncate text-[11px]",
+          "shrink-0 truncate text-label",
           excluded ? "text-foreground/25" : "text-foreground/35",
         )}
         data-member-provenance="true"
@@ -128,7 +130,7 @@ export function MemberRow({
       {row.pinned && !excluded ? (
         <span
           aria-hidden
-          className="shrink-0 text-[10px] text-foreground/25 group-hover/member:hidden"
+          className="shrink-0 text-caption text-foreground/25 group-hover/member:hidden"
           title="Pinned"
         >
           <PushPinIcon size={11} weight="fill" />
