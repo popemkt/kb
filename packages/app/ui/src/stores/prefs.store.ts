@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { create } from "zustand";
+import { SIDEBAR_REGION_SELECTOR } from "@/lib/dom";
 import { hasText } from "@/lib/text";
 import { transitionTheme } from "@/lib/theme-transition";
 
 /**
- * Device-level preferences (DESIGN-RESKIN §1.7): theme / font / width.
+ * Device-level preferences (DESIGN-RESKIN §1.7): theme / font / width, the
+ * sidebar, and which optional UI plugins are switched on.
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
@@ -18,6 +20,12 @@ export interface Prefs {
   width: WidthPref;
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
+  /**
+   * The optional UI plugins switched on, by plugin name. Optional plugins are
+   * off until named here; a name with no plugin behind it is inert, so a
+   * plugin that ships later (or is removed) needs no migration.
+   */
+  enabledPlugins: readonly string[];
 }
 
 export const PREFS_STORAGE_KEY = "kb-prefs";
@@ -42,6 +50,7 @@ export const DEFAULT_PREFS: Prefs = {
   font: "inter",
   width: "centered",
   sidebarOpen: true,
+  enabledPlugins: [],
 };
 
 /**
@@ -53,7 +62,19 @@ const StoredPrefsSchema = z.object({
   font: z.enum(["outfit", "inter"]).catch(DEFAULT_PREFS.font),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
+  enabledPlugins: z.array(z.string()).catch([]),
 });
+
+/** The persisted preferences out of anything that carries them (the store state). */
+function prefsOf(source: Prefs): Prefs {
+  return {
+    theme: source.theme,
+    font: source.font,
+    width: source.width,
+    sidebarOpen: source.sidebarOpen,
+    enabledPlugins: source.enabledPlugins,
+  };
+}
 
 /** Parse a raw localStorage payload; unknown values fall back to defaults. */
 export function loadPrefs(
@@ -69,9 +90,7 @@ export function loadPrefs(
       return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
     }
     return {
-      theme: parsed.data.theme,
-      font: parsed.data.font,
-      width: parsed.data.width,
+      ...parsed.data,
       sidebarOpen: parsed.data.sidebarOpen ?? defaultSidebarOpen(viewportWidth),
     };
   } catch {
@@ -112,15 +131,7 @@ function readStored(): Prefs {
 function writeStored(prefs: Prefs) {
   if (typeof localStorage === "undefined") return;
   try {
-    localStorage.setItem(
-      PREFS_STORAGE_KEY,
-      JSON.stringify({
-        theme: prefs.theme,
-        font: prefs.font,
-        width: prefs.width,
-        sidebarOpen: prefs.sidebarOpen,
-      }),
-    );
+    localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefsOf(prefs)));
   } catch {
     // Quota / private mode — prefs stay in-memory for this session.
   }
@@ -134,13 +145,14 @@ interface PrefsState extends Prefs {
   setWidth: (width: WidthPref) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  /** Switch one optional UI plugin on or off; the shell loads or unloads it. */
+  setPluginEnabled: (name: string, enabled: boolean) => void;
 }
 
 export const usePrefsStore = create<PrefsState>((set, get) => {
   const commit = (patch: Partial<Prefs>) => {
     set(patch);
-    const { theme, font, width, sidebarOpen } = get();
-    const prefs = { theme, font, width, sidebarOpen };
+    const prefs = prefsOf(get());
     writeStored(prefs);
     applyPrefs(prefs);
   };
@@ -158,6 +170,10 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     setWidth: (width) => commit({ width }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
+    setPluginEnabled: (name, enabled) => {
+      const others = get().enabledPlugins.filter((candidate) => candidate !== name);
+      commit({ enabledPlugins: enabled ? [...others, name] : others });
+    },
   };
 });
 
@@ -167,15 +183,39 @@ export function useDarkTheme(): boolean {
 }
 
 /**
+ * The left-rail toggle's state and gesture, for the primitive that renders it
+ * (`components/ui/sidebar-toggle`).
+ *
+ * Two headers render that button — the shell's and the graph page's — so the
+ * wiring has one home. The focus hand-off lives here rather than in the button
+ * because it is about the panel going away, not about the button: collapsing a
+ * sidebar that holds focus would otherwise drop focus on the document.
+ */
+export function useSidebarToggle(): {
+  open: boolean;
+  onToggle: (button: HTMLButtonElement | null) => void;
+} {
+  const open = usePrefsStore((s) => s.sidebarOpen);
+  const toggle = usePrefsStore((s) => s.toggleSidebar);
+  return {
+    open,
+    onToggle: (button) => {
+      const focusedInSidebar = document.activeElement?.closest(SIDEBAR_REGION_SELECTOR);
+      toggle();
+      if (open && focusedInSidebar) {
+        requestAnimationFrame(() => button?.focus());
+      }
+    },
+  };
+}
+
+/**
  * One-time boot wiring: apply stored prefs, follow the OS theme while in
  * "system", and sync edits from other tabs. Call from main.tsx.
  */
 export function initPrefs() {
   if (typeof window === "undefined") return;
-  const current = () => {
-    const { theme, font, width, sidebarOpen } = usePrefsStore.getState();
-    return { theme, font, width, sidebarOpen };
-  };
+  const current = () => prefsOf(usePrefsStore.getState());
   usePrefsStore.setState({ systemDark: systemPrefersDark() });
   applyPrefs(current());
 
