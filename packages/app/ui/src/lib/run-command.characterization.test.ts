@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SYSTEM_IDS, systemSeedNodes } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -172,6 +172,16 @@ describe("palette command routing (characterization)", () => {
     expect(usePrefsStore.getState().theme).toBe("system");
     await run(SYSTEM_IDS.cmdToggleTheme);
     expect(usePrefsStore.getState().theme).toBe("light");
+  });
+
+  it("switch-design-system steps through the registry and wraps", async () => {
+    usePrefsStore.getState().setDesignSystem("kb");
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(usePrefsStore.getState().designSystem).toBe("paper");
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(usePrefsStore.getState().designSystem).toBe("terminal");
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(usePrefsStore.getState().designSystem).toBe("kb");
   });
 
   it("toggle-width flips centered and full", async () => {
