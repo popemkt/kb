@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "./mutations";
 import { waitForBrowserPushes } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -10,6 +10,7 @@ describe("mutations invoke shared actions", () => {
     status: "succeeded" as const,
     id: invocation.id,
     output: {},
+    rev: 2,
   }));
 
   beforeEach(() => {
