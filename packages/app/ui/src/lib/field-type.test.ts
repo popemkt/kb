@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@/ds";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import {
@@ -291,7 +291,7 @@ describe("allowed ref targets: resolution vs display", () => {
 
   it("resolves from a badge-free node shape (structural pin)", () => {
     // `NodeLike` is `{id, text, props, children}` — no `tags` field exists on
-    // it. The shared resolver in `@kb/field-type` declares its input as this
+    // it. The shared resolver in `@kb/model` declares its input as this
     // shape, so this call only compiles while resolution stays badge-free:
     // widening it back to the outline's node type to read `n.tags` fails the
     // typecheck instead of quietly emptying a picker again.
