@@ -20,7 +20,7 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type OutlineNode, type TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -140,7 +140,7 @@ describe("bullet paint (a node's tag colors)", () => {
   // --- the hex-alpha assumption ----------------------------------------
 
   it("tints a named tag color instead of concatenating hex digits", () => {
-    // resolveTagColor returns an explicit sys.f.color prop verbatim, so the
+    // tagColorOf returns an explicit sys.f.color prop verbatim, so the
     // value reaching the bullet need not be a 6-digit hex. `"red" + "20"` is
     // not a color.
     const html = bulletHtml(
