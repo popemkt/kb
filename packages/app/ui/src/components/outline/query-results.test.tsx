@@ -11,7 +11,7 @@ import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DatascriptIndex, runQuery } from "@/ds";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { resultNodeIds } from "@/lib/query-node";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
@@ -58,7 +58,7 @@ describe("result row render (W4)", () => {
       // dashed reference ring marks a result row
       expect(html).toContain('data-bullet-ref="true"');
       expect(html).toContain("data-bullet-ref-ring");
-      expect(html).toContain("border-dashed");
+      expect(html).toContain("stroke-dasharray");
     }
 
     // Same node rendered as a normal outline row has no ref ring.
