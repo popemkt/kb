@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
@@ -81,7 +81,7 @@ describe("instance identity (component)", () => {
       root.render(
         <div>
           <NodeBlock nodeId="n.root-a" instanceKey={treeKey} depth={0} />
-          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />
+          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />
         </div>,
       );
     });
@@ -100,7 +100,7 @@ describe("instance identity (component)", () => {
       root.render(
         <div>
           <NodeBlock nodeId="n.root-a" instanceKey={treeKey} depth={0} />
-          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />
+          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />
         </div>,
       );
     });
@@ -180,7 +180,7 @@ describe("instance identity (component)", () => {
     });
 
     await act(async () => {
-      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />);
+      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />);
     });
 
     const parentBullet = container.querySelector(
