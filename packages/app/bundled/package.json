@@ -14,6 +14,7 @@
     "@kb/canvas": "workspace:*",
     "@kb/chart": "workspace:*",
     "@kb/check": "workspace:*",
+    "@kb/code": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
     "@kb/model": "workspace:*",
