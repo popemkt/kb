@@ -46,4 +46,4 @@ Storybook's portable-stories `composeStories` and asserts each variant
 renders without throwing, so there is no second fixture set to keep in sync.
 
 The interaction contracts these implement are in
-[../DESIGN-UI.md](../DESIGN-UI.md).
+[DESIGN-UI.md](../../../DESIGN-UI.md).

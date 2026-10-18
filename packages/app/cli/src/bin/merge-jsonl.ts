@@ -2,11 +2,11 @@
 /**
  * Git merge driver for `.kb/nodes.jsonl`.
  *
- * Git runs it through `tools/kb/bin/merge-jsonl`, which is what the clone
- * registers (tools/kb/AGENTS.md) and which falls back to git's text merge
- * when this file cannot run. `.gitattributes` points both stores at it. Git
- * passes the three versions as files, expects the result written back over
- * `%A`, and reads the exit status.
+ * Git runs it through `bin/merge-jsonl`, which is what the clone registers
+ * (AGENTS.md) and which falls back to git's text merge when this file cannot
+ * run. `.gitattributes` points both stores at it. Git passes the three
+ * versions as files, expects the result written back over `%A`, and reads
+ * the exit status.
  *
  * The merge itself is `mergeNodeSets` — this file is the git boundary and
  * nothing else: read three files, write one, choose an exit code. The codes

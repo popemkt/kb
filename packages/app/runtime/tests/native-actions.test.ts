@@ -41,7 +41,7 @@ import type { StoreTx } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
 import { graphWritesLayer } from "@kb/operations";
 
-/** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
+/** Under tests/ so fixture extensions resolve zod via the workspace's node_modules. */
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(import.meta.dir, "kb-native-"));
 }

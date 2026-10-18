@@ -148,7 +148,7 @@ describe("templates", () => {
     };
     const projANode: KbNode = {
       id: PROJ_A_ID,
-      text: ".dotfiles",
+      text: "home",
       props: { "sys.f.type": [{ t: "ref", v: PROJ_TAG_ID }] },
       children: [A_ID],
       createdAt: "2026-01-01T00:00:00.000Z",
@@ -180,7 +180,7 @@ describe("templates", () => {
       [
         "# Todos",
         "",
-        "## .dotfiles",
+        "## home",
         "",
         "### doing",
         "",

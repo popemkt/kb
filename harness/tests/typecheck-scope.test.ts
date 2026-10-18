@@ -7,7 +7,7 @@ import {
 } from "../src/scopes.ts";
 
 /**
- * Harness check: typecheck scope coverage (tools/kb/DESIGN.md, "Compiler
+ * Harness check: typecheck scope coverage (DESIGN.md, "Compiler
  * strictness contract").
  *
  * The strictness contract and the Effect diagnostic severities only reach a
@@ -16,7 +16,7 @@ import {
  * green `bun run typecheck` while that code is checked by nothing, which is
  * exactly the shape a severity promotion is supposed to catch. So the scope
  * is asserted the same way the lint scope is: every TypeScript file under
- * tools/kb falls in exactly one package tsconfig project.
+ * the workspace falls in exactly one package tsconfig project.
  *
  * This is also why the Effect preference lane can be promoted per path
  * (`**\/src\/**\/*` at `error`) without a second tsconfig per package: the
@@ -34,7 +34,7 @@ describe("typecheck-scope", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  test("every TypeScript file under tools/kb falls in exactly one typecheck project", () => {
+  test("every TypeScript file in the workspace falls in exactly one typecheck project", () => {
     const tsFiles = allWorkspaceTsFiles();
     expect(tsFiles.length).toBeGreaterThan(50);
 

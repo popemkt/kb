@@ -31,7 +31,7 @@ import { PACKAGES_ROOT, axisValues, tagsOf, workspacePackages } from "../src/wor
  * per-process sequence, and `ext-canvas` stamps `updatedAt` from
  * `currentIso`, so a seeded replay of a canvas write no longer diverges
  * (b6; the bypass was recorded in
- * docs/kb/waves/2026-09-03/reports/w1-workspace.md).
+ * docs/waves/2026-09-03/reports/w1-workspace.md).
  *
  * Packages come from the workspace reader, not a second walk of `packages/`:
  * where a package sits is the reader's business, and this guard's business is

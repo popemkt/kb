@@ -3,7 +3,7 @@ import { countsTowardRatchet, tsgoDiagnosticCounts } from "../src/snapshot.ts";
 
 /**
  * Harness check: ratchet scope for `@effect/tsgo` diagnostics
- * (tools/kb/DESIGN.md, "Ratchet scope").
+ * (DESIGN.md, "Ratchet scope").
  *
  * Correctness-severity diagnostics are counted wherever they appear.
  * Suggestion-severity ones — the Effect-native preference lane, emitted by
@@ -16,9 +16,9 @@ import { countsTowardRatchet, tsgoDiagnosticCounts } from "../src/snapshot.ts";
  * "test-file suggestion is not counted" expectations below fail.
  */
 describe("ratchet-scope", () => {
-  const srcFile = "/abs/tools/kb/packages/app/server/src/server.ts";
-  const testFile = "/abs/tools/kb/packages/app/server/tests/ui.test.ts";
-  const rootFile = "/abs/tools/kb/packages/test-support/render-tests/playwright.config.ts";
+  const srcFile = "/abs/kb/packages/app/server/src/server.ts";
+  const testFile = "/abs/kb/packages/app/server/tests/ui.test.ts";
+  const rootFile = "/abs/kb/packages/test-support/render-tests/playwright.config.ts";
 
   test("suggestion under src/ is counted", () => {
     expect(countsTowardRatchet({ severity: "message", name: "asyncFunction", file: srcFile })).toBe(

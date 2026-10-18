@@ -24,6 +24,13 @@ export function gitEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+/**
+ * The repository's records: wave plans and reports, research and brainstorms.
+ * Some carry the TypeScript a wave ran, as evidence of what it measured; none
+ * of it is workspace code, so no gate that reads the tree reads it.
+ */
+const RECORDS_ROOT = "docs";
+
 export function gitWorkspaceFiles(
   patterns: string[] = ["*.ts", "*.tsx"],
   root: string = WORKSPACE_ROOT,
@@ -52,6 +59,7 @@ export function gitWorkspaceFiles(
     .filter((s) => s.length > 0)
     .map((f) => relative(root, join(repoRoot, f)))
     .filter((f) => !f.startsWith("..") && f.length > 0)
+    .filter((f) => !f.startsWith(`${RECORDS_ROOT}/`))
     .toSorted();
 }
 

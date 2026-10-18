@@ -5,11 +5,11 @@ import { noRawDesignValueRule } from "./no-raw-design-value.ts";
 const tester = new RuleTester({
   languageOptions: { parserOptions: { lang: "tsx" } },
 });
-const COMPONENT = "/repo/tools/kb/packages/app/ui/src/components/ontology/member-row.tsx";
-const LIB = "/repo/tools/kb/packages/app/ui/src/lib/tag-color.ts";
+const COMPONENT = "/repo/packages/app/ui/src/components/ontology/member-row.tsx";
+const LIB = "/repo/packages/app/ui/src/lib/tag-color.ts";
 /** A family's browser half is flat under its `src/`: its `.tsx` modules are its components. */
-const HALF_COMPONENT = "/repo/tools/kb/packages/extension/outline-ui/src/node-block.tsx";
-const HALF_LIB = "/repo/tools/kb/packages/extension/outline-ui/src/value-kind.ts";
+const HALF_COMPONENT = "/repo/packages/extension/outline-ui/src/node-block.tsx";
+const HALF_LIB = "/repo/packages/extension/outline-ui/src/value-kind.ts";
 
 const at = (messageId: string) => ({ messageId });
 

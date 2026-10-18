@@ -44,7 +44,7 @@ async function registryTools(root: string): Promise<McpToolContext> {
   };
 }
 
-/** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
+/** Under tests/ so fixture extensions resolve zod via the workspace's node_modules. */
 async function tempExtRoot(): Promise<string> {
   return mkdtemp(join(import.meta.dir, "kb-surface-effect-"));
 }

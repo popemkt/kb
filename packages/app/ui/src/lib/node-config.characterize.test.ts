@@ -98,7 +98,7 @@ describe("parsePerspective — stored nodes", () => {
   });
 
   it("decodes the kb store's `lens.all-mentions` (pre-node string values)", () => {
-    // Verbatim from `tools/kb/.kb/nodes.jsonl` at this wave's base commit.
+    // Verbatim from `.kb/nodes.jsonl` at this wave's base commit.
     const parsed = parsePerspective(
       migratedPerspective({
         "sys.f.lens.cluster-by": [{ t: "str", v: "parent" }],

@@ -5,7 +5,7 @@
  * Build tooling, not part of the package surface: `src/` is the contract
  * @kb/ext-sdk ships, and a generator that shells out to `tsc` is not that.
  *
- * Run: `bun tools/kb/packages/contract/ext-sdk/scripts/generate.ts`
+ * Run: `bun run gen:ext-sdk`
  * Writes: `packages/contract/ext-sdk/src/sdk-dts.text.ts`
  */
 import { Effect, Schema } from "effect";
@@ -83,7 +83,7 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
       "/**",
       ` * kb extension SDK — ambient types for .kb/extensions/*.ts`,
       ` * kb ${version}`,
-      " * Regenerate: bun tools/kb/packages/contract/ext-sdk/scripts/generate.ts",
+      " * Regenerate: bun run gen:ext-sdk",
       " * Emit to a repo: kb ext sdk --write",
       " *",
       " * Usage:",
@@ -120,7 +120,7 @@ export const writeExtSdkModule = Effect.fn("kb.writeExtSdkModule")(function* (
   const moduleSource = [
     "/**",
     " * GENERATED — do not edit by hand.",
-    " * Regenerate: bun tools/kb/packages/contract/ext-sdk/scripts/generate.ts",
+    " * Regenerate: bun run gen:ext-sdk",
     " */",
     `export const KB_SDK_VERSION = ${JSON.stringify(version)} as const;`,
     "export const KB_SDK_DTS: string = " + JSON.stringify(dts) + ";",

@@ -162,7 +162,8 @@ const handleHttpRequestEffect = (
     return jsonResponse(
       {
         error: "ui_not_built",
-        message: "kb UI assets not found; build tools/kb/ui (ui/dist) or use the API/WS endpoints",
+        message:
+          "kb UI assets not found; build packages/app/ui (its dist/) or use the API/WS endpoints",
         hint: relative(process.cwd(), assets.UI_DIST),
       },
       { status: 503 },

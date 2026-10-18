@@ -13,9 +13,9 @@ export const checkSurfaceSchema = z.enum(CHECK_SURFACES);
 export type CheckSurface = z.infer<typeof checkSurfaceSchema>;
 
 export const SURFACE_FILES: Record<CheckSurface, readonly string[]> = {
-  harness: ["tools/kb/package.json"],
-  lint: ["tools/kb/.oxlintrc.json"],
-  tsc: ["tools/kb/tsconfig.base.json"],
+  harness: ["package.json"],
+  lint: [".oxlintrc.json"],
+  tsc: ["tsconfig.base.json"],
   hook: [".githooks/pre-commit"],
   ci: [".github/workflows/*.yml"],
 };

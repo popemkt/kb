@@ -1,6 +1,6 @@
 # kb UI — component architecture
 
-Conventions for `tools/kb/packages/app/ui`. CLI/backend remains the source of truth; the UI
+Conventions for `packages/app/ui`. CLI/backend remains the source of truth; the UI
 is a projection. This file is the encapsulation contract for new work.
 
 ## Tree (App → routes → views)
@@ -86,7 +86,7 @@ or the view that embeds it. Use `ViewErrorBoundary` / `ViewError` from
 ## Import / ownership rules
 
 Who may import whom inside `src/` is one table: `UI_ALLOWS` in
-[`tools/kb/harness/src/constraints.ts`](../../../harness/src/constraints.ts),
+[`harness/src/constraints.ts`](../../../harness/src/constraints.ts),
 keyed by the zone a file sits in — the surface folders under `components/`,
 the named shared primitives, and `ds`, `lib`, `api`, `actions`, `session`,
 `stores`, `fixtures`, `catalog` and the shell. The harness applies it
@@ -97,7 +97,7 @@ beside the table carries the reasoning, and the shared-primitives list is the
 
 A sanctioned breach carries `// GAP [[id]]` on its import line and a `#gap`
 node naming what would close it — see
-[`docs/kb/rules.md`](../../../../../docs/kb/rules.md) under **UI import
+[`docs/rules.md`](../../../docs/rules.md) under **UI import
 matrix**. Adding an edge to `UI_ALLOWS` is a decision about the architecture,
 not a way past a red test.
 

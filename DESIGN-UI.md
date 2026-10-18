@@ -236,7 +236,7 @@ The v1 list above is the original contract. Implementation waves rebuilt
 the interaction layer on top of it — i1 (editor), i2 (graph), i3 (canvas),
 i5 (cross-surface polish), i6 (ontology), i12 (contextual references). The
 normative specs are
-`docs/kb/waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`,
+`docs/waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`,
 `r7-ux-sweep.md` and `r5-ontology.md`; each carries its own implementation
 handoff with the honest cut list.
 
@@ -1805,7 +1805,7 @@ The UI is assembled from contributions to the browser's `@kb/plugin` kernel
 `SidebarSectionPoint`, `DockPoint` and `OverlayPoint`. This section is the one statement of
 the first two; [Docks](#docks) states the last two.
 The plan they come from is
-`docs/kb/waves/2026-09-24/briefs/plugin-composition.md`, and this is its
+`docs/waves/2026-09-24/briefs/plugin-composition.md`, and this is its
 phase R1.
 
 **A view is the concept, and a page is a route to a view.** A graph page and
@@ -3208,7 +3208,7 @@ aliases were found and deleted. It also fails when the scale lists in
 ## Layout
 
 ```
-tools/kb/
+./
   packages/app/server/src/index.ts              # stable facade (re-exports startUi / runUiCli / …)
   packages/app/server/src/
     server.ts                    # Bun.serve boundary + Effect Scope stop + fs-watch
@@ -3322,7 +3322,7 @@ this direction. (Technique studies live in the lab — see The lab — and reach
 working views only through its shared kit.) Three.js WebGPU/TSL and Blender glTF assets are candidates for
 that renderer. TypeGPU requires a measured compute use case. Smooth silhouettes,
 antialiasing, readable text, and no accidental polygon faceting are acceptance
-criteria. See `docs/kb-graph-audit-2026-09-06.md` at the repository root for the
+criteria. See `docs/graph-audit-2026-09-06.md` at the repository root for the
 graph interaction and rendering repair proposal.
 
 Milestone direction (proposal): **a new bridge**. After a successful, deliberate

@@ -7,7 +7,7 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
  * Harness check 6: No conflict markers (spec 11 / plan A.9 #6).
  *
  * Asserts:
- *   No tracked file under tools/kb contains git merge conflict markers:
+ *   No tracked file in the workspace contains git merge conflict markers:
  *   `<<<<<<<`, `>>>>>>>`, `|||||||`, or `=======`.
  *
  * Red case: commit or stage a file containing `<<<<<<< HEAD`.
@@ -60,7 +60,7 @@ export function findConflictMarkers(root: string = WORKSPACE_ROOT): Array<{
 }
 
 describe("no-conflict-markers", () => {
-  test("no tracked file under tools/kb contains unresolved git conflict markers", () => {
+  test("no tracked file in the workspace contains unresolved git conflict markers", () => {
     const markers = findConflictMarkers(WORKSPACE_ROOT);
     const formatted = markers.map((m) => `${m.file}:${m.line}: ${m.match}`);
 

@@ -3,7 +3,7 @@
  * `boundaries` check applies it to the import-derived package graph.
  *
  * The original deviations from the brief's table are recorded in
- * docs/kb/waves/2026-09-03/reports/w1-workspace.md:
+ * docs/waves/2026-09-03/reports/w1-workspace.md:
  *
  * - `layer:extension` may reach `application`. The bundled extensions are
  *   policy modules registered from inside the package, not sandboxed third
@@ -453,7 +453,7 @@ export function uiZoneOf(file: string): UiZone {
  * rather than implied, because "own surface" is a row of the original table.
  *
  * Deviations from that table, each recorded in
- * docs/kb/waves/2026-09-07/reports/u1.md:
+ * docs/waves/2026-09-07/reports/u1.md:
  *
  * - A surface may import `actions`. The table's "may import" column omitted
  *   it while its "must not" column named only sibling-surface internals, and

@@ -10,7 +10,7 @@ import { classifyQueryError, graphRunEffect, graphSearchEffect } from "@kb/opera
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
 
-/** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
+/** Under tests/ so fixture extensions resolve zod via the workspace's node_modules. */
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(import.meta.dir, "kb-graph-"));
 }

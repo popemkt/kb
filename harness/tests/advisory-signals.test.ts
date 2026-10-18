@@ -23,7 +23,6 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
  * `bun run test:mutation` step to validate.yml.
  */
 
-const REPO_ROOT = join(WORKSPACE_ROOT, "..", "..");
 const read = (path: string) => readFileSync(join(WORKSPACE_ROOT, path), "utf8");
 
 /** Every runner config a coverage threshold could live in. */
@@ -75,7 +74,7 @@ describe("advisory-signals", () => {
   });
 
   test("no gating workflow runs mutation testing", () => {
-    const validate = readFileSync(join(REPO_ROOT, ".github/workflows/validate.yml"), "utf8");
+    const validate = read(".github/workflows/validate.yml");
     expect(validate).not.toContain("test:mutation");
     expect(validate).not.toContain("stryker");
   });

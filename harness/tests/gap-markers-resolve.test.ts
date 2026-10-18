@@ -19,7 +19,7 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
  * marker, or cite a gap whose `status` is `done`.
  */
 
-const NODES_JSONL = join(WORKSPACE_ROOT, "..", "..", ".kb", "nodes.jsonl");
+const NODES_JSONL = join(WORKSPACE_ROOT, ".kb", "nodes.jsonl");
 const GAP_PATTERN = /GAP\s+\[\[([^\]]+)\]\]/g;
 
 export interface KbNodeRecord {

@@ -3,7 +3,7 @@ import { defineRule, type ESTree } from "@oxlint/plugins";
 /**
  * Policy: a component names a design-system step, never a value.
  *
- * kb's UI tokens have three layers (`tools/kb/DESIGN-UI.md` → Design tokens):
+ * kb's UI tokens have three layers (`DESIGN-UI.md` → Design tokens):
  * the design system declares values, a Tailwind `@theme` bridge exposes them as
  * utilities, and components use those utilities. This rule rejects, in any
  * string a UI module writes, the forms that compile but skip the bridge:

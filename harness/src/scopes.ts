@@ -1,7 +1,7 @@
 /**
  * A *path scope* is a prefix — one directory or one file, workspace-relative —
  * and a gate that owns a scope list claims every TypeScript file under
- * `tools/kb` falls in exactly one of them. Two gates ask that same question:
+ * the workspace falls in exactly one of them. Two gates ask that same question:
  * `lint-scope-coverage` of the `lint` script's arguments, and
  * `typecheck-scope` of the typecheck projects' tsconfig `include` lists. The question is
  * answered here once, so a third gate adds a scope list rather than a third
@@ -105,7 +105,7 @@ export interface TypecheckProject {
 }
 
 /**
- * Every `tsc -p` project under tools/kb. Usually one per package — but a
+ * Every `tsc -p` project in the workspace. Usually one per package — but a
  * `scope:shared` package compiles its `src/` against the isomorphic preset and
  * its `tests/` against Bun, so it has two, and a gate that assumed
  * `<dir>/tsconfig.json` would silently stop seeing half of it.

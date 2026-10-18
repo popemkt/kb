@@ -11,7 +11,7 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
  *   Playwright's `test.skip(condition)` inside a body, a context's `skip()`),
  *   left undone (`todo`, `todoIf`, `fixme`), or run only on a condition
  *   (`if`, `runIf`) — on `test`, `it` or `describe`, in any test file under
- *   tools/kb, carries a paired debt marker `GAP [[<id>]]` within 3 lines above
+ *   the workspace, carries a paired debt marker `GAP [[<id>]]` within 3 lines above
  *   or on the same line. A lane that is not the default one (the store
  *   benchmark) registers its tests only in that lane rather than skipping
  *   them in this one.

@@ -12,8 +12,7 @@ describe("a url's label", () => {
   });
 
   it("keeps a long path's ends around an ellipsis", () => {
-    const long =
-      "https://github.com/popemkt/dotfiles/blob/main/tools/kb/packages/app/ui/src/lib/follow.ts";
+    const long = "https://github.com/popemkt/kb/blob/main/packages/app/ui/src/lib/follow.ts";
     const label = urlLabel(long);
     expect(label.startsWith("github.com/popemkt/")).toBe(true);
     expect(label.endsWith("follow.ts")).toBe(true);

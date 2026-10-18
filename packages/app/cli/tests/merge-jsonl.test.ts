@@ -76,7 +76,7 @@ async function readStore(): Promise<string> {
   return readFile(join(repo, STORE), "utf8");
 }
 
-/** A repo with the driver configured exactly as tools/kb/AGENTS.md documents. */
+/** A repo with the driver configured exactly as AGENTS.md documents. */
 async function setUpRepo(): Promise<void> {
   await git("init", "-q", "-b", "main");
   await git("config", "user.email", "test@example.com");

@@ -13,7 +13,7 @@ const devPort = Number(process.env.KB_UI_DEV_PORT ?? 5173);
 
 export default defineConfig({
   // Own lint/check block is required: without it, `vp` walks up to
-  // tools/kb/vite.config.ts and inherits `lint.ignorePatterns: ["ui/**"]`,
+  // the root vite.config.ts and inherits `lint.ignorePatterns: ["ui/**"]`,
   // so `npm run lint` / `npm run check` find zero files.
   lint: {
     ignorePatterns: ["dist/**", "storybook-static/**", "**/node_modules/**"],

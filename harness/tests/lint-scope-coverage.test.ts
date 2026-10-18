@@ -11,12 +11,12 @@ import { rootManifest, workspacePackages } from "../src/workspace.ts";
  * Harness check 1: Lint scope coverage (spec 11 / plan A.9 #1).
  *
  * The `lint` script's positional arguments are the lint scopes. Every
- * TypeScript file under tools/kb must fall in exactly one of them, so no file
+ * TypeScript file in the workspace must fall in exactly one of them, so no file
  * is linted twice under different configs and none is linted by nothing.
  * Scope assignment itself lives in `@kb/harness`'s `scopes` reader, shared
  * with `typecheck-scope`.
  *
- * Red case: add an unlinted file outside the scopes (e.g. tools/kb/unlinted.ts).
+ * Red case: add an unlinted file outside the scopes (e.g. unlinted.ts at the root).
  */
 
 /**
@@ -77,7 +77,7 @@ describe("lint-scope-coverage", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  test("every TypeScript file under tools/kb falls in exactly one lint scope", () => {
+  test("every TypeScript file in the workspace falls in exactly one lint scope", () => {
     const tsFiles = allWorkspaceTsFiles();
     expect(tsFiles.length).toBeGreaterThan(50);
 

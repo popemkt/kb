@@ -34,14 +34,44 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 *.tsbuildinfo
 .nx
 
-# kb store side effects
+# kb opaque media files — never commit binaries. No trailing slash so a
+# symlinked assets directory is ignored too, not just a real one.
+.kb/assets
+
+# kb JsonlStore atomic-write artifacts (backup + tmp; live nodes.jsonl stays tracked)
+*.bak
 .kb/nodes.jsonl.bak
 .kb/nodes.jsonl.lock
+.kb/nodes.jsonl.*.tmp
+.kb/cache/
+
+# kb SqliteStore derived files (the live kb.sqlite stays tracked, as nodes.jsonl does)
+.kb/kb.sqlite-wal
+.kb/kb.sqlite-shm
+
+# kb code trust — which sandboxed code a person trusted, by digest, per
+# machine (DESIGN.md → Sandbox → Trust). Machine state, never committed.
+.kb/trust.json
+.kb/trust.json.*.tmp
+
+# kb ui presence — which local kb ui serves this root, while one does. Runtime
+# state like a pidfile: written by `kb ui`, removed when it stops.
+.kb/ui.json
+
+# kb canvas captures — the pictures `ui.capture` had a tab draw, kept for an
+# agent to open by path. Runtime state like ui.json: the newest few are kept.
+.kb/captures/
+
+# kb transaction tail — the JSONL store's durable log of what changed, in what
+# order. State, not intent: the nodes are the repo's content and this is how
+# they got there, so it is never committed. The sqlite store keeps its tail
+# inside kb.sqlite, which is.
 .kb/tx.jsonl
 .kb/tx.jsonl.lock
+.kb/tx.jsonl.*.tmp
 
 # Test scratch roots. A test root lives in the OS temp dir unless its fixture
-# extensions must resolve imports through tools/kb/node_modules; those few sit
+# extensions must resolve imports through the workspace's node_modules; those few sit
 # beside their test as tests/kb-*/ and are removed by the test itself.
 packages/*/*/tests/kb-*/
 

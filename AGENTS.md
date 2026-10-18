@@ -4,7 +4,7 @@ Scope: developing kb the tool. Using kb as this repo's knowledge base, and
 every repo-wide rule (Rule 1, canonical statements, drift markers, the
 admission gate), is in the root [`AGENTS.md`](../../AGENTS.md); nothing here
 restates it. Specs: `DESIGN.md`, `DESIGN-UI.md`, `DESIGN-REFINE.md`. Wave
-records: `docs/kb/waves/`.
+records: `docs/waves/`.
 
 ## Shape
 

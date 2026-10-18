@@ -29,7 +29,7 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 
 ## Workspace shape
 
-`tools/kb` is a **Bun workspace**. Every concept is a package under
+kb is a **Bun workspace**. Every concept is a package under
 `packages/<layer>/<name>`, named `@kb/<name>`, private, `version 0.0.0`,
 publishing one curated barrel of named exports at `src/index.ts` (or
 `"exports": {}` when it has no importable surface). It has two axes, and each
@@ -86,7 +86,7 @@ reader answers both questions without spawning `nx graph`. Nx remains the task
 runner (`nx run-many -t typecheck`, `nx affected`).
 
 The harness is **not** one of these packages. It checks the workspace's shape,
-so it lives at `tools/kb/harness` — root tooling, outside `packages/`, typed by
+so it lives at `harness/` — root tooling, outside `packages/`, typed by
 the root `@types/bun`, typechecked by the root Nx project `kb-workspace`, and
 named in the `lint` and `fmt` scopes. That is why neither axis carries a
 `tooling` row: the harness was the only thing that would have held one, and a
@@ -129,7 +129,7 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   prior setup:
   - `bun run typecheck` → `nx run-many -t typecheck`, one `tsc --noEmit` per
     package against `tsconfig.base.json`. This is the authoritative typecheck,
-    and the pre-commit hook runs it when `tools/kb/` changes.
+    and the pre-commit hook runs it as part of `verify`.
   - `bun run lint` → one
     `oxlint --config .oxlintrc.json --type-aware packages harness` over the
     whole workspace. Type-aware linting is on: `oxlint-tsgolint` is a
@@ -205,7 +205,7 @@ carrying an `include` and no `exclude`; an override that only ever promotes
 in the ratchet ledger.
 
 The contract only reaches a file some `tsc -p` project includes, so harness
-check `typecheck-scope` asserts that every TypeScript file under `tools/kb`
+check `typecheck-scope` asserts that every TypeScript file in the workspace
 falls in exactly one typecheck project's `include` — one per package plus the
 harness — the same question `lint-scope-coverage` asks of the lint scopes,
 asked through the same reader.
@@ -317,7 +317,7 @@ not zero drift; the goal is visible, intentional drift.
 ## Testing doctrine
 
 The long form of the evidence behind this section is
-`docs/kb/waves/2026-09-03/reports/recon-refrepo.md` §4; what follows is the
+`docs/waves/2026-09-03/reports/recon-refrepo.md` §4; what follows is the
 part that governs kb.
 
 **Properties are design artifacts, not test volume.** A property states a
@@ -783,7 +783,7 @@ the index.
 
 `mergeNodeSets(base, ours, theirs)` is the one three-way merge of two node
 sets against their common ancestor; the git driver for `nodes.jsonl` is only
-its boundary (tools/kb/AGENTS.md → merging `nodes.jsonl`). It resolves by node
+its boundary (AGENTS.md → merging `nodes.jsonl`). It resolves by node
 id and, within a node, by **concern**: a concern that only one side changed
 takes that side, whatever either side did to the node's other concerns. Given
 two stores it never throws and always returns a store — a forest, every node
@@ -894,7 +894,7 @@ rendered in a box its host owns (DESIGN-UI.md → UI points: routes and
 views); which view, with which settings, shown for which node, is data, so
 it persists, syncs, answers queries and outlives the plugin that draws it.
 The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
-`docs/kb/waves/2026-09-24/briefs/plugin-composition.md` §3, phase A1.
+`docs/waves/2026-09-24/briefs/plugin-composition.md` §3, phase A1.
 
 - **The view is a field, not a tag.** A node carrying `sys.f.view` (ref, one)
   is a _view node_; strip the field and it is a plain node, so there is no
@@ -1585,7 +1585,7 @@ same lane. One path to a client, whatever a node's provenance.
   makes a _reader's_ snapshot binding. Conditional writes (an `expect`
   precondition carrying graph identity / node hash, returning the existing
   `conflict` receipt) are designed in
-  `docs/kb/waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
+  `docs/waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
   action input accepts `expect` today.
 - The index is `DatascriptIndex` in memory on both, and the transaction log is
   `StoreTxLog` over the store's own tail on both — durable on both, and the one
@@ -1781,7 +1781,7 @@ the graph. It is a new node _kind_, not a new node _type_: nothing in the data
 model changes, and membership bookkeeping lives on the ontology, never on the
 member — a node that never joins one carries zero ontology props. Full design
 (including the parts deliberately left out) is
-`docs/kb/waves/2026-08-23/reports/r5-ontology.md`.
+`docs/waves/2026-08-23/reports/r5-ontology.md`.
 
 Six seeded fields carry the definition, all templated by the `#ontology` tag:
 
@@ -2276,7 +2276,7 @@ ExtensionDeclaration, ExtensionTemplate } from "kb-ext-sdk"`. Types are generate
 This is the contract for every feature kb bundles, such as the outline,
 the collections, chart, code, lab, agent, canvas, docs and check. **Core names no feature.** The reasons and
 the order of the move are in the
-[extension-boundaries plan](../../docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md).
+[extension-boundaries plan](docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md).
 Where the code does not meet this contract yet, a gap says so (listed at the
 end).
 
@@ -2364,7 +2364,7 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     nodes and its seed are untouched, and a view of it opens as
     unavailable, by its option (below).
 - **An extension's configuration is fields on its node** (gap 1 of the
-  [Cordis survey](../../docs/brainstorms/2026-10-16-kb-cordis-layers/README.md)).
+  [Cordis survey](docs/brainstorms/2026-10-16-kb-cordis-layers/README.md)).
   - **The field nodes are the schema.** A setting is a system field node
     that carries `sys.f.configures`, a ref to the extension's node (one of
     `sys.extensions`' children), or to that list for a setting every
@@ -2662,7 +2662,7 @@ Today's drift from this contract is marked where it sits:
   (`LEGACY_SEED_RENAMES` for `lens.all-mentions`, and
   `PERSPECTIVE_RENDERER_FIELD`), held to `GRAPH_IDS` by `@kb/graph`'s seed
   test: a gap placeholder in the
-  [projection-families plan](../../docs/brainstorms/2026-10-16-kb-projection-families/README.md).
+  [projection-families plan](docs/brainstorms/2026-10-16-kb-projection-families/README.md).
 
 ### Canvas documents
 
@@ -3191,7 +3191,7 @@ and props, but not fields minted on the command line
   (rows → md), no template-lang dep. They are contributed by extensions
   (core registers none) and referenced by their namespaced id
   `ext.<file>.<template>` or by an alias the extension declares.
-- **v1 ships exactly one view: `docs/kb/todos.md`** (nodes tagged `todo`,
+- **v1 ships exactly one view: `docs/todos.md`** (nodes tagged `todo`,
   grouped by status). Curation of more views comes later, driven by tags.
 - Generated files carry `<!-- generated by kb; do not edit -->`.
 - **`docs.check` in pre-commit from day 1**: `.githooks/pre-commit` gains a
@@ -4180,11 +4180,13 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
 
 ## Repo integration
 
-- Code `tools/kb/` (repo tooling, not system config). Committed lockfile.
-- Data `.kb/` (nodes.jsonl, queries/, views/). Generated docs `docs/kb/`.
-- Shell alias `kb` in `modules/common/home-manager/shell.nix`.
-- MCP registration via `ai-agents` stack.
-- JSONL = intentional repo data → committed, not Mackup.
+- Code at the repository root. Committed lockfile; `flake.nix` builds the
+  `kb` package from it.
+- Data `.kb/` (nodes.jsonl, queries/, views/). Generated docs `docs/rules.md`
+  and `docs/todos.md`.
+- A consuming repository installs the `kb` binary and runs it over its own
+  `.kb/`; MCP registration is `kb mcp` from PATH.
+- JSONL = intentional repo data → committed, not backed up as state.
 - Seed: migrate current `TODO.md` items into tagged todo nodes (M5).
 
 ## Milestones

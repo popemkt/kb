@@ -249,7 +249,7 @@ function fixture(): Fixture {
     node("check.harness", "harness-check", {
       "sys.f.type": [{ t: "ref", v: "tag.check" }],
       "f.surface": [{ t: "ref", v: "v.harness" }],
-      "f.evidence": [{ t: "str", v: "tools/kb/harness/tests/check.test.ts" }],
+      "f.evidence": [{ t: "str", v: "harness/tests/check.test.ts" }],
       "f.invocation": [{ t: "str", v: "bun run harness" }],
       "f.blocking": [{ t: "bool", v: true }],
     }),
@@ -264,8 +264,8 @@ function fixture(): Fixture {
     nodes,
     files: new Map([
       ["AGENTS.md", "# One rule\n"],
-      ["tools/kb/harness/tests/check.test.ts", "test"],
-      ["tools/kb/package.json", '"verify": "bun run harness"'],
+      ["harness/tests/check.test.ts", "test"],
+      ["package.json", '"verify": "bun run harness"'],
     ]),
   };
 }
@@ -304,7 +304,7 @@ describe("ext.check.audit", () => {
 
   test("reports evidence-missing", () => {
     const input = fixture();
-    input.files.delete("tools/kb/harness/tests/check.test.ts");
+    input.files.delete("harness/tests/check.test.ts");
     return audit(input).then((findings) => {
       expect(findings.map((finding) => finding.kind)).toContain("evidence-missing");
       return undefined;
@@ -313,7 +313,7 @@ describe("ext.check.audit", () => {
 
   test("reports invocation-unwired", () => {
     const input = fixture();
-    input.files.set("tools/kb/package.json", '"verify": "bun run lint"');
+    input.files.set("package.json", '"verify": "bun run lint"');
     return audit(input).then((findings) => {
       expect(findings.map((finding) => finding.kind)).toContain("invocation-unwired");
       return undefined;

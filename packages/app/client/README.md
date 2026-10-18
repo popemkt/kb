@@ -42,6 +42,6 @@ const { rows } = await graph.query("[:find ?id :where [?n :node/id ?id]]");
 The published boundary is plain data, Promises and `KbClientError`, declared in
 `src/api.d.ts`; `tests/api.test.ts` holds those declarations to kb's node model
 at compile time. `bun run build` bundles the client and its runtime into
-`tools/kb/out/client` (gitignored) with those declarations, so a separate
+`out/client` (gitignored) with those declarations, so a separate
 workspace can depend on it without adopting kb's workspace or its Effect
 version.

@@ -62,8 +62,8 @@ describe("location writes", () => {
   });
 
   test("a default label is the directory's name, or its parent's and its own when taken", () => {
-    expect(defaultLabel("/x/.dotfiles", new Set())).toBe(".dotfiles");
-    expect(defaultLabel("/x/tools/kb", new Set(["kb"]))).toBe("tools/kb");
+    expect(defaultLabel("/x/.config", new Set())).toBe(".config");
+    expect(defaultLabel("/x/apps/kb", new Set(["kb"]))).toBe("apps/kb");
     let nodes = register([], "/x/one/kb", "l.one").nodes;
     nodes = register(nodes, "/x/two/kb", "l.two").nodes;
     expect(locationEntries(nodes).map((entry) => entry.label)).toEqual(["two/kb", "kb"]);

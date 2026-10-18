@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { execSync } from "node:child_process";
-import { join } from "node:path";
 import { WORKSPACE_ROOT } from "../src/workspace.ts";
 
 /**
@@ -21,8 +20,6 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  * Red case: check an unignored file (e.g. packages/domain/model/src/model.ts).
  */
 
-const REPO_ROOT = join(WORKSPACE_ROOT, "..", "..");
-
 const REQUIRED_IGNORED = [
   ".kb/nodes.jsonl.lock",
   ".kb/nodes.jsonl.bak",
@@ -30,14 +27,13 @@ const REQUIRED_IGNORED = [
   ".kb/kb.sqlite-shm",
   ".kb/tx.jsonl",
   ".kb/tx.jsonl.bak",
-  "tools/kb/.stryker-tmp/sandbox",
+  ".stryker-tmp/sandbox",
   "data.bak",
-  "tools/kb/reports/mutation/report.html",
-  "tools/kb/.stryker-tmp/sandbox",
-  "tools/kb/packages/app/cli/tests/kb-ext-abc123/.kb/nodes.jsonl",
+  "reports/mutation/report.html",
+  "packages/app/cli/tests/kb-ext-abc123/.kb/nodes.jsonl",
 ];
 
-export function isGitIgnored(relPath: string, cwd: string = REPO_ROOT): boolean {
+export function isGitIgnored(relPath: string, cwd: string = WORKSPACE_ROOT): boolean {
   try {
     execSync(`git check-ignore -q "${relPath}"`, {
       cwd,
@@ -54,7 +50,7 @@ describe("gitignore-covers-derived", () => {
     const unignored: string[] = [];
 
     for (const file of REQUIRED_IGNORED) {
-      if (!isGitIgnored(file, REPO_ROOT)) {
+      if (!isGitIgnored(file, WORKSPACE_ROOT)) {
         unignored.push(file);
       }
     }

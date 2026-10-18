@@ -10,7 +10,7 @@ import { main } from "../src/cli.ts";
 import { writeTrustedExtension } from "@kb/test-kit";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve
-// "zod" through tools/kb/node_modules.
+// "zod" through the workspace's node_modules.
 let roots: string[] = [];
 
 async function tempRoot(): Promise<string> {
