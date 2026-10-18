@@ -382,6 +382,19 @@ describe("ext.check.audit", () => {
     });
   });
 
+  test("a heading's anchor keeps its underscores, as GitHub's does", () => {
+    const input = fixture();
+    input.files.set("AGENTS.md", "# One rule\n\n## The `snake_case` rule — kept\n");
+    updateNode(input.nodes, "rule.one", (rule) => ({
+      ...rule,
+      props: { ...rule.props, "f.home": [{ t: "str", v: "AGENTS.md#the-snake_case-rule--kept" }] },
+    }));
+    return audit(input).then((findings) => {
+      expect(findings).toEqual([]);
+      return undefined;
+    });
+  });
+
   test("an https home in another repository resolves by its form alone", () => {
     const input = fixture();
     updateNode(input.nodes, "rule.one", (rule) => ({

@@ -68,16 +68,18 @@ const invocationIsWired = Effect.fn("ext.check.invocationIsWired")(function* (
   const files = yield* surfaceFiles(root, patterns);
   for (const path of files) {
     const content = yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => ""));
+    // A substring, not a whole command. GAP [[01M56TFECRSQN243PAEB6XGHRY]]
     if (content.includes(invocation)) return true;
   }
   return false;
 });
 
+/** GitHub's anchor for a heading: lower case, punctuation dropped (`_` and `-` kept), spaces to `-`. */
 function githubHeadingSlug(heading: string): string {
   return heading
     .trim()
     .toLowerCase()
-    .replaceAll(/[^\p{L}\p{N}\s-]/gu, "")
+    .replaceAll(/[^\p{L}\p{N}\s_-]/gu, "")
     .replaceAll(/\s/g, "-");
 }
 
