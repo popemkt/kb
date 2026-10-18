@@ -119,3 +119,28 @@ describe("kb check audit", () => {
     expect(out.stdout).toContain("home-broken");
   });
 });
+
+// Built, not written out: this file is scanned too.
+const mark = (id: string) => ["GAP ", "[[", id, "]]"].join("");
+
+describe("kb check gaps", () => {
+  test("an empty file list fails: a scan of nothing is no pass", async () => {
+    expect((await kb(["check", "gaps"])).code).toBe(1);
+  });
+
+  test("lists come from arguments and --files-from, NUL-separated", async () => {
+    expect((await kb(["tag", "define", "gap"])).code).toBe(0);
+    expect((await kb(["add", "GAP: deferred", "--tag", "gap", "--id", "g.open"])).code).toBe(0);
+    await writeFile(join(root, "a.ts"), `// ${mark("g.open")}\n`);
+    await writeFile(join(root, "b.ts"), `// ${mark("g.absent")}\n`);
+    await writeFile(join(scratch, "list"), "a.ts\0");
+
+    const clean = await kb(["check", "gaps", "--files-from", join(scratch, "list")]);
+    expect(clean.code).toBe(0);
+    expect(clean.stdout).toContain("kb gaps: clean (1 marker(s) in 1 file(s))");
+
+    const red = await kb(["check", "gaps", "b.ts", "--files-from", join(scratch, "list")]);
+    expect(red.code).toBe(1);
+    expect(red.stdout).toContain("gap-missing — b.ts:1:");
+  });
+});

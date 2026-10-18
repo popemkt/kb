@@ -13,6 +13,7 @@ import {
 import type { KbNode, KbTx, StoreTx } from "@kb/model";
 import { checkAuditEffect, type Finding } from "../src/index.ts";
 import { buildCheckModel } from "../src/model.ts";
+import { checkGapsEffect } from "../src/gaps.ts";
 import { enforcementSyncs } from "../src/sync.ts";
 
 const ROOT = "/repo";
@@ -431,5 +432,55 @@ describe("ext.check.audit", () => {
       expect(log.head).toBe(0);
       return undefined;
     });
+  });
+});
+
+// Built, not written out: this file is scanned too, and a literal marker
+// here would name these fixture ids in the real store.
+const mark = (id: string) => ["GAP ", "[[", id, "]]"].join("");
+
+describe("ext.check.gaps", () => {
+  const gapNodes = [
+    typed("tag.gap", "gap", "sys.tag"),
+    typed("f.status", "status", "sys.field"),
+    typed("gap.open", "GAP: still deferred", "tag.gap", { "f.status": [{ t: "str", v: "todo" }] }),
+    typed("gap.done", "GAP: closed", "tag.gap", { "f.status": [{ t: "str", v: "done" }] }),
+    node("note", "a plain node"),
+  ];
+
+  function gaps(files: Record<string, string>, listed: readonly string[] = Object.keys(files)) {
+    const { ctx } = fixtureContext(gapNodes);
+    return Effect.runPromise(
+      checkGapsEffect({ files: [...listed] }).pipe(
+        Effect.provide(Layer.mergeAll(kbCtxLayer(ctx), fileLayer(new Map(Object.entries(files))))),
+      ),
+    );
+  }
+
+  test("a marker naming an open #gap is clean, and the scan counts what it read", async () => {
+    const out = await gaps({ "a.ts": `// ${mark("gap.open")}\nconst x = 1;\n`, "b.nix": "{ }\n" });
+    expect(out).toEqual({ clean: true, scanned: 2, markers: 1, findings: [] });
+  });
+
+  test("a missing, untagged or closed gap is a finding at its line", async () => {
+    const out = await gaps({
+      "a.ts": `x\n// ${mark("gap.absent")}\n`,
+      "b.sh": `# ${mark("note")}\n`,
+      "c.css": `/* ${mark("gap.done")} */\n`,
+    });
+    expect(out.clean).toBe(false);
+    expect(out.findings.map((f) => [f.kind, f.file, f.line, f.id])).toEqual([
+      ["gap-missing", "a.ts", 2, "gap.absent"],
+      ["gap-untagged", "b.sh", 1, "note"],
+      ["gap-closed", "c.css", 1, "gap.done"],
+    ]);
+  });
+
+  test("a listed file that is not there is a finding, never a skip", async () => {
+    const out = await gaps({ "a.ts": "" }, ["a.ts", "gone.ts", "../outside.ts"]);
+    expect(out.findings.map((f) => [f.kind, f.file])).toEqual([
+      ["file-unreadable", "gone.ts"],
+      ["file-unreadable", "../outside.ts"],
+    ]);
   });
 });

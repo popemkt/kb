@@ -26,7 +26,7 @@ import { uiImportSites, uiRepoPath, uiSourceFiles, uiViolations } from "../src/u
  *   3. `UI_ALLOWS` names exactly the production zones the tree has; a test
  *      zone (`UI_TEST_ZONES`) holds test files only, and has no row.
  *
- * That a marker's id resolves to a real `#gap` node is `gap-markers-resolve`'s
+ * That a marker's id resolves to a real `#gap` node is `kb check gaps`'s
  * assertion, not this file's: it already scans every `.ts`/`.tsx` in the
  * workspace, these files included, and a second resolver here would be a
  * second mechanism for one rule.

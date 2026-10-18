@@ -1,7 +1,8 @@
 import { checkExtension } from "@kb/check";
 import { extensionPlugin, type ExtensionAction } from "@kb/contracts";
 import { checkAuditEffect } from "./audit.ts";
-import { auditOutput, emptyInput, syncOutput } from "./model.ts";
+import { checkGapsEffect } from "./gaps.ts";
+import { auditOutput, emptyInput, gapsInput, gapsOutput, syncOutput } from "./model.ts";
 import { checkSyncEffect } from "./sync.ts";
 
 const actions: ExtensionAction[] = [
@@ -13,6 +14,15 @@ const actions: ExtensionAction[] = [
     inputSchema: emptyInput,
     outputSchema: auditOutput,
     effect: checkAuditEffect,
+  },
+  {
+    id: "gaps",
+    title: "Audit gap markers",
+    description: "Prove every gap marker in the listed files names an open #gap node",
+    mode: { kind: "read" },
+    inputSchema: gapsInput,
+    outputSchema: gapsOutput,
+    effect: checkGapsEffect,
   },
   {
     id: "sync",

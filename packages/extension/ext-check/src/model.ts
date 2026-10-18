@@ -73,6 +73,30 @@ export const auditOutput = z.object({
   findings: z.array(findingSchema),
 });
 
+/**
+ * The files to scan, root-relative. The caller lists them — a repository's
+ * own index (`git ls-files -z`) is the one owner of what is in it — and at
+ * least one is required, so an empty list is a failure rather than a pass.
+ */
+export const gapsInput = z.object({ files: z.array(z.string().min(1)).min(1) });
+export type GapsInput = z.infer<typeof gapsInput>;
+
+const gapFinding = z.object({
+  kind: z.enum(["gap-missing", "gap-untagged", "gap-closed", "file-unreadable"]),
+  file: z.string(),
+  line: z.number().int().optional(),
+  id: z.string().optional(),
+  message: z.string(),
+});
+export type GapFinding = z.infer<typeof gapFinding>;
+
+export const gapsOutput = z.object({
+  clean: z.boolean(),
+  scanned: z.number().int(),
+  markers: z.number().int(),
+  findings: z.array(gapFinding),
+});
+
 export const syncOutput = z.object({
   updated: z.array(z.string()),
 });
@@ -84,6 +108,8 @@ export interface CheckModel {
   readonly fieldIds: ReadonlyMap<string, NodeId>;
   readonly enforcementIds: ReadonlyMap<string, NodeId>;
   readonly checkTagIds: ReadonlySet<NodeId>;
+  /** The `#gap` tag's ids; empty in a store that defines none. */
+  readonly gapTagIds: ReadonlySet<NodeId>;
 }
 
 function refs(values: readonly PropValue[] | undefined): NodeId[] {
@@ -148,7 +174,13 @@ export function buildCheckModel(nodes: readonly KbNode[]): CheckModel {
     fieldIds,
     enforcementIds,
     checkTagIds,
+    gapTagIds: tagIdsNamed(nodes, "gap"),
   };
+}
+
+/** True when the node carries one of the given tags. */
+export function hasTag(node: KbNode, tagIds: ReadonlySet<NodeId>): boolean {
+  return typeRefs(node).some((id) => tagIds.has(id));
 }
 
 export function propValues(model: CheckModel, node: KbNode, field: string): readonly PropValue[] {

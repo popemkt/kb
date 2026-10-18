@@ -1,8 +1,8 @@
 /**
- * `kb docs check`, `kb docs materialize` and `kb check audit`: the commands a
- * repository's gates run, as sugar over the actions every surface calls
- * (`docs.check`, `docs.materialize`, `ext.check.audit`), as `kb trace` is over
- * `graph.trace`. The CLI imports nothing of either family; it prints what the
+ * `kb docs check`, `kb docs materialize`, `kb check audit` and `kb check
+ * gaps`: the commands a repository's gates run, as sugar over the actions
+ * every surface calls (`docs.check`, `docs.materialize`, `ext.check.audit`,
+ * `ext.check.gaps`), as `kb trace` is over `graph.trace`. The CLI imports nothing of either family; it prints what the
  * actions answer, read off the receipt.
  *
  * A check is a question with a yes or no, so a succeeded receipt that says
@@ -14,6 +14,7 @@ import { Effect, Predicate } from "effect";
 import { onWire, type ActionReceipt, type KbContext } from "@kb/contracts";
 import { invokeReceiptEffect, writeErr } from "@kb/runtime";
 import { ACTION_INVOKE_WIRE, EXIT_FAILED, kbAction, report, type GlobalOpts } from "./command.ts";
+import { readTextArgEffect } from "./input.ts";
 
 const call = (ctx: KbContext, id: string, input: unknown) =>
   invokeReceiptEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
@@ -73,16 +74,31 @@ function auditLines(output: unknown): string[] {
   });
 }
 
+function gapsLines(output: unknown): string[] {
+  if (!Predicate.isObject(output)) return [];
+  const counts = `${String(output.markers)} marker(s) in ${String(output.scanned)} file(s)`;
+  if (output.clean === true) return [`kb gaps: clean (${counts})`];
+  return [
+    ...listOf(output.findings).map((f) => `${String(f.kind)} — ${String(f.message)}`),
+    counts,
+  ];
+}
+
+/** `--files-from` holds NUL-separated paths, as `git ls-files -z` writes them. */
+function fileList(text: string): string[] {
+  return text.split("\0").filter((path) => path !== "");
+}
+
 /** Print a check's report, and exit by its answer rather than by the receipt alone. */
 const runCheck = (
   ctx: KbContext,
   globals: GlobalOpts,
   id: string,
   lines: (output: unknown) => readonly string[],
-  warn: (receipt: ActionReceipt, globals: GlobalOpts) => void = () => {},
+  opts: { warn?: (receipt: ActionReceipt, globals: GlobalOpts) => void; input?: unknown } = {},
 ) =>
-  Effect.map(call(ctx, id, {}), (receipt) => {
-    warn(receipt, globals);
+  Effect.map(call(ctx, id, opts.input ?? {}), (receipt) => {
+    opts.warn?.(receipt, globals);
     const code = report(receipt, globals, lines);
     return code === 0 && !isClean(receipt) ? EXIT_FAILED : code;
   });
@@ -93,7 +109,9 @@ export function gateCommands(program: Command): void {
     .command("check")
     .description("Exit 0 when every generated doc matches .kb data, 1 when one is stale")
     .action(
-      kbAction((ctx, globals) => runCheck(ctx, globals, "docs.check", docsCheckLines, warnDocs)),
+      kbAction((ctx, globals) =>
+        runCheck(ctx, globals, "docs.check", docsCheckLines, { warn: warnDocs }),
+      ),
     );
   docs
     .command("materialize")
@@ -115,4 +133,23 @@ export function gateCommands(program: Command): void {
       "Exit 0 when every rule's home resolves and every check is wired and honest, 1 otherwise",
     )
     .action(kbAction((ctx, globals) => runCheck(ctx, globals, "ext.check.audit", auditLines)));
+  check
+    .command("gaps")
+    .description("Exit 0 when every gap marker in the listed files names an open #gap, 1 otherwise")
+    .argument("[files...]", "root-relative files to scan")
+    .option("--files-from <file>", 'NUL-separated file list, or "-" for stdin')
+    .action(
+      kbAction((ctx, globals, [files, opts]: [string[], { filesFrom?: string }]) =>
+        Effect.gen(function* () {
+          const listed =
+            opts.filesFrom === undefined
+              ? []
+              : fileList(yield* readTextArgEffect("--files-from", opts.filesFrom));
+          // An empty list is the action's to refuse: a scan of nothing is no pass.
+          return yield* runCheck(ctx, globals, "ext.check.gaps", gapsLines, {
+            input: { files: [...files, ...listed] },
+          });
+        }),
+      ),
+    );
 }

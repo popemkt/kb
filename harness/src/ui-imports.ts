@@ -37,7 +37,7 @@ const UI_SRC_ROOT = join(PACKAGES_ROOT, relative("packages", UI_SRC));
 /** The extension-less forms a TypeScript specifier may stand for. */
 const CANDIDATES = ["", ".ts", ".tsx", ".d.ts", "/index.ts", "/index.tsx"];
 
-/** `GAP [[id]]`, the marker grammar shared with `gap-markers-resolve`. */
+/** `GAP [[id]]`, the marker grammar shared with `kb check gaps` (`ext.check.gaps`). */
 const GAP_MARKER = /GAP \[\[([^\]]+)\]\]/;
 
 /** One import inside the UI, with both ends placed in the zone matrix. */
