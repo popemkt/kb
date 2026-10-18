@@ -65,7 +65,11 @@ jobs:
 
       - name: Plan shards
         id: plan
-        run: echo "shards=$(bun run --silent test:mutation plan)" >> "$GITHUB_OUTPUT"
+        # Assigned first: inside `echo`, a failed plan would write an empty
+        # matrix and exit 0.
+        run: |
+          shards=$(bun run --silent test:mutation plan)
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
 
   shard:
     needs: plan

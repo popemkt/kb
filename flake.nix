@@ -46,6 +46,7 @@
           packages = with pkgs; [
             actionlint
             bun
+            curl
             git
             jq
             nixfmt
