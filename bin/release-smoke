@@ -25,6 +25,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# The bundle under test registers the store it opens as a location; it does
+# so in a home of its own, never in the person's running this.
+export KB_HOME="$tmp/home"
+
 tar -C "$tmp" -xzf "$tarball"
 kb="$tmp/$base/bin/kb"
 
