@@ -871,7 +871,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — Each release carries bun build --compile binaries for darwin-arm64, linux-x64 and linux-arm64 beside the bundle, so kb runs without bun installed.
 - **current** — A compiled kb runs its CLI, but kb ui answers 503 ui_not_built: the UI dist is located on disk through KB_PKG_ROOT (packages/app/server/src/paths.ts) and is not embedded in the binary, so the release ships only the bun bundle (lib/kb/cli.js + UI dist) behind an sh launcher.
 - **impact** — Every consumer needs bun on PATH; a machine without bun cannot run a release.
-- **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then release.yml adds a compile matrix and release-smoke runs on each binary.
+- **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then publish.yml, the one release path, adds a compile matrix and release-smoke runs on each binary.
 - **node** — `01M56H9MA14N5TG8640BN6PHXP`
 
 ### GAP: repository extensions cannot ship UI

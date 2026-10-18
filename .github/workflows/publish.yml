@@ -1,0 +1,172 @@
+name: Publish
+
+# The one path a kb build takes to a GitHub release, called by the Release
+# workflow (release.yml), which holds no copy of it. It builds the bundle at
+# `ref`, smoke-tests it on Linux and macOS, and, when `publish` is set,
+# attests its provenance and publishes it as release v<version> with notes
+# from bin/release-notes. Without `publish` it is a dry run: the bundle is a
+# workflow artifact and nothing is published. What the bundle holds is
+# bin/release-bundle's; what the smoke test asserts is bin/release-smoke's.
+# The bundle is the only artifact:
+# GAP [[01M56H9MA14N5TG8640BN6PHXP]] no standalone compiled binaries yet.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to build, on main.
+        type: string
+        required: true
+      version:
+        description: The version it ships as, package.json's at ref.
+        type: string
+        required: true
+      publish:
+        description: Publish the release; false builds and smoke-tests only.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The flake's dev shell, so Bun is the one the hook and the Nix package use.
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # package.json's version is the one source; a release that disagrees
+      # with it would ship one version under another's name.
+      - name: Check version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          committed=$(bun -p 'require("./package.json").version')
+          if [ "$VERSION" != "$committed" ]; then
+            echo "::error::version $VERSION is not package.json's version $committed at $(git rev-parse --short HEAD)"
+            exit 1
+          fi
+
+      - name: Build bundle
+        run: bin/release-bundle
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kb-${{ inputs.version }}
+          path: |
+            out/kb-${{ inputs.version }}.tar.gz
+            out/kb-${{ inputs.version }}.tar.gz.sha256
+          if-no-files-found: error
+
+  smoke:
+    needs: bundle
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - name: Download bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: kb-${{ inputs.version }}
+          path: dist-release
+
+      - name: Smoke test
+        env:
+          VERSION: ${{ inputs.version }}
+        run: bin/release-smoke "dist-release/kb-$VERSION.tar.gz"
+
+  publish:
+    if: inputs.publish
+    needs: [bundle, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      # Build provenance: a consumer verifies the bundle came from this
+      # workflow at this commit (`gh attestation verify --repo popemkt/kb`).
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref }}
+          # Release notes read the commits since the previous tag, and the
+          # main check below reads origin/main.
+          fetch-depth: 0
+          # The token publishes through `gh`, never through git.
+          persist-credentials: false
+
+      # A tag can name any commit, including one on a branch nobody merged;
+      # only what main holds is released.
+      - name: Commit is on main
+        run: |
+          sha=$(git rev-parse HEAD)
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$sha is not on main; a release is cut from main only"
+            exit 1
+          fi
+
+      - name: Download bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: kb-${{ inputs.version }}
+          path: dist-release
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: dist-release/kb-${{ inputs.version }}.tar.gz
+
+      # bin/release-notes is the one generator: CHANGELOG.md's sections are
+      # its output too.
+      - name: Write release notes
+        env:
+          VERSION: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            bin/release-notes "v$VERSION"
+            echo
+            echo "Install: unpack kb-$VERSION.tar.gz and put its bin/kb on PATH; kb runs on bun."
+            echo "Verify: gh attestation verify kb-$VERSION.tar.gz --repo $REPO"
+          } >release-notes.md
+          cat release-notes.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" --verify-tag \
+            --title "kb v$VERSION" \
+            --notes-file release-notes.md \
+            "dist-release/kb-$VERSION.tar.gz" \
+            "dist-release/kb-$VERSION.tar.gz.sha256"

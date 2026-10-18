@@ -1,11 +1,9 @@
 name: release
 
-# A pushed v<version> tag builds the release bundle, smoke-tests it on Linux
-# and macOS, and publishes it as a GitHub Release. A manual run is the dry
-# run: the same bundle and smoke test, uploaded as a workflow artifact,
-# nothing published. What the bundle holds is bin/release-bundle's; what the
-# smoke test asserts is bin/release-smoke's. The bundle is the only artifact:
-# GAP [[01M56H9MA14N5TG8640BN6PHXP]] no standalone compiled binaries yet.
+# A pushed v<version> tag publishes that version as a GitHub Release; a manual
+# run is the dry run, which builds and smoke-tests the same bundle and
+# publishes nothing. The tag must equal package.json's version. The build,
+# smoke test, provenance and release are publish.yml's, the one release path.
 
 on:
   push:
@@ -20,22 +18,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  bundle:
+  prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # The flake's dev shell, so Bun is the one the hook and the Nix package use.
-    defaults:
-      run:
-        shell: nix develop -c bash -e {0}
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+        with:
+          persist-credentials: false
 
       # package.json's version is the one source; a tag that disagrees with it
       # would publish one version under another's name.
@@ -45,111 +37,21 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          version=$(bun -p 'require("./package.json").version')
+          version=$(jq -r .version package.json)
           if [ "$REF_TYPE" = "tag" ] && [ "$REF_NAME" != "v$version" ]; then
             echo "::error::tag $REF_NAME does not match package.json version $version (expected v$version)"
             exit 1
           fi
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
-      - name: Build bundle
-        run: bin/release-bundle
-
-      - name: Upload bundle
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: kb-${{ steps.version.outputs.version }}
-          path: |
-            out/kb-${{ steps.version.outputs.version }}.tar.gz
-            out/kb-${{ steps.version.outputs.version }}.tar.gz.sha256
-          if-no-files-found: error
-
-  smoke:
-    needs: bundle
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-15]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    defaults:
-      run:
-        shell: nix develop -c bash -e {0}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - name: Download bundle
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: kb-${{ needs.bundle.outputs.version }}
-          path: dist-release
-
-      - name: Smoke test
-        run: bin/release-smoke "dist-release/kb-${{ needs.bundle.outputs.version }}.tar.gz"
-
   publish:
-    if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [bundle, smoke]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    needs: prepare
+    uses: ./.github/workflows/publish.yml
     permissions:
       contents: write
-      # Build provenance: a consumer verifies the bundle came from this
-      # workflow at this commit (`gh attestation verify --repo popemkt/kb`).
       id-token: write
       attestations: write
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          # Release notes read the commits since the previous tag, and the
-          # main check below reads origin/main.
-          fetch-depth: 0
-          # The token publishes through `gh`, never through git.
-          persist-credentials: false
-
-      # A tag can name any commit, including one on a branch nobody merged;
-      # only what main holds is released.
-      - name: Tagged commit is on main
-        run: |
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::$GITHUB_SHA is not on main; a release is cut from main only"
-            exit 1
-          fi
-
-      - name: Download bundle
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: kb-${{ needs.bundle.outputs.version }}
-          path: dist-release
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
-        with:
-          subject-path: dist-release/kb-${{ needs.bundle.outputs.version }}.tar.gz
-
-      # bin/release-notes is the one generator: CHANGELOG.md's sections are
-      # its output too.
-      - name: Write release notes
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          {
-            bin/release-notes "$TAG"
-            echo
-            echo "Install: unpack kb-${TAG#v}.tar.gz and put its bin/kb on PATH; kb runs on bun."
-          } >release-notes.md
-
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-          VERSION: ${{ needs.bundle.outputs.version }}
-        run: |
-          gh release create "$TAG" \
-            --title "kb $TAG" \
-            --notes-file release-notes.md \
-            "dist-release/kb-$VERSION.tar.gz" \
-            "dist-release/kb-$VERSION.tar.gz.sha256"
+    with:
+      ref: ${{ github.sha }}
+      version: ${{ needs.prepare.outputs.version }}
+      publish: ${{ github.event_name == 'push' }}
