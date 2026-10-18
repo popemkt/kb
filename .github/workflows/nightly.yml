@@ -1,0 +1,117 @@
+name: Nightly
+
+# A prerelease of main's tip, v<next patch>-nightly.<UTC YYYYMMDD>
+# (bin/release-version nightly), built, smoke-tested, attested and published by
+# publish.yml like a stable release. It is published only when main has
+# commits since the last nightly and Validate is green there; it is marked
+# prerelease, so GitHub's latest release — what the dotfiles' nvfetcher
+# resolves — stays the last stable one. Its version is derived and stamped
+# into the build; nothing is committed to main. Nightlies older than 14 days
+# are pruned, the release and its tag.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # bin/validate-green reads Validate's runs.
+      actions: read
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+    outputs:
+      publish: ${{ steps.decide.outputs.publish }}
+      ref: ${{ steps.decide.outputs.ref }}
+      version: ${{ steps.decide.outputs.version }}
+      since: ${{ steps.decide.outputs.since }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          # The tags, to find the last nightly.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          version=$(bin/release-version nightly)
+          # The newest nightly by the date in its name.
+          last=$(git tag --list 'v*-nightly.*' | awk -F 'nightly.' '{ print $2 " " $0 }' | sort -n | tail -n1 | cut -d' ' -f2)
+          publish=true
+          if [ -n "$last" ] && [ "$(git rev-parse "$last^{commit}")" = "$sha" ]; then
+            echo "::notice::no commits on main since $last; no nightly"
+            publish=false
+          elif git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::notice::v$version is already published; the next nightly is tomorrow's"
+            publish=false
+          elif ! bin/validate-green "$sha"; then
+            echo "::warning::Validate is not green at main's tip; no nightly"
+            publish=false
+          fi
+          {
+            echo "publish=$publish"
+            echo "ref=$sha"
+            echo "version=$version"
+            echo "since=$last"
+          } >>"$GITHUB_OUTPUT"
+
+  publish:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    uses: ./.github/workflows/publish.yml
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    with:
+      ref: ${{ needs.prepare.outputs.ref }}
+      version: ${{ needs.prepare.outputs.version }}
+      prerelease: true
+      notes-since: ${{ needs.prepare.outputs.since }}
+
+  # Runs whether or not tonight's nightly was published.
+  prune:
+    needs: publish
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Prune nightlies older than 14 days
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cutoff=$(date -u -d '14 days ago' +%Y%m%d)
+          gh api --paginate "repos/$REPO/git/matching-refs/tags/v" --jq '.[].ref' |
+            sed 's|^refs/tags/||' | { grep -E -- '-nightly\.[0-9]{8}$' || true; } |
+            while read -r tag; do
+              [ "${tag##*-nightly.}" -lt "$cutoff" ] || continue
+              if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+                gh release delete "$tag" --repo "$REPO" --cleanup-tag --yes
+              else
+                gh api -X DELETE "repos/$REPO/git/refs/tags/$tag"
+              fi
+              echo "pruned $tag"
+            done

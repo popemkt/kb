@@ -16,7 +16,7 @@ if [ "${1:-}" = "--dry-run" ]; then
   dry_run=true
   shift
 fi
-if [ $# -ne 1 ]; then
+if [ $# -ne 1 ] || [ "$1" = "nightly" ]; then
   echo "usage: bun run release [--dry-run] patch|minor|major|<major.minor.patch>" >&2
   exit 2
 fi

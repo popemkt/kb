@@ -1,8 +1,9 @@
 name: Publish
 
 # The one path a kb build takes to a GitHub release, called by the Release
-# workflow (release.yml), which holds no copy of it. It builds the bundle at
-# `ref` stamped with `version`, smoke-tests it on Linux and macOS, and, when
+# workflow (stable, release.yml) and the Nightly workflow (prerelease,
+# nightly.yml); neither holds a copy of it. It builds the bundle at `ref`
+# stamped with `version`, smoke-tests it on Linux and macOS, and, when
 # `publish` is set, attests its provenance and publishes it as release
 # v<version> with notes from bin/release-notes. Without `publish` it is a dry
 # run: the bundle is a workflow artifact and nothing is published. What the
@@ -18,9 +19,17 @@ on:
         type: string
         required: true
       version:
-        description: The version it ships as; a published one must be package.json's at ref.
+        description: The version it ships as; a stable one must be package.json's at ref.
         type: string
         required: true
+      prerelease:
+        description: Publish as a prerelease, which is never GitHub's latest release.
+        type: boolean
+        default: false
+      notes-since:
+        description: Where the notes start; empty means the previous stable tag.
+        type: string
+        default: ""
       publish:
         description: Publish the release; false builds and smoke-tests only.
         type: boolean
@@ -48,17 +57,28 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # package.json's version is the one source; a release that disagrees
-      # with it would ship one version under another's name. A dry run builds
-      # the version it would release, before anything is committed.
+      # package.json's version is the one source of a stable version; a stable
+      # release that disagrees with it would ship one version under another's
+      # name. A dry run builds the version it would release, before anything
+      # is committed. A prerelease's version is derived (bin/release-version
+      # nightly) and carries a prerelease suffix, and a stable one never does.
       - name: Check version
         env:
           VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
           PUBLISH: ${{ inputs.publish }}
         run: |
+          case $VERSION in
+            *-*) suffixed=true ;;
+            *) suffixed=false ;;
+          esac
+          if [ "$suffixed" != "$PRERELEASE" ]; then
+            echo "::error::version $VERSION does not match prerelease=$PRERELEASE"
+            exit 1
+          fi
           committed=$(bun -p 'require("./package.json").version')
-          if [ "$PUBLISH" = true ] && [ "$VERSION" != "$committed" ]; then
-            echo "::error::version $VERSION is not package.json's version $committed at $(git rev-parse --short HEAD)"
+          if [ "$PUBLISH" = true ] && [ "$PRERELEASE" = false ] && [ "$VERSION" != "$committed" ]; then
+            echo "::error::stable version $VERSION is not package.json's version $committed at $(git rev-parse --short HEAD)"
             exit 1
           fi
 
@@ -149,16 +169,25 @@ jobs:
         with:
           subject-path: dist-release/kb-${{ inputs.version }}.tar.gz
 
-      # The tag exists by now, pushed by hand or by the Release workflow.
-      # bin/release-notes is the one generator: CHANGELOG.md's sections are
-      # its output too.
+      # A stable tag exists by now (pushed by hand, or by the Release
+      # workflow); a nightly's is made by the release below, so its notes run
+      # to the commit itself. bin/release-notes is the one generator:
+      # CHANGELOG.md's sections are its output too.
       - name: Write release notes
         env:
           VERSION: ${{ inputs.version }}
+          SINCE: ${{ inputs.notes-since }}
+          PRERELEASE: ${{ inputs.prerelease }}
           REPO: ${{ github.repository }}
         run: |
+          to=v$VERSION
+          git rev-parse -q --verify "refs/tags/$to" >/dev/null || to=HEAD
           {
-            bin/release-notes "v$VERSION"
+            if [ "$PRERELEASE" = true ]; then
+              echo "Nightly build of main at $(git rev-parse --short HEAD). A prerelease: GitHub's latest release stays the last stable one."
+              echo
+            fi
+            bin/release-notes "$to" "$SINCE"
             echo
             echo "Install: unpack kb-$VERSION.tar.gz and put its bin/kb on PATH; kb runs on bun."
             echo "Verify: gh attestation verify kb-$VERSION.tar.gz --repo $REPO"
@@ -169,8 +198,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
-          gh release create "v$VERSION" --verify-tag \
+          if [ "$PRERELEASE" = true ]; then
+            kind=(--prerelease --target "$(git rev-parse HEAD)")
+          else
+            kind=(--verify-tag)
+          fi
+          gh release create "v$VERSION" "${kind[@]}" \
             --title "kb v$VERSION" \
             --notes-file release-notes.md \
             "dist-release/kb-$VERSION.tar.gz" \

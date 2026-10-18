@@ -5,9 +5,10 @@
 #   out/kb-<version>/lib/kb/packages/app/ui/dist    the UI it serves
 # packed as out/kb-<version>.tar.gz with out/kb-<version>.tar.gz.sha256.
 # The version is package.json's, or the one given as `bin/release-bundle
-# <version>` — the version a Release dry run computes, say. It is stamped into
-# the SDK module the CLI reads `--version` from for this build only; the
-# committed module is put back afterwards. The lib/kb layout is the one KB_PKG_ROOT names
+# <version>` — a nightly's, which is derived, never committed
+# (bin/release-version). A given version is stamped into the SDK module the
+# CLI reads `--version` from for this build only; the committed module is put
+# back afterwards. The lib/kb layout is the one KB_PKG_ROOT names
 # (packages/app/server/src/paths.ts). Needs bun and installed deps.
 set -eu
 

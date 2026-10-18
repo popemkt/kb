@@ -9,9 +9,9 @@
  * Writes: `packages/contract/ext-sdk/src/sdk-dts.text.ts`
  *
  * `--version <v>` stamps `<v>` instead of package.json's version. Only a
- * build passes it (`bin/release-bundle <v>`), and only into its own tree: the
- * committed module is always package.json's, which the freshness test holds
- * it to.
+ * build that ships a derived version passes it (`bin/release-bundle <v>`, for
+ * a nightly), and only into its own tree: the committed module is always
+ * package.json's, which the freshness test holds it to.
  */
 import { Effect, Schema } from "effect";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";

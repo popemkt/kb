@@ -171,6 +171,29 @@ git push origin HEAD:main v0.3.0 # the tag push runs the Release workflow
 
 A tag pushed by hand must equal `v<package.json version>` at a commit on main.
 
+### Nightly
+
+Every night at 03:00 UTC, the Nightly workflow publishes main's tip as a
+prerelease, `v<next patch>-nightly.<YYYYMMDD>`, for example
+`v0.2.3-nightly.20261018`. It does so only when main has commits since the last
+nightly and Validate is green there. A nightly has the same bundle, smoke test
+and provenance as a stable release, and its notes list the changes since the
+previous nightly. Its version is derived (`bin/release-version nightly`) and
+stamped into the build, so `kb --version` prints it, and nothing is committed.
+Because it is a prerelease, GitHub's latest release stays the last stable one.
+Nightlies older than 14 days are deleted, the release and its tag.
+Actions → Nightly → Run workflow publishes one on demand.
+
+To install a nightly:
+
+```bash
+gh release download v0.2.3-nightly.20261018 --repo popemkt/kb --pattern 'kb-*'
+shasum -a 256 -c kb-0.2.3-nightly.20261018.tar.gz.sha256
+tar -xzf kb-0.2.3-nightly.20261018.tar.gz   # then put kb-0.2.3-nightly.20261018/bin on PATH
+```
+
+`gh release list --repo popemkt/kb` shows which nightlies exist.
+
 ### Verifying a download
 
 Every release asset carries build provenance from the workflow that built it:

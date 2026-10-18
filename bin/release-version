@@ -3,6 +3,9 @@
 # source of the stable version:
 #   bin/release-version patch|minor|major   the next stable version
 #   bin/release-version <major.minor.patch>  that version, if it is a step up
+#   bin/release-version nightly              <next patch>-nightly.<UTC YYYYMMDD>
+# A nightly's version is derived, never committed: the bundle stamps it into
+# the build it ships (bin/release-bundle <version>).
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -22,9 +25,10 @@ case $bump in
   patch) echo "$major.$minor.$((patch + 1))" ;;
   minor) echo "$major.$((minor + 1)).0" ;;
   major) echo "$((major + 1)).0.0" ;;
+  nightly) echo "$major.$minor.$((patch + 1))-nightly.$(date -u +%Y%m%d)" ;;
   *)
     if ! printf '%s\n' "$bump" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-      echo "usage: bin/release-version patch|minor|major|<major.minor.patch>" >&2
+      echo "usage: bin/release-version patch|minor|major|nightly|<major.minor.patch>" >&2
       exit 2
     fi
     if [ "$(printf '%s\n%s\n' "$current" "$bump" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1)" != "$bump" ] ||

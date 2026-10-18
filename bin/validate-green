@@ -1,6 +1,6 @@
 #!/bin/sh
 # Whether .github/workflows/validate.yml passed at a commit, as Actions
-# recorded it — the gate the Release workflow stands on:
+# recorded it — the gate the Release and Nightly workflows both stand on:
 #   bin/validate-green <commit>
 # exits 0 when a Validate run for that commit concluded success, and 1 when
 # none did (failed, cancelled, still running, or never run), saying which.

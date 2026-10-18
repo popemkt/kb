@@ -1,6 +1,6 @@
 # CI
 
-Four workflows: one gates the repository, one grades its tests, and two
+Five workflows: one gates the repository, one grades its tests, and three
 release it.
 
 | Workflow | Trigger | What it answers |
@@ -8,7 +8,8 @@ release it.
 | `validate.yml` | PR, push to `main` | Is the repo green? |
 | `kb-mutation.yml` | Weekly (Mon 04:00 UTC, incremental), monthly (full), manual | Which mutants does the test suite fail to kill? |
 | `release.yml` (Release) | Manual with a bump, or a hand-pushed `v<major.minor.patch>` tag | Cut a stable release: version, CHANGELOG, commit and tag, then publish |
-| `publish.yml` (Publish) | Called by Release only | Build, smoke-test, attest and publish one release |
+| `nightly.yml` (Nightly) | Daily 03:00 UTC, manual | Publish main's tip as a `-nightly.<date>` prerelease, if it changed and is green |
+| `publish.yml` (Publish) | Called by Release and Nightly only | Build, smoke-test, attest and publish one release |
 
 `validate.yml` is the single answer to "does this change land". It has two
 independent jobs that run in parallel because they share nothing:
@@ -112,11 +113,11 @@ and merges their reports; the survivor report is the artifact.
 
 ## Releases
 
-Release decides *what* to release, and a manual run refuses unless Validate
-passed at main's tip (`bin/validate-green`). It builds nothing itself: it
-calls `publish.yml`, the one path to a GitHub release. The README's
-[Releasing](../README.md#releasing) section is the owner-facing account,
-covering the stable flow and `gh attestation verify`.
+Release and Nightly each decide *what* to release, and both refuse unless
+Validate passed at that commit (`bin/validate-green`). Neither builds
+anything itself: both call `publish.yml`, the one path to a GitHub release.
+The README's [Releasing](../README.md#releasing) section is the owner-facing
+account, covering the stable flow, nightlies, and `gh attestation verify`.
 
 ## Still manual
 
