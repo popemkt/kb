@@ -1,0 +1,143 @@
+name: release
+
+# A pushed v<version> tag builds the release bundle, smoke-tests it on Linux
+# and macOS, and publishes it as a GitHub Release. A manual run is the dry
+# run: the same bundle and smoke test, uploaded as a workflow artifact,
+# nothing published. What the bundle holds is bin/release-bundle's; what the
+# smoke test asserts is bin/release-smoke's. The bundle is the only artifact:
+# GAP [[01M56H9MA14N5TG8640BN6PHXP]] no standalone compiled binaries yet.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The flake's dev shell, so Bun is the one the hook and the Nix package use.
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # package.json's version is the one source; a tag that disagrees with it
+      # would publish one version under another's name.
+      - name: Read version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version=$(bun -p 'require("./package.json").version')
+          if [ "$REF_TYPE" = "tag" ] && [ "$REF_NAME" != "v$version" ]; then
+            echo "::error::tag $REF_NAME does not match package.json version $version (expected v$version)"
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Build bundle
+        run: bin/release-bundle
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: kb-${{ steps.version.outputs.version }}
+          path: |
+            out/kb-${{ steps.version.outputs.version }}.tar.gz
+            out/kb-${{ steps.version.outputs.version }}.tar.gz.sha256
+          if-no-files-found: error
+
+  smoke:
+    needs: bundle
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Download bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: kb-${{ needs.bundle.outputs.version }}
+          path: dist-release
+
+      - name: Smoke test
+        run: bin/release-smoke "dist-release/kb-${{ needs.bundle.outputs.version }}.tar.gz"
+
+  publish:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [bundle, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # Release notes read the commits since the previous tag.
+          fetch-depth: 0
+
+      - name: Download bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: kb-${{ needs.bundle.outputs.version }}
+          path: dist-release
+
+      - name: Write release notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null || true)
+          {
+            if [ -n "$prev" ]; then
+              echo "## Changes since $prev"
+              echo
+              git log --no-merges --format='- %s (%h)' "$prev..$TAG"
+            else
+              echo "First release of kb as its own repository ($(git rev-list --count "$TAG") commits of history)."
+            fi
+            echo
+            echo "Install: unpack kb-${TAG#v}.tar.gz and put its bin/kb on PATH; kb runs on bun."
+          } >release-notes.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.bundle.outputs.version }}
+        run: |
+          gh release create "$TAG" \
+            --title "kb $TAG" \
+            --notes-file release-notes.md \
+            "dist-release/kb-$VERSION.tar.gz" \
+            "dist-release/kb-$VERSION.tar.gz.sha256"

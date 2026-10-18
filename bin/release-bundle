@@ -1,0 +1,62 @@
+#!/bin/sh
+# Builds kb's platform-independent release bundle from this checkout:
+#   out/kb-<version>/bin/kb                         sh launcher
+#   out/kb-<version>/lib/kb/cli.js                  the CLI, one bun-target script
+#   out/kb-<version>/lib/kb/packages/app/ui/dist    the UI it serves
+# packed as out/kb-<version>.tar.gz with out/kb-<version>.tar.gz.sha256.
+# The version is package.json's; the lib/kb layout is the one KB_PKG_ROOT
+# names (packages/app/server/src/paths.ts). Needs bun and installed deps.
+set -eu
+
+kb=$(cd "$(dirname "$0")/.." && pwd)
+cd "$kb"
+
+version=$(bun -p 'require("./package.json").version')
+name="kb-$version"
+out="$kb/out"
+stage="$out/$name"
+rm -rf "$stage" "$out/cli" "$out/$name.tar.gz" "$out/$name.tar.gz.sha256"
+
+(cd packages/app/ui && bun run build)
+bun build packages/app/cli/src/main.ts --outdir "$out/cli" --target=bun --sourcemap=none
+
+mkdir -p "$stage/bin" "$stage/lib/kb/packages/app/ui"
+cp "$out/cli/main.js" "$stage/lib/kb/cli.js"
+cp -R packages/app/ui/dist "$stage/lib/kb/packages/app/ui/dist"
+for f in README.md LICENSE; do
+  if [ -f "$f" ]; then cp "$f" "$stage/"; fi
+done
+
+cat >"$stage/bin/kb" <<'LAUNCHER'
+#!/bin/sh
+# kb launcher: runs the bundled CLI on the bun on PATH, and tells it where the
+# UI it serves sits. Follows symlinks, so it can be linked onto PATH.
+set -eu
+self=$0
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in
+    /*) self=$link ;;
+    *) self=$(dirname "$self")/$link ;;
+  esac
+done
+root=$(cd "$(dirname "$self")/.." && pwd)
+if ! command -v bun >/dev/null 2>&1; then
+  echo "kb: bun is not on PATH; kb runs on bun (https://bun.sh)" >&2
+  exit 127
+fi
+KB_PKG_ROOT="$root/lib/kb"
+export KB_PKG_ROOT
+exec bun "$root/lib/kb/cli.js" "$@"
+LAUNCHER
+chmod +x "$stage/bin/kb"
+
+tar -C "$out" -czf "$out/$name.tar.gz" "$name"
+cd "$out"
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256sum "$name.tar.gz" >"$name.tar.gz.sha256"
+else
+  shasum -a 256 "$name.tar.gz" >"$name.tar.gz.sha256"
+fi
+rm -rf "$out/cli"
+echo "$out/$name.tar.gz"

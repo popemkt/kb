@@ -1,0 +1,61 @@
+#!/bin/sh
+# Smoke-tests a packed release bundle the way a consumer meets it:
+#   bin/release-smoke out/kb-<version>.tar.gz
+# checks the .sha256 beside it, unpacks into a temp dir, then runs the
+# launcher: --version must print the version in the archive's name, --help
+# must succeed, and `kb ui` on a fresh temp store must serve the UI page.
+set -eu
+
+tarball=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
+base=$(basename "$tarball" .tar.gz)
+expected=${base#kb-}
+
+dir=$(cd "$(dirname "$tarball")" && pwd)
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$dir" && sha256sum -c "$base.tar.gz.sha256")
+else
+  (cd "$dir" && shasum -a 256 -c "$base.tar.gz.sha256")
+fi
+
+tmp=$(mktemp -d)
+pid=""
+cleanup() {
+  if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; fi
+  rm -rf "$tmp"
+}
+trap cleanup EXIT INT TERM
+
+tar -C "$tmp" -xzf "$tarball"
+kb="$tmp/$base/bin/kb"
+
+got=$(cd "$tmp" && "$kb" --version)
+if [ "$got" != "$expected" ]; then
+  echo "release-smoke: kb --version printed '$got', expected '$expected'" >&2
+  exit 1
+fi
+(cd "$tmp" && "$kb" --help >/dev/null)
+
+store="$tmp/store"
+mkdir -p "$store"
+"$kb" --root "$store" init >/dev/null
+port=${KB_SMOKE_PORT:-47391}
+"$kb" --root "$store" ui --port "$port" --no-open >"$tmp/ui.log" 2>&1 &
+pid=$!
+
+page="$tmp/page.html"
+tries=0
+until curl -fsS -o "$page" "http://127.0.0.1:$port/" 2>/dev/null; do
+  tries=$((tries + 1))
+  if [ "$tries" -ge 60 ] || ! kill -0 "$pid" 2>/dev/null; then
+    echo "release-smoke: kb ui never served http://127.0.0.1:$port/" >&2
+    cat "$tmp/ui.log" >&2
+    exit 1
+  fi
+  sleep 1
+done
+if ! grep -qi '<html' "$page"; then
+  echo "release-smoke: kb ui answered without the UI page" >&2
+  head -c 400 "$page" >&2
+  exit 1
+fi
+echo "release-smoke: $base ok (version $got, ui served on :$port)"
