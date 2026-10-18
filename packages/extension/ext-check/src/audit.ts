@@ -111,11 +111,24 @@ function headingSlugs(markdown: string): Set<string> {
   return slugs;
 }
 
+/**
+ * A home in another repository is named by URL, and only its form is checked:
+ * an `https:` URL with a host. The audit reads this repository, and reaching
+ * the network would make a commit's answer depend on someone else's site.
+ */
+function urlHomeIsValid(home: string): boolean {
+  if (!URL.canParse(home)) return false;
+  const url = new URL(home);
+  return url.protocol === "https:" && url.hostname !== "";
+}
+
+/** A home is a file in this repository, with an optional heading anchor, or an `https:` URL. */
 const homeIsValid = Effect.fn("ext.check.homeIsValid")(function* (
   root: string,
   home: string | undefined,
 ) {
   if (home === undefined || home === "") return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(home)) return urlHomeIsValid(home);
   const hash = home.lastIndexOf("#");
   const pathText = hash < 0 ? home : home.slice(0, hash);
   const anchor = hash < 0 ? undefined : home.slice(hash + 1);

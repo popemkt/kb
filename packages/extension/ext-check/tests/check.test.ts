@@ -356,6 +356,38 @@ describe("ext.check.audit", () => {
     });
   });
 
+  test("an https home in another repository resolves by its form alone", () => {
+    const input = fixture();
+    updateNode(input.nodes, "rule.one", (rule) => ({
+      ...rule,
+      props: {
+        ...rule.props,
+        "f.home": [{ t: "str", v: "https://github.com/popemkt/kb/blob/main/AGENTS.md#one-rule" }],
+      },
+    }));
+    return audit(input).then((findings) => {
+      expect(findings).toEqual([]);
+      return undefined;
+    });
+  });
+
+  test("a URL home that is not https with a host is home-broken", () => {
+    const homes = ["http://example.com/AGENTS.md", "https://", "mailto:someone@example.com"];
+    return Promise.all(
+      homes.map((home) => {
+        const input = fixture();
+        updateNode(input.nodes, "rule.one", (rule) => ({
+          ...rule,
+          props: { ...rule.props, "f.home": [{ t: "str", v: home }] },
+        }));
+        return audit(input).then((findings) => findings.map((finding) => finding.kind));
+      }),
+    ).then((kinds) => {
+      expect(kinds).toEqual([["home-broken"], ["home-broken"], ["home-broken"]]);
+      return undefined;
+    });
+  });
+
   test("sync followed by audit is clean", () => {
     const input = fixture();
     updateNode(input.nodes, "rule.one", (rule) => ({
