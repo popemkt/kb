@@ -267,12 +267,14 @@ once, in `DESIGN.md` →
   and is not versioned, so `bun run setup` (`bin/setup`) registers it, with
   `core.hooksPath`; re-run it after a change to either.
 
-  When the id-based merge cannot run — no `bun` on PATH, the workspace's
-  dependencies not installed, or the driver refusing a side it cannot read —
-  the wrapper runs `git merge-file` over the same three files, prints why on
-  one line, and exits non-zero, so git leaves the path conflicted for a human.
-  An unregistered driver gets git's default text merge: noisy, but never
-  wrong about content.
+  A conflict never leaves `%A` as our side alone, or a `git add` would drop
+  theirs. When the id-based merge cannot run on what git handed it, the driver
+  runs `git merge-file` over the same three files itself; when the driver
+  cannot run at all — no `bun` on PATH, the workspace's dependencies not
+  installed, a crash — the wrapper does. Either prints why on one line and
+  exits non-zero, so git leaves the path conflicted for a human. An
+  unregistered driver gets git's default text merge: noisy, but never wrong
+  about content.
 
 ## Extensions
 

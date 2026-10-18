@@ -250,8 +250,11 @@ describe("nodes.jsonl merge driver", () => {
     expect(body).toContain("01THEIR");
   });
 
-  test("a driver that cannot merge falls back the same way, with its reason", async () => {
-    // A base that is not a node store: the driver refuses it (exit 2).
+  test("a store the driver cannot read is text-merged by the driver itself", async () => {
+    // A base that is not a node store: the id-based merge refuses it, and the
+    // driver runs git's text merge rather than leave %A as our side alone —
+    // which is what a repository that registers `kb merge-jsonl` directly,
+    // with no wrapper, relies on.
     await writeFile(join(repo, STORE), "not json\n");
     await git("add", "-A");
     await git("commit", "-qm", "base");
@@ -266,8 +269,36 @@ describe("nodes.jsonl merge driver", () => {
 
     expect(merge.code).not.toBe(0);
     expect(merge.stderr).toContain("is not a valid node store");
-    expect(merge.stderr).toContain("the kb driver could not merge (exit 2)");
+    expect(merge.stderr).toContain("fell back to a text merge");
+    expect(merge.stderr).not.toContain("the kb driver did not finish");
     expect(await readStore()).toBe("ours\nnot json\ntheirs\n");
+  });
+
+  test("a driver that crashes is never read as a conflict it wrote", async () => {
+    const base = node("01AAA", "a");
+    await writeStore([base]);
+    await git("add", "-A");
+    await git("commit", "-qm", "base");
+    await branchWith("theirs", [base, node("01THEIR", "from their branch")]);
+    await writeStore([base, node("01OUR", "from our branch")]);
+    await git("commit", "-qam", "ours");
+
+    // A bun that dies the way an uncaught error or a failed import does:
+    // exit 1, nothing written to %A.
+    const bin = join(repo, ".crashing-bun-bin");
+    await mkdir(bin);
+    await symlink(realpathSync(present(Bun.which("git"), "git on PATH")), join(bin, "git"));
+    await writeFile(join(bin, "bun"), "#!/bin/sh\necho 'error: boom' >&2\nexit 1\n", {
+      mode: 0o755,
+    });
+    const merge = await gitWith({ PATH: `${bin}:/usr/bin:/bin` }, "merge", "--no-edit", "theirs");
+
+    expect(merge.code).not.toBe(0);
+    expect(merge.stderr).toContain("the kb driver did not finish the merge (exit 1)");
+    // Their side survived: git's text merge ran over the same three files.
+    const body = await readStore();
+    expect(body).toContain("01OUR");
+    expect(body).toContain("01THEIR");
   });
 
   test("a deletion racing an edit stops the merge and names the node", async () => {
