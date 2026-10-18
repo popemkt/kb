@@ -3699,6 +3699,13 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   boards and queries over the locations with nothing of its own; opened, it
   lists itself, as any root does. It is state produced by use, so it is
   backed up and never committed (`docs/backup-strategy.md` → kb Home Store).
+  A test run never reaches the person's: a process whose `NODE_ENV` is
+  `test` — what `bun test` and Vitest give the process and every child it
+  starts — must name its home in `KB_HOME`, and resolving the home without
+  it is a defect, not a fallback. The test preload names one per run
+  (`@kb/test-kit`'s `test-home.ts`), so a test that registers a root writes
+  only there, and one that starts a kb child without passing that on fails
+  instead of writing to the person's.
 - **The data is nodes.** In the home store: the tag `sys.tag.kb-location`
   templating `sys.f.location.path` (text, one value: the canonical path,
   symlinks resolved), and the list node `locations`, whose children are the

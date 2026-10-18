@@ -1,7 +1,10 @@
-/** Where the home store lives: `KB_HOME` when set, else the platform's place for app data. */
+/**
+ * Where the home store lives: `KB_HOME` when set, else the platform's place
+ * for app data — except in a test run, which has no default.
+ */
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { homePath } from "../src/home.ts";
+import { TestRunHomeUnnamed, homePath } from "../src/home.ts";
 
 describe("the home store's place", () => {
   test("KB_HOME names it, resolved to an absolute path", () => {
@@ -20,6 +23,13 @@ describe("the home store's place", () => {
     expect(homePath({ XDG_DATA_HOME: "/data" }, "linux", "/home/me")).toBe("/data/kb/home");
     expect(homePath({ XDG_DATA_HOME: "" }, "linux", "/home/me")).toBe(
       "/home/me/.local/share/kb/home",
+    );
+  });
+
+  test("a test run with no KB_HOME is refused, never pointed at the person's", () => {
+    expect(() => homePath({ NODE_ENV: "test" }, "darwin", "/Users/me")).toThrow(TestRunHomeUnnamed);
+    expect(homePath({ NODE_ENV: "test", KB_HOME: "/tmp/run/home" }, "darwin", "/Users/me")).toBe(
+      "/tmp/run/home",
     );
   });
 });

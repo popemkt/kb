@@ -4,6 +4,7 @@
  * store `KB_HOME` names, which each test makes its own.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,6 +50,34 @@ async function initRoot(name: string): Promise<string> {
   expect((await kb(root, ["init", "--bare"])).code).toBe(0);
   return root;
 }
+
+const CLI = join(import.meta.dir, "..", "src", "main.ts");
+
+describe("a test run never reaches the person's home store", () => {
+  test("a kb child started without the run's KB_HOME registers nothing, and says why", async () => {
+    // What a test hands a child it spawns with no env of its own: the
+    // environment the run started with, NODE_ENV=test and no KB_HOME. HOME
+    // points into the scratch dir, so even a regression writes nowhere real.
+    const person = join(scratch, "person");
+    const root = join(scratch, "root");
+    await mkdir(root);
+    const env = Object.fromEntries(
+      Object.entries(Bun.env).filter(([key]) => key !== "KB_HOME" && !key.startsWith("XDG_")),
+    );
+    const child = Bun.spawn(["bun", CLI, "--root", root, "init", "--bare"], {
+      env: { ...env, NODE_ENV: "test", HOME: person },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stderr = await new Response(child.stderr).text();
+    await child.exited;
+
+    expect(stderr).toContain("must name its home store in KB_HOME");
+    // Both platforms' home store places; bun's own cache may land under HOME.
+    expect(existsSync(join(person, "Library", "Application Support", "kb"))).toBe(false);
+    expect(existsSync(join(person, ".local", "share", "kb"))).toBe(false);
+  });
+});
 
 describe("kb locations", () => {
   test("kb init registers the root it makes, and kb locations lists it as the current one", async () => {
