@@ -2257,7 +2257,12 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   - **A switch does not stop module code.** Importing a trusted closure
     runs its module's top level, whether its family is switched on or off;
     the switch decides whether its plugin is loaded, as it does for a
-    bundled family, whose module kb imports at start.
+    bundled family, whose module kb imports at start. Switching a family
+    off or untrusting it releases its plugin's effects (a root has one
+    registry at a time, and the one replaced is shut down, every plugin's
+    scope closed, once the calls running on it have settled), but a module
+    cannot be un-imported: its top level's effects, and the module, stay
+    until the process restarts.
   - **A family's channels are its host's.** A plugin contributes to any
     point of the kernel it is loaded in; the `kb ui` socket hub routes
     `channel` frames to the channels of its own kernel, so a channel a
@@ -2412,8 +2417,10 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     setting (below), and `extension.switch` is the checked verb over that
     write: it refuses an unknown or required family and commits under the
     system-write rule like every other write.
-  - **Every host makes the one decision.** The registry is cached per root
-    and per set of families on, so a switch takes effect on the next call.
+  - **Every host makes the one decision.** A root has one registry at a
+    time, composed again when the set of families on changes, so a switch
+    takes effect on the next call, and the registry it replaces is released
+    (Core boundary & extensions → A switch does not stop module code).
     The `kb ui` server composes the extensions it hosts (the agent) the
     same way: `composeHosted` converges its kernel on the ones `familyOn`
     admits (`syncPlugins`, `@kb/plugin`, the convergence the page uses
@@ -2459,7 +2466,7 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     - _Read at apply._ A value a plugin reads only in `apply` holds until it
       is applied again. The one such value today is the switch, which every
       host re-applies by unloading and loading the family (`syncPlugins`,
-      the registry's cache key per set of families on); `composeHosted`
+      the registry composed again per set of families on); `composeHosted`
       already converges on any write to an extension's node. A kernel
       `reconfigure(name)` for any other setting of this class, re-applying
       a held plugin and keeping the old one when the new `apply` fails, is

@@ -30,7 +30,14 @@ import { existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
-import { ActionPoint, CodeTrust, type LoadedExtension } from "@kb/contracts";
+import {
+  ActionPoint,
+  CodeTrust,
+  NO_SWITCHES,
+  switchWrites,
+  type LoadedExtension,
+  type NodeLookup,
+} from "@kb/contracts";
 import { codeTrustLayer } from "@kb/workspace-fs";
 import { makeKernel } from "@kb/plugin";
 import {
@@ -161,6 +168,61 @@ describe("a root's repository extensions", () => {
       }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)))),
     );
     expect(await live()).toBe(false);
+  });
+
+  test("untrusting or switching off releases what the family's plugin holds; trusting or switching on applies it again", async () => {
+    const mark = join(root, "lifetime");
+    await writeFile(mark, "");
+    await writeExtension(
+      root,
+      "held.ts",
+      `import { appendFileSync } from "node:fs";
+import { Effect, defineExtension, definePlugin, extensionNamespace } from "kb-ext-sdk";
+export const declaration = defineExtension({ name: "held", label: "Held", optional: { byDefault: "on" } });
+export default definePlugin({
+  name: "held",
+  namespace: extensionNamespace("held"),
+  apply: () =>
+    Effect.gen(function* () {
+      appendFileSync(${JSON.stringify(mark)}, "applied ");
+      yield* Effect.addFinalizer(() => Effect.sync(() => appendFileSync(${JSON.stringify(mark)}, "released ")));
+    }),
+});
+`,
+    );
+    // No cache dropped between compositions: what a long-running server does.
+    const compose = (nodeOf: NodeLookup = NO_SWITCHES) =>
+      Effect.runPromise(registryFor(root, nodeOf).pipe(Effect.provide(bunFileSystemLayer)));
+    const lifetime = async () => (await readFile(mark, "utf8")).trim();
+    const untrust = (digest: string) =>
+      Effect.runPromise(
+        Effect.gen(function* () {
+          yield* (yield* CodeTrust).untrust(digest);
+        }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)))),
+      );
+
+    await compose();
+    expect(await lifetime()).toBe("");
+    const digest = await trustExtension(root, "held.ts");
+    await compose();
+    expect(await lifetime()).toBe("applied");
+    await untrust(digest);
+    await compose();
+    expect(await lifetime()).toBe("applied released");
+    await trustExtension(root, "held.ts");
+    await compose();
+    expect(await lifetime()).toBe("applied released applied");
+
+    const [off] = switchWrites(
+      { name: "held", label: "Held" },
+      false,
+      NO_SWITCHES,
+      new Date(0).toISOString(),
+    );
+    await compose((id) => (id === off?.id ? off : undefined));
+    expect(await lifetime()).toBe("applied released applied released");
+    await compose();
+    expect(await lifetime()).toBe("applied released applied released applied");
   });
 
   describe("the closure kb imports is the approved bytes", () => {
