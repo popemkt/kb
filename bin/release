@@ -1,9 +1,11 @@
 #!/bin/sh
 # Cuts a kb release locally: `bun run release <version>` (e.g. 0.3.0).
 # Sets package.json's version — the one source `kb --version` and the
-# extension SDK header read — regenerates the SDK module that embeds it,
-# commits, and makes the annotated tag v<version>. It pushes nothing: pushing
-# the tag is what runs .github/workflows/release.yml.
+# extension SDK header read — regenerates the SDK module that embeds it, adds
+# the release's section to CHANGELOG.md (bin/release-notes, the generator the
+# GitHub release's notes come from too), commits, and makes the annotated tag
+# v<version>. It pushes nothing: pushing the tag is what runs
+# .github/workflows/release.yml.
 set -eu
 
 version=${1:-}
@@ -34,7 +36,22 @@ await Bun.write(path, next);
 ' "$version"
 bun run gen:ext-sdk
 
-git add package.json packages/contract/ext-sdk/src/sdk-dts.text.ts
+# The newest section goes above the previous release's, under the preamble.
+section=$(mktemp)
+trap 'rm -f "$section"' EXIT
+{
+  echo "## v$version — $(date -u +%Y-%m-%d)"
+  echo
+  bin/release-notes HEAD
+} >"$section"
+awk -v section="$section" '
+  !done && /^## / { while ((getline line < section) > 0) print line; print ""; done = 1 }
+  { print }
+  END { if (!done) { print ""; while ((getline line < section) > 0) print line } }
+' CHANGELOG.md >CHANGELOG.md.next
+mv CHANGELOG.md.next CHANGELOG.md
+
+git add package.json packages/contract/ext-sdk/src/sdk-dts.text.ts CHANGELOG.md
 git commit -m "chore: release v$version"
 git tag -a "v$version" -m "kb v$version"
 echo "tagged v$version; publish with: git push origin HEAD:main v$version"

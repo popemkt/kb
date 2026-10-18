@@ -1,0 +1,64 @@
+#!/bin/sh
+# Release notes from conventional commits, the one generator for a GitHub
+# release's notes and CHANGELOG.md's sections:
+#   bin/release-notes <to> [<since>]
+# lists the commits in <since>..<to>, grouped by type, breaking changes on
+# top. <since> defaults to the last stable tag (v<major.minor.patch>, never a
+# nightly) at or before <to>, other than <to> itself; with none, the notes say
+# this is the first release. A release's own `chore: release v…` commit is not
+# a change and is left out.
+set -eu
+
+to=${1:?usage: bin/release-notes <to> [<since>]}
+since=${2:-}
+if [ -z "$since" ]; then
+  since=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude 'v*-*' --exclude "$to" "$to" 2>/dev/null || true)
+fi
+if [ -z "$since" ]; then
+  echo "First release of kb as its own repository ($(git rev-list --count "$to") commits of history)."
+  exit 0
+fi
+
+us=$(printf '\037')
+rs=$(printf '\036')
+git log --no-merges --format="%h$us%s$us%b$rs" "$since..$to" | awk -v FS="$us" -v RS="$rs" -v since="$since" '
+  BEGIN {
+    n = split("breaking feat fix perf refactor revert docs test build ci chore other", order, " ")
+    title["breaking"] = "Breaking changes"; title["feat"] = "Features"
+    title["fix"] = "Fixes"; title["perf"] = "Performance"
+    title["refactor"] = "Refactors"; title["revert"] = "Reverts"
+    title["docs"] = "Documentation"; title["test"] = "Tests"
+    title["build"] = "Build"; title["ci"] = "CI"; title["chore"] = "Chores"
+    title["other"] = "Other"
+  }
+  {
+    sub(/^\n+/, "", $1)
+    if ($1 == "") next
+    subject = $2
+    if (subject ~ /^chore: release v[0-9]/) next
+    type = "other"; desc = subject; scope = ""; bang = 0
+    if (match(subject, /^[a-z]+(\([^)]*\))?!?: /)) {
+      head = substr(subject, 1, RLENGTH - 2)
+      desc = substr(subject, RLENGTH + 1)
+      if (head ~ /!$/) { bang = 1; head = substr(head, 1, length(head) - 1) }
+      if (match(head, /\(/)) {
+        scope = substr(head, RSTART + 1, length(head) - RSTART - 1)
+        head = substr(head, 1, RSTART - 1)
+      }
+      type = (head in title) ? head : "other"
+      if (type == "other") desc = subject
+    }
+    if (bang || $3 ~ /(^|\n)BREAKING[ -]CHANGE: /) type = "breaking"
+    line = "- " (scope != "" ? "**" scope ":** " : "") desc " (" $1 ")"
+    items[type] = items[type] line "\n"
+    count++
+  }
+  END {
+    count += 0
+    printf "Since %s (%d %s).\n", since, count, (count == 1 ? "change" : "changes")
+    for (i = 1; i <= n; i++) {
+      t = order[i]
+      if (t in items) printf "\n### %s\n\n%s", title[t], items[t]
+    }
+  }
+'
