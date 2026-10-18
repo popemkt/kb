@@ -39,9 +39,59 @@ export type ExtensionAction = ActionDefinition & {
       }
   );
 
+/**
+ * A repository extension's page half, as its host serves it: the bundled
+ * module, and the digest of the closure it is part of, which addresses it.
+ */
+export interface ExtensionPage {
+  readonly digest: string;
+  readonly code: string;
+}
+
 /** A family as a root composes it: its declaration, its entry, and `bundled` or its module's path. */
 export interface LoadedExtension extends ExtensionEntry {
   readonly source: string;
+  /** A repository extension's page half; a bundled family's is in the page's own build. */
+  readonly page?: ExtensionPage;
+}
+
+/** Where the `kb ui` server serves the page half of the closure `digest` (`sha256:<hex>`) names. */
+export function extensionPagePath(digest: string): string {
+  return `/api/extensions/${digest.slice(digest.indexOf(":") + 1)}.js`;
+}
+
+/**
+ * What each half of a repository extension imports from its host rather
+ * than carries, by specifier: kb's own modules, whose keys the kernel
+ * compares by identity, and the libraries whose one copy the host holds
+ * (zod, which compiles its parsers at run time; React, whose hooks need the
+ * page's one copy). Every other import is bundled into the closure.
+ */
+export const HOST_MODULES = {
+  server: ["kb-ext-sdk", "zod"],
+  page: ["kb-ext-sdk", "kb-ext-sdk/page", "zod", "react", "react/jsx-runtime"],
+} as const;
+
+export type ExtensionHalf = keyof typeof HOST_MODULES;
+
+/** The global symbol's key a bundle reads its host modules through. */
+export const HOST_MODULES_KEY = "kb.ext.host";
+
+/**
+ * Serve `modules` as this host's, for `half`: every module the half's
+ * bundle reads from its host, so a host that leaves one out does not
+ * compile. Each host (the server process, the page) installs its own once,
+ * before it runs a bundle.
+ */
+export function installHostModules<H extends ExtensionHalf>(
+  half: H,
+  modules: Readonly<Record<(typeof HOST_MODULES)[H][number], unknown>>,
+): void {
+  const served = new Map<string, unknown>(Object.entries(modules));
+  Reflect.set(globalThis, Symbol.for(HOST_MODULES_KEY), (id: string) => {
+    if (!served.has(id)) throw new Error(`the ${half} serves no host module ${id}`);
+    return served.get(id);
+  });
 }
 
 export interface ExtensionFailure {

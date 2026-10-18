@@ -10,7 +10,11 @@
       ]
     },
     "packages/contract/ext-sdk": {
-      "entry": ["scripts/generate.ts", "tests/*.test.ts"]
+      "entry": [
+        "scripts/generate.ts",
+        "src/page-surface.ts",
+        "tests/*.test.ts"
+      ]
     },
     "packages/test-support/render-tests": {
       "entry": [
@@ -21,10 +25,17 @@
       ]
     },
     "packages/app/ui": {
-      "entry": ["vite.sandbox.config.ts", "src/sandbox/frame.ts"]
+      "entry": [
+        "vite.sandbox.config.ts",
+        "src/sandbox/frame.ts"
+      ]
     },
     "packages/app/test-kit": {
-      "entry": ["tests/*.test.ts", "tests/run-many.ts"]
+      "entry": [
+        "tests/*.test.ts",
+        "tests/run-many.ts",
+        "tests/gen-example-page.ts"
+      ]
     }
   },
   "ignore": [

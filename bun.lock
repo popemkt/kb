@@ -339,6 +339,7 @@
       "devDependencies": {
         "@effect/platform-bun": "catalog:",
         "@types/bun": "catalog:",
+        "@types/react": "catalog:",
         "typescript": "catalog:",
       },
     },

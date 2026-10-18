@@ -2,11 +2,13 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { join } from "node:path";
-import { KB_SDK_DTS, KB_SDK_VERSION } from "./sdk-dts.text.ts";
+import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION } from "./sdk-dts.text.ts";
 
-function sdkDtsPath(root: string): string {
-  return join(root, ".kb", "sdk.d.ts");
-}
+/** Each file `writeSdkDts` writes under `.kb/`: the module, and a page half's beside it. */
+const SDK_FILES = [
+  { file: "sdk.d.ts", text: KB_SDK_DTS },
+  { file: "sdk-page.d.ts", text: KB_SDK_PAGE_DTS },
+] as const;
 
 /** Return the embedded SDK declaration text (matches this kb binary). */
 export function readEmbeddedSdkDts(): string {
@@ -14,15 +16,19 @@ export function readEmbeddedSdkDts(): string {
 }
 
 /**
- * Write `<root>/.kb/sdk.d.ts` from the embedded SDK string.
- * Creates `.kb/` when missing. Returns bytes written and kb version stamp.
+ * Write `<root>/.kb/sdk.d.ts`, and `sdk-page.d.ts` for a page half, from the
+ * embedded SDK strings. Creates `.kb/` when missing. Returns the server
+ * module's path and the bytes written, with kb's version stamp.
  */
 export const writeSdkDts = Effect.fn("kb.writeSdkDts")(function* (
   root: string,
 ): Effect.fn.Return<{ path: string; bytes: number; version: string }, PlatformError, FileSystem> {
-  const path = sdkDtsPath(root);
   const fs = yield* FileSystem;
   yield* fs.makeDirectory(join(root, ".kb"), { recursive: true });
-  yield* fs.writeFileString(path, KB_SDK_DTS);
-  return { path, bytes: KB_SDK_DTS.length, version: KB_SDK_VERSION };
+  for (const { file, text } of SDK_FILES) yield* fs.writeFileString(join(root, ".kb", file), text);
+  return {
+    path: join(root, ".kb", "sdk.d.ts"),
+    bytes: SDK_FILES.reduce((total, { text }) => total + text.length, 0),
+    version: KB_SDK_VERSION,
+  };
 });

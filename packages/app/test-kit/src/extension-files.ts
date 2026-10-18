@@ -1,15 +1,15 @@
 /**
- * A repository extension as a test writes one: the file under
+ * A repository extension as a test writes one: its files under
  * `.kb/extensions/`, trusted on this machine the way a person's
- * `sandbox.trust` records it, since an untrusted file is never imported
- * (DESIGN.md → Core boundary & extensions → repository extensions).
+ * `sandbox.trust` records it, by its closure's digest, since an untrusted
+ * extension never runs (DESIGN.md → Core boundary & extensions →
+ * repository extensions).
  */
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Effect, Layer } from "effect";
 import { CodeTrust } from "@kb/contracts";
-import { bunFileSystemLayer } from "@kb/runtime";
-import { extensionDigest } from "@kb/sandbox";
+import { bunFileSystemLayer, closureOf } from "@kb/runtime";
 import { codeTrustLayer } from "@kb/workspace-fs";
 
 /** What {@link extensionModule} writes beside the module's own lines. */
@@ -64,28 +64,36 @@ export default definePlugin({
 `;
 }
 
-/** Write `.kb/extensions/<file>` under `root` with `source`, without trusting it. */
+/** Write `.kb/extensions/<file>` under `root` with `source`, without trusting it; `file` may name a subdirectory. */
 export const writeExtensionEffect = Effect.fn("test.writeExtension")(function* (
   root: string,
   file: string,
   source: string,
 ) {
-  const dir = join(root, ".kb", "extensions");
-  yield* Effect.promise(() => mkdir(dir, { recursive: true }));
-  const path = join(dir, file);
+  const path = join(root, ".kb", "extensions", file);
+  yield* Effect.promise(() => mkdir(dirname(path), { recursive: true }));
   yield* Effect.promise(() => writeFile(path, source, "utf8"));
   return path;
 });
 
-/** Trust `source` as a repository extension of `root` on this machine. */
+/**
+ * Trust the extension `file` (`<name>.ts`) of `root` on this machine, as
+ * its files are now: its closure's digest. Dies when it cannot be closed
+ * over, which a test that trusts it does not expect.
+ */
 export const trustExtensionEffect = Effect.fn("test.trustExtension")(function* (
   root: string,
-  source: string,
+  file: string,
 ) {
-  const digest = yield* extensionDigest(source);
+  const { digest } = yield* closureOf(root, file).pipe(
+    Effect.provide(bunFileSystemLayer),
+    Effect.mapError((why) => new Error(`${file} cannot be trusted: ${why}`)),
+    Effect.orDie,
+  );
   yield* Effect.gen(function* () {
     yield* (yield* CodeTrust).trust(digest);
   }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer))));
+  return digest;
 });
 
 /** Write `.kb/extensions/<file>` under `root` and trust it, as its owner would. */
@@ -95,14 +103,14 @@ export const writeTrustedExtensionEffect = Effect.fn("test.writeTrustedExtension
   source: string,
 ) {
   const path = yield* writeExtensionEffect(root, file, source);
-  yield* trustExtensionEffect(root, source);
+  yield* trustExtensionEffect(root, file);
   return path;
 });
 
 export const writeExtension = (root: string, file: string, source: string): Promise<string> =>
   Effect.runPromise(writeExtensionEffect(root, file, source));
-export const trustExtension = (root: string, source: string): Promise<void> =>
-  Effect.runPromise(trustExtensionEffect(root, source));
+export const trustExtension = (root: string, file: string): Promise<string> =>
+  Effect.runPromise(trustExtensionEffect(root, file));
 export const writeTrustedExtension = (
   root: string,
   file: string,

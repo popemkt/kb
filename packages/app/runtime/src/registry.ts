@@ -6,6 +6,7 @@ import {
   ViewKeyPoint,
   declarationPlugin,
   actionToManifestEntry,
+  extensionPagePath,
   extensionRow,
   familyOn,
   NO_SWITCHES,
@@ -269,8 +270,13 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 
-  const rows: ExtensionRow[] = families.map(({ declaration, source }) =>
-    extensionRow(declaration, source, sources.get(declaration.name) === source),
+  const rows: ExtensionRow[] = families.map(({ declaration, source, page }) =>
+    extensionRow(
+      declaration,
+      source,
+      sources.get(declaration.name) === source,
+      page === undefined ? undefined : extensionPagePath(page.digest),
+    ),
   );
 
   return {

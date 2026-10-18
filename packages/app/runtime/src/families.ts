@@ -11,7 +11,12 @@ import { basename } from "node:path";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
-import type { ExtensionDeclaration, ExtensionFailure, LoadedExtension } from "@kb/contracts";
+import {
+  extensionPagePath,
+  type ExtensionDeclaration,
+  type ExtensionFailure,
+  type LoadedExtension,
+} from "@kb/contracts";
 import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { codeTrustLayer } from "@kb/workspace-fs";
@@ -97,6 +102,22 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
     discoveryCache.set(root, discovery);
   }
   return yield* discovery;
+});
+
+/**
+ * The page half of `root`'s repository extension the `kb ui` server serves
+ * at `path` (`extensionPagePath`), or null: the closure's bytes a person
+ * trusted, addressed by its digest.
+ */
+export const servedPage = Effect.fn("kb.servedPage")(function* (
+  root: string,
+  path: string,
+): Effect.fn.Return<string | null, never, FileSystem> {
+  const { families } = yield* rootFamilies(root);
+  const page = families.find(
+    (family) => family.page !== undefined && extensionPagePath(family.page.digest) === path,
+  )?.page;
+  return page?.code ?? null;
 });
 
 /** Test hook: forget every root's discovery, so a fresh root is discovered again. */

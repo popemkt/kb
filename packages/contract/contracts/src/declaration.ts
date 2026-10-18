@@ -113,15 +113,22 @@ export const ExtensionRowSchema = z.object({
   optional: z.boolean(),
   enabled: z.boolean(),
   source: z.string(),
+  /** Where the page imports a repository extension's page half from (`extensionPagePath`). */
+  page: z.string().optional(),
 });
 
 export type ExtensionRow = z.infer<typeof ExtensionRowSchema>;
 
-/** A declaration's row, as the host that composes it from `source` reports it. */
+/**
+ * A declaration's row, as the host that composes it from `source` reports
+ * it, with the path its page half is served at when it has one the page's
+ * build does not hold.
+ */
 export function extensionRow(
   declaration: ExtensionDeclaration,
   source: string,
   enabled: boolean,
+  page?: string,
 ): ExtensionRow {
   return {
     name: declaration.name,
@@ -129,6 +136,7 @@ export function extensionRow(
     optional: declaration.optional !== undefined,
     enabled,
     source,
+    ...(page === undefined ? {} : { page }),
   };
 }
 

@@ -146,6 +146,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
+### GAP: a channel a registry family contributes is not served
+
+- **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
+- **current** — the socket hub reads the channels of kb ui's own kernel (channelsOf), which holds the hosted families alone; a bundled family or a repository extension contributes to ChannelPoint in the registry's kernel, which nothing routes
+- **impact** — a repository extension cannot own a live channel to its page half: its two halves talk through actions only
+- **closes** — the hub's channel directory reads the session registry's kernel beside its own, with a surface property over kb ui that a registry family's channel answers its frames
+- **node** — `01M579MHGHVT2FNGJJRK81J9GY`
+
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
 - **expected** — a view's text resolves its data once and hands it to both body and figure
@@ -177,14 +185,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A member partly outside its frame can't be resized from a corner outside the frame in 2D; it can still be moved, nudged or resized from the inspector.
 - **closes** — The selected item's chrome is drawn in one overlay above the stage (the 2D selection layer), not inside the card, so the item's clip never reaches it.
 - **node** — `01M556WN27H5RAH0JSHERPAW82`
-
-### GAP: a code view cannot be promoted to a view type
-
-- **expected** — the trust gesture can also promote a proven code view to an extension ViewPoint type, so mode A can use it
-- **current** — trusting a code view only switches its engine to the Worker
-- **impact** — the view catalog does not grow from code views that proved themselves (decision 4C)
-- **closes** — a promotion action plus a review-and-commit flow that writes the code view as an extension view
-- **node** — `01M41DKTTRA55RA1KF4QBWQ9MF`
 
 ### GAP: a code view's code and grant cannot be edited in the view
 
@@ -1101,6 +1101,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
 
+### GAP: the page surface restates @kb/ui-sdk's point types with nothing holding them equal
+
+- **expected** — kb-ext-sdk/page's types are held to @kb/ui-sdk's by a type bridge, as surface-bridge holds kb-ext-sdk's to EXTENSION_SDK and the plugin model
+- **current** — page-surface.ts restates the UI points' value types by hand; only the example extension's page half, type-checked against the emitted sdk-page.d.ts and run in the page, exercises them
+- **impact** — a change to a UI point's type can leave the page surface describing a shape the page no longer reads, so an author's page half type-checks and still fails in the page
+- **closes** — move @kb/ext-sdk to scope:shared (writeSdkDts into the CLI) so a browser package's test holds page-surface.ts to @kb/ui-sdk's values and types
+- **node** — `01M579MH4HKXE7H51ZA7DRDMNP`
+
 ### GAP: the page's offline family list reads only the bundled families
 
 - **expected** — The rows the page follows while no server answers come from one list of every family source, each hosted family reported as not hosted.
@@ -1247,14 +1255,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A CI runner with a GPU adapter (a self-hosted Apple silicon runner, or a hosted runner that exposes Metal to Chromium), after which the skip condition never holds and can be deleted.
 - **node** — `01M3E6QH4WZFJQTQM96NBZ7VVA`
 
-### GAP: what an approved extension loads when it runs is not closed over
-
-- **expected** — Every file a repository extension loads, at import or when it runs, is one a person approved or one installed outside the root.
-- **current** — Only the static graph is closed: each import the bytes name as a literal resolves outside the root, or the extension is refused. A computed import, a require made from its url, or an import built at runtime loads what it names. Bun 1.4.2's runtime plugin hooks (onLoad, onResolve) are skipped for a specifier whose query holds a colon (./x.ts?a:b), so no in-process hook sees every load.
-- **impact** — An approved extension that computes an import of a file the root carries runs that file as it is on disk, unapproved. Only the bytes the person read show it.
-- **closes** — Run repository extensions where every load is decided, such as a process or Worker whose loader refuses what is not approved, or a Bun whose runtime plugins see every load, plus a property for the colon-query route.
-- **node** — `01M54NXDA4X8VZJ5DCZXX0PRHP`
-
 
 ## Closed
 
@@ -1289,6 +1289,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent's idea of what the user sees on a 3D canvas can be wrong
 - **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
 - **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
+
+### GAP: a code view cannot be promoted to a view type
+
+- **expected** — the trust gesture can also promote a proven code view to an extension ViewPoint type, so mode A can use it
+- **current** — trusting a code view only switches its engine to the Worker
+- **impact** — the view catalog does not grow from code views that proved themselves (decision 4C)
+- **closes** — a promotion action plus a review-and-commit flow that writes the code view as an extension view
+- **node** — `01M41DKTTRA55RA1KF4QBWQ9MF`
 
 ### GAP: a confirming frame for an earlier write overwrites a later optimistic write
 
@@ -2076,3 +2084,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent asking to open a canvas, a graph view or a node with a non-outline default lands in the outline instead
 - **closes** — one open-node route that resolves the node's default view, shared by the UI's own links and ui.navigate
 - **node** — `01M3YMCVEHWN0REJ8M1857ZEYX`
+
+### GAP: what an approved extension loads when it runs is not closed over
+
+- **expected** — Every file a repository extension loads, at import or when it runs, is one a person approved or one installed outside the root.
+- **current** — Only the static graph is closed: each import the bytes name as a literal resolves outside the root, or the extension is refused. A computed import, a require made from its url, or an import built at runtime loads what it names. Bun 1.4.2's runtime plugin hooks (onLoad, onResolve) are skipped for a specifier whose query holds a colon (./x.ts?a:b), so no in-process hook sees every load.
+- **impact** — An approved extension that computes an import of a file the root carries runs that file as it is on disk, unapproved. Only the bytes the person read show it.
+- **closes** — Run repository extensions where every load is decided, such as a process or Worker whose loader refuses what is not approved, or a Bun whose runtime plugins see every load, plus a property for the colon-query route.
+- **node** — `01M54NXDA4X8VZJ5DCZXX0PRHP`

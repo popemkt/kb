@@ -1,12 +1,12 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { writeTrustedExtension } from "@kb/test-kit";
+import { EXAMPLE_EXTENSION, writeTrustedExtension } from "@kb/test-kit";
 import { Effect } from "effect";
 import { CodeTrust } from "@kb/contracts";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { KB_SDK_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
+import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
 import {
   discoverExtensions,
   openKb,
@@ -69,10 +69,13 @@ describe("kb ext sdk", () => {
 
     const written = await runCli(["--root", root, "ext", "sdk", "--write"]);
     expect(written.code).toBe(0);
-    expect(written.out).toContain(`wrote .kb/sdk.d.ts (kb ${KB_SDK_VERSION})`);
+    expect(written.out).toContain(
+      `wrote .kb/sdk.d.ts and .kb/sdk-page.d.ts (kb ${KB_SDK_VERSION})`,
+    );
 
     const onDisk = await readFile(join(root, ".kb", "sdk.d.ts"), "utf8");
     expect(onDisk).toBe(KB_SDK_DTS);
+    expect(await readFile(join(root, ".kb", "sdk-page.d.ts"), "utf8")).toBe(KB_SDK_PAGE_DTS);
 
     const discovered = await Effect.runPromise(
       discoverExtensions(root).pipe(
@@ -192,5 +195,48 @@ export default definePlugin({
       registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(registry.failures).toEqual([]);
+  });
+
+  test("the example extension type-checks against the shipped SDK, both halves", async () => {
+    const root = await tempRoot("kb-sdk-example-");
+    await Effect.runPromise(writeSdkDts(root).pipe(Effect.provide(bunFileSystemLayer)));
+    const extDir = join(root, ".kb", "extensions");
+    for (const [file, source] of Object.entries(EXAMPLE_EXTENSION)) {
+      await mkdir(dirname(join(extDir, file)), { recursive: true });
+      await writeFile(join(extDir, file), source);
+    }
+    // Its types are effect's and React's: dev dependencies of the author's
+    // repository, here the ones the SDK's own surfaces are emitted against.
+    const sdk = dirname(dirname(Bun.resolveSync("@kb/ext-sdk", import.meta.dir)));
+    await mkdir(join(root, "node_modules", "@types"), { recursive: true });
+    for (const pkg of ["effect", "@types/react"]) {
+      await symlink(
+        dirname(Bun.resolveSync(`${pkg}/package.json`, sdk)),
+        join(root, "node_modules", pkg),
+      );
+    }
+    const tsc = join(import.meta.dir, "../../../../node_modules/.bin/tsc");
+    const checked = spawnSync(
+      tsc,
+      [
+        "--ignoreConfig",
+        "--noEmit",
+        "--strict",
+        "--moduleResolution",
+        "bundler",
+        "--module",
+        "ESNext",
+        "--target",
+        "ESNext",
+        "--jsx",
+        "react-jsx",
+        "--allowImportingTsExtensions",
+        join(root, ".kb", "sdk-page.d.ts"),
+        ...Object.keys(EXAMPLE_EXTENSION).map((file) => join(extDir, file)),
+      ],
+      { encoding: "utf8" },
+    );
+    expect(`${checked.stdout}${checked.stderr}`).toBe("");
+    expect(checked.status).toBe(0);
   });
 });

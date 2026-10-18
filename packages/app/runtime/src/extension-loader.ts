@@ -1,212 +1,168 @@
 import { Effect, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { dirname, extname, join, sep } from "node:path";
+import { join } from "node:path";
+import * as zod from "zod";
 import { decodeExtensionModule } from "@kb/ext-sdk";
-import { CodeTrust, type ExtensionFailure, type LoadedExtension } from "@kb/contracts";
-import { extensionDigest } from "@kb/sandbox";
+import {
+  CodeTrust,
+  EXTENSION_SDK,
+  installHostModules,
+  type ExtensionFailure,
+  type LoadedExtension,
+} from "@kb/contracts";
 import { serverEntriesFor } from "./bundled.ts";
-import { HOST_MODULES, importVerified } from "./verified-import.ts";
+import { extensionClosure, type DigestedClosure } from "./extension-closure.ts";
 
 /**
- * Extension loader: discovers, imports and validates the TS modules in
- * `.kb/extensions/`. Each one is a family as a bundled one is: its
+ * Extension loader: discovers the extensions in `.kb/extensions/`, each a
+ * server entry `<name>.ts` and, when it has one, a page entry
+ * `<name>.page.tsx` (or `.page.ts`), bundles each into its closure
+ * (`extensionClosure`), and imports the server half of each closure a
+ * person has trusted. Each one is a family as a bundled one is: its
  * declaration and its server entry, paired by name as a bundled family's
- * are (`serverEntriesFor`). Loader failures warn and skip the offending
- * file; they never crash core.
+ * are (`serverEntriesFor`), and its page half, which the `kb ui` server
+ * serves to the page. Loader failures warn and skip the offending file;
+ * they never crash core.
  *
  * What a module must export is @kb/ext-sdk's contract, decoded by
  * `decodeExtensionModule` — this file's job is discovery and the per-file
- * error report, not a second copy of the shape. What a module imports from
- * kb itself (`kb-ext-sdk`) is the host's (`HOST_MODULES`).
+ * error report, not a second copy of the shape.
  *
- * A repository extension runs with the server's reach, so a file is imported
- * only once a person has trusted it on this machine: its digest
- * (`extensionDigest`, the file's source) is in the root's code trust
- * (`CodeTrust`, the record sandboxed code is trusted in, and `sandbox.trust`
- * the gesture). An untrusted file is skipped with its digest, so whoever
- * opens a root someone else wrote — a location opened for an agent, a clone
- * — runs none of its code until they have looked at it.
- *
- * Trust covers what it loads. An extension is its one file and the code
- * installed outside the root: each import it names, and each import of
- * what that loads at any depth, is resolved as Bun resolves it, and one
- * that reaches code the root carries, a helper or a package, however the
- * root configures resolution, refuses the file before anything is imported
- * (`rootCarriedImport`). An extension is a
- * file of its directory: a link to a file outside it is refused. What is
- * imported is the source whose digest was read, not the file as it is by
- * then (`importVerified`). What it loads or evaluates when it runs is what
- * the bytes a person read do (DESIGN.md → Sandbox → Trust).
- * GAP [[01M54NXDA4X8VZJ5DCZXX0PRHP]]
+ * An approved extension runs with the owner's power, so its closure runs
+ * only once a person has trusted its digest on this machine (`CodeTrust`,
+ * the record sandboxed code is trusted in, and `sandbox.trust` the
+ * gesture). An untrusted one is skipped with its digest, so whoever opens a
+ * root someone else wrote — a location opened for an agent, a clone — runs
+ * none of its code until they have looked at it. What runs is the closure's
+ * bytes, imported from themselves rather than from disk, so a file changed
+ * after its closure was read is new code nobody has trusted.
  */
 function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
 }
 
 const NAME_RE = /^[\w][\w.-]*$/;
+const PAGE_ENTRIES = [".page.tsx", ".page.ts"];
 
-/** A trusted file: its name, its real path, and the source whose digest was trusted. */
-interface TrustedFile {
+/** An extension whose closure was read: its file, its name, its server entry's path, its closure. */
+interface Closed {
   readonly file: string;
+  readonly name: string;
   readonly path: string;
-  readonly source: string;
-  readonly digest: string;
+  readonly closure: DigestedClosure;
 }
 
-/**
- * The loader Bun reads a module with, by its file's extension: TypeScript,
- * or JavaScript with JSX, which is how Bun reads every JavaScript file, and
- * a file with none is read as JavaScript too. A file of another extension
- * (data, a stylesheet, a native addon) is not read as code, and imports
- * nothing.
- */
-const LOADERS: Readonly<Record<string, "ts" | "tsx" | "jsx">> = {
-  ".ts": "ts",
-  ".mts": "ts",
-  ".cts": "ts",
-  ".tsx": "tsx",
-  ".js": "jsx",
-  ".mjs": "jsx",
-  ".cjs": "jsx",
-  ".jsx": "jsx",
-  "": "jsx",
-};
-const transpilers = new Map<string, Bun.Transpiler>();
-
-/**
- * What `source`, the module at `path`, imports as literals: none when Bun
- * does not read it as code, and null when it is code whose imports cannot
- * be read, which the closure then refuses rather than take for none.
- */
-function literalImports(source: string, path: string): readonly string[] | null {
-  const loader = LOADERS[extname(path)];
-  if (loader === undefined) return [];
-  let transpiler = transpilers.get(loader);
-  if (transpiler === undefined) {
-    transpiler = new Bun.Transpiler({ loader });
-    transpilers.set(loader, transpiler);
-  }
-  try {
-    return transpiler.scanImports(source).map(({ path: specifier }) => specifier);
-  } catch {
-    return null;
-  }
+/** A server entry: `<name>.ts`, neither a declaration file nor a page entry. */
+function isServerEntry(file: string): boolean {
+  return (
+    file.endsWith(".ts") &&
+    !file.endsWith(".d.ts") &&
+    !PAGE_ENTRIES.some((suffix) => file.endsWith(suffix))
+  );
 }
 
-/**
- * The file Bun resolves `specifier` to from `dir`, a built-in's name, or
- * null. Bun reads a `?` in a specifier as the start of a query, which it
- * carries onto what it resolves, and every other character as the path's
- * (`#` included); so the query the specifier carries comes off the end,
- * and nothing else is cut.
- */
-function resolved(specifier: string, dir: string): string | null {
-  let found: string;
-  try {
-    found = Bun.resolveSync(specifier, dir);
-  } catch {
-    return null;
-  }
-  const query = specifier.includes("?") ? specifier.slice(specifier.indexOf("?")) : "";
-  return query !== "" && found.endsWith(query) ? found.slice(0, -query.length) : found;
+/** The name a page entry is the page half of, or null for a file that is not one. */
+function pageOf(file: string): string | null {
+  const suffix = PAGE_ENTRIES.find((entry) => file.endsWith(entry));
+  return suffix === undefined ? null : file.slice(0, -suffix.length);
 }
 
-/**
- * Why loading the extension at `path`, whose source is `source`, would load
- * code the root carries, or null. Each import it names as a literal (a
- * statement, a re-export, an `import()`, a `require`) is resolved as Bun
- * resolves it, path aliases and import maps the root configures included,
- * and so is each import of every file that resolves to, at any depth:
- * none may resolve into `within` (the root, and its extensions directory
- * when that is elsewhere), the approved file's bytes aside. The extension's
- * own imports must resolve; one a file outside the root names and Bun
- * cannot resolve loads nothing, as it would fail there too.
- */
-const rootCarriedImport = Effect.fn("kb.rootCarriedImport")(function* (
-  source: string,
-  path: string,
-  within: readonly string[],
-): Effect.fn.Return<string | null, never, FileSystem> {
-  const fs = yield* FileSystem;
-  const seen = new Set([path]);
-  const pending = [{ from: path, source }];
-  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-    const { from } = next;
-    const imports = literalImports(next.source, from);
-    if (imports === null) {
-      return `loads ${from}, whose imports cannot be read, so what it loads is not known`;
+/** Import `code`, a server half, from its own bytes. Fails with the import's message. */
+const importClosure = Effect.fn("kb.importClosure")(function* (
+  code: string,
+): Effect.fn.Return<unknown, string> {
+  installHostModules("server", { "kb-ext-sdk": EXTENSION_SDK, zod });
+  const url = `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
+  return yield* Effect.tryPromise({
+    try: () => import(url) as Promise<unknown>,
+    catch: (err) => (err instanceof Error ? err.message : String(err)),
+  });
+});
+
+/** The closure of each named extension; each that cannot be closed over is a failure. */
+const closed = Effect.fn("kb.extensionClosures")(function* (
+  dir: string,
+  entries: readonly string[],
+  failures: ExtensionFailure[],
+): Effect.fn.Return<Closed[]> {
+  const result: Closed[] = [];
+  const servers = entries.filter(isServerEntry).toSorted();
+  for (const file of servers) {
+    const name = file.slice(0, -".ts".length);
+    if (!NAME_RE.test(name)) {
+      failures.push({ file, error: "extension file name must match /^[\\w][\\w.-]*$/" });
+      continue;
     }
-    for (const specifier of imports) {
-      if (HOST_MODULES.has(specifier)) continue;
-      const file = resolved(specifier, dirname(from));
-      if (file === null) {
-        if (from === path) return `imports ${specifier}, which does not resolve from it`;
-        continue;
-      }
-      if (!file.startsWith(sep)) continue;
-      const real = yield* fs.realPath(file).pipe(Effect.orElseSucceed(() => file));
-      if (within.some((dir) => real.startsWith(`${dir}${sep}`))) {
-        const through = from === path ? "" : `, through ${from}`;
-        return `imports ${specifier} (${real})${through}, code the root carries that no person approved`;
-      }
-      if (seen.has(real)) continue;
-      seen.add(real);
-      const text = yield* fs.readFileString(real).pipe(Effect.orElseSucceed(() => ""));
-      pending.push({ from: real, source: text });
+    const page = entries.find((entry) => pageOf(entry) === name);
+    const path = join(dir, file);
+    const closure = yield* extensionClosure(
+      dir,
+      path,
+      page === undefined ? null : join(dir, page),
+    ).pipe(Effect.result);
+    if (Result.isFailure(closure)) failures.push({ file, error: closure.failure });
+    else result.push({ file, name, path, closure: closure.success });
+  }
+  for (const file of entries) {
+    const name = pageOf(file);
+    if (name !== null && !servers.includes(`${name}.ts`)) {
+      failures.push({ file, error: `a page entry of ${name}, which has no ${name}.ts` });
     }
   }
-  return null;
+  return result;
 });
 
 /**
- * The files among `files` a person has trusted here, each with the source
- * that was trusted; each other one is a failure that names its digest and
- * the gesture that trusts it.
+ * The closures among `closures` a person has trusted here; each other one
+ * is a failure that names its digest and the gesture that trusts it.
  */
-const trustedFiles = Effect.fn("kb.trustedExtensions")(function* (
-  dir: string,
-  realDir: string,
-  files: readonly string[],
+const trustedClosures = Effect.fn("kb.trustedExtensions")(function* (
+  closures: readonly Closed[],
   failures: ExtensionFailure[],
-): Effect.fn.Return<TrustedFile[], never, FileSystem | CodeTrust> {
-  const fs = yield* FileSystem;
-  const read = new Map<string, TrustedFile>();
-  for (const file of files) {
-    const path = yield* fs.realPath(join(dir, file)).pipe(Effect.orElseSucceed(() => null));
-    if (path !== null && !path.startsWith(`${realDir}${sep}`)) {
-      failures.push({
-        file,
-        error: `links out of .kb/extensions (to ${path}); an extension is a file of its directory`,
-      });
-      continue;
-    }
-    const source =
-      path === null ? null : yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => null));
-    if (path === null || source === null) failures.push({ file, error: "could not be read" });
-    else read.set(file, { file, path, source, digest: yield* extensionDigest(source) });
-  }
+): Effect.fn.Return<Closed[], never, CodeTrust> {
   const trusted = new Set(
     yield* (yield* CodeTrust)
-      .trusted([...read.values()].map(({ digest }) => digest))
+      .trusted(closures.map(({ closure }) => closure.digest))
       .pipe(Effect.orElseSucceed(() => [])),
   );
-  return [...read.values()].flatMap((file) => {
-    const { digest } = file;
-    if (trusted.has(digest)) return [file];
+  return closures.filter(({ file, closure }) => {
+    if (trusted.has(closure.digest)) return true;
     failures.push({
-      file: file.file,
+      file,
       error:
-        `not trusted on this machine (${digest}); trust it with sandbox.trust once you have read it: ` +
-        "it runs with the server's reach, and so does what it loads or evaluates when it runs",
+        `not trusted on this machine (${closure.digest}); trust it with sandbox.trust once you ` +
+        "have read it and every file it loads: it runs with the owner's power, on the server and in the page",
     });
-    return [];
+    return false;
   });
 });
 
 /**
- * Discover and import the trusted `.kb/extensions/*.ts`. Per-file
- * failures, untrusted files among them, are collected (and skipped); every
- * other module is a family.
+ * The closure of the extension `file` (`<name>.ts`) of `root`, read as
+ * discovery reads it, with the digest a person trusts it by; or why it
+ * cannot run.
+ */
+export const closureOf = Effect.fn("kb.closureOf")(function* (
+  root: string,
+  file: string,
+): Effect.fn.Return<DigestedClosure, string, FileSystem> {
+  const fs = yield* FileSystem;
+  const dir = extensionsDir(root);
+  const entries = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => []));
+  const name = file.slice(0, -".ts".length);
+  const failures: ExtensionFailure[] = [];
+  const own = entries.filter((entry) => entry === file || pageOf(entry) === name);
+  const [found] = yield* closed(dir, own, failures);
+  if (found !== undefined) return found.closure;
+  return yield* Effect.fail(
+    failures.map(({ error }) => error).join("; ") || `no extension ${file}`,
+  );
+});
+
+/**
+ * Discover, close over and import the trusted extensions of `root`.
+ * Per-file failures, untrusted extensions among them, are collected (and
+ * skipped); every other module is a family.
  */
 export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
   root: string,
@@ -216,40 +172,20 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
   FileSystem | CodeTrust
 > {
   const fs = yield* FileSystem;
-  const entries = yield* fs
-    .readDirectory(extensionsDir(root))
-    .pipe(Effect.orElseSucceed(() => null));
+  const dir = extensionsDir(root);
+  const entries = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => null));
   if (entries === null) return { extensions: [], failures: [] };
-  const named = entries.filter((e) => e.endsWith(".ts") && !e.endsWith(".d.ts")).toSorted();
 
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
-  const dir = extensionsDir(root);
-  const realRoot = yield* fs.realPath(root).pipe(Effect.orElseSucceed(() => root));
-  const realDir = yield* fs.realPath(dir).pipe(Effect.orElseSucceed(() => dir));
-  const files = yield* trustedFiles(dir, realDir, named, failures);
-  // The code the root carries: under it, and under its extensions directory if that is elsewhere.
-  const within = realDir.startsWith(`${realRoot}${sep}`) ? [realRoot] : [realRoot, realDir];
-  for (const { file, path, source, digest } of files) {
-    const name = file.slice(0, -".ts".length);
-    if (!NAME_RE.test(name)) {
-      failures.push({ file, error: "extension file name must match /^[\\w][\\w.-]*$/" });
+  const closures = yield* trustedClosures(yield* closed(dir, entries, failures), failures);
+  for (const { file, name, path, closure } of closures) {
+    const loaded = yield* importClosure(closure.server).pipe(Effect.result);
+    if (Result.isFailure(loaded)) {
+      failures.push({ file, error: loaded.failure });
       continue;
     }
-    const reaches = yield* rootCarriedImport(source, path, within);
-    if (reaches !== null) {
-      failures.push({ file, error: reaches });
-      continue;
-    }
-    const loaded = yield* importVerified(path, source, digest).pipe(
-      Effect.map((mod) => ({ mod, error: null })),
-      Effect.catch((error) => Effect.succeed({ mod: null, error })),
-    );
-    if (loaded.error !== null) {
-      failures.push({ file, error: loaded.error });
-      continue;
-    }
-    const decoded = decodeExtensionModule(loaded.mod, name);
+    const decoded = decodeExtensionModule(loaded.success, name);
     if (Result.isFailure(decoded)) {
       failures.push({ file, error: decoded.failure });
       continue;
@@ -263,7 +199,12 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
       failures.push({ file, error: paired.failure });
       continue;
     }
-    extensions.push({ declaration, entry, source: path });
+    extensions.push({
+      declaration,
+      entry,
+      source: path,
+      ...(closure.page === null ? {} : { page: { digest: closure.digest, code: closure.page } }),
+    });
   }
   return { extensions, failures };
 });

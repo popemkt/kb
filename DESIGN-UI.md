@@ -2360,7 +2360,14 @@ the shell.
 - **One `load` shape for every source.** A bundled family's `load` is a
   static import for a family that is always on, and `import()` for an
   optional one, which keeps it out of the main bundle. A repository
-  extension's `load` fetches its built ESM through the same entry.
+  extension's `load` imports its closure's page half from the path its row
+  names (`page`, which the `kb ui` server serves by the closure's digest;
+  DESIGN.md → Core boundary & extensions), so `syncUiPlugins` converges on
+  bundled and repository halves alike. That half is a bundle that reads
+  the page's own modules rather than carrying them (`HOST_MODULES`): the
+  page installs them once (`installHostModules`), so the half builds
+  against `@kb/ui-sdk` as `kb-ext-sdk/page`, holds the page's one React,
+  and runs with the page's power, which is the trust a person gave it.
 - **The browser entry** is the family's shared plugin, loaded as a child
   (`ctx.plugin`), plus its UI contributions. So the page kernel holds the
   family's view keys, and the page's catalog is the manifest's catalog

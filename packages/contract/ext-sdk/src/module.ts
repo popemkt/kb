@@ -12,7 +12,7 @@
 import { Predicate, Result, Schema } from "effect";
 import { declarationPlugin, type ExtensionDeclaration, type ExtensionEntry } from "@kb/contracts";
 import { KbNodeSchema } from "@kb/model";
-import type { Plugin } from "@kb/plugin";
+import { isPlugin } from "@kb/plugin";
 
 /** A family's name: its `ext.<name>` namespace and its node's. */
 const NAME_RE = /^[\w][\w.-]*$/;
@@ -50,15 +50,6 @@ function declarationIssue(value: unknown): string | null {
 
 function isDeclaration(value: unknown): value is ExtensionDeclaration {
   return declarationIssue(value) === null;
-}
-
-function isPlugin(value: unknown): value is Plugin {
-  return (
-    Predicate.hasProperty(value, "name") &&
-    typeof value.name === "string" &&
-    Predicate.hasProperty(value, "apply") &&
-    Predicate.isFunction(value.apply)
-  );
 }
 
 /**

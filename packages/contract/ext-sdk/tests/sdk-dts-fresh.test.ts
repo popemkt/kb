@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
-import { KB_SDK_DTS, KB_SDK_VERSION } from "../src/sdk-dts.text.ts";
+import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION } from "../src/sdk-dts.text.ts";
 import { generateExtSdkDts } from "../scripts/generate.ts";
 
 /**
@@ -12,10 +12,11 @@ import { generateExtSdkDts } from "../scripts/generate.ts";
  */
 describe("extension SDK freshness", () => {
   test("committed KB_SDK_DTS matches regeneration from surface.ts", async () => {
-    const { dts, version } = await Effect.runPromise(
+    const { dts, pageDts, version } = await Effect.runPromise(
       Effect.scoped(generateExtSdkDts()).pipe(Effect.provide(BunFileSystem.layer)),
     );
     expect(version).toBe(KB_SDK_VERSION);
     expect(dts).toBe(KB_SDK_DTS);
+    expect(pageDts).toBe(KB_SDK_PAGE_DTS);
   });
 });

@@ -1,24 +1,24 @@
 /**
- * A repository extension runs with the server's reach, so a root's
- * `.kb/extensions/*.ts` is imported only once a person has trusted it on
- * this machine (DESIGN.md → Core boundary & extensions → repository
- * extensions): an untrusted file is skipped, naming its digest; a trusted
- * one loads; and a file edited since it was trusted is new code nobody has
- * trusted yet. Trust is the root's code trust, the one sandboxed code is
- * trusted in.
+ * An approved repository extension runs with the owner's power, so a
+ * root's `.kb/extensions/<name>.ts` runs only once a person has trusted its
+ * closure on this machine (DESIGN.md → Core boundary & extensions →
+ * repository extensions): an untrusted one is skipped, naming its digest; a
+ * trusted one loads; and a file edited since it was trusted is new code
+ * nobody has trusted yet. Trust is the root's code trust, the one sandboxed
+ * code is trusted in.
  *
- * Trust covers what it loads: a helper the root carries that a trusted file
- * names never runs, however it is resolved (a static or a literal dynamic
- * import, a require, a path alias or an import map the root configures, a
- * query Bun would read past its hooks; inside the extensions directory or
- * out of it, through a link or not, or a package the root carries), and one
- * that does not resolve refuses it too; an extension that is a link out of the
- * directory is refused; what is imported is the source whose digest was
- * trusted, even when the file, or the file a link names, changes after the
- * digest is read; and a digest trusted later in the same process is the one
- * that runs. What the approved code loads or evaluates when it runs (a
- * computed import, a require it builds, an import made by a function it
- * makes, an eval) is what the bytes a person read do, and it runs.
+ * The approval covers what runs. Every file the extension loads is in its
+ * closure, however it is reached (a relative import, a literal `require` or
+ * `import()`, a tsconfig path, a package import, a package the root
+ * carries or one outside it, a link to a helper, or the extension itself a
+ * link), so it runs only as the bytes a person approved, and an edit to any
+ * of them is new code. Code the closure cannot see refuses the extension
+ * before any of it runs: a `createRequire`, a function made at run time, an
+ * `eval`, a computed `import()`, a `require` of a name it builds, a builtin
+ * that loads code, a Worker, an import that does not resolve (a query Bun
+ * would read past its hooks among them), in either half. What is imported
+ * is the closure's bytes, not the files as they are by then, and a digest
+ * trusted later in the same process is the one that runs.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
@@ -34,7 +34,7 @@ import {
   writeExtension,
   writeTrustedExtension,
 } from "@kb/test-kit";
-import { discoverExtensions } from "../src/extension-loader.ts";
+import { closureOf, discoverExtensions } from "../src/extension-loader.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 
@@ -50,9 +50,9 @@ const HELLO = extensionModule("hello", {
 }]`,
 });
 
-/** A helper that leaves `ran` in the root when it runs. */
-const helper = (mark: string) =>
-  `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(mark)}, "ran");\nexport const helped = true;\n`;
+/** A helper that leaves `said` in `mark` when it runs. */
+const helper = (mark: string, said = "ran") =>
+  `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(mark)}, ${JSON.stringify(said)});\nexport const helped = true;\n`;
 const extension = (prelude: string) => `${prelude}\n${HELLO}`;
 
 let root = "";
@@ -77,6 +77,40 @@ const registry = () => {
 };
 const loads = async () => (await registry()).actions.some((a) => a.def.id === "ext.hello.hello");
 
+/** Every way the extension below reaches a helper, each set up in `root`. */
+async function helpers(mark: string): Promise<void> {
+  // Beside the extension, where discovery does not look, and trusted by nobody on its own.
+  await mkdir(join(root, ".kb", "extensions", "lib"), { recursive: true });
+  await writeFile(join(root, ".kb", "extensions", "lib", "helper.ts"), helper(mark));
+  await writeFile(join(root, "outside.ts"), helper(mark));
+  await symlink(join(root, "outside.ts"), join(root, ".kb", "extensions", "lib", "link.ts"));
+  // Resolution the root configures: a path alias, and an import map.
+  await writeFile(
+    join(root, "tsconfig.json"),
+    JSON.stringify({ compilerOptions: { paths: { "@helpers/*": ["./*"] } } }),
+  );
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ name: "root", imports: { "#outside": "./outside.ts" } }),
+  );
+  // A package the root carries, and one it links to elsewhere in itself.
+  const pkg = join(root, "node_modules", "carried");
+  await mkdir(pkg, { recursive: true });
+  await writeFile(join(pkg, "package.json"), JSON.stringify({ name: "carried", main: "index.js" }));
+  await writeFile(join(pkg, "index.js"), helper(mark).replace("export const helped = true;", ""));
+  const vendored = join(root, "vendor", "linked");
+  await mkdir(vendored, { recursive: true });
+  await writeFile(
+    join(vendored, "package.json"),
+    JSON.stringify({ name: "linked", main: "index.js" }),
+  );
+  await writeFile(
+    join(vendored, "index.js"),
+    helper(mark).replace("export const helped = true;", ""),
+  );
+  await symlink(vendored, join(root, "node_modules", "linked"));
+}
+
 describe("a root's repository extensions", () => {
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "kb-extension-trust-"));
@@ -86,7 +120,7 @@ describe("a root's repository extensions", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("an untrusted file is never imported, and its failure names its digest", async () => {
+  test("an untrusted extension is never imported, and its failure names its digest", async () => {
     await writeExtension(root, "hello.ts", HELLO);
     const { failures } = await registry();
     expect(await loads()).toBe(false);
@@ -98,100 +132,180 @@ describe("a root's repository extensions", () => {
     ]);
   });
 
-  test("a trusted file loads, and an edit since is untrusted again", async () => {
+  test("a trusted extension loads, and an edit since is untrusted again", async () => {
     await writeExtension(root, "hello.ts", HELLO);
-    await trustExtension(root, HELLO);
+    await trustExtension(root, "hello.ts");
     expect(await loads()).toBe(true);
     await writeExtension(root, "hello.ts", HELLO.replace("hello: true", "hello: false"));
     expect(await loads()).toBe(false);
   });
 
-  describe("trust covers what runs", () => {
+  describe("the approval covers what runs", () => {
     test.each([
-      ["a static import of another file", `import "./lib/helper.ts";`],
-      ["an import out of the extensions directory", `import "../../outside.ts";`],
-      ["a static import of a helper that links out", `import "./lib/link.ts";`],
-      ["a package the root carries", `import "carried";`],
-      ["a package the root carries through a link", `import "linked";`],
-      ["a require", `const { helped } = require("./lib/helper.ts");`],
-      ["a literal import()", `await import("../../outside.ts");`],
-      ["a tsconfig path", `import "@helpers/outside";`],
-      ["a package import", `import "#outside";`],
-      // Bun reads such a specifier from disk, past its load hooks.
-      ["an import whose query holds a colon", `import "../../outside.ts?a:b";`],
-      ["an import that does not resolve", `import "./lib/missing.ts";`],
-    ])("%s never runs the helper, and the extension is refused", async (_how, prelude) => {
-      const mark = join(root, "ran");
+      ["a static import of another file", `import "./lib/helper.ts";`, "lib/helper.ts"],
+      ["an import out of the extensions directory", `import "../../outside.ts";`, "outside.ts"],
+      ["a helper that is a link", `import "./lib/link.ts";`, "outside.ts"],
+      ["a package the root carries", `import "carried";`, "node_modules/carried/index.js"],
+      ["a package the root carries through a link", `import "linked";`, "vendor/linked/index.js"],
+      ["a literal require", `const { helped } = require("./lib/helper.ts");`, "lib/helper.ts"],
+      ["a literal import()", `await import("../../outside.ts");`, "outside.ts"],
+      ["a tsconfig path", `import "@helpers/outside";`, "outside.ts"],
+      ["a package import", `import "#outside";`, "outside.ts"],
+    ])(
+      "%s runs as the bytes approved, and an edit to it is new code",
+      async (_how, prelude, helperPath) => {
+        const mark = join(root, "ran");
+        await helpers(mark);
+        await writeTrustedExtension(root, "hello.ts", extension(prelude));
+        expect(await loads()).toBe(true);
+        expect(await readFile(mark, "utf8")).toBe("ran");
 
-      // Beside the extension, where discovery does not look, and trusted by nobody.
-      await mkdir(join(root, ".kb", "extensions", "lib"), { recursive: true });
-      await writeFile(join(root, ".kb", "extensions", "lib", "helper.ts"), helper(mark));
-      await writeFile(join(root, "outside.ts"), helper(mark));
-      await symlink(join(root, "outside.ts"), join(root, ".kb", "extensions", "lib", "link.ts"));
-      // Resolution the root configures: a path alias, and an import map.
-      await writeFile(
-        join(root, "tsconfig.json"),
-        JSON.stringify({ compilerOptions: { paths: { "@helpers/*": ["./*"] } } }),
-      );
-      await writeFile(
-        join(root, "package.json"),
-        JSON.stringify({ name: "root", imports: { "#outside": "./outside.ts" } }),
-      );
-      const pkg = join(root, "node_modules", "carried");
-      await mkdir(pkg, { recursive: true });
-      await writeFile(
-        join(pkg, "package.json"),
-        JSON.stringify({ name: "carried", main: "index.js" }),
-      );
-      await writeFile(
-        join(pkg, "index.js"),
-        helper(mark).replace("export const helped = true;", ""),
-      );
-      // A package the root links to elsewhere in itself is the root's all the same.
-      const vendored = join(root, "vendor", "linked");
-      await mkdir(vendored, { recursive: true });
-      await writeFile(
-        join(vendored, "package.json"),
-        JSON.stringify({ name: "linked", main: "index.js" }),
-      );
-      await writeFile(
-        join(vendored, "index.js"),
-        helper(mark).replace("export const helped = true;", ""),
-      );
-      await symlink(vendored, join(root, "node_modules", "linked"));
-      const source = extension(prelude);
-      await writeTrustedExtension(root, "hello.ts", source);
-      const { failures } = await registry();
-      expect(await loads()).toBe(false);
-      expect(failures).toEqual([
-        { file: "hello.ts", error: expect.stringMatching(/no person approved|does not resolve/) },
-      ]);
-      expect(existsSync(mark)).toBe(false);
+        // The helper, wherever it is, edited after the approval.
+        const path = helperPath.startsWith("lib/")
+          ? join(root, ".kb", "extensions", helperPath)
+          : join(root, helperPath);
+        const edited = helper(mark, "edited");
+        await writeFile(
+          path,
+          path.endsWith(".js") ? edited.replace("export const helped = true;", "") : edited,
+        );
+        const { failures } = await registry();
+        expect(await loads()).toBe(false);
+        expect(failures).toEqual([
+          { file: "hello.ts", error: expect.stringContaining("not trusted on this machine") },
+        ]);
+        expect(await readFile(mark, "utf8")).toBe("ran");
+      },
+    );
+
+    test("code outside the root, named by its absolute path, is in the closure too", async () => {
+      const mark = join(root, "ran");
+      const elsewhere = await mkdtemp(join(tmpdir(), "kb-outside-"));
+      try {
+        const installed = join(elsewhere, "installed.ts");
+        await writeFile(installed, helper(mark));
+        await writeTrustedExtension(
+          root,
+          "hello.ts",
+          extension(`import ${JSON.stringify(installed)};`),
+        );
+        expect(await loads()).toBe(true);
+        await writeFile(installed, helper(mark, "edited"));
+        expect(await loads()).toBe(false);
+        expect(await readFile(mark, "utf8")).toBe("ran");
+      } finally {
+        await rm(elsewhere, { recursive: true, force: true });
+      }
     });
 
-    // What the approved bytes load or evaluate when they run is their own
-    // doing, which the person read: no in-process hook sees every load.
-    // GAP [[01M54NXDA4X8VZJ5DCZXX0PRHP]]
+    test("an extension that is a link runs its target's approved bytes, and an edit to it is new code", async () => {
+      const target = join(root, "hello-source.ts");
+      await writeFile(target, HELLO);
+      await mkdir(join(root, ".kb", "extensions"), { recursive: true });
+      await symlink(target, join(root, ".kb", "extensions", "hello.ts"));
+      await trustExtension(root, "hello.ts");
+      expect(await loads()).toBe(true);
+      await writeFile(target, HELLO.replace("hello: true", "hello: false"));
+      expect(await loads()).toBe(false);
+    });
+
+    test("an edit to the page half is new code too", async () => {
+      await writeExtension(root, "hello.page.ts", 'export const page = "first";\n');
+      await writeTrustedExtension(root, "hello.ts", HELLO);
+      expect(await loads()).toBe(true);
+      await writeExtension(root, "hello.page.ts", 'export const page = "second";\n');
+      expect(await loads()).toBe(false);
+    });
+
     test.each([
-      ["a computed import", `await import(["..", "..", "outside.ts"].join("/"));`],
-      ["a require of a name it builds", `const r = require; r("../../outside.ts");`],
       [
-        "a require made from its own url",
+        "a createRequire",
         `import { createRequire } from "node:module";\ncreateRequire(import.meta.url)("../../outside.ts");`,
+        /imports module, which loads code/,
       ],
       [
-        "an import built by a function it makes at runtime",
+        "a function made at run time that imports",
         `await new Function("p", "return im" + "port(p)")("../../outside.ts");`,
+        /uses the Function constructor/,
       ],
-      ["an eval of a file it reads", `await eval(await Bun.file("OUTSIDE_JS").text());`],
-    ])("%s loads what it names when it runs", async (_how, prelude) => {
+      [
+        "an eval of a file it reads",
+        `await eval(await Bun.file("OUTSIDE_JS").text());`,
+        /uses eval/,
+      ],
+      [
+        "a computed import",
+        `await import(["..", "..", "outside.ts"].join("/"));`,
+        /imports a computed name/,
+      ],
+      [
+        "a require of a name it builds",
+        `const r = require; r("../../outside.ts");`,
+        /uses a require the bundle cannot follow/,
+      ],
+      [
+        "a require of a builtin, which only import names",
+        `const fs = require("node:fs");`,
+        /uses a require the bundle cannot follow/,
+      ],
+      [
+        "a builtin that runs code",
+        `import { runInThisContext } from "node:vm";\nrunInThisContext("1");`,
+        /imports vm/,
+      ],
+      ["a Worker", `new Worker("../../outside.ts");`, /uses a Worker/],
+      ["an import that does not resolve", `import "./lib/missing.ts";`, /does not bundle/],
+      // Bun's runtime reads such a specifier from disk, past its load hooks.
+      ["an import whose query holds a colon", `import "../../outside.ts?a:b";`, /does not bundle/],
+    ])("%s refuses the extension before any of it runs", async (_how, prelude, why) => {
       const mark = join(root, "ran");
       await writeFile(join(root, "outside.ts"), helper(mark));
       await writeFile(join(root, "outside.js"), `Bun.write(${JSON.stringify(mark)}, "ran");`);
-      const source = extension(prelude.replace("OUTSIDE_JS", join(root, "outside.js")));
-      await writeTrustedExtension(root, "hello.ts", source);
-      expect(await loads()).toBe(true);
-      expect(existsSync(mark)).toBe(true);
+      await writeExtension(
+        root,
+        "hello.ts",
+        extension(prelude.replace("OUTSIDE_JS", join(root, "outside.js"))),
+      );
+      const { failures } = await registry();
+      expect(await loads()).toBe(false);
+      expect(failures).toEqual([{ file: "hello.ts", error: expect.stringMatching(why) }]);
+      expect(existsSync(mark)).toBe(false);
+    });
+
+    test("a page half that evaluates code refuses the extension", async () => {
+      await writeExtension(root, "hello.page.ts", 'export const page = eval("1");\n');
+      await writeExtension(root, "hello.ts", HELLO);
+      const { failures } = await registry();
+      expect(failures).toEqual([
+        { file: "hello.ts", error: expect.stringMatching(/^its page half uses eval/) },
+      ]);
+    });
+
+    test("a page half with no server entry is reported, and runs nowhere", async () => {
+      await writeExtension(root, "stray.page.tsx", "export default {};\n");
+      const { failures } = await registry();
+      expect(failures).toEqual([
+        { file: "stray.page.tsx", error: "a page entry of stray, which has no stray.ts" },
+      ]);
+    });
+
+    test("the digest is the files', wherever the process runs from", async () => {
+      await mkdir(join(root, ".kb", "extensions", "lib"), { recursive: true });
+      await writeFile(
+        join(root, ".kb", "extensions", "lib", "helper.ts"),
+        helper(join(root, "ran")),
+      );
+      await writeExtension(root, "hello.ts", extension(`import "./lib/helper.ts";`));
+      const digest = () =>
+        Effect.runPromise(closureOf(root, "hello.ts").pipe(Effect.provide(bunFileSystemLayer)));
+      const here = process.cwd();
+      const first = await digest();
+      process.chdir(root);
+      try {
+        expect(await digest()).toEqual(first);
+      } finally {
+        process.chdir(here);
+      }
     });
 
     test("a digest trusted after another ran in this process is the one that runs", async () => {
@@ -202,145 +316,17 @@ describe("a root's repository extensions", () => {
       const edited = HELLO.replace("a repository extension", "edited since");
       await writeExtension(root, "hello.ts", edited);
       expect(await said()).toBeUndefined();
-      await trustExtension(root, edited);
+      await trustExtension(root, "hello.ts");
       expect(await said()).toBe("edited since");
     });
 
-    test("a file outside the root that imports one inside it is refused, however deep, and the root's never runs", async () => {
-      const mark = join(root, "ran");
-      await writeFile(join(root, "carried.ts"), helper(mark));
-      // Outside the root: a file that imports one the root carries, and one that imports that file.
-      const elsewhere = await mkdtemp(join(tmpdir(), "kb-outside-"));
-      await writeFile(
-        join(elsewhere, "inner.ts"),
-        `import ${JSON.stringify(join(root, "carried.ts"))};\n`,
-      );
-      await writeFile(join(elsewhere, "outer.ts"), `import "./inner.ts";\n`);
-      await writeTrustedExtension(
-        root,
-        "hello.ts",
-        extension(`import ${JSON.stringify(join(elsewhere, "outer.ts"))};`),
-      );
-      const { failures } = await registry();
-      expect(failures).toEqual([
-        { file: "hello.ts", error: expect.stringContaining("no person approved") },
-      ]);
-      expect(existsSync(mark)).toBe(false);
-      await rm(elsewhere, { recursive: true, force: true });
-    });
-
-    test.each([
-      [
-        "as JavaScript with JSX, as Bun reads it",
-        `/** @jsxRuntime classic */\n/** @jsx h */\nimport CARRIED;\nconst h = () => null;\nexport const el = <div />;\n`,
-        "no person approved",
-      ],
-      [
-        "unreadable, so what it loads is not known",
-        `import CARRIED;\nexport const = ;\n`,
-        "cannot be read",
-      ],
-    ])("a file outside the root read %s refuses the extension", async (_how, outer, why) => {
-      const mark = join(root, "ran");
-      await writeFile(join(root, "carried.ts"), helper(mark));
-      const elsewhere = await mkdtemp(join(tmpdir(), "kb-outside-"));
-      await writeFile(
-        join(elsewhere, "outer.js"),
-        outer.replace("CARRIED", JSON.stringify(join(root, "carried.ts"))),
-      );
-      await writeTrustedExtension(
-        root,
-        "hello.ts",
-        extension(`import ${JSON.stringify(join(elsewhere, "outer.js"))};`),
-      );
-      const { failures } = await registry();
-      expect(failures).toEqual([{ file: "hello.ts", error: expect.stringContaining(why) }]);
-      expect(existsSync(mark)).toBe(false);
-      await rm(elsewhere, { recursive: true, force: true });
-    });
-
-    test("a root whose path holds a # is still closed over: no part of a path is taken for a query", async () => {
-      const hashed = join(root, "kb#root");
-      const mark = join(hashed, "ran");
-      await mkdir(join(hashed, ".kb", "extensions"), { recursive: true });
-      await writeFile(join(hashed, "carried.ts"), helper(mark));
-      await writeTrustedExtension(hashed, "hello.ts", extension(`import "../../carried.ts";`));
-      resetRegistryCache();
-      const { failures } = await Effect.runPromise(
-        registryFor(hashed).pipe(Effect.provide(bunFileSystemLayer)),
-      );
-      expect(failures).toEqual([
-        { file: "hello.ts", error: expect.stringContaining("no person approved") },
-      ]);
-      expect(existsSync(mark)).toBe(false);
-    });
-
-    test.each([
-      ["by its absolute path", (outside: string) => outside],
-      ["through a link the root carries", (_outside: string, link: string) => link],
-    ])("code outside the root, imported %s, is not the root's: it loads", async (_how, pick) => {
-      const mark = join(root, "ran");
-      const elsewhere = await mkdtemp(join(tmpdir(), "kb-outside-"));
-      const outside = join(elsewhere, "installed.ts");
-      await writeFile(outside, helper(mark));
-      await mkdir(join(root, "vendor"), { recursive: true });
-      const link = join(root, "vendor", "installed.ts");
-      await symlink(outside, link);
-      await writeTrustedExtension(
-        root,
-        "hello.ts",
-        extension(`import ${JSON.stringify(pick(outside, link))};`),
-      );
-      expect(await loads()).toBe(true);
-      expect(existsSync(mark)).toBe(true);
-      await rm(elsewhere, { recursive: true, force: true });
-    });
-
-    test("an extension that is a link out of the extensions directory is refused, and never runs", async () => {
-      const mark = join(root, "ran");
-      await writeFile(join(root, "outside.ts"), extension(helper(mark)));
-      await mkdir(join(root, ".kb", "extensions"), { recursive: true });
-      await trustExtension(root, extension(helper(mark)));
-      await symlink(join(root, "outside.ts"), join(root, ".kb", "extensions", "hello.ts"));
-      const { failures } = await registry();
-      expect(failures).toEqual([
-        { file: "hello.ts", error: expect.stringContaining("links out of .kb/extensions") },
-      ]);
-      expect(existsSync(mark)).toBe(false);
-    });
-
-    test("a link within the directory runs the bytes that were trusted, not its target as it is by then", async () => {
-      const dir = join(root, ".kb", "extensions", "lib");
-      await mkdir(dir, { recursive: true });
-      const target = join(dir, "hello-source.ts");
-      await writeFile(target, HELLO);
-      await symlink(target, join(root, ".kb", "extensions", "hello.ts"));
-      const swapped = HELLO.replace("hello: true", "hello: false");
-      const discovered = await Effect.runPromise(
-        discoverExtensions(root).pipe(
-          Effect.provideService(CodeTrust, {
-            // The link's target changes after its digest is read, before it is imported.
-            trusted: (digests) =>
-              Effect.sync(() => {
-                writeFileSync(target, swapped);
-                return [...digests];
-              }),
-            trust: () => Effect.void,
-            untrust: () => Effect.void,
-          }),
-          Effect.provide(bunFileSystemLayer),
-        ),
-      );
-      expect(await helloOf(discovered.extensions)).toEqual({ hello: true });
-    });
-
-    test("what is imported is the source that was trusted, not the file as it is by then", async () => {
+    test("what runs is the closure that was trusted, not the files as they are by then", async () => {
       const path = await writeTrustedExtension(root, "hello.ts", HELLO);
       const swapped = HELLO.replace("hello: true", "hello: false");
       const discovered = await Effect.runPromise(
         discoverExtensions(root).pipe(
           Effect.provideService(CodeTrust, {
-            // The file changes after its digest is read, before it is imported.
+            // The file changes after its closure is read, before it is imported.
             trusted: (digests) =>
               Effect.sync(() => {
                 writeFileSync(path, swapped);

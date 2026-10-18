@@ -42,3 +42,11 @@ export {
   writeTrustedExtensionEffect,
 } from "./extension-files.ts";
 export type { ExtensionModuleParts } from "./extension-files.ts";
+export {
+  EXAMPLE,
+  EXAMPLE_EXTENSION,
+  writeExampleEffect,
+  writeTrustedExample,
+  writeTrustedExampleEffect,
+} from "./example-extension.ts";
+export { EXAMPLE_PAGE_MODULE, examplePageHalf, examplePageModule } from "./example-page.ts";

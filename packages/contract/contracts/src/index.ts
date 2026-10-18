@@ -77,8 +77,12 @@ export type { Channel, ChannelPeer, UiHostService } from "./channel.ts";
 export {
   ActionPoint,
   EXTENSION_SDK,
+  HOST_MODULES,
+  HOST_MODULES_KEY,
   TemplatePoint,
   extensionNamespace,
+  extensionPagePath,
+  installHostModules,
   provideAction,
   provideTemplate,
 } from "./extension.ts";
@@ -90,6 +94,8 @@ export type {
   ActionContribution,
   ExtensionAction,
   ExtensionFailure,
+  ExtensionHalf,
+  ExtensionPage,
   ExtensionPromiseHandler,
   LoadedExtension,
 } from "./extension.ts";

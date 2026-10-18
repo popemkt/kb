@@ -122,8 +122,10 @@ export function extensionCommands(program: Command): void {
     );
   ext
     .command("sdk")
-    .description("Print or write the ambient extension SDK types (kb-ext-sdk) for this binary")
-    .option("--write", "write .kb/sdk.d.ts under the resolved root", false)
+    .description(
+      "Print or write the ambient extension SDK types (kb-ext-sdk, and kb-ext-sdk/page) for this binary",
+    )
+    .option("--write", "write .kb/sdk.d.ts and .kb/sdk-page.d.ts under the resolved root", false)
     .action(
       cliAction((globals, [opts]: [{ write?: boolean }]) =>
         Effect.gen(function* () {
@@ -147,7 +149,7 @@ export function extensionCommands(program: Command): void {
                     version: result.version,
                   },
                 })
-              : `wrote .kb/sdk.d.ts (kb ${KB_SDK_VERSION})`,
+              : `wrote .kb/sdk.d.ts and .kb/sdk-page.d.ts (kb ${KB_SDK_VERSION})`,
           );
           return EXIT_OK;
         }),

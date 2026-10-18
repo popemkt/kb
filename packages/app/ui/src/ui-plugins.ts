@@ -12,9 +12,14 @@
  * reads the one bundled list as a store with no switch written. Every plugin
  * reaches the kernel through `syncUiPlugins`.
  *
- * Each family's browser entry comes from its `-ui` package.
+ * Each bundled family's browser entry comes from its `-ui` package; a
+ * repository extension's is its closure's page half, which the server
+ * serves at the path its row names, imported beside them.
  */
+import * as React from "react";
 import { useSyncExternalStore } from "react";
+import * as jsxRuntime from "react/jsx-runtime";
+import * as zod from "zod";
 import { ulid } from "ulid";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
 import type { AgentPorts } from "@kb/agent-ui";
@@ -31,10 +36,12 @@ import { codeExtension } from "@kb/code";
 import { collectionsExtension } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import {
+  EXTENSION_SDK,
   NO_SWITCHES,
   declarationPlugin,
   extensionRow,
   familyOn,
+  installHostModules,
   type ExtensionRow,
 } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
@@ -46,7 +53,7 @@ import { outlineExtension } from "@kb/outline";
 import { extensionNodeId } from "@kb/model";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension, extensionSwitchDef } from "@kb/operations";
-import type { Plugin } from "@kb/plugin";
+import { isPlugin, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
 import { designSystemsUiPlugin } from "@/design-systems";
@@ -55,6 +62,7 @@ import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
+import * as uiSdk from "@kb/ui-sdk";
 import { logWarn, syncUiPlugins, toast, type ExtensionSwitch } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
@@ -158,21 +166,58 @@ function followedExtensions(): readonly ExtensionRow[] {
 
 /**
  * The families whose browser entry the page loads, in the order reported:
- * each one reported loaded that the resolver has. A family the server did
- * not load, or does not report, has no UI on the page.
+ * each one reported loaded that the page has an entry for. A family the
+ * server did not load, or does not report, has no UI on the page.
  */
 export function familiesToLoad(rows: readonly ExtensionRow[]): readonly string[] {
-  return rows
-    .filter((row) => row.enabled && browserEntry(row.name) !== null)
-    .map((row) => row.name);
+  return loadable(rows).map((row) => row.name);
+}
+
+/** The rows of {@link familiesToLoad}. */
+function loadable(rows: readonly ExtensionRow[]): readonly ExtensionRow[] {
+  return rows.filter((row) => row.enabled && browserEntry(row) !== null);
 }
 
 /**
- * The browser entry the page has for a family: null when it has none, or the
- * family has no browser half.
+ * The browser entry the page has for a family: a bundled family's from the
+ * resolver, a repository extension's from the path its row names; null when
+ * the family has no browser half.
  */
-function browserEntry(name: string): BrowserExtension | null {
-  return Object.hasOwn(BROWSER_EXTENSIONS, name) ? (BROWSER_EXTENSIONS[name] ?? null) : null;
+function browserEntry(row: ExtensionRow): BrowserExtension | null {
+  if (Object.hasOwn(BROWSER_EXTENSIONS, row.name)) return BROWSER_EXTENSIONS[row.name] ?? null;
+  const { page } = row;
+  return page === undefined ? null : { load: () => importPageHalf(page) };
+}
+
+/**
+ * The page's own modules, which a repository extension's page half reads
+ * rather than carries (`HOST_MODULES`): kb's SDK and the page's host API
+ * as the page's own objects, and its one React.
+ */
+function installPageModules(): void {
+  installHostModules("page", {
+    "kb-ext-sdk": EXTENSION_SDK,
+    "kb-ext-sdk/page": uiSdk,
+    zod,
+    react: React,
+    "react/jsx-runtime": jsxRuntime,
+  });
+}
+
+/**
+ * A repository extension's page half, imported from `path`: the bytes of
+ * the closure a person trusted, which run in the page with the page's
+ * power (DESIGN.md → Core boundary & extensions → repository extensions).
+ */
+async function importPageHalf(path: string): Promise<Plugin> {
+  installPageModules();
+  const module: unknown = await import(/* @vite-ignore */ path);
+  const entry =
+    typeof module === "object" && module !== null && "default" in module
+      ? module.default
+      : undefined;
+  if (isPlugin(entry)) return entry;
+  throw new Error(`its page half at ${path} default-exports no plugin`);
 }
 
 /**
@@ -214,8 +259,9 @@ export async function switchExtension(name: string, on: boolean): Promise<void> 
 }
 
 /** Load one family's browser entry, held to the name it was resolved by. */
-async function loadEntry(name: string): Promise<Plugin | null> {
-  const extension = browserEntry(name);
+async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
+  const { name } = row;
+  const extension = browserEntry(row);
   if (extension === null) return null;
   try {
     const plugin = await extension.load();
@@ -238,7 +284,7 @@ let settling: Promise<void> = Promise.resolve();
  */
 async function converge(rows: readonly ExtensionRow[]): Promise<void> {
   const mine = ++generation;
-  const entries = await Promise.all(familiesToLoad(rows).map(loadEntry));
+  const entries = await Promise.all(loadable(rows).map(loadEntry));
   if (mine !== generation) return;
   syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]);
 }

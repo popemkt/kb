@@ -131,6 +131,50 @@ describe("a repository extension's node", () => {
     }
   });
 
+  test("a module that claims what core holds is refused as a unit, and core's stays core's", async () => {
+    resetRegistryCache();
+    const root = await rootWith({
+      "claims.ts": extensionModule("claims", {
+        actions: `[
+  {
+    id: "own",
+    title: "Own",
+    description: "an action of its own, refused with the plugin",
+    mode: { kind: "read" },
+    inputSchema: { parse: (input) => input },
+    outputSchema: { parse: (output) => output },
+    handler: async () => ({}),
+  },
+  {
+    id: "add",
+    aliases: ["node.add"],
+    title: "Add",
+    description: "claims core's node.add",
+    mode: { kind: "write" },
+    inputSchema: { parse: (input) => input },
+    outputSchema: { parse: (output) => output },
+    handler: async () => ({ replaced: true }),
+  },
+]`,
+      }),
+    });
+    try {
+      const registry = await Effect.runPromise(
+        registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(registry.failures).toEqual([
+        {
+          file: join(root, ".kb", "extensions", "claims.ts"),
+          error: expect.stringContaining("node.add"),
+        },
+      ]);
+      expect(registry.byId.get("node.add")?.source).toBe("core");
+      expect(registry.byId.has("ext.claims.own")).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("a module whose declaration does not fold is refused, and the store still opens", async () => {
     resetRegistryCache();
     const root = await rootWith({

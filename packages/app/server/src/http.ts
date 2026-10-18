@@ -12,7 +12,7 @@ import {
   type ServerIdentity,
   type SurfaceWire,
 } from "@kb/contracts";
-import type { ActionHandlerEnv } from "@kb/runtime";
+import { servedPage, type ActionHandlerEnv } from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
@@ -83,6 +83,50 @@ const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
   ],
 ]);
 
+/** A read of a file the server serves by path, before the SPA: the paths it owns, and how it answers one. */
+interface FileRead {
+  readonly owns: (path: string) => boolean;
+  readonly read: (
+    deps: UiHttpDeps,
+    path: string,
+  ) => Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv>;
+}
+
+/** The files the server serves by path, in order; a path none owns falls through to the SPA. */
+const FILE_READS: readonly FileRead[] = [
+  // The sandbox frame's document, served with the policy that fences it
+  // (DESIGN.md → Sandbox → The frame); its script is a ui/dist file.
+  {
+    owns: (path) => path === SANDBOX_FRAME_PATH,
+    read: () =>
+      Effect.succeed(
+        HttpServerResponse.raw(sandboxFrameDocument(), {
+          status: 200,
+          headers: SANDBOX_FRAME_HEADERS,
+        }),
+      ),
+  },
+  // W6a: opaque media files — before SPA / ui/dist so /assets never
+  // falls through to index.html.
+  {
+    owns: (path) => path === "/assets" || path.startsWith("/assets/"),
+    read: ({ root }, path) => assets.serveKbAssetEffect(root, path),
+  },
+  // A repository extension's page half, by its closure's digest: what the
+  // page imports for a row that names it (`extensionPagePath`).
+  {
+    owns: (path) => path.startsWith("/api/extensions/"),
+    read: ({ root }, path) =>
+      servedPage(root, path).pipe(
+        Effect.map((code) =>
+          code === null
+            ? plainStatus("not found", 404)
+            : HttpServerResponse.text(code, { contentType: "text/javascript;charset=utf-8" }),
+        ),
+      ),
+  },
+];
+
 /**
  * HTTP/API routing for `kb ui` (WebSocket upgrade stays on the Bun.serve
  * boundary in `server.ts`).
@@ -97,7 +141,7 @@ const handleHttpRequestEffect = (
   deps: UiHttpDeps,
 ): Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv> =>
   Effect.gen(function* () {
-    const { root, ctx } = deps;
+    const { ctx } = deps;
     const url = new URL(req.url);
 
     const read = req.method === "GET" ? JSON_READS.get(url.pathname) : undefined;
@@ -134,23 +178,9 @@ const handleHttpRequestEffect = (
       return jsonResponse(response);
     }
 
-    // The sandbox frame's document, served with the policy that fences it
-    // (DESIGN.md → Sandbox → The frame); its script is a ui/dist file.
-    if (url.pathname === SANDBOX_FRAME_PATH && req.method === "GET") {
-      return HttpServerResponse.raw(sandboxFrameDocument(), {
-        status: 200,
-        headers: SANDBOX_FRAME_HEADERS,
-      });
-    }
-
-    // W6a: opaque media files — before SPA / ui/dist so /assets never
-    // falls through to index.html.
-    if (
-      (url.pathname === "/assets" || url.pathname.startsWith("/assets/")) &&
-      req.method === "GET"
-    ) {
-      return yield* assets.serveKbAssetEffect(root, url.pathname);
-    }
+    const file =
+      req.method === "GET" ? FILE_READS.find(({ owns }) => owns(url.pathname)) : undefined;
+    if (file !== undefined) return yield* file.read(deps, url.pathname);
 
     if (url.pathname.startsWith("/api/") || url.pathname === "/ws") {
       return plainStatus("not found", 404);

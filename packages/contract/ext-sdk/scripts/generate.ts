@@ -26,12 +26,17 @@ import { parseArgs } from "node:util";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = join(SCRIPT_DIR, "..");
 const KB_ROOT = join(PKG_ROOT, "..", "..", "..");
-const SURFACE = join(PKG_ROOT, "src", "surface.ts");
+/** Each ambient module the SDK declares, from the surface file that states it. */
+const MODULES = [
+  { module: "kb-ext-sdk", file: "surface.ts" },
+  { module: "kb-ext-sdk/page", file: "page-surface.ts" },
+] as const;
 const OUT_MODULE = join(PKG_ROOT, "src", "sdk-dts.text.ts");
 const PKG = join(KB_ROOT, "package.json");
 
 export interface GenExtSdkResult {
   dts: string;
+  pageDts: string;
   version: string;
 }
 
@@ -40,7 +45,7 @@ export class ExtSdkEmitError extends Schema.TaggedError<ExtSdkEmitError>()("Kb/E
   message: Schema.String,
 }) {}
 
-/** Build the ambient `kb-ext-sdk` declaration string (no filesystem write). */
+/** Build the ambient `kb-ext-sdk` and `kb-ext-sdk/page` declaration string (no filesystem write). */
 export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
   opts: { version?: string } = {},
 ): Effect.fn.Return<GenExtSdkResult, PlatformError | ExtSdkEmitError, FileSystem | Scope> {
@@ -48,11 +53,12 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
   const pkg = yield* fs.readFileString(PKG).pipe(Effect.map(parsePackage));
   const version = opts.version ?? pkg.version;
 
-  // Inside the package, so the surface's one import, `effect`, resolves as the package resolves it.
+  // Inside the package, so the surfaces' imports (`effect`, `react`) resolve as the package resolves them.
   const work = yield* fs.makeTempDirectoryScoped({ directory: PKG_ROOT, prefix: ".kb-ext-sdk-" });
   {
-    const surfaceSrc = yield* fs.readFileString(SURFACE);
-    yield* fs.writeFileString(join(work, "surface.ts"), surfaceSrc);
+    for (const { file } of MODULES) {
+      yield* fs.copyFile(join(PKG_ROOT, "src", file), join(work, file));
+    }
     yield* fs.writeFileString(
       join(work, "tsconfig.json"),
       JSON.stringify(
@@ -66,8 +72,9 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
             module: "ESNext",
             moduleResolution: "bundler",
             target: "ESNext",
+            allowImportingTsExtensions: true,
           },
-          files: ["surface.ts"],
+          files: MODULES.map(({ file }) => file),
         },
         null,
         2,
@@ -84,11 +91,18 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
       });
     }
 
-    const emitted = yield* fs.readFileString(join(work, "out/surface.d.ts"));
-    // Inside `declare module` every declaration is already ambient.
-    const body = stripHeaderComments(emitted)
-      .replace(/^export declare /gmu, "export ")
-      .trimEnd();
+    const declared: string[] = [];
+    for (const { module, file } of MODULES) {
+      const emitted = yield* fs.readFileString(join(work, "out", file.replace(/\.ts$/u, ".d.ts")));
+      // Inside `declare module` every declaration is already ambient, and a
+      // surface names another by the module it is declared as.
+      const body = stripHeaderComments(emitted)
+        .replace(/^export declare /gmu, "export ")
+        .replace(/from "\.\/surface\.ts"/gu, 'from "kb-ext-sdk"')
+        .trimEnd();
+      declared.push([`declare module "${module}" {`, indent(body, 2), "}", ""].join("\n"));
+    }
+    const [server = "", page = ""] = declared;
     const dts = [
       "/**",
       ` * kb extension SDK — ambient types for .kb/extensions/*.ts`,
@@ -106,13 +120,30 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
       " * dependency of the extension's repository. Its values are the host's.",
       " */",
       "",
-      'declare module "kb-ext-sdk" {',
-      indent(body, 2),
-      "}",
+      server,
+    ].join("\n");
+    const pageDts = [
+      "/**",
+      ` * kb extension SDK — ambient types for a page half, .kb/extensions/*.page.tsx`,
+      ` * kb ${version}`,
+      " * Regenerate: bun run gen:ext-sdk",
+      " * Emit to a repo: kb ext sdk --write",
+      " *",
+      " * Usage, in .kb/extensions/<name>.page.tsx:",
+      ' *   /// <reference path="../sdk-page.d.ts" />',
+      ' *   import { definePlugin } from "kb-ext-sdk";',
+      ' *   import { ViewPoint, provideView } from "kb-ext-sdk/page";',
+      ' *   export default definePlugin({ name: "<name>", apply: (ctx) => … });',
+      " *",
+      " * Its types are React's too, a dev dependency of the extension's",
+      " * repository. Its values are the page's.",
+      " */",
+      '/// <reference path="./sdk.d.ts" />',
       "",
+      page,
     ].join("\n");
 
-    return { dts, version };
+    return { dts, pageDts, version };
   }
 });
 
@@ -132,7 +163,7 @@ export const writeExtSdkModule = Effect.fn("kb.writeExtSdkModule")(function* (
   opts: { version?: string } = {},
 ): Effect.fn.Return<GenExtSdkResult, PlatformError | ExtSdkEmitError, FileSystem | Scope> {
   const fs = yield* FileSystem;
-  const { dts, version } = yield* generateExtSdkDts(opts);
+  const { dts, pageDts, version } = yield* generateExtSdkDts(opts);
   const moduleSource = [
     "/**",
     " * GENERATED — do not edit by hand.",
@@ -140,11 +171,12 @@ export const writeExtSdkModule = Effect.fn("kb.writeExtSdkModule")(function* (
     " */",
     `export const KB_SDK_VERSION = ${JSON.stringify(version)} as const;`,
     "export const KB_SDK_DTS: string = " + JSON.stringify(dts) + ";",
+    "export const KB_SDK_PAGE_DTS: string = " + JSON.stringify(pageDts) + ";",
     "",
   ].join("\n");
   yield* fs.makeDirectory(dirname(OUT_MODULE), { recursive: true });
   yield* fs.writeFileString(OUT_MODULE, moduleSource);
-  return { dts, version };
+  return { dts, pageDts, version };
 });
 
 function stripHeaderComments(src: string): string {

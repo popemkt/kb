@@ -68,6 +68,22 @@ export function definePlugin(plugin: Plugin): Plugin {
 }
 
 /**
+ * Whether `value`, code from elsewhere (a repository extension's module),
+ * is a plugin as far as a runtime check can see: a name and an `apply`.
+ * What `apply` does is the kernel's to find out when it loads it.
+ */
+export function isPlugin(value: unknown): value is Plugin {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "name" in value &&
+    typeof value.name === "string" &&
+    "apply" in value &&
+    typeof value.apply === "function"
+  );
+}
+
+/**
  * `pending`: loaded, waiting for an injected service. `active`: applied.
  * `failed`: `apply` failed and everything it registered was undone.
  */

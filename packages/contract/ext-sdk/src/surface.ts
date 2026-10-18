@@ -324,6 +324,23 @@ export interface ExtensionDeclaration {
   readonly seed?: (at: string) => readonly KbNode[];
   /** The views it provides; its entries contribute exactly these (`declarationPlugin`). */
   readonly views?: readonly ViewDef<unknown>[];
+  /**
+   * The declared options it contributes, by kind (a design system, a
+   * backdrop): each named by the id its page contribution answers to.
+   */
+  readonly declaredOptions?: readonly DeclaredOptionSet[];
+}
+
+/** One kind of declared option: the field whose children its options are, and their ids' prefix. */
+export interface DeclaredOptions {
+  readonly field: NodeId;
+  readonly prefix: string;
+}
+
+/** The things of one kind a declaration names: the kind, and each thing's key, in order. */
+export interface DeclaredOptionSet {
+  readonly kind: DeclaredOptions;
+  readonly options: readonly { readonly id: string; readonly label: string }[];
 }
 
 /** An action as a plugin contributes it to {@link ActionPoint}: the id is the contribution's. */

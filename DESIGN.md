@@ -2182,43 +2182,66 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   `contribution-conflict`, so the plugin is refused as a unit and core's
   services and actions stay core's. That is the one deliberate difference
   from DeepSeek Harness, whose plugins may replace any service.
-- **Repository extensions** (`.kb/extensions/*.ts`) run with the server's
-  reach, so a root's file is imported only once a person has trusted it on
-  this machine. Its digest is `extensionDigest` (`@kb/sandbox`, the file's
-  source in a format of its own), and trust is the root's code trust, the
-  one record sandboxed code is trusted in (`CodeTrust`, `.kb/trust.json`;
-  [Sandbox](#sandbox) → Trust), granted by the same gesture,
-  `sandbox.trust`. An untrusted file is skipped and reported with its
-  digest; an edited file is new code, untrusted until trusted again. So
+- **Repository extensions** run as owner code, on the server and in the
+  page, like a DeepSeek Harness plugin, so a root's extension runs only once
+  a person has trusted it on this machine. What a person trusts is its
+  **closure**: each half (the server entry `<name>.ts`, and the page entry
+  `<name>.page.tsx` when it has one) bundled from its files into one module
+  by Bun's own bundler (`extensionClosure`, `app/runtime`), so every file it
+  loads at any depth is inlined, however it is reached: a relative import, a
+  literal `require` or `import()`, a tsconfig path or a package import the
+  root configures, a package in the root's `node_modules` or outside the
+  root, a link to a helper, or the extension itself a link. What it imports
+  from kb is not inlined but read from the host at run time (`HOST_MODULES`,
+  `@kb/contracts`: `kb-ext-sdk`, `zod`, and in the page `kb-ext-sdk/page`,
+  which is the page's `@kb/ui-sdk`, and React), so it holds the host's one
+  copy, through the one global each host installs its modules under
+  (`installHostModules`). The bundle carries no comment and no whitespace,
+  so the closure is its files and nothing of where the process runs. Its
+  digest is `extensionDigest` (`@kb/sandbox`, both halves in a format of
+  its own), and trust is the root's code trust, the one record sandboxed
+  code is trusted in (`CodeTrust`, `.kb/trust.json`; [Sandbox](#sandbox) →
+  Trust), granted by the same gesture, `sandbox.trust`. An untrusted
+  extension is skipped and reported with its digest; an edit to any file of
+  its closure, either half, is new code, untrusted until trusted again. So
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
-  untrusted module's declaration is neither seeded nor loaded. Trust
-  covers what it loads. An extension is its one file and the code
-  installed outside the root: each import it names as a literal (a
-  statement, a re-export, an `import()`, a `require`) is resolved as Bun
-  resolves it from the file, path aliases and import maps the root
-  configures included (`rootCarriedImport`), and so is each import of every
-  file that resolves to, at any depth, outside the root as well, each read
-  with the loader Bun reads it with (JavaScript with JSX for every
-  JavaScript file), and with only the query a specifier carries taken off
-  what it resolves to. One that
-  resolves into the root (another file, a package in the root's own
-  `node_modules`, a link to either, or a file the root carries that code
-  outside it imports) refuses the file before anything is imported, and so
-  do an import of the extension's own that does not resolve and a file
-  whose imports cannot be read, since what it loads is then not known. Where code
-  is, is its real path: a file outside the root, named by its absolute
-  path or reached through a link the root carries, is not the root's, and
-  loads as an installed package does, since a root someone else wrote
-  cannot write it. An extension is a file of its directory: one whose real path
-  is outside `.kb/extensions` (a link out) is refused. What is imported is
-  the source whose digest was trusted, not the file as it is by then: it is
-  imported as its real path and that digest, and a Bun load hook matching
-  exactly that specifier serves the trusted bytes (`importVerified`), so a
-  digest trusted later in the same process is a module of its own and the
-  one that runs. What it does when it runs, what it loads or evaluates
-  included, is the bytes a person read ([Sandbox](#sandbox) → Trust, What
-  trust approves).
+  untrusted extension's declaration is neither seeded nor loaded.
+  - **What runs is what was approved.** The server imports its closure's
+    server half from those bytes themselves (a `data:` module), never from
+    disk, so a file changed after the closure was read is not what runs,
+    and a digest trusted later in the same process is a module of its own.
+    The `kb ui` server serves the page half at the path its closure's digest
+    addresses (`extensionPagePath`), which the extension's manifest row
+    names (`page`), and the page imports it there (DESIGN-UI.md → Extension
+    UI halves).
+  - **Code the closure cannot see is refused**, before any of it runs, read
+    over the bundled output rather than the source: a global that loads or
+    evaluates code (`eval`, `Function`, a `Worker`, `import.meta.require`
+    and `import.meta.resolve`, which a `require` of a name the bundler cannot
+    follow becomes; each swapped by the bundler for a marker the check
+    finds), an `import()` of a computed name, and an import left for the
+    host that is not a builtin (in the page, none is left), or is one that
+    loads code (`module`, `vm`, `worker_threads`). An import that does not
+    resolve does not bundle and is refused too; a query Bun reads past its
+    runtime hooks (`./x.ts?a:b`) is one. A builtin needs `import`: a
+    `require` of one is a require the bundle cannot follow.
+    `extension-trust.test.ts` pins each route: covered by the digest, or
+    refused.
+  - **Approved code is not contained.** The gate guarantees that what runs
+    is what was approved; it does not bound what approved code does. It
+    runs with the owner's power on the server and with the page's in the
+    page, and what it reaches by reflection (`globalThis[name]`), a process
+    it starts, or a file it reads and acts on, is the behaviour of bytes a
+    person approved. The approval policies still decide every invocation
+    of every action, whoever contributed it (Action registry → Approval).
+    Sandboxed code (code views, snapshots, scripts) is unchanged: it runs
+    in QuickJS or a Worker under its grant ([Sandbox](#sandbox)).
+  - **A family's channels are its host's.** A plugin contributes to any
+    point of the kernel it is loaded in; the `kb ui` socket hub routes
+    `channel` frames to the channels of its own kernel, so a channel a
+    registry family contributes, a repository extension's included, is not
+    served. GAP [[01M579MHGHVT2FNGJJRK81J9GY]]
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
   Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through
@@ -2277,8 +2300,14 @@ from "kb-ext-sdk"`. Types are generated from
   and `surface-bridge.test.ts` holds the surface to `EXTENSION_SDK` and to
   the plugin model. The plugin model is Effect's, so its types are
   `effect`'s, a dev dependency of the extension's repository; its values
-  are always the host's. Schemas may be zod, Standard Schema v1, or a bare
-  `{ parse }`.
+  are always the host's. A page half's types are `.kb/sdk-page.d.ts`
+  (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
+  views, routes, sidebar sections, docks, overlays, commands, design
+  systems — and React's own types), written beside it; nothing yet holds
+  that restatement to `@kb/ui-sdk` but the example extension's page half,
+  type-checked against it and run in the page.
+  GAP [[01M579MH4HKXE7H51ZA7DRDMNP]]
+  Schemas may be zod, Standard Schema v1, or a bare `{ parse }`.
   **Migrating to kb 0.2.0:** replace `mode: "read"` with `mode: { kind: "read" }`
   and `mode: "apply"` with `mode: { kind: "write" }` (add
   `approval: "required"` if a person must approve each call). The loader
@@ -4028,19 +4057,20 @@ sends it more than 400 messages a second.
   the same grant.
 - **What trust approves.** Trusting a digest approves the behaviour of
   bytes a person read, and those bytes run with the reach they are given:
-  a repository extension's, the server's. What they load as they are
-  imported is closed (a repository extension's imports, above); what they
-  do when they run is theirs, a computed `import()`, a `require` of a name
-  they build, a function they make, an `eval` of text they read, a
-  process they start. No lint refuses that: whether code loads code at
-  runtime is not decidable from its text (`[].constructor.constructor`,
-  `globalThis[name]`, a `bun -e` it spawns), so a lint would read as a
-  check that holds while it does not. Nor does a load hook: Bun 1.4.2
-  reads a specifier whose query holds a colon (`./x.ts?a:b`) from disk,
-  past every runtime plugin hook, so no in-process hook sees every load.
-  GAP [[01M54NXDA4X8VZJ5DCZXX0PRHP]]
-- Promoting a code view to a view type is the same act, later
-  (GAP-CODE-VIEW-PROMOTION below).
+  sandboxed code's grant, a repository extension's, the owner's. For a
+  repository extension the digest is its closure's, every file it loads,
+  and code its closure cannot see is refused before it runs ([Core boundary
+  & extensions](#core-boundary--extensions)); what the approved bytes do
+  when they run (a process they start, a name they reach by reflection) is
+  theirs. Whether code loads code by reflection (`[].constructor.constructor`,
+  `globalThis[name]`) is not decidable from its text, so no check reads as
+  covering it; what holds is that the bytes that run are the approved ones.
+- Promoting a code view to a view type is writing it as a repository
+  extension: its key, its settings and its drawing in a page half, approved
+  by the same gesture over its closure ([Core boundary &
+  extensions](#core-boundary--extensions)). No gesture writes that module
+  from the view node; a person or an agent writes it, and the person
+  approves what was written.
 
 ### Scripts
 
@@ -4173,14 +4203,6 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
   gesture pass, so what a script draws over a view is a picture. Closes: the
   frame tells the page the boxes of what it drew that takes gestures, and
   the page lets presses through only there.
-- `// GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]]` (`@kb/code`'s `view.ts`). Expected: a
-  person promotes a trusted code view to a view type — a `.kb/extensions`
-  plugin contributing a `ViewPoint` entry with a key, settings schema and
-  catalog entry, committed after review — in the same gesture that trusts
-  it, so mode A can then configure it. Current: trust changes the engine
-  only; a code view stays a code view. Closes: a promotion action that
-  writes the extension module from the view node (code, grant, a params
-  schema the person names), and a UI flow that reviews and commits it.
 - `// GAP [[01M41DKVB5R21NRCE4T9R4KES1]]` (the frame, `src/sandbox/frame.ts`).
   Expected: untrusted code runs off the frame's main thread, so a turn that
   runs to its deadline never holds the page, even where the browser does

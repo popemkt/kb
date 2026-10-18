@@ -11,8 +11,8 @@ import type { CodeGrant } from "./grant.ts";
 
 /** The version of what a digest covers; a change to it drops every trust. */
 const DIGEST_FORMAT = "kb.sandbox/1";
-/** What a repository extension's digest covers: its source alone, since it runs with the server's reach. */
-const EXTENSION_FORMAT = "kb.extension/1";
+/** What a repository extension's digest covers: its closure, every byte that runs, on the server and in the page. */
+const EXTENSION_FORMAT = "kb.extension/2";
 /** What an agent provider's digest covers: what its turns bind (where they send, which key, what they start). */
 const PROVIDER_FORMAT = "kb.provider/1";
 
@@ -33,16 +33,27 @@ export const codeDigest = Effect.fn("sandbox.codeDigest")(function* (
 });
 
 /**
- * The digest of a repository extension (`.kb/extensions/*.ts`): its source,
- * every character of it, in a format of its own so it can never be taken for
- * a sandboxed run's. A server imports the file only once a person has
- * trusted this digest on the machine, through the same trust as sandboxed
- * code (DESIGN.md → Core boundary & extensions → repository extensions).
+ * A repository extension's closure: each half bundled from its files into
+ * one module, every file it loads inlined, its declaration included. The
+ * page half is null for an extension without one.
+ */
+export interface ExtensionClosure {
+  readonly server: string;
+  readonly page: string | null;
+}
+
+/**
+ * The digest of a repository extension (`.kb/extensions/<name>.ts`): its
+ * closure, every byte of both halves, in a format of its own so it can
+ * never be taken for a sandboxed run's. A host runs either half only once a
+ * person has trusted this digest on the machine, through the same trust as
+ * sandboxed code, and what it runs is exactly those bytes (DESIGN.md → Core
+ * boundary & extensions → repository extensions).
  */
 export const extensionDigest = Effect.fn("sandbox.extensionDigest")(function* (
-  source: string,
+  closure: ExtensionClosure,
 ): Effect.fn.Return<string> {
-  return yield* digestOf({ format: EXTENSION_FORMAT, code: source });
+  return yield* digestOf({ format: EXTENSION_FORMAT, server: closure.server, page: closure.page });
 });
 
 /** What an agent provider binds when its turns run, as its node writes it. */
