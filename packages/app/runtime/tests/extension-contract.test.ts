@@ -237,13 +237,13 @@ describe("the server's entries are resolved from the one bundled list", () => {
 
   test("a bundled family with no server entry fails", () => {
     expect(() => serverEntriesFor([family("a"), family("b")], [plugin("a")])).toThrow(
-      "bundled family b has no server entry",
+      "family b has no server entry",
     );
   });
 
   test("a server entry that names no bundled family fails", () => {
     expect(() => serverEntriesFor([family("a")], [plugin("a"), plugin("z")])).toThrow(
-      "server entries z name no bundled family",
+      "server entries z name no family",
     );
   });
 });

@@ -11,25 +11,14 @@ import { basename } from "node:path";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
-import {
-  extensionPlugin,
-  type ExtensionDeclaration,
-  type ExtensionEntry,
-  type ExtensionFailure,
-  type LoadedExtension,
-} from "@kb/contracts";
+import type { ExtensionDeclaration, ExtensionFailure, LoadedExtension } from "@kb/contracts";
 import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { codeTrustLayer } from "@kb/workspace-fs";
 import { discoverExtensions } from "./extension-loader.ts";
 
-/** A family a root composes: its declaration, its entry, and `bundled` or its module's path. */
-export interface RootFamily extends ExtensionEntry {
-  readonly source: string;
-}
-
 export interface RootFamilies {
-  readonly families: readonly RootFamily[];
+  readonly families: readonly LoadedExtension[];
   /**
    * What the root's store is seeded from (DESIGN.md → Extension families →
    * the seed is the root's fold): the bundled declarations, then each of
@@ -40,7 +29,7 @@ export interface RootFamilies {
   readonly failures: readonly ExtensionFailure[];
 }
 
-const BUNDLED: readonly RootFamily[] = BUNDLED_EXTENSIONS.map((family) => ({
+const BUNDLED: readonly LoadedExtension[] = BUNDLED_EXTENSIONS.map((family) => ({
   ...family,
   source: "bundled",
 }));
@@ -95,14 +84,7 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
         Effect.map((discovered) => {
           const { extensions, failures } = admitted(discovered.extensions);
           return {
-            families: [
-              ...BUNDLED,
-              ...extensions.map((extension) => ({
-                declaration: extension.declaration,
-                entry: extensionPlugin(extension),
-                source: extension.source,
-              })),
-            ],
+            families: [...BUNDLED, ...extensions],
             declarations: [
               ...BUNDLED_DECLARATIONS,
               ...extensions.map(({ declaration }) => declaration),

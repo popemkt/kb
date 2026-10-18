@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { present } from "@kb/model";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
-import { addDocsView, writeTrustedExtension } from "@kb/test-kit";
+import { addDocsView, extensionModule, writeTrustedExtension } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Cause, Effect, Exit, Fiber } from "effect";
@@ -278,8 +278,9 @@ describe("MCP Effect surface", () => {
     await writeTrustedExtension(
       root,
       "boom.ts",
-      `import { z } from "zod";
-export default [{
+      extensionModule("boom", {
+        prelude: `import { z } from "zod";`,
+        actions: `[{
   id: "reject",
   title: "Reject",
   description: "test rejecting handler",
@@ -287,8 +288,8 @@ export default [{
   inputSchema: z.object({}),
   outputSchema: z.unknown(),
   handler: async () => { throw new Error("injected-handler-reject"); },
-}];
-`,
+}]`,
+      }),
     );
     resetRegistryCache();
     const server = await Effect.runPromise(createMcpServer(root));

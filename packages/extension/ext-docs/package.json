@@ -13,6 +13,7 @@
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
     "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
     "@kb/views": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"

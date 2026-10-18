@@ -20,7 +20,7 @@
  * page's WebMCP) speak to that one, and none starts a second over the same
  * root.
  */
-import { writeTrustedExtensionEffect } from "./extension-files.ts";
+import { extensionModule, writeTrustedExtensionEffect } from "./extension-files.ts";
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -155,10 +155,11 @@ const MISSING_TAB = "tab.surface-contract-missing";
  * Writes with no side effect and a fixed output, so that receipts from
  * different surfaces can be compared: one that requires approval, and two
  * plain ones for the policies to decide. Their schemas are bare `{parse}`
- * objects, so the module imports nothing and loads from any scratch
- * directory.
+ * objects, so the module imports nothing but the SDK and loads from any
+ * scratch directory.
  */
-const GATED_EXTENSION = `const passthrough = { parse: (input) => input ?? {} };
+const GATED_EXTENSION = extensionModule("gated", {
+  prelude: `const passthrough = { parse: (input) => input ?? {} };
 const write = (id, output, mode = { kind: "write" }) => ({
   id,
   title: id,
@@ -167,13 +168,13 @@ const write = (id, output, mode = { kind: "write" }) => ({
   inputSchema: passthrough,
   outputSchema: passthrough,
   handler: async () => output,
-});
-export default [
+});`,
+  actions: `[
   write("stamp", { stamped: true }, { kind: "write", approval: "required" }),
   write("blocked", { blocked: false }),
   write("checked", { checked: true }),
-];
-`;
+]`,
+});
 
 /**
  * The root's policies, beside the seeded defaults: a denial for everyone, an

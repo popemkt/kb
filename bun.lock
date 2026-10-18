@@ -333,6 +333,7 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -712,6 +713,7 @@
         "@kb/check": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
       },
@@ -726,6 +728,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "@kb/views": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
@@ -848,6 +851,7 @@
         "@kb/locations": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {

@@ -200,9 +200,9 @@ Rules for agents:
 Core is mechanism only (store, datalog, plugin kernel, subscriptions, render
 backbone). Repo-specific policy lives in extensions, and every extension —
 bundled or `.kb/extensions/*.ts` — loads as a plugin into the one
-`@kb/plugin` kernel. A default-exported array of contributions is not a
-second mechanism: it is the declarative form of a plugin, bridged into one
-by the loader. Points, namespacing, aliases and failure handling are stated
+`@kb/plugin` kernel. A repository extension is a family as a bundled one
+is, a declaration and its plugin, from trusted bytes in the root rather
+than the build. Points, namespacing, aliases and failure handling are stated
 once, in `DESIGN.md` →
 [Core boundary & extensions](DESIGN.md#core-boundary--extensions).
 

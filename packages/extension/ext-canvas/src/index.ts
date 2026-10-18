@@ -1,7 +1,14 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx, extensionPlugin, type ExtensionAction, type KbStore } from "@kb/contracts";
+import {
+  ActionPoint,
+  KbCtx,
+  extensionNamespace,
+  provideAction,
+  type ExtensionAction,
+  type KbStore,
+} from "@kb/contracts";
 import { canvasExtension, canvasPlugin } from "@kb/canvas";
 import { definePlugin } from "@kb/plugin";
 import { canvasCameraMigrate } from "./camera-migrate.ts";
@@ -115,16 +122,22 @@ const actions: ExtensionAction[] = [
   canvasCameraMigrate,
 ];
 
-/** The family's actions, `ext.canvas.*`, as the plugin that contributes them. */
-const canvasActions = extensionPlugin({ name: canvasExtension.name, actions, templates: [] });
-
 /**
  * The canvas family's server entry, named by the family's declaration: its
  * actions, with the family's shared plugin (its views) loaded as a child, as
  * the page's entry loads it beside the surfaces.
  */
 export const canvasServerPlugin = definePlugin({
-  ...canvasActions,
+  name: canvasExtension.name,
+  namespace: extensionNamespace(canvasExtension.name),
   apply: (ctx) =>
-    Effect.all([canvasActions.apply(ctx), ctx.plugin(canvasPlugin())], { discard: true }),
+    Effect.all(
+      [
+        Effect.forEach(actions, (action) => ctx.contribute(ActionPoint, provideAction(action)), {
+          discard: true,
+        }),
+        ctx.plugin(canvasPlugin()),
+      ],
+      { discard: true },
+    ),
 });

@@ -1,18 +1,20 @@
 /**
- * Public type surface for external `.kb/extensions/*.ts` authors.
+ * Public type surface for external `.kb/extensions/*.ts` authors: the
+ * module `kb-ext-sdk`, whose values are the host's own (`EXTENSION_SDK` in
+ * `@kb/contracts`), so a repository extension builds its declaration and
+ * its plugin as a bundled family does.
  *
- * Self-contained (no Effect/zod imports) so `scripts/gen-ext-sdk.ts` can emit
- * a standalone ambient `declare module "kb-ext-sdk"` that travels inside the
- * CLI bundle. Internal runtime types must stay assignable to these shapes —
- * `tests/surface-bridge.test.ts` holds the shared vocabularies equal at the
- * type level, and the CLI's `tests/ext-sdk-fresh.test.ts` compiles an author
- * fixture against the emitted module.
+ * Self-contained but for `effect`, the plugin model's own types, so
+ * `scripts/generate.ts` can emit a standalone ambient
+ * `declare module "kb-ext-sdk"` that travels inside the CLI bundle. Internal
+ * runtime types must stay assignable to these shapes —
+ * `tests/surface-bridge.test.ts` holds them so at the type level, and the
+ * CLI's `tests/ext-sdk-fresh.test.ts` compiles an author fixture against the
+ * emitted module.
  *
- * Authors: `kb ext sdk --write`, then
- * `import type { ExtensionAction, ExtensionDeclaration, ExtensionTemplate } from "kb-ext-sdk"`.
- * Prefer Promise `handler`s; the `effect` branch is typed for completeness
- * but Effect v4 remains an internal/bundled concern.
+ * Authors: `kb ext sdk --write`, then `import { definePlugin, … } from "kb-ext-sdk"`.
  */
+import type * as effect from "effect";
 
 /**
  * What invoking the action does. A `read` changes nothing. A `write` may
@@ -89,11 +91,19 @@ export interface ParsableSchema {
 /** Accept Standard Schema v1 or any object exposing `.parse` (zod). */
 export type ActionSchema = StandardSchemaV1Like | ParsableSchema;
 
+/** A failure an action names by its code (`FailureCode`): what its receipt reports. */
+export interface CodedError extends Error {
+  readonly code: FailureCode;
+  readonly details?: unknown;
+}
+
 /**
- * Opaque Effect-shaped handler. External authors should use Promise
- * {@link ExtensionPromiseHandler} instead.
+ * Effect-native handler: its input is what `inputSchema` produced, and it
+ * fails with a {@link CodedError}. It requires no service: what a bundled
+ * family reads from the invoke tip's services, a repository extension
+ * reaches with the owner's power directly.
  */
-export type ActionEffectHandler = (input: never) => unknown;
+export type ActionEffectHandler = (input: never) => effect.Effect.Effect<unknown, CodedError>;
 
 export interface ActionDefinition<
   TIn extends ActionSchema = ActionSchema,
@@ -150,8 +160,8 @@ export type ExtensionAction = ActionDefinition & {
 /**
  * Render templates: named functions (query rows -> markdown) that a docs
  * view node (`sys.f.view.template`) references by id. Contributed exactly like
- * an action — same default-exported array, same `ext.<file>.<id>`
- * namespacing, same optional bare-id `aliases`. Must be deterministic.
+ * an action ({@link provideTemplate}), with the same `ext.<name>.<id>`
+ * namespacing and optional bare-id `aliases`. Must be deterministic.
  */
 export interface TemplateContext {
   nodes: Map<NodeId, KbNode>;
@@ -162,25 +172,148 @@ export interface TemplateContext {
 export type TemplateFn = (rows: unknown[][], ctx: TemplateContext) => string;
 
 export interface ExtensionTemplate {
-  /** Local id; the registry namespaces it as `ext.<file>.<id>`. */
+  /** Local id; the plugin's namespace makes it `ext.<name>.<id>`. */
   id: string;
   /** Extra top-level ids this template also answers to (compat shims). */
   aliases?: readonly string[];
   template: TemplateFn;
 }
 
-/** One entry of an extension module's default-exported array. */
-export type ExtensionContribution = ExtensionAction | ExtensionTemplate;
+/** A key a plugin provides or injects a service by. Compared by identity: made once, by its owner. */
+export interface ServiceKey<S> {
+  readonly kind: "service";
+  readonly name: string;
+  readonly "~type"?: S;
+}
+
+/** A place contributions collect, each under an id unique within it. Compared by identity. */
+export interface PointKey<C> {
+  readonly kind: "point";
+  readonly name: string;
+  readonly "~type"?: C;
+}
+
+/** What a plugin hands a point: a local id, optional absolute aliases, the value. */
+export interface ContributionEntry<C> {
+  readonly id: string;
+  readonly aliases?: readonly string[];
+  readonly value: C;
+}
+
+/** A contribution as a point holds it: namespaced id, and who contributed it. */
+export interface Contribution<C> {
+  readonly id: string;
+  readonly aliases: readonly string[];
+  readonly owner: string;
+  readonly value: C;
+}
+
+/** Why the kernel refused something, naming the plugin it was about. */
+export type PluginErrorReason =
+  | "name-taken"
+  | "service-conflict"
+  | "contribution-conflict"
+  | "key-mismatch"
+  | "not-injected"
+  | "apply-failed"
+  | "not-loaded";
+
+export interface PluginError extends effect.Cause.YieldableError {
+  readonly _tag: "Kb/PluginError";
+  readonly plugin: string;
+  readonly reason: PluginErrorReason;
+}
+
+export interface PluginHandle {
+  readonly name: string;
+  readonly unload: effect.Effect.Effect<void>;
+}
 
 /**
- * What an extension module declares of itself, as its `declaration` export,
- * the way a bundled family declares itself. The store it lives in seeds its
- * node, `sys.extension.<name>`, filed under `sys.extensions`, and every node
+ * A plugin's handle on the kernel. Everything registered through it —
+ * services, contributions, children — is undone when the plugin unloads.
+ */
+export interface PluginContext {
+  readonly name: string;
+  /** Prefix of this plugin's contribution ids; `""` is the root namespace. */
+  readonly namespace: string;
+  /** A service this plugin declared in `inject`. */
+  get<S>(key: ServiceKey<S>): effect.Effect.Effect<S, PluginError>;
+  provide<S>(key: ServiceKey<S>, impl: S): effect.Effect.Effect<void, PluginError>;
+  contribute<C>(
+    point: PointKey<C>,
+    entry: ContributionEntry<C>,
+  ): effect.Effect.Effect<Contribution<C>, PluginError>;
+  /** Load a child plugin; it unloads with this one and shares its namespace by default. */
+  plugin(child: Plugin): effect.Effect.Effect<PluginHandle, PluginError>;
+}
+
+/**
+ * A plugin is a value: a family's server entry and its page entry are each
+ * one. Its `name` is its family's (`declaration.name`).
+ */
+export interface Plugin {
+  readonly name: string;
+  /** Contribution id prefix: a family's server entry contributes in `ext.<name>` ({@link extensionNamespace}). */
+  readonly namespace?: string;
+  /** Services that must exist before `apply` runs; the plugin waits until they do. */
+  readonly inject?: readonly ServiceKey<unknown>[];
+  /** Runs with the plugin's scope as `Scope`: `acquireRelease` in here is released on unload. */
+  readonly apply: (
+    ctx: PluginContext,
+  ) => effect.Effect.Effect<void, PluginError, effect.Scope.Scope>;
+}
+
+/** The families of views a host chooses between by config. */
+export type ViewFamily = "graph.renderer" | "outline.frame";
+
+/** How a key stores its params on a view node: read from props, written back to them. */
+export interface ViewConfigCodec<P> {
+  read(
+    props: Record<NodeId, PropValue[]>,
+    host: string | null,
+    report: (warning: string) => void,
+  ): unknown;
+  write(params: P): Record<NodeId, PropValue[]>;
+}
+
+/**
+ * A view's name and the params it renders from (`<namespace>.<local id>`,
+ * its family's name first). Made once with {@link viewKey} and compared by
+ * identity, so the page half and the declaration import the one key.
+ */
+export interface ViewKey<P> {
+  readonly kind: "view";
+  readonly id: `${string}.${string}`;
+  readonly label: string;
+  readonly params: effect.Schema.Decoder<P>;
+  /** The family of views a host chooses between, for a view that is one of them. */
+  readonly family?: ViewFamily;
+  readonly option: string;
+  readonly config: ViewConfigCodec<P>;
+  readonly events: readonly string[];
+}
+
+/** How a view says itself on a surface that shows text, from the settings its key read. */
+export interface ViewText<P> {
+  body(ctx: KbContext, params: P, host: KbNode | null): readonly string[];
+  figure?(ctx: KbContext, params: P, host: KbNode | null): effect.Effect.Effect<string | null>;
+}
+
+/** One view a family provides: its key, which names its option in the seed, and its text. */
+export interface ViewDef<P> {
+  readonly key: ViewKey<P>;
+  readonly text?: ViewText<P>;
+}
+
+/**
+ * What a family declares of itself, the way a bundled family does: its
+ * module's `declaration` export. The store it lives in seeds its node,
+ * `sys.extension.<name>`, filed under `sys.extensions`, and every node
  * `seed` returns; a field node whose `sys.f.configures` refers to that node
  * is one of its settings. With `optional`, it can be switched, and is
- * `byDefault` in a store where no one has switched it. A module that
- * exports none is declared by its name alone: required, labelled by its
- * name, seeding nothing.
+ * `byDefault` in a store where no one has switched it. The views it
+ * provides each get an option node under `sys.views`.
  */
 export interface ExtensionDeclaration {
   /** The module's file name without `.ts`: its `ext.<name>` namespace and its node's name. */
@@ -189,22 +322,47 @@ export interface ExtensionDeclaration {
   readonly optional?: { readonly byDefault: "on" | "off" };
   /** Its system nodes under frozen ids, stamped `at`. */
   readonly seed?: (at: string) => readonly KbNode[];
+  /** The views it provides; its entries contribute exactly these (`declarationPlugin`). */
+  readonly views?: readonly ViewDef<unknown>[];
 }
 
-export interface LoadedExtension {
-  /** File basename without `.ts`; becomes the `ext.<name>.` namespace. */
-  name: string;
-  /** "bundled" or the absolute path of the source module. */
-  source: string;
-  /** Its `declaration` export, or the declaration of its name alone. */
-  declaration: ExtensionDeclaration;
-  /** Actions as authored (ids still local, un-namespaced). */
-  actions: readonly ExtensionAction[];
-  /** Templates as authored (ids still local, un-namespaced). */
-  templates: readonly ExtensionTemplate[];
+/** An action as a plugin contributes it to {@link ActionPoint}: the id is the contribution's. */
+export interface ActionContribution extends Omit<ActionDefinition, "id" | "effect"> {
+  readonly effect?: ActionEffectHandler;
+  readonly handler?: ExtensionPromiseHandler;
 }
 
-export interface ExtensionFailure {
-  file: string;
-  error: string;
-}
+/** The params of a view that renders from nothing but the store. */
+export type NoParams = { readonly [key: string]: never };
+
+/** The host's Effect, which a plugin's `apply` and an action's `effect` are written in. */
+export declare const Effect: typeof effect.Effect;
+/** The host's Schema, which a view key's params are written in. */
+export declare const Schema: typeof effect.Schema;
+export declare function definePlugin(plugin: Plugin): Plugin;
+export declare function defineExtension(declaration: ExtensionDeclaration): ExtensionDeclaration;
+/** What every host loads of a declaration: its views, contributed under their ids. */
+export declare function declarationPlugin(declaration: ExtensionDeclaration): Plugin;
+/** `ext.<name>`: the namespace a family's server entry contributes in. */
+export declare function extensionNamespace(name: string): string;
+export declare function Point<C>(): (name: string) => PointKey<C>;
+export declare function Service<S>(): (name: string) => ServiceKey<S>;
+/** Every action any loaded plugin offers. */
+export declare const ActionPoint: PointKey<ActionContribution>;
+/** Every render template, by the id a view spec names it with. */
+export declare const TemplatePoint: PointKey<TemplateFn>;
+/** Every view a loaded plugin provides, by view id. */
+export declare const ViewKeyPoint: PointKey<ViewDef<unknown>>;
+export declare function provideAction(
+  action: ExtensionAction,
+): ContributionEntry<ActionContribution>;
+export declare function provideTemplate(template: ExtensionTemplate): ContributionEntry<TemplateFn>;
+export declare function viewKey<P>(
+  id: `${string}.${string}`,
+  label: string,
+  params: effect.Schema.Decoder<P>,
+  config?: ViewConfigCodec<P>,
+  declares?: { readonly events?: readonly string[] },
+): ViewKey<P>;
+export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
+export declare const NoParams: effect.Schema.Decoder<NoParams>;

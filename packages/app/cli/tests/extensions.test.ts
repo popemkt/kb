@@ -7,7 +7,7 @@ import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } f
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { kbManifestDef } from "@kb/operations";
 import { main } from "../src/cli.ts";
-import { writeTrustedExtension } from "@kb/test-kit";
+import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve
 // "zod" through the workspace's node_modules.
@@ -25,9 +25,9 @@ afterEach(async () => {
   resetRegistryCache();
 });
 
-const HELLO_EXT = `import { z } from "zod";
-
-const actions = [
+const HELLO_EXT = extensionModule("hello", {
+  prelude: `import { z } from "zod";`,
+  actions: `[
   {
     id: "greet",
     title: "Greet",
@@ -37,9 +37,8 @@ const actions = [
     outputSchema: z.object({ message: z.string() }),
     handler: async (_ctx, input) => ({ message: \`hello \${input.name}\` }),
   },
-];
-export default actions;
-`;
+]`,
+});
 
 /** A repository extension its owner wrote and trusted. */
 async function writeExtension(root: string, file: string, content: string): Promise<void> {
@@ -110,7 +109,7 @@ describe("extension loading", () => {
   test("broken extension warns + skips; core and other extensions survive", async () => {
     const root = await tempRoot();
     await writeExtension(root, "broken.ts", 'throw new Error("boom");\n');
-    await writeExtension(root, "shapeless.ts", "export default { not: 'an array' };\n");
+    await writeExtension(root, "shapeless.ts", "export default { not: 'a plugin' };\n");
     await writeExtension(root, "hello.ts", HELLO_EXT);
     const ctx = await openKb(root);
 

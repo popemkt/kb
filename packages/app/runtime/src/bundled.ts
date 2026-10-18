@@ -29,8 +29,10 @@ import { themesPlugin } from "@kb/themes";
 
 /**
  * Each declaration paired with the entry of the same name, in the
- * declarations' order. A family with no entry, or an entry that names no
- * family, is a bundling defect no store can repair, so it throws.
+ * declarations' order: the one rule a family's server entry is matched to
+ * its declaration by, bundled or a repository extension's. A family with no
+ * entry, or an entry that names no family, throws: for the bundled list a
+ * bundling defect no store can repair, for a repository module a refusal.
  */
 export function serverEntriesFor(
   declarations: readonly ExtensionDeclaration[],
@@ -40,13 +42,13 @@ export function serverEntriesFor(
   const paired = declarations.map((declaration) => {
     const entry = unmatched.get(declaration.name);
     if (entry === undefined) {
-      throw new Error(`bundled family ${declaration.name} has no server entry`);
+      throw new Error(`family ${declaration.name} has no server entry`);
     }
     unmatched.delete(declaration.name);
     return { declaration, entry };
   });
   if (unmatched.size > 0) {
-    throw new Error(`server entries ${[...unmatched.keys()].join(", ")} name no bundled family`);
+    throw new Error(`server entries ${[...unmatched.keys()].join(", ")} name no family`);
   }
   return paired;
 }

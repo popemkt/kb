@@ -9,7 +9,14 @@
  * with the family's actions. It is optional and on by default.
  */
 import { Effect } from "effect";
-import { declarationPlugin, defineExtension, extensionPlugin, viewDef } from "@kb/contracts";
+import {
+  ActionPoint,
+  declarationPlugin,
+  defineExtension,
+  extensionNamespace,
+  provideAction,
+  viewDef,
+} from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { GRAPH_ACTIONS } from "./actions.ts";
 import { graphSeedNodes } from "./seed.ts";
@@ -66,13 +73,20 @@ export function graphPlugin(): Plugin {
  * the page answers the same reads by calling `read.ts` over its replica.
  */
 export function graphServerPlugin(): Plugin {
-  const actions = extensionPlugin({
-    name: graphExtension.name,
-    actions: GRAPH_ACTIONS,
-    templates: [],
-  });
   return definePlugin({
-    ...actions,
-    apply: (ctx) => Effect.all([actions.apply(ctx), ctx.plugin(graphPlugin())], { discard: true }),
+    name: graphExtension.name,
+    namespace: extensionNamespace(graphExtension.name),
+    apply: (ctx) =>
+      Effect.all(
+        [
+          Effect.forEach(
+            GRAPH_ACTIONS,
+            (action) => ctx.contribute(ActionPoint, provideAction(action)),
+            { discard: true },
+          ),
+          ctx.plugin(graphPlugin()),
+        ],
+        { discard: true },
+      ),
   });
 }

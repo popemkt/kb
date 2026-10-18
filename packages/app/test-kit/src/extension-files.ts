@@ -12,6 +12,58 @@ import { bunFileSystemLayer } from "@kb/runtime";
 import { extensionDigest } from "@kb/sandbox";
 import { codeTrustLayer } from "@kb/workspace-fs";
 
+/** What {@link extensionModule} writes beside the module's own lines. */
+export interface ExtensionModuleParts {
+  /** Lines before the module's own: imports, helpers. */
+  readonly prelude?: string;
+  /** The declaration, as a JavaScript expression; by default the name alone. */
+  readonly declaration?: string;
+  /** The actions its server entry contributes, as a JavaScript array expression. */
+  readonly actions?: string;
+  /** The templates its server entry contributes, as a JavaScript array expression. */
+  readonly templates?: string;
+}
+
+/**
+ * A repository extension's module named `name`, as its author writes one
+ * against `kb-ext-sdk`: its declaration, and its server entry contributing
+ * `actions` and `templates` in `ext.<name>`.
+ */
+export function extensionModule(name: string, parts: ExtensionModuleParts = {}): string {
+  const declaration = parts.declaration ?? JSON.stringify({ name, label: name });
+  return `${parts.prelude ?? ""}
+import {
+  ActionPoint,
+  Effect,
+  TemplatePoint,
+  defineExtension,
+  definePlugin,
+  extensionNamespace,
+  provideAction,
+  provideTemplate,
+} from "kb-ext-sdk";
+export const declaration = defineExtension(${declaration});
+const actions = ${parts.actions ?? "[]"};
+const templates = ${parts.templates ?? "[]"};
+export default definePlugin({
+  name: declaration.name,
+  namespace: extensionNamespace(declaration.name),
+  apply: (ctx) =>
+    Effect.all(
+      [
+        Effect.forEach(actions, (action) => ctx.contribute(ActionPoint, provideAction(action)), {
+          discard: true,
+        }),
+        Effect.forEach(templates, (template) => ctx.contribute(TemplatePoint, provideTemplate(template)), {
+          discard: true,
+        }),
+      ],
+      { discard: true },
+    ),
+});
+`;
+}
+
 /** Write `.kb/extensions/<file>` under `root` with `source`, without trusting it. */
 export const writeExtensionEffect = Effect.fn("test.writeExtension")(function* (
   root: string,

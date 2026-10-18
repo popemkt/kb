@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { writeTrustedExtension } from "@kb/test-kit";
+import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
 import { present } from "@kb/model";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -88,9 +88,9 @@ describe("Effect-native action registry", () => {
     await writeTrustedExtension(
       root,
       "liar.ts",
-      `import { z } from "zod";
-import { Effect } from "effect";
-const actions = [
+      extensionModule("liar", {
+        prelude: `import { z } from "zod";`,
+        actions: `[
   {
     id: "native",
     title: "Native liar",
@@ -109,9 +109,8 @@ const actions = [
     outputSchema: z.object({ count: z.number() }),
     handler: async () => ({ count: "not a number" }),
   },
-];
-export default actions;
-`,
+]`,
+      }),
     );
 
     const ctx = await openKb(root);
@@ -132,9 +131,9 @@ export default actions;
     await writeTrustedExtension(
       root,
       "extra.ts",
-      `import { z } from "zod";
-import { Effect } from "effect";
-const actions = [
+      extensionModule("extra", {
+        prelude: `import { z } from "zod";`,
+        actions: `[
   {
     id: "surplus",
     title: "Surplus",
@@ -144,9 +143,8 @@ const actions = [
     outputSchema: z.object({ kept: z.string() }),
     effect: () => Effect.succeed({ kept: "yes", undeclared: "no" }),
   },
-];
-export default actions;
-`,
+]`,
+      }),
     );
 
     const ctx = await openKb(root);
@@ -164,8 +162,9 @@ export default actions;
     await writeTrustedExtension(
       root,
       "legacy.ts",
-      `import { z } from "zod";
-const actions = [
+      extensionModule("legacy", {
+        prelude: `import { z } from "zod";`,
+        actions: `[
   {
     id: "ok",
     title: "Ok",
@@ -188,9 +187,8 @@ const actions = [
       throw err;
     },
   },
-];
-export default actions;
-`,
+]`,
+      }),
     );
 
     const ctx = await openKb(root);
@@ -293,11 +291,10 @@ export default actions;
     await writeTrustedExtension(
       root,
       "slow.ts",
-      `import { Effect } from "effect";
-import { FileSystem } from "effect/FileSystem";
-import { z } from "zod";
-
-const actions = [
+      extensionModule("slow", {
+        prelude: `import { writeFile } from "node:fs/promises";
+import { z } from "zod";`,
+        actions: `[
   {
     id: "sleep",
     title: "Sleep",
@@ -310,18 +307,16 @@ const actions = [
     outputSchema: z.object({ ok: z.boolean() }),
     effect: (input) =>
       Effect.gen(function* () {
-        const fs = yield* FileSystem;
         yield* Effect.addFinalizer(() =>
-          fs.writeFileString(input.marker, "finalized").pipe(Effect.orDie),
+          Effect.promise(() => writeFile(input.marker, "finalized")),
         );
         yield* Effect.sleep("30 seconds");
-        yield* fs.writeFileString(input.late, "should-not-land");
+        yield* Effect.promise(() => writeFile(input.late, "should-not-land"));
         return { ok: true };
       }),
   },
-];
-export default actions;
-`,
+]`,
+      }),
     );
 
     const ctx = await openKb(root);
@@ -352,9 +347,10 @@ export default actions;
     await writeTrustedExtension(
       root,
       "gate.ts",
-      `import { writeFile } from "node:fs/promises";
-import { z } from "zod";
-export default [
+      extensionModule("gate", {
+        prelude: `import { writeFile } from "node:fs/promises";
+import { z } from "zod";`,
+        actions: `[
   {
     id: "stamp",
     title: "Stamp",
@@ -367,8 +363,8 @@ export default [
       return { ok: true };
     },
   },
-];
-`,
+]`,
+      }),
     );
 
     const ctx = await openKb(root);

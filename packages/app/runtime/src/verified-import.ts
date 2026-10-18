@@ -12,6 +12,24 @@
  * specifier whose query holds a colon from disk, past every hook.
  */
 import { Effect } from "effect";
+import { EXTENSION_SDK } from "@kb/contracts";
+
+/** The modules an extension imports from its host rather than carries: the SDK, as the host's own objects. */
+export const HOST_MODULES: ReadonlySet<string> = new Set(["kb-ext-sdk"]);
+
+let hostServed = false;
+
+/** Serve each host module to every import in this process, once. */
+function serveHostModules(): void {
+  if (hostServed) return;
+  hostServed = true;
+  Bun.plugin({
+    name: "kb-host-modules",
+    setup(build) {
+      build.module("kb-ext-sdk", () => ({ exports: { ...EXTENSION_SDK }, loader: "object" }));
+    },
+  });
+}
 
 const escaped = (text: string) => text.replaceAll(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 
@@ -42,6 +60,7 @@ export const importVerified = Effect.fn("kb.importVerified")(function* (
   digest: string,
 ): Effect.fn.Return<unknown, string> {
   const specifier = `${realPath}?digest=${digest.slice(digest.indexOf(":") + 1)}`;
+  serveHostModules();
   serve(specifier, source);
   return yield* Effect.tryPromise({
     try: () => import(specifier) as Promise<unknown>,

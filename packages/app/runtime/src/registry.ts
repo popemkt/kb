@@ -17,6 +17,7 @@ import {
   type ExtensionFailure,
   type ExtensionRow,
   type KbContext,
+  type LoadedExtension,
   type ManifestEntry,
   type TemplateFn,
   type ViewDef,
@@ -31,7 +32,7 @@ import {
 } from "@kb/operations";
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
-import { resetRootFamilies, rootFamilies, type RootFamily } from "./families.ts";
+import { resetRootFamilies, rootFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
@@ -205,8 +206,8 @@ export const unloadBrokenBatches = Effect.fnUntraced(function* (
  * (`refused`), and leaves nothing behind.
  */
 const buildRegistry = Effect.fnUntraced(function* (
-  families: readonly RootFamily[],
-  on: readonly RootFamily[],
+  families: readonly LoadedExtension[],
+  on: readonly LoadedExtension[],
   refused: readonly ExtensionFailure[],
 ): Effect.fn.Return<Registry> {
   const kernel = makeKernel();

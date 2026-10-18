@@ -13,6 +13,7 @@ import { Effect } from "effect";
 import { FIELD_TYPE_OPTION_IDS, SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import {
   extensionContract,
+  extensionModule,
   writeExtension,
   writeTrustedExtension,
   type SwitchingHost,
@@ -26,8 +27,8 @@ import { openKb } from "../src/session.ts";
 const SETTING = "sys.f.fixture.greeting";
 
 /** The fixture: an optional family with one setting on its node and one template. */
-const FIXTURE = `
-export const declaration = {
+const FIXTURE = extensionModule("fixture", {
+  declaration: `{
   name: "fixture",
   label: "Fixture",
   optional: { byDefault: "on" },
@@ -45,9 +46,9 @@ export const declaration = {
       updatedAt: at,
     },
   ],
-};
-export default [{ id: "hello", template: () => "hello" }];
-`;
+}`,
+  templates: `[{ id: "hello", template: () => "hello" }]`,
+});
 
 /** A fresh root whose `.kb/extensions` holds `modules`, by file name, each trusted here. */
 async function rootWith(modules: Record<string, string>): Promise<string> {
@@ -133,8 +134,7 @@ describe("a repository extension's node", () => {
   test("a module whose declaration does not fold is refused, and the store still opens", async () => {
     resetRegistryCache();
     const root = await rootWith({
-      "graph.ts":
-        'export const declaration = { name: "graph", label: "Mine" };\nexport default [];\n',
+      "graph.ts": extensionModule("graph", { declaration: '{ name: "graph", label: "Mine" }' }),
     });
     try {
       const { families, failures } = await Effect.runPromise(

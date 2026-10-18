@@ -9,12 +9,12 @@ import { bunFileSystemLayer } from "../src/platform.ts";
 import { invoke } from "../src/invoke.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
-import { writeTrustedExtension } from "@kb/test-kit";
+import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
 
 /**
  * The template seam: a `.kb/extensions/*.ts` module contributes a render
- * template exactly the way it contributes an action — default-exported
- * definition, namespaced `ext.<file>.<template>`, resolved by the registry —
+ * template exactly the way it contributes an action — to its point from its
+ * server entry, namespaced `ext.<file>.<template>`, resolved by the registry —
  * and `docs.materialize` renders a view through it.
  */
 
@@ -24,7 +24,8 @@ const NODE_ID = "01TESTNODESHOUT00000000000";
 const SHOUT_QUERY =
   '[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text "shoutable"] [?tag :f/sys.f.type ?tagType] [?tagType :node/id "sys.tag"] [?n :node/id ?id]]';
 
-const SHOUT_EXTENSION = `const shout = {
+const SHOUT_EXTENSION = extensionModule("loud", {
+  prelude: `const shout = {
   id: "shout",
   template(rows, ctx) {
     const lines = rows
@@ -33,10 +34,9 @@ const SHOUT_EXTENSION = `const shout = {
       .map((text) => "- " + text);
     return ["# Shout", "", ...lines].join("\\n");
   },
-};
-
-export default [shout];
-`;
+};`,
+  templates: "[shout]",
+});
 
 let roots: string[] = [];
 

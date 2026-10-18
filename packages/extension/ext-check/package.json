@@ -14,6 +14,7 @@
     "@kb/check": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },

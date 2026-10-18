@@ -1,28 +1,23 @@
-import { Effect, Predicate, Result } from "effect";
+import { Effect, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { dirname, extname, join, sep } from "node:path";
-import { decodeContribution, decodeDeclaration, isTemplateContribution } from "@kb/ext-sdk";
-import {
-  CodeTrust,
-  type ExtensionAction,
-  type ExtensionFailure,
-  type ExtensionTemplate,
-  type LoadedExtension,
-} from "@kb/contracts";
+import { decodeExtensionModule } from "@kb/ext-sdk";
+import { CodeTrust, type ExtensionFailure, type LoadedExtension } from "@kb/contracts";
 import { extensionDigest } from "@kb/sandbox";
-import { importVerified } from "./verified-import.ts";
+import { serverEntriesFor } from "./bundled.ts";
+import { HOST_MODULES, importVerified } from "./verified-import.ts";
 
 /**
  * Extension loader: discovers, imports and validates the TS modules in
- * `.kb/extensions/` against the extension contract. Each file becomes one
- * plugin (`extensionPlugin`), so its ids are namespaced `ext.<file>.<id>` by
- * the kernel like every other plugin's, and carries its declaration
- * (`decodeDeclaration`), so it is a family like a bundled one. Loader failures
- * warn and skip the offending file/contribution; they never crash core.
+ * `.kb/extensions/`. Each one is a family as a bundled one is: its
+ * declaration and its server entry, paired by name as a bundled family's
+ * are (`serverEntriesFor`). Loader failures warn and skip the offending
+ * file; they never crash core.
  *
- * What a contribution must look like is @kb/ext-sdk's contract, decoded by
- * `decodeContribution` — this file's job is discovery and the per-file error
- * report, not a second copy of the shape.
+ * What a module must export is @kb/ext-sdk's contract, decoded by
+ * `decodeExtensionModule` — this file's job is discovery and the per-file
+ * error report, not a second copy of the shape. What a module imports from
+ * kb itself (`kb-ext-sdk`) is the host's (`HOST_MODULES`).
  *
  * A repository extension runs with the server's reach, so a file is imported
  * only once a person has trusted it on this machine: its digest
@@ -142,6 +137,7 @@ const rootCarriedImport = Effect.fn("kb.rootCarriedImport")(function* (
       return `loads ${from}, whose imports cannot be read, so what it loads is not known`;
     }
     for (const specifier of imports) {
+      if (HOST_MODULES.has(specifier)) continue;
       const file = resolved(specifier, dirname(from));
       if (file === null) {
         if (from === path) return `imports ${specifier}, which does not resolve from it`;
@@ -208,9 +204,9 @@ const trustedFiles = Effect.fn("kb.trustedExtensions")(function* (
 });
 
 /**
- * Discover and import the trusted `.kb/extensions/*.ts`. Per-file and
- * per-contribution failures, untrusted files among them, are collected (and
- * skipped); valid contributions load normally.
+ * Discover and import the trusted `.kb/extensions/*.ts`. Per-file
+ * failures, untrusted files among them, are collected (and skipped); every
+ * other module is a family.
  */
 export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
   root: string,
@@ -253,42 +249,21 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
       failures.push({ file, error: loaded.error });
       continue;
     }
-    const declared = decodeDeclaration(
-      Predicate.isObject(loaded.mod) ? loaded.mod.declaration : undefined,
-      name,
-    );
-    if (Result.isFailure(declared)) {
-      failures.push({ file, error: declared.failure });
+    const decoded = decodeExtensionModule(loaded.mod, name);
+    if (Result.isFailure(decoded)) {
+      failures.push({ file, error: decoded.failure });
       continue;
     }
-    const exported = Predicate.isObject(loaded.mod) ? loaded.mod.default : undefined;
-    if (!Array.isArray(exported)) {
-      failures.push({
-        file,
-        error:
-          "default export must be an array of contributions " +
-          "({...ActionDefinition, effect|handler} or {id, template})",
-      });
+    const { declaration, entry } = decoded.success;
+    const paired = Result.try({
+      try: () => serverEntriesFor([declaration], [entry]),
+      catch: (error) => (error instanceof Error ? error.message : String(error)),
+    });
+    if (Result.isFailure(paired)) {
+      failures.push({ file, error: paired.failure });
       continue;
     }
-    const actions: ExtensionAction[] = [];
-    const templates: ExtensionTemplate[] = [];
-    for (const candidate of exported) {
-      const decoded = decodeContribution(candidate);
-      if (Result.isFailure(decoded)) {
-        failures.push({ file, error: decoded.failure });
-        continue;
-      }
-      const contribution = decoded.success;
-      if (isTemplateContribution(contribution)) templates.push(contribution);
-      else actions.push(contribution);
-    }
-    // A module that declares itself is an extension even with nothing to
-    // contribute yet: its node and its settings are data.
-    const declares = Predicate.isObject(loaded.mod) && loaded.mod.declaration !== undefined;
-    if (actions.length > 0 || templates.length > 0 || declares) {
-      extensions.push({ name, source: path, declaration: declared.success, actions, templates });
-    }
+    extensions.push({ declaration, entry, source: path });
   }
   return { extensions, failures };
 });

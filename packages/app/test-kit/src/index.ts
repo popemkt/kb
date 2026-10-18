@@ -33,6 +33,7 @@ export { FakeModelContext } from "./fake-model-context.ts";
 export { FAKE_TAB_SCREEN, FakeTab } from "./fake-tab.ts";
 export type { ChannelFrame, FakeTabAnswer } from "./fake-tab.ts";
 export {
+  extensionModule,
   trustExtension,
   trustExtensionEffect,
   writeExtension,
@@ -40,3 +41,4 @@ export {
   writeTrustedExtension,
   writeTrustedExtensionEffect,
 } from "./extension-files.ts";
+export type { ExtensionModuleParts } from "./extension-files.ts";

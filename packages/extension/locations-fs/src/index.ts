@@ -2,7 +2,14 @@
  * The locations family's server entry (DESIGN.md → Locations): its actions
  * with their handlers, `ext.locations.*` with `location.*` aliases.
  */
-import { extensionPlugin, type ExtensionAction } from "@kb/contracts";
+import { Effect } from "effect";
+import {
+  ActionPoint,
+  extensionNamespace,
+  provideAction,
+  type ExtensionAction,
+} from "@kb/contracts";
+import { definePlugin } from "@kb/plugin";
 import {
   locationForgetDef,
   locationListDef,
@@ -24,8 +31,11 @@ const actions: ExtensionAction[] = [
   { ...locationOpenDef, effect: locationOpenEffect },
 ];
 
-export const locationsPlugin = extensionPlugin({
+export const locationsPlugin = definePlugin({
   name: locationsExtension.name,
-  actions,
-  templates: [],
+  namespace: extensionNamespace(locationsExtension.name),
+  apply: (ctx) =>
+    Effect.forEach(actions, (action) => ctx.contribute(ActionPoint, provideAction(action)), {
+      discard: true,
+    }),
 });

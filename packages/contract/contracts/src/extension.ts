@@ -1,23 +1,27 @@
-import { Effect } from "effect";
-import { Point, definePlugin, type Plugin } from "@kb/plugin";
+import { Effect, Schema } from "effect";
+import { NoParams, viewKey } from "@kb/views";
+import { Point, Service, definePlugin, type ContributionEntry } from "@kb/plugin";
 import type { KbContext } from "./session.ts";
 import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
+import { declarationPlugin, defineExtension, type ExtensionEntry } from "./declaration.ts";
 import type { ExtensionTemplate, TemplateFn } from "./template.ts";
-import type { ExtensionDeclaration } from "./declaration.ts";
+import { ViewKeyPoint, viewDef } from "./view-catalog.ts";
 
 /**
- * Extension contract: what a TS module in `.kb/extensions/` (repo-local =
- * trusted) default-exports — an array of contributions. A contribution is
- * either an action (an `ActionDefinition` plus an Effect `effect` handler,
- * preferred, or a legacy Promise `handler`) or a render template
- * ({@link ExtensionTemplate}). The registry namespaces both the same way:
- * `ext.<file>.<id>`, with optional bare-id aliases. Beside it, a module may
- * export its `declaration` (`ExtensionDeclaration`: label, switch, seed), as
- * a bundled family declares itself.
+ * Extension contract: what a family contributes to the points every host
+ * reads. An action is an `ActionDefinition` plus an Effect `effect` handler,
+ * preferred, or a legacy Promise `handler`; a render template is an
+ * {@link ExtensionTemplate}. A family's plugin contributes each under its
+ * local id ({@link provideAction}, {@link provideTemplate}), and its
+ * namespace, `ext.<name>`, makes the id `ext.<name>.<id>`, with optional
+ * bare-id aliases.
  *
- * Such an array is the declarative form of a plugin ({@link extensionPlugin});
- * the loader that discovers, imports and validates the modules lives with the
- * runtime.
+ * A bundled family and a repository extension (`.kb/extensions/<name>.ts`)
+ * are the same thing from two sources: a declaration and the plugin each
+ * host loads for it (DESIGN.md → Core boundary & extensions). A repository
+ * module exports its `declaration` and default-exports its server entry,
+ * built with the host module {@link EXTENSION_SDK}; the loader that
+ * discovers and imports the modules lives with the runtime.
  */
 export type ExtensionPromiseHandler = (ctx: KbContext, input: never) => Promise<unknown>;
 
@@ -35,20 +39,9 @@ export type ExtensionAction = ActionDefinition & {
       }
   );
 
-/** One entry of an extension module's default-exported array. */
-export type ExtensionContribution = ExtensionAction | ExtensionTemplate;
-
-export interface LoadedExtension {
-  /** File basename without `.ts`; becomes the `ext.<name>.` namespace. */
-  name: string;
-  /** "bundled" or the absolute path of the source module. */
-  source: string;
-  /** Its `declaration` export, or the declaration of its name alone. */
-  declaration: ExtensionDeclaration;
-  /** Actions as authored (ids still local, un-namespaced). */
-  actions: readonly ExtensionAction[];
-  /** Templates as authored (ids still local, un-namespaced). */
-  templates: readonly ExtensionTemplate[];
+/** A family as a root composes it: its declaration, its entry, and `bundled` or its module's path. */
+export interface LoadedExtension extends ExtensionEntry {
+  readonly source: string;
 }
 
 export interface ExtensionFailure {
@@ -71,45 +64,43 @@ export const ActionPoint = Point<ActionContribution>()("kb.actions");
 /** Every render template, by the id a view spec names it with. */
 export const TemplatePoint = Point<TemplateFn>()("kb.templates");
 
-/**
- * An extension's contributions, as the plugin that makes them — namespaced
- * `ext.<name>`, each action and template one contribution. The declarative
- * form (a default-exported array) and a bundled extension's lists both load
- * through this, so there is one way an extension enters the kernel.
- */
-export function extensionPlugin(extension: {
-  readonly name: string;
-  readonly actions: readonly ExtensionAction[];
-  readonly templates: readonly ExtensionTemplate[];
-}): Plugin {
-  return definePlugin({
-    name: extension.name,
-    namespace: `ext.${extension.name}`,
-    apply: (ctx) =>
-      Effect.all(
-        [
-          Effect.forEach(
-            extension.actions,
-            (action) =>
-              ctx.contribute(ActionPoint, {
-                id: action.id,
-                aliases: action.aliases,
-                value: action,
-              }),
-            { discard: true },
-          ),
-          Effect.forEach(
-            extension.templates,
-            (template) =>
-              ctx.contribute(TemplatePoint, {
-                id: template.id,
-                aliases: template.aliases,
-                value: template.template,
-              }),
-            { discard: true },
-          ),
-        ],
-        { discard: true },
-      ),
-  });
+/** The namespace a family's plugin contributes in, so its ids read `ext.<name>.<id>`. */
+export function extensionNamespace(name: string): string {
+  return `ext.${name}`;
 }
+
+/** The {@link ActionPoint} contribution for `action`, under its local id. */
+export function provideAction(action: ExtensionAction): ContributionEntry<ActionContribution> {
+  return { id: action.id, aliases: action.aliases, value: action };
+}
+
+/** The {@link TemplatePoint} contribution for `template`, under its local id. */
+export function provideTemplate(template: ExtensionTemplate): ContributionEntry<TemplateFn> {
+  return { id: template.id, aliases: template.aliases, value: template.template };
+}
+
+/**
+ * What a repository extension imports as `kb-ext-sdk`: the plugin model and
+ * the points and keys a bundled family builds with, as the host's own
+ * objects, since the kernel compares keys by identity, and the Effect and
+ * Schema its plugins and view keys are written in. The host serves it; an
+ * extension never carries a copy. Its types are `@kb/ext-sdk`'s surface.
+ */
+export const EXTENSION_SDK = {
+  Effect,
+  Schema,
+  definePlugin,
+  defineExtension,
+  declarationPlugin,
+  extensionNamespace,
+  Point,
+  Service,
+  ActionPoint,
+  TemplatePoint,
+  ViewKeyPoint,
+  provideAction,
+  provideTemplate,
+  viewKey,
+  viewDef,
+  NoParams,
+} as const;

@@ -2,10 +2,19 @@ import { dirname, join } from "node:path";
 import { Effect, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { CoreInvoke, KbCtx, extensionPlugin } from "@kb/contracts";
+import {
+  ActionPoint,
+  CoreInvoke,
+  KbCtx,
+  TemplatePoint,
+  extensionNamespace,
+  provideAction,
+  provideTemplate,
+} from "@kb/contracts";
 import type { ExtensionAction, ExtensionTemplate } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
 import { type DomainError, domainError } from "@kb/model";
+import { definePlugin } from "@kb/plugin";
 import { type DocsView, docsViewNamed, docsViewsOf } from "@kb/views";
 import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
@@ -180,6 +189,23 @@ const templates: ExtensionTemplate[] = [
 ];
 
 /** The docs family's server entry: `ext.docs.*`, with its bare legacy aliases. */
-export const docsPlugin = extensionPlugin({ name: docsExtension.name, actions, templates });
+export const docsPlugin = definePlugin({
+  name: docsExtension.name,
+  namespace: extensionNamespace(docsExtension.name),
+  apply: (ctx) =>
+    Effect.all(
+      [
+        Effect.forEach(actions, (action) => ctx.contribute(ActionPoint, provideAction(action)), {
+          discard: true,
+        }),
+        Effect.forEach(
+          templates,
+          (template) => ctx.contribute(TemplatePoint, provideTemplate(template)),
+          { discard: true },
+        ),
+      ],
+      { discard: true },
+    ),
+});
 export { rules } from "./rules.ts";
 export { todos } from "./todos.ts";

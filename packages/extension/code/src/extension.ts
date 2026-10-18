@@ -9,7 +9,14 @@
  * and on by default.
  */
 import { Effect } from "effect";
-import { declarationPlugin, defineExtension, extensionPlugin, viewDef } from "@kb/contracts";
+import {
+  ActionPoint,
+  declarationPlugin,
+  defineExtension,
+  extensionNamespace,
+  provideAction,
+  viewDef,
+} from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { SCRIPT_LIST } from "./list.ts";
 import { SCRIPT_RUN } from "./run.ts";
@@ -36,13 +43,6 @@ export const codeExtension = defineExtension({
   ],
 });
 
-/** The family's actions, `ext.code.*`: running a script once. */
-const codeActions = extensionPlugin({
-  name: codeExtension.name,
-  actions: [SCRIPT_LIST, SCRIPT_RUN],
-  templates: [],
-});
-
 /**
  * The code family's shared plugin: its actions, and its declaration's
  * views, text included. It is the server's entry as it is, and the page's
@@ -51,10 +51,20 @@ const codeActions = extensionPlugin({
  */
 export function codePlugin(): Plugin {
   return definePlugin({
-    ...codeActions,
+    name: codeExtension.name,
+    namespace: extensionNamespace(codeExtension.name),
     apply: (ctx) =>
-      Effect.all([codeActions.apply(ctx), ctx.plugin(declarationPlugin(codeExtension))], {
-        discard: true,
-      }),
+      Effect.all(
+        [
+          // Its actions, `ext.code.*`: listing scripts and running one once.
+          Effect.forEach(
+            [SCRIPT_LIST, SCRIPT_RUN],
+            (action) => ctx.contribute(ActionPoint, provideAction(action)),
+            { discard: true },
+          ),
+          ctx.plugin(declarationPlugin(codeExtension)),
+        ],
+        { discard: true },
+      ),
   });
 }

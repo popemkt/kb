@@ -3,9 +3,9 @@ import { writeTrustedExtension } from "@kb/test-kit";
 import { Effect } from "effect";
 import { CodeTrust } from "@kb/contracts";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { KB_SDK_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
 import {
   discoverExtensions,
@@ -55,6 +55,7 @@ describe("extension SDK surface", () => {
     expect(KB_SDK_DTS).toContain('approval?: "required"');
     expect(KB_SDK_DTS).toContain('"approval_required"');
     expect(KB_SDK_DTS).toContain("export type ExtensionAction");
+    expect(KB_SDK_DTS).toContain("export function definePlugin(plugin: Plugin): Plugin;");
     expect(KB_SDK_DTS).toContain('declare module "kb-ext-sdk"');
   });
 });
@@ -99,7 +100,15 @@ describe("scratch external extension against shipped SDK", () => {
 
     // Hand-rolled schema — no zod / no kb src imports (sanctioned runtime surface).
     const greet = `/// <reference path="../sdk.d.ts" />
-import type { ExtensionAction } from "kb-ext-sdk";
+import {
+  ActionPoint,
+  Effect,
+  defineExtension,
+  definePlugin,
+  extensionNamespace,
+  provideAction,
+  type ExtensionAction,
+} from "kb-ext-sdk";
 
 const inputSchema = {
   parse(input: unknown) {
@@ -113,23 +122,33 @@ const outputSchema = {
   },
 };
 
-const actions: ExtensionAction[] = [
-  {
-    id: "greet",
-    title: "Greet",
-    description: "scratch SDK author fixture",
-    mode: { kind: "read" },
-    inputSchema,
-    outputSchema,
-    handler: async (_ctx, input) => {
-      const name = (input as { name: string }).name;
-      return { message: \`hello \${name}\` };
-    },
+const greet: ExtensionAction = {
+  id: "greet",
+  title: "Greet",
+  description: "scratch SDK author fixture",
+  mode: { kind: "read" },
+  inputSchema,
+  outputSchema,
+  handler: async (_ctx, input) => {
+    const name = (input as { name: string }).name;
+    return { message: \`hello \${name}\` };
   },
-];
+};
 
-export default actions;
+export const declaration = defineExtension({ name: "greet", label: "Greet" });
+
+export default definePlugin({
+  name: declaration.name,
+  namespace: extensionNamespace(declaration.name),
+  apply: (ctx) => Effect.asVoid(ctx.contribute(ActionPoint, provideAction(greet))),
+});
 `;
+    // The plugin model's types are effect's: the author's repository has it as a dev dependency.
+    await mkdir(join(root, "node_modules"), { recursive: true });
+    await symlink(
+      dirname(Bun.resolveSync("effect/package.json", import.meta.dir)),
+      join(root, "node_modules", "effect"),
+    );
     await writeTrustedExtension(root, "greet.ts", greet);
 
     // Bad mode must fail typecheck against the ambient SDK.

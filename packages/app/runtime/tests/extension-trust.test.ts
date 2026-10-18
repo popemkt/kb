@@ -26,13 +26,20 @@ import { existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { CodeTrust } from "@kb/contracts";
-import { trustExtension, writeExtension, writeTrustedExtension } from "@kb/test-kit";
+import { ActionPoint, CodeTrust, type LoadedExtension } from "@kb/contracts";
+import { makeKernel } from "@kb/plugin";
+import {
+  extensionModule,
+  trustExtension,
+  writeExtension,
+  writeTrustedExtension,
+} from "@kb/test-kit";
 import { discoverExtensions } from "../src/extension-loader.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 
-const HELLO = `export default [{
+const HELLO = extensionModule("hello", {
+  actions: `[{
   id: "hello",
   title: "Hello",
   description: "a repository extension",
@@ -40,8 +47,8 @@ const HELLO = `export default [{
   inputSchema: { parse: (input) => input },
   outputSchema: { parse: (output) => output },
   handler: async () => ({ hello: true }),
-}];
-`;
+}]`,
+});
 
 /** A helper that leaves `ran` in the root when it runs. */
 const helper = (mark: string) =>
@@ -49,6 +56,20 @@ const helper = (mark: string) =>
 const extension = (prelude: string) => `${prelude}\n${HELLO}`;
 
 let root = "";
+
+/** What the `hello` action an extension's entry contributes answers, run as its kernel holds it. */
+const helloOf = (extensions: readonly LoadedExtension[]) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const kernel = makeKernel();
+      for (const { entry } of extensions) yield* kernel.load(entry);
+      const action = kernel.lookup(ActionPoint, "ext.hello.hello")?.value;
+      yield* kernel.shutdown;
+      return yield* Effect.promise(async () =>
+        action?.handler?.(undefined as never, undefined as never),
+      );
+    }),
+  );
 
 const registry = () => {
   resetRegistryCache();
@@ -310,10 +331,7 @@ describe("a root's repository extensions", () => {
           Effect.provide(bunFileSystemLayer),
         ),
       );
-      const [action] = discovered.extensions.flatMap(({ actions }) => actions);
-      expect(await action?.handler?.(undefined as never, undefined as never)).toEqual({
-        hello: true,
-      });
+      expect(await helloOf(discovered.extensions)).toEqual({ hello: true });
     });
 
     test("what is imported is the source that was trusted, not the file as it is by then", async () => {
@@ -335,10 +353,7 @@ describe("a root's repository extensions", () => {
         ),
       );
       expect(await readFile(path, "utf8")).toBe(swapped);
-      const [action] = discovered.extensions.flatMap(({ actions }) => actions);
-      expect(await action?.handler?.(undefined as never, undefined as never)).toEqual({
-        hello: true,
-      });
+      expect(await helloOf(discovered.extensions)).toEqual({ hello: true });
     });
   });
 });

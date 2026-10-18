@@ -2155,24 +2155,33 @@ registry, subscription hub, render backbone (docs views, template resolution,
 where, how rows become markdown, repo-specific output of any kind — lives in
 **extensions**:
 
-- An extension is a TS module in `.kb/extensions/` whose default export is
-  an array of **contributions**. A contribution is
-  either a harman-style action (an `ActionDefinition` plus either Effect
-  `effect(input)`, preferred, or a legacy Promise `handler(ctx, input)`) or a
-  render **template** (`{ id, aliases?, template }`, see
-  `@kb/contracts/template.ts`). The loader discriminates structurally: a
-  contribution carrying a `template` function is a template. Beside it, the
-  module may export its **declaration** (`export const declaration =
-{name, label, optional?, seed?}`, the SDK's `ExtensionDeclaration`), as a
-  bundled family declares itself (Extension families): its name must be
-  its file's, a key a repository extension cannot provide (`views`) is
-  refused, and its seed's nodes are checked as a store's are
-  (`decodeDeclaration`, `@kb/ext-sdk`). A module that exports none is
-  declared by its name alone: required, labelled by its name, seeding
-  nothing. So every repository extension is a family: `rootFamilies`
-  (`app/runtime`) lists the bundled families, then each repository
-  extension, and the registry switches, loads and reports them all by the
-  one rule.
+- **A repository extension is a family, from another source.** A bundled
+  family is a declaration and the plugin each host loads for it, from the
+  build ([Extension families](#extension-families)); a repository extension
+  is the same two from trusted bytes in the root, and may declare and
+  contribute whatever a bundled family may. Its module,
+  `.kb/extensions/<name>.ts`, exports its `declaration`
+  (`defineExtension({name, label, optional?, seed?, views?, …})`, the
+  contracts' `ExtensionDeclaration`, whose name must be its file's) and
+  default-exports its server entry, a plugin (`definePlugin`) named by that
+  declaration, which provides and injects services, mints points,
+  contributes to any point and loads children. A module with no default
+  export is a family with no server-only package: its entry is its
+  declaration's plugin (`declarationPlugin`). What it imports from kb is
+  the host's own objects (`kb-ext-sdk`, `EXTENSION_SDK` in
+  `@kb/contracts`: the plugin model, the points and keys, `Effect` and
+  `Schema`), since the kernel compares keys by identity. The module is
+  decoded once (`decodeExtensionModule`, `@kb/ext-sdk`), its entry paired
+  with its declaration by the one rule a bundled family's is
+  (`serverEntriesFor`), and its seed's nodes are checked as a store's are.
+  So `rootFamilies` (`app/runtime`) lists the bundled families, then each
+  repository extension, and the registry switches, loads and reports them
+  all by the one rule. A repository extension cannot replace what another
+  plugin holds: a service it provides that is held already is a
+  `service-conflict`, and a contribution whose id is held a
+  `contribution-conflict`, so the plugin is refused as a unit and core's
+  services and actions stay core's. That is the one deliberate difference
+  from DeepSeek Harness, whose plugins may replace any service.
 - **Repository extensions** (`.kb/extensions/*.ts`) run with the server's
   reach, so a root's file is imported only once a person has trusted it on
   this machine. Its digest is `extensionDigest` (`@kb/sandbox`, the file's
@@ -2228,10 +2237,11 @@ where, how rows become markdown, repo-specific output of any kind — lives in
 - Actions and templates are two points of that kernel, `ActionPoint` and
   `TemplatePoint` in `@kb/contracts`. Core's actions are a plugin in the root
   namespace (bare ids like `node.add`); each extension is a plugin in
-  `ext.<name>`, so both kinds of id are namespaced `ext.<file>.<id>` by the
-  kernel, with optional bare-id `aliases`. A default-exported array is the
-  declarative form of a plugin — `extensionPlugin` turns it into one — so the
-  bundled extensions and the repo's load the same way. `registryFor` loads
+  `ext.<name>` (`extensionNamespace`), so both kinds of id are namespaced
+  `ext.<name>.<id>` by the kernel, with optional bare-id `aliases`. A
+  family's plugin contributes each under its local id (`provideAction`,
+  `provideTemplate`), so the bundled extensions and the repo's load the
+  same way. `registryFor` loads
   them and derives the handler table, the manifest and the template map from
   the points. A module that fails to import, or a plugin that clashes, is
   reported and skipped as a unit — extension errors never crash core.
@@ -2260,12 +2270,15 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   surface without core importing it.
 - **Extension SDK:** external `.kb/extensions/*.ts` authors get types from
   the running binary — `kb ext sdk --write` emits `.kb/sdk.d.ts` (ambient
-  module `kb-ext-sdk`), then `import type { ExtensionAction,
-ExtensionDeclaration, ExtensionTemplate } from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surface.ts` and
-  embedded in the CLI bundle; `bun packages/contract/ext-sdk/scripts/generate.ts` refreshes the
-  committed string (freshness-tested). Prefer Promise `handler`s; schemas
-  may be zod, Standard Schema v1, or a bare `{ parse }`. Helper siblings
-  should `export default []` so discovery stays quiet.
+  module `kb-ext-sdk`), then `import { definePlugin, defineExtension, … }
+from "kb-ext-sdk"`. Types are generated from
+  `packages/contract/ext-sdk/src/surface.ts` and embedded in the CLI bundle;
+  `bun run gen:ext-sdk` refreshes the committed string (freshness-tested),
+  and `surface-bridge.test.ts` holds the surface to `EXTENSION_SDK` and to
+  the plugin model. The plugin model is Effect's, so its types are
+  `effect`'s, a dev dependency of the extension's repository; its values
+  are always the host's. Schemas may be zod, Standard Schema v1, or a bare
+  `{ parse }`.
   **Migrating to kb 0.2.0:** replace `mode: "read"` with `mode: { kind: "read" }`
   and `mode: "apply"` with `mode: { kind: "write" }` (add
   `approval: "required"` if a person must approve each call). The loader

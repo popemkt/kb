@@ -45,10 +45,11 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
   opts: { version?: string } = {},
 ): Effect.fn.Return<GenExtSdkResult, PlatformError | ExtSdkEmitError, FileSystem | Scope> {
   const fs = yield* FileSystem;
-  const pkg = yield* fs.readFileString(PKG).pipe(Effect.map(parsePackageVersion));
-  const version = opts.version ?? pkg;
+  const pkg = yield* fs.readFileString(PKG).pipe(Effect.map(parsePackage));
+  const version = opts.version ?? pkg.version;
 
-  const work = yield* fs.makeTempDirectoryScoped({ prefix: "kb-ext-sdk-" });
+  // Inside the package, so the surface's one import, `effect`, resolves as the package resolves it.
+  const work = yield* fs.makeTempDirectoryScoped({ directory: PKG_ROOT, prefix: ".kb-ext-sdk-" });
   {
     const surfaceSrc = yield* fs.readFileString(SURFACE);
     yield* fs.writeFileString(join(work, "surface.ts"), surfaceSrc);
@@ -84,7 +85,10 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
     }
 
     const emitted = yield* fs.readFileString(join(work, "out/surface.d.ts"));
-    const body = stripHeaderComments(emitted).trimEnd();
+    // Inside `declare module` every declaration is already ambient.
+    const body = stripHeaderComments(emitted)
+      .replace(/^export declare /gmu, "export ")
+      .trimEnd();
     const dts = [
       "/**",
       ` * kb extension SDK — ambient types for .kb/extensions/*.ts`,
@@ -92,12 +96,14 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
       " * Regenerate: bun run gen:ext-sdk",
       " * Emit to a repo: kb ext sdk --write",
       " *",
-      " * Usage:",
+      " * Usage, in .kb/extensions/<name>.ts:",
       ' *   /// <reference path="../sdk.d.ts" />',
-      ' *   import type { ExtensionAction } from "kb-ext-sdk";',
+      ' *   import { definePlugin, defineExtension } from "kb-ext-sdk";',
+      ' *   export const declaration = defineExtension({ name: "<name>", label: "…" });',
+      " *   export default definePlugin({ name: declaration.name, apply: (ctx) => … });",
       " *",
-      " * Helper siblings in .kb/extensions/ must `export default []` so the",
-      " * loader does not warn (or wait for a future _-prefix ignore rule).",
+      ` * The plugin model is Effect's: its types are effect@${pkg.effect}'s, a dev`,
+      " * dependency of the extension's repository. Its values are the host's.",
       " */",
       "",
       'declare module "kb-ext-sdk" {',
@@ -110,11 +116,15 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
   }
 });
 
-const PackageJson = Schema.Struct({ version: Schema.String });
+const PackageJson = Schema.Struct({
+  version: Schema.String,
+  workspaces: Schema.Struct({ catalog: Schema.Struct({ effect: Schema.String }) }),
+});
 
-/** The kb version stamped into the generated header. */
-function parsePackageVersion(text: string): string {
-  return Schema.decodeUnknownSync(PackageJson)(JSON.parse(text)).version;
+/** The kb version stamped into the generated header, and the effect its types are. */
+function parsePackage(text: string): { readonly version: string; readonly effect: string } {
+  const pkg = Schema.decodeUnknownSync(PackageJson)(JSON.parse(text));
+  return { version: pkg.version, effect: pkg.workspaces.catalog.effect };
 }
 
 /** Write `sdk-dts.text.ts` with the regenerated string constant. */
