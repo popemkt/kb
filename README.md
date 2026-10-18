@@ -42,3 +42,21 @@ export default actions;
 
 No repo-relative imports, no npm install of kb. Regenerate the embedded
 string after changing `packages/contract/ext-sdk/src/surface.ts`: `bun run gen:ext-sdk`.
+
+## Releasing
+
+`package.json`'s `version` is the one source: `kb --version` prints it, and a
+release tag must equal `v<version>`, or `.github/workflows/release.yml` fails.
+
+```bash
+bun run release 0.3.0            # set the version, regenerate the SDK module, commit, tag v0.3.0
+git push origin HEAD:main v0.3.0 # the tag push builds, smoke-tests and publishes the release
+```
+
+The release is one platform-independent bundle, `kb-<version>.tar.gz` with its
+`.sha256`. It unpacks to `kb-<version>/bin/kb`, a launcher that runs the bundled
+CLI on the `bun` on PATH, beside `lib/kb/` (the CLI and the UI it serves).
+`bun run release:bundle` builds it into `out/`. `bun run release:smoke
+out/kb-<version>.tar.gz` runs the same smoke test CI runs. A manual run of the
+workflow is a dry run: it uploads the bundle as a workflow artifact and
+publishes nothing.

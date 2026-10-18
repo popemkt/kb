@@ -1,0 +1,43 @@
+#!/bin/sh
+# Cuts a kb release locally: `bun run release <version>` (e.g. 0.3.0).
+# Sets package.json's version — the one source `kb --version` and the
+# extension SDK header read — regenerates the SDK module that embeds it,
+# commits, and makes the annotated tag v<version>. It pushes nothing: pushing
+# the tag is what runs .github/workflows/release.yml.
+set -eu
+
+version=${1:-}
+case $version in
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *)
+    echo "usage: bun run release <major.minor.patch>" >&2
+    exit 2
+    ;;
+esac
+
+kb=$(cd "$(dirname "$0")/.." && pwd)
+cd "$kb"
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "release: the working tree is not clean" >&2
+  exit 1
+fi
+if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+  echo "release: tag v$version already exists" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC2016 # the script is JavaScript; its $1 and ${} are not the shell's
+bun -e '
+const path = "package.json";
+const text = await Bun.file(path).text();
+const next = text.replace(/^(  "version": )"[^"]*"/m, `$1${JSON.stringify(process.argv[1])}`);
+if (next === text && JSON.parse(text).version !== process.argv[1]) throw new Error("no top-level version line in package.json");
+await Bun.write(path, next);
+' "$version"
+bun run gen:ext-sdk
+
+git add package.json packages/contract/ext-sdk/src/sdk-dts.text.ts
+git commit -m "chore: release v$version"
+git tag -a "v$version" -m "kb v$version"
+echo "tagged v$version; publish with: git push origin HEAD:main v$version"
