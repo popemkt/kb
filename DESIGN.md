@@ -2207,36 +2207,57 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
   untrusted extension's declaration is neither seeded nor loaded.
-  - **What runs is what was approved.** The server imports its closure's
-    server half from those bytes themselves (a `data:` module), never from
-    disk, so a file changed after the closure was read is not what runs,
-    and a digest trusted later in the same process is a module of its own.
-    The `kb ui` server serves the page half at the path its closure's digest
-    addresses (`extensionPagePath`), which the extension's manifest row
-    names (`page`), and the page imports it there (DESIGN-UI.md → Extension
-    UI halves).
-  - **Code the closure cannot see is refused**, before any of it runs, read
-    over the bundled output rather than the source: a global that loads or
-    evaluates code (`eval`, `Function`, a `Worker`, `import.meta.require`
-    and `import.meta.resolve`, which a `require` of a name the bundler cannot
-    follow becomes; each swapped by the bundler for a marker the check
-    finds), an `import()` of a computed name, and an import left for the
-    host that is not a builtin (in the page, none is left), or is one that
-    loads code (`module`, `vm`, `worker_threads`). An import that does not
-    resolve does not bundle and is refused too; a query Bun reads past its
-    runtime hooks (`./x.ts?a:b`) is one. A builtin needs `import`: a
-    `require` of one is a require the bundle cannot follow.
-    `extension-trust.test.ts` pins each route: covered by the digest, or
-    refused.
-  - **Approved code is not contained.** The gate guarantees that what runs
-    is what was approved; it does not bound what approved code does. It
-    runs with the owner's power on the server and with the page's in the
-    page, and what it reaches by reflection (`globalThis[name]`), a process
-    it starts, or a file it reads and acts on, is the behaviour of bytes a
-    person approved. The approval policies still decide every invocation
-    of every action, whoever contributed it (Action registry → Approval).
-    Sandboxed code (code views, snapshots, scripts) is unchanged: it runs
-    in QuickJS or a Worker under its grant ([Sandbox](#sandbox)).
+  - **Approved means owner code.** The digest guarantees that the static
+    closure kb imports is exactly the approved bytes: no static import it
+    does not hash, no file read again between the check and the import (the
+    server imports its closure's server half from those bytes themselves, a
+    `data:` module, never from disk), and no link or path alias reaching
+    past what was hashed. It cannot stop approved code from loading more at
+    run time, and does not try: a person reviewing the closure reads that
+    code, which runs with the owner's power on the server and with the
+    page's in the page. What it reaches by reflection (`globalThis[name]`,
+    `[].constructor.constructor`), a process it starts, or a file it reads
+    and acts on, is not caught, by design. The approval policies still
+    decide every invocation of every action, whoever contributed it (Action
+    registry → Approval). Sandboxed code (code views, snapshots, scripts) is
+    unchanged: it runs in QuickJS or a Worker under its grant
+    ([Sandbox](#sandbox)).
+  - **Trust is read on every load.** `rootFamilies` bundles a root's
+    closures once and reads which of them are trusted each time it is
+    asked, importing only those, so `sandbox.trust` and `sandbox.untrust`
+    take effect in the running process: an untrusted family is not in the
+    next registry, as a family switched off is not, and a newly trusted
+    one's declaration seeds the store opened after. The `kb ui` server
+    serves a page half at the path its closure's digest addresses
+    (`extensionPagePath`), which the extension's manifest row names
+    (`page`), only while its family is trusted and on, read again on every
+    request; as a script for this origin alone, kept for good since its
+    path names its bytes. The page imports it there (DESIGN-UI.md →
+    Extension UI halves).
+  - **A text check guards against mistakes**, read over the bundled output
+    before any of it runs. An import left for the host that is not a
+    builtin (in the page, none is left), or is one that loads code
+    (`module`, `vm`, `worker_threads`), is refused, and so is an import that
+    does not resolve, which does not bundle (a query Bun reads past its
+    runtime hooks, `./x.ts?a:b`, is one). Then, as plain text with no
+    tokenizer (`LOADS_CODE`), every name of a way to load code at run time
+    is refused: `import(` followed by anything but one string literal,
+    `eval`, `Function`, `getBuiltinModule`, `createRequire`, `Worker`,
+    `import.meta.require` and `import.meta.resolve` (what a `require` the
+    bundler does not follow becomes, a builtin's among them, so a builtin
+    needs `import`), `bun:ffi`, `bun:jsc`, and a timer given a string. It
+    over-approximates: a match in a string or a comment is refused too,
+    which an author fixes by rewording. It is not containment (above).
+    `extension-trust.test.ts` pins each route: in the closure, or refused.
+  - **The host and the bundler are outside the digest.** What an extension
+    imports from `HOST_MODULES` is the host's at run time, and its closure
+    is Bun's output, so a kb upgrade can change what approved code does,
+    and a Bun upgrade that prints a bundle differently changes its digest,
+    which leaves it untrusted until it is trusted again.
+  - **A switch does not stop module code.** Importing a trusted closure
+    runs its module's top level, whether its family is switched on or off;
+    the switch decides whether its plugin is loaded, as it does for a
+    bundled family, whose module kb imports at start.
   - **A family's channels are its host's.** A plugin contributes to any
     point of the kernel it is loaded in; the `kb ui` socket hub routes
     `channel` frames to the channels of its own kernel, so a channel a
@@ -4058,13 +4079,10 @@ sends it more than 400 messages a second.
 - **What trust approves.** Trusting a digest approves the behaviour of
   bytes a person read, and those bytes run with the reach they are given:
   sandboxed code's grant, a repository extension's, the owner's. For a
-  repository extension the digest is its closure's, every file it loads,
-  and code its closure cannot see is refused before it runs ([Core boundary
-  & extensions](#core-boundary--extensions)); what the approved bytes do
-  when they run (a process they start, a name they reach by reflection) is
-  theirs. Whether code loads code by reflection (`[].constructor.constructor`,
-  `globalThis[name]`) is not decidable from its text, so no check reads as
-  covering it; what holds is that the bytes that run are the approved ones.
+  repository extension the digest guarantees that the closure kb imports is
+  the approved bytes, and approved code is owner code: what it loads or does
+  when it runs is not checked ([Core boundary &
+  extensions](#core-boundary--extensions) → Approved means owner code).
 - Promoting a code view to a view type is writing it as a repository
   extension: its key, its settings and its drawing in a page half, approved
   by the same gesture over its closure ([Core boundary &

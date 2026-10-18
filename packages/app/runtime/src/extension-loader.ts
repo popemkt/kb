@@ -33,9 +33,11 @@ import { extensionClosure, type DigestedClosure } from "./extension-closure.ts";
  * the record sandboxed code is trusted in, and `sandbox.trust` the
  * gesture). An untrusted one is skipped with its digest, so whoever opens a
  * root someone else wrote — a location opened for an agent, a clone — runs
- * none of its code until they have looked at it. What runs is the closure's
- * bytes, imported from themselves rather than from disk, so a file changed
- * after its closure was read is new code nobody has trusted.
+ * none of its code until they have looked at it. What kb imports is the
+ * closure's bytes, imported from themselves rather than from disk, so a
+ * file changed after its closure was read is new code nobody has trusted.
+ * Reading closures, reading trust and importing are three steps, which
+ * `rootFamilies` composes: it bundles once and reads trust on every load.
  */
 function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
@@ -45,7 +47,7 @@ const NAME_RE = /^[\w][\w.-]*$/;
 const PAGE_ENTRIES = [".page.tsx", ".page.ts"];
 
 /** An extension whose closure was read: its file, its name, its server entry's path, its closure. */
-interface Closed {
+export interface ClosedExtension {
   readonly file: string;
   readonly name: string;
   readonly path: string;
@@ -71,7 +73,7 @@ function pageOf(file: string): string | null {
 const importClosure = Effect.fn("kb.importClosure")(function* (
   code: string,
 ): Effect.fn.Return<unknown, string> {
-  installHostModules("server", { "kb-ext-sdk": EXTENSION_SDK, zod });
+  installHostModules("server", { "kb-ext-sdk": EXTENSION_SDK, zod, "zod/v4": zod });
   const url = `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
   return yield* Effect.tryPromise({
     try: () => import(url) as Promise<unknown>,
@@ -84,8 +86,8 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
   dir: string,
   entries: readonly string[],
   failures: ExtensionFailure[],
-): Effect.fn.Return<Closed[]> {
-  const result: Closed[] = [];
+): Effect.fn.Return<ClosedExtension[]> {
+  const result: ClosedExtension[] = [];
   const servers = entries.filter(isServerEntry).toSorted();
   for (const file of servers) {
     const name = file.slice(0, -".ts".length);
@@ -113,28 +115,32 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
 });
 
 /**
- * The closures among `closures` a person has trusted here; each other one
- * is a failure that names its digest and the gesture that trusts it.
+ * The closures among `closures` a person has trusted here, read from the
+ * root's trust now; each other one is a failure that names its digest and
+ * the gesture that trusts it.
  */
-const trustedClosures = Effect.fn("kb.trustedExtensions")(function* (
-  closures: readonly Closed[],
-  failures: ExtensionFailure[],
-): Effect.fn.Return<Closed[], never, CodeTrust> {
-  const trusted = new Set(
+export const trustedOf = Effect.fn("kb.trustedExtensions")(function* (
+  closures: readonly ClosedExtension[],
+): Effect.fn.Return<
+  { readonly trusted: readonly ClosedExtension[]; readonly failures: readonly ExtensionFailure[] },
+  never,
+  CodeTrust
+> {
+  const digests = new Set(
     yield* (yield* CodeTrust)
       .trusted(closures.map(({ closure }) => closure.digest))
       .pipe(Effect.orElseSucceed(() => [])),
   );
-  return closures.filter(({ file, closure }) => {
-    if (trusted.has(closure.digest)) return true;
-    failures.push({
+  const trusted = closures.filter(({ closure }) => digests.has(closure.digest));
+  const failures = closures
+    .filter(({ closure }) => !digests.has(closure.digest))
+    .map(({ file, closure }) => ({
       file,
       error:
         `not trusted on this machine (${closure.digest}); trust it with sandbox.trust once you ` +
         "have read it and every file it loads: it runs with the owner's power, on the server and in the page",
-    });
-    return false;
-  });
+    }));
+  return { trusted, failures };
 });
 
 /**
@@ -160,25 +166,33 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
 });
 
 /**
- * Discover, close over and import the trusted extensions of `root`.
- * Per-file failures, untrusted extensions among them, are collected (and
- * skipped); every other module is a family.
+ * The closures of `root`'s extensions, each bundled now; each that cannot
+ * be closed over is a failure. Nothing of them has run.
  */
-export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
+export const readClosures = Effect.fn("kb.readClosures")(function* (
   root: string,
 ): Effect.fn.Return<
-  { extensions: LoadedExtension[]; failures: ExtensionFailure[] },
+  { readonly closures: readonly ClosedExtension[]; readonly failures: readonly ExtensionFailure[] },
   never,
-  FileSystem | CodeTrust
+  FileSystem
 > {
   const fs = yield* FileSystem;
   const dir = extensionsDir(root);
   const entries = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => null));
-  if (entries === null) return { extensions: [], failures: [] };
+  if (entries === null) return { closures: [], failures: [] };
+  const failures: ExtensionFailure[] = [];
+  return { closures: yield* closed(dir, entries, failures), failures };
+});
 
+/**
+ * Import the server half of each of `closures`, ones a person trusted, and
+ * decode each as a family; each that does not load is a failure.
+ */
+export const importClosures = Effect.fn("kb.importClosures")(function* (
+  closures: readonly ClosedExtension[],
+): Effect.fn.Return<{ extensions: LoadedExtension[]; failures: ExtensionFailure[] }> {
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
-  const closures = yield* trustedClosures(yield* closed(dir, entries, failures), failures);
   for (const { file, name, path, closure } of closures) {
     const loaded = yield* importClosure(closure.server).pipe(Effect.result);
     if (Result.isFailure(loaded)) {
@@ -203,7 +217,8 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
       declaration,
       entry,
       source: path,
-      ...(closure.page === null ? {} : { page: { digest: closure.digest, code: closure.page } }),
+      digest: closure.digest,
+      ...(closure.page === null ? {} : { page: closure.page }),
     });
   }
   return { extensions, failures };

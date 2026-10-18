@@ -199,6 +199,7 @@ function installPageModules(): void {
     "kb-ext-sdk": EXTENSION_SDK,
     "kb-ext-sdk/page": uiSdk,
     zod,
+    "zod/v4": zod,
     react: React,
     "react/jsx-runtime": jsxRuntime,
   });

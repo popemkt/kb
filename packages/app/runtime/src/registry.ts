@@ -270,12 +270,12 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 
-  const rows: ExtensionRow[] = families.map(({ declaration, source, page }) =>
+  const rows: ExtensionRow[] = families.map(({ declaration, source, digest, page }) =>
     extensionRow(
       declaration,
       source,
       sources.get(declaration.name) === source,
-      page === undefined ? undefined : extensionPagePath(page.digest),
+      page === undefined || digest === undefined ? undefined : extensionPagePath(digest),
     ),
   );
 
@@ -301,9 +301,9 @@ const NO_ROOT_KEY = "no-root";
  * has on. An optional family is on while the store `nodeOf` reads says so,
  * or by its declared default where it says nothing (`familyOn`); with no
  * store, every optional family is as it is by default. Cached per root and
- * per set of families on, for the process lifetime (extension changes need
- * a restart), so switching a family is a new key, and switching it back
- * finds the old registry. `null` root = core + bundled only.
+ * per set of families on, each with its closure's digest, so switching a
+ * family, or trusting or untrusting one, is a new key, and switching it
+ * back finds the old registry. `null` root = core + bundled only.
  */
 export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
@@ -314,7 +314,10 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   const on = families.filter(({ declaration }) =>
     familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
   );
-  const key = [root ?? NO_ROOT_KEY, ...on.map(({ declaration }) => declaration.name)].join("\0");
+  const key = [
+    root ?? NO_ROOT_KEY,
+    ...on.map(({ declaration, digest }) => `${declaration.name}@${digest ?? "bundled"}`),
+  ].join("\0");
   let registry = registryCache.get(key);
   if (registry === undefined) {
     for (const warning of unread) writeErr(`kb: extension switch ${warning} (read as its default)`);

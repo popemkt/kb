@@ -39,20 +39,13 @@ export type ExtensionAction = ActionDefinition & {
       }
   );
 
-/**
- * A repository extension's page half, as its host serves it: the bundled
- * module, and the digest of the closure it is part of, which addresses it.
- */
-export interface ExtensionPage {
-  readonly digest: string;
-  readonly code: string;
-}
-
 /** A family as a root composes it: its declaration, its entry, and `bundled` or its module's path. */
 export interface LoadedExtension extends ExtensionEntry {
   readonly source: string;
-  /** A repository extension's page half; a bundled family's is in the page's own build. */
-  readonly page?: ExtensionPage;
+  /** A repository extension's closure digest: what a person trusted, and what addresses its page half. */
+  readonly digest?: string;
+  /** A repository extension's page half, the bundled module; a bundled family's is in the page's own build. */
+  readonly page?: string;
 }
 
 /** Where the `kb ui` server serves the page half of the closure `digest` (`sha256:<hex>`) names. */
@@ -64,12 +57,12 @@ export function extensionPagePath(digest: string): string {
  * What each half of a repository extension imports from its host rather
  * than carries, by specifier: kb's own modules, whose keys the kernel
  * compares by identity, and the libraries whose one copy the host holds
- * (zod, which compiles its parsers at run time; React, whose hooks need the
+ * (zod, by either name, which compiles its parsers at run time; React, whose hooks need the
  * page's one copy). Every other import is bundled into the closure.
  */
 export const HOST_MODULES = {
-  server: ["kb-ext-sdk", "zod"],
-  page: ["kb-ext-sdk", "kb-ext-sdk/page", "zod", "react", "react/jsx-runtime"],
+  server: ["kb-ext-sdk", "zod", "zod/v4"],
+  page: ["kb-ext-sdk", "kb-ext-sdk/page", "zod", "zod/v4", "react", "react/jsx-runtime"],
 } as const;
 
 export type ExtensionHalf = keyof typeof HOST_MODULES;

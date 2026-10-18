@@ -5,28 +5,33 @@
  * repository extensions): an untrusted one is skipped, naming its digest; a
  * trusted one loads; and a file edited since it was trusted is new code
  * nobody has trusted yet. Trust is the root's code trust, the one sandboxed
- * code is trusted in.
+ * code is trusted in, read again on every load, so trusting and
+ * untrusting take effect in the running process.
  *
- * The approval covers what runs. Every file the extension loads is in its
- * closure, however it is reached (a relative import, a literal `require` or
- * `import()`, a tsconfig path, a package import, a package the root
- * carries or one outside it, a link to a helper, or the extension itself a
- * link), so it runs only as the bytes a person approved, and an edit to any
- * of them is new code. Code the closure cannot see refuses the extension
- * before any of it runs: a `createRequire`, a function made at run time, an
- * `eval`, a computed `import()`, a `require` of a name it builds, a builtin
- * that loads code, a Worker, an import that does not resolve (a query Bun
- * would read past its hooks among them), in either half. What is imported
- * is the closure's bytes, not the files as they are by then, and a digest
- * trusted later in the same process is the one that runs.
+ * The closure kb imports is the approved bytes. Every file the extension
+ * loads statically is in its closure, however it is reached (a relative
+ * import, a literal `require` or `import()`, a tsconfig path, a package
+ * import, a package the root carries or one outside it, a link to a helper,
+ * or the extension itself a link), so an edit to any of them is new code.
+ * A load the closure does not hold refuses the extension before any of it
+ * runs, read as plain text over the bundle: a `createRequire`, the
+ * Function constructor, an `eval`, an `import()` of anything but one string
+ * literal (one a regular expression stands in front of among them), a
+ * `require` of a name it builds, `getBuiltinModule`, `bun:ffi`, a builtin
+ * that loads code, a Worker, a timer given a string, an import that does
+ * not resolve (a query Bun would read past its hooks among them), in either
+ * half. What the approved code loads by reflection is not caught, by
+ * design: approved code is the owner's. What is imported is the closure's
+ * bytes, not the files as they are by then.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { ActionPoint, CodeTrust, type LoadedExtension } from "@kb/contracts";
+import { codeTrustLayer } from "@kb/workspace-fs";
 import { makeKernel } from "@kb/plugin";
 import {
   extensionModule,
@@ -34,7 +39,7 @@ import {
   writeExtension,
   writeTrustedExtension,
 } from "@kb/test-kit";
-import { closureOf, discoverExtensions } from "../src/extension-loader.ts";
+import { closureOf, importClosures, readClosures, trustedOf } from "../src/extension-loader.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 
@@ -140,7 +145,25 @@ describe("a root's repository extensions", () => {
     expect(await loads()).toBe(false);
   });
 
-  describe("the approval covers what runs", () => {
+  test("trusting and untrusting take effect in the running process", async () => {
+    // No cache dropped between reads: what a long-running server sees.
+    const live = async () =>
+      (
+        await Effect.runPromise(registryFor(root).pipe(Effect.provide(bunFileSystemLayer)))
+      ).actions.some((a) => a.def.id === "ext.hello.hello");
+    await writeExtension(root, "hello.ts", HELLO);
+    expect(await live()).toBe(false);
+    const digest = await trustExtension(root, "hello.ts");
+    expect(await live()).toBe(true);
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* (yield* CodeTrust).untrust(digest);
+      }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)))),
+    );
+    expect(await live()).toBe(false);
+  });
+
+  describe("the closure kb imports is the approved bytes", () => {
     test.each([
       ["a static import of another file", `import "./lib/helper.ts";`, "lib/helper.ts"],
       ["an import out of the extensions directory", `import "../../outside.ts";`, "outside.ts"],
@@ -152,7 +175,7 @@ describe("a root's repository extensions", () => {
       ["a tsconfig path", `import "@helpers/outside";`, "outside.ts"],
       ["a package import", `import "#outside";`, "outside.ts"],
     ])(
-      "%s runs as the bytes approved, and an edit to it is new code",
+      "%s is in the approved closure, and an edit to it is new code",
       async (_how, prelude, helperPath) => {
         const mark = join(root, "ran");
         await helpers(mark);
@@ -221,39 +244,55 @@ describe("a root's repository extensions", () => {
       [
         "a createRequire",
         `import { createRequire } from "node:module";\ncreateRequire(import.meta.url)("../../outside.ts");`,
-        /imports module, which loads code/,
+        /mentions createRequire/,
       ],
       [
         "a function made at run time that imports",
         `await new Function("p", "return im" + "port(p)")("../../outside.ts");`,
-        /uses the Function constructor/,
+        /mentions the Function constructor/,
       ],
       [
         "an eval of a file it reads",
         `await eval(await Bun.file("OUTSIDE_JS").text());`,
-        /uses eval/,
+        /mentions eval/,
       ],
       [
         "a computed import",
         `await import(["..", "..", "outside.ts"].join("/"));`,
-        /imports a computed name/,
+        /mentions an import\(\) of anything but one string literal/,
+      ],
+      [
+        "a computed import a regular expression stands in front of",
+        `const pick = "x".length ? "../../outside.ts" : "";\nif (pick) /"/.test(pick);\nawait import(pick);`,
+        /mentions an import\(\) of anything but one string literal/,
       ],
       [
         "a require of a name it builds",
         `const r = require; r("../../outside.ts");`,
-        /uses a require the bundle cannot follow/,
+        /mentions import\.meta\.require/,
       ],
       [
         "a require of a builtin, which only import names",
         `const fs = require("node:fs");`,
-        /uses a require the bundle cannot follow/,
+        /mentions import\.meta\.require/,
       ],
       [
         "a builtin that runs code",
         `import { runInThisContext } from "node:vm";\nrunInThisContext("1");`,
         /imports vm/,
       ],
-      ["a Worker", `new Worker("../../outside.ts");`, /uses a Worker/],
+      [
+        "a builtin fetched at run time",
+        `(process as any).getBuiltinModule("node:vm").runInThisContext("1");`,
+        /mentions getBuiltinModule/,
+      ],
+      [
+        "a foreign function interface",
+        `import { dlopen } from "bun:ffi";\nconsole.log(typeof dlopen);`,
+        /mentions bun:ffi or bun:jsc/,
+      ],
+      ["a Worker", `new Worker("../../outside.ts");`, /mentions a Worker/],
+      ["a timer given a string", `setTimeout("globalThis.ran = 1", 0);`, /mentions a timer/],
       ["an import that does not resolve", `import "./lib/missing.ts";`, /does not bundle/],
       // Bun's runtime reads such a specifier from disk, past its load hooks.
       ["an import whose query holds a colon", `import "../../outside.ts?a:b";`, /does not bundle/],
@@ -277,7 +316,7 @@ describe("a root's repository extensions", () => {
       await writeExtension(root, "hello.ts", HELLO);
       const { failures } = await registry();
       expect(failures).toEqual([
-        { file: "hello.ts", error: expect.stringMatching(/^its page half uses eval/) },
+        { file: "hello.ts", error: expect.stringMatching(/^its page half mentions eval/) },
       ]);
     });
 
@@ -308,7 +347,16 @@ describe("a root's repository extensions", () => {
       }
     });
 
-    test("a digest trusted after another ran in this process is the one that runs", async () => {
+    test("zod, by either name it exports, is the host's", async () => {
+      await writeTrustedExtension(
+        root,
+        "hello.ts",
+        extension(`import { z } from "zod/v4";\nz.string().parse("x");`),
+      );
+      expect(await loads()).toBe(true);
+    });
+
+    test("a digest trusted after another was imported in this process is the one kb imports", async () => {
       const said = async () =>
         (await registry()).actions.find((a) => a.def.id === "ext.hello.hello")?.def.description;
       await writeTrustedExtension(root, "hello.ts", HELLO);
@@ -320,11 +368,14 @@ describe("a root's repository extensions", () => {
       expect(await said()).toBe("edited since");
     });
 
-    test("what runs is the closure that was trusted, not the files as they are by then", async () => {
+    test("what kb imports is the closure that was trusted, not the files as they are by then", async () => {
       const path = await writeTrustedExtension(root, "hello.ts", HELLO);
       const swapped = HELLO.replace("hello: true", "hello: false");
       const discovered = await Effect.runPromise(
-        discoverExtensions(root).pipe(
+        Effect.gen(function* () {
+          const { closures } = yield* readClosures(root);
+          return yield* importClosures((yield* trustedOf(closures)).trusted);
+        }).pipe(
           Effect.provideService(CodeTrust, {
             // The file changes after its closure is read, before it is imported.
             trusted: (digests) =>

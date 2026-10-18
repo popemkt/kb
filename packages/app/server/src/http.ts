@@ -92,6 +92,17 @@ interface FileRead {
   ) => Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv>;
 }
 
+/**
+ * How a page half is served: to this origin's page alone, as script and
+ * nothing else, and kept, since its path is its digest and so names these
+ * bytes for good.
+ */
+const EXTENSION_PAGE_HEADERS = {
+  "cross-origin-resource-policy": "same-origin",
+  "x-content-type-options": "nosniff",
+  "cache-control": "private, max-age=31536000, immutable",
+};
+
 /** The files the server serves by path, in order; a path none owns falls through to the SPA. */
 const FILE_READS: readonly FileRead[] = [
   // The sandbox frame's document, served with the policy that fences it
@@ -113,15 +124,19 @@ const FILE_READS: readonly FileRead[] = [
     read: ({ root }, path) => assets.serveKbAssetEffect(root, path),
   },
   // A repository extension's page half, by its closure's digest: what the
-  // page imports for a row that names it (`extensionPagePath`).
+  // page imports for a row that names it (`extensionPagePath`), while its
+  // family is trusted and on.
   {
     owns: (path) => path.startsWith("/api/extensions/"),
-    read: ({ root }, path) =>
-      servedPage(root, path).pipe(
+    read: ({ root, ctx }, path) =>
+      servedPage(root, path, (id) => ctx.index.getNode(id)).pipe(
         Effect.map((code) =>
           code === null
             ? plainStatus("not found", 404)
-            : HttpServerResponse.text(code, { contentType: "text/javascript;charset=utf-8" }),
+            : HttpServerResponse.text(code, {
+                contentType: "text/javascript;charset=utf-8",
+                headers: EXTENSION_PAGE_HEADERS,
+              }),
         ),
       ),
   },

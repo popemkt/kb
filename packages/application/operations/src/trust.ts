@@ -31,7 +31,7 @@ export const sandboxUntrustDef = {
   id: "sandbox.untrust",
   title: "Stop trusting code",
   description:
-    "Stop trusting sandboxed code on this machine, by its digest: it runs in QuickJS again.",
+    "Stop trusting code on this machine, by its digest: sandboxed code runs in QuickJS again, and a repository extension is not loaded, from the next load on.",
   mode: { kind: "write" } as const,
   inputSchema: z.object({ digest: Digest }),
   outputSchema: z.object({ digest: z.string(), trusted: z.literal(false) }),

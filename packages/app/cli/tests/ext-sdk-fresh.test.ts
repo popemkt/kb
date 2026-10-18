@@ -1,20 +1,12 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { EXAMPLE_EXTENSION, writeTrustedExtension } from "@kb/test-kit";
 import { Effect } from "effect";
-import { CodeTrust } from "@kb/contracts";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
-import {
-  discoverExtensions,
-  openKb,
-  invoke,
-  registryFor,
-  resetRegistryCache,
-  bunFileSystemLayer,
-} from "@kb/runtime";
+import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } from "@kb/runtime";
 import { main } from "../src/cli.ts";
 
 let roots: string[] = [];
@@ -77,19 +69,13 @@ describe("kb ext sdk", () => {
     expect(onDisk).toBe(KB_SDK_DTS);
     expect(await readFile(join(root, ".kb", "sdk-page.d.ts"), "utf8")).toBe(KB_SDK_PAGE_DTS);
 
-    const discovered = await Effect.runPromise(
-      discoverExtensions(root).pipe(
-        // A fresh root has nothing to trust.
-        Effect.provideService(CodeTrust, {
-          trusted: () => Effect.succeed([]),
-          trust: () => Effect.void,
-          untrust: () => Effect.void,
-        }),
-        Effect.provide(bunFileSystemLayer),
-      ),
+    // The type files are no extension: the root composes the bundled families alone.
+    resetRegistryCache();
+    const composed = await Effect.runPromise(
+      registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
-    expect(discovered.extensions).toEqual([]);
-    expect(discovered.failures).toEqual([]);
+    expect(composed.families.filter(({ source }) => source !== "bundled")).toEqual([]);
+    expect(composed.failures).toEqual([]);
   });
 });
 

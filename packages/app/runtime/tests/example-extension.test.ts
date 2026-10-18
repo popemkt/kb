@@ -12,7 +12,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { extensionPagePath } from "@kb/contracts";
+import { NO_SWITCHES, extensionPagePath, switchWrites, type NodeLookup } from "@kb/contracts";
 import {
   EXAMPLE,
   examplePageHalf,
@@ -86,12 +86,16 @@ describe("the example extension's server half", () => {
     });
   });
 
-  test("what is served at that path is its closure's page half, and nothing else is", async () => {
-    const served = (path: string) =>
-      Effect.runPromise(servedPage(ROOT, path).pipe(Effect.provide(bunFileSystemLayer)));
+  test("what is served at that path is its closure's page half while it is on, and nothing else is", async () => {
+    const served = (path: string, nodeOf: NodeLookup = NO_SWITCHES) =>
+      Effect.runPromise(servedPage(ROOT, path, nodeOf).pipe(Effect.provide(bunFileSystemLayer)));
     expect(await served(extensionPagePath(DIGEST))).toBe(
       await Effect.runPromise(examplePageHalf()),
     );
     expect(await served(extensionPagePath(`sha256:${"0".repeat(64)}`))).toBeNull();
+    const [off] = switchWrites(example.declaration, false, NO_SWITCHES, new Date(0).toISOString());
+    expect(
+      await served(extensionPagePath(DIGEST), (id) => (id === off?.id ? off : undefined)),
+    ).toBeNull();
   });
 });

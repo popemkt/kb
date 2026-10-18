@@ -13,14 +13,16 @@ import type { FileSystem } from "effect/FileSystem";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   extensionPagePath,
+  familyOn,
   type ExtensionDeclaration,
   type ExtensionFailure,
   type LoadedExtension,
+  type NodeLookup,
 } from "@kb/contracts";
 import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { codeTrustLayer } from "@kb/workspace-fs";
-import { discoverExtensions } from "./extension-loader.ts";
+import { importClosures, readClosures, trustedOf } from "./extension-loader.ts";
 
 export interface RootFamilies {
   readonly families: readonly LoadedExtension[];
@@ -69,58 +71,86 @@ function admitted(extensions: readonly LoadedExtension[]): {
   return { extensions: accepted, failures };
 }
 
-const discoveryCache = new Map<string, Effect.Effect<RootFamilies, never, FileSystem>>();
+/** Each root's closures: bundled once, for the process lifetime (an extension changed on disk needs a restart). */
+const closureCache = new Map<
+  string,
+  Effect.Effect<Effect.Success<ReturnType<typeof readClosures>>, never, FileSystem>
+>();
+/** Each root's families, per set of closures trusted there: importing one runs its module code. */
+const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
 
 /**
- * The families `root` composes; with no root, the bundled ones alone.
- * Discovered once per root for the process lifetime, as the registry is
- * cached (an extension changed on disk needs a restart).
+ * The families `root` composes; with no root, the bundled ones alone. Its
+ * closures are read once per root, and which of them a person trusted is
+ * read from the root's record on every call, so `sandbox.trust` and
+ * `sandbox.untrust` take effect in the process that runs them: a newly
+ * trusted closure is imported, an untrusted one is not a family of the
+ * root, so the registry and the page server drop it as they drop a family
+ * switched off.
  */
 export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
   if (root === null) return { families: BUNDLED, declarations: BUNDLED_DECLARATIONS, failures: [] };
-  let discovery = discoveryCache.get(root);
-  if (discovery === undefined) {
-    discovery = yield* Effect.cached(
-      // Which of the root's own extensions a person trusted is the root's record.
-      discoverExtensions(root).pipe(
-        Effect.provide(codeTrustLayer(root)),
-        Effect.map((discovered) => {
-          const { extensions, failures } = admitted(discovered.extensions);
+  let reading = closureCache.get(root);
+  if (reading === undefined) {
+    reading = yield* Effect.cached(readClosures(root));
+    closureCache.set(root, reading);
+  }
+  const read = yield* reading;
+  // Which of the root's own extensions a person trusted is the root's record.
+  const { trusted, failures: untrusted } = yield* trustedOf(read.closures).pipe(
+    Effect.provide(codeTrustLayer(root)),
+  );
+  const key = [root, ...trusted.map(({ closure }) => closure.digest)].join("\0");
+  let composed = familiesCache.get(key);
+  if (composed === undefined) {
+    composed = yield* Effect.cached(
+      importClosures(trusted).pipe(
+        Effect.map((imported) => {
+          const { extensions, failures } = admitted(imported.extensions);
           return {
             families: [...BUNDLED, ...extensions],
             declarations: [
               ...BUNDLED_DECLARATIONS,
               ...extensions.map(({ declaration }) => declaration),
             ],
-            failures: [...discovered.failures, ...failures],
+            failures: [...imported.failures, ...failures],
           };
         }),
       ),
     );
-    discoveryCache.set(root, discovery);
+    familiesCache.set(key, composed);
   }
-  return yield* discovery;
+  const families = yield* composed;
+  return { ...families, failures: [...read.failures, ...untrusted, ...families.failures] };
 });
 
 /**
- * The page half of `root`'s repository extension the `kb ui` server serves
- * at `path` (`extensionPagePath`), or null: the closure's bytes a person
- * trusted, addressed by its digest.
+ * The page half the `kb ui` server serves at `path` (`extensionPagePath`),
+ * or null: the bytes of a closure a person trusted, addressed by its
+ * digest, of a family `root`'s store (`nodeOf`) has on. Both are read
+ * again on every request, so an untrusted or switched-off family's page
+ * half is not served.
  */
 export const servedPage = Effect.fn("kb.servedPage")(function* (
   root: string,
   path: string,
+  nodeOf: NodeLookup,
 ): Effect.fn.Return<string | null, never, FileSystem> {
   const { families } = yield* rootFamilies(root);
-  const page = families.find(
-    (family) => family.page !== undefined && extensionPagePath(family.page.digest) === path,
-  )?.page;
-  return page?.code ?? null;
+  const served = families.find(
+    ({ declaration, digest, page }) =>
+      page !== undefined &&
+      digest !== undefined &&
+      extensionPagePath(digest) === path &&
+      familyOn(declaration, nodeOf, () => {}),
+  );
+  return served?.page ?? null;
 });
 
-/** Test hook: forget every root's discovery, so a fresh root is discovered again. */
+/** Test hook: forget every root's closures and families, so a fresh root is discovered again. */
 export function resetRootFamilies(): void {
-  discoveryCache.clear();
+  closureCache.clear();
+  familiesCache.clear();
 }

@@ -176,12 +176,12 @@ function mapHandlerError(err: unknown): ActionSchemaError | DomainError {
  * The one place a parsed input meets a handler that declared its own input
  * type. `(input: never)` is the standard encoding for "accepts whatever this
  * action's `inputSchema` produces", and `parsed` is what that very schema just
- * produced. A runtime check can confirm a contributed handler is a function
- * (the extension SDK's `decodeContribution` does) but never its signature, so
+ * produced. No runtime check can see a contributed handler's signature (the
+ * SDK's surface types it, and the kernel takes the plugin as written), so
  * the two are joined here once rather than asserted at each call site.
  */
 function asDeclaredInput(parsed: unknown): never {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one sanctioned boundary trust: the SDK decodes the shape, the registry joins it to the handler signature here, once
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one sanctioned boundary trust: the SDK types the shape, the registry joins it to the handler signature here, once
   return parsed as never;
 }
 

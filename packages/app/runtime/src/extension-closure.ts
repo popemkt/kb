@@ -6,22 +6,21 @@
  * relative path, a tsconfig path, a package import, a package, a link). What
  * it imports from kb (`HOST_MODULES`) is not inlined: it reads the host's own
  * module at run time. The digest a person trusts is the closure's
- * (`extensionDigest`), and the bytes a host runs are exactly its bytes.
+ * (`extensionDigest`), and the closure kb imports is exactly its bytes.
  *
- * Code the bundle cannot see is refused, read over the bundled output:
- * a global that loads or evaluates code (`eval`, `Function`, a `Worker`,
- * `import.meta.require` and `import.meta.resolve`, which is what a `require`
- * of a name the bundler cannot follow becomes), an `import()` of a computed
- * name, and an import left for the host to resolve that is not a builtin,
- * or is one that loads code (`module`, `vm`, `worker_threads`). What the
- * approved bytes do by reflection (`globalThis[name]`) no reading of them
- * decides; the digest still holds them to what was approved.
+ * A static load the bundle does not hold is refused, read over the bundled
+ * output: an import left for the host to resolve that is not a builtin, or
+ * is one that loads code (`module`, `vm`, `worker_threads`), and, as plain
+ * text (`LOADS_CODE`), every name of a way to load code at run time. That
+ * text check is a guard against an author's mistake, not a containment:
+ * approved code is the owner's code, and what it loads by reflection
+ * (`globalThis[name]`) is not caught, by design (DESIGN.md → Core boundary
+ * & extensions → repository extensions).
  */
 import { builtinModules } from "node:module";
 import { Effect } from "effect";
 import { HOST_MODULES, HOST_MODULES_KEY, type ExtensionHalf } from "@kb/contracts";
 import { extensionDigest, type ExtensionClosure } from "@kb/sandbox";
-import { computedImports } from "./computed-imports.ts";
 
 /** What Bun builds each half for. */
 const TARGETS: Readonly<Record<ExtensionHalf, "bun" | "browser">> = {
@@ -29,21 +28,29 @@ const TARGETS: Readonly<Record<ExtensionHalf, "bun" | "browser">> = {
   page: "browser",
 };
 
-/** The globals that load or evaluate code, each replaced by a marker the output check refuses. */
-const LOADERS: Readonly<Record<string, string>> = {
-  eval: "eval",
-  Function: "the Function constructor",
-  Worker: "a Worker",
-  "import.meta.require": "a require the bundle cannot follow",
-  "import.meta.resolve": "import.meta.resolve",
-};
-const MARKER = "__kb_loads_code_";
-const markerOf = (global: string) => `${MARKER}${global.replaceAll(".", "_")}`;
-const MARKERS = new Map(
-  Object.entries(LOADERS).map(([global, what]) => [markerOf(global), what] as const),
-);
+/**
+ * What the output check refuses, each read as plain text over the bundled
+ * half and named for the refusal. It is an over-approximation of the ways
+ * the approved bytes can name code to load, not a parse of them: a match
+ * in a string, a comment or a regular expression is refused too, which an
+ * author fixes by rewording it.
+ */
+const LOADS_CODE: readonly (readonly [RegExp, string])[] = [
+  [
+    /\bimport\s*(?:\/\*[\s\S]*?\*\/\s*)*\((?!\s*(?:"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')\s*\))/,
+    "an import() of anything but one string literal",
+  ],
+  [/\beval\b/, "eval"],
+  [/\bFunction\b/, "the Function constructor"],
+  [/\bgetBuiltinModule\b/, "getBuiltinModule"],
+  [/\bcreateRequire\b/, "createRequire"],
+  [/\bWorker\b/, "a Worker"],
+  [/\bimport\.meta\.(?:require|resolve)\b/, "import.meta.require or import.meta.resolve"],
+  [/\bbun:(?:ffi|jsc)\b/, "bun:ffi or bun:jsc"],
+  [/\bset(?:Timeout|Interval)\s*\(\s*["'`]/, "a timer given a string to evaluate"],
+];
 
-/** The builtins that load code: an import of one is code the bundle cannot see. */
+/** The builtins that load code: an import of one loads code the bundle does not hold. */
 const CODE_LOADING_BUILTINS = new Set(["module", "vm", "worker_threads"]);
 
 const escaped = (text: string) => text.replaceAll(/[.*+?^${}()|[\]\\/]/g, "\\$&");
@@ -65,13 +72,12 @@ function hostModules(half: ExtensionHalf): Bun.BunPlugin {
 
 /** Why `code`, a bundled half, runs code its bundle does not hold, or null. */
 function unseenCode(code: string, half: ExtensionHalf): string | null {
-  for (const [marker, what] of MARKERS) {
-    if (code.includes(marker)) return `uses ${what}, which loads code the bundle cannot see`;
-  }
-  const [computed] = computedImports(code);
-  if (computed !== undefined) {
-    const at = code.slice(computed, computed + 60);
-    return `imports a computed name (${at}…), which the bundle cannot see`;
+  for (const [pattern, what] of LOADS_CODE) {
+    const found = pattern.exec(code);
+    if (found !== null) {
+      const at = code.slice(found.index, found.index + 60);
+      return `mentions ${what} (${at}…), which can load code the bundle does not hold`;
+    }
   }
   const left = new Bun.Transpiler({ loader: "js" }).scanImports(code).map(({ path }) => path);
   for (const specifier of left) {
@@ -81,7 +87,7 @@ function unseenCode(code: string, half: ExtensionHalf): string | null {
       (builtinModules.includes(name) || name === "bun" || name.startsWith("bun:"));
     if (!builtin) return `imports ${specifier}, which the bundle does not hold`;
     if (CODE_LOADING_BUILTINS.has(name)) {
-      return `imports ${specifier}, which loads code the bundle cannot see`;
+      return `imports ${specifier}, which loads code the bundle does not hold`;
     }
   }
   return null;
@@ -104,10 +110,7 @@ const bundleHalf = Effect.fn("kb.bundleExtensionHalf")(function* (
       minify: { whitespace: true, syntax: false, identifiers: false },
       throw: false,
       jsx: { runtime: "automatic", importSource: "react", development: false },
-      define: {
-        ...Object.fromEntries(Object.keys(LOADERS).map((global) => [global, markerOf(global)])),
-        ...(half === "page" ? { "process.env.NODE_ENV": JSON.stringify("production") } : {}),
-      },
+      define: half === "page" ? { "process.env.NODE_ENV": JSON.stringify("production") } : {},
       plugins: [hostModules(half)],
     }),
   );

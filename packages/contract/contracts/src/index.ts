@@ -95,7 +95,6 @@ export type {
   ExtensionAction,
   ExtensionFailure,
   ExtensionHalf,
-  ExtensionPage,
   ExtensionPromiseHandler,
   LoadedExtension,
 } from "./extension.ts";
