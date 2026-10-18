@@ -51,7 +51,8 @@ function markerFinding(model: CheckModel, marker: Marker): GapFinding | undefine
       message: `${at}: the gap marker names ${marker.id}, which is no node`,
     };
   }
-  if (model.gapTagIds.size > 0 && !hasTag(node, model.gapTagIds)) {
+  // Fail closed: a store that defines no #gap tag has no gap a marker can name.
+  if (!hasTag(node, model.gapTagIds)) {
     return {
       kind: "gap-untagged",
       ...located,

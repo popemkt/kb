@@ -501,6 +501,18 @@ describe("ext.check.gaps", () => {
     ]);
   });
 
+  test("a store that defines no #gap tag fails every marker closed", async () => {
+    const { ctx } = fixtureContext(gapNodes.filter((entry) => entry.id !== "tag.gap"));
+    const out = await Effect.runPromise(
+      checkGapsEffect({ files: ["a.ts"] }).pipe(
+        Effect.provide(
+          Layer.mergeAll(kbCtxLayer(ctx), fileLayer(new Map([["a.ts", mark("gap.open")]]))),
+        ),
+      ),
+    );
+    expect(out.findings.map((f) => f.kind)).toEqual(["gap-untagged"]);
+  });
+
   test("a listed file that is not there is a finding, never a skip", async () => {
     const out = await gaps({ "a.ts": "" }, ["a.ts", "gone.ts", "../outside.ts"]);
     expect(out.findings.map((f) => [f.kind, f.file])).toEqual([
