@@ -179,20 +179,12 @@ export interface SanctionedExtensionImport {
  * importer out of core. Every file is named, so a new file that imports the
  * feature fails, and a named file that no longer imports it fails too: the
  * list is frozen and can only shrink, like a ratchet's baseline.
- *
- * - The docs and check pre-commit entries parse their family's output
- *   schema to print it: they leave when the family's report reaches them
- *   through the registry instead.
  */
-// GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]
+// Every app import of an extension package is at a root now; the map stays
+// the place a deferred one would be named.
 export const EXTENSION_ROOT_BREACHES: Readonly<
   Record<string, readonly SanctionedExtensionImport[]>
-> = {
-  "@kb/cli": [
-    { target: "@kb/ext-check", files: ["src/bin/check-audit.ts"] },
-    { target: "@kb/ext-docs", files: ["src/bin/docs-check.ts", "src/bin/docs-materialize.ts"] },
-  ],
-};
+> = {};
 
 /**
  * A family's browser half is one package, `@kb/<family>-ui` (DESIGN.md →

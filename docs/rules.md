@@ -730,14 +730,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
 
-### GAP: nothing confines feature imports to a composition root's bundled list
-
-- **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. Every family's UI rows left with its -ui package (E12, and the canvas at E13); E18 of the extension SDK plan removes the CLI rows.
-- **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
-- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
-- **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
-
 ### GAP: only text cards can be promoted to nodes
 
 - **expected** — shapes promotable
@@ -865,6 +857,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a turned or round item reads larger than it is
 - **closes** — oriented-box and volume tests
 - **node** — `01M42Q9GJKTE064D3SG8JEPA4M`
+
+### GAP: releases ship no standalone compiled binaries
+
+- **expected** — Each release carries bun build --compile binaries for darwin-arm64, linux-x64 and linux-arm64 beside the bundle, so kb runs without bun installed.
+- **current** — A compiled kb runs its CLI, but kb ui answers 503 ui_not_built: the UI dist is located on disk through KB_PKG_ROOT (packages/app/server/src/paths.ts) and is not embedded in the binary, so the release ships only the bun bundle (lib/kb/cli.js + UI dist) behind an sh launcher.
+- **impact** — Every consumer needs bun on PATH; a machine without bun cannot run a release.
+- **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then release.yml adds a compile matrix and release-smoke runs on each binary.
+- **node** — `01M56H9MA14N5TG8640BN6PHXP`
 
 ### GAP: repository extensions cannot ship UI
 
@@ -1631,6 +1631,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Routine parallel work produces textual conflicts in owner data that are not semantic conflicts, which invites hand-editing the store.
 - **closes** — About 40 lines of Bun plus a .gitattributes entry; recorded in briefs/p1-persistence.md section 4.
 - **node** — `01M1M08WYY9X6HFNN5GKDCC47E`
+
+### GAP: nothing confines feature imports to a composition root's bundled list
+
+- **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
+- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. Every family's UI rows left with its -ui package (E12, and the canvas at E13); E18 of the extension SDK plan removes the CLI rows.
+- **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
+- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
+- **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
 ### GAP: ontology member rows render outline's MdView
 

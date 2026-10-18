@@ -94,7 +94,7 @@
     "knip": "knip --include files,dependencies,exports,types,nsExports,nsTypes,duplicates",
     "harness": "bun test harness",
     "harness:snapshot": "bun harness/src/snapshot.ts",
-    "check:audit": "bun packages/app/cli/src/bin/check-audit.ts",
+    "check:audit": "bun packages/app/cli/src/main.ts check audit",
     "affected": "nx affected -t typecheck,test --base=main",
     "gen:ext-sdk": "bun packages/contract/ext-sdk/scripts/generate.ts",
     "release": "sh bin/release",

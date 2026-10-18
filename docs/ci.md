@@ -60,7 +60,7 @@ there has a known answer already:
 
 | Check | Runs when the commit stages |
 |---|---|
-| generated docs (`docs-check.ts`) | `.kb/**`, `docs/rules.md`, `docs/todos.md`, `packages/**` |
+| generated docs (`kb docs check`) | `.kb/**`, `docs/rules.md`, `docs/todos.md`, `packages/**` |
 | `bun run verify` | anything |
 
 `verify` has no narrower row because the workspace is the repository, and

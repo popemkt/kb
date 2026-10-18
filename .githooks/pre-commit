@@ -143,7 +143,7 @@ build_snapshot
 # Generated docs match .kb data.
 if triggered "$docs_inputs"; then
   echo "==> kb generated docs (staged snapshot)"
-  (cd "$snapshot" && in_snapshot bun packages/app/cli/src/bin/docs-check.ts)
+  (cd "$snapshot" && in_snapshot bun packages/app/cli/src/main.ts docs check)
 fi
 
 # The toolchain gate; what it runs is `verify` in package.json.

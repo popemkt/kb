@@ -9,9 +9,6 @@
         "harness/lint/**/*.rule-cases.ts"
       ]
     },
-    "packages/app/cli": {
-      "entry": ["src/bin/*.ts"]
-    },
     "packages/contract/ext-sdk": {
       "entry": ["scripts/generate.ts", "tests/*.test.ts"]
     },

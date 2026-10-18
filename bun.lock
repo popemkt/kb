@@ -64,8 +64,6 @@
         "@kb/agent-openai": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/contracts": "workspace:*",
-        "@kb/ext-check": "workspace:*",
-        "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
         "@kb/mcp": "workspace:*",
         "@kb/model": "workspace:*",

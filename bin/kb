@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-# direnv-scoped kb shim; the global wrapper is installed by home-manager.
+# The kb CLI from this checkout's source; an installed kb is the release
+# bundle or `nix profile install github:popemkt/kb`.
 exec bun "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/packages/app/cli/src/main.ts" "$@"

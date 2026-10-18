@@ -1,10 +1,11 @@
 #!/bin/sh
-# Git merge driver entry for the kb node stores; registered per clone as
+# Git merge driver entry for this checkout's node store; registered per clone
+# by `bun run setup` as
 #   bin/merge-jsonl %O %A %B %P
-# (see the kb-jsonl block in AGENTS.md).
+# (see the kb-jsonl block in AGENTS.md). A repository that installs kb
+# registers `kb merge-jsonl %O %A %B %P` instead.
 #
-# It runs the id-based driver (packages/app/cli/src/bin/merge-jsonl.ts) when it
-# can. When it cannot — no bun on PATH, dependencies not installed, or the
+# It runs the id-based driver (`kb merge-jsonl`, from source) when it can. When it cannot — no bun on PATH, dependencies not installed, or the
 # driver itself reports it could not merge (exit 2) — it falls back to git's
 # own three-way text merge of the same files, says why on one line, and exits
 # non-zero so git leaves the path for a human: a text merge of a node store is
@@ -20,7 +21,7 @@ if ! command -v bun >/dev/null 2>&1; then
 elif [ ! -d "$kb/node_modules" ]; then
   reason="dependencies are not installed (bun install)"
 else
-  bun "$kb/packages/app/cli/src/bin/merge-jsonl.ts" "$base" "$ours" "$theirs" "$shown"
+  bun "$kb/packages/app/cli/src/main.ts" merge-jsonl "$base" "$ours" "$theirs" "$shown"
   status=$?
   [ "$status" -eq 0 ] || [ "$status" -eq 1 ] && exit "$status"
   reason="the kb driver could not merge (exit $status)"

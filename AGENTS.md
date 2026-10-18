@@ -262,7 +262,7 @@ once, in `DESIGN.md` →
   newly created node at the tail, and two branches that each add one collide
   there. `.gitattributes` routes the store through the `kb-jsonl` driver:
   `bin/merge-jsonl`, a POSIX wrapper around
-  `packages/app/cli/src/bin/merge-jsonl.ts`, whose resolution rules are
+  `kb merge-jsonl` (`packages/app/cli/src/merge-driver.ts`), whose resolution rules are
   `@kb/model`'s `mergeNodeSets` (`DESIGN.md` → Merge). Git config is per clone
   and is not versioned, so `bun run setup` (`bin/setup`) registers it, with
   `core.hooksPath`; re-run it after a change to either.
@@ -276,7 +276,7 @@ once, in `DESIGN.md` →
 
 ## Extensions
 
-`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface, rejects stale enforcement, simultaneous `gate` and `check`, and broken rule homes, and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check` and `packages/extension/check`, the family's `BUNDLED_FAMILIES` entry in `packages/app/bundled/src/index.ts` (`checkExtension`) and its server entry in `packages/app/runtime/src/bundled.ts` (`checkPlugin`), `packages/app/cli/src/bin/check-audit.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` and `@kb/check` manifest dependencies and refresh `bun.lock`; the `check` tag, the `enforcement` field's option children and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
+`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface, rejects stale enforcement, simultaneous `gate` and `check`, and broken rule homes, and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check` and `packages/extension/check`, the family's `BUNDLED_FAMILIES` entry in `packages/app/bundled/src/index.ts` (`checkExtension`) and its server entry in `packages/app/runtime/src/bundled.ts` (`checkPlugin`), `kb check audit` in `packages/app/cli/src/gates.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` and `@kb/check` manifest dependencies and refresh `bun.lock`; the `check` tag, the `enforcement` field's option children and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
 
 ### Effect
 

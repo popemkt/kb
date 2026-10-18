@@ -44,7 +44,9 @@ import {
 } from "./command.ts";
 import { formatReceipt } from "./format.ts";
 import { extensionCommands } from "./extensions.ts";
+import { gateCommands } from "./gates.ts";
 import { locationCommands } from "./locations.ts";
+import { mergeDriverCommand } from "./merge-driver.ts";
 import { relationCommands } from "./relations.ts";
 import { hostExtensions } from "./host-plugins.ts";
 import { readActionJsonEffect, readOutlineEffect } from "./input.ts";
@@ -646,6 +648,8 @@ function buildProgram(): Command {
   extensionCommands(program);
   locationCommands(program);
   relationCommands(program);
+  gateCommands(program);
+  mergeDriverCommand(program);
 
   program
     .command("action-invoke")
