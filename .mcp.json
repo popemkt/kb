@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kb": {
+      "command": "bash",
+      "args": ["-c", "exec \"$(git rev-parse --show-toplevel)/bin/kb\" mcp"]
+    }
+  }
+}

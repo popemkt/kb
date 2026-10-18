@@ -67,10 +67,15 @@ echo '.kb/nodes.jsonl merge=kb-jsonl' >> .gitattributes
 ## Develop
 
 ```bash
-nix develop        # optional: the Bun, jq, shellcheck and actionlint the gates use
+direnv allow       # or `nix develop`: the dev shell, with `kb` from this checkout's source on PATH
 bun install        # one lockfile for the whole workspace
 bun run setup      # once per clone: the pre-commit hook and the merge driver
 ```
+
+Inside the checkout `kb` is `bin/kb`, this source tree run by Bun, so the
+store's own commands (`kb add`, `kb ui`, `kb check audit`) use the code you
+are editing. `.mcp.json` registers the same binary as an MCP server for
+agents working here.
 
 Then:
 
@@ -152,3 +157,7 @@ CLI on the `bun` on PATH, beside `lib/kb/` (the CLI and the UI it serves).
 out/kb-<version>.tar.gz` runs the same smoke test CI runs. A manual run of the
 workflow is a dry run: it uploads the bundle as a workflow artifact and
 publishes nothing.
+
+## License
+
+MIT; see [`LICENSE`](LICENSE).

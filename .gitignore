@@ -84,3 +84,6 @@ packages/*/*/tests/kb-*/
 # Browser regression artifacts
 test-results
 playwright-report
+
+# direnv
+.direnv/
