@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# kb's admission gate. Install once per clone: `bun run setup` (bin/setup),
+# which also registers the node-store merge driver.
+#
+# Every check below reads a reconstructed *index* snapshot, never the working
+# tree. An unstaged fix must not be able to mask a staged defect, and a
+# governed file can be staged while the working copy says something else.
+#
+# The snapshot is a detached linked worktree of `git write-tree`, not a
+# `git checkout-index` directory: the harness reads the tree through
+# `git ls-files` and `git check-ignore`, so a snapshot that is not a git
+# repository fails its own checks for the wrong reason. `git stash
+# --keep-index` is not a candidate at all — it moves the user's tree, which is
+# the one thing a hook must not do.
+#
+# Which staged paths trigger which check is stated in docs/ci.md.
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+staged="$(git diff --cached --name-only --diff-filter=ACMRD)"
+
+# What can change the docs check's answer, as an ERE over staged paths: kb
+# data, the generated docs it is compared against, and the packages that
+# materialize them. `verify` has no such list — the workspace is the
+# repository, and `ext.check.audit` reads rule homes and check evidence
+# wherever they live — so it runs on every commit.
+docs_inputs='^(\.kb/|docs/(rules|todos)\.md$|packages/)'
+
+triggered() {
+  printf '%s\n' "$staged" | grep -qE "$1"
+}
+
+# A clone set up by hand can miss the merge driver; say so, don't fix it
+# behind the committer's back.
+if [ "$(git config merge.kb-jsonl.driver || true)" = "" ]; then
+  echo "warning: the kb-jsonl merge driver is not registered; run: bun run setup" >&2
+fi
+
+# The checks need Bun and the workspace's installed dependencies. A fresh
+# checkout has neither; say exactly how to restore them rather than passing.
+kb_deps_present() {
+  command -v bun > /dev/null 2>&1 && [ -x "$repo_root/node_modules/.bin/nx" ]
+}
+
+# Give the snapshot the checkout's dependencies without a `bun install`.
+#
+# The content-addressed store (`node_modules/.bun`) and the build caches are
+# shared by absolute symlink: nothing in them depends on which tree is being
+# checked. Everything else in a `node_modules` tree is itself a symlink, so it
+# is copied as one — and that is the point, because a package's
+# `node_modules/@kb/<member>` link is *relative* to a sibling source
+# directory. Copied, it resolves inside the snapshot; shared, it would resolve
+# back into the working tree and the whole exercise would check the wrong
+# files.
+link_node_modules() {
+  local src="$1" dest="$2" shared
+  (
+    cd "$src"
+    find . -maxdepth 4 -type d -name node_modules -not -path '*/node_modules/*' -print0 \
+      | tar -cf - \
+        --exclude='*/node_modules/.bun' \
+        --exclude='*/node_modules/.cache' \
+        --exclude='*/node_modules/.vite' \
+        --exclude='*/node_modules/.vite-temp' \
+        --null -T -
+  ) | tar -xf - -C "$dest"
+  for shared in .bun .cache; do
+    [ -e "$src/node_modules/$shared" ] || continue
+    ln -sfn "$src/node_modules/$shared" "$dest/node_modules/$shared"
+  done
+}
+
+snapshot_parent=""
+snapshot=""
+
+# git exports GIT_DIR and GIT_INDEX_FILE into a hook, and they name the
+# *committing* repository. Any git command that is about the snapshot has to
+# run without them — `worktree add` that inherits GIT_INDEX_FILE checks the
+# files out but leaves the new worktree's index empty, and an empty index is
+# the worst possible failure here: `git ls-files` returns nothing, so every
+# tree-reading check passes on no files at all.
+git_own_env() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX git "$@"
+}
+
+# The same holds for every check that runs *inside* the snapshot: the harness
+# shells out to `git ls-files` and `git check-ignore`, and with the hook's env
+# those would answer for the committing repository, not the snapshot.
+in_snapshot() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX "$@"
+}
+
+remove_snapshot() {
+  if [ -n "$snapshot" ]; then
+    git_own_env -C "$repo_root" worktree remove --force "$snapshot" > /dev/null 2>&1 || true
+  fi
+  if [ -n "$snapshot_parent" ]; then
+    rm -rf "$snapshot_parent"
+  fi
+  return 0
+}
+
+# A detached worktree at the exact tree the index holds.
+build_snapshot() {
+  local tree commit
+  snapshot_parent="$(mktemp -d)"
+  snapshot="$snapshot_parent/index"
+  trap remove_snapshot EXIT
+  # This one reads the index being committed, so it keeps the hook's own env.
+  tree="$(git -C "$repo_root" write-tree)"
+  # Parented on HEAD, so the snapshot has the history the commit will have:
+  # the warn ratchet counts from the fork point with main, which an orphan
+  # commit has none of.
+  local parent=()
+  if git_own_env -C "$repo_root" rev-parse -q --verify HEAD > /dev/null; then
+    parent=(-p HEAD)
+  fi
+  commit="$(git_own_env -C "$repo_root" commit-tree "$tree" "${parent[@]}" -m 'pre-commit index snapshot')"
+  git_own_env -C "$repo_root" worktree add --detach --quiet "$snapshot" "$commit"
+
+  # The invariant the checks depend on: the snapshot's index is the tree that
+  # was staged. Assert it rather than trust it — see git_own_env above.
+  if ! git_own_env -C "$snapshot" diff --cached --quiet HEAD; then
+    echo "error: index snapshot at $snapshot does not match the staged tree" >&2
+    exit 1
+  fi
+
+  link_node_modules "$repo_root" "$snapshot"
+}
+
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+if ! kb_deps_present; then
+  echo "error: kb admission checks cannot run — dependencies are unavailable; run: bun install" >&2
+  exit 1
+fi
+
+build_snapshot
+
+# Generated docs match .kb data.
+if triggered "$docs_inputs"; then
+  echo "==> kb generated docs (staged snapshot)"
+  (cd "$snapshot" && in_snapshot bun packages/app/cli/src/bin/docs-check.ts)
+fi
+
+# The toolchain gate; what it runs is `verify` in package.json.
+echo "==> verify (staged snapshot)"
+(cd "$snapshot" && in_snapshot bun run verify)

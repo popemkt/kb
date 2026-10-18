@@ -79,6 +79,7 @@
   "type": "module",
   "scripts": {
     "prepare": "effect-tsgo patch",
+    "setup": "sh bin/setup",
     "postinstall": "bun2nix -o bun.nix",
     "typecheck": "nx run-many -t typecheck",
     "test": "bun test packages",

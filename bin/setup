@@ -1,0 +1,17 @@
+#!/bin/sh
+# One-time setup of a clone: what git keeps per clone and so cannot version.
+# Run from anywhere inside the checkout as `bun run setup`; re-running it is
+# harmless, and it is how a clone registered before a change picks it up.
+#
+#   core.hooksPath   .githooks, so the pre-commit admission gate runs
+#   merge.kb-jsonl   the node-store merge driver .gitattributes names
+#                    (AGENTS.md → merging nodes.jsonl)
+set -eu
+
+cd "$(dirname "$0")/.."
+
+git config core.hooksPath .githooks
+git config merge.kb-jsonl.name "kb node store (three-way by node id)"
+git config merge.kb-jsonl.driver "bin/merge-jsonl %O %A %B %P"
+
+echo "setup: core.hooksPath=$(git config core.hooksPath), merge.kb-jsonl.driver=$(git config merge.kb-jsonl.driver)"

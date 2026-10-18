@@ -196,7 +196,7 @@ The alternative — a second `tsconfig.bun.test.json` preset with a
 `tsconfig.test.json` per package — was rejected: `plugins` does not merge
 across `extends`, so the test preset would have to restate the whole plugin
 block, and two hand-synced copies of the severity map is exactly the mirror
-[Rule 1](../../CLAUDE.md) forbids. The per-path `overrides` keep one authored
+[Rule 1](AGENTS.md#rule-1--abstraction-before-addition) forbids. The per-path `overrides` keep one authored
 block, one tsconfig per package, and one `nx typecheck` target per project.
 
 Harness check `effect-severity-lanes` holds the shape: exactly one override,
@@ -311,7 +311,7 @@ spec — not a licence to expand intent quietly in the implementation.
 
 When the spec must temporarily lag the code, the lag is written down first: a
 `#gap` node and a `// GAP [[id]]` marker (see
-[Drift markers and gaps](../../CLAUDE.md#drift-markers-and-gaps)). The goal is
+[Drift markers and gaps](AGENTS.md#drift-markers-and-gaps)). The goal is
 not zero drift; the goal is visible, intentional drift.
 
 ## Testing doctrine

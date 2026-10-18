@@ -3357,7 +3357,8 @@ browser still needs a TCP port, everything else can go UDS.
 
 ### Field-based graph perspectives (2026-09-07)
 
-The graph-first product principle lives in [AGENTS.md](../../AGENTS.md).
+The graph-first product principle lives in
+[AGENTS.md → Rule 1](AGENTS.md#rule-1--abstraction-before-addition).
 A graph perspective is a view node whose view is a renderer (DESIGN.md →
 Kinds, roles and options → View nodes): its `sys.f.view` names the renderer,
 and its lens props are that renderer's params. Its query selects nodes; its
