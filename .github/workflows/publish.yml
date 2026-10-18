@@ -2,12 +2,12 @@ name: Publish
 
 # The one path a kb build takes to a GitHub release, called by the Release
 # workflow (release.yml), which holds no copy of it. It builds the bundle at
-# `ref`, smoke-tests it on Linux and macOS, and, when `publish` is set,
-# attests its provenance and publishes it as release v<version> with notes
-# from bin/release-notes. Without `publish` it is a dry run: the bundle is a
-# workflow artifact and nothing is published. What the bundle holds is
-# bin/release-bundle's; what the smoke test asserts is bin/release-smoke's.
-# The bundle is the only artifact:
+# `ref` stamped with `version`, smoke-tests it on Linux and macOS, and, when
+# `publish` is set, attests its provenance and publishes it as release
+# v<version> with notes from bin/release-notes. Without `publish` it is a dry
+# run: the bundle is a workflow artifact and nothing is published. What the
+# bundle holds is bin/release-bundle's; what the smoke test asserts is
+# bin/release-smoke's. The bundle is the only artifact:
 # GAP [[01M56H9MA14N5TG8640BN6PHXP]] no standalone compiled binaries yet.
 
 on:
@@ -18,7 +18,7 @@ on:
         type: string
         required: true
       version:
-        description: The version it ships as, package.json's at ref.
+        description: The version it ships as; a published one must be package.json's at ref.
         type: string
         required: true
       publish:
@@ -49,19 +49,23 @@ jobs:
         run: bun install --frozen-lockfile
 
       # package.json's version is the one source; a release that disagrees
-      # with it would ship one version under another's name.
+      # with it would ship one version under another's name. A dry run builds
+      # the version it would release, before anything is committed.
       - name: Check version
         env:
           VERSION: ${{ inputs.version }}
+          PUBLISH: ${{ inputs.publish }}
         run: |
           committed=$(bun -p 'require("./package.json").version')
-          if [ "$VERSION" != "$committed" ]; then
+          if [ "$PUBLISH" = true ] && [ "$VERSION" != "$committed" ]; then
             echo "::error::version $VERSION is not package.json's version $committed at $(git rev-parse --short HEAD)"
             exit 1
           fi
 
       - name: Build bundle
-        run: bin/release-bundle
+        env:
+          VERSION: ${{ inputs.version }}
+        run: bin/release-bundle "$VERSION"
 
       - name: Upload bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -145,6 +149,7 @@ jobs:
         with:
           subject-path: dist-release/kb-${{ inputs.version }}.tar.gz
 
+      # The tag exists by now, pushed by hand or by the Release workflow.
       # bin/release-notes is the one generator: CHANGELOG.md's sections are
       # its output too.
       - name: Write release notes

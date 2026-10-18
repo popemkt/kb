@@ -142,21 +142,53 @@ commit SHA cited in a record from before that date refers to
 
 ## Releasing
 
-`package.json`'s `version` is the one source: `kb --version` prints it, and a
-release tag must equal `v<version>`, or `.github/workflows/release.yml` fails.
+`package.json`'s `version` is the one source of a stable version: `kb
+--version` prints it, and every release is built, smoke-tested on Linux and
+macOS, attested and published by one reusable workflow,
+`.github/workflows/publish.yml`. Release notes and [`CHANGELOG.md`](CHANGELOG.md)
+come from one generator, `bin/release-notes`, which groups the conventional
+commits since the previous stable tag by type, breaking changes first.
+
+### Stable
+
+**Actions → Release → Run workflow**, with `bump` set to `patch`, `minor`,
+`major` or an explicit `major.minor.patch`. The workflow refuses unless
+Validate is green at main's tip. It then runs `bun run release <bump>` there:
+the new version goes into `package.json`, the SDK module that embeds it is
+regenerated, and the release's section goes into `CHANGELOG.md`. It commits
+`chore: release vX.Y.Z` to main, tags `vX.Y.Z`, and publishes the release.
+Tick `dry_run` to see the computed version and notes in the run's summary,
+with the bundle built and smoke-tested. A dry run commits, tags and publishes
+nothing.
+
+By hand, the same script runs locally, and pushing the tag publishes:
 
 ```bash
-bun run release 0.3.0            # set the version, regenerate the SDK module, commit, tag v0.3.0
-git push origin HEAD:main v0.3.0 # the tag push builds, smoke-tests and publishes the release
+bun run release --dry-run minor  # print the version and notes, change nothing
+bun run release minor            # version, SDK module, CHANGELOG.md, commit, tag
+git push origin HEAD:main v0.3.0 # the tag push runs the Release workflow
 ```
+
+A tag pushed by hand must equal `v<package.json version>` at a commit on main.
+
+### Verifying a download
+
+Every release asset carries build provenance from the workflow that built it:
+
+```bash
+gh attestation verify kb-0.2.2.tar.gz --repo popemkt/kb
+```
+
+The command passes only for a bundle built by this repository's publish
+workflow, and it names the commit that bundle was built from.
+
+### The bundle
 
 The release is one platform-independent bundle, `kb-<version>.tar.gz` with its
 `.sha256`. It unpacks to `kb-<version>/bin/kb`, a launcher that runs the bundled
 CLI on the `bun` on PATH, beside `lib/kb/` (the CLI and the UI it serves).
-`bun run release:bundle` builds it into `out/`. `bun run release:smoke
-out/kb-<version>.tar.gz` runs the same smoke test CI runs. A manual run of the
-workflow is a dry run: it uploads the bundle as a workflow artifact and
-publishes nothing.
+`bun run release:bundle [<version>]` builds it into `out/`. `bun run
+release:smoke out/kb-<version>.tar.gz` runs the same smoke test CI runs.
 
 ## License
 

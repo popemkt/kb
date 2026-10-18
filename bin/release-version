@@ -1,0 +1,37 @@
+#!/bin/sh
+# The version a release carries, computed from package.json's — the one
+# source of the stable version:
+#   bin/release-version patch|minor|major   the next stable version
+#   bin/release-version <major.minor.patch>  that version, if it is a step up
+set -eu
+
+cd "$(dirname "$0")/.."
+
+current=$(bun -p 'require("./package.json").version')
+if ! printf '%s\n' "$current" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "release-version: package.json version '$current' is not major.minor.patch" >&2
+  exit 1
+fi
+major=${current%%.*}
+rest=${current#*.}
+minor=${rest%%.*}
+patch=${rest#*.}
+
+bump=${1:-}
+case $bump in
+  patch) echo "$major.$minor.$((patch + 1))" ;;
+  minor) echo "$major.$((minor + 1)).0" ;;
+  major) echo "$((major + 1)).0.0" ;;
+  *)
+    if ! printf '%s\n' "$bump" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+      echo "usage: bin/release-version patch|minor|major|<major.minor.patch>" >&2
+      exit 2
+    fi
+    if [ "$(printf '%s\n%s\n' "$current" "$bump" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1)" != "$bump" ] ||
+      [ "$bump" = "$current" ]; then
+      echo "release-version: $bump is not above the current version $current" >&2
+      exit 1
+    fi
+    echo "$bump"
+    ;;
+esac

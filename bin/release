@@ -1,28 +1,52 @@
 #!/bin/sh
-# Cuts a kb release locally: `bun run release <version>` (e.g. 0.3.0).
+# Cuts a stable kb release: `bun run release [--dry-run] <bump>`, where <bump>
+# is patch, minor, major or an explicit major.minor.patch. The Actions
+# "Release" workflow runs this same script; run by hand, it is the local way.
+#
 # Sets package.json's version — the one source `kb --version` and the
 # extension SDK header read — regenerates the SDK module that embeds it, adds
-# the release's section to CHANGELOG.md (bin/release-notes, the generator the
-# GitHub release's notes come from too), commits, and makes the annotated tag
-# v<version>. It pushes nothing: pushing the tag is what runs
-# .github/workflows/release.yml.
+# the release's section to CHANGELOG.md, commits, and makes the annotated tag
+# v<version>. It pushes nothing. --dry-run prints the version and the notes
+# and stops before any of that. The version is bin/release-version's; the
+# notes are bin/release-notes', the same generator the GitHub release uses.
 set -eu
 
-version=${1:-}
-if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  echo "usage: bun run release <major.minor.patch>" >&2
+dry_run=false
+if [ "${1:-}" = "--dry-run" ]; then
+  dry_run=true
+  shift
+fi
+if [ $# -ne 1 ]; then
+  echo "usage: bun run release [--dry-run] patch|minor|major|<major.minor.patch>" >&2
   exit 2
 fi
 
 kb=$(cd "$(dirname "$0")/.." && pwd)
 cd "$kb"
 
-if [ -n "$(git status --porcelain)" ]; then
-  echo "release: the working tree is not clean" >&2
-  exit 1
-fi
+version=$(bin/release-version "$1")
 if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
   echo "release: tag v$version already exists" >&2
+  exit 1
+fi
+
+section=$(mktemp)
+trap 'rm -f "$section"' EXIT
+{
+  echo "## v$version — $(date -u +%Y-%m-%d)"
+  echo
+  bin/release-notes HEAD
+} >"$section"
+
+if [ "$dry_run" = true ]; then
+  echo "release: dry run, v$version from $(git rev-parse --short HEAD); nothing committed or tagged"
+  echo
+  cat "$section"
+  exit 0
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "release: the working tree is not clean" >&2
   exit 1
 fi
 
@@ -37,13 +61,6 @@ await Bun.write(path, next);
 bun run gen:ext-sdk
 
 # The newest section goes above the previous release's, under the preamble.
-section=$(mktemp)
-trap 'rm -f "$section"' EXIT
-{
-  echo "## v$version — $(date -u +%Y-%m-%d)"
-  echo
-  bin/release-notes HEAD
-} >"$section"
 awk -v section="$section" '
   !done && /^## / { while ((getline line < section) > 0) print line; print ""; done = 1 }
   { print }

@@ -7,6 +7,11 @@
  *
  * Run: `bun run gen:ext-sdk`
  * Writes: `packages/contract/ext-sdk/src/sdk-dts.text.ts`
+ *
+ * `--version <v>` stamps `<v>` instead of package.json's version. Only a
+ * build passes it (`bin/release-bundle <v>`), and only into its own tree: the
+ * committed module is always package.json's, which the freshness test holds
+ * it to.
  */
 import { Effect, Schema } from "effect";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
@@ -16,6 +21,7 @@ import type { Scope } from "effect/Scope";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { parseArgs } from "node:util";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = join(SCRIPT_DIR, "..");
@@ -147,8 +153,11 @@ if (import.meta.main) {
   // A generator script is its own composition root: it picks the platform
   // here rather than borrowing @kb/store-jsonl's persistence boundary, which
   // `layer:contract` may not reach.
+  const { values } = parseArgs({ options: { version: { type: "string" } } });
   const { version } = await Effect.runPromise(
-    Effect.scoped(writeExtSdkModule()).pipe(Effect.provide(BunFileSystem.layer)),
+    Effect.scoped(writeExtSdkModule({ version: values.version })).pipe(
+      Effect.provide(BunFileSystem.layer),
+    ),
   );
   // oxlint-disable-next-line eslint/no-console -- build script progress line
   console.log(`wrote packages/contract/ext-sdk/src/sdk-dts.text.ts (kb ${version})`);

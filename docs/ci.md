@@ -1,11 +1,14 @@
 # CI
 
-Two workflows: one gates the repository, one grades its tests.
+Four workflows: one gates the repository, one grades its tests, and two
+release it.
 
 | Workflow | Trigger | What it answers |
 |---|---|---|
 | `validate.yml` | PR, push to `main` | Is the repo green? |
 | `kb-mutation.yml` | Weekly (Mon 04:00 UTC, incremental), monthly (full), manual | Which mutants does the test suite fail to kill? |
+| `release.yml` (Release) | Manual with a bump, or a hand-pushed `v<major.minor.patch>` tag | Cut a stable release: version, CHANGELOG, commit and tag, then publish |
+| `publish.yml` (Publish) | Called by Release only | Build, smoke-test, attest and publish one release |
 
 `validate.yml` is the single answer to "does this change land". It has two
 independent jobs that run in parallel because they share nothing:
@@ -107,6 +110,14 @@ Mutation testing is not part of Validate — see the header comment in
 its survivor list is reproducible. `harness/src/mutation.ts` plans the shards
 and merges their reports; the survivor report is the artifact.
 
+## Releases
+
+Release decides *what* to release, and a manual run refuses unless Validate
+passed at main's tip (`bin/validate-green`). It builds nothing itself: it
+calls `publish.yml`, the one path to a GitHub release. The README's
+[Releasing](../README.md#releasing) section is the owner-facing account,
+covering the stable flow and `gh attestation verify`.
+
 ## Still manual
 
 **Branch protection is not enabled.** CI runs on every push to `main`, but
@@ -130,3 +141,8 @@ JSON
 That makes a direct push to `main` that fails CI impossible, which is the
 point, but a red run then blocks until it is fixed or admin-overridden.
 Enable it deliberately.
+It also stops the Release workflow: that workflow pushes its
+`chore: release vX.Y.Z` commit to `main` with the workflow token, and that
+commit has no checks of its own. Protection turned on therefore means letting
+`github-actions[bot]` bypass it, or cutting stable releases by hand (`bun run
+release`, then push).

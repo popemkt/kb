@@ -4,18 +4,27 @@
 #   out/kb-<version>/lib/kb/cli.js                  the CLI, one bun-target script
 #   out/kb-<version>/lib/kb/packages/app/ui/dist    the UI it serves
 # packed as out/kb-<version>.tar.gz with out/kb-<version>.tar.gz.sha256.
-# The version is package.json's; the lib/kb layout is the one KB_PKG_ROOT
-# names (packages/app/server/src/paths.ts). Needs bun and installed deps.
+# The version is package.json's, or the one given as `bin/release-bundle
+# <version>` — the version a Release dry run computes, say. It is stamped into
+# the SDK module the CLI reads `--version` from for this build only; the
+# committed module is put back afterwards. The lib/kb layout is the one KB_PKG_ROOT names
+# (packages/app/server/src/paths.ts). Needs bun and installed deps.
 set -eu
 
 kb=$(cd "$(dirname "$0")/.." && pwd)
 cd "$kb"
 
-version=$(bun -p 'require("./package.json").version')
+version=${1:-$(bun -p 'require("./package.json").version')}
 name="kb-$version"
 out="$kb/out"
 stage="$out/$name"
 rm -rf "$stage" "$out/cli" "$out/$name.tar.gz" "$out/$name.tar.gz.sha256"
+mkdir -p "$out"
+
+sdk="$kb/packages/contract/ext-sdk/src/sdk-dts.text.ts"
+cp "$sdk" "$out/sdk-dts.text.ts.committed"
+trap 'mv "$out/sdk-dts.text.ts.committed" "$sdk"' EXIT
+bun packages/contract/ext-sdk/scripts/generate.ts --version "$version"
 
 (cd packages/app/ui && bun run build)
 bun build packages/app/cli/src/main.ts --outdir "$out/cli" --target=bun --sourcemap=none

@@ -1,0 +1,24 @@
+#!/bin/sh
+# Whether .github/workflows/validate.yml passed at a commit, as Actions
+# recorded it — the gate the Release workflow stands on:
+#   bin/validate-green <commit>
+# exits 0 when a Validate run for that commit concluded success, and 1 when
+# none did (failed, cancelled, still running, or never run), saying which.
+# Needs gh, authenticated (GH_TOKEN in Actions, with actions: read).
+set -eu
+
+sha=$(git rev-parse "${1:?usage: bin/validate-green <commit>}^{commit}")
+states=$(gh api "repos/{owner}/{repo}/actions/workflows/validate.yml/runs?head_sha=$sha" \
+  --jq '.workflow_runs[] | if .status == "completed" then .conclusion else .status end')
+
+short=$(git rev-parse --short "$sha")
+if printf '%s\n' "$states" | grep -qx success; then
+  echo "validate-green: Validate passed at $short"
+  exit 0
+fi
+if [ -z "$states" ]; then
+  echo "validate-green: Validate never ran at $short" >&2
+else
+  echo "validate-green: Validate is not green at $short ($(printf '%s\n' "$states" | sort -u | paste -sd, -))" >&2
+fi
+exit 1

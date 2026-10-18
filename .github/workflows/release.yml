@@ -1,48 +1,109 @@
-name: release
+name: Release
 
-# A pushed v<version> tag publishes that version as a GitHub Release; a manual
-# run is the dry run, which builds and smoke-tests the same bundle and
-# publishes nothing. The tag must equal package.json's version. The build,
-# smoke test, provenance and release are publish.yml's, the one release path.
+# A stable kb release. Two ways in, one way out:
+#   - Actions → Release → Run workflow, with a bump (patch, minor, major or an
+#     explicit major.minor.patch): refuses unless Validate is green at main's
+#     tip, then runs bin/release there — version, SDK module, CHANGELOG.md,
+#     `chore: release vX.Y.Z` commit, annotated tag — and pushes both to main.
+#     With dry_run it prints the version and notes bin/release computes and
+#     builds and smoke-tests that bundle, but commits, tags and publishes
+#     nothing.
+#   - A v<major.minor.patch> tag pushed by hand, which must equal
+#     package.json's version at the tagged commit.
+# Either way the build, smoke test, provenance and release are publish.yml's.
+# A tag pushed with the workflow token starts no workflow, so the dispatch
+# path calls publish.yml itself rather than waiting on its own tag push.
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: patch, minor, major, or an explicit major.minor.patch
+        type: string
+        required: true
+        default: patch
+      dry_run:
+        description: Show the version and notes, build and smoke-test; commit, tag and publish nothing
+        type: boolean
+        default: false
+  push:
+    tags: ["v*", "!v*-*"]
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    permissions:
+      # Pushes the release commit and tag (dispatch only).
+      contents: write
+      # bin/validate-green reads Validate's runs.
+      actions: read
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      ref: ${{ steps.cut.outputs.ref }}
+      version: ${{ steps.cut.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          persist-credentials: false
+          # bin/release-notes reads the history back to the previous tag.
+          fetch-depth: 0
+          # Only the dispatch path pushes, and only a real run.
+          persist-credentials: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
-      # package.json's version is the one source; a tag that disagrees with it
-      # would publish one version under another's name.
-      - name: Read version
-        id: version
+      - name: Cut release
+        id: cut
         env:
-          REF_TYPE: ${{ github.ref_type }}
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
           REF_NAME: ${{ github.ref_name }}
+          BUMP: ${{ inputs.bump }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          version=$(jq -r .version package.json)
-          if [ "$REF_TYPE" = "tag" ] && [ "$REF_NAME" != "v$version" ]; then
-            echo "::error::tag $REF_NAME does not match package.json version $version (expected v$version)"
-            exit 1
+          if [ "$EVENT" = push ]; then
+            version=$(bun -p 'require("./package.json").version')
+            if [ "$REF_NAME" != "v$version" ]; then
+              echo "::error::tag $REF_NAME does not match package.json version $version (expected v$version)"
+              exit 1
+            fi
+          else
+            if [ "$REF" != refs/heads/main ]; then
+              echo "::error::a release is cut from main, not $REF"
+              exit 1
+            fi
+            if ! bin/validate-green HEAD; then
+              echo "::error::Validate is not green at main's tip; fix main first"
+              exit 1
+            fi
+            if [ "$DRY_RUN" = true ]; then
+              bin/release --dry-run "$BUMP" | tee -a "$GITHUB_STEP_SUMMARY"
+              version=$(bin/release-version "$BUMP")
+            else
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              bin/release "$BUMP"
+              version=$(bun -p 'require("./package.json").version')
+              git push --atomic origin HEAD:refs/heads/main "refs/tags/v$version"
+            fi
           fi
-          echo "version=$version" >>"$GITHUB_OUTPUT"
+          {
+            echo "ref=$(git rev-parse HEAD)"
+            echo "version=$version"
+          } >>"$GITHUB_OUTPUT"
 
   publish:
     needs: prepare
@@ -52,6 +113,6 @@ jobs:
       id-token: write
       attestations: write
     with:
-      ref: ${{ github.sha }}
+      ref: ${{ needs.prepare.outputs.ref }}
       version: ${{ needs.prepare.outputs.version }}
-      publish: ${{ github.event_name == 'push' }}
+      publish: ${{ !inputs.dry_run }}
