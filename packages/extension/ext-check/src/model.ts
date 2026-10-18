@@ -1,25 +1,6 @@
 import type { KbNode, NodeId, PropValue } from "@kb/model";
 import { z } from "zod";
 
-/**
- * The surfaces a check can live on: every enforcement level except `prose`,
- * which by definition means "nothing checks it". The `surface` field says the
- * same thing as data — its `sys.f.targetQuery` selects the `enforcement`
- * field's children minus that one — so the picker and this list are two
- * readings of one declaration rather than two hand-kept copies.
- */
-const CHECK_SURFACES = ["harness", "lint", "tsc", "hook", "ci"] as const;
-export const checkSurfaceSchema = z.enum(CHECK_SURFACES);
-export type CheckSurface = z.infer<typeof checkSurfaceSchema>;
-
-export const SURFACE_FILES: Record<CheckSurface, readonly string[]> = {
-  harness: ["package.json"],
-  lint: [".oxlintrc.json"],
-  tsc: ["tsconfig.base.json"],
-  hook: [".githooks/pre-commit"],
-  ci: [".github/workflows/*.yml"],
-};
-
 const checkMissing = z.object({
   kind: z.literal("check-missing"),
   rule: z.string(),
@@ -107,6 +88,16 @@ export interface CheckModel {
   readonly checks: readonly KbNode[];
   readonly fieldIds: ReadonlyMap<string, NodeId>;
   readonly enforcementIds: ReadonlyMap<string, NodeId>;
+  /**
+   * The files each surface reads, by its name: the `files` values of the
+   * `enforcement` field's option nodes. A surface is an enforcement level
+   * that declares files — `prose`, which by definition means "nothing checks
+   * it", declares none — so which surfaces exist, and where each lives, is
+   * the repository's data: kb's hook is `.githooks/pre-commit`, another
+   * repository's may be a shim and the script behind it. A pattern may hold
+   * one `*` in its last segment.
+   */
+  readonly surfaceFiles: ReadonlyMap<string, readonly string[]>;
   readonly checkTagIds: ReadonlySet<NodeId>;
   /** The `#gap` tag's ids; empty in a store that defines none. */
   readonly gapTagIds: ReadonlySet<NodeId>;
@@ -163,8 +154,14 @@ export function buildCheckModel(nodes: readonly KbNode[]): CheckModel {
 
   const checkTagIds = tagIdsNamed(nodes, "check");
   const enforcementIds = new Map<string, NodeId>();
+  const surfaceFiles = new Map<string, string[]>();
+  const filesField = fieldIds.get("files");
   for (const option of fieldOptions(nodesById, fieldIds.get("enforcement"))) {
     enforcementIds.set(option.text, option.id);
+    const files = (filesField === undefined ? [] : (option.props[filesField] ?? [])).flatMap(
+      (value) => (value.t === "str" && value.v !== "" ? [value.v] : []),
+    );
+    if (files.length > 0) surfaceFiles.set(option.text, files);
   }
 
   return {
@@ -173,6 +170,7 @@ export function buildCheckModel(nodes: readonly KbNode[]): CheckModel {
     checks: tagged(nodes, checkTagIds).toSorted((a, b) => a.id.localeCompare(b.id)),
     fieldIds,
     enforcementIds,
+    surfaceFiles,
     checkTagIds,
     gapTagIds: tagIdsNamed(nodes, "gap"),
   };

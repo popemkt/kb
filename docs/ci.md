@@ -64,10 +64,11 @@ there has a known answer already:
 | `bun run verify` | anything |
 
 `verify` has no narrower row because the workspace is the repository, and
-`verify` ends in `bun run check:audit`: `ext.check.audit` reads every
+`verify` runs `bun run check:audit`, and `ext.check.audit` reads every
 `#rule`'s `home` file and every `#check`'s `evidence` file, wherever they
-live, plus the surface files in `@kb/ext-check`'s `SURFACE_FILES` — this hook
-and the workflows.
+live, plus each surface's files — the `files` its `enforcement` option node
+declares, here this hook, `package.json`, the lint and tsc configs and the
+workflows.
 
 A fresh clone without `bun install` fails the hook with the command to run,
 rather than passing on checks it could not make.

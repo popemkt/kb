@@ -2,10 +2,8 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { KbCtx } from "@kb/contracts";
 import {
-  SURFACE_FILES,
   auditOutput,
   buildCheckModel,
-  checkSurfaceSchema,
   derivedEnforcement,
   isCheck,
   propRefs,
@@ -19,11 +17,11 @@ import { isFile, pathInRoot } from "./repo-files.ts";
 
 const surfaceFiles = Effect.fn("ext.check.surfaceFiles")(function* (
   root: string,
-  surface: keyof typeof SURFACE_FILES,
+  patterns: readonly string[],
 ) {
   const fs = yield* FileSystem;
   const files = new Set<string>();
-  for (const pattern of SURFACE_FILES[surface]) {
+  for (const pattern of patterns) {
     const wildcard = pattern.indexOf("*");
     if (wildcard < 0) {
       const path = pathInRoot(root, pattern);
@@ -60,13 +58,14 @@ const surfaceFiles = Effect.fn("ext.check.surfaceFiles")(function* (
 
 const invocationIsWired = Effect.fn("ext.check.invocationIsWired")(function* (
   root: string,
+  model: CheckModel,
   surface: string | undefined,
   invocation: string | undefined,
 ) {
-  const parsed = checkSurfaceSchema.safeParse(surface);
-  if (!parsed.success || invocation === undefined || invocation === "") return false;
+  const patterns = surface === undefined ? undefined : model.surfaceFiles.get(surface);
+  if (patterns === undefined || invocation === undefined || invocation === "") return false;
   const fs = yield* FileSystem;
-  const files = yield* surfaceFiles(root, parsed.data);
+  const files = yield* surfaceFiles(root, patterns);
   for (const path of files) {
     const content = yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => ""));
     if (content.includes(invocation)) return true;
@@ -165,7 +164,7 @@ const findInvocationUnwired = Effect.fn("ext.check.findInvocationUnwired")(funct
   for (const check of model.checks) {
     const surface = propText(model, check, "surface");
     const invocation = propText(model, check, "invocation");
-    if (!(yield* invocationIsWired(root, surface, invocation))) {
+    if (!(yield* invocationIsWired(root, model, surface, invocation))) {
       invocationUnwired.push({
         kind: "invocation-unwired",
         check: check.id,

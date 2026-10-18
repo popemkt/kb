@@ -245,8 +245,10 @@ function fixture(): Fixture {
     typed("f.blocking", "blocking", "sys.field", {
       "sys.f.fieldType": [fieldTypeValue("checkbox")],
     }),
+    typed("f.files", "files", "sys.field"),
     node("v.prose", "prose"),
-    node("v.harness", "harness"),
+    // A surface is a level that declares the files it reads.
+    node("v.harness", "harness", { "f.files": [{ t: "str", v: "package.json" }] }),
     node("check.harness", "harness-check", {
       "sys.f.type": [{ t: "ref", v: "tag.check" }],
       "f.surface": [{ t: "ref", v: "v.harness" }],
@@ -315,6 +317,29 @@ describe("ext.check.audit", () => {
   test("reports invocation-unwired", () => {
     const input = fixture();
     input.files.set("package.json", '"verify": "bun run lint"');
+    return audit(input).then((findings) => {
+      expect(findings.map((finding) => finding.kind)).toContain("invocation-unwired");
+      return undefined;
+    });
+  });
+
+  test("a surface reads the files its option node declares, and only those", () => {
+    const input = fixture();
+    input.files.set("package.json", '"verify": "bun run lint"');
+    input.files.set(".githooks/pre-commit", "bun run harness");
+    updateNode(input.nodes, "v.harness", (level) => ({
+      ...level,
+      props: { "f.files": [{ t: "str", v: ".githooks/pre-commit" }] },
+    }));
+    return audit(input).then((findings) => {
+      expect(findings).toEqual([]);
+      return undefined;
+    });
+  });
+
+  test("a level that declares no files is no surface: a check on it is unwired", () => {
+    const input = fixture();
+    updateNode(input.nodes, "v.harness", (level) => ({ ...level, props: {} }));
     return audit(input).then((findings) => {
       expect(findings.map((finding) => finding.kind)).toContain("invocation-unwired");
       return undefined;
