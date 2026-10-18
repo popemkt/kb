@@ -14,6 +14,11 @@ trustedDependencies = []
 # DESIGN.md; harness/tests/browser-scope.test.ts holds this list to the
 # packages' scope tags.
 [test]
+# A test's time budget is the `test` script's --timeout (bun reads no budget
+# from here). Bun's 5 s default is a dev Mac's measure: CI's macOS runner
+# takes the suite's heaviest cases far longer (the 2000-run forest merge
+# property, 0.12 s on a dev Mac, ran 4.8 s and 5.5 s there, the second a
+# timeout), so the default made them flake. A hang still fails, later.
 pathIgnorePatterns = ["**/packages/app/ui/**", "**/packages/kit/**", "**/packages/extension/*-ui/**", "**/packages/test-support/ui-test-kit/**"]
 # The fast-check seed is inert unless KB_FAST_CHECK_SEED is set; the mutation
 # run sets it. The test home gives every run a scratch home store, so a test
