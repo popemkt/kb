@@ -10,7 +10,7 @@ Two workflows: one gates the repository, one grades its tests.
 `validate.yml` is the single answer to "does this change land". It has two
 independent jobs that run in parallel because they share nothing:
 
-- **`nix`** — `shellcheck` over the hook and `bin/` scripts, `actionlint`,
+- **`nix`** — `shellcheck` over the hook and every `bin/` script, `actionlint`,
   `nixfmt --check`, and `nix flake check`, which builds `packages.kb`. It runs
   on `macos-15` and `ubuntu-24.04`, so the package is proven on Darwin and on
   Linux. Every step runs inside `nix develop`, so the tool versions are the

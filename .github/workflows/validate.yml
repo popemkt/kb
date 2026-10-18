@@ -36,7 +36,7 @@ jobs:
 
       - name: Lint the hook, scripts and workflows
         run: |
-          shellcheck .githooks/pre-commit bin/kb bin/merge-jsonl bin/setup
+          shellcheck .githooks/pre-commit bin/*
           actionlint
           git ls-files -z '*.nix' | xargs -0 nixfmt --check
 
