@@ -1,8 +1,8 @@
 /**
  * What a CLI argument names when it is not the value itself: a JSON blob or
- * stdin for `kb action-invoke`, a file or stdin for `kb add --outline`. A
- * malformed or unreadable argument is a usage error (exit 2); stdin that
- * fails to read is an I/O failure (exit 1).
+ * stdin for `kb action-invoke`, a file or stdin for `kb add --outline` and
+ * `kb check gaps --files-from`. A malformed or unreadable argument is a usage
+ * error (exit 2); stdin that fails to read is an I/O failure (exit 1).
  */
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
@@ -51,10 +51,12 @@ const readStdinEffect: Effect.Effect<string, DomainError> = Effect.tryPromise({
 });
 
 /**
- * The text `--outline <file>` names: the file, or stdin for `-`. A file that
- * cannot be read is the caller's mistake (exit 2), like any bad argument.
+ * The text a file option names (`--outline <file>`, `--files-from <file>`):
+ * the file, or stdin for `-`. A file that cannot be read is the caller's
+ * mistake (exit 2), like any bad argument.
  */
-export function readOutlineEffect(
+export function readTextArgEffect(
+  flag: string,
   arg: string,
 ): Effect.Effect<string, UsageError | DomainError, FileSystem> {
   if (arg === "-") return readStdinEffect;
@@ -64,7 +66,7 @@ export function readOutlineEffect(
       .readFileString(arg)
       .pipe(
         Effect.mapError(
-          (err) => new UsageError({ message: `--outline: cannot read ${arg}: ${err.message}` }),
+          (err) => new UsageError({ message: `${flag}: cannot read ${arg}: ${err.message}` }),
         ),
       );
   });

@@ -49,7 +49,7 @@ import { locationCommands } from "./locations.ts";
 import { mergeDriverCommand } from "./merge-driver.ts";
 import { relationCommands } from "./relations.ts";
 import { hostExtensions } from "./host-plugins.ts";
-import { readActionJsonEffect, readOutlineEffect } from "./input.ts";
+import { readActionJsonEffect, readTextArgEffect } from "./input.ts";
 import {
   fieldsNeedingCreate,
   mapActionInvoke,
@@ -217,7 +217,7 @@ function addEffect(
         message: "kb add --outline takes text, tags, fields and ids from the outline itself",
       });
     }
-    const outline = yield* readOutlineEffect(opts.outline);
+    const outline = yield* readTextArgEffect("--outline", opts.outline);
     const plan = mapAddTree({
       outline,
       parent: opts.parent,

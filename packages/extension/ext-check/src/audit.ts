@@ -1,4 +1,3 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { KbCtx } from "@kb/contracts";
@@ -16,25 +15,7 @@ import {
   type EmptyInput,
   type Finding,
 } from "./model.ts";
-
-function pathInRoot(root: string, candidate: string | undefined): string | undefined {
-  if (candidate === undefined || candidate === "" || isAbsolute(candidate)) return undefined;
-  const rootPath = resolve(root);
-  const path = resolve(rootPath, candidate);
-  const rel = relative(rootPath, path);
-  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return undefined;
-  return path;
-}
-
-const isFile = Effect.fn("ext.check.isFile")(function* (path: string | undefined) {
-  if (path === undefined) return false;
-  const fs = yield* FileSystem;
-  if (!(yield* fs.exists(path).pipe(Effect.orElseSucceed(() => false)))) return false;
-  return yield* fs.stat(path).pipe(
-    Effect.map((info) => info.type === "File"),
-    Effect.orElseSucceed(() => false),
-  );
-});
+import { isFile, pathInRoot } from "./repo-files.ts";
 
 const surfaceFiles = Effect.fn("ext.check.surfaceFiles")(function* (
   root: string,
