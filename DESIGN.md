@@ -2137,11 +2137,13 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     whether a request is the person's, and under what name (`Person` in
     `@kb/contracts`), or nobody's the server can vouch for. Plugins supply
     it. An identity provider is a plugin that contributes to
-    `IdentityPoint` (`@kb/contracts`); the server asks every contributed
-    provider about each request and combines their answers (`identifyBy`
-    in `app/server/src/auth.ts`): any refusal (a credential that is not
-    good here) refuses it, otherwise the first provider that finds the
-    person names them, otherwise it is nobody's. The request guard asks
+    `IdentityPoint` (`identity.providers`, `@kb/contracts`). A provider
+    answers about a request it can vouch for (the person, by name) or must
+    refuse (a credential that is not good here), and passes on any other.
+    The server asks them in the kernel's order (each plugin's dependencies
+    first, then load order; no ordering configuration), and the first
+    answer holds (`identifyBy` in `app/server/src/auth.ts`, as Cordis's
+    `bail`). When every one passes, the request is nobody's. The request guard asks
     last, and the wire follows from the answer alone: the person's request
     is on the page's wire, any other on a local program's. With no
     provider at all the server runs, and every connection is nobody's.

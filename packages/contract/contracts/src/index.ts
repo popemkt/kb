@@ -127,7 +127,7 @@ export type {
   Listener,
 } from "./interception.ts";
 export { IdentityPoint, PersonSchema } from "./person.ts";
-export type { Identification, IdentityProvider, Person } from "./person.ts";
+export type { IdentityAnswer, Identification, IdentityProvider, Person } from "./person.ts";
 export {
   ActionResponseSchema,
   ClientMessageSchema,

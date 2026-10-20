@@ -14,20 +14,27 @@ export const PersonSchema = z.object({
 export type Person = z.infer<typeof PersonSchema>;
 
 /**
- * What an identity provider makes of a request: the person's, nobody's
- * (`person: null`), or refused, when it presents a credential that is not
- * good here and so must not quietly be taken as nobody's.
+ * What one identity provider answers about a request: it is the person's,
+ * or it is refused, because it presents a credential that is not good here
+ * and so must not quietly be taken as nobody's.
  */
-export type Identification = { readonly person: Person | null } | { readonly refused: string };
+export type IdentityAnswer = { readonly person: Person } | { readonly refused: string };
 
-/** One way a deployment authenticates the person. */
+/** Who a request is, all providers asked: an answer, or nobody's (`person: null`) when every one passed. */
+export type Identification = IdentityAnswer | { readonly person: null };
+
+/**
+ * One way a deployment authenticates the person. It answers about a request
+ * it can vouch for or refuse, and passes (`null`) on any other.
+ */
 export interface IdentityProvider {
-  readonly identify: (req: Request) => Identification;
+  readonly identify: (req: Request) => IdentityAnswer | null;
 }
 
 /**
  * The identity providers a `kb ui` server's plugins contribute. The server
- * asks every one of them about each request and takes the person from their
- * answers alone; with none contributed, every connection is nobody's.
+ * asks them about each request in the kernel's order (each plugin's
+ * dependencies first, then load order) and takes the first answer (Cordis's
+ * `bail`); when every one passes, or there is none, the request is nobody's.
  */
-export const IdentityPoint = Point<IdentityProvider>()("kb.ui.identity");
+export const IdentityPoint = Point<IdentityProvider>()("identity.providers");

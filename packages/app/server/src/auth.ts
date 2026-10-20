@@ -25,15 +25,15 @@ import { Service, definePlugin, type Plugin } from "@kb/plugin";
 const NOBODY: Identification = { person: null };
 
 /**
- * What a request is, by every provider's answer: refused when any refuses
- * it, the person's when any finds it is, as the first that did names them,
- * and nobody's otherwise, as it is when there is no provider at all.
+ * What a request is: the first provider's answer, in order, and nobody's
+ * when every one passes, as it is when there is no provider at all.
  */
 export function identifyBy(providers: readonly IdentityProvider[], req: Request): Identification {
-  const answers = providers.map((provider) => provider.identify(req));
-  const refused = answers.find((answer) => "refused" in answer);
-  if (refused !== undefined) return refused;
-  return answers.find((answer) => "person" in answer && answer.person !== null) ?? NOBODY;
+  for (const provider of providers) {
+    const answer = provider.identify(req);
+    if (answer !== null) return answer;
+  }
+  return NOBODY;
 }
 
 /**
@@ -68,7 +68,7 @@ function sameToken(presented: string, token: string): boolean {
  * starts. Only the person who started the server holds it (from the URL it
  * opened or printed, or their home), so a request carrying it is theirs,
  * under their account's name. One carrying another token (forged, or from
- * an earlier run) is refused, and one carrying none is nobody's.
+ * an earlier run) is refused, and on one carrying none it passes.
  */
 export function pageTokenIdentity(
   token: string = mintPageToken(),
@@ -77,7 +77,7 @@ export function pageTokenIdentity(
   const provider: IdentityProvider = {
     identify: (req) => {
       const presented = presentedToken(req);
-      if (presented === null) return NOBODY;
+      if (presented === null) return null;
       if (!sameToken(presented, token)) {
         return {
           refused:
@@ -114,7 +114,7 @@ export interface IdentityHeader {
  * trusted reverse proxy sets on every request it forwards (Tailscale serve's
  * `Tailscale-User-Login`, which it also strips from what a client sends). A
  * request whose header names one of `people` is theirs, under that login;
- * any other is nobody's. Every program that reaches the server's port can
+ * on any other it passes. Every program that reaches the server's port can
  * send the header, so the deployment opts in only where the proxy is the
  * one way in (`DESIGN.md` → Surfaces → Who the person is).
  */
@@ -124,7 +124,7 @@ export function identityHeaderIdentity({ header, people }: IdentityHeader): Plug
   const provider: IdentityProvider = {
     identify: (req) => {
       const login = req.headers.get(header);
-      return login !== null && known.has(login) ? { person: { name: login } } : NOBODY;
+      return login !== null && known.has(login) ? { person: { name: login } } : null;
     },
   };
   return definePlugin({

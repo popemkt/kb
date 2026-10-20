@@ -116,19 +116,20 @@ function person(name: string): IdentityProvider {
 }
 
 describe("identifyBy", () => {
-  const nobody = { identify: () => ({ person: null }) };
-  const refusing = { identify: () => ({ refused: "no" }) };
+  const passing: IdentityProvider = { identify: () => null };
+  const refusing: IdentityProvider = { identify: () => ({ refused: "no" }) };
 
-  test("with no provider, every request is nobody's", () => {
+  test("with no provider, or when every one passes, a request is nobody's", () => {
     expect(identifyBy([], request({}))).toEqual({ person: null });
+    expect(identifyBy([passing, passing], request({}))).toEqual({ person: null });
   });
 
-  test("a refusal wins, then the first provider that finds the person", () => {
-    expect(identifyBy([nobody, person("a"), person("b")], request({}))).toEqual({
+  test("the first provider that answers decides, a refusal as much as a person", () => {
+    expect(identifyBy([passing, person("a"), person("b")], request({}))).toEqual({
       person: { name: "a" },
     });
-    expect(identifyBy([person("a"), refusing], request({}))).toEqual({ refused: "no" });
-    expect(identifyBy([nobody, nobody], request({}))).toEqual({ person: null });
+    expect(identifyBy([passing, refusing, person("a")], request({}))).toEqual({ refused: "no" });
+    expect(identifyBy([person("a"), refusing], request({}))).toEqual({ person: { name: "a" } });
   });
 });
 
