@@ -11,7 +11,7 @@
  */
 import { Context } from "effect";
 import { z } from "zod";
-import type { Kernel, PointKey } from "@kb/plugin";
+import type { PointKey } from "@kb/plugin";
 import { ExtensionRowSchema } from "./declaration.ts";
 import type { ExtensionFailure } from "./extension.ts";
 import { FOOTPRINT_SOURCES, type FamilyKernel } from "./footprint.ts";
@@ -91,7 +91,10 @@ export function organisationOf(
   };
 }
 
-function listenersAt(kernel: Kernel, point: PointKey<unknown>): OrderedPoint["listeners"] {
+function listenersAt(
+  kernel: FamilyKernel["kernel"],
+  point: PointKey<unknown>,
+): OrderedPoint["listeners"] {
   return kernel.contributions(point).map(({ owner, id, value }) => {
     const match =
       typeof value === "object" && value !== null && "match" in value ? value.match : undefined;

@@ -72,6 +72,7 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
+import { EXTENSIONS_PATH } from "@/lib/extension-report";
 import {
   LayoutView,
   layoutPanes,
@@ -211,6 +212,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     },
   },
   { id: SYSTEM_IDS.cmdPreferences, scope: "global", run: (ctx) => ctx.ui.setPrefsOpen(true) },
+  { id: SYSTEM_IDS.cmdExtensions, scope: "global", run: () => navigate(EXTENSIONS_PATH) },
   {
     id: SYSTEM_IDS.cmdToggleTheme,
     scope: "global",

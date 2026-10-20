@@ -31,10 +31,14 @@ export const FootprintRowSchema = z.object({
 
 export type FootprintRow = z.infer<typeof FootprintRowSchema>;
 
-/** A kernel a host composes families in, and the source its rows carry. */
+/**
+ * A kernel a host composes families in, as something to read: what it
+ * holds, what was contributed, and who depends on whom. And the source its
+ * rows carry.
+ */
 export interface FamilyKernel {
   readonly source: Exclude<FootprintRow["source"], "seed">;
-  readonly kernel: Kernel;
+  readonly kernel: Pick<Kernel, "plugins" | "dependencies" | "contributions" | "contributionsOf">;
 }
 
 /**

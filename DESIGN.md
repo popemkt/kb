@@ -2662,7 +2662,8 @@ and it adds no field an extension author must fill in.
   injects and from whom (`nobody yet` while it is missing), what it
   provides and why a plugin of it failed, over every kernel the host holds
   families in (`organisationOf`, `@kb/contracts`). It is the one report:
-  `kb ext list` prints it and MCP serves it.
+  `kb ext list` prints it, MCP serves it, and the page's Extensions panel
+  draws it (DESIGN-UI.md → Extensions panel).
 - **The direction rule is a harness check over kb's own compositions, not
   a load-time rule.** `TAG_ALLOWS` in `harness/src/constraints.ts` has the
   shape of `LAYER_ALLOWS`, over plugin tags: `core` depends only on `core`,

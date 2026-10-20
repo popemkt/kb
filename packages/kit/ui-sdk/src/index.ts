@@ -126,6 +126,7 @@ export {
   RoutePoint,
   SidebarSectionPoint,
   pageFootprint,
+  PAGE_FAMILY_KERNEL,
   subscribeUiKernel,
   syncUiPlugins,
   uiKernelReader,

@@ -19,12 +19,8 @@ import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
-import {
-  extensionsSettled,
-  startUiPlugins,
-  switchExtension,
-  useExtensionSwitches,
-} from "@/ui-plugins";
+import { extensionsSettled, startUiPlugins, useExtensionSwitches } from "@/ui-plugins";
+import { switchExtension } from "@/lib/extension-report";
 import { useGraphStore } from "@/stores/graph.store";
 import { pageEditor } from "@/stores/page-editor";
 import { useSidebarToggle } from "@/stores/prefs.store";

@@ -53,7 +53,7 @@ import { locationsUiPlugin } from "@kb/locations-ui";
 import { outlineExtension } from "@kb/outline";
 import { extensionNodeId } from "@kb/model";
 import { outlineUiPlugin } from "@kb/outline-ui";
-import { coreExtension, extensionSwitchDef } from "@kb/operations";
+import { coreExtension } from "@kb/operations";
 import { isPlugin, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
@@ -63,11 +63,12 @@ import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
+import { extensionsUiPlugin } from "@/components/prefs/extensions-plugin";
 import * as uiSdk from "@kb/ui-sdk";
-import { logWarn, syncUiPlugins, toast, type ExtensionSwitch } from "@kb/ui-sdk";
+import { logWarn, syncUiPlugins, type ExtensionSwitch } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
-import { invoke, invokeSettled } from "@/session/runtime";
+import { invokeSettled } from "@/session/runtime";
 import { shownNodes, useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { webMcpUiPlugin } from "@/webmcp";
@@ -82,6 +83,7 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   browserHostUiPlugin,
   designSystemsUiPlugin,
   ontologyUiPlugin,
+  extensionsUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,
@@ -264,17 +266,6 @@ function currentSwitches(): readonly ExtensionSwitch[] {
 /** The switches Preferences offers now, re-read when the server's report moves. */
 export function useExtensionSwitches(): readonly ExtensionSwitch[] {
   return useSyncExternalStore(subscribeManifest, currentSwitches, currentSwitches);
-}
-
-/**
- * Switch an optional family on the server, then read its report again, which
- * the page follows. A refusal is shown, and the page stays as the server has
- * it.
- */
-export async function switchExtension(name: string, on: boolean): Promise<void> {
-  const receipt = await invoke(extensionSwitchDef.id, { name, on });
-  if (receipt.status === "failed") toast(receipt.message);
-  await loadManifest();
 }
 
 /** Load one family's browser entry, held to the name it was resolved by. */

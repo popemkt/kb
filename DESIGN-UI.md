@@ -2354,6 +2354,40 @@ There is one mechanism, not a second path beside the core plugins:
   views are listed by the server's entries and open as "cannot be shown
   here". An entry the server does not report is never loaded.
 
+### Extensions panel
+
+The Extensions panel (`/extensions`, `ExtensionsView`) is where a person
+sees and changes what the kb composes. The sidebar's Extensions row and
+⌘K's Extensions command open it.
+
+- **It draws one report.** The server's half is `extension.list`, which is
+  also what `kb ext list` prints, and `extension.footprint`
+  ([DESIGN → Plugin organisation](DESIGN.md#plugin-organisation--tags-and-derived-dependencies)).
+  The page's own kernel is joined in through the same readers
+  (`organisationOf`, `orderedPoints`, `pageFootprint`). The panel computes
+  nothing a CLI caller could not read (`lib/extension-report.ts`).
+- **Per extension**, it shows:
+  - its switch when it is optional, which calls `extension.switch` and then
+    shows what the server reports, as before; otherwise `required`;
+  - its trust: part of kb's build, composed by `kb ui`, or trusted at a
+    digest from a repository path;
+  - its tags;
+  - what it contributed to each point, server and page side by side, and
+    how many nodes it seeds;
+  - what it injects and from whom, and what it provides;
+  - its settings;
+  - why a plugin of it failed.
+- **Settings are fields.** A family's settings are the fields whose
+  `sys.f.configures` names its node (`configures`). They are drawn with the
+  page's field editor, as Preferences draws core's. The switch is the one
+  setting the card draws as its own control, because it goes through the
+  checked `extension.switch`.
+- **Above the extensions**, the panel lists:
+  - the points whose listeners are asked in turn (identity providers,
+    interceptors, guards), per kernel and in that order;
+  - the repository extensions refused, where an untrusted one names its
+    digest.
+
 ### Extension UI halves
 
 A family's browser half ([DESIGN → Extension families](DESIGN.md#extension-families))
@@ -2362,8 +2396,8 @@ compiles from source. It builds against `@kb/ui-sdk` and nothing else of
 the shell.
 
 - **The browser holds a resolver, not a second list.**
-  - `CORE_UI_PLUGINS` holds the shell's own projections: ontology, layout,
-    webmcp and screen, beside core's declaration and the page's host.
+  - `CORE_UI_PLUGINS` holds the shell's own projections: ontology,
+    extensions, layout, webmcp and screen, beside core's declaration and the page's host.
   - `BROWSER_EXTENSIONS: Record<family, {load: () => Promise<Plugin>}>` maps
     a family, keyed by its declaration's `name`, to its browser entry.
   - `syncUiPlugins` converges the page kernel on the core plugins, plus the

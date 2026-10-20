@@ -53,6 +53,7 @@ export {
   OutlineSnippetView,
   OutlineView,
 } from "./outline.ts";
+export { EXTENSIONS_NAMESPACE, ExtensionsView } from "./extensions.ts";
 export {
   ONTOLOGY_GRAPH_VIEW,
   ONTOLOGY_NAMESPACE,

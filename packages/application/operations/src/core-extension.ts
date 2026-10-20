@@ -12,6 +12,7 @@ import { defineExtension, viewDef } from "@kb/contracts";
 import { DESIGN_SYSTEM_OPTIONS, systemSeedNodes, type SeedOption } from "@kb/model";
 import {
   DocsMarkdownView,
+  ExtensionsView,
   LayoutView,
   NodeView,
   OntologyListView,
@@ -36,6 +37,7 @@ export const coreExtension = defineExtension({
     viewDef(DocsMarkdownView),
     viewDef(LayoutView),
     viewDef(NodeView),
+    viewDef(ExtensionsView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
 });
