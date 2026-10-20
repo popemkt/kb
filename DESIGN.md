@@ -1899,8 +1899,12 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     Architecture, Mutations). Where an action runs, locally or on the
     server, depends on what its handler needs, not on its mode.
 - **Interception.** Every call passes two kinds of listener that plugins
-  contribute, and nothing else in the invoke core decides or changes a
-  call. Contracts in `@kb/contracts` (`interception.ts`); the one runner is
+  contribute. They are the one place policy decides or changes a call.
+  Beside them the core keeps three invariants that no deployment turns off,
+  because they protect kb's own model, not anyone's policy: the commit's
+  system-write rule (`systemTxRefusal`, unless the call carries the
+  owner's `force`), a script's reach (`scriptRefusal` before it runs,
+  `scriptWriteRefusal` at its commit), and the commit's integrity check. Contracts in `@kb/contracts` (`interception.ts`); the one runner is
   `@kb/operations` (`interception.ts`).
   - **Guards decide; interceptors transform. They are two contracts.**
     - A guard (`ActionGuardPoint`, `action/guard`; `guardAction(plugin,
@@ -2330,7 +2334,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   family is a declaration and the plugin each host loads for it, from the
   build ([Extension families](#extension-families)); a repository extension
   is the same two from trusted bytes in the root, and may declare and
-  contribute whatever a bundled family may. Its module,
+  contribute whatever a bundled family may, through the keys `kb-ext-sdk`
+  exports (a point it has no key for, it cannot reach). Its module,
   `.kb/extensions/<name>.ts`, exports its `declaration`
   (`defineExtension({name, label, optional?, seed?, views?, …})`, the
   contracts' `ExtensionDeclaration`, whose name must be its file's) and
@@ -2545,8 +2550,8 @@ Core contributes no guard. With none, every call proceeds.
 - The family is required, so no store can switch it off: `extension.switch`
   refuses it as it refuses every required family.
 - `kb --governance off` leaves the family out of the composition. There is
-  no guard, and every call runs, including an agent's `force` and
-  `sandbox.trust`. It is meant for a single-user tool where every caller is
+  no guard: every call that the core's invariants admit (Interception,
+  above) runs, including an agent's `force` and `sandbox.trust`. It is meant for a single-user tool where every caller is
   the owner anyway.
 - The setting is process-wide, set by the CLI before any registry is
   composed (`deployGovernance`, `app/runtime/src/deployment.ts`).
@@ -4578,11 +4583,18 @@ point. A plugin reaches another only through a service it injects.
 - **Another implementation is another provider, chosen by configuration.**
   No plugin takes over a service another holds (`service-conflict`, as in
   Cordis).
-- **Interception is a point with combination rules**, never a wrapped
-  service:
-  - guards and interceptors (NestJS's guards versus interceptors, Envoy's
-    filter chain, Fastify's lifecycle hooks);
-  - identity providers (Cordis's `bail`).
+- **Taking part is a point with a stated combination rule**, never a
+  wrapped service:
+  - interception: guards, strictest verdict, and interceptors, in order
+    (NestJS's guards versus interceptors, Envoy's filter chain, Fastify's
+    lifecycle hooks);
+  - identity providers, a resolver rather than an interceptor: the first
+    answer holds (Cordis's `bail`).
+
+  Most other points are collections a reader lists or looks up by id. A
+  review of every point against these rules, and of what a plugin author
+  would expect and not find, is
+  `docs/research/2026-10-20-extension-points-mece/`.
 - **Order is the kernel's:** dependencies first, then load order. There is
   no `prepend` or priority.
 - **Trust, not the plugin model, is the boundary.** A trusted extension

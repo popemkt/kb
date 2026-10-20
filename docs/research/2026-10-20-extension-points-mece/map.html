@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kb extension points — map and MECE review</title>
+<style>
+  :root { --bg:#fafaf8; --fg:#1b1b1b; --muted:#666; --line:#d8d8d2; --pt:#e8f0fe; --ptb:#3b6fd4; --sv:#fff4e0; --svb:#c77c00; --bad:#fde8e8; --badb:#c0392b; --gap:#fdf3e3; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16171a; --fg:#e8e8e6; --muted:#9a9a96; --line:#33353a; --pt:#1c2a44; --ptb:#6c97ee; --sv:#3a2d14; --svb:#e0a43c; --bad:#3d1f1f; --badb:#e5675a; --gap:#33291a; } }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:16px; margin:28px 0 10px; } .sub { color:var(--muted); margin:0 0 16px; }
+  code { font:12px ui-monospace, Menlo, monospace; background:rgba(127,127,127,.15); padding:1px 4px; border-radius:3px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 14px; }
+  button { font:inherit; padding:4px 10px; border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:14px; cursor:pointer; }
+  button[aria-pressed="true"] { background:var(--ptb); color:#fff; border-color:var(--ptb); }
+  .kernels { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:14px; }
+  .kernel { border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .kernel h3 { margin:0 0 2px; font-size:14px; } .kernel p { margin:0 0 8px; color:var(--muted); font-size:12px; }
+  .grp { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:8px 0 4px; }
+  .chip { display:inline-block; margin:2px 4px 2px 0; padding:3px 8px; border-radius:5px; border:1px solid var(--ptb); background:var(--pt); font:12px ui-monospace, Menlo, monospace; cursor:pointer; }
+  .chip.sv { border-color:var(--svb); background:var(--sv); } .chip.gap { border-color:var(--badb); background:var(--bad); border-style:dashed; cursor:default; }
+  .chip.on { outline:2px solid var(--fg); } .chip.dim { opacity:.25; }
+  .detail { border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin-top:14px; min-height:84px; background:rgba(127,127,127,.06); }
+  .detail b { font-family: ui-monospace, Menlo, monospace; } .detail dl { display:grid; grid-template-columns:110px 1fr; gap:3px 10px; margin:6px 0 0; } .detail dt { color:var(--muted); } .detail dd { margin:0; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; } th, td { text-align:left; vertical-align:top; padding:6px 8px; border-bottom:1px solid var(--line); } th { position:sticky; top:0; background:var(--bg); font-weight:600; }
+  tr.hide { display:none; } tr.hl td { background:var(--pt); }
+  ol.find { padding-left:20px; } ol.find li { margin:0 0 10px; } .tag { display:inline-block; font-size:11px; padding:0 6px; border-radius:8px; margin-right:6px; border:1px solid var(--line); } .tag.o { background:var(--bad); border-color:var(--badb); } .tag.g { background:var(--gap); border-color:var(--svb); }
+  .rel { margin:10px 0 0; font-size:12.5px; } .rel span { display:inline-block; margin:2px 10px 2px 0; padding:2px 8px; border:1px dashed var(--badb); border-radius:5px; background:var(--bad); }
+</style>
+</head>
+<body>
+<h1>kb extension points</h1>
+<p class="sub">Branch <code>feat/person-identity</code> @ <code>0d55c673</code>, 2026-10-20. 19 points, 9 plugin service keys, three kernels. Full table with file:line in <code>README.md</code>. Click a chip for detail; filter by layer.</p>
+
+<div class="bar" id="filters" role="group" aria-label="Filter by layer"></div>
+
+<div class="kernels" id="kernels"></div>
+
+<div class="rel"><b>Overlaps drawn in the diagram:</b>
+  <span>kb.views ↔ ui.views (same ViewKey, joined by id)</span>
+  <span>ui.commands ↔ kb.actions (named verb, two worlds)</span>
+  <span>backdrops · design-systems · graph.themes · option-previews (one idea, four points)</span>
+  <span>action/guard + action/intercept are also read in the page kernel</span>
+</div>
+
+<div class="detail" id="detail"><i>Select a point or service.</i></div>
+
+<h2>Points and services</h2>
+<table id="tbl"><thead><tr><th>Key</th><th>Kind</th><th>Layer · kernel</th><th>Purpose</th><th>Contributors</th><th>Consumers</th><th>Cardinality / combination</th></tr></thead><tbody></tbody></table>
+
+<h2>Findings, ranked</h2>
+<ol class="find" id="find"></ol>
+
+<script>
+const D = [
+ ["kb.actions","point","core","registry","A verb any surface can invoke","core registry.ts:143; ext-docs, ext-canvas, ext-check, graph, code, locations-fs; repo extensions","runtime/registry.ts:216,289 → invoke core → CLI, MCP, UI, agent","many, keyed by namespaced id (+aliases)","contracts/extension.ts:106"],
+ ["kb.templates","point","core","registry","A render template a view spec names","ext-docs index.ts:203; repo extensions","runtime/registry.ts:295 → TemplateRegistry → renderView","many, keyed","contracts/extension.ts:109"],
+ ["kb.views","point","core","registry + page","A view's key and its text form","declarationPlugin (contracts/declaration.ts:88), every family","runtime/registry.ts:321 → ViewCatalog; page ui/lib/view-catalog.ts:55","many, keyed by view id","contracts/view-catalog.ts:40"],
+ ["action/guard","point","governance","registry + page","Allow / ask / deny a call, before it runs and before it commits","ext/governance extension.ts:28-29 (approval, force)","operations/interception.ts:93 → invoke.ts:267, manifest.ts:74, session.ts:162","many; deny ends, first ask holds, fail = deny","contracts/interception.ts:91"],
+ ["action/intercept","point","core","registry + page","Transform a call's input before, output after","none bundled","operations/invoke.ts:265,280","many; input in order, output reversed; fail aborts","contracts/interception.ts:94"],
+ ["identity.providers","point","identity","server","Authenticate a request: person, refused, or pass","server/auth.ts:96 (page token), :134 (proxy header)","server/server.ts:251 → identifyBy auth.ts:31 → request guard","many; first non-null answer holds (bail)","contracts/person.ts:40"],
+ ["kb.ui.channels","point","host","server","A plugin's conversation on /ws","ext/agent bridge.ts:330","server/plugins.ts:37-38 (socket hub)","many, keyed by id","contracts/channel.ts:36"],
+ ["ui.views","point","UI","page","A view's React component and placements","outline-ui, collections-ui, chart-ui, code-ui, graph-ui, canvas-ui, lab-ui, app/ui ontology+layout","ui-sdk hooks.ts:252; pane-switcher.tsx:85; graph-ui use-renderers.ts:7","many, keyed by view id","ui-sdk/lib/plugins.ts:98"],
+ ["ui.routes","point","UI","page","Path → view and frame","graph-ui, lab-ui, outline-ui, canvas-ui, app/ui layout+ontology","ui/screen.ts:53,105; pane-frame.tsx:79; node-view.tsx:57","many; first matching route","ui-sdk/lib/plugins.ts:171"],
+ ["ui.sidebar","point","UI","page","A sidebar section","outline-ui, graph-ui, locations-ui, lab-ui, canvas-ui, app/ui ontology","ui/components/sidebar/sidebar.tsx:29","many, by order","ui-sdk/lib/plugins.ts:218"],
+ ["ui.docks","point","UI","page","A tool window at the workspace edge","agent-ui plugin.ts:26","ui/docks.tsx:14","many; one open at a time","ui-sdk/lib/plugins.ts:234"],
+ ["ui.overlays","point","UI","page","A page-wide mounted overlay","outline-ui plugin.ts:120","ui/overlays.tsx:10","many, all mounted","ui-sdk/lib/plugins.ts:248"],
+ ["ui.backdrops","point","UI","page","Page-head backdrop (declared-option implementation)","backdrops-ui plugin.ts:82-85","ui-sdk/hooks.ts:69","many, keyed; one chosen by a field","ui-sdk/lib/plugins.ts:308"],
+ ["ui.design-systems","point","UI","page","Design system (tokens + stylesheet)","themes-ui plugin.ts:25,29; app/ui design-systems.ts","ui/stores/design-system.store.ts:139; lib/commands.tsx:225","many, keyed; one chosen by a field","ui-sdk/lib/plugins.ts:337"],
+ ["ui.option-previews","point","UI","page","Live sample for each option of one declared kind","app/ui design-systems.ts:30","ui-sdk/lib/option-preview.ts:32 (.find by field)","many, first wins silently","ui-sdk/lib/option-preview.ts:24"],
+ ["ui.palette-steps","point","UI","page","A picker step of the node palette","outline-ui plugin.ts:119; graph-ui plugin.ts:77","outline-ui/node-command-palette.tsx:55","many, keyed; opened by id from a command","ui-sdk/lib/command-point.ts:106"],
+ ["ui.commands","point","UI","page","A page command (⌘K, node menu)","outline-ui, chart-ui, graph-ui, locations-ui","ui/lib/commands.tsx:545","many, by load order; `when` filters","ui-sdk/lib/command-point.ts:155"],
+ ["graph.themes","point","family","page","Graph theme (declared-option implementation)","graph-ui graph-themes.ts:327","graph-themes.ts:348; graph-settings.tsx:33","many, keyed","ext/graph-ui/graph-themes.ts:311"],
+ ["lab.studies","point","family","page","A study the lab can draw","lab-ui plugin.ts:34,61","lab-ui/lab-page.tsx:104 (.find by scene)","many, one used per scene","ext/lab-ui/kit/study-point.ts:17"],
+ ["ui.host","service","UI","page","Page host: writes, invoke, screen, sandbox bridge","provider: app/ui browser-host.ts:102","inject in 9 -ui halves","exactly one provider","ui-sdk/host.ts:133"],
+ ["ui.field-editor","service","UI","page","The page's one field editor","provider: outline-ui plugin.ts:96","ui-sdk/lib/field-editor.ts:41","exactly one provider","ui-sdk/lib/field-editor.ts:34"],
+ ["ui.page.projection","service","UI","page","The page's graph projection","provider: outline-ui plugin.ts:93","ui/stores/graph.store.ts:428","exactly one provider","ui-sdk/lib/page-ports.ts:75"],
+ ["ui.page.editor","service","UI","page","The page's editor store","provider: outline-ui plugin.ts:94","ui/stores/page-editor.ts:28","exactly one provider","ui-sdk/lib/page-ports.ts:138"],
+ ["ui.node-link","service","family","page","Node-link graph extraction other halves read","provider: graph-ui plugin.ts:75","lab-ui plugin.ts:31 (inject), lab-graph.ts:82","exactly one provider","ui-sdk/lib/node-link.ts:48"],
+ ["ui.script-host","service","UI","page","Sandboxed script host for views","provider: code-ui plugin.ts:35","ui-sdk/components/view-scripts.tsx:11","exactly one provider","ui-sdk/view-scripts.ts:96"],
+ ["kb.ui.host","service","host","server","What the server offers plugins: root, invoke","provider: server/plugins.ts:157","ext/agent bridge.ts:320-323","exactly one provider","contracts/channel.ts:54"],
+ ["kb.ui.page-token","service","identity","server","Page token held by the page-token provider","provider: server/auth.ts:95","server/server.ts:436","exactly one provider","server/auth.ts:44"]
+];
+const KERNELS = [
+ ["Registry kernel","CLI · MCP · invoke core",["core","governance"]],
+ ["Server kernel","kb ui host",["identity","host"]],
+ ["Page kernel","browser",["UI","family"]]
+];
+const REL = {"kb.views":["ui.views"],"ui.views":["kb.views"],"ui.commands":["kb.actions"],"kb.actions":["ui.commands"],
+  "ui.backdrops":["ui.design-systems","graph.themes","ui.option-previews"],"ui.design-systems":["ui.backdrops","graph.themes","ui.option-previews"],
+  "graph.themes":["ui.backdrops","ui.design-systems","ui.option-previews"],"ui.option-previews":["ui.backdrops","ui.design-systems","graph.themes"]};
+const GAPS = ["after-commit reaction","surface / endpoint / webhook","keybindings · menus · status bar","per-type field editor","agent adapter · chart painter (factory options)","storage backend"];
+const FINDINGS = [
+ ["o","The invoke core decides outside the guard point","systemTxRefusal operations/session.ts:145, scriptRefusal invoke.ts:272, scriptWriteRefusal session.ts:154; DESIGN.md:1902,2537,2548. → make them required core guards, or state them as invariants."],
+ ["g","No reaction after a commit","DESIGN.md:4595-4611. → a tx/after point fed from the log, with the interception budgets."],
+ ["o","Which kernel reads a point is nobody's declaration","kernel.ts:44-47; guards read only at runtime/registry.ts:334 and ui/session/runtime.ts:63; DESIGN.md:2446-2450. → put the host on the key; flag unread contributions."],
+ ["o","A view is two contributions joined by id","contracts/view-catalog.ts:40 vs ui-sdk/lib/plugins.ts:98; collections-ui/plugin.ts:77. → one contribution, or resolve ui.views through ViewCatalog."],
+ ["o","ui.commands vs kb.actions","ui-sdk/lib/command-point.ts:155 vs contracts/extension.ts:106. → a command is presentation over an action id."],
+ ["o","Four points for one idea (declared-option implementation)","plugins.ts:308,337; graph-themes.ts:311; option-preview.ts:24. → one point keyed by option kind."],
+ ["o","Three mechanisms for “another implementation”","agent/bridge.ts:314-317, chart/extension.ts:29-40, server/plugins.ts:138 vs DESIGN.md:2356. → services or id-keyed points."],
+ ["g","A plugin cannot add a surface","cli/extensions.ts, contracts/channel.ts:9-12. → surface.routes point, or record the refusal."],
+ ["g","Repository extensions cannot reach every point","contracts/extension.ts:133-154; ext-sdk/page-surface.ts:45-178; DESIGN.md:2336,4570. → export or list the closed ones."],
+ ["g","No keybindings, menus or status bar","ui/lib/keyboard-shortcuts.ts:11-19. → ui.keybindings and menu placements."],
+ ["g","A point's combination rule is not part of the point","auth.ts:31, interception.ts:202, lab-page.tsx:104, option-preview.ts:32. → state it per point; duplicates conflict."],
+ ["g","One field editor, no per-type editors","ui-sdk/lib/field-editor.ts:34. → a point keyed by field type."],
+ ["g","No import/export or location provider","locations-fs/index.ts:38; runtime/store-selection.ts:54. → family-minted service."],
+ ["g","Identity answers only “the owner” (low)","contracts/person.ts:21-30. → leave until a second person exists."],
+ ["g","No telemetry or scheduling sink (low)","interception.ts:178,292. → leave; Effect covers both."]
+];
+const $ = (s) => document.querySelector(s);
+const layers = ["all","core","governance","identity","host","UI","family"];
+let layer = "all", picked = null;
+const bar = $("#filters");
+layers.forEach(l => { const b = document.createElement("button"); b.textContent = l; b.setAttribute("aria-pressed", l==="all"); b.onclick = () => { layer = l; [...bar.children].forEach(c => c.setAttribute("aria-pressed", c.textContent===l)); render(); }; bar.append(b); });
+function esc(s){ return s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function render() {
+  const k = $("#kernels"); k.innerHTML = "";
+  KERNELS.forEach(([name, sub, ls]) => {
+    const el = document.createElement("div"); el.className = "kernel";
+    el.innerHTML = `<h3>${name}</h3><p>${sub}</p>`;
+    ls.forEach(l => {
+      const rows = D.filter(r => r[2]===l);
+      if (!rows.length) return;
+      const g = document.createElement("div"); g.className = "grp"; g.textContent = l; el.append(g);
+      rows.forEach(r => {
+        const c = document.createElement("span"); c.className = "chip" + (r[1]==="service" ? " sv" : "");
+        c.textContent = r[0];
+        const related = picked && REL[picked] ? REL[picked] : [];
+        if (picked === r[0]) c.classList.add("on");
+        if (related.includes(r[0])) c.classList.add("on");
+        if (layer !== "all" && layer !== l) c.classList.add("dim");
+        c.onclick = () => { picked = r[0]; show(r); render(); };
+        el.append(c);
+      });
+    });
+    if (name === "Page kernel") {
+      const g = document.createElement("div"); g.className = "grp"; g.textContent = "no point today"; el.append(g);
+      GAPS.forEach(t => { const c = document.createElement("span"); c.className = "chip gap"; c.textContent = t; el.append(c); });
+    }
+    k.append(el);
+  });
+  const tb = $("#tbl tbody"); tb.innerHTML = "";
+  D.forEach(r => {
+    const tr = document.createElement("tr");
+    if (layer !== "all" && layer !== r[2]) tr.className = "hide";
+    if (picked === r[0]) tr.classList.add("hl");
+    tr.innerHTML = `<td><code>${esc(r[0])}</code><br><small>${esc(r[8])}</small></td><td>${r[1]}</td><td>${r[2]} · ${r[3]}</td><td>${esc(r[4])}</td><td>${esc(r[5])}</td><td>${esc(r[6])}</td><td>${esc(r[7])}</td>`;
+    tr.onclick = () => { picked = r[0]; show(r); render(); };
+    tb.append(tr);
+  });
+}
+function show(r) {
+  $("#detail").innerHTML = `<b>${esc(r[0])}</b> — ${r[1]}, ${r[2]} layer, ${r[3]} kernel<br>${esc(r[4])}<dl><dt>declared</dt><dd><code>${esc(r[8])}</code></dd><dt>contributors</dt><dd>${esc(r[5])}</dd><dt>consumers</dt><dd>${esc(r[6])}</dd><dt>combination</dt><dd>${esc(r[7])}</dd>${REL[r[0]] ? `<dt>overlaps with</dt><dd>${REL[r[0]].map(esc).join(", ")}</dd>` : ""}</dl>`;
+}
+render();
+$("#find").innerHTML = FINDINGS.map(([t, h, b]) => `<li><span class="tag ${t}">${t==="o" ? "overlap" : "gap"}</span><b>${esc(h)}</b><br>${esc(b)}</li>`).join("");
+</script>
+</body>
+</html>
