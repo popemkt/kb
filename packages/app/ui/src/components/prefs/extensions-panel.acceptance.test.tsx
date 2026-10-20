@@ -98,6 +98,8 @@ describe("the Extensions panel (acceptance)", () => {
   let container: HTMLDivElement;
   let root: Root;
   let asked: ActionRequest[] = [];
+  /** Which request the stand-in server fails, if any. */
+  let failing: "unreachable" | "footprint" | null = null;
 
   beforeAll(() => {
     dom = new Window({ url: "http://localhost/" });
@@ -121,6 +123,18 @@ describe("the Extensions panel (acceptance)", () => {
     setFetchGraphSnapshot(() => Promise.resolve(snapshot()));
     setPostAction((invocation) => {
       asked.push(invocation);
+      if (failing === "unreachable" && invocation.id === "extension.list") {
+        return Promise.reject(new Error("connection refused"));
+      }
+      if (failing === "footprint" && invocation.id === "extension.footprint") {
+        return Promise.resolve({
+          status: "failed",
+          id: invocation.id,
+          code: "forbidden",
+          message: "extension.footprint is not granted",
+          rev: 3,
+        });
+      }
       const output =
         invocation.id === "extension.list"
           ? REPORT
@@ -138,6 +152,7 @@ describe("the Extensions panel (acceptance)", () => {
 
   beforeEach(async () => {
     asked = [];
+    failing = null;
     dom.history.pushState({}, "", "/");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
@@ -243,5 +258,31 @@ describe("the Extensions panel (acceptance)", () => {
     expect(settings.textContent).toContain("suggest relations");
     // The switch is the card's own control, never a setting row.
     expect(settings.textContent).not.toContain("enabled");
+  });
+
+  it("says why when the server cannot give the report, and asks again on request", async () => {
+    failing = "unreachable";
+    await openFromSidebar();
+    expect(page()?.querySelector('[role="alert"]')?.textContent).toContain("connection refused");
+    expect(page()?.textContent).not.toContain("Reading the extensions");
+
+    failing = null;
+    const again = [...(page()?.querySelectorAll("button") ?? [])].find(
+      (button) => button.textContent.trim() === "Ask again",
+    );
+    await act(async () => {
+      present(again, "the panel's Ask again").click();
+    });
+    await settle();
+    expect(card("graph").textContent).toContain("part of kb's build");
+  });
+
+  it("does not draw a footprint it could not read as one with nothing in it", async () => {
+    failing = "footprint";
+    await openFromSidebar();
+    expect(page()?.querySelector('[role="alert"]')?.textContent).toBe(
+      "extension.footprint is not granted",
+    );
+    expect(container.querySelector('[data-testid="extension-graph"]')).toBeNull();
   });
 });

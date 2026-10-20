@@ -57,7 +57,7 @@ export function ExtensionsSection({ route }: { readonly route: MatchedRoute | nu
 }
 
 export function ExtensionsPage() {
-  const report = useExtensionReport();
+  const { report, reread } = useExtensionReport();
   return (
     <div className="mx-auto max-w-3xl px-4 py-6" data-testid="extensions-page">
       <h2 className="text-ui font-medium text-foreground/80">Extensions</h2>
@@ -68,9 +68,18 @@ export function ExtensionsPage() {
       {report === null ? (
         <p className="text-ui text-foreground/40">Reading the extensions…</p>
       ) : typeof report === "string" ? (
-        <p role="alert" className="text-ui text-destructive">
-          {report}
-        </p>
+        <div className="flex items-baseline gap-3">
+          <p role="alert" className="text-ui text-destructive">
+            {report}
+          </p>
+          <button
+            type="button"
+            className="text-meta text-foreground/50 hover:text-foreground/80"
+            onClick={reread}
+          >
+            Ask again
+          </button>
+        </div>
       ) : (
         <Report report={report} />
       )}

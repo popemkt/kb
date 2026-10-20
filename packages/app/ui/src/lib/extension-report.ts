@@ -7,7 +7,7 @@
  * switch is drawn as the server then has it; the page's half is read again
  * whenever the page kernel moves.
  */
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ExtensionReportSchema,
   FootprintRowSchema,
@@ -55,18 +55,29 @@ export interface PanelReport {
   readonly failures: ExtensionReport["failures"];
 }
 
+/**
+ * Ask the server for both halves. Never rejects: a request that could not
+ * be made, or either action failing, is the reason the panel shows in
+ * place of the report, since a missing footprint would read as a family
+ * that contributed nothing.
+ */
 async function readServer(): Promise<ServerReport | string> {
-  const [listed, footprint] = await Promise.all([
-    invoke("extension.list", {}),
-    invoke("extension.footprint", {}),
-  ]);
-  if (listed.status === "failed") return listed.message;
-  const report = ExtensionReportSchema.safeParse(listed.output);
-  if (!report.success) return `extension.list answered in another shape: ${report.error.message}`;
-  const rows = FootprintOutput.safeParse(
-    footprint.status === "succeeded" ? footprint.output : null,
-  );
-  return { report: report.data, footprint: rows.success ? rows.data.rows : [] };
+  try {
+    const [listed, footprint] = await Promise.all([
+      invoke("extension.list", {}),
+      invoke("extension.footprint", {}),
+    ]);
+    if (listed.status === "failed") return listed.message;
+    if (footprint.status === "failed") return footprint.message;
+    const report = ExtensionReportSchema.safeParse(listed.output);
+    if (!report.success) return `extension.list answered in another shape: ${report.error.message}`;
+    const rows = FootprintOutput.safeParse(footprint.output);
+    if (!rows.success)
+      return `extension.footprint answered in another shape: ${rows.error.message}`;
+    return { report: report.data, footprint: rows.data.rows };
+  } catch (error) {
+    return `the server could not be asked: ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 
 /** Group rows under the point each went to, in the order the points first appear. */
@@ -116,31 +127,44 @@ function joinPage(server: ServerReport, _page: PageKernelAt): PanelReport {
   };
 }
 
+/** The panel's reading, and how to ask the server again. */
+export interface ExtensionReading {
+  /** The report; why the server could not give it; or null until it first answers. */
+  readonly report: PanelReport | string | null;
+  readonly reread: () => void;
+}
+
 /**
- * The panel's reading, or why the server could not give it: the server's
- * half read on mount and whenever the manifest is read again, the page's
- * joined in whenever the page kernel moves.
+ * The panel's reading: the server's half read on mount, whenever the
+ * manifest is read again, and on `reread`; the page's joined in whenever
+ * the page kernel moves.
  */
-export function useExtensionReport(): PanelReport | string | null {
+export function useExtensionReport(): ExtensionReading {
   const [server, setServer] = useState<ServerReport | string | null>(null);
+  /** Read the server's half again; a no-op once unmounted. */
+  const readAgain = useRef<() => void>(() => {});
   useEffect(() => {
     let live = true;
     const read = async () => {
       const next = await readServer();
       if (live) setServer(next);
     };
+    readAgain.current = () => void read();
     void read();
     const unsubscribe = subscribeManifest(() => void read());
     return () => {
       live = false;
+      readAgain.current = () => {};
       unsubscribe();
     };
   }, []);
   const page = useSyncExternalStore(subscribeUiKernel, readPageAt, readPageAt);
-  return useMemo(
+  const report = useMemo(
     () => (server === null || typeof server === "string" ? server : joinPage(server, page)),
     [server, page],
   );
+  const reread = useCallback(() => readAgain.current(), []);
+  return useMemo(() => ({ report, reread }), [report, reread]);
 }
 
 /**

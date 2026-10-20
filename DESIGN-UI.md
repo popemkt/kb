@@ -2371,7 +2371,10 @@ is one setting among those it opens.
   ([DESIGN → Plugin organisation](DESIGN.md#plugin-organisation--tags-and-derived-dependencies)).
   The page's own kernel is joined in through the same readers
   (`organisationOf`, `orderedPoints`, `pageFootprint`). The panel computes
-  nothing a CLI caller could not read (`lib/extension-report.ts`).
+  nothing a CLI caller could not read (`lib/extension-report.ts`). When
+  either action fails, or the server cannot be asked, the panel says why in
+  place of the report and offers to ask again. It never draws a half it
+  could not read as an empty one.
 - **Per extension**, it shows:
   - its switch when it is optional, which calls `extension.switch` and then
     shows what the server reports; otherwise `required`;
