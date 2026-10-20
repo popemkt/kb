@@ -100,7 +100,7 @@ describe.each(["jsonl", "sqlite"] as const)("a %s store", (store) => {
       root = await mkdtemp(join(tmpdir(), `kb-cross-process-${store}-`));
       await kb(root, "init", "--store", store, "--bare");
       handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
-      const client = await watchingClient(handle.port);
+      const client = await watchingClient(Number(new URL(handle.url).port));
       ws = client.ws;
       const before = await graphRev(handle);
 

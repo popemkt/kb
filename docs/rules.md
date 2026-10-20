@@ -226,6 +226,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
+### GAP: a kb ui on a Unix socket records no presence, so the CLI's and kb mcp's screen actions and kb open do not reach it
+
+- **expected** — Presence records where a process on this machine reaches the server, a socket as much as a TCP port, and servingUi and its readers reach a socket server through it (Bun's fetch unix option)
+- **current** — Presence (.kb/ui.json) names only a loopback http origin, so a socket server (kb ui --socket) writes none; localUrlOf in listener.ts answers null for a socket
+- **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
+- **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
+- **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -346,14 +354,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
-
-### GAP: a trusted identity header is believed from any process that reaches kb ui's port, not only from the proxy
-
-- **expected** — kb ui believes the identity header only on requests that came through the trusted proxy: it listens where only the proxy can connect (a unix socket owned by the service, which tailscale serve can target), or it authenticates the proxy itself
-- **current** — With --identity-header, kb ui listens on loopback TCP and trusts the header on any request; Tailscale serve strips client copies, but a local process that connects to the port directly can send it
-- **impact** — On a host shared with other users or untrusted local programs, any of them can claim to be the person: approve calls and drive the agent. Sound only where every local process is the owner's anyway (the approval floor already treats those as the owner)
-- **closes** — kb ui --listen unix:<path> (Bun.serve unix) with the socket mode 0600 and the proxy pointed at it, or a shared secret the proxy adds, with the header trusted only alongside it
-- **node** — `01M5BVQHJEDC4ZK7BX7RZWDVF8`
 
 ### GAP: a trusted repository extension is imported from disk after its digest is read
 
@@ -1362,6 +1362,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a trusted identity header is believed from any process that reaches kb ui's port, not only from the proxy
+
+- **expected** — kb ui believes the identity header only on requests that came through the trusted proxy: it listens where only the proxy can connect (a unix socket owned by the service, which tailscale serve can target), or it authenticates the proxy itself
+- **current** — With --identity-header, kb ui listens on loopback TCP and trusts the header on any request; Tailscale serve strips client copies, but a local process that connects to the port directly can send it
+- **impact** — On a host shared with other users or untrusted local programs, any of them can claim to be the person: approve calls and drive the agent. Sound only where every local process is the owner's anyway (the approval floor already treats those as the owner)
+- **closes** — kb ui --listen unix:<path> (Bun.serve unix) with the socket mode 0600 and the proxy pointed at it, or a shared secret the proxy adds, with the header trusted only alongside it
+- **node** — `01M5BVQHJEDC4ZK7BX7RZWDVF8`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 

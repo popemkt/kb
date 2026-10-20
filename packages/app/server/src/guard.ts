@@ -9,9 +9,10 @@
  * Three checks do:
  *
  * - **Host** must name this server (`127.0.0.1:<port>`, `localhost:<port>`,
- *   or the host it was bound to). A page on another site that rebinds its
- *   own DNS name to 127.0.0.1 sends its own name here, so this is what stops
- *   DNS rebinding.
+ *   or the host it was bound to; `localhost` for a socket, as its proxy
+ *   names it; the public origin's host behind a proxy). A page on another
+ *   site that rebinds its own DNS name to 127.0.0.1 sends its own name
+ *   here, so this is what stops DNS rebinding.
  * - **Origin**, when there is one, must be the UI's own. A browser always
  *   sends it on a cross-origin request and on every WebSocket handshake. A
  *   local program (the CLI, `kb mcp`, curl) sends none and is let through.
@@ -32,6 +33,7 @@ import {
   type Person,
   type SurfaceWire,
 } from "@kb/contracts";
+import type { Listener } from "./listener.ts";
 
 /**
  * HTTP's wire for a local program: a request the authentication does not
@@ -43,18 +45,15 @@ import {
  */
 export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
 
-/** Where a `kb ui` server listens: a TCP port on a host. */
-export interface Listener {
-  readonly hostname: string;
-  readonly port: number;
-}
-
 /** Where the server listens, and where the browser loads the UI from. */
 export interface GuardSite {
   /** Where the server listens. */
   readonly at: Listener;
-  /** The port the UI page is served from: this server's, or the Vite dev server's. */
-  readonly uiPort: number;
+  /**
+   * The port the UI page is served from, when another server serves it (the
+   * Vite dev server's). Default: the TCP listener's own.
+   */
+  readonly uiPort?: number;
   /** Browser origin when a reverse proxy serves this UI. */
   readonly publicOrigin?: string;
   /** Who a request is, by every identity provider the server holds (`identifyBy`). */
@@ -92,14 +91,29 @@ function isJson(contentType: string | null): boolean {
 }
 
 /**
- * The origins a browser may load the UI from, as `requestGuard` admits
- * them: each name the server answers to, on its own port and the UI's.
+ * The origins a browser may load the UI from, and the hosts a request may
+ * name, as `requestGuard` admits them. A TCP listener answers to each name
+ * it is reached by, on its own port and the UI's, and a page loaded from
+ * any of them is the UI's. A socket is reached through its proxy alone,
+ * which names it `localhost` (`tailscale serve` rewrites `Host` so for a
+ * `unix:` target), and its page is the proxy's public origin. A public
+ * origin is a host too.
  */
-function originsOf(site: GuardSite): Set<string> {
-  const names = [...new Set([...LOOPBACK_NAMES, site.at.hostname])];
-  return new Set(
-    names.flatMap((name) => [site.at.port, site.uiPort].map((port) => `http://${name}:${port}`)),
-  );
+function addressesOf(site: GuardSite): { origins: Set<string>; hosts: Set<string> } {
+  const { at } = site;
+  const own =
+    at.kind === "tcp"
+      ? {
+          origins: [...new Set([...LOOPBACK_NAMES, at.hostname])].flatMap((name) =>
+            [at.port, site.uiPort ?? at.port].map((port) => `http://${name}:${port}`),
+          ),
+          hosts: [],
+        }
+      : { origins: [at.origin], hosts: ["localhost"] };
+  const origins = new Set(own.origins);
+  if (site.publicOrigin !== undefined) origins.add(new URL(site.publicOrigin).origin);
+  const hosts = new Set([...own.hosts, ...[...origins].map((origin) => new URL(origin).host)]);
+  return { origins, hosts };
 }
 
 /** The wire a request is on: the page's when it is the person's, a local program's otherwise. */
@@ -120,9 +134,7 @@ export function handshakeHeaders(req: Request): Record<string, string> {
 }
 
 export function requestGuard(site: GuardSite): RequestGuard {
-  const origins = originsOf(site);
-  if (site.publicOrigin !== undefined) origins.add(new URL(site.publicOrigin).origin);
-  const hosts = new Set([...origins].map((origin) => new URL(origin).host));
+  const { origins, hosts } = addressesOf(site);
   const refused = (status: number, message: string): Admission => ({
     refused: refusal(status, message),
   });

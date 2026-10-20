@@ -114,11 +114,12 @@ export interface IdentityHeader {
  * trusted reverse proxy sets on every request it forwards (Tailscale serve's
  * `Tailscale-User-Login`, which it also strips from what a client sends). A
  * request whose header names one of `people` is theirs, under that login;
- * on any other it passes. Every program that reaches the server's port can
- * send the header, so the deployment opts in only where the proxy is the
- * one way in (`DESIGN.md` → Surfaces → Who the person is).
+ * on any other it passes. Every program that reaches the server can send
+ * the header, so it is believed only where the proxy is the one way in:
+ * `kb ui` loads it only on a socket its owner alone can connect to
+ * (`--socket`, `listener.ts`; `DESIGN.md` → Action registry → Hosted behind a
+ * proxy).
  */
-// GAP [[01M5BVQHJEDC4ZK7BX7RZWDVF8]]
 export function identityHeaderIdentity({ header, people }: IdentityHeader): Plugin {
   const known = new Set(people);
   const provider: IdentityProvider = {

@@ -73,9 +73,10 @@ describe("kb ui server", () => {
       startUi({ identity: [pageTokenIdentity()], root: other, port: 0, openBrowser: false }),
     );
     try {
-      expect(handle.port).toBeGreaterThan(0);
-      expect(second.port).not.toBe(handle.port);
-      expect(handle.url).toBe(`http://127.0.0.1:${handle.port}`);
+      const port = handle.at.kind === "tcp" ? handle.at.port : 0;
+      expect(port).toBeGreaterThan(0);
+      expect(second.at).not.toEqual(handle.at);
+      expect(handle.url).toBe(`http://127.0.0.1:${port}`);
       const recorded = JSON.parse(await readFile(join(root, ".kb", "ui.json"), "utf8")) as {
         url: string;
       };
@@ -204,7 +205,7 @@ describe("kb ui server", () => {
       expect(await uiRoot.text()).toContain('<div id="root">');
     }
 
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
+    const ws = new WebSocket(`${handle.url.replace(/^http/, "ws")}/ws`);
     await new Promise<void>((resolve, reject) => {
       ws.addEventListener("open", () => resolve());
       ws.addEventListener("error", () => reject(new Error("ws open failed")));
@@ -393,7 +394,7 @@ describe("kb ui server", () => {
       startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
     );
     const url = handle.url;
-    const port = handle.port;
+    const port = new URL(handle.url).port;
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     await new Promise<void>((resolve, reject) => {

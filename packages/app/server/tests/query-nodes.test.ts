@@ -152,7 +152,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
     expect(jsonlAfter).not.toContain("sys.query.");
 
     // Live subscription sees materialized query nodes through ctx.index.
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
+    const ws = new WebSocket(`${handle.url.replace(/^http/, "ws")}/ws`);
     await new Promise<void>((resolve, reject) => {
       ws.addEventListener("open", () => resolve());
       ws.addEventListener("error", () => reject(new Error("ws open failed")));

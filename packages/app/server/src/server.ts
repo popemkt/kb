@@ -42,7 +42,8 @@ import {
 } from "./dev.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { PageToken, identifyBy } from "./auth.ts";
-import { handshakeHeaders, requestGuard, type Listener, type RequestGuard } from "./guard.ts";
+import { handshakeHeaders, requestGuard, type RequestGuard } from "./guard.ts";
+import { addressOf, listen, localUrlOf, type BindOptions, type Listener } from "./listener.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
@@ -61,6 +62,12 @@ export interface UiServerOptions {
   port?: number;
   openBrowser?: boolean;
   hostname?: string;
+  /**
+   * Listen on a Unix socket at this path, created with mode 0600, instead
+   * of a TCP port (`listener.ts`). Its proxy is the way in, so it needs
+   * `publicOrigin`, and `port`, `hostname` and `uiPort` do not apply.
+   */
+  socket?: string;
   /**
    * The port the browser loads the UI from, when another server serves it
    * (the Vite dev server of `kb ui --dev`); its origin is the UI's. Default:
@@ -95,9 +102,10 @@ export interface UiServerOptions {
 }
 
 export interface UiServerHandle {
-  port: number;
+  /** Where it listens: the TCP port it bound (0 resolved), or its socket. */
+  at: Listener;
+  /** Where the page is: the TCP listener's address, or the proxy's public origin. */
   url: string;
-  hostname: string;
   /**
    * The page token the page-token provider holds (`auth.ts`), or null when
    * the deployment does not authenticate with one.
@@ -221,6 +229,7 @@ function ingestEach(
  * the layers the caller already built.
  */
 function serveUi(deps: {
+  where: BindOptions;
   at: Listener;
   uiPort: number | undefined;
   publicOrigin: string | undefined;
@@ -235,14 +244,12 @@ function serveUi(deps: {
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
   let guard: RequestGuard | null = null;
   return Bun.serve<WsData>({
-    hostname: deps.at.hostname,
-    port: deps.at.port,
+    ...deps.where,
     fetch(req, srv) {
       const url = new URL(req.url);
-      const at = { hostname: deps.at.hostname, port: srv.port ?? deps.at.port };
       guard ??= requestGuard({
-        at,
-        uiPort: deps.uiPort ?? at.port,
+        at: bound(deps.at, srv),
+        uiPort: deps.uiPort,
         publicOrigin: deps.publicOrigin,
         identify: (request) =>
           identifyBy(
@@ -290,6 +297,35 @@ function serveUi(deps: {
       },
     },
   });
+}
+
+/**
+ * Where `opts` asks the server to listen. A socket is reached through its
+ * proxy alone, so it needs the proxy's public origin, which is where its
+ * page is.
+ */
+function listenerOf(opts: UiServerOptions): Effect.Effect<Listener, DomainError> {
+  if (opts.socket === undefined) {
+    return Effect.succeed({
+      kind: "tcp",
+      hostname: opts.hostname ?? "127.0.0.1",
+      port: opts.port ?? UI_DEFAULT_PORT,
+    });
+  }
+  if (opts.publicOrigin === undefined) {
+    return Effect.fail(
+      domainError(
+        "invalid_input",
+        "a socket listener is reached through its proxy; name the proxy's public origin",
+      ),
+    );
+  }
+  return Effect.succeed({ kind: "socket", path: opts.socket, origin: opts.publicOrigin });
+}
+
+/** Where `server` listens, as `at` asked: a TCP port of 0 is the one it bound. */
+function bound(at: Listener, server: { port?: number | undefined }): Listener {
+  return at.kind === "tcp" ? { ...at, port: server.port ?? at.port } : at;
 }
 
 /**
@@ -347,8 +383,7 @@ const takeOpenedRoot = Effect.fn("kb.takeOpenedRoot")(function* (served: {
 export const startUi = Effect.fn("kb.startUi")(function* (
   opts: UiServerOptions,
 ): Effect.fn.Return<UiServerHandle, DomainError, FileSystem> {
-  const hostname = opts.hostname ?? "127.0.0.1";
-  const port = opts.port ?? UI_DEFAULT_PORT;
+  const asked = yield* listenerOf(opts);
   const openBrowserFlag = opts.openBrowser !== false;
 
   const lifetime = Scope.makeUnsafe("parallel");
@@ -383,18 +418,21 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   }).pipe(Effect.ignoreCause);
 
   // The listener first: a bind that fails throws here, before the lifetime
-  // owns anything, so nothing is left running behind a server that never came
-  // up.
-  const server = serveUi({
-    at: { hostname, port },
-    uiPort: opts.uiPort,
-    publicOrigin: opts.publicOrigin,
-    root: opts.root,
-    ctx,
-    hub,
-    hosted,
-    kernel,
-  });
+  // owns the server, so nothing is left running behind a server that never
+  // came up.
+  const server = yield* listen(asked, lifetime, (where) =>
+    serveUi({
+      where,
+      at: asked,
+      uiPort: opts.uiPort,
+      publicOrigin: opts.publicOrigin,
+      root: opts.root,
+      ctx,
+      hub,
+      hosted,
+      kernel,
+    }),
+  );
 
   yield* Scope.addFinalizer(
     lifetime,
@@ -422,13 +460,8 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     lifetime,
   );
 
-  // server.port is `number | undefined` only for unix-socket listeners; we
-  // always bind a TCP port, so it is defined here.
-  const boundPort = server.port;
-  if (boundPort === undefined) {
-    return yield* domainError("internal", "TCP listener missing port");
-  }
-  const url = `http://${hostname}:${boundPort}`;
+  const at = bound(asked, server);
+  const url = addressOf(at);
   // Handed to nothing a request can read: the page gets it from the URL this start opens or prints.
   const pageToken = kernel.service(PageToken) ?? null;
   if (opts.openedBy !== undefined) {
@@ -438,21 +471,23 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // or `kb mcp` asking for the screen) can reach them. Losing that costs only
   // the screen actions in other processes, so a failed write is reported and
   // the server still serves.
-  yield* writeUiPresence(opts.root, url).pipe(
-    Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
-  );
-  yield* Scope.addFinalizer(
-    lifetime,
-    clearUiPresence(opts.root, url).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
-  );
+  const local = localUrlOf(at);
+  if (local !== null) {
+    yield* writeUiPresence(opts.root, local).pipe(
+      Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
+    );
+    yield* Scope.addFinalizer(
+      lifetime,
+      clearUiPresence(opts.root, local).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
+    );
+  }
 
   const page = pageOf(url, pageToken);
   if (openBrowserFlag) openBrowser(page);
 
   return {
-    port: boundPort,
+    at,
     url,
-    hostname,
     pageToken,
     page,
     stop: Scope.close(lifetime, Exit.void),
@@ -503,7 +538,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
         cwd: join(opts.uiRoot),
         env: childProcessEnv("tool", {
           // Vite proxy target: /api, /assets, /ws all route to the kb backend.
-          KB_UI_API_PORT: String(backend.port),
+          KB_UI_API_PORT: new URL(backend.url).port,
         }),
       }),
     catch: ensureDomainError,
@@ -525,6 +560,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
 export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (opts: {
   root: string;
   port: number;
+  socket?: string;
   openBrowser: boolean;
   uiRoot: string;
   publicOrigin?: string;
@@ -538,6 +574,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   const handle = yield* startUi({
     root: opts.root,
     port: opts.port,
+    socket: opts.socket,
     openBrowser: opts.openBrowser,
     publicOrigin: opts.publicOrigin,
     identity: opts.identity,
@@ -564,6 +601,8 @@ function onTerminationSignal(stop: Effect.Effect<void>): () => void {
 export interface RunUiCliOptions {
   root: string;
   port?: number;
+  /** Listen on this Unix socket instead of a port ({@link UiServerOptions.socket}); not with `dev`. */
+  socket?: string;
   openBrowser?: boolean;
   dev?: boolean;
   devPort?: number;
@@ -624,6 +663,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
   const { build, handle } = yield* startProductionUi({
     root: opts.root,
     port: opts.port ?? UI_DEFAULT_PORT,
+    socket: opts.socket,
     openBrowser: open,
     uiRoot,
     ensureBuilt: opts.ensureBuilt,
@@ -635,7 +675,8 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
   if (build.built) {
     writeErr(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);
   }
-  writeErr(`kb ui listening on ${handle.url}; the page is ${handle.page}`);
+  const where = handle.at.kind === "socket" ? handle.at.path : handle.url;
+  writeErr(`kb ui listening on ${where}; the page is ${handle.page}`);
   // The listener owns the process from here; the scope closes on signal.
   return yield* Effect.never;
 }, Effect.provide(bunFileSystemLayer));

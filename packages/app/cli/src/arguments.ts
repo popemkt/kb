@@ -84,3 +84,39 @@ export const toGovernance = (value: string): "required" | "off" => {
     `--governance is required or off, not ${value}`,
   );
 };
+
+/** What `kb ui` was told about where it listens and whom it believes. */
+export interface UiListenArguments {
+  readonly port?: number;
+  readonly socket?: string;
+  readonly dev?: boolean;
+  readonly devPort?: number;
+  readonly publicOrigin?: string;
+  readonly identityHeader?: { header: string; people: readonly string[] };
+}
+
+/**
+ * Refuse a `kb ui` that listens one way and is told another. `--socket` is
+ * a hosted listener: its proxy is the way in, so it names that proxy's
+ * `--public-origin`, and a port or the dev server does not apply. A trusted
+ * `--identity-header` is believed only on a socket, since anything that
+ * reaches a TCP port can send the header, while only the socket's owner and
+ * root can connect to a socket (DESIGN.md → Action registry → Hosted behind a proxy).
+ */
+export const checkUiListen = (args: UiListenArguments): void => {
+  const usage = (message: string): never => {
+    throw new CommanderError(EXIT_USAGE, "commander.conflictingOption", message);
+  };
+  if (args.socket === undefined) {
+    if (args.identityHeader !== undefined) {
+      usage("--identity-header is believed only on a --socket its proxy is the one way into");
+    }
+    return;
+  }
+  if (args.port !== undefined || args.dev === true || args.devPort !== undefined) {
+    usage("--socket listens instead of a port; it takes no --port, --dev or --dev-port");
+  }
+  if (args.publicOrigin === undefined) {
+    usage("--socket is reached through its proxy; name the proxy's --public-origin");
+  }
+};

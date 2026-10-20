@@ -98,16 +98,16 @@ describe("kb ui --dev orchestration", () => {
     expect(args.args).toEqual(["run", "dev", "--port", "5173"]);
     expect(args.cwd).toBe("/tmp/fake-ui");
     // Proxy target is the actual bound backend port (ephemeral 0 → real port).
-    expect(args.env.KB_UI_API_PORT).toBe(String(dev.backend.port));
+    expect(args.env.KB_UI_API_PORT).toBe(new URL(dev.backend.url).port);
 
     // Backend is live on the bound port and serves the graph snapshot.
-    const graph = await fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`);
+    const graph = await fetch(`${dev.backend.url}/api/graph`);
     expect(graph.status).toBe(200);
 
     // stop() kills the child and tears down the backend listener.
     await run(dev.stop);
     expect(rec.killed.killed).toBe(true);
-    expect(fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`)).rejects.toThrow();
+    expect(fetch(`${dev.backend.url}/api/graph`)).rejects.toThrow();
   });
 
   test("backend port conflict fails fast with no orphaned listener", async () => {
@@ -160,7 +160,7 @@ describe("kb ui --dev orchestration", () => {
     expect(await pending).toBe(1);
     expect(exits).toEqual([1]);
     // Backend torn down once the vite child is gone.
-    expect(fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`)).rejects.toThrow();
+    expect(fetch(`${dev.backend.url}/api/graph`)).rejects.toThrow();
   });
 });
 
@@ -185,7 +185,7 @@ describe("kb ui production wiring", () => {
 
     expect(calls).toEqual(["ensure"]);
     expect(build).toEqual({ built: true, state: "missing" });
-    const graph = await fetch(`http://127.0.0.1:${handle.port}/api/graph`);
+    const graph = await fetch(`${handle.url}/api/graph`);
     expect(graph.status).toBe(200);
     await run(handle.stop);
   });

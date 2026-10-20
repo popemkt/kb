@@ -7,6 +7,7 @@
  * - `dev` — `--dev` Vite child orchestration (spawn / exit / port)
  * - `auth` — who a request is, from the identity providers a deployment loads (the page token, a trusted proxy's header)
  * - `guard` — who may reach the API, and whose wire a request is
+ * - `listener` — where the server listens: a TCP port, or a socket only its owner can connect to
  * - `http` — Effect REST/API request routing + failure mapping
  * - `invoke` — how the server runs an invocation it is handed (reload, then the invoke core)
  * - `plugins` — the server as a plugin host: the `UiHost` it provides, and its channels

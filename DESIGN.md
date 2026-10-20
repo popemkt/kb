@@ -2158,8 +2158,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     is authenticated is choosing other providers; no plugin takes over
     another's. `kb ui` loads the page token's provider
     (`pageTokenIdentity`), and with `--identity-header` also its proxy's
-    (`identityHeaderIdentity`; the reverse-proxy paragraph at the end of
-    [Action registry](#action-registry)). A `/ws`
+    (`identityHeaderIdentity`, only with `--socket`; Hosted behind a proxy,
+    at the end of [Action registry](#action-registry)). A `/ws`
     connection is told the answer after `hello` (`{op: "person"}`), so
     the page knows what it may do without trying (DESIGN-UI.md → Who the
     tab is).
@@ -2298,29 +2298,68 @@ remain valid. The CLI accepts an origin URL with an optional trailing slash,
 not credentials, a path, a query, or a fragment. Undeclared hosts and unrelated
 browser origins remain forbidden.
 
-A proxy that authenticates the person can tell `kb ui` who they are:
-`kb ui --identity-header <header>=<login>` (repeatable, one header) trusts
-the proxy's `<header>`, and a request whose header is one of the logins is
-the person's, under that login, with no page token
-(`identityHeaderIdentity` in `app/server/src/auth.ts`). A request
-whose header names anyone else, or carries none, is nobody's. For a
-deployment behind Tailscale, `--identity-header
-Tailscale-User-Login=<login>` with
-`--public-origin https://<node-or-service>.<tailnet>.ts.net`. Tailscale's
-serve proxy sets `Tailscale-User-Login` on every request from a tailnet
-user, after deleting any copy the client sent, and does so for a
-Tailscale Service's HTTP(S) endpoint (`tailscale serve --service=svc:…`)
-as for plain `tailscale serve`: a Service's connection reaches the same
-`serveWebHandler` and the same proxy rewrite, which calls
-`addTailscaleIdentityHeaders` (tailscale/tailscale `ipn/ipnlocal/serve.go`,
-`tcpHandlerForVIPService` → `tcpHandlerForServeTCP`; read at
-`db03d4e1`, 2026-10-20). It sets none for a tagged device, for Funnel, or
-for a Service's `--tcp`/`--tun` endpoints, which bypass the HTTP proxy;
-those reach kb as nobody's. The header is believed from anything that
-reaches the port, so the option is sound only where the proxy is the one
-way in: `kb ui` keeps its loopback bind, and any process on that host
-that connects to it directly can claim to be the person
-(`// GAP [[01M5BVQHJEDC4ZK7BX7RZWDVF8]]` in `auth.ts`).
+**Hosted behind a proxy.** A proxy that authenticates the person can tell
+`kb ui` who they are: `kb ui --identity-header <header>=<login>`
+(repeatable, one header) trusts the proxy's `<header>`, and a request
+whose header is one of the logins is the person's, under that login, with
+no page token (`identityHeaderIdentity` in `app/server/src/auth.ts`). A
+request whose header names anyone else, or carries none, is nobody's.
+
+The header is believed from whatever reaches the server, so it is sound
+only where the proxy is the one way in, and `kb ui` takes it only with
+`--socket <path>` (`checkUiListen` in `app/cli/src/arguments.ts`): the
+server listens on a Unix socket instead of a TCP port, created with mode
+0600 under a matching umask, so only its owner and root can connect
+(`listen` in `app/server/src/listener.ts`). A socket is reached through its
+proxy, so it needs `--public-origin`, which is where its page is, and takes
+no `--port` or `--dev`. A socket a stopped server left behind is replaced;
+one a live server answers on, or a path that is not a socket, is refused;
+the socket is removed when the server stops. The request guard admits
+`Host: localhost`, as the proxy names a socket, and the public origin's
+host; `http://localhost` is no origin of a socket's, since no browser loads
+the page from it. A socket server records no presence (`.kb/ui.json` names
+a loopback origin only), so the CLI's and `kb mcp`'s screen actions and
+`kb open` do not reach it (`// GAP [[01M5CMVS78WRBD760MNSS3BMJJ]]` in
+`listener.ts`).
+
+The recipe behind Tailscale, on Linux, as a service account `kb` whose
+systemd unit has `RuntimeDirectory=kb` and `RuntimeDirectoryMode=0700`:
+
+```bash
+kb ui --root /srv/kb --no-open --socket /run/kb/kb.sock \
+  --public-origin https://kb.<tailnet>.ts.net \
+  --identity-header Tailscale-User-Login=<login>
+sudo tailscale serve --service=svc:kb --https=443 unix:/run/kb/kb.sock
+```
+
+What Tailscale does, read at v1.104.1 (tailscale/tailscale):
+
+- `serve` takes a `unix:<path>` target, for a Service as for the node
+  (`cmd/tailscale/cli/serve_v2.go:143,155-156,1280,1289`;
+  `ipn/serve.go:776-788`, Windows refused at `:782`). It came in with
+  `f4d34f38` ("cmd/tailscale,ipn: add Unix socket support for serve"),
+  released in v1.94.0; v1.98.9 restricted such targets to root (TS-2026-005),
+  so use v1.100 or later. A path or socket target needs root or the
+  operator (`ipn/localapi/serve.go:80-104`).
+- `tailscaled`, as root, dials the socket (`ipn/ipnlocal/serve.go:883-902`,
+  `:1020-1029`), so mode 0600 keeps every other account's process out
+  without keeping the proxy out.
+- Each proxied request has `Host` rewritten to `localhost` (the original is
+  in `X-Forwarded-Host`) and gets the identity headers
+  (`ipn/ipnlocal/serve.go:970-1003`). `addTailscaleIdentityHeaders`
+  deletes any copy the client sent, then sets `Tailscale-User-Login` from
+  the tailnet's WhoIs, and sets none for a tagged device or for Funnel
+  (`:1098-1125`); those reach kb as nobody's. A Service's HTTP endpoint
+  reaches the same handler (`tcpHandlerForVIPService` →
+  `tcpHandlerForServeTCP` → `serveWebHandler`, `:608-638,665`); its
+  `--tcp`/`--tun` endpoints bypass the proxy and set no header.
+
+What it does not cover: root on the host can connect to the socket and
+claim to be the person, as root can do anything there; and a request from
+an untagged device carries its owner's login, so the person's login is
+whoever owns the devices that reach the Service. A Service is hosted by
+tagged nodes, so a process on the host itself that goes through the
+Service's address is a tagged device's and gets no header.
 
 ### Core boundary & extensions
 
