@@ -1935,7 +1935,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     first, then load order. There is no ordering configuration, priority,
     `prepend` (Cordis) or wrapping. Interceptors transform the input in that
     order and the output in reverse; guards are asked in that order.
-    `kb ext list` prints each point's listeners in that order.
+    `kb ext list` prints each interception point's listeners in that
+    order.
   - **The strictest verdict holds.**
     - A `deny` is final: no guard after it is asked (Cordis's `bail`).
     - Otherwise the first `ask` holds, and the call runs only with a person
@@ -2619,52 +2620,62 @@ keeps every node: they decide nothing while no guard reads them.
 sandbox runner. Only governance's guards ask, so without governance no
 card ever shows.
 
-##### Proposed: plugin organisation — tags and derived dependencies
+##### Plugin organisation — tags and derived dependencies
 
-**Status: a proposal for the owner's review, not built.**
-
-
-kb will have many first-party plugins, and so will any third party with a
-large extension set. The mechanism is the kernel's, the same for every
-plugin, and it adds no field an extension author must fill in.
+kb has many first-party plugins, and so will any third party with a large
+extension set. The mechanism is the kernel's, the same for every plugin,
+and it adds no field an extension author must fill in.
 
 - **Dependencies are derived, never declared.** A plugin already says what
-  it reads (`inject`), and the kernel knows who provides each service. So
+  it reads (`inject`), and the kernel knows who provides each service, so
   the dependency graph is `inject` joined to `provide`: an edge from a
-  plugin to the provider of each service it injects. The kernel reports
-  it (`kernel.dependencies()`: `{from, to, service}`). Contributing to a
-  point is not a dependency on the point's reader. A plugin reaches
-  another only through a service it injects, never by importing it; the
-  static import matrix (`familyEdgeViolation`, `EXTENSION_ROOTS`) keeps
-  enforcing the import half.
-- **Tags are optional labels**, `tags?: readonly string[]` on `Plugin`,
-  for organisation only. The kernel reports them (`PluginState.tags`) and
-  never reads them. `kb ext list` shows each plugin's tags, what it
-  injects and from whom, and what it provides.
-- **The direction rule is a harness check over kb's own families, not a
-  load-time rule.** `harness/src/constraints.ts` gains `TAG_ALLOWS`, the
-  same shape as `LAYER_ALLOWS` but over plugin tags. For example, `core`
-  may depend only on `core`, and `governance` and `identity` on `core`.
-  A harness test composes kb's bundled and hosted plugins in a kernel,
-  reads `dependencies()` and `tags`, and fails on an edge the table does
-  not allow. A third party may run the same check over its own set; the
-  kernel imposes nothing.
-- **The core-only run.** A harness test composes core and the
-  `core`-tagged plugins with every other family switched off. It then
-  runs the registry's actions and the read half of the surface contract,
-  so a runtime dependency of core on an optional plugin fails CI.
-- **Proposed tags for kb's families:**
-  - `core`: `coreExtension` and the required families (`outline`,
-    `docs`, `check`);
+  plugin to the provider of each service it injects
+  (`kernel.dependencies()`: `{from, to, service}`, `@kb/plugin`). An
+  injected service nobody provides is the plugin's `missing`, not an edge.
+  Contributing to a point is not a dependency on the point's reader. A
+  plugin reaches another only through a service it injects, never by
+  importing it; the static import matrix (`familyEdgeViolation`,
+  `EXTENSION_ROOTS`) enforces the import half.
+- **Tags are optional labels**, `tags?: readonly string[]` on `Plugin`, for
+  organisation only. The kernel reports them (`PluginState.tags`, a child
+  taking its parent's unless it names its own) and never reads them. A
+  family's tags have one home, its declaration (`defineExtension({tags})`):
+  `declarationPlugin` and every other plugin of the family carry them
+  (`familyTags(declaration, ...own)`, a browser half adding `ui`).
+  `kb ext list` shows each family's tags, each service it injects and from
+  whom (`nobody yet` while it is missing), and what it provides.
+- **The direction rule is a harness check over kb's own compositions, not
+  a load-time rule.** `TAG_ALLOWS` in `harness/src/constraints.ts` has the
+  shape of `LAYER_ALLOWS`, over plugin tags: `core` depends only on `core`,
+  and `governance` and `identity` on `core`; a tag it does not name (an
+  optional family's, `ui`) restricts nothing. The harness reads code, not
+  packages, so `harness/src/compositions.ts` reads each composition through
+  a probe Bun runs inside the package that composes it: the session
+  registry over a fresh root with every optional family switched on, the
+  `kb ui` server's kernel with both identity providers and the hosted
+  agent, and the page's kernel with the shell's plugins and every browser
+  entry. `harness/tests/plugin-organisation.test.ts` fails on an untagged
+  plugin, on an edge the table does not allow, and on a restricted plugin
+  that injects what its composition leaves unprovided. A third party may
+  run the same check over its own set; the kernel imposes nothing.
+- **The core-only run.** `app/runtime/tests/core-only.test.ts` opens a root
+  with governance not deployed and every optional family switched off. The
+  registry it composes holds `core`-tagged plugins only, all active; every
+  read it holds answers without an internal failure;
+  and nodes are written, updated and deleted. So a run-time dependency of
+  core on a family a deployment may leave out fails CI.
+- **kb's tags:**
+  - `core`: `coreExtension`, the required families (`outline`, `docs`,
+    `check`), the server's host plugin and the page's shell plugins;
   - `governance`;
   - `identity`: the page-token and proxy-header providers;
-  - `ui`: every `-ui` half;
+  - `ui`: every browser half, beside its family's tag, and the shell's;
   - one tag per optional family for the rest (`collections`, `graph`,
     `canvas`, `lab`, `code`, `chart`, `locations`, `backdrops`, `themes`,
     `agent`).
 
-  **Review:** whether `docs` and `check`, required today, are `core` or
-  just required.
+  `docs` and `check` are `core`: they are required, so every composition
+  has them, and the core-only run holds them to standing on core alone.
 
 #### Extension families
 
