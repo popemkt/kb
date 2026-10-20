@@ -29,8 +29,10 @@ import {
   type KbContext,
   type Listener,
 } from "@kb/contracts";
+import { SYSTEM_IDS } from "@kb/model";
 import {
   MAX_CALL_DEPTH,
+  coreActions,
   interceptionFrom,
   interceptionOf,
   invokeReceiptWith,
@@ -150,6 +152,74 @@ describe("the two kinds", () => {
       details: { decidedBy: { plugin: "meddler", rule: "guard-failed" } },
     });
     expect(ran).toBe(0);
+  });
+
+  test("nor anything inside it: the input it is asked about is its own sealed copy", async () => {
+    ran = 0;
+    const seen: unknown[] = [];
+    const meddler = guard("meddler", {
+      before: (asked) =>
+        Effect.sync(() => {
+          (asked.invocation.input as { n: number }).n = 99;
+          return allow;
+        }),
+    });
+    const after = guard("after", {
+      before: ({ invocation }) =>
+        Effect.sync(() => {
+          seen.push(invocation.input);
+          return allow;
+        }),
+    });
+    expect(await call(interceptionOf({ guards: [meddler, after] }), echo())).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "meddler", rule: "guard-failed" } },
+    });
+    expect(seen).toEqual([]);
+    expect(ran).toBe(0);
+  });
+
+  test("a commit guard cannot change what the commit writes, or the graph it reads", async () => {
+    const core = new Map(coreActions.map((action) => [action.def.id, action]));
+    const rewriter = guard("rewriter", {
+      commit: ({ writes }) =>
+        Effect.sync(() => {
+          const write = writes[0];
+          if (write?.after !== undefined)
+            (write.after as { id: string }).id = "sys.review.protected";
+          return allow;
+        }),
+    });
+    const reader = guard("reader", {
+      commit: ({ nodeOf }) =>
+        Effect.sync(() => {
+          const tagNode = nodeOf(SYSTEM_IDS.tag);
+          if (tagNode !== undefined) (tagNode as { text: string }).text = "renamed";
+          return allow;
+        }),
+    });
+    const add = (guards: Listener<ActionGuard>[]) =>
+      Effect.runPromise(
+        invokeReceiptWith(core, ctx, {
+          id: "node.add",
+          input: { text: "Plain", id: "n.plain" },
+          actor: "agent",
+        }).pipe(
+          Effect.provideService(CurrentInterception, interceptionOf({ guards })),
+          Effect.provide(kbRuntimeLayer(ctx)),
+        ),
+      );
+    expect(await add([rewriter])).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "rewriter", rule: "guard-failed" } },
+    });
+    expect(await add([reader])).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "reader", rule: "guard-failed" } },
+    });
+    expect(ctx.index.getNode("sys.review.protected")).toBeUndefined();
+    expect(ctx.index.getNode("n.plain")).toBeUndefined();
+    expect(ctx.index.getNode(SYSTEM_IDS.tag)?.text).not.toBe("renamed");
   });
 
   test("an interceptor transforms the input and output, and the guards see the input that will run", async () => {

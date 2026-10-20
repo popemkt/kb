@@ -35,7 +35,7 @@ import {
   type Interception,
   type Listener,
 } from "@kb/contracts";
-import { domainError, matchSpecificity, type DomainError } from "@kb/model";
+import { domainError, matchSpecificity, type DomainError, type NodeId } from "@kb/model";
 import type { Contribution, Kernel } from "@kb/plugin";
 
 type Action = CalledAction;
@@ -249,15 +249,33 @@ const askGuards = Effect.fn("kb.guards")(function* (
   return asked ?? ({ decision: "allow" } satisfies GuardOutcome);
 });
 
+/** Freeze `value` and everything it holds. */
+function freezeDeep(value: unknown): void {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) return;
+  Object.freeze(value);
+  for (const held of Object.values(value)) freezeDeep(held);
+}
+
+/**
+ * A copy of `value` frozen all the way down: what a listener reads, which
+ * shares nothing with what the call runs or commits.
+ */
+function sealed<T>(value: T): T {
+  const copy = structuredClone(value);
+  freezeDeep(copy);
+  return copy;
+}
+
 /**
  * Read-only, the call and the invocation and action in it, so a listener
- * cannot change what it is asked about: an assignment throws, and a guard
- * that throws denies.
+ * cannot change what it is asked about: the invocation (input included) is
+ * a sealed copy, so an assignment anywhere in it throws, and a guard that
+ * throws denies.
  */
 function frozen<T extends { readonly invocation: object; readonly action: object }>(value: T): T {
   return Object.freeze({
     ...value,
-    invocation: Object.freeze({ ...value.invocation }),
+    invocation: sealed(value.invocation),
     action: Object.freeze({ ...value.action }),
   });
 }
@@ -277,8 +295,15 @@ export function guardCommit(
   interception: Interception,
   call: Omit<CommitCall, "signal">,
 ): Effect.Effect<GuardOutcome> {
+  // The writes are what the commit will store, and the nodes they replace
+  // are the index's own: each guard reads sealed copies, never those.
+  const writes = sealed(call.writes);
+  const nodeOf = (id: NodeId) => {
+    const node = call.nodeOf(id);
+    return node === undefined ? undefined : sealed(node);
+  };
   return askGuards(interception, call.action, ({ commit }) =>
-    commit === undefined ? null : (signal) => commit(frozen({ ...call, signal })),
+    commit === undefined ? null : (signal) => commit(frozen({ ...call, writes, nodeOf, signal })),
   );
 }
 
