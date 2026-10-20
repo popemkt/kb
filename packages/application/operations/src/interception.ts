@@ -31,10 +31,11 @@ import {
   type CommitCall,
   type GuardCall,
   type GuardVerdict,
+  type InterceptedCall,
   type Interception,
   type Listener,
 } from "@kb/contracts";
-import { matchSpecificity } from "@kb/model";
+import { domainError, matchSpecificity, type DomainError } from "@kb/model";
 import type { Contribution, Kernel } from "@kb/plugin";
 
 type Action = ApprovalCall["action"];
@@ -146,13 +147,13 @@ function budgeted<A>(
 ): Effect.Effect<Exit.Exit<Option.Option<A>>> {
   return Effect.suspend(() => {
     const controller = new AbortController();
-    return run(controller.signal).pipe(
-      Effect.timeoutOption(budgetMs),
-      Effect.tap((answered) =>
-        Effect.sync(() => {
-          if (Option.isNone(answered)) controller.abort(new Error("budget exceeded"));
-        }),
-      ),
+    // The budget aborts the signal before it interrupts the listener, so a
+    // listener cleaning up on interruption already sees why.
+    const overrun = Effect.sleep(budgetMs).pipe(
+      Effect.andThen(Effect.sync(() => controller.abort(new Error("budget exceeded")))),
+      Effect.as(Option.none<A>()),
+    );
+    return Effect.raceFirst(run(controller.signal).pipe(Effect.asSome), overrun).pipe(
       Effect.onInterrupt(() => Effect.sync(() => controller.abort(new Error("interrupted")))),
       Effect.exit,
     );
@@ -222,9 +223,17 @@ const askGuards = Effect.fn("kb.guards")(function* (
   return asked ?? ({ decision: "allow" } satisfies GuardOutcome);
 });
 
-/** Read-only, so a guard cannot change what it is asked about. */
-function frozen<T extends object>(value: T): T {
-  return Object.freeze({ ...value });
+/**
+ * Read-only, the call and the invocation and action in it, so a listener
+ * cannot change what it is asked about: an assignment throws, and a guard
+ * that throws denies.
+ */
+function frozen<T extends { readonly invocation: object; readonly action: object }>(value: T): T {
+  return Object.freeze({
+    ...value,
+    invocation: Object.freeze({ ...value.invocation }),
+    action: Object.freeze({ ...value.action }),
+  });
 }
 
 /** What the guards decide about a call about to run, or about listing it (`phase`). */
@@ -268,3 +277,68 @@ export function refusalOf(
     details: { ...outcome.details, decidedBy: { plugin: outcome.plugin, rule: outcome.rule } },
   };
 }
+
+/** Run one interceptor phase, aborting the call when it fails or overruns. */
+const transformOne = Effect.fnUntraced(function* (
+  interceptor: Listener<ActionInterceptor>,
+  budgetMs: number,
+  phase: "input" | "output",
+  run: (signal: AbortSignal) => Effect.Effect<unknown>,
+): Effect.fn.Return<unknown, DomainError> {
+  const exit = yield* budgeted(budgetMs, run).pipe(
+    Effect.withSpan("kb.interceptor", {
+      attributes: { plugin: interceptor.owner, interceptor: interceptor.id, phase },
+    }),
+  );
+  const named = `interceptor ${interceptor.id} of plugin ${interceptor.owner}`;
+  if (Exit.isFailure(exit)) {
+    return yield* domainError(
+      "internal",
+      `${named} failed on the ${phase}, so the call is aborted: ${whyFailed(exit.cause)}`,
+      { decidedBy: { plugin: interceptor.owner, rule: "interceptor-failed" } },
+    );
+  }
+  if (Option.isNone(exit.value)) {
+    return yield* domainError(
+      "internal",
+      `${named} did not transform the ${phase} within ${budgetMs} ms, so the call is aborted`,
+      { decidedBy: { plugin: interceptor.owner, rule: "interceptor-timeout" } },
+    );
+  }
+  return exit.value.value;
+});
+
+/** The input a call runs with, after every matching interceptor, in order. */
+export const interceptInput = Effect.fn("kb.intercept.input")(function* (
+  interception: Interception,
+  call: Omit<InterceptedCall, "signal">,
+) {
+  let { input } = call.invocation;
+  for (const interceptor of interception.interceptors(call.action)) {
+    const transform = interceptor.value.input;
+    if (transform === undefined) continue;
+    const at: ActionInvocation = { ...call.invocation, input };
+    input = yield* transformOne(interceptor, interception.budgetMs.intercept, "input", (signal) =>
+      transform(frozen({ ...call, invocation: at, signal })),
+    );
+  }
+  return { ...call.invocation, input };
+});
+
+/** The output a succeeded call answers with, after every matching interceptor, in reverse order. */
+export const interceptOutput = Effect.fn("kb.intercept.output")(function* (
+  interception: Interception,
+  call: Omit<InterceptedCall, "signal">,
+  produced: unknown,
+) {
+  let output = produced;
+  for (const interceptor of interception.interceptors(call.action).toReversed()) {
+    const transform = interceptor.value.output;
+    if (transform === undefined) continue;
+    const from = output;
+    output = yield* transformOne(interceptor, interception.budgetMs.intercept, "output", (signal) =>
+      transform(frozen({ ...call, signal }), from),
+    );
+  }
+  return output;
+});

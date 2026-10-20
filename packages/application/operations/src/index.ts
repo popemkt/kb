@@ -84,6 +84,7 @@ export { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
 export {
   coreActions,
   isomorphicActions,
+  MAX_CALL_DEPTH,
   invokeReceiptWith,
   invokeWith,
   isEffectNativeAction,

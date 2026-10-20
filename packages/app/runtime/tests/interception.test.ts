@@ -1,0 +1,414 @@
+/**
+ * The invoke core's interception points (`@kb/operations` → interception.ts,
+ * DESIGN.md → Action registry → Interception), held to their properties over
+ * a real session: guards decide and cannot change a call, interceptors
+ * transform and cannot refuse it, a failing guard denies and a failing
+ * interceptor aborts in the plugin's name, order is the kernel's
+ * (dependencies first, then load order), every listener gets the call's
+ * abort signal and a budget, a guard the deployment requires that is not
+ * there denies every call, and calls nested in calls are guarded again,
+ * to a depth limit.
+ */
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect } from "effect";
+import { z } from "zod";
+import {
+  CurrentCall,
+  CurrentInterception,
+  guardAction,
+  onAction,
+  type ActionGuard,
+  type ActionInterceptor,
+  type ActionInvocation,
+  type ActionReceipt,
+  type GuardVerdict,
+  type Interception,
+  type KbContext,
+  type Listener,
+} from "@kb/contracts";
+import {
+  MAX_CALL_DEPTH,
+  interceptionFrom,
+  interceptionOf,
+  invokeReceiptWith,
+  type RegisteredAction,
+} from "@kb/operations";
+import { Service, definePlugin, makeKernel } from "@kb/plugin";
+import { kbRuntimeLayer } from "../src/layers.ts";
+import { openKb } from "../src/session.ts";
+
+let root = "";
+let ctx: KbContext;
+beforeEach(async () => {
+  root = await mkdtemp(join(tmpdir(), "kb-interception-"));
+  ctx = await openKb(root);
+});
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+/** How many times each test action's handler ran. */
+let ran = 0;
+
+const NumberIo = z.object({ n: z.number() });
+
+/** `test.echo` answers with its input; `test.recurse` calls itself, one deeper each time. */
+const ACTIONS: ReadonlyMap<string, RegisteredAction> = new Map([
+  [
+    "test.echo",
+    {
+      def: {
+        id: "test.echo",
+        title: "Echo",
+        description: "answers with its input",
+        mode: { kind: "read" },
+        inputSchema: NumberIo,
+        outputSchema: NumberIo,
+      },
+      effect: (input: never) =>
+        Effect.sync(() => {
+          ran += 1;
+          return input;
+        }),
+      source: "core",
+      aliases: [],
+    },
+  ],
+  [
+    "test.recurse",
+    {
+      def: {
+        id: "test.recurse",
+        title: "Recurse",
+        description: "calls itself",
+        mode: { kind: "read" },
+        inputSchema: z.object({}),
+        outputSchema: z.unknown(),
+      },
+      effect: () =>
+        Effect.gen(function* () {
+          ran += 1;
+          const outer = yield* CurrentCall;
+          return yield* invokeReceiptWith(ACTIONS, ctx, {
+            id: "test.recurse",
+            input: {},
+            actor: outer?.invocation.actor ?? "cli",
+          });
+        }),
+      source: "core",
+      aliases: [],
+    },
+  ],
+]);
+
+function call(interception: Interception, invocation: ActionInvocation): Promise<ActionReceipt> {
+  return Effect.runPromise(
+    invokeReceiptWith(ACTIONS, ctx, invocation).pipe(
+      Effect.provideService(CurrentInterception, interception),
+      Effect.provide(kbRuntimeLayer(ctx)),
+    ),
+  );
+}
+
+const echo = (n = 1): ActionInvocation => ({ id: "test.echo", input: { n }, actor: "agent" });
+
+function guard(
+  owner: string,
+  value: Omit<ActionGuard, "match">,
+  match = "*",
+): Listener<ActionGuard> {
+  return { owner, id: `${owner}.guard`, value: { match, ...value } };
+}
+
+function interceptor(
+  owner: string,
+  value: Omit<ActionInterceptor, "match">,
+  match = "*",
+): Listener<ActionInterceptor> {
+  return { owner, id: `${owner}.interceptor`, value: { match, ...value } };
+}
+
+const allow: GuardVerdict = { decision: "allow" };
+
+describe("the two kinds", () => {
+  test("a guard cannot change the call it is asked about: trying denies", async () => {
+    ran = 0;
+    const meddler = guard("meddler", {
+      before: (asked) =>
+        Effect.sync(() => {
+          (asked.invocation as { input: unknown }).input = { n: 99 };
+          return allow;
+        }),
+    });
+    const receipt = await call(interceptionOf({ guards: [meddler] }), echo());
+    expect(receipt).toMatchObject({
+      status: "failed",
+      code: "forbidden",
+      details: { decidedBy: { plugin: "meddler", rule: "guard-failed" } },
+    });
+    expect(ran).toBe(0);
+  });
+
+  test("an interceptor transforms the input and output, and the guards see the input that will run", async () => {
+    const seen: unknown[] = [];
+    const doubler = interceptor("doubler", {
+      input: ({ invocation }) => Effect.succeed({ n: NumberIo.parse(invocation.input).n * 2 }),
+      output: (_call, output) => Effect.succeed({ n: NumberIo.parse(output).n + 1 }),
+    });
+    const watcher = guard("watcher", {
+      before: ({ invocation }) =>
+        Effect.sync(() => {
+          seen.push(invocation.input);
+          return allow;
+        }),
+    });
+    const receipt = await call(
+      interceptionOf({ guards: [watcher], interceptors: [doubler] }),
+      echo(5),
+    );
+    expect(receipt).toEqual({ status: "succeeded", id: "test.echo", output: { n: 11 } });
+    expect(seen).toEqual([{ n: 10 }]);
+  });
+});
+
+describe("failures are never skipped", () => {
+  test("a guard that fails or dies denies, naming the plugin, and the action never runs", async () => {
+    ran = 0;
+    for (const broken of [
+      guard("failing", { before: () => Effect.die(new Error("boom")) }),
+      guard("throwing", {
+        before: () =>
+          Effect.sync(() => {
+            throw new Error("thrown");
+          }),
+      }),
+    ]) {
+      const receipt = await call(interceptionOf({ guards: [broken] }), echo());
+      expect(receipt).toMatchObject({
+        status: "failed",
+        code: "forbidden",
+        details: { decidedBy: { plugin: broken.owner, rule: "guard-failed" } },
+      });
+    }
+    expect(ran).toBe(0);
+  });
+
+  test("a guard over its budget denies, and its abort signal fires", async () => {
+    let aborted = false;
+    const slow = guard("slow", {
+      before: ({ signal }) =>
+        Effect.sleep("1 second").pipe(
+          Effect.ensuring(Effect.sync(() => (aborted = signal.aborted))),
+          Effect.as(allow),
+        ),
+    });
+    const receipt = await call(
+      interceptionOf({ guards: [slow] }, { budgetMs: { guard: 20, intercept: 20 } }),
+      echo(),
+    );
+    expect(receipt).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "slow", rule: "guard-timeout" } },
+    });
+    expect(aborted).toBe(true);
+  });
+
+  test("an interceptor that fails or overruns aborts the call, naming the plugin", async () => {
+    ran = 0;
+    const failing = interceptor("failing", { input: () => Effect.die(new Error("boom")) });
+    const slow = interceptor("slow", { input: () => Effect.sleep("1 second").pipe(Effect.as({})) });
+    const budget = { budgetMs: { guard: 20, intercept: 20 } };
+    expect(await call(interceptionOf({ interceptors: [failing] }, budget), echo())).toMatchObject({
+      code: "internal",
+      details: { decidedBy: { plugin: "failing", rule: "interceptor-failed" } },
+    });
+    expect(await call(interceptionOf({ interceptors: [slow] }, budget), echo())).toMatchObject({
+      code: "internal",
+      details: { decidedBy: { plugin: "slow", rule: "interceptor-timeout" } },
+    });
+    expect(ran).toBe(0);
+  });
+});
+
+describe("verdicts", () => {
+  test("a deny is final, an ask holds unless a person stands behind the call, and the refusal names who decided", async () => {
+    const asked: string[] = [];
+    const asking = guard("asking", {
+      before: () =>
+        Effect.sync(() => {
+          asked.push("asking");
+          return { decision: "ask", rule: "r.ask", message: "ask first" } as const;
+        }),
+    });
+    const denying = guard("denying", {
+      before: () =>
+        Effect.sync(() => {
+          asked.push("denying");
+          return { decision: "deny", rule: "r.deny", message: "never" } as const;
+        }),
+    });
+    const after = guard("after", {
+      before: () =>
+        Effect.sync(() => {
+          asked.push("after");
+          return allow;
+        }),
+    });
+    const only = interceptionOf({ guards: [asking] });
+    expect(await call(only, echo())).toMatchObject({
+      code: "approval_required",
+      message: "ask first",
+      details: { decidedBy: { plugin: "asking", rule: "r.ask" } },
+    });
+    expect(await call(only, { ...echo(), approved: true })).toMatchObject({ status: "succeeded" });
+    asked.length = 0;
+    expect(await call(interceptionOf({ guards: [asking, denying, after] }), echo())).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "denying", rule: "r.deny" } },
+    });
+    expect(asked).toEqual(["asking", "denying"]);
+  });
+
+  test("a guard is asked only about the calls its match names: an id, a pattern, a mode word", async () => {
+    const asked: string[] = [];
+    const listen = (match: string) =>
+      guard(
+        match,
+        {
+          before: () =>
+            Effect.sync(() => {
+              asked.push(match);
+              return allow;
+            }),
+        },
+        match,
+      );
+    const interception = interceptionOf({
+      guards: ["test.echo", "test.*", "every read", "every write", "other.*", "*"].map(listen),
+    });
+    await call(interception, echo());
+    expect(asked).toEqual(["test.echo", "test.*", "every read", "*"]);
+  });
+
+  test("which guards match is worked out once per action, not by reading every listener per call", async () => {
+    let reads = 0;
+    const counted: ActionGuard = {
+      get match() {
+        reads += 1;
+        return "other.*";
+      },
+      before: () => Effect.succeed(allow),
+    };
+    const interception = interceptionOf({ guards: [{ owner: "o", id: "g", value: counted }] });
+    await call(interception, echo());
+    const afterFirst = reads;
+    for (let i = 0; i < 5; i++) await call(interception, echo());
+    expect(afterFirst).toBeGreaterThan(0);
+    expect(reads).toBe(afterFirst);
+  });
+
+  test("a guard's span is traced, under the plugin that contributed it", async () => {
+    const traced: { name: string; plugin: unknown }[] = [];
+    const tracing = guard("tracing", {
+      before: () =>
+        Effect.gen(function* () {
+          const span = yield* Effect.currentSpan;
+          traced.push({ name: span.name, plugin: span.attributes.get("plugin") });
+          return allow;
+        }).pipe(Effect.orDie),
+    });
+    await call(interceptionOf({ guards: [tracing] }), echo());
+    expect(traced).toEqual([{ name: "kb.guard", plugin: "tracing" }]);
+  });
+});
+
+describe("order and lifecycle", () => {
+  const Svc = Service<string>()("test.interception.svc");
+
+  test("listeners run dependencies first, then in load order, as the kernel reports them", async () => {
+    const order: string[] = [];
+    const recording = (name: string) => ({
+      before: () =>
+        Effect.sync(() => {
+          order.push(name);
+          return allow;
+        }),
+    });
+    const kernel = makeKernel();
+    // `dependent` loads first but injects what `provider` provides, so it applies after it.
+    const dependent = definePlugin({
+      name: "dependent",
+      inject: [Svc],
+      apply: (plugin) => guardAction(plugin, "*", recording("dependent")),
+    });
+    const provider = definePlugin({
+      name: "provider",
+      apply: (plugin) =>
+        Effect.gen(function* () {
+          yield* plugin.provide(Svc, "here");
+          yield* guardAction(plugin, "*", recording("provider"));
+        }),
+    });
+    const later = definePlugin({
+      name: "later",
+      apply: (plugin) =>
+        Effect.gen(function* () {
+          yield* guardAction(plugin, "*", recording("later"));
+          yield* onAction(plugin, "*", {
+            input: ({ invocation }) => Effect.succeed(invocation.input),
+          });
+        }),
+    });
+    for (const plugin of [dependent, provider, later]) await Effect.runPromise(kernel.load(plugin));
+    expect(await call(interceptionFrom(kernel), echo())).toMatchObject({ status: "succeeded" });
+    expect(order).toEqual(["provider", "dependent", "later"]);
+  });
+
+  test("while a guard the deployment requires is not applied, every call is denied", async () => {
+    const kernel = makeKernel();
+    const interception = interceptionFrom(kernel, { required: ["governance"] });
+    expect(await call(interception, echo())).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "governance", rule: "required-guard-missing" } },
+    });
+    const governance = definePlugin({
+      name: "governance",
+      apply: (plugin) => guardAction(plugin, "*", { before: () => Effect.succeed(allow) }),
+    });
+    await Effect.runPromise(kernel.load(governance));
+    expect(await call(interception, echo())).toMatchObject({ status: "succeeded" });
+    await Effect.runPromise(kernel.unload("governance"));
+    expect(await call(interception, echo())).toMatchObject({ code: "forbidden" });
+  });
+});
+
+describe("calls inside calls", () => {
+  test("each nested call is guarded again, as its caller, and nesting stops at the depth limit", async () => {
+    ran = 0;
+    const actors: string[] = [];
+    const counting = guard(
+      "counting",
+      {
+        before: ({ invocation }) =>
+          Effect.sync(() => {
+            actors.push(invocation.actor);
+            return allow;
+          }),
+      },
+      "test.recurse",
+    );
+    const receipt = await call(interceptionOf({ guards: [counting] }), {
+      id: "test.recurse",
+      input: {},
+      actor: "agent",
+    });
+    expect(receipt.status).toBe("succeeded");
+    expect(ran).toBe(MAX_CALL_DEPTH);
+    expect(actors).toEqual(Array.from({ length: MAX_CALL_DEPTH }, () => "agent"));
+    // The innermost call answered with the refusal, carried out as output.
+    expect(JSON.stringify(receipt)).toContain(`calls nest deeper than ${MAX_CALL_DEPTH}`);
+  });
+});

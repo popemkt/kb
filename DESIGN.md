@@ -1898,8 +1898,91 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   - The browser answers a local read without pushing it (DESIGN-UI.md →
     Architecture, Mutations). Where an action runs, locally or on the
     server, depends on what its handler needs, not on its mode.
-- **Approval** is decided in one place, the invoke core (`invokeWith`), by one
-  resolver, `resolveApproval` in `@kb/contracts`, before anything runs
+- **Interception.** Every call passes two kinds of listener that plugins
+  contribute, and nothing else in the invoke core decides or changes a
+  call. Contracts in `@kb/contracts` (`interception.ts`); the one runner is
+  `@kb/operations` (`interception.ts`).
+  - **Guards decide; interceptors transform. They are two contracts.**
+    - A guard (`ActionGuardPoint`, `action/guard`; `guardAction(plugin,
+      match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
+      asked before an action runs (`before`) and again before the call
+      commits (`commit`, with the commit's actual writes). It is handed a
+      frozen call, so it cannot change it.
+    - An interceptor (`ActionInterceptorPoint`, `action/intercept`;
+      `onAction(plugin, match, {input, output})`) gives the input a call
+      runs with and the output a succeeded call answers with. It cannot
+      refuse a call: it has no verdict to return.
+    - **Why two, not one waterfall.** A single `(call, next)` chain, as in
+      Cordis's `waterfall` or Koa, lets any listener both rewrite a call and
+      stop it. A policy could then hide inside a transform: one listener
+      that "normalises" the input into something another guard would have
+      denied, or that never calls `next()`. NestJS separates the two for
+      that reason (guards, then interceptors), and so does Envoy, whose
+      authorisation filter decides while other filters mutate. kb's
+      interceptors run first, on the input, and **the guards then decide
+      about the call exactly as it will run**. So a transform cannot smuggle
+      a call past policy, and policy never transforms.
+    - **Hooks, not middleware.** Each interceptor phase is a hook, as in
+      Fastify's `preHandler`/`onSend`, not an around-middleware. Each phase
+      can then be given a budget and an abort signal of its own.
+  - **Order is deterministic and visible.** A point's listeners run in the
+    order their plugins applied. The kernel applies a plugin only once every
+    service it injects is provided, so its dependencies' listeners come
+    first, then load order. There is no ordering configuration, priority,
+    `prepend` (Cordis) or wrapping. Interceptors transform the input in that
+    order and the output in reverse; guards are asked in that order.
+    `kb ext list` prints each point's listeners in that order.
+  - **The strictest verdict holds.**
+    - A `deny` is final: no guard after it is asked (Cordis's `bail`).
+    - Otherwise the first `ask` holds, and the call runs only with a person
+      behind it (`hasPerson`).
+    - With no guard, every call proceeds.
+    - Both refusals carry `details.decidedBy: {plugin, rule}` beside what
+      the guard said.
+    - `kb.manifest` lists each action by the same guards' answer about the
+      caller's call (`phase: "list"`, with no input), so a listing and a call
+      never disagree.
+  - **Failures are never skipped.**
+    - A guard that fails, dies, or overruns its budget **denies**
+      (`guard-failed`, `guard-timeout`), naming its plugin: it fails closed.
+    - An interceptor that fails or overruns **aborts** the call as
+      `internal` (`interceptor-failed`, `interceptor-timeout`).
+    - Each listener gets an `AbortSignal`, aborted when its budget runs out
+      (before it is interrupted) or when the call is.
+    - The budgets are per point (`DEFAULT_BUDGET_MS`, 2 s each).
+    - Each run is a span (`kb.guard`, `kb.interceptor`, under `kb.guards`
+      and `kb.intercept.*`), attributed to its plugin.
+  - **Lifecycle.**
+    - A plugin's contributions appear only once its `apply` has finished,
+      and go before any of its finalizers run (`@kb/plugin`). There is
+      therefore no moment when a guard is half there.
+    - A deployment may name plugins whose guards it requires
+      (`interceptionFrom(kernel, {required})`). While one is not applied
+      (loading, failed, or going), every call is denied
+      (`required-guard-missing`) rather than run unguarded.
+  - **Reentrancy.** A call made inside another (a handler invoking, or a
+    listener with a way to) goes through the same points again. It is made
+    as its caller's (`callWithin`), and it is refused past
+    `MAX_CALL_DEPTH` (16) nested calls.
+  - **Matching is indexed.**
+    - A listener's `match` uses approval's grammar: an action id, a pattern
+      with `*`, or a mode word (`matchSpecificity`, `@kb/model`).
+    - A batch is matched by its parts too.
+    - Which listeners match an action is worked out the first time it is
+      called and kept until the kernel moves. A call never scans every
+      listener.
+    - `bun run bench` prints the cost beside a scan: 2 000 listeners and
+      200 000 calls take milliseconds, against more than a minute for the
+      scan.
+  - **Where the listeners come from.**
+    - The registry provides its kernel's listeners to every call through it
+      (`CurrentInterception`), and so does `kbRuntimeLayer`. A commit made
+      under the runtime is therefore guarded whoever planned it.
+    - The page provides its own listeners for local calls.
+    - Without a provider, a call has no listeners.
+- **Approval** is the first guard. It decides in one place, one resolver
+  (`resolveApproval` in `@kb/contracts`), asked by approval's guard on the
+  guard point before anything runs
   (roadmap decision 13 in
   `docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). What it
   decides about a call is `allow`, `ask` or `deny`. A denied call fails

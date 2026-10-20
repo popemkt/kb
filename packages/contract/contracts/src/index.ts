@@ -113,6 +113,8 @@ export {
   CurrentInterception,
   DEFAULT_BUDGET_MS,
   NO_INTERCEPTION,
+  guardAction,
+  onAction,
 } from "./interception.ts";
 export type {
   ActionGuard,

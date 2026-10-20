@@ -1,5 +1,5 @@
-import { Context, type Effect } from "effect";
-import { Point } from "@kb/plugin";
+import { Context, Effect } from "effect";
+import { Point, type PluginContext, type PluginError } from "@kb/plugin";
 import type { NodeId, NodeLike, NodeWrite } from "@kb/model";
 import type { ActionInvocation } from "./actions.ts";
 import type { ApprovalCall } from "./approval.ts";
@@ -134,3 +134,36 @@ export const NO_INTERCEPTION: Interception = {
 export const CurrentInterception = Context.Reference<Interception>("kb/CurrentInterception", {
   defaultValue: () => NO_INTERCEPTION,
 });
+
+/**
+ * Guard the calls `match` names: `before` decides about each call before it
+ * runs, `commit` (when given) about what it is about to write. The plugin
+ * that calls it owns the guard, which goes when the plugin does. `id` tells
+ * two guards of one plugin apart; it defaults to the match.
+ */
+export function guardAction(
+  plugin: PluginContext,
+  match: string,
+  guard: Omit<ActionGuard, "match">,
+  id: string = match,
+): Effect.Effect<void, PluginError> {
+  return plugin
+    .contribute(ActionGuardPoint, { id, value: { ...guard, match } })
+    .pipe(Effect.asVoid);
+}
+
+/**
+ * Transform the calls `match` names: `input` gives the input each runs
+ * with, `output` the output a succeeded one answers with. The plugin that
+ * calls it owns the interceptor. `id` defaults to the match.
+ */
+export function onAction(
+  plugin: PluginContext,
+  match: string,
+  hooks: Omit<ActionInterceptor, "match">,
+  id: string = match,
+): Effect.Effect<void, PluginError> {
+  return plugin
+    .contribute(ActionInterceptorPoint, { id, value: { ...hooks, match } })
+    .pipe(Effect.asVoid);
+}

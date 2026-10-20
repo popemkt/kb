@@ -8,8 +8,16 @@
 import type { Command } from "commander";
 import { Effect } from "effect";
 import { z } from "zod";
-import { FootprintRowSchema, onWire, type FootprintRow, type KbContext } from "@kb/contracts";
+import {
+  ActionGuardPoint,
+  ActionInterceptorPoint,
+  FootprintRowSchema,
+  onWire,
+  type FootprintRow,
+  type KbContext,
+} from "@kb/contracts";
 import { ensureDomainError } from "@kb/model";
+import type { Kernel } from "@kb/plugin";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { invokeReceiptEffect, resolveRootEffect, sessionRegistry, writeOut } from "@kb/runtime";
 import { ACTION_INVOKE_WIRE, EXIT_OK, cliAction, kbAction, report } from "./command.ts";
@@ -44,6 +52,23 @@ function footprintLines(output: unknown): readonly string[] {
   ];
 }
 
+/** Each interception point's listeners in the order a call meets them: dependencies first, then load order. */
+function interceptionPoints(kernel: Kernel) {
+  return [ActionInterceptorPoint, ActionGuardPoint].map((point) => ({
+    point: point.name,
+    listeners: kernel
+      .contributions<{ readonly match: string }>(point)
+      .map(({ owner, id, value }) => ({ owner, id, match: value.match })),
+  }));
+}
+
+function pointLines(points: ReturnType<typeof interceptionPoints>): string[] {
+  return points.flatMap(({ point, listeners }) => [
+    `${point}: ${listeners.length === 0 ? "no listeners" : "in order"}`,
+    ...listeners.map(({ owner, id, match }, at) => `  ${at + 1}. ${id} (${owner}) on ${match}`),
+  ]);
+}
+
 export function extensionCommands(program: Command): void {
   const ext = program.command("ext").description("Extension operations");
   ext
@@ -59,6 +84,7 @@ export function extensionCommands(program: Command): void {
           const rows = footprintRows(receipt.status === "succeeded" ? receipt.output : null);
           // What kb.manifest reports, each with the actions it registered when
           // loaded and how many footprint rows it has.
+          const points = interceptionPoints(registry.kernel);
           const listed = registry.families.map((family) => ({
             ...family,
             actions: registry.extensions.find(({ name }) => name === family.name)?.actions ?? [],
@@ -84,6 +110,7 @@ export function extensionCommands(program: Command): void {
                     })),
                   })),
                   failures: registry.failures,
+                  points,
                 },
               }),
             );
@@ -99,6 +126,7 @@ export function extensionCommands(program: Command): void {
               lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${formatMode(a.def.mode)}]`);
             }
           }
+          lines.push(...pointLines(points));
           for (const f of registry.failures) {
             lines.push(`! ${f.file}: ${f.error} (skipped)`);
           }

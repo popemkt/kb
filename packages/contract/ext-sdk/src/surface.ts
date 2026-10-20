@@ -352,6 +352,80 @@ export interface ActionContribution extends Omit<ActionDefinition, "id" | "effec
 /** The params of a view that renders from nothing but the store. */
 export type NoParams = { readonly [key: string]: never };
 
+/** Who makes a call: the person's gesture, an agent, the owner's CLI, or code in the sandbox. */
+export type Actor = "human" | "agent" | "cli" | "script";
+
+/** A call as the invoke core runs it: the action, its input, and who makes it. */
+export interface ActionInvocation {
+  readonly id: string;
+  readonly input: unknown;
+  readonly actor: Actor;
+  /** A person approved it, on a surface that carries approval. */
+  readonly approved?: boolean;
+}
+
+/** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
+export interface NodeWrite {
+  readonly before: KbNode | undefined;
+  readonly after: KbNode | undefined;
+}
+
+/** What a guard decides about a call. */
+export type GuardVerdict =
+  | { readonly decision: "allow" }
+  | {
+      readonly decision: "ask" | "deny";
+      /** The rule that decided, in the guard's own terms. */
+      readonly rule: string;
+      readonly message: string;
+      readonly details?: Readonly<Record<string, unknown>>;
+    };
+
+/** The action a call invokes, with its mode. */
+export interface GuardedAction {
+  readonly id: string;
+  readonly mode: ActionMode;
+}
+
+/** A call as a guard is asked about it: everything it may read, nothing it may change. */
+export interface GuardCall {
+  readonly invocation: ActionInvocation;
+  readonly action: GuardedAction;
+  /** `invoke` for a call about to run; `list` when a surface lists the action, with no input. */
+  readonly phase: "list" | "invoke";
+  /** Aborted when the call is interrupted or the guard's budget runs out. */
+  readonly signal: AbortSignal;
+}
+
+/** A call as a guard is asked about its commit: the call, and the nodes it writes. */
+export interface CommitCall extends Omit<GuardCall, "phase"> {
+  readonly writes: readonly NodeWrite[];
+}
+
+/** A guard: it decides about the calls it matches, and cannot change them. */
+export interface ActionGuard {
+  /** An action id, a pattern with `*`, or a mode word (`every read`, `every write`). */
+  readonly match: string;
+  readonly before?: (call: GuardCall) => effect.Effect.Effect<GuardVerdict>;
+  readonly commit?: (call: CommitCall) => effect.Effect.Effect<GuardVerdict>;
+}
+
+/** A call as an interceptor sees it. */
+export interface InterceptedCall {
+  readonly invocation: ActionInvocation;
+  readonly action: GuardedAction;
+  readonly signal: AbortSignal;
+}
+
+/** An interceptor: it transforms the calls it matches, and cannot refuse them. */
+export interface ActionInterceptor {
+  readonly match: string;
+  /** The input the call runs with, from the input it was given. */
+  readonly input?: (call: InterceptedCall) => effect.Effect.Effect<unknown>;
+  /** The output a succeeded call answers with, from the output it produced. */
+  readonly output?: (call: InterceptedCall, output: unknown) => effect.Effect.Effect<unknown>;
+}
+
 /** The host's Effect, which a plugin's `apply` and an action's `effect` are written in. */
 export declare const Effect: typeof effect.Effect;
 /** The host's Schema, which a view key's params are written in. */
@@ -370,6 +444,24 @@ export declare const ActionPoint: PointKey<ActionContribution>;
 export declare const TemplatePoint: PointKey<TemplateFn>;
 /** Every view a loaded plugin provides, by view id. */
 export declare const ViewKeyPoint: PointKey<ViewDef<unknown>>;
+/** Every guard: each one matching a call is asked, and the strictest verdict holds. */
+export declare const ActionGuardPoint: PointKey<ActionGuard>;
+/** Every interceptor: run in order on a call's input, in reverse on its output. */
+export declare const ActionInterceptorPoint: PointKey<ActionInterceptor>;
+/** Guard the calls `match` names, as the plugin `plugin`. */
+export declare function guardAction(
+  plugin: PluginContext,
+  match: string,
+  guard: Omit<ActionGuard, "match">,
+  id?: string,
+): effect.Effect.Effect<void, PluginError>;
+/** Transform the calls `match` names, as the plugin `plugin`. */
+export declare function onAction(
+  plugin: PluginContext,
+  match: string,
+  hooks: Omit<ActionInterceptor, "match">,
+  id?: string,
+): effect.Effect.Effect<void, PluginError>;
 export declare function provideAction(
   action: ExtensionAction,
 ): ContributionEntry<ActionContribution>;

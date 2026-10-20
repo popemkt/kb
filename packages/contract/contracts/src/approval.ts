@@ -425,6 +425,8 @@ export function listingOf(wire: SurfaceWire, receipt: ActionReceipt): DecidedEnt
 export interface RunningCall {
   readonly invocation: ActionInvocation;
   readonly action: ApprovalCall["action"];
+  /** How many calls deep it runs: 1 for a call a surface made, one more for each made inside another. */
+  readonly depth?: number;
 }
 
 /**

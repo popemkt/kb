@@ -28,7 +28,7 @@ import {
   receiptCodeOf,
   type DomainError,
 } from "@kb/model";
-import { guardBefore, refusalOf } from "./interception.ts";
+import { guardBefore, interceptInput, interceptOutput, refusalOf } from "./interception.ts";
 import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
@@ -239,6 +239,13 @@ const parseOutput = Effect.fnUntraced(function* (def: ActionDefinition, output: 
 const ForcedInputSchema = z.object({ force: z.literal(true) });
 
 /**
+ * How deep calls may nest, each made inside another (an action's handler
+ * invoking, or a listener's): past it the call is refused, so a listener
+ * or an action that calls back into what it intercepts cannot run away.
+ */
+export const MAX_CALL_DEPTH = 16;
+
+/**
  * Effect invoke over a registry map — failures stay typed until a receipt mapper takes them.
  * Native handlers are composed directly (scoped); legacy Promise handlers are
  * the only path that uses `tryPromise`.
@@ -249,14 +256,24 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   asked: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   // A call an action makes while another runs is made as that one's caller.
-  const invocation = callWithin(yield* CurrentCall, asked);
-  const { id, input } = invocation;
+  const outer = yield* CurrentCall;
+  const made = callWithin(outer, asked);
+  const { id } = made;
+  const depth = (outer?.depth ?? 0) + 1;
+  if (depth > MAX_CALL_DEPTH) {
+    return failed(id, "internal", `calls nest deeper than ${MAX_CALL_DEPTH}; ${id} is refused`, {
+      depth,
+    });
+  }
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
-  // Every call is put to the guards here, on invoke itself, so no surface
-  // can skip them (`interception.ts`).
+  // Every call passes the interceptors, then is put to the guards as it will
+  // run, here on invoke itself, so no surface can skip either
+  // (`interception.ts`).
   const action = approvalSubject(entry.def, (part) => actions.get(part)?.def.mode);
   const interception = yield* CurrentInterception;
+  const invocation = yield* interceptInput(interception, { ctx, invocation: made, action });
+  const { input } = invocation;
   const outcome = yield* guardBefore(interception, { ctx, invocation, action, phase: "invoke" });
   const refusal = refusalOf(outcome, invocation);
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
@@ -274,7 +291,10 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const run = dispatch(entry, ctx, parsed);
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
-  const output = yield* run.pipe(Effect.provideService(CurrentCall, { invocation, action }));
+  const produced = yield* run.pipe(
+    Effect.provideService(CurrentCall, { invocation, action, depth }),
+  );
+  const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced);
   return succeeded(id, yield* parseOutput(entry.def, output));
 });
 
