@@ -332,3 +332,51 @@ describe("a plugin's contributions appear and go as one", () => {
     expect(kernel.contributions(Greetings).map(({ value }) => value)).toEqual(["hi"]);
   });
 });
+
+describe("organisation: tags and derived dependencies", () => {
+  test("dependencies are inject joined to provide, and follow the provider", () => {
+    const kernel = makeKernel();
+    run(kernel.load(counterUser));
+    // Injected but unprovided is the plugin's `missing`, not an edge.
+    expect(kernel.dependencies()).toEqual([]);
+
+    const provider = run(kernel.load(counterProvider));
+    expect(kernel.dependencies()).toEqual([
+      { from: "user", to: "counter", service: "test.counter" },
+    ]);
+    expect(kernel.plugins().find((p) => p.name === "counter")?.provides).toEqual(["test.counter"]);
+
+    run(provider.unload);
+    expect(kernel.dependencies()).toEqual([]);
+  });
+
+  test("contributing to a point is no dependency on whoever reads it", () => {
+    const kernel = makeKernel();
+    run(kernel.load(greeter("a", "hi")));
+    run(kernel.load(greeter("b", "yo")));
+    expect(kernel.dependencies()).toEqual([]);
+  });
+
+  test("tags are reported as given, a child's defaulting to its parent's, and change nothing", () => {
+    const kernel = makeKernel();
+    const parent = definePlugin({
+      name: "parent",
+      tags: ["core"],
+      apply: (ctx) =>
+        Effect.asVoid(
+          Effect.all([
+            ctx.plugin(greeter("inherits", "x")),
+            ctx.plugin({ ...greeter("own", "y"), tags: ["lab"] }),
+          ]),
+        ),
+    });
+    run(kernel.load(parent));
+    run(kernel.load(greeter("untagged", "z")));
+    const tagsOf = (name: string) => kernel.plugins().find((p) => p.name === name)?.tags;
+    expect(tagsOf("parent")).toEqual(["core"]);
+    expect(tagsOf("parent/inherits")).toEqual(["core"]);
+    expect(tagsOf("parent/own")).toEqual(["lab"]);
+    expect(tagsOf("untagged")).toEqual([]);
+    expect(ids(kernel)).toEqual(["parent.x", "parent.y", "untagged.z"]);
+  });
+});

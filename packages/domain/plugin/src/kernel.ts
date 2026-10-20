@@ -59,6 +59,12 @@ export interface Plugin {
   readonly namespace?: string;
   /** Services that must exist before `apply` runs; the plugin waits until they do. */
   readonly inject?: readonly AnyServiceKey[];
+  /**
+   * Labels for organising plugins (DESIGN.md → Plugin organisation). The
+   * kernel reports them and never reads them. Default: none (a child: its
+   * parent's).
+   */
+  readonly tags?: readonly string[];
   /** Runs with the plugin's scope as `Scope`: `acquireRelease` in here is released on unload. */
   readonly apply: (ctx: PluginContext) => Effect.Effect<void, PluginError, Scope.Scope>;
 }
@@ -92,14 +98,28 @@ export type PluginStatus = "pending" | "active" | "failed";
 export interface PluginState {
   readonly name: string;
   readonly namespace: string;
+  readonly tags: readonly string[];
   readonly status: PluginStatus;
   /** The plugin that loaded this one as a child, if any. */
   readonly parent: string | null;
   /** Injected services nobody provides right now. */
   readonly missing: readonly string[];
+  /** The services it provides right now, in the order it provided them. */
+  readonly provides: readonly string[];
   /** Whether its apply has run to its end and it is active: what it contributed is visible. */
   readonly applied: boolean;
   readonly error: PluginError | null;
+}
+
+/**
+ * One edge of the dependency graph the kernel derives (DESIGN.md → Plugin
+ * organisation): `from` injects `service`, which `to` provides. Contributing
+ * to a point is no dependency on whoever reads it.
+ */
+export interface Dependency {
+  readonly from: string;
+  readonly to: string;
+  readonly service: string;
 }
 
 export interface PluginHandle {
@@ -132,6 +152,13 @@ export interface Kernel {
   readonly contributionsOf: (owner: string) => readonly PointContribution[];
   readonly service: <S>(key: ServiceKey<S>) => S | undefined;
   readonly plugins: () => readonly PluginState[];
+  /**
+   * Who depends on whom, derived and never declared: an edge from each
+   * plugin to the provider of each service it injects that is provided now,
+   * in load order, then `inject` order. An injected service nobody provides
+   * is the plugin's `missing`, not an edge.
+   */
+  readonly dependencies: () => readonly Dependency[];
   /** Called after every change to plugins, services or contributions. */
   readonly subscribe: (listener: () => void) => () => void;
   /** Moves on every change; the snapshot `useSyncExternalStore` compares. */
@@ -141,6 +168,7 @@ export interface Kernel {
 interface Entry {
   readonly name: string;
   readonly namespace: string;
+  readonly tags: readonly string[];
   readonly inject: readonly AnyServiceKey[];
   readonly parent: string | null;
   readonly apply: Plugin["apply"];
@@ -314,6 +342,7 @@ const loadEntry = Effect.fnUntraced(function* (state: State, plugin: Plugin, par
   const entry: Entry = {
     name,
     namespace: plugin.namespace ?? parent?.namespace ?? plugin.name,
+    tags: plugin.tags ?? parent?.tags ?? [],
     inject: plugin.inject ?? [],
     parent: parent?.name ?? null,
     apply: plugin.apply,
@@ -480,12 +509,23 @@ export function makeKernel(): Kernel {
       [...state.entries.values()].map((entry) => ({
         name: entry.name,
         namespace: entry.namespace,
+        tags: entry.tags,
         status: entry.status,
         parent: entry.parent,
         missing: missingOf(state, entry),
+        provides: [...state.services.values()]
+          .filter((slot) => slot.owner === entry.name)
+          .map((slot) => slot.key.name),
         applied: entry.applied,
         error: entry.error,
       })),
+    dependencies: () =>
+      [...state.entries.values()].flatMap((entry) =>
+        entry.inject.flatMap((key) => {
+          const slot = state.services.get(key.name);
+          return slot?.key === key ? [{ from: entry.name, to: slot.owner, service: key.name }] : [];
+        }),
+      ),
     subscribe: (listener) => {
       state.subscribers.add(listener);
       return () => {
