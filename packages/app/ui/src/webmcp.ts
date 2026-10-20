@@ -8,35 +8,35 @@
  * whether it runs on the local replica or on the server. The registry is
  * cached per server process, so it can only change across a server restart,
  * which the page sees as the live socket opening again; a page restored from
- * the back-forward cache lists it again too. What is listed also follows the
- * approval policies, which are graph data, so a change to them lists again.
+ * the back-forward cache lists it again too. What is listed also follows what
+ * the guards decide about an agent's calls, which they may read from the
+ * graph (governance reads its policies there), so the graph settling after a
+ * change lists again; a listing that comes out the same registers nothing.
  */
 import { modelContextOf, webMcpPlugin } from "@kb/webmcp";
-import { approvalPoliciesOf } from "@kb/model";
-import type { KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { logWarn } from "@kb/ui-sdk";
 import { invokeSettled } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 
-/** The replica's approval policies, as one comparable value. */
-function policiesKey(index: KbIndex | null): string {
-  return index === null ? "" : JSON.stringify(approvalPoliciesOf(index.allNodes()));
-}
+/** How long the graph stays unchanged before the listing is read again. */
+const GRAPH_SETTLE_MS = 300;
 
-/** Fire `listener` when the replica's approval policies change; returns the unsubscribe. */
-function whenPoliciesChange(listener: () => void): () => void {
+/** Fire `listener` once the replica's graph has settled after a change; returns the unsubscribe. */
+function whenGraphSettles(listener: () => void): () => void {
   let generation = useGraphStore.getState().index?.generation ?? -1;
-  let key = policiesKey(useGraphStore.getState().index);
-  return useGraphStore.subscribe(({ index }) => {
-    // Only a change to the graph can change a policy; anything else is not read.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const off = useGraphStore.subscribe(({ index }) => {
+    // Only a change to the graph can change what a guard reads there.
     if ((index?.generation ?? -1) === generation) return;
     generation = index?.generation ?? -1;
-    const next = policiesKey(index);
-    if (next === key) return;
-    key = next;
-    listener();
+    clearTimeout(timer);
+    timer = setTimeout(listener, GRAPH_SETTLE_MS);
   });
+  return () => {
+    clearTimeout(timer);
+    off();
+  };
 }
 
 function whenManifestMayChange(listener: () => void): () => void {
@@ -52,10 +52,10 @@ function whenManifestMayChange(listener: () => void): () => void {
     if (event.persisted) listener();
   };
   window.addEventListener("pageshow", onShow);
-  const offPolicies = whenPoliciesChange(listener);
+  const offGraph = whenGraphSettles(listener);
   return () => {
     offSocket();
-    offPolicies();
+    offGraph();
     window.removeEventListener("pageshow", onShow);
   };
 }

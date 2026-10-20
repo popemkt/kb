@@ -16,6 +16,7 @@ import {
   extensionNamespace,
   provideAction,
   viewDef,
+  familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { GRAPH_ACTIONS } from "./actions.ts";
@@ -42,6 +43,7 @@ import {
 export const graphExtension = defineExtension({
   name: "graph",
   label: "Graph",
+  tags: ["graph"],
   optional: { byDefault: "on" },
   seed: graphSeedNodes,
   views: [
@@ -75,6 +77,7 @@ export function graphPlugin(): Plugin {
 export function graphServerPlugin(): Plugin {
   return definePlugin({
     name: graphExtension.name,
+    tags: familyTags(graphExtension),
     namespace: extensionNamespace(graphExtension.name),
     apply: (ctx) =>
       Effect.all(

@@ -2,6 +2,7 @@ export { PluginError, PluginErrorReason } from "./errors.ts";
 export { definePlugin, isPlugin, makeKernel } from "./kernel.ts";
 export type {
   Contribution,
+  Dependency,
   ContributionEntry,
   Kernel,
   Plugin,

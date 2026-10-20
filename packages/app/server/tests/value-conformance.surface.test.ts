@@ -15,7 +15,7 @@ import type { ServerMessage } from "@kb/contracts";
 import { SYSTEM_IDS, fieldTypeValue, type PropValue } from "@kb/model";
 import { handleHttpRequest } from "../src/http.ts";
 import { SubscriptionHub } from "../src/session.ts";
-import { HTTP_WIRE } from "../src/guard.ts";
+import { HTTP_WIRE, PROGRAM } from "../src/guard.ts";
 
 type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 
@@ -50,7 +50,7 @@ async function served() {
         Effect.sync(() => {
           frames.push(JSON.parse(text));
         }),
-      HTTP_WIRE,
+      PROGRAM,
     ),
   );
   await Effect.runPromise(

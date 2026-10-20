@@ -10,5 +10,5 @@
  * which drives them over stand-in ports against the real shell.
  */
 export { agentUiPlugin } from "./plugin";
-export { attachChat, useChat, type AgentPorts } from "./chat";
+export { attachChat, useChat, type AgentPorts, type Standing } from "./chat";
 export { AgentDock } from "./surfaces";

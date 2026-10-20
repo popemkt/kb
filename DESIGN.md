@@ -1898,8 +1898,110 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   - The browser answers a local read without pushing it (DESIGN-UI.md →
     Architecture, Mutations). Where an action runs, locally or on the
     server, depends on what its handler needs, not on its mode.
-- **Approval** is decided in one place, the invoke core (`invokeWith`), by one
-  resolver, `resolveApproval` in `@kb/contracts`, before anything runs
+- **Interception.** Every call passes two kinds of listener that plugins
+  contribute. They are the one place policy decides or changes a call.
+  Beside them the core keeps three invariants that no deployment turns off,
+  because they protect kb's own model, not anyone's policy: the commit's
+  system-write rule (`systemTxRefusal`, unless the call carries the
+  owner's `force`), a script's reach (`scriptRefusal` before it runs,
+  `scriptWriteRefusal` at its commit), and the commit's integrity check. Contracts in `@kb/contracts` (`interception.ts`); the one runner is
+  `@kb/operations` (`interception.ts`).
+  - **Guards decide; interceptors transform. They are two contracts.**
+    - A guard (`ActionGuardPoint`, `action/guard`; `guardAction(plugin,
+      match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
+      asked before an action runs (`before`) and again before the call
+      commits (`commit`, with the commit's actual writes). The invoke core
+      holds the call as sealed data from the start — the invocation and
+      its input, and the action, a copy of the definition's id, mode and
+      batch parts — and `CurrentCall` carries that, so no reader can
+      change what the guards decide about, what runs, or the registry. A
+      guard is also handed sealed copies of the writes and of every node
+      `nodeOf` answers. A call is plain data — plain objects, arrays and
+      primitives, since freezing cannot stop a `Map`, a `Date` or a typed
+      array changing — and one that is not is refused as its input. The
+      record `CurrentCall` carries is frozen too.
+    - An interceptor (`ActionInterceptorPoint`, `action/intercept`;
+      `onAction(plugin, match, {input, output})`) gives the input a call
+      runs with and the output a succeeded call answers with. It cannot
+      refuse a call: it has no verdict to return.
+    - **Why two, not one waterfall.** A single `(call, next)` chain, as in
+      Cordis's `waterfall` or Koa, lets any listener both rewrite a call and
+      stop it. A policy could then hide inside a transform: one listener
+      that "normalises" the input into something another guard would have
+      denied, or that never calls `next()`. NestJS separates the two for
+      that reason (guards, then interceptors), and so does Envoy, whose
+      authorisation filter decides while other filters mutate. kb's
+      interceptors run first, on the input, and **the guards then decide
+      about the call exactly as it will run**. So a transform cannot smuggle
+      a call past policy, and policy never transforms.
+    - **Hooks, not middleware.** Each interceptor phase is a hook, as in
+      Fastify's `preHandler`/`onSend`, not an around-middleware. Each phase
+      can then be given a budget and an abort signal of its own.
+  - **Order is deterministic and visible.** A point's listeners run in the
+    order their plugins applied. The kernel applies a plugin only once every
+    service it injects is provided, so its dependencies' listeners come
+    first, then load order. There is no ordering configuration, priority,
+    `prepend` (Cordis) or wrapping. Interceptors transform the input in that
+    order and the output in reverse; guards are asked in that order.
+    `kb ext list` prints each interception point's listeners in that
+    order.
+  - **The strictest verdict holds.**
+    - A `deny` is final: no guard after it is asked (Cordis's `bail`).
+    - Otherwise the first `ask` holds, and the call runs only with a person
+      behind it (`hasPerson`).
+    - With no guard, every call proceeds.
+    - Both refusals carry `details.decidedBy: {plugin, rule}` beside what
+      the guard said.
+    - `kb.manifest` lists each action by the same guards' answer about the
+      caller's call (`phase: "list"`, with no input), so a listing and a call
+      never disagree.
+  - **Failures are never skipped.**
+    - A guard that fails, dies, or overruns its budget **denies**
+      (`guard-failed`, `guard-timeout`), naming its plugin: it fails closed.
+    - An interceptor that fails or overruns **aborts** the call as
+      `internal` (`interceptor-failed`, `interceptor-timeout`).
+    - Each listener gets an `AbortSignal`, aborted when its budget runs out
+      (before it is interrupted) or when the call is.
+    - The budgets are per point (`DEFAULT_BUDGET_MS`, 2 s each).
+    - Each run is a span (`kb.guard`, `kb.interceptor`, under `kb.guards`
+      and `kb.intercept.*`), attributed to its plugin.
+  - **Lifecycle.**
+    - A plugin's contributions appear only once its `apply` has finished,
+      and go before any of its finalizers run (`@kb/plugin`): the kernel
+      moves as the plugin is marked inactive, so a reader that keeps what
+      it read until the kernel moves lets go of it then too. There is
+      therefore no moment when a guard is half there.
+    - A deployment may name plugins whose guards it requires
+      (`interceptionFrom(kernel, {required})`). While one is not there —
+      loading, failed, or going, itself or a plugin that loaded it, the
+      same visibility its guards have — every call is denied
+      (`required-guard-missing`) rather than run unguarded.
+  - **Reentrancy.** A call made inside another (a handler invoking, or a
+    listener with a way to) goes through the same points again. Each stage
+    of a call, its listeners as much as its handler, runs as that call
+    (`CurrentCall`), so a call any of them makes is made as its caller's
+    (`callWithin`), and it is refused past `MAX_CALL_DEPTH` (16) nested
+    calls.
+  - **Matching is indexed.**
+    - A listener's `match` uses approval's grammar: an action id, a pattern
+      with `*`, or a mode word (`matchSpecificity`, `@kb/model`).
+    - A batch is matched by its parts too.
+    - Which listeners match an action is worked out the first time it is
+      called and kept until the kernel moves. A call never scans every
+      listener.
+    - `bun run bench` prints the cost beside a scan: 2 000 listeners and
+      200 000 calls take milliseconds, against more than a minute for the
+      scan.
+  - **Where the listeners come from.**
+    - The registry provides its kernel's listeners to every call through it
+      (`CurrentInterception`), and so does `kbRuntimeLayer`. A commit made
+      under the runtime is therefore guarded whoever planned it.
+    - The page provides its own listeners for local calls.
+    - Without a provider, a call has no listeners.
+- **Approval** is the governance family's guard (`@kb/governance`; core
+  contributes no guard). It decides in one place, one resolver
+  (`resolveApproval` in `@kb/governance`), asked by that guard on the guard
+  point before anything runs
   (roadmap decision 13 in
   `docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). What it
   decides about a call is `allow`, `ask` or `deny`. A denied call fails
@@ -2028,10 +2130,11 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     is read by `requestOnWire`, which refuses one that states what its
     wire does not let it (`forbidden`), so its caller hears it rather than
     find it ignored. Over HTTP and `/ws` the server takes a request as the
-    page's only when it carries this run's page token (below); one with
-    none is a local program's (`HTTP_WIRE`), whatever Origin it sends: an
-    agent's call, the more cautious caller, and never an approved one,
-    since nothing shows a person stands behind it. **Every call names its actor**: what a
+    page's only when the deployment's authentication finds it is the
+    person's (below); any other is a local program's (`HTTP_WIRE`),
+    whatever Origin it sends: an agent's call, the more cautious caller,
+    and never an approved one, since nothing shows a person stands behind
+    it. **Every call names its actor**: what a
     caller sends is an `ActionRequest`, whose actor it may leave out, and
     what the invoke core takes is an `ActionInvocation`, whose actor the
     type requires, so the compiler finds any caller that names none. A call
@@ -2048,8 +2151,68 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     core and is refused. MCP's `tools/list` and each agent turn read it
     afresh, and the page's WebMCP lists again when its replica's policies
     change.
+  - **Who the person is.** The app takes one input from authentication:
+    whether a request is the person's, and under what name (`Person` in
+    `@kb/contracts`), or nobody's the server can vouch for. Plugins supply
+    it. An identity provider is a plugin that contributes to
+    `IdentityPoint` (`identity.providers`, `@kb/contracts`). A provider
+    answers about a request it can vouch for (the person, by name) or must
+    refuse (a credential that is not good here), and passes on any other.
+    The server asks them in the kernel's order (each plugin's dependencies
+    first, then load order; no ordering configuration), and the first
+    answer holds (`identifyBy` in `app/server/src/auth.ts`, as Cordis's
+    `bail`). When every one passes, the request is nobody's. The request guard asks
+    last, and the wire follows from the answer alone: the person's request
+    is on the page's wire, any other on a local program's. With no
+    provider at all the server runs, and every connection is nobody's.
+    Which providers a deployment loads is its configuration, never a
+    graph write: the composition root that starts the server names them
+    (`identity` on `startUi`), as it names every plugin it hosts, and they
+    are held whatever the store's switches say. Replacing how the person
+    is authenticated is choosing other providers; no plugin takes over
+    another's. `kb ui` loads the page token's provider
+    (`pageTokenIdentity`), and with `--identity-header` also its proxy's
+    (`identityHeaderIdentity`, only with `--socket`; Hosted behind a proxy,
+    at the end of [Action registry](#action-registry)). A `/ws`
+    connection is told the answer after `hello` (`{op: "person"}`), so
+    the page knows what it may do without trying (DESIGN-UI.md → Who the
+    tab is).
+  - **What needs the person.** Each thing a connection does needs the
+    person only where it acts for them; everything else runs on the
+    agent's wire, as the more cautious caller. Decided per operation:
+    - Reading (subscribe, watch, catch up, `GET /api/*`) and calling
+      actions: every wire. A call on a local program's wire is an agent's,
+      so a write that asks is refused unapproved there.
+    - Publishing a tab's screen and answering its commands (`screen`,
+      `screen-ack`): every wire. A screen changes neither the graph nor
+      the workspace, a command to it is one a person undoes with one
+      gesture ([Screen state](#screen-state) → No approval), and a tab id
+      already belongs to the connection that published it, so no
+      connection takes over another's tab. What the person adds is whose
+      tab it is: the record names them (`person`), and `ui.screen` lists
+      their tabs before nobody's, so a command that names no tab goes to
+      theirs, and a program on the agent's wire cannot draw it to a screen
+      it made up. Where the deployment vouches for nobody, every tab is
+      nobody's and the order is recency alone, so an agent still sees and
+      steers every tab.
+    - Speaking on a plugin channel (`channel`): the person only. A
+      channel's plugin acts for them: the agent sidebar runs turns on
+      their model, with their secrets, as their agent, and hands its asks
+      to them. A connection that is nobody's is refused on the channel
+      (`forbidden`, naming it), which its sink shows in its own terms.
+    - Approving a call (`approved`), and relaying a call another actor or
+      a script makes: the person only, since only the page's wire carries
+      approval or relays (`mayState`). Naming the actor the wire makes a
+      call anyway claims nothing, so every wire takes it: a page that is
+      nobody's calls WebMCP's tools as the agent it already is. A script a
+      page that is nobody's hosts is still refused
+      (`// GAP [[01M5BVBDY7HNGXN2ZQJR4BHMPP]]` in `approval.ts`).
   - **The page token.** `kb ui` mints a random token when it starts and
-    holds it in memory (`app/server/src/guard.ts`). It opens and prints the
+    holds it in memory (`pageTokenIdentity` in `app/server/src/auth.ts`),
+    naming the person by the account that started it. The provider also
+    provides the token as a service (`PageToken`), which the server reads
+    to open the page; a server without it opens and prints the bare URL.
+    It opens and prints the
     page URL with the token in the fragment (`#token=…`, `pageUrlOf` in
     `@kb/contracts`), which a browser never sends in a request, so a
     program that fetches the page does not get it, and no body the server
@@ -2059,9 +2222,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     second WebSocket subprotocol beside `kb`, since a browser cannot set a
     header there. The request guard compares it in constant time: this
     run's token is the page's wire (`PAGE_WIRE`), another (forged, or from
-    an earlier run) is refused, and none is a local program's wire. A
-    socket on a local program's wire reads (subscribe, watch, catch up) and
-    may not publish a tab's screen or speak on a plugin channel. An opener
+    an earlier run) is refused, and none is a local program's wire. An opener
     in another process gets the token from the person's home, never from
     the root: a `kb ui` a person opened keeps it in their home store's
     `.kb/pages/`, a file readable by them alone, removed when it stops
@@ -2070,8 +2231,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     CLI's, so `kb open` and the sidebar open a tab with a fresh fragment;
     any other caller is given the bare URL, since a token an agent held
     could be written into a node, where a program that only reads the
-    graph would find it. A tab opened without a token is a local program's
-    page: it reads, and the server asks for what an agent asks for.
+    graph would find it. A tab opened without a token is nobody's: it
+    reads, writes as an agent, and publishes its screen as nobody's tab
+    (What needs the person, above).
   - **What an approval floor binds.** A program with the owner's shell or
     files is the owner: it can read the page token, run `kb`, or edit
     `.kb/nodes.jsonl` directly, and the CLI's wire, the owner's own, is not
@@ -2080,7 +2242,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     WebMCP and a script, which reach kb only through surfaces that say who
     they are, and a program that reaches kb only over the network, or any
     web page, which has no token and so calls on the agent's wire. None of
-    those can say it is someone else, or that a person approved it. The
+    those can say it is someone else, or that a person approved it, save
+    where the deployment trusts a proxy's identity header, which a
+    process on the server's host that bypasses the proxy can also send
+    (Who the person is, above). The
     page URL is also in the arguments of the browser `kb ui` starts, which
     a program that can list this machine's processes can read; such a
     program is not a network-only one. Nor does kb prove a gesture: the
@@ -2147,6 +2312,70 @@ remain valid. The CLI accepts an origin URL with an optional trailing slash,
 not credentials, a path, a query, or a fragment. Undeclared hosts and unrelated
 browser origins remain forbidden.
 
+**Hosted behind a proxy.** A proxy that authenticates the person can tell
+`kb ui` who they are: `kb ui --identity-header <header>=<login>`
+(repeatable, one header) trusts the proxy's `<header>`, and a request
+whose header is one of the logins is the person's, under that login, with
+no page token (`identityHeaderIdentity` in `app/server/src/auth.ts`). A
+request whose header names anyone else, or carries none, is nobody's.
+
+The header is believed from whatever reaches the server, so it is sound
+only where the proxy is the one way in, and `kb ui` takes it only with
+`--socket <path>` (`checkUiListen` in `app/cli/src/arguments.ts`): the
+server listens on a Unix socket instead of a TCP port, created with mode
+0600 under a matching umask, so only its owner and root can connect
+(`listen` in `app/server/src/listener.ts`). A socket is reached through its
+proxy, so it needs `--public-origin`, which is where its page is, and takes
+no `--port` or `--dev`. A socket a stopped server left behind, which
+refuses a connection, is replaced; one anything accepts a connection on,
+or a path that is not a socket, is refused;
+the socket is removed when the server stops. The request guard admits
+`Host: localhost`, as the proxy names a socket, and the public origin's
+host; `http://localhost` is no origin of a socket's, since no browser loads
+the page from it. A socket server records no presence (`.kb/ui.json` names
+a loopback origin only), so the CLI's and `kb mcp`'s screen actions and
+`kb open` do not reach it (`// GAP [[01M5CMVS78WRBD760MNSS3BMJJ]]` in
+`listener.ts`).
+
+The recipe behind Tailscale, on Linux, as a service account `kb` whose
+systemd unit has `RuntimeDirectory=kb` and `RuntimeDirectoryMode=0700`:
+
+```bash
+kb ui --root /srv/kb --no-open --socket /run/kb/kb.sock \
+  --public-origin https://kb.<tailnet>.ts.net \
+  --identity-header Tailscale-User-Login=<login>
+sudo tailscale serve --service=svc:kb --https=443 unix:/run/kb/kb.sock
+```
+
+What Tailscale does, read at v1.104.1 (tailscale/tailscale):
+
+- `serve` takes a `unix:<path>` target, for a Service as for the node
+  (`cmd/tailscale/cli/serve_v2.go:143,155-156,1280,1289`;
+  `ipn/serve.go:776-788`, Windows refused at `:782`). It came in with
+  `f4d34f38` ("cmd/tailscale,ipn: add Unix socket support for serve"),
+  released in v1.94.0; v1.98.9 restricted such targets to root (TS-2026-005),
+  so use v1.100 or later. A path or socket target needs root or the
+  operator (`ipn/localapi/serve.go:80-104`).
+- `tailscaled`, as root, dials the socket (`ipn/ipnlocal/serve.go:883-902`,
+  `:1020-1029`), so mode 0600 keeps every other account's process out
+  without keeping the proxy out.
+- Each proxied request has `Host` rewritten to `localhost` (the original is
+  in `X-Forwarded-Host`) and gets the identity headers
+  (`ipn/ipnlocal/serve.go:970-1003`). `addTailscaleIdentityHeaders`
+  deletes any copy the client sent, then sets `Tailscale-User-Login` from
+  the tailnet's WhoIs, and sets none for a tagged device or for Funnel
+  (`:1098-1125`); those reach kb as nobody's. A Service's HTTP endpoint
+  reaches the same handler (`tcpHandlerForVIPService` →
+  `tcpHandlerForServeTCP` → `serveWebHandler`, `:608-638,665`); its
+  `--tcp`/`--tun` endpoints bypass the proxy and set no header.
+
+What it does not cover: root on the host can connect to the socket and
+claim to be the person, as root can do anything there; and a request from
+an untagged device carries its owner's login, so the person's login is
+whoever owns the devices that reach the Service. A Service is hosted by
+tagged nodes, so a process on the host itself that goes through the
+Service's address is a tagged device's and gets no header.
+
 ### Core boundary & extensions
 
 Core ships mechanism only: store (JSONL), datalog (DataScript), the action
@@ -2159,7 +2388,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   family is a declaration and the plugin each host loads for it, from the
   build ([Extension families](#extension-families)); a repository extension
   is the same two from trusted bytes in the root, and may declare and
-  contribute whatever a bundled family may. Its module,
+  contribute whatever a bundled family may, through the keys `kb-ext-sdk`
+  exports (a point it has no key for, it cannot reach). Its module,
   `.kb/extensions/<name>.ts`, exports its `declaration`
   (`defineExtension({name, label, optional?, seed?, views?, …})`, the
   contracts' `ExtensionDeclaration`, whose name must be its file's) and
@@ -2176,12 +2406,21 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   (`serverEntriesFor`), and its seed's nodes are checked as a store's are.
   So `rootFamilies` (`app/runtime`) lists the bundled families, then each
   repository extension, and the registry switches, loads and reports them
-  all by the one rule. A repository extension cannot replace what another
-  plugin holds: a service it provides that is held already is a
-  `service-conflict`, and a contribution whose id is held a
-  `contribution-conflict`, so the plugin is refused as a unit and core's
-  services and actions stay core's. That is the one deliberate difference
-  from DeepSeek Harness, whose plugins may replace any service.
+  all by the one rule. No plugin takes over what another holds: a service
+  it provides that is held already is a `service-conflict`, and a
+  contribution whose id is held a `contribution-conflict`, so the plugin is
+  refused as a unit. DeepSeek Harness's Cordis holds the same rule (a
+  second `provide` of a name in one scope throws, and `set` from another
+  fiber throws: `vendor/cordis/src/reflect.ts` at `dsh-v0.2.1-rc.2`), and
+  kb extends a service the same three ways it does. **Another
+  implementation is another provider, chosen by configuration**: the one a
+  deployment loads is the one that holds the service, so consumers never
+  change (the identity providers, [Action registry](#action-registry) →
+  Who the person is). **Interception is a point**: plugins contribute to
+  it and the host combines the contributions, rather than one wrapping
+  another's service (identity, and the guard and interceptor points). **Isolation**,
+  a sub-scope with its own implementation of a name, kb does not have; it
+  is a later design if something needs it.
 - **Repository extensions** run as owner code, on the server and in the
   page, like a DeepSeek Harness plugin, so a root's extension runs only once
   a person has trusted it on this machine. What a person trusts is its
@@ -2339,6 +2578,119 @@ from "kb-ext-sdk"`. Types are generated from
   `approval: "required"` if a person must approve each call). The loader
   skips an extension that still uses the old strings.
 
+#### Governance
+
+Approval is policy, and core ships mechanism only, so governance is a
+family: `@kb/governance`, a required bundled family. Its one plugin, the
+same on the server and in the page, contributes two guards to the guard
+point ([Action registry](#action-registry) → Interception):
+
+- **`approval`**: the policies and each action's declared mode, through
+  `resolveApproval`, before a call runs and again before it commits (the
+  always-ask rule for a write to a policy, the delegated rule for a write
+  to an extension's configuration);
+- **`force`**: the owner's override of the `sys.*` write guard. A call
+  that sets it is denied unless its actor acts as the owner
+  (`actsAsOwner`).
+
+Core contributes no guard. With none, every call proceeds.
+
+**Whether calls are governed is the deployment's, never the graph's.**
+- `kb --governance required` is the default. The family is composed, and
+  the registry requires its guards (`interceptionFrom(kernel, {required:
+  ["governance"]})`). While its plugin is not applied (loading, failed, or
+  gone), every call is denied (`required-guard-missing`), never run
+  unguarded.
+- The family is required, so no store can switch it off: `extension.switch`
+  refuses it as it refuses every required family.
+- `kb --governance off` leaves the family out of the composition, its seed
+  included, so a store it opens holds no policy node. There is no guard: every call that the core's invariants admit (Interception,
+  above) runs, including an agent's `force` and `sandbox.trust`. It is meant for a single-user tool where every caller is
+  the owner anyway.
+- The setting is process-wide, set by the CLI before any registry is
+  composed (`deployGovernance`, `app/runtime/src/deployment.ts`).
+
+**The family owns all of it.** Its guards, and what they read: the policy
+vocabulary (`GOVERNANCE_IDS`, the actor and decision option ids, the
+policy reader, `policy.ts`), the resolver (`resolveApproval`,
+`approvalRefusal`, `writesConfiguration`, `resolve.ts`) and the policy seed
+(the `#approval-policy` tag and its fields, their options, the default
+policies, the query node, its table and its pin, `seed.ts`), which the fold
+files among core's Views and Pinned lists by the declaration's `files`.
+Core keeps only what every call has whoever governs it: who makes it
+(`Actor`, `actsAsOwner`, `@kb/model`), what can be decided about it and
+whether a person stands behind it (`APPROVAL_DECISIONS`, `hasPerson`,
+`@kb/contracts`). No core package and no contract suite names a policy:
+the surface contract reads what is decided about each caller through the
+invoke core's own `kb.manifest`, and the composition that runs it says how
+a policy is written (`SurfaceSet.policy`). A deployment that leaves the
+family out leaves out its seed too (`deploys`, `deployment.ts`; read by
+`rootFamilies`, which both the registry and the seed compose from), so a
+store opened under `--governance off` holds no policy node. One opened
+earlier with governance keeps the nodes it was seeded with, as a store
+keeps every node: they decide nothing while no guard reads them.
+
+**The approval card** stays where it is drawn: the agent dock and the
+sandbox runner. Only governance's guards ask, so without governance no
+card ever shows.
+
+##### Plugin organisation — tags and derived dependencies
+
+kb has many first-party plugins, and so will any third party with a large
+extension set. The mechanism is the kernel's, the same for every plugin,
+and it adds no field an extension author must fill in.
+
+- **Dependencies are derived, never declared.** A plugin already says what
+  it reads (`inject`), and the kernel knows who provides each service, so
+  the dependency graph is `inject` joined to `provide`: an edge from a
+  plugin to the provider of each service it injects
+  (`kernel.dependencies()`: `{from, to, service}`, `@kb/plugin`). An
+  injected service nobody provides is the plugin's `missing`, not an edge.
+  Contributing to a point is not a dependency on the point's reader. A
+  plugin reaches another only through a service it injects, never by
+  importing it; the static import matrix (`familyEdgeViolation`,
+  `EXTENSION_ROOTS`) enforces the import half.
+- **Tags are optional labels**, `tags?: readonly string[]` on `Plugin`, for
+  organisation only. The kernel reports them (`PluginState.tags`, a child
+  taking its parent's unless it names its own) and never reads them. A
+  family's tags have one home, its declaration (`defineExtension({tags})`):
+  `declarationPlugin` and every other plugin of the family carry them
+  (`familyTags(declaration, ...own)`, a browser half adding `ui`).
+  `kb ext list` shows each family's tags, each service it injects and from
+  whom (`nobody yet` while it is missing), and what it provides.
+- **The direction rule is a harness check over kb's own compositions, not
+  a load-time rule.** `TAG_ALLOWS` in `harness/src/constraints.ts` has the
+  shape of `LAYER_ALLOWS`, over plugin tags: `core` depends only on `core`,
+  and `governance` and `identity` on `core`; a tag it does not name (an
+  optional family's, `ui`) restricts nothing. The harness reads code, not
+  packages, so `harness/src/compositions.ts` reads each composition through
+  a probe Bun runs inside the package that composes it: the session
+  registry over a fresh root with every optional family switched on, the
+  `kb ui` server's kernel with both identity providers and the hosted
+  agent, and the page's kernel with the shell's plugins and every browser
+  entry. `harness/tests/plugin-organisation.test.ts` fails on an untagged
+  plugin, on an edge the table does not allow, and on a restricted plugin
+  that injects what its composition leaves unprovided. A third party may
+  run the same check over its own set; the kernel imposes nothing.
+- **The core-only run.** `app/runtime/tests/core-only.test.ts` opens a root
+  with governance not deployed and every optional family switched off. The
+  registry it composes holds `core`-tagged plugins only, all active; every
+  read it holds answers without an internal failure;
+  and nodes are written, updated and deleted. So a run-time dependency of
+  core on a family a deployment may leave out fails CI.
+- **kb's tags:**
+  - `core`: `coreExtension`, the required families (`outline`, `docs`,
+    `check`), the server's host plugin and the page's shell plugins;
+  - `governance`;
+  - `identity`: the page-token and proxy-header providers;
+  - `ui`: every browser half, beside its family's tag, and the shell's;
+  - one tag per optional family for the rest (`collections`, `graph`,
+    `canvas`, `lab`, `code`, `chart`, `locations`, `backdrops`, `themes`,
+    `agent`).
+
+  `docs` and `check` are `core`: they are required, so every composition
+  has them, and the core-only run holds them to standing on core alone.
+
 #### Extension families
 
 This is the contract for every feature kb bundles, such as the outline,
@@ -2360,7 +2712,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, refCarriers?, declaredOptions?, policies?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), and, for the one
   family that provides it, of the default view type (View nodes):
@@ -2499,16 +2851,12 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     order, so every extension is a node of the graph, the hub its switch
     and its configuration hang off. Being one of that list's children is
     what such a node is (Kinds, roles and options), so it carries no tag;
-  - each approval policy a declaration declares (`policies`), its node
-    derived and filed under core's list of every policy
-    (`approval.policies`), editable as any is. A declared policy only
-    denies: the most specific policy wins, so one that asked or allowed
-    could outrank a policy the person wrote, and the fold refuses it. A
-    policy the person writes beside it never lowers it: at the same match
-    a declared deny naming the actor outranks one naming none, and a tie
-    goes to the stricter. The person lifts a declared deny only by editing
-    that policy itself, a write to a policy, which always asks; the fold
-    never writes over an edit, and seeds a deleted one again;
+  - no approval policy: policies are the person's, written in the
+    governance family's vocabulary ([Governance](#governance)). A family's
+    own rule about its own actions is a guard its plugin contributes
+    (`guardAction`), held whether or not the deployment governs calls; the
+    code family's `script-run` guard, which denies `ext.code.script.run` to
+    `script`, is one;
   - pure data: it opens nothing and fails on an id declared twice, or on a
     default view type provided twice or naming a view its provider does
     not provide;
@@ -3359,8 +3707,9 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
 `protocol.ts`.
 
 - **The channel is `/ws`, per tab, in memory.** A UI tab is a `/ws`
-  connection that has sent `{op: "screen", state}`: its route, whether it
-  has the person's attention (`active`), and its panes, each with the open
+  connection, on any wire, that has sent `{op: "screen", state}`: its
+  route, whether it has the person's attention (`active`), and its panes,
+  each with the open
   view (its view key id and the node it is shown for), the focused node,
   the selection in the view's own ids, and for a canvas the projection
   showing, its camera as a `pose` (Canvas documents; in 2D the top view,
@@ -3384,10 +3733,14 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   name its `pane`. Without one it goes to the focused pane, and it is
   refused for a pane the tab does not have. A dashboard's own panes are part
   of their pane's view, so they are not listed (GAP [[01M411FPSNN7B18JQ62RKB8ZXW]]).
-- **`ui.screen`** (read) returns the live tabs, most recently active first:
-  the last tab to publish while it had attention comes first, and tabs that
-  never had it follow in the order they arrived. `tab` narrows the list to
-  that tab.
+- **`ui.screen`** (read) returns the live tabs, each naming whose it is
+  (`person`: the person's, as its connection was authenticated, or `null`,
+  nobody's). The person's come first, then nobody's, each most recently
+  active first: the last tab to publish while it had attention comes
+  first, and tabs that never had it follow in the order they arrived. A
+  command that names no tab goes to the first, so it reaches the person's
+  screen before any other ([Action registry](#action-registry) → What needs the person). `tab`
+  narrows the list to that tab.
 - **`ui.navigate` and `ui.select`** (writes) are commands. The server sends
   `{op: "screen-command", id, command}` to one tab, the most recently
   active by default, and waits up to `timeoutMs` (default 2 s) for that
@@ -4164,9 +4517,9 @@ system, one runner, one trust.
   It asks approval as a write that requires it: a person's runs, an
   agent's only once approved, and an untrusted script is refused before
   anything runs. The scripts panel's Run once is the person's. Code never
-  starts a run: the code family declares the policy that denies it to
-  `script` (`approval.script-run`), so code cannot chain runs that each ask
-  the person again.
+  starts a run: the code family's guard denies it to `script`
+  (`script-run`), so code cannot chain runs that each ask the person
+  again.
 - **Listed with its trust**: `ext.code.script.list` tells the scripts some
   nodes name, each with its grant and whether a person trusts it; a view's
   agent verb says which scripts run on it through it (the canvas's
@@ -4275,3 +4628,79 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
 - I orchestrate via orca-cli: dispatch, wait on worker_done, run
   `cavecrew-reviewer` on each worktree diff, **fix findings myself**, merge
   sequentially (M1 → parallel trio → M5).
+
+## What kinds of extension kb supports
+
+What a plugin can add or change, and what it cannot, read from the code
+as it is. Every kind below goes through the one kernel (`@kb/plugin`) as
+a service a plugin provides and others inject, or a contribution to a
+point. A plugin reaches another only through a service it injects.
+
+| Kind | How | Where it runs | Examples |
+| --- | --- | --- | --- |
+| Actions | `ActionPoint` (`provideAction`) | every surface, through the invoke core | each family's verbs |
+| Policy over calls | guards, `ActionGuardPoint` (`guardAction`) | before a call and before its commit | governance's approval and `force` |
+| Transforms of calls | interceptors, `ActionInterceptorPoint` (`onAction`) | around a call's input and output | — |
+| Who the person is | `IdentityPoint` (`identity.providers`) | the `kb ui` server's request guard | page token, proxy header |
+| Views and templates | `ViewKeyPoint`, `TemplatePoint` | server text, docs, the page | outline, collections, docs |
+| Page UI | `ui.routes`, `ui.views`, `ui.sidebar`, `ui.docks`, `ui.overlays`, `ui.commands`, `ui.palette-steps`, design systems, backdrops, option previews | the page | every `-ui` half |
+| Conversations with the page | `ChannelPoint`, beside `UiHost` | the `kb ui` server | the agent sidebar |
+| Seed, settings, declared options | the family's declaration | the bundled fold, every store | each family |
+| Family-owned seams | a point or service a family mints | wherever that family reads it | `graph.themes`, `lab.studies` |
+| Repository code | a trusted closure in `.kb/extensions/` | server and page, as owner code | a repo's own family |
+| Untrusted code | scripts in the sandbox | QuickJS or a worker, with a grant | canvas and code scripts |
+
+**How extensibility works, by design.**
+- **Another implementation is another provider, chosen by configuration.**
+  No plugin takes over a service another holds (`service-conflict`, as in
+  Cordis).
+- **Taking part is a point with a stated combination rule**, never a
+  wrapped service:
+  - interception: guards, strictest verdict, and interceptors, in order
+    (NestJS's guards versus interceptors, Envoy's filter chain, Fastify's
+    lifecycle hooks);
+  - identity providers, a resolver rather than an interceptor: the first
+    answer holds (Cordis's `bail`).
+
+  Most other points are collections a reader lists or looks up by id. A
+  review of every point against these rules, and of what a plugin author
+  would expect and not find, is
+  `docs/research/2026-10-20-extension-points-mece/`.
+- **Order is the kernel's:** dependencies first, then load order. There is
+  no `prepend` or priority.
+- **Trust, not the plugin model, is the boundary.** A trusted extension
+  runs in kb's process with the owner's power, unlike VS Code, whose
+  extension host is a separate process the editor survives. kb isolates
+  only code it does not trust: sandboxed scripts, with their grants
+  ([Sandbox](#sandbox)).
+
+**Not offered, by evidence.**
+- **Reacting after a commit, in a plugin.**
+  - The transaction log can be subscribed to (`KbTxLog.subscribe`), but
+    only host code does: the `kb ui` server converging extension switches
+    (`app/server/src/server.ts`), and the subscription hub fanning
+    transactions to sockets (`app/server/src/session.ts`).
+  - A plugin is handed no log:
+    - `UiHost` is a root and `invoke` (`contracts/src/channel.ts`);
+    - a registry family's handlers see the session only while a call runs;
+    - a commit guard sees the writes before the commit and may refuse
+      them, not act after them.
+  - So "when a node is tagged X, do Y" runs today only out of process. A
+    program connects to `/ws` and sends `{op: "watch-tx", enabled: true}`,
+    which any wire may read. It receives each transaction's delta, and acts
+    through `POST /api/action` as an agent. That needs a running `kb ui`.
+  - An in-process seam would be a point fed by the log, after the commit,
+    with the same budgets, failure rules and nesting limit as the
+    interception points. It is not built.
+- **A storage backend from a plugin.**
+  - The store is fixed when kb is assembled. `BACKENDS` in
+    `app/runtime/src/store-selection.ts`, the composition root, is the one
+    table of adapters (`STORE_BACKENDS`: `jsonl`, `sqlite`).
+  - A root's store is selected and opened before any registry or kernel
+    exists (`openKb` → `selectStore`), so no plugin is loaded early enough
+    to provide one.
+  - A new backend is a new `EffectStore` adapter package and a row in that
+    table. It joins the shared store contract (`store-contract.ts` over
+    `STORE_BACKENDS`), as One contract, every implementation asks.
+- **Isolation scopes**: a sub-scope with its own implementation of a
+  service name, as Cordis has. Nothing needs it yet.

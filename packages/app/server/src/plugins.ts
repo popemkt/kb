@@ -10,10 +10,11 @@ import {
   type NodeLookup,
   type KbContext,
   type UiHostService,
+  familyTags,
 } from "@kb/contracts";
 import { extensionNodeId } from "@kb/model";
 import { definePlugin, syncPlugins, type Kernel, type Plugin } from "@kb/plugin";
-import { receiptFromError } from "@kb/operations";
+import { receiptFromError, coreExtension } from "@kb/operations";
 import { writeErr } from "@kb/runtime";
 import { serverInvoke } from "./invoke.ts";
 import { serverRuntimeLayer, type ScreenHub } from "./screens.ts";
@@ -135,14 +136,16 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
 });
 
 /**
- * The server's composition: its `UiHost` first, then each extension its
- * store has on ({@link composeHosted}).
+ * The server's composition: its `UiHost` first, then the identity providers
+ * its deployment chose (`identity`, held whatever the store says), then
+ * each extension its store has on ({@link composeHosted}).
  */
 export function loadServerPlugins(
   kernel: Kernel,
   ctx: KbContext,
   screens: ScreenHub,
   extensions: readonly ExtensionEntry[],
+  identity: readonly Plugin[],
 ): Effect.Effect<HostedExtensions> {
   return composeHosted(
     kernel,
@@ -151,9 +154,11 @@ export function loadServerPlugins(
     (hosted) => [
       definePlugin({
         name: "ui-host",
+        tags: familyTags(coreExtension),
         namespace: "",
         apply: (plugin) => plugin.provide(UiHost, uiHost(ctx, screens, hosted)),
       }),
+      ...identity,
     ],
   );
 }

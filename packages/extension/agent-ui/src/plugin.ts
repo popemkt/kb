@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react";
 import { agentExtension } from "@kb/agent";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -16,6 +17,7 @@ import { BrowserHostService, DockPoint } from "@kb/ui-sdk";
 export function agentUiPlugin(ports: AgentPorts): Plugin {
   return definePlugin({
     name: agentExtension.name,
+    tags: familyTags(agentExtension, "ui"),
     inject: [BrowserHostService],
     apply: (ctx) =>
       Effect.gen(function* () {

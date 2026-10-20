@@ -1,4 +1,6 @@
 import { Effect } from "effect";
+import { coreExtension } from "@kb/operations";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { matchOntologyList, matchOntologyScope } from "@/components/ontology/routes";
 import {
@@ -13,6 +15,7 @@ import { provideRoute, provideView, RoutePoint, SidebarSectionPoint, ViewPoint }
 /** Ontologies: the list, one ontology's scope in three views, their routes, and the section. */
 export const ontologyUiPlugin = definePlugin({
   name: ONTOLOGY_NAMESPACE,
+  tags: familyTags(coreExtension, "ui"),
   apply: (ctx) =>
     Effect.all(
       [

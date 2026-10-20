@@ -21,6 +21,7 @@ function chartViews(painter: ChartPainter | null): readonly ViewDef<unknown>[] {
 export const chartExtension = defineExtension({
   name: "chart",
   label: "Chart",
+  tags: ["chart"],
   optional: { byDefault: "on" },
   seed: chartSeedNodes,
   views: chartViews(null),

@@ -1,4 +1,5 @@
 import { lazy } from "react";
+import { familyTags } from "@kb/contracts";
 import { Effect } from "effect";
 import { ChartView, chartExtension, chartPlugin, starterChartSpec } from "@kb/chart";
 import { definePlugin } from "@kb/plugin";
@@ -25,6 +26,7 @@ const ChartPage = lazy(() => import("./chart-page").then((m) => ({ default: m.Ch
  */
 export const chartUiPlugin = definePlugin({
   name: chartExtension.name,
+  tags: familyTags(chartExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

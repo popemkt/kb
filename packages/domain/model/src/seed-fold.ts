@@ -9,7 +9,6 @@
  * into the seed a store is opened with, together with which declaration
  * each folded node came from.
  */
-import { approvalPolicyNode, type ApprovalPolicy } from "./approval-policy.ts";
 import {
   declaredOptionId,
   type DeclaredOptions,
@@ -42,15 +41,15 @@ export interface SeedSource {
   readonly label: string;
   readonly seed?: (at: string) => readonly KbNode[];
   readonly views?: readonly { readonly key: SeedView }[];
+  /**
+   * Its own seed nodes it files under another source's list node, by that
+   * list's id: the fold appends each id to the list's children, after those
+   * it already has, in source order. A pin among the Pinned, a view node
+   * among the Views. The nodes stay this source's.
+   */
+  readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   /** The declared options it contributes, by kind; the fold derives each one's option node. */
   readonly declaredOptions?: readonly DeclaredOptionSet[];
-  /**
-   * The approval policies it declares, each a denial: the fold derives each
-   * one's node under the list of every policy, editable as any is. A source
-   * only forbids, never permits: the most specific policy wins, so one that
-   * asked or allowed could outrank a policy the person wrote.
-   */
-  readonly policies?: readonly SeedPolicy[];
   /**
    * The view type a node that names no view opens in: one of this source's
    * own `views`, by its key, so it selects from the list and names nothing
@@ -95,23 +94,6 @@ function viewOptionNode(view: SeedView, at: string): KbNode {
     createdAt: at,
     updatedAt: at,
   };
-}
-
-/** A policy a source declares: a denial, by its node's id and what it is called. */
-export interface SeedPolicy extends Omit<ApprovalPolicy, "decision"> {
-  readonly text: string;
-  readonly decision: "deny";
-}
-
-/** The node of a policy `source` declares; a declared policy that permits anything is refused. */
-function policyNode(source: SeedSource, { text, ...policy }: SeedPolicy, at: string): KbNode {
-  // A source written outside kb's types (a repository extension) still only forbids.
-  const decision: string = policy.decision;
-  if (decision !== "deny") {
-    throw new Error(`${source.name} declares policy ${policy.id}, which does not deny`);
-  }
-  const base = { id: policy.id, text, props: {}, children: [], createdAt: at, updatedAt: at };
-  return approvalPolicyNode(base, policy);
 }
 
 /**
@@ -171,6 +153,38 @@ function extensionNode(source: SeedSource, at: string): KbNode {
 }
 
 /**
+ * `nodes` with each source's `files` appended to the children of the list
+ * node it names. A list no source declares, or a filed id that is not one
+ * of the filing source's own seed nodes, is a bundling defect, so it
+ * throws.
+ */
+function withFiled(
+  nodes: readonly KbNode[],
+  parts: readonly {
+    readonly name: string;
+    readonly seed: readonly KbNode[];
+    readonly files: SeedSource["files"];
+  }[],
+): KbNode[] {
+  const filed = new Map<NodeId, NodeId[]>();
+  for (const { name, seed, files } of parts) {
+    const own = new Set(seed.map((node) => node.id));
+    for (const [list, ids] of Object.entries(files ?? {})) {
+      const stray = ids.find((id) => !own.has(id));
+      if (stray !== undefined) throw new Error(`${name} files ${stray}, which it does not seed`);
+      filed.set(list, [...(filed.get(list) ?? []), ...ids]);
+    }
+  }
+  for (const list of filed.keys()) {
+    if (!nodes.some((node) => node.id === list)) throw new Error(`no seed source declares ${list}`);
+  }
+  return nodes.map((node) => {
+    const ids = filed.get(node.id);
+    return ids === undefined ? node : { ...node, children: [...node.children, ...ids] };
+  });
+}
+
+/**
  * `nodes` with `derived` filed under the list node `rootId`, after the
  * children it already has, and placed right after it.
  */
@@ -216,13 +230,16 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   const parts = sources.map((source) => ({
     name: source.name,
     seed: source.seed?.(at) ?? [],
+    files: source.files,
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
     declared: kinds.map((kind) => declaredOf(source, kind, at)),
-    policies: (source.policies ?? []).map((policy) => policyNode(source, policy, at)),
     own: extensionNode(source, at),
   }));
   const withViews = fileUnder(
-    parts.flatMap((part) => part.seed),
+    withFiled(
+      parts.flatMap((part) => part.seed),
+      parts,
+    ),
     SYSTEM_IDS.viewsRoot,
     parts.flatMap((part) => part.options),
   );
@@ -236,11 +253,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     withViews,
   );
   const folded = fileUnder(
-    fileUnder(
-      withDeclared,
-      SYSTEM_IDS.approvalPolicies,
-      parts.flatMap((part) => part.policies),
-    ),
+    withDeclared,
     SYSTEM_IDS.extensionsRoot,
     parts.map((part) => part.own),
   );
@@ -258,7 +271,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     ),
     owners: new Map(
       parts.flatMap((part) =>
-        [...part.seed, ...part.options, ...part.declared.flat(), ...part.policies, part.own].map(
+        [...part.seed, ...part.options, ...part.declared.flat(), part.own].map(
           (node) => [node.id, part.name] as const,
         ),
       ),

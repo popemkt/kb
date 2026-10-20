@@ -7,16 +7,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  DECISION_OPTION_IDS,
-  SYSTEM_IDS,
-  fieldTypeValue,
-  type FieldType,
-  type KbNode,
-} from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, type FieldType, type KbNode } from "@kb/model";
 import type { ActionReceipt } from "@kb/contracts";
 import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
+import { DECISION_OPTION_IDS, GOVERNANCE_IDS } from "@kb/governance";
 
 type Kb = Awaited<ReturnType<typeof openKb>>;
 
@@ -250,10 +245,10 @@ describe("node.addTree", () => {
           input: {
             text: `${decision} ${match}`,
             props: [
-              { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.approvalPolicyTag } },
-              { field: SYSTEM_IDS.approvalMatchField, value: { t: "str", v: match } },
+              { field: SYSTEM_IDS.typeField, value: { t: "ref", v: GOVERNANCE_IDS.policyTag } },
+              { field: GOVERNANCE_IDS.matchField, value: { t: "str", v: match } },
               {
-                field: SYSTEM_IDS.approvalDecisionField,
+                field: GOVERNANCE_IDS.decisionField,
                 value: { t: "ref", v: DECISION_OPTION_IDS[decision] },
               },
             ],

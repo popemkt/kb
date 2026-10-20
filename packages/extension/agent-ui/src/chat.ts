@@ -28,6 +28,14 @@ import {
 import { failed, onWire, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
 
 /** Where the chat reaches the agent and the graph. */
+/**
+ * Where the tab's connection stands: `offline` while it is closed, `unknown`
+ * once open until the server says whose it is, then `person` or `nobody`.
+ * A tab that is nobody's may not speak on the agent's channel, so the dock
+ * knows that without trying.
+ */
+export type Standing = "offline" | "unknown" | "person" | "nobody";
+
 export interface AgentPorts {
   /** Hear the agent channel; returns the unlisten. */
   readonly listen: (sink: {
@@ -36,8 +44,12 @@ export interface AgentPorts {
   }) => () => void;
   /** Say one request on the agent channel. */
   readonly send: (request: AgentRequest) => void;
-  /** Call `listener` whenever the socket opens or closes; returns the unsubscribe. */
-  readonly connection: (listener: (open: boolean) => void) => () => void;
+  /**
+   * Call `listener` whenever the tab's connection changes: closed, open but
+   * not told yet whose it is, or open and the person's or nobody's. Returns
+   * the unsubscribe.
+   */
+  readonly connection: (listener: (standing: Standing) => void) => () => void;
   /** Make a call through the browser's one invoke path, and answer the server's receipt. */
   readonly invoke: (invocation: ActionInvocation) => Promise<ActionReceipt>;
   /** A fresh conversation id. */
@@ -52,6 +64,8 @@ interface ChatState {
 
 const NO_AGENT = "This kb ui hosts no agent, so there is no one to chat with here.";
 const OFFLINE = "Not connected to kb. Reconnecting…";
+const NOT_YOURS =
+  "This tab is not verified as you, so it cannot talk to your agent (the connection word in the header says how to open one that is).";
 
 export const useChat = create<ChatState>(() => ({
   transcript: newTranscript("detached"),
@@ -121,18 +135,27 @@ export function attachChat(next: AgentPorts): () => void {
     data: receive,
     error: (err) => {
       if (err.code === "unknown_channel") useChat.setState({ unreachable: NO_AGENT });
+      if (err.code === "forbidden") useChat.setState({ unreachable: NOT_YOURS });
       update((transcript) => ({ ...transcript, running: false }));
     },
   });
-  const unwatch = next.connection((open) => {
-    if (open) {
-      useChat.setState((state) => ({
-        unreachable: state.unreachable === OFFLINE ? null : state.unreachable,
-      }));
+  const unwatch = next.connection((standing) => {
+    if (standing === "offline") {
+      update(withDisconnect);
+      useChat.setState({ unreachable: OFFLINE });
       return;
     }
-    update(withDisconnect);
-    useChat.setState({ unreachable: OFFLINE });
+    if (standing === "nobody") {
+      useChat.setState({ unreachable: NOT_YOURS });
+      return;
+    }
+    // Open, and the person's or not yet told: what the connection said no longer holds.
+    useChat.setState((state) => ({
+      unreachable:
+        state.unreachable === OFFLINE || (standing === "person" && state.unreachable === NOT_YOURS)
+          ? null
+          : state.unreachable,
+    }));
   });
   return () => {
     unlisten();

@@ -10,6 +10,7 @@
  * host hands it. In the kb UI that is the browser's one invoke path, which
  * decides whether a call runs on the local replica or on the server.
  */
+import { coreExtension } from "@kb/operations";
 import { Effect, Predicate } from "effect";
 import { z } from "zod";
 import {
@@ -22,6 +23,7 @@ import {
   type ActionReceipt,
   type ManifestEntry,
   type SurfaceWire,
+  familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 
@@ -303,6 +305,7 @@ export function startWebMcp(options: WebMcpOptions): WebMcpAdapter {
 export function webMcpPlugin(options: WebMcpOptions): Plugin {
   return definePlugin({
     name: "webmcp",
+    tags: familyTags(coreExtension, "ui"),
     apply: () =>
       Effect.asVoid(
         Effect.acquireRelease(

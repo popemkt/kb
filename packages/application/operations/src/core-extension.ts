@@ -28,6 +28,7 @@ export const KB_DESIGN_SYSTEM: SeedOption = { id: "kb", label: "kb" };
 export const coreExtension = defineExtension({
   name: "core",
   label: "Core",
+  tags: ["core"],
   seed: systemSeedNodes,
   views: [
     viewDef(OntologyListView),

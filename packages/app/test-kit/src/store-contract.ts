@@ -774,11 +774,15 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
         const root = yield* backendRoot(makeStore);
         const ctx = yield* openSession(root);
         const field = SYSTEM_IDS.viewPagesizeField;
-        const id = SYSTEM_IDS.approvalPoliciesView;
+        const id = "n.paged-view";
         const run = (action: { id: string; input: unknown }) =>
           invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, action)).pipe(
             Effect.provide(kbRuntimeLayer(ctx)),
           );
+        // A node of the store's own holding the field's one value.
+        expect((yield* run({ id: "node.add", input: { id, text: "a paged view" } })).status).toBe(
+          "succeeded",
+        );
         const held = Effect.map(
           makeStore(root).loadEffect,
           (nodes) => nodes.find((n) => n.id === id)?.props[field],

@@ -22,6 +22,7 @@ import {
 import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { codeTrustLayer } from "@kb/workspace-fs";
+import { deploys, governanceMode } from "./deployment.ts";
 import { importClosures, readClosures, trustedOf } from "./extension-loader.ts";
 
 export interface RootFamilies {
@@ -42,6 +43,18 @@ const BUNDLED: readonly LoadedExtension[] = BUNDLED_EXTENSIONS.map((family) => (
 }));
 
 /**
+ * The bundled families and declarations this deployment composes
+ * (`deploys`): what a root's families start from, and what its store is
+ * seeded from, so a family the deployment leaves out seeds nothing.
+ */
+function deployed(): Pick<RootFamilies, "families" | "declarations"> {
+  return {
+    families: BUNDLED.filter(({ declaration }) => deploys(declaration.name)),
+    declarations: BUNDLED_DECLARATIONS.filter(({ name }) => deploys(name)),
+  };
+}
+
+/**
  * The repository extensions whose declarations fold beside the bundled ones
  * and those admitted before them, in file order. One that does not (its name
  * is a bundled family's, so its node is declared twice; a seed id another
@@ -58,7 +71,7 @@ function admitted(extensions: readonly LoadedExtension[]): {
   for (const extension of extensions) {
     const declarations = [...accepted, extension].map(({ declaration }) => declaration);
     try {
-      foldSeed([...BUNDLED_DECLARATIONS, ...declarations]);
+      foldSeed([...deployed().declarations, ...declarations]);
       accepted.push(extension);
     } catch (error) {
       const why = error instanceof Error ? error.message : String(error);
@@ -80,7 +93,8 @@ const closureCache = new Map<
 const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
 
 /**
- * The families `root` composes; with no root, the bundled ones alone. Its
+ * The families `root` composes; with no root, the bundled ones alone, as
+ * the deployment composes them (`deployed`). Its
  * closures are read once per root, and which of them a person trusted is
  * read from the root's record on every call, so `sandbox.trust` and
  * `sandbox.untrust` take effect in the process that runs them: a newly
@@ -91,7 +105,7 @@ const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
 export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
-  if (root === null) return { families: BUNDLED, declarations: BUNDLED_DECLARATIONS, failures: [] };
+  if (root === null) return { ...deployed(), failures: [] };
   let reading = closureCache.get(root);
   if (reading === undefined) {
     reading = yield* Effect.cached(readClosures(root));
@@ -102,17 +116,18 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   const { trusted, failures: untrusted } = yield* trustedOf(read.closures).pipe(
     Effect.provide(codeTrustLayer(root)),
   );
-  const key = [root, ...trusted.map(({ closure }) => closure.digest)].join("\0");
+  const key = [governanceMode(), root, ...trusted.map(({ closure }) => closure.digest)].join("\0");
   let composed = familiesCache.get(key);
   if (composed === undefined) {
     composed = yield* Effect.cached(
       importClosures(trusted).pipe(
         Effect.map((imported) => {
           const { extensions, failures } = admitted(imported.extensions);
+          const bundled = deployed();
           return {
-            families: [...BUNDLED, ...extensions],
+            families: [...bundled.families, ...extensions],
             declarations: [
-              ...BUNDLED_DECLARATIONS,
+              ...bundled.declarations,
               ...extensions.map(({ declaration }) => declaration),
             ],
             failures: [...imported.failures, ...failures],

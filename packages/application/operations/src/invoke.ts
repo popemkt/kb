@@ -1,5 +1,4 @@
 import { Effect, Predicate } from "effect";
-import { z } from "zod";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
@@ -12,14 +11,13 @@ import {
   type ExtensionPromiseHandler,
   type KbContext,
   CurrentCall,
-  approvalRefusal,
+  CurrentInterception,
   approvalSubject,
 } from "@kb/contracts";
 import {
   ActionSchemaError,
   FailureCodeSchema,
   ResolveError,
-  actsAsOwner,
   ensureDomainError,
   isDomainError,
   domainError,
@@ -28,7 +26,13 @@ import {
   receiptCodeOf,
   type DomainError,
 } from "@kb/model";
-import { decide } from "./approval.ts";
+import {
+  guardBefore,
+  interceptInput,
+  interceptOutput,
+  refusalOf,
+  sealedPart,
+} from "./interception.ts";
 import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
@@ -231,12 +235,11 @@ const parseOutput = Effect.fnUntraced(function* (def: ActionDefinition, output: 
 });
 
 /**
- * An input that sets `force`, the override of the sys.* write guard that any
- * action taking it declares (`node.add`, `node.update`, `node.delete`,
- * `node.addTree`). It is the owner's capability (`actsAsOwner`), refused here,
- * on invoke itself, so no action and no surface can hand it to an agent.
+ * How deep calls may nest, each made inside another (an action's handler
+ * invoking, or a listener's): past it the call is refused, so a listener
+ * or an action that calls back into what it intercepts cannot run away.
  */
-const ForcedInputSchema = z.object({ force: z.literal(true) });
+export const MAX_CALL_DEPTH = 16;
 
 /**
  * Effect invoke over a registry map — failures stay typed until a receipt mapper takes them.
@@ -249,30 +252,58 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   asked: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   // A call an action makes while another runs is made as that one's caller.
-  const invocation = callWithin(yield* CurrentCall, asked);
-  const { id, input } = invocation;
+  const outer = yield* CurrentCall;
+  const made = callWithin(outer, asked);
+  const { id } = made;
+  const depth = (outer?.depth ?? 0) + 1;
+  if (depth > MAX_CALL_DEPTH) {
+    return failed(id, "internal", `calls nest deeper than ${MAX_CALL_DEPTH}; ${id} is refused`, {
+      depth,
+    });
+  }
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
-  // Approval is decided here, on invoke itself, so no surface can skip it:
-  // the session's policies for this call's actor, else the action's mode.
-  const action = approvalSubject(entry.def, (part) => actions.get(part)?.def.mode);
-  const refusal = approvalRefusal(decide(ctx, { action, actor: invocation.actor }), invocation);
+  // Every call passes the interceptors, then is put to the guards as it will
+  // run, here on invoke itself, so no surface can skip either
+  // (`interception.ts`).
+  // The call is held as sealed data from here on (`sealedPart`): what the
+  // guards decide about is what runs, and no reader of it — a listener,
+  // a handler through `CurrentCall`, a nested call — can change it, or the
+  // registry's definition its action came from.
+  const action = yield* sealedPart(
+    approvalSubject(entry.def, (part) => actions.get(part)?.def.mode),
+  );
+  const held = yield* sealedPart(made);
+  // Everything the call runs — its listeners as much as its handler — runs
+  // as this call, so a call any of them makes nests in it and counts
+  // toward the depth limit.
+  const asCall = (as: ActionInvocation) =>
+    Effect.provideService(CurrentCall, Object.freeze({ invocation: as, action, depth }));
+  const interception = yield* CurrentInterception;
+  const invocation = yield* interceptInput(interception, { ctx, invocation: held, action }).pipe(
+    Effect.flatMap(sealedPart),
+    asCall(held),
+  );
+  const { input } = invocation;
+  const outcome = yield* guardBefore(interception, {
+    ctx,
+    invocation,
+    action,
+    phase: "invoke",
+  }).pipe(asCall(invocation));
+  const refusal = refusalOf(outcome, invocation);
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 
   const parsed = yield* parseBySchema(entry.def.inputSchema, input);
   const outOfReach = scriptRefusal(entry.def, invocation, parsed, ctx);
   if (outOfReach !== null) return failed(id, "forbidden", outOfReach.message, outOfReach.details);
-  if (ForcedInputSchema.safeParse(parsed).success && !actsAsOwner(invocation.actor)) {
-    return failed(
-      id,
-      "forbidden",
-      `force is the owner's to set; a call by ${invocation.actor} may not`,
-    );
-  }
   const run = dispatch(entry, ctx, parsed);
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
-  const output = yield* run.pipe(Effect.provideService(CurrentCall, { invocation, action }));
+  const produced = yield* run.pipe(asCall(invocation));
+  const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
+    asCall(invocation),
+  );
   return succeeded(id, yield* parseOutput(entry.def, output));
 });
 

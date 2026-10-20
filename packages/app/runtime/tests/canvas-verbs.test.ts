@@ -19,17 +19,12 @@ import {
   type CanvasDoc,
 } from "@kb/canvas";
 import type { ActionInvocation, ActionReceipt } from "@kb/contracts";
-import {
-  ACTOR_OPTION_IDS,
-  DECISION_OPTION_IDS,
-  SYSTEM_IDS,
-  fieldTypeValue,
-  present,
-} from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, present } from "@kb/model";
 import { backlinksQuery } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
+import { ACTOR_OPTION_IDS, DECISION_OPTION_IDS, GOVERNANCE_IDS } from "@kb/governance";
 
 type Kb = Awaited<ReturnType<typeof openKb>>;
 
@@ -738,11 +733,11 @@ describe("promote is one write", () => {
         id: "p.promote-ask",
         text: "agents ask before promoting",
         props: [
-          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.approvalPolicyTag } },
-          { field: SYSTEM_IDS.approvalMatchField, value: { t: "str", v: "ext.canvas.promote" } },
-          { field: SYSTEM_IDS.approvalActorField, value: { t: "ref", v: ACTOR_OPTION_IDS.agent } },
+          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: GOVERNANCE_IDS.policyTag } },
+          { field: GOVERNANCE_IDS.matchField, value: { t: "str", v: "ext.canvas.promote" } },
+          { field: GOVERNANCE_IDS.actorField, value: { t: "ref", v: ACTOR_OPTION_IDS.agent } },
           {
-            field: SYSTEM_IDS.approvalDecisionField,
+            field: GOVERNANCE_IDS.decisionField,
             value: { t: "ref", v: DECISION_OPTION_IDS.ask },
           },
         ],
@@ -773,11 +768,11 @@ describe("approval", () => {
         id: "p.canvas-ask",
         text: "agents ask before canvas writes",
         props: [
-          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.approvalPolicyTag } },
-          { field: SYSTEM_IDS.approvalMatchField, value: { t: "str", v: "ext.canvas.*" } },
-          { field: SYSTEM_IDS.approvalActorField, value: { t: "ref", v: ACTOR_OPTION_IDS.agent } },
+          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: GOVERNANCE_IDS.policyTag } },
+          { field: GOVERNANCE_IDS.matchField, value: { t: "str", v: "ext.canvas.*" } },
+          { field: GOVERNANCE_IDS.actorField, value: { t: "ref", v: ACTOR_OPTION_IDS.agent } },
           {
-            field: SYSTEM_IDS.approvalDecisionField,
+            field: GOVERNANCE_IDS.decisionField,
             value: { t: "ref", v: DECISION_OPTION_IDS.ask },
           },
         ],

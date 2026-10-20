@@ -19,6 +19,7 @@ import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 export const outlineExtension = defineExtension({
   name: "outline",
   label: "Outline",
+  tags: ["core"],
   defaultView: OutlineView,
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
 });

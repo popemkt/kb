@@ -281,3 +281,102 @@ describe("composition", () => {
     expect(kernel.contributionsOf("canvas")).toEqual([]);
   });
 });
+
+describe("a plugin's contributions appear and go as one", () => {
+  test("none is visible while its apply runs; all are once it has applied", async () => {
+    const kernel = makeKernel();
+    const seen: string[][] = [];
+    const halfway = definePlugin({
+      name: "halfway",
+      apply: Effect.fnUntraced(function* (ctx) {
+        yield* ctx.contribute(Greetings, { id: "first", value: "first" });
+        seen.push(kernel.contributions(Greetings).map(({ value }) => value));
+        yield* ctx.contribute(Greetings, { id: "second", value: "second" });
+      }),
+    });
+    await Effect.runPromise(kernel.load(halfway));
+    expect(seen).toEqual([[]]);
+    expect(kernel.contributions(Greetings).map(({ value }) => value)).toEqual(["first", "second"]);
+  });
+
+  test("none is visible once it starts to unload, while its finalizers still run", async () => {
+    const kernel = makeKernel();
+    const seen: string[][] = [];
+    const going = definePlugin({
+      name: "going",
+      apply: Effect.fnUntraced(function* (ctx) {
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => seen.push(kernel.contributions(Greetings).map(({ value }) => value))),
+        );
+        yield* ctx.contribute(Greetings, { id: "a", value: "a" });
+        yield* ctx.contribute(Greetings, { id: "b", value: "b" });
+      }),
+    });
+    await Effect.runPromise(kernel.load(going));
+    await Effect.runPromise(kernel.unload("going"));
+    expect(seen).toEqual([[]]);
+  });
+
+  test("a child's contributions wait for the plugin that loaded it", async () => {
+    const kernel = makeKernel();
+    const seen: string[][] = [];
+    const parent = definePlugin({
+      name: "parent",
+      apply: Effect.fnUntraced(function* (ctx) {
+        yield* ctx.plugin(greeter("child", "hi"));
+        seen.push(kernel.contributions(Greetings).map(({ value }) => value));
+      }),
+    });
+    await Effect.runPromise(kernel.load(parent));
+    expect(seen).toEqual([[]]);
+    expect(kernel.contributions(Greetings).map(({ value }) => value)).toEqual(["hi"]);
+  });
+});
+
+describe("organisation: tags and derived dependencies", () => {
+  test("dependencies are inject joined to provide, and follow the provider", () => {
+    const kernel = makeKernel();
+    run(kernel.load(counterUser));
+    // Injected but unprovided is the plugin's `missing`, not an edge.
+    expect(kernel.dependencies()).toEqual([]);
+
+    const provider = run(kernel.load(counterProvider));
+    expect(kernel.dependencies()).toEqual([
+      { from: "user", to: "counter", service: "test.counter" },
+    ]);
+    expect(kernel.plugins().find((p) => p.name === "counter")?.provides).toEqual(["test.counter"]);
+
+    run(provider.unload);
+    expect(kernel.dependencies()).toEqual([]);
+  });
+
+  test("contributing to a point is no dependency on whoever reads it", () => {
+    const kernel = makeKernel();
+    run(kernel.load(greeter("a", "hi")));
+    run(kernel.load(greeter("b", "yo")));
+    expect(kernel.dependencies()).toEqual([]);
+  });
+
+  test("tags are reported as given, a child's defaulting to its parent's, and change nothing", () => {
+    const kernel = makeKernel();
+    const parent = definePlugin({
+      name: "parent",
+      tags: ["core"],
+      apply: (ctx) =>
+        Effect.asVoid(
+          Effect.all([
+            ctx.plugin(greeter("inherits", "x")),
+            ctx.plugin({ ...greeter("own", "y"), tags: ["lab"] }),
+          ]),
+        ),
+    });
+    run(kernel.load(parent));
+    run(kernel.load(greeter("untagged", "z")));
+    const tagsOf = (name: string) => kernel.plugins().find((p) => p.name === name)?.tags;
+    expect(tagsOf("parent")).toEqual(["core"]);
+    expect(tagsOf("parent/inherits")).toEqual(["core"]);
+    expect(tagsOf("parent/own")).toEqual(["lab"]);
+    expect(tagsOf("untagged")).toEqual([]);
+    expect(ids(kernel)).toEqual(["parent.x", "parent.y", "untagged.z"]);
+  });
+});

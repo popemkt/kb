@@ -31,7 +31,7 @@ import type { KbRoots } from "./roots.ts";
  * an action ({@link requiresApproval}), so no surface can skip the check.
  * A write can instead delegate approval (`"delegated"`): the owner's own
  * actors run it, an agent asks, and sandboxed code is denied
- * (`declaredDecision`). Approval exists only on a write, so it is part of
+ * (the governance family's `declaredDecision`). Approval exists only on a write, so it is part of
  * the write arm and not a flag beside the mode.
  *
  * An action touches its own kb root and nothing else, unless its mode says

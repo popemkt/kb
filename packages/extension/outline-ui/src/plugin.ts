@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { ListFrameView } from "./frame-views";
 import { matchOutline } from "./routes";
@@ -76,6 +77,7 @@ const OUTLINE_VIEWS = [
  */
 export const outlineUiPlugin = definePlugin({
   name: outlineExtension.name,
+  tags: familyTags(outlineExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

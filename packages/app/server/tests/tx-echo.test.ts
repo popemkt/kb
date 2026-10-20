@@ -20,7 +20,7 @@ import { diffTx, type KbNode } from "@kb/model";
 import { handleHttpRequest } from "../src/http.ts";
 import { ingestExternalWrite } from "../src/server.ts";
 import { SubscriptionHub } from "../src/session.ts";
-import { HTTP_WIRE } from "../src/guard.ts";
+import { HTTP_WIRE, PROGRAM } from "../src/guard.ts";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */
 const TX_AT = "2026-01-01T00:00:00.000Z";
@@ -54,7 +54,7 @@ async function watcher(hub: SubscriptionHub, id: string): Promise<unknown[]> {
         Effect.sync(() => {
           frames.push(JSON.parse(text));
         }),
-      HTTP_WIRE,
+      PROGRAM,
     ),
   );
   await Effect.runPromise(hub.handleMessage(id, JSON.stringify({ op: "watch-tx", enabled: true })));

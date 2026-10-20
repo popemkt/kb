@@ -13,10 +13,11 @@ import { Effect } from "effect";
 import { z } from "zod";
 import { DecidedEntrySchema, type ActionRequest } from "@kb/contracts";
 import { CODE_IDS } from "@kb/code";
-import { DECISION_OPTION_IDS, SYSTEM_IDS } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
 import { codeDigest } from "@kb/sandbox";
 import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
+import { DECISION_OPTION_IDS, GOVERNANCE_IDS } from "@kb/governance";
 
 const ManifestSchema = z.object({ actions: z.array(DecidedEntrySchema) });
 
@@ -266,7 +267,7 @@ describe("approval policies in the invoke core", () => {
     }
     // Deleting the list that files them deletes them too, so it asks as well.
     expect(
-      await invoke(ctx, { id: "node.delete", input: { id: SYSTEM_IDS.approvalPolicies } }),
+      await invoke(ctx, { id: "node.delete", input: { id: GOVERNANCE_IDS.policies } }),
     ).toMatchObject({ status: "failed", code: "approval_required" });
     expect(textOf()).toBe(before);
     // A person's own gesture, or an approved call, writes it.
@@ -288,10 +289,10 @@ describe("approval policies in the invoke core", () => {
         id: "p.no-adds",
         text: "nobody adds",
         props: [
-          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.approvalPolicyTag } },
-          { field: SYSTEM_IDS.approvalMatchField, value: { t: "str", v: "node.add" } },
+          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: GOVERNANCE_IDS.policyTag } },
+          { field: GOVERNANCE_IDS.matchField, value: { t: "str", v: "node.add" } },
           {
-            field: SYSTEM_IDS.approvalDecisionField,
+            field: GOVERNANCE_IDS.decisionField,
             value: { t: "ref", v: DECISION_OPTION_IDS.deny },
           },
         ],

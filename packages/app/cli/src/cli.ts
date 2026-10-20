@@ -13,7 +13,9 @@ import {
   resolveRootEffect,
   STORE_BACKENDS,
   createStore,
+  deployGovernance,
   migrateStore,
+  type GovernanceMode,
   type StoreBackend,
   writeOut,
   writeErr,
@@ -32,7 +34,15 @@ import {
 } from "@kb/model";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
-import { EXIT_USAGE, toInt, toOrigin, toPort } from "./arguments.ts";
+import {
+  EXIT_USAGE,
+  checkUiListen,
+  collectIdentity,
+  toGovernance,
+  toInt,
+  toOrigin,
+  toPort,
+} from "./arguments.ts";
 import {
   ACTION_INVOKE_WIRE,
   EXIT_FAILED,
@@ -243,6 +253,15 @@ function buildProgram(): Command {
     .version(KB_SDK_VERSION)
     .option("--json", "machine-readable JSON output", false)
     .option("--root <path>", "repo root containing .kb/")
+    .option(
+      "--governance <mode>",
+      "required: every call is put to the governance family's guards, and refused while they are not loaded; off: no guard, every call runs",
+      toGovernance,
+      "required",
+    )
+    .hook("preAction", () => {
+      deployGovernance(program.opts<{ governance: GovernanceMode }>().governance);
+    })
     .exitOverride()
     .showHelpAfterError(false);
 
@@ -265,9 +284,18 @@ function buildProgram(): Command {
     .command("ui")
     .description("Serve the kb browser UI + subscription backend")
     .option("--port <n>", "backend listen port, 0 for any free one (default 4321)", toPort)
+    .option(
+      "--socket <path>",
+      "listen on a Unix socket only its owner can connect to (mode 0600), for a proxy on this host; with --public-origin",
+    )
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
     .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
+    .option(
+      "--identity-header <header=login>",
+      "trust the reverse proxy's <header> to name the person; a request whose header is <login> is theirs (repeatable; with --socket)",
+      collectIdentity,
+    )
     .option("--no-open", "do not open a browser")
     .action(
       cliAction(
@@ -276,23 +304,37 @@ function buildProgram(): Command {
           [opts]: [
             {
               port?: number;
+              socket?: string;
               dev?: boolean;
               devPort?: number;
               publicOrigin?: string;
+              identityHeader?: { header: string; people: readonly string[] };
               open?: boolean;
             },
           ],
         ) =>
           Effect.gen(function* () {
-            const { runUiCli } = yield* Effect.promise(() => import("@kb/server"));
+            checkUiListen(opts);
+            const { identityHeaderIdentity, pageTokenIdentity, runUiCli } = yield* Effect.promise(
+              () => import("@kb/server"),
+            );
             const root = yield* resolveRootEffect({ root: globals.root });
             return yield* runUiCli({
               root,
               port: opts.port ?? UI_DEFAULT_PORT,
+              socket: opts.socket,
               openBrowser: opts.open !== false,
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
+              // The person's local page always authenticates; a hosted
+              // deployment adds the proxy it trusts.
+              identity: [
+                pageTokenIdentity(),
+                ...(opts.identityHeader === undefined
+                  ? []
+                  : [identityHeaderIdentity(opts.identityHeader)]),
+              ],
               extensions: yield* hostExtensions(root),
               openedBy: ACTION_INVOKE_WIRE,
             });

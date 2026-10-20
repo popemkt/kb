@@ -13,7 +13,7 @@ import type { AgentEvent, AgentRequest } from "@kb/agent";
 import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { AgentDock, attachChat, useChat, type AgentPorts } from "@kb/agent-ui";
+import { AgentDock, attachChat, useChat, type AgentPorts, type Standing } from "@kb/agent-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 interface Stand {
@@ -22,20 +22,20 @@ interface Stand {
   readonly invoked: ActionRequest[];
   /** Say `event` on the channel, as the bridge would. */
   hear: (event: AgentEvent) => void;
-  /** The socket opens or closes. */
-  socket: (open: boolean) => void;
+  /** The tab's connection moves: closes, opens, or is told whose it is. */
+  socket: (standing: Standing) => void;
 }
 
 function stand(answer: (invocation: ActionRequest) => ActionReceipt): Stand {
   const sent: AgentRequest[] = [];
   const invoked: ActionRequest[] = [];
   let sink: ((data: unknown) => void) | null = null;
-  let socket: ((open: boolean) => void) | null = null;
+  let socket: ((standing: Standing) => void) | null = null;
   return {
     sent,
     invoked,
     hear: (event) => act(() => sink?.(event)),
-    socket: (open) => act(() => socket?.(open)),
+    socket: (standing) => act(() => socket?.(standing)),
     ports: {
       listen: (next) => {
         sink = next.data;
@@ -226,10 +226,30 @@ describe("the agent dock", () => {
     open(s);
     await type("hi");
     act(() => button("Send")?.click());
-    s.socket(false);
+    s.socket("offline");
     expect(useChat.getState().transcript.running).toBe(false);
     expect(container.textContent).toContain("Not connected to kb.");
-    s.socket(true);
+    s.socket("unknown");
     expect(container.textContent).not.toContain("Not connected to kb.");
+  });
+
+  it("a tab that is nobody's says so without trying, after every reconnect, until it is the person's", async () => {
+    const s = stand(() => succeeded("x", {}));
+    open(s);
+    s.socket("nobody");
+    expect(container.textContent).toContain("not verified as you");
+    await type("hi");
+    act(() => button("Send")?.click());
+    expect(s.sent).toEqual([]);
+
+    s.socket("offline");
+    s.socket("unknown");
+    s.socket("nobody");
+    expect(container.textContent).toContain("not verified as you");
+    act(() => button("Send")?.click());
+    expect(s.sent).toEqual([]);
+
+    s.socket("person");
+    expect(container.textContent).not.toContain("not verified as you");
   });
 });

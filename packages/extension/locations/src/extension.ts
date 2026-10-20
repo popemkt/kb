@@ -11,6 +11,7 @@ import { locationsSeedNodes } from "./seed.ts";
 export const locationsExtension = defineExtension({
   name: "locations",
   label: "Locations",
+  tags: ["locations"],
   optional: { byDefault: "on" },
   seed: locationsSeedNodes,
 });

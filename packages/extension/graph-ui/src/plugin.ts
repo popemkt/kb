@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { matchGraph } from "./routes";
 import {
@@ -66,6 +67,7 @@ import {
  */
 export const graphUiPlugin = definePlugin({
   name: graphExtension.name,
+  tags: familyTags(graphExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

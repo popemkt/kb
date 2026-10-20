@@ -29,7 +29,7 @@ import {
 } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { startUi } from "@kb/server";
+import { pageTokenIdentity, startUi } from "@kb/server";
 import { hostAgentAdapters, hostExtensions } from "../src/host-plugins.ts";
 
 const AGENT: ExtensionEntry = {
@@ -69,9 +69,13 @@ async function served<T>(
   against: (page: string) => Promise<T>,
 ): Promise<T> {
   const handle = await Effect.runPromise(
-    startUi({ root, port: 0, openBrowser: false, extensions }).pipe(
-      Effect.provide(bunFileSystemLayer),
-    ),
+    startUi({
+      identity: [pageTokenIdentity()],
+      root,
+      port: 0,
+      openBrowser: false,
+      extensions,
+    }).pipe(Effect.provide(bunFileSystemLayer)),
   );
   try {
     return await against(handle.page);

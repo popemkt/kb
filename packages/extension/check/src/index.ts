@@ -5,4 +5,4 @@
  */
 import { defineExtension } from "@kb/contracts";
 
-export const checkExtension = defineExtension({ name: "check", label: "Check" });
+export const checkExtension = defineExtension({ name: "check", label: "Check", tags: ["core"] });

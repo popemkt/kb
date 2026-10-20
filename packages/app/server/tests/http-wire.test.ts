@@ -13,22 +13,27 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { PAGE_TOKEN_HEADER, pageProtocols, type ServerMessage } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/model";
 import { SANDBOX_FRAME_PATH } from "@kb/sandbox";
 import { FAKE_TAB_SCREEN } from "@kb/test-kit";
-import { startUi, type UiServerHandle } from "../src/index.ts";
+import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
+import { GOVERNANCE_IDS } from "@kb/governance";
 
 let root = "";
 let handle: UiServerHandle;
+/** This server's page token. */
+const TOKEN = "a".repeat(64);
 /** The token of a server over the same root that has since stopped. */
-let stale = "";
+const STALE = "b".repeat(64);
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-http-wire-"));
-  const earlier = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
-  stale = earlier.pageToken;
+  const earlier = await Effect.runPromise(
+    startUi({ root, port: 0, openBrowser: false, identity: [pageTokenIdentity(STALE)] }),
+  );
   await Effect.runPromise(earlier.stop);
-  handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
+  handle = await Effect.runPromise(
+    startUi({ root, port: 0, openBrowser: false, identity: [pageTokenIdentity(TOKEN)] }),
+  );
 });
 afterAll(async () => {
   await Effect.runPromise(handle.stop);
@@ -41,11 +46,11 @@ type From = "page" | "program" | "forged" | "wrong" | "stale";
 function headersFrom(from: From): Record<string, string> {
   const origin = new URL(handle.url).origin;
   const carried: Record<From, Record<string, string>> = {
-    page: { origin, [PAGE_TOKEN_HEADER]: handle.pageToken },
+    page: { origin, [PAGE_TOKEN_HEADER]: TOKEN },
     program: {},
     forged: { origin },
-    wrong: { origin, [PAGE_TOKEN_HEADER]: "0".repeat(handle.pageToken.length) },
-    stale: { origin, [PAGE_TOKEN_HEADER]: stale },
+    wrong: { origin, [PAGE_TOKEN_HEADER]: "0".repeat(TOKEN.length) },
+    stale: { origin, [PAGE_TOKEN_HEADER]: STALE },
   };
   return carried[from];
 }
@@ -63,7 +68,7 @@ async function post(body: unknown, from: From) {
 /** A write that always needs a person behind it: a new approval policy. */
 const policy = (text: string) => ({
   id: "node.add",
-  input: { text, tags: [SYSTEM_IDS.approvalPolicyTag] },
+  input: { text, tags: [GOVERNANCE_IDS.policyTag] },
 });
 
 /** A `/ws` connection offering `protocols`: the frames it is answered, or why it did not open. */
@@ -85,7 +90,9 @@ async function socket(protocols: string[], frames: readonly unknown[]) {
   for (const frame of [...frames, { op: "ping" }]) ws.send(JSON.stringify(frame));
   await done;
   ws.close();
-  return { opened, heard: heard.filter((msg) => msg.op !== "hello" && msg.op !== "pong") };
+  const person = heard.find((msg) => msg.op === "person")?.person;
+  const said = heard.filter((msg) => !["hello", "person", "pong"].includes(msg.op));
+  return { opened, person, heard: said };
 }
 
 const SCREEN = { op: "screen", tab: "tab.wire", state: FAKE_TAB_SCREEN };
@@ -112,6 +119,10 @@ describe("who makes a call over HTTP", () => {
     for (const from of ["program", "forged"] as const) {
       const { body } = await post(policy("allow everything"), from);
       expect(body).toMatchObject({ status: "failed", code: "approval_required" });
+      // Naming the agent, which it is anyway, claims nothing: a page nobody
+      // is verified for calls WebMCP's tools so.
+      const named = await post({ ...policy("allow everything"), actor: "agent" }, from);
+      expect(named.body).toMatchObject({ status: "failed", code: "approval_required" });
     }
   });
 
@@ -136,18 +147,19 @@ describe("who makes a call over HTTP", () => {
 });
 
 describe("who speaks on /ws", () => {
-  test("a socket without the token reads, and may not publish a screen or speak on a channel", async () => {
-    const { opened, heard } = await socket([], [SCREEN, CHANNEL]);
+  test("a socket without the token is told it is nobody's, publishes its screen, and may not speak on a channel", async () => {
+    const { opened, person, heard } = await socket([], [SCREEN, CHANNEL]);
     expect(opened).toBe(true);
+    expect(person).toBeNull();
     expect(heard).toEqual([
-      expect.objectContaining({ op: "error", code: "forbidden" }),
       expect.objectContaining({ op: "error", id: CHANNEL.channel, code: "forbidden" }),
     ]);
   });
 
-  test("the page's socket publishes its screen and speaks on channels", async () => {
-    const { opened, heard } = await socket(pageProtocols(handle.pageToken), [SCREEN, CHANNEL]);
+  test("the page's socket is told it is the person's, publishes its screen and speaks on channels", async () => {
+    const { opened, person, heard } = await socket(pageProtocols(TOKEN), [SCREEN, CHANNEL]);
     expect(opened).toBe(true);
+    expect(person).toEqual({ name: expect.any(String) });
     expect(heard).toEqual([
       expect.objectContaining({ op: "error", id: CHANNEL.channel, code: "unknown_channel" }),
     ]);
@@ -173,7 +185,7 @@ describe("where the token is", () => {
       const body = await (
         await fetch(`${handle.url}${path}`, { headers: headersFrom("page") })
       ).text();
-      expect({ path, carries: body.includes(handle.pageToken) }).toEqual({ path, carries: false });
+      expect({ path, carries: body.includes(TOKEN) }).toEqual({ path, carries: false });
     }
   });
 });

@@ -64,6 +64,7 @@ const DENIED: ManifestEntry = {
 
 const SCREEN: TabScreen = {
   tab: "tab.a",
+  person: { name: "owner" },
   route: "/",
   active: true,
   activePane: "main",

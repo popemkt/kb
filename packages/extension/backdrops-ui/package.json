@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/backdrops": "workspace:*",
+    "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/ui-sdk": "workspace:*",

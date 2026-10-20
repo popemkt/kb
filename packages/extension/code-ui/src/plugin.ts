@@ -1,4 +1,5 @@
 import { lazy } from "react";
+import { familyTags } from "@kb/contracts";
 import { Effect } from "effect";
 import { CodeView, DEFAULT_GRANT, codeExtension, codePlugin } from "@kb/code";
 import { definePlugin } from "@kb/plugin";
@@ -27,6 +28,7 @@ const ScriptsHost = lazy(() => import("./scripts-host").then((m) => ({ default: 
  */
 export const codeUiPlugin = definePlugin({
   name: codeExtension.name,
+  tags: familyTags(codeExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

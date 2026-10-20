@@ -24,7 +24,8 @@
     "@kb/webmcp": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:",
-    "fast-check": "catalog:"
+    "fast-check": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

@@ -154,7 +154,7 @@ describe("running a script once", () => {
     expect(await invoke(ctx, call)).toMatchObject({
       status: "failed",
       code: "forbidden",
-      details: { policy: "approval.script-run" },
+      details: { decidedBy: { plugin: "code", rule: "script-run" } },
     });
   });
 
@@ -190,7 +190,7 @@ describe("running a script once", () => {
     expect(receipt).toMatchObject({
       status: "failed",
       code: "forbidden",
-      details: { policy: "approval.script-run" },
+      details: { decidedBy: { plugin: "code", rule: "script-run" } },
     });
   });
 

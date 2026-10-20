@@ -12,6 +12,7 @@
   "dependencies": {
     "@kb/chart": "workspace:*",
     "@kb/chart-vega": "workspace:*",
+    "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/ui-sdk": "workspace:*",

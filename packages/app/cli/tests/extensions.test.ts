@@ -203,6 +203,7 @@ describe("kb ext list", () => {
       "code",
       "collections",
       "docs",
+      "governance",
       "graph",
       "hello",
       "lab",
@@ -211,6 +212,35 @@ describe("kb ext list", () => {
       "themes",
     ]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);
+  });
+
+  test("shows each family's tags and each interception point's listeners in order", async () => {
+    const root = await tempRoot();
+    const json = await runCli(["--root", root, "--json", "ext", "list"]);
+    expect(json.code).toBe(0);
+    const { output } = JSON.parse(json.out) as {
+      output: {
+        extensions: { name: string; tags: string[]; injects: unknown[]; provides: string[] }[];
+        points: { point: string; listeners: { owner: string; id: string; match: string }[] }[];
+      };
+    };
+    const tagsOf = (name: string) => output.extensions.find((e) => e.name === name)?.tags;
+    expect(tagsOf("outline")).toEqual(["core"]);
+    expect(tagsOf("governance")).toEqual(["governance"]);
+    expect(tagsOf("canvas")).toEqual(["canvas"]);
+    const guards = output.points.find(({ point }) => point === "action/guard")?.listeners;
+    expect(guards?.map(({ id }) => id)).toEqual([
+      "ext.governance.approval",
+      "ext.governance.force",
+      "ext.code.script-run",
+    ]);
+
+    resetRegistryCache();
+    const human = await runCli(["--root", root, "ext", "list"]);
+    expect(human.out).toContain("\n  tags: core\n");
+    expect(human.out).toContain("action/guard: in order");
+    expect(human.out).toContain("  1. ext.governance.approval (governance) on *");
+    expect(human.out).toContain("  2. ext.governance.force (governance) on every write");
   });
 });
 

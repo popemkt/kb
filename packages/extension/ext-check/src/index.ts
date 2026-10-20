@@ -5,6 +5,7 @@ import {
   extensionNamespace,
   provideAction,
   type ExtensionAction,
+  familyTags,
 } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { checkAuditEffect } from "./audit.ts";
@@ -45,6 +46,7 @@ const actions: ExtensionAction[] = [
 /** The check family's server entry: `ext.check.*`. */
 export const checkPlugin = definePlugin({
   name: checkExtension.name,
+  tags: familyTags(checkExtension),
   namespace: extensionNamespace(checkExtension.name),
   apply: (ctx) =>
     Effect.forEach(actions, (action) => ctx.contribute(ActionPoint, provideAction(action)), {

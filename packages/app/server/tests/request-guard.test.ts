@@ -64,7 +64,9 @@ describe("kb ui request guard", () => {
   test("a WebSocket upgrade from another site is refused; the UI's own page opens", async () => {
     expect(await handshake(handle.url, EVIL)).toBe("refused");
     expect(await handshake(handle.url, handle.url)).toBe("open");
-    expect(await handshake(handle.url, `http://localhost:${handle.port}`)).toBe("open");
+    expect(await handshake(handle.url, `http://localhost:${new URL(handle.url).port}`)).toBe(
+      "open",
+    );
   });
 
   test("an API request from another site is refused", async () => {
@@ -78,12 +80,16 @@ describe("kb ui request guard", () => {
 
   test("a Host that is not this server is refused, which stops DNS rebinding", async () => {
     expect(
-      await rawGet(`${handle.url}/api/manifest`, { Host: `evil.example:${handle.port}` }),
+      await rawGet(`${handle.url}/api/manifest`, {
+        Host: `evil.example:${new URL(handle.url).port}`,
+      }),
     ).toBe(403);
-    expect(await rawGet(`${handle.url}/ws`, { Host: `evil.example:${handle.port}` })).toBe(403);
-    expect(await rawGet(`${handle.url}/api/manifest`, { Host: `localhost:${handle.port}` })).toBe(
-      200,
-    );
+    expect(
+      await rawGet(`${handle.url}/ws`, { Host: `evil.example:${new URL(handle.url).port}` }),
+    ).toBe(403);
+    expect(
+      await rawGet(`${handle.url}/api/manifest`, { Host: `localhost:${new URL(handle.url).port}` }),
+    ).toBe(200);
   });
 
   test("a text/plain action, the POST a page may send without a preflight, is refused", async () => {

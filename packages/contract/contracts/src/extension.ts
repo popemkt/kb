@@ -3,9 +3,15 @@ import { NoParams, viewKey } from "@kb/views";
 import { Point, Service, definePlugin, type ContributionEntry } from "@kb/plugin";
 import type { KbContext } from "./session.ts";
 import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
-import { declarationPlugin, defineExtension, type ExtensionEntry } from "./declaration.ts";
+import {
+  declarationPlugin,
+  defineExtension,
+  familyTags,
+  type ExtensionEntry,
+} from "./declaration.ts";
 import type { ExtensionTemplate, TemplateFn } from "./template.ts";
 import { ViewKeyPoint, viewDef } from "./view-catalog.ts";
+import { ActionGuardPoint, ActionInterceptorPoint, guardAction, onAction } from "./interception.ts";
 
 /**
  * Extension contract: what a family contributes to the points every host
@@ -135,12 +141,17 @@ export const EXTENSION_SDK = {
   definePlugin,
   defineExtension,
   declarationPlugin,
+  familyTags,
   extensionNamespace,
   Point,
   Service,
   ActionPoint,
+  ActionGuardPoint,
+  ActionInterceptorPoint,
   TemplatePoint,
   ViewKeyPoint,
+  guardAction,
+  onAction,
   provideAction,
   provideTemplate,
   viewKey,

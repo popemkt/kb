@@ -3,8 +3,7 @@
  * bundled fold): each declared view's option is derived from its key, in
  * declaration order, as is each declared option's under its kind's field
  * (a backdrop's under `sys.f.backdrop`, a design system's under
- * `sys.f.design-system`) and each declared policy's under the list of every
- * policy (a denial only),
+ * `sys.f.design-system`),
  * `sys.views` names the default view type, and an id two declarations claim
  * is refused.
  */
@@ -14,7 +13,6 @@ import {
   DESIGN_SYSTEM_OPTIONS,
   SYSTEM_IDS,
   VIEW_FAMILY_VALUES,
-  approvalPoliciesOf,
   declaredOptionId,
   defaultViewTypeOf,
   type DeclaredOptions,
@@ -100,27 +98,30 @@ describe("bundled seed", () => {
     expect(named).toBe(viewOptionId("outline.main"));
   });
 
-  test("a declared policy is filed with every policy, and one that does not deny is refused", () => {
+  test("a declaration files its own nodes among core's lists, and only its own", () => {
     const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
-    const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.policies ?? []);
-    expect(declared.length).toBeGreaterThan(0);
-    for (const policy of declared) {
-      expect(seed.get(SYSTEM_IDS.approvalPolicies)?.children).toContain(policy.id);
-      expect(approvalPoliciesOf([...seed.values()])).toContainEqual(
-        expect.objectContaining({ id: policy.id, decision: "deny" }),
-      );
+    for (const declaration of BUNDLED_DECLARATIONS) {
+      for (const [list, ids] of Object.entries(declaration.files ?? {})) {
+        expect(seed.get(list)?.children).toEqual(expect.arrayContaining([...ids]));
+      }
     }
-    const permits = {
-      name: "lenient",
-      label: "Lenient",
-      policies: [{ id: "p.allow", text: "allows", match: "*", actor: null, decision: "allow" }],
+    const stray = {
+      name: "stray",
+      label: "Stray",
+      files: { [SYSTEM_IDS.pinnedRoot]: ["n.not-mine"] },
     };
-    expect(() =>
-      foldSeed(
-        [...BUNDLED_DECLARATIONS, permits as unknown as (typeof BUNDLED_DECLARATIONS)[number]],
-        AT,
-      ),
-    ).toThrow("which does not deny");
+    expect(() => foldSeed([...BUNDLED_DECLARATIONS, stray], AT)).toThrow("which it does not seed");
+    const nowhere = {
+      name: "nowhere",
+      label: "Nowhere",
+      seed: (at: string) => [
+        { id: "n.mine", text: "", props: {}, children: [], createdAt: at, updatedAt: at },
+      ],
+      files: { "list.absent": ["n.mine"] },
+    };
+    expect(() => foldSeed([...BUNDLED_DECLARATIONS, nowhere], AT)).toThrow(
+      "no seed source declares list.absent",
+    );
   });
 
   test("an id two declarations claim is refused", () => {
@@ -141,7 +142,6 @@ describe("bundled seed", () => {
         ...(declaration.seed?.(AT) ?? []).map((node) => node.id),
         ...(declaration.views ?? []).map((view) => viewOptionId(view.key.id)),
         ...declaredOptionsOf(declaration),
-        ...(declaration.policies ?? []).map((policy) => policy.id),
         extensionNodeId(declaration.name),
       ];
       expect(owned.map((id) => [id, owners.get(id)])).toEqual(

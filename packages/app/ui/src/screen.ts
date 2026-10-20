@@ -12,6 +12,7 @@
  * camera — the mounted view reports under its pane (`stores/screen.store`).
  * A command goes to the pane it names, else the focused one.
  */
+import { coreExtension } from "@kb/operations";
 import { Effect, Result } from "effect";
 import {
   SCREEN_APPLIED,
@@ -21,6 +22,7 @@ import {
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
+  familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { getClientOrigin } from "@/api/action";
@@ -296,6 +298,7 @@ function startPublishing(
 export function screenPlugin(options: ScreenPluginOptions): Plugin {
   return definePlugin({
     name: "screen",
+    tags: familyTags(coreExtension, "ui"),
     apply: () =>
       Effect.asVoid(
         Effect.acquireRelease(

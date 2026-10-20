@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   ActionPoint,
+  CurrentInterception,
   TemplatePoint,
   ViewKeyPoint,
   declarationPlugin,
@@ -17,22 +18,26 @@ import {
   type ActionReceipt,
   type ExtensionFailure,
   type ExtensionRow,
+  type Interception,
   type KbContext,
   type LoadedExtension,
   type ManifestEntry,
   type TemplateFn,
   type ViewDef,
+  familyTags,
 } from "@kb/contracts";
 import type { ActionSchemaError, DomainError } from "@kb/model";
 import {
   coreActions,
   coreExtension,
+  interceptionFrom,
   invokeReceiptWith,
   invokeWith,
   type RegisteredAction,
 } from "@kb/operations";
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
+import { GOVERNANCE_FAMILY, governanceMode } from "./deployment.ts";
 import { resetRootFamilies, rootFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
 
@@ -62,6 +67,8 @@ interface RegistryExtension {
 export interface Registry {
   /** The kernel every action and template was loaded into. */
   kernel: Kernel;
+  /** The guards and interceptors its plugins contribute, which every call through it goes through. */
+  interception: Interception;
   /** When its kernel is released: once it is replaced, and the calls that hold it have settled. */
   lifetime: RegistryLifetime;
   actions: readonly RegisteredAction[];
@@ -127,6 +134,7 @@ function registryLifetime(kernel: Kernel): RegistryLifetime {
  */
 const corePlugin = definePlugin({
   name: coreExtension.name,
+  tags: familyTags(coreExtension),
   namespace: "",
   apply: (ctx) =>
     Effect.all(
@@ -253,6 +261,7 @@ const buildRegistry = Effect.fnUntraced(function* (
   families: readonly LoadedExtension[],
   on: readonly LoadedExtension[],
   refused: readonly ExtensionFailure[],
+  required: readonly string[],
 ): Effect.fn.Return<Registry> {
   const kernel = makeKernel();
   const failures: ExtensionFailure[] = [...refused];
@@ -324,6 +333,7 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   return {
     kernel,
+    interception: interceptionFrom(kernel, { required }),
     lifetime: registryLifetime(kernel),
     actions,
     byId,
@@ -373,7 +383,9 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   if (held?.key === key) return yield* held.registry;
   // `Effect.cached` is what makes the entry a build-once value rather than a
   // recipe: concurrent callers share the one in-flight build.
-  const built = yield* Effect.cached(buildRegistry(families, on, failures));
+  // The deployment, not the store, decides whether governance is composed (`deploys`).
+  const required = governanceMode() === "required" ? [GOVERNANCE_FAMILY] : [];
+  const built = yield* Effect.cached(buildRegistry(families, on, failures, required));
   // Another caller may have composed this key while the build was set up.
   const replaced = current.get(rootKey);
   if (replaced?.key === key) return yield* replaced.registry;
@@ -401,7 +413,10 @@ const withSessionRegistry = <A, E, R>(
   Effect.gen(function* () {
     const registry = yield* sessionRegistry(ctx);
     if (!registry.lifetime.acquire()) return yield* withSessionRegistry(ctx, use);
-    return yield* use(registry).pipe(Effect.ensuring(registry.lifetime.settle));
+    return yield* use(registry).pipe(
+      Effect.provideService(CurrentInterception, registry.interception),
+      Effect.ensuring(registry.lifetime.settle),
+    );
   });
 
 /** Test hook: forget cached registries so fresh roots re-discover extensions. */

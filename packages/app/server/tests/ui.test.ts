@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { ServerMessage } from "@kb/contracts";
-import { startUi, type UiServerHandle } from "../src/index.ts";
+import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
 
@@ -66,12 +66,17 @@ describe("kb ui server", () => {
 
   test("port 0 binds a free port, and presence records the URL it bound", async () => {
     const other = await tempRoot();
-    handle = await run(startUi({ root, port: 0, openBrowser: false }));
-    const second = await run(startUi({ root: other, port: 0, openBrowser: false }));
+    handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
+    const second = await run(
+      startUi({ identity: [pageTokenIdentity()], root: other, port: 0, openBrowser: false }),
+    );
     try {
-      expect(handle.port).toBeGreaterThan(0);
-      expect(second.port).not.toBe(handle.port);
-      expect(handle.url).toBe(`http://127.0.0.1:${handle.port}`);
+      const port = handle.at.kind === "tcp" ? handle.at.port : 0;
+      expect(port).toBeGreaterThan(0);
+      expect(second.at).not.toEqual(handle.at);
+      expect(handle.url).toBe(`http://127.0.0.1:${port}`);
       const recorded = JSON.parse(await readFile(join(root, ".kb", "ui.json"), "utf8")) as {
         url: string;
       };
@@ -89,10 +94,18 @@ describe("kb ui server", () => {
   test("a root a person serves is one of their locations; a server nobody opened lists nothing", async () => {
     const restoreHome = pointHomeAt(join(root, "home"));
     try {
-      const unopened = await run(startUi({ root: await tempRoot(), port: 0, openBrowser: false }));
+      const unopened = await run(
+        startUi({
+          identity: [pageTokenIdentity()],
+          root: await tempRoot(),
+          port: 0,
+          openBrowser: false,
+        }),
+      );
       await run(unopened.stop);
       handle = await run(
         startUi({
+          identity: [pageTokenIdentity()],
           root,
           port: 0,
           openBrowser: false,
@@ -119,11 +132,19 @@ describe("kb ui server", () => {
     const home = join(root, "home");
     const restoreHome = pointHomeAt(home);
     try {
-      const unopened = await run(startUi({ root: await tempRoot(), port: 0, openBrowser: false }));
+      const unopened = await run(
+        startUi({
+          identity: [pageTokenIdentity()],
+          root: await tempRoot(),
+          port: 0,
+          openBrowser: false,
+        }),
+      );
       await run(unopened.stop);
       expect(await readdir(join(home, ".kb", "pages")).catch(() => [])).toEqual([]);
       const opened = await run(
         startUi({
+          identity: [pageTokenIdentity()],
           root,
           port: 0,
           openBrowser: false,
@@ -153,11 +174,7 @@ describe("kb ui server", () => {
     );
 
     handle = await run(
-      startUi({
-        root,
-        port: 0,
-        openBrowser: false,
-      }),
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
     );
 
     const graph = await fetch(`${handle.url}/api/graph`);
@@ -188,7 +205,7 @@ describe("kb ui server", () => {
       expect(await uiRoot.text()).toContain('<div id="root">');
     }
 
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
+    const ws = new WebSocket(`${handle.url.replace(/^http/, "ws")}/ws`);
     await new Promise<void>((resolve, reject) => {
       ws.addEventListener("open", () => resolve());
       ws.addEventListener("error", () => reject(new Error("ws open failed")));
@@ -271,7 +288,9 @@ describe("kb ui server", () => {
         template: "todos",
       }),
     );
-    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
 
     const listResp = await fetch(`${handle.url}/api/action`, {
       method: "POST",
@@ -318,7 +337,9 @@ describe("kb ui server", () => {
   });
 
   test("POST /api/action never throws on unknown action", async () => {
-    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
     const resp = await fetch(`${handle.url}/api/action`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -331,7 +352,9 @@ describe("kb ui server", () => {
   });
 
   test("GET /assets/* serves uploads; traversal returns 403", async () => {
-    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
 
     const upload = await fetch(`${handle.url}/api/action`, {
       method: "POST",
@@ -367,9 +390,11 @@ describe("kb ui server", () => {
   });
 
   test("stop() cancels listen; WS close cleans hub session", async () => {
-    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
     const url = handle.url;
-    const port = handle.port;
+    const port = new URL(handle.url).port;
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     await new Promise<void>((resolve, reject) => {
@@ -392,7 +417,9 @@ describe("kb ui server", () => {
   });
 
   test("malformed action body is 400 invalid_input", async () => {
-    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
     const resp = await fetch(`${handle.url}/api/action`, {
       method: "POST",
       headers: { "content-type": "application/json" },

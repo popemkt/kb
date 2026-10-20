@@ -9,9 +9,10 @@
  * Three checks do:
  *
  * - **Host** must name this server (`127.0.0.1:<port>`, `localhost:<port>`,
- *   or the host it was bound to). A page on another site that rebinds its
- *   own DNS name to 127.0.0.1 sends its own name here, so this is what stops
- *   DNS rebinding.
+ *   or the host it was bound to; `localhost` for a socket, as its proxy
+ *   names it; the public origin's host behind a proxy). A page on another
+ *   site that rebinds its own DNS name to 127.0.0.1 sends its own name
+ *   here, so this is what stops DNS rebinding.
  * - **Origin**, when there is one, must be the UI's own. A browser always
  *   sends it on a cross-origin request and on every WebSocket handshake. A
  *   local program (the CLI, `kb mcp`, curl) sends none and is let through.
@@ -20,51 +21,59 @@
  *   one, which the Origin check then refuses.
  *
  * Those keep other sites out; they do not say who is calling, since a local
- * program may send any Origin it likes. The page token does: a request that
- * carries this run's token is the page's, one that carries another is
- * refused, and one that carries none is a local program's, whatever its
- * Origin.
+ * program may send any Origin it likes. The deployment's identity providers
+ * do (`auth.ts`): a request it finds is the person's is on the page's wire,
+ * one it refuses is refused, and any other is a local program's, whatever
+ * its Origin.
  */
-import { timingSafeEqual } from "node:crypto";
 import {
   PAGE_PROTOCOL,
-  PAGE_TOKEN_HEADER,
   PAGE_WIRE,
-  offeredPageToken,
+  type Identification,
+  type Person,
   type SurfaceWire,
 } from "@kb/contracts";
+import type { Listener } from "./listener.ts";
 
 /**
- * HTTP's wire for a local program: a request that carries no page token
- * (the CLI's relay, curl, another app, or anything claiming the UI's
- * Origin). Its calls are an agent's, the more cautious caller: one cannot
- * say it is someone else, or that a person approved it, since nothing shows
- * a person stands behind it. The page's own requests are the page's wire
- * (`PAGE_WIRE`).
+ * HTTP's wire for a local program: a request the authentication does not
+ * find is the person's (the CLI's relay, curl, another app, or anything
+ * claiming the UI's Origin). Its calls are an agent's, the more cautious
+ * caller: one cannot say it is someone else, or that a person approved it,
+ * since nothing shows a person stands behind it. The person's own requests
+ * are the page's wire (`PAGE_WIRE`).
  */
 export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
 
-/** A page token: 32 random bytes, in hex. */
-export function mintPageToken(): string {
-  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex");
-}
-
 /** Where the server listens, and where the browser loads the UI from. */
 export interface GuardSite {
-  /** The host the server was bound to. */
-  readonly hostname: string;
-  /** The port the server listens on. */
-  readonly port: number;
-  /** The port the UI page is served from: this server's, or the Vite dev server's. */
-  readonly uiPort: number;
+  /** Where the server listens. */
+  readonly at: Listener;
+  /**
+   * The port the UI page is served from, when another server serves it (the
+   * Vite dev server's). Default: the TCP listener's own.
+   */
+  readonly uiPort?: number;
   /** Browser origin when a reverse proxy serves this UI. */
   readonly publicOrigin?: string;
-  /** The page token this run minted. */
-  readonly pageToken: string;
+  /** Who a request is, by every identity provider the server holds (`identifyBy`). */
+  readonly identify: (req: Request) => Identification;
 }
 
-/** What the guard makes of a request: refused, or let through on a wire. */
-type Admission = { readonly refused: Response } | { readonly wire: SurfaceWire };
+/**
+ * Who a request the guard lets through comes from: the person, or nobody
+ * (`null`), and the wire that follows from which.
+ */
+export interface Caller {
+  readonly wire: SurfaceWire;
+  readonly person: Person | null;
+}
+
+/** A local program's request: nobody the authentication vouches for, on HTTP's wire. */
+export const PROGRAM: Caller = { wire: HTTP_WIRE, person: null };
+
+/** What the guard makes of a request: refused, or let through from its caller. */
+type Admission = { readonly refused: Response } | { readonly caller: Caller };
 
 export interface RequestGuard {
   readonly admit: (req: Request, url: URL) => Admission;
@@ -81,19 +90,35 @@ function isJson(contentType: string | null): boolean {
   return media === "application/json";
 }
 
-/** The page token a request presents: in its header, or offered on its WebSocket handshake. */
-function presentedToken(req: Request): string | null {
-  return (
-    req.headers.get(PAGE_TOKEN_HEADER) ??
-    offeredPageToken(req.headers.get("sec-websocket-protocol"))
-  );
+/**
+ * The origins a browser may load the UI from, and the hosts a request may
+ * name, as `requestGuard` admits them. A TCP listener answers to each name
+ * it is reached by, on its own port and the UI's, and a page loaded from
+ * any of them is the UI's. A socket is reached through its proxy alone,
+ * which names it `localhost` (`tailscale serve` rewrites `Host` so for a
+ * `unix:` target), and its page is the proxy's public origin. A public
+ * origin is a host too.
+ */
+function addressesOf(site: GuardSite): { origins: Set<string>; hosts: Set<string> } {
+  const { at } = site;
+  const own =
+    at.kind === "tcp"
+      ? {
+          origins: [...new Set([...LOOPBACK_NAMES, at.hostname])].flatMap((name) =>
+            [at.port, site.uiPort ?? at.port].map((port) => `http://${name}:${port}`),
+          ),
+          hosts: [],
+        }
+      : { origins: [at.origin], hosts: ["localhost"] };
+  const origins = new Set(own.origins);
+  if (site.publicOrigin !== undefined) origins.add(new URL(site.publicOrigin).origin);
+  const hosts = new Set([...own.hosts, ...[...origins].map((origin) => new URL(origin).host)]);
+  return { origins, hosts };
 }
 
-/** Whether `presented` is `token`, compared in time that does not depend on where they differ. */
-function sameToken(presented: string, token: string): boolean {
-  const a = Buffer.from(presented);
-  const b = Buffer.from(token);
-  return a.length === b.length && timingSafeEqual(a, b);
+/** The wire a request is on: the page's when it is the person's, a local program's otherwise. */
+function admitted(person: Person | null): Admission {
+  return { caller: person === null ? PROGRAM : { wire: PAGE_WIRE, person } };
 }
 
 /**
@@ -109,18 +134,13 @@ export function handshakeHeaders(req: Request): Record<string, string> {
 }
 
 export function requestGuard(site: GuardSite): RequestGuard {
-  const names = [...new Set([...LOOPBACK_NAMES, site.hostname])];
-  const origins = new Set(
-    names.flatMap((name) => [site.port, site.uiPort].map((port) => `http://${name}:${port}`)),
-  );
-  if (site.publicOrigin !== undefined) origins.add(new URL(site.publicOrigin).origin);
-  const hosts = new Set([...origins].map((origin) => new URL(origin).host));
+  const { origins, hosts } = addressesOf(site);
   const refused = (status: number, message: string): Admission => ({
     refused: refusal(status, message),
   });
   return {
     admit: (req, url) => {
-      if (url.pathname !== "/ws" && !url.pathname.startsWith("/api/")) return { wire: HTTP_WIRE };
+      if (url.pathname !== "/ws" && !url.pathname.startsWith("/api/")) return admitted(null);
       const host = req.headers.get("host");
       if (host === null || !hosts.has(host)) {
         return refused(403, `host ${host ?? "(none)"} is not this kb ui`);
@@ -136,15 +156,9 @@ export function requestGuard(site: GuardSite): RequestGuard {
       ) {
         return refused(415, "POST /api/action takes application/json");
       }
-      const token = presentedToken(req);
-      if (token === null) return { wire: HTTP_WIRE };
-      if (!sameToken(token, site.pageToken)) {
-        return refused(
-          403,
-          "this page's token is not this kb ui's (it is from an earlier run): open the page again from the URL kb ui printed, or with kb open",
-        );
-      }
-      return { wire: PAGE_WIRE };
+      const identified = site.identify(req);
+      if ("refused" in identified) return refused(403, identified.refused);
+      return admitted(identified.person);
     },
   };
 }

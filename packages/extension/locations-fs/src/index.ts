@@ -8,6 +8,7 @@ import {
   extensionNamespace,
   provideAction,
   type ExtensionAction,
+  familyTags,
 } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import {
@@ -33,6 +34,7 @@ const actions: ExtensionAction[] = [
 
 export const locationsPlugin = definePlugin({
   name: locationsExtension.name,
+  tags: familyTags(locationsExtension),
   namespace: extensionNamespace(locationsExtension.name),
   apply: (ctx) =>
     Effect.forEach(actions, (action) => ctx.contribute(ActionPoint, provideAction(action)), {

@@ -240,32 +240,6 @@ export const SYSTEM_IDS = {
   cmdSaveWorkspace: "sys.cmd.save-workspace",
   cmdClosePane: "sys.cmd.close-pane",
   /**
-   * Approval policies (DESIGN.md → Action registry → Approval): an ordinary
-   * node tagged `#approval-policy` says what is decided about a call. `match`
-   * names the actions (str, one), `actor` who calls (a ref to one of its
-   * option children; absent means every actor), `decision` what happens (a
-   * ref to one of its option children).
-   */
-  approvalPolicyTag: "sys.tag.approval-policy",
-  approvalMatchField: "sys.f.approval.match",
-  approvalActorField: "sys.f.approval.actor",
-  approvalDecisionField: "sys.f.approval.decision",
-  /**
-   * Where the seeded default policies are filed: a query node over every
-   * `#approval-policy` node, so a policy filed anywhere shows there too.
-   * User-editable (NOT sys-prefixed): its view and its children are the
-   * person's to arrange.
-   */
-  approvalPolicies: "approval.policies",
-  /**
-   * How the policies are managed: a table view node over that query's
-   * results, filed in the Views list and named by the query node, and the
-   * contextual reference that pins the query node in the sidebar. Both
-   * user-editable, as every view node and every pin is.
-   */
-  approvalPoliciesView: "view.approval.policies",
-  approvalPoliciesPin: "pin.approval.policies",
-  /**
    * The list whose children are the extensions' own nodes
    * (`extensionNodeId`), core's and every family's, each derived by the fold
    * from its declaration, so each extension is a node of the graph like any

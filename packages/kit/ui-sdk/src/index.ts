@@ -128,6 +128,7 @@ export {
   pageFootprint,
   subscribeUiKernel,
   syncUiPlugins,
+  uiKernelReader,
   useContributions,
   useService,
   useRoute,

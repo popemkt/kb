@@ -14,29 +14,26 @@ export {
   succeeded,
 } from "./actions.ts";
 export {
+  APPROVAL_DECISIONS,
   ApprovalAskSchema,
   CurrentCall,
   DecidedEntrySchema,
   ShownConfigurationSchema,
   approvalAsk,
-  approvalRefusal,
-  declaredDecision,
   hasPerson,
   listedOn,
   listingOf,
   onWire,
   PAGE_WIRE,
   requestOnWire,
-  resolveApproval,
 } from "./approval.ts";
 export type {
   ApprovalAsk,
-  ApprovalCall,
-  ApprovalRefusal,
-  ApprovalResolution,
-  GoverningWrite,
+  ApprovalDecision,
+  CalledAction,
   DecidedEntry,
   RunningCall,
+  ShownConfiguration,
   SurfaceWire,
 } from "./approval.ts";
 export type {
@@ -57,6 +54,7 @@ export {
   ExtensionCatalog,
   ExtensionRowSchema,
   declarationPlugin,
+  familyTags,
   defineExtension,
   extensionRow,
 } from "./declaration.ts";
@@ -107,6 +105,27 @@ export {
   pageUrlOf,
   withoutPageToken,
 } from "./page-token.ts";
+export {
+  ActionGuardPoint,
+  ActionInterceptorPoint,
+  CurrentInterception,
+  DEFAULT_BUDGET_MS,
+  NO_INTERCEPTION,
+  guardAction,
+  onAction,
+} from "./interception.ts";
+export type {
+  ActionGuard,
+  ActionInterceptor,
+  CommitCall,
+  GuardCall,
+  GuardVerdict,
+  InterceptedCall,
+  Interception,
+  Listener,
+} from "./interception.ts";
+export { IdentityPoint, PersonSchema } from "./person.ts";
+export type { IdentityAnswer, Identification, IdentityProvider, Person } from "./person.ts";
 export {
   ActionResponseSchema,
   ClientMessageSchema,

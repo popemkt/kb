@@ -226,6 +226,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
+### GAP: a kb ui on a Unix socket records no presence, so the CLI's and kb mcp's screen actions and kb open do not reach it
+
+- **expected** — Presence records where a process on this machine reaches the server, a socket as much as a TCP port, and servingUi and its readers reach a socket server through it (Bun's fetch unix option)
+- **current** — Presence (.kb/ui.json) names only a loopback http origin, so a socket server (kb ui --socket) writes none; localUrlOf in listener.ts answers null for a socket
+- **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
+- **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
+- **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -313,6 +321,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a hostile or careless code view can make the server or replica spend unbounded time on one query
 - **closes** — a deadline in the query layer that the grant applies
 - **node** — `01M41DKVSGG1R5A27Q49SBPHDD`
+
+### GAP: a script on a page nobody is verified for is refused, not run as the agent its wire makes it
+
+- **expected** — A script a nobody page hosts runs as the stricter of the script actor (narrowed by its grant) and the wire's own actor, so an unverified tab runs scripts with no more than an agent's reach
+- **current** — requestOnWire refuses any call that states a script's reach on a wire that does not relay (HTTP_WIRE), so a script on an unverified tab fails with forbidden
+- **impact** — Scripts do not run on a hosted tab without the person's identity; reading, editing, the screen and WebMCP do
+- **closes** — mayState lets a non-relaying wire state a script actor and reach that only narrow its own actor, with a contract test in http-wire
+- **node** — `01M5BVBDY7HNGXN2ZQJR4BHMPP`
 
 ### GAP: a seeded default the owner deletes comes back on the next open
 
@@ -1347,6 +1363,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
 
+### GAP: a trusted identity header is believed from any process that reaches kb ui's port, not only from the proxy
+
+- **expected** — kb ui believes the identity header only on requests that came through the trusted proxy: it listens where only the proxy can connect (a unix socket owned by the service, which tailscale serve can target), or it authenticates the proxy itself
+- **current** — With --identity-header, kb ui listens on loopback TCP and trusts the header on any request; Tailscale serve strips client copies, but a local process that connects to the port directly can send it
+- **impact** — On a host shared with other users or untrusted local programs, any of them can claim to be the person: approve calls and drive the agent. Sound only where every local process is the owner's anyway (the approval floor already treats those as the owner)
+- **closes** — kb ui --listen unix:<path> (Bun.serve unix) with the socket mode 0600 and the proxy pointed at it, or a shared secret the proxy adds, with the header trusted only alongside it
+- **node** — `01M5BVQHJEDC4ZK7BX7RZWDVF8`
+
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 
 - **expected** — Admission tests assert algorithmic properties; absolute timings are recorded as observations (like the store benchmark table) or normalised against a host calibration.
@@ -1545,6 +1569,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — precise placement in 3D needs the inspector
 - **closes** — 3D plan step 5: modal G/S/E with snapping
 - **node** — `01M41W56TR6V8H0ZQVRWRFV24K`
+
+### GAP: governance's policy vocabulary, resolver and seed still live in core packages
+
+- **expected** — @kb/governance owns the approval-policy vocabulary (option ids, policy reader and builder, delegatedDecision), the resolver (resolveApproval, approvalRefusal, writesConfiguration) and its seed (the #approval-policy tag, fields, options, query, view, pin and default policies), so a composition without the family has no policy nodes and core ships no policy
+- **current** — The governance family owns the behaviour (its guards on ActionGuardPoint, the force rule, the deployment switch) but reads the vocabulary and resolver from @kb/model and @kb/contracts, and the policy seed, ExtensionDeclaration.policies and SYSTEM_IDS approval entries are still folded by core's seed (model/seed.ts, seed-fold.ts)
+- **impact** — Core packages still carry policy code and every store still seeds policy nodes, whether or not governance is composed; with --governance off the nodes are inert
+- **closes** — Move approval-policy.ts, the resolver half of approval.ts and writesConfiguration into @kb/governance; seed the policy nodes from the governance declaration (seed-fold filing them under pins and views by id); move the policy option ids out of SYSTEM_IDS; repoint test-kit's surface contract to read decisions through kb.manifest instead of resolveApproval
+- **node** — `01M5C3YK8P5FWDKFD7D7ERFXDH`
 
 ### GAP: graph themes are a closed set, not a declared kind
 

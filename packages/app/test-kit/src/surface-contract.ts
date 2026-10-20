@@ -27,26 +27,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
+import { z } from "zod";
 import {
+  DecidedEntrySchema,
   listedOn,
   onWire,
   requestOnWire,
-  resolveApproval,
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
+  type ApprovalDecision,
   type ExtensionRow,
   type SurfaceWire,
 } from "@kb/contracts";
-import {
-  ACTOR_OPTION_IDS,
-  DECISION_OPTION_IDS,
-  SYSTEM_IDS,
-  actsAsOwner,
-  approvalPoliciesOf,
-  extensionNodeId,
-  type ApprovalPolicy,
-} from "@kb/model";
+import { SYSTEM_IDS, actsAsOwner, extensionNodeId, type Actor } from "@kb/model";
 import {
   bunFileSystemLayer,
   invoke,
@@ -102,6 +96,23 @@ export interface LiveUi {
   readonly hosted: readonly ExtensionRow[];
   stop(): Promise<void>;
 }
+
+/** A policy the root holds: what it matches, whose calls, and what it decides. */
+export interface RootPolicy {
+  readonly match: string;
+  /** The actor it is about; `null` is every actor. */
+  readonly actor: Actor | null;
+  readonly decision: ApprovalDecision;
+}
+
+/**
+ * How the composition under test writes a policy: the input of the
+ * `node.add` call that makes its node. Policies are the governance family's
+ * vocabulary, which the composition names and this suite never does; the
+ * suite reads what they decide only through the invoke core's own
+ * `kb.manifest`.
+ */
+export type PolicyInput = (policy: RootPolicy) => Readonly<Record<string, unknown>>;
 
 /** Start a `kb ui` over a root; the contract stops it when the property ends. */
 export type ServeUi = (root: string) => Promise<LiveUi>;
@@ -184,7 +195,7 @@ const write = (id, output, mode = { kind: "write" }) => ({
  * write to a policy ignores; and the repository's ask before an agent types
  * a relation.
  */
-const POLICIES: readonly Omit<ApprovalPolicy, "id">[] = [
+const POLICIES: readonly RootPolicy[] = [
   { match: DENIED_ACTION, actor: null, decision: "deny" },
   { match: ASKED_ACTION, actor: "agent", decision: "ask" },
   { match: APPROVAL_ACTION, actor: "cli", decision: "allow" },
@@ -194,28 +205,13 @@ const POLICIES: readonly Omit<ApprovalPolicy, "id">[] = [
 ];
 
 /** A policy as a node, written through the invoke core with a person's approval. */
-function policyInvocation(policy: Omit<ApprovalPolicy, "id">): ActionRequest {
+function policyInvocation(input: PolicyInput, policy: RootPolicy): ActionRequest {
   return {
     id: "node.add",
     approved: true,
     input: {
       text: `${policy.actor ?? "anyone"}: ${policy.decision} ${policy.match}`,
-      props: [
-        { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.approvalPolicyTag } },
-        { field: SYSTEM_IDS.approvalMatchField, value: { t: "str", v: policy.match } },
-        ...(policy.actor === null
-          ? []
-          : [
-              {
-                field: SYSTEM_IDS.approvalActorField,
-                value: { t: "ref", v: ACTOR_OPTION_IDS[policy.actor] },
-              },
-            ]),
-        {
-          field: SYSTEM_IDS.approvalDecisionField,
-          value: { t: "ref", v: DECISION_OPTION_IDS[policy.decision] },
-        },
-      ],
+      ...input(policy),
     },
   };
 }
@@ -269,6 +265,9 @@ const CALLS: readonly ActionRequest[] = [
   { id: "ui.select", input: { tab: MISSING_TAB, focus: "sys.tag" } },
 ];
 
+/** `kb.manifest`'s output: each action with what is decided about its caller's call. */
+const DecidedManifestSchema = z.object({ actions: z.array(DecidedEntrySchema) });
+
 /** A receipt as data on the wire: what any surface can faithfully return. */
 function asWireData(receipt: ActionReceipt): unknown {
   return JSON.parse(JSON.stringify(receipt));
@@ -316,8 +315,6 @@ interface SurfaceCase {
   readonly name: string;
   readonly surface: ActionSurface;
   readonly root: string;
-  /** The root's approval policies, as the invoke core reads them. */
-  readonly policies: readonly ApprovalPolicy[];
   /**
    * The invoke core's receipt for the call, on the same root, as it arrives
    * from this surface: made by the actor the surface declares for it.
@@ -327,10 +324,11 @@ interface SurfaceCase {
   readonly via: (invocation: ActionRequest) => Effect.Effect<ActionReceipt | null>;
 }
 
-/** What the contract runs over: how a root is served, and the surfaces by name. */
+/** What the contract runs over: how a root is served, the surfaces by name, and how a policy is written. */
 export interface SurfaceSet {
   readonly serve: ServeUi;
   readonly surfaces: Readonly<Record<string, SurfaceFactory>>;
+  readonly policy: PolicyInput;
 }
 
 /**
@@ -342,7 +340,7 @@ export interface SurfaceSet {
  * (stdout, a port).
  */
 function overSurfaces(
-  { serve, surfaces }: SurfaceSet,
+  { serve, surfaces, policy }: SurfaceSet,
   check: (c: SurfaceCase) => Effect.Effect<void>,
 ): Promise<void> {
   return Effect.runPromise(
@@ -350,11 +348,14 @@ function overSurfaces(
       Effect.gen(function* () {
         const root = yield* scratchRoot;
         const ctx = yield* Effect.promise(() => openKb(root));
-        for (const invocation of [...POLICIES.map(policyInvocation), SETTING_INVOCATION]) {
+        const writes = [
+          ...POLICIES.map((each) => policyInvocation(policy, each)),
+          SETTING_INVOCATION,
+        ];
+        for (const invocation of writes) {
           const written = yield* Effect.promise(() => invoke(ctx, invocation));
           expect(written.status).toBe("succeeded");
         }
-        const policies = approvalPoliciesOf(ctx.nodes);
         const { ui } = yield* serveRoot(serve, root);
         yield* Effect.forEach(
           Object.entries(surfaces),
@@ -374,7 +375,7 @@ function overSurfaces(
                   );
                 const via = (invocation: ActionRequest) =>
                   Effect.promise(() => surface.invoke(invocation));
-                yield* check({ name, surface, root, policies, core, via });
+                yield* check({ name, surface, root, core, via });
               }),
             ),
           { discard: true },
@@ -389,15 +390,18 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
     "every surface lists the registry's action ids with their declared modes, " +
       "leaving out only what is denied to its actor or asks where its wire cannot approve",
     (set) =>
-      overSurfaces(set, ({ name, surface, root, policies }) =>
+      overSurfaces(set, ({ name, surface, root, core }) =>
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
+          // What the guards decide about this surface's caller, as the invoke core lists it.
+          const decided = yield* core({ id: "kb.manifest", input: {} });
+          const { actions } = DecidedManifestSchema.parse(
+            decided.status === "succeeded" ? decided.output : null,
+          );
+          const decisionOf = new Map(actions.map((entry) => [entry.id, entry.decision]));
           const callable = registry.filter((entry) =>
-            listedOn(
-              surface.wire,
-              resolveApproval(policies, { action: entry, actor: surface.wire.actor }).decision,
-            ),
+            listedOn(surface.wire, decisionOf.get(entry.id) ?? "deny"),
           );
           const listed = yield* Effect.promise(() => surface.list());
           expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(callable) });

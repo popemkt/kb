@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import {
   CollectionBoardView,
@@ -66,6 +67,7 @@ const COLLECTION_VIEWS = [
  */
 export const collectionsUiPlugin = definePlugin({
   name: collectionsExtension.name,
+  tags: familyTags(collectionsExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

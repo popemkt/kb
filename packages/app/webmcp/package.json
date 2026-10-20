@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/operations": "workspace:*",
     "@kb/plugin": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@kb/governance": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"
   },

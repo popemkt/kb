@@ -26,9 +26,10 @@ import {
   type ActionRequest,
   type ActionReceipt,
 } from "@kb/contracts";
+import { approvalPolicyNode } from "@kb/governance";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { HTTP_WIRE, startUi } from "@kb/server";
+import { HTTP_WIRE, pageTokenIdentity, startUi } from "@kb/server";
 import {
   AGENT_CHANNEL,
   AGENT_WIRE,
@@ -46,6 +47,7 @@ import {
   surfaceContract,
   type ActionSurface,
   type ListedAction,
+  type PolicyInput,
   type ServeUi,
   type SurfaceFactory,
 } from "@kb/test-kit";
@@ -173,6 +175,7 @@ const contractRuntime = scriptedRuntime((turn): readonly ScriptStep[] => {
 const serve: ServeUi = async (root) => {
   const handle = await Effect.runPromise(
     startUi({
+      identity: [pageTokenIdentity()],
       root,
       port: 0,
       openBrowser: false,
@@ -343,4 +346,17 @@ const agent: SurfaceFactory = async (_root, ui) => {
   } satisfies ActionSurface;
 };
 
-surfaceContract({ serve, surfaces: { cli, mcp, http, webmcp, agent } });
+/** A policy as the governance family writes its node: the props of `approvalPolicyNode`. */
+const policy: PolicyInput = (wanted) => {
+  const { props } = approvalPolicyNode(
+    { id: "", text: "", props: {}, children: [], createdAt: "", updatedAt: "" },
+    wanted,
+  );
+  return {
+    props: Object.entries(props).flatMap(([field, values]) =>
+      values.map((value) => ({ field, value })),
+    ),
+  };
+};
+
+surfaceContract({ serve, surfaces: { cli, mcp, http, webmcp, agent }, policy });

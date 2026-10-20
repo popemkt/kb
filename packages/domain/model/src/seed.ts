@@ -1,12 +1,4 @@
 import {
-  ACTORS,
-  ACTOR_OPTION_IDS,
-  APPROVAL_DECISIONS,
-  APPROVAL_POLICIES_QUERY,
-  DECISION_OPTION_IDS,
-  approvalPolicyNode,
-} from "./approval-policy.ts";
-import {
   BACKDROP_DIRECTIONS,
   BACKDROP_DIRECTION_OPTION_IDS,
   BACKDROP_STRENGTHS,
@@ -33,7 +25,6 @@ import {
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  viewOptionId,
 } from "./view-node.ts";
 
 /**
@@ -365,13 +356,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * reads is the whole of what it is.
    */
   /*
-   * The sidebar's one seeded pin: the approval policies, managed in their
-   * table (below). Every other pin is the person's own.
+   * The sidebar's pins. Core pins nothing: a family may file a pin of its
+   * own here through the fold (`SeedSource.files`), as governance pins its
+   * policies; every other pin is the person's own.
    */
-  const pinnedRoot: KbNode = {
-    ...mk(SYSTEM_IDS.pinnedRoot, "Pinned"),
-    children: [SYSTEM_IDS.approvalPoliciesPin],
-  };
+  const pinnedRoot = mk(SYSTEM_IDS.pinnedRoot, "Pinned");
 
   /*
    * The Views list: where a view node the UI makes is filed — a saved graph,
@@ -379,10 +368,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * here, so a view node filed anywhere else is as much one. User-editable
    * for the Pinned list's reason: every new view writes a child into it.
    */
-  const viewsList: KbNode = {
-    ...mk(SYSTEM_IDS.viewsList, "Views"),
-    children: [SYSTEM_IDS.approvalPoliciesView],
-  };
+  const viewsList = mk(SYSTEM_IDS.viewsList, "Views");
 
   const ontologyTag = seededTag(
     SYSTEM_IDS.ontologyTag,
@@ -397,122 +383,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
     at,
   );
-
-  /*
-   * Approval policies (DESIGN.md → Action registry → Approval). `#approval-policy`
-   * is a kind — strip its decision and it is still a policy, badly filled in —
-   * so it is a tag templating its three fields. Actors and decisions are option
-   * sets of one field each, so they are those fields' children.
-   */
-  const approvalMatchField = singleField(SYSTEM_IDS.approvalMatchField, "approval.match", "text");
-  const actorOptions = ACTORS.map((actor) => mk(ACTOR_OPTION_IDS[actor], actor));
-  const approvalActorField: KbNode = {
-    ...singleField(SYSTEM_IDS.approvalActorField, "approval.actor", "ref"),
-    children: actorOptions.map((option) => option.id),
-  };
-  const decisionOptions = APPROVAL_DECISIONS.map((decision) =>
-    mk(DECISION_OPTION_IDS[decision], decision),
-  );
-  const approvalDecisionField: KbNode = {
-    ...singleField(SYSTEM_IDS.approvalDecisionField, "approval.decision", "ref"),
-    children: decisionOptions.map((option) => option.id),
-  };
-  const approvalPolicyTag = seededTag(
-    SYSTEM_IDS.approvalPolicyTag,
-    "approval-policy",
-    [
-      SYSTEM_IDS.approvalMatchField,
-      SYSTEM_IDS.approvalActorField,
-      SYSTEM_IDS.approvalDecisionField,
-    ],
-    at,
-  );
-  /*
-   * The defaults the owner chose: an agent, and sandboxed code, is asked before
-   * it deletes a node and before a store-wide rewrite; an agent is asked
-   * before switching an extension, which code never does. Normal edits need no policy (no core
-   * write declares approval), and a human's gesture never asks because the
-   * gesture is the person's answer — a property of the resolver, not a row.
-   * They are ordinary, editable nodes, filed under the query node that lists
-   * every policy.
-   */
-  const defaultPolicies = [
-    approvalPolicyNode(mk("approval.agent-delete", "An agent asks before deleting a node"), {
-      match: "node.delete",
-      actor: "agent",
-      decision: "ask",
-    }),
-    approvalPolicyNode(
-      mk("approval.agent-views-migrate", "An agent asks before rewriting the store to view nodes"),
-      { match: "views.migrate", actor: "agent", decision: "ask" },
-    ),
-    // Sandboxed code is agent-written until a person trusts it, so it meets
-    // the agent's caution: its host asks the person before these run.
-    approvalPolicyNode(mk("approval.script-delete", "Sandboxed code asks before deleting a node"), {
-      match: "node.delete",
-      actor: "script",
-      decision: "ask",
-    }),
-    approvalPolicyNode(
-      mk(
-        "approval.script-views-migrate",
-        "Sandboxed code asks before rewriting the store to view nodes",
-      ),
-      { match: "views.migrate", actor: "script", decision: "ask" },
-    ),
-    // Trusting code is a person's own gesture, made where the code is shown
-    // (DESIGN.md → Sandbox → Trust): no agent trusts code for them, and no
-    // code trusts itself.
-    approvalPolicyNode(mk("approval.agent-trust", "An agent never trusts code"), {
-      match: "sandbox.trust",
-      actor: "agent",
-      decision: "deny",
-    }),
-    approvalPolicyNode(mk("approval.script-trust", "Sandboxed code never trusts code"), {
-      match: "sandbox.trust",
-      actor: "script",
-      decision: "deny",
-    }),
-    // Switching an optional extension changes which code the server loads
-    // (DESIGN.md → Extension families): an agent asks the person, and
-    // sandboxed code never does it.
-    approvalPolicyNode(
-      mk("approval.agent-extension-switch", "An agent asks before switching an extension"),
-      { match: "extension.switch", actor: "agent", decision: "ask" },
-    ),
-    approvalPolicyNode(
-      mk("approval.script-extension-switch", "Sandboxed code never switches an extension"),
-      { match: "extension.switch", actor: "script", decision: "deny" },
-    ),
-  ];
-  /*
-   * Policies are managed in a saved table of every `#approval-policy` node,
-   * pinned in the sidebar; there is no settings page. The table is an
-   * ordinary frame view node over the query node's results, its columns the
-   * three fields, so its sort, widths and filters are edited like any view's.
-   * The table is the collections family's, which may be switched off; the
-   * list, core's other frame view, reads none of the columns, widths or page
-   * size the policies are shown by. GAP [[01M536CH4P48SXV9B0HH8B4XTG]]
-   */
-  const approvalPoliciesView = mk(SYSTEM_IDS.approvalPoliciesView, "", {
-    [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("outline.table") }],
-    [SYSTEM_IDS.viewDisplayField]: [
-      { t: "ref", v: SYSTEM_IDS.approvalMatchField },
-      { t: "ref", v: SYSTEM_IDS.approvalActorField },
-      { t: "ref", v: SYSTEM_IDS.approvalDecisionField },
-    ],
-  });
-  const approvalPolicies: KbNode = {
-    ...mk(SYSTEM_IDS.approvalPolicies, "Approval policies", {
-      [SYSTEM_IDS.queryField]: [{ t: "str", v: APPROVAL_POLICIES_QUERY }],
-      [SYSTEM_IDS.viewsField]: [{ t: "ref", v: SYSTEM_IDS.approvalPoliciesView }],
-    }),
-    children: defaultPolicies.map((policy) => policy.id),
-  };
-  // GAP [[01M413SPC35K20DFC4TRP4DJYH]]
-  const approvalPoliciesPin = mk(SYSTEM_IDS.approvalPoliciesPin, "", {
-    [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: SYSTEM_IDS.approvalPolicies }],
-  });
 
   /*
    * Extensions (DESIGN.md → Extension families). Each one's node is derived
@@ -625,16 +495,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     refTargetField,
     pinnedRoot,
     viewsList,
-    approvalMatchField,
-    approvalActorField,
-    ...actorOptions,
-    approvalDecisionField,
-    ...decisionOptions,
-    approvalPolicyTag,
-    approvalPolicies,
-    ...defaultPolicies,
-    approvalPoliciesView,
-    approvalPoliciesPin,
     extensionsRoot,
     extensionEnabledField,
     configuresField,

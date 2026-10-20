@@ -2120,6 +2120,21 @@ told. A decline is therefore refused by the invoke core with
 The package (`@kb/agent-ui`) reaches neither the socket nor the invoke path
 itself: the shell binds them as its ports where it loads it (`ui-plugins.ts`).
 
+### Who the tab is
+
+The server tells each connection, after `hello`, who it takes it to be: the
+person, under the name the deployment's authentication gives them, or
+nobody (`DESIGN.md` → Surfaces → What needs the person). The page keeps the
+answer in the ui store (`person`) and says it in one place only: the
+header's connection word reads `live · unverified` on a live tab that is
+nobody's, and its tooltip says what that tab can do and how to open one
+that is the person's. Nothing else is shown, and nothing is repeated: an
+unverified tab reads, edits and publishes its screen like any other, so
+nothing it does on its own is refused. The agent dock is the one place a
+person can ask for something such a tab may not do; a message sent there
+is refused on the channel, and the dock says so in its own banner, where
+it says the agent is offline or absent, never as a toast.
+
 ### Panes and layouts
 
 The workspace is the layout open as the whole screen (DESIGN.md → View

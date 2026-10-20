@@ -121,6 +121,42 @@ export function familyEdgeViolation(
   return `${source} (family:${from.family ?? "none"}) -> ${target} (family:${to.family ?? "none"})`;
 }
 
+/**
+ * The runtime half of the family axis (DESIGN.md → Plugin organisation): which
+ * plugins a plugin may depend on, by their tags, where a dependency is the
+ * kernel's derived edge from a plugin to the provider of a service it
+ * injects. A plugin carrying a tag in this table depends only on providers
+ * that carry one of the tags it allows, so what core needs, every
+ * composition has: core, governance and the identity providers stand on
+ * core alone, never on an optional family. A tag not in the table (an
+ * optional family's, `ui`) restricts nothing. The import half is
+ * `familyEdgeViolation` and `EXTENSION_ROOTS`; a plugin reaches another only
+ * through a service it injects.
+ */
+export const TAG_ALLOWS: Record<string, readonly string[]> = {
+  core: ["core"],
+  governance: ["core"],
+  identity: ["core"],
+};
+
+/**
+ * A dependency from a plugin tagged `fromTags` on one tagged `toTags`,
+ * measured against `TAG_ALLOWS`, or `undefined` when every restricted tag
+ * of the dependent allows a tag of the provider.
+ */
+export function tagEdgeViolation(
+  fromTags: readonly string[],
+  toTags: readonly string[],
+): string | undefined {
+  const refusing = fromTags.filter((tag) => {
+    const allowed = TAG_ALLOWS[tag];
+    return allowed !== undefined && !toTags.some((to) => allowed.includes(to));
+  });
+  return refusing.length === 0
+    ? undefined
+    : `[${fromTags.join(", ")}] may not depend on [${toTags.join(", ")}] (${refusing.join(", ")})`;
+}
+
 /** The two hosts that load extension entries: the server registry and the browser kernel. */
 export type ExtensionHost = "server" | "browser";
 

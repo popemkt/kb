@@ -59,6 +59,12 @@ export interface Plugin {
   readonly namespace?: string;
   /** Services that must exist before `apply` runs; the plugin waits until they do. */
   readonly inject?: readonly AnyServiceKey[];
+  /**
+   * Labels for organising plugins (DESIGN.md → Plugin organisation). The
+   * kernel reports them and never reads them. Default: none (a child: its
+   * parent's).
+   */
+  readonly tags?: readonly string[];
   /** Runs with the plugin's scope as `Scope`: `acquireRelease` in here is released on unload. */
   readonly apply: (ctx: PluginContext) => Effect.Effect<void, PluginError, Scope.Scope>;
 }
@@ -92,12 +98,28 @@ export type PluginStatus = "pending" | "active" | "failed";
 export interface PluginState {
   readonly name: string;
   readonly namespace: string;
+  readonly tags: readonly string[];
   readonly status: PluginStatus;
   /** The plugin that loaded this one as a child, if any. */
   readonly parent: string | null;
   /** Injected services nobody provides right now. */
   readonly missing: readonly string[];
+  /** The services it provides right now, in the order it provided them. */
+  readonly provides: readonly string[];
+  /** Whether its apply has run to its end and it is active: what it contributed is visible. */
+  readonly applied: boolean;
   readonly error: PluginError | null;
+}
+
+/**
+ * One edge of the dependency graph the kernel derives (DESIGN.md → Plugin
+ * organisation): `from` injects `service`, which `to` provides. Contributing
+ * to a point is no dependency on whoever reads it.
+ */
+export interface Dependency {
+  readonly from: string;
+  readonly to: string;
+  readonly service: string;
 }
 
 export interface PluginHandle {
@@ -115,7 +137,10 @@ export interface Kernel {
   readonly unload: (name: string) => Effect.Effect<void, PluginError>;
   /** Unload every plugin, newest first. */
   readonly shutdown: Effect.Effect<void>;
-  /** Every contribution to a point, in the order it was made. */
+  /**
+   * Every contribution to a point, in the order it was made, of the plugins
+   * that have applied: a plugin still applying, or already going, shows none.
+   */
   readonly contributions: <C>(point: PointKey<C>) => readonly Contribution<C>[];
   /** The contribution holding `id` as its id or one of its aliases. */
   readonly lookup: <C>(point: PointKey<C>, id: string) => Contribution<C> | undefined;
@@ -127,6 +152,13 @@ export interface Kernel {
   readonly contributionsOf: (owner: string) => readonly PointContribution[];
   readonly service: <S>(key: ServiceKey<S>) => S | undefined;
   readonly plugins: () => readonly PluginState[];
+  /**
+   * Who depends on whom, derived and never declared: an edge from each
+   * plugin to the provider of each service it injects that is provided now,
+   * in load order, then `inject` order. An injected service nobody provides
+   * is the plugin's `missing`, not an edge.
+   */
+  readonly dependencies: () => readonly Dependency[];
   /** Called after every change to plugins, services or contributions. */
   readonly subscribe: (listener: () => void) => () => void;
   /** Moves on every change; the snapshot `useSyncExternalStore` compares. */
@@ -136,10 +168,17 @@ export interface Kernel {
 interface Entry {
   readonly name: string;
   readonly namespace: string;
+  readonly tags: readonly string[];
   readonly inject: readonly AnyServiceKey[];
   readonly parent: string | null;
   readonly apply: Plugin["apply"];
   status: PluginStatus;
+  /**
+   * Whether `apply` has run to its end and the plugin is still active: what
+   * it contributed is visible from then until it starts to go, all at once
+   * either way.
+   */
+  applied: boolean;
   error: PluginError | null;
   /** Open while `active`; everything the plugin registered hangs off it. */
   scope: Scope.Closeable | null;
@@ -185,6 +224,17 @@ interface State {
   version: number;
 }
 
+/**
+ * Whether what `owner` contributed is visible: it and every plugin that
+ * loaded it have applied, so a reader never sees part of a plugin's
+ * contributions, while it loads or while it goes.
+ */
+function visible(state: State, owner: string): boolean {
+  const entry = state.entries.get(owner);
+  if (entry === undefined || !entry.applied) return false;
+  return entry.parent === null || visible(state, entry.parent);
+}
+
 function changed(state: State): void {
   state.version++;
   for (const listener of state.subscribers) listener();
@@ -217,10 +267,15 @@ function claim<K extends string>(
 
 const deactivate = Effect.fnUntraced(function* (state: State, entry: Entry, next: PluginStatus) {
   const scope = entry.scope;
-  // Marked inactive before its finalizers run, so a finalizer that reaches
-  // back into the kernel sees a plugin that is already on its way out.
+  // Marked inactive, and the kernel moved, before its finalizers run: a
+  // finalizer that reaches back into the kernel, and a reader that keeps
+  // what it read until the kernel moves, both see a plugin already on its
+  // way out, and no reader sees half of what it contributed. It moves again
+  // once the finalizers have taken back what the plugin registered.
   entry.scope = null;
+  entry.applied = false;
   entry.status = next;
+  changed(state);
   if (scope !== null) yield* Scope.close(scope, Exit.void);
   changed(state);
 });
@@ -244,7 +299,12 @@ const activate = Effect.fnUntraced(function* (state: State, entry: Entry) {
   entry.error = null;
   changed(state);
   const exit = yield* Effect.exit(Scope.provide(scope)(entry.apply(contextFor(state, entry))));
-  if (Exit.isSuccess(exit) || entry.scope !== scope) return;
+  if (entry.scope !== scope) return;
+  if (Exit.isSuccess(exit)) {
+    entry.applied = true;
+    changed(state);
+    return;
+  }
   // A failed apply leaves nothing behind: closing its scope undoes every
   // registration it made before it failed.
   entry.scope = null;
@@ -285,10 +345,12 @@ const loadEntry = Effect.fnUntraced(function* (state: State, plugin: Plugin, par
   const entry: Entry = {
     name,
     namespace: plugin.namespace ?? parent?.namespace ?? plugin.name,
+    tags: plugin.tags ?? parent?.tags ?? [],
     inject: plugin.inject ?? [],
     parent: parent?.name ?? null,
     apply: plugin.apply,
     status: "pending",
+    applied: false,
     error: null,
     scope: null,
   };
@@ -424,17 +486,22 @@ export function makeKernel(): Kernel {
     contributions: (point) => {
       const slot = state.points.get(point.name);
       if (slot?.key !== point) return [];
-      return slot.items.map((item) => ({ ...item, value: asKeyType(point, item.value) }));
+      return slot.items
+        .filter((item) => visible(state, item.owner))
+        .map((item) => ({ ...item, value: asKeyType(point, item.value) }));
     },
     lookup: (point, id) => {
       const slot = state.points.get(point.name);
       const item = slot?.key === point ? slot.byId.get(id) : undefined;
-      return item === undefined ? undefined : { ...item, value: asKeyType(point, item.value) };
+      return item === undefined || !visible(state, item.owner)
+        ? undefined
+        : { ...item, value: asKeyType(point, item.value) };
     },
     contributionsOf: (owner) =>
       [...state.points.values()].flatMap((slot) =>
         slot.items
           .filter((item) => item.owner === owner || item.owner.startsWith(`${owner}/`))
+          .filter((item) => visible(state, item.owner))
           .map(({ id, aliases, owner: by }) => ({ point: slot.key.name, id, aliases, owner: by })),
       ),
     service: (key) => {
@@ -445,11 +512,23 @@ export function makeKernel(): Kernel {
       [...state.entries.values()].map((entry) => ({
         name: entry.name,
         namespace: entry.namespace,
+        tags: entry.tags,
         status: entry.status,
         parent: entry.parent,
         missing: missingOf(state, entry),
+        provides: [...state.services.values()]
+          .filter((slot) => slot.owner === entry.name)
+          .map((slot) => slot.key.name),
+        applied: entry.applied,
         error: entry.error,
       })),
+    dependencies: () =>
+      [...state.entries.values()].flatMap((entry) =>
+        entry.inject.flatMap((key) => {
+          const slot = state.services.get(key.name);
+          return slot?.key === key ? [{ from: entry.name, to: slot.owner, service: key.name }] : [];
+        }),
+      ),
     subscribe: (listener) => {
       state.subscribers.add(listener);
       return () => {

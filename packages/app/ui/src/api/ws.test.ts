@@ -279,6 +279,22 @@ describe("KbWsClient", () => {
     expect(refused).toEqual(["tab.a"]);
   });
 
+  it("tells who the server takes the connection to be, on every connect", () => {
+    const told: unknown[] = [];
+    const server = new MockServer();
+    const client = new KbWsClient({
+      url: "ws://test/ws",
+      makeSocket: server.makeSocket,
+      onGraph: () => {},
+      onPerson: (person) => told.push(person),
+    });
+    client.connect();
+    server.accept(0);
+    server.push({ op: "person", person: null });
+    server.push({ op: "person", person: { name: "owner" } });
+    expect(told).toEqual([null, { name: "owner" }]);
+  });
+
   it("carries a plugin channel both ways, and its error to its own sink", () => {
     const h = makeHarness();
     const data: unknown[] = [];
