@@ -49,10 +49,16 @@ export function datascriptExecutor(db: DatascriptDb): EdnExecutor {
   return (edn, ...inputs) => executeEdn(db, edn, ...inputs);
 }
 
-function executeIr(exec: EdnExecutor, ir: Ir, inputs: readonly unknown[]): unknown {
+/** `ir`'s rows as the engine answers them, and the find positions they are columns of (none for `raw`). */
+function executeIr(
+  exec: EdnExecutor,
+  ir: Ir,
+  inputs: readonly unknown[],
+): { raw: unknown; find: readonly FindPos[] | undefined } {
   const compiled = compile(ir);
   const normalized = inputs.map(normalizeQueryInput);
-  return exec(compiled.query, ...withCompiledRules(ir, compiled.rules, normalized));
+  const raw = exec(compiled.query, ...withCompiledRules(ir, compiled.rules, normalized));
+  return { raw, find: compiled.find };
 }
 
 /**
@@ -85,18 +91,22 @@ function rulesBody(rules: string): string {
  * Inputs (a `%` rules vector included) are normalised the same way `query` does.
  */
 export function runIr(exec: EdnExecutor, ir: Ir, ids: IdMap, ...inputs: unknown[]): unknown {
-  const raw = executeIr(exec, ir, inputs);
-  if (ir.kind === "raw") return reviveValue(raw, ids);
-  return reviveTyped(raw, ir.find, ids);
+  const { raw, find } = executeIr(exec, ir, inputs);
+  if (find === undefined) return reviveValue(raw, ids);
+  return reviveTyped(raw, find, ids);
 }
 
 /**
- * `ir`'s find positions, with a scalar variable read as a node ref where it
+ * The compiled `find` of `ir`, with a scalar variable read as a node ref where it
  * is the value of a field attr that holds refs (`DatascriptDb.refAttrs`): a
  * ref field's value is an entity, a number field's a number, though both are
  * stored as a bare number. GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]
  */
-function findWithRefAttrs(ir: IrQuery, refAttrs: ReadonlySet<string>): readonly FindPos[] {
+function findWithRefAttrs(
+  ir: IrQuery,
+  find: readonly FindPos[],
+  refAttrs: ReadonlySet<string>,
+): readonly FindPos[] {
   const refValued = new Set(
     ir.where.flatMap((clause) =>
       clause.kind === "pattern" && clause.value.t === "var" && refAttrs.has(clause.attr)
@@ -104,7 +114,7 @@ function findWithRefAttrs(ir: IrQuery, refAttrs: ReadonlySet<string>): readonly 
         : [],
     ),
   );
-  return ir.find.map((pos) =>
+  return find.map((pos) =>
     pos.kind === "var" && pos.type === "scalar" && refValued.has(pos.name)
       ? { ...pos, type: "node-ref" }
       : pos,
@@ -119,9 +129,9 @@ function findWithRefAttrs(ir: IrQuery, refAttrs: ReadonlySet<string>): readonly 
  */
 export function query(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown {
   const ir = parseEdn(edn);
-  const raw = executeIr(datascriptExecutor(db), ir, inputs);
-  if (ir.kind === "raw") return reviveValue(raw, db.ids);
-  return reviveTyped(raw, findWithRefAttrs(ir, db.refAttrs), db.ids);
+  const { raw, find } = executeIr(datascriptExecutor(db), ir, inputs);
+  if (ir.kind === "raw" || find === undefined) return reviveValue(raw, db.ids);
+  return reviveTyped(raw, findWithRefAttrs(ir, find, db.refAttrs), db.ids);
 }
 
 /**

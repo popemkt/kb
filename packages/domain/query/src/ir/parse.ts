@@ -12,20 +12,7 @@ import type {
   ReachClause,
   Term,
 } from "./ir.ts";
-
-type Src = { readonly s: string; i: number };
-
-type Edn =
-  | { k: "kw"; v: string }
-  | { k: "sym"; v: string }
-  | { k: "str"; v: string }
-  | { k: "num"; v: number }
-  | { k: "bool"; v: boolean }
-  | { k: "vec"; v: Edn[] }
-  | { k: "list"; v: Edn[] }
-  | { k: "map"; v: [Edn, Edn][] };
-
-class ParseFail extends Error {}
+import { readEdn, type Edn } from "./edn.ts";
 
 /**
  * Parse stored-form EDN into the kb IR. The subset is `:find` / `:in` / `:where`
@@ -35,130 +22,8 @@ class ParseFail extends Error {}
  * subset throws `DatalogError`.
  */
 export function parseEdn(edn: string): Ir {
-  try {
-    const src: Src = { s: edn, i: 0 };
-    const value = readValue(src);
-    skipWs(src);
-    if (src.i !== src.s.length) return { kind: "raw", edn };
-    const query = queryFromEdn(value);
-    return query ?? { kind: "raw", edn };
-  } catch (err) {
-    if (err instanceof DatalogError) throw err;
-    return { kind: "raw", edn };
-  }
-}
-
-function skipWs(src: Src): void {
-  while (src.i < src.s.length) {
-    const c = src.s[src.i];
-    if (c === ";") {
-      while (src.i < src.s.length && src.s[src.i] !== "\n") src.i += 1;
-      continue;
-    }
-    if (c === " " || c === "\t" || c === "\n" || c === "\r" || c === ",") {
-      src.i += 1;
-      continue;
-    }
-    break;
-  }
-}
-
-function readValue(src: Src): Edn {
-  skipWs(src);
-  const c = src.s[src.i];
-  if (c === undefined) throw new ParseFail("eof");
-  if (c === '"') return { k: "str", v: readString(src) };
-  if (c === ":") return { k: "kw", v: readKeyword(src) };
-  if (c === "[") return { k: "vec", v: readSeq(src, "]") };
-  if (c === "(") return { k: "list", v: readSeq(src, ")") };
-  if (c === "{") return { k: "map", v: readMap(src) };
-  if (c === "-" || (c >= "0" && c <= "9")) return { k: "num", v: readNumber(src) };
-  return readSymbolOrBool(src);
-}
-
-function readString(src: Src): string {
-  src.i += 1;
-  let out = "";
-  while (src.i < src.s.length) {
-    const c = src.s[src.i];
-    if (c === undefined) throw new ParseFail("unterminated string");
-    if (c === '"') {
-      src.i += 1;
-      return out;
-    }
-    if (c === "\\") {
-      src.i += 1;
-      const e = src.s[src.i];
-      if (e === undefined) throw new ParseFail("unterminated escape");
-      out += e;
-      src.i += 1;
-      continue;
-    }
-    out += c;
-    src.i += 1;
-  }
-  throw new ParseFail("unterminated string");
-}
-
-function readKeyword(src: Src): string {
-  const start = src.i;
-  src.i += 1;
-  while (src.i < src.s.length && /[A-Za-z0-9_./+*-]/.test(present(src.s[src.i], "kw"))) {
-    src.i += 1;
-  }
-  const kw = src.s.slice(start, src.i);
-  if (kw.length < 2) throw new ParseFail("empty keyword");
-  return kw;
-}
-
-function readNumber(src: Src): number {
-  const start = src.i;
-  if (src.s[src.i] === "-") src.i += 1;
-  while (src.i < src.s.length && /[0-9.]/.test(present(src.s[src.i], "num"))) src.i += 1;
-  const n = Number(src.s.slice(start, src.i));
-  if (!Number.isFinite(n)) throw new ParseFail("bad number");
-  return n;
-}
-
-function readSymbolOrBool(src: Src): Edn {
-  const start = src.i;
-  // EDN's symbol characters, so a predicate (`[(> ?n 2)]`) reads as a symbol.
-  while (src.i < src.s.length && /[A-Za-z0-9_./+*?$%!<>=&'-]/.test(present(src.s[src.i], "sym"))) {
-    src.i += 1;
-  }
-  const v = src.s.slice(start, src.i);
-  if (v.length === 0) throw new ParseFail("empty symbol");
-  if (v === "true") return { k: "bool", v: true };
-  if (v === "false") return { k: "bool", v: false };
-  return { k: "sym", v };
-}
-
-function readSeq(src: Src, close: "]" | ")"): Edn[] {
-  src.i += 1;
-  const out: Edn[] = [];
-  for (;;) {
-    skipWs(src);
-    if (src.s[src.i] === close) {
-      src.i += 1;
-      return out;
-    }
-    out.push(readValue(src));
-  }
-}
-
-function readMap(src: Src): [Edn, Edn][] {
-  src.i += 1;
-  const out: [Edn, Edn][] = [];
-  for (;;) {
-    skipWs(src);
-    if (src.s[src.i] === "}") {
-      src.i += 1;
-      return out;
-    }
-    const key = readValue(src);
-    const val = readValue(src);
-    out.push([key, val]);
-  }
+  const value = readEdn(edn);
+  return (value === null ? null : queryFromEdn(value)) ?? { kind: "raw", edn };
 }
 
 /**
@@ -171,16 +36,8 @@ function readMap(src: Src): [Edn, Edn][] {
  * `[?x ...]`), or `:keys` already names them.
  */
 export function findColumns(edn: string): readonly string[] | null {
-  let value: Edn;
-  try {
-    const src: Src = { s: edn, i: 0 };
-    value = readValue(src);
-    skipWs(src);
-    if (src.i !== src.s.length) return null;
-  } catch {
-    return null;
-  }
-  if (value.k !== "vec") return null;
+  const value = readEdn(edn);
+  if (value?.k !== "vec") return null;
   const start = value.v.findIndex((item) => item.k === "kw" && item.v === ":find");
   if (start < 0 || value.v.some((item) => item.k === "kw" && item.v === ":keys")) return null;
   const end = value.v.findIndex((item, i) => i > start && item.k === "kw");
@@ -222,11 +79,9 @@ function queryFromEdn(value: Edn): IrQuery | null {
     find.filter((p): p is FindPos => p !== null),
     collapsed,
   );
-  const bound = boundVars(collapsed);
-  const findOut = typed.filter((p) => p.kind !== "var" || bound.has(p.name));
   return {
     kind: "query",
-    find: findOut,
+    find: typed,
     ...(sections.in !== undefined && sections.in.length > 0 ? { in: sections.in } : {}),
     where: collapsed,
   };
@@ -404,16 +259,18 @@ function termFromEdn(item: Edn | undefined): Term | null {
 
 function collapseChildOrder(where: Clause[]): Clause[] {
   const childByParent = new Map<string, string>();
-  const orderParents = new Set<string>();
+  const orderByParent = new Map<string, string>();
   for (const c of where) {
     if (c.kind !== "pattern" || c.value.t !== "var") continue;
     if (c.attr === ":node/child") childByParent.set(c.entity, c.value.name);
-    if (c.attr === ":node/child-order") orderParents.add(c.entity);
+    if (c.attr === ":node/child-order" && !orderByParent.has(c.entity)) {
+      orderByParent.set(c.entity, c.value.name);
+    }
   }
   const out: Clause[] = [];
   const emitted = new Set<string>();
   for (const c of where) {
-    if (c.kind === "pattern" && c.value.t === "var" && orderParents.has(c.entity)) {
+    if (c.kind === "pattern" && c.value.t === "var" && orderByParent.has(c.entity)) {
       if (c.attr === ":node/child-order") continue;
       if (c.attr === ":node/child") {
         if (!emitted.has(c.entity)) {
@@ -421,6 +278,7 @@ function collapseChildOrder(where: Clause[]): Clause[] {
             kind: "children",
             parent: c.entity,
             child: present(childByParent.get(c.entity), "child var"),
+            order: present(orderByParent.get(c.entity), "order var"),
           });
           emitted.add(c.entity);
         }
@@ -440,7 +298,8 @@ const REF_ATTRS = new Set<string>([
   ...CORE_DERIVED.map(({ attr }) => attr),
 ]);
 
-function inferFindTypes(find: FindPos[], where: Clause[]): FindPos[] {
+/** `find` typed by `where`: a variable `where` binds as a node is a `node-ref`, any other a `scalar`. */
+export function inferFindTypes(find: readonly FindPos[], where: readonly Clause[]): FindPos[] {
   const nodeRefs = collectNodeRefVars(where);
   return find.map((pos) => {
     if (pos.kind !== "var") return pos;
@@ -449,7 +308,7 @@ function inferFindTypes(find: FindPos[], where: Clause[]): FindPos[] {
   });
 }
 
-function collectNodeRefVars(where: Clause[]): Set<string> {
+function collectNodeRefVars(where: readonly Clause[]): Set<string> {
   const nodeRefs = new Set<string>();
   const scalars = new Set<string>();
   for (const c of where) {
@@ -474,25 +333,4 @@ function collectNodeRefVars(where: Clause[]): Set<string> {
     }
   }
   return nodeRefs;
-}
-
-function boundVars(where: Clause[]): Set<string> {
-  const bound = new Set<string>();
-  for (const c of where) {
-    if (c.kind === "pattern") {
-      bound.add(c.entity);
-      if (c.value.t === "var") bound.add(c.value.name);
-    } else if (c.kind === "children") {
-      bound.add(c.parent);
-      bound.add(c.child);
-    } else if (c.kind === "reach") {
-      bound.add(c.from);
-      bound.add(c.to);
-    } else {
-      for (const a of c.args) {
-        if (a.t === "var") bound.add(a.name);
-      }
-    }
-  }
-  return bound;
 }

@@ -9,6 +9,7 @@ import {
   DatascriptIndex,
   derivedWith,
   compile,
+  isCanonicalIr,
   parseEdn,
   type IrQuery,
 } from "@kb/query";
@@ -172,7 +173,7 @@ const irArb: fc.Arbitrary<IrQuery> = fc
     }
     if (shape.children) {
       where.push(pattern("p", ":node/id", { t: "str", value: "p" }));
-      where.push({ kind: "children", parent: "p", child: "c" });
+      where.push({ kind: "children", parent: "p", child: "c", order: "o" });
       where.push(pattern("c", ":node/id", { t: "var", name: "cid" }));
     }
     if (shape.reach) {
@@ -196,6 +197,56 @@ const irArb: fc.Arbitrary<IrQuery> = fc
         where,
       }));
   });
+
+describe("the canonical domain is what parseEdn produces", () => {
+  test("every stored query parses to a canonical IR", () => {
+    for (const q of STORED_QUERIES) {
+      const ir = parseEdn(q.edn);
+      expect(ir.kind === "query" && isCanonicalIr(ir)).toBe(true);
+    }
+  });
+
+  test("the generator produces only canonical IR", () => {
+    fc.assert(fc.property(irArb, (ir) => isCanonicalIr(ir)));
+  });
+
+  const base = parseEdn(
+    '[:find ?id ?t :where [?p :node/id "p"] [?p :node/child ?c] [?p :node/child-order ?o] [?c :node/id ?id] [?c :node/text ?t]]',
+  );
+
+  test("a find typed otherwise than its :where types it is outside the domain", () => {
+    if (base.kind !== "query") throw new Error("expected IR");
+    expect(isCanonicalIr(base)).toBe(true);
+    const find = base.find.map((p) =>
+      p.kind === "var" && p.name === "t" ? { ...p, type: "node-ref" as const } : p,
+    );
+    expect(isCanonicalIr({ ...base, find })).toBe(false);
+  });
+
+  test("children beside a pattern it would collapse is outside the domain", () => {
+    if (base.kind !== "query") throw new Error("expected IR");
+    const where = [...base.where, pattern("p", ":node/child", { t: "var", name: "d" })];
+    expect(isCanonicalIr({ ...base, where })).toBe(false);
+  });
+
+  test("a variable or keyword the reader would not read back is outside the domain", () => {
+    if (base.kind !== "query") throw new Error("expected IR");
+    expect(
+      isCanonicalIr({ ...base, where: [pattern("p q", ":node/id", { t: "var", name: "id" })] }),
+    ).toBe(false);
+    expect(isCanonicalIr({ ...base, where: [pattern("p", ":", { t: "var", name: "id" })] })).toBe(
+      false,
+    );
+    expect(
+      isCanonicalIr({
+        ...base,
+        where: [
+          { kind: "pattern", entity: "p", attr: ":a", value: { t: "num", value: Number.NaN } },
+        ],
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("generated IR round-trips through compile(parseEdn(compile(ir)))", () => {
   const index = indexFor([
@@ -399,7 +450,9 @@ describe("children clause replaces the cartesian join", () => {
     expect(ir.kind).toBe("query");
     if (ir.kind !== "query") return;
     expect(ir.where.some((c) => c.kind === "children")).toBe(true);
-    expect(ir.find.some((p) => p.kind === "var" && p.name === "i")).toBe(false);
+    // The find is kept as written; the order variable gets no column.
+    expect(ir.find.some((p) => p.kind === "var" && p.name === "i")).toBe(true);
+    expect(compile(ir).find?.some((p) => p.kind === "var" && p.name === "i")).toBe(false);
     expect(sortedRows(index.runDatalog(lastClause))).toHaveLength(3);
   });
 });

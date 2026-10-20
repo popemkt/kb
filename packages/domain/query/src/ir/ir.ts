@@ -24,11 +24,20 @@ export type PatternClause = {
   value: Term;
 };
 
-/** One row per child, projected from `:node/children` — not the cartesian join. */
+/**
+ * The ordered-children idiom, written `[?parent :node/child ?child]
+ * [?parent :node/child-order ?order]`: one row per child, projected from
+ * `:node/children`, not the cartesian join the two patterns are. `order` is
+ * the variable the written form names, kept so the clause prints back as
+ * written; the projection does not bind it (in the written form it ranges
+ * over every position, not the child's), so a find naming it has no column
+ * (`compile`).
+ */
 type ChildrenClause = {
   kind: "children";
   parent: string;
   child: string;
+  order: string;
 };
 
 /**
@@ -60,6 +69,7 @@ export type FindPos =
 
 export type IrQuery = {
   kind: "query";
+  /** The `:find` spec as written, in order; what the compiled query returns is `compile`'s `find`. */
   find: FindPos[];
   /** Extra `:in` slots after `$` (`%` and `?vars`). */
   in?: string[];

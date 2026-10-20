@@ -1,5 +1,5 @@
 import { present } from "@kb/model";
-import type { Clause, FindPos, Ir, PullSpec, ReachClause, Term } from "./ir.ts";
+import type { Clause, FindPos, Ir, IrQuery, PullSpec, ReachClause, Term } from "./ir.ts";
 
 const QUERY_DIRECTIVES = new Set([
   "find",
@@ -49,7 +49,12 @@ export function normalizeEdnQuery(edn: string): string {
   return out;
 }
 
-type CompiledEdn = { query: string; rules?: string };
+type CompiledEdn = {
+  query: string;
+  rules?: string;
+  /** The find positions the compiled query returns, column by column; absent for `raw`. */
+  find?: readonly FindPos[];
+};
 
 /**
  * Compile IR to DataScript EDN. `raw` passes through (still normalised).
@@ -64,13 +69,42 @@ export function compile(ir: Ir): CompiledEdn {
   }
   const rules = reaches.length > 0 ? compileReachRules(reaches, names) : undefined;
   const inSlots = compileIn(ir.in, rules !== undefined);
-  const find = ir.find.map(compileFind).join(" ");
+  const columns = compiledFind(ir);
+  const find = columns.map(compileFind).join(" ");
   const where = ir.where.map((c) => compileClause(c, names)).join(" ");
   const edn = `[:find ${find}${inSlots} :where ${where}]`;
   return {
     query: normalizeEdnQuery(edn),
     ...(rules !== undefined ? { rules: normalizeEdnQuery(rules) } : {}),
+    find: columns,
   };
+}
+
+/** The find positions that get a column: a variable the compiled `:where` does not bind has none. */
+function compiledFind(ir: IrQuery): FindPos[] {
+  const bound = boundVars(ir.where);
+  return ir.find.filter((p) => p.kind !== "var" || bound.has(p.name));
+}
+
+function boundVars(where: readonly Clause[]): Set<string> {
+  const bound = new Set<string>();
+  for (const c of where) {
+    if (c.kind === "pattern") {
+      bound.add(c.entity);
+      if (c.value.t === "var") bound.add(c.value.name);
+    } else if (c.kind === "children") {
+      bound.add(c.parent);
+      bound.add(c.child);
+    } else if (c.kind === "reach") {
+      bound.add(c.from);
+      bound.add(c.to);
+    } else {
+      for (const a of c.args) {
+        if (a.t === "var") bound.add(a.name);
+      }
+    }
+  }
+  return bound;
 }
 
 function compileIn(slots: string[] | undefined, needsRules: boolean): string {
