@@ -43,12 +43,16 @@ import {
  */
 export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
 
+/** Where a `kb ui` server listens: a TCP port on a host. */
+export interface Listener {
+  readonly hostname: string;
+  readonly port: number;
+}
+
 /** Where the server listens, and where the browser loads the UI from. */
 export interface GuardSite {
-  /** The host the server was bound to. */
-  readonly hostname: string;
-  /** The port the server listens on. */
-  readonly port: number;
+  /** Where the server listens. */
+  readonly at: Listener;
   /** The port the UI page is served from: this server's, or the Vite dev server's. */
   readonly uiPort: number;
   /** Browser origin when a reverse proxy serves this UI. */
@@ -87,6 +91,17 @@ function isJson(contentType: string | null): boolean {
   return media === "application/json";
 }
 
+/**
+ * The origins a browser may load the UI from, as `requestGuard` admits
+ * them: each name the server answers to, on its own port and the UI's.
+ */
+function originsOf(site: GuardSite): Set<string> {
+  const names = [...new Set([...LOOPBACK_NAMES, site.at.hostname])];
+  return new Set(
+    names.flatMap((name) => [site.at.port, site.uiPort].map((port) => `http://${name}:${port}`)),
+  );
+}
+
 /** The wire a request is on: the page's when it is the person's, a local program's otherwise. */
 function admitted(person: Person | null): Admission {
   return { caller: person === null ? PROGRAM : { wire: PAGE_WIRE, person } };
@@ -105,10 +120,7 @@ export function handshakeHeaders(req: Request): Record<string, string> {
 }
 
 export function requestGuard(site: GuardSite): RequestGuard {
-  const names = [...new Set([...LOOPBACK_NAMES, site.hostname])];
-  const origins = new Set(
-    names.flatMap((name) => [site.port, site.uiPort].map((port) => `http://${name}:${port}`)),
-  );
+  const origins = originsOf(site);
   if (site.publicOrigin !== undefined) origins.add(new URL(site.publicOrigin).origin);
   const hosts = new Set([...origins].map((origin) => new URL(origin).host));
   const refused = (status: number, message: string): Admission => ({

@@ -42,7 +42,7 @@ import {
 } from "./dev.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { PageToken, identifyBy } from "./auth.ts";
-import { handshakeHeaders, requestGuard, type RequestGuard } from "./guard.ts";
+import { handshakeHeaders, requestGuard, type Listener, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
@@ -221,8 +221,7 @@ function ingestEach(
  * the layers the caller already built.
  */
 function serveUi(deps: {
-  hostname: string;
-  port: number;
+  at: Listener;
   uiPort: number | undefined;
   publicOrigin: string | undefined;
   root: string;
@@ -236,15 +235,14 @@ function serveUi(deps: {
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
   let guard: RequestGuard | null = null;
   return Bun.serve<WsData>({
-    hostname: deps.hostname,
-    port: deps.port,
+    hostname: deps.at.hostname,
+    port: deps.at.port,
     fetch(req, srv) {
       const url = new URL(req.url);
-      const port = srv.port ?? deps.port;
+      const at = { hostname: deps.at.hostname, port: srv.port ?? deps.at.port };
       guard ??= requestGuard({
-        hostname: deps.hostname,
-        port,
-        uiPort: deps.uiPort ?? port,
+        at,
+        uiPort: deps.uiPort ?? at.port,
         publicOrigin: deps.publicOrigin,
         identify: (request) =>
           identifyBy(
@@ -388,8 +386,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // owns anything, so nothing is left running behind a server that never came
   // up.
   const server = serveUi({
-    hostname,
-    port,
+    at: { hostname, port },
     uiPort: opts.uiPort,
     publicOrigin: opts.publicOrigin,
     root: opts.root,
