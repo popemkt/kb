@@ -1980,9 +1980,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
       under the runtime is therefore guarded whoever planned it.
     - The page provides its own listeners for local calls.
     - Without a provider, a call has no listeners.
-- **Approval** is the first guard. It decides in one place, one resolver
-  (`resolveApproval` in `@kb/contracts`), asked by approval's guard on the
-  guard point before anything runs
+- **Approval** is the governance family's guard (`@kb/governance`; core
+  contributes no guard). It decides in one place, one resolver
+  (`resolveApproval` in `@kb/contracts`), asked by that guard on the guard
+  point before anything runs
   (roadmap decision 13 in
   `docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). What it
   decides about a call is `allow`, `ask` or `deny`. A denied call fails

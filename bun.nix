@@ -626,6 +626,7 @@
   "@kb/ext-check" = copyPathToStore ./packages/extension/ext-check;
   "@kb/ext-docs" = copyPathToStore ./packages/extension/ext-docs;
   "@kb/ext-sdk" = copyPathToStore ./packages/contract/ext-sdk;
+  "@kb/governance" = copyPathToStore ./packages/extension/governance;
   "@kb/graph" = copyPathToStore ./packages/extension/graph;
   "@kb/graph-ui" = copyPathToStore ./packages/extension/graph-ui;
   "@kb/lab" = copyPathToStore ./packages/extension/lab;

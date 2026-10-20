@@ -39,6 +39,7 @@
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
+        "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/locations": "workspace:*",
@@ -131,6 +132,7 @@
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
+        "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/locations-fs": "workspace:*",
@@ -223,6 +225,7 @@
         "@kb/collections-ui": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
+        "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/graph-ui": "workspace:*",
         "@kb/lab": "workspace:*",
@@ -737,6 +740,17 @@
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/governance": {
+      "name": "@kb/governance",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/query": "workspace:*",
+        "effect": "catalog:",
       },
     },
     "packages/extension/graph": {
@@ -1477,6 +1491,8 @@
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
+
+    "@kb/governance": ["@kb/governance@workspace:packages/extension/governance"],
 
     "@kb/graph": ["@kb/graph@workspace:packages/extension/graph"],
 

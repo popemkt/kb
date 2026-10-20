@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
-  ActionGuardPoint,
   ActionPoint,
   CurrentInterception,
   TemplatePoint,
@@ -28,7 +27,6 @@ import {
 } from "@kb/contracts";
 import type { ActionSchemaError, DomainError } from "@kb/model";
 import {
-  approvalGuard,
   coreActions,
   coreExtension,
   interceptionFrom,
@@ -149,7 +147,6 @@ const corePlugin = definePlugin({
           { discard: true },
         ),
         ctx.plugin(declarationPlugin(coreExtension)),
-        ctx.contribute(ActionGuardPoint, { id: "approval", value: approvalGuard }),
       ],
       { discard: true },
     ),

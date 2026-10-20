@@ -435,6 +435,17 @@ export function pointReader<C>(point: PointKey<C>): () => readonly Contribution<
   };
 }
 
+/**
+ * The page kernel as something to read, never to load into: its points, the
+ * plugins it holds, and its version. What the page's own invoke reads its
+ * guards and interceptors from.
+ */
+export const uiKernelReader: Pick<Kernel, "contributions" | "plugins" | "version"> = {
+  contributions: (point) => uiKernel.contributions(point),
+  plugins: () => uiKernel.plugins(),
+  version: () => uiKernel.version(),
+};
+
 /** A point's contributions now, for a reader outside React (a port the shell wires). */
 export function currentContributions<C>(point: PointKey<C>): readonly Contribution<C>[] {
   return uiKernel.contributions(point);

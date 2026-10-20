@@ -45,6 +45,7 @@ import {
   type ExtensionRow,
 } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
+import { governanceExtension, governancePlugin } from "@kb/governance";
 import { graphExtension } from "@kb/graph";
 import { graphUiPlugin } from "@kb/graph-ui";
 import { labExtension } from "@kb/lab";
@@ -131,6 +132,7 @@ export interface BrowserExtension {
  * out by omission: the resolver's test holds every bundled family to an entry.
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
+  [governanceExtension.name]: { load: () => Promise.resolve(governancePlugin) },
   [outlineExtension.name]: { load: () => Promise.resolve(outlineUiPlugin) },
   [collectionsExtension.name]: { load: () => Promise.resolve(collectionsUiPlugin) },
   [graphExtension.name]: { load: () => Promise.resolve(graphUiPlugin) },

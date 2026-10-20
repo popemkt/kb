@@ -92,6 +92,5 @@ export {
 } from "./invoke.ts";
 export type { RegisteredAction } from "./invoke.ts";
 export { callWithin, readableNodes, readableQuery } from "./script-reach.ts";
-export { approvalGuard } from "./approval.ts";
 export { interceptionFrom, interceptionOf } from "./interception.ts";
 export type { InterceptionOptions } from "./interception.ts";

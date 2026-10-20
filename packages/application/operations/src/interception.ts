@@ -82,7 +82,10 @@ export interface InterceptionOptions {
  * when the kernel moves, so a plugin that loads or goes is seen at once,
  * whole (a plugin's contributions appear and go together, `@kb/plugin`).
  */
-export function interceptionFrom(kernel: Kernel, options: InterceptionOptions = {}): Interception {
+export function interceptionFrom(
+  kernel: Pick<Kernel, "contributions" | "plugins" | "version">,
+  options: InterceptionOptions = {},
+): Interception {
   let indexed: { readonly version: number; readonly at: Interception } | null = null;
   const current = (): Interception => {
     if (indexed?.version === kernel.version()) return indexed.at;

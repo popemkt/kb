@@ -24,6 +24,7 @@ import { checkExtension } from "@kb/check";
 import { codeExtension } from "@kb/code";
 import type { ExtensionDeclaration } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
+import { governanceExtension } from "@kb/governance";
 import { graphExtension } from "@kb/graph";
 import { labExtension } from "@kb/lab";
 import { locationsExtension } from "@kb/locations";
@@ -39,6 +40,7 @@ import { derivedWith, type DerivedRef } from "@kb/query";
  * `sys.views`, after core's.
  */
 export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
+  governanceExtension,
   outlineExtension,
   collectionsExtension,
   graphExtension,

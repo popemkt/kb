@@ -17,14 +17,13 @@ import type { KbNode, StoreTx } from "@kb/model";
 import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { StoreTxLog } from "@kb/tx-log";
 import {
-  approvalGuard,
-  interceptionOf,
+  interceptionFrom,
   invokeReceiptWith,
   isomorphicActions,
   noteStoreSynced,
 } from "@kb/operations";
 import { postAction, type ActionResponse } from "@/api/action";
-import { toast } from "@kb/ui-sdk";
+import { toast, uiKernelReader } from "@kb/ui-sdk";
 import { livePageCatalog } from "@/lib/view-catalog";
 import { BrowserStore } from "./browser-store";
 import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
@@ -56,12 +55,12 @@ let pushTail = Promise.resolve();
 const localActions = new Map(isomorphicActions.map((action) => [action.def.id, action]));
 
 /**
- * The guards a local call goes through: the server's core guard, so the
- * replica decides a local call exactly as the server does.
+ * The guards and interceptors a local call goes through: the page kernel's,
+ * where the families the server reports loaded contribute the same plugins
+ * the server loads (governance's guards among them), so the replica decides
+ * a local call as the server does. The server decides again on the push.
  */
-const localInterception = interceptionOf({
-  guards: [{ owner: "kb", id: "approval", value: approvalGuard }],
-});
+const localInterception = interceptionFrom(uiKernelReader);
 
 function noteBrowserStoreSynced(current: BrowserSession): void {
   Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));

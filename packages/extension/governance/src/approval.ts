@@ -9,7 +9,7 @@ import {
   type GuardVerdict,
   type KbContext,
 } from "@kb/contracts";
-import { approvalPoliciesOf, type ApprovalPolicy } from "@kb/model";
+import { actsAsOwner, approvalPoliciesOf, type ApprovalPolicy } from "@kb/model";
 import type { KbIndex } from "@kb/query";
 
 /**
@@ -63,9 +63,9 @@ function verdictOf(
 }
 
 /**
- * Approval as a guard on every call: the session's policies and each
- * action's declared mode decide it before it runs, and again before it
- * commits, with what it writes (`resolveApproval`).
+ * Approval, the governance family's guard on every call: the session's
+ * policies and each action's declared mode decide it before it runs, and
+ * again before it commits, with what it writes (`resolveApproval`).
  */
 export const approvalGuard: ActionGuard = {
   match: "*",
@@ -80,5 +80,30 @@ export const approvalGuard: ActionGuard = {
         invocation,
         "invoke",
       ),
+    ),
+};
+
+/** Whether `input` asks for the owner's override of the `sys.*` write guard. */
+function forces(input: unknown): boolean {
+  return typeof input === "object" && input !== null && "force" in input && input.force === true;
+}
+
+/**
+ * `force`, the override of the `sys.*` write guard that the actions taking
+ * it declare (`node.add`, `node.update`, `node.delete`, `node.addTree`), is
+ * the owner's (`actsAsOwner`): a call by anyone else that sets it is
+ * denied, so no action and no surface can hand it to an agent.
+ */
+export const forceGuard: ActionGuard = {
+  match: "every write",
+  before: ({ invocation, phase }) =>
+    Effect.sync(() =>
+      phase === "invoke" && forces(invocation.input) && !actsAsOwner(invocation.actor)
+        ? {
+            decision: "deny",
+            rule: "force",
+            message: `force is the owner's to set; a call by ${invocation.actor} may not`,
+          }
+        : { decision: "allow" },
     ),
 };

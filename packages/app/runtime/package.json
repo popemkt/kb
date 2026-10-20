@@ -22,6 +22,7 @@
     "@kb/ext-check": "workspace:*",
     "@kb/ext-docs": "workspace:*",
     "@kb/ext-sdk": "workspace:*",
+    "@kb/governance": "workspace:*",
     "@kb/graph": "workspace:*",
     "@kb/lab": "workspace:*",
     "@kb/locations-fs": "workspace:*",

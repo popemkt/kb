@@ -130,6 +130,7 @@ describe("the families the page loads", () => {
 
   it("are each family the server reports loaded that the resolver has, in its order", () => {
     expect(familiesToLoad([...reported(() => true), AGENT])).toEqual([
+      "governance",
       "outline",
       "collections",
       "graph",
@@ -147,6 +148,7 @@ describe("the families the page loads", () => {
   it("leave out a family the server reports not loaded: the lab while it is off", () => {
     expect(labExtension.optional).toEqual({ byDefault: "off" });
     expect(familiesToLoad(reported((name) => name !== "lab"))).toEqual([
+      "governance",
       "outline",
       "collections",
       "graph",
@@ -169,6 +171,7 @@ describe("the families the page loads", () => {
   it("leave out a family the page has no browser entry for", () => {
     const rows = [...reported(() => true), extensionRow({ name: "remote", label: "R" }, "x", true)];
     expect(familiesToLoad(rows)).toEqual([
+      "governance",
       "outline",
       "collections",
       "graph",
