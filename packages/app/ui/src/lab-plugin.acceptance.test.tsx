@@ -9,7 +9,8 @@
  * `/lab` is not found. Nothing is kept in the browser's preferences. A switch written
  * elsewhere (another tab, the CLI) reaches the page's graph, and the page
  * follows it live. And until the server has answered, the page holds its
- * workspace rather than show the lab as missing on the way.
+ * workspace rather than show the lab as missing on the way. Switched off
+ * while its page is open, unloading tears that page down where it stands.
  *
  * The server is a stand-in that answers the manifest from one switch. The
  * study's scene is a stand-in too: happy-dom has no GPU, and what is under
@@ -54,6 +55,16 @@ const { servedManifest } = await import("@/lib/manifest");
 const { useGraphStore } = await import("@/stores/graph.store");
 
 const ISO = "2026-09-24T00:00:00.000Z";
+
+/** The lab's switch node as another tab or the CLI writes it, reaching the page's graph as any write does. */
+const switchNode = (on: boolean, at: string): WireNode => ({
+  id: extensionNodeId("lab"),
+  text: "Lab",
+  props: { [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: on }] },
+  children: [],
+  createdAt: ISO,
+  updatedAt: at,
+});
 
 function snapshot(): GraphSnapshot {
   return {
@@ -287,14 +298,6 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(labRow()).toBeUndefined();
     // Another tab, or the CLI, switches the lab on: the server loads it, and
     // the switch node reaches this page's graph as any write does.
-    const switchNode = (on: boolean, at: string): WireNode => ({
-      id: extensionNodeId("lab"),
-      text: "Lab",
-      props: { [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: on }] },
-      children: [],
-      createdAt: ISO,
-      updatedAt: at,
-    });
     server.lab = true;
     act(() => useGraphStore.getState().applyTx([switchNode(true, "2026-09-24T00:00:01.000Z")], []));
     await until(() => labRow() !== undefined);
@@ -342,6 +345,28 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(study()).toBeNull();
     expect(notFound()).not.toBeNull();
     // Leaving the study gave its scene back, and it was not mounted again.
+    expect(scene.disposed).toBe(disposed + 1);
+  });
+
+  it("switched off elsewhere while the study is open, unloading tears the open page down", async () => {
+    await boot();
+    await choose("on");
+    await until(() => labRow() !== undefined);
+    const { mounted, disposed } = scene;
+    await act(async () => navigate("/lab"));
+    await until(() => scene.mounted > mounted);
+    expect(study()).not.toBeNull();
+
+    // Another tab, or the CLI, switches it off: the page stays on /lab.
+    server.lab = false;
+    act(() =>
+      useGraphStore.getState().applyTx([switchNode(false, "2026-09-24T00:00:03.000Z")], []),
+    );
+    await until(() => labRow() === undefined);
+    await settle();
+    expect(dom.location.pathname).toBe("/lab");
+    expect(study()).toBeNull();
+    expect(notFound()).not.toBeNull();
     expect(scene.disposed).toBe(disposed + 1);
   });
 });
