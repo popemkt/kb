@@ -3,6 +3,7 @@ import { bunFileSystemLayer } from "./platform.ts";
 import { KbIndexService } from "@kb/query";
 import {
   ActionCatalog,
+  CurrentInterception,
   ExtensionCatalog,
   FamilyKernels,
   type HostedFamilies,
@@ -100,6 +101,12 @@ export function kbRuntimeLayer(
     Layer.effect(
       ActionCatalog,
       registry.pipe(Effect.map(({ manifestEntries }) => manifestEntries)),
+    ),
+    // The session's guards and interceptors: a commit made under this layer
+    // is put to them whoever planned it.
+    Layer.effect(
+      CurrentInterception,
+      registry.pipe(Effect.map(({ interception }) => interception)),
     ),
   );
 }

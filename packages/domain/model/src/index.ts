@@ -4,16 +4,15 @@ export {
   APPROVAL_DECISIONS,
   APPROVAL_POLICIES_QUERY,
   DECISION_OPTION_IDS,
-  MODE_MATCHES,
   actsAsOwner,
   delegatedDecision,
   approvalPoliciesOf,
   approvalPolicyNode,
-  matchSpecificity,
   stricterDecision,
   writesApprovalPolicy,
 } from "./approval-policy.ts";
 export type { Actor, ApprovalDecision, ApprovalPolicy, NodeWrite } from "./approval-policy.ts";
+export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
 export { byNodeId, canonicalJson, canonicalJsonl } from "./canonical.ts";
 export {
   DomainError,

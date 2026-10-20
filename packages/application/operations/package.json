@@ -13,6 +13,7 @@
   "dependencies": {
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/sandbox": "workspace:*",
     "@kb/views": "workspace:*",

@@ -107,6 +107,23 @@ export {
   pageUrlOf,
   withoutPageToken,
 } from "./page-token.ts";
+export {
+  ActionGuardPoint,
+  ActionInterceptorPoint,
+  CurrentInterception,
+  DEFAULT_BUDGET_MS,
+  NO_INTERCEPTION,
+} from "./interception.ts";
+export type {
+  ActionGuard,
+  ActionInterceptor,
+  CommitCall,
+  GuardCall,
+  GuardVerdict,
+  InterceptedCall,
+  Interception,
+  Listener,
+} from "./interception.ts";
 export { IdentityPoint, PersonSchema } from "./person.ts";
 export type { Identification, IdentityProvider, Person } from "./person.ts";
 export {

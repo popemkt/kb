@@ -97,6 +97,8 @@ export interface PluginState {
   readonly parent: string | null;
   /** Injected services nobody provides right now. */
   readonly missing: readonly string[];
+  /** Whether its apply has run to its end and it is active: what it contributed is visible. */
+  readonly applied: boolean;
   readonly error: PluginError | null;
 }
 
@@ -481,6 +483,7 @@ export function makeKernel(): Kernel {
         status: entry.status,
         parent: entry.parent,
         missing: missingOf(state, entry),
+        applied: entry.applied,
         error: entry.error,
       })),
     subscribe: (listener) => {

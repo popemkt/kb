@@ -11,14 +11,14 @@ import {
 } from "@kb/model";
 import {
   CurrentCall,
+  CurrentInterception,
   KbStore,
   TxOrigin,
-  approvalRefusal,
   type KbContext,
   type StoreCommit,
   type StoreFingerprint,
 } from "@kb/contracts";
-import { decide } from "./approval.ts";
+import { guardCommit, refusalOf } from "./interception.ts";
 import { scriptWriteRefusal } from "./script-reach.ts";
 
 /**
@@ -123,10 +123,10 @@ export interface PersistOptions {
  * Inside a script's invocation, what the commit writes is bounded to the
  * script's subject (`scriptWriteRefusal`), so no action can write past it.
  *
- * Inside an invocation, the resolver is asked again with what the commit
- * writes (`resolveApproval`): a write to an approval policy needs a person
- * behind the call, whatever the policies say, and is refused here, before the
- * store is touched.
+ * Inside an invocation, the guards are asked again with what the commit
+ * writes (`guardCommit`), and a refusal is made here, before the store is
+ * touched: approval's guard, for one, refuses a write to an approval policy
+ * with no person behind the call, whatever the policies say.
  */
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext,
@@ -159,13 +159,13 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
       ...tx.upserts.map((after) => ({ before: ctx.index.getNode(after.id), after })),
       ...tx.deletes.map((id) => ({ before: ctx.index.getNode(id), after: undefined })),
     ];
-    const resolution = decide(ctx, {
+    const outcome = yield* guardCommit(yield* CurrentInterception, {
+      ctx,
       ...call,
-      actor: call.invocation.actor,
       writes,
       nodeOf: (id) => ctx.index.getNode(id),
     });
-    const refusal = approvalRefusal(resolution, call.invocation);
+    const refusal = refusalOf(outcome, call.invocation);
     if (refusal !== null) return yield* domainError(refusal.code, refusal.message, refusal.details);
   }
   const caughtUpTo = seen.get(ctx) ?? null;

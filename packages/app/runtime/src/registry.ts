@@ -1,7 +1,9 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
+  ActionGuardPoint,
   ActionPoint,
+  CurrentInterception,
   TemplatePoint,
   ViewKeyPoint,
   declarationPlugin,
@@ -17,6 +19,7 @@ import {
   type ActionReceipt,
   type ExtensionFailure,
   type ExtensionRow,
+  type Interception,
   type KbContext,
   type LoadedExtension,
   type ManifestEntry,
@@ -25,8 +28,10 @@ import {
 } from "@kb/contracts";
 import type { ActionSchemaError, DomainError } from "@kb/model";
 import {
+  approvalGuard,
   coreActions,
   coreExtension,
+  interceptionFrom,
   invokeReceiptWith,
   invokeWith,
   type RegisteredAction,
@@ -62,6 +67,8 @@ interface RegistryExtension {
 export interface Registry {
   /** The kernel every action and template was loaded into. */
   kernel: Kernel;
+  /** The guards and interceptors its plugins contribute, which every call through it goes through. */
+  interception: Interception;
   /** When its kernel is released: once it is replaced, and the calls that hold it have settled. */
   lifetime: RegistryLifetime;
   actions: readonly RegisteredAction[];
@@ -142,6 +149,7 @@ const corePlugin = definePlugin({
           { discard: true },
         ),
         ctx.plugin(declarationPlugin(coreExtension)),
+        ctx.contribute(ActionGuardPoint, { id: "approval", value: approvalGuard }),
       ],
       { discard: true },
     ),
@@ -324,6 +332,7 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   return {
     kernel,
+    interception: interceptionFrom(kernel),
     lifetime: registryLifetime(kernel),
     actions,
     byId,
@@ -401,7 +410,10 @@ const withSessionRegistry = <A, E, R>(
   Effect.gen(function* () {
     const registry = yield* sessionRegistry(ctx);
     if (!registry.lifetime.acquire()) return yield* withSessionRegistry(ctx, use);
-    return yield* use(registry).pipe(Effect.ensuring(registry.lifetime.settle));
+    return yield* use(registry).pipe(
+      Effect.provideService(CurrentInterception, registry.interception),
+      Effect.ensuring(registry.lifetime.settle),
+    );
   });
 
 /** Test hook: forget cached registries so fresh roots re-discover extensions. */

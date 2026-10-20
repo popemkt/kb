@@ -26,6 +26,7 @@ import { z } from "zod";
 import {
   ActionCatalog,
   CurrentCall,
+  CurrentInterception,
   DecidedEntrySchema,
   ExtensionCatalog,
   ExtensionRowSchema,
@@ -33,7 +34,7 @@ import {
   ViewCatalog,
   type ActionDefinition,
 } from "@kb/contracts";
-import { decide } from "./approval.ts";
+import { guardBefore } from "./interception.ts";
 
 /** One view of the catalog on the wire: `@kb/views`' `ViewCatalogEntry`. */
 const ViewCatalogEntrySchema = z.object({
@@ -68,11 +69,15 @@ export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn
   // What it decides is about the call it answers, and the invoke core runs every handler in one.
   const call = yield* CurrentCall;
   if (call === null) return yield* Effect.die("kb.manifest runs only as an action's handler");
-  const { actor } = call.invocation;
-  const actions = (yield* ActionCatalog).map((entry) => ({
-    ...entry,
-    decision: decide(ctx, { action: entry, actor }).decision,
-  }));
+  const interception = yield* CurrentInterception;
+  const actions = yield* Effect.forEach(yield* ActionCatalog, (entry) =>
+    guardBefore(interception, {
+      ctx,
+      invocation: { ...call.invocation, id: entry.id, input: undefined },
+      action: entry,
+      phase: "list",
+    }).pipe(Effect.map(({ decision }) => ({ ...entry, decision }))),
+  );
   return {
     actions,
     views: [...(yield* ViewCatalog).entries()],

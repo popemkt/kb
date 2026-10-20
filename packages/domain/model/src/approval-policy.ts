@@ -86,16 +86,10 @@ export const DECISION_OPTION_IDS: Readonly<Record<ApprovalDecision, NodeId>> = {
   deny: "sys.approval.decision.deny",
 };
 
-/**
- * The words `match` takes for a mode instead of an action: every action of
- * that mode. An action id has no space, so neither can be mistaken for one.
- */
-export const MODE_MATCHES = { "every read": "read", "every write": "write" } as const;
-
 /** One `#approval-policy` node, as the resolver reads it. */
 export interface ApprovalPolicy {
   readonly id: NodeId;
-  /** An action id, a pattern with `*` (any run of characters), or a mode word ({@link MODE_MATCHES}). */
+  /** An action id, a pattern with `*` (any run of characters), or a mode word (`MODE_MATCHES`, `action-match.ts`). */
   readonly match: string;
   /** The actor it is about; `null` is every actor. */
   readonly actor: Actor | null;
@@ -136,29 +130,6 @@ export function approvalPoliciesOf(nodes: Iterable<KbNode>): ApprovalPolicy[] {
     policies.push({ id: node.id, match, actor, decision });
   }
   return policies;
-}
-
-/**
- * How specifically `match` names an action, or `null` when it does not name
- * it. Compared as a tuple, most specific first: the action's own id, then a
- * pattern by how many literal characters it holds, then a mode word, then a
- * pattern of nothing but `*`.
- */
-export function matchSpecificity(
-  match: string,
-  action: { readonly id: string; readonly mode: { readonly kind: "read" | "write" } },
-): readonly [number, number] | null {
-  if (match === action.id) return [4, match.length];
-  const mode = Object.entries(MODE_MATCHES).find(([words]) => words === match)?.[1];
-  if (mode !== undefined) return mode === action.mode.kind ? [2, 0] : null;
-  if (!match.includes("*")) return null;
-  const pattern = match
-    .split("*")
-    .map((part) => part.replaceAll(/[.+?^${}()|[\]\\]/g, "\\$&"))
-    .join(".*");
-  if (!new RegExp(`^${pattern}$`).test(action.id)) return null;
-  const literal = match.replaceAll("*", "").length;
-  return literal > 0 ? [3, literal] : [1, 0];
 }
 
 /** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */

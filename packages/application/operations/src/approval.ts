@@ -1,7 +1,12 @@
+import { Effect } from "effect";
 import {
+  approvalRefusal,
   resolveApproval,
+  type ActionGuard,
+  type ActionInvocation,
   type ApprovalCall,
   type ApprovalResolution,
+  type GuardVerdict,
   type KbContext,
 } from "@kb/contracts";
 import { approvalPoliciesOf, type ApprovalPolicy } from "@kb/model";
@@ -23,6 +28,57 @@ function policiesOf(ctx: KbContext): readonly ApprovalPolicy[] {
 }
 
 /** What the session's policies decide about `call`. */
-export function decide(ctx: KbContext, call: ApprovalCall): ApprovalResolution {
+function decide(ctx: KbContext, call: ApprovalCall): ApprovalResolution {
   return resolveApproval(policiesOf(ctx), call);
 }
+
+/** The rule a resolution names: the policy, the action's declared mode, or the governing write. */
+function ruleOf({ by }: ApprovalResolution): string {
+  if (by === "mode") return "mode";
+  return "policy" in by ? by.policy : `writes:${by.writes}`;
+}
+
+/**
+ * A resolution as a guard's verdict. Listed, it is the decision itself;
+ * about to run, it is what the call is refused with, if anything: an ask
+ * with a person behind the call is no refusal.
+ */
+function verdictOf(
+  resolution: ApprovalResolution,
+  invocation: ActionInvocation,
+  phase: "list" | "invoke",
+): GuardVerdict {
+  if (phase === "list") {
+    if (resolution.decision === "allow") return { decision: "allow" };
+    return { decision: resolution.decision, rule: ruleOf(resolution), message: "" };
+  }
+  const refusal = approvalRefusal(resolution, invocation);
+  if (refusal === null) return { decision: "allow" };
+  return {
+    decision: refusal.code === "forbidden" ? "deny" : "ask",
+    rule: ruleOf(resolution),
+    message: refusal.message,
+    ...(refusal.details === undefined ? {} : { details: refusal.details }),
+  };
+}
+
+/**
+ * Approval as a guard on every call: the session's policies and each
+ * action's declared mode decide it before it runs, and again before it
+ * commits, with what it writes (`resolveApproval`).
+ */
+export const approvalGuard: ActionGuard = {
+  match: "*",
+  before: ({ ctx, invocation, action, phase }) =>
+    Effect.sync(() =>
+      verdictOf(decide(ctx, { action, actor: invocation.actor }), invocation, phase),
+    ),
+  commit: ({ ctx, invocation, action, writes, nodeOf }) =>
+    Effect.sync(() =>
+      verdictOf(
+        decide(ctx, { action, actor: invocation.actor, writes, nodeOf }),
+        invocation,
+        "invoke",
+      ),
+    ),
+};

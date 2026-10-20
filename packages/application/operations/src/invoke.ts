@@ -12,7 +12,7 @@ import {
   type ExtensionPromiseHandler,
   type KbContext,
   CurrentCall,
-  approvalRefusal,
+  CurrentInterception,
   approvalSubject,
 } from "@kb/contracts";
 import {
@@ -28,7 +28,7 @@ import {
   receiptCodeOf,
   type DomainError,
 } from "@kb/model";
-import { decide } from "./approval.ts";
+import { guardBefore, refusalOf } from "./interception.ts";
 import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
@@ -253,10 +253,12 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const { id, input } = invocation;
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
-  // Approval is decided here, on invoke itself, so no surface can skip it:
-  // the session's policies for this call's actor, else the action's mode.
+  // Every call is put to the guards here, on invoke itself, so no surface
+  // can skip them (`interception.ts`).
   const action = approvalSubject(entry.def, (part) => actions.get(part)?.def.mode);
-  const refusal = approvalRefusal(decide(ctx, { action, actor: invocation.actor }), invocation);
+  const interception = yield* CurrentInterception;
+  const outcome = yield* guardBefore(interception, { ctx, invocation, action, phase: "invoke" });
+  const refusal = refusalOf(outcome, invocation);
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 
   const parsed = yield* parseBySchema(entry.def.inputSchema, input);
