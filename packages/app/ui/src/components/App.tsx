@@ -19,8 +19,7 @@ import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
-import { extensionsSettled, startUiPlugins, useExtensionSwitches } from "@/ui-plugins";
-import { switchExtension } from "@/lib/extension-report";
+import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
 import { useGraphStore } from "@/stores/graph.store";
 import { pageEditor } from "@/stores/page-editor";
 import { useSidebarToggle } from "@/stores/prefs.store";
@@ -133,13 +132,9 @@ function SkipLink() {
 function SharedChrome() {
   const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
-  const switches = useExtensionSwitches();
   return (
     <>
-      <PreferencesPopover
-        switches={switches}
-        onSwitch={(name, on) => void switchExtension(name, on)}
-      />
+      <PreferencesPopover />
       <Overlays />
       <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />

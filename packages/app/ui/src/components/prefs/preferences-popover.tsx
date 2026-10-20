@@ -2,13 +2,11 @@ import { extensionNodeId, SYSTEM_IDS } from "@kb/model";
 import {
   type EnumOption,
   EnumSelect,
-  type ExtensionSwitch,
   POPOVER_VALUE_CLASS,
   PopoverShell,
   PrefFieldRow,
   type PropValue,
   THEME_GLYPHS,
-  ThemeIcon,
   type ThemePref,
   useFieldEditor,
   useGraphRead,
@@ -17,7 +15,7 @@ import {
   useDismiss,
 } from "@kb/ui-sdk";
 import { useRef, type ReactNode } from "react";
-import { ArrowsHorizontalIcon, PuzzlePieceIcon } from "@phosphor-icons/react";
+import { ArrowsHorizontalIcon, GearSixIcon } from "@phosphor-icons/react";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -31,21 +29,15 @@ const WIDTH_OPTIONS: readonly EnumOption<WidthPref>[] = [
   { value: "full", label: "full" },
 ];
 
-/** Off first: an optional extension is off until it is switched on. */
-const PLUGIN_OPTIONS: readonly EnumOption<"off" | "on">[] = [
-  { value: "off", label: "off" },
-  { value: "on", label: "on" },
-];
-
 /** What marks Preferences' trigger, which the popover counts as its own. */
 const TRIGGER = "data-preferences-trigger";
 
 /**
  * The header's Preferences button: the popover's trigger, whose click opens
- * it and, while it is open, closes it. It wears the device theme's glyph.
+ * it and, while it is open, closes it. It wears a neutral gear: the theme is
+ * one setting among the appearance it opens, not what the button is.
  */
 export function PreferencesTrigger() {
-  const theme = usePrefsStore((s) => s.theme);
   const open = useUiStore((s) => s.prefsOpen);
   const setOpen = useUiStore((s) => s.setPrefsOpen);
   return (
@@ -58,20 +50,17 @@ export function PreferencesTrigger() {
       {...{ [TRIGGER]: "true" }}
       onClick={() => setOpen(!open)}
     >
-      <ThemeIcon theme={theme} size={15} />
+      <GearSixIcon size={15} />
     </button>
   );
 }
 
-export function PreferencesPopover({
-  switches,
-  onSwitch,
-}: {
-  /** The optional extensions, one on/off row each; none, no section. */
-  switches: readonly ExtensionSwitch[];
-  /** Ask for one switched on or off; the row shows what the server then reports. */
-  onSwitch: (name: string, on: boolean) => void;
-}) {
+/**
+ * Preferences: how the page looks, and nothing else. The device's theme and
+ * width, and core's design system and backdrop. What the kb composes, and
+ * each family's settings, are the Extensions panel's.
+ */
+export function PreferencesPopover() {
   const open = useUiStore((s) => s.prefsOpen);
   const setOpen = useUiStore((s) => s.setPrefsOpen);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -86,16 +75,6 @@ export function PreferencesPopover({
       <DesignSystemRows />
       <WidthRow />
       <BackdropRows />
-      {switches.length > 0 ? (
-        <section aria-label="plugins">
-          <h3 className="px-1.5 pb-1 pt-2 text-meta uppercase tracking-wide text-foreground/30">
-            plugins
-          </h3>
-          {switches.map((entry) => (
-            <PluginRow key={entry.name} entry={entry} onSwitch={onSwitch} />
-          ))}
-        </section>
-      ) : null}
     </PopoverShell>
   );
 }
@@ -186,26 +165,5 @@ function BackdropRows() {
         ? setting(SYSTEM_IDS.backdropDirectionField, "direction")
         : null}
     </section>
-  );
-}
-
-function PluginRow({
-  entry,
-  onSwitch,
-}: {
-  entry: ExtensionSwitch;
-  onSwitch: (name: string, on: boolean) => void;
-}) {
-  const { name } = entry;
-  return (
-    <PrefFieldRow icon={PuzzlePieceIcon} label={entry.label}>
-      <EnumSelect
-        className={POPOVER_VALUE_CLASS}
-        value={entry.on ? "on" : "off"}
-        options={PLUGIN_OPTIONS}
-        testId={`plugin-${name}`}
-        onChange={(next) => onSwitch(name, next === "on")}
-      />
-    </PrefFieldRow>
   );
 }

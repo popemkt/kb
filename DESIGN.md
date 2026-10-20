@@ -2786,7 +2786,7 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     report, so switching the agent takes effect live and switching it back
     restores it. There is no flag: `kb ui` always hands the agent over,
     and the store says whether it is hosted. A family the host composes is
-    switched where that host runs (the page's Preferences, or a call to
+    switched where that host runs (the page's Extensions panel, or a call to
     the `kb ui` server); a process that composes no agent does not list it.
   - **The data stays.** Switching a family writes only its switch node: its
     nodes and its seed are untouched, and a view of it opens as

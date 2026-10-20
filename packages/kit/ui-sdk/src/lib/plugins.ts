@@ -379,17 +379,6 @@ export function chosenDeclared<T extends Keyed>(
 const uiKernel = makeKernel();
 
 /**
- * An optional extension the person switches on and off (Preferences →
- * plugins), by its name, as the server reports it: `on` is whether the
- * server has it loaded, and `label` is how the row names it.
- */
-export interface ExtensionSwitch {
-  readonly name: string;
-  readonly label: string;
-  readonly on: boolean;
-}
-
-/**
  * Converge the UI kernel on exactly `plugins` (`syncPlugins`, the one
  * convergence every host uses): a top-level plugin no longer listed unloads,
  * and its routes, views and sidebar section go with it, live. A plugin that

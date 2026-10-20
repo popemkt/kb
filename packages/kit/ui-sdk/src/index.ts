@@ -107,7 +107,6 @@ export {
   type PageActivity,
   type Dock,
   DockPoint,
-  type ExtensionSwitch,
   familyViews,
   findView,
   type MatchedRoute,

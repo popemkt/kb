@@ -17,7 +17,6 @@
  * serves at the path its row names, imported beside them.
  */
 import * as React from "react";
-import { useSyncExternalStore } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as zod from "zod";
 import { ulid } from "ulid";
@@ -65,7 +64,7 @@ import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { extensionsUiPlugin } from "@/components/prefs/extensions-plugin";
 import * as uiSdk from "@kb/ui-sdk";
-import { logWarn, syncUiPlugins, type ExtensionSwitch } from "@kb/ui-sdk";
+import { logWarn, syncUiPlugins } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
 import { invokeSettled } from "@/session/runtime";
@@ -239,33 +238,6 @@ async function importPageHalf(path: string): Promise<Plugin> {
       : undefined;
   if (isPlugin(entry)) return entry;
   throw new Error(`its page half at ${path} default-exports no plugin`);
-}
-
-/**
- * The switches for these rows: each optional family the server reports, on
- * as it reports it. Whether the family has a browser half does not matter:
- * the switch is the server's, and Preferences is where a person reaches it.
- */
-function switchesFor(rows: readonly ExtensionRow[]): readonly ExtensionSwitch[] {
-  return rows
-    .filter((row) => row.optional)
-    .map(({ name, label, enabled }) => ({ name, label, on: enabled }));
-}
-
-let switchesMemo: {
-  rows: readonly ExtensionRow[];
-  switches: readonly ExtensionSwitch[];
-} | null = null;
-
-function currentSwitches(): readonly ExtensionSwitch[] {
-  const rows = followedExtensions();
-  if (switchesMemo?.rows !== rows) switchesMemo = { rows, switches: switchesFor(rows) };
-  return switchesMemo.switches;
-}
-
-/** The switches Preferences offers now, re-read when the server's report moves. */
-export function useExtensionSwitches(): readonly ExtensionSwitch[] {
-  return useSyncExternalStore(subscribeManifest, currentSwitches, currentSwitches);
 }
 
 /** Load one family's browser entry, held to the name it was resolved by. */

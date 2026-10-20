@@ -2325,17 +2325,18 @@ There is one mechanism, not a second path beside the core plugins:
   resolver has. Until a server answers, the page reads the bundled list as
   a server over a store with no switch written, so each family is as it is
   by default and no agent is reported.
-- Preferences → plugins has one on/off row per optional extension the
-  server reports, showing what it reports. Choosing calls
-  `extension.switch` and reads the manifest again; the row shows the
+- The Extensions panel ([Extensions panel](#extensions-panel)) has one
+  on/off switch per optional extension the server reports, showing what it
+  reports. Choosing calls
+  `extension.switch` and reads the manifest again; the switch shows the
   server's answer, never the choice. A switch written anywhere else (another
   tab, the CLI) reaches the page's graph, and the page reads the manifest
   again.
 - **The `enabledPlugins` preference is gone.** It used to keep the lab and
   the agent on per device, in `localStorage["kb-prefs"]`; a stale key is
   ignored on read and dropped on the next write. A browser that had the
-  lab on sees it off until it is switched on for the kb, from Preferences
-  or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
+  lab on sees it off until it is switched on for the kb, from the
+  Extensions panel or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
   The agent needs nothing: it is on by default, and switched like the rest.
 - **Until a server answers, the workspace waits.** A page served by `kb ui`
   opens its workspace only once the manifest has landed and the plugins it
@@ -2359,6 +2360,10 @@ There is one mechanism, not a second path beside the core plugins:
 The Extensions panel (`/extensions`, `ExtensionsView`) is where a person
 sees and changes what the kb composes. The sidebar's Extensions row and
 ⌘K's Extensions command open it.
+Preferences (the header's gear, and ⌘K's Preferences) is the page's
+appearance and nothing else: theme, width, design system and backdrop.
+Its trigger wears a neutral gear, not the theme's glyph, because the theme
+is one setting among those it opens.
 
 - **It draws one report.** The server's half is `extension.list`, which is
   also what `kb ext list` prints, and `extension.footprint`
@@ -2368,7 +2373,7 @@ sees and changes what the kb composes. The sidebar's Extensions row and
   nothing a CLI caller could not read (`lib/extension-report.ts`).
 - **Per extension**, it shows:
   - its switch when it is optional, which calls `extension.switch` and then
-    shows what the server reports, as before; otherwise `required`;
+    shows what the server reports; otherwise `required`;
   - its trust: part of kb's build, composed by `kb ui`, or trusted at a
     digest from a repository path;
   - its tags;
@@ -2403,8 +2408,8 @@ the shell.
   - `syncUiPlugins` converges the page kernel on the core plugins, plus the
     browser entry of every family `kb.manifest.extensions` reports as
     enabled that the resolver has.
-  - The Preferences row for an optional family writes the server-side
-    setting, and the page follows the manifest. A page served without a
+  - The Extensions panel's switch for an optional family writes the
+    server-side setting, and the page follows the manifest. A page served without a
     family therefore never offers that family's UI.
 - **One `load` shape for every source.** A bundled family's `load` is a
   static import for a family that is always on, and `import()` for an

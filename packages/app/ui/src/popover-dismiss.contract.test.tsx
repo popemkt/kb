@@ -26,7 +26,7 @@ dismissContract({
       host,
       <>
         <PreferencesTrigger />
-        <PreferencesPopover switches={[]} onSwitch={noop} />
+        <PreferencesPopover />
       </>,
       find('[role="dialog"][aria-label="Preferences"]'),
       trigger('button[data-preferences-trigger="true"]'),
