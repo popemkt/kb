@@ -6,7 +6,6 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import {
-  declaredDecision,
   failed,
   type ActionInvocation,
   type ActionReceipt,
@@ -24,6 +23,7 @@ import {
   type ModelContext,
   type WebMcpOptions,
 } from "../src/index.ts";
+import { declaredDecision } from "@kb/governance";
 
 function entry(id: string, mode: ManifestEntry["mode"]): ManifestEntry {
   return {

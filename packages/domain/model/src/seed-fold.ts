@@ -41,6 +41,13 @@ export interface SeedSource {
   readonly label: string;
   readonly seed?: (at: string) => readonly KbNode[];
   readonly views?: readonly { readonly key: SeedView }[];
+  /**
+   * Its own seed nodes it files under another source's list node, by that
+   * list's id: the fold appends each id to the list's children, after those
+   * it already has, in source order. A pin among the Pinned, a view node
+   * among the Views. The nodes stay this source's.
+   */
+  readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   /** The declared options it contributes, by kind; the fold derives each one's option node. */
   readonly declaredOptions?: readonly DeclaredOptionSet[];
   /**
@@ -146,6 +153,38 @@ function extensionNode(source: SeedSource, at: string): KbNode {
 }
 
 /**
+ * `nodes` with each source's `files` appended to the children of the list
+ * node it names. A list no source declares, or a filed id that is not one
+ * of the filing source's own seed nodes, is a bundling defect, so it
+ * throws.
+ */
+function withFiled(
+  nodes: readonly KbNode[],
+  parts: readonly {
+    readonly name: string;
+    readonly seed: readonly KbNode[];
+    readonly files: SeedSource["files"];
+  }[],
+): KbNode[] {
+  const filed = new Map<NodeId, NodeId[]>();
+  for (const { name, seed, files } of parts) {
+    const own = new Set(seed.map((node) => node.id));
+    for (const [list, ids] of Object.entries(files ?? {})) {
+      const stray = ids.find((id) => !own.has(id));
+      if (stray !== undefined) throw new Error(`${name} files ${stray}, which it does not seed`);
+      filed.set(list, [...(filed.get(list) ?? []), ...ids]);
+    }
+  }
+  for (const list of filed.keys()) {
+    if (!nodes.some((node) => node.id === list)) throw new Error(`no seed source declares ${list}`);
+  }
+  return nodes.map((node) => {
+    const ids = filed.get(node.id);
+    return ids === undefined ? node : { ...node, children: [...node.children, ...ids] };
+  });
+}
+
+/**
  * `nodes` with `derived` filed under the list node `rootId`, after the
  * children it already has, and placed right after it.
  */
@@ -191,12 +230,16 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   const parts = sources.map((source) => ({
     name: source.name,
     seed: source.seed?.(at) ?? [],
+    files: source.files,
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
     declared: kinds.map((kind) => declaredOf(source, kind, at)),
     own: extensionNode(source, at),
   }));
   const withViews = fileUnder(
-    parts.flatMap((part) => part.seed),
+    withFiled(
+      parts.flatMap((part) => part.seed),
+      parts,
+    ),
     SYSTEM_IDS.viewsRoot,
     parts.flatMap((part) => part.options),
   );

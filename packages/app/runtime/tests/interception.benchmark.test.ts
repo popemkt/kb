@@ -7,7 +7,7 @@
  */
 import { describe, test } from "bun:test";
 import { Effect } from "effect";
-import type { ActionGuard, ApprovalCall, Listener } from "@kb/contracts";
+import type { ActionGuard, CalledAction, Listener } from "@kb/contracts";
 import { matchSpecificity } from "@kb/model";
 import { interceptionOf } from "@kb/operations";
 import { writeOut } from "../src/output.ts";
@@ -31,7 +31,7 @@ function listeners(): Listener<ActionGuard>[] {
   }));
 }
 
-function actions(): ApprovalCall["action"][] {
+function actions(): CalledAction[] {
   return Array.from({ length: ACTIONS }, (_, i) => ({
     id: `ext.f${i % 50}.a${i}`,
     mode: { kind: i % 3 === 0 ? "write" : "read" },

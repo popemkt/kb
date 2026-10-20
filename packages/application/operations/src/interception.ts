@@ -27,7 +27,7 @@ import {
   type ActionGuard,
   type ActionInterceptor,
   type ActionInvocation,
-  type ApprovalCall,
+  type CalledAction,
   type CommitCall,
   type GuardCall,
   type GuardVerdict,
@@ -38,7 +38,7 @@ import {
 import { domainError, matchSpecificity, type DomainError } from "@kb/model";
 import type { Contribution, Kernel } from "@kb/plugin";
 
-type Action = ApprovalCall["action"];
+type Action = CalledAction;
 
 /** Whether `match` names `action`, or, for a batch, any of the actions it is a batch of. */
 function matches(match: string, action: Action): boolean {

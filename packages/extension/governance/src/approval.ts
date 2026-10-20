@@ -1,16 +1,14 @@
 import { Effect } from "effect";
+import type { ActionGuard, ActionInvocation, GuardVerdict, KbContext } from "@kb/contracts";
+import { actsAsOwner } from "@kb/model";
+import type { KbIndex } from "@kb/query";
+import { approvalPoliciesOf, type ApprovalPolicy } from "./policy.ts";
 import {
   approvalRefusal,
   resolveApproval,
-  type ActionGuard,
-  type ActionInvocation,
   type ApprovalCall,
   type ApprovalResolution,
-  type GuardVerdict,
-  type KbContext,
-} from "@kb/contracts";
-import { actsAsOwner, approvalPoliciesOf, type ApprovalPolicy } from "@kb/model";
-import type { KbIndex } from "@kb/query";
+} from "./resolve.ts";
 
 /**
  * The policies a session holds, read once per index generation: every write

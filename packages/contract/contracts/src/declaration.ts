@@ -8,7 +8,7 @@
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { DeclaredOptionSet, KbNode } from "@kb/model";
+import type { DeclaredOptionSet, KbNode, NodeId } from "@kb/model";
 import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -33,6 +33,12 @@ export interface ExtensionDeclaration {
    * plugin contributes none.
    */
   readonly seed?: (at: string) => readonly KbNode[];
+  /**
+   * Its own seed nodes it files under core's list nodes, by the list's id
+   * (`SeedSource.files`): a pin among the Pinned, a view node among the
+   * Views.
+   */
+  readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   /** The views the family provides; the seed derives each one's option node from its key. */
   readonly views?: readonly ViewDef<unknown>[];
   /**

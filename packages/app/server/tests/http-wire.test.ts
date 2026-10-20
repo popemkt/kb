@@ -13,10 +13,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { PAGE_TOKEN_HEADER, pageProtocols, type ServerMessage } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/model";
 import { SANDBOX_FRAME_PATH } from "@kb/sandbox";
 import { FAKE_TAB_SCREEN } from "@kb/test-kit";
 import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
+import { GOVERNANCE_IDS } from "@kb/governance";
 
 let root = "";
 let handle: UiServerHandle;
@@ -68,7 +68,7 @@ async function post(body: unknown, from: From) {
 /** A write that always needs a person behind it: a new approval policy. */
 const policy = (text: string) => ({
   id: "node.add",
-  input: { text, tags: [SYSTEM_IDS.approvalPolicyTag] },
+  input: { text, tags: [GOVERNANCE_IDS.policyTag] },
 });
 
 /** A `/ws` connection offering `protocols`: the frames it is answered, or why it did not open. */

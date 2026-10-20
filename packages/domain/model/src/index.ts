@@ -1,17 +1,5 @@
-export {
-  ACTORS,
-  ACTOR_OPTION_IDS,
-  APPROVAL_DECISIONS,
-  APPROVAL_POLICIES_QUERY,
-  DECISION_OPTION_IDS,
-  actsAsOwner,
-  delegatedDecision,
-  approvalPoliciesOf,
-  approvalPolicyNode,
-  stricterDecision,
-  writesApprovalPolicy,
-} from "./approval-policy.ts";
-export type { Actor, ApprovalDecision, ApprovalPolicy, NodeWrite } from "./approval-policy.ts";
+export { ACTORS, actsAsOwner } from "./actor.ts";
+export type { Actor, OwnerActor } from "./actor.ts";
 export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
 export { byNodeId, canonicalJson, canonicalJsonl } from "./canonical.ts";
 export {
@@ -51,14 +39,13 @@ export type { Cardinality, FieldType } from "./field-type.ts";
 export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
 export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.ts";
 export {
+  changedFields,
   configures,
+  configuresAnExtension,
   isWritableField,
-  configurationShown,
   systemTxRefusal,
-  type ShownConfiguration,
-  type ShownSetting,
   systemWriteRefusal,
-  writesConfiguration,
+  type NodeWrite,
 } from "./system-write.ts";
 export { parseSecretRef, secretRefLabel } from "./secret-ref.ts";
 export type { SecretRef } from "./secret-ref.ts";

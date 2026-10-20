@@ -98,6 +98,32 @@ describe("bundled seed", () => {
     expect(named).toBe(viewOptionId("outline.main"));
   });
 
+  test("a declaration files its own nodes among core's lists, and only its own", () => {
+    const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
+    for (const declaration of BUNDLED_DECLARATIONS) {
+      for (const [list, ids] of Object.entries(declaration.files ?? {})) {
+        expect(seed.get(list)?.children).toEqual(expect.arrayContaining([...ids]));
+      }
+    }
+    const stray = {
+      name: "stray",
+      label: "Stray",
+      files: { [SYSTEM_IDS.pinnedRoot]: ["n.not-mine"] },
+    };
+    expect(() => foldSeed([...BUNDLED_DECLARATIONS, stray], AT)).toThrow("which it does not seed");
+    const nowhere = {
+      name: "nowhere",
+      label: "Nowhere",
+      seed: (at: string) => [
+        { id: "n.mine", text: "", props: {}, children: [], createdAt: at, updatedAt: at },
+      ],
+      files: { "list.absent": ["n.mine"] },
+    };
+    expect(() => foldSeed([...BUNDLED_DECLARATIONS, nowhere], AT)).toThrow(
+      "no seed source declares list.absent",
+    );
+  });
+
   test("an id two declarations claim is refused", () => {
     expect(() => foldSeed([...BUNDLED_DECLARATIONS, ...BUNDLED_DECLARATIONS], AT)).toThrow(
       /declared twice/,

@@ -91,6 +91,7 @@ const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
 export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
+  // GAP [[01M5C3YK8P5FWDKFD7D7ERFXDH]]
   if (root === null) return { families: BUNDLED, declarations: BUNDLED_DECLARATIONS, failures: [] };
   let reading = closureCache.get(root);
   if (reading === undefined) {

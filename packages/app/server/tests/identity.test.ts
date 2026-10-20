@@ -14,7 +14,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { PAGE_TOKEN_HEADER, type IdentityProvider, type ServerMessage } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/model";
 import { identifyBy } from "../src/auth.ts";
 import {
   identityHeaderIdentity,
@@ -22,6 +21,7 @@ import {
   startUi,
   type UiServerHandle,
 } from "../src/index.ts";
+import { GOVERNANCE_IDS } from "@kb/governance";
 
 const HEADER = "Tailscale-User-Login";
 const OWNER = "owner@example.com";
@@ -52,7 +52,7 @@ afterAll(async () => {
 /** A write that always needs a person behind it, approved as the page approves one. */
 const approvedPolicy = {
   id: "node.add",
-  input: { text: "allow everything", tags: [SYSTEM_IDS.approvalPolicyTag] },
+  input: { text: "allow everything", tags: [GOVERNANCE_IDS.policyTag] },
   actor: "agent",
   approved: true,
 };

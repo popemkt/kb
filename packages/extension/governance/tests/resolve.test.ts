@@ -5,22 +5,15 @@
  * That every surface reaches the same outcome is the surface contract's.
  */
 import { describe, expect, test } from "bun:test";
+import { SYSTEM_IDS, extensionNodeId, type Actor, type KbNode, type NodeWrite } from "@kb/model";
+import { listedOn, type ActionMode, type SurfaceWire } from "@kb/contracts";
 import {
   ACTOR_OPTION_IDS,
-  SYSTEM_IDS,
+  GOVERNANCE_IDS,
   approvalPolicyNode,
-  extensionNodeId,
-  type Actor,
-  type ApprovalPolicy,
-  type KbNode,
-  type NodeWrite,
-} from "@kb/model";
-import {
   approvalRefusal,
-  listedOn,
   resolveApproval,
-  type ActionMode,
-  type SurfaceWire,
+  type ApprovalPolicy,
 } from "../src/index.ts";
 
 const WRITE: ActionMode = { kind: "write" };
@@ -151,7 +144,7 @@ describe("resolveApproval", () => {
         after: approvalPolicyNode(node("n.x"), { match: "*", actor: null, decision: "allow" }),
       },
       option: { before: node(ACTOR_OPTION_IDS.agent), after: node(ACTOR_OPTION_IDS.agent) },
-      field: { before: node(SYSTEM_IDS.approvalDecisionField), after: undefined },
+      field: { before: node(GOVERNANCE_IDS.decisionField), after: undefined },
     };
     for (const [kind, write] of Object.entries(writes)) {
       expect({ kind, ...decide(allowAll, "node.update", WRITE, "agent", [write]) }).toEqual({

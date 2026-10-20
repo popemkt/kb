@@ -2,7 +2,7 @@ import { Context, Effect } from "effect";
 import { Point, type PluginContext, type PluginError } from "@kb/plugin";
 import type { NodeId, NodeLike, NodeWrite } from "@kb/model";
 import type { ActionInvocation } from "./actions.ts";
-import type { ApprovalCall } from "./approval.ts";
+import type { CalledAction } from "./approval.ts";
 import type { KbContext } from "./session.ts";
 
 /**
@@ -41,7 +41,7 @@ export interface GuardCall {
   /** The invocation as it will run (after every interceptor), made by its actor. */
   readonly invocation: ActionInvocation;
   /** The action it invokes, with its mode and a batch's parts. */
-  readonly action: ApprovalCall["action"];
+  readonly action: CalledAction;
   /**
    * `invoke` for a call about to run; `list` when a surface asks what would
    * be decided about its caller's call, to list the action (`kb.manifest`),
@@ -73,7 +73,7 @@ export interface ActionGuard {
 export interface InterceptedCall {
   readonly ctx: KbContext;
   readonly invocation: ActionInvocation;
-  readonly action: ApprovalCall["action"];
+  readonly action: CalledAction;
   readonly signal: AbortSignal;
 }
 
@@ -107,8 +107,8 @@ export interface Listener<L> {
  * is there to ask.
  */
 export interface Interception {
-  readonly guards: (action: ApprovalCall["action"]) => readonly Listener<ActionGuard>[];
-  readonly interceptors: (action: ApprovalCall["action"]) => readonly Listener<ActionInterceptor>[];
+  readonly guards: (action: CalledAction) => readonly Listener<ActionGuard>[];
+  readonly interceptors: (action: CalledAction) => readonly Listener<ActionInterceptor>[];
   /**
    * The plugins whose guards the deployment requires and that are not
    * applied right now (loading, failed, or going): while any is, every call

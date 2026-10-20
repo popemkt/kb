@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@kb/bundled": "workspace:*",
+    "@kb/governance": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"

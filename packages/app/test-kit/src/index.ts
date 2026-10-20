@@ -25,6 +25,8 @@ export type {
   ActionSurface,
   ListedAction,
   LiveUi,
+  PolicyInput,
+  RootPolicy,
   ServeUi,
   SurfaceFactory,
   SurfaceSet,

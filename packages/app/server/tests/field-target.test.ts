@@ -34,6 +34,7 @@ import {
 } from "@kb/model";
 import { DatascriptIndex, derivedWith } from "@kb/query";
 import { bundledSeed } from "@kb/bundled";
+import { GOVERNANCE_IDS } from "@kb/governance";
 
 const AT = "2026-08-24T00:00:00.000Z";
 
@@ -81,7 +82,7 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
     expect(seededTagIds.length).toBeGreaterThan(0);
     expect(seededTagIds.every((id) => id.startsWith("sys."))).toBe(true);
     expect(seededTagIds).toContain(SYSTEM_IDS.ontologyTag);
-    expect(seededTagIds).toContain(SYSTEM_IDS.approvalPolicyTag);
+    expect(seededTagIds).toContain(GOVERNANCE_IDS.policyTag);
   });
 
   test("a kind is not an instance of itself, and fields are not tags", () => {

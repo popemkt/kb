@@ -1986,7 +1986,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     - Without a provider, a call has no listeners.
 - **Approval** is the governance family's guard (`@kb/governance`; core
   contributes no guard). It decides in one place, one resolver
-  (`resolveApproval` in `@kb/contracts`), asked by that guard on the guard
+  (`resolveApproval` in `@kb/governance`), asked by that guard on the guard
   point before anything runs
   (roadmap decision 13 in
   `docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). What it
@@ -2556,14 +2556,22 @@ Core contributes no guard. With none, every call proceeds.
 - The setting is process-wide, set by the CLI before any registry is
   composed (`deployGovernance`, `app/runtime/src/deployment.ts`).
 
-**What is not moved yet.** The governance family owns the behaviour. The
-policy vocabulary (`approval-policy.ts`), the resolver (`resolveApproval`,
-`writesConfiguration`) and the policy seed (the `#approval-policy` tag and
-its fields, the query, view and pin, the default policies,
-`ExtensionDeclaration.policies`) still live in `@kb/model` and
-`@kb/contracts`. So every store still seeds policy nodes, which are inert
-when governance is off (`// GAP [[01M5C3YK8P5FWDKFD7D7ERFXDH]]` in the
-family's `extension.ts`).
+**The family owns all of it.** Its guards, and what they read: the policy
+vocabulary (`GOVERNANCE_IDS`, the actor and decision option ids, the
+policy reader, `policy.ts`), the resolver (`resolveApproval`,
+`approvalRefusal`, `writesConfiguration`, `resolve.ts`) and the policy seed
+(the `#approval-policy` tag and its fields, their options, the default
+policies, the query node, its table and its pin, `seed.ts`), which the fold
+files among core's Views and Pinned lists by the declaration's `files`.
+Core keeps only what every call has whoever governs it: who makes it
+(`Actor`, `actsAsOwner`, `@kb/model`), what can be decided about it and
+whether a person stands behind it (`APPROVAL_DECISIONS`, `hasPerson`,
+`@kb/contracts`). No core package and no contract suite names a policy:
+the surface contract reads what is decided about each caller through the
+invoke core's own `kb.manifest`, and the composition that runs it says how
+a policy is written (`SurfaceSet.policy`). The fold still seeds the
+family's nodes whatever the deployment composes
+(`// GAP [[01M5C3YK8P5FWDKFD7D7ERFXDH]]` in `app/runtime/src/families.ts`).
 
 **The approval card** stays where it is drawn: the agent dock and the
 sandbox runner. Only governance's guards ask, so without governance no

@@ -1,46 +1,56 @@
 /**
- * The vocabulary of approval (DESIGN.md → Action registry → Approval): who
- * makes a call, what can be decided about it, and the `#approval-policy`
- * nodes that decide. Stated once, here, because both the store (the seeded
- * tag, fields and option nodes) and the invoke core (which reads a call's
- * actor and the policies) speak it.
+ * The vocabulary of approval policies (DESIGN.md → Governance): the
+ * `#approval-policy` nodes that decide about a call, the option nodes they
+ * name an actor and a decision by, and what a write to them is. The
+ * governance family's own: its seed writes them and its guard reads them,
+ * so a composition without the family has neither.
  */
-import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
+import {
+  ACTORS,
+  SYSTEM_IDS,
+  actsAsOwner,
+  type Actor,
+  type KbNode,
+  type NodeId,
+  type NodeWrite,
+} from "@kb/model";
+import { APPROVAL_DECISIONS, type ApprovalDecision } from "@kb/contracts";
 
 /**
- * Who makes a call, as the caller declares it — like `approved`, a statement
- * and not a proof. `human` is a person's own gesture in the UI, `agent` is a
- * model acting for one (the sidebar agent, MCP, WebMCP), `cli` is the
- * command line, which a person and an agent both use, and `script` is code
- * running in the sandbox (a code view), whoever wrote it — never a person,
- * so it never answers a call that asks (DESIGN.md → Sandbox).
+ * The governance family's node ids (DESIGN.md → Extension families → Ids
+ * are frozen data): an ordinary node tagged `#approval-policy` says what is
+ * decided about a call. `match` names the actions (str, one), `actor` who
+ * calls (a ref to one of its option children; absent means every actor),
+ * `decision` what happens (a ref to one of its option children).
  */
-export const ACTORS = ["human", "agent", "cli", "script"] as const;
-export type Actor = (typeof ACTORS)[number];
-
-/**
- * The actors that act as the store's owner: a person's gesture, and the
- * command line, which runs with the owner's own shell, so whoever runs it
- * already holds what the owner holds. An agent and sandboxed code act for
- * the owner and never hold the owner's capabilities: they may not set
- * `force`, and they make a governing write only as
- * {@link delegatedDecision} says (DESIGN.md → Action registry →
- * Approval).
- */
-type OwnerActor = "human" | "cli";
-const OWNER_ACTORS: ReadonlySet<Actor> = new Set<OwnerActor>(["human", "cli"]);
-
-/** Whether a call by `actor` acts as the owner: it is the person, or their own command line. */
-export function actsAsOwner(actor: Actor): actor is OwnerActor {
-  return OWNER_ACTORS.has(actor);
-}
+export const GOVERNANCE_IDS = {
+  policyTag: "sys.tag.approval-policy",
+  matchField: "sys.f.approval.match",
+  actorField: "sys.f.approval.actor",
+  decisionField: "sys.f.approval.decision",
+  /**
+   * Where the seeded default policies are filed: a query node over every
+   * `#approval-policy` node, so a policy filed anywhere shows there too.
+   * User-editable (NOT sys-prefixed): its view and its children are the
+   * person's to arrange.
+   */
+  policies: "approval.policies",
+  /**
+   * How the policies are managed: a table view node over that query's
+   * results, filed in the Views list and named by the query node, and the
+   * contextual reference that pins the query node in the sidebar. Both
+   * user-editable, as every view node and every pin is.
+   */
+  policiesView: "view.approval.policies",
+  policiesPin: "pin.approval.policies",
+} as const;
 
 /**
  * What a governing write needs from a caller acting for the owner: an agent
  * asks the owner first, and sandboxed code, which runs what no person wrote
  * for this, never makes it.
  */
-const DELEGATED: Readonly<Record<Exclude<Actor, OwnerActor>, ApprovalDecision>> = {
+const DELEGATED: Readonly<Record<Exclude<Actor, "human" | "cli">, ApprovalDecision>> = {
   agent: "ask",
   script: "deny",
 };
@@ -54,14 +64,6 @@ const DELEGATED: Readonly<Record<Exclude<Actor, OwnerActor>, ApprovalDecision>> 
 export function delegatedDecision(actor: Actor): ApprovalDecision {
   return actsAsOwner(actor) ? "allow" : DELEGATED[actor];
 }
-
-/**
- * What is decided about a call, from least to most restrictive: it runs, it
- * runs once a person approves it, or it never runs. The order is the one the
- * resolver compares decisions by.
- */
-export const APPROVAL_DECISIONS = ["allow", "ask", "deny"] as const;
-export type ApprovalDecision = (typeof APPROVAL_DECISIONS)[number];
 
 /** The stricter of two decisions. */
 export function stricterDecision(a: ApprovalDecision, b: ApprovalDecision): ApprovalDecision {
@@ -102,7 +104,7 @@ function firstRef(node: KbNode, field: NodeId): NodeId | undefined {
 
 function isPolicyNode(node: KbNode): boolean {
   return (node.props[SYSTEM_IDS.typeField] ?? []).some(
-    (value) => value.t === "ref" && value.v === SYSTEM_IDS.approvalPolicyTag,
+    (value) => value.t === "ref" && value.v === GOVERNANCE_IDS.policyTag,
   );
 }
 
@@ -116,12 +118,12 @@ export function approvalPoliciesOf(nodes: Iterable<KbNode>): ApprovalPolicy[] {
   const policies: ApprovalPolicy[] = [];
   for (const node of nodes) {
     if (!isPolicyNode(node)) continue;
-    const match = node.props[SYSTEM_IDS.approvalMatchField]
+    const match = node.props[GOVERNANCE_IDS.matchField]
       ?.find((value) => value.t === "str")
       ?.v.trim();
-    const decisionRef = firstRef(node, SYSTEM_IDS.approvalDecisionField);
+    const decisionRef = firstRef(node, GOVERNANCE_IDS.decisionField);
     const decision = APPROVAL_DECISIONS.find((value) => DECISION_OPTION_IDS[value] === decisionRef);
-    const actorRef = firstRef(node, SYSTEM_IDS.approvalActorField);
+    const actorRef = firstRef(node, GOVERNANCE_IDS.actorField);
     const actor =
       actorRef === undefined ? null : ACTORS.find((value) => ACTOR_OPTION_IDS[value] === actorRef);
     if (match === undefined || match === "" || decision === undefined || actor === undefined) {
@@ -132,18 +134,12 @@ export function approvalPoliciesOf(nodes: Iterable<KbNode>): ApprovalPolicy[] {
   return policies;
 }
 
-/** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
-export interface NodeWrite {
-  readonly before: KbNode | undefined;
-  readonly after: KbNode | undefined;
-}
-
 /** The tag, the fields and the option nodes every policy is written in. */
 const APPROVAL_VOCABULARY: ReadonlySet<NodeId> = new Set([
-  SYSTEM_IDS.approvalPolicyTag,
-  SYSTEM_IDS.approvalMatchField,
-  SYSTEM_IDS.approvalActorField,
-  SYSTEM_IDS.approvalDecisionField,
+  GOVERNANCE_IDS.policyTag,
+  GOVERNANCE_IDS.matchField,
+  GOVERNANCE_IDS.actorField,
+  GOVERNANCE_IDS.decisionField,
   ...Object.values(ACTOR_OPTION_IDS),
   ...Object.values(DECISION_OPTION_IDS),
 ]);
@@ -160,7 +156,7 @@ export function writesApprovalPolicy(write: NodeWrite): boolean {
 }
 
 /** The datalog query for every `#approval-policy` node, as a query node runs it. */
-export const APPROVAL_POLICIES_QUERY = `[:find ?id :where [?n :f/${SYSTEM_IDS.typeField} ?t] [?t :node/id "${SYSTEM_IDS.approvalPolicyTag}"] [?n :node/id ?id]]`;
+export const APPROVAL_POLICIES_QUERY = `[:find ?id :where [?n :f/${SYSTEM_IDS.typeField} ?t] [?t :node/id "${GOVERNANCE_IDS.policyTag}"] [?n :node/id ?id]]`;
 
 /** A policy node, as the seed writes its defaults. */
 export function approvalPolicyNode(base: KbNode, policy: Omit<ApprovalPolicy, "id">): KbNode {
@@ -168,12 +164,12 @@ export function approvalPolicyNode(base: KbNode, policy: Omit<ApprovalPolicy, "i
     ...base,
     props: {
       ...base.props,
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.approvalPolicyTag }],
-      [SYSTEM_IDS.approvalMatchField]: [{ t: "str", v: policy.match }],
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: GOVERNANCE_IDS.policyTag }],
+      [GOVERNANCE_IDS.matchField]: [{ t: "str", v: policy.match }],
       ...(policy.actor === null
         ? {}
-        : { [SYSTEM_IDS.approvalActorField]: [{ t: "ref", v: ACTOR_OPTION_IDS[policy.actor] }] }),
-      [SYSTEM_IDS.approvalDecisionField]: [{ t: "ref", v: DECISION_OPTION_IDS[policy.decision] }],
+        : { [GOVERNANCE_IDS.actorField]: [{ t: "ref", v: ACTOR_OPTION_IDS[policy.actor] }] }),
+      [GOVERNANCE_IDS.decisionField]: [{ t: "ref", v: DECISION_OPTION_IDS[policy.decision] }],
     },
   };
 }

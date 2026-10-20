@@ -23,8 +23,13 @@
  * edit only where the write would land.
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
-import type { NodeWrite } from "./approval-policy.ts";
-import { refValuesOf, typeRefsOf, type NodeLike } from "./ontology.ts";
+import { refValuesOf, type NodeLike } from "./ontology.ts";
+
+/** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
+export interface NodeWrite {
+  readonly before: KbNode | undefined;
+  readonly after: KbNode | undefined;
+}
 
 /** How a write finds the nodes it is checked against: the graph before it. */
 export type NodeOf = (id: NodeId) => Pick<NodeLike, "props"> | undefined;
@@ -52,7 +57,10 @@ export function configures(
  * that does is a setting; a tag that does is a kind whose nodes are that
  * extension's configuration (the agent's `#agent-provider`).
  */
-function configuresAnExtension(id: NodeId, node: Pick<NodeLike, "props"> | undefined): boolean {
+export function configuresAnExtension(
+  id: NodeId,
+  node: Pick<NodeLike, "props"> | undefined,
+): boolean {
   if (!isSysPrefixed(id)) return false;
   return refValuesOf(node, SYSTEM_IDS.configuresField).some(
     (target) => target === SYSTEM_IDS.extensionsRoot || isExtensionNodeId(target),
@@ -67,29 +75,9 @@ function sameValues(
 }
 
 /** The fields whose values differ between `before` and `after`. */
-function changedFields(before: KbNode | undefined, after: KbNode | undefined): string[] {
+export function changedFields(before: KbNode | undefined, after: KbNode | undefined): string[] {
   const fields = new Set([...Object.keys(before?.props ?? {}), ...Object.keys(after?.props ?? {})]);
   return [...fields].filter((field) => !sameValues(before?.props[field], after?.props[field]));
-}
-
-/**
- * Whether a write changes an extension's configuration (DESIGN.md → Action
- * registry → Approval → configuration): a value of a field that configures
- * an extension, on whichever node it is written, or a node of a kind that
- * configures an extension (tagged before or after, so tagging and untagging
- * count, and so does minting or deleting one). `nodeOf` reads the fields
- * and kinds as the graph holds them before the write. What configuration
- * holds decides what the code runs with (a provider's endpoint and the key
- * it is sent), so a caller acting for the owner changes it only with the
- * owner's approval. A field's value counts wherever it lands, not only on
- * the node the field is a setting of: a node the configuration may later
- * name (a provider an untagged node could be made into) carries it already.
- */
-export function writesConfiguration(write: NodeWrite, nodeOf: NodeOf): boolean {
-  const { before, after } = write;
-  const kinds = new Set([...typeRefsOf(before), ...typeRefsOf(after)]);
-  if ([...kinds].some((kind) => configuresAnExtension(kind, nodeOf(kind)))) return true;
-  return changedFields(before, after).some((field) => configuresAnExtension(field, nodeOf(field)));
 }
 
 /**
@@ -154,61 +142,4 @@ export function systemTxRefusal(
         id: deleted,
         message: `sys.* nodes are write-protected (use force to override): ${deleted}`,
       };
-}
-
-/** One setting as an approval shows it: the field, and the values it holds after the write. */
-export interface ShownSetting {
-  readonly field: NodeId;
-  readonly label: string;
-  readonly values: readonly string[];
-}
-
-/** A node whose configuration a write sets or names, as an approval shows it. */
-export interface ShownConfiguration {
-  readonly node: NodeId;
-  readonly label: string;
-  readonly settings: readonly ShownSetting[];
-}
-
-/**
- * What a write to configuration runs with, for the person asked to approve
- * it: each node it configures, with its settings as they will be, and each
- * node such a setting names (the provider a selection points at), with that
- * node's settings, since approving the reference approves what it brings.
- * A credential shows its reference, which is all the graph ever holds.
- */
-export function configurationShown(
-  writes: readonly NodeWrite[],
-  nodeOf: (id: NodeId) => NodeLike | undefined,
-): ShownConfiguration[] {
-  const shown = new Map<NodeId, ShownConfiguration>();
-  const valueOf = (value: KbNode["props"][string][number]): string => {
-    if (value.t === "ref") {
-      const named = nodeOf(value.v);
-      return named === undefined || named.text === "" ? value.v : `${named.text} (${value.v})`;
-    }
-    return typeof value.v === "string" ? value.v : JSON.stringify(value.v);
-  };
-  const show = (node: Pick<NodeLike, "id" | "text" | "props">): void => {
-    if (shown.has(node.id)) return;
-    const settings = Object.entries(node.props)
-      .filter(([field]) => configuresAnExtension(field, nodeOf(field)))
-      .map(([field, values]) => ({
-        field,
-        label: nodeOf(field)?.text ?? field,
-        values: values.map(valueOf),
-      }));
-    if (settings.length === 0) return;
-    shown.set(node.id, { node: node.id, label: node.text === "" ? node.id : node.text, settings });
-    for (const value of settings.flatMap(({ field }) => node.props[field] ?? [])) {
-      const named = value.t === "ref" ? nodeOf(value.v) : undefined;
-      if (named !== undefined) show(named);
-    }
-  };
-  for (const write of writes) {
-    if (!writesConfiguration(write, nodeOf)) continue;
-    const node = write.after ?? write.before;
-    if (node !== undefined) show(node);
-  }
-  return [...shown.values()];
 }

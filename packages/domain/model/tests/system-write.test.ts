@@ -8,7 +8,6 @@ import {
   extensionNodeId,
   isWritableField,
   systemWriteRefusal,
-  writesConfiguration,
   type KbNode,
 } from "../src/index.ts";
 
@@ -31,50 +30,6 @@ const FIELDS = new Map<string, KbNode>([
 ]);
 const fieldOf = (id: string) => FIELDS.get(id);
 const ref = (v: string) => [{ t: "ref" as const, v }];
-
-describe("a write to configuration", () => {
-  const kinds = new Map<string, KbNode>([
-    ...FIELDS,
-    ["sys.tag.provider", node("sys.tag.provider", configures(AGENT))],
-    ["tag.minted", node("tag.minted", configures(AGENT))],
-  ]);
-  const nodeOf = (id: string) => kinds.get(id);
-  const of = (kind: string) => node("n.p", { [SYSTEM_IDS.typeField]: ref(kind) });
-
-  test("is a node of a system kind that configures an extension, written in any way", () => {
-    const provider = of("sys.tag.provider");
-    for (const write of [
-      { before: undefined, after: provider },
-      { before: provider, after: { ...provider, text: "renamed" } },
-      { before: provider, after: undefined },
-      { before: provider, after: node("n.p") },
-    ]) {
-      expect(writesConfiguration(write, nodeOf)).toBe(true);
-    }
-  });
-
-  test("is a value of a setting on the node it configures", () => {
-    const set = { ...node(AGENT), props: { "sys.f.provider": ref("n.p") } };
-    expect(writesConfiguration({ before: node(AGENT), after: set }, nodeOf)).toBe(true);
-    const same = { before: set, after: { ...set, updatedAt: "later" } };
-    expect(writesConfiguration(same, nodeOf)).toBe(false);
-  });
-
-  test("is a value of a field that configures an extension, on any node", () => {
-    const untagged = node("n.u");
-    const endpoint = { ...untagged, props: { "sys.f.provider": ref("n.p") } };
-    expect(writesConfiguration({ before: untagged, after: endpoint }, nodeOf)).toBe(true);
-    expect(writesConfiguration({ before: undefined, after: endpoint }, nodeOf)).toBe(true);
-    // A field anyone could add declares nothing.
-    const minted = { ...untagged, props: { "f.minted": ref("n.p") } };
-    expect(writesConfiguration({ before: untagged, after: minted }, nodeOf)).toBe(false);
-  });
-
-  test("is not a node of a kind anyone could add, nor a plain node", () => {
-    expect(writesConfiguration({ before: undefined, after: of("tag.minted") }, nodeOf)).toBe(false);
-    expect(writesConfiguration({ before: undefined, after: node("n.q") }, nodeOf)).toBe(false);
-  });
-});
 
 describe("a write to a system node", () => {
   const before = node(AGENT);

@@ -75,6 +75,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/governance": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@kb/webmcp": "workspace:*",
@@ -175,6 +176,7 @@
       },
       "devDependencies": {
         "@kb/bundled": "workspace:*",
+        "@kb/governance": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
@@ -198,6 +200,7 @@
         "@kb/workspace-fs": "workspace:*",
         "effect": "catalog:",
         "fast-check": "catalog:",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -294,6 +297,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@kb/governance": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
@@ -751,6 +755,10 @@
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/bundled": "workspace:*",
+        "@types/bun": "catalog:",
       },
     },
     "packages/extension/graph": {

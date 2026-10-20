@@ -14,29 +14,26 @@ export {
   succeeded,
 } from "./actions.ts";
 export {
+  APPROVAL_DECISIONS,
   ApprovalAskSchema,
   CurrentCall,
   DecidedEntrySchema,
   ShownConfigurationSchema,
   approvalAsk,
-  approvalRefusal,
-  declaredDecision,
   hasPerson,
   listedOn,
   listingOf,
   onWire,
   PAGE_WIRE,
   requestOnWire,
-  resolveApproval,
 } from "./approval.ts";
 export type {
   ApprovalAsk,
-  ApprovalCall,
-  ApprovalRefusal,
-  ApprovalResolution,
-  GoverningWrite,
+  ApprovalDecision,
+  CalledAction,
   DecidedEntry,
   RunningCall,
+  ShownConfiguration,
   SurfaceWire,
 } from "./approval.ts";
 export type {
