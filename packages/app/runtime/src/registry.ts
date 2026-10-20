@@ -36,6 +36,7 @@ import {
 } from "@kb/operations";
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
+import { GOVERNANCE_FAMILY, governanceMode } from "./deployment.ts";
 import { resetRootFamilies, rootFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
 
@@ -258,6 +259,7 @@ const buildRegistry = Effect.fnUntraced(function* (
   families: readonly LoadedExtension[],
   on: readonly LoadedExtension[],
   refused: readonly ExtensionFailure[],
+  required: readonly string[],
 ): Effect.fn.Return<Registry> {
   const kernel = makeKernel();
   const failures: ExtensionFailure[] = [...refused];
@@ -329,7 +331,7 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   return {
     kernel,
-    interception: interceptionFrom(kernel),
+    interception: interceptionFrom(kernel, { required }),
     lifetime: registryLifetime(kernel),
     actions,
     byId,
@@ -368,8 +370,12 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
 ): Effect.fn.Return<Registry, never, FileSystem> {
   const { families, failures } = yield* rootFamilies(root);
   const unread: string[] = [];
-  const on = families.filter(({ declaration }) =>
-    familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
+  // The deployment, not the store, decides whether governance is composed.
+  const governed = governanceMode() === "required";
+  const on = families.filter(
+    ({ declaration }) =>
+      (governed || declaration.name !== GOVERNANCE_FAMILY) &&
+      familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
   );
   const rootKey = root ?? NO_ROOT_KEY;
   const key = on
@@ -379,7 +385,8 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   if (held?.key === key) return yield* held.registry;
   // `Effect.cached` is what makes the entry a build-once value rather than a
   // recipe: concurrent callers share the one in-flight build.
-  const built = yield* Effect.cached(buildRegistry(families, on, failures));
+  const required = governed ? [GOVERNANCE_FAMILY] : [];
+  const built = yield* Effect.cached(buildRegistry(families, on, failures, required));
   // Another caller may have composed this key while the build was set up.
   const replaced = current.get(rootKey);
   if (replaced?.key === key) return yield* replaced.registry;

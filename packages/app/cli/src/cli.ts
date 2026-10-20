@@ -13,7 +13,9 @@ import {
   resolveRootEffect,
   STORE_BACKENDS,
   createStore,
+  deployGovernance,
   migrateStore,
+  type GovernanceMode,
   type StoreBackend,
   writeOut,
   writeErr,
@@ -32,7 +34,7 @@ import {
 } from "@kb/model";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
-import { EXIT_USAGE, collectIdentity, toInt, toOrigin, toPort } from "./arguments.ts";
+import { EXIT_USAGE, collectIdentity, toGovernance, toInt, toOrigin, toPort } from "./arguments.ts";
 import {
   ACTION_INVOKE_WIRE,
   EXIT_FAILED,
@@ -243,6 +245,15 @@ function buildProgram(): Command {
     .version(KB_SDK_VERSION)
     .option("--json", "machine-readable JSON output", false)
     .option("--root <path>", "repo root containing .kb/")
+    .option(
+      "--governance <mode>",
+      "required: every call is put to the governance family's guards, and refused while they are not loaded; off: no guard, every call runs",
+      toGovernance,
+      "required",
+    )
+    .hook("preAction", () => {
+      deployGovernance(program.opts<{ governance: GovernanceMode }>().governance);
+    })
     .exitOverride()
     .showHelpAfterError(false);
 

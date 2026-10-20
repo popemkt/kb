@@ -74,3 +74,13 @@ export const collectIdentity = (
   }
   return { header: held.header, people: [...held.people, login] };
 };
+
+/** How the process is governed (`--governance`): `required` or `off`. */
+export const toGovernance = (value: string): "required" | "off" => {
+  if (value === "required" || value === "off") return value;
+  throw new CommanderError(
+    EXIT_USAGE,
+    "commander.invalidArgument",
+    `--governance is required or off, not ${value}`,
+  );
+};
