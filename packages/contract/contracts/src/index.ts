@@ -107,7 +107,8 @@ export {
   pageUrlOf,
   withoutPageToken,
 } from "./page-token.ts";
-export { PersonSchema, type Person } from "./person.ts";
+export { IdentityPoint, PersonSchema } from "./person.ts";
+export type { Identification, IdentityProvider, Person } from "./person.ts";
 export {
   ActionResponseSchema,
   ClientMessageSchema,

@@ -1,32 +1,50 @@
 /**
  * Who a request to the `kb ui` server comes from: the person, or nobody the
  * server can vouch for (`DESIGN.md` → Surfaces → Who the person is). This is
- * the one input the app takes from authentication. How a deployment
- * authenticates the person is its own choice, made by which
- * {@link Authenticator} it starts the server with; what a connection may do
- * then follows from the answer alone (`guard.ts`), never from how it was
- * found.
+ * the one input the app takes from authentication, and plugins supply it:
+ * each identity provider a deployment loads contributes to
+ * {@link IdentityPoint}, and the server combines their answers
+ * ({@link identifyBy}). What a connection may do then follows from the
+ * answer alone (`guard.ts`), never from which provider gave it. The two
+ * providers kb ships are here: the local `kb ui`'s page token, and a hosted
+ * one's trusted proxy header.
  */
 import { timingSafeEqual } from "node:crypto";
 import { userInfo } from "node:os";
-import { PAGE_TOKEN_HEADER, offeredPageToken, type Person } from "@kb/contracts";
-
-/**
- * What an authenticator makes of a request: the person's, nobody's
- * (`person: null`), or refused, when it presents a credential that is not
- * good here and so must not quietly be taken as nobody's.
- */
-type Identification = { readonly person: Person | null } | { readonly refused: string };
-
-/** How a deployment authenticates the person. */
-export interface Authenticator {
-  readonly identify: (req: Request) => Identification;
-}
+import { Effect } from "effect";
+import {
+  IdentityPoint,
+  PAGE_TOKEN_HEADER,
+  offeredPageToken,
+  type Identification,
+  type IdentityProvider,
+  type Person,
+} from "@kb/contracts";
+import { Service, definePlugin, type Plugin } from "@kb/plugin";
 
 const NOBODY: Identification = { person: null };
 
+/**
+ * What a request is, by every provider's answer: refused when any refuses
+ * it, the person's when any finds it is, as the first that did names them,
+ * and nobody's otherwise, as it is when there is no provider at all.
+ */
+export function identifyBy(providers: readonly IdentityProvider[], req: Request): Identification {
+  const answers = providers.map((provider) => provider.identify(req));
+  const refused = answers.find((answer) => "refused" in answer);
+  if (refused !== undefined) return refused;
+  return answers.find((answer) => "person" in answer && answer.person !== null) ?? NOBODY;
+}
+
+/**
+ * The page token the page-token provider holds, for the server that opens
+ * the person's page: it puts the token in the page URL it opens and prints,
+ * and keeps it in the person's home for openers in other processes.
+ */
+export const PageToken = Service<string>()("kb.ui.page-token");
+
 /** A page token: 32 random bytes, in hex. */
-export function mintPageToken(): string {
+function mintPageToken(): string {
   return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex");
 }
 
@@ -46,17 +64,17 @@ function sameToken(presented: string, token: string): boolean {
 }
 
 /**
- * The local `kb ui`'s authentication: the page token this run minted. Only
- * the person who started the server holds it (from the URL it opened or
- * printed, or their home), so a request carrying it is theirs, under their
- * account's name. One carrying another token (forged, or from an earlier
- * run) is refused, and one carrying none is nobody's.
+ * The local `kb ui`'s identity provider: a page token minted when it
+ * starts. Only the person who started the server holds it (from the URL it
+ * opened or printed, or their home), so a request carrying it is theirs,
+ * under their account's name. One carrying another token (forged, or from
+ * an earlier run) is refused, and one carrying none is nobody's.
  */
-export function pageTokenAuthenticator(
-  token: string,
+export function pageTokenIdentity(
+  token: string = mintPageToken(),
   person: Person = { name: userInfo().username },
-): Authenticator {
-  return {
+): Plugin {
+  const provider: IdentityProvider = {
     identify: (req) => {
       const presented = presentedToken(req);
       if (presented === null) return NOBODY;
@@ -69,10 +87,30 @@ export function pageTokenAuthenticator(
       return { person };
     },
   };
+  return definePlugin({
+    name: "identity-page-token",
+    namespace: "identity",
+    apply: (plugin) =>
+      Effect.gen(function* () {
+        yield* plugin.provide(PageToken, token);
+        yield* plugin.contribute(IdentityPoint, { id: "page-token", value: provider });
+      }),
+  });
 }
 
 /**
- * A hosted `kb ui`'s authentication: the person's login, in a header a
+ * The header a trusted reverse proxy names the person in, and the logins
+ * that are them.
+ */
+export interface IdentityHeader {
+  /** The header the proxy names the person in. */
+  readonly header: string;
+  /** The logins that are the person. */
+  readonly people: readonly string[];
+}
+
+/**
+ * A hosted `kb ui`'s identity provider: the person's login, in a header a
  * trusted reverse proxy sets on every request it forwards (Tailscale serve's
  * `Tailscale-User-Login`, which it also strips from what a client sends). A
  * request whose header names one of `people` is theirs, under that login;
@@ -81,48 +119,18 @@ export function pageTokenAuthenticator(
  * one way in (`DESIGN.md` → Surfaces → Who the person is).
  */
 // GAP [[01M5BVQHJEDC4ZK7BX7RZWDVF8]]
-export interface IdentityHeader {
-  /** The header the proxy names the person in. */
-  readonly header: string;
-  /** The logins that are the person. */
-  readonly people: readonly string[];
-}
-
-export function identityHeaderAuthenticator({ header, people }: IdentityHeader): Authenticator {
+export function identityHeaderIdentity({ header, people }: IdentityHeader): Plugin {
   const known = new Set(people);
-  return {
+  const provider: IdentityProvider = {
     identify: (req) => {
       const login = req.headers.get(header);
       return login !== null && known.has(login) ? { person: { name: login } } : NOBODY;
     },
   };
-}
-
-/**
- * A deployment that authenticates the person in more than one way: a
- * request any of them refuses is refused, and one any of them finds is the
- * person's is theirs, as the first that found it names them.
- */
-export function anyAuthenticator(authenticators: readonly Authenticator[]): Authenticator {
-  return {
-    identify: (req) => {
-      const answers = authenticators.map((auth) => auth.identify(req));
-      const refused = answers.find((answer) => "refused" in answer);
-      if (refused !== undefined) return refused;
-      return answers.find((answer) => "person" in answer && answer.person !== null) ?? NOBODY;
-    },
-  };
-}
-
-/**
- * How a `kb ui` authenticates the person: its page token, and its proxy's
- * identity header where the deployment trusts one.
- */
-export function uiAuthenticator(
-  token: string,
-  identityHeader: IdentityHeader | undefined,
-): Authenticator {
-  const byToken = pageTokenAuthenticator(token);
-  if (identityHeader === undefined) return byToken;
-  return anyAuthenticator([byToken, identityHeaderAuthenticator(identityHeader)]);
+  return definePlugin({
+    name: "identity-header",
+    namespace: "identity",
+    apply: (plugin) =>
+      plugin.contribute(IdentityPoint, { id: "header", value: provider }).pipe(Effect.asVoid),
+  });
 }

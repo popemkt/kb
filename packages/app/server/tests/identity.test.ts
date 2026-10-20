@@ -1,27 +1,31 @@
 /**
- * A hosted `kb ui` that trusts its reverse proxy's identity header
+ * Who the person is, as the identity providers a `kb ui` loads say: a hosted
+ * one that trusts its reverse proxy's identity header
  * (`src/auth.ts`, DESIGN.md → Surfaces → Who the person is): a request
  * whose header names the person is theirs, on the page's wire, with no page
  * token; one naming anyone else, or carrying none, is nobody's. The page
  * token still authenticates beside it, and a stale one is refused whatever
- * the header says.
+ * the header says. With no provider at all the server still runs, and
+ * every connection is nobody's.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { PAGE_TOKEN_HEADER, type ServerMessage } from "@kb/contracts";
+import { PAGE_TOKEN_HEADER, type IdentityProvider, type ServerMessage } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
+import { identifyBy } from "../src/auth.ts";
 import {
-  anyAuthenticator,
-  identityHeaderAuthenticator,
-  pageTokenAuthenticator,
-} from "../src/auth.ts";
-import { startUi, type UiServerHandle } from "../src/index.ts";
+  identityHeaderIdentity,
+  pageTokenIdentity,
+  startUi,
+  type UiServerHandle,
+} from "../src/index.ts";
 
 const HEADER = "Tailscale-User-Login";
 const OWNER = "owner@example.com";
+const TOKEN = "a".repeat(64);
 
 let root = "";
 let handle: UiServerHandle;
@@ -33,7 +37,10 @@ beforeAll(async () => {
       root,
       port: 0,
       openBrowser: false,
-      identityHeader: { header: HEADER, people: [OWNER] },
+      identity: [
+        pageTokenIdentity(TOKEN),
+        identityHeaderIdentity({ header: HEADER, people: [OWNER] }),
+      ],
     }),
   );
 });
@@ -90,10 +97,10 @@ describe("a kb ui that trusts its proxy's identity header", () => {
   });
 
   test("the page token authenticates beside it, and a stale one is refused whatever the header says", async () => {
-    expect((await post({ [PAGE_TOKEN_HEADER]: handle.pageToken })).body).toMatchObject({
+    expect((await post({ [PAGE_TOKEN_HEADER]: TOKEN })).body).toMatchObject({
       status: "succeeded",
     });
-    const stale = { [PAGE_TOKEN_HEADER]: "0".repeat(handle.pageToken.length), [HEADER]: OWNER };
+    const stale = { [PAGE_TOKEN_HEADER]: "0".repeat(TOKEN.length), [HEADER]: OWNER };
     expect((await post(stale)).status).toBe(403);
   });
 });
@@ -103,27 +110,48 @@ function request(headers: Record<string, string>): Request {
   return new Request("http://127.0.0.1/api/graph", { headers });
 }
 
-describe("authenticators", () => {
-  const header = identityHeaderAuthenticator({ header: HEADER, people: [OWNER, "other@x"] });
+/** A provider that finds every request is `name`'s. */
+function person(name: string): IdentityProvider {
+  return { identify: () => ({ person: { name } }) };
+}
 
-  test("the identity header names whichever of its people the request names, and no one else", () => {
-    expect(header.identify(request({ [HEADER]: "other@x" }))).toEqual({
-      person: { name: "other@x" },
-    });
-    expect(header.identify(request({ [HEADER]: "stranger@x" }))).toEqual({ person: null });
-    expect(header.identify(request({}))).toEqual({ person: null });
+describe("identifyBy", () => {
+  const nobody = { identify: () => ({ person: null }) };
+  const refusing = { identify: () => ({ refused: "no" }) };
+
+  test("with no provider, every request is nobody's", () => {
+    expect(identifyBy([], request({}))).toEqual({ person: null });
   });
 
-  test("any of several: a refusal wins, then the first that finds the person", () => {
-    const token = pageTokenAuthenticator("t".repeat(64), { name: "local" });
-    const both = anyAuthenticator([token, header]);
-    expect(both.identify(request({ [HEADER]: OWNER }))).toEqual({ person: { name: OWNER } });
-    expect(both.identify(request({ [PAGE_TOKEN_HEADER]: "t".repeat(64) }))).toEqual({
-      person: { name: "local" },
+  test("a refusal wins, then the first provider that finds the person", () => {
+    expect(identifyBy([nobody, person("a"), person("b")], request({}))).toEqual({
+      person: { name: "a" },
     });
-    expect(both.identify(request({}))).toEqual({ person: null });
-    expect(
-      both.identify(request({ [PAGE_TOKEN_HEADER]: "x".repeat(64), [HEADER]: OWNER })),
-    ).toHaveProperty("refused");
+    expect(identifyBy([person("a"), refusing], request({}))).toEqual({ refused: "no" });
+    expect(identifyBy([nobody, nobody], request({}))).toEqual({ person: null });
+  });
+});
+
+describe("a kb ui with no identity provider", () => {
+  test("runs, opens its bare URL, and takes every connection as nobody's", async () => {
+    const bare = await mkdtemp(join(tmpdir(), "kb-no-identity-"));
+    const alone = await Effect.runPromise(
+      startUi({ root: bare, port: 0, openBrowser: false, identity: [] }),
+    );
+    try {
+      expect(alone.pageToken).toBeNull();
+      expect(alone.page).toBe(alone.url);
+      const res = await fetch(`${alone.url}/api/action`, {
+        method: "POST",
+        headers: { "content-type": "application/json", [PAGE_TOKEN_HEADER]: TOKEN },
+        body: JSON.stringify(approvedPolicy),
+      });
+      // No provider vouches for anyone, and none refuses a token it never minted.
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({ code: "forbidden" });
+    } finally {
+      await Effect.runPromise(alone.stop);
+      await rm(bare, { recursive: true, force: true });
+    }
   });
 });

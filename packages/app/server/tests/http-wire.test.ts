@@ -16,19 +16,24 @@ import { PAGE_TOKEN_HEADER, pageProtocols, type ServerMessage } from "@kb/contra
 import { SYSTEM_IDS } from "@kb/model";
 import { SANDBOX_FRAME_PATH } from "@kb/sandbox";
 import { FAKE_TAB_SCREEN } from "@kb/test-kit";
-import { startUi, type UiServerHandle } from "../src/index.ts";
+import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
 
 let root = "";
 let handle: UiServerHandle;
+/** This server's page token. */
+const TOKEN = "a".repeat(64);
 /** The token of a server over the same root that has since stopped. */
-let stale = "";
+const STALE = "b".repeat(64);
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-http-wire-"));
-  const earlier = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
-  stale = earlier.pageToken;
+  const earlier = await Effect.runPromise(
+    startUi({ root, port: 0, openBrowser: false, identity: [pageTokenIdentity(STALE)] }),
+  );
   await Effect.runPromise(earlier.stop);
-  handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
+  handle = await Effect.runPromise(
+    startUi({ root, port: 0, openBrowser: false, identity: [pageTokenIdentity(TOKEN)] }),
+  );
 });
 afterAll(async () => {
   await Effect.runPromise(handle.stop);
@@ -41,11 +46,11 @@ type From = "page" | "program" | "forged" | "wrong" | "stale";
 function headersFrom(from: From): Record<string, string> {
   const origin = new URL(handle.url).origin;
   const carried: Record<From, Record<string, string>> = {
-    page: { origin, [PAGE_TOKEN_HEADER]: handle.pageToken },
+    page: { origin, [PAGE_TOKEN_HEADER]: TOKEN },
     program: {},
     forged: { origin },
-    wrong: { origin, [PAGE_TOKEN_HEADER]: "0".repeat(handle.pageToken.length) },
-    stale: { origin, [PAGE_TOKEN_HEADER]: stale },
+    wrong: { origin, [PAGE_TOKEN_HEADER]: "0".repeat(TOKEN.length) },
+    stale: { origin, [PAGE_TOKEN_HEADER]: STALE },
   };
   return carried[from];
 }
@@ -152,10 +157,7 @@ describe("who speaks on /ws", () => {
   });
 
   test("the page's socket is told it is the person's, publishes its screen and speaks on channels", async () => {
-    const { opened, person, heard } = await socket(pageProtocols(handle.pageToken), [
-      SCREEN,
-      CHANNEL,
-    ]);
+    const { opened, person, heard } = await socket(pageProtocols(TOKEN), [SCREEN, CHANNEL]);
     expect(opened).toBe(true);
     expect(person).toEqual({ name: expect.any(String) });
     expect(heard).toEqual([
@@ -183,7 +185,7 @@ describe("where the token is", () => {
       const body = await (
         await fetch(`${handle.url}${path}`, { headers: headersFrom("page") })
       ).text();
-      expect({ path, carries: body.includes(handle.pageToken) }).toEqual({ path, carries: false });
+      expect({ path, carries: body.includes(TOKEN) }).toEqual({ path, carries: false });
     }
   });
 });

@@ -1,12 +1,14 @@
 import { watch } from "node:fs";
 import { join, relative } from "node:path";
-import { Cause, Effect, Exit, Scope, Stream } from "effect";
+import { Cause, Effect, Exit, Scope, Stream, type Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import {
+  IdentityPoint,
   UI_DEFAULT_PORT,
   directorySignals,
   pageUrlOf,
+  type ActionHandlerEnv,
   type ExtensionEntry,
   type HostedFamilies,
   type KbContext,
@@ -21,7 +23,7 @@ import {
   registerOpenedRoot,
   writeErr,
 } from "@kb/runtime";
-import { makeKernel } from "@kb/plugin";
+import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
 import {
   clearPageToken,
   clearUiPresence,
@@ -39,7 +41,7 @@ import {
   type UiDevSpawn,
 } from "./dev.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
-import { mintPageToken, uiAuthenticator, type Authenticator, type IdentityHeader } from "./auth.ts";
+import { PageToken, identifyBy, pageTokenIdentity } from "./auth.ts";
 import { handshakeHeaders, requestGuard, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";
@@ -68,11 +70,11 @@ export interface UiServerOptions {
   /** Browser origin when a reverse proxy serves this UI. */
   publicOrigin?: string;
   /**
-   * The header a trusted reverse proxy names the person in, and the logins
-   * that are them (`identityHeaderAuthenticator`): the person is
-   * authenticated by it as well as by the page token.
+   * The identity providers this deployment authenticates the person with
+   * (`auth.ts`): plugins that contribute to `IdentityPoint`, held whatever
+   * the store switches. Default: the local page token alone.
    */
-  identityHeader?: IdentityHeader;
+  identity?: readonly Plugin[];
   /**
    * The extensions this server hosts (`plugins.ts`), their plugins loaded in
    * order after the host itself, and each reported in `kb.manifest` beside
@@ -96,14 +98,19 @@ export interface UiServerHandle {
   url: string;
   hostname: string;
   /**
-   * The page token this run minted (`auth.ts`): what makes a request the
-   * page's.
+   * The page token the page-token provider holds (`auth.ts`), or null when
+   * the deployment does not authenticate with one.
    */
-  pageToken: string;
-  /** The URL that opens the page: `url` carrying the token in its fragment (`pageUrlOf`). */
+  pageToken: string | null;
+  /** The URL that opens the page: `url`, carrying the page token in its fragment when there is one. */
   page: string;
   /** Close the scope that owns the listener and the ingest lanes. */
   stop: Effect.Effect<void>;
+}
+
+/** The URL that opens the page served at `url`: with the page token in its fragment, when there is one. */
+function pageOf(url: string, pageToken: string | null): string {
+  return pageToken === null ? url : pageUrlOf(url, pageToken);
 }
 
 /** Open `url` in the person's browser, as `kb ui` and `kb open` do. */
@@ -221,7 +228,8 @@ function serveUi(deps: {
   ctx: KbContext;
   hub: SubscriptionHub;
   hosted: HostedFamilies;
-  auth: Authenticator;
+  /** The server's kernel, whose identity providers say who a request is. */
+  kernel: Kernel;
 }): Bun.Server<WsData> {
   const { ctx, hub } = deps;
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
@@ -237,7 +245,11 @@ function serveUi(deps: {
         port,
         uiPort: deps.uiPort ?? port,
         publicOrigin: deps.publicOrigin,
-        auth: deps.auth,
+        identify: (request) =>
+          identifyBy(
+            deps.kernel.contributions(IdentityPoint).map(({ value }) => value),
+            request,
+          ),
       });
       const admission = guard.admit(req, url);
       if ("refused" in admission) return admission.refused;
@@ -304,6 +316,27 @@ const keepPageToken = Effect.fn("kb.keepPageToken")(function* (
 });
 
 /**
+ * A root a person serves is one of their locations, and the page token is
+ * kept in their home for their openers in other processes. Not being listed
+ * costs the picker only, so it is reported and the server serves. It is
+ * ranked before presence is written: whoever starts this server reads the
+ * presence as the start being done, so by then the root is ranked first.
+ */
+const takeOpenedRoot = Effect.fn("kb.takeOpenedRoot")(function* (served: {
+  ctx: KbContext;
+  layer: Layer.Layer<ActionHandlerEnv>;
+  openedBy: SurfaceWire;
+  lifetime: Scope.Closeable;
+  url: string;
+  pageToken: string | null;
+}): Effect.fn.Return<void, never, FileSystem> {
+  const { ctx, layer, openedBy, lifetime, url, pageToken } = served;
+  const unlisted = yield* registerOpenedRoot(ctx, openedBy).pipe(Effect.provide(layer));
+  if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
+  if (pageToken !== null) yield* keepPageToken(lifetime, url, pageToken);
+});
+
+/**
  * Start the `kb ui` HTTP+WS server.
  *
  * Single Bun.serve / Effect runtime boundary: `Bun.serve` owns the TCP listen,
@@ -320,14 +353,17 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const openBrowserFlag = opts.openBrowser !== false;
 
   const lifetime = Scope.makeUnsafe("parallel");
-  // Held here and handed to nothing a request can read: the page gets it
-  // from the URL this start opens or prints, an opener from the person's home.
-  const pageToken = mintPageToken();
 
   const ctx = yield* openKbEffect(opts.root);
   const kernel = makeKernel();
   const hub = new SubscriptionHub(ctx, channelsOf(kernel));
-  const hosted = yield* loadServerPlugins(kernel, ctx, hub.screens, opts.extensions ?? []);
+  const hosted = yield* loadServerPlugins(
+    kernel,
+    ctx,
+    hub.screens,
+    opts.extensions ?? [],
+    opts.identity ?? [pageTokenIdentity()],
+  );
   // A switch written anywhere reaches this session's log; the server composes what it says.
   const fork = Effect.runForkWith(yield* Effect.context());
   const unsubscribeSwitches = ctx.log.subscribe((tx) => {
@@ -359,7 +395,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     ctx,
     hub,
     hosted,
-    auth: uiAuthenticator(pageToken, opts.identityHeader),
+    kernel,
   });
 
   yield* Scope.addFinalizer(
@@ -395,15 +431,10 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     return yield* domainError("internal", "TCP listener missing port");
   }
   const url = `http://${hostname}:${boundPort}`;
-
-  // A root a person serves is one of their locations. Not being listed costs
-  // the picker only, so it is reported and the server serves. It is ranked
-  // before presence is written: whoever starts this server reads the
-  // presence as the start being done, so by then the root is ranked first.
+  // Handed to nothing a request can read: the page gets it from the URL this start opens or prints.
+  const pageToken = kernel.service(PageToken) ?? null;
   if (opts.openedBy !== undefined) {
-    const unlisted = yield* registerOpenedRoot(ctx, opts.openedBy).pipe(Effect.provide(layer));
-    if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
-    yield* keepPageToken(lifetime, url, pageToken);
+    yield* takeOpenedRoot({ ctx, layer, openedBy: opts.openedBy, lifetime, url, pageToken });
   }
   // Say where this root is served, so a process that needs its tabs (the CLI
   // or `kb mcp` asking for the screen) can reach them. Losing that costs only
@@ -417,7 +448,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     clearUiPresence(opts.root, url).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
   );
 
-  const page = pageUrlOf(url, pageToken);
+  const page = pageOf(url, pageToken);
   if (openBrowserFlag) openBrowser(page);
 
   return {
@@ -450,7 +481,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   devPort: number;
   uiRoot: string;
   publicOrigin?: string;
-  identityHeader?: IdentityHeader;
+  identity?: readonly Plugin[];
   spawn?: UiDevSpawn;
   extensions?: readonly ExtensionEntry[];
   openedBy?: SurfaceWire;
@@ -461,7 +492,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
     openBrowser: false,
     uiPort: opts.devPort,
     publicOrigin: opts.publicOrigin,
-    identityHeader: opts.identityHeader,
+    identity: opts.identity,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
   });
@@ -499,7 +530,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   openBrowser: boolean;
   uiRoot: string;
   publicOrigin?: string;
-  identityHeader?: IdentityHeader;
+  identity?: readonly Plugin[];
   ensureBuilt?: EnsureUiBuilt;
   extensions?: readonly ExtensionEntry[];
   openedBy?: SurfaceWire;
@@ -511,7 +542,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
     port: opts.port,
     openBrowser: opts.openBrowser,
     publicOrigin: opts.publicOrigin,
-    identityHeader: opts.identityHeader,
+    identity: opts.identity,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
   });
@@ -540,8 +571,8 @@ export interface RunUiCliOptions {
   devPort?: number;
   uiRoot?: string;
   publicOrigin?: string;
-  /** How a trusted proxy names the person ({@link UiServerOptions.identityHeader}). */
-  identityHeader?: IdentityHeader;
+  /** How the person is authenticated ({@link UiServerOptions.identity}). */
+  identity?: readonly Plugin[];
   /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
   ensureBuilt?: EnsureUiBuilt;
   spawnDev?: UiDevSpawn;
@@ -572,12 +603,12 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
       uiRoot,
       spawn: opts.spawnDev,
       publicOrigin: opts.publicOrigin,
-      identityHeader: opts.identityHeader,
+      identity: opts.identity,
       extensions: opts.extensions,
       openedBy: opts.openedBy,
     });
     // The Vite page proxies the backend, so it is the page with the backend's token.
-    const page = pageUrlOf(dev.url, dev.backend.pageToken);
+    const page = pageOf(dev.url, dev.backend.pageToken);
     writeErr(`kb ui dev server listening on ${dev.url}; the page is ${page}`);
     if (open) openBrowser(page);
 
@@ -599,7 +630,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     uiRoot,
     ensureBuilt: opts.ensureBuilt,
     publicOrigin: opts.publicOrigin,
-    identityHeader: opts.identityHeader,
+    identity: opts.identity,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
   });

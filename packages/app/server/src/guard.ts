@@ -20,13 +20,18 @@
  *   one, which the Origin check then refuses.
  *
  * Those keep other sites out; they do not say who is calling, since a local
- * program may send any Origin it likes. The deployment's authentication does
- * (`auth.ts`): a request it finds is the person's is on the page's wire,
+ * program may send any Origin it likes. The deployment's identity providers
+ * do (`auth.ts`): a request it finds is the person's is on the page's wire,
  * one it refuses is refused, and any other is a local program's, whatever
  * its Origin.
  */
-import { PAGE_PROTOCOL, PAGE_WIRE, type Person, type SurfaceWire } from "@kb/contracts";
-import type { Authenticator } from "./auth.ts";
+import {
+  PAGE_PROTOCOL,
+  PAGE_WIRE,
+  type Identification,
+  type Person,
+  type SurfaceWire,
+} from "@kb/contracts";
 
 /**
  * HTTP's wire for a local program: a request the authentication does not
@@ -48,8 +53,8 @@ export interface GuardSite {
   readonly uiPort: number;
   /** Browser origin when a reverse proxy serves this UI. */
   readonly publicOrigin?: string;
-  /** How this deployment authenticates the person. */
-  readonly auth: Authenticator;
+  /** Who a request is, by every identity provider the server holds (`identifyBy`). */
+  readonly identify: (req: Request) => Identification;
 }
 
 /**
@@ -127,7 +132,7 @@ export function requestGuard(site: GuardSite): RequestGuard {
       ) {
         return refused(415, "POST /api/action takes application/json");
       }
-      const identified = site.auth.identify(req);
+      const identified = site.identify(req);
       if ("refused" in identified) return refused(403, identified.refused);
       return admitted(identified.person);
     },

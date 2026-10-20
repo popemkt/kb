@@ -135,14 +135,16 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
 });
 
 /**
- * The server's composition: its `UiHost` first, then each extension its
- * store has on ({@link composeHosted}).
+ * The server's composition: its `UiHost` first, then the identity providers
+ * its deployment chose (`identity`, held whatever the store says), then
+ * each extension its store has on ({@link composeHosted}).
  */
 export function loadServerPlugins(
   kernel: Kernel,
   ctx: KbContext,
   screens: ScreenHub,
   extensions: readonly ExtensionEntry[],
+  identity: readonly Plugin[],
 ): Effect.Effect<HostedExtensions> {
   return composeHosted(
     kernel,
@@ -154,6 +156,7 @@ export function loadServerPlugins(
         namespace: "",
         apply: (plugin) => plugin.provide(UiHost, uiHost(ctx, screens, hosted)),
       }),
+      ...identity,
     ],
   );
 }

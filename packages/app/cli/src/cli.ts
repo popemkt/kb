@@ -290,7 +290,9 @@ function buildProgram(): Command {
           ],
         ) =>
           Effect.gen(function* () {
-            const { runUiCli } = yield* Effect.promise(() => import("@kb/server"));
+            const { identityHeaderIdentity, pageTokenIdentity, runUiCli } = yield* Effect.promise(
+              () => import("@kb/server"),
+            );
             const root = yield* resolveRootEffect({ root: globals.root });
             return yield* runUiCli({
               root,
@@ -299,7 +301,14 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
-              identityHeader: opts.identityHeader,
+              // The person's local page always authenticates; a hosted
+              // deployment adds the proxy it trusts.
+              identity: [
+                pageTokenIdentity(),
+                ...(opts.identityHeader === undefined
+                  ? []
+                  : [identityHeaderIdentity(opts.identityHeader)]),
+              ],
               extensions: yield* hostExtensions(root),
               openedBy: ACTION_INVOKE_WIRE,
             });

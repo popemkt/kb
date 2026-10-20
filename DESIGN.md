@@ -2051,17 +2051,25 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     change.
   - **Who the person is.** The app takes one input from authentication:
     whether a request is the person's, and under what name (`Person` in
-    `@kb/contracts`), or nobody's the server can vouch for. An
-    `Authenticator` (`app/server/src/auth.ts`) answers it per request, and
-    may refuse one whose credential is not good here; the request guard
-    asks it last, and the wire follows from the answer alone: the person's
-    request is on the page's wire, any other on a local program's. How
-    the person is authenticated is the deployment's choice, made by which
-    authenticator it starts the server with, and nothing past the guard
-    knows which. `kb ui` authenticates with the page token, and a hosted
-    one also with its proxy's identity header where the deployment opts in
-    (`--identity-header`, the reverse-proxy paragraph at the end of [Action registry](#action-registry)); a request either
-    refuses is refused (`anyAuthenticator`). A `/ws`
+    `@kb/contracts`), or nobody's the server can vouch for. Plugins supply
+    it. An identity provider is a plugin that contributes to
+    `IdentityPoint` (`@kb/contracts`); the server asks every contributed
+    provider about each request and combines their answers (`identifyBy`
+    in `app/server/src/auth.ts`): any refusal (a credential that is not
+    good here) refuses it, otherwise the first provider that finds the
+    person names them, otherwise it is nobody's. The request guard asks
+    last, and the wire follows from the answer alone: the person's request
+    is on the page's wire, any other on a local program's. With no
+    provider at all the server runs, and every connection is nobody's.
+    Which providers a deployment loads is its configuration, never a
+    graph write: the composition root that starts the server names them
+    (`identity` on `startUi`), as it names every plugin it hosts, and they
+    are held whatever the store's switches say. Replacing how the person
+    is authenticated is choosing other providers; no plugin takes over
+    another's. `kb ui` loads the page token's provider
+    (`pageTokenIdentity`), and with `--identity-header` also its proxy's
+    (`identityHeaderIdentity`; the reverse-proxy paragraph at the end of
+    [Action registry](#action-registry)). A `/ws`
     connection is told the answer after `hello` (`{op: "person"}`), so
     the page knows what it may do without trying (DESIGN-UI.md → Who the
     tab is).
@@ -2096,9 +2104,11 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
       page that is nobody's hosts is still refused
       (`// GAP [[01M5BVBDY7HNGXN2ZQJR4BHMPP]]` in `approval.ts`).
   - **The page token.** `kb ui` mints a random token when it starts and
-    holds it in memory (`pageTokenAuthenticator` in
-    `app/server/src/auth.ts`), naming the person by the account that
-    started it. It opens and prints the
+    holds it in memory (`pageTokenIdentity` in `app/server/src/auth.ts`),
+    naming the person by the account that started it. The provider also
+    provides the token as a service (`PageToken`), which the server reads
+    to open the page; a server without it opens and prints the bare URL.
+    It opens and prints the
     page URL with the token in the fragment (`#token=…`, `pageUrlOf` in
     `@kb/contracts`), which a browser never sends in a request, so a
     program that fetches the page does not get it, and no body the server
@@ -2202,7 +2212,7 @@ A proxy that authenticates the person can tell `kb ui` who they are:
 `kb ui --identity-header <header>=<login>` (repeatable, one header) trusts
 the proxy's `<header>`, and a request whose header is one of the logins is
 the person's, under that login, with no page token
-(`identityHeaderAuthenticator` in `app/server/src/auth.ts`). A request
+(`identityHeaderIdentity` in `app/server/src/auth.ts`). A request
 whose header names anyone else, or carries none, is nobody's. For a
 deployment behind Tailscale, `--identity-header
 Tailscale-User-Login=<login>` with
