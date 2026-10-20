@@ -1,28 +1,47 @@
 name: Nightly
 
-# A prerelease of main's tip, v<next patch>-nightly.<UTC YYYYMMDD>
-# (bin/release-version nightly), built, smoke-tested, attested and published by
-# publish.yml like a stable release. It is published only when main has
-# commits since the last nightly and Validate is green there; it is marked
-# prerelease, so GitHub's latest release — what the dotfiles' nvfetcher
-# resolves — stays the last stable one. Its version is derived and stamped
-# into the build; nothing is committed to main. Nightlies older than 14 days
-# are pruned, the release and its tag.
+# A prerelease of each commit Validate passes on main,
+# v<next patch>-nightly.<UTC YYYYMMDDHHMMSS of the commit>
+# (bin/release-version nightly), built, smoke-tested, attested and published
+# by publish.yml like a stable release. It is published when Validate
+# completes green on a push to main, or on demand for main's tip, and only
+# for a commit no nightly holds yet; it is marked prerelease, so GitHub's
+# latest release — what the dotfiles' nvfetcher resolves — stays the last
+# stable one. Its version is derived and stamped into the build; nothing is
+# committed to main. Nightlies older than 14 days are pruned, the release and
+# its tag. A release commit pushed by the Release workflow's token starts no
+# Validate run, so it gets no nightly; it is a stable release already.
 
 on:
+  workflow_run:
+    workflows: [Validate]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  # Retention is by age, so pruning runs daily whether or not anything merged.
   schedule:
     - cron: "0 3 * * *"
-  workflow_dispatch:
 
 permissions:
   contents: read
 
+# Queued, never cancelled, so two quick merges never race and a run that is
+# publishing always finishes. GitHub keeps one run pending per group and a
+# newer one replaces it, so after a burst of merges the newest commit is
+# published next, and it holds the ones skipped.
 concurrency:
   group: nightly
   cancel-in-progress: false
 
 jobs:
   prepare:
+    # A Validate run on main's push that passed, not one on a pull request
+    # from a branch that happens to be called main.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -38,10 +57,12 @@ jobs:
       version: ${{ steps.decide.outputs.version }}
       since: ${{ steps.decide.outputs.since }}
     steps:
-      - name: Check out main
+      # The commit Validate passed, which main may have moved past by now; on
+      # demand, main's tip. bin/release-version nightly versions HEAD.
+      - name: Check out the commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: main
+          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
           # The tags, to find the last nightly.
           fetch-depth: 0
           persist-credentials: false
@@ -55,17 +76,23 @@ jobs:
         run: |
           sha=$(git rev-parse HEAD)
           version=$(bin/release-version nightly)
-          # The newest nightly by the date in its name.
-          last=$(git tag --list 'v*-nightly.*' | awk -F 'nightly.' '{ print $2 " " $0 }' | sort -n | tail -n1 | cut -d' ' -f2)
+          # The newest nightly by its stamp. A date-only one (YYYYMMDD, before
+          # stamps carried the time) is padded to midnight to compare.
+          last=$(git tag --list 'v*-nightly.*' |
+            awk -F 'nightly.' '{ s = $2; while (length(s) < 14) s = s "0"; print s " " $0 }' |
+            sort -n | tail -n1 | cut -d' ' -f2)
           publish=true
-          if [ -n "$last" ] && [ "$(git rev-parse "$last^{commit}")" = "$sha" ]; then
-            echo "::notice::no commits on main since $last; no nightly"
+          # One commit, one version: its tag exists when a run before this
+          # one, or a re-run of it, published it.
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::notice::v$version is already published"
             publish=false
-          elif git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
-            echo "::notice::v$version is already published; the next nightly is tomorrow's"
+          # Nothing since the last nightly, or a commit older than it.
+          elif [ -n "$last" ] && git merge-base --is-ancestor "$sha" "$last^{commit}"; then
+            echo "::notice::$(git rev-parse --short "$sha") is already in $last; no nightly"
             publish=false
           elif ! bin/validate-green "$sha"; then
-            echo "::warning::Validate is not green at main's tip; no nightly"
+            echo "::warning::Validate is not green at $(git rev-parse --short "$sha"); no nightly"
             publish=false
           fi
           {
@@ -89,7 +116,7 @@ jobs:
       prerelease: true
       notes-since: ${{ needs.prepare.outputs.since }}
 
-  # Runs whether or not tonight's nightly was published.
+  # Runs whether or not a nightly was published, and alone on the schedule.
   prune:
     needs: publish
     if: ${{ !cancelled() }}
@@ -103,11 +130,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
+          # A stamp's first eight digits are its date, in either form.
           cutoff=$(date -u -d '14 days ago' +%Y%m%d)
           gh api --paginate "repos/$REPO/git/matching-refs/tags/v" --jq '.[].ref' |
-            sed 's|^refs/tags/||' | { grep -E -- '-nightly\.[0-9]{8}$' || true; } |
+            sed 's|^refs/tags/||' | { grep -E -- '-nightly\.([0-9]{8}|[0-9]{14})$' || true; } |
             while read -r tag; do
-              [ "${tag##*-nightly.}" -lt "$cutoff" ] || continue
+              stamp=${tag##*-nightly.}
+              [ "${stamp:0:8}" -lt "$cutoff" ] || continue
               if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
                 gh release delete "$tag" --repo "$REPO" --cleanup-tag --yes
               else

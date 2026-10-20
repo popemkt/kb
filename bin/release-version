@@ -3,9 +3,15 @@
 # source of the stable version:
 #   bin/release-version patch|minor|major   the next stable version
 #   bin/release-version <major.minor.patch>  that version, if it is a step up
-#   bin/release-version nightly              <next patch>-nightly.<UTC YYYYMMDD>
-# A nightly's version is derived, never committed: the bundle stamps it into
-# the build it ships (bin/release-bundle <version>).
+#   bin/release-version nightly              <next patch>-nightly.<stamp>
+# A nightly is of HEAD, and its stamp is HEAD's committer time, UTC
+# YYYYMMDDHHMMSS: one numeric identifier, so nightlies of one version sort by
+# it, and a function of the commit, so one commit is one nightly however often
+# it is asked for. Nightlies before this form carried the date alone,
+# YYYYMMDD; those sort below every stamped one of the same version, since
+# SemVer compares numeric identifiers by value. A nightly's version is
+# derived, never committed: the bundle stamps it into the build it ships
+# (bin/release-bundle <version>).
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -25,7 +31,10 @@ case $bump in
   patch) echo "$major.$minor.$((patch + 1))" ;;
   minor) echo "$major.$((minor + 1)).0" ;;
   major) echo "$((major + 1)).0.0" ;;
-  nightly) echo "$major.$minor.$((patch + 1))-nightly.$(date -u +%Y%m%d)" ;;
+  nightly)
+    stamp=$(TZ=UTC0 git show -s --format=%cd --date=format-local:%Y%m%d%H%M%S HEAD)
+    echo "$major.$minor.$((patch + 1))-nightly.$stamp"
+    ;;
   *)
     if ! printf '%s\n' "$bump" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
       echo "usage: bin/release-version patch|minor|major|nightly|<major.minor.patch>" >&2

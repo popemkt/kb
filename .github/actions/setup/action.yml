@@ -1,0 +1,49 @@
+name: Set up the toolchain
+description: >-
+  Nix with the flake's dev shell and, unless turned off, the workspace's
+  dependencies. With `flake-store`, the Nix store `nix flake check` builds is
+  restored from, and saved to, the Actions cache. The one setup every
+  Validate job shares.
+
+inputs:
+  flake-store:
+    description: >-
+      Restore the Nix store snapshot of `nix flake check`, and save it when its
+      key missed. For the job that runs the flake check, one per platform.
+    default: "false"
+  install:
+    description: Run `bun install --frozen-lockfile`.
+    default: "true"
+
+# Only the flake check's store is cached, because only it pays. Measured on
+# this repository's runners: the dev shell alone substitutes from
+# cache.nixos.org in about 45 s on macOS, and restoring it from the Actions
+# cache took 67 s (most of it untarring 0.5 GB into /nix); Bun's package
+# cache restored in 13 s for an install that takes 2 to 8 s without it. The
+# flake check builds one derivation per npm package, about 3,700, none of
+# them substitutable: 410 s on macOS without the snapshot, 19 s with it,
+# after a restore of about 100 s.
+runs:
+  using: composite
+  steps:
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+
+    # The key is the flake (nixpkgs, the dev shell) and the bun2nix inputs. A
+    # missed key restores the newest snapshot of the same flake.lock, so a
+    # bun.lock change builds only its new packages; a nixpkgs bump starts
+    # from empty, which is also what keeps the snapshot from carrying every
+    # old nixpkgs forward. No secret: the repository's Actions cache (10 GB,
+    # least recently used evicted first). A pull request reads main's
+    # snapshot and saves its own only when it changed what the key hashes.
+    - name: Restore the Nix store
+      if: inputs.flake-store == 'true'
+      uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+      with:
+        primary-key: nix-flake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}-${{ hashFiles('bun.nix', 'nix/**') }}
+        restore-prefixes-first-match: nix-flake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}-
+
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      shell: nix develop -c bash -e {0}
+      run: bun install --frozen-lockfile
