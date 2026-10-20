@@ -512,4 +512,42 @@ describe("calls inside calls", () => {
     // The innermost call answered with the refusal, carried out as output.
     expect(JSON.stringify(receipt)).toContain(`calls nest deeper than ${MAX_CALL_DEPTH}`);
   });
+
+  test("a call a guard or an interceptor makes nests in the call it was asked about, to the same limit", async () => {
+    for (const kind of ["guard", "interceptor"] as const) {
+      let asked = 0;
+      const nested = () =>
+        // A listener that calls the action it listens to, as a careless one might.
+        invokeReceiptWith(ACTIONS, ctx, echo()) as unknown as Effect.Effect<ActionReceipt>;
+      const reentrant =
+        kind === "guard"
+          ? interceptionOf({
+              guards: [
+                guard("reentrant", {
+                  before: () =>
+                    Effect.gen(function* () {
+                      asked += 1;
+                      yield* nested();
+                      return allow;
+                    }),
+                }),
+              ],
+            })
+          : interceptionOf({
+              interceptors: [
+                interceptor("reentrant", {
+                  input: ({ invocation }) =>
+                    Effect.gen(function* () {
+                      asked += 1;
+                      yield* nested();
+                      return invocation.input;
+                    }),
+                }),
+              ],
+            });
+      const receipt = await call(reentrant, echo());
+      expect(receipt.status).toBe("succeeded");
+      expect(asked).toBe(MAX_CALL_DEPTH);
+    }
+  });
 });

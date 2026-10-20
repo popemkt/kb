@@ -261,10 +261,22 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   // run, here on invoke itself, so no surface can skip either
   // (`interception.ts`).
   const action = approvalSubject(entry.def, (part) => actions.get(part)?.def.mode);
+  // Everything the call runs — its listeners as much as its handler — runs
+  // as this call, so a call any of them makes nests in it and counts
+  // toward the depth limit.
+  const asCall = (as: ActionInvocation) =>
+    Effect.provideService(CurrentCall, { invocation: as, action, depth });
   const interception = yield* CurrentInterception;
-  const invocation = yield* interceptInput(interception, { ctx, invocation: made, action });
+  const invocation = yield* interceptInput(interception, { ctx, invocation: made, action }).pipe(
+    asCall(made),
+  );
   const { input } = invocation;
-  const outcome = yield* guardBefore(interception, { ctx, invocation, action, phase: "invoke" });
+  const outcome = yield* guardBefore(interception, {
+    ctx,
+    invocation,
+    action,
+    phase: "invoke",
+  }).pipe(asCall(invocation));
   const refusal = refusalOf(outcome, invocation);
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 
@@ -274,10 +286,10 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const run = dispatch(entry, ctx, parsed);
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
-  const produced = yield* run.pipe(
-    Effect.provideService(CurrentCall, { invocation, action, depth }),
+  const produced = yield* run.pipe(asCall(invocation));
+  const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
+    asCall(invocation),
   );
-  const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced);
   return succeeded(id, yield* parseOutput(entry.def, output));
 });
 

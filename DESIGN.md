@@ -1968,9 +1968,11 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
       (loading, failed, or going), every call is denied
       (`required-guard-missing`) rather than run unguarded.
   - **Reentrancy.** A call made inside another (a handler invoking, or a
-    listener with a way to) goes through the same points again. It is made
-    as its caller's (`callWithin`), and it is refused past
-    `MAX_CALL_DEPTH` (16) nested calls.
+    listener with a way to) goes through the same points again. Each stage
+    of a call, its listeners as much as its handler, runs as that call
+    (`CurrentCall`), so a call any of them makes is made as its caller's
+    (`callWithin`), and it is refused past `MAX_CALL_DEPTH` (16) nested
+    calls.
   - **Matching is indexed.**
     - A listener's `match` uses approval's grammar: an action id, a pattern
       with `*`, or a mode word (`matchSpecificity`, `@kb/model`).

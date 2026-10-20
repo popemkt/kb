@@ -216,10 +216,11 @@ export interface RunningCall {
 
 /**
  * The call a handler runs as. The invoke core provides it around each
- * handler, so an action that answers by its caller (`kb.manifest` lists what
- * is decided for that caller) reads it here rather than from its input, and
- * the commit asks the guards again with what the call writes. Code that
- * runs outside any invocation sees `null`.
+ * call, its interceptors and guards as well as its handler, so an action
+ * that answers by its caller (`kb.manifest` lists what is decided for that
+ * caller) reads it here rather than from its input, the commit asks the
+ * guards again with what the call writes, and a call any of them makes
+ * nests in this one. Code that runs outside any invocation sees `null`.
  */
 export const CurrentCall = Context.Reference<RunningCall | null>("kb/CurrentCall", {
   defaultValue: () => null,
