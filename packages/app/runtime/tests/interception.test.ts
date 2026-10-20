@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Tracer } from "effect";
 import { z } from "zod";
 import {
   CurrentCall,
@@ -322,6 +322,37 @@ describe("verdicts", () => {
     });
     await call(interceptionOf({ guards: [tracing] }), echo());
     expect(traced).toEqual([{ name: "kb.guard", plugin: "tracing" }]);
+  });
+
+  test("a guard's span records what it decided and by which rule, a failure's included", async () => {
+    const spans: Tracer.NativeSpan[] = [];
+    const recording = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
+    const denying = guard("denying", {
+      before: () => Effect.succeed({ decision: "deny", rule: "no-echo", message: "no" } as const),
+    });
+    const failing = guard("failing", { before: () => Effect.die(new Error("boom")) });
+    for (const listener of [denying, failing]) {
+      await Effect.runPromise(
+        invokeReceiptWith(ACTIONS, ctx, echo()).pipe(
+          Effect.provideService(CurrentInterception, interceptionOf({ guards: [listener] })),
+          Effect.provide(kbRuntimeLayer(ctx)),
+          Effect.withTracer(recording),
+        ),
+      );
+    }
+    const guardSpans = spans
+      .filter(({ name }) => name === "kb.guard")
+      .map(({ attributes }) => Object.fromEntries(attributes));
+    expect(guardSpans).toEqual([
+      { plugin: "denying", guard: "denying.guard", decision: "deny", rule: "no-echo" },
+      { plugin: "failing", guard: "failing.guard", decision: "deny", rule: "guard-failed" },
+    ]);
   });
 });
 

@@ -2,10 +2,11 @@
  * The interception points' matching cost (`bun run bench`): many listeners,
  * many actions, and what finding a call's listeners costs once the index
  * has seen the action, beside scanning every listener per call, as a host
- * without the index would. Like the store benchmark, it prints a table and
- * asserts nothing; it runs only when named.
+ * without the index would. It runs only when named, prints the table, and
+ * holds the index to two things: it finds exactly what scanning finds, and
+ * finding is cheaper than scanning.
  */
-import { describe, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { ActionGuard, CalledAction, Listener } from "@kb/contracts";
 import { matchSpecificity } from "@kb/model";
@@ -58,18 +59,24 @@ if (enabled) {
       const indexed = timed(() => {
         for (const action of sequence) if (action) found += interception.guards(action).length;
       });
-      const scanned = timed(() => {
-        for (const action of sequence) {
-          if (!action) continue;
-          found -= all.filter(({ value }) => matchSpecificity(value.match, action) !== null).length;
+      // Scanning is three orders slower, so it runs over every action once
+      // and is scaled to the calls; the index must find exactly what it finds.
+      let scannedFound = 0;
+      const scannedOnce = timed(() => {
+        for (const action of called) {
+          scannedFound += all.filter(
+            ({ value }) => matchSpecificity(value.match, action) !== null,
+          ).length;
         }
       });
+      const scanned = (scannedOnce * CALLS) / ACTIONS;
       writeOut(`| interception phase (${CALLS} calls) | ms |`);
       writeOut("|---|---:|");
       writeOut(`| index every action once | ${first.toFixed(1)} |`);
       writeOut(`| indexed lookup | ${indexed.toFixed(1)} |`);
-      writeOut(`| scan every listener | ${scanned.toFixed(1)} |`);
-      writeOut(`| (checksum, 0 when both agree) | ${found} |`);
+      writeOut(`| scan every listener (scaled from one pass) | ${scanned.toFixed(1)} |`);
+      expect(found).toBe((scannedFound * CALLS) / ACTIONS);
+      expect(indexed).toBeLessThan(scanned);
     }, 120_000);
   });
 }

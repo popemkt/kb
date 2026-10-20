@@ -48,7 +48,10 @@ function matches(match: string, action: Action): boolean {
 
 /**
  * An index over one ordered listener list: the listeners matching an
- * action, worked out the first time that action is asked about.
+ * action, worked out the first time that action is asked about. The id keys
+ * it because an action's id fixes everything matching reads: its mode and
+ * a batch's parts are its definition's (`approvalSubject`), and one index
+ * serves one registry's listeners, rebuilt when they change.
  */
 function indexOf<L extends { readonly match: string }>(
   listeners: readonly Listener<L>[],
@@ -168,15 +171,35 @@ function whyFailed(cause: Cause.Cause<unknown>): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** One guard's verdict, failing closed: a guard that fails or overruns denies. */
-const askOne = Effect.fnUntraced(function* (
+/**
+ * One guard's verdict, failing closed: a guard that fails or overruns
+ * denies. Its span, `kb.guard`, names the plugin and the guard, and once it
+ * answers, the decision and the rule that decided it, so a refusal is on
+ * the trace as well as in the receipt's `decidedBy`.
+ */
+function askOne(
+  guard: Listener<ActionGuard>,
+  budgetMs: number,
+  ask: (signal: AbortSignal) => Effect.Effect<GuardVerdict>,
+): Effect.Effect<GuardVerdict> {
+  return verdictOf(guard, budgetMs, ask).pipe(
+    Effect.tap((verdict) =>
+      Effect.annotateCurrentSpan(
+        verdict.decision === "allow"
+          ? { decision: "allow" }
+          : { decision: verdict.decision, rule: verdict.rule },
+      ),
+    ),
+    Effect.withSpan("kb.guard", { attributes: { plugin: guard.owner, guard: guard.id } }),
+  );
+}
+
+const verdictOf = Effect.fnUntraced(function* (
   guard: Listener<ActionGuard>,
   budgetMs: number,
   ask: (signal: AbortSignal) => Effect.Effect<GuardVerdict>,
 ) {
-  const exit = yield* budgeted(budgetMs, ask).pipe(
-    Effect.withSpan("kb.guard", { attributes: { plugin: guard.owner, guard: guard.id } }),
-  );
+  const exit = yield* budgeted(budgetMs, ask);
   if (Exit.isFailure(exit)) {
     return {
       decision: "deny",
