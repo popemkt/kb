@@ -4552,3 +4552,72 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
 - I orchestrate via orca-cli: dispatch, wait on worker_done, run
   `cavecrew-reviewer` on each worktree diff, **fix findings myself**, merge
   sequentially (M1 → parallel trio → M5).
+
+## What kinds of extension kb supports
+
+What a plugin can add or change, and what it cannot, read from the code
+as it is. Every kind below goes through the one kernel (`@kb/plugin`) as
+a service a plugin provides and others inject, or a contribution to a
+point. A plugin reaches another only through a service it injects.
+
+| Kind | How | Where it runs | Examples |
+| --- | --- | --- | --- |
+| Actions | `ActionPoint` (`provideAction`) | every surface, through the invoke core | each family's verbs |
+| Policy over calls | guards, `ActionGuardPoint` (`guardAction`) | before a call and before its commit | governance's approval and `force` |
+| Transforms of calls | interceptors, `ActionInterceptorPoint` (`onAction`) | around a call's input and output | — |
+| Who the person is | `IdentityPoint` (`identity.providers`) | the `kb ui` server's request guard | page token, proxy header |
+| Views and templates | `ViewKeyPoint`, `TemplatePoint` | server text, docs, the page | outline, collections, docs |
+| Page UI | `ui.routes`, `ui.views`, `ui.sidebar`, `ui.docks`, `ui.overlays`, `ui.commands`, `ui.palette-steps`, design systems, backdrops, option previews | the page | every `-ui` half |
+| Conversations with the page | `ChannelPoint`, beside `UiHost` | the `kb ui` server | the agent sidebar |
+| Seed, settings, declared options | the family's declaration | the bundled fold, every store | each family |
+| Family-owned seams | a point or service a family mints | wherever that family reads it | `graph.themes`, `lab.studies` |
+| Repository code | a trusted closure in `.kb/extensions/` | server and page, as owner code | a repo's own family |
+| Untrusted code | scripts in the sandbox | QuickJS or a worker, with a grant | canvas and code scripts |
+
+**How extensibility works, by design.**
+- **Another implementation is another provider, chosen by configuration.**
+  No plugin takes over a service another holds (`service-conflict`, as in
+  Cordis).
+- **Interception is a point with combination rules**, never a wrapped
+  service:
+  - guards and interceptors (NestJS's guards versus interceptors, Envoy's
+    filter chain, Fastify's lifecycle hooks);
+  - identity providers (Cordis's `bail`).
+- **Order is the kernel's:** dependencies first, then load order. There is
+  no `prepend` or priority.
+- **Trust, not the plugin model, is the boundary.** A trusted extension
+  runs in kb's process with the owner's power, unlike VS Code, whose
+  extension host is a separate process the editor survives. kb isolates
+  only code it does not trust: sandboxed scripts, with their grants
+  ([Sandbox](#sandbox)).
+
+**Not offered, by evidence.**
+- **Reacting after a commit, in a plugin.**
+  - The transaction log can be subscribed to (`KbTxLog.subscribe`), but
+    only host code does: the `kb ui` server converging extension switches
+    (`app/server/src/server.ts`), and the subscription hub fanning
+    transactions to sockets (`app/server/src/session.ts`).
+  - A plugin is handed no log:
+    - `UiHost` is a root and `invoke` (`contracts/src/channel.ts`);
+    - a registry family's handlers see the session only while a call runs;
+    - a commit guard sees the writes before the commit and may refuse
+      them, not act after them.
+  - So "when a node is tagged X, do Y" runs today only out of process. A
+    program connects to `/ws` and sends `{op: "watch-tx", enabled: true}`,
+    which any wire may read. It receives each transaction's delta, and acts
+    through `POST /api/action` as an agent. That needs a running `kb ui`.
+  - An in-process seam would be a point fed by the log, after the commit,
+    with the same budgets, failure rules and nesting limit as the
+    interception points. It is not built.
+- **A storage backend from a plugin.**
+  - The store is fixed when kb is assembled. `BACKENDS` in
+    `app/runtime/src/store-selection.ts`, the composition root, is the one
+    table of adapters (`STORE_BACKENDS`: `jsonl`, `sqlite`).
+  - A root's store is selected and opened before any registry or kernel
+    exists (`openKb` → `selectStore`), so no plugin is loaded early enough
+    to provide one.
+  - A new backend is a new `EffectStore` adapter package and a row in that
+    table. It joins the shared store contract (`store-contract.ts` over
+    `STORE_BACKENDS`), as One contract, every implementation asks.
+- **Isolation scopes**: a sub-scope with its own implementation of a
+  service name, as Cordis has. Nothing needs it yet.
