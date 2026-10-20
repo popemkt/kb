@@ -1961,7 +1961,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
       and `kb.intercept.*`), attributed to its plugin.
   - **Lifecycle.**
     - A plugin's contributions appear only once its `apply` has finished,
-      and go before any of its finalizers run (`@kb/plugin`). There is
+      and go before any of its finalizers run (`@kb/plugin`): the kernel
+      moves as the plugin is marked inactive, so a reader that keeps what
+      it read until the kernel moves lets go of it then too. There is
       therefore no moment when a guard is half there.
     - A deployment may name plugins whose guards it requires
       (`interceptionFrom(kernel, {required})`). While one is not applied

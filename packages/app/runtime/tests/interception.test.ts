@@ -468,6 +468,31 @@ describe("order and lifecycle", () => {
     expect(order).toEqual(["provider", "dependent", "later"]);
   });
 
+  test("a plugin on its way out has no guards, even to a reader that indexed them, while its finalizers run", async () => {
+    const kernel = makeKernel();
+    const interception = interceptionFrom(kernel);
+    const duringFinalizer: number[] = [];
+    const echoing = { id: "test.echo", mode: { kind: "read" } } as const;
+    const leaving = definePlugin({
+      name: "leaving",
+      apply: (plugin) =>
+        Effect.gen(function* () {
+          yield* guardAction(plugin, "*", { before: () => Effect.succeed(allow) });
+          yield* Effect.addFinalizer(() =>
+            Effect.sync(() => {
+              duringFinalizer.push(interception.guards(echoing).length);
+            }),
+          );
+        }),
+    });
+    await Effect.runPromise(kernel.load(leaving));
+    // Indexed while it was there.
+    expect(interception.guards(echoing).length).toBe(1);
+    await Effect.runPromise(kernel.unload("leaving"));
+    expect(duringFinalizer).toEqual([0]);
+    expect(interception.guards(echoing).length).toBe(0);
+  });
+
   test("while a guard the deployment requires is not applied, every call is denied", async () => {
     const kernel = makeKernel();
     const interception = interceptionFrom(kernel, { required: ["governance"] });

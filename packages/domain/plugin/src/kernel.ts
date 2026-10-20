@@ -267,12 +267,15 @@ function claim<K extends string>(
 
 const deactivate = Effect.fnUntraced(function* (state: State, entry: Entry, next: PluginStatus) {
   const scope = entry.scope;
-  // Marked inactive before its finalizers run, so a finalizer that reaches
-  // back into the kernel sees a plugin that is already on its way out, and
-  // no reader sees half of what it contributed.
+  // Marked inactive, and the kernel moved, before its finalizers run: a
+  // finalizer that reaches back into the kernel, and a reader that keeps
+  // what it read until the kernel moves, both see a plugin already on its
+  // way out, and no reader sees half of what it contributed. It moves again
+  // once the finalizers have taken back what the plugin registered.
   entry.scope = null;
   entry.applied = false;
   entry.status = next;
+  changed(state);
   if (scope !== null) yield* Scope.close(scope, Exit.void);
   changed(state);
 });
