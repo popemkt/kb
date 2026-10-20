@@ -1,6 +1,7 @@
 /**
  * The extensions as actions: `extension.switch`, the checked write of a
- * family's switch, and `extension.footprint`, the read of what a family adds.
+ * family's switch, `extension.footprint`, the read of what a family adds,
+ * and `extension.list`, the report of every extension the host composes.
  *
  * `extension.switch`: turn an optional family on or off for this store
  * (DESIGN.md → Extension families → optional is a server-side load
@@ -18,10 +19,14 @@ import { Effect } from "effect";
 import { z } from "zod";
 import {
   ExtensionCatalog,
+  ExtensionFailures,
+  ExtensionReportSchema,
   FamilyKernels,
   FootprintRowSchema,
   KbCtx,
   holdsFamily,
+  orderedPoints,
+  organisationOf,
   runtimeFootprint,
   switchWrites,
   type ActionDefinition,
@@ -147,4 +152,36 @@ export const extensionFootprintEffect = Effect.fn("extension.footprint")(functio
     });
   }
   return { rows: named.flatMap((family) => familyFootprint(ctx.index, family, kernels)) };
+});
+
+export const extensionListDef = {
+  id: "extension.list",
+  title: "List the extensions",
+  description:
+    "Every extension this kb composes, on or off (as kb.manifest lists them), each with its tags, the services its plugins inject and from whom, what they provide and why any failed; the points whose listeners run in turn (identity providers, interceptors, guards), each in that order; and the repository extensions refused, an untrusted one with its digest",
+  mode: { kind: "read" } as const,
+  inputSchema: z.object({}),
+  outputSchema: ExtensionReportSchema,
+} satisfies ActionDefinition;
+
+/**
+ * `extension.list`: the catalog's rows, each with how its plugins sit in
+ * every kernel this host holds families in (`organisationOf`), the ordered
+ * points of those kernels, and the modules discovery refused. `kb ext list`
+ * prints it and the page's Extensions panel draws it.
+ */
+export const extensionListEffect = Effect.fn("extension.list")(function* (): Effect.fn.Return<
+  z.infer<typeof extensionListDef.outputSchema>,
+  never,
+  ExtensionCatalog | ExtensionFailures | FamilyKernels
+> {
+  const kernels = yield* FamilyKernels;
+  return {
+    extensions: (yield* ExtensionCatalog).map((row) => ({
+      ...row,
+      ...organisationOf(row.name, kernels),
+    })),
+    points: orderedPoints(kernels),
+    failures: [...(yield* ExtensionFailures)],
+  };
 });

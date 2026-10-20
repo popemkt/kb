@@ -68,6 +68,13 @@ export {
   runtimeFootprint,
 } from "./footprint.ts";
 export type { FamilyKernel, FootprintRow, HostedFamilies } from "./footprint.ts";
+export {
+  ExtensionFailures,
+  ExtensionReportSchema,
+  orderedPoints,
+  organisationOf,
+} from "./extension-report.ts";
+export type { ExtensionReport, ExtensionReportRow, OrderedPoint } from "./extension-report.ts";
 export type { NodeLookup } from "./extension-switch.ts";
 export { ViewCatalog, ViewKeyPoint, viewDef } from "./view-catalog.ts";
 export type { ViewDef, ViewText } from "./view-catalog.ts";

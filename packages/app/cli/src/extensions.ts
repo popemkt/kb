@@ -1,8 +1,9 @@
 /**
- * `kb ext`: the extensions this root composes. `list` prints each one on or
- * off with its tags, what it injects from whom and provides, the actions it
- * registered and how much it contributes,
- * `footprint` prints what one adds (`extension.footprint`), and `sdk`
+ * `kb ext`: the extensions this root composes. `list` prints
+ * `extension.list`'s report (each one on or off with its tags, what it
+ * injects from whom and provides, the ordered points' listeners and the
+ * modules refused) with the actions each registered and how much it
+ * contributes, `footprint` prints what one adds (`extension.footprint`), and `sdk`
  * prints or writes the ambient types a repository extension compiles
  * against.
  */
@@ -10,15 +11,16 @@ import type { Command } from "commander";
 import { Effect } from "effect";
 import { z } from "zod";
 import {
-  ActionGuardPoint,
-  ActionInterceptorPoint,
+  ExtensionReportSchema,
   FootprintRowSchema,
   onWire,
+  type ExtensionReport,
+  type ExtensionReportRow,
   type FootprintRow,
   type KbContext,
 } from "@kb/contracts";
 import { ensureDomainError } from "@kb/model";
-import type { Kernel } from "@kb/plugin";
+import type { RegisteredAction } from "@kb/operations";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { invokeReceiptEffect, resolveRootEffect, sessionRegistry, writeOut } from "@kb/runtime";
 import { ACTION_INVOKE_WIRE, EXIT_OK, cliAction, kbAction, report } from "./command.ts";
@@ -53,52 +55,58 @@ function footprintLines(output: unknown): readonly string[] {
   ];
 }
 
-/** Each interception point's listeners in the order a call meets them: dependencies first, then load order. */
-function interceptionPoints(kernel: Kernel) {
-  return [ActionInterceptorPoint, ActionGuardPoint].map((point) => ({
-    point: point.name,
-    listeners: kernel
-      .contributions<{ readonly match: string }>(point)
-      .map(({ owner, id, value }) => ({ owner, id, match: value.match })),
-  }));
+/** `extension.list`'s report, as the action answers it; empty when it answers otherwise. */
+function reportOf(output: unknown): ExtensionReport {
+  const parsed = ExtensionReportSchema.safeParse(output);
+  return parsed.success ? parsed.data : { extensions: [], points: [], failures: [] };
 }
 
-function pointLines(points: ReturnType<typeof interceptionPoints>): string[] {
-  return points.flatMap(({ point, listeners }) => [
-    `${point}: ${listeners.length === 0 ? "no listeners" : "in order"}`,
-    ...listeners.map(({ owner, id, match }, at) => `  ${at + 1}. ${id} (${owner}) on ${match}`),
+/** Each ordered point's listeners, in the order a host asks them. */
+function pointLines(points: ExtensionReport["points"]): string[] {
+  return points.flatMap(({ point, source, listeners }) => [
+    `${point} (${source}): in order`,
+    ...listeners.map(
+      ({ owner, id, match }, at) =>
+        `  ${at + 1}. ${id} (${owner})${match === undefined ? "" : ` on ${match}`}`,
+    ),
   ]);
 }
 
 /**
  * How a family's plugins sit among the others (DESIGN.md → Plugin
  * organisation): their tags, each service they inject and who provides it
- * (null while nobody does), and what they provide. A family's plugin is
- * named for it, and its children are its own.
+ * (nobody yet, while nobody does), what they provide, and why any failed.
  */
-function organisationOf(kernel: Kernel, family: string) {
-  const own = (name: string) => name === family || name.startsWith(`${family}/`);
-  const plugins = kernel.plugins().filter((plugin) => own(plugin.name));
-  return {
-    tags: [...new Set(plugins.flatMap((plugin) => plugin.tags))],
-    injects: [
-      ...kernel
-        .dependencies()
-        .filter((edge) => own(edge.from))
-        .map(({ service, to }) => ({ service, from: to })),
-      ...plugins.flatMap((plugin) => plugin.missing.map((service) => ({ service, from: null }))),
-    ],
-    provides: plugins.flatMap((plugin) => plugin.provides),
-  };
-}
-
-function organisationLines(organisation: ReturnType<typeof organisationOf>): string[] {
-  const { tags, injects, provides } = organisation;
+function organisationLines(row: ExtensionReportRow): string[] {
+  const { tags, injects, provides, failures } = row;
   return [
     ...(tags.length === 0 ? [] : [`  tags: ${tags.join(", ")}`]),
     ...injects.map(({ service, from }) => `  injects ${service} from ${from ?? "nobody yet"}`),
     ...provides.map((service) => `  provides ${service}`),
+    ...failures.map((failure) => `  ! ${failure}`),
   ];
+}
+
+/** The report as `kb ext list` prints it: each extension with its organisation and actions, then the points and refusals. */
+function listLines(
+  listed: readonly (ExtensionReportRow & {
+    readonly contributes: number;
+    readonly actions: readonly RegisteredAction[];
+  })[],
+  { points, failures }: ExtensionReport,
+): string[] {
+  const lines: string[] = [];
+  for (const e of listed) {
+    lines.push(`${e.name} (${e.source}${e.enabled ? "" : ", off"}) — contributes ${e.contributes}`);
+    lines.push(...organisationLines(e));
+    for (const a of e.actions) {
+      const alias = a.aliases.length > 0 ? ` (alias: ${a.aliases.join(", ")})` : "";
+      lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${formatMode(a.def.mode)}]`);
+    }
+  }
+  lines.push(...pointLines(points));
+  for (const f of failures) lines.push(`! ${f.file}: ${f.error} (skipped)`);
+  return lines;
 }
 
 export function extensionCommands(program: Command): void {
@@ -114,14 +122,18 @@ export function extensionCommands(program: Command): void {
           const registry = yield* sessionRegistry(ctx);
           const receipt = yield* footprint(ctx);
           const rows = footprintRows(receipt.status === "succeeded" ? receipt.output : null);
-          // What kb.manifest reports, each with the actions it registered when
-          // loaded and how many footprint rows it has.
-          const points = interceptionPoints(registry.kernel);
-          const listed = registry.families.map((family) => ({
+          const listing = yield* invokeReceiptEffect(
+            ctx,
+            onWire(ACTION_INVOKE_WIRE, { id: "extension.list", input: {} }),
+          );
+          const extensionReport = reportOf(listing.status === "succeeded" ? listing.output : null);
+          // The report's rows, each with the actions it registered when loaded
+          // and how many footprint rows it has.
+          const { points, failures } = extensionReport;
+          const listed = extensionReport.extensions.map((family) => ({
             ...family,
             actions: registry.extensions.find(({ name }) => name === family.name)?.actions ?? [],
             contributes: rows.filter((row) => row.family === family.name).length,
-            ...organisationOf(registry.kernel, family.name),
           }));
           if (globals.json === true) {
             writeOut(
@@ -135,9 +147,11 @@ export function extensionCommands(program: Command): void {
                     optional: e.optional,
                     enabled: e.enabled,
                     contributes: e.contributes,
+                    ...(e.digest === undefined ? {} : { digest: e.digest }),
                     tags: e.tags,
                     injects: e.injects,
                     provides: e.provides,
+                    failures: e.failures,
                     actions: e.actions.map((a) => ({
                       id: a.def.id,
                       title: a.def.title,
@@ -145,28 +159,14 @@ export function extensionCommands(program: Command): void {
                       aliases: a.aliases,
                     })),
                   })),
-                  failures: registry.failures,
+                  failures,
                   points,
                 },
               }),
             );
             return EXIT_OK;
           }
-          const lines: string[] = [];
-          for (const e of listed) {
-            lines.push(
-              `${e.name} (${e.source}${e.enabled ? "" : ", off"}) — contributes ${e.contributes}`,
-            );
-            lines.push(...organisationLines(e));
-            for (const a of e.actions) {
-              const alias = a.aliases.length > 0 ? ` (alias: ${a.aliases.join(", ")})` : "";
-              lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${formatMode(a.def.mode)}]`);
-            }
-          }
-          lines.push(...pointLines(points));
-          for (const f of registry.failures) {
-            lines.push(`! ${f.file}: ${f.error} (skipped)`);
-          }
+          const lines = listLines(listed, extensionReport);
           writeOut(lines.length > 0 ? lines.join("\n") : "no extensions loaded");
           return EXIT_OK;
         }),

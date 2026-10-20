@@ -156,3 +156,22 @@ describe("a kb ui with no identity provider", () => {
     }
   });
 });
+
+describe("the identity providers, as extension.list reports them", () => {
+  test("are the host's identity point, in the order the server asks them", async () => {
+    const res = await fetch(`${handle.url}/api/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json", [PAGE_TOKEN_HEADER]: TOKEN },
+      body: JSON.stringify({ id: "extension.list", input: {} }),
+    });
+    const receipt = (await res.json()) as {
+      output: { points: { point: string; source: string; listeners: { owner: string }[] }[] };
+    };
+    const identity = receipt.output.points.find(({ point }) => point === "identity.providers");
+    expect(identity?.source).toBe("host");
+    expect(identity?.listeners.map(({ owner }) => owner)).toEqual([
+      "identity-page-token",
+      "identity-header",
+    ]);
+  });
+});
