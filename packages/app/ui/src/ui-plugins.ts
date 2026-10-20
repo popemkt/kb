@@ -242,48 +242,58 @@ async function importPageHalf(path: string): Promise<Plugin> {
 }
 
 /**
+ * The failed entries handed to the kernel, one per family, path and reason:
+ * a failure read again for the same reason is the same value, so the kernel
+ * is left as it is and nothing is toasted twice.
+ */
+const unloadables = new Map<string, Plugin>();
+
+/**
  * A family's browser entry the page could not have: a plugin of the
  * family's name whose `apply` fails with why, so the kernel holds the
  * failure as it holds any plugin's, and every reader of the kernel (the
  * Extensions panel's `organisationOf`, its log) sees it.
  */
-function unloadable(name: string, why: string): Plugin {
-  return {
+function unloadable(key: string, name: string, why: string): Plugin {
+  const known = unloadables.get(`${key}\0${why}`);
+  if (known !== undefined) return known;
+  const plugin: Plugin = {
     name,
     apply: () =>
       Effect.fail(new PluginError({ plugin: name, reason: "apply-failed", message: why })),
   };
+  unloadables.set(`${key}\0${why}`, plugin);
+  return plugin;
 }
 
-/** Resolve one family's browser entry, held to the name it was resolved by. */
-async function resolveEntry(row: ExtensionRow): Promise<Plugin | null> {
+/**
+ * Each family's browser entry that resolved, once per place it is served
+ * from: the same row answers the same plugin value, so a converged kernel
+ * is left as it is, and a page half served from new bytes (a new path)
+ * resolves anew and replaces it (`syncPlugins`). A failure is not kept:
+ * it is tried again at the next convergence, so one that was passing (a
+ * chunk the network dropped) recovers without a reload.
+ */
+const resolved = new Map<string, Plugin>();
+
+/** Load one family's browser entry, held to the name it was resolved by. */
+async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
   const { name } = row;
+  const key = `${name}\0${row.page ?? ""}`;
+  const known = resolved.get(key);
+  if (known !== undefined) return known;
   const extension = browserEntry(row);
   if (extension === null) return null;
   try {
     const plugin = await extension.load();
-    if (plugin.name === name) return plugin;
-    return unloadable(name, `its browser entry is named ${plugin.name}`);
+    if (plugin.name !== name) {
+      return unloadable(key, name, `its browser entry is named ${plugin.name}`);
+    }
+    resolved.set(key, plugin);
+    return plugin;
   } catch (error) {
-    return unloadable(name, `its browser entry failed to load: ${String(error)}`);
+    return unloadable(key, name, `its browser entry failed to load: ${String(error)}`);
   }
-}
-
-/**
- * Each family's browser entry, resolved once per place it is served from:
- * the same row answers the same plugin value, failed or not, so a converged
- * kernel is left as it is; a page half served from new bytes is a new path,
- * resolved anew, and its value replaces the one held (`syncPlugins`).
- */
-const resolved = new Map<string, Promise<Plugin | null>>();
-
-function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
-  const key = `${row.name}\0${row.page ?? ""}`;
-  const known = resolved.get(key);
-  if (known !== undefined) return known;
-  const entry = resolveEntry(row);
-  resolved.set(key, entry);
-  return entry;
 }
 
 let generation = 0;

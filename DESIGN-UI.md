@@ -2387,7 +2387,10 @@ is one setting among those it opens.
   - its settings;
   - why a plugin of it failed, on the server or in the page. A page half
     the page could not import counts, because `loadEntry` loads it as a
-    plugin of the family's name that fails with why.
+    plugin of the family's name that fails with why. A failure is tried
+    again at the next convergence, and the same failure is the same value,
+    so a dropped chunk recovers without a reload and nothing moves while
+    it keeps failing.
 - **Settings are fields.** A family's settings are the fields whose
   `sys.f.configures` names its node (`configures`). They are drawn with the
   page's field editor, as Preferences draws core's. The switch is the one

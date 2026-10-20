@@ -26,7 +26,7 @@ import { EXAMPLE_PAGE_HALF } from "@/test-support/example-page.text";
 
 const { setPostAction } = await import("@/api/action");
 const { loadManifest } = await import("@/lib/manifest");
-const { extensionsSettled, startUiPlugins } = await import("@/ui-plugins");
+const { BROWSER_EXTENSIONS, extensionsSettled, startUiPlugins } = await import("@/ui-plugins");
 
 /** Where the page imports the half from: here, the served bytes themselves. */
 const served = (source: string) =>
@@ -40,6 +40,8 @@ let servedAt = SERVED_AT;
 
 /** Whether the server reports the example loaded. */
 let loaded = true;
+/** Whether the server reports the lab loaded (off in a store with no switch written). */
+let labOn = false;
 
 /** What the server reports: every bundled family as a store with no switch has it, and the example. */
 function reported() {
@@ -48,7 +50,7 @@ function reported() {
       extensionRow(
         declaration,
         "bundled",
-        familyOn(declaration, NO_SWITCHES, () => {}),
+        (declaration.name === "lab" && labOn) || familyOn(declaration, NO_SWITCHES, () => {}),
       ),
     ),
     extensionRow(
@@ -151,5 +153,32 @@ describe("a repository extension's page half (acceptance)", () => {
     await follow();
     expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
     expect(pageFootprint("example").length).toBe(3);
+  });
+
+  it("tries a browser entry that failed again, so one that was passing recovers without a reload", async () => {
+    const lab = BROWSER_EXTENSIONS.lab;
+    if (lab === null || lab === undefined) throw new Error("the lab has a browser entry");
+    const load = lab.load;
+    let tries = 0;
+    // The network drops the chunk once.
+    (lab as { load: typeof load }).load = () => {
+      tries += 1;
+      return tries === 1 ? Promise.reject(new Error("chunk dropped")) : load();
+    };
+    try {
+      labOn = true;
+      await follow();
+      expect(organisationOf("lab", [PAGE_FAMILY_KERNEL]).failures).toEqual([
+        expect.stringContaining("chunk dropped"),
+      ]);
+      await follow();
+      expect(tries).toBe(2);
+      expect(organisationOf("lab", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
+      expect(pageFootprint("lab").length).toBeGreaterThan(0);
+    } finally {
+      (lab as { load: typeof load }).load = load;
+      labOn = false;
+      await follow();
+    }
   });
 });
