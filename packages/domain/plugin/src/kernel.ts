@@ -153,6 +153,12 @@ export interface Kernel {
   readonly service: <S>(key: ServiceKey<S>) => S | undefined;
   readonly plugins: () => readonly PluginState[];
   /**
+   * Whether `plugin`, this very value, is what the kernel holds under its
+   * name: how a host that converges on a list (`syncPlugins`) tells a
+   * plugin it already holds from another value of the same name.
+   */
+  readonly holds: (plugin: Plugin) => boolean;
+  /**
    * Who depends on whom, derived and never declared: an edge from each
    * plugin to the provider of each service it injects that is provided now,
    * in load order, then `inject` order. An injected service nobody provides
@@ -171,6 +177,8 @@ interface Entry {
   readonly tags: readonly string[];
   readonly inject: readonly AnyServiceKey[];
   readonly parent: string | null;
+  /** The value it was loaded as. */
+  readonly plugin: Plugin;
   readonly apply: Plugin["apply"];
   status: PluginStatus;
   /**
@@ -348,6 +356,7 @@ const loadEntry = Effect.fnUntraced(function* (state: State, plugin: Plugin, par
     tags: plugin.tags ?? parent?.tags ?? [],
     inject: plugin.inject ?? [],
     parent: parent?.name ?? null,
+    plugin,
     apply: plugin.apply,
     status: "pending",
     applied: false,
@@ -508,6 +517,7 @@ export function makeKernel(): Kernel {
       const slot = state.services.get(key.name);
       return slot?.key === key ? asKeyType(key, slot.impl) : undefined;
     },
+    holds: (plugin) => state.entries.get(plugin.name)?.plugin === plugin,
     plugins: () =>
       [...state.entries.values()].map((entry) => ({
         name: entry.name,

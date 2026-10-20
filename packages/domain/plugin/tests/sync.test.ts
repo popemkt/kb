@@ -65,6 +65,26 @@ describe("syncPlugins", () => {
       }),
     ));
 
+  test("what counts is the value the kernel holds now, however it came to hold it", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        const first = named("a");
+        const second = named("a");
+        yield* syncPlugins(kernel, [first]);
+        // Moved outside syncPlugins: it now holds `second`.
+        yield* kernel.unload("a");
+        yield* kernel.load(second);
+        yield* syncPlugins(kernel, [first]);
+        expect(kernel.holds(first)).toBe(true);
+        // Loaded outside syncPlugins first: a different listed value still replaces it.
+        const other = makeKernel();
+        yield* other.load(first);
+        yield* syncPlugins(other, [second]);
+        expect(other.holds(second)).toBe(true);
+      }),
+    ));
+
   test("a plugin that fails is returned, and the rest still converge", () =>
     Effect.runPromise(
       Effect.gen(function* () {
