@@ -22,7 +22,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import * as zod from "zod";
 import { ulid } from "ulid";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
-import type { AgentPorts } from "@kb/agent-ui";
+import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { backdropsExtension } from "@kb/backdrops";
 import { backdropsUiPlugin } from "@kb/backdrops-ui";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
@@ -88,6 +88,19 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
 ];
 
 /**
+ * Where this tab's connection stands, from the socket's state and what the
+ * server said of it: whose it is is told once per connection, after it opens.
+ */
+function standingOf({
+  wsStatus,
+  person,
+}: Pick<ReturnType<typeof useUiStore.getState>, "wsStatus" | "person">): Standing {
+  if (wsStatus !== "open") return "offline";
+  if (person === undefined) return "unknown";
+  return person === null ? "nobody" : "person";
+}
+
+/**
  * The agent's ports, bound to this page: the live socket's `agent.chat`
  * channel, the socket's state, and the browser's one invoke path, through
  * which the person's approve or decline is made. The agent's UI half reaches
@@ -96,12 +109,15 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
 const AGENT_PORTS: AgentPorts = {
   listen: (sink) => getLiveClient().listen(AGENT_CHANNEL, sink),
   send: (request) => getLiveClient().sendChannel(AGENT_CHANNEL, request),
-  connection: (listener) =>
-    useUiStore.subscribe((next, previous) => {
-      if (next.wsStatus === previous.wsStatus) return;
-      if (next.wsStatus === "open") listener(true);
-      else if (previous.wsStatus === "open") listener(false);
-    }),
+  connection: (listener) => {
+    let told = standingOf(useUiStore.getState());
+    return useUiStore.subscribe((next) => {
+      const standing = standingOf(next);
+      if (standing === told) return;
+      told = standing;
+      listener(standing);
+    });
+  },
   // A local write answers at once and is pushed after; the agent is told
   // what the server made of the call, never the optimistic first answer.
   invoke: async (invocation) => (await invokeSettled(invocation)).settled,

@@ -81,7 +81,9 @@ export const useUiStore = create<UiState>((set) => ({
   filterPopoverFrameId: null,
   openDock: null,
 
-  setWsStatus: (wsStatus) => set({ wsStatus }),
+  // Whose a connection is, it is told after it opens; a closed one is no one's yet.
+  setWsStatus: (wsStatus) =>
+    set(wsStatus === "open" ? { wsStatus } : { wsStatus, person: undefined }),
   setPerson: (person) => set({ person }),
   setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
   setSidebarOverlayOpen: (sidebarOverlayOpen) => set({ sidebarOverlayOpen }),
