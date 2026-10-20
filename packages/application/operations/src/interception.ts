@@ -159,7 +159,11 @@ function budgeted<A>(
       Effect.andThen(Effect.sync(() => controller.abort(new Error("budget exceeded")))),
       Effect.as(Option.none<A>()),
     );
-    return Effect.raceFirst(run(controller.signal).pipe(Effect.asSome), overrun).pipe(
+    // Built inside the boundary: a listener that throws while making its
+    // effect (or a call it is handed that cannot be sealed) fails here, and
+    // fails closed, like one whose effect fails.
+    const ran = Effect.suspend(() => run(controller.signal));
+    return Effect.raceFirst(ran.pipe(Effect.asSome), overrun).pipe(
       Effect.onInterrupt(() => Effect.sync(() => controller.abort(new Error("interrupted")))),
       Effect.exit,
     );

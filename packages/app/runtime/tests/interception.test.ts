@@ -256,6 +256,18 @@ describe("the two kinds", () => {
     }
   });
 
+  test("a guard that throws as it makes its effect denies, in its plugin's name", async () => {
+    const throwing = guard("throwing", {
+      before: () => {
+        throw new Error("thrown while making the effect");
+      },
+    });
+    expect(await call(interceptionOf({ guards: [throwing] }), echo())).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "throwing", rule: "guard-failed" } },
+    });
+  });
+
   test("an interceptor transforms the input and output, and the guards see the input that will run", async () => {
     const seen: unknown[] = [];
     const doubler = interceptor("doubler", {
