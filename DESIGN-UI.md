@@ -2382,7 +2382,9 @@ is one setting among those it opens.
     how many nodes it seeds;
   - what it injects and from whom, and what it provides;
   - its settings;
-  - why a plugin of it failed.
+  - why a plugin of it failed, on the server or in the page. A page half
+    the page could not import counts, because `loadEntry` loads it as a
+    plugin of the family's name that fails with why.
 - **Settings are fields.** A family's settings are the fields whose
   `sys.f.configures` names its node (`configures`). They are drawn with the
   page's field editor, as Preferences draws core's. The switch is the one

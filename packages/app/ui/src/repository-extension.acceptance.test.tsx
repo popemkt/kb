@@ -13,8 +13,9 @@ import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { NO_SWITCHES, extensionRow, familyOn } from "@kb/contracts";
+import { NO_SWITCHES, extensionRow, familyOn, organisationOf } from "@kb/contracts";
 import {
+  PAGE_FAMILY_KERNEL,
   SidebarSectionPoint,
   ViewPoint,
   currentContributions,
@@ -28,11 +29,14 @@ const { loadManifest } = await import("@/lib/manifest");
 const { extensionsSettled, startUiPlugins } = await import("@/ui-plugins");
 
 /** Where the page imports the half from: here, the served bytes themselves. */
-const SERVED_AT = `data:text/javascript;base64,${btoa(
-  Array.from(new TextEncoder().encode(EXAMPLE_PAGE_HALF), (byte) =>
-    String.fromCodePoint(byte),
-  ).join(""),
-)}`;
+const served = (source: string) =>
+  `data:text/javascript;base64,${btoa(
+    Array.from(new TextEncoder().encode(source), (byte) => String.fromCodePoint(byte)).join(""),
+  )}`;
+const SERVED_AT = served(EXAMPLE_PAGE_HALF);
+
+/** Where the server says the half is: the example's, or bytes that throw as they are imported. */
+let servedAt = SERVED_AT;
 
 /** Whether the server reports the example loaded. */
 let loaded = true;
@@ -51,7 +55,7 @@ function reported() {
       { name: "example", label: "Example", optional: { byDefault: "on" } },
       "/root/.kb/extensions/example.ts",
       loaded,
-      SERVED_AT,
+      servedAt,
     ),
   ];
 }
@@ -118,6 +122,25 @@ describe("a repository extension's page half (acceptance)", () => {
     loaded = false;
     await follow();
     expect(pageFootprint("example")).toEqual([]);
+    loaded = true;
+    await follow();
+    expect(pageFootprint("example").length).toBe(3);
+  });
+
+  it("is reported failed, as any plugin of its family is, when its page half cannot be imported", async () => {
+    loaded = false;
+    await follow();
+    loaded = true;
+    servedAt = served('throw new Error("boom at import");');
+    await follow();
+    expect(pageFootprint("example")).toEqual([]);
+    expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([
+      expect.stringContaining("boom at import"),
+    ]);
+    loaded = false;
+    servedAt = SERVED_AT;
+    await follow();
+    expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
     loaded = true;
     await follow();
     expect(pageFootprint("example").length).toBe(3);

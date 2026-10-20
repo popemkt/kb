@@ -20,6 +20,7 @@ import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as zod from "zod";
 import { ulid } from "ulid";
+import { Effect } from "effect";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
 import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { backdropsExtension } from "@kb/backdrops";
@@ -53,7 +54,7 @@ import { outlineExtension } from "@kb/outline";
 import { extensionNodeId } from "@kb/model";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension } from "@kb/operations";
-import { isPlugin, type Plugin } from "@kb/plugin";
+import { isPlugin, PluginError, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
 import { designSystemsUiPlugin } from "@/design-systems";
@@ -240,6 +241,20 @@ async function importPageHalf(path: string): Promise<Plugin> {
   throw new Error(`its page half at ${path} default-exports no plugin`);
 }
 
+/**
+ * A family's browser entry the page could not have: a plugin of the
+ * family's name whose `apply` fails with why, so the kernel holds the
+ * failure as it holds any plugin's, and every reader of the kernel (the
+ * Extensions panel's `organisationOf`, its log) sees it.
+ */
+function unloadable(name: string, why: string): Plugin {
+  return {
+    name,
+    apply: () =>
+      Effect.fail(new PluginError({ plugin: name, reason: "apply-failed", message: why })),
+  };
+}
+
 /** Load one family's browser entry, held to the name it was resolved by. */
 async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
   const { name } = row;
@@ -248,11 +263,10 @@ async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
   try {
     const plugin = await extension.load();
     if (plugin.name === name) return plugin;
-    logWarn(`[kb/plugins] the browser entry for ${name} is named ${plugin.name}; it is left out`);
+    return unloadable(name, `its browser entry is named ${plugin.name}`);
   } catch (error) {
-    logWarn(`[kb/plugins] the browser entry for ${name} failed to load: ${String(error)}`);
+    return unloadable(name, `its browser entry failed to load: ${String(error)}`);
   }
-  return null;
 }
 
 let generation = 0;
