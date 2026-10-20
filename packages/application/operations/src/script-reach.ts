@@ -6,6 +6,7 @@
  * runs alike — so a script reaches through any action only what its
  * subject holds, as the action declares what a call acts on (`targets`).
  */
+import type { NodeIndex } from "@kb/query";
 import { Option, Schema } from "effect";
 import {
   madeBy,
@@ -55,7 +56,7 @@ export function scriptRefusal(
   def: Pick<ActionDefinition, "targets">,
   invocation: ActionInvocation,
   input: unknown,
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
 ): { readonly message: string; readonly details?: unknown } | null {
   if (invocation.actor !== "script") return null;
   const scope = invocation.script;
@@ -112,7 +113,7 @@ function parentsAfter(
 export function scriptWriteRefusal(
   invocation: ActionInvocation,
   tx: StoreTx,
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
 ): { readonly message: string; readonly details: unknown } | null {
   if (invocation.actor !== "script") return null;
   const subject = invocation.script?.subject ?? null;

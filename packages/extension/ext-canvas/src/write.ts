@@ -10,6 +10,7 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { CurrentCall, KbCtx, type KbContext, type KbStore } from "@kb/contracts";
+import { KbIndexService, type NodeIndex } from "@kb/query";
 import { persistEffect, planNodeAddEffect, readableNodes, readableQuery } from "@kb/operations";
 import {
   isSysPrefixed,
@@ -59,7 +60,7 @@ function cloneNode(n: KbNode): KbNode {
   };
 }
 
-function requireNode(ctx: KbContext, id: NodeId): KbNode {
+function requireNode(ctx: KbContext<NodeIndex>, id: NodeId): KbNode {
   const n = ctx.nodes.find((x) => x.id === id);
   if (!n) throw new ResolveError("not_found", `node not found: ${id}`, { id });
   return n;
@@ -72,7 +73,7 @@ function assertUserWritable(id: string): void {
 }
 
 /** The node `id`, when it is a canvas a write may take (`isCanvasNode`); throws otherwise. */
-function assertCanvasHost(ctx: KbContext, id: NodeId): KbNode {
+function assertCanvasHost(ctx: KbContext<NodeIndex>, id: NodeId): KbNode {
   assertUserWritable(id);
   const node = requireNode(ctx, id);
   if (!isCanvasNode(node)) {
@@ -207,10 +208,11 @@ export const readableEffect = Effect.fn("ext.canvas.readable")(function* (
  * reads its subject only answers nothing about a node beyond it.
  */
 export const readableQueryEffect = Effect.fn("ext.canvas.readableQuery")(
-  function* (): Effect.fn.Return<(edn: string) => unknown[][], never, KbCtx> {
+  function* (): Effect.fn.Return<(edn: string) => unknown[][], never, KbCtx | KbIndexService> {
     const ctx = yield* KbCtx;
+    const index = yield* KbIndexService;
     const call = yield* CurrentCall;
-    return readableQuery(call?.invocation, ctx.nodes, (edn) => ctx.index.runDatalog(edn));
+    return readableQuery(call?.invocation, ctx.nodes, (edn) => index.runDatalog(edn));
   },
 );
 

@@ -1,3 +1,4 @@
+import type { NodeIndex } from "@kb/query";
 import { Effect } from "effect";
 import {
   currentIso,
@@ -35,7 +36,7 @@ import { scriptWriteRefusal } from "./script-reach.ts";
  * compare. Kept beside reload rather than on `KbContext`: it is this module's
  * memory of the store, not part of the session's contract.
  */
-const seen = new WeakMap<KbContext, StoreFingerprint>();
+const seen = new WeakMap<KbContext<NodeIndex>, StoreFingerprint>();
 
 /**
  * Record that this session's index reflects the store as it is now.
@@ -44,7 +45,7 @@ const seen = new WeakMap<KbContext, StoreFingerprint>();
  * already correct.
  */
 export const noteStoreSynced = Effect.fn("kb.noteStoreSynced")(function* (
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
 ): Effect.fn.Return<void, never, KbStore> {
   const store = yield* KbStore;
   const fingerprint = yield* store.fingerprint;
@@ -62,7 +63,7 @@ export const noteStoreSynced = Effect.fn("kb.noteStoreSynced")(function* (
  * never in the virtual set.
  */
 export const reloadEffect = Effect.fn("kb.reload")(function* (
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
 ): Effect.fn.Return<void, DomainError, KbStore> {
   const store = yield* KbStore;
   const fingerprint = yield* store.fingerprint;
@@ -129,7 +130,7 @@ export interface PersistOptions {
  * with no person behind the call, whatever the policies say.
  */
 export const persistEffect = Effect.fn("kb.persist")(function* (
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
   tx: StoreTx,
   { systemWrites = "checked", expected }: PersistOptions = {},
 ): Effect.fn.Return<StoreCommit, DomainError, KbStore> {
@@ -211,7 +212,7 @@ const PLANNED_ATTEMPTS = 3;
 export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
   W extends { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
 >(
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
   plan: (nodes: readonly KbNode[]) => Effect.Effect<W | null, DomainError>,
   options: PersistOptions = {},
 ): Effect.fn.Return<W | null, DomainError, KbStore> {

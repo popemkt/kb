@@ -11,6 +11,7 @@
  * where it is, reported; a canvas with no camera is left alone, so running
  * it again writes nothing.
  */
+import type { NodeIndex } from "@kb/query";
 import { Effect } from "effect";
 import { z } from "zod";
 import { KbCtx, type ExtensionAction, type KbContext, type KbStore } from "@kb/contracts";
@@ -69,7 +70,7 @@ function withoutCamera(canvas: KbNode, doc: CanvasDoc, at: string): KbNode {
 
 /** The write that moves `camera` onto the view node `canvas` is looked at through. */
 const planMove = Effect.fn("ext.canvas.camera.migrate.plan")(function* (
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
   canvas: KbNode,
   doc: CanvasDoc,
   camera: CanvasCamera,

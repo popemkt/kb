@@ -8,6 +8,8 @@ export type { DerivedRef, DerivedSources, FieldRefCarrier } from "./index/derive
 export { KbIndexService } from "./index/index.ts";
 export type { KbIndex, NodeIndex } from "./index/index.ts";
 export { NodeTable } from "./index/node-table.ts";
+export { answered, engineOf, QueryEngineService, QueryError } from "./index/engine.ts";
+export type { EdnRunner, QueryEngine } from "./index/engine.ts";
 export type { NodeChange } from "./index/node-table.ts";
 export { compile, normalizeEdnQuery } from "./ir/compile.ts";
 export { findColumns, parseEdn } from "./ir/parse.ts";

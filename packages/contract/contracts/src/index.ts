@@ -190,7 +190,7 @@ export type {
   UiCaptureInput,
   UiSelectInput,
 } from "./screen.ts";
-export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";
+export { KbCtx, KbStore, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { NO_SECRETS, SecretError } from "./secrets.ts";
 export type { SecretSource } from "./secrets.ts";
 export { GraphWrites } from "./graph-writes.ts";

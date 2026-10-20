@@ -14,7 +14,7 @@ import {
   onWire,
 } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";
-import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
+import { engineOf, type KbIndex, QueryEngineService } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { StoreTxLog } from "@kb/tx-log";
 import {
   interceptionFrom,
@@ -38,7 +38,7 @@ export interface BrowserSessionView {
 interface BrowserSession {
   readonly ctx: KbContext;
   readonly store: BrowserStore;
-  readonly layer: Layer.Layer<KbCtx | KbStore | KbIndexService | ViewCatalog>;
+  readonly layer: Layer.Layer<KbCtx | KbStore | QueryEngineService | ViewCatalog>;
   readonly onLocalCommit: () => void;
   readonly replica: BrowserReplica;
 }
@@ -89,7 +89,7 @@ export function replaceBrowserSession(
     layer: Layer.mergeAll(
       kbStoreLayer(store),
       kbCtxLayer(ctx),
-      Layer.succeed(KbIndexService, index),
+      Layer.succeed(QueryEngineService, engineOf(index)),
       Layer.succeed(ViewCatalog, livePageCatalog),
     ),
     onLocalCommit: view.onLocalCommit,

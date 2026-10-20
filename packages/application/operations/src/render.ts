@@ -1,6 +1,8 @@
 import { Effect } from "effect";
+import { KbIndexService } from "@kb/query";
 import { z } from "zod";
 import {
+  inProcess,
   KbCtx,
   ViewCatalog,
   type ActionDefinition,
@@ -27,7 +29,7 @@ import {
 import { hostOf, viewText, viewTitleOf } from "./view-markdown.ts";
 
 type RenderError = DomainError | DocsError;
-type RenderEnv = KbCtx | SavedQueries | TemplateRegistry | ViewCatalog;
+type RenderEnv = KbCtx | KbIndexService | SavedQueries | TemplateRegistry | ViewCatalog;
 
 /** Map unknown render failures; DomainError must be a runtime import for instanceof. */
 export function mapRenderErr(err: unknown): RenderError {
@@ -175,7 +177,7 @@ export const renderViewNodeEffect = Effect.fn("render.viewNode")(function* (
   format: RenderFormat,
 ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
   if (ref.name !== undefined) return yield* renderDocsViewEffect(ref.name, format);
-  const ctx = yield* KbCtx;
+  const ctx = inProcess(yield* KbCtx, yield* KbIndexService);
   const node = ctx.index.getNode(ref.id);
   if (node === undefined)
     return yield* domainError("not_found", `view node not found: ${ref.id}`, { id: ref.id });

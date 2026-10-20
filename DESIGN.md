@@ -1610,6 +1610,17 @@ same lane. One path to a client, whatever a node's provenance.
   its EDN to `KbIndex.runDatalog`, which is `compile(parseEdn(edn))` then
   DataScript. The subset `parseEdn` understands becomes the kb IR
   (`@kb/query`'s `ir.ts`); anything else passes through as `raw`, unchanged.
+- **Two halves, one owner.** An index is its node set and point reads
+  (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, the text scan, the
+  generation), and the datalog engine over them (`KbIndex extends
+  NodeIndex`). Every session holds the first half where its writes run
+  (`KbContext<NodeIndex>`, the `KbCtx` service), so a write reads the nodes it
+  touches synchronously. An action that runs on the page as well as on the
+  server asks datalog of `QueryEngineService`, which a host whose engine is in
+  process answers at once (`engineOf`); a pure reader that takes a
+  synchronous runner (`resolveOntology`, `allowedRefIdsOf`) runs against any
+  engine through `answered`. A surface that only runs where the engine is in
+  process (render, docs, the server's subscriptions) reads `KbIndexService`.
 - **A number stays a number when the query parses.** A ref prop and a number
   prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
   so a result value that equals a live eid could be either. For a query in

@@ -8,6 +8,7 @@
 import { Effect, Result, Schema } from "effect";
 import { z } from "zod";
 import { GraphWrites, KbCtx, type ExtensionAction, type KbContext } from "@kb/contracts";
+import { KbIndexService, type NodeIndex } from "@kb/query";
 import { currentIso, domainError, type DomainError } from "@kb/model";
 import { EdgeKindSchema, type EdgeKind } from "./lens.ts";
 import { edgesAmong, suggestOf, traceOf } from "./read.ts";
@@ -101,7 +102,7 @@ function kindsOf(kinds: readonly string[] | undefined): EdgeKind[] | undefined {
 
 /** Fails `not_found` on the first of `ids` the store does not hold. */
 function existing(
-  index: KbContext["index"],
+  index: KbContext<NodeIndex>["index"],
   ids: readonly string[],
 ): Effect.Effect<void, DomainError> {
   const missing = ids.find((id) => index.getNode(id) === undefined);
@@ -181,8 +182,8 @@ const relationOutput = z.object({
 
 export const graphRelationTypeEffect = Effect.fn("ext.graph.relation.type")(function* (
   input: z.infer<typeof relationInput>,
-): Effect.fn.Return<z.infer<typeof relationOutput>, DomainError, KbCtx | GraphWrites> {
-  const { index } = yield* KbCtx;
+): Effect.fn.Return<z.infer<typeof relationOutput>, DomainError, KbIndexService | GraphWrites> {
+  const index = yield* KbIndexService;
   const at = yield* currentIso;
   // Planned over the index as the commit has caught it up, and planned again
   // if the store moves before it lands, so a write to the source in between

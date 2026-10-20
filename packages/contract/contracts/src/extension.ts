@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 import { NoParams, viewKey } from "@kb/views";
 import { Point, Service, definePlugin, type ContributionEntry } from "@kb/plugin";
+import type { NodeIndex } from "@kb/query";
 import type { KbContext } from "./session.ts";
 import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
 import {
@@ -29,7 +30,7 @@ import { ActionGuardPoint, ActionInterceptorPoint, guardAction, onAction } from 
  * built with the host module {@link EXTENSION_SDK}; the loader that
  * discovers and imports the modules lives with the runtime.
  */
-export type ExtensionPromiseHandler = (ctx: KbContext, input: never) => Promise<unknown>;
+export type ExtensionPromiseHandler = (ctx: KbContext<NodeIndex>, input: never) => Promise<unknown>;
 
 export type ExtensionAction = ActionDefinition & {
   /** Extra top-level ids this action also answers to (compat shims). */

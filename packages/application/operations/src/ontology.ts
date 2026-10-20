@@ -21,7 +21,7 @@ import {
   type MemberReason,
 } from "@kb/model";
 import { KbCtx } from "@kb/contracts";
-import type { KbIndex } from "@kb/query";
+import { answered, QueryEngineService } from "@kb/query";
 
 const MemberReasonSchema = z.object({
   kind: z.enum(["member", "tag", "query", "extends", "closure"]),
@@ -48,15 +48,15 @@ export const ontologyMembersDef = {
   }),
 } satisfies ActionDefinition;
 
-/** Adapt the backend datalog runner to the resolver's row contract. */
-function ednRunner(index: KbIndex): (edn: string) => unknown[][] {
-  return (edn) => index.runDatalog(edn);
-}
-
 export const ontologyMembersEffect = Effect.fn("ontology.members")(function* (
   input: z.infer<typeof ontologyMembersDef.inputSchema>,
-): Effect.fn.Return<z.infer<typeof ontologyMembersDef.outputSchema>, DomainError, KbCtx> {
+): Effect.fn.Return<
+  z.infer<typeof ontologyMembersDef.outputSchema>,
+  DomainError,
+  KbCtx | QueryEngineService
+> {
   const ctx = yield* KbCtx;
+  const engine = yield* QueryEngineService;
   const node = ctx.nodes.find((n) => n.id === input.id);
   if (!node) {
     return yield* domainError("not_found", `node not found: ${input.id}`, {
@@ -69,9 +69,12 @@ export const ontologyMembersEffect = Effect.fn("ontology.members")(function* (
     });
   }
 
-  const resolution = resolveOntology(ctx.nodes, input.id, {
-    runQuery: ednRunner(ctx.index),
-  });
+  // The resolver reads its queries synchronously; the engine answers them
+  // where it runs (`answered`).
+  const resolution = yield* answered(
+    (runQuery) => resolveOntology(ctx.nodes, input.id, { runQuery }),
+    engine,
+  );
   const members = [...resolution.members].toSorted();
   const out: z.infer<typeof ontologyMembersDef.outputSchema> = {
     id: input.id,

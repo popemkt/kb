@@ -6,6 +6,7 @@
  * `viewNodeFor`, the one check of a proposed view; this action only finds
  * the view and the host and writes what the check returns.
  */
+import type { NodeIndex } from "@kb/query";
 import { Effect, Result } from "effect";
 import { z } from "zod";
 import {
@@ -101,7 +102,7 @@ export interface PlannedView {
  * plans it here, so each writes what an agent's `view.propose` would.
  */
 export const planViewProposal = Effect.fn("view.propose.plan")(function* (
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
   key: ViewKey<unknown>,
   proposal: ViewProposal,
 ): Effect.fn.Return<PlannedView, DomainError> {
