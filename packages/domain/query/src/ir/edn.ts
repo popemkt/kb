@@ -84,32 +84,61 @@ function readValue(src: Src): Edn {
   if (c === "[") return { k: "vec", v: readSeq(src, "]") };
   if (c === "(") return { k: "list", v: readSeq(src, ")") };
   if (c === "{") return { k: "map", v: readMap(src) };
-  if (c === "-" || (c >= "0" && c <= "9")) return { k: "num", v: readNumber(src) };
+  if (startsNumber(src.s, src.i)) return { k: "num", v: readNumber(src) };
   return readSymbolOrBool(src);
 }
+
+const isDigit = (c: string | undefined): boolean => c !== undefined && c >= "0" && c <= "9";
+
+/** A digit, or a sign followed by one: `-` alone, or `-x`, is a symbol. */
+function startsNumber(s: string, i: number): boolean {
+  const c = s[i];
+  return isDigit(c) || ((c === "-" || c === "+") && isDigit(s[i + 1]));
+}
+
+/** The escapes an EDN string may hold besides `\uXXXX`, and what each stands for. */
+const STRING_ESCAPES: Readonly<Record<string, string>> = {
+  '"': '"',
+  "\\": "\\",
+  n: "\n",
+  t: "\t",
+  r: "\r",
+  b: "\b",
+  f: "\f",
+};
 
 function readString(src: Src): string {
   src.i += 1;
   let out = "";
   while (src.i < src.s.length) {
-    const c = src.s[src.i];
-    if (c === undefined) throw new ParseFail("unterminated string");
+    const c = present(src.s[src.i], "string char");
     if (c === '"') {
       src.i += 1;
       return out;
     }
     if (c === "\\") {
-      src.i += 1;
-      const e = src.s[src.i];
-      if (e === undefined) throw new ParseFail("unterminated escape");
-      out += e;
-      src.i += 1;
+      out += readEscape(src);
       continue;
     }
     out += c;
     src.i += 1;
   }
   throw new ParseFail("unterminated string");
+}
+
+/** One escape, `src.i` at its backslash; an escape EDN does not define is not read. */
+function readEscape(src: Src): string {
+  const e = src.s[src.i + 1];
+  if (e === "u") {
+    const hex = src.s.slice(src.i + 2, src.i + 6);
+    if (!/^[0-9A-Fa-f]{4}$/.test(hex)) throw new ParseFail("bad \\u escape");
+    src.i += 6;
+    return String.fromCharCode(Number.parseInt(hex, 16));
+  }
+  const char = e === undefined ? undefined : STRING_ESCAPES[e];
+  if (char === undefined) throw new ParseFail("bad escape");
+  src.i += 2;
+  return char;
 }
 
 function readKeyword(src: Src): string {
@@ -123,12 +152,18 @@ function readKeyword(src: Src): string {
   return kw;
 }
 
+/**
+ * An integer or a decimal, signed or not, with an optional exponent: every
+ * form `String(n)` prints for a finite number (`-2.5`, `1e-7`, `1e+21`).
+ */
+const NUMBER = /^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/;
+
 function readNumber(src: Src): number {
   const start = src.i;
-  if (src.s[src.i] === "-") src.i += 1;
-  while (src.i < src.s.length && /[0-9.]/.test(present(src.s[src.i], "num"))) src.i += 1;
-  const n = Number(src.s.slice(start, src.i));
-  if (!Number.isFinite(n)) throw new ParseFail("bad number");
+  while (src.i < src.s.length && SYMBOL_CHAR.test(present(src.s[src.i], "num"))) src.i += 1;
+  const token = src.s.slice(start, src.i);
+  const n = Number(token);
+  if (!NUMBER.test(token) || !Number.isFinite(n)) throw new ParseFail("bad number");
   return n;
 }
 

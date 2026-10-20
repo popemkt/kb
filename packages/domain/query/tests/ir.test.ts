@@ -100,6 +100,80 @@ describe("parseEdn subset vs raw", () => {
   });
 });
 
+/** The value of the one pattern in `[:find ?n :where [?n :a <literal>]]`, or the IR kind when it does not parse. */
+function literalValue(literal: string): unknown {
+  const ir = parseEdn(`[:find ?n :where [?n :a ${literal}]]`);
+  if (ir.kind !== "query") return ir.kind;
+  const [clause] = ir.where;
+  return clause?.kind === "pattern" ? clause.value : clause;
+}
+
+describe("the reader reads EDN literals as EDN means them", () => {
+  test.each([
+    [String.raw`"a\nb"`, "a\nb"],
+    [String.raw`"tab\there"`, "tab\there"],
+    [String.raw`"cr\r"`, "cr\r"],
+    [String.raw`"say \"hi\""`, 'say "hi"'],
+    [String.raw`"back\\slash"`, "back\\slash"],
+    [String.raw`"été"`, "été"],
+    [String.raw`"\b\f"`, "\b\f"],
+  ])("the string %s", (literal, value) => {
+    expect(literalValue(literal)).toEqual({ t: "str", value });
+  });
+
+  test.each([String.raw`"\q"`, String.raw`"\u12"`, String.raw`"\uZZZZ"`])(
+    "an escape EDN does not define (%s) is not read: the query is raw",
+    (literal) => {
+      expect(literalValue(literal)).toBe("raw");
+    },
+  );
+
+  test("every number String(n) prints reads back as n", () => {
+    fc.assert(
+      fc.property(
+        fc.double({ noNaN: true, noDefaultInfinity: true }).filter((n) => !Object.is(n, -0)),
+        (n) => {
+          expect(literalValue(String(n))).toEqual({ t: "num", value: n });
+        },
+      ),
+    );
+  });
+
+  test.each([
+    ["1e-7", 1e-7],
+    ["1e+21", 1e21],
+    ["-2.5", -2.5],
+    ["+3", 3],
+  ])("the number %s", (literal, value) => {
+    expect(literalValue(literal)).toEqual({ t: "num", value });
+  });
+
+  test("a sign not followed by a digit starts a symbol", () => {
+    const ir = parseEdn("[:find ?a :where (- ?a ?b) [?a :node/id ?b]]");
+    expect(ir.kind === "query" && ir.where[0]).toEqual({
+      kind: "rule",
+      name: "-",
+      args: [
+        { t: "var", name: "a" },
+        { t: "var", name: "b" },
+      ],
+    });
+  });
+
+  test.each(["1e", "1.", "1e400", "1-2"])("%s is no number: the query is raw", (literal) => {
+    expect(literalValue(literal)).toBe("raw");
+  });
+
+  test("an escaped string matches the text it stands for", () => {
+    const index = indexFor([
+      node("two-lines", { text: "one\ntwo" }),
+      node("one-line", { text: "n" }),
+    ]);
+    const edn = String.raw`[:find ?id :where [?n :node/text "one\ntwo"] [?n :node/id ?id]]`;
+    expect(index.runDatalog(edn)).toEqual([["two-lines"]]);
+  });
+});
+
 describe("compile(parse(edn)) is query-equivalent", () => {
   const index = indexFor([
     ...bundledSeed(AT),
