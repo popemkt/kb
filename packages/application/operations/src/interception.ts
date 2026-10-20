@@ -256,27 +256,51 @@ function freezeDeep(value: unknown): void {
   for (const held of Object.values(value)) freezeDeep(held);
 }
 
+/** Every value `sealed` made: frozen all the way down already, so shared as it is. */
+const SEALED = new WeakSet<object>();
+
 /**
- * A copy of `value` frozen all the way down: what a listener reads, which
- * shares nothing with what the call runs or commits.
+ * `value` as data no one can change: a copy frozen all the way down, which
+ * shares nothing with whoever handed it over. A value `sealed` made is
+ * returned as it is. Throws for what is not data (a function, a typed
+ * array), as an action's input and a call's parts are data.
  */
 function sealed<T>(value: T): T {
+  if (typeof value !== "object" || value === null || SEALED.has(value)) return value;
   const copy = structuredClone(value);
   freezeDeep(copy);
+  SEALED.add(copy);
   return copy;
 }
 
 /**
+ * A call's invocation or action as the invoke core holds it from the
+ * start (`invoke.ts`): sealed, so nothing that reads it — a listener, a
+ * handler through `CurrentCall`, a nested call — can change what the
+ * guards decide about, or the registry it came from. What is not data is
+ * refused as the call's input.
+ */
+export function sealedPart<T>(value: T): Effect.Effect<T, DomainError> {
+  return Effect.try({
+    try: () => sealed(value),
+    catch: (error) =>
+      domainError(
+        "invalid_input",
+        `a call is data, and this one is not: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+  });
+}
+
+/**
  * Read-only, the call and the invocation and action in it, so a listener
- * cannot change what it is asked about: the invocation (input included) is
- * a sealed copy, so an assignment anywhere in it throws, and a guard that
- * throws denies.
+ * cannot change what it is asked about: each is sealed, so an assignment
+ * anywhere in them throws, and a guard that throws denies.
  */
 function frozen<T extends { readonly invocation: object; readonly action: object }>(value: T): T {
   return Object.freeze({
     ...value,
     invocation: sealed(value.invocation),
-    action: Object.freeze({ ...value.action }),
+    action: sealed(value.action),
   });
 }
 
@@ -296,14 +320,20 @@ export function guardCommit(
   call: Omit<CommitCall, "signal">,
 ): Effect.Effect<GuardOutcome> {
   // The writes are what the commit will store, and the nodes they replace
-  // are the index's own: each guard reads sealed copies, never those.
-  const writes = sealed(call.writes);
+  // are the index's own: each guard reads sealed copies, never those,
+  // sealed once, inside the first guard's boundary.
+  let writes: CommitCall["writes"] | undefined;
   const nodeOf = (id: NodeId) => {
     const node = call.nodeOf(id);
     return node === undefined ? undefined : sealed(node);
   };
   return askGuards(interception, call.action, ({ commit }) =>
-    commit === undefined ? null : (signal) => commit(frozen({ ...call, writes, nodeOf, signal })),
+    commit === undefined
+      ? null
+      : (signal) => {
+          writes ??= sealed(call.writes);
+          return commit(frozen({ ...call, writes, nodeOf, signal }));
+        },
   );
 }
 

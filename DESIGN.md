@@ -1910,10 +1910,13 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     - A guard (`ActionGuardPoint`, `action/guard`; `guardAction(plugin,
       match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       asked before an action runs (`before`) and again before the call
-      commits (`commit`, with the commit's actual writes). It is handed
-      copies frozen all the way down — the invocation and its input, the
-      writes, every node `nodeOf` answers — that share nothing with what
-      the call runs or commits, so it cannot change them.
+      commits (`commit`, with the commit's actual writes). The invoke core
+      holds the call as sealed data from the start — the invocation and
+      its input, and the action, a copy of the definition's id, mode and
+      batch parts — and `CurrentCall` carries that, so no reader can
+      change what the guards decide about, what runs, or the registry. A
+      guard is also handed sealed copies of the writes and of every node
+      `nodeOf` answers. A call that is not data is refused as its input.
     - An interceptor (`ActionInterceptorPoint`, `action/intercept`;
       `onAction(plugin, match, {input, output})`) gives the input a call
       runs with and the output a succeeded call answers with. It cannot

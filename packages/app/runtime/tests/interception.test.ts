@@ -222,6 +222,40 @@ describe("the two kinds", () => {
     expect(ctx.index.getNode(SYSTEM_IDS.tag)?.text).not.toBe("renamed");
   });
 
+  test("nor the call as it runs, through CurrentCall, nor the action the registry holds", async () => {
+    ran = 0;
+    const throughCall = guard("through-call", {
+      before: () =>
+        Effect.gen(function* () {
+          const running = yield* CurrentCall;
+          if (running !== null) (running.invocation.input as { n: number }).n = 99;
+          return allow;
+        }),
+    });
+    const throughAction = guard("through-action", {
+      before: ({ action }) =>
+        Effect.sync(() => {
+          (action.mode as { kind: string }).kind = "write";
+          return allow;
+        }),
+    });
+    for (const meddler of [throughCall, throughAction]) {
+      expect(await call(interceptionOf({ guards: [meddler] }), echo())).toMatchObject({
+        code: "forbidden",
+        details: { decidedBy: { plugin: meddler.owner, rule: "guard-failed" } },
+      });
+    }
+    expect(ran).toBe(0);
+    expect(ACTIONS.get("test.echo")?.def.mode).toEqual({ kind: "read" });
+    // The call is held as data, so what is not data is refused as its input.
+    for (const extra of [() => {}, new Uint8Array([1])]) {
+      expect(await call(interceptionOf({}), { ...echo(), input: { n: 1, extra } })).toMatchObject({
+        status: "failed",
+        code: "invalid_input",
+      });
+    }
+  });
+
   test("an interceptor transforms the input and output, and the guards see the input that will run", async () => {
     const seen: unknown[] = [];
     const doubler = interceptor("doubler", {

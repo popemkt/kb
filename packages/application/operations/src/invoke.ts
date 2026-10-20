@@ -26,7 +26,13 @@ import {
   receiptCodeOf,
   type DomainError,
 } from "@kb/model";
-import { guardBefore, interceptInput, interceptOutput, refusalOf } from "./interception.ts";
+import {
+  guardBefore,
+  interceptInput,
+  interceptOutput,
+  refusalOf,
+  sealedPart,
+} from "./interception.ts";
 import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
@@ -260,15 +266,23 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   // Every call passes the interceptors, then is put to the guards as it will
   // run, here on invoke itself, so no surface can skip either
   // (`interception.ts`).
-  const action = approvalSubject(entry.def, (part) => actions.get(part)?.def.mode);
+  // The call is held as sealed data from here on (`sealedPart`): what the
+  // guards decide about is what runs, and no reader of it — a listener,
+  // a handler through `CurrentCall`, a nested call — can change it, or the
+  // registry's definition its action came from.
+  const action = yield* sealedPart(
+    approvalSubject(entry.def, (part) => actions.get(part)?.def.mode),
+  );
+  const held = yield* sealedPart(made);
   // Everything the call runs — its listeners as much as its handler — runs
   // as this call, so a call any of them makes nests in it and counts
   // toward the depth limit.
   const asCall = (as: ActionInvocation) =>
     Effect.provideService(CurrentCall, { invocation: as, action, depth });
   const interception = yield* CurrentInterception;
-  const invocation = yield* interceptInput(interception, { ctx, invocation: made, action }).pipe(
-    asCall(made),
+  const invocation = yield* interceptInput(interception, { ctx, invocation: held, action }).pipe(
+    Effect.flatMap(sealedPart),
+    asCall(held),
   );
   const { input } = invocation;
   const outcome = yield* guardBefore(interception, {
