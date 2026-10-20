@@ -287,11 +287,16 @@ describe("nodes.jsonl merge driver", () => {
     // exit 1, nothing written to %A.
     const bin = join(repo, ".crashing-bun-bin");
     await mkdir(bin);
-    await symlink(realpathSync(present(Bun.which("git"), "git on PATH")), join(bin, "git"));
+    // The PATH holds only what the merge runs, linked from wherever this
+    // machine keeps it (on NixOS, /usr/bin and /bin hold almost nothing),
+    // so the real bun is not on it.
+    for (const tool of ["git", "dirname"]) {
+      await symlink(realpathSync(present(Bun.which(tool), `${tool} on PATH`)), join(bin, tool));
+    }
     await writeFile(join(bin, "bun"), "#!/bin/sh\necho 'error: boom' >&2\nexit 1\n", {
       mode: 0o755,
     });
-    const merge = await gitWith({ PATH: `${bin}:/usr/bin:/bin` }, "merge", "--no-edit", "theirs");
+    const merge = await gitWith({ PATH: bin }, "merge", "--no-edit", "theirs");
 
     expect(merge.code).not.toBe(0);
     expect(merge.stderr).toContain("the kb driver did not finish the merge (exit 1)");
