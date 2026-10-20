@@ -2261,12 +2261,21 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   (`serverEntriesFor`), and its seed's nodes are checked as a store's are.
   So `rootFamilies` (`app/runtime`) lists the bundled families, then each
   repository extension, and the registry switches, loads and reports them
-  all by the one rule. A repository extension cannot replace what another
-  plugin holds: a service it provides that is held already is a
-  `service-conflict`, and a contribution whose id is held a
-  `contribution-conflict`, so the plugin is refused as a unit and core's
-  services and actions stay core's. That is the one deliberate difference
-  from DeepSeek Harness, whose plugins may replace any service.
+  all by the one rule. No plugin takes over what another holds: a service
+  it provides that is held already is a `service-conflict`, and a
+  contribution whose id is held a `contribution-conflict`, so the plugin is
+  refused as a unit. DeepSeek Harness's Cordis holds the same rule (a
+  second `provide` of a name in one scope throws, and `set` from another
+  fiber throws: `vendor/cordis/src/reflect.ts` at `dsh-v0.2.1-rc.2`), and
+  kb extends a service the same three ways it does. **Another
+  implementation is another provider, chosen by configuration**: the one a
+  deployment loads is the one that holds the service, so consumers never
+  change (the identity providers, [Action registry](#action-registry) →
+  Who the person is). **Interception is a point**: plugins contribute to
+  it and the host combines the contributions, rather than one wrapping
+  another's service (identity, and the proposed guard below). **Isolation**,
+  a sub-scope with its own implementation of a name, kb does not have; it
+  is a later design if something needs it.
 - **Repository extensions** run as owner code, on the server and in the
   page, like a DeepSeek Harness plugin, so a root's extension runs only once
   a person has trusted it on this machine. What a person trusts is its
@@ -2423,6 +2432,177 @@ from "kb-ext-sdk"`. Types are generated from
   and `mode: "apply"` with `mode: { kind: "write" }` (add
   `approval: "required"` if a person must approve each call). The loader
   skips an extension that still uses the old strings.
+
+#### Proposed: governance as a plugin, and how plugins are organised
+
+**Status: a proposal for the owner's review. Nothing in this section is
+built yet**; where it disagrees with the rest of this document, the rest
+of the document describes the code. It follows "Core ships mechanism
+only" above: approval is policy, and today it sits in core.
+
+**Where governance lives today.**
+- `@kb/model`: the actor vocabulary and its policy (`ACTORS`,
+  `actsAsOwner`, `delegatedDecision`, `approval-policy.ts`), the policy
+  nodes' reader and builder, and the configuration rule
+  (`writesConfiguration`, `configurationShown`, `system-write.ts`).
+- The seed: the `#approval-policy` tag, its three fields with their
+  actor and decision options, the `approval.policies` query, its table
+  view and pin, and eight default policies (`seed.ts`). There is also
+  `ExtensionDeclaration.policies`, which the code family uses for
+  `approval.script-run`.
+- `@kb/contracts`: `resolveApproval` and `declaredDecision` (`approval.ts`).
+- `@kb/operations`: the invoke core checks twice. Before the handler runs,
+  `decide` → `approvalRefusal` in `invokeWith`, and the `force` check
+  `actsAsOwner`. Before the commit, the same `decide` again with the writes,
+  in `persistEffect`.
+- The agent dock's `ApprovalCard` and the ui-sdk's `SandboxApprovalCard`.
+
+##### The guard point (core)
+
+Core keeps one interception point and loses every policy.
+
+- **`GuardPoint`** (`@kb/contracts`). A contribution is a guard with two
+  questions: `before(call)`, asked by the invoke core before an action's
+  input is even parsed, and `commit(call, writes)`, asked by
+  `persistEffect` before anything is written. A `call` is the
+  invocation as `onWire` made it (action, mode, actor, `approved`,
+  `force`, script reach) plus the action's subject (`approvalSubject`,
+  batch parts included). `writes` are the `{before, after}` pairs the
+  commit would make.
+- **The verdict is `allow | ask | deny`** with a reason. The invoke core
+  asks every contributed guard, and the strictest verdict wins (the order
+  `stricterDecision` already has). `deny` refuses (`forbidden`). `ask`
+  refuses (`approval_required`) unless the call carries a person's
+  approval on a wire that may carry it (`hasPerson`). Its reason and
+  `details` (the governing write, what a configuration write runs with)
+  are carried to the refusal unchanged.
+- **With no guard, every call is allowed.** That includes `force` by any
+  actor, and `sandbox.trust` by an agent.
+- **`kb.manifest` lists each action's `before` verdict** for the caller's
+  own call, so `listedOn` and the per-surface listings work unchanged
+  whoever answers.
+- **What stays in core is how callers are told apart, not what they may
+  do.** That covers:
+  - `Actor`, which the surfaces and identity providers produce;
+  - `SurfaceWire`, `onWire`, `requestOnWire` and `mayState`, which say what
+    a call may state about itself;
+  - the `approved` envelope;
+  - the action mode's declared `approval` and `outsideRoot`, which are an
+    action's own statement about itself;
+  - the system-write rule (`systemTxRefusal`, which protects kb's own
+    `sys.*` vocabulary) and `force` as "skip it".
+
+  Who may `force` is a guard's question, so with no guard anyone may.
+
+A guard is a point, not a service a plugin wraps. Several guards (the
+governance plugin, a repository's own) all answer, and the strictest
+holds. No guard can loosen another's verdict.
+
+##### The governance family
+
+Governance becomes a bundled family (`@kb/governance`, `@kb/governance-ui`)
+that owns everything listed under "where governance lives today" except
+the core items above:
+
+- **Actor policy.** `actsAsOwner`, `delegatedDecision` and the actor and
+  decision option nodes. The `Actor` type itself stays core, because
+  identity and the wires produce it. **Review:** the follow-up said
+  "actors" move. This keeps the vocabulary in core and moves its meaning.
+- **Its seed.** The policy tag, fields, options, query, view, pin and
+  default policies become the family's declaration `seed`. A graph that
+  never had the family has no policy node. A graph that had it keeps its
+  nodes when the family is off; they are inert.
+- **`ExtensionDeclaration.policies` leaves the core declaration.** A
+  family that wants a floor for its own actions declares it in its
+  action's mode where it can (`approval: "required"`). Otherwise it
+  contributes a seed policy to a point the governance family mints, which
+  is seeded only while governance is on.
+- **The guard.** `resolveApproval` over the policy nodes, the declared
+  floors (`declaredDecision`), the always-ask rule for a write to a policy
+  node, and the delegated rule for a write to an extension's
+  configuration (`writesConfiguration`). It answers both `before` and
+  `commit`, as `decide` does today, and refuses a `force` whose actor
+  does not act as the owner.
+- **The approval card.** governance-ui contributes the card that answers
+  an `ask` to a UI point. The agent dock and the sandbox runner render
+  whatever is contributed there, and without governance no call ever
+  asks.
+
+**Whether governance is required is deployment configuration, never a
+graph write.**
+- `kb ui --governance=required` (and the same key in the person's home
+  config, `~/.config/kb` or `KB_HOME`) loads the family as a held plugin,
+  as identity providers are held, whatever its switch says.
+- While it is on, its guard denies `extension.switch` of `governance` to
+  any actor that does not act as the owner. When it is required, the
+  guard refuses that switch to every caller, as a required family's is
+  refused today.
+- Without the flag it is an optional family the owner may switch off.
+
+**Open question for the owner: the default.** Without a guard,
+`sandbox.trust` (owner code on this machine) and `force` are open to an
+agent. I propose that `kb ui`, `kb mcp` and `kb` all default to governance
+required, and that running without it is an explicit
+`--governance=off`. The other choice, governance off by default with
+deployments opting in, makes every MCP agent the owner by default.
+
+**Order of the move** (each a restructure, then a behaviour change, per
+Rule 1):
+1. Add `GuardPoint`, and have the invoke core and `persistEffect` ask it.
+   A core guard contributed in place calls today's `decide`, so behaviour
+   is unchanged.
+2. Move the resolver, the actor policy, `writesConfiguration` and the
+   card into the governance family, contributing the same guard. The
+   tests stay green.
+3. Move the seed into the family's declaration, behind a fold step that
+   keeps existing graphs' ids.
+4. Add the deployment flag, the switch guard, and the no-governance runs:
+   the `surface-contract` suite with governance off, where every
+   approval property becomes "allowed".
+
+##### Plugin organisation: tags and derived dependencies
+
+kb will have many first-party plugins, and so will any third party with a
+large extension set. The mechanism is the kernel's, the same for every
+plugin, and it adds no field an extension author must fill in.
+
+- **Dependencies are derived, never declared.** A plugin already says what
+  it reads (`inject`), and the kernel knows who provides each service. So
+  the dependency graph is `inject` joined to `provide`: an edge from a
+  plugin to the provider of each service it injects. The kernel reports
+  it (`kernel.dependencies()`: `{from, to, service}`). Contributing to a
+  point is not a dependency on the point's reader. A plugin reaches
+  another only through a service it injects, never by importing it; the
+  static import matrix (`familyEdgeViolation`, `EXTENSION_ROOTS`) keeps
+  enforcing the import half.
+- **Tags are optional labels**, `tags?: readonly string[]` on `Plugin`,
+  for organisation only. The kernel reports them (`PluginState.tags`) and
+  never reads them. `kb ext list` shows each plugin's tags, what it
+  injects and from whom, and what it provides.
+- **The direction rule is a harness check over kb's own families, not a
+  load-time rule.** `harness/src/constraints.ts` gains `TAG_ALLOWS`, the
+  same shape as `LAYER_ALLOWS` but over plugin tags. For example, `core`
+  may depend only on `core`, and `governance` and `identity` on `core`.
+  A harness test composes kb's bundled and hosted plugins in a kernel,
+  reads `dependencies()` and `tags`, and fails on an edge the table does
+  not allow. A third party may run the same check over its own set; the
+  kernel imposes nothing.
+- **The core-only run.** A harness test composes core and the
+  `core`-tagged plugins with every other family switched off. It then
+  runs the registry's actions and the read half of the surface contract,
+  so a runtime dependency of core on an optional plugin fails CI.
+- **Proposed tags for kb's families:**
+  - `core`: `coreExtension` and the required families (`outline`,
+    `docs`, `check`);
+  - `governance`;
+  - `identity`: the page-token and proxy-header providers;
+  - `ui`: every `-ui` half;
+  - one tag per optional family for the rest (`collections`, `graph`,
+    `canvas`, `lab`, `code`, `chart`, `locations`, `backdrops`, `themes`,
+    `agent`).
+
+  **Review:** whether `docs` and `check`, required today, are `core` or
+  just required.
 
 #### Extension families
 
