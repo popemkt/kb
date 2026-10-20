@@ -8,7 +8,7 @@ release it.
 | `validate.yml` | PR, push to `main` | Is the repo green? |
 | `kb-mutation.yml` | Weekly (Mon 04:00 UTC, incremental), monthly (full), manual | Which mutants does the test suite fail to kill? |
 | `release.yml` (Release) | Manual with a bump, or a hand-pushed `v<major.minor.patch>` tag | Cut a stable release: version, CHANGELOG, commit and tag, then publish |
-| `nightly.yml` (Nightly) | Daily 03:00 UTC, manual | Publish main's tip as a `-nightly.<date>` prerelease, if it changed and is green |
+| `nightly.yml` (Nightly) | Validate green on a push to `main`, manual; daily 03:00 UTC prunes only | Publish that commit as a `-nightly.<UTC YYYYMMDDHHMMSS>` prerelease, unless a nightly holds it |
 | `publish.yml` (Publish) | Called by Release and Nightly only | Build, smoke-test, attest and publish one release |
 
 `validate.yml` is the single answer to "does this change land". Its jobs run
