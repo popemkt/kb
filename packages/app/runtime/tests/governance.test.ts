@@ -5,7 +5,7 @@
  * nothing about a call. The deployment, never the graph, says whether it is
  * composed (`deployGovernance`, the CLI's `--governance`): required, its
  * guards decide every call and no store can switch it off; off, there is
- * no guard and every call runs. The approval suites themselves
+ * no guard, no policy node in the store it opens, and every call runs. The approval suites themselves
  * (`approval.test.ts`, the surface contract) run unchanged over the family.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -18,6 +18,12 @@ import { deployGovernance } from "../src/deployment.ts";
 import { invoke } from "../src/invoke.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
+import { extensionNodeId } from "@kb/model";
+import { approvalPoliciesOf, governanceExtension } from "@kb/governance";
+
+const AT = "2026-10-20T00:00:00.000Z";
+/** Every node the family's declaration seeds. */
+const governanceSeedNodes = (at: string) => governanceExtension.seed?.(at) ?? [];
 
 let root = "";
 beforeEach(async () => {
@@ -78,6 +84,31 @@ describe("governance, required", () => {
 });
 
 describe("governance, off by the deployment", () => {
+  test("a store opened without it holds no policy node, nor anything else of the family's", async () => {
+    deployGovernance("off");
+    const ctx = await openKb(root);
+    const ids = new Set(ctx.nodes.map((node) => node.id));
+    const familyNodes = governanceSeedNodes(AT).map((node) => node.id);
+    expect(familyNodes.filter((id) => ids.has(id))).toEqual([]);
+    expect(ids.has(extensionNodeId("governance"))).toBe(false);
+    expect(approvalPoliciesOf(ctx.nodes)).toEqual([]);
+    // Nothing core seeds names one: the lists the family files into hold none of its nodes.
+    for (const list of Object.keys(governanceExtension.files ?? {})) {
+      expect(ctx.index.getNode(list)?.children ?? []).toEqual([]);
+    }
+  });
+
+  test("and the same store opened with it is seeded with them", async () => {
+    deployGovernance("off");
+    await openKb(root);
+    deployGovernance("required");
+    resetRegistryCache();
+    const ctx = await openKb(root);
+    const ids = new Set(ctx.nodes.map((node) => node.id));
+    expect(governanceSeedNodes(AT).every((node) => ids.has(node.id))).toBe(true);
+    expect(approvalPoliciesOf(ctx.nodes).length).toBeGreaterThan(0);
+  });
+
   test("no guard decides: what the policies ask, and an agent's force, run", async () => {
     deployGovernance("off");
     const ctx = await openKb(root);

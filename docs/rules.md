@@ -616,14 +616,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
 
-### GAP: governance's policy vocabulary, resolver and seed still live in core packages
-
-- **expected** — @kb/governance owns the approval-policy vocabulary (option ids, policy reader and builder, delegatedDecision), the resolver (resolveApproval, approvalRefusal, writesConfiguration) and its seed (the #approval-policy tag, fields, options, query, view, pin and default policies), so a composition without the family has no policy nodes and core ships no policy
-- **current** — The governance family owns the behaviour (its guards on ActionGuardPoint, the force rule, the deployment switch) but reads the vocabulary and resolver from @kb/model and @kb/contracts, and the policy seed, ExtensionDeclaration.policies and SYSTEM_IDS approval entries are still folded by core's seed (model/seed.ts, seed-fold.ts)
-- **impact** — Core packages still carry policy code and every store still seeds policy nodes, whether or not governance is composed; with --governance off the nodes are inert
-- **closes** — Move approval-policy.ts, the resolver half of approval.ts and writesConfiguration into @kb/governance; seed the policy nodes from the governance declaration (seed-fold filing them under pins and views by id); move the policy option ids out of SYSTEM_IDS; repoint test-kit's surface contract to read decisions through kb.manifest instead of resolveApproval
-- **node** — `01M5C3YK8P5FWDKFD7D7ERFXDH`
-
 ### GAP: graph link labels are 2D only
 
 - **expected** — Force3dView declares edgeLabels and draws label billboards.
@@ -1569,6 +1561,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — precise placement in 3D needs the inspector
 - **closes** — 3D plan step 5: modal G/S/E with snapping
 - **node** — `01M41W56TR6V8H0ZQVRWRFV24K`
+
+### GAP: governance's policy vocabulary, resolver and seed still live in core packages
+
+- **expected** — @kb/governance owns the approval-policy vocabulary (option ids, policy reader and builder, delegatedDecision), the resolver (resolveApproval, approvalRefusal, writesConfiguration) and its seed (the #approval-policy tag, fields, options, query, view, pin and default policies), so a composition without the family has no policy nodes and core ships no policy
+- **current** — The governance family owns the behaviour (its guards on ActionGuardPoint, the force rule, the deployment switch) but reads the vocabulary and resolver from @kb/model and @kb/contracts, and the policy seed, ExtensionDeclaration.policies and SYSTEM_IDS approval entries are still folded by core's seed (model/seed.ts, seed-fold.ts)
+- **impact** — Core packages still carry policy code and every store still seeds policy nodes, whether or not governance is composed; with --governance off the nodes are inert
+- **closes** — Move approval-policy.ts, the resolver half of approval.ts and writesConfiguration into @kb/governance; seed the policy nodes from the governance declaration (seed-fold filing them under pins and views by id); move the policy option ids out of SYSTEM_IDS; repoint test-kit's surface contract to read decisions through kb.manifest instead of resolveApproval
+- **node** — `01M5C3YK8P5FWDKFD7D7ERFXDH`
 
 ### GAP: graph themes are a closed set, not a declared kind
 

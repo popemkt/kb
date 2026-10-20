@@ -26,3 +26,13 @@ export function deployGovernance(mode: GovernanceMode): void {
 export function governanceMode(): GovernanceMode {
   return governance;
 }
+
+/**
+ * Whether this deployment composes the family `name`: every family, less
+ * governance where governance is off. One answer for everything a
+ * composition is made of, its plugins and its seed alike, so a store
+ * opened without governance is seeded without its nodes.
+ */
+export function deploys(name: string): boolean {
+  return governance === "required" || name !== GOVERNANCE_FAMILY;
+}

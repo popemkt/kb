@@ -2549,8 +2549,8 @@ Core contributes no guard. With none, every call proceeds.
   unguarded.
 - The family is required, so no store can switch it off: `extension.switch`
   refuses it as it refuses every required family.
-- `kb --governance off` leaves the family out of the composition. There is
-  no guard: every call that the core's invariants admit (Interception,
+- `kb --governance off` leaves the family out of the composition, its seed
+  included, so a store it opens holds no policy node. There is no guard: every call that the core's invariants admit (Interception,
   above) runs, including an agent's `force` and `sandbox.trust`. It is meant for a single-user tool where every caller is
   the owner anyway.
 - The setting is process-wide, set by the CLI before any registry is
@@ -2569,9 +2569,12 @@ whether a person stands behind it (`APPROVAL_DECISIONS`, `hasPerson`,
 `@kb/contracts`). No core package and no contract suite names a policy:
 the surface contract reads what is decided about each caller through the
 invoke core's own `kb.manifest`, and the composition that runs it says how
-a policy is written (`SurfaceSet.policy`). The fold still seeds the
-family's nodes whatever the deployment composes
-(`// GAP [[01M5C3YK8P5FWDKFD7D7ERFXDH]]` in `app/runtime/src/families.ts`).
+a policy is written (`SurfaceSet.policy`). A deployment that leaves the
+family out leaves out its seed too (`deploys`, `deployment.ts`; read by
+`rootFamilies`, which both the registry and the seed compose from), so a
+store opened under `--governance off` holds no policy node. One opened
+earlier with governance keeps the nodes it was seeded with, as a store
+keeps every node: they decide nothing while no guard reads them.
 
 **The approval card** stays where it is drawn: the agent dock and the
 sandbox runner. Only governance's guards ask, so without governance no

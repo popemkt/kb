@@ -370,12 +370,8 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
 ): Effect.fn.Return<Registry, never, FileSystem> {
   const { families, failures } = yield* rootFamilies(root);
   const unread: string[] = [];
-  // The deployment, not the store, decides whether governance is composed.
-  const governed = governanceMode() === "required";
-  const on = families.filter(
-    ({ declaration }) =>
-      (governed || declaration.name !== GOVERNANCE_FAMILY) &&
-      familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
+  const on = families.filter(({ declaration }) =>
+    familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
   );
   const rootKey = root ?? NO_ROOT_KEY;
   const key = on
@@ -385,7 +381,8 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   if (held?.key === key) return yield* held.registry;
   // `Effect.cached` is what makes the entry a build-once value rather than a
   // recipe: concurrent callers share the one in-flight build.
-  const required = governed ? [GOVERNANCE_FAMILY] : [];
+  // The deployment, not the store, decides whether governance is composed (`deploys`).
+  const required = governanceMode() === "required" ? [GOVERNANCE_FAMILY] : [];
   const built = yield* Effect.cached(buildRegistry(families, on, failures, required));
   // Another caller may have composed this key while the build was set up.
   const replaced = current.get(rootKey);
