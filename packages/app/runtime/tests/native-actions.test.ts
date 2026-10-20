@@ -10,6 +10,7 @@ import { openKb } from "../src/session.ts";
 import {
   ActionCatalog,
   ExtensionCatalog,
+  ExtensionFailures,
   FamilyKernels,
   KbCtx,
   KbStore,
@@ -256,6 +257,7 @@ describe("Effect-native action registry", () => {
             Layer.succeed(ViewCatalog, viewCatalogOf([])),
             Layer.succeed(ExtensionCatalog, []),
             Layer.succeed(FamilyKernels, []),
+            Layer.succeed(ExtensionFailures, []),
             savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             legacyDocsViewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),

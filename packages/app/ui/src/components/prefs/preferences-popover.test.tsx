@@ -1,20 +1,18 @@
 /**
- * The plugins section of Preferences: one on/off row per optional extension,
- * showing what the server reports and asking for the switch, and no section
- * at all when there is nothing optional to switch.
+ * Preferences is how the page looks and nothing else: its rows are the
+ * appearance settings, it lists no extension (that is the Extensions
+ * panel's), and its trigger wears a neutral gear whatever the theme.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
-import { PreferencesPopover } from "./preferences-popover";
+import { PreferencesPopover, PreferencesTrigger } from "./preferences-popover";
 
-const off = [{ name: "extra", label: "Extra", on: false }];
-const on = [{ name: "extra", label: "Extra", on: true }];
-
-describe("PreferencesPopover plugins", () => {
+describe("Preferences", () => {
   let dom: InstalledDom;
   let root: Root;
   let container: HTMLElement;
@@ -34,40 +32,27 @@ describe("PreferencesPopover plugins", () => {
     dom.restore();
   });
 
-  it("shows each optional extension as reported, and asks for the switch", () => {
-    const asked: [string, boolean][] = [];
-    const onSwitch = (name: string, next: boolean) => void asked.push([name, next]);
-    act(() => root.render(createElement(PreferencesPopover, { switches: off, onSwitch })));
-    const select = () =>
-      present(
-        container.querySelector<HTMLSelectElement>('[data-testid="plugin-extra"]'),
-        "plugin row",
-      );
-    expect(container.textContent).toContain("Extra");
-    expect(select().value).toBe("off");
-
-    act(() => {
-      select().value = "on";
-      select().dispatchEvent(new dom.window.Event("change", { bubbles: true }) as unknown as Event);
-    });
-    expect(asked).toEqual([["extra", true]]);
-
-    // The row shows what the server then reports, not what was asked.
-    act(() => root.render(createElement(PreferencesPopover, { switches: on, onSwitch })));
-    expect(select().value).toBe("on");
-    act(() => {
-      select().value = "off";
-      select().dispatchEvent(new dom.window.Event("change", { bubbles: true }) as unknown as Event);
-    });
-    expect(asked).toEqual([
-      ["extra", true],
-      ["extra", false],
-    ]);
+  it("holds the appearance settings and no extension", () => {
+    act(() => root.render(createElement(PreferencesPopover)));
+    const dialog = present(container.querySelector('[role="dialog"]'), "the popover");
+    expect(dialog.textContent).toContain("theme");
+    expect(dialog.textContent).toContain("width");
+    expect(container.querySelector('[aria-label="plugins"]')).toBeNull();
+    expect(container.querySelector("select[data-testid^='plugin-']")).toBeNull();
   });
 
-  it("has no plugins section when nothing is optional", () => {
-    act(() => root.render(createElement(PreferencesPopover, { switches: [], onSwitch: () => {} })));
-    expect(container.querySelector('[aria-label="plugins"]')).toBeNull();
-    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+  it("wears the same gear whatever the theme", () => {
+    const glyph = () => {
+      act(() => root.render(createElement(PreferencesTrigger)));
+      const button = present(
+        container.querySelector('button[aria-label="Preferences"]'),
+        "the trigger",
+      );
+      return button.innerHTML;
+    };
+    act(() => usePrefsStore.getState().setTheme("light"));
+    const light = glyph();
+    act(() => usePrefsStore.getState().setTheme("dark"));
+    expect(glyph()).toBe(light);
   });
 });

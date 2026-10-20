@@ -439,6 +439,7 @@ export function NodeField({
         fieldType={fieldType}
         values={values}
         context={context}
+        // GAP [[01M5CRYK42Y4G74JD62AD00BZS]] a debug row is read-only even where the system-write rule allows the write
         readOnly={!isWritableField(nodeId, fieldId, context.schema.get(fieldId)) || debug}
         onFollow={follow}
         instanceKey={instanceKey}

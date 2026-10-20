@@ -3,13 +3,14 @@
  * extension's UI exactly when the server's `kb.manifest` reports the
  * extension loaded. Off by default, the server does not load it, so `/lab`
  * is not found like any unmatched path and the sidebar has no Lab row.
- * Switched on from Preferences, the row asks the server (`extension.switch`),
- * the server loads the lab and reports it, and the row and `/lab` appear;
- * switched off again, both leave live — no reload — and the mounted study is
- * disposed. Nothing is kept in the browser's preferences. A switch written
+ * Switched on from the Extensions panel, its switch asks the server
+ * (`extension.switch`), the server loads the lab and reports it, and the row
+ * and `/lab` appear; switched off again, both leave live — no reload — and
+ * `/lab` is not found. Nothing is kept in the browser's preferences. A switch written
  * elsewhere (another tab, the CLI) reaches the page's graph, and the page
  * follows it live. And until the server has answered, the page holds its
- * workspace rather than show the lab as missing on the way.
+ * workspace rather than show the lab as missing on the way. Switched off
+ * while its page is open, unloading tears that page down where it stands.
  *
  * The server is a stand-in that answers the manifest from one switch. The
  * study's scene is a stand-in too: happy-dom has no GPU, and what is under
@@ -51,10 +52,19 @@ const { setFetchGraphSnapshot } = await import("@/api/graph");
 const { setPostAction } = await import("@/api/action");
 const { navigate } = await import("@kb/ui-sdk");
 const { servedManifest } = await import("@/lib/manifest");
-const { useUiStore } = await import("@/stores/ui.store");
 const { useGraphStore } = await import("@/stores/graph.store");
 
 const ISO = "2026-09-24T00:00:00.000Z";
+
+/** The lab's switch node as another tab or the CLI writes it, reaching the page's graph as any write does. */
+const switchNode = (on: boolean, at: string): WireNode => ({
+  id: extensionNodeId("lab"),
+  text: "Lab",
+  props: { [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: on }] },
+  children: [],
+  createdAt: ISO,
+  updatedAt: at,
+});
 
 function snapshot(): GraphSnapshot {
   return {
@@ -93,6 +103,24 @@ async function answer(invocation: ActionRequest) {
   if (invocation.id === "kb.manifest") {
     if (server.hold !== null) await server.hold;
     return { status: "succeeded" as const, id: invocation.id, output: manifest(), rev: 1 };
+  }
+  if (invocation.id === "extension.list") {
+    const extensions = manifest().extensions.map((row) => ({
+      ...row,
+      tags: [],
+      injects: [],
+      provides: [],
+      failures: [],
+    }));
+    return {
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: { extensions, points: [], failures: [] },
+      rev: 1,
+    };
+  }
+  if (invocation.id === "extension.footprint") {
+    return { status: "succeeded" as const, id: invocation.id, output: { rows: [] }, rev: 1 };
   }
   if (invocation.id === "extension.switch") {
     server.switches.push(invocation.input);
@@ -190,7 +218,6 @@ describe("lab plugin, switched on the server (acceptance)", () => {
   });
 
   afterEach(() => {
-    act(() => useUiStore.getState().setPrefsOpen(false));
     act(() => root.unmount());
     container.remove();
   });
@@ -200,11 +227,17 @@ describe("lab plugin, switched on the server (acceptance)", () => {
   const study = () => container.querySelector("[data-lab-study]");
   const notFound = () => container.querySelector('[data-not-found="Page"]');
   const labSwitch = () =>
-    container.querySelector<HTMLSelectElement>('[data-testid="plugin-lab"]') ?? null;
+    container.querySelector<HTMLSelectElement>('[data-testid="switch-lab"]') ?? null;
 
-  /** Choose `value` on the lab's Preferences row. */
+  /** Open the Extensions panel and wait for the lab's switch. */
+  async function openPanel(): Promise<void> {
+    await act(async () => navigate("/extensions"));
+    await until(() => labSwitch() !== null);
+  }
+
+  /** Choose `value` on the lab's switch in the Extensions panel. */
   async function choose(value: "on" | "off"): Promise<void> {
-    act(() => useUiStore.getState().setPrefsOpen(true));
+    await openPanel();
     const select = labSwitch();
     expect(select).not.toBeNull();
     await act(async () => {
@@ -245,7 +278,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     await boot();
     expect(reportedLab()).toBe(false);
     expect(labRow()).toBeUndefined();
-    act(() => useUiStore.getState().setPrefsOpen(true));
+    await openPanel();
     expect(labSwitch()?.value).toBe("off");
     await act(async () => navigate("/lab"));
     await settle();
@@ -265,14 +298,6 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(labRow()).toBeUndefined();
     // Another tab, or the CLI, switches the lab on: the server loads it, and
     // the switch node reaches this page's graph as any write does.
-    const switchNode = (on: boolean, at: string): WireNode => ({
-      id: extensionNodeId("lab"),
-      text: "Lab",
-      props: { [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: on }] },
-      children: [],
-      createdAt: ISO,
-      updatedAt: at,
-    });
     server.lab = true;
     act(() => useGraphStore.getState().applyTx([switchNode(true, "2026-09-24T00:00:01.000Z")], []));
     await until(() => labRow() !== undefined);
@@ -289,7 +314,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(labRow()).toBeUndefined();
   });
 
-  it("switched on from Preferences, the server loads it and the page follows; switched off, both leave live", async () => {
+  it("switched on from the Extensions panel, the server loads it and the page follows; switched off, both leave live", async () => {
     await boot();
     const { mounted, disposed } = scene;
     await choose("on");
@@ -298,9 +323,9 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     await until(() => labRow() !== undefined);
     expect(reportedLab()).toBe(true);
     expect(labRow()).toBeDefined();
+    await until(() => labSwitch()?.value === "on");
     expect(labSwitch()?.value).toBe("on");
 
-    act(() => useUiStore.getState().setPrefsOpen(false));
     await act(async () => navigate("/lab"));
     // The page is a lazy chunk: wait for it (and the scene it mounts) to arrive.
     await until(() => scene.mounted > mounted);
@@ -315,9 +340,33 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     await until(() => labRow() === undefined);
     expect(reportedLab()).toBe(false);
     expect(labRow()).toBeUndefined();
+    await act(async () => navigate("/lab"));
+    await settle();
     expect(study()).toBeNull();
     expect(notFound()).not.toBeNull();
-    // Unloading tore the page down, and the page gave its scene back.
+    // Leaving the study gave its scene back, and it was not mounted again.
+    expect(scene.disposed).toBe(disposed + 1);
+  });
+
+  it("switched off elsewhere while the study is open, unloading tears the open page down", async () => {
+    await boot();
+    await choose("on");
+    await until(() => labRow() !== undefined);
+    const { mounted, disposed } = scene;
+    await act(async () => navigate("/lab"));
+    await until(() => scene.mounted > mounted);
+    expect(study()).not.toBeNull();
+
+    // Another tab, or the CLI, switches it off: the page stays on /lab.
+    server.lab = false;
+    act(() =>
+      useGraphStore.getState().applyTx([switchNode(false, "2026-09-24T00:00:03.000Z")], []),
+    );
+    await until(() => labRow() === undefined);
+    await settle();
+    expect(dom.location.pathname).toBe("/lab");
+    expect(study()).toBeNull();
+    expect(notFound()).not.toBeNull();
     expect(scene.disposed).toBe(disposed + 1);
   });
 });

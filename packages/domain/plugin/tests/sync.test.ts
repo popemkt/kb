@@ -47,6 +47,44 @@ describe("syncPlugins", () => {
       }),
     ));
 
+  test("a plugin listed as another value than the one held under its name replaces it", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        const failing = definePlugin({ name: "a", apply: () => Effect.die(new Error("boom")) });
+        expect((yield* syncPlugins(kernel, [failing])).map(({ verb }) => verb)).toEqual(["load"]);
+        expect(kernel.plugins().map(({ status }) => status)).toEqual(["failed"]);
+        // A working value under the same name: the failed one gives way.
+        const working = named("a");
+        expect(yield* syncPlugins(kernel, [working])).toEqual([]);
+        expect(kernel.contributions(Names).map(({ value }) => value)).toEqual(["a"]);
+        // And back: the working one gives way to a failing value.
+        expect((yield* syncPlugins(kernel, [failing])).map(({ verb }) => verb)).toEqual(["load"]);
+        expect(kernel.contributions(Names)).toEqual([]);
+        expect(kernel.plugins().map(({ status }) => status)).toEqual(["failed"]);
+      }),
+    ));
+
+  test("what counts is the value the kernel holds now, however it came to hold it", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        const first = named("a");
+        const second = named("a");
+        yield* syncPlugins(kernel, [first]);
+        // Moved outside syncPlugins: it now holds `second`.
+        yield* kernel.unload("a");
+        yield* kernel.load(second);
+        yield* syncPlugins(kernel, [first]);
+        expect(kernel.holds(first)).toBe(true);
+        // Loaded outside syncPlugins first: a different listed value still replaces it.
+        const other = makeKernel();
+        yield* other.load(first);
+        yield* syncPlugins(other, [second]);
+        expect(other.holds(second)).toBe(true);
+      }),
+    ));
+
   test("a plugin that fails is returned, and the rest still converge", () =>
     Effect.runPromise(
       Effect.gen(function* () {

@@ -83,6 +83,7 @@ describe("the example extension's server half", () => {
       enabled: true,
       source: join(ROOT, ".kb", "extensions", "example.ts"),
       page: extensionPagePath(DIGEST),
+      digest: DIGEST,
     });
   });
 

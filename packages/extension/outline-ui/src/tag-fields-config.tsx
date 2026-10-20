@@ -155,6 +155,7 @@ export function TagFieldsConfigView({
   );
 }
 
+// GAP [[01M5CRYP40YAHA2ZQFB850ARVZ]] template fields are added and removed, never reordered
 export function TagFieldsConfig({ tagId }: { tagId: string }) {
   const schema = usePageGraph(schemaOf);
   const follow = useFollow();

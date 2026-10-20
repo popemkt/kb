@@ -5,6 +5,7 @@ import {
   ActionCatalog,
   CurrentInterception,
   ExtensionCatalog,
+  ExtensionFailures,
   FamilyKernels,
   type HostedFamilies,
   type ActionHandlerEnv,
@@ -87,6 +88,7 @@ export function kbRuntimeLayer(
         Effect.map(([{ families }, rows]) => [...families, ...rows]),
       ),
     ),
+    Layer.effect(ExtensionFailures, registry.pipe(Effect.map(({ failures }) => failures))),
     Layer.effect(
       FamilyKernels,
       registry.pipe(

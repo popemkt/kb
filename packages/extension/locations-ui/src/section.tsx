@@ -93,6 +93,7 @@ function LocationRows({ row, reload }: { readonly row: LocationRow; readonly rel
   );
 }
 
+// GAP [[01M5CRYNGRHH8HHBHV2KQ3MNAV]] a location is added only from the CLI
 export function LocationsSection() {
   const { listing, reload } = useListing();
   if (listing.kind === "loading") return null;

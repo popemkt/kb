@@ -153,6 +153,7 @@ export function BoardCardsView({
         data-board-empty="true"
         data-frame-id={frameId}
       >
+        {/* GAP [[01M5CRYMAK7SZT2PPBBS849NNQ]] the hint names a setting the editor has no control for */}
         <p>
           Set <code className="text-foreground/60">view.group</code> to use the board.
         </p>

@@ -40,6 +40,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Domain typing — discriminator over optional | DESIGN.md#domain-typing--effect-schema | repo | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | DESIGN.md#domain-typing--effect-schema | repo | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |
 | Domain typing — one canonical schema | DESIGN.md#domain-typing--effect-schema | repo | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
+| Editor first (the editor is the main human editing surface) | DESIGN-UI.md#decisions-from-qa | repo | Every core concept is creatable and editable in the editor (outline + outline-ui); a concept writable only through the CLI or MCP, or only as a raw sys.* value, is a recorded gap. The CLI and MCP are equal agent surfaces, not the editor's fallback. | prose | an editor-surface test that walks every seeded field a person may set and asserts the editor draws a writable widget for it (none yet) |
 | Effect v4 idiom | AGENTS.md#effect | repo | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | effect-tsgo's effectFnOpportunity, promoted to error in the src/ lane of tsconfig.iso.json. Today it is off, and switching it on does not help yet: in effect-tsgo 0.40.0 it reports nothing through tsc, not even at error on a probe function that only returns an Effect.gen, so it has no sites to count. The other non-negotiables are partly held by errors that already run (outdatedApi, missingReturnYieldStar), which does not make the rule checked. |
 | Kinds, roles and options | DESIGN.md#kinds-roles-and-options | repo | A supertag says what a node is; a behaviour is a field; an option set is children. Strip the behaviour and ask whether the node is still that thing. | prose | A lint rejecting a new supertag that templates no fields would close the option-set clause (@kb/model kinds.test.ts pins it for the seed); the strip test itself stays a reviewer judgement. |
 | Lab principles | DESIGN-UI.md#lab-principles | packages/extension/lab-ui packages/kit lab scene graph | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one scene kit (@kb/scene and @kb/scene-gpu), which the 3D graph stands on too; a study's info card cites the principles by id and never restates them. | prose | The measured bounds are their own rule (Lab principles: measured bounds). What is left is judgement: a render-lane frame-budget and reduced-motion-still check would close P3 and M7; composition and light stay a review verdict. |
@@ -242,6 +243,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — derive mentions from layout panes at load, as decision 6 does for canvas layout entries
 - **node** — `01M411FNY9J46BD71N2C5641NB`
 
+### GAP: a location cannot be added from the editor
+
+- **expected** — A location (another kb root this machine opens) is added, opened and forgotten from the editor.
+- **current** — kb locations add is CLI-only, or a root is added implicitly by opening it from the command line; the Locations section only opens and forgets.
+- **impact** — A person who works only in the browser cannot register another kb.
+- **closes** — An 'Add location…' gesture in the Locations section calling the same action the CLI calls.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYNGRHH8HHBHV2KQ3MNAV`
+
 ### GAP: a modal transform takes one typed value, not a vector
 
 - **expected** — typed input like Blender's: one value per axis with Tab to the next, and expressions
@@ -265,6 +275,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One large file can grow a shard past its budget and, past ~2.5x, past the job's timeout, so that shard is cancelled and its files are retested every run.
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
+
+### GAP: a node can be moved only one step at a time
+
+- **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
+- **current** — Move up/down and indent/outdent move a row one step (editing-intents.ts); rows are not draggable, and the only drop handler takes files.
+- **impact** — Moving a node to a distant parent takes many keystrokes, or kb mv from the CLI.
+- **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
@@ -298,6 +317,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
+### GAP: a query node's query and limit have no editor
+
+- **expected** — A query node is written in the editor: its conditions through a query builder, its EDN in a text editor beside it, and its limit as a number (docs/brainstorms/2026-10-20-query-builder).
+- **current** — 'New query node' and 'Turn into query' write DEFAULT_QUERY_EDN; nothing in the page edits sys.f.query or sys.f.query.limit afterwards.
+- **impact** — A person who makes a query node from the editor cannot change what it asks without the CLI or MCP.
+- **closes** — The query builder of docs/brainstorms/2026-10-20-query-builder, over the IR in @kb/query.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYKQAHJNG5SSRVSYE77GN`
+
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -321,6 +349,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a hostile or careless code view can make the server or replica spend unbounded time on one query
 - **closes** — a deadline in the query layer that the grant applies
 - **node** — `01M41DKVSGG1R5A27Q49SBPHDD`
+
+### GAP: a saved layout cannot be edited in place
+
+- **expected** — A saved layout is a node whose arrangement is changed from the editor and written back to that node.
+- **current** — 'Save layout' always makes a new layout node; its sys.f.layout is a hidden JSON value, and layout-view.tsx's header says saving again replaces it, which it does not.
+- **impact** — Adjusting a saved layout leaves the old node beside a new one; the old one is edited only as raw JSON through the CLI.
+- **closes** — A 'save to this layout' gesture when the open workspace came from a layout node, writing its sys.f.layout through view.propose's check.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
 
 ### GAP: a script on a page nobody is verified for is refused, not run as the agent its wire makes it
 
@@ -355,6 +392,24 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
+### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
+
+- **expected** — Every field a person may set is drawn and edited in the editor like any field, its visibility derived from the field node (its hidden flag, the system-write rule), never from a list in the page.
+- **current** — SCHEMA_SURFACE_FIELDS (field-visibility.ts) allow-lists five sys fields (color, hidden, fieldType, targetTag, targetQuery); every other sys.* prop is hidden, and 'Debug: show all fields' draws them read-only (fields-section.tsx).
+- **impact** — A query's EDN and limit, a field's cardinality and relation inverse, an agent provider's adapter/endpoint/model, a saved layout's spec and a docs view's template and output can be set only through node.update from the CLI or MCP.
+- **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYK42Y4G74JD62AD00BZS`
+
+### GAP: a tag's template fields cannot be reordered
+
+- **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
+- **current** — tag-fields-config.tsx adds and removes a template field; the order is the order they were added.
+- **impact** — Field rows on every tagged node show in an order nobody chose; fixing it needs node.update on the tag from the CLI.
+- **closes** — Reorder in tag-fields-config (drag or move up/down), writing the template's order.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
+
 ### GAP: a trusted repository extension is imported from disk after its digest is read
 
 - **expected** — The server imports exactly the bytes whose digest a person trusted.
@@ -386,6 +441,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Claude Code and other hosts without ui:// see a flat list where the person sees a board, table or graph
 - **closes** — each view key carries a markdown projection beside its params
 - **node** — `01M40X30G92A0E57C02JHQ9A1G`
+
+### GAP: a view's group, display and page size have page writes no gesture calls
+
+- **expected** — Every view setting the page can write has the gesture that writes it, or the write is deleted.
+- **current** — setViewGroup, setViewDisplay and setViewPagesize are declared on PageWrites and implemented in mutations.ts; only tests call them, and the board says 'Set view.group to use the board.' with no way to do so.
+- **impact** — A board cannot be grouped from the editor, and three declared writes read as covered while nothing reaches them: a dead seam.
+- **closes** — A group/display/page-size control in the view toolbar that calls them, or their removal until one exists.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYMAK7SZT2PPBBS849NNQ`
 
 ### GAP: action registry has no A2A adapter
 

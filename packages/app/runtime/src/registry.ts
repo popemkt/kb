@@ -328,6 +328,7 @@ const buildRegistry = Effect.fnUntraced(function* (
       source,
       sources.get(declaration.name) === source,
       page === undefined || digest === undefined ? undefined : extensionPagePath(digest),
+      digest,
     ),
   );
 

@@ -13,8 +13,9 @@ import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { NO_SWITCHES, extensionRow, familyOn } from "@kb/contracts";
+import { NO_SWITCHES, extensionRow, familyOn, organisationOf } from "@kb/contracts";
 import {
+  PAGE_FAMILY_KERNEL,
   SidebarSectionPoint,
   ViewPoint,
   currentContributions,
@@ -25,17 +26,22 @@ import { EXAMPLE_PAGE_HALF } from "@/test-support/example-page.text";
 
 const { setPostAction } = await import("@/api/action");
 const { loadManifest } = await import("@/lib/manifest");
-const { extensionsSettled, startUiPlugins } = await import("@/ui-plugins");
+const { BROWSER_EXTENSIONS, extensionsSettled, startUiPlugins } = await import("@/ui-plugins");
 
 /** Where the page imports the half from: here, the served bytes themselves. */
-const SERVED_AT = `data:text/javascript;base64,${btoa(
-  Array.from(new TextEncoder().encode(EXAMPLE_PAGE_HALF), (byte) =>
-    String.fromCodePoint(byte),
-  ).join(""),
-)}`;
+const served = (source: string) =>
+  `data:text/javascript;base64,${btoa(
+    Array.from(new TextEncoder().encode(source), (byte) => String.fromCodePoint(byte)).join(""),
+  )}`;
+const SERVED_AT = served(EXAMPLE_PAGE_HALF);
+
+/** Where the server says the half is: the example's, or bytes that throw as they are imported. */
+let servedAt = SERVED_AT;
 
 /** Whether the server reports the example loaded. */
 let loaded = true;
+/** Whether the server reports the lab loaded (off in a store with no switch written). */
+let labOn = false;
 
 /** What the server reports: every bundled family as a store with no switch has it, and the example. */
 function reported() {
@@ -44,14 +50,14 @@ function reported() {
       extensionRow(
         declaration,
         "bundled",
-        familyOn(declaration, NO_SWITCHES, () => {}),
+        (declaration.name === "lab" && labOn) || familyOn(declaration, NO_SWITCHES, () => {}),
       ),
     ),
     extensionRow(
       { name: "example", label: "Example", optional: { byDefault: "on" } },
       "/root/.kb/extensions/example.ts",
       loaded,
-      SERVED_AT,
+      servedAt,
     ),
   ];
 }
@@ -121,5 +127,58 @@ describe("a repository extension's page half (acceptance)", () => {
     loaded = true;
     await follow();
     expect(pageFootprint("example").length).toBe(3);
+  });
+
+  it("is reported failed, as any plugin of its family is, when its page half cannot be imported, and recovers while on", async () => {
+    loaded = true;
+    servedAt = SERVED_AT;
+    await follow();
+    expect(pageFootprint("example").length).toBe(3);
+
+    // Re-served from bytes that throw, the family still on: the working
+    // half gives way, and its failure is the family's.
+    servedAt = served('throw new Error("boom at import");');
+    await follow();
+    expect(pageFootprint("example")).toEqual([]);
+    expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([
+      expect.stringContaining("boom at import"),
+    ]);
+
+    // Read again from the same bytes: nothing moves.
+    await follow();
+    expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toHaveLength(1);
+
+    // Re-served from working bytes, still on: it recovers without a reload.
+    servedAt = served(`${EXAMPLE_PAGE_HALF}\n// re-served`);
+    await follow();
+    expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
+    expect(pageFootprint("example").length).toBe(3);
+  });
+
+  it("tries a browser entry that failed again, so one that was passing recovers without a reload", async () => {
+    const lab = BROWSER_EXTENSIONS.lab;
+    if (lab === null || lab === undefined) throw new Error("the lab has a browser entry");
+    const load = lab.load;
+    let tries = 0;
+    // The network drops the chunk once.
+    (lab as { load: typeof load }).load = () => {
+      tries += 1;
+      return tries === 1 ? Promise.reject(new Error("chunk dropped")) : load();
+    };
+    try {
+      labOn = true;
+      await follow();
+      expect(organisationOf("lab", [PAGE_FAMILY_KERNEL]).failures).toEqual([
+        expect.stringContaining("chunk dropped"),
+      ]);
+      await follow();
+      expect(tries).toBe(2);
+      expect(organisationOf("lab", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
+      expect(pageFootprint("lab").length).toBeGreaterThan(0);
+    } finally {
+      (lab as { load: typeof load }).load = load;
+      labOn = false;
+      await follow();
+    }
   });
 });

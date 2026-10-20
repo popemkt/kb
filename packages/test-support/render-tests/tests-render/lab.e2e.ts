@@ -26,11 +26,12 @@ test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   runtimeErrors.set(page, errors);
   page.on("pageerror", (error) => errors.push(error.message));
-  // The lab is an optional plugin: switch it on the way a user does.
-  await page.goto("/");
-  await page.getByRole("button", { name: "Preferences", exact: true }).click();
-  await page.getByTestId("plugin-lab").selectOption("on");
-  await page.keyboard.press("Escape");
+  // The lab is an optional extension: switch it on the way a user does, in
+  // the Extensions panel, and wait for the server to report it loaded.
+  await page.goto("/extensions");
+  const lab = page.getByTestId("extension-lab");
+  await lab.getByTestId("switch-lab").selectOption("on");
+  await expect(lab.getByText("off: contributes nothing", { exact: true })).toHaveCount(0);
 });
 
 test.afterEach(async ({ page }) => {

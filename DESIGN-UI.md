@@ -7,14 +7,15 @@ subscribe to live queries later. MCP Apps generative UI is phase 2.
 
 ## Decisions (from Q&A)
 
-| Decision       | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell          | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                   |
-| Frontend build | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Bun's role     | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
-| Reactivity     | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Edit scope v1  | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| MCP Apps       | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Decision        | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell           | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                   |
+| Frontend build  | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Bun's role      | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
+| Reactivity      | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Edit scope v1   | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| MCP Apps        | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Editing surface | **The editor is the main human editing surface.** The outline (`@kb/outline`) and its UI (`@kb/outline-ui`) are where a person creates and edits every core concept: nodes, tags, fields and their types and options, references, queries, views and their settings, layouts, and the switches and settings of extension families. A concept that can be written only through the CLI or MCP, or only as a raw `sys.*` value, is a gap, recorded as a `#gap` node (the editor audit: `docs/research/2026-10-20-editor-audit.md`). The CLI and MCP are equal surfaces for agents: they reach the same actions, and neither is the editor's fallback.                                      |
 
 ## Why bun _and_ vite (your question)
 
@@ -2325,17 +2326,18 @@ There is one mechanism, not a second path beside the core plugins:
   resolver has. Until a server answers, the page reads the bundled list as
   a server over a store with no switch written, so each family is as it is
   by default and no agent is reported.
-- Preferences → plugins has one on/off row per optional extension the
-  server reports, showing what it reports. Choosing calls
-  `extension.switch` and reads the manifest again; the row shows the
+- The Extensions panel ([Extensions panel](#extensions-panel)) has one
+  on/off switch per optional extension the server reports, showing what it
+  reports. Choosing calls
+  `extension.switch` and reads the manifest again; the switch shows the
   server's answer, never the choice. A switch written anywhere else (another
   tab, the CLI) reaches the page's graph, and the page reads the manifest
   again.
 - **The `enabledPlugins` preference is gone.** It used to keep the lab and
   the agent on per device, in `localStorage["kb-prefs"]`; a stale key is
   ignored on read and dropped on the next write. A browser that had the
-  lab on sees it off until it is switched on for the kb, from Preferences
-  or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
+  lab on sees it off until it is switched on for the kb, from the
+  Extensions panel or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
   The agent needs nothing: it is on by default, and switched like the rest.
 - **Until a server answers, the workspace waits.** A page served by `kb ui`
   opens its workspace only once the manifest has landed and the plugins it
@@ -2354,6 +2356,52 @@ There is one mechanism, not a second path beside the core plugins:
   views are listed by the server's entries and open as "cannot be shown
   here". An entry the server does not report is never loaded.
 
+### Extensions panel
+
+The Extensions panel (`/extensions`, `ExtensionsView`) is where a person
+sees and changes what the kb composes. The sidebar's Extensions row and
+⌘K's Extensions command open it.
+Preferences (the header's gear, and ⌘K's Preferences) is the page's
+appearance and nothing else: theme, width, design system and backdrop.
+Its trigger wears a neutral gear, not the theme's glyph, because the theme
+is one setting among those it opens.
+
+- **It draws one report.** The server's half is `extension.list`, which is
+  also what `kb ext list` prints, and `extension.footprint`
+  ([DESIGN → Plugin organisation](DESIGN.md#plugin-organisation--tags-and-derived-dependencies)).
+  The page's own kernel is joined in through the same readers
+  (`organisationOf`, `orderedPoints`, `pageFootprint`). The panel computes
+  nothing a CLI caller could not read (`lib/extension-report.ts`). When
+  either action fails, or the server cannot be asked, the panel says why in
+  place of the report and offers to ask again. It never draws a half it
+  could not read as an empty one.
+- **Per extension**, it shows:
+  - its switch when it is optional, which calls `extension.switch` and then
+    shows what the server reports; otherwise `required`;
+  - its trust: part of kb's build, composed by `kb ui`, or trusted at a
+    digest from a repository path;
+  - its tags;
+  - what it contributed to each point, server and page side by side, and
+    how many nodes it seeds;
+  - what it injects and from whom, and what it provides;
+  - its settings;
+  - why a plugin of it failed, on the server or in the page. A page half
+    the page could not import counts, because `loadEntry` loads it as a
+    plugin of the family's name that fails with why. A failure is tried
+    again at the next convergence, and the same failure is the same value,
+    so a dropped chunk recovers without a reload and nothing moves while
+    it keeps failing.
+- **Settings are fields.** A family's settings are the fields whose
+  `sys.f.configures` names its node (`configures`). They are drawn with the
+  page's field editor, as Preferences draws core's. The switch is the one
+  setting the card draws as its own control, because it goes through the
+  checked `extension.switch`.
+- **Above the extensions**, the panel lists:
+  - the points whose listeners are asked in turn (identity providers,
+    interceptors, guards), per kernel and in that order;
+  - the repository extensions refused, where an untrusted one names its
+    digest.
+
 ### Extension UI halves
 
 A family's browser half ([DESIGN → Extension families](DESIGN.md#extension-families))
@@ -2362,15 +2410,15 @@ compiles from source. It builds against `@kb/ui-sdk` and nothing else of
 the shell.
 
 - **The browser holds a resolver, not a second list.**
-  - `CORE_UI_PLUGINS` holds the shell's own projections: ontology, layout,
-    webmcp and screen, beside core's declaration and the page's host.
+  - `CORE_UI_PLUGINS` holds the shell's own projections: ontology,
+    extensions, layout, webmcp and screen, beside core's declaration and the page's host.
   - `BROWSER_EXTENSIONS: Record<family, {load: () => Promise<Plugin>}>` maps
     a family, keyed by its declaration's `name`, to its browser entry.
   - `syncUiPlugins` converges the page kernel on the core plugins, plus the
     browser entry of every family `kb.manifest.extensions` reports as
     enabled that the resolver has.
-  - The Preferences row for an optional family writes the server-side
-    setting, and the page follows the manifest. A page served without a
+  - The Extensions panel's switch for an optional family writes the
+    server-side setting, and the page follows the manifest. A page served without a
     family therefore never offers that family's UI.
 - **One `load` shape for every source.** A bundled family's `load` is a
   static import for a family that is always on, and `import()` for an

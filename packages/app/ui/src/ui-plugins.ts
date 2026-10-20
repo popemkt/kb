@@ -17,10 +17,10 @@
  * serves at the path its row names, imported beside them.
  */
 import * as React from "react";
-import { useSyncExternalStore } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as zod from "zod";
 import { ulid } from "ulid";
+import { Effect } from "effect";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
 import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { backdropsExtension } from "@kb/backdrops";
@@ -53,8 +53,8 @@ import { locationsUiPlugin } from "@kb/locations-ui";
 import { outlineExtension } from "@kb/outline";
 import { extensionNodeId } from "@kb/model";
 import { outlineUiPlugin } from "@kb/outline-ui";
-import { coreExtension, extensionSwitchDef } from "@kb/operations";
-import { isPlugin, type Plugin } from "@kb/plugin";
+import { coreExtension } from "@kb/operations";
+import { isPlugin, PluginError, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
 import { designSystemsUiPlugin } from "@/design-systems";
@@ -63,11 +63,12 @@ import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
+import { extensionsUiPlugin } from "@/components/prefs/extensions-plugin";
 import * as uiSdk from "@kb/ui-sdk";
-import { logWarn, syncUiPlugins, toast, type ExtensionSwitch } from "@kb/ui-sdk";
+import { logWarn, syncUiPlugins } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
-import { invoke, invokeSettled } from "@/session/runtime";
+import { invokeSettled } from "@/session/runtime";
 import { shownNodes, useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { webMcpUiPlugin } from "@/webmcp";
@@ -82,6 +83,7 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   browserHostUiPlugin,
   designSystemsUiPlugin,
   ontologyUiPlugin,
+  extensionsUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,
@@ -240,56 +242,58 @@ async function importPageHalf(path: string): Promise<Plugin> {
 }
 
 /**
- * The switches for these rows: each optional family the server reports, on
- * as it reports it. Whether the family has a browser half does not matter:
- * the switch is the server's, and Preferences is where a person reaches it.
+ * The failed entries handed to the kernel, one per family, path and reason:
+ * a failure read again for the same reason is the same value, so the kernel
+ * is left as it is and nothing is toasted twice.
  */
-function switchesFor(rows: readonly ExtensionRow[]): readonly ExtensionSwitch[] {
-  return rows
-    .filter((row) => row.optional)
-    .map(({ name, label, enabled }) => ({ name, label, on: enabled }));
-}
+const unloadables = new Map<string, Plugin>();
 
-let switchesMemo: {
-  rows: readonly ExtensionRow[];
-  switches: readonly ExtensionSwitch[];
-} | null = null;
-
-function currentSwitches(): readonly ExtensionSwitch[] {
-  const rows = followedExtensions();
-  if (switchesMemo?.rows !== rows) switchesMemo = { rows, switches: switchesFor(rows) };
-  return switchesMemo.switches;
-}
-
-/** The switches Preferences offers now, re-read when the server's report moves. */
-export function useExtensionSwitches(): readonly ExtensionSwitch[] {
-  return useSyncExternalStore(subscribeManifest, currentSwitches, currentSwitches);
+/**
+ * A family's browser entry the page could not have: a plugin of the
+ * family's name whose `apply` fails with why, so the kernel holds the
+ * failure as it holds any plugin's, and every reader of the kernel (the
+ * Extensions panel's `organisationOf`, its log) sees it.
+ */
+function unloadable(key: string, name: string, why: string): Plugin {
+  const known = unloadables.get(`${key}\0${why}`);
+  if (known !== undefined) return known;
+  const plugin: Plugin = {
+    name,
+    apply: () =>
+      Effect.fail(new PluginError({ plugin: name, reason: "apply-failed", message: why })),
+  };
+  unloadables.set(`${key}\0${why}`, plugin);
+  return plugin;
 }
 
 /**
- * Switch an optional family on the server, then read its report again, which
- * the page follows. A refusal is shown, and the page stays as the server has
- * it.
+ * Each family's browser entry that resolved, once per place it is served
+ * from: the same row answers the same plugin value, so a converged kernel
+ * is left as it is, and a page half served from new bytes (a new path)
+ * resolves anew and replaces it (`syncPlugins`). A failure is not kept:
+ * it is tried again at the next convergence, so one that was passing (a
+ * chunk the network dropped) recovers without a reload.
  */
-export async function switchExtension(name: string, on: boolean): Promise<void> {
-  const receipt = await invoke(extensionSwitchDef.id, { name, on });
-  if (receipt.status === "failed") toast(receipt.message);
-  await loadManifest();
-}
+const resolved = new Map<string, Plugin>();
 
 /** Load one family's browser entry, held to the name it was resolved by. */
 async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
   const { name } = row;
+  const key = `${name}\0${row.page ?? ""}`;
+  const known = resolved.get(key);
+  if (known !== undefined) return known;
   const extension = browserEntry(row);
   if (extension === null) return null;
   try {
     const plugin = await extension.load();
-    if (plugin.name === name) return plugin;
-    logWarn(`[kb/plugins] the browser entry for ${name} is named ${plugin.name}; it is left out`);
+    if (plugin.name !== name) {
+      return unloadable(key, name, `its browser entry is named ${plugin.name}`);
+    }
+    resolved.set(key, plugin);
+    return plugin;
   } catch (error) {
-    logWarn(`[kb/plugins] the browser entry for ${name} failed to load: ${String(error)}`);
+    return unloadable(key, name, `its browser entry failed to load: ${String(error)}`);
   }
-  return null;
 }
 
 let generation = 0;

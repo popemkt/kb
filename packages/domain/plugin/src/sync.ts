@@ -12,20 +12,26 @@ export interface SyncFailure {
  * Converge `kernel` on exactly `plugins`, the one way a host follows a list
  * that moves (the page on the families its server reports, the `kb ui`
  * server on the extensions its store has on): unload each top-level plugin
- * no longer listed, then load each listed one the kernel does not hold, in
- * order. Unloading takes everything the plugin registered with it, because
- * the kernel ties every contribution to the plugin's scope. A plugin that
- * fails either way is returned, and leaves nothing behind; the rest still
- * converge, so one broken extension never holds the others back.
+ * no longer listed, or listed as another value than the one the kernel
+ * holds under its name (`holds`: a page half re-served from new bytes, a
+ * working one after a failed one), then load each listed one the kernel
+ * does not hold, in order. A plugin listed as the very value held is left
+ * as it is, so a converged kernel does not move. Unloading takes
+ * everything the plugin registered with it, because the kernel ties every
+ * contribution to the plugin's scope. A plugin that fails either way is
+ * returned, and leaves nothing behind; the rest still converge, so one
+ * broken extension never holds the others back.
  */
 export const syncPlugins = Effect.fnUntraced(function* (
   kernel: Kernel,
   plugins: readonly Plugin[],
 ): Effect.fn.Return<readonly SyncFailure[]> {
   const failures: SyncFailure[] = [];
-  const wanted = new Set(plugins.map((plugin) => plugin.name));
+  const wanted = new Map(plugins.map((plugin) => [plugin.name, plugin]));
   for (const state of kernel.plugins()) {
-    if (state.parent !== null || wanted.has(state.name)) continue;
+    if (state.parent !== null) continue;
+    const want = wanted.get(state.name);
+    if (want !== undefined && kernel.holds(want)) continue;
     const exit = yield* Effect.exit(kernel.unload(state.name));
     if (Exit.isFailure(exit))
       failures.push({ name: state.name, verb: "unload", cause: exit.cause });

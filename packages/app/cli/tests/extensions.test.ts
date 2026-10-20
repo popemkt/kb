@@ -1,7 +1,7 @@
 import type { FootprintRow } from "@kb/contracts";
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } from "@kb/runtime";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
@@ -216,14 +216,31 @@ describe("kb ext list", () => {
 
   test("shows each family's tags and each interception point's listeners in order", async () => {
     const root = await tempRoot();
+    await writeExtension(root, "hello.ts", HELLO_EXT);
+    await mkdir(join(root, ".kb", "extensions"), { recursive: true });
+    await writeFile(join(root, ".kb", "extensions", "stranger.ts"), HELLO_EXT);
     const json = await runCli(["--root", root, "--json", "ext", "list"]);
     expect(json.code).toBe(0);
     const { output } = JSON.parse(json.out) as {
       output: {
-        extensions: { name: string; tags: string[]; injects: unknown[]; provides: string[] }[];
+        extensions: {
+          name: string;
+          source: string;
+          digest?: string;
+          tags: string[];
+          injects: unknown[];
+          provides: string[];
+        }[];
         points: { point: string; listeners: { owner: string; id: string; match: string }[] }[];
+        failures: { file: string; error: string }[];
       };
     };
+    // A repository extension is listed with the digest it was trusted at; one not trusted, as refused.
+    const hello = output.extensions.find((e) => e.name === "hello");
+    expect(hello?.digest).toMatch(/^sha256:/);
+    expect(output.extensions.find((e) => e.name === "outline")?.digest).toBeUndefined();
+    expect(output.failures.map(({ file }) => file)).toEqual(["stranger.ts"]);
+    expect(output.failures[0]?.error).toContain("not trusted");
     const tagsOf = (name: string) => output.extensions.find((e) => e.name === name)?.tags;
     expect(tagsOf("outline")).toEqual(["core"]);
     expect(tagsOf("governance")).toEqual(["governance"]);
@@ -238,7 +255,7 @@ describe("kb ext list", () => {
     resetRegistryCache();
     const human = await runCli(["--root", root, "ext", "list"]);
     expect(human.out).toContain("\n  tags: core\n");
-    expect(human.out).toContain("action/guard: in order");
+    expect(human.out).toContain("action/guard (registry): in order");
     expect(human.out).toContain("  1. ext.governance.approval (governance) on *");
     expect(human.out).toContain("  2. ext.governance.force (governance) on every write");
   });

@@ -1,7 +1,7 @@
 /**
  * The layout view (`layout.grid`) shown inside a pane: a dashboard. Its panes
- * are fixed — the arrangement is the view node's, edited where the node is,
- * or replaced by opening the layout as the workspace and saving it again.
+ * are fixed: the arrangement is the view node's. Opening the layout as the
+ * workspace and saving it makes a new layout node beside it.
  * Each of its panes is a pane like any other (its own id, `<outer>:<inner>`,
  * for the outline hosts and the slot chain), drawn through a slot shown for
  * its location, so a layout that contains itself stops at the first repeat.
@@ -36,6 +36,7 @@ function nested(tree: LayoutTree, outer: string): LayoutTree {
 
 const drawPane = (pane: LayoutPane) => <PaneFrame path={pane.path} subject={pane.path} />;
 
+// GAP [[01M5CRYMXMMZC9S8GS00CE6DFB]] a saved layout's arrangement cannot be written back to its node
 export function LayoutViewSurface({ params }: ViewProps<LayoutParams>) {
   const outer = usePane();
   const tree = nested(params.root, outer);

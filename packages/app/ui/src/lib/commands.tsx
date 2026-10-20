@@ -72,6 +72,7 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
+import { EXTENSIONS_PATH } from "@/lib/extension-report";
 import {
   LayoutView,
   layoutPanes,
@@ -211,6 +212,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     },
   },
   { id: SYSTEM_IDS.cmdPreferences, scope: "global", run: (ctx) => ctx.ui.setPrefsOpen(true) },
+  { id: SYSTEM_IDS.cmdExtensions, scope: "global", run: () => navigate(EXTENSIONS_PATH) },
   {
     id: SYSTEM_IDS.cmdToggleTheme,
     scope: "global",
@@ -294,6 +296,7 @@ const NODE_COMMANDS: readonly Command[] = [
     chrome: () => ({ label: "Add tag", icon: <HashIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-tag"),
   },
+  // GAP [[01M5CRYKQAHJNG5SSRVSYE77GN]] the query this writes has no editor afterwards
   {
     id: "turn-query",
     scope: "node",

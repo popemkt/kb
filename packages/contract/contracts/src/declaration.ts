@@ -132,6 +132,8 @@ export const ExtensionRowSchema = z.object({
   source: z.string(),
   /** Where the page imports a repository extension's page half from (`extensionPagePath`). */
   page: z.string().optional(),
+  /** The closure digest a person trusted a repository extension at; a bundled one has none. */
+  digest: z.string().optional(),
 });
 
 export type ExtensionRow = z.infer<typeof ExtensionRowSchema>;
@@ -139,13 +141,15 @@ export type ExtensionRow = z.infer<typeof ExtensionRowSchema>;
 /**
  * A declaration's row, as the host that composes it from `source` reports
  * it, with the path its page half is served at when it has one the page's
- * build does not hold.
+ * build does not hold, and the digest it was trusted at when it is a
+ * repository extension.
  */
 export function extensionRow(
   declaration: ExtensionDeclaration,
   source: string,
   enabled: boolean,
   page?: string,
+  digest?: string,
 ): ExtensionRow {
   return {
     name: declaration.name,
@@ -154,6 +158,7 @@ export function extensionRow(
     enabled,
     source,
     ...(page === undefined ? {} : { page }),
+    ...(digest === undefined ? {} : { digest }),
   };
 }
 

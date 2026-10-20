@@ -197,6 +197,11 @@ describe("palette command routing (characterization)", () => {
     expect(window.location.pathname).toBe("/");
   });
 
+  it("extensions opens the Extensions panel", async () => {
+    await run(SYSTEM_IDS.cmdExtensions);
+    expect(window.location.pathname).toBe("/extensions");
+  });
+
   it("preferences opens the prefs dialog", async () => {
     await run(SYSTEM_IDS.cmdPreferences);
     expect(useUiStore.getState().prefsOpen).toBe(true);
