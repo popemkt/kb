@@ -247,8 +247,27 @@ describe("the two kinds", () => {
     }
     expect(ran).toBe(0);
     expect(ACTIONS.get("test.echo")?.def.mode).toEqual({ kind: "read" });
-    // The call is held as data, so what is not data is refused as its input.
-    for (const extra of [() => {}, new Uint8Array([1])]) {
+    // Nor the record of the call itself.
+    const swapping = guard("swapping", {
+      before: () =>
+        Effect.gen(function* () {
+          const running = yield* CurrentCall;
+          if (running !== null) (running as { depth?: number }).depth = 0;
+          return allow;
+        }),
+    });
+    expect(await call(interceptionOf({ guards: [swapping] }), echo())).toMatchObject({
+      details: { decidedBy: { plugin: "swapping", rule: "guard-failed" } },
+    });
+    // The call is held as plain data, so what is not is refused as its input:
+    // freezing could not stop a Map, a Date or a typed array changing.
+    for (const extra of [
+      () => {},
+      new Uint8Array([1]),
+      new Map([["n", 1]]),
+      new Date(0),
+      { inner: new Set([1]) },
+    ]) {
       expect(await call(interceptionOf({}), { ...echo(), input: { n: 1, extra } })).toMatchObject({
         status: "failed",
         code: "invalid_input",

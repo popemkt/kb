@@ -1916,7 +1916,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
       batch parts — and `CurrentCall` carries that, so no reader can
       change what the guards decide about, what runs, or the registry. A
       guard is also handed sealed copies of the writes and of every node
-      `nodeOf` answers. A call that is not data is refused as its input.
+      `nodeOf` answers. A call is plain data — plain objects, arrays and
+      primitives, since freezing cannot stop a `Map`, a `Date` or a typed
+      array changing — and one that is not is refused as its input. The
+      record `CurrentCall` carries is frozen too.
     - An interceptor (`ActionInterceptorPoint`, `action/intercept`;
       `onAction(plugin, match, {input, output})`) gives the input a call
       runs with and the output a succeeded call answers with. It cannot

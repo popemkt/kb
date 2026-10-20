@@ -257,9 +257,18 @@ const askGuards = Effect.fn("kb.guards")(function* (
   return asked ?? ({ decision: "allow" } satisfies GuardOutcome);
 });
 
-/** Freeze `value` and everything it holds. */
+/**
+ * Freeze `value` and everything it holds, refusing what is not plain data:
+ * only plain objects and arrays hold anything, since `Object.freeze` cannot
+ * stop a `Map`, a `Set`, a `Date` or a typed array from changing.
+ */
 function freezeDeep(value: unknown): void {
+  if (typeof value === "function") throw new TypeError("a function is not data");
   if (typeof value !== "object" || value === null || Object.isFrozen(value)) return;
+  const proto: unknown = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && proto !== Object.prototype && proto !== null) {
+    throw new TypeError(`a ${value.constructor.name} is not plain data`);
+  }
   Object.freeze(value);
   for (const held of Object.values(value)) freezeDeep(held);
 }
@@ -270,8 +279,9 @@ const SEALED = new WeakSet<object>();
 /**
  * `value` as data no one can change: a copy frozen all the way down, which
  * shares nothing with whoever handed it over. A value `sealed` made is
- * returned as it is. Throws for what is not data (a function, a typed
- * array), as an action's input and a call's parts are data.
+ * returned as it is. Throws for what is not plain data (a function, a
+ * `Map`, a `Date`, a typed array), as an action's input and a call's parts
+ * are plain data.
  */
 function sealed<T>(value: T): T {
   if (typeof value !== "object" || value === null || SEALED.has(value)) return value;

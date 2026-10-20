@@ -278,7 +278,7 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   // as this call, so a call any of them makes nests in it and counts
   // toward the depth limit.
   const asCall = (as: ActionInvocation) =>
-    Effect.provideService(CurrentCall, { invocation: as, action, depth });
+    Effect.provideService(CurrentCall, Object.freeze({ invocation: as, action, depth }));
   const interception = yield* CurrentInterception;
   const invocation = yield* interceptInput(interception, { ctx, invocation: held, action }).pipe(
     Effect.flatMap(sealedPart),
