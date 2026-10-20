@@ -1,11 +1,12 @@
 /**
- * The page token (DESIGN.md → Surfaces → The page token): the secret a
- * `kb ui` mints when it starts, which proves a request is its own page's.
+ * The page token (DESIGN.md → Surfaces → Who the person is): the secret a
+ * `kb ui` mints when it starts, which proves a request is the person's own
+ * page's, where nothing else in the deployment does.
  * The page URL carries it in the fragment, which a browser never sends in a
  * request, so a program that fetches the page does not get it. The page
  * keeps it for its tab and sends it on every `/api` request and on the
  * `/ws` handshake. This module is how each side spells it; who holds it, and
- * what it proves, are the server's (`guard.ts`).
+ * what it proves, are the server's (`auth.ts`).
  */
 
 /** The request header the page sends the token in. */

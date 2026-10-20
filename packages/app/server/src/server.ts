@@ -39,7 +39,8 @@ import {
   type UiDevSpawn,
 } from "./dev.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
-import { handshakeHeaders, mintPageToken, requestGuard, type RequestGuard } from "./guard.ts";
+import { mintPageToken, pageTokenAuthenticator, type Authenticator } from "./auth.ts";
+import { handshakeHeaders, requestGuard, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
@@ -89,7 +90,7 @@ export interface UiServerHandle {
   url: string;
   hostname: string;
   /**
-   * The page token this run minted (`guard.ts`): what makes a request the
+   * The page token this run minted (`auth.ts`): what makes a request the
    * page's.
    */
   pageToken: string;
@@ -214,7 +215,7 @@ function serveUi(deps: {
   ctx: KbContext;
   hub: SubscriptionHub;
   hosted: HostedFamilies;
-  pageToken: string;
+  auth: Authenticator;
 }): Bun.Server<WsData> {
   const { ctx, hub } = deps;
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
@@ -230,7 +231,7 @@ function serveUi(deps: {
         port,
         uiPort: deps.uiPort ?? port,
         publicOrigin: deps.publicOrigin,
-        pageToken: deps.pageToken,
+        auth: deps.auth,
       });
       const admission = guard.admit(req, url);
       if ("refused" in admission) return admission.refused;
@@ -347,7 +348,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     ctx,
     hub,
     hosted,
-    pageToken,
+    auth: pageTokenAuthenticator(pageToken),
   });
 
   yield* Scope.addFinalizer(

@@ -2028,10 +2028,11 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     is read by `requestOnWire`, which refuses one that states what its
     wire does not let it (`forbidden`), so its caller hears it rather than
     find it ignored. Over HTTP and `/ws` the server takes a request as the
-    page's only when it carries this run's page token (below); one with
-    none is a local program's (`HTTP_WIRE`), whatever Origin it sends: an
-    agent's call, the more cautious caller, and never an approved one,
-    since nothing shows a person stands behind it. **Every call names its actor**: what a
+    page's only when the deployment's authentication finds it is the
+    person's (below); any other is a local program's (`HTTP_WIRE`),
+    whatever Origin it sends: an agent's call, the more cautious caller,
+    and never an approved one, since nothing shows a person stands behind
+    it. **Every call names its actor**: what a
     caller sends is an `ActionRequest`, whose actor it may leave out, and
     what the invoke core takes is an `ActionInvocation`, whose actor the
     type requires, so the compiler finds any caller that names none. A call
@@ -2048,8 +2049,20 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     core and is refused. MCP's `tools/list` and each agent turn read it
     afresh, and the page's WebMCP lists again when its replica's policies
     change.
+  - **Who the person is.** The app takes one input from authentication:
+    whether a request is the person's, and under what name (`Person` in
+    `@kb/contracts`), or nobody's the server can vouch for. An
+    `Authenticator` (`app/server/src/auth.ts`) answers it per request, and
+    may refuse one whose credential is not good here; the request guard
+    asks it last, and the wire follows from the answer alone: the person's
+    request is on the page's wire, any other on a local program's. How
+    the person is authenticated is the deployment's choice, made by which
+    authenticator it starts the server with, and nothing past the guard
+    knows which. `kb ui` authenticates with the page token.
   - **The page token.** `kb ui` mints a random token when it starts and
-    holds it in memory (`app/server/src/guard.ts`). It opens and prints the
+    holds it in memory (`pageTokenAuthenticator` in
+    `app/server/src/auth.ts`), naming the person by the account that
+    started it. It opens and prints the
     page URL with the token in the fragment (`#token=…`, `pageUrlOf` in
     `@kb/contracts`), which a browser never sends in a request, so a
     program that fetches the page does not get it, and no body the server
