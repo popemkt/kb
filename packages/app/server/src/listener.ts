@@ -5,6 +5,7 @@
  * way in: the proxy (`tailscale serve`, run as root) connects to it, and no
  * other account's process can, so a header the proxy sets is the proxy's.
  */
+import { createConnection } from "node:net";
 import { Effect, Scope } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { type DomainError, domainError } from "@kb/model";
@@ -39,21 +40,34 @@ export type BindOptions = { hostname: string; port: number } | { unix: string };
 /** Owner read and write, nobody else: connecting to a socket needs write. */
 const SOCKET_MODE = 0o600;
 
-/** Whether a server answers on the socket at `path`. */
-function answers(path: string): Effect.Effect<boolean> {
-  return Effect.tryPromise(() => fetch("http://localhost/", { unix: path })).pipe(
-    Effect.as(true),
-    Effect.orElseSucceed(() => false),
-  );
+/**
+ * Whether the socket at `path` is stale: a connection to it is refused, so
+ * nothing listens. Anything else — a listener that accepts, whatever it
+ * then says or does not say, or a connection that fails for another
+ * reason — leaves the socket someone's, and it is not taken over.
+ */
+function stale(path: string): Effect.Effect<boolean> {
+  return Effect.callback<boolean>((resume) => {
+    const probe = createConnection({ path });
+    probe.once("connect", () => {
+      probe.destroy();
+      resume(Effect.succeed(false));
+    });
+    probe.once("error", (error: NodeJS.ErrnoException) => {
+      probe.destroy();
+      resume(Effect.succeed(error.code === "ECONNREFUSED"));
+    });
+  });
 }
 
 /**
  * Bind `serve` where `at` says, for as long as `lifetime` is open. A TCP
  * bind is the port's. A socket:
  *
- * - is claimed first: one a stopped server left behind is removed, and one
- *   a live server answers on, or a path that is not a socket, is refused, so
- *   starting never takes over a running server or deletes a file;
+ * - is claimed first: one a stopped server left behind, which refuses a
+ *   connection, is removed; one anything accepts a connection on, or a
+ *   path that is not a socket, is refused, so starting never takes over a
+ *   running listener, whatever it speaks, or deletes a file;
  * - is created under a umask that leaves only its owner's bits, so it never
  *   exists with wider ones (the umask is the process's, and the bind is
  *   synchronous, so nothing else is created under it), then set to exactly
@@ -77,7 +91,7 @@ export const listen = Effect.fn("kb.listen")(function* <
     if (info.type !== "Socket") {
       return yield* domainError("conflict", `${at.path} exists and is not a socket`);
     }
-    if (yield* answers(at.path)) {
+    if (!(yield* stale(at.path))) {
       return yield* domainError("conflict", `a server already listens on ${at.path}`);
     }
     yield* fs.remove(at.path).pipe(Effect.mapError(failed("remove the stale socket")));

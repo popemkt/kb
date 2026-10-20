@@ -4,8 +4,8 @@
  * (and root, as `tailscale serve` runs) can connect; a request through it
  * names `localhost`, as the proxy rewrites `Host`, and the page is the
  * proxy's public origin; the identity header the proxy sets is believed. A
- * stale socket is replaced, a live one or a file that is no socket is
- * refused, and the socket is gone once the server stops.
+ * stale socket is replaced, a live one (whatever listens on it) or a file
+ * that is no socket is refused, and the socket is gone once the server stops.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
@@ -117,6 +117,27 @@ describe("claiming the socket path", () => {
     const exit = await Effect.runPromiseExit(serve(path, other));
     expect(Exit.isFailure(exit)).toBe(true);
     expect(String(exit)).toContain("already listens");
+  });
+
+  test("a socket a live listener accepts on is refused, whatever it speaks", async () => {
+    const mute = join(dir, "mute.sock");
+    // A listener that is no HTTP server: it accepts, then hangs up at once.
+    const listener = Bun.listen({
+      unix: mute,
+      socket: {
+        open: (socket) => void socket.end(),
+        data: () => {},
+      },
+    });
+    try {
+      const other = await mkdtemp(join(dir, "root-"));
+      const exit = await Effect.runPromiseExit(serve(mute, other));
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(String(exit)).toContain("already listens");
+      expect((await stat(mute)).isSocket()).toBe(true);
+    } finally {
+      listener.stop(true);
+    }
   });
 
   test("a path that is no socket is refused, and left as it was", async () => {
