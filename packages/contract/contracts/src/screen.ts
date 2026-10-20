@@ -1,6 +1,7 @@
 import { Context, type Effect } from "effect";
 import { z } from "zod";
 import type { DomainError } from "@kb/model";
+import { PersonSchema } from "./person.ts";
 
 /**
  * Screen state: what each open kb UI tab shows, and the commands that move
@@ -135,13 +136,17 @@ function panesAgree(
 export const ScreenStateSchema = z.object(screenShape).superRefine(panesAgree);
 export type ScreenState = z.infer<typeof ScreenStateSchema>;
 
-/** A tab's screen as `ui.screen` reports it: the published record under the tab's id. */
+/**
+ * A tab's screen as `ui.screen` reports it: the published record under the
+ * tab's id, and whose tab it is: the person's, as their connection was
+ * authenticated, or nobody's (`null`), which any connection may publish.
+ */
 export const TabScreenSchema = z
-  .object({ tab: z.string().min(1), ...screenShape })
+  .object({ tab: z.string().min(1), person: PersonSchema.nullable(), ...screenShape })
   .superRefine(panesAgree);
 export type TabScreen = z.infer<typeof TabScreenSchema>;
 
-/** `ui.screen`'s answer: the live tabs, most recently active first. */
+/** `ui.screen`'s answer: the live tabs, the person's before nobody's, each most recently active first. */
 export const ScreenListSchema = z.object({ tabs: z.array(TabScreenSchema) });
 export type ScreenList = z.infer<typeof ScreenListSchema>;
 

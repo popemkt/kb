@@ -59,13 +59,18 @@ const STATED = ["approved", "actor", "script"] as const;
 type Stated = (typeof STATED)[number];
 
 /**
- * Whether a call on `wire` may state `what`: that a person approved it,
- * where the wire carries approval, and who makes it and a script's reach,
- * where it relays them. The surface owns who calls, so a caller can never
- * say it is someone else, or that a person approved what no person saw.
+ * Whether a call on `wire` may state `what` as `request` does: that a
+ * person approved it, where the wire carries approval, and who makes it and
+ * a script's reach, where it relays them. The surface owns who calls, so a
+ * caller can never say it is someone else, or that a person approved what
+ * no person saw. Naming the actor the wire makes it anyway claims nothing,
+ * so any wire takes that (a page nobody is verified for calls WebMCP's
+ * tools as the agent it already is).
  */
-function mayState(wire: SurfaceWire, what: Stated): boolean {
-  return what === "approved" ? wire.carriesApproval : wire.relays === true;
+// GAP [[01M5BVBDY7HNGXN2ZQJR4BHMPP]]
+function mayState(wire: SurfaceWire, what: Stated, request: ActionRequest): boolean {
+  if (what === "approved") return wire.carriesApproval;
+  return wire.relays === true || (what === "actor" && request.actor === wire.actor);
 }
 
 /**
@@ -78,9 +83,9 @@ export function onWire(wire: SurfaceWire, request: ActionRequest): ActionInvocat
   const { approved, actor, script, ...call } = request;
   return {
     ...call,
-    ...(approved !== undefined && mayState(wire, "approved") ? { approved } : {}),
-    ...(script !== undefined && mayState(wire, "script") ? { script } : {}),
-    actor: actor !== undefined && mayState(wire, "actor") ? actor : wire.actor,
+    ...(approved !== undefined && mayState(wire, "approved", request) ? { approved } : {}),
+    ...(script !== undefined && mayState(wire, "script", request) ? { script } : {}),
+    actor: actor !== undefined && mayState(wire, "actor", request) ? actor : wire.actor,
   };
 }
 
@@ -99,7 +104,9 @@ export function requestOnWire(
   | { readonly refused: string } {
   const parsed = ActionRequestSchema.safeParse(raw);
   if (!parsed.success) return { invalid: parsed.error.issues.map((i) => i.message).join("; ") };
-  const stated = STATED.filter((what) => parsed.data[what] !== undefined && !mayState(wire, what));
+  const stated = STATED.filter(
+    (what) => parsed.data[what] !== undefined && !mayState(wire, what, parsed.data),
+  );
   if (stated.length === 0) return { request: parsed.data };
   return {
     refused: `a call here cannot state ${stated.join(" or ")}: this surface says who calls, and a person approves only through a surface they control`,

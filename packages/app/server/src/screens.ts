@@ -9,6 +9,7 @@ import {
   type ActionHandlerEnv,
   type HostedFamilies,
   type KbContext,
+  type Person,
   type ScreenAck,
   type ScreenCapture,
   type ScreenCommand,
@@ -28,6 +29,8 @@ interface Tab {
   readonly connection: string;
   readonly send: ClientSend;
   readonly state: ScreenState;
+  /** Whose tab it is: the person's, as its connection was authenticated, or nobody's. */
+  readonly person: Person | null;
   /**
    * When the tab last published while it had the person's attention, as a
    * position in the order of events; 0 for a tab that never has.
@@ -41,6 +44,9 @@ interface Pending {
   /** The tab's answer, or null when the tab is gone and never will answer. */
   readonly answer: Deferred.Deferred<ScreenAck | null>;
 }
+
+/** Where a tab ranks among the live ones: the person's before nobody's. */
+const rank = (held: Tab): number => (held.person === null ? 1 : 0);
 
 /** Where a picture a tab drew is kept, and what the receipt then says of it. */
 export type KeepPicture = (
@@ -76,12 +82,16 @@ export class ScreenHub {
     this.keep = keep;
   }
 
-  /** `connection` publishes `state` as the tab `tab`; refused when another connection owns it. */
+  /**
+   * `connection`, the person's or nobody's (`person`), publishes `state` as
+   * the tab `tab`; refused when another connection owns it.
+   */
   publish(
     connection: string,
     tab: string,
     send: ClientSend,
     state: ScreenState,
+    person: Person | null,
   ): Effect.Effect<void> {
     return Effect.suspend(() => {
       const owner = this.tabs.get(tab);
@@ -94,7 +104,7 @@ export class ScreenHub {
       }
       // A tab the person is using moves to the front; one in the background keeps its place.
       const activeAt = state.active ? ++this.clock : (owner?.activeAt ?? 0);
-      this.tabs.set(tab, { connection, send, state, activeAt });
+      this.tabs.set(tab, { connection, send, state, person, activeAt });
       return Effect.void;
     });
   }
@@ -142,11 +152,16 @@ export class ScreenHub {
     });
   }
 
-  /** The live tabs, most recently active first; ties keep the order they arrived in. */
+  /**
+   * The live tabs, the person's before nobody's, each most recently active
+   * first; ties keep the order they arrived in. A command with no tab goes
+   * to the first, so a tab nobody vouches for never takes the person's
+   * commands from a tab of theirs.
+   */
   private ordered(): TabScreen[] {
     return [...this.tabs.entries()]
-      .toSorted(([, a], [, b]) => b.activeAt - a.activeAt)
-      .map(([tab, { state }]) => ({ tab, ...state }));
+      .toSorted(([, a], [, b]) => rank(a) - rank(b) || b.activeAt - a.activeAt)
+      .map(([tab, { state, person }]) => ({ tab, person, ...state }));
   }
 
   private readonly command = Effect.fn("kb.screens.command")(function* (

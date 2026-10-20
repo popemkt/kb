@@ -2,11 +2,8 @@ import { Effect, Schema } from "effect";
 import {
   type Channel,
   type ChannelPeer,
-  type ClientMessage,
   type KbContext,
-  type SurfaceWire,
   ClientMessageSchema,
-  PAGE_WIRE,
   GraphSnapshotSchema,
   WireNodeSchema,
   type GraphSnapshot,
@@ -16,6 +13,7 @@ import {
 import type { KbNode, KbTx } from "@kb/model";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { keepCapture } from "@kb/workspace-fs";
+import type { Caller } from "./guard.ts";
 import { ScreenHub } from "./screens.ts";
 
 /** Bun.serve websocket attachment (server boundary only). */
@@ -23,16 +21,8 @@ export type WsData = {
   /** This connection, and no other. */
   clientId: string;
   /** Whose connection it is, as the request guard found its handshake. */
-  wire: SurfaceWire;
+  caller: Caller;
 };
-
-/**
- * The frames only the page sends: publishing a tab's screen and answering
- * for it, and speaking on a plugin channel (the agent's, whose turns run as
- * the person's agent). A connection on a local program's wire reads, by
- * subscribing, watching and catching up, and does nothing else.
- */
-const PAGE_OPS: ReadonlySet<ClientMessage["op"]> = new Set(["screen", "screen-ack", "channel"]);
 
 /** A frame could not be handed to the socket: the client has gone. */
 export class ClientGone extends Schema.TaggedError<ClientGone>()("Kb/ClientGone", {}) {}
@@ -49,8 +39,8 @@ interface ClientState {
   send: (text: string) => Effect.Effect<void>;
   /** The handle itself, for the screens, which need to know a frame was taken. */
   deliver: ClientSend;
-  /** Whose connection it is ({@link WsData.wire}). */
-  wire: SurfaceWire;
+  /** Whose connection it is ({@link WsData.caller}). */
+  caller: Caller;
   watchTx: boolean;
   /** subscription id → { query, lastHash } */
   subs: Map<string, { query: string; lastHash: string }>;
@@ -158,11 +148,15 @@ export class SubscriptionHub {
     });
   }
 
-  /** Register a client on `wire` and send the connection `hello`. */
-  addClient(clientId: string, deliver: ClientSend, wire: SurfaceWire): Effect.Effect<void> {
+  /** Register `caller`'s client and greet it: `hello`, then who the server takes it to be. */
+  addClient(clientId: string, deliver: ClientSend, caller: Caller): Effect.Effect<void> {
     const send = (text: string) => Effect.ignore(deliver(text));
-    this.clients.set(clientId, { send, deliver, wire, watchTx: false, subs: new Map() });
-    return send(JSON.stringify({ op: "hello", rev: this.ctx.log.head }));
+    this.clients.set(clientId, { send, deliver, caller, watchTx: false, subs: new Map() });
+    const greeting: ServerMessage[] = [
+      { op: "hello", rev: this.ctx.log.head },
+      { op: "person", person: caller.person },
+    ];
+    return Effect.forEach(greeting, (frame) => send(JSON.stringify(frame)), { discard: true });
   }
 
   /** Forget a client (socket closed / session interrupted). */
@@ -187,6 +181,42 @@ export class SubscriptionHub {
         return client.send(JSON.stringify(frame));
       },
     };
+  }
+
+  /**
+   * `clientId` speaks on the plugin channel `id`. A channel's plugin acts
+   * for the person (the agent sidebar runs turns on their model, as their
+   * agent), so only they speak on one.
+   */
+  private speak(
+    clientId: string,
+    client: ClientState,
+    id: string,
+    data: unknown,
+  ): Effect.Effect<void> {
+    if (client.caller.person === null) {
+      return client.send(
+        JSON.stringify({
+          op: "error",
+          id,
+          code: "forbidden",
+          message:
+            "only the person speaks on a plugin channel, and this connection is not authenticated as them",
+        }),
+      );
+    }
+    const channel = this.channels.find(id);
+    if (channel === undefined) {
+      return client.send(
+        JSON.stringify({
+          op: "error",
+          id,
+          code: "unknown_channel",
+          message: `no plugin owns the channel ${id}`,
+        }),
+      );
+    }
+    return channel.receive(this.peer(clientId, id, client), data);
   }
 
   /** Process one inbound WS frame. Never throws; failures become `error` frames. */
@@ -219,16 +249,6 @@ export class SubscriptionHub {
     }
 
     const msg = result.data;
-    if (PAGE_OPS.has(msg.op) && client.wire !== PAGE_WIRE) {
-      return client.send(
-        JSON.stringify({
-          op: "error",
-          ...(msg.op === "channel" ? { id: msg.channel } : {}),
-          code: "forbidden",
-          message: `only the kb ui page may send ${msg.op}: its handshake offers this run's page token`,
-        }),
-      );
-    }
     switch (msg.op) {
       case "ping":
         return client.send(JSON.stringify({ op: "pong" }));
@@ -239,23 +259,17 @@ export class SubscriptionHub {
         client.subs.delete(msg.id);
         return Effect.void;
       case "screen":
-        return this.screens.publish(clientId, msg.tab, client.deliver, msg.state);
+        return this.screens.publish(
+          clientId,
+          msg.tab,
+          client.deliver,
+          msg.state,
+          client.caller.person,
+        );
       case "screen-ack":
         return this.screens.ack(clientId, msg.id, msg.result);
-      case "channel": {
-        const channel = this.channels.find(msg.channel);
-        if (channel === undefined) {
-          return client.send(
-            JSON.stringify({
-              op: "error",
-              id: msg.channel,
-              code: "unknown_channel",
-              message: `no plugin owns the channel ${msg.channel}`,
-            }),
-          );
-        }
-        return channel.receive(this.peer(clientId, msg.channel, client), msg.data);
-      }
+      case "channel":
+        return this.speak(clientId, client, msg.channel, msg.data);
       case "since": {
         // The frames themselves, not a nudge to refetch: a client that missed
         // three edits should receive three edits. Sent regardless of

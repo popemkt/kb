@@ -53,12 +53,19 @@ export interface GuardSite {
 }
 
 /**
- * What the guard makes of a request: refused, or let through, as the
- * person's or nobody's, on the wire that follows from which.
+ * Who a request the guard lets through comes from: the person, or nobody
+ * (`null`), and the wire that follows from which.
  */
-type Admission =
-  | { readonly refused: Response }
-  | { readonly wire: SurfaceWire; readonly person: Person | null };
+export interface Caller {
+  readonly wire: SurfaceWire;
+  readonly person: Person | null;
+}
+
+/** A local program's request: nobody the authentication vouches for, on HTTP's wire. */
+export const PROGRAM: Caller = { wire: HTTP_WIRE, person: null };
+
+/** What the guard makes of a request: refused, or let through from its caller. */
+type Admission = { readonly refused: Response } | { readonly caller: Caller };
 
 export interface RequestGuard {
   readonly admit: (req: Request, url: URL) => Admission;
@@ -77,7 +84,7 @@ function isJson(contentType: string | null): boolean {
 
 /** The wire a request is on: the page's when it is the person's, a local program's otherwise. */
 function admitted(person: Person | null): Admission {
-  return { wire: person === null ? HTTP_WIRE : PAGE_WIRE, person };
+  return { caller: person === null ? PROGRAM : { wire: PAGE_WIRE, person } };
 }
 
 /**

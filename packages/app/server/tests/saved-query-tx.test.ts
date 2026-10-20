@@ -19,7 +19,7 @@ import type { KbContext, ServerMessage } from "@kb/contracts";
 import { ingestSavedQueries } from "../src/server.ts";
 import { SavedQuerySet, listSavedQueries, savedQueryNodes } from "../src/saved-queries.ts";
 import { SubscriptionHub } from "../src/session.ts";
-import { HTTP_WIRE } from "../src/guard.ts";
+import { PROGRAM } from "../src/guard.ts";
 
 type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 
@@ -38,7 +38,7 @@ async function watcher(hub: SubscriptionHub, id: string): Promise<unknown[]> {
         Effect.sync(() => {
           frames.push(JSON.parse(text));
         }),
-      HTTP_WIRE,
+      PROGRAM,
     ),
   );
   await Effect.runPromise(hub.handleMessage(id, JSON.stringify({ op: "watch-tx", enabled: true })));

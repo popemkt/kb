@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FailedReceiptSchema, SucceededReceiptSchema } from "./actions.ts";
+import { PersonSchema } from "./person.ts";
 import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./screen.ts";
 
 /**
@@ -121,6 +122,13 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 export const ServerMessageSchema = z.discriminatedUnion("op", [
   /** First message after connect. */
   z.object({ op: z.literal("hello"), rev: z.number().int() }),
+  /**
+   * Who the server takes this connection to be, sent after `hello`: the
+   * person, as the deployment's authentication named them, or nobody
+   * (`null`). A connection that is nobody's reads, writes and publishes its
+   * screen as an agent does, and may not speak on a plugin channel.
+   */
+  z.object({ op: z.literal("person"), person: PersonSchema.nullable() }),
   /** Node-level delta after a store change (from any surface: UI, CLI,
    * MCP, agents). Clients transact this into their local DataScript. */
   z.object({

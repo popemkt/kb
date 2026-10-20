@@ -52,6 +52,8 @@ interface ChatState {
 
 const NO_AGENT = "This kb ui hosts no agent, so there is no one to chat with here.";
 const OFFLINE = "Not connected to kb. Reconnecting…";
+const NOT_YOURS =
+  "This tab is not verified as you, so it cannot talk to your agent (the connection word in the header says how to open one that is).";
 
 export const useChat = create<ChatState>(() => ({
   transcript: newTranscript("detached"),
@@ -121,6 +123,7 @@ export function attachChat(next: AgentPorts): () => void {
     data: receive,
     error: (err) => {
       if (err.code === "unknown_channel") useChat.setState({ unreachable: NO_AGENT });
+      if (err.code === "forbidden") useChat.setState({ unreachable: NOT_YOURS });
       update((transcript) => ({ ...transcript, running: false }));
     },
   });

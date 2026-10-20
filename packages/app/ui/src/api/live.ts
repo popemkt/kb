@@ -106,6 +106,7 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
   const next = new KbWsClient({
     onGraph: deliver,
     onStatus: (status) => useUiStore.getState().setWsStatus(status),
+    onPerson: (person) => useUiStore.getState().setPerson(person),
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
     onScreenCommand: (id, command) => answerScreenCommand(next, id, command),

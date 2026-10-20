@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Person } from "@kb/contracts";
 import type { WsStatus } from "@/api/ws";
 import { setToastSink } from "@kb/ui-sdk";
 
@@ -31,6 +32,11 @@ export function withToast(
 
 interface UiState {
   wsStatus: WsStatus;
+  /**
+   * Who the server takes this tab's connection to be: the person, nobody
+   * (`null`), or not told yet (`undefined`).
+   */
+  person: Person | null | undefined;
   toasts: Toast[];
   /** Preferences popover (DESIGN-RESKIN §1.7) — header button + palette. */
   prefsOpen: boolean;
@@ -51,6 +57,7 @@ interface UiState {
   openDock: string | null;
 
   setWsStatus: (status: WsStatus) => void;
+  setPerson: (person: Person | null) => void;
   setPrefsOpen: (open: boolean) => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
@@ -65,6 +72,7 @@ let toastSeq = 0;
 
 export const useUiStore = create<UiState>((set) => ({
   wsStatus: "idle",
+  person: undefined,
   toasts: [],
   prefsOpen: false,
   sidebarOverlayOpen: false,
@@ -74,6 +82,7 @@ export const useUiStore = create<UiState>((set) => ({
   openDock: null,
 
   setWsStatus: (wsStatus) => set({ wsStatus }),
+  setPerson: (person) => set({ person }),
   setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
   setSidebarOverlayOpen: (sidebarOverlayOpen) => set({ sidebarOverlayOpen }),
   setGlobalPaletteOpen: (globalPaletteOpen) =>

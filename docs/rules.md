@@ -314,6 +314,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a deadline in the query layer that the grant applies
 - **node** — `01M41DKVSGG1R5A27Q49SBPHDD`
 
+### GAP: a script on a page nobody is verified for is refused, not run as the agent its wire makes it
+
+- **expected** — A script a nobody page hosts runs as the stricter of the script actor (narrowed by its grant) and the wire's own actor, so an unverified tab runs scripts with no more than an agent's reach
+- **current** — requestOnWire refuses any call that states a script's reach on a wire that does not relay (HTTP_WIRE), so a script on an unverified tab fails with forbidden
+- **impact** — Scripts do not run on a hosted tab without the person's identity; reading, editing, the screen and WebMCP do
+- **closes** — mayState lets a non-relaying wire state a script actor and reach that only narrow its own actor, with a contract test in http-wire
+- **node** — `01M5BVBDY7HNGXN2ZQJR4BHMPP`
+
 ### GAP: a seeded default the owner deletes comes back on the next open
 
 - **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted

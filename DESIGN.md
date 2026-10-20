@@ -2058,7 +2058,40 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     request is on the page's wire, any other on a local program's. How
     the person is authenticated is the deployment's choice, made by which
     authenticator it starts the server with, and nothing past the guard
-    knows which. `kb ui` authenticates with the page token.
+    knows which. `kb ui` authenticates with the page token. A `/ws`
+    connection is told the answer after `hello` (`{op: "person"}`), so
+    the page knows what it may do without trying (DESIGN-UI.md → Who the
+    tab is).
+  - **What needs the person.** Each thing a connection does needs the
+    person only where it acts for them; everything else runs on the
+    agent's wire, as the more cautious caller. Decided per operation:
+    - Reading (subscribe, watch, catch up, `GET /api/*`) and calling
+      actions: every wire. A call on a local program's wire is an agent's,
+      so a write that asks is refused unapproved there.
+    - Publishing a tab's screen and answering its commands (`screen`,
+      `screen-ack`): every wire. A screen changes neither the graph nor
+      the workspace, a command to it is one a person undoes with one
+      gesture ([Screen state](#screen-state) → No approval), and a tab id
+      already belongs to the connection that published it, so no
+      connection takes over another's tab. What the person adds is whose
+      tab it is: the record names them (`person`), and `ui.screen` lists
+      their tabs before nobody's, so a command that names no tab goes to
+      theirs, and a program on the agent's wire cannot draw it to a screen
+      it made up. Where the deployment vouches for nobody, every tab is
+      nobody's and the order is recency alone, so an agent still sees and
+      steers every tab.
+    - Speaking on a plugin channel (`channel`): the person only. A
+      channel's plugin acts for them: the agent sidebar runs turns on
+      their model, with their secrets, as their agent, and hands its asks
+      to them. A connection that is nobody's is refused on the channel
+      (`forbidden`, naming it), which its sink shows in its own terms.
+    - Approving a call (`approved`), and relaying a call another actor or
+      a script makes: the person only, since only the page's wire carries
+      approval or relays (`mayState`). Naming the actor the wire makes a
+      call anyway claims nothing, so every wire takes it: a page that is
+      nobody's calls WebMCP's tools as the agent it already is. A script a
+      page that is nobody's hosts is still refused
+      (`// GAP [[01M5BVBDY7HNGXN2ZQJR4BHMPP]]` in `approval.ts`).
   - **The page token.** `kb ui` mints a random token when it starts and
     holds it in memory (`pageTokenAuthenticator` in
     `app/server/src/auth.ts`), naming the person by the account that
@@ -2072,9 +2105,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     second WebSocket subprotocol beside `kb`, since a browser cannot set a
     header there. The request guard compares it in constant time: this
     run's token is the page's wire (`PAGE_WIRE`), another (forged, or from
-    an earlier run) is refused, and none is a local program's wire. A
-    socket on a local program's wire reads (subscribe, watch, catch up) and
-    may not publish a tab's screen or speak on a plugin channel. An opener
+    an earlier run) is refused, and none is a local program's wire. An opener
     in another process gets the token from the person's home, never from
     the root: a `kb ui` a person opened keeps it in their home store's
     `.kb/pages/`, a file readable by them alone, removed when it stops
@@ -2083,8 +2114,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     CLI's, so `kb open` and the sidebar open a tab with a fresh fragment;
     any other caller is given the bare URL, since a token an agent held
     could be written into a node, where a program that only reads the
-    graph would find it. A tab opened without a token is a local program's
-    page: it reads, and the server asks for what an agent asks for.
+    graph would find it. A tab opened without a token is nobody's: it
+    reads, writes as an agent, and publishes its screen as nobody's tab
+    (What needs the person, above).
   - **What an approval floor binds.** A program with the owner's shell or
     files is the owner: it can read the page token, run `kb`, or edit
     `.kb/nodes.jsonl` directly, and the CLI's wire, the owner's own, is not
@@ -3372,8 +3404,9 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
 `protocol.ts`.
 
 - **The channel is `/ws`, per tab, in memory.** A UI tab is a `/ws`
-  connection that has sent `{op: "screen", state}`: its route, whether it
-  has the person's attention (`active`), and its panes, each with the open
+  connection, on any wire, that has sent `{op: "screen", state}`: its
+  route, whether it has the person's attention (`active`), and its panes,
+  each with the open
   view (its view key id and the node it is shown for), the focused node,
   the selection in the view's own ids, and for a canvas the projection
   showing, its camera as a `pose` (Canvas documents; in 2D the top view,
@@ -3397,10 +3430,14 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   name its `pane`. Without one it goes to the focused pane, and it is
   refused for a pane the tab does not have. A dashboard's own panes are part
   of their pane's view, so they are not listed (GAP [[01M411FPSNN7B18JQ62RKB8ZXW]]).
-- **`ui.screen`** (read) returns the live tabs, most recently active first:
-  the last tab to publish while it had attention comes first, and tabs that
-  never had it follow in the order they arrived. `tab` narrows the list to
-  that tab.
+- **`ui.screen`** (read) returns the live tabs, each naming whose it is
+  (`person`: the person's, as its connection was authenticated, or `null`,
+  nobody's). The person's come first, then nobody's, each most recently
+  active first: the last tab to publish while it had attention comes
+  first, and tabs that never had it follow in the order they arrived. A
+  command that names no tab goes to the first, so it reaches the person's
+  screen before any other ([Action registry](#action-registry) → What needs the person). `tab`
+  narrows the list to that tab.
 - **`ui.navigate` and `ui.select`** (writes) are commands. The server sends
   `{op: "screen-command", id, command}` to one tab, the most recently
   active by default, and waits up to `timeoutMs` (default 2 s) for that

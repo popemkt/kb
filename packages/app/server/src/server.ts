@@ -235,7 +235,7 @@ function serveUi(deps: {
       });
       const admission = guard.admit(req, url);
       if ("refused" in admission) return admission.refused;
-      const { wire } = admission;
+      const { caller } = admission;
 
       if (url.pathname === "/ws" && req.method === "GET") {
         // Every connection is its own client. A tab names itself in the
@@ -244,7 +244,7 @@ function serveUi(deps: {
         // subprotocol is answered with none.
         const headers = handshakeHeaders(req);
         const ok = srv.upgrade(req, {
-          data: { clientId: crypto.randomUUID(), wire },
+          data: { clientId: crypto.randomUUID(), caller },
           ...(Object.keys(headers).length === 0 ? {} : { headers }),
         });
         if (!ok) {
@@ -253,11 +253,16 @@ function serveUi(deps: {
         return undefined;
       }
 
-      return handleHttpRequest(req, wire, { root: deps.root, ctx, hub, hosted: deps.hosted });
+      return handleHttpRequest(req, caller.wire, {
+        root: deps.root,
+        ctx,
+        hub,
+        hosted: deps.hosted,
+      });
     },
     websocket: {
       open(ws) {
-        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws), ws.data.wire));
+        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws), ws.data.caller));
       },
       message(ws, message) {
         const text = typeof message === "string" ? message : new TextDecoder().decode(message);

@@ -5,6 +5,7 @@
  *  - carry the graph stream (`hello`, `tx`, `snapshot-required`, and the
  *    `since` question) between the socket and the replica's sync machine,
  *    which alone decides what they mean (session/replica.ts)
+ *  - who the server takes this connection to be: the person, or nobody
  *  - live query subscriptions (rows pushed on change)
  *  - this tab's screen: the latest record it published, and the commands the
  *    server sends it and their answers
@@ -15,6 +16,7 @@
 import {
   ServerMessageSchema,
   type ClientMessage,
+  type Person,
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
@@ -64,6 +66,12 @@ export interface KbWsClientOptions {
    */
   onServerError?: (err: { id?: string; code: string; message: string }) => void;
   onStatus?: (status: WsStatus) => void;
+  /**
+   * Who the server takes this connection to be, told on every connect: the
+   * person, or nobody (`null`), whose socket may not speak on a plugin
+   * channel.
+   */
+  onPerson?: (person: Person | null) => void;
   /**
    * A command the server asks this tab to carry out; the answer goes back
    * with {@link KbWsClient.answerScreenCommand} under the same id.
@@ -333,6 +341,9 @@ export class KbWsClient {
         break;
       case "screen-refused":
         this.opts.onScreenRefused?.(msg.tab);
+        break;
+      case "person":
+        this.opts.onPerson?.(msg.person);
         break;
       case "pong":
         break;

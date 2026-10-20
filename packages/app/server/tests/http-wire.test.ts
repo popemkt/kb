@@ -85,7 +85,9 @@ async function socket(protocols: string[], frames: readonly unknown[]) {
   for (const frame of [...frames, { op: "ping" }]) ws.send(JSON.stringify(frame));
   await done;
   ws.close();
-  return { opened, heard: heard.filter((msg) => msg.op !== "hello" && msg.op !== "pong") };
+  const person = heard.find((msg) => msg.op === "person")?.person;
+  const said = heard.filter((msg) => !["hello", "person", "pong"].includes(msg.op));
+  return { opened, person, heard: said };
 }
 
 const SCREEN = { op: "screen", tab: "tab.wire", state: FAKE_TAB_SCREEN };
@@ -112,6 +114,10 @@ describe("who makes a call over HTTP", () => {
     for (const from of ["program", "forged"] as const) {
       const { body } = await post(policy("allow everything"), from);
       expect(body).toMatchObject({ status: "failed", code: "approval_required" });
+      // Naming the agent, which it is anyway, claims nothing: a page nobody
+      // is verified for calls WebMCP's tools so.
+      const named = await post({ ...policy("allow everything"), actor: "agent" }, from);
+      expect(named.body).toMatchObject({ status: "failed", code: "approval_required" });
     }
   });
 
@@ -136,18 +142,22 @@ describe("who makes a call over HTTP", () => {
 });
 
 describe("who speaks on /ws", () => {
-  test("a socket without the token reads, and may not publish a screen or speak on a channel", async () => {
-    const { opened, heard } = await socket([], [SCREEN, CHANNEL]);
+  test("a socket without the token is told it is nobody's, publishes its screen, and may not speak on a channel", async () => {
+    const { opened, person, heard } = await socket([], [SCREEN, CHANNEL]);
     expect(opened).toBe(true);
+    expect(person).toBeNull();
     expect(heard).toEqual([
-      expect.objectContaining({ op: "error", code: "forbidden" }),
       expect.objectContaining({ op: "error", id: CHANNEL.channel, code: "forbidden" }),
     ]);
   });
 
-  test("the page's socket publishes its screen and speaks on channels", async () => {
-    const { opened, heard } = await socket(pageProtocols(handle.pageToken), [SCREEN, CHANNEL]);
+  test("the page's socket is told it is the person's, publishes its screen and speaks on channels", async () => {
+    const { opened, person, heard } = await socket(pageProtocols(handle.pageToken), [
+      SCREEN,
+      CHANNEL,
+    ]);
     expect(opened).toBe(true);
+    expect(person).toEqual({ name: expect.any(String) });
     expect(heard).toEqual([
       expect.objectContaining({ op: "error", id: CHANNEL.channel, code: "unknown_channel" }),
     ]);

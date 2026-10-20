@@ -10,7 +10,7 @@ import { handleHttpRequest } from "../src/http.ts";
 import { UI_DIST } from "../src/paths.ts";
 import { listSavedQueries, savedQueryNodes } from "../src/saved-queries.ts";
 import { rowsHash, SubscriptionHub } from "../src/session.ts";
-import { HTTP_WIRE } from "../src/guard.ts";
+import { HTTP_WIRE, PROGRAM } from "../src/guard.ts";
 
 const { assetContentType, serveKbAsset, serveStatic } = assets;
 
@@ -125,11 +125,17 @@ describe("ui session boundary", () => {
         frames.push(text);
       });
 
-    await Effect.runPromise(hub.addClient("c1", send, HTTP_WIRE));
+    await Effect.runPromise(hub.addClient("c1", send, PROGRAM));
     expect(hub.clientCount).toBe(1);
     // rev 1, not 0: `rev` is the store's durable counter now, and opening a
     // fresh root seeds it — which is a recorded transaction like any other.
     expect(JSON.parse(present(frames[0], "expected frames[0]"))).toEqual({ op: "hello", rev: 1 });
+    // Then who the server takes the connection to be: a local program is nobody's.
+    expect(JSON.parse(present(frames[1], "expected frames[1]"))).toEqual({
+      op: "person",
+      person: null,
+    });
+    frames.splice(1, 1);
 
     await Effect.runPromise(hub.handleMessage("c1", "not-json{{{"));
     expect(JSON.parse(present(frames[1], "expected frames[1]"))).toMatchObject({
