@@ -10,6 +10,7 @@ import {
   extensionNamespace,
   provideAction,
   provideTemplate,
+  familyTags,
 } from "@kb/contracts";
 import type { ExtensionAction, ExtensionTemplate } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
@@ -191,6 +192,7 @@ const templates: ExtensionTemplate[] = [
 /** The docs family's server entry: `ext.docs.*`, with its bare legacy aliases. */
 export const docsPlugin = definePlugin({
   name: docsExtension.name,
+  tags: familyTags(docsExtension),
   namespace: extensionNamespace(docsExtension.name),
   apply: (ctx) =>
     Effect.all(

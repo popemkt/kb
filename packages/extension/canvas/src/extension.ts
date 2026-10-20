@@ -18,6 +18,7 @@ import { CanvasListView, CanvasView } from "./view.ts";
 export const canvasExtension = defineExtension({
   name: "canvas",
   label: "Canvas",
+  tags: ["canvas"],
   optional: { byDefault: "on" },
   seed: canvasSeedNodes,
   views: [viewDef(CanvasListView), viewDef(CanvasView)],

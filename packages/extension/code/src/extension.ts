@@ -18,6 +18,7 @@ import {
   provideAction,
   viewDef,
   type ActionGuard,
+  familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { SCRIPT_LIST } from "./list.ts";
@@ -29,6 +30,7 @@ import { CodeView } from "./view.ts";
 export const codeExtension = defineExtension({
   name: "code",
   label: "Code",
+  tags: ["code"],
   optional: { byDefault: "on" },
   seed: codeSeedNodes,
   views: [viewDef(CodeView, codeText)],
@@ -62,6 +64,7 @@ const scriptRunGuard: Omit<ActionGuard, "match"> = {
 export function codePlugin(): Plugin {
   return definePlugin({
     name: codeExtension.name,
+    tags: familyTags(codeExtension),
     namespace: extensionNamespace(codeExtension.name),
     apply: (ctx) =>
       Effect.all(

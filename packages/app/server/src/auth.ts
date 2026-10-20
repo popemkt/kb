@@ -89,6 +89,7 @@ export function pageTokenIdentity(
   };
   return definePlugin({
     name: "identity-page-token",
+    tags: ["identity"],
     namespace: "identity",
     apply: (plugin) =>
       Effect.gen(function* () {
@@ -130,6 +131,7 @@ export function identityHeaderIdentity({ header, people }: IdentityHeader): Plug
   };
   return definePlugin({
     name: "identity-header",
+    tags: ["identity"],
     namespace: "identity",
     apply: (plugin) =>
       plugin.contribute(IdentityPoint, { id: "header", value: provider }).pipe(Effect.asVoid),

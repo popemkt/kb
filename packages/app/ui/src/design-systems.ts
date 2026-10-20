@@ -10,15 +10,17 @@
  * It also previews the design-system field's options (`OptionPreviewPoint`),
  * whoever contributes them: the field editor draws each with its swatch.
  */
+import { familyTags } from "@kb/contracts";
 import { Effect } from "effect";
 import { DESIGN_SYSTEM_OPTIONS } from "@kb/model";
-import { KB_DESIGN_SYSTEM } from "@kb/operations";
+import { KB_DESIGN_SYSTEM, coreExtension } from "@kb/operations";
 import { definePlugin } from "@kb/plugin";
 import { DesignSystemPoint, OptionPreviewPoint, provideDesignSystem } from "@kb/ui-sdk";
 import { DesignSystemSwatch } from "@/design-system-swatch";
 
 export const designSystemsUiPlugin = definePlugin({
   name: "design-systems",
+  tags: familyTags(coreExtension, "ui"),
   namespace: "",
   apply: (ctx) =>
     Effect.all(

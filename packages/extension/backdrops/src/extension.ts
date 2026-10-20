@@ -27,6 +27,7 @@ export const ROOST_BACKDROP: SeedBackdrop = { id: "backdrops.roost", label: "Roo
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
+  tags: ["backdrops"],
   optional: { byDefault: "on" },
   declaredOptions: [
     {

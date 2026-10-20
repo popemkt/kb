@@ -8,6 +8,7 @@ import {
   provideAction,
   type ExtensionAction,
   type KbStore,
+  familyTags,
 } from "@kb/contracts";
 import { canvasExtension, canvasPlugin } from "@kb/canvas";
 import { definePlugin } from "@kb/plugin";
@@ -129,6 +130,7 @@ const actions: ExtensionAction[] = [
  */
 export const canvasServerPlugin = definePlugin({
   name: canvasExtension.name,
+  tags: familyTags(canvasExtension),
   namespace: extensionNamespace(canvasExtension.name),
   apply: (ctx) =>
     Effect.all(

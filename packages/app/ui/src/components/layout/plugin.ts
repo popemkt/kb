@@ -1,4 +1,6 @@
 import { Effect } from "effect";
+import { coreExtension } from "@kb/operations";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { LAYOUT_NAMESPACE, LayoutView, NodeView } from "@kb/views";
 import { provideRoute, provideView, RoutePoint, ViewPoint } from "@kb/ui-sdk";
@@ -14,6 +16,7 @@ import { matchNode } from "./routes";
  */
 export const layoutUiPlugin = definePlugin({
   name: LAYOUT_NAMESPACE,
+  tags: familyTags(coreExtension, "ui"),
   apply: (ctx) =>
     Effect.all(
       [

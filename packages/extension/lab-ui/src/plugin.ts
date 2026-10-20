@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { LAB_SCENE_IDS, LabView, labExtension, labPlugin, type LabSceneId } from "@kb/lab";
 import { LabStudyPoint } from "./kit/study-point";
@@ -52,6 +53,7 @@ const labGraphStudies = definePlugin({
  */
 export const labUiPlugin = definePlugin({
   name: labExtension.name,
+  tags: familyTags(labExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

@@ -22,6 +22,7 @@ export const TERMINAL_DESIGN_SYSTEM: SeedOption = { id: "themes.terminal", label
 export const themesExtension = defineExtension({
   name: "themes",
   label: "Themes",
+  tags: ["themes"],
   optional: { byDefault: "on" },
   declaredOptions: [
     { kind: DESIGN_SYSTEM_OPTIONS, options: [PAPER_DESIGN_SYSTEM, TERMINAL_DESIGN_SYSTEM] },

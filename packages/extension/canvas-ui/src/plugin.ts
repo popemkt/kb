@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "./surfaces";
@@ -22,6 +23,7 @@ import {
  */
 export const canvasUiPlugin = definePlugin({
   name: canvasExtension.name,
+  tags: familyTags(canvasExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

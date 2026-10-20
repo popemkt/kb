@@ -3,7 +3,12 @@ import { NoParams, viewKey } from "@kb/views";
 import { Point, Service, definePlugin, type ContributionEntry } from "@kb/plugin";
 import type { KbContext } from "./session.ts";
 import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
-import { declarationPlugin, defineExtension, type ExtensionEntry } from "./declaration.ts";
+import {
+  declarationPlugin,
+  defineExtension,
+  familyTags,
+  type ExtensionEntry,
+} from "./declaration.ts";
 import type { ExtensionTemplate, TemplateFn } from "./template.ts";
 import { ViewKeyPoint, viewDef } from "./view-catalog.ts";
 import { ActionGuardPoint, ActionInterceptorPoint, guardAction, onAction } from "./interception.ts";
@@ -136,6 +141,7 @@ export const EXTENSION_SDK = {
   definePlugin,
   defineExtension,
   declarationPlugin,
+  familyTags,
   extensionNamespace,
   Point,
   Service,

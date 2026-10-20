@@ -14,6 +14,7 @@ import { agentSeedNodes } from "./provider.ts";
 export const agentExtension = defineExtension({
   name: "agent",
   label: "Agent",
+  tags: ["agent"],
   optional: { byDefault: "on" },
   seed: agentSeedNodes,
 });

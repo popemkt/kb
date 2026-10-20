@@ -5,4 +5,4 @@
  */
 import { defineExtension } from "@kb/contracts";
 
-export const docsExtension = defineExtension({ name: "docs", label: "Docs" });
+export const docsExtension = defineExtension({ name: "docs", label: "Docs", tags: ["core"] });

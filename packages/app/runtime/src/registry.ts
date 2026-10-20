@@ -24,6 +24,7 @@ import {
   type ManifestEntry,
   type TemplateFn,
   type ViewDef,
+  familyTags,
 } from "@kb/contracts";
 import type { ActionSchemaError, DomainError } from "@kb/model";
 import {
@@ -133,6 +134,7 @@ function registryLifetime(kernel: Kernel): RegistryLifetime {
  */
 const corePlugin = definePlugin({
   name: coreExtension.name,
+  tags: familyTags(coreExtension),
   namespace: "",
   apply: (ctx) =>
     Effect.all(

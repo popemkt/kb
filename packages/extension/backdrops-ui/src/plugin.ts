@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import {
   GRADIENT_BACKDROP,
   ROOST_BACKDROP,
@@ -75,6 +76,7 @@ const roost: Omit<Backdrop, "key"> = {
  */
 export const backdropsUiPlugin = definePlugin({
   name: backdropsExtension.name,
+  tags: familyTags(backdropsExtension, "ui"),
   apply: (ctx) =>
     Effect.all(
       [

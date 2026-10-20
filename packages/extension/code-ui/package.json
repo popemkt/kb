@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/code": "workspace:*",
+    "@kb/contracts": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/sandbox": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
@@ -21,7 +22,6 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/ui-test-kit": "workspace:*",
     "@kb/views": "workspace:*",

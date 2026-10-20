@@ -28,6 +28,12 @@ export interface ExtensionDeclaration {
    */
   readonly optional?: { readonly byDefault: "on" | "off" };
   /**
+   * The family's labels (DESIGN.md → Plugin organisation), the one home of
+   * them: every plugin of the family carries them (`familyTags`), and the
+   * kernel reports them and never reads them. Default: none.
+   */
+  readonly tags?: readonly string[];
+  /**
    * The system nodes the family seeds, under frozen ids. Only a bundled
    * family's declaration is folded into the seed; a host or repository
    * plugin contributes none.
@@ -77,9 +83,21 @@ export function defineExtension(declaration: ExtensionDeclaration): ExtensionDec
  * namespace (`<namespace>.<local id>`), so the plugin sits in the root
  * namespace. A host's entry plugin loads it as a child, or loads it as is.
  */
+/**
+ * The tags a plugin of `declaration`'s family carries: the family's, then
+ * any of the plugin's own (`"ui"` on a browser half).
+ */
+export function familyTags(
+  declaration: ExtensionDeclaration,
+  ...own: readonly string[]
+): readonly string[] {
+  return [...(declaration.tags ?? []), ...own];
+}
+
 export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
   return definePlugin({
     name: declaration.name,
+    tags: familyTags(declaration),
     namespace: "",
     apply: (ctx) =>
       Effect.forEach(

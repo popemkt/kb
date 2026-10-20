@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import {
   PAPER_DESIGN_SYSTEM,
@@ -18,6 +19,7 @@ import terminal from "./design-systems/terminal.css?raw";
  */
 export const themesUiPlugin = definePlugin({
   name: themesExtension.name,
+  tags: familyTags(themesExtension, "ui"),
   apply: (ctx) =>
     Effect.all(
       [

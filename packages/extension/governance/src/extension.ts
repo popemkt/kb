@@ -9,7 +9,7 @@
  * out of its composition (`kb --governance off`), never by a graph write.
  */
 import { Effect } from "effect";
-import { ActionGuardPoint, defineExtension, extensionNamespace } from "@kb/contracts";
+import { ActionGuardPoint, defineExtension, extensionNamespace, familyTags } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { approvalGuard, forceGuard } from "./approval.ts";
 import { GOVERNANCE_FILES, governanceSeedNodes } from "./seed.ts";
@@ -22,6 +22,7 @@ import { GOVERNANCE_FILES, governanceSeedNodes } from "./seed.ts";
 export const governanceExtension = defineExtension({
   name: "governance",
   label: "Governance",
+  tags: ["governance"],
   seed: governanceSeedNodes,
   files: GOVERNANCE_FILES,
 });
@@ -33,6 +34,7 @@ export const governanceExtension = defineExtension({
  */
 export const governancePlugin: Plugin = definePlugin({
   name: governanceExtension.name,
+  tags: familyTags(governanceExtension),
   namespace: extensionNamespace(governanceExtension.name),
   apply: (plugin) =>
     Effect.gen(function* () {

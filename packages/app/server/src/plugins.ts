@@ -10,10 +10,11 @@ import {
   type NodeLookup,
   type KbContext,
   type UiHostService,
+  familyTags,
 } from "@kb/contracts";
 import { extensionNodeId } from "@kb/model";
 import { definePlugin, syncPlugins, type Kernel, type Plugin } from "@kb/plugin";
-import { receiptFromError } from "@kb/operations";
+import { receiptFromError, coreExtension } from "@kb/operations";
 import { writeErr } from "@kb/runtime";
 import { serverInvoke } from "./invoke.ts";
 import { serverRuntimeLayer, type ScreenHub } from "./screens.ts";
@@ -153,6 +154,7 @@ export function loadServerPlugins(
     (hosted) => [
       definePlugin({
         name: "ui-host",
+        tags: familyTags(coreExtension),
         namespace: "",
         apply: (plugin) => plugin.provide(UiHost, uiHost(ctx, screens, hosted)),
       }),

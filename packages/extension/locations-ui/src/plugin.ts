@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { locationsExtension } from "@kb/locations";
 import { BrowserHostService, CommandPoint, SidebarSectionPoint } from "@kb/ui-sdk";
@@ -14,6 +15,7 @@ import { LocationsSection } from "./section";
  */
 export const locationsUiPlugin = definePlugin({
   name: locationsExtension.name,
+  tags: familyTags(locationsExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(

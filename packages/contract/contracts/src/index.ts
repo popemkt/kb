@@ -54,6 +54,7 @@ export {
   ExtensionCatalog,
   ExtensionRowSchema,
   declarationPlugin,
+  familyTags,
   defineExtension,
   extensionRow,
 } from "./declaration.ts";

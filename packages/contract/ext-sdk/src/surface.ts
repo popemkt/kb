@@ -258,6 +258,8 @@ export interface Plugin {
   readonly namespace?: string;
   /** Services that must exist before `apply` runs; the plugin waits until they do. */
   readonly inject?: readonly ServiceKey<unknown>[];
+  /** Labels for organising plugins, which kb reports and never reads: its family's ({@link familyTags}). */
+  readonly tags?: readonly string[];
   /** Runs with the plugin's scope as `Scope`: `acquireRelease` in here is released on unload. */
   readonly apply: (
     ctx: PluginContext,
@@ -320,6 +322,8 @@ export interface ExtensionDeclaration {
   readonly name: string;
   readonly label: string;
   readonly optional?: { readonly byDefault: "on" | "off" };
+  /** Its labels, the one home of them: each of its plugins carries them ({@link familyTags}). */
+  readonly tags?: readonly string[];
   /** Its system nodes under frozen ids, stamped `at`. */
   readonly seed?: (at: string) => readonly KbNode[];
   /** The views it provides; its entries contribute exactly these (`declarationPlugin`). */
@@ -434,6 +438,11 @@ export declare function definePlugin(plugin: Plugin): Plugin;
 export declare function defineExtension(declaration: ExtensionDeclaration): ExtensionDeclaration;
 /** What every host loads of a declaration: its views, contributed under their ids. */
 export declare function declarationPlugin(declaration: ExtensionDeclaration): Plugin;
+/** The tags a plugin of the family carries: the declaration's, then the plugin's own (`"ui"` on a page half). */
+export declare function familyTags(
+  declaration: ExtensionDeclaration,
+  ...own: readonly string[]
+): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
 export declare function Point<C>(): (name: string) => PointKey<C>;

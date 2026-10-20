@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/operations": "workspace:*",
     "@kb/plugin": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"

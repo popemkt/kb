@@ -15,6 +15,7 @@ import { CollectionBoardView, CollectionCardsView, CollectionTableView } from ".
 export const collectionsExtension = defineExtension({
   name: "collections",
   label: "Collections",
+  tags: ["collections"],
   optional: { byDefault: "on" },
   views: [viewDef(CollectionTableView), viewDef(CollectionBoardView), viewDef(CollectionCardsView)],
 });

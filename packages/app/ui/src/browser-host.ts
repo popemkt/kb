@@ -4,6 +4,8 @@
  * provides it to the UI kernel. Feature plugins inject it, so they apply only
  * once it is there, and they reach the shell through it alone.
  */
+import { coreExtension } from "@kb/operations";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
@@ -99,5 +101,6 @@ const host: BrowserHost = {
 
 export const browserHostUiPlugin = definePlugin({
   name: "host",
+  tags: familyTags(coreExtension, "ui"),
   apply: (ctx) => ctx.provide(BrowserHostService, host),
 });

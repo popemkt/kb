@@ -12,6 +12,7 @@ import {
   type ManifestEntry,
   type SecretSource,
   type UiHostService,
+  familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { agentExtension } from "./extension.ts";
@@ -317,6 +318,7 @@ export function agentPlugin(options: {
 }): Plugin {
   return definePlugin({
     name: agentExtension.name,
+    tags: familyTags(agentExtension),
     inject: [UiHost],
     apply: (ctx) =>
       Effect.gen(function* () {
