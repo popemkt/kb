@@ -267,6 +267,9 @@ function collapseChildOrder(where: Clause[]): Clause[] {
       orderByParent.set(c.entity, c.value.name);
     }
   }
+  for (const parent of orderByParent.keys()) {
+    if (!childByParent.has(parent)) orderByParent.delete(parent);
+  }
   const out: Clause[] = [];
   const emitted = new Set<string>();
   for (const c of where) {

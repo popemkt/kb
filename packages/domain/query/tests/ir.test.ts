@@ -6,6 +6,7 @@ import {
   LIST_FIELDS_QUERY,
   LIST_TAGS_QUERY,
   backlinksQuery,
+  DatalogError,
   DatascriptIndex,
   derivedWith,
   compile,
@@ -454,6 +455,26 @@ describe("children clause replaces the cartesian join", () => {
     expect(ir.find.some((p) => p.kind === "var" && p.name === "i")).toBe(true);
     expect(compile(ir).find?.some((p) => p.kind === "var" && p.name === "i")).toBe(false);
     expect(sortedRows(index.runDatalog(lastClause))).toHaveLength(3);
+  });
+});
+
+describe("a find variable gets a column unless it is a children clause's order", () => {
+  const index = indexFor([node("p", { text: "parent", children: ["c1", "c2", "c3"] }), node("c1")]);
+
+  test("a variable bound only by :in is a column, as DataScript answers it", () => {
+    const edn = '[:find ?t ?x :in $ ?x :where [?e :node/text ?t] [?e :node/id "p"]]';
+    expect(index.runDatalog(edn, 7)).toEqual([["parent", 7]]);
+  });
+
+  test("a :node/child-order pattern without a :node/child one is kept, not dropped", () => {
+    const edn = '[:find ?o :where [?p :node/id "p"] [?p :node/child-order ?o]]';
+    expect(sortedRows(index.runDatalog(edn))).toEqual([[0]]);
+  });
+
+  test("a variable nothing binds is the engine's error, as in raw EDN", () => {
+    const edn = "[:find ?id ?nowhere :where [?n :node/id ?id]]";
+    expect(() => index.runDatalog(edn)).toThrow(DatalogError);
+    expect(() => index.runDatalog(edn)).toThrow(/unknown vars/);
   });
 });
 

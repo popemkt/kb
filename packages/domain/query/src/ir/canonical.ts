@@ -91,20 +91,23 @@ function isCanonicalClause(clause: Clause): boolean {
  * One conjunction's clauses. The written form of `children` is two patterns
  * the parser collapses, so a conjunction holding `children` for a parent
  * holds no `:node/child` or `:node/child-order` pattern of that parent over a
- * variable, and at most one `children` per parent; and with no `children`
- * for a parent, no `:node/child-order` pattern of it over a variable.
+ * variable, and at most one `children` per parent; and no entity has both a
+ * `:node/child` and a `:node/child-order` pattern over a variable, which
+ * would have collapsed.
  */
 function isCanonicalConjunction(clauses: readonly Clause[]): boolean {
   if (!clauses.every(isCanonicalClause)) return false;
   const parents = clauses.flatMap((c) => (c.kind === "children" ? [c.parent] : []));
   if (new Set(parents).size !== parents.length) return false;
-  const collapsible = clauses.filter(
-    (c) =>
-      c.kind === "pattern" &&
-      c.value.t === "var" &&
-      (c.attr === ":node/child" || c.attr === ":node/child-order"),
-  );
-  return collapsible.every(
-    (c) => c.kind === "pattern" && !parents.includes(c.entity) && c.attr === ":node/child",
+  const over = (attr: string) =>
+    new Set(
+      clauses.flatMap((c) =>
+        c.kind === "pattern" && c.value.t === "var" && c.attr === attr ? [c.entity] : [],
+      ),
+    );
+  const child = over(":node/child");
+  const order = over(":node/child-order");
+  return (
+    parents.every((p) => !child.has(p) && !order.has(p)) && [...child].every((e) => !order.has(e))
   );
 }

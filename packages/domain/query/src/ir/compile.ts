@@ -80,10 +80,19 @@ export function compile(ir: Ir): CompiledEdn {
   };
 }
 
-/** The find positions that get a column: a variable the compiled `:where` does not bind has none. */
+/**
+ * The find positions that get a column: every one but a `children` clause's
+ * order variable, which the projection does not bind (`ChildrenClause`),
+ * unless something else binds it. Any other variable is the engine's to
+ * accept or reject, as it would be in raw EDN.
+ */
 function compiledFind(ir: IrQuery): FindPos[] {
   const bound = boundVars(ir.where);
-  return ir.find.filter((p) => p.kind !== "var" || bound.has(p.name));
+  for (const slot of ir.in ?? []) bound.add(slot);
+  const orders = new Set(
+    ir.where.flatMap((c) => (c.kind === "children" && !bound.has(c.order) ? [c.order] : [])),
+  );
+  return ir.find.filter((p) => p.kind !== "var" || !orders.has(p.name));
 }
 
 function boundVars(where: readonly Clause[]): Set<string> {
