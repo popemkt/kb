@@ -104,13 +104,17 @@ export function interceptionFrom(
     guards: (action) => current().guards(action),
     interceptors: (action) => current().interceptors(action),
     missing: () => {
-      const applied = new Set(
-        kernel
-          .plugins()
-          .filter((plugin) => plugin.applied)
-          .map((plugin) => plugin.name),
-      );
-      return required.filter((name) => !applied.has(name));
+      // A plugin is there when what it contributes is visible: it and every
+      // plugin that loaded it have applied (`@kb/plugin`). A child whose
+      // parent is on its way out is gone already, as its guards are.
+      const plugins = new Map(kernel.plugins().map((plugin) => [plugin.name, plugin]));
+      const there = (name: string): boolean => {
+        const plugin = plugins.get(name);
+        return (
+          plugin !== undefined && plugin.applied && (plugin.parent === null || there(plugin.parent))
+        );
+      };
+      return required.filter((name) => !there(name));
     },
     budgetMs: options.budgetMs ?? DEFAULT_BUDGET_MS,
   };

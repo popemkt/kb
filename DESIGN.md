@@ -1969,8 +1969,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
       it read until the kernel moves lets go of it then too. There is
       therefore no moment when a guard is half there.
     - A deployment may name plugins whose guards it requires
-      (`interceptionFrom(kernel, {required})`). While one is not applied
-      (loading, failed, or going), every call is denied
+      (`interceptionFrom(kernel, {required})`). While one is not there —
+      loading, failed, or going, itself or a plugin that loaded it, the
+      same visibility its guards have — every call is denied
       (`required-guard-missing`) rather than run unguarded.
   - **Reentrancy.** A call made inside another (a handler invoking, or a
     listener with a way to) goes through the same points again. Each stage

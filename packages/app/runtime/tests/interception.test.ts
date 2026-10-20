@@ -539,6 +539,37 @@ describe("order and lifecycle", () => {
     expect(interception.guards(echoing).length).toBe(0);
   });
 
+  test("a required child is missing as soon as its parent is on its way out", async () => {
+    const kernel = makeKernel();
+    const interception = interceptionFrom(kernel, { required: ["parent/guard"] });
+    const duringUnload: unknown[] = [];
+    const parent = definePlugin({
+      name: "parent",
+      apply: (plugin) =>
+        Effect.gen(function* () {
+          yield* plugin.plugin(
+            definePlugin({
+              name: "guard",
+              apply: (child) => guardAction(child, "*", { before: () => Effect.succeed(allow) }),
+            }),
+          );
+          yield* Effect.addFinalizer(() =>
+            Effect.promise(async () => {
+              duringUnload.push(interception.missing(), await call(interception, echo()));
+            }),
+          );
+        }),
+    });
+    await Effect.runPromise(kernel.load(parent));
+    expect(interception.missing()).toEqual([]);
+    await Effect.runPromise(kernel.unload("parent"));
+    expect(duringUnload[0]).toEqual(["parent/guard"]);
+    expect(duringUnload[1]).toMatchObject({
+      code: "forbidden",
+      details: { decidedBy: { plugin: "parent/guard", rule: "required-guard-missing" } },
+    });
+  });
+
   test("while a guard the deployment requires is not applied, every call is denied", async () => {
     const kernel = makeKernel();
     const interception = interceptionFrom(kernel, { required: ["governance"] });
