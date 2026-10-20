@@ -28,7 +28,7 @@ import {
 } from "@kb/contracts";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { HTTP_WIRE, startUi } from "@kb/server";
+import { HTTP_WIRE, pageTokenIdentity, startUi } from "@kb/server";
 import {
   AGENT_CHANNEL,
   AGENT_WIRE,
@@ -173,6 +173,7 @@ const contractRuntime = scriptedRuntime((turn): readonly ScriptStep[] => {
 const serve: ServeUi = async (root) => {
   const handle = await Effect.runPromise(
     startUi({
+      identity: [pageTokenIdentity()],
       root,
       port: 0,
       openBrowser: false,

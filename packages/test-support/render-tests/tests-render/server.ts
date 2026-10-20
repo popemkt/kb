@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { startUi } from "@kb/server";
+import { pageTokenIdentity, startUi } from "@kb/server";
 import { FIXTURE_TIMESTAMP, renderFixtureNodes } from "./fixture.ts";
 import { bundledSeed } from "@kb/bundled";
 
@@ -27,6 +27,7 @@ process.env.KB_HOME = join(scratchRoot, "home");
 
 const server = await Effect.runPromise(
   startUi({
+    identity: [pageTokenIdentity()],
     root: scratchRoot,
     // Per-spec port: a spec that writes must not share a store with one that
     // counts (see harness-server.ts).

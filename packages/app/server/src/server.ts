@@ -41,7 +41,7 @@ import {
   type UiDevSpawn,
 } from "./dev.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
-import { PageToken, identifyBy, pageTokenIdentity } from "./auth.ts";
+import { PageToken, identifyBy } from "./auth.ts";
 import { handshakeHeaders, requestGuard, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";
@@ -72,7 +72,8 @@ export interface UiServerOptions {
   /**
    * The identity providers this deployment authenticates the person with
    * (`auth.ts`): plugins that contribute to `IdentityPoint`, held whatever
-   * the store switches. Default: the local page token alone.
+   * the store switches. Default: none, so every connection is nobody's;
+   * the composition root names them, as it names every plugin it hosts.
    */
   identity?: readonly Plugin[];
   /**
@@ -362,7 +363,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     ctx,
     hub.screens,
     opts.extensions ?? [],
-    opts.identity ?? [pageTokenIdentity()],
+    opts.identity ?? [],
   );
   // A switch written anywhere reaches this session's log; the server composes what it says.
   const fork = Effect.runForkWith(yield* Effect.context());

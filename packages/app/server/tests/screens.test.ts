@@ -20,7 +20,7 @@ import {
 } from "@kb/contracts";
 import { invoke, openKb } from "@kb/runtime";
 import { FAKE_TAB_SCREEN, FakeTab } from "@kb/test-kit";
-import { startUi, type UiServerHandle } from "../src/index.ts";
+import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
 
 /** Who a tab opened from the page URL `kb ui` printed is: the account that started it. */
 const PERSON = { name: userInfo().username };
@@ -80,7 +80,9 @@ describe("screen state", () => {
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "kb-screens-"));
-    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
   });
 
   afterEach(async () => {
@@ -274,7 +276,9 @@ describe("screen state with no kb ui", () => {
 
   test("a server removes .kb/ui.json when it stops", async () => {
     const presence = join(root, ".kb", "ui.json");
-    const handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    const handle = await run(
+      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
+    );
     expect(existsSync(presence)).toBe(true);
     await run(handle.stop);
     expect(existsSync(presence)).toBe(false);
@@ -313,7 +317,9 @@ describe("screen state with no kb ui", () => {
 
   test("a presence file whose port another root's kb ui now holds names no tabs", async () => {
     const other = await mkdtemp(join(tmpdir(), "kb-screens-other-"));
-    const elsewhere = await run(startUi({ root: other, port: 0, openBrowser: false }));
+    const elsewhere = await run(
+      startUi({ identity: [pageTokenIdentity()], root: other, port: 0, openBrowser: false }),
+    );
     const stranger = await run(FakeTab.open(elsewhere.page, "tab.stranger"));
     try {
       const ctx = await openKb(root);
