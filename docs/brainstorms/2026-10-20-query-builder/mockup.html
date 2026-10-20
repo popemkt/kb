@@ -1,144 +1,378 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>kb query builder — mockup</title>
-<style>
-  :root {
-    --kb-bg: #fbfaf8;
-    --kb-fg: #1d1b18;
-    --kb-muted: #8a857d;
-    --kb-faint: #c9c4bb;
-    --kb-line: #ece8e1;
-    --kb-chip: #f3f0ea;
-    --kb-accent: #c7781a;
-    --kb-accent-soft: #fbefdc;
-    --kb-danger: #b4432f;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --kb-bg: #1b1a18;
-      --kb-fg: #ece8e1;
-      --kb-muted: #9a958c;
-      --kb-faint: #55514b;
-      --kb-line: #2c2a27;
-      --kb-chip: #262421;
-      --kb-accent: #e19a3e;
-      --kb-accent-soft: #3a2c19;
-      --kb-danger: #e07a64;
-    }
-  }
-  html, body { background: transparent; margin: 0; }
-  body { font-family: var(--font-sans, Inter, system-ui, sans-serif); color: var(--foreground, var(--kb-fg)); }
-  .wrap { display: flex; flex-direction: column; gap: 18px; }
-  .caption { font-size: 12px; color: var(--muted-foreground, var(--kb-muted)); margin: 0 0 6px; }
-  .caption b { color: var(--foreground, var(--kb-fg)); font-weight: 600; }
-  .screen {
-    background: var(--kb-bg); color: var(--kb-fg); border: 1px solid var(--kb-line);
-    border-radius: var(--radius, 10px); padding: 16px 18px; font-size: 13px; line-height: 1.5;
-  }
-  .row { display: flex; align-items: center; gap: 8px; min-height: 26px; }
-  .bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--kb-faint); flex: none; }
-  .qicon { font-size: 11px; color: var(--kb-accent); font-weight: 700; width: 12px; text-align: center; }
-  .title { font-weight: 500; }
-  .count { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--kb-accent-soft); color: var(--kb-accent); }
-  .panel { margin: 6px 0 8px 18px; border-left: 2px solid var(--kb-line); padding-left: 12px; }
-  .tabs { display: flex; gap: 2px; margin-bottom: 8px; }
-  .tab { font-size: 11px; padding: 2px 9px; border-radius: 6px; color: var(--kb-muted); border: 1px solid transparent; }
-  .tab.on { color: var(--kb-fg); background: var(--kb-chip); border-color: var(--kb-line); }
-  .cond { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-height: 28px; }
-  .slot { border: 1px solid var(--kb-line); background: var(--kb-chip); border-radius: 6px; padding: 1px 7px; font-size: 12px; white-space: nowrap; }
-  .slot.subject { font-weight: 600; }
-  .slot.op { color: var(--kb-muted); background: transparent; }
-  .slot.tag::before { content: "#"; color: var(--kb-accent); }
-  .slot.focus { outline: 2px solid var(--kb-accent); outline-offset: 1px; }
-  .slot.opaque { font-family: ui-monospace, monospace; font-size: 11px; color: var(--kb-muted); border-style: dashed; white-space: normal; overflow-wrap: anywhere; }
-  .x { color: var(--kb-faint); font-size: 12px; margin-left: 2px; }
-  .group { border: 1px dashed var(--kb-line); border-radius: 8px; padding: 4px 8px 6px; margin: 4px 0; }
-  .group .label { font-size: 11px; color: var(--kb-muted); margin-bottom: 2px; }
-  .add { font-size: 12px; color: var(--kb-muted); margin-top: 4px; display: flex; gap: 14px; }
-  .add span::before { content: "+ "; }
-  .results { margin-top: 8px; }
-  .res { display: flex; align-items: center; gap: 8px; min-height: 24px; }
-  .chip { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--kb-chip); color: var(--kb-muted); }
-  .chip.tagc::before { content: "#"; color: var(--kb-accent); }
-  .menuwrap { padding: 2px 0 6px 40px; }
-  .menu { display: inline-block; background: var(--kb-bg); border: 1px solid var(--kb-line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 4px; font-size: 12px; min-width: 150px; }
-  .menu div { padding: 3px 8px; border-radius: 5px; }
-  .menu .sel { background: var(--kb-accent-soft); }
-  .menu .hint { color: var(--kb-muted); font-size: 11px; padding-top: 5px; }
-  pre.edn { margin: 0; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11.5px; background: var(--kb-chip); border: 1px solid var(--kb-line); border-radius: 6px; padding: 8px 10px; white-space: pre; overflow-x: auto; }
-  .note { font-size: 12px; color: var(--kb-muted); margin-top: 6px; }
-  .warn { font-size: 12px; color: var(--kb-danger); }
-  .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
-</style>
-</head>
-<body>
-<div class="wrap">
-
-  <div>
-    <p class="caption"><b>1 · Conditions tab.</b> The query node is expanded in the outline. Each condition is a sentence of slots: subject, operator, values. Top-level rows are ANDed. The operator slot is open on a date field.</p>
-    <div class="screen">
-      <div class="row"><span class="bullet"></span><span>Weekly review</span></div>
-      <div class="row"><span class="qicon">?</span><span class="title">Open work due soon</span><span class="count">12 nodes</span></div>
-      <div class="panel">
-        <div class="tabs"><span class="tab on">Conditions</span><span class="tab">EDN</span></div>
-        <div class="cond"><span class="slot subject">has tag</span><span class="slot tag">todo</span><span class="x">✕</span></div>
-        <div class="cond"><span class="slot subject">status</span><span class="slot op">is not</span><span class="slot">Done</span><span class="x">✕</span></div>
-        <div class="cond"><span class="slot subject">due</span><span class="slot op focus">within the next</span><span class="slot">14 days</span><span class="x">✕</span></div>
-        <div class="menuwrap"><div class="menu">
-            <div>is</div><div>before</div><div>after</div><div class="sel">within the next</div><div>in the last</div><div>is set</div><div>is not set</div>
-            <div class="hint">date field · ↑↓ ↵</div>
-          </div></div>
-        <div class="group">
-          <div class="label">any of</div>
-          <div class="cond"><span class="slot subject">assignee</span><span class="slot op">is</span><span class="slot">Alice</span><span class="slot">Bao</span></div>
-          <div class="cond"><span class="slot subject">is under</span><span class="slot">Projects / Q4</span></div>
-        </div>
-        <div class="add"><span>condition</span><span>group</span></div>
-        <div class="results">
-          <div class="res"><span class="bullet"></span>Ship socket listener <span class="chip tagc">todo</span><span class="chip">due Oct 24</span></div>
-          <div class="res"><span class="bullet"></span>Extensions panel review <span class="chip tagc">todo</span><span class="chip">due Oct 27</span></div>
-          <div class="res"><span class="bullet"></span>Query builder spike <span class="chip tagc">todo</span><span class="chip">due Nov 2</span></div>
-          <div class="res" style="color:var(--kb-muted)"><span class="bullet"></span>… 9 more</div>
+  <head>
+    <meta charset="utf-8" />
+    <title>kb query builder — mockup</title>
+    <style>
+      :root {
+        --kb-bg: #fbfaf8;
+        --kb-fg: #1d1b18;
+        --kb-muted: #8a857d;
+        --kb-faint: #c9c4bb;
+        --kb-line: #ece8e1;
+        --kb-chip: #f3f0ea;
+        --kb-accent: #c7781a;
+        --kb-accent-soft: #fbefdc;
+        --kb-danger: #b4432f;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --kb-bg: #1b1a18;
+          --kb-fg: #ece8e1;
+          --kb-muted: #9a958c;
+          --kb-faint: #55514b;
+          --kb-line: #2c2a27;
+          --kb-chip: #262421;
+          --kb-accent: #e19a3e;
+          --kb-accent-soft: #3a2c19;
+          --kb-danger: #e07a64;
+        }
+      }
+      html,
+      body {
+        background: transparent;
+        margin: 0;
+      }
+      body {
+        font-family: var(--font-sans, Inter, system-ui, sans-serif);
+        color: var(--foreground, var(--kb-fg));
+      }
+      .wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .caption {
+        font-size: 12px;
+        color: var(--muted-foreground, var(--kb-muted));
+        margin: 0 0 6px;
+      }
+      .caption b {
+        color: var(--foreground, var(--kb-fg));
+        font-weight: 600;
+      }
+      .screen {
+        background: var(--kb-bg);
+        color: var(--kb-fg);
+        border: 1px solid var(--kb-line);
+        border-radius: var(--radius, 10px);
+        padding: 16px 18px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 26px;
+      }
+      .bullet {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--kb-faint);
+        flex: none;
+      }
+      .qicon {
+        font-size: 11px;
+        color: var(--kb-accent);
+        font-weight: 700;
+        width: 12px;
+        text-align: center;
+      }
+      .title {
+        font-weight: 500;
+      }
+      .count {
+        font-size: 11px;
+        padding: 1px 7px;
+        border-radius: 99px;
+        background: var(--kb-accent-soft);
+        color: var(--kb-accent);
+      }
+      .panel {
+        margin: 6px 0 8px 18px;
+        border-left: 2px solid var(--kb-line);
+        padding-left: 12px;
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+        margin-bottom: 8px;
+      }
+      .tab {
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 6px;
+        color: var(--kb-muted);
+        border: 1px solid transparent;
+      }
+      .tab.on {
+        color: var(--kb-fg);
+        background: var(--kb-chip);
+        border-color: var(--kb-line);
+      }
+      .cond {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+        min-height: 28px;
+      }
+      .slot {
+        border: 1px solid var(--kb-line);
+        background: var(--kb-chip);
+        border-radius: 6px;
+        padding: 1px 7px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .slot.subject {
+        font-weight: 600;
+      }
+      .slot.op {
+        color: var(--kb-muted);
+        background: transparent;
+      }
+      .slot.tag::before {
+        content: "#";
+        color: var(--kb-accent);
+      }
+      .slot.focus {
+        outline: 2px solid var(--kb-accent);
+        outline-offset: 1px;
+      }
+      .x {
+        color: var(--kb-faint);
+        font-size: 12px;
+        margin-left: 2px;
+      }
+      .group {
+        border: 1px dashed var(--kb-line);
+        border-radius: 8px;
+        padding: 4px 8px 6px;
+        margin: 4px 0;
+      }
+      .group .label {
+        font-size: 11px;
+        color: var(--kb-muted);
+        margin-bottom: 2px;
+      }
+      .add {
+        font-size: 12px;
+        color: var(--kb-muted);
+        margin-top: 4px;
+        display: flex;
+        gap: 14px;
+      }
+      .add span::before {
+        content: "+ ";
+      }
+      .results {
+        margin-top: 8px;
+      }
+      .res {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 24px;
+      }
+      .chip {
+        font-size: 11px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: var(--kb-chip);
+        color: var(--kb-muted);
+      }
+      .chip.tagc::before {
+        content: "#";
+        color: var(--kb-accent);
+      }
+      .menuwrap {
+        padding: 2px 0 6px 40px;
+      }
+      .menu {
+        display: inline-block;
+        background: var(--kb-bg);
+        border: 1px solid var(--kb-line);
+        border-radius: 8px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        padding: 4px;
+        font-size: 12px;
+        min-width: 150px;
+      }
+      .menu div {
+        padding: 3px 8px;
+        border-radius: 5px;
+      }
+      .menu .sel {
+        background: var(--kb-accent-soft);
+      }
+      .menu .hint {
+        color: var(--kb-muted);
+        font-size: 11px;
+        padding-top: 5px;
+      }
+      pre.edn {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 11.5px;
+        background: var(--kb-chip);
+        border: 1px solid var(--kb-line);
+        border-radius: 6px;
+        padding: 8px 10px;
+        white-space: pre;
+        overflow-x: auto;
+      }
+      .note {
+        font-size: 12px;
+        color: var(--kb-muted);
+        margin-top: 6px;
+      }
+      .warn {
+        font-size: 12px;
+        color: var(--kb-danger);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div>
+        <p class="caption">
+          <b>1 · Conditions tab.</b> The query node is expanded in the outline. Each condition is a
+          sentence of slots: subject, operator, values. Top-level rows are ANDed. The operator slot
+          is open on a date field.
+        </p>
+        <div class="screen">
+          <div class="row"><span class="bullet"></span><span>Weekly review</span></div>
+          <div class="row">
+            <span class="qicon">?</span><span class="title">Open work due soon</span
+            ><span class="count">12 nodes</span>
+          </div>
+          <div class="panel">
+            <div class="tabs">
+              <span class="tab on">Conditions</span><span class="tab">EDN</span>
+            </div>
+            <div class="cond">
+              <span class="slot subject">has tag</span><span class="slot tag">todo</span
+              ><span class="x">✕</span>
+            </div>
+            <div class="cond">
+              <span class="slot subject">status</span><span class="slot op">is not</span
+              ><span class="slot">Done</span><span class="x">✕</span>
+            </div>
+            <div class="cond">
+              <span class="slot subject">due</span><span class="slot op focus">within the next</span
+              ><span class="slot">14 days</span><span class="x">✕</span>
+            </div>
+            <div class="menuwrap">
+              <div class="menu">
+                <div>is</div>
+                <div>before</div>
+                <div>after</div>
+                <div class="sel">within the next</div>
+                <div>in the last</div>
+                <div>is set</div>
+                <div>is not set</div>
+                <div class="hint">date field · ↑↓ ↵</div>
+              </div>
+            </div>
+            <div class="group">
+              <div class="label">any of</div>
+              <div class="cond">
+                <span class="slot subject">assignee</span><span class="slot op">is</span
+                ><span class="slot">Alice</span><span class="slot">Bao</span>
+              </div>
+              <div class="cond">
+                <span class="slot subject">is under</span><span class="slot">Projects / Q4</span>
+              </div>
+            </div>
+            <div class="add"><span>condition</span><span>group</span></div>
+            <div class="results">
+              <div class="res">
+                <span class="bullet"></span>Ship socket listener <span class="chip tagc">todo</span
+                ><span class="chip">due Oct 24</span>
+              </div>
+              <div class="res">
+                <span class="bullet"></span>Extensions panel review
+                <span class="chip tagc">todo</span><span class="chip">due Oct 27</span>
+              </div>
+              <div class="res">
+                <span class="bullet"></span>Query builder spike <span class="chip tagc">todo</span
+                ><span class="chip">due Nov 2</span>
+              </div>
+              <div class="res" style="color: var(--kb-muted)">
+                <span class="bullet"></span>… 9 more
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div class="grid">
-    <div>
-      <p class="caption"><b>2 · EDN tab.</b> The stored <code>sys.f.query</code> as text, printed canonically by <code>printEdn</code> after the last builder edit. Editing here writes the text as typed.</p>
-      <div class="screen">
-        <div class="tabs"><span class="tab">Conditions</span><span class="tab on">EDN</span></div>
-<pre class="edn">[:find ?id
+      <div class="grid">
+        <div>
+          <p class="caption">
+            <b>2 · EDN tab.</b> The stored <code>sys.f.query</code> as text, printed canonically by
+            <code>printEdn</code> after the last builder edit. Editing here writes the text as
+            typed.
+          </p>
+          <div class="screen">
+            <div class="tabs">
+              <span class="tab">Conditions</span><span class="tab on">EDN</span>
+            </div>
+            <pre class="edn">
+[:find ?id
  :where
+ [?n :node/id ?id]
  [?n :f/sys.f.type ?t1] [?t1 :node/id "todo"]
- (not [?n :f/status ?v1] [?v1 :node/id "opt.done"])
+ (not-join [?n] [?n :f/status ?v1] [?v1 :node/id "opt.done"])
  [?n :f/due ?v2]
- [(kb/days-from-now 14) ?s1] [(&lt;= ?v2 ?s1)]
- (or (and [?n :f/assignee ?v3] [?v3 :node/id "p.alice"])
-     (and [?n :f/assignee ?v3] [?v3 :node/id "p.bao"])
-     (and [?a1 :node/id "n.q4"] (reach ?a1 :node/child ?n)))
- [?n :node/id ?id]]</pre>
-        <div class="note">Round trip: <code>parseEdn(printEdn(ir))</code> = <code>ir</code>, and the rows are equal.</div>
+ [(kb/today) ?s1] [(kb/date-in-days 14) ?s2]
+ [(&lt;= ?s1 ?v2)] [(&lt;= ?v2 ?s2)]
+ (or-join [?n]
+   (and [?n :f/assignee ?v3] [?v3 :node/id "p.alice"])
+   (and [?n :f/assignee ?v4] [?v4 :node/id "p.bao"])
+   (and [?a1 :node/id "n.q4"] (reach ?a1 :node/child ?n)))]</pre>
+            <div class="note">
+              <code>?n</code> is bound first; every <code>or</code> and <code>not</code> joins on
+              <code>[?n]</code>, each branch with its own variables. Round trip:
+              <code>parseEdn(printEdn(ir))</code> = <code>ir</code>, and the rows are equal.
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="caption">
+            <b>3 · A query that does not lift.</b> Lifting is all-or-nothing: a hand-written clause
+            outside the vocabulary, or a construct outside the IR, keeps the query in the EDN tab.
+            The Conditions tab says which.
+          </p>
+          <div class="screen">
+            <div class="tabs">
+              <span class="tab on">Conditions</span><span class="tab">EDN</span>
+            </div>
+            <div class="warn">
+              Can't show as conditions: <code>get-else</code> is outside the vocabulary.
+              <u>Edit as EDN</u>
+            </div>
+            <pre class="edn" style="margin-top: 8px">
+[:find ?id
+ :where
+ [?n :node/id ?id]
+ [?n :f/sys.f.type ?t1] [?t1 :node/id "meeting"]
+ [(get-else $ ?n :f/room "") ?r]]</pre>
+            <div class="note" style="margin-top: 14px">
+              Likewise for a query outside the IR (<code>:with</code>), or text that does not parse
+              (with its line and column).
+            </div>
+            <div class="note">Nothing is rewritten, and the count still runs.</div>
+          </div>
+        </div>
       </div>
     </div>
-    <div>
-      <p class="caption"><b>3 · Partial lift.</b> A hand-written clause outside the vocabulary is kept as an opaque chip. It can be removed but not edited, and the rest of the query stays editable.</p>
-      <div class="screen">
-        <div class="tabs"><span class="tab on">Conditions</span><span class="tab">EDN</span></div>
-        <div class="cond"><span class="slot subject">has tag</span><span class="slot tag">meeting</span></div>
-        <div class="cond"><span class="slot opaque">[(get-else $ ?n :f/room "") ?r]</span><span class="x">✕</span></div>
-        <div class="cond"><span class="slot subject">created</span><span class="slot op">in the last</span><span class="slot">7 days</span></div>
-        <div class="add"><span>condition</span><span>group</span></div>
-        <div class="note" style="margin-top:14px"><b style="color:var(--kb-fg)">Raw query</b> (outside the IR, e.g. <code>:with</code>):</div>
-        <div class="warn">Can't show as conditions: uses <code>:with</code>. <u>Edit as EDN</u></div>
-        <div class="note">Nothing is rewritten, and the count still runs.</div>
-      </div>
-    </div>
-  </div>
-
-</div>
-</body>
+  </body>
 </html>

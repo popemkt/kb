@@ -1,6 +1,8 @@
 # Query builder — a projection of the query's EDN
 
 **Status: design for the owner's review, not built.** Date: 2026-10-20.
+Revised the same day after an independent review (GPT-6.1-Sol); what
+changed and why is under [Review](#review).
 Mockup: published beside this record (T3 `html_render`); the same page is
 `mockup.html` in this directory.
 
@@ -42,30 +44,50 @@ writing datalog, without adding a second query language.
 The subject of every condition is the result node, `?n`. Conditions at
 the top level are ANDed. A group is AND, OR, or NOT (none of).
 
-| Condition                     | Builder row (example)                 | IR                                        | EDN printed                                                      |
-| ----------------------------- | ------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
-| Has tag                       | **has tag** `#todo`                   | pattern + pattern                         | `[?n :f/sys.f.type ?t1] [?t1 :node/id "<tag>"]`                  |
-| Lacks tag                     | **does not have tag** `#todo`         | not( has tag )                            | `(not [?n :f/sys.f.type ?t1] [?t1 :node/id "<tag>"])`            |
-| Field is set                  | **status** `is set`                   | pattern, `_` value                        | `[?n :f/<field> _]`                                              |
-| Field is not set              | **status** `is not set`               | not( is set )                             | `(not [?n :f/<field> _])`                                        |
-| Field is (ref/option)         | **status** `is` `Doing`, `Review`     | pattern + id pattern; several values → or | `[?n :f/<field> ?v1] [?v1 :node/id "<opt>"]`                     |
-| Field is (text/number/bool)   | **estimate** `is` `3`                 | pattern, literal value                    | `[?n :f/<field> 3]`                                              |
-| Field is not                  | **status** `is not` `Done`            | not( is )                                 | `(not [?n :f/<field> ?v1] [?v1 :node/id "<opt>"])`               |
-| Field contains (text)         | **title** `contains` `draft`          | pattern + predicate                       | `[?n :f/<field> ?v1] [(kb/includes-ci? ?v1 "draft")]`            |
-| Field compares (number, date) | **due** `before` `2026-11-01`         | pattern + predicate                       | `[?n :f/<field> ?v1] [(< ?v1 "2026-11-01")]`                     |
-| Text contains                 | **text** `contains` `retro`           | pattern + predicate                       | `[?n :node/text ?x1] [(kb/includes-ci? ?x1 "retro")]`            |
-| Created / edited              | **created** `in the last` `7 days`    | pattern + kb fn + predicate               | `[?n :node/created-at ?c1] [(kb/days-ago 7) ?s1] [(>= ?c1 ?s1)]` |
-| Date field relative           | **due** `within the next` `14 days`   | as above, `kb/days-from-now`              | `[?n :f/<field> ?v1] [(kb/days-from-now 14) ?s1] [(<= ?v1 ?s1)]` |
-| Under (descendant of)         | **is under** `Projects`               | pattern + reach                           | `[?a1 :node/id "<node>"] (reach ?a1 :node/child ?n)`             |
-| Above (ancestor of)           | **is above** `Retro notes`            | pattern + reach                           | `[?a1 :node/id "<node>"] (reach ?n :node/child ?a1)`             |
-| Child of                      | **is a child of** `Inbox`             | pattern + children                        | `[?a1 :node/id "<node>"] [?a1 :node/child ?n]`                   |
-| Has children                  | **has children**                      | pattern, `_` value                        | `[?n :node/child _]`                                             |
-| Links to                      | **links to** `Alice`                  | pattern + pattern                         | `[?a1 :node/id "<node>"] [?n :node/mentions ?a1]`                |
-| Linked from                   | **is linked from** `Weekly`           | pattern + pattern                         | `[?a1 :node/id "<node>"] [?a1 :node/mentions ?n]`                |
-| Group                         | **any of** / **all of** / **none of** | or / and / not                            | `(or (and …) (and …))`, `(not …)`                                |
+| Condition                     | Builder row (example)                 | IR                                        | EDN printed                                                                                                    |
+| ----------------------------- | ------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Has tag                       | **has tag** `#todo`                   | pattern + pattern                         | `[?n :f/sys.f.type ?t1] [?t1 :node/id "<tag>"]`                                                                |
+| Lacks tag                     | **does not have tag** `#todo`         | not( has tag )                            | `(not-join [?n] [?n :f/sys.f.type ?t1] [?t1 :node/id "<tag>"])`                                                |
+| Field is set                  | **status** `is set`                   | pattern, `_` value                        | `[?n :f/<field> _]`                                                                                            |
+| Field is not set              | **status** `is not set`               | not( is set )                             | `(not-join [?n] [?n :f/<field> _])`                                                                            |
+| Field is (ref/option)         | **status** `is` `Doing`, `Review`     | pattern + id pattern; several values → or | `[?n :f/<field> ?v1] [?v1 :node/id "<opt>"]`                                                                   |
+| Field is (text/number/bool)   | **estimate** `is` `3`                 | pattern, literal value                    | `[?n :f/<field> 3]`                                                                                            |
+| Field is not                  | **status** `is not` `Done`            | not( is )                                 | `(not-join [?n] [?n :f/<field> ?v1] [?v1 :node/id "<opt>"])`                                                   |
+| Field contains (text)         | **title** `contains` `draft`          | pattern + predicate                       | `[?n :f/<field> ?v1] [(kb/includes-ci? ?v1 "draft")]`                                                          |
+| Field compares (number, date) | **due** `before` `2026-11-01`         | pattern + predicate                       | `[?n :f/<field> ?v1] [(< ?v1 "2026-11-01")]`                                                                   |
+| Text contains                 | **text** `contains` `retro`           | pattern + predicate                       | `[?n :node/text ?x1] [(kb/includes-ci? ?x1 "retro")]`                                                          |
+| Created / edited              | **created** `in the last` `7 days`    | pattern + 2 kb fns + 2 predicates         | `[?n :node/created-at ?c1] [(kb/instant-days-ago 7) ?s1] [(kb/instant-now) ?s2] [(<= ?s1 ?c1)] [(<= ?c1 ?s2)]` |
+| Date field relative           | **due** `within the next` `14 days`   | pattern + 2 kb fns + 2 predicates         | `[?n :f/<field> ?v1] [(kb/today) ?s1] [(kb/date-in-days 14) ?s2] [(<= ?s1 ?v1)] [(<= ?v1 ?s2)]`                |
+| Under (descendant of)         | **is under** `Projects`               | pattern + reach                           | `[?a1 :node/id "<node>"] (reach ?a1 :node/child ?n)`                                                           |
+| Above (ancestor of)           | **is above** `Retro notes`            | pattern + reach                           | `[?a1 :node/id "<node>"] (reach ?n :node/child ?a1)`                                                           |
+| Child of                      | **is a child of** `Inbox`             | pattern + children                        | `[?a1 :node/id "<node>"] [?a1 :node/child ?n]`                                                                 |
+| Has children                  | **has children**                      | pattern, `_` value                        | `[?n :node/child _]`                                                                                           |
+| Links to                      | **links to** `Alice`                  | pattern + pattern                         | `[?a1 :node/id "<node>"] [?n :node/mentions ?a1]`                                                              |
+| Linked from                   | **is linked from** `Weekly`           | pattern + pattern                         | `[?a1 :node/id "<node>"] [?a1 :node/mentions ?n]`                                                              |
+| Group                         | **any of** / **all of** / **none of** | or / and / not( or )                      | `(or-join [?n] (and …) (and …))`; all of is the rows inline; `(not-join [?n] (or-join [?n] (and …) (and …)))`  |
 
-Every row ends in `[?n :node/id ?id]` once, and the find is
-`[:find ?id …]`, which is what `resultNodeIds` reads.
+The query the builder writes is `[:find ?id :where [?n :node/id ?id] …]`:
+`[?n :node/id ?id]` comes **first**, so `?n` is bound before any negation,
+and the find is what `resultNodeIds` reads.
+
+- **Scope is lowering's job, not the IR's.** Every `or` and `not` the
+  builder writes is the `-join` form over `[?n]`, and each branch or
+  negation gets its own variables. DataScript requires the branches of a
+  plain `or` to share their free variables (a branch that walks `reach`
+  binds `?a1`, one that matches a value binds `?v3`; verified: "All
+  clauses in 'or' must use same set of free vars") and a `not` to find its
+  variables bound. `lowerIr` therefore always sets `join` to `["n"]`, and
+  allocates variables per branch. Verified on kb's index: the mockup's
+  `or-join` with branch-local `?v3` and `?a1` answers as meant.
+- **"None of" is the negation of "any of".** "None of A, B" means
+  not (A or B), so it lowers to `(not-join [?n] (or-join [?n] A B))`.
+  `(not A B)` would mean not (A and B), which keeps a node that matches
+  only one of them (verified: on four nodes, `(not [?n :node/text "a"]
+[?n :node/text "b"])` keeps all four).
+- **"Is not" includes the absent.** `status is not Done` keeps a node with
+  no status, and drops a node whose status values include Done among
+  others (status is multi-valued; verified). Lacking a value is
+  `is not set`.
 
 - **Reach takes an edge.** "Is under" walks `:node/child`; the same row
   offers, behind a "via" chip, `:node/mentions` (Tana's "WITH REFS") or a
@@ -75,6 +97,16 @@ Every row ends in `[?n :node/id ?id]` once, and the find is
   that is on the template but empty from one that is absent. kb has no
   empty values (a prop with no values is no prop), so `is set` and
   `is not set` are the whole story.
+- **Dates are two kinds, compared within their kind.** A date field holds a
+  civil date, `YYYY-MM-DD` in the person's calendar; `created` and `edited`
+  are instants, ISO-8601 in UTC (`currentIso`). Both compare correctly as
+  strings only within one canonical form, so each kind has its own kb
+  functions: `kb/today` and `kb/date-in-days n` answer civil dates in the
+  person's time zone, and `kb/instant-now` and `kb/instant-days-ago n`
+  answer instants in UTC. A relative condition is a window, bounded on
+  both ends: "within the next 14 days" is today through today + 14, so
+  an overdue date is not in it, and "in the last 7 days" ends at now, so a
+  future instant is not in it.
 - **Case.** Text conditions are case-insensitive by default, as every
   comparable tool's are. DataScript has `clojure.string/includes?` but no
   `lower-case`, and a `(?i)` regex prefix is not portable to the browser's
@@ -130,29 +162,65 @@ export type Clause =
   strings, `includes?`, `or`, `not`, `missing?` and `not=` all evaluate;
   `clojure.string/lower-case` is "Unknown function".
 - **kb functions** are the predicates DataScript lacks, namespaced `kb/`:
-  `kb/includes-ci?` (case-insensitive substring), `kb/days-ago n` and
-  `kb/days-from-now n` (an ISO date string relative to the clock). They are
-  written in EDN as ordinary calls, so the stored query reads as datalog.
-  `compile` binds each one the query uses as a function input
-  (`:in $ … ?__kb_fn_<name>`, DataScript calls a function passed as an
-  input; verified), the way it already adds `%` and owns the
-  `__kb_reach_<n>` rules. The clock is Effect's `Clock` (`@kb/model`
-  `currentIso`), so a test pins it and a relative-date query is reproducible.
+  `kb/includes-ci?` (case-insensitive substring), and the date functions
+  above. They are written in EDN as ordinary calls, so the stored query
+  reads as datalog. `compile` rewrites each `kb/<name>` call to a variable
+  it binds as a function input (`:in $ … ?__kb_fn_<name>`; DataScript calls
+  a function passed as an input, in predicate and in binding position;
+  verified by the review), the way it already adds `%` and owns the
+  `__kb_reach_<n>` rules. The namespaced name alone is unknown to
+  DataScript; only the closed registry resolves it, so a stored query
+  cannot name a host function kb did not register.
+- **One clock sample per run.** The date functions read one instant, taken
+  from Effect's `Clock` (`@kb/model` `currentIso`) when the run starts, so
+  every condition in a query agrees on "now" and a test pins it. A query
+  that uses them also goes stale with time, not only with writes: its
+  subscription re-runs at the next local midnight (civil dates) or on a
+  coarse timer (instants), beside re-running on graph activity as every
+  query does.
 - **`reach` inside `or`/`not` works**, because the query no longer goes raw
   for using them. That closes GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]] for the
   builder's shapes; a query with a construct still outside the set stays
   raw, as today.
 - **Find positions do not change.** The builder writes `[:find ?id]`.
 
+### First, a restructure: the parser and the IR's canonical domain
+
+The printer below cannot be the inverse of `parseEdn` as `parseEdn` is
+today; the review found, by experiment:
+
+- a string escape reads wrong (`"\n"` parses as the letter `n`), and a
+  number JavaScript prints with an exponent (`1e-7`, `1e+21`) makes the
+  query `raw`;
+- the find spec is inferred rather than kept, and some find variables are
+  dropped;
+- `children` and `:node/child-order` patterns collapse into one clause, so
+  the written form is not recoverable;
+- the existing property gives less than it seems: a query `compile` prints
+  uses quoted attributes, so `parseEdn` of it is `raw`.
+
+So, before any builder code and as its own behaviour-preserving change
+(Rule 1: restructure, then add), `@kb/query` gets:
+
+1. **A canonical IR domain.** `isCanonicalIr(ir)` states which `IrQuery`
+   values are ones `parseEdn` can produce: the find spec kept as written,
+   `children` in one surface form, `reach` in its storage form
+   `(reach ?from :edge ?to [max])` (distinct from the
+   `__kb_reach_<n>` rules `compile` generates), terms in the forms the
+   reader reads. The properties range over that domain, and the generator
+   produces only canonical values.
+2. **A repaired reader.** EDN string escapes and every number form
+   JavaScript prints.
+
 ### The printer
 
 `printEdn(ir: IrQuery): string` in `ir/print.ts`, the inverse of
-`parseEdn` on the IR subset. It is canonical: one space between forms,
-`:where` clauses one per line in IR order, strings escaped as EDN does,
-numbers as JavaScript prints them, `or`/`not` as lists, `reach` in its rule
-form. `compile` stays what it is (IR → the DataScript query value); the
-printer is for storage and for showing a person the query, never for
-running it.
+`parseEdn` on the canonical domain. It is canonical: one space between
+forms, `:where` clauses one per line in IR order, strings escaped as EDN
+does, numbers in a form the reader reads back exactly, `or`/`not` as lists
+with their `-join` vector when set, `reach` in its storage form. `compile`
+stays what it is (IR → the DataScript query value); the printer is for
+storage and for showing a person the query, never for running it.
 
 ## How the round trip is guaranteed
 
@@ -161,7 +229,8 @@ extending the generator that `ir.test.ts` already has (`irArb`) with the new
 clauses, `_`, and the kb functions:
 
 1. **Print then parse is the identity on the IR.**
-   For every generated `ir`: `parseEdn(printEdn(ir))` deep-equals `ir`.
+   For every generated canonical `ir`: `parseEdn(printEdn(ir))` deep-equals
+   `ir`.
    This is what makes the IR, not the text, the model.
 2. **Parse then print is stable.**
    For every EDN text `e` whose parse is an `IrQuery`:
@@ -175,7 +244,7 @@ clauses, `_`, and the kb functions:
    `compile(parseEdn(compile(ir)))`; this makes the same check go through
    the printer.
 
-And two for the builder's own layer, in `ir/conditions.ts`'s tests:
+And three for the builder's own layer, in `ir/conditions.ts`'s tests:
 
 4. **Lower then lift is the identity on conditions.** For every generated
    condition tree `b`: `lift(lowerIr(b))` deep-equals `b`, and so does
@@ -184,6 +253,19 @@ And two for the builder's own layer, in `ir/conditions.ts`'s tests:
    variable name: renaming every variable of a lowered query consistently
    (alpha-renaming) lifts to the same conditions. A hand-written
    `[?task :f/sys.f.type ?tag] [?tag :node/id "todo"]` is "has tag #todo".
+6. **Lift loses nothing.** `lift(ir)` is defined exactly when
+   `lowerIr(lift(ir))` equals `ir` up to consistent renaming of variables:
+   the same find spec and inputs, the same clauses in the same order,
+   duplicates kept, the same variables shared between the same clauses.
+   A query for which that does not hold does not lift; it is shown in the
+   EDN tab only. This is what lets the builder rewrite a query a person or
+   an agent wrote without changing what it asks.
+
+Round trips cannot catch a vocabulary row that is consistently wrong (one
+that lowers "none of" to the wrong Boolean would round-trip perfectly), so
+beside the properties each row has **semantic examples**: a small graph,
+the condition, and the nodes it must answer, run through `compile` on
+kb's index.
 
 A raw query is never printed: `parseEdn` returned `raw`, so there is no IR
 to print, and the text is kept as written.
@@ -198,20 +280,15 @@ read and write the same `sys.f.query`.
   editor is (`ontology-page.tsx`, `QueryEditor`), and saving writes the
   text as typed. Syntax highlighting is not part of this design: kb has no
   code editor component, and adding one is its own decision.
-- **EDN → Conditions: when the query lifts.** On every change to the
-  stored text (from either tab, or from anyone else's write) the page runs
-  `parseEdn` then `lift`:
-  - lifts whole: the Conditions tab shows it;
-  - parses to IR but a clause is outside the vocabulary: the Conditions tab
-    shows what it can and the rest as a read-only **"advanced clause"**
-    chip with that clause's printed text. The chip can be removed, not
-    edited; editing the other rows prints the query with the chip's clause
-    kept in its place. (Lift returns `opaque` for a clause it does not
-    know, and lower prints it back unchanged.)
-  - is `raw` (outside the IR) or does not parse: the Conditions tab says
-    which construct (`:with`, a function outside `PREDICATES`, a parse
-    error at line/column) and offers only the EDN tab. Nothing is
-    rewritten.
+- **EDN → Conditions: when the query lifts, whole.** On every change to
+  the stored text (from either tab, or from anyone else's write) the page
+  runs `parseEdn` then `lift`. Lifting is all-or-nothing (property 6):
+  - lifts: the Conditions tab shows it;
+  - does not lift — a clause outside the vocabulary, a find spec or input
+    the builder does not write, a `raw` query, or a parse error: the
+    Conditions tab says which (`get-else` is outside the vocabulary;
+    `:with`; a parse error at line/column) and offers only the EDN tab.
+    Nothing is rewritten.
 - **Which tab opens.** The one last used for this node, kept in the
   screen state; for a new query node, Conditions.
 - **A write from elsewhere while the builder is open** re-lifts, as a
@@ -253,12 +330,20 @@ Mockup: published beside this record. The shape, in the outline:
 - **Live count.** Each change recomputes the count on the page's replica
   index (`GraphSource.index`, which runs the same `compile`), debounced ~150 ms; while the
   EDN tab holds unparsable text the count shows the last good one, dimmed.
-  The count is the number of distinct result nodes.
+  The count is the number of distinct result nodes. Debouncing only delays
+  the work, and DataScript materialises every row synchronously before
+  anything can cap it (the review measured ~3.1 s for `reach` over a
+  201-node chain). So the count runs **under an execution budget, off the
+  page's main thread** (a worker holding the replica), and a run that
+  overruns shows "counting…" and then "many", never a frozen page. That
+  is a prerequisite of the builder, not a detail of it.
 - **Results render where they render today**: as the query node's results
   (`QueryResultsSection`, `outline-ui/src/query-results.tsx`), in the
   node's views (list, table, board…), with no new result surface. "No
   results" says which condition removed the last node when it can (the
-  count with that condition dropped is non-zero).
+  count with that condition dropped is non-zero), at most one such run per
+  top-level condition, each under the same budget, and only once the
+  query's own count is zero.
 - **Keyboard.** `Tab`/`Shift-Tab` move between slots, `Enter` opens a slot's
   picker, `⌫` on an empty row removes it, `⌘↵` adds a condition below.
   Every slot is a button with an accessible name ("field: status").
@@ -286,12 +371,14 @@ builds is locked into a UI-only format.
   query's results per view. Two languages for "which nodes" is a mirror
   (Rule 1). The builder above is the query's; the clean shape is one
   condition model with two placements (the query's `:where`, and a view's
-  narrowing, ANDed onto it at compile). Recommended as the follow-up, not
-  folded in here.
-- **Opaque clauses** (an advanced clause inside an otherwise lifted query)
-  make lift partial rather than all-or-nothing. If the owner prefers
-  all-or-nothing, drop the chip: any unknown clause sends the person to the
-  EDN tab.
+  narrowing, ANDed onto it at compile). Recommended **before** the builder
+  ships, as its own restructure (Rule 1: restructure, then add), keeping
+  today's label and text matching and handling a frame whose query
+  aggregates, where appending clauses to its `:where` is not enough.
+- **Partial lift.** An "advanced clause" chip, keeping an unknown clause
+  in place inside an otherwise lifted query, needs a preservation law over
+  that clause's shared variables as well as its text. Until one is
+  written, lifting is all-or-nothing (above).
 - **New nodes in a query's results.** Tana gives a node created under a
   search its tag and field values. kb could derive the same from the
   conditions (each "has tag" and "field is" that is a single value), but
@@ -299,27 +386,61 @@ builds is locked into a UI-only format.
 
 ## Open questions for the owner
 
-1. Opaque "advanced clause" chips (partial lift), or all-or-nothing?
+Each with the reviewer's position, which this revision adopts where it
+says so.
+
+1. Partial lift (advanced-clause chips) or all-or-nothing? **Reviewer:
+   all-or-nothing until partial lift has a preservation contract. Adopted.**
 2. Case-insensitive text by default via `kb/includes-ci?`, with a toggle for
-   exact case, or exact by default?
+   exact case, or exact by default? **Reviewer: case-insensitive by
+   default, with an exact-case toggle.**
 3. kb functions as `kb/`-namespaced calls bound by `compile` (proposed), or
    as rules over pre-lowercased datoms (a `:node/text-lc` attribute the
-   index derives, no function inputs)?
+   index derives, no function inputs)? **Reviewer: namespaced calls
+   compiled to function inputs, compilation kept pure, the clock supplied
+   by one execution mechanism. Adopted (one clock sample per run).**
 4. Should the view filter move onto this condition model now (one model,
-   two placements), or after the builder ships?
-5. Relative dates: are `kb/days-ago` / `kb/days-from-now` enough, or does
-   the vocabulary need "this week", "last month" (calendar-aligned)?
-6. Live count on every change runs the query on the page: is a soft cap on
-   counting (say, stop at 10,000 and show "10,000+") wanted?
+   two placements), or after the builder ships? **Reviewer: before, as a
+   separate restructure. Adopted as the recommendation.**
+5. Relative dates: are day offsets enough, or does the vocabulary need
+   "this week", "last month" (calendar-aligned)? **Reviewer: day offsets
+   are enough at first, once civil dates vs instants, both bounds, time
+   zone and refresh are explicit. Those are now stated above.**
+6. Is a soft cap on counting (say, "10,000+") wanted? **Reviewer: a display
+   cap is fine but does not bound the cost; an execution budget is the
+   prerequisite. Adopted (Live count).**
 
 ## Where it would land
 
 | Change                                                     | Where                                                                                    |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Canonical IR domain, reader repairs (a restructure, first) | `packages/domain/query/src/ir/ir.ts`, `parse.ts`                                         |
 | `blank` term, `predicate`/`or`/`not` clauses, `PREDICATES` | `packages/domain/query/src/ir/ir.ts`, `parse.ts`                                         |
 | kb functions bound as inputs                               | `ir/compile.ts`, the clock from the determinism seam                                     |
 | `printEdn`                                                 | `ir/print.ts` (new)                                                                      |
 | `lift` / `lowerIr`, the vocabulary                         | `ir/conditions.ts` (new)                                                                 |
-| Properties 1–5                                             | `packages/domain/query/tests/ir.test.ts`, `conditions.test.ts` (new)                     |
+| Properties 1–6, semantic examples                          | `packages/domain/query/tests/ir.test.ts`, `conditions.test.ts` (new)                     |
+| Count under a budget, off the main thread                  | the page's replica index (`GraphSource.index`), a worker                                 |
 | Conditions/EDN tabs, rows, count                           | `packages/extension/outline-ui/src/query-builder/` (new), mounted by `query-results.tsx` |
 | `sys.f.query` editable                                     | the field-visibility root cause, GAP [[01M5CRYK42Y4G74JD62AD00BZS]]                      |
+
+## Review
+
+An independent review (GPT-6.1-Sol, 2026-10-20) checked this design
+against the code and against DataScript 1.8.1, and found six problems,
+all confirmed by experiment. Each is fixed above:
+
+| #   | Finding                                                                                        | Where it is answered                                                                   |
+| --- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 1   | Print-then-parse identity cannot hold over today's IR: escapes, numbers, find specs, children  | [First, a restructure](#first-a-restructure-the-parser-and-the-irs-canonical-domain)   |
+| 2   | No property said lift then lower keeps an existing query; the opaque chip broke variable links | property 6; all-or-nothing lift                                                        |
+| 3   | "None of" lowered to `(not A B)`, which is not (A and B)                                       | the vocabulary: `(not-join [?n] (or-join [?n] …))`, and semantic examples              |
+| 4   | Negation before `?n` is bound, and `or` branches with different variables, are rejected        | the vocabulary: `[?n :node/id ?id]` first, `-join` forms over `[?n]`; the mockup's EDN |
+| 5   | Relative dates were one-sided, and mixed civil dates with instants                             | Dates are two kinds; one clock sample per run, and refresh with time                   |
+| 6   | Debounce and a result cap do not bound the count's cost                                        | Live count: a budget, off the main thread                                              |
+
+The reviewer also confirmed: one stored EDN value, the shared IR and a
+pure vocabulary in `@kb/query` fit Rule 1; opening never writes; function
+inputs work in both positions; ref negation and `missing?` behave as the
+rows say; and the slot and picker reuse is sound. The static mockup says
+nothing about keyboard or screen-reader behaviour; that is for the build.
