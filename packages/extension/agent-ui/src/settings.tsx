@@ -15,8 +15,9 @@ import {
  * the selected provider's `model`, each drawn with the page's field editor,
  * as any field is drawn anywhere. Choosing is writing a field; the next
  * turn reads it. There is no settings widget of the agent's own: a provider
- * is an `#agent-provider` node, made and edited like any node.
+ * is an `#agent-provider` node, made like any node.
  */
+// GAP [[01M5CRYK42Y4G74JD62AD00BZS]] a provider's adapter, endpoint and credential fields are hidden sys fields
 
 const AGENT_NODE = extensionNodeId(agentExtension.name);
 const NONE: PropValue[] = [];

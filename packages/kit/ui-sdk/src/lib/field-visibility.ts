@@ -11,6 +11,7 @@ import { SYSTEM_IDS, isSysPrefixed } from "./types";
  * field's page is what removes the need for a configurator panel built only
  * for them.
  */
+// GAP [[01M5CRYK42Y4G74JD62AD00BZS]] an allow-list in the page decides which sys fields a person may edit
 const SCHEMA_SURFACE_FIELDS = new Set<string>([
   SYSTEM_IDS.colorField,
   SYSTEM_IDS.hiddenField,
