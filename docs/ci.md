@@ -11,18 +11,22 @@ release it.
 | `nightly.yml` (Nightly) | Daily 03:00 UTC, manual | Publish main's tip as a `-nightly.<date>` prerelease, if it changed and is green |
 | `publish.yml` (Publish) | Called by Release and Nightly only | Build, smoke-test, attest and publish one release |
 
-`validate.yml` is the single answer to "does this change land". It has two
-independent jobs that run in parallel because they share nothing:
+`validate.yml` is the single answer to "does this change land". Its jobs run
+in parallel because they share nothing but setup, the composite action
+`.github/actions/setup` (Nix, `bun install`, and for the `nix` job the Nix
+store `nix flake check` builds, restored from the Actions cache). Every step
+runs inside `nix develop`, so the tool versions — Bun included, the same one
+the pre-commit hook and `packages.kb` use — are the flake's.
 
 - **`nix`** — `shellcheck` over the hook and every `bin/` script, `actionlint`,
   `nixfmt --check`, and `nix flake check`, which builds `packages.kb`. It runs
   on `macos-15` and `ubuntu-24.04`, so the package is proven on Darwin and on
-  Linux. Every step runs inside `nix develop`, so the tool versions are the
-  flake's.
-- **`kb`** — `bun run verify`, `bun run test`, `bun run test:ui`,
-  `bun run test:dst` and `bun run test:render`, followed by the generated-docs
-  check. Every step runs inside `nix develop`, so Bun is the flake's, the same
-  one the pre-commit hook and `packages.kb` use.
+  Linux.
+- **`verify`** — `bun run verify`, then the generated-docs check.
+- **`core`** — `bun run test` and `bun run test:dst`.
+- **`ui (1/2)`, `ui (2/2)`** — `bun run test:ui`, each shard half of every
+  browser package's files.
+- **`render`** — `bun run test:render`.
 
 ## Pre-commit: the same questions, one commit earlier
 
@@ -77,15 +81,36 @@ workflows.
 A fresh clone without `bun install` fails the hook with the command to run,
 rather than passing on checks it could not make.
 
-## Why the kb job looks the way it does
+## Why the jobs look the way they do
 
+- **One job per question, sharded where one is slow.** Before the split the
+  suites ran one after another in a single job, about 18 minutes; now the
+  longest job is the render suite. The UI suite, the slowest, is sharded
+  across two runners rather than parallelised on one: Vitest already forks a
+  worker per core within a package, and the suite has gone red under load
+  before (the timing gaps in `docs/rules.md`), so each shard keeps the load
+  a single run had. `test:ui` still runs one package at a time
+  (`--parallel=1`), and the shard is Vitest's own `--shard`, passed through
+  nx to each package.
+- **Five macOS jobs, no more.** An account runs at most five macOS jobs at
+  once: `nix (macos-15)`, `core`, the two UI shards and `render`. A sixth would
+  wait for one of Validate's own to finish, which is why the render suite,
+  shorter than the UI suite, stays one job.
+- **Only the flake check's store is cached.** The macOS `nix flake check`
+  builds one derivation per npm package, about 3,700, none of them
+  substitutable: about seven minutes. `nix-community/cache-nix-action`
+  restores them from the repository's Actions cache, no secret involved, and
+  only kb itself builds. The dev shell and Bun's package cache are not
+  cached, because measured they do not pay: the dev shell substitutes from
+  cache.nixos.org faster than its snapshot untars, and `bun install` takes
+  seconds. The setup action states the numbers.
 - **It calls `bun run verify`, not its constituent tools.** `verify` is the one
   name for the complete toolchain gate; what it runs is its definition in
   `package.json`, and is stated nowhere else.
-- **It checks out the full history.** The harness's warn ratchet holds the
-  committed baseline to the one at the fork point with `main` (on `main`
+- **`verify` checks out the full history.** The harness's warn ratchet holds
+  the committed baseline to the one at the fork point with `main` (on `main`
   itself, the previous commit), so a regenerated snapshot cannot raise it; a
-  shallow clone has no fork point to read.
+  shallow clone has no fork point to read. No other job reads history.
 - **The render suite runs, with no retries.** `bun run test:render` builds the
   UI in Vite's `test-render` mode and gives every test its own server over a
   fresh fixture store (`tests-render/harness-test.ts`), so no test can see
@@ -94,10 +119,13 @@ rather than passing on checks it could not make.
   Chromium offers an adapter, WebGL2 where it does not, so a silent fall back
   is red. The WebGPU-only specs (the Embers study) skip on a runner with no
   adapter, each under the gap that names that lane.
-- **`macos-15`, not `ubuntu-latest`.** The suite has only ever run on Darwin.
-  Linux would be faster and cheaper, but a first-ever Linux run would mix real
-  regressions with portability noise. Moving it is a worthwhile follow-up on
-  its own. The package build already runs on Linux, in the `nix` job.
+- **The suites run on `macos-15`, not `ubuntu-latest`.** They have only ever
+  run on Darwin. Linux would be faster and cheaper, but a first-ever Linux run
+  would mix real regressions with portability noise. Moving them is a
+  worthwhile follow-up on its own. The package build already runs on Linux,
+  in the `nix` job, and `verify` runs there: it is static analysis, and the
+  pre-commit hook runs it on Linux checkouts for every commit. That also
+  keeps it out of the five macOS slots.
 - **The DST sweep runs 25 extra seeds.** `bun test` already runs the committed
   seeds; the sweep is the only thing that exercises replay determinism on
   seeds nobody has looked at. It is pure and in-memory, so it is nearly free.
@@ -130,7 +158,8 @@ gh api -X PUT repos/popemkt/kb/branches/main/protection \
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["nix (macos-15)", "nix (ubuntu-24.04)", "kb"]
+    "contexts": ["nix (macos-15)", "nix (ubuntu-24.04)", "verify", "core",
+                 "ui (1/2)", "ui (2/2)", "render"]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": null,

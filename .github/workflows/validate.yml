@@ -1,5 +1,10 @@
 name: Validate
 
+# One question, "is the repo green", answered by independent jobs that run in
+# parallel because they share nothing but setup (.github/actions/setup). The
+# run's conclusion is the answer; bin/validate-green reads that, never a job
+# name. Why the jobs are cut where they are is docs/ci.md.
+
 on:
   pull_request:
   push:
@@ -30,8 +35,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      # The snapshot holds the ~3,700 bun2nix package derivations `checks.kb`
+      # depends on; restored, only kb itself builds.
+      - name: Set up
+        uses: ./.github/actions/setup
+        with:
+          flake-store: true
+          install: false
       - name: Lint the hook, scripts and workflows
         run: |
           shellcheck .githooks/pre-commit bin/*
@@ -41,12 +51,13 @@ jobs:
       - name: Build flake checks
         run: nix flake check -L
 
-  # The TypeScript workspace. macos-15 matches the only platform the suite has
-  # ever run on; moving it to ubuntu would be cheaper but would conflate real
-  # regressions with first-ever-Linux-run portability noise.
-  kb:
-    runs-on: macos-15
-    timeout-minutes: 40
+  # The toolchain gate. ubuntu, unlike the suites below: it is static analysis
+  # (types, lint, format, the harness, the audits), the pre-commit hook already
+  # runs exactly this on Linux checkouts for every commit, and it keeps
+  # Validate inside the five macOS jobs an account may run at once.
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     # Every step runs inside the flake's dev shell, so Bun is the one the
     # pre-commit hook and `packages.kb` use, not whatever setup-bun calls
     # latest.
@@ -62,11 +73,8 @@ jobs:
           # (harness/src/snapshot.ts, baselineAtRatchetBase); a shallow clone
           # has no history to find it in.
           fetch-depth: 0
-
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Set up
+        uses: ./.github/actions/setup
 
       # `verify` is the one name for the toolchain gate; what it runs is its
       # definition in package.json, stated nowhere else. Invoked with bun, not
@@ -75,11 +83,29 @@ jobs:
       - name: Verify
         run: bun run verify
 
+      - name: Generated docs match .kb data
+        run: bun packages/app/cli/src/main.ts docs check
+
+  # The suites. macos-15 matches the only platform they have ever run on;
+  # moving them to ubuntu would be cheaper but would conflate real regressions
+  # with first-ever-Linux-run portability noise. An account runs at most five
+  # macOS jobs at once, and Validate holds exactly five (these four and
+  # `nix (macos-15)`): a sixth would wait for one of its own to finish.
+  core:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up
+        uses: ./.github/actions/setup
+
       - name: Core suite
         run: bun run test
-
-      - name: UI suite
-        run: bun run test:ui
 
       # Wider than the committed seeds that `bun test` already runs. Cheap
       # (pure, in-memory histories) and the only thing that exercises replay
@@ -87,15 +113,53 @@ jobs:
       - name: Deterministic simulation sweep
         run: bun run test:dst
 
+  # Sharded across runners, not parallelised on one: Vitest already forks a
+  # worker per core inside each package, and the suite has gone red under load
+  # before (its timing gaps), so every runner keeps the one-package-at-a-time
+  # load `test:ui` gives it and runs half of each package's files. A shard can
+  # hold none of a small package's files, which is not a failure.
+  ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up
+        uses: ./.github/actions/setup
+
+      - name: UI suite
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: bun run test:ui --shard="$SHARD" --passWithNoTests
+
+  # Real-browser specs. Not sharded: it is shorter than the UI suite, and a
+  # sixth macOS job would queue. No retries (playwright.config.ts): a flaky
+  # spec is fixed, not retried into green. A runner without a WebGPU adapter
+  # runs the WebGL2 half and skips the WebGPU-only specs, each under its GAP.
+  render:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up
+        uses: ./.github/actions/setup
+
       - name: Install Chromium for the render suite
         run: bunx playwright install chromium
         working-directory: packages/test-support/render-tests
 
-      # Real-browser specs. No retries (playwright.config.ts): a flaky spec is
-      # fixed, not retried into green. A runner without a WebGPU adapter runs
-      # the WebGL2 half and skips the WebGPU-only specs, each under its GAP.
       - name: Render suite
         run: bun run test:render
-
-      - name: Generated docs match .kb data
-        run: bun packages/app/cli/src/main.ts docs check
