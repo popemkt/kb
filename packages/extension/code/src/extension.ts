@@ -14,8 +14,10 @@ import {
   declarationPlugin,
   defineExtension,
   extensionNamespace,
+  guardAction,
   provideAction,
   viewDef,
+  type ActionGuard,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { SCRIPT_LIST } from "./list.ts";
@@ -30,22 +32,30 @@ export const codeExtension = defineExtension({
   optional: { byDefault: "on" },
   seed: codeSeedNodes,
   views: [viewDef(CodeView, codeText)],
-  // A run is a person's act or an agent's: code never starts one, so it
-  // cannot chain runs that each ask the person again.
-  policies: [
-    {
-      id: "approval.script-run",
-      text: "Sandboxed code never starts a script run",
-      match: "ext.code.script.run",
-      actor: "script",
-      decision: "deny",
-    },
-  ],
 });
 
 /**
- * The code family's shared plugin: its actions, and its declaration's
- * views, text included. It is the server's entry as it is, and the page's
+ * A run is a person's act or an agent's: code never starts one, so it
+ * cannot chain runs that each ask the person again. The family's own rule
+ * about its own action, so it is the family's guard, held whether or not
+ * the deployment governs calls; a person's policies decide everything else.
+ */
+const scriptRunGuard: Omit<ActionGuard, "match"> = {
+  before: ({ invocation }) =>
+    Effect.succeed(
+      invocation.actor === "script"
+        ? {
+            decision: "deny",
+            rule: "script-run",
+            message: `action ${invocation.id} is never started by sandboxed code: a run is a person's act, or an agent's`,
+          }
+        : { decision: "allow" },
+    ),
+};
+
+/**
+ * The code family's shared plugin: its actions, its guard on running a
+ * script, and its declaration's views, text included. It is the server's entry as it is, and the page's
  * entry loads it as a child; the page sends its actions to the server,
  * where code runs.
  */
@@ -62,6 +72,7 @@ export function codePlugin(): Plugin {
             (action) => ctx.contribute(ActionPoint, provideAction(action)),
             { discard: true },
           ),
+          guardAction(ctx, `${ctx.namespace}.${SCRIPT_RUN.id}`, scriptRunGuard, "script-run"),
           ctx.plugin(declarationPlugin(codeExtension)),
         ],
         { discard: true },

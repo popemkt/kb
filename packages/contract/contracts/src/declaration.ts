@@ -8,7 +8,7 @@
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { DeclaredOptionSet, KbNode, SeedPolicy } from "@kb/model";
+import type { DeclaredOptionSet, KbNode } from "@kb/model";
 import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -51,13 +51,6 @@ export interface ExtensionDeclaration {
    * its kind's field, so choosing one is writing that field.
    */
   readonly declaredOptions?: readonly DeclaredOptionSet[];
-  /**
-   * The approval policies the family declares, each a denial (`SeedPolicy`):
-   * the seed derives each one's node under the list of every policy. A family
-   * only forbids, never permits, so it cannot outrank a policy the person
-   * wrote.
-   */
-  readonly policies?: readonly SeedPolicy[];
   /**
    * The family's fields whose values carry references beyond `[[id]]`
    * tokens and ref values, each with how to read them: the reference

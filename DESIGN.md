@@ -2637,7 +2637,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, refCarriers?, declaredOptions?, policies?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), and, for the one
   family that provides it, of the default view type (View nodes):
@@ -2776,16 +2776,12 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     order, so every extension is a node of the graph, the hub its switch
     and its configuration hang off. Being one of that list's children is
     what such a node is (Kinds, roles and options), so it carries no tag;
-  - each approval policy a declaration declares (`policies`), its node
-    derived and filed under core's list of every policy
-    (`approval.policies`), editable as any is. A declared policy only
-    denies: the most specific policy wins, so one that asked or allowed
-    could outrank a policy the person wrote, and the fold refuses it. A
-    policy the person writes beside it never lowers it: at the same match
-    a declared deny naming the actor outranks one naming none, and a tie
-    goes to the stricter. The person lifts a declared deny only by editing
-    that policy itself, a write to a policy, which always asks; the fold
-    never writes over an edit, and seeds a deleted one again;
+  - no approval policy: policies are the person's, written in the
+    governance family's vocabulary ([Governance](#governance)). A family's
+    own rule about its own actions is a guard its plugin contributes
+    (`guardAction`), held whether or not the deployment governs calls; the
+    code family's `script-run` guard, which denies `ext.code.script.run` to
+    `script`, is one;
   - pure data: it opens nothing and fails on an id declared twice, or on a
     default view type provided twice or naming a view its provider does
     not provide;
@@ -4446,9 +4442,9 @@ system, one runner, one trust.
   It asks approval as a write that requires it: a person's runs, an
   agent's only once approved, and an untrusted script is refused before
   anything runs. The scripts panel's Run once is the person's. Code never
-  starts a run: the code family declares the policy that denies it to
-  `script` (`approval.script-run`), so code cannot chain runs that each ask
-  the person again.
+  starts a run: the code family's guard denies it to `script`
+  (`script-run`), so code cannot chain runs that each ask the person
+  again.
 - **Listed with its trust**: `ext.code.script.list` tells the scripts some
   nodes name, each with its grant and whether a person trusts it; a view's
   agent verb says which scripts run on it through it (the canvas's

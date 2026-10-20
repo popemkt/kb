@@ -182,13 +182,7 @@ export {
   seededTag,
   systemSeedNodes,
 } from "./seed.ts";
-export {
-  foldSeed,
-  type FoldedSeed,
-  type SeedPolicy,
-  type SeedSource,
-  type SeedView,
-} from "./seed-fold.ts";
+export { foldSeed, type FoldedSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
 export {
   DESIGN_SYSTEM_OPTIONS,
   designSystemChoice,
