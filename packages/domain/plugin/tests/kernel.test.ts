@@ -281,3 +281,54 @@ describe("composition", () => {
     expect(kernel.contributionsOf("canvas")).toEqual([]);
   });
 });
+
+describe("a plugin's contributions appear and go as one", () => {
+  test("none is visible while its apply runs; all are once it has applied", async () => {
+    const kernel = makeKernel();
+    const seen: string[][] = [];
+    const halfway = definePlugin({
+      name: "halfway",
+      apply: Effect.fnUntraced(function* (ctx) {
+        yield* ctx.contribute(Greetings, { id: "first", value: "first" });
+        seen.push(kernel.contributions(Greetings).map(({ value }) => value));
+        yield* ctx.contribute(Greetings, { id: "second", value: "second" });
+      }),
+    });
+    await Effect.runPromise(kernel.load(halfway));
+    expect(seen).toEqual([[]]);
+    expect(kernel.contributions(Greetings).map(({ value }) => value)).toEqual(["first", "second"]);
+  });
+
+  test("none is visible once it starts to unload, while its finalizers still run", async () => {
+    const kernel = makeKernel();
+    const seen: string[][] = [];
+    const going = definePlugin({
+      name: "going",
+      apply: Effect.fnUntraced(function* (ctx) {
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => seen.push(kernel.contributions(Greetings).map(({ value }) => value))),
+        );
+        yield* ctx.contribute(Greetings, { id: "a", value: "a" });
+        yield* ctx.contribute(Greetings, { id: "b", value: "b" });
+      }),
+    });
+    await Effect.runPromise(kernel.load(going));
+    await Effect.runPromise(kernel.unload("going"));
+    expect(seen).toEqual([[]]);
+  });
+
+  test("a child's contributions wait for the plugin that loaded it", async () => {
+    const kernel = makeKernel();
+    const seen: string[][] = [];
+    const parent = definePlugin({
+      name: "parent",
+      apply: Effect.fnUntraced(function* (ctx) {
+        yield* ctx.plugin(greeter("child", "hi"));
+        seen.push(kernel.contributions(Greetings).map(({ value }) => value));
+      }),
+    });
+    await Effect.runPromise(kernel.load(parent));
+    expect(seen).toEqual([[]]);
+    expect(kernel.contributions(Greetings).map(({ value }) => value)).toEqual(["hi"]);
+  });
+});

@@ -115,7 +115,10 @@ export interface Kernel {
   readonly unload: (name: string) => Effect.Effect<void, PluginError>;
   /** Unload every plugin, newest first. */
   readonly shutdown: Effect.Effect<void>;
-  /** Every contribution to a point, in the order it was made. */
+  /**
+   * Every contribution to a point, in the order it was made, of the plugins
+   * that have applied: a plugin still applying, or already going, shows none.
+   */
   readonly contributions: <C>(point: PointKey<C>) => readonly Contribution<C>[];
   /** The contribution holding `id` as its id or one of its aliases. */
   readonly lookup: <C>(point: PointKey<C>, id: string) => Contribution<C> | undefined;
@@ -140,6 +143,12 @@ interface Entry {
   readonly parent: string | null;
   readonly apply: Plugin["apply"];
   status: PluginStatus;
+  /**
+   * Whether `apply` has run to its end and the plugin is still active: what
+   * it contributed is visible from then until it starts to go, all at once
+   * either way.
+   */
+  applied: boolean;
   error: PluginError | null;
   /** Open while `active`; everything the plugin registered hangs off it. */
   scope: Scope.Closeable | null;
@@ -185,6 +194,17 @@ interface State {
   version: number;
 }
 
+/**
+ * Whether what `owner` contributed is visible: it and every plugin that
+ * loaded it have applied, so a reader never sees part of a plugin's
+ * contributions, while it loads or while it goes.
+ */
+function visible(state: State, owner: string): boolean {
+  const entry = state.entries.get(owner);
+  if (entry === undefined || !entry.applied) return false;
+  return entry.parent === null || visible(state, entry.parent);
+}
+
 function changed(state: State): void {
   state.version++;
   for (const listener of state.subscribers) listener();
@@ -218,8 +238,10 @@ function claim<K extends string>(
 const deactivate = Effect.fnUntraced(function* (state: State, entry: Entry, next: PluginStatus) {
   const scope = entry.scope;
   // Marked inactive before its finalizers run, so a finalizer that reaches
-  // back into the kernel sees a plugin that is already on its way out.
+  // back into the kernel sees a plugin that is already on its way out, and
+  // no reader sees half of what it contributed.
   entry.scope = null;
+  entry.applied = false;
   entry.status = next;
   if (scope !== null) yield* Scope.close(scope, Exit.void);
   changed(state);
@@ -244,7 +266,12 @@ const activate = Effect.fnUntraced(function* (state: State, entry: Entry) {
   entry.error = null;
   changed(state);
   const exit = yield* Effect.exit(Scope.provide(scope)(entry.apply(contextFor(state, entry))));
-  if (Exit.isSuccess(exit) || entry.scope !== scope) return;
+  if (entry.scope !== scope) return;
+  if (Exit.isSuccess(exit)) {
+    entry.applied = true;
+    changed(state);
+    return;
+  }
   // A failed apply leaves nothing behind: closing its scope undoes every
   // registration it made before it failed.
   entry.scope = null;
@@ -289,6 +316,7 @@ const loadEntry = Effect.fnUntraced(function* (state: State, plugin: Plugin, par
     parent: parent?.name ?? null,
     apply: plugin.apply,
     status: "pending",
+    applied: false,
     error: null,
     scope: null,
   };
@@ -424,17 +452,22 @@ export function makeKernel(): Kernel {
     contributions: (point) => {
       const slot = state.points.get(point.name);
       if (slot?.key !== point) return [];
-      return slot.items.map((item) => ({ ...item, value: asKeyType(point, item.value) }));
+      return slot.items
+        .filter((item) => visible(state, item.owner))
+        .map((item) => ({ ...item, value: asKeyType(point, item.value) }));
     },
     lookup: (point, id) => {
       const slot = state.points.get(point.name);
       const item = slot?.key === point ? slot.byId.get(id) : undefined;
-      return item === undefined ? undefined : { ...item, value: asKeyType(point, item.value) };
+      return item === undefined || !visible(state, item.owner)
+        ? undefined
+        : { ...item, value: asKeyType(point, item.value) };
     },
     contributionsOf: (owner) =>
       [...state.points.values()].flatMap((slot) =>
         slot.items
           .filter((item) => item.owner === owner || item.owner.startsWith(`${owner}/`))
+          .filter((item) => visible(state, item.owner))
           .map(({ id, aliases, owner: by }) => ({ point: slot.key.name, id, aliases, owner: by })),
       ),
     service: (key) => {
