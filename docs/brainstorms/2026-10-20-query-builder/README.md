@@ -1,8 +1,8 @@
 # Query builder — a projection of the query's EDN
 
 **Status: design for the owner's review, not built.** Date: 2026-10-20.
-Revised the same day after an independent review (GPT-6.1-Sol); what
-changed and why is under [Review](#review).
+Revised the same day after two rounds of independent review
+(GPT-6.1-Sol); what changed and why is under [Review](#review).
 Mockup: published beside this record (T3 `html_render`); the same page is
 `mockup.html` in this directory.
 
@@ -246,17 +246,33 @@ clauses, `_`, and the kb functions:
 
 And three for the builder's own layer, in `ir/conditions.ts`'s tests:
 
-4. **Lower then lift is the identity on conditions.** For every generated
-   condition tree `b`: `lift(lowerIr(b))` deep-equals `b`, and so does
-   `lift(parseEdn(printEdn(lowerIr(b))))`.
+4. **Lower then lift is the identity on canonical conditions.** Two
+   condition trees can mean the same and lower to the same IR (two
+   top-level rows and an "all of" group holding them; "status is Doing,
+   Review" and an "any of" group of two "status is" rows), so lift cannot
+   tell them apart. Conditions therefore have a canonical form too
+   (`canonicalConditions`): an "all of" group is flattened into its parent
+   (top level, or a branch of "any of" / "none of"), so "all of" exists
+   only as a branch; an "any of" whose branches are all "is" on one field
+   becomes one multi-value row; a group with one child is that child; an
+   empty group is dropped and never lowered (DataScript rejects an empty
+   `(or-join [?n])`). The UI keeps a person's tree as they build it and
+   canonicalises on write. For every generated tree `b`, with
+   `c = canonicalConditions(b)`: `lift(lowerIr(c))` deep-equals `c`, and so
+   does `lift(parseEdn(printEdn(lowerIr(c))))`.
 5. **Lift recognises up to renaming.** Lift matches by structure, not by
    variable name: renaming every variable of a lowered query consistently
    (alpha-renaming) lifts to the same conditions. A hand-written
    `[?task :f/sys.f.type ?tag] [?tag :node/id "todo"]` is "has tag #todo".
 6. **Lift loses nothing.** `lift(ir)` is defined exactly when
-   `lowerIr(lift(ir))` equals `ir` up to consistent renaming of variables:
-   the same find spec and inputs, the same clauses in the same order,
-   duplicates kept, the same variables shared between the same clauses.
+   `lowerIr(lift(ir))` is alpha-equivalent to `ir`: there is a bijection
+   between their variable bindings that respects scope (each `or-join` /
+   `not-join` branch is its own scope, so a branch may reuse a name
+   another branch uses) and maps every occurrence, in the find spec, the
+   inputs and the join vectors included; and under it, the same clauses
+   in the same order, duplicates kept, the same constants, the same
+   sharing. Lift proposes a condition tree and accepts it only if that
+   check passes.
    A query for which that does not hold does not lift; it is shown in the
    EDN tab only. This is what lets the builder rewrite a query a person or
    an agent wrote without changing what it asks.
@@ -290,7 +306,12 @@ read and write the same `sys.f.query`.
     `:with`; a parse error at line/column) and offers only the EDN tab.
     Nothing is rewritten.
 - **Which tab opens.** The one last used for this node, kept in the
-  screen state; for a new query node, Conditions.
+  screen state; for a new query node, Conditions. That needs "New query
+  node" and "Turn into query" to mint the builder's canonical query,
+  `[:find ?id :where [?n :node/id ?id]]` (every node, no conditions yet),
+  instead of today's `[:find ?id ?text …]` (`app/ui/src/lib/query-node.ts`),
+  whose extra find column would not lift (property 6). `resultNodeIds`
+  reads the first column, so the results are the same.
 - **A write from elsewhere while the builder is open** re-lifts, as a
   field shows a value that changed under it. There is no draft: every
   condition edit is a write, as every edit in kb is, and undo is the
@@ -327,16 +348,30 @@ Mockup: published beside this record. The shape, in the outline:
   unbounded in the model; the UI indents. A NOT group is "none of"; a
   single negated condition is an operator ("is not", "does not have tag"),
   not a group.
-- **Live count.** Each change recomputes the count on the page's replica
-  index (`GraphSource.index`, which runs the same `compile`), debounced ~150 ms; while the
-  EDN tab holds unparsable text the count shows the last good one, dimmed.
-  The count is the number of distinct result nodes. Debouncing only delays
-  the work, and DataScript materialises every row synchronously before
-  anything can cap it (the review measured ~3.1 s for `reach` over a
-  201-node chain). So the count runs **under an execution budget, off the
-  page's main thread** (a worker holding the replica), and a run that
-  overruns shows "counting…" and then "many", never a frozen page. That
-  is a prerequisite of the builder, not a detail of it.
+- **Live count.** Each change recomputes the count, debounced ~150 ms;
+  while the EDN tab holds unparsable text the count shows the last good
+  one, dimmed. The count is the number of distinct result nodes. A run
+  that overruns its budget shows "took too long to count", never a
+  number it did not establish: a slow query is not a large one (the
+  review's `reach` over a 201-node chain, followed by a condition nothing
+  met, answered zero rows after 11.8 s).
+- **Execution is a prerequisite, and it is not the builder's.** Every
+  condition edit writes, and every write re-runs the query's results as
+  well as its count: on the page, the results hook runs the new EDN
+  synchronously while rendering (`use-query-node-rows.ts`) when the socket
+  is down, and the server runs its results subscription synchronously
+  when it is up. DataScript materialises every row before anything can
+  cap it (the review measured ~3.1 s for `reach` over a 201-node chain).
+  So a budget on the count alone would not keep the page responsive. The
+  builder needs **one budgeted execution mechanism, shared by results and
+  count**, on the page and on the server. Where the page's replica runs
+  is that mechanism's decision: moving the one `KbIndex` behind
+  `GraphSource.index()` into a worker changes its synchronous contract
+  for every reader; a second index in a worker would be a copy kept in
+  step by hand (a mirror, Rule 1). That choice is open question 7, and
+  the builder waits for it. Once there is a worker, the date functions'
+  closures are built inside it over the run's one clock sample, not sent
+  through `postMessage`.
 - **Results render where they render today**: as the query node's results
   (`QueryResultsSection`, `outline-ui/src/query-results.tsx`), in the
   node's views (list, table, board…), with no new result surface. "No
@@ -408,7 +443,13 @@ says so.
    zone and refresh are explicit. Those are now stated above.**
 6. Is a soft cap on counting (say, "10,000+") wanted? **Reviewer: a display
    cap is fine but does not bound the cost; an execution budget is the
-   prerequisite. Adopted (Live count).**
+   prerequisite. Adopted (Live count, Execution).**
+7. **New, from the second review.** One budgeted query execution, shared by
+   results and count: move the page's one replica index into a worker
+   (and make its readers asynchronous), or keep it on the main thread and
+   budget cooperatively (DataScript cannot be interrupted mid-query, so
+   this bounds less)? The builder should not ship before this is decided,
+   and the decision is bigger than the builder.
 
 ## Where it would land
 
@@ -420,15 +461,16 @@ says so.
 | `printEdn`                                                 | `ir/print.ts` (new)                                                                      |
 | `lift` / `lowerIr`, the vocabulary                         | `ir/conditions.ts` (new)                                                                 |
 | Properties 1–6, semantic examples                          | `packages/domain/query/tests/ir.test.ts`, `conditions.test.ts` (new)                     |
-| Count under a budget, off the main thread                  | the page's replica index (`GraphSource.index`), a worker                                 |
+| One budgeted execution for results and count               | open question 7; `GraphSource.index`, the server's results subscription                  |
+| "Turn into query" mints the canonical query                | `packages/app/ui/src/lib/query-node.ts`                                                  |
 | Conditions/EDN tabs, rows, count                           | `packages/extension/outline-ui/src/query-builder/` (new), mounted by `query-results.tsx` |
 | `sys.f.query` editable                                     | the field-visibility root cause, GAP [[01M5CRYK42Y4G74JD62AD00BZS]]                      |
 
 ## Review
 
 An independent review (GPT-6.1-Sol, 2026-10-20) checked this design
-against the code and against DataScript 1.8.1, and found six problems,
-all confirmed by experiment. Each is fixed above:
+against the code and against DataScript 1.8.1. The first round found six
+problems, all confirmed by experiment. Each is answered above:
 
 | #   | Finding                                                                                        | Where it is answered                                                                   |
 | --- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -437,10 +479,24 @@ all confirmed by experiment. Each is fixed above:
 | 3   | "None of" lowered to `(not A B)`, which is not (A and B)                                       | the vocabulary: `(not-join [?n] (or-join [?n] …))`, and semantic examples              |
 | 4   | Negation before `?n` is bound, and `or` branches with different variables, are rejected        | the vocabulary: `[?n :node/id ?id]` first, `-join` forms over `[?n]`; the mockup's EDN |
 | 5   | Relative dates were one-sided, and mixed civil dates with instants                             | Dates are two kinds; one clock sample per run, and refresh with time                   |
-| 6   | Debounce and a result cap do not bound the count's cost                                        | Live count: a budget, off the main thread                                              |
+| 6   | Debounce and a result cap do not bound the count's cost                                        | Live count; Execution is a prerequisite (round 2 closed it in part, below)             |
 
 The reviewer also confirmed: one stored EDN value, the shared IR and a
 pure vocabulary in `@kb/query` fit Rule 1; opening never writes; function
 inputs work in both positions; ref negation and `missing?` behave as the
 rows say; and the slot and picker reuse is sound. The static mockup says
 nothing about keyboard or screen-reader behaviour; that is for the build.
+
+A second round marked findings 1 to 5 closed and 6 partly closed, and
+found four more, all confirmed:
+
+| #   | Finding                                                                           | Where it is answered                                           |
+| --- | --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 7   | A budget on the count leaves the results, which re-run on every write, unbounded  | Execution is a prerequisite; open question 7                   |
+| 8   | "Turn into query" mints `[:find ?id ?text …]`, which the builder could never lift | Which tab opens: the canonical query is minted instead         |
+| 9   | Property 4 cannot hold: different condition trees lower to the same IR            | property 4 over canonical conditions; empty groups are dropped |
+| 10  | A timed-out count is not a large one                                              | Live count: "took too long to count"                           |
+
+It also pinned property 6 down as a partial inverse with scoped
+alpha-equivalence (now its wording), and confirmed that function inputs
+fit "one clock sample per run" with `compile` kept pure.
