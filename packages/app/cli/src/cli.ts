@@ -32,7 +32,7 @@ import {
 } from "@kb/model";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
-import { EXIT_USAGE, toInt, toOrigin, toPort } from "./arguments.ts";
+import { EXIT_USAGE, collectIdentity, toInt, toOrigin, toPort } from "./arguments.ts";
 import {
   ACTION_INVOKE_WIRE,
   EXIT_FAILED,
@@ -268,6 +268,11 @@ function buildProgram(): Command {
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
     .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
+    .option(
+      "--identity-header <header=login>",
+      "trust the reverse proxy's <header> to name the person; a request whose header is <login> is theirs (repeatable; only where the proxy is the one way in)",
+      collectIdentity,
+    )
     .option("--no-open", "do not open a browser")
     .action(
       cliAction(
@@ -279,6 +284,7 @@ function buildProgram(): Command {
               dev?: boolean;
               devPort?: number;
               publicOrigin?: string;
+              identityHeader?: { header: string; people: readonly string[] };
               open?: boolean;
             },
           ],
@@ -293,6 +299,7 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
+              identityHeader: opts.identityHeader,
               extensions: yield* hostExtensions(root),
               openedBy: ACTION_INVOKE_WIRE,
             });

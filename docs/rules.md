@@ -347,6 +347,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
+### GAP: a trusted identity header is believed from any process that reaches kb ui's port, not only from the proxy
+
+- **expected** — kb ui believes the identity header only on requests that came through the trusted proxy: it listens where only the proxy can connect (a unix socket owned by the service, which tailscale serve can target), or it authenticates the proxy itself
+- **current** — With --identity-header, kb ui listens on loopback TCP and trusts the header on any request; Tailscale serve strips client copies, but a local process that connects to the port directly can send it
+- **impact** — On a host shared with other users or untrusted local programs, any of them can claim to be the person: approve calls and drive the agent. Sound only where every local process is the owner's anyway (the approval floor already treats those as the owner)
+- **closes** — kb ui --listen unix:<path> (Bun.serve unix) with the socket mode 0600 and the proxy pointed at it, or a shared secret the proxy adds, with the header trusted only alongside it
+- **node** — `01M5BVQHJEDC4ZK7BX7RZWDVF8`
+
 ### GAP: a trusted repository extension is imported from disk after its digest is read
 
 - **expected** — The server imports exactly the bytes whose digest a person trusted.

@@ -39,7 +39,7 @@ import {
   type UiDevSpawn,
 } from "./dev.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
-import { mintPageToken, pageTokenAuthenticator, type Authenticator } from "./auth.ts";
+import { mintPageToken, uiAuthenticator, type Authenticator, type IdentityHeader } from "./auth.ts";
 import { handshakeHeaders, requestGuard, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";
@@ -67,6 +67,12 @@ export interface UiServerOptions {
   uiPort?: number;
   /** Browser origin when a reverse proxy serves this UI. */
   publicOrigin?: string;
+  /**
+   * The header a trusted reverse proxy names the person in, and the logins
+   * that are them (`identityHeaderAuthenticator`): the person is
+   * authenticated by it as well as by the page token.
+   */
+  identityHeader?: IdentityHeader;
   /**
    * The extensions this server hosts (`plugins.ts`), their plugins loaded in
    * order after the host itself, and each reported in `kb.manifest` beside
@@ -353,7 +359,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     ctx,
     hub,
     hosted,
-    auth: pageTokenAuthenticator(pageToken),
+    auth: uiAuthenticator(pageToken, opts.identityHeader),
   });
 
   yield* Scope.addFinalizer(
@@ -444,6 +450,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   devPort: number;
   uiRoot: string;
   publicOrigin?: string;
+  identityHeader?: IdentityHeader;
   spawn?: UiDevSpawn;
   extensions?: readonly ExtensionEntry[];
   openedBy?: SurfaceWire;
@@ -454,6 +461,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
     openBrowser: false,
     uiPort: opts.devPort,
     publicOrigin: opts.publicOrigin,
+    identityHeader: opts.identityHeader,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
   });
@@ -491,6 +499,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   openBrowser: boolean;
   uiRoot: string;
   publicOrigin?: string;
+  identityHeader?: IdentityHeader;
   ensureBuilt?: EnsureUiBuilt;
   extensions?: readonly ExtensionEntry[];
   openedBy?: SurfaceWire;
@@ -502,6 +511,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
     port: opts.port,
     openBrowser: opts.openBrowser,
     publicOrigin: opts.publicOrigin,
+    identityHeader: opts.identityHeader,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
   });
@@ -529,8 +539,10 @@ export interface RunUiCliOptions {
   dev?: boolean;
   devPort?: number;
   uiRoot?: string;
-  /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
   publicOrigin?: string;
+  /** How a trusted proxy names the person ({@link UiServerOptions.identityHeader}). */
+  identityHeader?: IdentityHeader;
+  /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
   ensureBuilt?: EnsureUiBuilt;
   spawnDev?: UiDevSpawn;
   /** The extensions the server hosts ({@link UiServerOptions.extensions}). */
@@ -560,6 +572,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
       uiRoot,
       spawn: opts.spawnDev,
       publicOrigin: opts.publicOrigin,
+      identityHeader: opts.identityHeader,
       extensions: opts.extensions,
       openedBy: opts.openedBy,
     });
@@ -586,6 +599,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     uiRoot,
     ensureBuilt: opts.ensureBuilt,
     publicOrigin: opts.publicOrigin,
+    identityHeader: opts.identityHeader,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
   });

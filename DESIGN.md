@@ -2058,7 +2058,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     request is on the page's wire, any other on a local program's. How
     the person is authenticated is the deployment's choice, made by which
     authenticator it starts the server with, and nothing past the guard
-    knows which. `kb ui` authenticates with the page token. A `/ws`
+    knows which. `kb ui` authenticates with the page token, and a hosted
+    one also with its proxy's identity header where the deployment opts in
+    (`--identity-header`, the reverse-proxy paragraph at the end of [Action registry](#action-registry)); a request either
+    refuses is refused (`anyAuthenticator`). A `/ws`
     connection is told the answer after `hello` (`{op: "person"}`), so
     the page knows what it may do without trying (DESIGN-UI.md → Who the
     tab is).
@@ -2125,7 +2128,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     WebMCP and a script, which reach kb only through surfaces that say who
     they are, and a program that reaches kb only over the network, or any
     web page, which has no token and so calls on the agent's wire. None of
-    those can say it is someone else, or that a person approved it. The
+    those can say it is someone else, or that a person approved it, save
+    where the deployment trusts a proxy's identity header, which a
+    process on the server's host that bypasses the proxy can also send
+    (Who the person is, above). The
     page URL is also in the arguments of the browser `kb ui` starts, which
     a program that can list this machine's processes can read; such a
     program is not a network-only one. Nor does kb prove a gesture: the
@@ -2191,6 +2197,30 @@ and Origin from that address, in production and development; local addresses
 remain valid. The CLI accepts an origin URL with an optional trailing slash,
 not credentials, a path, a query, or a fragment. Undeclared hosts and unrelated
 browser origins remain forbidden.
+
+A proxy that authenticates the person can tell `kb ui` who they are:
+`kb ui --identity-header <header>=<login>` (repeatable, one header) trusts
+the proxy's `<header>`, and a request whose header is one of the logins is
+the person's, under that login, with no page token
+(`identityHeaderAuthenticator` in `app/server/src/auth.ts`). A request
+whose header names anyone else, or carries none, is nobody's. For a
+deployment behind Tailscale, `--identity-header
+Tailscale-User-Login=<login>` with
+`--public-origin https://<node-or-service>.<tailnet>.ts.net`. Tailscale's
+serve proxy sets `Tailscale-User-Login` on every request from a tailnet
+user, after deleting any copy the client sent, and does so for a
+Tailscale Service's HTTP(S) endpoint (`tailscale serve --service=svc:…`)
+as for plain `tailscale serve`: a Service's connection reaches the same
+`serveWebHandler` and the same proxy rewrite, which calls
+`addTailscaleIdentityHeaders` (tailscale/tailscale `ipn/ipnlocal/serve.go`,
+`tcpHandlerForVIPService` → `tcpHandlerForServeTCP`; read at
+`db03d4e1`, 2026-10-20). It sets none for a tagged device, for Funnel, or
+for a Service's `--tcp`/`--tun` endpoints, which bypass the HTTP proxy;
+those reach kb as nobody's. The header is believed from anything that
+reaches the port, so the option is sound only where the proxy is the one
+way in: `kb ui` keeps its loopback bind, and any process on that host
+that connects to it directly can claim to be the person
+(`// GAP [[01M5BVQHJEDC4ZK7BX7RZWDVF8]]` in `auth.ts`).
 
 ### Core boundary & extensions
 

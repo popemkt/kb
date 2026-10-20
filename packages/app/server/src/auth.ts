@@ -70,3 +70,59 @@ export function pageTokenAuthenticator(
     },
   };
 }
+
+/**
+ * A hosted `kb ui`'s authentication: the person's login, in a header a
+ * trusted reverse proxy sets on every request it forwards (Tailscale serve's
+ * `Tailscale-User-Login`, which it also strips from what a client sends). A
+ * request whose header names one of `people` is theirs, under that login;
+ * any other is nobody's. Every program that reaches the server's port can
+ * send the header, so the deployment opts in only where the proxy is the
+ * one way in (`DESIGN.md` → Surfaces → Who the person is).
+ */
+// GAP [[01M5BVQHJEDC4ZK7BX7RZWDVF8]]
+export interface IdentityHeader {
+  /** The header the proxy names the person in. */
+  readonly header: string;
+  /** The logins that are the person. */
+  readonly people: readonly string[];
+}
+
+export function identityHeaderAuthenticator({ header, people }: IdentityHeader): Authenticator {
+  const known = new Set(people);
+  return {
+    identify: (req) => {
+      const login = req.headers.get(header);
+      return login !== null && known.has(login) ? { person: { name: login } } : NOBODY;
+    },
+  };
+}
+
+/**
+ * A deployment that authenticates the person in more than one way: a
+ * request any of them refuses is refused, and one any of them finds is the
+ * person's is theirs, as the first that found it names them.
+ */
+export function anyAuthenticator(authenticators: readonly Authenticator[]): Authenticator {
+  return {
+    identify: (req) => {
+      const answers = authenticators.map((auth) => auth.identify(req));
+      const refused = answers.find((answer) => "refused" in answer);
+      if (refused !== undefined) return refused;
+      return answers.find((answer) => "person" in answer && answer.person !== null) ?? NOBODY;
+    },
+  };
+}
+
+/**
+ * How a `kb ui` authenticates the person: its page token, and its proxy's
+ * identity header where the deployment trusts one.
+ */
+export function uiAuthenticator(
+  token: string,
+  identityHeader: IdentityHeader | undefined,
+): Authenticator {
+  const byToken = pageTokenAuthenticator(token);
+  if (identityHeader === undefined) return byToken;
+  return anyAuthenticator([byToken, identityHeaderAuthenticator(identityHeader)]);
+}

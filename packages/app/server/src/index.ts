@@ -5,7 +5,8 @@
  * - `assets` — Effect FileSystem static SPA + `.kb/assets` serving
  * - `build` — fresh-checkout UI build decision + execution (fingerprint/marker)
  * - `dev` — `--dev` Vite child orchestration (spawn / exit / port)
- * - `guard` — who may reach the API, and whose wire a request is (the page token)
+ * - `auth` — how a deployment authenticates the person (the page token, a trusted proxy's header)
+ * - `guard` — who may reach the API, and whose wire a request is
  * - `http` — Effect REST/API request routing + failure mapping
  * - `invoke` — how the server runs an invocation it is handed (reload, then the invoke core)
  * - `plugins` — the server as a plugin host: the `UiHost` it provides, and its channels
@@ -16,6 +17,7 @@
  */
 export { openBrowser, runUiCli, startUi } from "./server.ts";
 export type { UiServerHandle, UiServerOptions } from "./server.ts";
+export type { IdentityHeader } from "./auth.ts";
 export { HTTP_WIRE } from "./guard.ts";
 export { composeHosted } from "./plugins.ts";
 export type { HostedExtensions } from "./plugins.ts";

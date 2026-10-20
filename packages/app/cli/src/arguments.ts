@@ -41,3 +41,36 @@ export const toOrigin = (value: string): string => {
     "--public-origin must be an HTTP(S) origin, e.g. https://kb.example.com",
   );
 };
+
+/**
+ * One `--identity-header <header>=<login>`: a header a trusted reverse proxy
+ * names the person in, and a login that is them.
+ */
+const toIdentity = (value: string): { header: string; login: string } => {
+  const at = value.indexOf("=");
+  const header = value.slice(0, at).trim();
+  const login = value.slice(at + 1).trim();
+  if (at > 0 && /^[A-Za-z0-9-]+$/.test(header) && login !== "") return { header, login };
+  throw new CommanderError(
+    EXIT_USAGE,
+    "commander.invalidArgument",
+    `--identity-header is <header>=<login>, e.g. Tailscale-User-Login=you@github, not ${value}`,
+  );
+};
+
+/** Every `--identity-header` given, as the one header they name and its logins. */
+export const collectIdentity = (
+  value: string,
+  held: { header: string; people: readonly string[] } | undefined,
+): { header: string; people: readonly string[] } => {
+  const { header, login } = toIdentity(value);
+  if (held === undefined) return { header, people: [login] };
+  if (held.header.toLowerCase() !== header.toLowerCase()) {
+    throw new CommanderError(
+      EXIT_USAGE,
+      "commander.invalidArgument",
+      `--identity-header names one header, not both ${held.header} and ${header}`,
+    );
+  }
+  return { header: held.header, people: [...held.people, login] };
+};
