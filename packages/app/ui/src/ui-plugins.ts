@@ -255,8 +255,8 @@ function unloadable(name: string, why: string): Plugin {
   };
 }
 
-/** Load one family's browser entry, held to the name it was resolved by. */
-async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
+/** Resolve one family's browser entry, held to the name it was resolved by. */
+async function resolveEntry(row: ExtensionRow): Promise<Plugin | null> {
   const { name } = row;
   const extension = browserEntry(row);
   if (extension === null) return null;
@@ -267,6 +267,23 @@ async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
   } catch (error) {
     return unloadable(name, `its browser entry failed to load: ${String(error)}`);
   }
+}
+
+/**
+ * Each family's browser entry, resolved once per place it is served from:
+ * the same row answers the same plugin value, failed or not, so a converged
+ * kernel is left as it is; a page half served from new bytes is a new path,
+ * resolved anew, and its value replaces the one held (`syncPlugins`).
+ */
+const resolved = new Map<string, Promise<Plugin | null>>();
+
+function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
+  const key = `${row.name}\0${row.page ?? ""}`;
+  const known = resolved.get(key);
+  if (known !== undefined) return known;
+  const entry = resolveEntry(row);
+  resolved.set(key, entry);
+  return entry;
 }
 
 let generation = 0;

@@ -127,22 +127,29 @@ describe("a repository extension's page half (acceptance)", () => {
     expect(pageFootprint("example").length).toBe(3);
   });
 
-  it("is reported failed, as any plugin of its family is, when its page half cannot be imported", async () => {
-    loaded = false;
-    await follow();
+  it("is reported failed, as any plugin of its family is, when its page half cannot be imported, and recovers while on", async () => {
     loaded = true;
+    servedAt = SERVED_AT;
+    await follow();
+    expect(pageFootprint("example").length).toBe(3);
+
+    // Re-served from bytes that throw, the family still on: the working
+    // half gives way, and its failure is the family's.
     servedAt = served('throw new Error("boom at import");');
     await follow();
     expect(pageFootprint("example")).toEqual([]);
     expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([
       expect.stringContaining("boom at import"),
     ]);
-    loaded = false;
-    servedAt = SERVED_AT;
+
+    // Read again from the same bytes: nothing moves.
+    await follow();
+    expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toHaveLength(1);
+
+    // Re-served from working bytes, still on: it recovers without a reload.
+    servedAt = served(`${EXAMPLE_PAGE_HALF}\n// re-served`);
     await follow();
     expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
-    loaded = true;
-    await follow();
     expect(pageFootprint("example").length).toBe(3);
   });
 });

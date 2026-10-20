@@ -47,6 +47,24 @@ describe("syncPlugins", () => {
       }),
     ));
 
+  test("a plugin listed as another value than the one held under its name replaces it", () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        const failing = definePlugin({ name: "a", apply: () => Effect.die(new Error("boom")) });
+        expect((yield* syncPlugins(kernel, [failing])).map(({ verb }) => verb)).toEqual(["load"]);
+        expect(kernel.plugins().map(({ status }) => status)).toEqual(["failed"]);
+        // A working value under the same name: the failed one gives way.
+        const working = named("a");
+        expect(yield* syncPlugins(kernel, [working])).toEqual([]);
+        expect(kernel.contributions(Names).map(({ value }) => value)).toEqual(["a"]);
+        // And back: the working one gives way to a failing value.
+        expect((yield* syncPlugins(kernel, [failing])).map(({ verb }) => verb)).toEqual(["load"]);
+        expect(kernel.contributions(Names)).toEqual([]);
+        expect(kernel.plugins().map(({ status }) => status)).toEqual(["failed"]);
+      }),
+    ));
+
   test("a plugin that fails is returned, and the rest still converge", () =>
     Effect.runPromise(
       Effect.gen(function* () {
