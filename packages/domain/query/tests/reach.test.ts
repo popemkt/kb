@@ -82,10 +82,24 @@ describe("parseEdn reads the reach form", () => {
     ).toThrow(/^reach/);
   });
 
+  test.each([
+    [
+      "beside a not clause",
+      '[:find ?b :where (not [?b :node/text "x"]) (reach ?a :f/parent ?b 0)]',
+    ],
+    ["inside a not clause", "[:find ?b :where [?b :node/id _] (not (reach ?a :f/parent ?b 0))]"],
+    [
+      "inside an or branch",
+      "[:find ?b :where (or-join [?b] (and [?b :node/id _] (reach ?a :f/parent ?b 0)))]",
+    ],
+  ])("malformed reach %s, now in the subset, is a DatalogError naming reach", (_label, edn) => {
+    expect(() => parseEdn(edn)).toThrow(/^reach: max must be a positive integer/);
+  });
+
   // GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]: outside the subset the whole query is raw, malformed reach too.
   test.each([
     ["a _ wildcard", "[:find ?b :where [_ :node/id ?b] (reach ?a :f/parent ?b 0)]"],
-    ["a not clause", '[:find ?b :where (not [?b :node/text "x"]) (reach ?a :f/parent ?b 0)]'],
+    ["a function outside PREDICATES", "[:find ?b :where [(str ?b) ?s] (reach ?a :f/parent ?b 0)]"],
     ["a :with section", "[:find ?b :where (reach ?a :f/parent ?b 0) :with ?a]"],
   ])("a malformed reach beside %s is raw like the rest of the query", (_label, edn) => {
     expect(parseEdn(edn)).toEqual({ kind: "raw", edn });

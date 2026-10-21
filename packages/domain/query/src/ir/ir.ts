@@ -1,6 +1,6 @@
 /**
  * kb-owned query IR — JSON-serialisable, covering the stored-query subset
- * plus r4's `reach` clause. Anything outside the subset is `{ kind: "raw" }`.
+ * (DESIGN.md → Query layer). Anything outside the subset is `{ kind: "raw" }`.
  *
  * Find positions are typed so a DataScript adapter can revive only `node-ref`
  * slots; aggregates that collide with live eids stay numbers.
@@ -12,7 +12,9 @@ export type Term =
   | { t: "var"; name: string }
   | { t: "str"; value: string }
   | { t: "num"; value: number }
-  | { t: "bool"; value: boolean };
+  | { t: "bool"; value: boolean }
+  /** `_`: matches anything, binds nothing. */
+  | { t: "blank" };
 
 /** Attribute as an EDN keyword, e.g. `:node/id` or `:f/sys.f.type`. */
 type Attr = string;
@@ -31,7 +33,8 @@ export type PatternClause = {
  * the variable the written form names, kept so the clause prints back as
  * written; the projection does not bind it (in the written form it ranges
  * over every position, not the child's), so a find naming it has no column
- * (`compile`).
+ * (`compile`). It collapses in any conjunction: the top level, an `or`
+ * branch, a `not`.
  */
 type ChildrenClause = {
   kind: "children";
@@ -58,7 +61,62 @@ type RuleCallClause = {
   args: Term[];
 };
 
-export type Clause = PatternClause | ChildrenClause | ReachClause | RuleCallClause;
+/**
+ * The functions a `[(f arg…)]` clause may call: a closed set, so the IR is a
+ * kb-owned language and not any Clojure. A call to anything else keeps the
+ * query `raw`.
+ */
+export const PREDICATES = [
+  "=",
+  "not=",
+  "<",
+  "<=",
+  ">",
+  ">=",
+  "clojure.string/includes?",
+  "clojure.string/starts-with?",
+  "clojure.string/ends-with?",
+  "missing?",
+] as const;
+
+export type PredicateName = (typeof PREDICATES)[number];
+
+/**
+ * A predicate's argument: a term other than `_`, the default source `$`
+ * (written `$`, as `missing?` takes it first), or an attribute keyword (as
+ * `missing?` takes it last).
+ */
+export type PredicateArg =
+  | Exclude<Term, { t: "blank" }>
+  | { t: "src" }
+  | { t: "attr"; value: Attr };
+
+/** `[(f arg…)]`, a test, or `[(f arg…) ?out]`, a function whose value binds `?out`. */
+export type PredicateClause = {
+  kind: "predicate";
+  fn: PredicateName;
+  args: PredicateArg[];
+  bind?: string;
+};
+
+/**
+ * `(or …)` / `(or-join [?v…] …)`: any of its branches holds. Each branch is a
+ * conjunction, written `(and …)` when it is more than one form and bare when
+ * it is one.
+ */
+type OrClause = { kind: "or"; join?: string[]; branches: Clause[][] };
+
+/** `(not …)` / `(not-join [?v…] …)`: its clauses, together, do not hold. */
+type NotClause = { kind: "not"; join?: string[]; clauses: Clause[] };
+
+export type Clause =
+  | PatternClause
+  | ChildrenClause
+  | ReachClause
+  | RuleCallClause
+  | PredicateClause
+  | OrClause
+  | NotClause;
 
 export type PullSpec = Array<string | { [attr: string]: PullSpec }>;
 

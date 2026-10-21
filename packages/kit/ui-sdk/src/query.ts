@@ -47,9 +47,9 @@ function queryIds(run: EdnRunner, edn: string): string[] {
 /**
  * `root` and the nodes within `hops` of it along any of `edges` (node-valued
  * attributes), in either direction. The EDN is `@kb/query`'s
- * `neighbourhoodQuery`, run once per edge and direction and unioned here,
- * because the union as one query needs `or`, which runs raw.
- * GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]
+ * `neighbourhoodQuery`, run once per edge and direction and unioned here;
+ * one `or-join` query could carry the union now (todo
+ * [[01M5E21B6ENDME71VJGR2VST4W]]).
  */
 export function queryNeighbourhood(
   run: EdnRunner,

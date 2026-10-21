@@ -21,7 +21,8 @@ export { isCanonicalIr } from "./ir/canonical.ts";
 export { printEdn } from "./ir/print.ts";
 export { queryRecords } from "./records.ts";
 export type { QueryRecords } from "./records.ts";
-export type { Ir, IrQuery, IrRaw } from "./ir/ir.ts";
+export { PREDICATES } from "./ir/ir.ts";
+export type { Clause, Ir, IrQuery, IrRaw, PredicateArg, PredicateName, Term } from "./ir/ir.ts";
 export {
   BACKLINKS_IR,
   LIST_ALL_NODES_IR,

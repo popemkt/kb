@@ -7,7 +7,17 @@
  * domain, and their generator produces only values in it.
  */
 import { isKeywordText, isReadableNumber, isSymbolText } from "./edn.ts";
-import type { Clause, FindPos, IrQuery, PullSpec, Term } from "./ir.ts";
+import {
+  PREDICATES,
+  type Clause,
+  type PredicateClause,
+  type ReachClause,
+  type FindPos,
+  type IrQuery,
+  type PredicateArg,
+  type PullSpec,
+  type Term,
+} from "./ir.ts";
 import { inferFindTypes } from "./parse.ts";
 
 /** Whether `ir` is a value `parseEdn` produces (above). */
@@ -57,9 +67,37 @@ function isCanonicalTerm(term: Term): boolean {
   return true;
 }
 
-/** A rule name the reader reads as a symbol, and not a variable. */
+/** The list heads that are clauses of their own, so no rule call can be named one. */
+const CLAUSE_HEADS = new Set(["and", "or", "or-join", "not", "not-join"]);
+
+/** A rule name the reader reads as a symbol, and not a variable or a clause head. */
 function isRuleName(name: string): boolean {
-  return isSymbolText(name) && !name.startsWith("?");
+  return isSymbolText(name) && !name.startsWith("?") && !CLAUSE_HEADS.has(name);
+}
+
+function isCanonicalArg(arg: PredicateArg): boolean {
+  if (arg.t === "src") return true;
+  if (arg.t === "attr") return isKeywordText(arg.value);
+  return isCanonicalTerm(arg);
+}
+
+const isJoin = (join: readonly string[] | undefined) => join === undefined || join.every(isVarName);
+
+function isCanonicalReach(clause: ReachClause): boolean {
+  return (
+    isVarName(clause.from) &&
+    isVarName(clause.to) &&
+    isKeywordText(clause.edge) &&
+    (clause.maxHops === undefined || (Number.isSafeInteger(clause.maxHops) && clause.maxHops >= 1))
+  );
+}
+
+function isCanonicalPredicate(clause: PredicateClause): boolean {
+  return (
+    PREDICATES.includes(clause.fn) &&
+    clause.args.every(isCanonicalArg) &&
+    (clause.bind === undefined || isVarName(clause.bind))
+  );
 }
 
 function isCanonicalClause(clause: Clause): boolean {
@@ -71,15 +109,21 @@ function isCanonicalClause(clause: Clause): boolean {
     case "children":
       return isVarName(clause.parent) && isVarName(clause.child) && isVarName(clause.order);
     case "reach":
-      return (
-        isVarName(clause.from) &&
-        isVarName(clause.to) &&
-        isKeywordText(clause.edge) &&
-        (clause.maxHops === undefined ||
-          (Number.isSafeInteger(clause.maxHops) && clause.maxHops >= 1))
-      );
+      return isCanonicalReach(clause);
     case "rule":
       return isRuleName(clause.name) && clause.args.every(isCanonicalTerm);
+    case "predicate":
+      return isCanonicalPredicate(clause);
+    case "or":
+      return (
+        isJoin(clause.join) &&
+        clause.branches.length > 0 &&
+        clause.branches.every((b) => b.length > 0 && isCanonicalConjunction(b))
+      );
+    case "not":
+      return (
+        isJoin(clause.join) && clause.clauses.length > 0 && isCanonicalConjunction(clause.clauses)
+      );
     default: {
       const _exhaustive: never = clause;
       return _exhaustive;

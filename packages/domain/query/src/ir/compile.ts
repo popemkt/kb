@@ -1,5 +1,15 @@
 import { present } from "@kb/model";
-import type { Clause, FindPos, Ir, IrQuery, PullSpec, ReachClause, Term } from "./ir.ts";
+import type {
+  Clause,
+  FindPos,
+  Ir,
+  IrQuery,
+  PredicateArg,
+  PullSpec,
+  ReachClause,
+  Term,
+} from "./ir.ts";
+import { boundVars } from "./scope.ts";
 
 const QUERY_DIRECTIVES = new Set([
   "find",
@@ -58,11 +68,12 @@ type CompiledEdn = {
 
 /**
  * Compile IR to DataScript EDN. `raw` passes through (still normalised).
- * `reach` becomes a recursive `%` rule; `children` projects `:node/children`.
+ * `reach` becomes a recursive `%` rule, wherever it sits (inside `or` and
+ * `not` too); `children` projects `:node/children`.
  */
 export function compile(ir: Ir): CompiledEdn {
   if (ir.kind === "raw") return { query: normalizeEdnQuery(ir.edn) };
-  const reaches = ir.where.filter((c): c is ReachClause => c.kind === "reach");
+  const reaches = everyClause(ir.where).filter((c): c is ReachClause => c.kind === "reach");
   const names = new Map<ReachClause, string>();
   for (const [i, r] of reaches.entries()) {
     names.set(r, `__kb_reach_${i}`);
@@ -80,6 +91,15 @@ export function compile(ir: Ir): CompiledEdn {
   };
 }
 
+/** Every clause of `where`, at any depth, in written order. */
+function everyClause(where: readonly Clause[]): Clause[] {
+  return where.flatMap((c) => {
+    if (c.kind === "or") return [c, ...c.branches.flatMap(everyClause)];
+    if (c.kind === "not") return [c, ...everyClause(c.clauses)];
+    return [c];
+  });
+}
+
 /**
  * The find positions that get a column: every one but a `children` clause's
  * order variable, which the projection does not bind (`ChildrenClause`),
@@ -93,27 +113,6 @@ function compiledFind(ir: IrQuery): FindPos[] {
     ir.where.flatMap((c) => (c.kind === "children" && !bound.has(c.order) ? [c.order] : [])),
   );
   return ir.find.filter((p) => p.kind !== "var" || !orders.has(p.name));
-}
-
-function boundVars(where: readonly Clause[]): Set<string> {
-  const bound = new Set<string>();
-  for (const c of where) {
-    if (c.kind === "pattern") {
-      bound.add(c.entity);
-      if (c.value.t === "var") bound.add(c.value.name);
-    } else if (c.kind === "children") {
-      bound.add(c.parent);
-      bound.add(c.child);
-    } else if (c.kind === "reach") {
-      bound.add(c.from);
-      bound.add(c.to);
-    } else {
-      for (const a of c.args) {
-        if (a.t === "var") bound.add(a.name);
-      }
-    }
-  }
-  return bound;
 }
 
 function compileIn(slots: string[] | undefined, needsRules: boolean): string {
@@ -155,7 +154,25 @@ function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>):
       return `(${name} ?${clause.from} ?${clause.to})`;
     }
     case "rule":
-      return `(${clause.name} ${clause.args.map(compileTerm).join(" ")})`;
+      return `(${[clause.name, ...clause.args.map(compileTerm)].join(" ")})`;
+    case "predicate": {
+      const call = `(${[clause.fn, ...clause.args.map(compileArg)].join(" ")})`;
+      return clause.bind === undefined ? `[${call}]` : `[${call} ?${clause.bind}]`;
+    }
+    case "or": {
+      const branches = clause.branches.map((branch) => {
+        const forms = branch.map((c) => compileClause(c, names));
+        // `children` compiles to two forms, so a one-clause branch may still need `and`.
+        return forms.length === 1 && branch[0]?.kind !== "children"
+          ? forms.join(" ")
+          : `(and ${forms.join(" ")})`;
+      });
+      return `(${[joinHead("or", clause.join), ...branches].join(" ")})`;
+    }
+    case "not": {
+      const body = clause.clauses.map((c) => compileClause(c, names));
+      return `(${[joinHead("not", clause.join), ...body].join(" ")})`;
+    }
     default: {
       const _exhaustive: never = clause;
       return _exhaustive;
@@ -163,10 +180,22 @@ function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>):
   }
 }
 
+/** `or` / `not`, or their `-join` form with its vector. */
+function joinHead(op: "or" | "not", join: readonly string[] | undefined): string {
+  return join === undefined ? op : `${op}-join [${join.map((v) => `?${v}`).join(" ")}]`;
+}
+
+function compileArg(arg: PredicateArg): string {
+  if (arg.t === "src") return "$";
+  if (arg.t === "attr") return arg.value;
+  return compileTerm(arg);
+}
+
 function compileTerm(term: Term): string {
   if (term.t === "var") return `?${term.name}`;
   if (term.t === "str") return JSON.stringify(term.value);
   if (term.t === "bool") return term.value ? "true" : "false";
+  if (term.t === "blank") return "_";
   return String(term.value);
 }
 

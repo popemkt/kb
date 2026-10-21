@@ -6,6 +6,7 @@ import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
 import type { FindPos, Ir, IrQuery } from "./ir/ir.ts";
 import { parseEdn } from "./ir/parse.ts";
+import { outerClauses } from "./ir/scope.ts";
 import { DatalogError } from "./datalog-error.ts";
 
 function normalizeQueryInput(input: unknown): unknown {
@@ -108,7 +109,7 @@ function findWithRefAttrs(
   refAttrs: ReadonlySet<string>,
 ): readonly FindPos[] {
   const refValued = new Set(
-    ir.where.flatMap((clause) =>
+    outerClauses(ir.where).flatMap((clause) =>
       clause.kind === "pattern" && clause.value.t === "var" && refAttrs.has(clause.attr)
         ? [clause.value.name]
         : [],

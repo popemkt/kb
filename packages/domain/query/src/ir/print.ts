@@ -4,7 +4,7 @@
  * for running it; `compile` is what runs.
  */
 import { writeEdn, type Edn } from "./edn.ts";
-import type { Clause, FindPos, IrQuery, PullSpec, Term } from "./ir.ts";
+import type { Clause, FindPos, IrQuery, PredicateArg, PullSpec, Term } from "./ir.ts";
 
 const sym = (v: string): Edn => ({ k: "sym", v });
 const kw = (v: string): Edn => ({ k: "kw", v });
@@ -55,11 +55,32 @@ function termEdn(term: Term): Edn {
       return { k: "num", v: term.value };
     case "bool":
       return { k: "bool", v: term.value };
+    case "blank":
+      return sym("_");
     default: {
       const _exhaustive: never = term;
       return _exhaustive;
     }
   }
+}
+
+/** `or` / `not`, or the `-join` form and its vector. */
+function joinHead(op: "or" | "not", join: readonly string[] | undefined): Edn[] {
+  if (join === undefined) return [sym(op)];
+  return [sym(`${op}-join`), { k: "vec", v: join.map(variable) }];
+}
+
+/** An `or` branch: bare when it writes as one form, `(and …)` when it writes as several. */
+function branchEdn(branch: readonly Clause[]): Edn {
+  const forms = branch.flatMap(clauseEdn);
+  const [only] = forms;
+  return forms.length === 1 && only !== undefined ? only : { k: "list", v: [sym("and"), ...forms] };
+}
+
+function argEdn(arg: PredicateArg): Edn {
+  if (arg.t === "src") return sym("$");
+  if (arg.t === "attr") return kw(arg.value);
+  return termEdn(arg);
 }
 
 /** One clause's written forms: one, or the two patterns `children` is written as. */
@@ -79,6 +100,21 @@ function clauseEdn(clause: Clause): Edn[] {
     }
     case "rule":
       return [{ k: "list", v: [sym(clause.name), ...clause.args.map(termEdn)] }];
+    case "predicate": {
+      const call: Edn = { k: "list", v: [sym(clause.fn), ...clause.args.map(argEdn)] };
+      return [{ k: "vec", v: clause.bind === undefined ? [call] : [call, variable(clause.bind)] }];
+    }
+    case "or":
+      return [
+        { k: "list", v: [...joinHead("or", clause.join), ...clause.branches.map(branchEdn)] },
+      ];
+    case "not":
+      return [
+        {
+          k: "list",
+          v: [...joinHead("not", clause.join), ...clause.clauses.flatMap(clauseEdn)],
+        },
+      ];
     default: {
       const _exhaustive: never = clause;
       return _exhaustive;
