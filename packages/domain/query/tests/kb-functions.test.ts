@@ -161,6 +161,82 @@ describe("kb/includes-ci? ignores case", () => {
   });
 });
 
+describe("a kb function inside or-join and not-join", () => {
+  test("is joined in, so the -join sees its input", () => {
+    const { index } = pinned("UTC");
+    expect(
+      ids(
+        index,
+        q(
+          '(or-join [?n] (and [?n :node/text ?x] [(kb/includes-ci? ?x "RETRO")]) [?n :f/due "2026-10-19"])',
+        ),
+      ),
+    ).toEqual(["fresh", "overdue", "stale"]);
+    expect(
+      ids(
+        index,
+        q('[?n :node/text ?t] (not-join [?n] [?n :node/text ?x] [(kb/includes-ci? ?x "retro")])'),
+      ),
+    ).toEqual(["ams-today", "future", "in-14", "in-15", "overdue", "utc-today"]);
+  });
+
+  test("nested, and only once per vector", () => {
+    const compiled = compile(
+      parseEdn(
+        '[:find ?id :where [?n :node/id ?id] (not-join [?n] (or-join [?n] (and [?n :node/text ?x] [(kb/includes-ci? ?x "a")] [(kb/includes-ci? ?x "b")]) [?n :node/text "c"]))]',
+      ),
+    );
+    expect(compiled.query).toContain(
+      "(not-join [?n ?__kb_fn_includes-ci_q] (or-join [?n ?__kb_fn_includes-ci_q]",
+    );
+  });
+
+  test("a clocked function, in or-join and in not-join, reads the run's one sample", () => {
+    const { index, samples } = pinned("UTC");
+    expect(
+      ids(
+        index,
+        q('(or-join [?n] (and [?n :f/due ?d] [(kb/today) ?t] [(= ?d ?t)]) [?n :node/text "x"])'),
+      ),
+    ).toEqual(["future", "utc-today"]);
+    expect(samples()).toBe(1);
+    expect(
+      ids(
+        index,
+        q("[?n :f/due ?d] (not-join [?n] [?n :f/due ?e] [(kb/date-in-days 14) ?s] [(<= ?e ?s)])"),
+      ),
+    ).toEqual(["in-14", "in-15"]);
+    expect(samples()).toBe(2);
+  });
+
+  test("runs nested either way round: a not-join in an or-join, an or-join in a not-join", () => {
+    const { index } = pinned("UTC");
+    expect(
+      ids(
+        index,
+        q(
+          '(or-join [?n] (and [?n :node/text ?x] (not-join [?n ?x] [(kb/includes-ci? ?x "fresh")]) [(kb/includes-ci? ?x "retro")]) (and [?n :f/due ?d] [(kb/today) ?t] [(= ?d ?t)]))',
+        ),
+      ),
+    ).toEqual(["stale", "utc-today"]);
+    expect(
+      ids(
+        index,
+        q(
+          '[?n :node/text ?t] (not-join [?n] (or-join [?n] (and [?n :node/text ?x] [(kb/includes-ci? ?x "retro")]) (and [?n :f/due ?d] [(kb/today) ?s] [(< ?d ?s)])))',
+        ),
+      ),
+    ).toEqual(["ams-today", "future", "in-14", "in-15", "utc-today"]);
+  });
+
+  test("a plain or calling one in a single branch needs no vector", () => {
+    const { index } = pinned("UTC");
+    expect(
+      ids(index, q('[?n :node/text ?x] (or [(kb/includes-ci? ?x "retro")] [(= ?x "x")])')),
+    ).toEqual(["fresh", "future", "stale"]);
+  });
+});
+
 describe("one clock sample per run, and none without a clocked function", () => {
   test("a run calling two clocked functions over many rows samples once", () => {
     const { index, samples } = pinned("UTC");

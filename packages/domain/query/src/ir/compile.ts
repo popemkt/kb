@@ -190,17 +190,34 @@ function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>):
           ? forms.join(" ")
           : `(and ${forms.join(" ")})`;
       });
-      return `(${[joinHead("or", clause.join), ...branches].join(" ")})`;
+      return `(${[joinHead("or", joinedFunctions(clause)), ...branches].join(" ")})`;
     }
     case "not": {
       const body = clause.clauses.map((c) => compileClause(c, names));
-      return `(${[joinHead("not", clause.join), ...body].join(" ")})`;
+      return `(${[joinHead("not", joinedFunctions(clause)), ...body].join(" ")})`;
     }
     default: {
       const _exhaustive: never = clause;
       return _exhaustive;
     }
   }
+}
+
+/**
+ * A `-join`'s vector, and the input of every kb function called inside it:
+ * a `-join` sees only the variables its vector names, so a function input
+ * left out of it is unknown there. The input is bound, so joining it in
+ * narrows nothing. A plain `or` or `not` sees its scope's variables already.
+ */
+function joinedFunctions(
+  clause: Extract<Clause, { kind: "or" | "not" }>,
+): readonly string[] | undefined {
+  if (clause.join === undefined) return undefined;
+  const inside = clause.kind === "or" ? clause.branches.flat() : clause.clauses;
+  const inputs = everyClause(inside).flatMap((c) =>
+    c.kind === "predicate" && isKbFunction(c.fn) ? [kbFunctionInput(c.fn)] : [],
+  );
+  return [...new Set([...clause.join, ...inputs])];
 }
 
 /** `or` / `not`, or their `-join` form with its vector. */

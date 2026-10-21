@@ -1651,8 +1651,10 @@ same lane. One path to a client, whatever a node's provenance.
   `(kb/instant-now)` and `(kb/instant-days-ago n)`, an instant in UTC as
   `currentIso` writes `created`/`edited`. Offsets are whole days. `compile`
   rewrites each call to a function input, `?__kb_fn_<name>` appended to
-  `:in` after every other slot, and reports which it named; it never builds
-  them, so it stays pure. Only that closed registry (`KB_FUNCTIONS`)
+  `:in` after every other slot, and joined into the vector of every
+  `or-join` and `not-join` that calls it (a `-join` sees only the variables
+  it names), and reports which it named; it never builds them, so it stays
+  pure. Only that closed registry (`KB_FUNCTIONS`)
   resolves a `kb/` name, so a stored query cannot call a host function kb
   did not register; an unknown one keeps the query `raw`.
 - **One clock sample per run.** The executor builds the closures
