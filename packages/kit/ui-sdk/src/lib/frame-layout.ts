@@ -11,6 +11,7 @@ import type { SortSpec, ViewFilter } from "@kb/views";
 import { isSysPrefixed, type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";
 import { textOr } from "./text";
 import type { SchemaIndex } from "./schema";
+import { isFieldNodeHidden } from "./field-visibility";
 
 function propValueKey(v: PropValue, _schema: SchemaIndex): string {
   if (v.t === "ref") return `ref:${v.v}`;
@@ -51,10 +52,6 @@ function toColumnSpec(fieldId: string, schema: SchemaIndex): TableColumnSpec {
   return { fieldId, label: textOr(schema.get(fieldId)?.text, fieldId) };
 }
 
-function isHiddenField(fieldId: string, schema: SchemaIndex): boolean {
-  return schema.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
-}
-
 /**
  * The columns the frame names for itself, or null when it names none.
  *
@@ -72,7 +69,7 @@ function explicitColumns(
 ): TableColumnSpec[] | null {
   if (display.length === 0) return null;
   return display
-    .filter((fieldId) => showDebugColumns || !isHiddenField(fieldId, schema))
+    .filter((fieldId) => showDebugColumns || !isFieldNodeHidden(fieldId, schema))
     .map((fieldId) => toColumnSpec(fieldId, schema));
 }
 
@@ -96,7 +93,8 @@ function derivedColumns(
       for (const ref of tagNode.props[SYSTEM_IDS.fieldsField] ?? []) {
         if (ref.t !== "ref" || seen.has(ref.v)) continue;
         seen.add(ref.v);
-        if (!showDebugColumns && (isSysPrefixed(ref.v) || isHiddenField(ref.v, schema))) continue;
+        if (!showDebugColumns && (isSysPrefixed(ref.v) || isFieldNodeHidden(ref.v, schema)))
+          continue;
         columns.push(toColumnSpec(ref.v, schema));
       }
     }

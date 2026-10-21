@@ -26,16 +26,24 @@ export function isIntrinsicSystemPropKey(fieldId: string): boolean {
   return isSysPrefixed(fieldId);
 }
 
+/** Where field nodes are read: the schema, or any map of nodes by id. */
+export interface FieldNodes {
+  get(id: string): { readonly props: OutlineNode["props"] } | undefined;
+}
+
 /** True when the field definition node carries sys.f.hidden = true. */
-export function isFieldNodeHidden(fieldId: string, schema: SchemaIndex): boolean {
-  const fieldNode = schema.get(fieldId);
-  if (!fieldNode) return false;
-  const hidden = fieldNode.props[SYSTEM_IDS.hiddenField]?.[0];
+export function isFieldNodeHidden(fieldId: string, fields: FieldNodes): boolean {
+  const hidden = fields.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0];
   return hidden?.t === "bool" && hidden.v;
 }
 
-function isPropHiddenByDefault(fieldId: string, schema: SchemaIndex): boolean {
-  return isIntrinsicSystemPropKey(fieldId) || isFieldNodeHidden(fieldId, schema);
+/**
+ * Whether a field's rows are left out unless a node asks for its debug
+ * fields: the one statement every surface reads, the field rows, a row's
+ * collapse default and a table's derived columns alike.
+ */
+export function isFieldHidden(fieldId: string, fields: FieldNodes): boolean {
+  return isIntrinsicSystemPropKey(fieldId) || isFieldNodeHidden(fieldId, fields);
 }
 
 export interface ResolvePropsOptions {
@@ -93,7 +101,7 @@ export function resolveVisibleProps(
   for (const [fieldId, values] of Object.entries(node.props)) {
     if (fieldId === SYSTEM_IDS.typeField && !showAll) continue;
 
-    const hiddenByDefault = isPropHiddenByDefault(fieldId, schema);
+    const hiddenByDefault = isFieldHidden(fieldId, schema);
     if (!showAll && hiddenByDefault) continue;
 
     const fieldNode = schema.get(fieldId);
@@ -111,7 +119,7 @@ export function resolveVisibleProps(
   // as soon as the tag declares them.
   for (const fieldId of templatedFieldIds(node, schema)) {
     if (seen.has(fieldId)) continue;
-    if (!showAll && isPropHiddenByDefault(fieldId, schema)) continue;
+    if (!showAll && isFieldHidden(fieldId, schema)) continue;
     const fieldNode = schema.get(fieldId);
     out.push({
       fieldId,

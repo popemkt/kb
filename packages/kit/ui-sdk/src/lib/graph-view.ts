@@ -3,11 +3,7 @@ import type { SchemaIndex } from "./schema";
 import type { WireNode } from "@kb/contracts";
 import { compareRootOrder, hasQueryDef, typeRefsOf } from "@kb/model";
 import { tagColorOf, tagPalette, type TagPalette } from "./tag-color";
-import {
-  resolveVisibleProps,
-  isIntrinsicSystemPropKey,
-  type ResolvePropsOptions,
-} from "./field-visibility";
+import { resolveVisibleProps, isFieldHidden, type ResolvePropsOptions } from "./field-visibility";
 import { hasText, textOr } from "./text";
 import {
   EXPANDED_STORAGE_KEY,
@@ -80,10 +76,7 @@ function wireHasVisibleFields(wire: WireNode, byId: Map<string, WireNode>): bool
   for (const [fieldId, values] of Object.entries(wire.props)) {
     if (values.length === 0) continue;
     if (fieldId === SYSTEM_IDS.typeField) continue;
-    if (isIntrinsicSystemPropKey(fieldId)) continue;
-    const fieldNode = byId.get(fieldId);
-    const hidden = fieldNode?.props[SYSTEM_IDS.hiddenField]?.[0];
-    if (hidden?.t === "bool" && hidden.v) continue;
+    if (isFieldHidden(fieldId, byId)) continue;
     return true;
   }
   return false;
