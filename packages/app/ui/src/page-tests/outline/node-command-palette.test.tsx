@@ -13,11 +13,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
-import { isPinned, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { fieldTypeValue, isPinned, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -25,6 +25,7 @@ import { chartUiPlugin } from "@kb/chart-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeCommandPalette, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
 import { collectionsUiPlugin } from "@kb/collections-ui";
+import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them; the chart contributes "Add chart".
@@ -49,6 +50,15 @@ function graph(): WireNode[] {
     }),
     ...REF_SEED_WIRES,
     wire({ id: SYSTEM_IDS.pinnedRoot, text: "Pinned" }),
+    // The field "Turn into query" writes, as the seed declares it.
+    wire({
+      id: SYSTEM_IDS.queryField,
+      text: "query",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
+      },
+    }),
     wire({
       id: "n.query",
       text: "A saved query",
@@ -230,6 +240,21 @@ describe("node command palette", () => {
     await open("n.query");
     expect(labels()).not.toContain("Turn into query");
     expect(labels()[1]).toBe("Turn into reference…");
+  });
+
+  it("Turn into query writes the builder's canonical query, so the node opens as conditions", async () => {
+    await open("n.plain");
+    const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === "Turn into query",
+    ) as HTMLElement | undefined;
+    await act(async () => {
+      present(row, "turn into query row").click();
+    });
+    await vi.waitFor(() =>
+      expect(outlineNodes().get("n.plain")?.props[SYSTEM_IDS.queryField]).toEqual([
+        { t: "str", v: DEFAULT_QUERY_EDN },
+      ]),
+    );
   });
 
   it("drops Turn into reference on a node that already is one", async () => {

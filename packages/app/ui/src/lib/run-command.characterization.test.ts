@@ -29,6 +29,7 @@ import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
+import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
@@ -163,7 +164,9 @@ describe("palette command routing (characterization)", () => {
     await run(SYSTEM_IDS.cmdNewQuery);
     const zoomed = useGraphStore.getState().rootNodeId;
     expect(zoomed).not.toBe(WORKSPACE_ROOT_ID);
-    expect(node(zoomed)?.props[SYSTEM_IDS.queryField]).toBeDefined();
+    expect(node(zoomed)?.props[SYSTEM_IDS.queryField]).toEqual([
+      { t: "str", v: DEFAULT_QUERY_EDN },
+    ]);
   });
 
   it("new-ontology mints one and navigates to its page", async () => {
