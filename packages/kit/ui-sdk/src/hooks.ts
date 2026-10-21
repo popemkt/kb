@@ -176,6 +176,11 @@ export function useGeneration(): number {
 export interface QueryNodeRows {
   readonly rows: unknown[][] | null;
   readonly error: string | null;
+  /**
+   * The run took longer than its budget: `error` says so, and no number of
+   * rows is known — a slow query is not a large one.
+   */
+  readonly overBudget: boolean;
 }
 
 /**
@@ -184,10 +189,10 @@ export interface QueryNodeRows {
  */
 export function useQueryRows(edn: string | null): QueryNodeRows {
   const { answer } = useQueryAnswer(edn);
-  if (edn === null || answer === null) return { rows: null, error: null };
+  if (edn === null || answer === null) return { rows: null, error: null, overBudget: false };
   return answer.kind === "rows"
-    ? { rows: answer.rows, error: null }
-    : { rows: null, error: answerMessage(answer) };
+    ? { rows: answer.rows, error: null, overBudget: false }
+    : { rows: null, error: answerMessage(answer), overBudget: answer.kind === "over-budget" };
 }
 
 /** How references in rendered text are inked, for `MdView`'s `ink`. */

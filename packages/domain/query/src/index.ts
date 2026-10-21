@@ -17,6 +17,7 @@ export type { EnginePort, FromEngine, Timers, ToEngine } from "./index/remote.ts
 export type { NodeChange } from "./index/node-table.ts";
 export { compile, normalizeEdnQuery } from "./ir/compile.ts";
 export { findColumns, parseEdn } from "./ir/parse.ts";
+export { readsAsEdn } from "./ir/edn.ts";
 export { isCanonicalIr } from "./ir/canonical.ts";
 export { printEdn } from "./ir/print.ts";
 export { alphaEquivalent } from "./ir/alpha.ts";

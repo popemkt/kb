@@ -49,6 +49,14 @@ export function readEdn(text: string): Edn | null {
   }
 }
 
+/**
+ * Whether `text` is one EDN value the reader reads: whether text a person is
+ * typing parses at all, before asking whether it is a query in the IR.
+ */
+export function readsAsEdn(text: string): boolean {
+  return readEdn(text) !== null;
+}
+
 /** Whether `name` is a keyword's text the reader reads back as that keyword (`:node/id`). */
 export function isKeywordText(name: string): boolean {
   return readsAs(name, "kw");

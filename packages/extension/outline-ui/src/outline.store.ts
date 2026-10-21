@@ -57,6 +57,9 @@ import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-ho
 
 export type { VisibleInstance };
 
+/** A query node's builder tabs: its conditions, or its EDN text. */
+export type QueryTab = "conditions" | "edn";
+
 interface ActivateOpts {
   /**
    * Viewport x-coordinate to preserve across vertical navigation (r1 D11).
@@ -102,6 +105,9 @@ interface OutlineState {
   /** Pages revealed per frame in paginating view modes (frame id -> pages). */
   framePages: Record<string, number>;
   revealMorePages: (frameId: string) => void;
+  /** The tab each query node's builder was last left on (query node id -> tab); absent, Conditions. */
+  queryTabs: Readonly<Record<string, QueryTab>>;
+  setQueryTab: (queryNodeId: string, tab: QueryTab) => void;
   /** The frame views provided, in their pickers' order (`stores/frame-views`). */
   frameViews: () => readonly FamilyView<FrameViewKey>[];
   /** The rows outline host `host` (the main pane's by default) draws, in render order. */
@@ -124,6 +130,7 @@ export type OutlineStateData = {
 export const initialOutlineState: OutlineStateData = {
   expansion: new Map(),
   framePages: {},
+  queryTabs: {},
   activeNodeId: null,
   activeInstanceKey: null,
   selectedNodeId: null,
@@ -527,6 +534,8 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
     getVisibleInstances: (host = MAIN_OUTLINE_HOST) =>
       visibleInstancesOf(host, graphNow(), get().expansion),
 
+    setQueryTab: (queryNodeId, tab) =>
+      set((s) => ({ queryTabs: { ...s.queryTabs, [queryNodeId]: tab } })),
     revealMorePages: (frameId) =>
       set((s) => ({
         framePages: {

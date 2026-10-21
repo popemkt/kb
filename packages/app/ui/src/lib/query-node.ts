@@ -7,7 +7,7 @@
 
 /**
  * What a minted query node asks: every node, no conditions yet. It is the
- * query builder's canonical query (`lowerIr([])`, printed by `printEdn`), so
- * a new query node opens in the Conditions tab with nothing to say yet.
+ * query the builder writes for no conditions (`lowerIr([])`), on one line,
+ * so a new query node opens in the Conditions tab with nothing to say yet.
  */
 export const DEFAULT_QUERY_EDN = "[:find ?id :where [?n :node/id ?id]]";

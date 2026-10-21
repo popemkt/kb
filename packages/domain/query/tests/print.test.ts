@@ -3,7 +3,14 @@
  * point of parse-then-print on any text that parses (DESIGN.md → Query layer;
  * docs/brainstorms/2026-10-20-query-builder, properties 1 and 2).
  */
-import { LIST_TAGS_QUERY, isCanonicalIr, parseEdn, printEdn, type IrQuery } from "@kb/query";
+import {
+  LIST_TAGS_QUERY,
+  isCanonicalIr,
+  parseEdn,
+  printEdn,
+  readsAsEdn,
+  type IrQuery,
+} from "@kb/query";
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { readEdn, type Edn } from "../src/ir/edn.ts";
@@ -142,5 +149,14 @@ describe("property 2: parse then print is stable", () => {
       expect({ source, printed: printEdn(reparsed(printed)) }).toEqual({ source, printed });
       expect({ source, canonical: isCanonicalIr(ir) }).toEqual({ source, canonical: true });
     }
+  });
+});
+
+describe("whether text reads as EDN", () => {
+  test("is whether it is one whole form, before any query is read from it", () => {
+    expect(readsAsEdn("[:find ?id :where [?n :node/id ?id]]")).toBe(true);
+    expect(readsAsEdn("[:find ?id :where")).toBe(false);
+    expect(readsAsEdn("[:find ?id] extra")).toBe(false);
+    expect(readsAsEdn('[:find ?x :where [?n :node/text "unterminated]]')).toBe(false);
   });
 });

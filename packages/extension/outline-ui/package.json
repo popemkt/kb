@@ -15,6 +15,7 @@
     "@kb/model": "workspace:*",
     "@kb/outline": "workspace:*",
     "@kb/plugin": "workspace:*",
+    "@kb/query": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@kb/views": "workspace:*",
     "@phosphor-icons/react": "catalog:",
@@ -30,6 +31,7 @@
     "@types/bun": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "fast-check": "catalog:",
     "happy-dom": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

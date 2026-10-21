@@ -317,15 +317,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
-### GAP: a query node's query and limit have no editor
-
-- **expected** — A query node is written in the editor: its conditions through a query builder, its EDN in a text editor beside it, and its limit as a number (docs/brainstorms/2026-10-20-query-builder).
-- **current** — 'New query node' and 'Turn into query' write DEFAULT_QUERY_EDN; nothing in the page edits sys.f.query or sys.f.query.limit afterwards.
-- **impact** — A person who makes a query node from the editor cannot change what it asks without the CLI or MCP.
-- **closes** — The query builder of docs/brainstorms/2026-10-20-query-builder, over the IR in @kb/query.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYKQAHJNG5SSRVSYE77GN`
-
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -387,8 +378,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
 
 - **expected** — Every field a person may set is drawn and edited in the editor like any field, its visibility derived from the field node (its hidden flag, the system-write rule), never from a list in the page.
-- **current** — SCHEMA_SURFACE_FIELDS (field-visibility.ts) allow-lists five sys fields (color, hidden, fieldType, targetTag, targetQuery); every other sys.* prop is hidden, and 'Debug: show all fields' draws them read-only (fields-section.tsx).
-- **impact** — A query's EDN and limit, a field's cardinality and relation inverse, an agent provider's adapter/endpoint/model, a saved layout's spec and a docs view's template and output can be set only through node.update from the CLI or MCP.
+- **current** — SCHEMA_SURFACE_FIELDS (field-visibility.ts) allow-lists five sys fields (color, hidden, fieldType, targetTag, targetQuery); a query node edits its own sys.f.query and sys.f.query.limit in its builder (query-builder/query-panel.tsx), and every other sys.* prop is hidden, with Debug: show all fields drawing them read-only (fields-section.tsx).
+- **impact** — A field's cardinality and relation inverse, an agent provider's adapter/endpoint/model, a saved layout's spec and a docs view's template and output can be set only through node.update from the CLI or MCP.
 - **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYK42Y4G74JD62AD00BZS`
@@ -1442,6 +1433,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent cannot propose a focused graph view in one call
 - **closes** — the graph lens settings get a schema that proposals compose
 - **node** — `01M40X30Q8N7NYCYHW3J0GFKY7`
+
+### GAP: a query node's query and limit have no editor
+
+- **expected** — A query node is written in the editor: its conditions through a query builder, its EDN in a text editor beside it, and its limit as a number (docs/brainstorms/2026-10-20-query-builder).
+- **current** — 'New query node' and 'Turn into query' write DEFAULT_QUERY_EDN; nothing in the page edits sys.f.query or sys.f.query.limit afterwards.
+- **impact** — A person who makes a query node from the editor cannot change what it asks without the CLI or MCP.
+- **closes** — The query builder of docs/brainstorms/2026-10-20-query-builder, over the IR in @kb/query.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYKQAHJNG5SSRVSYE77GN`
 
 ### GAP: a repository extension has no node, switch or settings
 

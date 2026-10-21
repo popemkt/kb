@@ -175,7 +175,7 @@ export function FieldPicker({
  * Its keys are its own: the outline behind it never also acts on them.
  * Leaving the input closes it, as Escape does.
  */
-function PickerInput({
+export function PickerInput({
   query,
   onQuery,
   rows,
