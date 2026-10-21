@@ -77,6 +77,10 @@ function ColumnsSetting({ frameId, display }: { frameId: string; display: readon
     [frameId, display, generation],
   );
   const shown = columns.map((c) => c.fieldId);
+  // An edit rewrites the names the view node holds, or, holding none, the
+  // fields shown: a name the table does not draw now (its node hides it)
+  // is kept, never dropped by a remove or an add beside it.
+  const named = display.length > 0 ? [...display] : shown;
   const write = (next: string[]) => void browserHost().writes.setViewDisplay(frameId, next);
   return (
     <PrefFieldRow icon={ColumnsIcon} label="fields">
@@ -92,7 +96,7 @@ function ColumnsSetting({ frameId, display }: { frameId: string; display: readon
               type="button"
               className="flex h-4 w-4 items-center justify-center rounded-xs text-foreground/35 hover:text-foreground/70"
               aria-label={`Remove field ${column.label}`}
-              onClick={() => write(shown.filter((id) => id !== column.fieldId))}
+              onClick={() => write(named.filter((id) => id !== column.fieldId))}
             >
               <XIcon size={10} weight="bold" />
             </button>
@@ -105,7 +109,7 @@ function ColumnsSetting({ frameId, display }: { frameId: string; display: readon
           candidates={fields.filter((f) => !shown.includes(f.id))}
           placeholder="+ field"
           pickLabel="Show field"
-          onPick={(id) => write([...shown, id])}
+          onPick={(id) => write([...named, id])}
         />
         {display.length > 0 ? (
           <button

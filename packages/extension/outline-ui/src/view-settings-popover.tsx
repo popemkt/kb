@@ -17,7 +17,7 @@ import {
 } from "@kb/ui-sdk";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineNode } from "./outline.store";
-import { listFilterFieldOptions } from "./view-settings-fields";
+import { frameFieldCandidates } from "./view-settings-fields";
 import { ViewSettingsSections } from "./view-settings-sections";
 
 /** The two rows a view filter's stored syntax spells (`ViewFilter`). */
@@ -69,7 +69,7 @@ export function ViewSettingsPopoverHost() {
 
   const fields = useMemo(() => {
     if (frameId === null) return [];
-    return listFilterFieldOptions(frameId, outlineNodes(), browserHost().schema());
+    return frameFieldCandidates(frameId, outlineNodes(), browserHost().schema());
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
   }, [frameId, generation]);
 
@@ -204,7 +204,7 @@ export function ViewSettingsPopoverHost() {
               ) : (
                 fields.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.text}
+                    {f.label}
                   </option>
                 ))
               )}

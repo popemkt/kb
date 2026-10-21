@@ -7,7 +7,6 @@
 import { typeRefsOf } from "@kb/model";
 import {
   SYSTEM_IDS,
-  frameConfigOf,
   isFieldHidden,
   isSysPrefixed,
   resolveTableColumns,
@@ -22,21 +21,6 @@ import type { ViewConfig } from "@kb/views";
 /** The frame's rows, as the projection `nodes` holds them. */
 function frameRowNodes(frame: OutlineNode, nodes: NodeMap): OutlineNode[] {
   return frame.children.map((id) => nodes.get(id)).filter((n): n is OutlineNode => n !== undefined);
-}
-
-/** `nodes` is the projection the frame's rows come from; `schema` names their fields. */
-export function listFilterFieldOptions(
-  frameId: string,
-  nodes: NodeMap,
-  schema: SchemaIndex,
-): Array<{ id: string; text: string }> {
-  const frame = nodes.get(frameId);
-  if (!frame) return [];
-  const config = frameConfigOf(frame, schema);
-  return resolveTableColumns(config, frameRowNodes(frame, nodes), schema, true).map((c) => ({
-    id: c.fieldId,
-    text: c.label,
-  }));
 }
 
 /**
@@ -55,7 +39,8 @@ export function frameColumns(
 }
 
 /**
- * The fields a frame's rows may be grouped or shown by, in the order a
+ * The fields a frame's rows may be filtered, grouped or shown by, one list
+ * for every section of the popover, in the order a
  * person reaches for them: those the rows' tags template first, then every
  * other field a person made. A field its node hides is offered by neither,
  * as it has no row on the page (`isFieldHidden`); a system field is offered

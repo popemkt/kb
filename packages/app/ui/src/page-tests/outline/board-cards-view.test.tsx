@@ -33,7 +33,7 @@ import { Result } from "effect";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
   collectVisibleInstances,
-  listFilterFieldOptions,
+  frameFieldCandidates,
   outlineFrameSubject,
   outlineNodes,
   outlineSource,
@@ -346,10 +346,10 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(expected).toContain("c3"); // empty column last
   });
 
-  it("filter field options come from projected row tags, not global scan", () => {
+  it("the view settings' fields lead with the projected rows' tag fields", () => {
     const nodes = outlineNodes();
-    const opts = listFilterFieldOptions("frame1", nodes, schemaFor(nodes));
-    expect(opts.map((o) => o.id)).toEqual(["f_status"]);
+    const opts = frameFieldCandidates("frame1", nodes, schemaFor(nodes));
+    expect(opts[0]?.id).toBe("f_status");
   });
 
   it("list/table filter smoke: text + eq filters apply", () => {

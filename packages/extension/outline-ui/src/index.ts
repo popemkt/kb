@@ -41,7 +41,7 @@ export { useNodeKeyDown } from "./use-node-keydown";
 export { useSelectionKeymap } from "./use-selection-keymap";
 export { ValueSlot } from "./value-slot";
 export { fieldGlyphOf } from "./value-views";
-export { listFilterFieldOptions } from "./view-settings-fields";
+export { frameFieldCandidates } from "./view-settings-fields";
 export { ViewSettingsPopoverHost } from "./view-settings-popover";
 export { ViewToolbar } from "./view-toolbar";
 export { collectVisibleInstances } from "./visible-instances";
