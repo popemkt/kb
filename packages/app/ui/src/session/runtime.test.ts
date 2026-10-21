@@ -75,7 +75,11 @@ describe("browser action runtime", () => {
     // (`DatascriptIndex`, its own suite).
     const sent: string[] = [];
     provideEngine(() => {
-      const port = inThreadPort(bundledDerived(), () => performance.now(), queueMicrotask);
+      const port = inThreadPort(
+        { derived: bundledDerived() },
+        () => performance.now(),
+        queueMicrotask,
+      );
       return {
         ...port,
         send: (message) => {
@@ -100,7 +104,9 @@ describe("browser action runtime", () => {
     );
 
     expect(sent.filter((op) => op !== "query")).toEqual(["load", ...Array(50).fill("tx")]);
-    provideEngine(() => inThreadPort(bundledDerived(), () => performance.now(), queueMicrotask));
+    provideEngine(() =>
+      inThreadPort({ derived: bundledDerived() }, () => performance.now(), queueMicrotask),
+    );
   });
 
   it("an equal confirming echo converges without duplicating the node", async () => {

@@ -7,8 +7,10 @@
  *
  * Also the one reader of typed date input, relative words included, so the
  * UI's date slot and any other surface that passes "today" accept the same
- * phrases. Pure: "today" is always passed in.
+ * phrases. Pure: "today" is always passed in, or read off a given instant
+ * and zone (`dayAt`).
  */
+import { DateTime, Option } from "effect";
 
 /** A calendar date. `month` is 1–12. */
 export interface LocalDate {
@@ -55,6 +57,21 @@ export function dayNumber({ year, month, day }: LocalDate): number {
   const doy = Math.floor((153 * mp + 2) / 5) + day - 1;
   const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
   return era * 146097 + doe - 719468;
+}
+
+/**
+ * The civil date the instant `ms` (since the epoch) falls on in `timeZone`,
+ * an IANA name or a `±HH:MM` offset; null when the zone is not one. The one
+ * crossing from an instant to the calendar: what "today" is, given a clock
+ * sample.
+ */
+export function dayAt(ms: number, timeZone: string): LocalDate | null {
+  const zone = DateTime.zoneFromString(timeZone);
+  if (Option.isNone(zone)) return null;
+  const { year, month, day } = DateTime.toParts(
+    DateTime.makeZonedUnsafe(ms, { timeZone: zone.value }),
+  );
+  return { year, month, day };
 }
 
 /** The date `n` days after (before, when negative) `date`. */

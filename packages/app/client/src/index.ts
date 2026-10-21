@@ -3,6 +3,8 @@ import { KbStore, TxOrigin, staleCommitError, type EffectStore } from "@kb/contr
 import {
   applyTx,
   byNodeId,
+  clockSampler,
+  type ClockSample,
   domainError,
   isDomainError,
   KbNodeSchema,
@@ -152,10 +154,10 @@ function run<A>(effect: Effect.Effect<A, DomainError>): Promise<A> {
   });
 }
 
-function clientOver(root: string, store: EffectStore): KbClient {
+function clientOver(root: string, store: EffectStore, clock: () => ClockSample): KbClient {
   const held: HeldIndex = {
     // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive ownership from the bundled fold only
-    index: new DatascriptIndex([], { derived: bundledDerived() }),
+    index: new DatascriptIndex([], { derived: bundledDerived(), clock }),
     revision: null,
   };
   return {
@@ -173,7 +175,9 @@ function clientOver(root: string, store: EffectStore): KbClient {
 export function openClient(root: string): Promise<KbClient> {
   return run(
     selectStore(root).pipe(
-      Effect.map((store) => clientOver(root, store)),
+      Effect.flatMap((store) =>
+        Effect.map(clockSampler, (clock) => clientOver(root, store, clock)),
+      ),
       Effect.provide(bunFileSystemLayer),
     ),
   );

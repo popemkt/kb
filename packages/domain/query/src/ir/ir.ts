@@ -62,11 +62,28 @@ type RuleCallClause = {
 };
 
 /**
+ * The predicates DataScript lacks, namespaced `kb/` and written as ordinary
+ * calls: `compile` binds each as a function input, and only this registry
+ * resolves the names, so a stored query cannot name a host function kb did
+ * not register. What each answers: `kbFunctions` (`kb-functions.ts`).
+ */
+export const KB_FUNCTIONS = [
+  "kb/includes-ci?",
+  "kb/today",
+  "kb/date-in-days",
+  "kb/instant-now",
+  "kb/instant-days-ago",
+] as const;
+
+export type KbFunctionName = (typeof KB_FUNCTIONS)[number];
+
+/**
  * The functions a `[(f arg…)]` clause may call: a closed set, so the IR is a
  * kb-owned language and not any Clojure. A call to anything else keeps the
  * query `raw`.
  */
 export const PREDICATES = [
+  ...KB_FUNCTIONS,
   "=",
   "not=",
   "<",

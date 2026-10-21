@@ -10,7 +10,7 @@ declare const self: {
 };
 
 const serve = serveIndex(
-  derivedWith({}),
+  { derived: derivedWith({}) },
   // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a worker's postMessage takes no origin
   (message) => self.postMessage(message),
   () => performance.now(),

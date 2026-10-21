@@ -1635,7 +1635,7 @@ same lane. One path to a client, whatever a node's provenance.
   set, `PREDICATES`: `=`, `not=`, `<`, `<=`, `>`, `>=`,
   `clojure.string/includes?`, `clojure.string/starts-with?`,
   `clojure.string/ends-with?`, `missing?` (whose `$` and attribute keyword
-  are arguments of their own); and
+  are arguments of their own), and the kb functions (below); and
   `(or …)`/`(or-join [?v…] …)`, whose branches are conjunctions written
   `(and …)` when they are more than one form, and `(not …)`/`(not-join
   [?v…] …)`, over the same clauses at any depth. Scope follows DataScript:
@@ -1643,6 +1643,29 @@ same lane. One path to a client, whatever a node's provenance.
   shares its join vector, a `not` binds nothing outside it; a find column's
   type is read from that scope (`ir/scope.ts`). The find spec is kept as
   written.
+- **kb functions** are the predicates DataScript lacks, namespaced `kb/` and
+  written as ordinary calls, so a stored query reads as datalog:
+  `(kb/includes-ci? s sub)` (substring ignoring case, false unless both are
+  strings); `(kb/today)` and `(kb/date-in-days n)`, a civil date
+  `YYYY-MM-DD` in the run's time zone, as date fields hold them; and
+  `(kb/instant-now)` and `(kb/instant-days-ago n)`, an instant in UTC as
+  `currentIso` writes `created`/`edited`. Offsets are whole days. `compile`
+  rewrites each call to a function input, `?__kb_fn_<name>` appended to
+  `:in` after every other slot, and reports which it named; it never builds
+  them, so it stays pure. Only that closed registry (`KB_FUNCTIONS`)
+  resolves a `kb/` name, so a stored query cannot call a host function kb
+  did not register; an unknown one keeps the query `raw`.
+- **One clock sample per run.** The executor builds the closures
+  (`kbFunctions(sample)`) over one `ClockSample` (`nowMs`, `timeZone`)
+  taken when the run starts, so every condition in a query agrees on "now".
+  The sample comes from the index's `clock` (`IndexOptions`), which the host
+  binds to Effect's `Clock` and `DateTime.CurrentTimeZone` through
+  `@kb/model`'s `clockSampler`: the runtime's session (`sessionOver`, so the
+  server and the CLI), the client, and the page's engine worker (its
+  person's zone). The index never reads a wall clock: a run that calls no
+  clocked function takes no sample, and an index built without a clock
+  refuses a clocked one by name. The server answers a thin client's query
+  in its own zone (GAP [[01M5E2YBN75HF5C8HZPG62CAJH]]).
 - **Printed back canonically.** `printEdn` writes an IR as stored EDN, the
   inverse of `parseEdn` on the IR's canonical domain (`isCanonicalIr`: the
   values `parseEdn` produces): the head on one line, each `:where` clause on

@@ -21,8 +21,11 @@ import fc from "fast-check";
 import type { KbNode } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 
+/** A pinned clock, so a generated query calling a kb date function answers the same each run. */
+const pinnedClock = () => ({ nowMs: Date.UTC(2026, 0, 5), timeZone: "Europe/Amsterdam" });
+
 function indexFor(nodes: KbNode[]): DatascriptIndex {
-  return new DatascriptIndex(nodes, { derived: derivedWith({}) });
+  return new DatascriptIndex(nodes, { derived: derivedWith({}), clock: pinnedClock });
 }
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -236,6 +239,7 @@ const irArb: fc.Arbitrary<IrQuery> = fc
       fc.record({
         fn: fc.constantFrom(
           "clojure.string/includes?" as const,
+          "kb/includes-ci?" as const,
           "clojure.string/starts-with?" as const,
           "clojure.string/ends-with?" as const,
           "not=" as const,
@@ -247,6 +251,7 @@ const irArb: fc.Arbitrary<IrQuery> = fc
     ),
     noneOf: rarely,
     anyOf: rarely,
+    recent: rarely,
   })
   .chain((shape) => {
     const where: GenClause[] = [
@@ -306,6 +311,33 @@ const irArb: fc.Arbitrary<IrQuery> = fc
               ],
             ],
           },
+        ],
+      });
+    }
+    if (shape.recent) {
+      // "created in the last 7 days": a window over two kb functions of one clock sample.
+      where.push(pattern("n", ":node/created-at", { t: "var", name: "text_c" }));
+      where.push({
+        kind: "predicate",
+        fn: "kb/instant-days-ago",
+        args: [{ t: "num", value: 7 }],
+        bind: "text_s1",
+      });
+      where.push({ kind: "predicate", fn: "kb/instant-now", args: [], bind: "text_s2" });
+      where.push({
+        kind: "predicate",
+        fn: "<=",
+        args: [
+          { t: "var", name: "text_s1" },
+          { t: "var", name: "text_c" },
+        ],
+      });
+      where.push({
+        kind: "predicate",
+        fn: "<=",
+        args: [
+          { t: "var", name: "text_c" },
+          { t: "var", name: "text_s2" },
         ],
       });
     }

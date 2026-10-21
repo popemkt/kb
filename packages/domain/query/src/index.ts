@@ -1,6 +1,6 @@
 export { DatalogError } from "./datalog-error.ts";
 export { datascriptExecutor, pull, query, queryRows, runIr } from "./datascript.ts";
-export type { EdnExecutor } from "./datascript.ts";
+export type { ClockSampler, EdnExecutor } from "./datascript.ts";
 export { DatascriptIndex } from "./index/datascript-index.ts";
 export type { IndexOptions } from "./index/datascript-index.ts";
 export { derivedWith, nodeMentions } from "./index/derived.ts";
@@ -21,8 +21,18 @@ export { isCanonicalIr } from "./ir/canonical.ts";
 export { printEdn } from "./ir/print.ts";
 export { queryRecords } from "./records.ts";
 export type { QueryRecords } from "./records.ts";
-export { PREDICATES } from "./ir/ir.ts";
-export type { Clause, Ir, IrQuery, IrRaw, PredicateArg, PredicateName, Term } from "./ir/ir.ts";
+export { KB_FUNCTIONS, PREDICATES } from "./ir/ir.ts";
+export { kbFunctions } from "./ir/kb-functions.ts";
+export type {
+  Clause,
+  Ir,
+  IrQuery,
+  IrRaw,
+  KbFunctionName,
+  PredicateArg,
+  PredicateName,
+  Term,
+} from "./ir/ir.ts";
 export {
   BACKLINKS_IR,
   LIST_ALL_NODES_IR,

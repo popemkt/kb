@@ -4,12 +4,14 @@ import type {
   FindPos,
   Ir,
   IrQuery,
+  KbFunctionName,
   PredicateArg,
   PullSpec,
   ReachClause,
   Term,
 } from "./ir.ts";
 import { boundVars } from "./scope.ts";
+import { isKbFunction, kbFunctionInput } from "./kb-functions.ts";
 
 const QUERY_DIRECTIVES = new Set([
   "find",
@@ -64,22 +66,36 @@ type CompiledEdn = {
   rules?: string;
   /** The find positions the compiled query returns, column by column; absent for `raw`. */
   find?: readonly FindPos[];
+  /**
+   * The kb functions the query calls, in the order of the `:in` slots
+   * `compile` appended for them, after every other; the executor passes each
+   * one's closure there (`kbFunctions`). Compile names them and never builds
+   * them, so it stays pure. Absent when there are none.
+   */
+  functions?: readonly KbFunctionName[];
 };
 
 /**
  * Compile IR to DataScript EDN. `raw` passes through (still normalised).
  * `reach` becomes a recursive `%` rule, wherever it sits (inside `or` and
- * `not` too); `children` projects `:node/children`.
+ * `not` too); `children` projects `:node/children`; a `kb/` call becomes a
+ * call to a function input.
  */
 export function compile(ir: Ir): CompiledEdn {
   if (ir.kind === "raw") return { query: normalizeEdnQuery(ir.edn) };
-  const reaches = everyClause(ir.where).filter((c): c is ReachClause => c.kind === "reach");
+  const clauses = everyClause(ir.where);
+  const reaches = clauses.filter((c): c is ReachClause => c.kind === "reach");
   const names = new Map<ReachClause, string>();
   for (const [i, r] of reaches.entries()) {
     names.set(r, `__kb_reach_${i}`);
   }
+  const functions = [
+    ...new Set(
+      clauses.flatMap((c) => (c.kind === "predicate" && isKbFunction(c.fn) ? [c.fn] : [])),
+    ),
+  ];
   const rules = reaches.length > 0 ? compileReachRules(reaches, names) : undefined;
-  const inSlots = compileIn(ir.in, rules !== undefined);
+  const inSlots = compileIn(ir.in, rules !== undefined, functions);
   const columns = compiledFind(ir);
   const find = columns.map(compileFind).join(" ");
   const where = ir.where.map((c) => compileClause(c, names)).join(" ");
@@ -88,6 +104,7 @@ export function compile(ir: Ir): CompiledEdn {
     query: normalizeEdnQuery(edn),
     ...(rules !== undefined ? { rules: normalizeEdnQuery(rules) } : {}),
     find: columns,
+    ...(functions.length > 0 ? { functions } : {}),
   };
 }
 
@@ -115,9 +132,14 @@ function compiledFind(ir: IrQuery): FindPos[] {
   return ir.find.filter((p) => p.kind !== "var" || !orders.has(p.name));
 }
 
-function compileIn(slots: string[] | undefined, needsRules: boolean): string {
+function compileIn(
+  slots: string[] | undefined,
+  needsRules: boolean,
+  functions: readonly KbFunctionName[],
+): string {
   const rest = [...(slots ?? [])];
   if (needsRules && !rest.includes("%")) rest.unshift("%");
+  rest.push(...functions.map(kbFunctionInput));
   if (rest.length === 0) return "";
   const parts = rest.map((s) => (s === "%" ? "%" : `?${s}`));
   return ` :in $ ${parts.join(" ")}`;
@@ -156,7 +178,8 @@ function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>):
     case "rule":
       return `(${[clause.name, ...clause.args.map(compileTerm)].join(" ")})`;
     case "predicate": {
-      const call = `(${[clause.fn, ...clause.args.map(compileArg)].join(" ")})`;
+      const fn = isKbFunction(clause.fn) ? `?${kbFunctionInput(clause.fn)}` : clause.fn;
+      const call = `(${[fn, ...clause.args.map(compileArg)].join(" ")})`;
       return clause.bind === undefined ? `[${call}]` : `[${call} ?${clause.bind}]`;
     }
     case "or": {
