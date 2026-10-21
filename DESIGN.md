@@ -1646,8 +1646,9 @@ same lane. One path to a client, whatever a node's provenance.
   read from that scope (`ir/scope.ts`). The find spec is kept as written.
 - **kb functions** are the predicates DataScript lacks, namespaced `kb/` and
   written as ordinary calls, so a stored query reads as datalog:
-  `(kb/includes-ci? s sub)` (substring ignoring case, false unless both are
-  strings); `(kb/today)` and `(kb/date-in-days n)`, a civil date
+  `(kb/includes? s sub)` and `(kb/includes-ci? s sub)` (substring, keeping
+  case and ignoring it, false unless both are strings, where
+  `clojure.string/includes?` throws on a value that is not one); `(kb/today)` and `(kb/date-in-days n)`, a civil date
   `YYYY-MM-DD` in the run's time zone, as date fields hold them; and
   `(kb/instant-now)` and `(kb/instant-days-ago n)`, an instant in UTC as
   `currentIso` writes `created`/`edited`. Offsets are whole days. `compile`
