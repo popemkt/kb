@@ -517,7 +517,9 @@ screen state per node (`queryBuilders`), kept for the session and never
 written to the graph. A query that says nothing yet — no EDN, or no
 conditions, as a new one starts — opens its builder; one that says something
 opens closed. A write from the builder pins it open, so the first condition
-never folds it away under the caret. From the keyboard: Tab reaches the
+never folds it away under the caret. A query that fails shows its error
+with an "Edit query" button beside it, the way to its editor while it is
+tucked. From the keyboard: Tab reaches the
 button, and the node menu offers "Edit query" / "Hide query", opening a
 closed row to show it (`outline-ui/src/outline-commands.tsx`).
 

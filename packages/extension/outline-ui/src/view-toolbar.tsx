@@ -12,9 +12,9 @@ interface ViewToolbarProps {
   view: FrameViewKey | null;
   className?: string;
   /**
-   * Zoomed-header mode: collapse modes, query and filter behind a single gear
-   * until expanded on demand (or while this frame's filter popover or query
-   * builder is open).
+   * Zoomed-header mode: collapse modes and filter behind a single gear until
+   * expanded on demand (or while this frame's filter popover is open). A
+   * query's toolbar is never tucked, so it holds no Query button here.
    */
   tucked?: boolean;
 }
@@ -57,7 +57,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
   const query = queryTextOf(useOutlineNode(frameId));
   const queryOpen = useQueryBuilderOpen(frameId, query);
   const [expanded, setExpanded] = useState(false);
-  const showChrome = !tucked || expanded || filterOpen || queryOpen;
+  const showChrome = !tucked || expanded || filterOpen;
 
   const handleSelect = useCallback(
     (next: FrameViewKey, e: React.MouseEvent) => {
@@ -147,7 +147,6 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
             e.stopPropagation();
             setExpanded(false);
             if (filterOpen) setFilterFrame(null);
-            if (queryOpen) setQueryBuilderOpen(frameId, false);
           }}
         >
           ×

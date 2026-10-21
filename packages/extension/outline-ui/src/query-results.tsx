@@ -27,7 +27,7 @@ import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineNode, useOutlineNodes } from "./outline.store";
 import { FrameViewSlot } from "./frame-view-slot";
 import { QueryPanel } from "./query-builder/query-panel";
-import { useQueryBuilderOpen } from "./query-builder/open";
+import { setQueryBuilderOpen, useQueryBuilderOpen } from "./query-builder/open";
 import type { QueryCount } from "./query-builder/count-chip";
 
 /** What a query node with no EDN yet answers: nothing runs. */
@@ -94,6 +94,21 @@ export function QueryResultsSection({
         {panel}
         <p className="px-1 py-0.5 text-meta text-destructive" style={indent}>
           {error}
+          {/* A query that fails is the one most in need of its editor: the
+              error is the way to it while the builder is tucked away. */}
+          {!open && (
+            <button
+              type="button"
+              className="ml-2 rounded-xs text-foreground/60 underline underline-offset-2 hover:text-foreground"
+              data-query-edit-from-error={nodeId}
+              onClick={(e) => {
+                e.stopPropagation();
+                setQueryBuilderOpen(nodeId, true);
+              }}
+            >
+              Edit query
+            </button>
+          )}
         </p>
       </div>
     );

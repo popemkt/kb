@@ -579,6 +579,14 @@ describe("the query builder", () => {
       expect(useOutlineStore.getState().queryBuilders[QUERY]?.open).toBe(true);
     });
 
+    it("a query that fails offers its editor from its error", async () => {
+      await mount("[:find ?id :where [?n :node/id ?id]", "default");
+      expect(builder()).toBeNull();
+      await click(present($(`[data-query-edit-from-error="${QUERY}"]`), "edit from error"));
+      expect(builder()).not.toBeNull();
+      expect($(`[data-query-edit-from-error="${QUERY}"]`)).toBeNull();
+    });
+
     it("a builder closed by the person stays closed, whatever the query says", async () => {
       await mount(DEFAULT_QUERY_EDN, false);
       expect(builder()).toBeNull();
