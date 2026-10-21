@@ -100,13 +100,16 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     [perspectives, perspectiveId],
   );
 
+  const listSettled = listed.settled;
   useEffect(() => {
     // Under an ontology scope the URL is /o/<id>/graph; never rewrite it.
     if (!active || ontologyId !== null) return;
-    if (perspectiveId !== active.id) {
+    // A perspective just saved is missing from a list answered before it:
+    // the path is rewritten only once the list is as of now.
+    if (perspectiveId !== active.id && listSettled) {
       navigate(graphPath(active.id));
     }
-  }, [active, perspectiveId, ontologyId]);
+  }, [active, perspectiveId, ontologyId, listSettled]);
 
   const restrictTo = useMemo(
     () => (ontologyId !== null ? (ontologyMembers ?? new Set<string>()) : undefined),
