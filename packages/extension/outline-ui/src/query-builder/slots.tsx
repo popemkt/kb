@@ -27,7 +27,7 @@ import {
 import { FieldPicker, PickerInput, type FieldHandle } from "../field-picker";
 import { ValueSlot } from "../value-slot";
 import { toggledValue } from "../value-kind";
-import { advanceFrom, slotClass } from "./slot-dom";
+import { advanceFrom, slotClass, type SlotTone } from "./slot-dom";
 
 /**
  * Where the keyboard goes when what a slot opened closes: back to the slot
@@ -86,7 +86,7 @@ export interface ChoiceSlotProps<Id extends string = string> {
   label: string;
   /** How it is drawn at rest; the label, when absent. */
   children?: ReactNode;
-  tone: "subject" | "operator" | "value";
+  tone: SlotTone;
   candidates: readonly (PickerCandidate & { readonly id: Id })[];
   /** The id of the choice made, checked in the list. */
   chosen?: Id;
@@ -156,7 +156,10 @@ export function ChoiceSlot<Id extends string = string>({
     <button
       ref={button}
       type="button"
-      className={cn(slotClass(tone), empty && "italic text-foreground/35")}
+      className={cn(
+        slotClass(empty && tone === "chips" ? "value" : tone),
+        empty && "italic text-foreground/35",
+      )}
       aria-label={`${name}: ${empty ? "none" : label}`}
       aria-haspopup="listbox"
       data-qb-slot={name}
@@ -191,6 +194,8 @@ export interface ValuesSlotProps {
   onValues: (values: PropValue[]) => void;
   autoOpen?: boolean;
   placeholder?: string;
+  /** How the values are drawn at rest: in a box, or as chips that are their own. */
+  tone?: "value" | "chips";
 }
 
 const sameValue = (a: PropValue, b: PropValue) => a.t === b.t && a.v === b.v;
@@ -210,6 +215,7 @@ export function ValuesSlot({
   onValues,
   autoOpen = false,
   placeholder = "…",
+  tone = "value",
 }: ValuesSlotProps) {
   const { open, button, editor, close, begin, cancel } = useSlotOpen(
     autoOpen && editing.t !== "toggle",
@@ -289,7 +295,7 @@ export function ValuesSlot({
     <button
       ref={button}
       type="button"
-      className={cn(slotClass("value"), empty && "italic text-foreground/35")}
+      className={cn(slotClass(empty ? "value" : tone), empty && "italic text-foreground/35")}
       aria-label={`${name}: ${empty ? "none" : label}`}
       aria-pressed={editing.t === "toggle" ? values[0]?.v === true : undefined}
       data-qb-slot={name}

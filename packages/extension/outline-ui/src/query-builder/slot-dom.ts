@@ -41,15 +41,23 @@ export function advanceFrom(from: Element | null): void {
   neighbourSlot(from, 1)?.focus();
 }
 
+/**
+ * How a slot is drawn: the subject, bold; an operator, quiet; a value in a
+ * box; or a value that is chips (a tag, options), which are their own box,
+ * so the slot draws none around them.
+ */
+export type SlotTone = "subject" | "operator" | "value" | "chips";
+
 /** The box every slot draws: the mockup's chip, from the design tokens. */
-export function slotClass(tone: "subject" | "operator" | "value"): string {
+export function slotClass(tone: SlotTone): string {
   return cn(
-    "inline-flex min-h-5 max-w-full items-center gap-1 rounded-sm border px-1.5 text-meta",
+    "inline-flex min-h-5 max-w-full items-center gap-1 rounded-sm text-meta",
     "whitespace-nowrap outline-none transition-colors",
     "focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-    tone === "operator"
-      ? "border-foreground/10 bg-transparent text-foreground/50 hover:text-foreground/75"
-      : "border-foreground/10 bg-foreground/[0.04] text-foreground/80 hover:bg-foreground/[0.07]",
+    tone !== "chips" && "border border-foreground/10 px-1.5",
+    tone === "operator" && "bg-transparent text-foreground/50 hover:text-foreground/75",
+    (tone === "subject" || tone === "value") &&
+      "bg-foreground/[0.04] text-foreground/80 hover:bg-foreground/[0.07]",
     tone === "subject" && "font-semibold",
   );
 }

@@ -54,12 +54,13 @@ export function EdnEditor({
     <div className="flex min-w-0 flex-1 flex-col gap-1">
       <textarea
         value={draft}
-        rows={draft.includes("\n") ? 3 : 1}
+        rows={1}
         spellCheck={false}
         aria-label={label}
         placeholder={placeholder}
         className={cn(
-          "w-full resize-y rounded-md bg-foreground/[0.03] px-2 py-1",
+          // As tall as the text, wrapped lines included, up to a scroll.
+          "max-h-96 w-full [field-sizing:content] resize-y rounded-md bg-foreground/[0.03] px-2 py-1",
           "font-mono text-label leading-[1.5] text-foreground/75 outline-none",
           "placeholder:text-foreground/25 focus:bg-foreground/[0.05]",
           hasText(warning) && "ring-1 ring-warning/40",

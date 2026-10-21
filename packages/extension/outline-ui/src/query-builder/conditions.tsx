@@ -269,6 +269,7 @@ function FieldSlots({ builder, row, path }: { builder: Builder; row: FieldRow; p
           }
           onValues={(values) => set(withValues(row, values))}
           placeholder="value"
+          tone={declaresOptionSet(read.schema.get(row.field)) ? "chips" : "value"}
         >
           <ValuesShown read={read} fieldId={row.field} values={rowValues(row)} />
         </ValuesSlot>
@@ -466,7 +467,7 @@ function TagSlot({
     <ChoiceSlot
       name="tag"
       label={name}
-      tone="value"
+      tone="chips"
       candidates={candidates}
       chosen={row.tag}
       pickLabel="Pick a tag"
