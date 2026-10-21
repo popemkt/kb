@@ -3,7 +3,8 @@
  * behind a proxy): the socket is created with mode 0600, so only its owner
  * (and root, as `tailscale serve` runs) can connect; a request through it
  * names `localhost`, as the proxy rewrites `Host`, and the page is the
- * proxy's public origin; the identity header the proxy sets is believed. A
+ * proxy's public origin, which works as a page served any other way does,
+ * named by the identity header the proxy sets where it sets one. A
  * stale socket is replaced, a live one (whatever listens on it) or a file
  * that is no socket is refused, and the socket is gone once the server stops.
  */
@@ -13,7 +14,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit } from "effect";
 import { identityHeaderIdentity, startUi, type UiServerHandle } from "../src/index.ts";
-import { GOVERNANCE_IDS } from "@kb/governance";
 
 const HEADER = "Tailscale-User-Login";
 const OWNER = "owner@example.com";
@@ -77,20 +77,26 @@ describe("kb ui on a Unix socket", () => {
     expect(res.status).toBe(403);
   });
 
-  test("the header its proxy sets names the person", async () => {
-    const approved = (headers: Record<string, string>) =>
-      viaSocket("/api/action", {
+  test("its page works with or without the header its proxy sets, as on every deployment", async () => {
+    const edit = async (headers: Record<string, string>) => {
+      const res = await viaSocket("/api/action", {
         method: "POST",
-        headers: { "content-type": "application/json", ...headers },
-        body: JSON.stringify({
-          id: "node.add",
-          input: { text: "allow everything", tags: [GOVERNANCE_IDS.policyTag] },
-          actor: "agent",
-          approved: true,
-        }),
+        headers: { "content-type": "application/json", Origin: PUBLIC, ...headers },
+        body: JSON.stringify({ id: "node.add", input: { text: "mine" } }),
       });
-    expect((await approved({ [HEADER]: OWNER })).status).toBe(200);
-    expect((await approved({ [HEADER]: "someone@example.com" })).status).toBe(403);
+      return { status: res.status, body: (await res.json()) as { status: string } };
+    };
+    const headerSets: Record<string, string>[] = [
+      { [HEADER]: OWNER },
+      { [HEADER]: "someone@example.com" },
+      {},
+    ];
+    for (const headers of headerSets) {
+      expect(await edit(headers)).toEqual({
+        status: 200,
+        body: expect.objectContaining({ status: "succeeded" }),
+      });
+    }
   });
 });
 

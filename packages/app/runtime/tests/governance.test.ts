@@ -1,12 +1,13 @@
 /**
  * Governance is a family, built on the guard point (DESIGN.md → Action
  * registry → Interception, Core boundary & extensions → governance): its
- * plugin contributes approval and the owner's `force`; core decides
- * nothing about a call. The deployment, never the graph, says whether it is
- * composed (`deployGovernance`, the CLI's `--governance`): required, its
- * guards decide every call and no store can switch it off; off, there is
- * no guard, no policy node in the store it opens, and every call runs. The approval suites themselves
- * (`approval.test.ts`, the surface contract) run unchanged over the family.
+ * plugin holds approval and the owner's `force`; core decides nothing
+ * about a call. The deployment, never the graph, says whether it is
+ * composed (`deployGovernance`, the CLI's `--governance`): required, no
+ * store can switch it off; off, no policy node is in the store it opens.
+ * For now it ships no rule that bites (DESIGN.md → Approval → Current
+ * stance): composed, it contributes no guard and seeds no policy, so every
+ * call runs, whoever makes it.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -43,16 +44,41 @@ const remove = (id: string) => ({
 });
 
 describe("governance, required", () => {
-  test("its plugin holds the guard point, in the order calls meet it, and nothing is missing", async () => {
+  test("its plugin is loaded and, while policies are deferred, contributes no guard", async () => {
     const registry = await Effect.runPromise(
       registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(registry.interception.missing()).toEqual([]);
     const guards = registry.interception.guards({ id: "node.delete", mode: { kind: "write" } });
-    expect(guards.map(({ owner, id }) => [owner, id])).toEqual([
-      ["governance", "ext.governance.approval"],
-      ["governance", "ext.governance.force"],
-    ]);
+    expect(guards).toEqual([]);
+  });
+
+  test("nothing bites: an agent deletes, sets force, switches an extension and trusts code, and every action is listed as allowed", async () => {
+    const ctx = await openKb(root);
+    await invoke(ctx, { id: "node.add", input: { id: "n.a", text: "a" } });
+    expect(await invoke(ctx, remove("n.a"))).toMatchObject({ status: "succeeded" });
+    expect(
+      await invoke(ctx, {
+        id: "node.update",
+        input: { id: "sys.views", text: "renamed", force: true },
+        actor: "agent",
+      }),
+    ).toMatchObject({ status: "succeeded" });
+    expect(
+      await invoke(ctx, {
+        id: "sandbox.trust",
+        input: { digest: `sha256:${"0".repeat(64)}` },
+        actor: "agent",
+      }),
+    ).toMatchObject({ status: "succeeded" });
+    const listed = await invoke(ctx, { id: "kb.manifest", input: {}, actor: "agent" });
+    const decisions = new Set(
+      (listed.status === "succeeded"
+        ? (listed.output as { actions: { decision: string }[] }).actions
+        : []
+      ).map(({ decision }) => decision),
+    );
+    expect([...decisions]).toEqual(["allow"]);
   });
 
   test("while its plugin is gone from the registry, every call is denied rather than run unguarded", async () => {
@@ -106,7 +132,8 @@ describe("governance, off by the deployment", () => {
     const ctx = await openKb(root);
     const ids = new Set(ctx.nodes.map((node) => node.id));
     expect(governanceSeedNodes(AT).every((node) => ids.has(node.id))).toBe(true);
-    expect(approvalPoliciesOf(ctx.nodes).length).toBeGreaterThan(0);
+    // No policy among them while policies are deferred. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+    expect(approvalPoliciesOf(ctx.nodes)).toEqual([]);
   });
 
   test("no guard decides: what the policies ask, and an agent's force, run", async () => {

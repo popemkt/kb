@@ -21,8 +21,7 @@ import {
   type ScreenCommand,
   type ScreenState,
 } from "@kb/contracts";
-import { getClientOrigin } from "@/api/action";
-import { socketProtocols } from "@/api/page-token";
+import { tabSession } from "@/api/tab-session";
 import type { GraphMessage } from "@/session/replica";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
@@ -112,7 +111,7 @@ export interface ChannelSink {
 function defaultUrl(): string {
   const loc = window.location;
   const proto = loc.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${loc.host}/ws?origin=${encodeURIComponent(getClientOrigin())}`;
+  return `${proto}//${loc.host}/ws?origin=${encodeURIComponent(tabSession())}`;
 }
 
 /**
@@ -121,7 +120,7 @@ function defaultUrl(): string {
  * the handlers.
  */
 function defaultMakeSocket(url: string): WsLike {
-  return new WebSocket(url, socketProtocols());
+  return new WebSocket(url);
 }
 
 export class KbWsClient {

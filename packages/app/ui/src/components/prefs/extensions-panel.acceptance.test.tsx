@@ -60,10 +60,7 @@ const REPORT: ExtensionReport = {
     {
       point: "identity.providers",
       source: "host",
-      listeners: [
-        { owner: "identity-page-token", id: "page-token" },
-        { owner: "identity-header", id: "header" },
-      ],
+      listeners: [{ owner: "identity-header", id: "header" }],
     },
     {
       point: "action/guard",
@@ -217,7 +214,6 @@ describe("the Extensions panel (acceptance)", () => {
       "the host's identity providers",
     );
     expect([...identity.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
-      "page-token (identity-page-token)",
       "header (identity-header)",
     ]);
     const guards = present(

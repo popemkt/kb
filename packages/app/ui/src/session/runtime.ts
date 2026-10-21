@@ -145,9 +145,7 @@ function requireSession(): BrowserSession {
  * settles it with its receipt (DESIGN-UI.md → Replica sync → Holds).
  */
 export function pushInvocation(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
-  const result = pushTail
-    .catch(() => undefined)
-    .then(() => postAction(onWire(PAGE_WIRE, invocation)));
+  const result = pushTail.catch(() => undefined).then(() => postAction(invocation));
   pushTail = result.then(
     () => undefined,
     () => undefined,

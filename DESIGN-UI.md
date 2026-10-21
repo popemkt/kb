@@ -2123,18 +2123,16 @@ itself: the shell binds them as its ports where it loads it (`ui-plugins.ts`).
 
 ### Who the tab is
 
-The server tells each connection, after `hello`, who it takes it to be: the
-person, under the name the deployment's authentication gives them, or
-nobody (`DESIGN.md` → Surfaces → What needs the person). The page keeps the
-answer in the ui store (`person`) and says it in one place only: the
-header's connection word reads `live · unverified` on a live tab that is
-nobody's, and its tooltip says what that tab can do and how to open one
-that is the person's. Nothing else is shown, and nothing is repeated: an
-unverified tab reads, edits and publishes its screen like any other, so
-nothing it does on its own is refused. The agent dock is the one place a
-person can ask for something such a tab may not do; a message sent there
-is refused on the channel, and the dock says so in its own banner, where
-it says the agent is offline or absent, never as a toast.
+Every kb page is the person's (`DESIGN.md` → Surfaces → Who the person
+is), however it was opened and however kb is served: there is no link to
+open it by and no unverified tab. The server tells each connection, after
+`hello`, the name the deployment knows the person by; the page keeps it in
+the ui store (`person`). The tab names itself: it mints a session id once
+and keeps it in its sessionStorage (`DESIGN.md` → Surfaces → The tab
+session), the id its screen is published as and an agent's screen command
+names. While policies are deferred nothing the page does asks for approval
+(`DESIGN.md` → Action registry → Current stance), so the approval card and
+prompts below never show.
 
 ### Panes and layouts
 

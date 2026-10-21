@@ -4,7 +4,7 @@
  *
  * ```sql
  * CREATE TABLE tx (rev INTEGER PRIMARY KEY, at TEXT NOT NULL,
- *                  origin TEXT, ops TEXT NOT NULL, mark TEXT NOT NULL);
+ *                  origin TEXT, actor TEXT, ops TEXT NOT NULL, mark TEXT NOT NULL);
  * ```
  *
  * `ops` is the `canonicalJson` of the `StoreTx` — the nodes' own bytes again,
@@ -25,7 +25,14 @@
  * wraps itself in one.
  */
 import type { Database } from "bun:sqlite";
-import { canonicalJson, decodeStoredTx, domainError, type KbTx, type StoreTx } from "@kb/model";
+import {
+  canonicalJson,
+  decodeStoredTx,
+  domainError,
+  recordedTx,
+  type KbTx,
+  type StoreTx,
+} from "@kb/model";
 import {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
@@ -38,6 +45,7 @@ interface TxRow {
   rev: number;
   at: string;
   origin: string | null;
+  actor: string | null;
   ops: string;
 }
 
@@ -47,6 +55,7 @@ function toKbTx(row: TxRow): KbTx {
     at: row.at,
     ops: JSON.parse(row.ops),
     ...(row.origin === null ? {} : { origin: row.origin }),
+    ...(row.actor === null ? {} : { actor: row.actor }),
   });
 }
 
@@ -82,7 +91,7 @@ export class SqliteTxTail implements TxTail {
     const db = this.connection.peek();
     if (db === null) return [];
     return db
-      .query<TxRow, []>("SELECT rev, at, origin, ops FROM tx ORDER BY rev")
+      .query<TxRow, []>("SELECT rev, at, origin, actor, ops FROM tx ORDER BY rev")
       .all()
       .map(toKbTx);
   }
@@ -106,11 +115,12 @@ export class SqliteTxTail implements TxTail {
     db.transaction(() => {
       db.run("DELETE FROM tx");
       const mark = commitMark(db) ?? "";
-      const insert = db.prepare<unknown, [number, string, string | null, string, string]>(
-        "INSERT INTO tx (rev, at, origin, ops, mark) VALUES (?, ?, ?, ?, ?)",
-      );
+      const insert = db.prepare<
+        unknown,
+        [number, string, string | null, string | null, string, string]
+      >("INSERT INTO tx (rev, at, origin, actor, ops, mark) VALUES (?, ?, ?, ?, ?, ?)");
       for (const tx of kept) {
-        insert.run(tx.rev, tx.at, tx.origin ?? null, canonicalJson(tx.ops), mark);
+        insert.run(tx.rev, tx.at, tx.origin ?? null, tx.actor ?? null, canonicalJson(tx.ops), mark);
       }
     }).immediate();
   }
@@ -123,9 +133,16 @@ export class SqliteTxTail implements TxTail {
   appendWithin(db: Database, ops: StoreTx, record: TxRecord): KbTx {
     const rev =
       (db.query<{ rev: number | null }, []>("SELECT MAX(rev) AS rev FROM tx").get()?.rev ?? 0) + 1;
-    db.prepare<unknown, [number, string, string | null, string, string]>(
-      "INSERT INTO tx (rev, at, origin, ops, mark) VALUES (?, ?, ?, ?, ?)",
-    ).run(rev, record.at, record.origin ?? null, canonicalJson(ops), commitMark(db) ?? "");
+    db.prepare<unknown, [number, string, string | null, string | null, string, string]>(
+      "INSERT INTO tx (rev, at, origin, actor, ops, mark) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(
+      rev,
+      record.at,
+      record.origin ?? null,
+      record.actor ?? null,
+      canonicalJson(ops),
+      commitMark(db) ?? "",
+    );
 
     // Compaction is part of the same transaction: a tail that shed its head
     // in a separate write could be observed with neither bound in force.
@@ -136,8 +153,6 @@ export class SqliteTxTail implements TxTail {
       ).run(TX_TAIL_KEEP_ENTRIES);
     }
 
-    return record.origin === undefined
-      ? { rev, ops, at: record.at }
-      : { rev, ops, at: record.at, origin: record.origin };
+    return recordedTx(rev, ops, record);
   }
 }

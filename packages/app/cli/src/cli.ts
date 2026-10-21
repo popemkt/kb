@@ -315,7 +315,7 @@ function buildProgram(): Command {
         ) =>
           Effect.gen(function* () {
             checkUiListen(opts);
-            const { identityHeaderIdentity, pageTokenIdentity, runUiCli } = yield* Effect.promise(
+            const { identityHeaderIdentity, runUiCli } = yield* Effect.promise(
               () => import("@kb/server"),
             );
             const root = yield* resolveRootEffect({ root: globals.root });
@@ -327,14 +327,12 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
-              // The person's local page always authenticates; a hosted
-              // deployment adds the proxy it trusts.
-              identity: [
-                pageTokenIdentity(),
-                ...(opts.identityHeader === undefined
+              // The page is the server's owner; a hosted deployment may name
+              // the person by the proxy it trusts instead.
+              identity:
+                opts.identityHeader === undefined
                   ? []
-                  : [identityHeaderIdentity(opts.identityHeader)]),
-              ],
+                  : [identityHeaderIdentity(opts.identityHeader)],
               extensions: yield* hostExtensions(root),
               openedBy: ACTION_INVOKE_WIRE,
             });
@@ -701,7 +699,7 @@ function buildProgram(): Command {
       kbAction((ctx, globals, [jsonArg]: [string]) =>
         Effect.gen(function* () {
           const raw = yield* readActionJsonEffect(jsonArg);
-          const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw, ACTION_INVOKE_WIRE));
+          const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw));
           const receipt = yield* invokeReceiptEffect(ctx, invocation);
           writeOut(formatReceipt(receipt, { json: globals.json === true }));
           return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;

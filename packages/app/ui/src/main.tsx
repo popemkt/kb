@@ -1,6 +1,5 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { adoptPageToken } from "@/api/page-token";
 import { App } from "@/components/App";
 import { initScrollbarManager } from "@/lib/scrollbar-manager";
 import { startDesignSystems } from "@/stores/design-system.store";
@@ -22,7 +21,6 @@ function preloadInterLatin() {
   document.head.appendChild(link);
 }
 
-adoptPageToken();
 preloadInterLatin();
 initPrefs();
 startDesignSystems();

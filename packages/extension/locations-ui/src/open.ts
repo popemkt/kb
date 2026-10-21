@@ -6,9 +6,7 @@
  *
  * Opening leaves the page: the `kb ui` serving the other root is another
  * process at another URL (DESIGN.md → Locations). The page goes to where
- * the call says the root opens (`open`), which carries that server's page
- * token, so the tab it lands in is that server's page. The same tab goes
- * there; a new tab is opened before the call, while the click still counts
+ * the call says that server is (`url`). The same tab goes there; a new tab is opened before the call, while the click still counts
  * as the person's gesture, and is closed again when the open is refused.
  */
 import type { ActionReceipt } from "@kb/contracts";
@@ -94,7 +92,7 @@ export async function openLocation(
   const opened =
     receipt.status === "failed"
       ? { url: null, message: receipt.message }
-      : { url: LocationOpenedSchema.safeParse(receipt.output).data?.open ?? null, message: "" };
+      : { url: LocationOpenedSchema.safeParse(receipt.output).data?.url ?? null, message: "" };
   if (opened.url === null) {
     tab?.close();
     toast(opened.message === "" ? "the location's server gave no URL" : opened.message);

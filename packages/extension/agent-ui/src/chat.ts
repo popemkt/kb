@@ -65,7 +65,7 @@ interface ChatState {
 const NO_AGENT = "This kb ui hosts no agent, so there is no one to chat with here.";
 const OFFLINE = "Not connected to kb. Reconnecting…";
 const NOT_YOURS =
-  "This tab is not verified as you, so it cannot talk to your agent (the connection word in the header says how to open one that is).";
+  "This connection is not verified as you (it is not the kb page), so it cannot talk to your agent.";
 
 export const useChat = create<ChatState>(() => ({
   transcript: newTranscript("detached"),

@@ -1510,6 +1510,13 @@ of refetching the graph.
 | JSONL  | `.kb/tx.jsonl`, one canonical-JSON record per line | no — two files, one lock         | under `.kb/nodes.jsonl.lock`, the lock that already covers load → merge → replace |
 | SQLite | a `tx` table in `.kb/kb.sqlite`                    | yes — the same `BEGIN IMMEDIATE` | inside that transaction                                                           |
 
+Each record also carries `actor`, who made the call that committed it, when
+an invocation did (`persistEffect` takes it from `CurrentCall`; `recordedTx`
+in `@kb/model` builds the entry for both tails). JSONL writes it on the line
+when set; SQLite keeps it in a column schema 4 added (`ALTER TABLE` on an
+older database, whose rows read with none). It is recorded for later use
+only: nothing decides by it (Action registry → Current stance).
+
 Both records carry `mark`: the store's own durable commit mark as of that
 append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`) — on both, the
 store's fingerprint. `TxTail.isCurrent()`
@@ -1999,6 +2006,22 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       under the runtime is therefore guarded whoever planned it.
     - The page provides its own listeners for local calls.
     - Without a provider, a call has no listeners.
+- **Current stance: policies empty; actors recorded; enforcement deferred.**
+  The governance family ships no rule that bites. Its plugin contributes no
+  guard (`approvalGuard` and `forceGuard` are defined and loaded by
+  nothing), its seed holds the policy vocabulary, table and pin but no
+  policy, and neither the wire nor the invoke core refuses or asks on its
+  own. So every call runs, whoever makes it, and no surface shows an
+  approval prompt. Who made each call is still known (the wire's actor,
+  below) and recorded on its transaction
+  ([The transaction tail](#the-transaction-tail--the-store-records-what-changed-in-order)),
+  for later use only. Governance is not a security boundary here: who can
+  reach a `kb ui` at all is (tailnet grants, the host's Unix accounts, the
+  request guard). The guard point, the resolver, the policy vocabulary and
+  the surface contract's approval properties (skipped) stay, so policies
+  come back by contributing the guards again
+  (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]` in `governance/src/extension.ts`).
+  The rest of this entry is the mechanism as it decides once they do.
 - **Approval** is the governance family's guard (`@kb/governance`; core
   contributes no guard). It decides in one place, one resolver
   (`resolveApproval` in `@kb/governance`), asked by that guard on the guard
@@ -2085,14 +2108,15 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     selection shows the provider's endpoint, executable and credential
     reference.
 
-  - **Seeded defaults**, ordinary editable nodes filed under the query node
-    `approval.policies` ("Approval policies"): an agent, and sandboxed code,
-    asks before `node.delete` and before `views.migrate`, and neither may
-    `sandbox.trust` ([Sandbox](#trust)). An agent asks before
+  - **No seeded defaults** while policies are deferred (Current stance,
+    above). Policies, once written, are ordinary editable nodes filed under
+    the query node `approval.policies` ("Approval policies"). The defaults
+    to re-introduce with the guards: an agent, and sandboxed code, asks
+    before `node.delete` and before `views.migrate`, and neither may
+    `sandbox.trust` ([Sandbox](#trust)); an agent asks before
     `extension.switch`, and sandboxed code may not call it, since it changes
     which code the server loads ([Extension families](#extension-families)).
-    Normal edits need no row,
-    because no core write declares approval.
+    A store seeded before keeps those nodes as data, which no guard reads.
   - **Policies are managed in a saved table, pinned in the sidebar; there is
     no settings page.** The query node lists every `#approval-policy` node
     wherever it is filed, and names a seeded table view node
@@ -2113,34 +2137,33 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     WebMCP `execute` do not, because their arguments are the input, so a
     call that asks is always refused over MCP and WebMCP.
   - The wire also names its **actor**, who a call on it is made by: `human`
-    (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP), `cli`,
-    or `script` (code in the sandbox, [Sandbox](#sandbox)). **The surface
-    says who calls, never the call.** Every surface hands the invoke core
-    its calls through `onWire`, which makes each its wire's actor's and
-    keeps of it only what the wire lets a call state (`mayState`): that a
-    person approved it, where the wire carries approval, and who makes it
-    and a script's reach, only where the wire relays calls others make. Two
-    wires relay, by what they are. The page's (`PAGE_WIRE`) carries the
-    person's gestures and the calls the page makes for others (the agent
-    sidebar's call the person approved, WebMCP's tools, the scripts it
-    hosts, stamped by their host), each naming its actor; a call that names
-    none is the person's. kb's own code calling in process through the
-    runtime's `invoke` edge (`IN_PROCESS_WIRE`, as `cli`) relays too: only
-    code already running in the process, with its whole reach, calls there.
-    A call stated from outside kb (an HTTP body, `kb action-invoke`'s JSON)
-    is read by `requestOnWire`, which refuses one that states what its
-    wire does not let it (`forbidden`), so its caller hears it rather than
-    find it ignored. Over HTTP and `/ws` the server takes a request as the
-    page's only when the deployment's authentication finds it is the
-    person's (below); any other is a local program's (`HTTP_WIRE`),
-    whatever Origin it sends: an agent's call, the more cautious caller,
-    and never an approved one, since nothing shows a person stands behind
-    it. **Every call names its actor**: what a
-    caller sends is an `ActionRequest`, whose actor it may leave out, and
-    what the invoke core takes is an `ActionInvocation`, whose actor the
-    type requires, so the compiler finds any caller that names none. A call
-    an action makes while another runs (`CoreInvoke`) is made by that one's
-    actor (`callWithin`, [Grants](#grants-and-the-script-actor)).
+    (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP, and any
+    program that calls over HTTP), `cli`, or `script` (code in the sandbox,
+    [Sandbox](#sandbox)). **The surface says who calls, never the call.**
+    A request (`ActionRequest`) has no actor: a caller that sends one has it
+    dropped with any other key the envelope lacks, never refused
+    (`requestOf` reads an HTTP body or `kb action-invoke`'s JSON). Every
+    surface hands the invoke core its calls through `onWire`, which makes
+    each its wire's actor's and keeps of it only what the wire carries
+    (`carries`): that a person approved it, where the wire carries
+    approval, and a script's reach, where the wire relays calls others
+    make; what it does not carry is dropped. A call carrying a script's
+    reach is the script's. Two wires relay. The page's (`PAGE_WIRE`)
+    carries the person's gestures and, inside the page, the calls it makes
+    for others (the agent sidebar's call the person approved, WebMCP's
+    tools, the scripts it hosts). kb's own code calling in process through
+    the runtime's `invoke` edge (`IN_PROCESS_WIRE`, as `cli`) relays too: a
+    call already made on another wire in the process (an
+    `ActionInvocation`, `madeBy`) keeps who made it. Over HTTP and `/ws`
+    the request guard says which wire a request is on (Surfaces → Who the
+    person is): the kb page in a browser is the page's, anything else a
+    local program's (`HTTP_WIRE`, an agent's). The envelope the page sends
+    (`envelopeOf`) states no actor, so a relayed call is the page's on the
+    server (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`). **Every call names
+    its actor** in the core: what the invoke core takes is an
+    `ActionInvocation`, whose actor the type requires. A call an action
+    makes while another runs (`CoreInvoke`) is made by that one's actor
+    (`callWithin`, [Grants](#grants-and-the-script-actor)).
   - **Listings are honest.** Each surface declares what its wire carries
     once, as a `SurfaceWire` (`MCP_WIRE`, `HTTP_WIRE`, …), and lists by
     calling `kb.manifest` on that wire. `kb.manifest` lists every action and
@@ -2152,113 +2175,77 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     core and is refused. MCP's `tools/list` and each agent turn read it
     afresh, and the page's WebMCP lists again when its replica's policies
     change.
-  - **Who the person is.** The app takes one input from authentication:
-    whether a request is the person's, and under what name (`Person` in
-    `@kb/contracts`), or nobody's the server can vouch for. Plugins supply
-    it. An identity provider is a plugin that contributes to
-    `IdentityPoint` (`identity.providers`, `@kb/contracts`). A provider
-    answers about a request it can vouch for (the person, by name) or must
-    refuse (a credential that is not good here), and passes on any other.
-    The server asks them in the kernel's order (each plugin's dependencies
-    first, then load order; no ordering configuration), and the first
+  - **Who the person is.** A request from the kb page in a browser is the
+    person's; anything else (the CLI's relay, MCP, curl, another program)
+    is a local program's. The request guard tells them apart the same way
+    on every deployment (local TCP, TCP behind a proxy, a socket): it
+    refuses another site's page by its `Origin` (below), so a request that
+    carries an `Origin` it lets through is the UI's own page, on the page's
+    wire (`PAGE_WIRE`), and one that carries none is a local program's
+    (`HTTP_WIRE`, an agent's). A browser sends `Origin` on every
+    WebSocket handshake and every `POST`, so the page's socket and its
+    actions are always the page's; its same-origin `GET`s carry none and
+    read on the program's wire, which reads the same. **The trade-off,
+    chosen plainly:** a local program can send the UI's `Origin` and pass
+    as the page. That is accepted, because governance is not a security
+    boundary here (Action registry → Current stance): who can reach the
+    server at all is, by the tailnet's grants, the host's Unix accounts
+    (`--socket`, mode 0600), and the guard's `Host` and `Origin` checks
+    against other sites. On a host where another account can reach a TCP
+    `kb ui`, that account can act as the page; a deployment that must keep
+    it out listens on a socket.
+    The name the person goes by (`Person` in `@kb/contracts`) comes from
+    the deployment's identity providers, plugins that contribute to
+    `IdentityPoint` (`identity.providers`). A provider answers about a
+    request it can vouch for (the person, by name) or must refuse (a
+    credential that is not good here), and passes on any other; the first
     answer holds (`identifyBy` in `app/server/src/auth.ts`, as Cordis's
-    `bail`). When every one passes, the request is nobody's. The request guard asks
-    last, and the wire follows from the answer alone: the person's request
-    is on the page's wire, any other on a local program's. With no
-    provider at all the server runs, and every connection is nobody's.
-    Which providers a deployment loads is its configuration, never a
-    graph write: the composition root that starts the server names them
-    (`identity` on `startUi`), as it names every plugin it hosts, and they
-    are held whatever the store's switches say. Replacing how the person
-    is authenticated is choosing other providers; no plugin takes over
-    another's. `kb ui` loads the page token's provider
-    (`pageTokenIdentity`), and with `--identity-header` also its proxy's
-    (`identityHeaderIdentity`, only with `--socket`; Hosted behind a proxy,
-    at the end of [Action registry](#action-registry)). A `/ws`
-    connection is told the answer after `hello` (`{op: "person"}`), so
-    the page knows what it may do without trying (DESIGN-UI.md → Who the
-    tab is).
-  - **What needs the person.** Each thing a connection does needs the
-    person only where it acts for them; everything else runs on the
-    agent's wire, as the more cautious caller. Decided per operation:
+    `bail`). A provider's refusal refuses the request; a page no provider
+    names is the server's owner, by the account that runs it. Which
+    providers a deployment loads is its configuration, never a graph
+    write: the composition root that starts the server names them
+    (`identity` on `startUi`). `kb ui` loads its proxy's with
+    `--identity-header` (`identityHeaderIdentity`, only with `--socket`;
+    Hosted behind a proxy, at the end of [Action registry](#action-registry)).
+    A `/ws` connection is told who it is after `hello` (`{op: "person"}`).
+  - **What needs the person.** Decided per operation:
     - Reading (subscribe, watch, catch up, `GET /api/*`) and calling
-      actions: every wire. A call on a local program's wire is an agent's,
-      so a write that asks is refused unapproved there.
+      actions: every wire. Nothing asks or refuses a call for who makes it
+      (Action registry → Current stance); the wire's actor is recorded.
     - Publishing a tab's screen and answering its commands (`screen`,
       `screen-ack`): every wire. A screen changes neither the graph nor
       the workspace, a command to it is one a person undoes with one
       gesture ([Screen state](#screen-state) → No approval), and a tab id
       already belongs to the connection that published it, so no
-      connection takes over another's tab. What the person adds is whose
-      tab it is: the record names them (`person`), and `ui.screen` lists
-      their tabs before nobody's, so a command that names no tab goes to
-      theirs, and a program on the agent's wire cannot draw it to a screen
-      it made up. Where the deployment vouches for nobody, every tab is
-      nobody's and the order is recency alone, so an agent still sees and
-      steers every tab.
-    - Speaking on a plugin channel (`channel`): the person only. A
-      channel's plugin acts for them: the agent sidebar runs turns on
-      their model, with their secrets, as their agent, and hands its asks
-      to them. A connection that is nobody's is refused on the channel
-      (`forbidden`, naming it), which its sink shows in its own terms.
-    - Approving a call (`approved`), and relaying a call another actor or
-      a script makes: the person only, since only the page's wire carries
-      approval or relays (`mayState`). Naming the actor the wire makes a
-      call anyway claims nothing, so every wire takes it: a page that is
-      nobody's calls WebMCP's tools as the agent it already is. A script a
-      page that is nobody's hosts is still refused
-      (`// GAP [[01M5BVBDY7HNGXN2ZQJR4BHMPP]]` in `approval.ts`).
-  - **The page token.** `kb ui` mints a random token when it starts and
-    holds it in memory (`pageTokenIdentity` in `app/server/src/auth.ts`),
-    naming the person by the account that started it. The provider also
-    provides the token as a service (`PageToken`), which the server reads
-    to open the page; a server without it opens and prints the bare URL.
-    It opens and prints the
-    page URL with the token in the fragment (`#token=…`, `pageUrlOf` in
-    `@kb/contracts`), which a browser never sends in a request, so a
-    program that fetches the page does not get it, and no body the server
-    serves carries it. The page moves it into the tab's sessionStorage and
-    out of the address bar, so a reload keeps it, and sends it on every
-    `/api` request (`x-kb-page-token`) and on the `/ws` handshake, as a
-    second WebSocket subprotocol beside `kb`, since a browser cannot set a
-    header there. The request guard compares it in constant time: this
-    run's token is the page's wire (`PAGE_WIRE`), another (forged, or from
-    an earlier run) is refused, and none is a local program's wire. An opener
-    in another process gets the token from the person's home, never from
-    the root: a `kb ui` a person opened keeps it in their home store's
-    `.kb/pages/`, a file readable by them alone, removed when it stops
-    (`writePageToken` in `@kb/workspace-fs`). `location.open` hands the
-    page URL (`open`) only to the owner's own call, the person's or their
-    CLI's, so `kb open` and the sidebar open a tab with a fresh fragment;
-    any other caller is given the bare URL, since a token an agent held
-    could be written into a node, where a program that only reads the
-    graph would find it. A tab opened without a token is nobody's: it
-    reads, writes as an agent, and publishes its screen as nobody's tab
-    (What needs the person, above).
-  - **What an approval floor binds.** A program with the owner's shell or
-    files is the owner: it can read the page token, run `kb`, or edit
-    `.kb/nodes.jsonl` directly, and the CLI's wire, the owner's own, is not
-    a security boundary. So an agent given a shell holds what the owner
-    holds. The floors bind everything else: the sidebar agent, MCP,
-    WebMCP and a script, which reach kb only through surfaces that say who
-    they are, and a program that reaches kb only over the network, or any
-    web page, which has no token and so calls on the agent's wire. None of
-    those can say it is someone else, or that a person approved it, save
-    where the deployment trusts a proxy's identity header, which a
-    process on the server's host that bypasses the proxy can also send
-    (Who the person is, above). The
-    page URL is also in the arguments of the browser `kb ui` starts, which
-    a program that can list this machine's processes can read; such a
-    program is not a network-only one. Nor does kb prove a gesture: the
+      connection takes over another's tab. The record names the person
+      (`person`), and `ui.screen` lists their tabs before nobody's, so a
+      command that names no tab goes to a page's tab, not to a screen a
+      program made up.
+    - Speaking on a plugin channel (`channel`): the page only. A channel's
+      plugin acts for the person: the agent sidebar runs turns on their
+      model, with their secrets, as their agent, and hands its asks to
+      them. A program's connection is refused on the channel (`forbidden`,
+      naming it).
+  - **The tab session.** Each tab mints its own session id in the browser
+    (`api/tab-session.ts` in the UI) and keeps it in the tab's
+    sessionStorage, so a reload keeps it and another tab has its own. It is
+    nothing the server issues, no URL carries it, and it proves nothing: it
+    is the tab's name, sent as `X-KB-Origin` on its actions and published
+    as its screen's tab id, so an agent's screen command (`ui.screen`,
+    `ui.navigate`, …) reaches the tab session it names. A duplicated tab
+    starts with a copy of it; the server refuses the second publisher of a
+    tab id (`screen-refused`), and that tab mints and keeps a fresh one.
+    `kb ui` opens and prints the bare page URL.
+  - **What binds a caller.** Nothing kb decides by actor binds anyone while
+    policies are deferred. What does bind is who can reach `kb ui`'s HTTP
+    and `/ws` at all, decided by the request guard, applied before `/ws`
+    and every `/api/*` route. A request passes only when its `Host` names
+    this server, which stops DNS rebinding. It must also carry no `Origin`
+    (a local program) or the UI's own, which keeps other sites' pages out.
+    A `POST /api/action` must also be `application/json`, so a page on
+    another site cannot reach it at all. Nor does kb prove a gesture: the
     page's word that a person approved a call, or made it, is declared,
     not proven (`// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]` in `approval.ts`).
-    Who can reach `kb ui`'s HTTP and `/ws` at all is decided by the same
-    request guard, applied before `/ws` and every `/api/*` route. A request
-    passes only when its `Host` names this server, which stops DNS
-    rebinding. It must also carry no `Origin` (a local program) or the UI's
-    own, which keeps other sites' pages out. A `POST /api/action` must also
-    be `application/json`, so a page on another site cannot reach it at
-    all.
   - The browser's one invoke path takes the whole envelope, on the local
     replica and on the push lane. Its caller that sets `approved` is the
     agent sidebar's approval prompt, which makes the call as the agent's,
@@ -2313,12 +2300,14 @@ remain valid. The CLI accepts an origin URL with an optional trailing slash,
 not credentials, a path, a query, or a fragment. Undeclared hosts and unrelated
 browser origins remain forbidden.
 
-**Hosted behind a proxy.** A proxy that authenticates the person can tell
-`kb ui` who they are: `kb ui --identity-header <header>=<login>`
+**Hosted behind a proxy.** A hosted page works as a local one does: the
+page is the person's by its `Origin` (Surfaces → Who the person is), with
+nothing to open it by. A proxy that authenticates the person can also tell
+`kb ui` their name: `kb ui --identity-header <header>=<login>`
 (repeatable, one header) trusts the proxy's `<header>`, and a request
-whose header is one of the logins is the person's, under that login, with
-no page token (`identityHeaderIdentity` in `app/server/src/auth.ts`). A
-request whose header names anyone else, or carries none, is nobody's.
+whose header is one of the logins is the person's, under that login
+(`identityHeaderIdentity` in `app/server/src/auth.ts`). A request whose
+header names anyone else, or carries none, is named as any other is.
 
 The header is believed from whatever reaches the server, so it is sound
 only where the proxy is the one way in, and `kb ui` takes it only with
@@ -2688,7 +2677,7 @@ and it adds no field an extension author must fill in.
   - `core`: `coreExtension`, the required families (`outline`, `docs`,
     `check`), the server's host plugin and the page's shell plugins;
   - `governance`;
-  - `identity`: the page-token and proxy-header providers;
+  - `identity`: the proxy-header provider;
   - `ui`: every browser half, beside its family's tag, and the shell's;
   - one tag per optional family for the rest (`collections`, `graph`,
     `canvas`, `lab`, `code`, `chart`, `locations`, `backdrops`, `themes`,
@@ -4647,7 +4636,7 @@ point. A plugin reaches another only through a service it injects.
 | Actions                          | `ActionPoint` (`provideAction`)                                                                                                                 | every surface, through the invoke core | each family's verbs               |
 | Policy over calls                | guards, `ActionGuardPoint` (`guardAction`)                                                                                                      | before a call and before its commit    | governance's approval and `force` |
 | Transforms of calls              | interceptors, `ActionInterceptorPoint` (`onAction`)                                                                                             | around a call's input and output       | —                                 |
-| Who the person is                | `IdentityPoint` (`identity.providers`)                                                                                                          | the `kb ui` server's request guard     | page token, proxy header          |
+| Who the person is                | `IdentityPoint` (`identity.providers`)                                                                                                          | the `kb ui` server's request guard     | proxy header                      |
 | Views and templates              | `ViewKeyPoint`, `TemplatePoint`                                                                                                                 | server text, docs, the page            | outline, collections, docs        |
 | Page UI                          | `ui.routes`, `ui.views`, `ui.sidebar`, `ui.docks`, `ui.overlays`, `ui.commands`, `ui.palette-steps`, design systems, backdrops, option previews | the page                               | every `-ui` half                  |
 | Conversations with the page      | `ChannelPoint`, beside `UiHost`                                                                                                                 | the `kb ui` server                     | the agent sidebar                 |

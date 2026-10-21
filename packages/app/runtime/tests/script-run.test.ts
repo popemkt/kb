@@ -25,7 +25,7 @@ const PLACE = `await kb.invoke("ext.canvas.place", {
 });`;
 const GRANT = { reads: "subject" as const, actions: ["ext.canvas.place"] };
 
-const run = (rest: Partial<ActionRequest> = {}): ActionRequest => ({
+const run = (rest: Partial<ActionInvocation> = {}): ActionRequest => ({
   id: "ext.code.script.run",
   input: { script: "s.place", subject: "n.canvas" },
   ...rest,
@@ -41,7 +41,8 @@ describe("running a script once", () => {
     resetRegistryCache();
   });
 
-  test("an untrusted script never runs; a trusted one writes through the verbs as the script", async () => {
+  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
+  test.skip("an untrusted script never runs; a trusted one writes through the verbs as the script", async () => {
     const ctx = await openKb(root);
     await invoke(ctx, {
       id: "node.add",

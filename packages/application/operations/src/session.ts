@@ -169,7 +169,13 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
     if (refusal !== null) return yield* domainError(refusal.code, refusal.message, refusal.details);
   }
   const caughtUpTo = seen.get(ctx) ?? null;
-  const commit = yield* store.commitEffect(tx, { at: yield* currentIso, origin }, expected);
+  // Who made the call is recorded with what it wrote; nothing decides by it.
+  const actor = call === null ? {} : { actor: call.invocation.actor };
+  const commit = yield* store.commitEffect(
+    tx,
+    { at: yield* currentIso, origin, ...actor },
+    expected,
+  );
   if (commit.base !== null && commit.base === caughtUpTo) {
     // The store's version of the delta: it carries the ranks the commit
     // settled, which `tx` may not.

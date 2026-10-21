@@ -13,7 +13,7 @@ import { Effect } from "effect";
 import { ChannelPoint, UiHost, defineExtension, type ExtensionEntry } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { FAKE_TAB_SCREEN, FakeTab } from "@kb/test-kit";
-import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
+import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
 
@@ -65,7 +65,6 @@ describe("plugin channels", () => {
     dropped.length = 0;
     handle = await run(
       startUi({
-        identity: [pageTokenIdentity()],
         root,
         port: 0,
         openBrowser: false,
@@ -81,7 +80,7 @@ describe("plugin channels", () => {
   });
 
   async function openTab(id: string): Promise<FakeTab> {
-    const opened = await run(FakeTab.open(handle.page, id, FAKE_TAB_SCREEN));
+    const opened = await run(FakeTab.open(handle.url, id, FAKE_TAB_SCREEN));
     tabs.push(opened);
     return opened;
   }
@@ -135,7 +134,6 @@ describe("plugin channels", () => {
     });
     const other = await run(
       startUi({
-        identity: [pageTokenIdentity()],
         root,
         port: 0,
         openBrowser: false,

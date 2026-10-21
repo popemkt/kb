@@ -1,7 +1,8 @@
 /**
  * The governance family's seed (DESIGN.md → Governance): the
- * `#approval-policy` tag and its fields, their option nodes, the default
- * policies, the query node that lists every policy, its table and its pin.
+ * `#approval-policy` tag and its fields, their option nodes, the query node
+ * that lists every policy, its table and its pin. It seeds no policy while
+ * policies are deferred.
  * A store composed without the family is seeded with none of it, so it
  * holds no policy node.
  */
@@ -12,7 +13,6 @@ import {
   APPROVAL_POLICIES_QUERY,
   DECISION_OPTION_IDS,
   GOVERNANCE_IDS,
-  approvalPolicyNode,
 } from "./policy.ts";
 
 /** A plain node stamped `at`, for the family's seed. */
@@ -70,64 +70,8 @@ function vocabularyNodes(at: string): KbNode[] {
 
 export function governanceSeedNodes(at: string): readonly KbNode[] {
   const mk = plainNode(at);
-  /*
-   * The defaults the owner chose: an agent, and sandboxed code, is asked before
-   * it deletes a node and before a store-wide rewrite; an agent is asked
-   * before switching an extension, which code never does. Normal edits need no policy (no core
-   * write declares approval), and a human's gesture never asks because the
-   * gesture is the person's answer — a property of the resolver, not a row.
-   * They are ordinary, editable nodes, filed under the query node that lists
-   * every policy.
-   */
-  const defaultPolicies = [
-    approvalPolicyNode(mk("approval.agent-delete", "An agent asks before deleting a node"), {
-      match: "node.delete",
-      actor: "agent",
-      decision: "ask",
-    }),
-    approvalPolicyNode(
-      mk("approval.agent-views-migrate", "An agent asks before rewriting the store to view nodes"),
-      { match: "views.migrate", actor: "agent", decision: "ask" },
-    ),
-    // Sandboxed code is agent-written until a person trusts it, so it meets
-    // the agent's caution: its host asks the person before these run.
-    approvalPolicyNode(mk("approval.script-delete", "Sandboxed code asks before deleting a node"), {
-      match: "node.delete",
-      actor: "script",
-      decision: "ask",
-    }),
-    approvalPolicyNode(
-      mk(
-        "approval.script-views-migrate",
-        "Sandboxed code asks before rewriting the store to view nodes",
-      ),
-      { match: "views.migrate", actor: "script", decision: "ask" },
-    ),
-    // Trusting code is a person's own gesture, made where the code is shown
-    // (DESIGN.md → Sandbox → Trust): no agent trusts code for them, and no
-    // code trusts itself.
-    approvalPolicyNode(mk("approval.agent-trust", "An agent never trusts code"), {
-      match: "sandbox.trust",
-      actor: "agent",
-      decision: "deny",
-    }),
-    approvalPolicyNode(mk("approval.script-trust", "Sandboxed code never trusts code"), {
-      match: "sandbox.trust",
-      actor: "script",
-      decision: "deny",
-    }),
-    // Switching an optional extension changes which code the server loads
-    // (DESIGN.md → Extension families): an agent asks the person, and
-    // sandboxed code never does it.
-    approvalPolicyNode(
-      mk("approval.agent-extension-switch", "An agent asks before switching an extension"),
-      { match: "extension.switch", actor: "agent", decision: "ask" },
-    ),
-    approvalPolicyNode(
-      mk("approval.script-extension-switch", "Sandboxed code never switches an extension"),
-      { match: "extension.switch", actor: "script", decision: "deny" },
-    ),
-  ];
+  // No default policy is seeded while policies are deferred: an empty table
+  // decides nothing. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
   /*
    * Policies are managed in a saved table of every `#approval-policy` node,
    * pinned in the sidebar; there is no settings page. The table is an
@@ -150,20 +94,13 @@ export function governanceSeedNodes(at: string): readonly KbNode[] {
       [SYSTEM_IDS.queryField]: [{ t: "str", v: APPROVAL_POLICIES_QUERY }],
       [SYSTEM_IDS.viewsField]: [{ t: "ref", v: GOVERNANCE_IDS.policiesView }],
     }),
-    children: defaultPolicies.map((policy) => policy.id),
   };
   // GAP [[01M413SPC35K20DFC4TRP4DJYH]]
   const approvalPoliciesPin = mk(GOVERNANCE_IDS.policiesPin, "", {
     [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: GOVERNANCE_IDS.policies }],
   });
 
-  return [
-    ...vocabularyNodes(at),
-    approvalPolicies,
-    ...defaultPolicies,
-    approvalPoliciesView,
-    approvalPoliciesPin,
-  ];
+  return [...vocabularyNodes(at), approvalPolicies, approvalPoliciesView, approvalPoliciesPin];
 }
 
 /**

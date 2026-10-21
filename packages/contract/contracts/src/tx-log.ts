@@ -1,5 +1,5 @@
 import { Context } from "effect";
-import type { KbTx, StoreTx } from "@kb/model";
+import type { Actor, KbTx, StoreTx } from "@kb/model";
 
 /**
  * The one producer of "what changed, in order".
@@ -92,6 +92,8 @@ export interface TxRecord {
   readonly at: string;
   /** See {@link TxOrigin}. */
   readonly origin?: string;
+  /** Who made the call that committed it, when an invocation did (`KbTx.actor`). */
+  readonly actor?: Actor;
 }
 
 /**

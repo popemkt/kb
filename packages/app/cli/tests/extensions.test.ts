@@ -246,18 +246,14 @@ describe("kb ext list", () => {
     expect(tagsOf("governance")).toEqual(["governance"]);
     expect(tagsOf("canvas")).toEqual(["canvas"]);
     const guards = output.points.find(({ point }) => point === "action/guard")?.listeners;
-    expect(guards?.map(({ id }) => id)).toEqual([
-      "ext.governance.approval",
-      "ext.governance.force",
-      "ext.code.script-run",
-    ]);
+    // Governance contributes no guard while policies are deferred. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+    expect(guards?.map(({ id }) => id)).toEqual(["ext.code.script-run"]);
 
     resetRegistryCache();
     const human = await runCli(["--root", root, "ext", "list"]);
     expect(human.out).toContain("\n  tags: core\n");
     expect(human.out).toContain("action/guard (registry): in order");
-    expect(human.out).toContain("  1. ext.governance.approval (governance) on *");
-    expect(human.out).toContain("  2. ext.governance.force (governance) on every write");
+    expect(human.out).toContain("  1. ext.code.script-run (code)");
   });
 });
 

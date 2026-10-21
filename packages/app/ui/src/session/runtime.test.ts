@@ -27,11 +27,10 @@ describe("browser action runtime", () => {
     await invoked;
     expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("local first");
     await waitForBrowserPushes();
-    // The page names its own gesture: the person's.
+    // The page states no actor: the server says who calls.
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
       input: { id: "n.root-a", text: "local first" },
-      actor: "human",
     });
   });
 

@@ -36,6 +36,7 @@ function tab(page: () => Window | null = () => window) {
   const plugin = screenPlugin({
     page,
     tabId: () => "tab.first",
+    freshTabId: () => `tab.fresh.${ids.length}`,
     publish: (id, state) => {
       ids.push(id);
       published.push(state);

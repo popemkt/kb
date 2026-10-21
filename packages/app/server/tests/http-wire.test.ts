@@ -1,39 +1,27 @@
 /**
- * Who makes a call to the API (`src/guard.ts`, DESIGN.md → Surfaces → The
- * page token): the page token says, not the call and not its Origin. A
- * request carrying this run's token is the page's, which relays the calls it
- * makes, each naming its actor. One carrying none is a local program's, an
- * agent's, whatever Origin it sends, and one that states an actor, a
- * person's approval or a script's reach is refused. One carrying another
- * token (forged, or from an earlier run) is refused outright.
+ * Who makes a call to the API (`src/guard.ts`, DESIGN.md → Surfaces → Who
+ * the person is): a request carrying the UI's own Origin is the page's, the
+ * person's; one carrying none is a local program's, an agent's; one from
+ * another site's page is refused. No page holds a token, so a page opened
+ * however it is opened works the same, and a call is never refused for who
+ * it says makes it: the surface says that.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { PAGE_TOKEN_HEADER, pageProtocols, type ServerMessage } from "@kb/contracts";
-import { SANDBOX_FRAME_PATH } from "@kb/sandbox";
+import { SYSTEM_IDS } from "@kb/model";
+import type { ServerMessage } from "@kb/contracts";
 import { FAKE_TAB_SCREEN } from "@kb/test-kit";
-import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
-import { GOVERNANCE_IDS } from "@kb/governance";
+import { startUi, type UiServerHandle } from "../src/index.ts";
 
 let root = "";
 let handle: UiServerHandle;
-/** This server's page token. */
-const TOKEN = "a".repeat(64);
-/** The token of a server over the same root that has since stopped. */
-const STALE = "b".repeat(64);
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-http-wire-"));
-  const earlier = await Effect.runPromise(
-    startUi({ root, port: 0, openBrowser: false, identity: [pageTokenIdentity(STALE)] }),
-  );
-  await Effect.runPromise(earlier.stop);
-  handle = await Effect.runPromise(
-    startUi({ root, port: 0, openBrowser: false, identity: [pageTokenIdentity(TOKEN)] }),
-  );
+  handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
 });
 afterAll(async () => {
   await Effect.runPromise(handle.stop);
@@ -41,16 +29,13 @@ afterAll(async () => {
 });
 
 /** Who sends a request: what it carries beside its body. */
-type From = "page" | "program" | "forged" | "wrong" | "stale";
+type From = "page" | "program" | "elsewhere";
 
 function headersFrom(from: From): Record<string, string> {
-  const origin = new URL(handle.url).origin;
   const carried: Record<From, Record<string, string>> = {
-    page: { origin, [PAGE_TOKEN_HEADER]: TOKEN },
+    page: { origin: new URL(handle.url).origin },
     program: {},
-    forged: { origin },
-    wrong: { origin, [PAGE_TOKEN_HEADER]: "0".repeat(TOKEN.length) },
-    stale: { origin, [PAGE_TOKEN_HEADER]: STALE },
+    elsewhere: { origin: "https://evil.example" },
   };
   return carried[from];
 }
@@ -62,18 +47,15 @@ async function post(body: unknown, from: From) {
     headers: { "content-type": "application/json", ...headersFrom(from) },
     body: JSON.stringify(body),
   });
-  return { status: res.status, body: (await res.json()) as { status: string; code?: string } };
+  return {
+    status: res.status,
+    body: (await res.json()) as { status: string; code?: string; output?: unknown },
+  };
 }
 
-/** A write that always needs a person behind it: a new approval policy. */
-const policy = (text: string) => ({
-  id: "node.add",
-  input: { text, tags: [GOVERNANCE_IDS.policyTag] },
-});
-
-/** A `/ws` connection offering `protocols`: the frames it is answered, or why it did not open. */
-async function socket(protocols: string[], frames: readonly unknown[]) {
-  const ws = new WebSocket(`${handle.url.replace(/^http/, "ws")}/ws`, protocols);
+/** A `/ws` connection carrying `headers`: the frames it is answered, or why it did not open. */
+async function socket(headers: Record<string, string>, frames: readonly unknown[]) {
+  const ws = new WebSocket(`${handle.url.replace(/^http/, "ws")}/ws`, { headers });
   const heard: ServerMessage[] = [];
   const opened = await new Promise<boolean>((resolve) => {
     ws.addEventListener("open", () => resolve(true));
@@ -98,57 +80,66 @@ async function socket(protocols: string[], frames: readonly unknown[]) {
 const SCREEN = { op: "screen", tab: "tab.wire", state: FAKE_TAB_SCREEN };
 const CHANNEL = { op: "channel", channel: "no.such.channel", data: {} };
 
-describe("who makes a call over HTTP", () => {
-  test.each([
-    ["approval", { approved: true }],
-    ["an owner's actor", { actor: "cli" }],
-    ["a person's actor", { actor: "human" }],
-    ["a script's reach", { actor: "script", script: { subject: null, grant: {} } }],
-  ])(
-    "a request without the token that states %s is refused, whatever its Origin",
-    async (_what, claim) => {
-      for (const from of ["program", "forged"] as const) {
-        const { status, body } = await post({ ...policy("allow everything"), ...claim }, from);
-        expect({ from, status }).toEqual({ from, status: 403 });
-        expect(body).toMatchObject({ status: "failed", code: "forbidden" });
-      }
-    },
-  );
+describe("a page that holds no token", () => {
+  test("edits: a node it adds and renames is written", async () => {
+    const added = await post({ id: "node.add", input: { id: "n.page", text: "mine" } }, "page");
+    expect(added.body).toMatchObject({ status: "succeeded" });
+    const renamed = await post(
+      { id: "node.update", input: { id: "n.page", text: "renamed" } },
+      "page",
+    );
+    expect(renamed.body).toMatchObject({ status: "succeeded" });
+  });
 
-  test("a request without the token is an agent's, which a policy write asks, whatever its Origin", async () => {
-    for (const from of ["program", "forged"] as const) {
-      const { body } = await post(policy("allow everything"), from);
-      expect(body).toMatchObject({ status: "failed", code: "approval_required" });
-      // Naming the agent, which it is anyway, claims nothing: a page nobody
-      // is verified for calls WebMCP's tools so.
-      const named = await post({ ...policy("allow everything"), actor: "agent" }, from);
-      expect(named.body).toMatchObject({ status: "failed", code: "approval_required" });
+  test("switches a view: the node's view option is written", async () => {
+    await post({ id: "node.add", input: { id: "n.viewed", text: "viewed" } }, "page");
+    const switched = await post(
+      {
+        id: "node.update",
+        input: {
+          id: "n.viewed",
+          setProps: [
+            { field: SYSTEM_IDS.viewField, value: { t: "ref", v: "sys.view.outline.table" } },
+          ],
+        },
+      },
+      "page",
+    );
+    expect(switched.body).toMatchObject({ status: "succeeded" });
+  });
+
+  test("is never refused for who a call says makes it", async () => {
+    for (const actor of ["human", "agent", "cli", "script"]) {
+      for (const from of ["page", "program"] as const) {
+        const { status, body } = await post(
+          { id: "node.add", input: { text: `${actor} from ${from}` }, actor },
+          from,
+        );
+        expect({ actor, from, status, body: body.status }).toEqual({
+          actor,
+          from,
+          status: 200,
+          body: "succeeded",
+        });
+      }
     }
   });
+});
 
-  test("the page relays the calls it makes, each as its actor and approval say", async () => {
-    // The person's gesture, which names no actor, and the agent's call they approved.
-    expect((await post(policy("mine"), "page")).body).toMatchObject({ status: "succeeded" });
-    const approved = { ...policy("the agent's"), actor: "agent", approved: true };
-    expect((await post(approved, "page")).body).toMatchObject({ status: "succeeded" });
-    const unapproved = { ...policy("the agent's, unapproved"), actor: "agent" };
-    expect((await post(unapproved, "page")).body).toMatchObject({ code: "approval_required" });
-  });
-
-  test.each(["wrong", "stale"] as const)("a %s token is refused, on every route", async (from) => {
-    const { status, body } = await post(policy("mine"), from);
+describe("who reaches the API", () => {
+  test("another site's page is refused, on every route", async () => {
+    const { status, body } = await post({ id: "node.add", input: { text: "x" } }, "elsewhere");
     expect(status).toBe(403);
     expect(body).toMatchObject({ status: "failed", code: "forbidden" });
-    const read = await fetch(`${handle.url}/api/graph`, { headers: headersFrom(from) });
+    const read = await fetch(`${handle.url}/api/graph`, { headers: headersFrom("elsewhere") });
     expect(read.status).toBe(403);
-    const token = headersFrom(from)[PAGE_TOKEN_HEADER] ?? "";
-    expect((await socket(pageProtocols(token), [])).opened).toBe(false);
+    expect((await socket(headersFrom("elsewhere"), [])).opened).toBe(false);
   });
 });
 
 describe("who speaks on /ws", () => {
-  test("a socket without the token is told it is nobody's, publishes its screen, and may not speak on a channel", async () => {
-    const { opened, person, heard } = await socket([], [SCREEN, CHANNEL]);
+  test("a local program's socket is nobody's: it publishes its screen, and may not speak on a channel", async () => {
+    const { opened, person, heard } = await socket(headersFrom("program"), [SCREEN, CHANNEL]);
     expect(opened).toBe(true);
     expect(person).toBeNull();
     expect(heard).toEqual([
@@ -156,36 +147,13 @@ describe("who speaks on /ws", () => {
     ]);
   });
 
-  test("the page's socket is told it is the person's, publishes its screen and speaks on channels", async () => {
-    const { opened, person, heard } = await socket(pageProtocols(TOKEN), [SCREEN, CHANNEL]);
+  test("the page's socket is the person's: it publishes its screen and speaks on channels", async () => {
+    const page = { ...SCREEN, tab: "tab.page" };
+    const { opened, person, heard } = await socket(headersFrom("page"), [page, CHANNEL]);
     expect(opened).toBe(true);
     expect(person).toEqual({ name: expect.any(String) });
     expect(heard).toEqual([
       expect.objectContaining({ op: "error", id: CHANNEL.channel, code: "unknown_channel" }),
     ]);
-  });
-});
-
-describe("where the token is", () => {
-  test("no body the server serves carries it", async () => {
-    const page = await (await fetch(`${handle.url}/`)).text();
-    const scripts = [...page.matchAll(/(?:src|href)="(\/[^"]+\.(?:js|css))"/g)].map(
-      ([, path]) => path ?? "",
-    );
-    const paths = [
-      "/",
-      SANDBOX_FRAME_PATH,
-      "/api/graph",
-      "/api/identity",
-      "/api/manifest",
-      "/api/queries",
-      ...scripts,
-    ];
-    for (const path of paths) {
-      const body = await (
-        await fetch(`${handle.url}${path}`, { headers: headersFrom("page") })
-      ).text();
-      expect({ path, carries: body.includes(TOKEN) }).toEqual({ path, carries: false });
-    }
   });
 });

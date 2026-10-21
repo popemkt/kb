@@ -78,9 +78,43 @@ describe("SqliteStore", () => {
             const version = db
               .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'")
               .get();
-            // 3 since the database keeps `rev` itself; see `connection.ts`.
-            expect(present(version, "expected schema_version").value).toBe("3");
+            // 4 since the tail records who committed; see `connection.ts`.
+            expect(present(version, "expected schema_version").value).toBe("4");
           });
+        }),
+      ),
+    ));
+
+  test("a schema-3 tail gains the actor column: its rows read back, and a new commit records who made it", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const root = yield* Effect.acquireRelease(
+            Effect.promise(() => mkdtemp(join(tmpdir(), "kb-sqlite-"))),
+            (dir) => Effect.promise(() => rm(dir, { recursive: true, force: true })),
+          );
+          const store = new SqliteStore(root);
+          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+          store.close();
+          // Back to schema 3: the tail as it was before `actor` was recorded.
+          withRawConnection(store.path, (db) => {
+            db.run("ALTER TABLE tx DROP COLUMN actor");
+            db.run("UPDATE meta SET value = '3' WHERE key = 'schema_version'");
+          });
+
+          const reopened = new SqliteStore(root);
+          try {
+            expect(reopened.txTail.entries().map((tx) => tx.rev)).toEqual([1]);
+            yield* reopened.commitEffect(
+              { upserts: [node("n-b", "b")], deletes: [] },
+              { at: AT, actor: "human" },
+            );
+            const [old, made] = reopened.txTail.entries();
+            expect(old !== undefined && "actor" in old).toBe(false);
+            expect(made?.actor).toBe("human");
+          } finally {
+            reopened.close();
+          }
         }),
       ),
     ));

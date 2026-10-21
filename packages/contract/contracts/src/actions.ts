@@ -2,7 +2,6 @@ import { Context, Predicate, type Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
-  ACTORS,
   FailureCodeSchema,
   type Actor,
   type ActionSchema,
@@ -194,12 +193,13 @@ export interface ActionDefinition<
  * request has no person behind it, so there an action whose mode requires
  * approval gets an `approval_required` receipt.
  *
- * `actor` is who makes the call, and `script` a script's reach. The surface
- * says who calls: a request's own survive only on a wire that relays calls
- * others make (the page's, kb's own in process), and one stated from
- * outside kb where its wire does not let it is refused (`requestOnWire`).
- * What reaches the invoke core is an {@link ActionInvocation}, which always
- * names an actor.
+ * `script` is a script's reach. A request never says who makes it: the
+ * surface it arrives on does (`onWire`), so the envelope has no actor, and a
+ * caller that sends one anyway has it dropped, never refused. A script's
+ * reach survives only on a wire that relays calls others make (the page's,
+ * kb's own in process); stated from outside kb where its wire does not let
+ * it, it is refused (`requestOnWire`). What reaches the invoke core is an
+ * {@link ActionInvocation}, which always names who makes it.
  */
 export const ActionRequestSchema = z.object({
   id: z.string().min(1),
@@ -208,7 +208,6 @@ export const ActionRequestSchema = z.object({
     .optional()
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
-  actor: z.enum(ACTORS).optional(),
   /**
    * A script's call: what its run may reach — the node it runs for and its
    * grant — stamped by the host that answers the guest (`answerToolCall`)
@@ -217,13 +216,43 @@ export const ActionRequestSchema = z.object({
    */
   script: z.object({ subject: z.string().nullable(), grant: z.unknown() }).optional(),
 });
-/** A call as a caller or a wire states it: who makes it may be left to the surface. */
+/** A call as a caller states it: who makes it is the surface's to say. */
 export type ActionRequest = z.output<typeof ActionRequestSchema>;
 
 /**
+ * The request `raw` makes, a call's envelope as it arrives from outside kb
+ * (an HTTP body, `kb action-invoke`'s JSON), or why it is no request. It is
+ * never refused for what it states: the surface it arrives on says who makes
+ * it (`onWire`), and what that wire does not carry is dropped.
+ */
+export function requestOf(
+  raw: unknown,
+): { readonly request: ActionRequest } | { readonly invalid: string } {
+  const parsed = ActionRequestSchema.safeParse(raw);
+  return parsed.success
+    ? { request: parsed.data }
+    : { invalid: parsed.error.issues.map((issue) => issue.message).join("; ") };
+}
+
+/**
+ * The envelope `call` is sent in to another process: the request alone. Who
+ * made it here stays here, since the surface that receives it says who
+ * calls there.
+ */
+export function envelopeOf(call: ActionRequest): ActionRequest {
+  const { id, input, approved, script } = call;
+  return {
+    id,
+    input,
+    ...(approved === undefined ? {} : { approved }),
+    ...(script === undefined ? {} : { script }),
+  };
+}
+
+/**
  * A call as it reaches the invoke core: a request with who makes it, which
- * every surface stamps (`onWire`) and every call made while another runs
- * takes from it, so no call reaches the core without an actor.
+ * the surface it arrived on stamps (`onWire`) and every call made while
+ * another runs takes from it, so no call reaches the core without an actor.
  */
 export type ActionInvocation = ActionRequest & { readonly actor: Actor };
 
@@ -340,7 +369,7 @@ export type InvokeScope = "read" | "write";
 
 /**
  * One call through the invoke core, within `scope`, made while another runs:
- * it is made as that one's caller, and a request naming no actor takes it.
+ * it is made as that one's caller (`callWithin`).
  */
 export type CoreInvoker = (
   request: ActionRequest,

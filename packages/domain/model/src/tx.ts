@@ -1,6 +1,7 @@
 import { canonicalJson } from "./canonical.ts";
 import { cardinalityOf } from "./field-type.ts";
 import { valueConformanceError } from "./field-value.ts";
+import type { Actor } from "./actor.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import { present } from "./present.ts";
 import { docsViewNameError, docsViewNameOf, isDocsView } from "./view-node.ts";
@@ -212,10 +213,31 @@ export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null
  * a watcher can recognise the confirming echo of its own optimistic apply
  * rather than so the server can skip it. `at` is the caller's `Clock` reading:
  * the log is synchronous, and the seam that owns time is an Effect service.
+ * `actor` is who made the call that committed it, when an invocation did; it
+ * is recorded for later use, and nothing decides by it.
  */
 export interface KbTx {
   rev: number;
   ops: StoreTx;
   at: string;
   origin?: string;
+  actor?: Actor;
+}
+
+/**
+ * The transaction a tail records at `rev`: the ops, and the caller's half of
+ * the record, with no key for what the caller did not say.
+ */
+export function recordedTx(
+  rev: number,
+  ops: StoreTx,
+  record: { readonly at: string; readonly origin?: string; readonly actor?: Actor },
+): KbTx {
+  return {
+    rev,
+    ops,
+    at: record.at,
+    ...(record.origin === undefined ? {} : { origin: record.origin }),
+    ...(record.actor === undefined ? {} : { actor: record.actor }),
+  };
 }
