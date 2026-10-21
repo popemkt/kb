@@ -98,7 +98,6 @@ export function FieldPicker({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState(initialQuery);
-  const anchorRef = useRef<HTMLDivElement>(null);
   // A field's targets may be a query's answer, read from the context's
   // answers as they are now; the picker is drawn again when one arrives.
   useAnswersOf(context.queries);
@@ -146,30 +145,91 @@ export function FieldPicker({
   };
 
   const last = field.values.at(-1);
-  const keys = usePickerKeys({
-    rows,
-    query,
-    onPick: pick,
-    onCancel: onClose,
-    onRemoveLast: field.many && last !== undefined ? () => field.remove(last) : undefined,
-  });
+  return (
+    <PickerInput
+      query={query}
+      onQuery={setQuery}
+      rows={rows}
+      onPick={pick}
+      onCancel={onClose}
+      onRemoveLast={field.many && last !== undefined ? () => field.remove(last) : undefined}
+      placeholder={creation === null ? "Search…" : "Search or create…"}
+      label={`Pick ${textOr(fieldNode?.text, "a value")}`}
+      listLabel={textOr(fieldNode?.text, "Values")}
+      createLabel={(name) => createLabelOf(creation, context, name)}
+      leadOf={
+        preview === null ? undefined : (row) => (row.kind === "item" ? preview(row.id) : null)
+      }
+      hint={field.many ? "↵ toggle · ⌫ remove last · esc done" : "↵ pick · esc close"}
+      marker={{ "data-field-picker": fieldId }}
+    />
+  );
+}
+
+/**
+ * The one node picker's input, as every slot that picks draws it: a text
+ * input that owns the query and the keys (`usePickerKeys`), over the one list
+ * (`PickerList`), anchored to it, showing from the moment it opens. What it
+ * offers and what a pick does are the caller's; it decides nothing.
+ *
+ * Its keys are its own: the outline behind it never also acts on them.
+ * Leaving the input closes it, as Escape does.
+ */
+function PickerInput({
+  query,
+  onQuery,
+  rows,
+  onPick,
+  onCancel,
+  onRemoveLast,
+  placeholder,
+  label,
+  listLabel,
+  createLabel,
+  leadOf,
+  hint,
+  marker,
+}: {
+  query: string;
+  onQuery: (query: string) => void;
+  /** What the query offers (`pickerRows`). */
+  rows: readonly PickerRow[];
+  /** Enter or a click: the highlighted row, or null when there is none. */
+  onPick: (row: PickerRow | null) => void;
+  /** Escape, or the input left. */
+  onCancel: () => void;
+  /** Backspace on an empty query. */
+  onRemoveLast?: () => void;
+  placeholder: string;
+  /** The input's accessible name. */
+  label: string;
+  /** The list's accessible name. */
+  listLabel: string;
+  createLabel?: (name: string) => string;
+  leadOf?: (row: PickerRow) => React.ReactNode;
+  hint: string;
+  /** Data attributes that say what the picker is for, for whoever finds it in the page. */
+  marker?: Readonly<Record<`data-${string}`, string>>;
+}) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const keys = usePickerKeys({ rows, query, onPick, onCancel, onRemoveLast });
 
   return (
-    <div ref={anchorRef} className="relative min-w-[8rem] flex-1" data-field-picker={fieldId}>
+    <div ref={anchorRef} className="relative min-w-[8rem] flex-1" {...marker}>
       <input
         type="text"
         value={query}
-        placeholder={creation === null ? "Search…" : "Search or create…"}
-        aria-label={`Pick ${textOr(fieldNode?.text, "a value")}`}
+        placeholder={placeholder}
+        aria-label={label}
         className={inputClass}
         autoFocus
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => onQuery(e.target.value)}
         onKeyDown={(e) => {
           // The outline behind this input must not also act on these keys.
           e.stopPropagation();
           keys.handleKeyDown(e);
         }}
-        onBlur={onClose}
+        onBlur={onCancel}
       />
       <PickerList
         placement="popover"
@@ -177,14 +237,12 @@ export function FieldPicker({
         rows={rows}
         activeIndex={keys.activeIndex}
         onHover={keys.setActiveIndex}
-        onPick={pick}
-        createLabel={(name) => createLabelOf(creation, context, name)}
-        leadOf={
-          preview === null ? undefined : (row) => (row.kind === "item" ? preview(row.id) : null)
-        }
+        onPick={onPick}
+        createLabel={createLabel}
+        leadOf={leadOf}
         emptyText={query.trim() === "" ? "Nothing to pick yet" : "No matches"}
-        hint={field.many ? "↵ toggle · ⌫ remove last · esc done" : "↵ pick · esc close"}
-        aria-label={textOr(fieldNode?.text, "Values")}
+        hint={hint}
+        aria-label={listLabel}
       />
     </div>
   );
