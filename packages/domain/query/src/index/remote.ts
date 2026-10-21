@@ -114,8 +114,8 @@ export class RemoteIndex implements NodeIndex {
   readonly #table: NodeTable;
   readonly #spawn: () => EnginePort;
   readonly #timers: Timers;
-  #virtual: readonly KbNode[] = [];
   #port: EnginePort;
+  #closed = false;
   #next = 0;
   readonly #runs = new Map<number, Run>();
   /** How many times the engine has been started again: after an overrun, or a failure. */
@@ -124,8 +124,13 @@ export class RemoteIndex implements NodeIndex {
   readonly transport: QueryTransport = {
     run: (request) =>
       new Promise((settle) => {
+        const run: Run = { request, generation: this.generation, settle, cancel: null };
+        if (this.#closed) {
+          settle(this.#stopped(run, "closed"));
+          return;
+        }
         const id = (this.#next += 1);
-        this.#runs.set(id, { request, generation: this.generation, settle, cancel: null });
+        this.#runs.set(id, run);
         this.#port.send({ op: "query", id, request });
       }),
   };
@@ -148,18 +153,22 @@ export class RemoteIndex implements NodeIndex {
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {
     this.#table.rebuild(nodes);
-    this.#port.send({ op: "rebuild", nodes: [...nodes], generation: this.generation });
+    this.#tell({ op: "rebuild", nodes: [...nodes], generation: this.generation });
   }
 
   applyTx(tx: StoreTx): void {
     if (this.#table.change(tx) === null) return;
-    this.#port.send({ op: "tx", tx, generation: this.generation });
+    this.#tell({ op: "tx", tx, generation: this.generation });
   }
 
   withVirtual(nodes: ReadonlyArray<KbNode>): void {
     this.#table.withVirtual(nodes);
-    this.#virtual = [...nodes];
-    this.#port.send({ op: "virtual", nodes: this.#virtual, generation: this.generation });
+    this.#tell({ op: "virtual", nodes: [...nodes], generation: this.generation });
+  }
+
+  /** Tell the engine a change; a closed index's table moves alone, as nothing will ask it. */
+  #tell(message: ToEngine): void {
+    if (!this.#closed) this.#port.send(message);
   }
 
   getNode(...args: Parameters<NodeIndex["getNode"]>): ReturnType<NodeIndex["getNode"]> {
@@ -184,13 +193,22 @@ export class RemoteIndex implements NodeIndex {
     return this.#table.search(...args);
   }
 
-  /** Stop the engine for good; every run still out answers that it stopped. */
+  /**
+   * Stop the engine for good: every run still out, and every one asked
+   * after, answers that it stopped.
+   */
   close(): void {
+    if (this.#closed) return;
+    this.#closed = true;
     this.#port.terminate();
     for (const [id, run] of this.#runs) this.#answer(id, this.#stopped(run, "closed"));
   }
 
-  /** A fresh engine over the node set the host holds. */
+  /**
+   * A fresh engine over the node set the host holds: the table's stored
+   * nodes and the virtual ones still standing, so a restart sees exactly
+   * what the table does.
+   */
   #start(): EnginePort {
     const port = this.#spawn();
     port.listen(
@@ -200,7 +218,7 @@ export class RemoteIndex implements NodeIndex {
     port.send({
       op: "load",
       nodes: this.#table.storedNodes(),
-      virtual: this.#virtual,
+      virtual: [...this.#table.virtualNodes()],
       generation: this.generation,
     });
     return port;
@@ -254,6 +272,7 @@ export class RemoteIndex implements NodeIndex {
   }
 
   #restart(): void {
+    if (this.#closed) return;
     this.#port.terminate();
     this.restarts += 1;
     this.#port = this.#start();

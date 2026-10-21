@@ -77,7 +77,8 @@ export class NodeTable implements NodeIndex {
     for (const id of removed) this.#setRefs(id, new Set());
     for (const node of tx.upserts) this.#nodes.set(node.id, node);
     for (const id of removed) this.#nodes.delete(id);
-    this.#dropVirtual(tx.upserts.map((n) => n.id));
+    // A virtual node a tx stores or deletes is no longer virtual: nothing brings it back.
+    this.#dropVirtual([...tx.upserts.map((n) => n.id), ...removed]);
 
     const restated = new Map<NodeId, KbNode>();
     for (const node of tx.upserts) restated.set(node.id, node);
@@ -110,6 +111,11 @@ export class NodeTable implements NodeIndex {
 
   allNodes(): Iterable<KbNode> {
     return this.#nodes.values();
+  }
+
+  /** The virtual nodes still standing: those no stored node has since taken the id of. */
+  virtualNodes(): readonly KbNode[] {
+    return this.#virtual;
   }
 
   storedNodes(): Array<KbNode> {
@@ -147,8 +153,8 @@ export class NodeTable implements NodeIndex {
 
   #dropVirtual(ids: ReadonlyArray<NodeId>): void {
     if (!ids.some((id) => this.#virtualIds.has(id))) return;
-    const stored = new Set(ids);
-    this.#virtual = this.#virtual.filter((n) => !stored.has(n.id));
+    const gone = new Set(ids);
+    this.#virtual = this.#virtual.filter((n) => !gone.has(n.id));
     this.#virtualIds = new Set(this.#virtual.map((n) => n.id));
   }
 }

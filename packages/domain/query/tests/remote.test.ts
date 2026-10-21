@@ -87,6 +87,19 @@ const txArb: fc.Arbitrary<StoreTx> = fc
     deletes: deletes.filter((id) => !upserts.some((n) => n.id === id)),
   }));
 
+type Op =
+  | { readonly kind: "tx"; readonly tx: StoreTx }
+  | { readonly kind: "virtual"; readonly nodes: KbNode[] }
+  | { readonly kind: "restart" };
+
+const opArb: fc.Arbitrary<Op> = fc.oneof(
+  txArb.map((tx): Op => ({ kind: "tx", tx })),
+  fc
+    .uniqueArray(fc.constantFrom("a", "b", "v", "w"), { maxLength: 3 })
+    .map((ids): Op => ({ kind: "virtual", nodes: ids.map((id) => node(id)) })),
+  fc.constant<Op>({ kind: "restart" }),
+);
+
 for (const [name, spawn] of Object.entries(PORTS)) {
   describe(`RemoteIndex over a port ${name}`, () => {
     test("answers as an in-process index driven by the same transactions", async () => {
@@ -136,6 +149,80 @@ for (const [name, spawn] of Object.entries(PORTS)) {
       expect(slow.kind).toBe("over-budget");
       const after = await remote.transport.run({ edn: IDS, budgetMs: 10_000 });
       expect(sorted(after)).toHaveLength(40);
+    });
+
+    test("an engine started again sees what the table does, virtual nodes included", async () => {
+      await fc.assert(
+        fc.asyncProperty(fc.array(opArb, { maxLength: 8 }), async (ops) => {
+          // The port's failure hook, so a test can start the engine again at will.
+          const fail: Array<() => void> = [];
+          const failing = (): EnginePort => {
+            const port = spawn();
+            return {
+              ...port,
+              listen: (hear, failed) => {
+                fail.push(failed);
+                port.listen(hear, failed);
+              },
+            };
+          };
+          const remote = new RemoteIndex([], derivedWith({}), failing, timers);
+          open.push(remote);
+          const local = new DatascriptIndex([], { derived: derivedWith({}) });
+          for (const op of ops) {
+            if (op.kind === "tx") {
+              remote.applyTx(op.tx);
+              local.applyTx(op.tx);
+            } else if (op.kind === "virtual") {
+              remote.withVirtual(op.nodes);
+              local.withVirtual(op.nodes);
+            } else fail.at(-1)?.();
+          }
+          const answer = await remote.transport.run({ edn: IDS, budgetMs: 10_000 });
+          const expected = local
+            .runDatalog(IDS)
+            .map((row) => row.join(" "))
+            .toSorted();
+          expect(sorted(answer)).toEqual(expected);
+          expect([...remote.allNodes()].map((n) => n.id).toSorted()).toEqual(expected);
+        }),
+        { numRuns: name === "worker" ? 10 : 60 },
+      );
+    });
+
+    test("a virtual node a stored one took, then lost, stays gone after a restart", async () => {
+      const fail: Array<() => void> = [];
+      const remote = new RemoteIndex(
+        [],
+        derivedWith({}),
+        () => {
+          const port = spawn();
+          return {
+            ...port,
+            listen: (hear, failed) => {
+              fail.push(failed);
+              port.listen(hear, failed);
+            },
+          };
+        },
+        timers,
+      );
+      open.push(remote);
+      remote.withVirtual([node("v")]);
+      remote.applyTx({ upserts: [node("v")], deletes: [] });
+      remote.applyTx({ upserts: [], deletes: ["v"] });
+      fail.at(-1)?.();
+      expect(remote.getNode("v")).toBeUndefined();
+      expect(sorted(await remote.transport.run({ edn: IDS, budgetMs: 10_000 }))).toEqual([]);
+    });
+
+    test("a closed index answers every later run that it stopped, at once", async () => {
+      const remote = new RemoteIndex([node("a")], derivedWith({}), spawn, timers);
+      remote.close();
+      const answer = await remote.transport.run({ edn: IDS, budgetMs: 10_000 });
+      expect(answer.kind === "error" ? answer.name : answer.kind).toBe("QueryEngineStopped");
+      remote.applyTx({ upserts: [node("b")], deletes: [] });
+      expect(remote.getNode("b")).toBeDefined();
     });
   });
 }
