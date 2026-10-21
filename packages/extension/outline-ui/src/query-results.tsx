@@ -7,7 +7,9 @@
  *
  * The results and the count are one read of one answer (`useQueryRows`):
  * the count is how many distinct result nodes the answer names, before the
- * node's limit, and a run over its budget is counted as nothing.
+ * node's limit, and a run over its budget is counted as nothing. The
+ * builder is drawn for every query node, one whose EDN is empty (a query
+ * being written) included; only a definition (`queryDefOf`) runs.
  */
 import type { ReactNode } from "react";
 import {
@@ -18,12 +20,15 @@ import {
   useGraphRead,
   useQueryRows,
 } from "@kb/ui-sdk";
-import { queryDefOf } from "@kb/model";
+import { queryDefOf, queryTextOf } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineNode, useOutlineNodes } from "./outline.store";
 import { FrameViewSlot } from "./frame-view-slot";
 import { QueryPanel } from "./query-builder/query-panel";
 import type { QueryCount } from "./query-builder/count-chip";
+
+/** What a query node with no EDN yet answers: nothing runs. */
+const EMPTY_QUERY = "The query is empty: there is nothing to run.";
 
 interface QueryResultItem {
   nodeId: string;
@@ -52,15 +57,19 @@ export function QueryResultsSection({
   const node = useOutlineNode(nodeId);
   const nodes = useOutlineNodes();
   const read = useGraphRead();
+  // The builder is the node's query field's, whatever it holds; only a
+  // definition runs, so a query emptied keeps the editor that writes it.
+  const text = queryTextOf(node);
   const def = queryDefOf(node);
-  const edn = def?.edn ?? null;
+  const answer = useQueryRows(def?.edn ?? null);
 
-  const { rows, error, overBudget } = useQueryRows(edn);
+  if (text === null) return null;
 
-  if (!def || edn === null) return null;
+  const { rows, overBudget } = answer;
+  const error = def === null ? EMPTY_QUERY : answer.error;
 
   const all = rows === null ? null : resultNodeIds(rows, nodes, { excludeId: nodeId });
-  const ids = all === null ? [] : all.slice(0, def.limit ?? undefined);
+  const ids = all === null ? [] : all.slice(0, def?.limit ?? undefined);
   const count: QueryCount =
     all !== null
       ? { t: "nodes", n: all.length }
@@ -71,7 +80,7 @@ export function QueryResultsSection({
           : { t: "pending" };
 
   const indent = indentStyle(depth + 1);
-  const panel = <QueryPanel nodeId={nodeId} edn={edn} count={count} depth={depth} read={read} />;
+  const panel = <QueryPanel nodeId={nodeId} edn={text} count={count} depth={depth} read={read} />;
 
   if (hasText(error)) {
     return (

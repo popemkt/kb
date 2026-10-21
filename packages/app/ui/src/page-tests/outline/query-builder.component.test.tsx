@@ -369,6 +369,35 @@ describe("the query builder", () => {
     expect(dom.window.document.activeElement).not.toBe(ednEditor());
   });
 
+  it("an EDN emptied and saved keeps the editor to write it again, and runs nothing", async () => {
+    await mount(TODO_EDN);
+    await click(present($('[data-qb-tab="edn"]'), "EDN tab"));
+    const editor = ednEditor();
+    await act(async () => {
+      editor.focus();
+    });
+    await type("", editor);
+    await act(async () => {
+      editor.blur();
+    });
+    await vi.waitFor(() => expect(stored()).toBe(""));
+    // The node is a query being written: its builder stays, on the EDN tab.
+    expect(tabs()).toEqual(["EDN"]);
+    expect(ednEditor().value).toBe("");
+    // Nothing runs: the count is the last one, dimmed, and the results say why.
+    expect(present($("[data-qb-count]"), "count").getAttribute("data-qb-count")).toBe("stale");
+    expect(container.textContent).toContain("The query is empty: there is nothing to run.");
+    expect(results()).toEqual([]);
+    await act(async () => {
+      ednEditor().focus();
+    });
+    await type(TODO_EDN, ednEditor());
+    await key(ednEditor(), "Enter", { metaKey: true });
+    await vi.waitFor(() => expect(stored()).toBe(TODO_EDN));
+    await answered();
+    expect(count()).toBe("2 nodes");
+  });
+
   it("while the EDN tab holds text that does not parse, the count is the last one, dimmed", async () => {
     await mount(TODO_EDN);
     await click(present($('[data-qb-tab="edn"]'), "EDN tab"));
