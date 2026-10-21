@@ -1,4 +1,4 @@
-import { Clock, DateTime, Effect, Random } from "effect";
+import { Clock, DateTime, Effect, Option, Random } from "effect";
 import { ulid } from "ulid";
 
 /**
@@ -324,7 +324,7 @@ export function nowIso(): string {
  * Milliseconds since epoch → the store's canonical ISO timestamp. Kept as the
  * single formatting point so the store's time shape is owned here.
  */
-function isoFromMillis(ms: number): string {
+export function isoFromMillis(ms: number): string {
   return DateTime.formatIso(DateTime.makeUnsafe(ms));
 }
 
@@ -333,6 +333,32 @@ function isoFromMillis(ms: number): string {
  * Store-reachable Effect programs yield this; the harness overrides `Clock`.
  */
 export const currentIso: Effect.Effect<string> = Effect.map(Clock.currentTimeMillis, isoFromMillis);
+
+/**
+ * One reading of the clock, for a run that answers synchronously: the
+ * instant, and the time zone civil dates are read in (an IANA name or a
+ * `±HH:MM` offset). Plain data, so a run can carry it where an Effect
+ * cannot.
+ */
+export interface ClockSample {
+  readonly nowMs: number;
+  readonly timeZone: string;
+}
+
+/**
+ * TIME OWNER, for synchronous readers — a sampler over the `Clock` and the
+ * `DateTime.CurrentTimeZone` in scope when it is made (the host's own zone
+ * when none is provided); each call is one {@link ClockSample}. A host that
+ * builds a query index inside Effect yields this and hands the sampler over,
+ * so the index never reads a wall clock of its own and the harness's `Clock`
+ * pins it.
+ */
+export const clockSampler: Effect.Effect<() => ClockSample> = Effect.gen(function* () {
+  const clock = yield* Clock.Clock;
+  const zone = yield* Effect.serviceOption(DateTime.CurrentTimeZone);
+  const timeZone = DateTime.zoneToString(Option.getOrElse(zone, DateTime.zoneMakeLocal));
+  return () => ({ nowMs: clock.currentTimeMillisUnsafe(), timeZone });
+});
 
 /** Holds the `Random` service as the single source of store identity entropy. */
 const randomService = Random.Random;

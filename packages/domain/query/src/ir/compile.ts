@@ -1,5 +1,17 @@
 import { present } from "@kb/model";
-import type { Clause, FindPos, Ir, PullSpec, ReachClause, Term } from "./ir.ts";
+import type {
+  Clause,
+  FindPos,
+  Ir,
+  IrQuery,
+  KbFunctionName,
+  PredicateArg,
+  PullSpec,
+  ReachClause,
+  Term,
+} from "./ir.ts";
+import { boundVars, outerClauses } from "./scope.ts";
+import { isKbFunction, kbFunctionInput } from "./kb-functions.ts";
 
 const QUERY_DIRECTIVES = new Set([
   "find",
@@ -49,33 +61,88 @@ export function normalizeEdnQuery(edn: string): string {
   return out;
 }
 
-type CompiledEdn = { query: string; rules?: string };
+type CompiledEdn = {
+  query: string;
+  rules?: string;
+  /** The find positions the compiled query returns, column by column; absent for `raw`. */
+  find?: readonly FindPos[];
+  /**
+   * The kb functions the query calls, in the order of the `:in` slots
+   * `compile` appended for them, after every other; the executor passes each
+   * one's closure there (`kbFunctions`). Compile names them and never builds
+   * them, so it stays pure. Absent when there are none.
+   */
+  functions?: readonly KbFunctionName[];
+};
 
 /**
  * Compile IR to DataScript EDN. `raw` passes through (still normalised).
- * `reach` becomes a recursive `%` rule; `children` projects `:node/children`.
+ * `reach` becomes a recursive `%` rule, wherever it sits (inside `or` and
+ * `not` too); `children` projects `:node/children`; a `kb/` call becomes a
+ * call to a function input.
  */
 export function compile(ir: Ir): CompiledEdn {
   if (ir.kind === "raw") return { query: normalizeEdnQuery(ir.edn) };
-  const reaches = ir.where.filter((c): c is ReachClause => c.kind === "reach");
+  const clauses = everyClause(ir.where);
+  const reaches = clauses.filter((c): c is ReachClause => c.kind === "reach");
   const names = new Map<ReachClause, string>();
   for (const [i, r] of reaches.entries()) {
     names.set(r, `__kb_reach_${i}`);
   }
+  const functions = [
+    ...new Set(
+      clauses.flatMap((c) => (c.kind === "predicate" && isKbFunction(c.fn) ? [c.fn] : [])),
+    ),
+  ];
   const rules = reaches.length > 0 ? compileReachRules(reaches, names) : undefined;
-  const inSlots = compileIn(ir.in, rules !== undefined);
-  const find = ir.find.map(compileFind).join(" ");
+  const inSlots = compileIn(ir.in, rules !== undefined, functions);
+  const columns = compiledFind(ir);
+  const find = columns.map(compileFind).join(" ");
   const where = ir.where.map((c) => compileClause(c, names)).join(" ");
   const edn = `[:find ${find}${inSlots} :where ${where}]`;
   return {
     query: normalizeEdnQuery(edn),
     ...(rules !== undefined ? { rules: normalizeEdnQuery(rules) } : {}),
+    find: columns,
+    ...(functions.length > 0 ? { functions } : {}),
   };
 }
 
-function compileIn(slots: string[] | undefined, needsRules: boolean): string {
+/** Every clause of `where`, at any depth, in written order. */
+function everyClause(where: readonly Clause[]): Clause[] {
+  return where.flatMap((c) => {
+    if (c.kind === "or") return [c, ...c.branches.flatMap(everyClause)];
+    if (c.kind === "not") return [c, ...everyClause(c.clauses)];
+    return [c];
+  });
+}
+
+/**
+ * The find positions that get a column: every one but the order variable of
+ * a `children` clause in the find's scope (`outerClauses`: the top level and
+ * every `or` branch), which the projection does not bind (`ChildrenClause`),
+ * unless something else binds it. Any other variable is the engine's to
+ * accept or reject, as it would be in raw EDN.
+ */
+function compiledFind(ir: IrQuery): FindPos[] {
+  const bound = boundVars(ir.where);
+  for (const slot of ir.in ?? []) bound.add(slot);
+  const orders = new Set(
+    outerClauses(ir.where).flatMap((c) =>
+      c.kind === "children" && !bound.has(c.order) ? [c.order] : [],
+    ),
+  );
+  return ir.find.filter((p) => p.kind !== "var" || !orders.has(p.name));
+}
+
+function compileIn(
+  slots: string[] | undefined,
+  needsRules: boolean,
+  functions: readonly KbFunctionName[],
+): string {
   const rest = [...(slots ?? [])];
   if (needsRules && !rest.includes("%")) rest.unshift("%");
+  rest.push(...functions.map(kbFunctionInput));
   if (rest.length === 0) return "";
   const parts = rest.map((s) => (s === "%" ? "%" : `?${s}`));
   return ` :in $ ${parts.join(" ")}`;
@@ -112,7 +179,26 @@ function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>):
       return `(${name} ?${clause.from} ?${clause.to})`;
     }
     case "rule":
-      return `(${clause.name} ${clause.args.map(compileTerm).join(" ")})`;
+      return `(${[clause.name, ...clause.args.map(compileTerm)].join(" ")})`;
+    case "predicate": {
+      const fn = isKbFunction(clause.fn) ? `?${kbFunctionInput(clause.fn)}` : clause.fn;
+      const call = `(${[fn, ...clause.args.map(compileArg)].join(" ")})`;
+      return clause.bind === undefined ? `[${call}]` : `[${call} ?${clause.bind}]`;
+    }
+    case "or": {
+      const branches = clause.branches.map((branch) => {
+        const forms = branch.map((c) => compileClause(c, names));
+        // `children` compiles to two forms, so a one-clause branch may still need `and`.
+        return forms.length === 1 && branch[0]?.kind !== "children"
+          ? forms.join(" ")
+          : `(and ${forms.join(" ")})`;
+      });
+      return `(${[joinHead("or", joinedFunctions(clause)), ...branches].join(" ")})`;
+    }
+    case "not": {
+      const body = clause.clauses.map((c) => compileClause(c, names));
+      return `(${[joinHead("not", joinedFunctions(clause)), ...body].join(" ")})`;
+    }
     default: {
       const _exhaustive: never = clause;
       return _exhaustive;
@@ -120,10 +206,39 @@ function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>):
   }
 }
 
+/**
+ * A `-join`'s vector, and the input of every kb function called inside it:
+ * a `-join` sees only the variables its vector names, so a function input
+ * left out of it is unknown there. The input is bound, so joining it in
+ * narrows nothing. A plain `or` or `not` sees its scope's variables already.
+ */
+function joinedFunctions(
+  clause: Extract<Clause, { kind: "or" | "not" }>,
+): readonly string[] | undefined {
+  if (clause.join === undefined) return undefined;
+  const inside = clause.kind === "or" ? clause.branches.flat() : clause.clauses;
+  const inputs = everyClause(inside).flatMap((c) =>
+    c.kind === "predicate" && isKbFunction(c.fn) ? [kbFunctionInput(c.fn)] : [],
+  );
+  return [...new Set([...clause.join, ...inputs])];
+}
+
+/** `or` / `not`, or their `-join` form with its vector. */
+function joinHead(op: "or" | "not", join: readonly string[] | undefined): string {
+  return join === undefined ? op : `${op}-join [${join.map((v) => `?${v}`).join(" ")}]`;
+}
+
+function compileArg(arg: PredicateArg): string {
+  if (arg.t === "src") return "$";
+  if (arg.t === "attr") return arg.value;
+  return compileTerm(arg);
+}
+
 function compileTerm(term: Term): string {
   if (term.t === "var") return `?${term.name}`;
   if (term.t === "str") return JSON.stringify(term.value);
   if (term.t === "bool") return term.value ? "true" : "false";
+  if (term.t === "blank") return "_";
   return String(term.value);
 }
 

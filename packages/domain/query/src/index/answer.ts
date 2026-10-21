@@ -14,7 +14,17 @@ export interface QueryRequest {
  * never rows it may not have finished: a slow query is not a large one.
  */
 export type QueryAnswer =
-  | { readonly kind: "rows"; readonly rows: unknown[][]; readonly generation: number }
+  | {
+      readonly kind: "rows";
+      readonly rows: unknown[][];
+      readonly generation: number;
+      /**
+       * Until when (epoch ms) the rows hold although the graph does not move:
+       * set when the run read the clock (`kb/today`, …), so a reader asks
+       * again then (`holdsUntil`).
+       */
+      readonly holdsUntilMs?: number;
+    }
   | {
       readonly kind: "error";
       /** The engine's name for what it threw: `DatalogError` when the datalog is wrong. */
@@ -47,11 +57,13 @@ export function answerOf(
 ): QueryAnswer {
   const started = now();
   try {
-    const rows = index.runDatalog(request.edn, ...(request.inputs ?? []));
+    const { rows, holdsUntilMs } = index.answerDatalog(request.edn, ...(request.inputs ?? []));
     if (now() - started > request.budgetMs) {
       return { kind: "over-budget", budgetMs: request.budgetMs, generation };
     }
-    return { kind: "rows", rows, generation };
+    return holdsUntilMs === null
+      ? { kind: "rows", rows, generation }
+      : { kind: "rows", rows, generation, holdsUntilMs };
   } catch (error) {
     return {
       kind: "error",

@@ -12,6 +12,13 @@ export function answersOver(index: KbIndex, budgetMs?: number): ReplicaQueries {
         Promise.resolve().then(() => answerOf(index, request, () => performance.now())),
     },
     () => index.generation,
+    {
+      now: () => Date.now(),
+      set: (run, ms) => {
+        const handle = setTimeout(run, ms);
+        return () => clearTimeout(handle);
+      },
+    },
     budgetMs,
   );
 }

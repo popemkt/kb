@@ -14,7 +14,7 @@
  */
 import { Effect } from "effect";
 import { CurrentCall, KbStore, TxOrigin, type EffectStore, type KbContext } from "@kb/contracts";
-import type { DomainError, KbNode, StoreTx } from "@kb/model";
+import { clockSampler, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import { noteStoreSynced, persistEffect, persistPlannedEffect } from "@kb/operations";
 import { DatascriptIndex, type DerivedRef } from "@kb/query";
 import { StoreTxLog } from "@kb/tx-log";
@@ -22,7 +22,8 @@ import { StoreTxLog } from "@kb/tx-log";
 /**
  * A session over `store`, the store of `root`, whose nodes are `nodes` as
  * the store holds them now: the index built over them once, with the
- * references the root's families derive (`derived`), the log over the
+ * references the root's families derive (`derived`) and the clock its
+ * kb date functions read (the `Clock` and time zone in scope), the log over the
  * store's tail, and the session marked as caught up. Opening makes one
  * after its migrations; a surface that holds a store of its own (the
  * client) makes one over what it read.
@@ -33,7 +34,9 @@ export const sessionOver = Effect.fn("kb.sessionOver")(function* (
   nodes: readonly KbNode[],
   derived: readonly DerivedRef[],
 ): Effect.fn.Return<KbContext> {
-  const index = new DatascriptIndex([...nodes], { derived });
+  // GAP [[01M5E2YBN75HF5C8HZPG62CAJH]] a query the server answers for a client reads the server's time zone
+  const clock = yield* clockSampler;
+  const index = new DatascriptIndex([...nodes], { derived, clock });
   const ctx: KbContext = {
     root,
     store,

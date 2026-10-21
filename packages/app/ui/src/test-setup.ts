@@ -10,7 +10,9 @@ beforeAll(async () => {
     import("@kb/ui-sdk"),
     import("@/session/engine"),
   ]);
-  provideEngine(() => inThreadPort(bundledDerived(), () => performance.now(), queueMicrotask));
+  provideEngine(() =>
+    inThreadPort({ derived: bundledDerived() }, () => performance.now(), queueMicrotask),
+  );
 });
 
 // The shell's tests run in a page: before a file's own hooks, the UI kernel

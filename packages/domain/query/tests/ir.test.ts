@@ -6,10 +6,14 @@ import {
   LIST_FIELDS_QUERY,
   LIST_TAGS_QUERY,
   backlinksQuery,
+  DatalogError,
   DatascriptIndex,
   derivedWith,
   compile,
+  isCanonicalIr,
   parseEdn,
+  printEdn,
+  type Ir,
   type IrQuery,
 } from "@kb/query";
 import { describe, expect, test } from "bun:test";
@@ -17,8 +21,11 @@ import fc from "fast-check";
 import type { KbNode } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 
+/** A pinned clock, so a generated query calling a kb date function answers the same each run. */
+const pinnedClock = () => ({ nowMs: Date.UTC(2026, 0, 5), timeZone: "Europe/Amsterdam" });
+
 function indexFor(nodes: KbNode[]): DatascriptIndex {
-  return new DatascriptIndex(nodes, { derived: derivedWith({}) });
+  return new DatascriptIndex(nodes, { derived: derivedWith({}), clock: pinnedClock });
 }
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -98,6 +105,80 @@ describe("parseEdn subset vs raw", () => {
   });
 });
 
+/** The value of the one pattern in `[:find ?n :where [?n :a <literal>]]`, or the IR kind when it does not parse. */
+function literalValue(literal: string): unknown {
+  const ir = parseEdn(`[:find ?n :where [?n :a ${literal}]]`);
+  if (ir.kind !== "query") return ir.kind;
+  const [clause] = ir.where;
+  return clause?.kind === "pattern" ? clause.value : clause;
+}
+
+describe("the reader reads EDN literals as EDN means them", () => {
+  test.each([
+    [String.raw`"a\nb"`, "a\nb"],
+    [String.raw`"tab\there"`, "tab\there"],
+    [String.raw`"cr\r"`, "cr\r"],
+    [String.raw`"say \"hi\""`, 'say "hi"'],
+    [String.raw`"back\\slash"`, "back\\slash"],
+    [String.raw`"été"`, "été"],
+    [String.raw`"\b\f"`, "\b\f"],
+  ])("the string %s", (literal, value) => {
+    expect(literalValue(literal)).toEqual({ t: "str", value });
+  });
+
+  test.each([String.raw`"\q"`, String.raw`"\u12"`, String.raw`"\uZZZZ"`])(
+    "an escape EDN does not define (%s) is not read: the query is raw",
+    (literal) => {
+      expect(literalValue(literal)).toBe("raw");
+    },
+  );
+
+  test("every number String(n) prints reads back as n", () => {
+    fc.assert(
+      fc.property(
+        fc.double({ noNaN: true, noDefaultInfinity: true }).filter((n) => !Object.is(n, -0)),
+        (n) => {
+          expect(literalValue(String(n))).toEqual({ t: "num", value: n });
+        },
+      ),
+    );
+  });
+
+  test.each([
+    ["1e-7", 1e-7],
+    ["1e+21", 1e21],
+    ["-2.5", -2.5],
+    ["+3", 3],
+  ])("the number %s", (literal, value) => {
+    expect(literalValue(literal)).toEqual({ t: "num", value });
+  });
+
+  test("a sign not followed by a digit starts a symbol", () => {
+    const ir = parseEdn("[:find ?a :where (- ?a ?b) [?a :node/id ?b]]");
+    expect(ir.kind === "query" && ir.where[0]).toEqual({
+      kind: "rule",
+      name: "-",
+      args: [
+        { t: "var", name: "a" },
+        { t: "var", name: "b" },
+      ],
+    });
+  });
+
+  test.each(["1e", "1.", "1e400", "1-2"])("%s is no number: the query is raw", (literal) => {
+    expect(literalValue(literal)).toBe("raw");
+  });
+
+  test("an escaped string matches the text it stands for", () => {
+    const index = indexFor([
+      node("two-lines", { text: "one\ntwo" }),
+      node("one-line", { text: "n" }),
+    ]);
+    const edn = String.raw`[:find ?id :where [?n :node/text "one\ntwo"] [?n :node/id ?id]]`;
+    expect(index.runDatalog(edn)).toEqual([["two-lines"]]);
+  });
+});
+
 describe("compile(parse(edn)) is query-equivalent", () => {
   const index = indexFor([
     ...bundledSeed(AT),
@@ -137,10 +218,13 @@ function boundNames(where: readonly GenClause[]): string[] {
 function pattern(
   entity: string,
   attr: string,
-  value: { t: "var"; name: string } | { t: "str"; value: string },
+  value: { t: "var"; name: string } | { t: "str"; value: string } | { t: "blank" },
 ): GenClause {
   return { kind: "pattern", entity, attr, value };
 }
+
+/** True one time in four: the clause kinds that narrow most, so most generated queries still answer rows. */
+const rarely = fc.integer({ min: 0, max: 3 }).map((n) => n === 0);
 
 const irArb: fc.Arbitrary<IrQuery> = fc
   .record({
@@ -150,6 +234,24 @@ const irArb: fc.Arbitrary<IrQuery> = fc
     mentionsJoin: fc.boolean(),
     children: fc.boolean(),
     reach: fc.boolean(),
+    hasChild: rarely,
+    textHas: fc.option(
+      fc.record({
+        fn: fc.constantFrom(
+          "clojure.string/includes?" as const,
+          "kb/includes-ci?" as const,
+          "clojure.string/starts-with?" as const,
+          "clojure.string/ends-with?" as const,
+          "not=" as const,
+          "<" as const,
+        ),
+        needle: fc.constantFrom("o", "a", "leaf", "[["),
+      }),
+      { nil: null, freq: 3 },
+    ),
+    noneOf: rarely,
+    anyOf: rarely,
+    recent: rarely,
   })
   .chain((shape) => {
     const where: GenClause[] = [
@@ -172,13 +274,92 @@ const irArb: fc.Arbitrary<IrQuery> = fc
     }
     if (shape.children) {
       where.push(pattern("p", ":node/id", { t: "str", value: "p" }));
-      where.push({ kind: "children", parent: "p", child: "c" });
+      where.push({ kind: "children", parent: "p", child: "c", order: "o" });
       where.push(pattern("c", ":node/id", { t: "var", name: "cid" }));
     }
     if (shape.reach) {
       where.push(pattern("root", ":node/id", { t: "str", value: "a" }));
       where.push({ kind: "reach", from: "root", to: "reached", edge: ":node/mentions" });
       where.push(pattern("reached", ":node/id", { t: "var", name: "rid" }));
+    }
+    if (shape.hasChild) where.push(pattern("n", ":node/child", { t: "blank" }));
+    if (shape.textHas !== null) {
+      where.push(pattern("n", ":node/text", { t: "var", name: "text2" }));
+      where.push({
+        kind: "predicate",
+        fn: shape.textHas.fn,
+        args: [
+          { t: "var", name: "text2" },
+          { t: "str", value: shape.textHas.needle },
+        ],
+      });
+    }
+    if (shape.noneOf) {
+      // "none of": not (A or B), each branch with its own variables.
+      where.push({
+        kind: "not",
+        join: ["n"],
+        clauses: [
+          {
+            kind: "or",
+            join: ["n"],
+            branches: [
+              [pattern("n", ":node/text", { t: "str", value: "leaf" })],
+              [
+                pattern("x", ":node/id", { t: "str", value: "a" }),
+                { kind: "reach", from: "x", to: "n", edge: ":node/mentions" },
+              ],
+            ],
+          },
+        ],
+      });
+    }
+    if (shape.recent) {
+      // "created in the last 7 days": a window over two kb functions of one clock sample.
+      where.push(pattern("n", ":node/created-at", { t: "var", name: "text_c" }));
+      where.push({
+        kind: "predicate",
+        fn: "kb/instant-days-ago",
+        args: [{ t: "num", value: 7 }],
+        bind: "text_s1",
+      });
+      where.push({ kind: "predicate", fn: "kb/instant-now", args: [], bind: "text_s2" });
+      where.push({
+        kind: "predicate",
+        fn: "<=",
+        args: [
+          { t: "var", name: "text_s1" },
+          { t: "var", name: "text_c" },
+        ],
+      });
+      where.push({
+        kind: "predicate",
+        fn: "<=",
+        args: [
+          { t: "var", name: "text_c" },
+          { t: "var", name: "text_s2" },
+        ],
+      });
+    }
+    if (shape.anyOf) {
+      where.push({
+        kind: "or",
+        join: ["n"],
+        branches: [
+          [pattern("n", ":f/sys.f.type", { t: "blank" })],
+          [
+            pattern("q", ":node/id", { t: "str", value: "p" }),
+            { kind: "children", parent: "q", child: "n", order: "qo" },
+          ],
+          [
+            {
+              kind: "predicate",
+              fn: "missing?",
+              args: [{ t: "src" }, { t: "var", name: "n" }, { t: "attr", value: ":node/children" }],
+            },
+          ],
+        ],
+      });
     }
     const names = boundNames(where);
     return fc
@@ -191,44 +372,107 @@ const irArb: fc.Arbitrary<IrQuery> = fc
         find: findNames.map((name) => ({
           kind: "var" as const,
           name,
-          type: name === "text" ? ("scalar" as const) : ("node-ref" as const),
+          type: name.startsWith("text") ? ("scalar" as const) : ("node-ref" as const),
         })),
         where,
       }));
   });
 
-describe("generated IR round-trips through compile(parseEdn(compile(ir)))", () => {
-  const index = indexFor([
-    node("sys.tag", { text: "tag" }),
-    node("n.todo", {
-      text: "a todo",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] },
-    }),
-    node("p", { children: ["c1", "c2"] }),
-    node("c1", { text: "[[c2]]" }),
-    node("c2"),
-    node("a", { text: "[[b]]" }),
-    node("b", { text: "[[c]]" }),
-    node("c", { text: "leaf" }),
-  ]);
+describe("the canonical domain is what parseEdn produces", () => {
+  test("every stored query parses to a canonical IR", () => {
+    for (const q of STORED_QUERIES) {
+      const ir = parseEdn(q.edn);
+      expect(ir.kind === "query" && isCanonicalIr(ir)).toBe(true);
+    }
+  });
 
-  test("rows match query(edn) on the fixture", () => {
-    const outcome = (edn: string, extra: unknown[]) => {
+  test("the generator produces only canonical IR", () => {
+    fc.assert(fc.property(irArb, (ir) => isCanonicalIr(ir)));
+  });
+
+  const base = parseEdn(
+    '[:find ?id ?t :where [?p :node/id "p"] [?p :node/child ?c] [?p :node/child-order ?o] [?c :node/id ?id] [?c :node/text ?t]]',
+  );
+
+  test("a find typed otherwise than its :where types it is outside the domain", () => {
+    if (base.kind !== "query") throw new Error("expected IR");
+    expect(isCanonicalIr(base)).toBe(true);
+    const find = base.find.map((p) =>
+      p.kind === "var" && p.name === "t" ? { ...p, type: "node-ref" as const } : p,
+    );
+    expect(isCanonicalIr({ ...base, find })).toBe(false);
+  });
+
+  test("children beside a pattern it would collapse is outside the domain", () => {
+    if (base.kind !== "query") throw new Error("expected IR");
+    const where = [...base.where, pattern("p", ":node/child", { t: "var", name: "d" })];
+    expect(isCanonicalIr({ ...base, where })).toBe(false);
+  });
+
+  test("a variable or keyword the reader would not read back is outside the domain", () => {
+    if (base.kind !== "query") throw new Error("expected IR");
+    expect(
+      isCanonicalIr({ ...base, where: [pattern("p q", ":node/id", { t: "var", name: "id" })] }),
+    ).toBe(false);
+    expect(isCanonicalIr({ ...base, where: [pattern("p", ":", { t: "var", name: "id" })] })).toBe(
+      false,
+    );
+    expect(
+      isCanonicalIr({
+        ...base,
+        where: [
+          { kind: "pattern", entity: "p", attr: ":a", value: { t: "num", value: Number.NaN } },
+        ],
+      }),
+    ).toBe(false);
+  });
+});
+
+const STORE_IDS = ["sys.tag", "n.todo", "p", "c1", "c2", "a", "b", "c"];
+
+/** A small graph over `STORE_IDS`: texts that mention, children, and tag refs, all drawn. */
+const storeArb: fc.Arbitrary<KbNode[]> = fc.tuple(
+  ...STORE_IDS.map((id) =>
+    fc
+      .record({
+        text: fc.constantFrom(id, "a todo", "leaf", "[[b]]", "[[c]]", "[[c2]] and [[a]]"),
+        children: fc.subarray(
+          STORE_IDS.filter((other) => other !== id),
+          { maxLength: 3 },
+        ),
+        tagged: fc.boolean(),
+      })
+      .map(({ text, children, tagged }) =>
+        node(id, {
+          text,
+          children,
+          props: tagged ? { "sys.f.type": [{ t: "ref", v: "sys.tag" }] } : {},
+        }),
+      ),
+  ),
+);
+
+describe("property 3: printing keeps the answer", () => {
+  test("rows of parseEdn(printEdn(ir)) equal the rows of ir, over a generated store", () => {
+    const outcome = (index: DatascriptIndex, ir: Ir) => {
       try {
-        return { rows: sortedRows(index.runDatalog(edn, ...extra)) };
+        return { rows: sortedRows(index.run(ir)) };
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }
     };
+    let answered = 0;
     fc.assert(
-      fc.property(irArb, (ir) => {
-        const compiled = compile(ir);
-        const roundTripped = compile(parseEdn(compiled.query));
-        const extra = compiled.rules !== undefined ? [compiled.rules] : [];
-        expect(outcome(roundTripped.query, extra)).toEqual(outcome(compiled.query, extra));
+      fc.property(irArb, storeArb, (ir, store) => {
+        const index = indexFor(store);
+        const expected = outcome(index, ir);
+        if (expected.rows !== undefined && expected.rows.length > 0) answered += 1;
+        expect(outcome(index, parseEdn(printEdn(ir)))).toEqual(expected);
       }),
-      { numRuns: 50 },
+      { numRuns: 100 },
     );
+    // Equal errors, or equal empty answers, on both sides prove little: a share of the runs must answer rows.
+    expect(answered).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -399,8 +643,59 @@ describe("children clause replaces the cartesian join", () => {
     expect(ir.kind).toBe("query");
     if (ir.kind !== "query") return;
     expect(ir.where.some((c) => c.kind === "children")).toBe(true);
-    expect(ir.find.some((p) => p.kind === "var" && p.name === "i")).toBe(false);
+    // The find is kept as written; the order variable gets no column.
+    expect(ir.find.some((p) => p.kind === "var" && p.name === "i")).toBe(true);
+    expect(compile(ir).find?.some((p) => p.kind === "var" && p.name === "i")).toBe(false);
     expect(sortedRows(index.runDatalog(lastClause))).toHaveLength(3);
+  });
+});
+
+/** A find naming the order of a children clause in each branch of a plain `or`, then `extra`. */
+const inOr = (extra: string) =>
+  `[:find ?id ?o :where (or (and [?p :node/id "p"] [?p :node/child ?c] [?p :node/child-order ?o]) (and [?p :node/id "q"] [?p :node/child ?c] [?p :node/child-order ?o])) [?c :node/id ?id]${extra}]`;
+
+describe("a find variable gets a column unless it is a children clause's order", () => {
+  const index = indexFor([node("p", { text: "parent", children: ["c1", "c2", "c3"] }), node("c1")]);
+
+  test("a variable bound only by :in is a column, as DataScript answers it", () => {
+    const edn = '[:find ?t ?x :in $ ?x :where [?e :node/text ?t] [?e :node/id "p"]]';
+    expect(index.runDatalog(edn, 7)).toEqual([["parent", 7]]);
+  });
+
+  test("a :node/child-order pattern without a :node/child one is kept, not dropped", () => {
+    const edn = '[:find ?o :where [?p :node/id "p"] [?p :node/child-order ?o]]';
+    expect(sortedRows(index.runDatalog(edn))).toEqual([[0]]);
+  });
+
+  const family = indexFor([node("p", { children: ["c1", "c2"] }), node("c1"), node("c2")]);
+
+  test("the order of a children clause inside a plain or branch has no column", () => {
+    const edn = inOr("");
+    expect(compile(parseEdn(edn)).find?.map((p) => p.kind === "var" && p.name)).toEqual(["id"]);
+    expect(sortedRows(family.runDatalog(edn))).toEqual([["c1"], ["c2"]]);
+  });
+
+  test("that order keeps its column when another clause binds it", () => {
+    const edn = inOr(" [(= 1 1) ?o]");
+    expect(sortedRows(family.runDatalog(edn))).toEqual([
+      ["c1", true],
+      ["c2", true],
+    ]);
+  });
+
+  test("the order of a children clause in an or-join branch, off its vector, is private to it", () => {
+    const edn =
+      '[:find ?id ?o :where (or-join [?c] (and [?p :node/id "p"] [?p :node/child ?c] [?p :node/child-order ?o])) [?c :node/id ?id] [?c :node/text ?o]]';
+    expect(sortedRows(family.runDatalog(edn))).toEqual([
+      ["c1", "c1"],
+      ["c2", "c2"],
+    ]);
+  });
+
+  test("a variable nothing binds is the engine's error, as in raw EDN", () => {
+    const edn = "[:find ?id ?nowhere :where [?n :node/id ?id]]";
+    expect(() => index.runDatalog(edn)).toThrow(DatalogError);
+    expect(() => index.runDatalog(edn)).toThrow(/unknown vars/);
   });
 });
 

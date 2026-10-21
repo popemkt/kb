@@ -53,6 +53,7 @@ export type { NodeOf } from "./system-write.ts";
 export {
   addDays,
   addMonths,
+  dayAt,
   dayNumber,
   formatDay,
   parseDateInput,
@@ -63,7 +64,9 @@ export type { LocalDate } from "./local-date.ts";
 export {
   LEGACY_SEED_RENAMES,
   SYSTEM_IDS,
+  clockSampler,
   currentIso,
+  isoFromMillis,
   extensionNameOf,
   extensionNodeId,
   isExtensionNodeId,
@@ -71,7 +74,7 @@ export {
   isSysPrefixed,
   nowIso,
 } from "./model.ts";
-export type { KbNode, NodeId, PropValue } from "./model.ts";
+export type { ClockSample, KbNode, NodeId, PropValue } from "./model.ts";
 export {
   allValues,
   decodeNodeConfig,

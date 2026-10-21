@@ -13,8 +13,13 @@
  * readers keep the last one (it is not `current`), so a write never blanks
  * what the page shows. A query no one watches is asked again only when it is
  * read, and forgotten once enough others have been read since.
+ *
+ * An answer whose run read the clock (`kb/today`, …) also holds only until
+ * a time (`holdsUntilMs`): from then it is not current either, and a watched
+ * one is asked again then, so a page left open past midnight moves on to
+ * the new day without a write.
  */
-import type { EdnRunner, QueryAnswer, QueryRequest, QueryTransport } from "@kb/query";
+import type { EdnRunner, QueryAnswer, QueryRequest, QueryTransport, Timers } from "@kb/query";
 
 export type { QueryAnswer, QueryRequest, QueryTransport } from "@kb/query";
 
@@ -24,6 +29,12 @@ export type { QueryAnswer, QueryRequest, QueryTransport } from "@kb/query";
  * short enough that a slow one is stopped well before it is a hang.
  */
 export const QUERY_BUDGET_MS = 3000;
+
+/** The wall clock answers are held against, and the timers that ask again when one lapses. */
+export interface AnswerClock extends Timers {
+  /** Now, in epoch milliseconds, as `holdsUntilMs` is. */
+  readonly now: () => number;
+}
 
 /** A query the page asks, without the budget every run of it gets. */
 export type PageQuery = Omit<QueryRequest, "budgetMs">;
@@ -48,6 +59,8 @@ interface Entry {
   /** Who waits for the answer as of a generation (`ask`). */
   waiting: Array<{ readonly generation: number; readonly settle: (answer: QueryAnswer) => void }>;
   readonly listeners: Set<() => void>;
+  /** Cancels the timer that marks the answer lapsed, while one is set. */
+  lapse: (() => void) | null;
 }
 
 /** What a query that is not rows says, in a sentence: the engine's refusal, or that it ran too long. */
@@ -95,15 +108,28 @@ export class ReplicaQueries implements QueryAnswers {
   #version = 0;
 
   readonly #budgetMs: number;
+  readonly #clock: AnswerClock;
 
   constructor(
     transport: QueryTransport,
     generation: () => number,
+    clock: AnswerClock,
     budgetMs: number = QUERY_BUDGET_MS,
   ) {
     this.#transport = transport;
     this.#generation = generation;
+    this.#clock = clock;
     this.#budgetMs = budgetMs;
+  }
+
+  /** Whether `answer` is as of the replica at `generation` and has not lapsed. */
+  #holds(answer: QueryAnswer | null, generation: number): answer is QueryAnswer {
+    if (answer === null || answer.generation < generation) return false;
+    return (
+      answer.kind !== "rows" ||
+      answer.holdsUntilMs === undefined ||
+      this.#clock.now() < answer.holdsUntilMs
+    );
   }
 
   /** Bumps whenever any answer arrives: what a reader of many queries compares. */
@@ -128,7 +154,7 @@ export class ReplicaQueries implements QueryAnswers {
   read(edn: string): QueryRead {
     const entry = this.#entry(edn);
     const generation = this.#generation();
-    const current = entry.answer?.generation === generation;
+    const current = this.#holds(entry.answer, generation);
     if (entry.read.current !== current || entry.read.answer !== entry.answer) {
       entry.read = { answer: entry.answer, current };
     }
@@ -168,9 +194,7 @@ export class ReplicaQueries implements QueryAnswers {
   ask(edn: string): Promise<QueryAnswer> {
     const entry = this.#entry(edn);
     const generation = this.#generation();
-    if (entry.answer !== null && entry.answer.generation >= generation) {
-      return Promise.resolve(entry.answer);
-    }
+    if (this.#holds(entry.answer, generation)) return Promise.resolve(entry.answer);
     return new Promise((settle) => {
       entry.waiting.push({ generation, settle });
       this.#askNow(edn, entry);
@@ -230,6 +254,7 @@ export class ReplicaQueries implements QueryAnswers {
       watchers: 0,
       waiting: [],
       listeners: new Set(),
+      lapse: null,
     };
     this.#entries.set(edn, entry);
     this.#forget();
@@ -247,6 +272,7 @@ export class ReplicaQueries implements QueryAnswers {
         entry.listeners.size > 0 ||
         entry.asking !== null;
       if (held) continue;
+      entry.lapse?.();
       this.#entries.delete(edn);
       spare -= 1;
     }
@@ -261,12 +287,12 @@ export class ReplicaQueries implements QueryAnswers {
   #askNow(edn: string, entry: Entry): void {
     const generation = this.#generation();
     if (entry.asking === generation) return;
-    if (entry.answer !== null && entry.answer.generation >= generation) return;
+    if (this.#holds(entry.answer, generation)) return;
     entry.asking = generation;
     void this.#transport.run({ edn, budgetMs: this.#budgetMs }).then(
-      (answer) => this.#land(entry, answer),
+      (answer) => this.#land(edn, entry, answer),
       (error: unknown) =>
-        this.#land(entry, {
+        this.#land(edn, entry, {
           kind: "error",
           name: error instanceof Error ? error.name : "Error",
           message: error instanceof Error ? error.message : String(error),
@@ -275,10 +301,31 @@ export class ReplicaQueries implements QueryAnswers {
     );
   }
 
-  #land(entry: Entry, answer: QueryAnswer): void {
+  /**
+   * When `answer` holds only until a time, tell its readers then that it
+   * lapsed, and ask a watched query again.
+   */
+  #lapseAt(edn: string, entry: Entry, answer: QueryAnswer): void {
+    entry.lapse?.();
+    entry.lapse = null;
+    if (answer.kind !== "rows" || answer.holdsUntilMs === undefined) return;
+    entry.lapse = this.#clock.set(
+      () => {
+        entry.lapse = null;
+        if (entry.watchers > 0) this.#askLater(edn, entry);
+        this.#version += 1;
+        for (const listener of entry.listeners) listener();
+        for (const listener of this.#listeners) listener();
+      },
+      Math.max(0, answer.holdsUntilMs - this.#clock.now()),
+    );
+  }
+
+  #land(edn: string, entry: Entry, answer: QueryAnswer): void {
     if (entry.asking !== null && entry.asking <= answer.generation) entry.asking = null;
     if (entry.answer !== null && entry.answer.generation > answer.generation) return;
     entry.answer = answer;
+    this.#lapseAt(edn, entry, answer);
     const ready = entry.waiting.filter((w) => w.generation <= answer.generation);
     entry.waiting = entry.waiting.filter((w) => w.generation > answer.generation);
     for (const waiter of ready) waiter.settle(answer);

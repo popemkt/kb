@@ -2,11 +2,17 @@
 /// <reference path="../datascript.d.ts" />
 import * as d from "datascript";
 import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
-import { datascriptExecutor, pull as dsPull, query as dsQuery, runIr } from "../datascript.ts";
+import {
+  datascriptExecutor,
+  pull as dsPull,
+  answerQuery,
+  runIr,
+  type ClockSampler,
+} from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
-import type { KbIndex } from "./index.ts";
+import type { DatalogAnswer, KbIndex } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
 
 /** Identity of a datom within one entity — attr plus value, compared structurally. */
@@ -29,6 +35,14 @@ export interface IndexOptions {
    * leaving it out.
    */
   readonly derived: readonly DerivedRef[];
+  /**
+   * Where a run's clock sample comes from: the `Clock` and zone of the host
+   * that builds the index (`clockSampler` in `@kb/model`), sampled once by a
+   * run that calls a clocked kb function (`kb/today`, …) and never by any
+   * other. Without one, such a query fails naming the function; the index
+   * never falls back to a wall clock of its own.
+   */
+  readonly clock?: ClockSampler;
 }
 
 /**
@@ -53,6 +67,7 @@ export class DatascriptIndex implements KbIndex {
   #refAttrs = new Set<string>();
   /** The derived ref attributes this index builds (`DerivedRef`). */
   readonly #derived: readonly DerivedRef[];
+  readonly #clock: ClockSampler | undefined;
 
   /**
    * An index over `nodes`, deriving the ref attributes `derived` names. A
@@ -61,6 +76,7 @@ export class DatascriptIndex implements KbIndex {
    */
   constructor(nodes: ReadonlyArray<KbNode>, options: IndexOptions) {
     this.#derived = options.derived;
+    this.#clock = options.clock;
     this.#table = new NodeTable(nodes, options.derived);
     this.#buildDatoms();
   }
@@ -133,11 +149,18 @@ export class DatascriptIndex implements KbIndex {
   }
 
   runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {
-    return normalizeRows(dsQuery(this.#datascriptDb(), edn, ...inputs));
+    return this.answerDatalog(edn, ...inputs).rows;
+  }
+
+  answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer {
+    const { value, holdsUntilMs } = answerQuery(this.#datascriptDb(), edn, inputs, this.#clock);
+    return { rows: normalizeRows(value), holdsUntilMs };
   }
 
   run(ir: Ir, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {
-    return normalizeRows(runIr(datascriptExecutor(this.#datascriptDb()), ir, this.#ids, ...inputs));
+    return normalizeRows(
+      runIr(datascriptExecutor(this.#datascriptDb()), ir, this.#ids, inputs, this.#clock),
+    );
   }
 
   pull(pattern: string, id: NodeId): unknown {

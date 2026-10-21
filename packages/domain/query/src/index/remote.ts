@@ -15,7 +15,7 @@
  */
 import type { KbNode, StoreTx } from "@kb/model";
 import { answerOf, type QueryAnswer, type QueryRequest, type QueryTransport } from "./answer.ts";
-import { DatascriptIndex } from "./datascript-index.ts";
+import { DatascriptIndex, type IndexOptions } from "./datascript-index.ts";
 import type { DerivedRef } from "./derived.ts";
 import type { NodeIndex } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
@@ -44,16 +44,16 @@ export type FromEngine =
  * a host in one thread can hand them to it directly.
  */
 export function serveIndex(
-  derived: readonly DerivedRef[],
+  options: IndexOptions,
   post: (message: FromEngine) => void,
   now: () => number,
 ): (message: ToEngine) => void {
-  let index = new DatascriptIndex([], { derived });
+  let index = new DatascriptIndex([], options);
   let generation = 0;
   return (message) => {
     switch (message.op) {
       case "load":
-        index = new DatascriptIndex(message.nodes, { derived });
+        index = new DatascriptIndex(message.nodes, options);
         if (message.virtual.length > 0) index.withVirtual(message.virtual);
         generation = message.generation;
         return;
@@ -295,14 +295,14 @@ export class RemoteIndex implements NodeIndex {
 function unheard(): void {}
 
 export function inThreadPort(
-  derived: readonly DerivedRef[],
+  options: IndexOptions,
   now: () => number,
   defer: (run: () => void) => void,
 ): EnginePort {
   let stopped = false;
   let hear: (message: FromEngine) => void = unheard;
   const serve = serveIndex(
-    derived,
+    options,
     (message) => {
       defer(() => {
         if (!stopped) hear(message);

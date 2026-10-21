@@ -27,7 +27,8 @@ const timers: Timers = {
 };
 
 const PORTS: Record<string, () => EnginePort> = {
-  "in thread": () => inThreadPort(derivedWith({}), () => performance.now(), queueMicrotask),
+  "in thread": () =>
+    inThreadPort({ derived: derivedWith({}) }, () => performance.now(), queueMicrotask),
   worker: () => {
     const worker = new Worker(new URL("./fixtures/engine-worker.ts", import.meta.url).href);
     return {

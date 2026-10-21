@@ -131,3 +131,7 @@
 ### later
 
 - Step 7b · canvas items become nodes, the owner's call
+
+### (no status)
+
+- Neighbourhood as one or-join query: or is in the IR subset now, so neighbourhoodQuery's two directions and queryNeighbourhood's union over edges can be one query

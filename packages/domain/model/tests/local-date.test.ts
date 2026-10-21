@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
+import { Clock, DateTime, Effect } from "effect";
 import {
   addDays,
   addMonths,
+  clockSampler,
+  dayAt,
   dayNumber,
   formatDay,
   parseDateInput,
@@ -118,5 +121,40 @@ describe("typed date input", () => {
     });
     expect(parseTypedValue("soon", "date", { today: TODAY }).ok).toBe(false);
     expect(parseTypedValue("", "date")).toEqual({ ok: true, value: { t: "str", v: "" } });
+  });
+});
+
+describe("the civil date of an instant, in a zone", () => {
+  // 2026-10-20T22:30:00Z
+  const ms = Date.UTC(2026, 9, 20, 22, 30);
+
+  test("one instant is a different day on either side of a zone's midnight", () => {
+    expect(dayAt(ms, "UTC")).toEqual({ year: 2026, month: 10, day: 20 });
+    expect(dayAt(ms, "Europe/Amsterdam")).toEqual({ year: 2026, month: 10, day: 21 });
+    expect(dayAt(ms, "America/Los_Angeles")).toEqual({ year: 2026, month: 10, day: 20 });
+    expect(dayAt(ms, "+05:00")).toEqual({ year: 2026, month: 10, day: 21 });
+  });
+
+  test("a zone that is not one names no day", () => {
+    expect(dayAt(ms, "Mars/Olympus")).toBeNull();
+  });
+});
+
+describe("clockSampler reads the Clock and the time zone in scope", () => {
+  test("each call is one sample of the provided Clock, in the provided zone", () => {
+    let now = 1_000;
+    const base = Effect.runSync(Clock.clockWith(Effect.succeed));
+    const clock: Clock.Clock = Object.assign(Object.create(base) as Clock.Clock, {
+      currentTimeMillisUnsafe: () => now,
+    });
+    const sample = Effect.runSync(
+      clockSampler.pipe(
+        Effect.provideService(Clock.Clock, clock),
+        Effect.provide(DateTime.layerCurrentZoneNamed("Asia/Tokyo")),
+      ),
+    );
+    expect(sample()).toEqual({ nowMs: 1_000, timeZone: "Asia/Tokyo" });
+    now = 2_000;
+    expect(sample()).toEqual({ nowMs: 2_000, timeZone: "Asia/Tokyo" });
   });
 });

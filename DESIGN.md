@@ -1017,8 +1017,9 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `lens.edge-kinds` says along what. Its nodes are the union of both
   directions: `reach` is directed, so the neighbourhood runs
   `@kb/query`'s `neighbourhoodQuery` once per edge and direction and unions
-  the rows, because the union as one query needs `or`, which runs raw
-  (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]). Even the union misses a path that
+  the rows. The union was written that way while `or` ran raw; it is in the
+  IR subset now, so one `or-join` query could carry it (todo
+  [[01M5E21B6ENDME71VJGR2VST4W]]). Even the union misses a path that
   changes direction (a→b←c); a symmetric edge relation would be the true
   undirected form.
 - **A graph is a view node whose view is a renderer.** Its `sys.f.view`
@@ -1624,6 +1625,65 @@ same lane. One path to a client, whatever a node's provenance.
   The page's index is the one whose engine is not in process: a
   `RemoteIndex` keeps the node table and asks a worker for datalog, each
   run under a budget (`DESIGN-UI.md` → Replica queries).
+- **The subset.** `:find` (variables, `count`/`collect`, `pull`), `:in`
+  (`$` first, then `%` and variables) and `:where` over: patterns
+  `[?e :attr v]`, whose value is a variable, a string, a number, a boolean
+  or `_`; rule calls; `reach` (below); the ordered-children idiom
+  `[?p :node/child ?c] [?p :node/child-order ?o]`, one `children` clause
+  that projects one row per child (its `?o` is not bound, so a find naming
+  it has no column); calls `[(f arg…)]` and `[(f arg…) ?out]` to a closed
+  set, `PREDICATES`: `=`, `not=`, `<`, `<=`, `>`, `>=`,
+  `clojure.string/includes?`, `clojure.string/starts-with?`,
+  `clojure.string/ends-with?`, `missing?` (whose `$` and attribute keyword
+  are arguments of their own), and the kb functions (below); and
+  `(or …)`/`(or-join [?v…] …)`, whose branches are conjunctions written
+  `(and …)` when they are more than one form, and `(not …)`/`(not-join
+  [?v…] …)`, over the same clauses at any depth. Scope follows DataScript:
+  a plain `or`'s branches share the variables around them, an `or-join`
+  shares its join vector (what a branch says of a join variable reaches the
+  scope; its other variables stay private to the branch), a `not` or
+  `not-join` binds and types nothing outside it; a find column's type is
+  read from that scope (`ir/scope.ts`). The find spec is kept as written.
+- **kb functions** are the predicates DataScript lacks, namespaced `kb/` and
+  written as ordinary calls, so a stored query reads as datalog:
+  `(kb/includes-ci? s sub)` (substring ignoring case, false unless both are
+  strings); `(kb/today)` and `(kb/date-in-days n)`, a civil date
+  `YYYY-MM-DD` in the run's time zone, as date fields hold them; and
+  `(kb/instant-now)` and `(kb/instant-days-ago n)`, an instant in UTC as
+  `currentIso` writes `created`/`edited`. Offsets are whole days. `compile`
+  rewrites each call to a function input, `?__kb_fn_<name>` appended to
+  `:in` after every other slot, and joined into the vector of every
+  `or-join` and `not-join` that calls it (a `-join` sees only the variables
+  it names), and reports which it named; it never builds them, so it stays
+  pure. Only that closed registry (`KB_FUNCTIONS`)
+  resolves a `kb/` name, so a stored query cannot call a host function kb
+  did not register; an unknown one keeps the query `raw`.
+- **One clock sample per run.** The executor builds the closures
+  (`kbFunctions(sample)`) over one `ClockSample` (`nowMs`, `timeZone`)
+  taken when the run starts, so every condition in a query agrees on "now".
+  The sample comes from the index's `clock` (`IndexOptions`), which the host
+  binds to Effect's `Clock` and `DateTime.CurrentTimeZone` through
+  `@kb/model`'s `clockSampler`: the runtime's session (`sessionOver`, so the
+  server and the CLI), the client, and the page's engine worker (its
+  person's zone). The index never reads a wall clock: a run that calls no
+  clocked function takes no sample, and an index built without a clock
+  refuses a clocked one by name. The server answers a thin client's query
+  in its own zone (GAP [[01M5E2YBN75HF5C8HZPG62CAJH]]).
+- **A clocked answer holds for a while.** An answer that read the clock
+  says until when it holds (`answerDatalog`'s `holdsUntilMs`,
+  `holdsUntil`): until the sample's next local midnight when it read a
+  civil date, `INSTANT_REFRESH_MS` (a minute) on when it read an instant,
+  the earlier when both; an answer that read none holds until the graph
+  moves. A reader that keeps answers (the page's, `DESIGN-UI.md` → Replica
+  queries) asks again then.
+- **Printed back canonically.** `printEdn` writes an IR as stored EDN, the
+  inverse of `parseEdn` on the IR's canonical domain (`isCanonicalIr`: the
+  values `parseEdn` produces): the head on one line, each `:where` clause on
+  a line of its own in IR order, one space between forms, strings escaped
+  as EDN escapes them, numbers as `String(n)` prints them. Its laws are
+  `@kb/query`'s print-then-parse and parse-then-print properties. It is for
+  storage and for showing a person a query; `compile` is what runs one, and
+  a `raw` query is never printed.
 - **A number stays a number when the query parses.** A ref prop and a number
   prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
   so a result value that equals a live eid could be either. For a query in
@@ -1667,11 +1727,13 @@ same lane. One path to a client, whatever a node's provenance.
   Path reconstruction and a minimum hop count are not in the form: a path is
   not a datalog relation, and a hop counter on the unbounded form would not
   terminate on a cycle. Paths are the graph family's, over the edge
-  projection ([Trace and suggest](#trace-and-suggest)). `reach` is recognised only in a query the subset
-  covers whole; one construct outside it (a predicate, `not`/`or`, `_`,
-  `:with`) makes the query `raw`, well-formed or malformed `reach` included,
-  and there `reach` is an ordinary rule call that no rules define
-  (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]).
+  projection ([Trace and suggest](#trace-and-suggest)). `reach` works
+  wherever a clause may stand, inside `or` and `not` too: the compiler
+  collects every one and emits its rules. It is recognised only in a query the
+  subset covers whole; one construct outside it (a function outside
+  `PREDICATES`, `_` as an entity, `:with`) makes the query `raw`, well-formed
+  or malformed `reach` included, and there `reach` is an ordinary rule call
+  that no rules define (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]).
 
   ```bash
   kb query '[:find ?id :where [?r :node/id "n.root-a"] (reach ?r :node/mentions ?n) [?n :node/id ?id]]'

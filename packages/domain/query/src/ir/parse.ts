@@ -1,164 +1,36 @@
 import { present } from "@kb/model";
 import { DatalogError } from "../datalog-error.ts";
 import { CORE_DERIVED } from "../index/derived.ts";
-import type {
-  Clause,
-  FindPos,
-  FindType,
-  Ir,
-  IrQuery,
-  PatternClause,
-  PullSpec,
-  ReachClause,
-  Term,
+import {
+  PREDICATES,
+  type Clause,
+  type FindPos,
+  type FindType,
+  type Ir,
+  type IrQuery,
+  type PatternClause,
+  type PredicateArg,
+  type PredicateClause,
+  type PredicateName,
+  type PullSpec,
+  type ReachClause,
+  type Term,
 } from "./ir.ts";
-
-type Src = { readonly s: string; i: number };
-
-type Edn =
-  | { k: "kw"; v: string }
-  | { k: "sym"; v: string }
-  | { k: "str"; v: string }
-  | { k: "num"; v: number }
-  | { k: "bool"; v: boolean }
-  | { k: "vec"; v: Edn[] }
-  | { k: "list"; v: Edn[] }
-  | { k: "map"; v: [Edn, Edn][] };
-
-class ParseFail extends Error {}
+import { outerClauses } from "./scope.ts";
+import { readEdn, type Edn } from "./edn.ts";
 
 /**
  * Parse stored-form EDN into the kb IR. The subset is `:find` / `:in` / `:where`
- * over pattern clauses, rule calls, `(reach …)`, `count`/`collect`/`pull`, and
- * the child cartesian which collapses to `children`. Anything else is
+ * over pattern clauses (`_` as a value), rule calls, `(reach …)`, calls to
+ * `PREDICATES`, `or`/`or-join`/`not`/`not-join` over the same clauses,
+ * `count`/`collect`/`pull`, and the child cartesian which collapses to
+ * `children` (DESIGN.md → Query layer). Anything else is
  * `{ kind: "raw" }`. A malformed `reach` in a query that is otherwise in the
  * subset throws `DatalogError`.
  */
 export function parseEdn(edn: string): Ir {
-  try {
-    const src: Src = { s: edn, i: 0 };
-    const value = readValue(src);
-    skipWs(src);
-    if (src.i !== src.s.length) return { kind: "raw", edn };
-    const query = queryFromEdn(value);
-    return query ?? { kind: "raw", edn };
-  } catch (err) {
-    if (err instanceof DatalogError) throw err;
-    return { kind: "raw", edn };
-  }
-}
-
-function skipWs(src: Src): void {
-  while (src.i < src.s.length) {
-    const c = src.s[src.i];
-    if (c === ";") {
-      while (src.i < src.s.length && src.s[src.i] !== "\n") src.i += 1;
-      continue;
-    }
-    if (c === " " || c === "\t" || c === "\n" || c === "\r" || c === ",") {
-      src.i += 1;
-      continue;
-    }
-    break;
-  }
-}
-
-function readValue(src: Src): Edn {
-  skipWs(src);
-  const c = src.s[src.i];
-  if (c === undefined) throw new ParseFail("eof");
-  if (c === '"') return { k: "str", v: readString(src) };
-  if (c === ":") return { k: "kw", v: readKeyword(src) };
-  if (c === "[") return { k: "vec", v: readSeq(src, "]") };
-  if (c === "(") return { k: "list", v: readSeq(src, ")") };
-  if (c === "{") return { k: "map", v: readMap(src) };
-  if (c === "-" || (c >= "0" && c <= "9")) return { k: "num", v: readNumber(src) };
-  return readSymbolOrBool(src);
-}
-
-function readString(src: Src): string {
-  src.i += 1;
-  let out = "";
-  while (src.i < src.s.length) {
-    const c = src.s[src.i];
-    if (c === undefined) throw new ParseFail("unterminated string");
-    if (c === '"') {
-      src.i += 1;
-      return out;
-    }
-    if (c === "\\") {
-      src.i += 1;
-      const e = src.s[src.i];
-      if (e === undefined) throw new ParseFail("unterminated escape");
-      out += e;
-      src.i += 1;
-      continue;
-    }
-    out += c;
-    src.i += 1;
-  }
-  throw new ParseFail("unterminated string");
-}
-
-function readKeyword(src: Src): string {
-  const start = src.i;
-  src.i += 1;
-  while (src.i < src.s.length && /[A-Za-z0-9_./+*-]/.test(present(src.s[src.i], "kw"))) {
-    src.i += 1;
-  }
-  const kw = src.s.slice(start, src.i);
-  if (kw.length < 2) throw new ParseFail("empty keyword");
-  return kw;
-}
-
-function readNumber(src: Src): number {
-  const start = src.i;
-  if (src.s[src.i] === "-") src.i += 1;
-  while (src.i < src.s.length && /[0-9.]/.test(present(src.s[src.i], "num"))) src.i += 1;
-  const n = Number(src.s.slice(start, src.i));
-  if (!Number.isFinite(n)) throw new ParseFail("bad number");
-  return n;
-}
-
-function readSymbolOrBool(src: Src): Edn {
-  const start = src.i;
-  // EDN's symbol characters, so a predicate (`[(> ?n 2)]`) reads as a symbol.
-  while (src.i < src.s.length && /[A-Za-z0-9_./+*?$%!<>=&'-]/.test(present(src.s[src.i], "sym"))) {
-    src.i += 1;
-  }
-  const v = src.s.slice(start, src.i);
-  if (v.length === 0) throw new ParseFail("empty symbol");
-  if (v === "true") return { k: "bool", v: true };
-  if (v === "false") return { k: "bool", v: false };
-  return { k: "sym", v };
-}
-
-function readSeq(src: Src, close: "]" | ")"): Edn[] {
-  src.i += 1;
-  const out: Edn[] = [];
-  for (;;) {
-    skipWs(src);
-    if (src.s[src.i] === close) {
-      src.i += 1;
-      return out;
-    }
-    out.push(readValue(src));
-  }
-}
-
-function readMap(src: Src): [Edn, Edn][] {
-  src.i += 1;
-  const out: [Edn, Edn][] = [];
-  for (;;) {
-    skipWs(src);
-    if (src.s[src.i] === "}") {
-      src.i += 1;
-      return out;
-    }
-    const key = readValue(src);
-    const val = readValue(src);
-    out.push([key, val]);
-  }
+  const value = readEdn(edn);
+  return (value === null ? null : queryFromEdn(value)) ?? { kind: "raw", edn };
 }
 
 /**
@@ -171,16 +43,8 @@ function readMap(src: Src): [Edn, Edn][] {
  * `[?x ...]`), or `:keys` already names them.
  */
 export function findColumns(edn: string): readonly string[] | null {
-  let value: Edn;
-  try {
-    const src: Src = { s: edn, i: 0 };
-    value = readValue(src);
-    skipWs(src);
-    if (src.i !== src.s.length) return null;
-  } catch {
-    return null;
-  }
-  if (value.k !== "vec") return null;
+  const value = readEdn(edn);
+  if (value?.k !== "vec") return null;
   const start = value.v.findIndex((item) => item.k === "kw" && item.v === ":find");
   if (start < 0 || value.v.some((item) => item.k === "kw" && item.v === ":keys")) return null;
   const end = value.v.findIndex((item, i) => i > start && item.k === "kw");
@@ -204,32 +68,6 @@ function columnName(item: Edn): string | null {
   const variable = args.findLast((arg) => arg.k === "sym" && arg.v.startsWith("?"));
   if (op?.k !== "sym" || variable?.k !== "sym") return null;
   return `${op.v}_${variable.v.slice(1)}`;
-}
-
-function queryFromEdn(value: Edn): IrQuery | null {
-  if (value.k !== "vec") return null;
-  const sections = splitSections(value.v);
-  if (sections === null) return null;
-  const find = sections.find.map(findPosFromEdn);
-  if (find.some((p) => p === null)) return null;
-  const parsed = sections.where.map(clauseFromEdn);
-  if (parsed.some((c) => c === null)) return null;
-  const misused = parsed.find((c) => c?.kind === "reach-misuse");
-  if (misused?.kind === "reach-misuse") throw new DatalogError(misused.message);
-  const where = parsed.filter((c): c is Clause => c !== null && c.kind !== "reach-misuse");
-  const collapsed = collapseChildOrder(where);
-  const typed = inferFindTypes(
-    find.filter((p): p is FindPos => p !== null),
-    collapsed,
-  );
-  const bound = boundVars(collapsed);
-  const findOut = typed.filter((p) => p.kind !== "var" || bound.has(p.name));
-  return {
-    kind: "query",
-    find: findOut,
-    ...(sections.in !== undefined && sections.in.length > 0 ? { in: sections.in } : {}),
-    where: collapsed,
-  };
 }
 
 type Sections = { find: Edn[]; in?: string[]; where: Edn[] };
@@ -321,43 +159,157 @@ function pullElem(el: Edn): PullSpec[number] | null {
   return rec;
 }
 
-/**
- * A `reach` form that is kb's but malformed. Raised as a `DatalogError` only
- * once the rest of the query is known to be in the subset: a query that goes
- * raw anyway is raw, malformed reach included.
- */
-type ReachMisuse = { kind: "reach-misuse"; message: string };
-
-function misuse(message: string): ReachMisuse {
-  return { kind: "reach-misuse", message };
+function queryFromEdn(value: Edn): IrQuery | null {
+  if (value.k !== "vec") return null;
+  const sections = splitSections(value.v);
+  if (sections === null) return null;
+  const find = sections.find.map(findPosFromEdn);
+  if (find.some((p) => p === null)) return null;
+  const misuses: string[] = [];
+  const where = conjunctionFromEdn(sections.where, misuses);
+  if (where === null) return null;
+  const [misused] = misuses;
+  if (misused !== undefined) throw new DatalogError(misused);
+  const typed = inferFindTypes(
+    find.filter((p): p is FindPos => p !== null),
+    where,
+  );
+  return {
+    kind: "query",
+    find: typed,
+    ...(sections.in !== undefined && sections.in.length > 0 ? { in: sections.in } : {}),
+    where,
+  };
 }
 
-// GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]] — an unmodelled clause makes the whole query raw, reach included.
-function clauseFromEdn(item: Edn): Clause | ReachMisuse | null {
-  if (item.k === "vec") return patternFromEdn(item.v);
-  if (item.k === "list") return reachFromEdn(item.v) ?? ruleFromEdn(item.v);
-  return null;
+/**
+ * A `reach` form that is kb's but malformed, recorded in the parse's
+ * `misuses` and raised as a `DatalogError` only once the rest of the query is
+ * known to be in the subset: a query that goes raw anyway is raw, malformed
+ * reach included.
+ */
+const MISUSED = { kind: "misused" } as const;
+
+type Parsed = Clause | typeof MISUSED | null;
+
+/**
+ * One conjunction's clauses (the top level, an `or` branch, a `not`), with
+ * the child cartesian collapsed to `children` within it; null when one of
+ * them is outside the subset.
+ */
+function conjunctionFromEdn(items: readonly Edn[], misuses: string[]): Clause[] | null {
+  const out: Clause[] = [];
+  for (const item of items) {
+    const clause = clauseFromEdn(item, misuses);
+    if (clause === null) return null;
+    if (clause.kind !== "misused") out.push(clause);
+  }
+  return collapseChildOrder(out);
+}
+
+// GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]] — a clause outside the subset still makes the whole query raw, reach included.
+function clauseFromEdn(item: Edn, misuses: string[]): Parsed {
+  if (item.k === "vec") {
+    return item.v[0]?.k === "list" ? predicateFromEdn(item.v) : patternFromEdn(item.v);
+  }
+  if (item.k !== "list") return null;
+  const [head, ...rest] = item.v;
+  if (head?.k !== "sym") return null;
+  if (head.v === "or" || head.v === "or-join") return orFromEdn(head.v, rest, misuses);
+  if (head.v === "not" || head.v === "not-join") return notFromEdn(head.v, rest, misuses);
+  if (head.v === "and") return null;
+  const reach = reachFromEdn(item.v);
+  if (typeof reach === "string") {
+    misuses.push(reach);
+    return MISUSED;
+  }
+  return reach ?? ruleFromEdn(item.v);
+}
+
+/** `[?a ?b]` of a `-join` form as variable names; null when it is anything else. */
+function joinFromEdn(item: Edn | undefined): string[] | null {
+  if (item?.k !== "vec") return null;
+  const names = item.v.map((v) => (v.k === "sym" && v.v.startsWith("?") ? v.v.slice(1) : null));
+  return names.every((n) => n !== null) ? names : null;
+}
+
+/** The join vector a `-join` head takes, and the forms after it; a plain head has neither. */
+function joined(
+  joinHead: boolean,
+  rest: readonly Edn[],
+): { join?: string[]; forms: readonly Edn[] } | null {
+  if (!joinHead) return { forms: rest };
+  const join = joinFromEdn(rest[0]);
+  return join === null ? null : { join, forms: rest.slice(1) };
+}
+
+function orFromEdn(head: string, rest: readonly Edn[], misuses: string[]): Clause | null {
+  const split = joined(head === "or-join", rest);
+  if (split === null || split.forms.length === 0) return null;
+  const branches: Clause[][] = [];
+  for (const form of split.forms) {
+    const isAnd = form.k === "list" && form.v[0]?.k === "sym" && form.v[0].v === "and";
+    const items = isAnd ? form.v.slice(1) : [form];
+    if (items.length === 0) return null;
+    const branch = conjunctionFromEdn(items, misuses);
+    if (branch === null) return null;
+    branches.push(branch);
+  }
+  return { kind: "or", ...(split.join === undefined ? {} : { join: split.join }), branches };
+}
+
+function notFromEdn(head: string, rest: readonly Edn[], misuses: string[]): Clause | null {
+  const split = joined(head === "not-join", rest);
+  if (split === null || split.forms.length === 0) return null;
+  const clauses = conjunctionFromEdn(split.forms, misuses);
+  if (clauses === null) return null;
+  return { kind: "not", ...(split.join === undefined ? {} : { join: split.join }), clauses };
+}
+
+const PREDICATE_NAMES: ReadonlySet<string> = new Set(PREDICATES);
+
+function isPredicateName(name: string): name is PredicateName {
+  return PREDICATE_NAMES.has(name);
+}
+
+/** `[(f arg…)]` or `[(f arg…) ?out]` over a function of `PREDICATES`; null for any other. */
+function predicateFromEdn(parts: Edn[]): PredicateClause | null {
+  const [call, out, ...rest] = parts;
+  if (call?.k !== "list" || rest.length > 0) return null;
+  const [fn, ...argForms] = call.v;
+  if (fn?.k !== "sym" || !isPredicateName(fn.v)) return null;
+  const args = argForms.map(predicateArgFromEdn);
+  if (!args.every((a) => a !== null)) return null;
+  if (out === undefined) return { kind: "predicate", fn: fn.v, args };
+  if (out.k !== "sym" || !out.v.startsWith("?")) return null;
+  return { kind: "predicate", fn: fn.v, args, bind: out.v.slice(1) };
+}
+
+function predicateArgFromEdn(item: Edn): PredicateArg | null {
+  if (item.k === "sym" && item.v === "$") return { t: "src" };
+  if (item.k === "kw") return { t: "attr", value: item.v };
+  const term = termFromEdn(item);
+  return term === null || term.t === "blank" ? null : term;
 }
 
 /**
  * `(reach ?from <edge> ?to)` / `(reach ?from <edge> ?to <max>)` — DESIGN.md →
  * Query layer. A list headed `reach` with a keyword in the edge slot is kb's
- * form, so a malformed one returns a `ReachMisuse` token rather than null.
- * `queryFromEdn` throws it as a `DatalogError` naming `reach` when every
- * other clause is in the subset, and otherwise drops it and returns raw.
- * Without the keyword the list is an ordinary rule call.
+ * form, so a malformed one is the message naming what is wrong rather than
+ * null; the caller records it (`MISUSED`). Without the keyword the list is an
+ * ordinary rule call.
  */
-function reachFromEdn(parts: Edn[]): ReachClause | ReachMisuse | null {
+function reachFromEdn(parts: Edn[]): ReachClause | string | null {
   const [name, from, edge, to, max, ...rest] = parts;
   if (name?.k !== "sym" || name.v !== "reach" || edge?.k !== "kw") return null;
   const form = "(reach ?from <edge> ?to [max])";
   if (from?.k !== "sym" || !from.v.startsWith("?")) {
-    return misuse(`reach: ?from must be a variable in ${form}`);
+    return `reach: ?from must be a variable in ${form}`;
   }
   if (to?.k !== "sym" || !to.v.startsWith("?")) {
-    return misuse(`reach: ?to must be a variable in ${form}`);
+    return `reach: ?to must be a variable in ${form}`;
   }
-  if (rest.length > 0) return misuse(`reach takes at most 4 arguments: ${form}`);
+  if (rest.length > 0) return `reach takes at most 4 arguments: ${form}`;
   const clause: ReachClause = {
     kind: "reach",
     from: from.v.slice(1),
@@ -366,7 +318,7 @@ function reachFromEdn(parts: Edn[]): ReachClause | ReachMisuse | null {
   };
   if (max === undefined) return clause;
   if (max.k !== "num" || !Number.isInteger(max.v) || max.v < 1) {
-    return misuse(`reach: max must be a positive integer in ${form}`);
+    return `reach: max must be a positive integer in ${form}`;
   }
   return { ...clause, maxHops: max.v };
 }
@@ -395,6 +347,7 @@ function ruleFromEdn(parts: Edn[]): Clause | null {
 
 function termFromEdn(item: Edn | undefined): Term | null {
   if (item === undefined) return null;
+  if (item.k === "sym" && item.v === "_") return { t: "blank" };
   if (item.k === "sym" && item.v.startsWith("?")) return { t: "var", name: item.v.slice(1) };
   if (item.k === "str") return { t: "str", value: item.v };
   if (item.k === "num") return { t: "num", value: item.v };
@@ -404,16 +357,21 @@ function termFromEdn(item: Edn | undefined): Term | null {
 
 function collapseChildOrder(where: Clause[]): Clause[] {
   const childByParent = new Map<string, string>();
-  const orderParents = new Set<string>();
+  const orderByParent = new Map<string, string>();
   for (const c of where) {
     if (c.kind !== "pattern" || c.value.t !== "var") continue;
     if (c.attr === ":node/child") childByParent.set(c.entity, c.value.name);
-    if (c.attr === ":node/child-order") orderParents.add(c.entity);
+    if (c.attr === ":node/child-order" && !orderByParent.has(c.entity)) {
+      orderByParent.set(c.entity, c.value.name);
+    }
+  }
+  for (const parent of orderByParent.keys()) {
+    if (!childByParent.has(parent)) orderByParent.delete(parent);
   }
   const out: Clause[] = [];
   const emitted = new Set<string>();
   for (const c of where) {
-    if (c.kind === "pattern" && c.value.t === "var" && orderParents.has(c.entity)) {
+    if (c.kind === "pattern" && c.value.t === "var" && orderByParent.has(c.entity)) {
       if (c.attr === ":node/child-order") continue;
       if (c.attr === ":node/child") {
         if (!emitted.has(c.entity)) {
@@ -421,6 +379,7 @@ function collapseChildOrder(where: Clause[]): Clause[] {
             kind: "children",
             parent: c.entity,
             child: present(childByParent.get(c.entity), "child var"),
+            order: present(orderByParent.get(c.entity), "order var"),
           });
           emitted.add(c.entity);
         }
@@ -440,7 +399,8 @@ const REF_ATTRS = new Set<string>([
   ...CORE_DERIVED.map(({ attr }) => attr),
 ]);
 
-function inferFindTypes(find: FindPos[], where: Clause[]): FindPos[] {
+/** `find` typed by `where`: a variable `where` binds as a node is a `node-ref`, any other a `scalar`. */
+export function inferFindTypes(find: readonly FindPos[], where: readonly Clause[]): FindPos[] {
   const nodeRefs = collectNodeRefVars(where);
   return find.map((pos) => {
     if (pos.kind !== "var") return pos;
@@ -449,10 +409,17 @@ function inferFindTypes(find: FindPos[], where: Clause[]): FindPos[] {
   });
 }
 
-function collectNodeRefVars(where: Clause[]): Set<string> {
+/**
+ * The variables of `where`'s own scope (`outerClauses`) bound as nodes. A
+ * predicate's `?out` is a scalar; a rule argument is a node unless bound as
+ * a scalar.
+ */
+function collectNodeRefVars(where: readonly Clause[]): Set<string> {
   const nodeRefs = new Set<string>();
   const scalars = new Set<string>();
-  for (const c of where) {
+  const outer = outerClauses(where);
+  for (const c of outer) {
+    if (c.kind === "predicate" && c.bind !== undefined) scalars.add(c.bind);
     if (c.kind === "pattern") {
       nodeRefs.add(c.entity);
       if (c.value.t === "var") {
@@ -467,32 +434,11 @@ function collectNodeRefVars(where: Clause[]): Set<string> {
       nodeRefs.add(c.to);
     }
   }
-  for (const c of where) {
+  for (const c of outer) {
     if (c.kind !== "rule") continue;
     for (const a of c.args) {
       if (a.t === "var" && !scalars.has(a.name)) nodeRefs.add(a.name);
     }
   }
   return nodeRefs;
-}
-
-function boundVars(where: Clause[]): Set<string> {
-  const bound = new Set<string>();
-  for (const c of where) {
-    if (c.kind === "pattern") {
-      bound.add(c.entity);
-      if (c.value.t === "var") bound.add(c.value.name);
-    } else if (c.kind === "children") {
-      bound.add(c.parent);
-      bound.add(c.child);
-    } else if (c.kind === "reach") {
-      bound.add(c.from);
-      bound.add(c.to);
-    } else {
-      for (const a of c.args) {
-        if (a.t === "var") bound.add(a.name);
-      }
-    }
-  }
-  return bound;
 }

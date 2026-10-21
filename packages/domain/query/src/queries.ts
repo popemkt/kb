@@ -105,9 +105,10 @@ export type NeighbourhoodDirection = "out" | "in";
  * `:f/<fieldId>`), bounded by the hop count. `root` itself is not a row.
  *
  * `reach` is directed, so an undirected neighbourhood is the union of the
- * two directions, which a caller runs as two queries: written as one it
- * needs `or`, which drops the query to `raw` (DESIGN.md → Query layer). Even
- * the union misses a path that changes direction (a→b←c).
+ * two directions, which a caller runs as two queries (one `or-join` could
+ * carry both now that `or` is in the IR subset: todo
+ * [[01M5E21B6ENDME71VJGR2VST4W]]). Even the union misses a path that
+ * changes direction (a→b←c).
  */
 export function neighbourhoodQuery(
   root: string,

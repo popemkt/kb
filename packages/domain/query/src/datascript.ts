@@ -1,11 +1,13 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- datascript ships no types; the shim must travel with this module (see datascript.d.ts)
 /// <reference path="./datascript.d.ts" />
 import * as d from "datascript";
-import { present, type NodeId } from "@kb/model";
+import { present, type ClockSample, type NodeId } from "@kb/model";
 import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
-import type { FindPos, Ir, IrQuery } from "./ir/ir.ts";
+import type { FindPos, Ir, IrQuery, KbFunctionName } from "./ir/ir.ts";
+import { holdsUntil, kbFunctions, readsClock } from "./ir/kb-functions.ts";
 import { parseEdn } from "./ir/parse.ts";
+import { outerClauses } from "./ir/scope.ts";
 import { DatalogError } from "./datalog-error.ts";
 
 function normalizeQueryInput(input: unknown): unknown {
@@ -49,10 +51,51 @@ export function datascriptExecutor(db: DatascriptDb): EdnExecutor {
   return (edn, ...inputs) => executeEdn(db, edn, ...inputs);
 }
 
-function executeIr(exec: EdnExecutor, ir: Ir, inputs: readonly unknown[]): unknown {
+/**
+ * Where a run's one clock sample comes from (`ClockSample`): called at most
+ * once per run, and only by a run that calls a clocked kb function. A host
+ * binds it to Effect's `Clock` (`clockSampler` in `@kb/model`); the query
+ * layer never reads a wall clock of its own.
+ */
+export type ClockSampler = () => ClockSample;
+
+/**
+ * `ir`'s rows as the engine answers them, the find positions they are
+ * columns of (none for `raw`), and until when they hold (`holdsUntil`).
+ */
+function executeIr(
+  exec: EdnExecutor,
+  ir: Ir,
+  inputs: readonly unknown[],
+  clock: ClockSampler | undefined,
+): { raw: unknown; find: readonly FindPos[] | undefined; holdsUntilMs: number | null } {
   const compiled = compile(ir);
+  const names = compiled.functions ?? [];
   const normalized = inputs.map(normalizeQueryInput);
-  return exec(compiled.query, ...withCompiledRules(ir, compiled.rules, normalized));
+  const sample = clockSample(names, clock);
+  const fns = kbFunctions(sample);
+  const raw = exec(
+    compiled.query,
+    ...withCompiledRules(ir, compiled.rules, normalized),
+    ...names.map((name) => fns[name]),
+  );
+  return { raw, find: compiled.find, holdsUntilMs: holdsUntil(names, sample) };
+}
+
+/**
+ * The one clock sample of a run that calls the kb functions `names`, taken
+ * now, or none when none of them reads the clock.
+ */
+function clockSample(
+  names: readonly KbFunctionName[],
+  clock: ClockSampler | undefined,
+): ClockSample | undefined {
+  const clocked = names.find(readsClock);
+  if (clocked === undefined) return undefined;
+  if (clock === undefined) {
+    throw new DatalogError(`${clocked} reads the clock, and this index was built without one`);
+  }
+  return clock();
 }
 
 /**
@@ -82,29 +125,40 @@ function rulesBody(rules: string): string {
 /**
  * Compile `ir`, run it through `exec`, revive **only** `node-ref` find positions.
  * Aggregate counts that collide with live eids stay numbers — the r4 red case.
- * Inputs (a `%` rules vector included) are normalised the same way `query` does.
+ * Inputs (a `%` rules vector included) are normalised the same way `query` does;
+ * `clock` is sampled once if the query calls a clocked kb function.
  */
-export function runIr(exec: EdnExecutor, ir: Ir, ids: IdMap, ...inputs: unknown[]): unknown {
-  const raw = executeIr(exec, ir, inputs);
-  if (ir.kind === "raw") return reviveValue(raw, ids);
-  return reviveTyped(raw, ir.find, ids);
+export function runIr(
+  exec: EdnExecutor,
+  ir: Ir,
+  ids: IdMap,
+  inputs: readonly unknown[] = [],
+  clock?: ClockSampler,
+): unknown {
+  const { raw, find } = executeIr(exec, ir, inputs, clock);
+  if (find === undefined) return reviveValue(raw, ids);
+  return reviveTyped(raw, find, ids);
 }
 
 /**
- * `ir`'s find positions, with a scalar variable read as a node ref where it
+ * The compiled `find` of `ir`, with a scalar variable read as a node ref where it
  * is the value of a field attr that holds refs (`DatascriptDb.refAttrs`): a
  * ref field's value is an entity, a number field's a number, though both are
  * stored as a bare number. GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]
  */
-function findWithRefAttrs(ir: IrQuery, refAttrs: ReadonlySet<string>): readonly FindPos[] {
+function findWithRefAttrs(
+  ir: IrQuery,
+  find: readonly FindPos[],
+  refAttrs: ReadonlySet<string>,
+): readonly FindPos[] {
   const refValued = new Set(
-    ir.where.flatMap((clause) =>
+    outerClauses(ir.where).flatMap((clause) =>
       clause.kind === "pattern" && clause.value.t === "var" && refAttrs.has(clause.attr)
         ? [clause.value.name]
         : [],
     ),
   );
-  return ir.find.map((pos) =>
+  return find.map((pos) =>
     pos.kind === "var" && pos.type === "scalar" && refValued.has(pos.name)
       ? { ...pos, type: "node-ref" }
       : pos,
@@ -117,11 +171,31 @@ function findWithRefAttrs(ir: IrQuery, refAttrs: ReadonlySet<string>): readonly 
  * field's value stays a number (`findWithRefAttrs`); a `{ kind: "raw" }`
  * query revives every eid-shaped integer, as it cannot tell them apart.
  */
-export function query(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown {
+export function query(
+  db: DatascriptDb,
+  edn: string,
+  inputs: readonly unknown[] = [],
+  clock?: ClockSampler,
+): unknown {
+  return answerQuery(db, edn, inputs, clock).value;
+}
+
+/** {@link query}'s value, and until when it holds (`holdsUntil`): null until the graph moves. */
+export function answerQuery(
+  db: DatascriptDb,
+  edn: string,
+  inputs: readonly unknown[] = [],
+  clock?: ClockSampler,
+): { readonly value: unknown; readonly holdsUntilMs: number | null } {
   const ir = parseEdn(edn);
-  const raw = executeIr(datascriptExecutor(db), ir, inputs);
-  if (ir.kind === "raw") return reviveValue(raw, db.ids);
-  return reviveTyped(raw, findWithRefAttrs(ir, db.refAttrs), db.ids);
+  const { raw, find, holdsUntilMs } = executeIr(datascriptExecutor(db), ir, inputs, clock);
+  if (ir.kind === "raw" || find === undefined) {
+    return { value: reviveValue(raw, db.ids), holdsUntilMs };
+  }
+  return {
+    value: reviveTyped(raw, findWithRefAttrs(ir, find, db.refAttrs), db.ids),
+    holdsUntilMs,
+  };
 }
 
 /**
@@ -129,8 +203,13 @@ export function query(db: DatascriptDb, edn: string, ...inputs: unknown[]): unkn
  * is whatever the query asked for; every row-shaped caller went through the
  * same cast, so the check lives here instead.
  */
-export function queryRows(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown[][] {
-  const raw = query(db, edn, ...inputs);
+export function queryRows(
+  db: DatascriptDb,
+  edn: string,
+  inputs: readonly unknown[] = [],
+  clock?: ClockSampler,
+): unknown[][] {
+  const raw = query(db, edn, inputs, clock);
   if (!Array.isArray(raw) || !raw.every((row) => Array.isArray(row))) {
     throw new DatalogError(`datalog query did not return rows: ${edn}`);
   }

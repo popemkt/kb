@@ -31,7 +31,7 @@ import { followProvided, portSlot } from "@/stores/port-slot";
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
-import { replicaOver } from "@/session/engine";
+import { pageClock, replicaOver } from "@/session/engine";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
 /** Who listens for an answer arriving, whichever replica's answers it is. */
@@ -49,7 +49,7 @@ export function subscribeAnswers(listener: () => void): () => void {
 
 /** The replica's query answers over `index`'s engine, told to the page's answer listeners. */
 function answersOver(index: RemoteIndex): QueryAnswers {
-  const queries = new ReplicaQueries(index.transport, () => index.generation);
+  const queries = new ReplicaQueries(index.transport, () => index.generation, pageClock);
   queries.subscribe(() => {
     for (const listener of answerListeners) listener();
   });

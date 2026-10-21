@@ -925,8 +925,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
 - **expected** — (reach ...) works in any datalog query: parseEdn keeps where-clauses it does not model (predicates, not/or, _ wildcards, 2-element patterns) and sections like :with/:keys/:limit as opaque IR the compiler emits verbatim, so the parser never has to fall a whole query back to raw.
-- **current** — A query that uses any construct outside the subset parses as raw, a well-formed or malformed reach included; in raw EDN reach is an ordinary rule call no rules define, and DataScript rejects it (Missing rules var '%' in :in). Only in a query the subset otherwise covers is a malformed reach reported as a DatalogError naming reach.
-- **impact** — Tracing queries must stay inside the subset (patterns over variables and literals, rule calls, count/collect/pull); a lineage query that also needs a predicate or a not clause fails with an error that does not name the cause.
+- **current** — A query that uses a construct outside the subset parses as raw, a well-formed or malformed reach included: a function outside PREDICATES (str, re-find, get-else, ...), a binding form other than one ?out (collection, tuple, relation), _ or a constant as a pattern's entity, a pattern that is not three forms, a source other than $, or a :with/:keys/:limit/:rules section. In raw EDN reach is an ordinary rule call no rules define, and DataScript rejects it (Missing rules var '%' in :in). Closed for the query builder's shapes: the PREDICATES set with the kb/ functions, _ as a value, and or/or-join/not/not-join are in the subset, and reach works inside them.
+- **impact** — Tracing queries must stay inside the subset; a lineage query that also needs a function outside PREDICATES, a binding form or a :with section fails with an error that does not name the cause.
 - **closes** — An opaque clause/section kind in the IR (ir.ts) that parse.ts produces for unmodelled forms and compile.ts emits unchanged; find-type inference then treats vars bound only there as scalar.
 - **node** — `01M39X8RPQBWFVDNG77BB3ZCMH`
 
@@ -1212,6 +1212,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
 - **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
 - **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
+
+### GAP: the server answers a client's query in the server's time zone
+
+- **expected** — A kb date function (kb/today, kb/date-in-days) in a query the server runs for a client (a rows subscription over /ws, MCP graph_query) reads the civil date in that client's time zone: the client's zone travels with its request, and the run's clock sample carries it.
+- **current** — The runtime's index samples the Clock and DateTime.CurrentTimeZone in scope when the session opens (sessionOver), which is the server process's own zone; a rows subscription the server answers uses it. The page is not affected: it answers its own queries in its engine worker, in the browser's zone.
+- **impact** — When the server and a thin client are in different zones, a relative-date condition (due within the next 14 days, today) can be a day off near midnight.
+- **closes** — The subscribe frame (and graph_query) names the client's time zone, and the server builds that run's ClockSample with it, with a test that pins two zones across a midnight.
+- **node** — `01M5E2YBN75HF5C8HZPG62CAJH`
 
 ### GAP: the shell's page plugins belong to no family
 
