@@ -8,10 +8,10 @@
  */
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
-import { isSysPrefixed, type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";
+import { type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";
 import { textOr } from "./text";
 import type { SchemaIndex } from "./schema";
-import { isFieldNodeHidden } from "./field-visibility";
+import { isFieldHidden } from "./field-visibility";
 
 function propValueKey(v: PropValue, _schema: SchemaIndex): string {
   if (v.t === "ref") return `ref:${v.v}`;
@@ -59,8 +59,8 @@ function toColumnSpec(fieldId: string, schema: SchemaIndex): TableColumnSpec {
  * has *made a choice*, and showing no columns is that choice honoured. See
  * {@link mergeColumns}.
  *
- * A named `sys.` field is kept — naming one is itself the decision that it
- * belongs on the table, which is the asymmetry with derivation below.
+ * A named field is kept unless its node hides it: naming one is itself the
+ * decision that it belongs on the table.
  */
 function explicitColumns(
   display: readonly string[],
@@ -69,15 +69,15 @@ function explicitColumns(
 ): TableColumnSpec[] | null {
   if (display.length === 0) return null;
   return display
-    .filter((fieldId) => showDebugColumns || !isFieldNodeHidden(fieldId, schema))
+    .filter((fieldId) => showDebugColumns || !isFieldHidden(fieldId, schema))
     .map((fieldId) => toColumnSpec(fieldId, schema));
 }
 
 /**
  * The columns the projected rows' own tags imply, in first-seen order.
  *
- * Nobody asked for these, so infrastructure stays out: a `sys.` field or a
- * field marked hidden is not offered by derivation.
+ * Nobody asked for these, so a field its node hides is not offered by
+ * derivation, as it has no row on the page either.
  */
 function derivedColumns(
   children: readonly OutlineNode[],
@@ -93,8 +93,7 @@ function derivedColumns(
       for (const ref of tagNode.props[SYSTEM_IDS.fieldsField] ?? []) {
         if (ref.t !== "ref" || seen.has(ref.v)) continue;
         seen.add(ref.v);
-        if (!showDebugColumns && (isSysPrefixed(ref.v) || isFieldNodeHidden(ref.v, schema)))
-          continue;
+        if (!showDebugColumns && isFieldHidden(ref.v, schema)) continue;
         columns.push(toColumnSpec(ref.v, schema));
       }
     }

@@ -75,7 +75,6 @@ export function forestRootIds(nodes: WireNode[]): string[] {
 function wireHasVisibleFields(wire: WireNode, byId: Map<string, WireNode>): boolean {
   for (const [fieldId, values] of Object.entries(wire.props)) {
     if (values.length === 0) continue;
-    if (fieldId === SYSTEM_IDS.typeField) continue;
     if (isFieldHidden(fieldId, byId)) continue;
     return true;
   }

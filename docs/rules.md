@@ -375,15 +375,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
-### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
-
-- **expected** — Every field a person may set is drawn and edited in the editor like any field, its visibility derived from the field node (its hidden flag, the system-write rule), never from a list in the page.
-- **current** — SCHEMA_SURFACE_FIELDS (field-visibility.ts) allow-lists five sys fields (color, hidden, fieldType, targetTag, targetQuery); a query node edits its own sys.f.query and sys.f.query.limit in its builder (query-builder/query-panel.tsx), and every other sys.* prop is hidden, with Debug: show all fields drawing them read-only (fields-section.tsx).
-- **impact** — A field's cardinality and relation inverse, an agent provider's adapter/endpoint/model, a saved layout's spec and a docs view's template and output can be set only through node.update from the CLI or MCP.
-- **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYK42Y4G74JD62AD00BZS`
-
 ### GAP: a tag's template fields cannot be reordered
 
 - **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
@@ -1450,6 +1441,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
+
+- **expected** — Every field a person may set is drawn and edited in the editor like any field, its visibility derived from the field node (its hidden flag, the system-write rule), never from a list in the page.
+- **current** — SCHEMA_SURFACE_FIELDS (field-visibility.ts) allow-lists five sys fields (color, hidden, fieldType, targetTag, targetQuery); a query node edits its own sys.f.query and sys.f.query.limit in its builder (query-builder/query-panel.tsx), and every other sys.* prop is hidden, with Debug: show all fields drawing them read-only (fields-section.tsx).
+- **impact** — A field's cardinality and relation inverse, an agent provider's adapter/endpoint/model, a saved layout's spec and a docs view's template and output can be set only through node.update from the CLI or MCP.
+- **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYK42Y4G74JD62AD00BZS`
 
 ### GAP: a trusted identity header is believed from any process that reaches kb ui's port, not only from the proxy
 

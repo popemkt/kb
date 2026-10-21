@@ -6,6 +6,7 @@
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { cardinalityOf, present } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 import {
   formatPropValue,
   type EdnRunner,
@@ -55,6 +56,11 @@ function answered<T>(
  */
 function wire(): WireNode[] {
   return [
+    // The type field as seeded: its node says hidden, so no member draws it as a row.
+    present(
+      bundledSeed(ISO).find((n) => n.id === SYSTEM_IDS.typeField),
+      SYSTEM_IDS.typeField,
+    ),
     node(TAG, "service", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] }),
     node(
       "f.status",

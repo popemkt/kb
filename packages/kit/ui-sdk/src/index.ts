@@ -208,11 +208,7 @@ export {
   resolveFieldType,
   resolveFieldTypeById,
 } from "./lib/field-type";
-export {
-  isFieldNodeHidden,
-  isIntrinsicSystemPropKey,
-  resolveVisibleProps,
-} from "./lib/field-visibility";
+export { isFieldHidden, resolveVisibleProps } from "./lib/field-visibility";
 export {
   type NodeLinkEdge,
   type NodeLinkGraph,

@@ -1820,8 +1820,10 @@ history handling, and a toast-model redesign.
 Two questions that look like settings are actually questions about one node, and
 both are answered from the node ⌘K menu rather than from a device switch.
 
-- **Debug fields are per node.** "Show me the `sys.*` and hidden props" is asked
-  of the node you are inspecting. `stores/debug-fields.store.ts` owns the set of
+- **Debug fields are per node.** "Show me the hidden props" (the fields whose
+  nodes say hidden, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
+  is asked of the node you are inspecting; a debug row is written wherever the
+  system-write rule lets a person write it. `stores/debug-fields.store.ts` owns the set of
   node ids that answer yes, persisted with the same `loadIdSet`/`saveIdSet`
   encoding the expanded rows use (key `kb-debug-fields`); it is the only reader
   and writer, so no component touches `localStorage`. The old device-wide

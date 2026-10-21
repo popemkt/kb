@@ -521,6 +521,22 @@ type PropValue =
   system field (`sys.f.type` holds refs, `sys.f.hidden` a bool), so no system
   field leans on it. The seed's fill-absent pass carries a declaration added
   later to stores seeded before it.
+- **Whether a field is drawn is its field node's to say** (field visibility).
+  A field's rows are left out when its node carries `sys.f.hidden` = true,
+  a system field's as much as a person's, and `isFieldHidden` in
+  `@kb/ui-sdk`'s `field-visibility.ts` is the one reader: the field rows, a
+  row's collapse default and a table's columns all ask it. No list in the
+  page names which system fields a person sees. A seed declares `hidden`
+  (`seededField`'s option) on two kinds of field only: one that is a node's
+  structure (`sys.f.type`, `sys.f.fields`, which option set a node belongs
+  to) and one a surface of its own draws and writes (a query node's builder,
+  a view's toolbar, the graph's lens settings, a canvas, a chart, an
+  ontology's page, a reference row). Every other field, a system one
+  included, is drawn and edited like any field: a field's cardinality and
+  inverse, an agent provider's adapter and endpoint, a docs view's template.
+  Whether a drawn row may be written is the system-write rule's
+  (`isWritableField`), never visibility's; a node's debug fields reveal its
+  hidden rows, and they are written under the same rule.
 - **A node's own text is a field a view can name** — `sys.f.node.text`, the
   table's Name column. It holds no values (text is `KbNode.text`, not a prop);
   it exists so a view that sorts or sizes by name refers to a node, exactly as
