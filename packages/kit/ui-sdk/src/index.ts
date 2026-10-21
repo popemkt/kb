@@ -151,6 +151,7 @@ export { PageBackdrop } from "./components/page-backdrop";
 
 // The primitives.
 export { Bullet } from "./components/bullet";
+export { EdnEditor } from "./components/edn-editor";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
 export { IconButton } from "./components/icon-button";
