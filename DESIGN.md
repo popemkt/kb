@@ -1685,6 +1685,44 @@ same lane. One path to a client, whatever a node's provenance.
   `@kb/query`'s print-then-parse and parse-then-print properties. It is for
   storage and for showing a person a query; `compile` is what runs one, and
   a `raw` query is never printed.
+- **Conditions** (`ir/conditions.ts`) are what a person can say about which
+  nodes a query answers, without writing datalog: one vocabulary over the
+  IR, owned here and not by any UI. The subject of every condition is the
+  result node `?n`; a list is ANDed; a group is `any-of`, `all-of` or
+  `none-of` (not any of its branches, each branch a conjunction). The rows:
+  `has-tag` / `lacks-tag` (`type is` the tag), `field-set` / `field-unset`,
+  `field-is` / `field-is-not` over values that are a node, a literal, or a
+  `label` (the text a person typed, matching a literal whose text it is or
+  a node whose id or text it is), `field-contains` and `text-contains`
+  (`kb/includes-ci?` by default, `kb/includes?` for exact case),
+  `field-compares` (`<` `<=` `>` `>=` against a number or a civil date),
+  `instant-within` (`created`/`edited` in the last n days, ending now),
+  `date-within` (a civil-date field within the next or last n days, both
+  ends included), `under` / `above` (`reach` from or to a node along the
+  outline, the reference relation or a ref field, optionally within n
+  levels), `child-of`, `has-children`, `links-to`, `linked-from`.
+  `lowerIr` writes the canonical query, `[:find ?id :where [?n :node/id
+  ?id] …]`: `?n` bound first so every negation finds it bound, every `or`
+  and `not` the `-join` form over `[?n]` with variables of its own, a
+  negated row `not-join` over its positive one, and a node value matched
+  from the node (`[?v :node/id "x"] [?n :f/status ?v]`): bound the other
+  way, a value that is a string — a text, a dangling ref — reaches the
+  entity slot, and DataScript throws. `lift` is all or nothing: it reads a
+  query by structure, whatever its variables are called, and accepts the
+  reading only when lowering it back is alpha-equivalent to the query
+  (`alphaEquivalent`: a scope-respecting bijection of variables, the same
+  clauses in the same order, the same constants), so lifting a query and
+  writing it back never changes what it asks; otherwise it says why.
+  Different trees can lower to one query, so lift answers the canonical one
+  (`canonicalConditions`: an `all-of` is spliced into its parent, an empty
+  group, branch or value list is dropped, a one-branch `any-of` is its
+  branch, branches that are each one `is` on one field are one multi-value
+  row, a `none-of` of one row with an operator form is that form, `type is`
+  one node is `has tag`). Its laws — lower then lift is the identity on
+  canonical conditions, lift is blind to renaming, lift loses nothing — are
+  `@kb/query`'s `conditions.test.ts` properties, with a semantic example
+  per row on kb's index. The design and its review:
+  [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
 - **A number stays a number when the query parses.** A ref prop and a number
   prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
   so a result value that equals a live eid could be either. For a query in
