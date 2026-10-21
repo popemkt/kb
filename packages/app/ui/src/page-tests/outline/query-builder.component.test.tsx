@@ -18,6 +18,7 @@ import {
   outlineUiPlugin,
   QueryResultsSection,
   useOutlineStore,
+  ViewToolbar,
 } from "@kb/outline-ui";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -126,17 +127,26 @@ describe("the query builder", () => {
     syncUiPlugins([]);
   });
 
-  async function mount(edn: string) {
+  /**
+   * The query node's results section, under its view control, holding `edn`.
+   * The builder is opened first unless `open` is "default", which leaves it
+   * to what the query says (`query-builder/open.ts`).
+   */
+  async function mount(edn: string, open: boolean | "default" = true) {
     resetOutlineStore();
+    if (open !== "default") useOutlineStore.getState().setQueryBuilder(QUERY, { open });
     useGraphStore.getState().hydrateFromWire(graph(edn), 1, "fixtures");
     await act(async () => {
       root.render(
-        <QueryResultsSection
-          nodeId={QUERY}
-          depth={0}
-          view={OutlineListView}
-          renderNode={({ nodeId }) => <div key={nodeId} data-result={nodeId} />}
-        />,
+        <>
+          <ViewToolbar frameId={QUERY} view={OutlineListView} />
+          <QueryResultsSection
+            nodeId={QUERY}
+            depth={0}
+            view={OutlineListView}
+            renderNode={({ nodeId }) => <div key={nodeId} data-result={nodeId} />}
+          />
+        </>,
       );
     });
     await answered();
@@ -225,7 +235,7 @@ describe("the query builder", () => {
   }
 
   it("a new query node opens on Conditions, with nothing said yet and every node counted", async () => {
-    await mount(DEFAULT_QUERY_EDN);
+    await mount(DEFAULT_QUERY_EDN, "default");
     expect(tabs()).toEqual(["Conditions", "EDN"]);
     expect($('[role="tab"][aria-selected="true"]')?.textContent).toBe("Conditions");
     expect(container.textContent).toContain("No conditions: every node matches.");
@@ -236,7 +246,7 @@ describe("the query builder", () => {
   });
 
   it("adding a condition writes the canonical EDN, and the results and count follow", async () => {
-    await mount(DEFAULT_QUERY_EDN);
+    await mount(DEFAULT_QUERY_EDN, "default");
     await click(present($('[data-qb-slot="add-condition"]'), "add condition"));
     // The new row's subject picker is open: the todo tag's fields come first.
     const offered = [...dom.window.document.querySelectorAll('[role="option"]')].map((o) =>
@@ -524,6 +534,56 @@ describe("the query builder", () => {
     await vi.waitFor(() => expect(stored()).toContain("(not-join [?n]"));
     await answered();
     expect(results()).toEqual(["n.b"]);
+  });
+  describe("tucked away", () => {
+    const builder = () => $(`[data-query-builder="${QUERY}"]`);
+    const toggle = () => present($(`[data-query-toggle="${QUERY}"]`), "query toggle");
+
+    it("a query that says something shows its results, and its builder is closed", async () => {
+      await mount(TODO_EDN, "default");
+      expect(builder()).toBeNull();
+      expect(results().toSorted((a, b) => (a ?? "").localeCompare(b ?? ""))).toEqual([
+        "n.a",
+        "n.b",
+      ]);
+      expect(toggle().getAttribute("aria-expanded")).toBe("false");
+      expect(toggle().title).toBe("Edit query");
+    });
+
+    it("an empty query opens its builder, to be written", async () => {
+      await mount("", "default");
+      expect(builder()).not.toBeNull();
+      expect(toggle().getAttribute("aria-expanded")).toBe("true");
+    });
+
+    it("the view control opens and closes the builder, and points at it while open", async () => {
+      await mount(TODO_EDN, "default");
+      await click(toggle());
+      expect(builder()).not.toBeNull();
+      expect(toggle().getAttribute("aria-controls")).toBe(builder()?.id);
+      expect(toggle().title).toBe("Hide query");
+      await click(toggle());
+      expect(builder()).toBeNull();
+      // Screen state, never a write.
+      expect(stored()).toBe(TODO_EDN);
+    });
+
+    it("the first condition written into a new query keeps its builder open", async () => {
+      await mount(DEFAULT_QUERY_EDN, "default");
+      await click(present($('[data-qb-slot="add-condition"]'), "add condition"));
+      await pick("has tag");
+      await pick("todo");
+      await vi.waitFor(() => expect(stored()).not.toBe(DEFAULT_QUERY_EDN));
+      await answered();
+      expect(builder()).not.toBeNull();
+      expect(useOutlineStore.getState().queryBuilders[QUERY]?.open).toBe(true);
+    });
+
+    it("a builder closed by the person stays closed, whatever the query says", async () => {
+      await mount(DEFAULT_QUERY_EDN, false);
+      expect(builder()).toBeNull();
+      expect(results().length).toBeGreaterThan(0);
+    });
   });
 });
 

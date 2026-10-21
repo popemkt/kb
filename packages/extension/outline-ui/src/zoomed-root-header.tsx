@@ -13,6 +13,7 @@ import {
   usePageGraph,
   PageBackdrop,
 } from "@kb/ui-sdk";
+import { isQueryNode } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
@@ -114,6 +115,8 @@ export function ZoomedRootHeader({
   // color and how it weakens both come from the tag-color owner.
   const washColor = nodeTagColors(node)[0] ?? null;
   const isList = !projectsRows(view);
+  // A query page's control holds its query, one click away: never behind the gear.
+  const tucked = isList && !isQueryNode(node);
 
   return (
     <div
@@ -135,18 +138,21 @@ export function ZoomedRootHeader({
               <LockSimpleIcon size={14} weight="bold" />
             </span>
           )}
-          {/* A list frame keeps its view control quiet: tucked behind one gear
-              that shows on hover or keyboard focus, and stays once opened. A
-              projected view shows its toolbar outright. */}
+          {/* A list frame keeps its view control quiet: it shows on hover or
+              keyboard focus, and stays while something it opened is open. A
+              plain list tucks it behind one gear; a query's shows its toolbar,
+              whose Query button opens the builder. A projected view shows its
+              toolbar outright. */}
           <span
             className={cn(
               "shrink-0 transition-opacity duration-100",
               isList &&
-                "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100 has-[[data-view-toolbar]]:opacity-100",
+                "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100 has-[[aria-expanded=true]]:opacity-100",
+              tucked && "has-[[data-view-toolbar]]:opacity-100",
             )}
             data-view-control="true"
           >
-            <ViewToolbar frameId={node.id} view={view} tucked={isList} />
+            <ViewToolbar frameId={node.id} view={view} tucked={tucked} />
           </span>
         </div>
 

@@ -1,6 +1,8 @@
 /**
  * Live results under an expanded query node (DESIGN-REFINE §2 W4), below
- * its builder (`QueryPanel`: the Conditions and EDN tabs and the count).
+ * its builder (`QueryPanel`: the Conditions and EDN tabs and the count)
+ * while that is open; the results are the node's content, and the builder
+ * is tucked behind the node's view control (`query-builder/open.ts`).
  * The list view → NodeBlock refs, continuing the list. Any other view → the
  * frame's view in a slot, over the results, with query-result instance keys
  * (W7.1 / W8e).
@@ -8,8 +10,8 @@
  * The results and the count are one read of one answer (`useQueryRows`):
  * the count is how many distinct result nodes the answer names, before the
  * node's limit, and a run over its budget is counted as nothing. The
- * builder is drawn for every query node, one whose EDN is empty (a query
- * being written) included; only a definition (`queryDefOf`) runs.
+ * builder can be opened on every query node, one whose EDN is empty (a
+ * query being written) included; only a definition (`queryDefOf`) runs.
  */
 import type { ReactNode } from "react";
 import {
@@ -25,6 +27,7 @@ import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineNode, useOutlineNodes } from "./outline.store";
 import { FrameViewSlot } from "./frame-view-slot";
 import { QueryPanel } from "./query-builder/query-panel";
+import { useQueryBuilderOpen } from "./query-builder/open";
 import type { QueryCount } from "./query-builder/count-chip";
 
 /** What a query node with no EDN yet answers: nothing runs. */
@@ -62,6 +65,7 @@ export function QueryResultsSection({
   const text = queryTextOf(node);
   const def = queryDefOf(node);
   const answer = useQueryRows(def?.edn ?? null);
+  const open = useQueryBuilderOpen(nodeId, text);
 
   if (text === null) return null;
 
@@ -80,7 +84,9 @@ export function QueryResultsSection({
           : { t: "pending" };
 
   const indent = indentStyle(depth + 1);
-  const panel = <QueryPanel nodeId={nodeId} edn={text} count={count} depth={depth} read={read} />;
+  const panel = open ? (
+    <QueryPanel nodeId={nodeId} edn={text} count={count} depth={depth} read={read} />
+  ) : null;
 
   if (hasText(error)) {
     return (

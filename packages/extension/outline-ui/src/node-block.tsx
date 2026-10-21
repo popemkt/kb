@@ -13,7 +13,6 @@ import {
   type SchemaIndex,
   shownNode,
   useDebugFields,
-  useFilterFrame,
   useFollow,
   useFrameView,
   useGraphRead,
@@ -68,7 +67,6 @@ export const NodeBlock = memo(function NodeBlock({
   // instance key, the keymaps — stays `nodeId`.
   const { shown, shownId } = rowShows(nodeId, node, schema);
   const showDebugFields = useDebugFields(shownId);
-  const filterOpen = useFilterFrame() === shownId;
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, outline);
   // Focus is this instance's or not: a row re-renders when it gains or loses
@@ -164,12 +162,12 @@ export const NodeBlock = memo(function NodeBlock({
           />
         </div>
         {chrome.showToolbar && (
+          // The toolbar stays out while something it opened is open (a
+          // control of it is `aria-expanded`): the filters, or the query.
           <div
             className={cn(
               "absolute right-2 transition-opacity z-10",
-              filterOpen
-                ? "opacity-100"
-                : "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100",
+              "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 has-[[aria-expanded=true]]:opacity-100",
             )}
           >
             <ViewToolbar frameId={shownId} view={frameViewKey} />

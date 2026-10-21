@@ -1,7 +1,10 @@
 import { useCallback, useState } from "react";
-import { GearSixIcon } from "@phosphor-icons/react";
+import { GearSixIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { queryTextOf } from "@kb/model";
 import { browserHost, cn, useFilterFrame, useFrameViews } from "@kb/ui-sdk";
 import { type FrameViewKey, localIdOf } from "@kb/views";
+import { useOutlineNode } from "./outline.store";
+import { queryBuilderId, setQueryBuilderOpen, useQueryBuilderOpen } from "./query-builder/open";
 
 interface ViewToolbarProps {
   frameId: string;
@@ -9,19 +12,52 @@ interface ViewToolbarProps {
   view: FrameViewKey | null;
   className?: string;
   /**
-   * Zoomed-header mode: collapse modes+filter behind a single gear until
-   * expanded on demand (or when the filter popover is open for this frame).
+   * Zoomed-header mode: collapse modes, query and filter behind a single gear
+   * until expanded on demand (or while this frame's filter popover or query
+   * builder is open).
    */
   tucked?: boolean;
 }
 
-/** One button per frame view provided, in its picker's order; the stored name is the key's local id. */
+/** On a query node, the button that opens and closes its query builder (`query-builder/open.ts`). */
+function QueryToggle({ frameId, open }: { frameId: string; open: boolean }) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex items-center gap-1 rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
+        open
+          ? "bg-background text-foreground shadow-edge font-semibold"
+          : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
+      )}
+      data-query-toggle={frameId}
+      aria-expanded={open}
+      aria-controls={open ? queryBuilderId(frameId) : undefined}
+      title={open ? "Hide query" : "Edit query"}
+      onClick={(e) => {
+        e.stopPropagation();
+        setQueryBuilderOpen(frameId, !open);
+      }}
+    >
+      <MagnifyingGlassIcon size={12} weight={open ? "bold" : "regular"} />
+      <span>Query</span>
+    </button>
+  );
+}
+
+/**
+ * A frame's settings, beside it: one button per frame view provided, in its
+ * picker's order (the stored name is the key's local id); on a query node,
+ * the toggle that opens its query builder; and its filters.
+ */
 export function ViewToolbar({ frameId, view, className, tucked = false }: ViewToolbarProps) {
   const options = useFrameViews();
   const filterOpen = useFilterFrame() === frameId;
   const setFilterFrame = browserHost().setFilterFrame;
+  const query = queryTextOf(useOutlineNode(frameId));
+  const queryOpen = useQueryBuilderOpen(frameId, query);
   const [expanded, setExpanded] = useState(false);
-  const showChrome = !tucked || expanded || filterOpen;
+  const showChrome = !tucked || expanded || filterOpen || queryOpen;
 
   const handleSelect = useCallback(
     (next: FrameViewKey, e: React.MouseEvent) => {
@@ -83,6 +119,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           <span>{option.label}</span>
         </button>
       ))}
+      {query !== null && <QueryToggle frameId={frameId} open={queryOpen} />}
       <button
         type="button"
         className={cn(
@@ -90,6 +127,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           filterOpen && "bg-background text-foreground shadow-edge",
         )}
         data-filter-button="true"
+        aria-expanded={filterOpen}
         title="Filters"
         aria-label="Filters"
         onClick={(e) => {
@@ -109,6 +147,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
             e.stopPropagation();
             setExpanded(false);
             if (filterOpen) setFilterFrame(null);
+            if (queryOpen) setQueryBuilderOpen(frameId, false);
           }}
         >
           ×

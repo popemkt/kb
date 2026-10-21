@@ -179,3 +179,77 @@ test("a query is built in the builder, and its results and count follow every co
   await page.screenshot({ path: testInfo.outputPath("mockup.png"), fullPage: true });
   expect(errors).toEqual([]);
 });
+
+test("a query that says something is tucked away: its results are the content, its query one click away", async ({
+  page,
+  request,
+}, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const action = async (id: string, input: Record<string, unknown>) => {
+    const response = await request.post("/api/action", { data: { id, input } });
+    const receipt = await response.json();
+    expect(receipt.status, JSON.stringify(receipt)).toBe("succeeded");
+  };
+  for (const [id, text] of [
+    ["tq.n.alpha", "Alpha review"],
+    ["tq.n.beta", "Beta review"],
+    ["tq.n.other", "Unrelated"],
+  ] as const) {
+    await action("node.add", { id, text, parent: ROOT });
+  }
+  const id = "tq.query";
+  await action("node.add", {
+    id,
+    text: "Reviews",
+    position: 0,
+    props: [
+      {
+        field: "sys.f.query",
+        value: {
+          t: "str",
+          v: '[:find ?id :where [?n :node/id ?id] [?n :node/text ?t] [(clojure.string/includes? ?t "review")]]',
+        },
+      },
+    ],
+  });
+
+  await page.goto("/");
+  const row = page.locator(`[data-node-block][data-node-id="${id}"]`).first();
+  await row.getByRole("button", { name: "Expand results" }).first().click();
+  const results = page.locator(`[data-query-results-for="${id}"]`).first();
+  const builder = page.locator(`[data-query-builder="${id}"]`);
+  await expect(results.locator('[data-node-block][data-node-id="tq.n.alpha"]')).toBeVisible();
+  await expect(builder).toHaveCount(0);
+
+  // The control sits beside the node, in its view toolbar, and reaches it from the keyboard.
+  const toggle = row.locator(`[data-query-toggle="${id}"]`).first();
+  await toggle.focus();
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await page.keyboard.press("Enter");
+  await expect(builder).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await page.screenshot({ path: testInfo.outputPath("query-tucked-open.png") });
+  await toggle.click();
+  await expect(builder).toHaveCount(0);
+  await page.mouse.move(5, 5);
+  await page.screenshot({ path: testInfo.outputPath("query-tucked.png") });
+
+  // Zoomed in, the page is the query's results, its builder behind the header's control.
+  await row
+    .locator("button.bullet-container")
+    .first()
+    .click({ modifiers: ["ControlOrMeta"] });
+  const header = page.locator("[data-zoomed-root-header]");
+  await expect(header).toContainText("Reviews");
+  const pageResults = page.locator(`[data-query-results-for="${id}"]`);
+  await expect(pageResults.locator('[data-node-block][data-node-id="tq.n.beta"]')).toBeVisible();
+  await expect(pageResults.locator('[data-node-block][data-node-id="tq.n.other"]')).toHaveCount(0);
+  await expect(page.locator(`[data-create-child-zone="${id}"]`)).toHaveCount(0);
+  await header.hover();
+  await header.locator(`[data-query-toggle="${id}"]`).click();
+  await expect(builder).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("query-page-open.png") });
+  expect(errors).toEqual([]);
+});
