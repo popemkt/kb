@@ -96,6 +96,8 @@ test("a frame's group, fields and page size are set from its view settings", asy
   await page.goto(`/node/${FRAME}`);
   const toolbar = page.locator(`[data-view-toolbar][data-frame-id="${FRAME}"]`).first();
   const gear = page.locator(`[data-view-toolbar-gear][data-frame-id="${FRAME}"]`).first();
+  // The zoomed header tucks the toolbar behind a gear until it is opened.
+  await expect(toolbar.or(gear)).toBeVisible();
   if (await gear.isVisible()) await gear.click();
   await toolbar.locator('[data-mode-button="board"]').click();
 
@@ -121,6 +123,7 @@ test("a frame's group, fields and page size are set from its view settings", asy
   await page.mouse.click(1200, 880);
 
   // A table: its fields and page size.
+  await expect(toolbar.or(gear)).toBeVisible();
   if (await gear.isVisible()) await gear.click();
   await toolbar.locator('[data-mode-button="table"]').click();
   await toolbar.locator('[data-view-settings-button="true"]').click();
@@ -136,6 +139,8 @@ test("a frame's group, fields and page size are set from its view settings", asy
   await columns.getByRole("button", { name: "Remove field status" }).click();
   await expect(columns.locator("[data-view-column]")).toHaveCount(1);
   await expect(columns.locator('[data-view-column="vs.f.owner"]')).toBeVisible();
+  // The last field shown is not removable: naming none would show the tags' fields again.
+  await expect(columns.getByRole("button", { name: /^Remove field/ })).toHaveCount(0);
   await pick(sections, page, "page size", "10 rows");
   await expect(sections.locator('[data-qb-slot="page size"]')).toHaveAttribute(
     "aria-label",

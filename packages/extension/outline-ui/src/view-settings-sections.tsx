@@ -11,6 +11,7 @@ import { useMemo } from "react";
 import { ColumnsIcon, ListNumbersIcon, SquaresFourIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
+  IconButton,
   PrefFieldRow,
   useFrameView,
   usePageGraph,
@@ -66,7 +67,9 @@ function GroupSetting({ frameId, groupFieldId }: { frameId: string; groupFieldId
  * The fields a frame's rows are shown with, in order: each removable, and
  * one more added from the rows' fields. A view node that names none shows
  * the fields the rows' tags template; removing or adding one names the rest
- * explicitly, and "tags' fields" goes back to naming none.
+ * explicitly, and "tags' fields" goes back to naming none. The last field
+ * shown is not removable: naming none is what shows the tags' fields, so
+ * removing it would bring them back rather than leave no field.
  */
 function ColumnsSetting({ frameId, display }: { frameId: string; display: readonly string[] }) {
   const fields = useFieldCandidates(frameId);
@@ -92,14 +95,14 @@ function ColumnsSetting({ frameId, display }: { frameId: string; display: readon
             data-view-column={column.fieldId}
           >
             {column.label}
-            <button
-              type="button"
-              className="flex h-4 w-4 items-center justify-center rounded-xs text-foreground/35 hover:text-foreground/70"
-              aria-label={`Remove field ${column.label}`}
-              onClick={() => write(named.filter((id) => id !== column.fieldId))}
-            >
-              <XIcon size={10} weight="bold" />
-            </button>
+            {/* The last field shown stays: a view naming none shows its tags' fields again. */}
+            {columns.length > 1 ? (
+              <IconButton
+                icon={XIcon}
+                label={`Remove field ${column.label}`}
+                onClick={() => write(named.filter((id) => id !== column.fieldId))}
+              />
+            ) : null}
           </span>
         ))}
         <ChoiceSlot

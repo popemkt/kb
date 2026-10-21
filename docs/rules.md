@@ -696,7 +696,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: icon-only buttons are hand-rolled outside IconButton
 
 - **expected** — Every icon-only control draws the shared IconButton.
-- **current** — About 12 sites build their own box (App header, sidebar-toggle, lab-page, graph-page, graph/canvas toolbars, view-toolbar, view-filter-popover, ontology-page chip x, canvas-ports), mostly h-6/h-7 rounded-md against the primitive's rounded-sm.
+- **current** — About 12 sites build their own box (App header, sidebar-toggle, lab-page, graph-page, graph/canvas toolbars, view-toolbar, view-settings-popover, ontology-page chip x, canvas-ports), mostly h-6/h-7 rounded-md against the primitive's rounded-sm.
 - **impact** — Size, hover and focus ring drift per site - the bug the field row's x/+ just had.
 - **closes** — An IconButton option for the header radius (or one radius), migrate each site, then a lint rule against hand-built icon-only buttons.
 - **rule** — Abstraction before addition (Rule 1)
