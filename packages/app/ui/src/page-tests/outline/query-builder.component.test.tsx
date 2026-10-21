@@ -475,6 +475,21 @@ describe("the query builder", () => {
     expect(stored()).toBe(TODO_EDN);
   });
 
+  it("Shift-Tab from a typed operand goes to the slot before it", async () => {
+    await mount(
+      '[:find ?id :where [?n :node/id ?id] [?n :node/text ?x1] [(kb/includes-ci? ?x1 "Ship")]]',
+    );
+    await click(slot("text"));
+    const typing = present(
+      dom.window.document.activeElement as unknown as HTMLElement | null,
+      "the operand's editor",
+    );
+    expect($('[data-qb-editing="text"]')?.contains(typing)).toBe(true);
+    await key(typing, "Tab", { shiftKey: true });
+    expect(dom.window.document.activeElement).toBe(slot("condition"));
+    expect(slot("condition").getAttribute("aria-label")).toBe("condition: text");
+  });
+
   it("a group is any of, all of or none of its conditions", async () => {
     await mount(TODO_EDN);
     await click(present($('[data-qb-slot="add-group"]'), "add group"));

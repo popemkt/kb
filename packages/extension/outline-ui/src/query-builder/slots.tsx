@@ -27,13 +27,21 @@ import {
 import { FieldPicker, PickerInput, type FieldHandle } from "../field-picker";
 import { ValueSlot } from "../value-slot";
 import { toggledValue } from "../value-kind";
-import { advanceFrom, slotClass, type SlotTone } from "./slot-dom";
+import { advanceFrom, neighbourSlot, slotClass, type SlotTone } from "./slot-dom";
 
 /**
  * Where the keyboard goes when what a slot opened closes: back to the slot
- * (Escape), on to the next one (a pick), or nowhere (Tab, a click away).
+ * (Escape), on to the next one (a pick, Tab out of a typed value), to the
+ * one before it (Shift-Tab out of a typed value), or nowhere (a click away).
  */
-type Then = "stay" | "advance" | "leave";
+type Then = "stay" | "advance" | "retreat" | "leave";
+
+/** Where the keyboard lands when it leaves a field's values, by the way it left. */
+const LEAVING: Readonly<Record<"up" | "down" | "back", Then>> = {
+  up: "retreat",
+  down: "advance",
+  back: "stay",
+};
 
 /** A slot's open state, and the keyboard's landing once it closes. */
 function useSlotOpen(autoOpen: boolean) {
@@ -57,6 +65,9 @@ function useSlotOpen(autoOpen: boolean) {
     then.current = "leave";
     if (landing === "stay") button.current?.focus();
     else if (landing === "advance") advanceFrom(button.current);
+    else if (landing === "retreat" && button.current !== null) {
+      neighbourSlot(button.current, -1)?.focus();
+    }
   }, [open]);
 
   /** Close, landing as `how` says; a landing already asked for is not undone by a later blur. */
@@ -230,7 +241,7 @@ export function ValuesSlot({
       create: (creation, text) => browserHost().writes.createRefTarget(creation, text),
       openPicker: () => undefined,
       addSlot: () => undefined,
-      leave: (way) => close(way === "down" ? "advance" : "stay"),
+      leave: (way) => close(LEAVING[way]),
       claimKeyboard: () => undefined,
       focusSlot: () => close("stay"),
     };
