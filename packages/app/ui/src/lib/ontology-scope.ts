@@ -11,7 +11,7 @@
  */
 import type { WireNode } from "@kb/contracts";
 import { resolveOntology, type MemberReason, type OntologyResolution } from "@kb/model";
-import { runQuery, textOr, type KbIndex, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
+import { textOr, type NodeMap, type OutlineNode, type QueryAnswers } from "@kb/ui-sdk";
 
 export type { MemberReason, OntologyResolution };
 
@@ -28,17 +28,18 @@ const scopeCache = new WeakMap<readonly WireNode[], Map<string, OntologyResoluti
 /**
  * Resolve membership for a scope.
  *
- * The client datalog runner takes no inputs, so `sys.f.onto.query` must be
+ * The page's datalog runner takes no inputs, so `sys.f.onto.query` must be
  * parameter-free EDN — same contract as every other client-side query in kb.
- * `generation` joins the key so a same-array resync still re-resolves.
+ * The query is read from the replica's answers (`QueryAnswers`): until it
+ * is answered it reads as no members, and the answers' version joins the key
+ * so the scope is resolved again when it is.
  */
 export function resolveScope(
   wireNodes: WireNode[],
   ontologyId: string,
-  queryDb: KbIndex | null,
-  generation: number,
+  queries: QueryAnswers | null,
 ): OntologyResolution {
-  const key = `${generation}\u0000${ontologyId}`;
+  const key = `${queries?.version ?? -1}\u0000${ontologyId}`;
   let perSnapshot = scopeCache.get(wireNodes);
   if (!perSnapshot) {
     perSnapshot = new Map<string, OntologyResolution>();
@@ -47,7 +48,7 @@ export function resolveScope(
   const hit = perSnapshot.get(key);
   if (hit) return hit;
   const resolution = resolveOntology(wireNodes, ontologyId, {
-    runQuery: queryDb ? (edn) => runQuery(queryDb, edn) : undefined,
+    runQuery: queries === null ? undefined : queries.runner(),
   });
   perSnapshot.set(key, resolution);
   return resolution;

@@ -3,19 +3,19 @@
  * does not require it).
  *
  * There is no lab data path. The nodes and edges are the node-link graph of
- * the default view the graph opens on, over the page's wire nodes and index,
+ * the default view the graph opens on, over the page's wire nodes and query
+ * answers,
  * which the graph's browser half answers (`NodeLinkGraphService`), so a node
  * the graph hides the lab hides too. The lab adds only what the wire
  * node already carries and the lens does not: how recently each node
  * changed. Only a study that reads the graph asks, and it is offered only
  * while the graph provides the service (`LabStudyPoint`).
  */
-import { useMemo } from "react";
 import type { WireNode } from "@kb/contracts";
 import {
   currentService,
   NodeLinkGraphService,
-  useIndex,
+  useAnswered,
   useWireNodes,
   type NodeLinkGraph,
 } from "@kb/ui-sdk";
@@ -74,7 +74,7 @@ export function toLabGraph(lens: NodeLinkGraph, wireNodes: readonly WireNode[]):
   return { nodes, edges: lens.edges.map(({ source, target }) => ({ source, target })) };
 }
 
-/** No graph: what a study is drawn from while the index loads, or there is no perspective. */
+/** No graph: what a study is drawn from until the graph's queries answer, or there is no perspective. */
 export const NO_GRAPH: LabGraph = { nodes: [], edges: [] };
 
 /** The graph's node-link graphs. Only a study offered by the lab's graph child asks, so it is held. */
@@ -84,12 +84,18 @@ function nodeLinkGraphs() {
   return graphs;
 }
 
-/** The lab's graph: the default view's node-link graph over the live store. */
+/**
+ * The lab's graph: the default view's node-link graph over the live store.
+ * Until the graph's queries first answer it is no graph; after that a write
+ * keeps the graph the last answers make until the new ones arrive.
+ */
 export function useLabGraph(): LabGraph {
   const wireNodes = useWireNodes();
-  const index = useIndex();
-  return useMemo(() => {
-    const lens = index === null ? null : nodeLinkGraphs().ofView(index, wireNodes, null);
-    return lens === null ? NO_GRAPH : toLabGraph(lens, wireNodes);
-  }, [wireNodes, index]);
+  return useAnswered(
+    (run) => {
+      const lens = nodeLinkGraphs().ofView(run, wireNodes, null);
+      return lens === null ? NO_GRAPH : toLabGraph(lens, wireNodes);
+    },
+    [wireNodes],
+  ).value;
 }

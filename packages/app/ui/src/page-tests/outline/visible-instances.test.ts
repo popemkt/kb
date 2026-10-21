@@ -75,8 +75,15 @@ describe("visible instances", () => {
     expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
   });
 
-  it("includes query-result instances when the query node is expanded", () => {
+  /** The replica's answer to the query node's query, which the walk reads its results from. */
+  async function resultsAnswered() {
+    useOutlineStore.getState().getVisibleInstances();
+    await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
+  }
+
+  it("includes query-result instances when the query node is expanded", async () => {
     useOutlineStore.getState().toggleCollapse("n.q1");
+    await resultsAnswered();
     const keys = useOutlineStore
       .getState()
       .getVisibleInstances()
@@ -86,8 +93,9 @@ describe("visible instances", () => {
     expect(keys).toContain(queryResultInstanceKey("n.q1", "n.root-b"));
   });
 
-  it("arrow neighbors move from tree into query results and across refs", () => {
+  it("arrow neighbors move from tree into query results and across refs", async () => {
     useOutlineStore.getState().toggleCollapse("n.q1");
+    await resultsAnswered();
     const store = useOutlineStore.getState();
     const fromQuery = present(store.getNextVisibleInstance("tree/n.q1"), "next from query");
     expect(fromQuery.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-a"));

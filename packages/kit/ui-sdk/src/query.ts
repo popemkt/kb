@@ -1,24 +1,28 @@
 /**
- * The browser's query seam: one {@link KbIndex} replica, not a second
- * DataScript builder. Construction stays in the outline store; every other
- * UI module runs queries and backlinks through this file.
+ * The browser's query seam. The page asks datalog of the replica's engine
+ * through its query answers (`QueryAnswers`), never of a DataScript handle:
+ * a reader gets a synchronous runner over the answers (`runner`, or the
+ * `run` a `useAnswered` reader is handed), and every helper here takes that
+ * runner, so the questions the UI asks are written once whatever answers
+ * them.
  */
 import { familyViewNodesQuery, type ViewFamily } from "@kb/model";
-import { backlinksQuery, neighbourhoodQuery, type KbIndex } from "@kb/query";
+import { backlinksQuery, neighbourhoodQuery, type EdnRunner } from "@kb/query";
 
-export type { KbIndex } from "@kb/query";
+export type { EdnRunner, KbIndex, NodeIndex } from "@kb/query";
 export { DatascriptIndex, derivedWith, queryRecords } from "@kb/query";
 export type { QueryRecords } from "@kb/query";
-
-export const runQuery = (ix: KbIndex, edn: string): unknown[][] => ix.runDatalog(edn);
 
 /**
  * Nodes that reference `targetId`. The EDN comes from `@kb/query` —
  * one owner for "what references X", so the CLI's `kb backlinks` and the
  * UI's References section cannot answer it differently.
  */
-export function queryBacklinks(ix: KbIndex, targetId: string): Array<{ id: string; text: string }> {
-  return runQuery(ix, backlinksQuery(targetId)).flatMap((row: unknown[]) =>
+export function queryBacklinks(
+  run: EdnRunner,
+  targetId: string,
+): Array<{ id: string; text: string }> {
+  return run(backlinksQuery(targetId)).flatMap((row: unknown[]) =>
     Array.isArray(row) && typeof row[0] === "string" && typeof row[1] === "string"
       ? [{ id: row[0], text: row[1] }]
       : [],
@@ -26,8 +30,8 @@ export function queryBacklinks(ix: KbIndex, targetId: string): Array<{ id: strin
 }
 
 /** The first column of `edn`'s rows, as the node ids they name. */
-function queryIds(ix: KbIndex, edn: string): string[] {
-  return runQuery(ix, edn).flatMap((row: unknown[]) =>
+function queryIds(run: EdnRunner, edn: string): string[] {
+  return run(edn).flatMap((row: unknown[]) =>
     Array.isArray(row) && typeof row[0] === "string" ? [row[0]] : [],
   );
 }
@@ -40,7 +44,7 @@ function queryIds(ix: KbIndex, edn: string): string[] {
  * GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]
  */
 export function queryNeighbourhood(
-  ix: KbIndex,
+  run: EdnRunner,
   root: string,
   hops: number,
   edges: readonly string[],
@@ -48,13 +52,13 @@ export function queryNeighbourhood(
   const ids = new Set([root]);
   for (const edge of edges) {
     for (const direction of ["out", "in"] as const) {
-      for (const id of queryIds(ix, neighbourhoodQuery(root, hops, edge, direction))) ids.add(id);
+      for (const id of queryIds(run, neighbourhoodQuery(root, hops, edge, direction))) ids.add(id);
     }
   }
   return ids;
 }
 
 /** The view nodes whose view is in `family` (`@kb/model`'s `familyViewNodesQuery`). */
-export function queryFamilyViewNodes(ix: KbIndex, family: ViewFamily): string[] {
-  return queryIds(ix, familyViewNodesQuery(family));
+export function queryFamilyViewNodes(run: EdnRunner, family: ViewFamily): string[] {
+  return queryIds(run, familyViewNodesQuery(family));
 }

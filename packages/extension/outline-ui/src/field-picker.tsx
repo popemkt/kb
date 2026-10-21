@@ -17,6 +17,7 @@ import {
   type PickerRow,
   type PropValue,
   type RefCreation,
+  useAnswersOf,
 } from "@kb/ui-sdk";
 import { notePick, recentPicks } from "./picker-recency";
 
@@ -98,6 +99,9 @@ export function FieldPicker({
 }) {
   const [query, setQuery] = useState(initialQuery);
   const anchorRef = useRef<HTMLDivElement>(null);
+  // A field's targets may be a query's answer, read from the context's
+  // answers as they are now; the picker is drawn again when one arrives.
+  useAnswersOf(context.queries);
   const search = refSearchOf(context, fieldId);
   const fieldNode = context.schema.get(fieldId);
   const creation = refCreationOf(context, fieldId);

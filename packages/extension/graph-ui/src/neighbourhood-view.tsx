@@ -5,11 +5,12 @@ import {
   browserHost,
   navigate,
   useAppearance,
-  useIndex,
+  useAnswered,
   useWireNodes,
   ViewSlot,
   WorkspaceState,
   type ViewProps,
+  useLastSettled,
 } from "@kb/ui-sdk";
 import { buildTreeForest, type NeighbourhoodParams } from "@kb/graph";
 import { extractNeighbourhood } from "./graph-neighbourhood";
@@ -31,15 +32,18 @@ const EMPTY = { nodes: [], edges: [], dropped: 0, queryError: null };
 export function NeighbourhoodGraph({ params }: ViewProps<NeighbourhoodParams>) {
   const { root, hops, edges, renderer, settings } = params;
   const wireNodes = useWireNodes();
-  const index = useIndex();
   const { zoomTo } = browserHost();
   const appearance = useAppearance();
   const rendererKey = useRenderer(renderer);
 
-  const lensGraph = useMemo(
-    () => (index === null ? EMPTY : extractNeighbourhood(index, wireNodes, { root, hops, edges })),
-    [index, wireNodes, root, hops, edges],
+  // The neighbourhood is one query per edge and direction; until they have
+  // all answered it reaches only the root, so it is drawn once they have.
+  const answered = useAnswered(
+    (run) => extractNeighbourhood(run, wireNodes, { root, hops, edges }),
+    [wireNodes, root, hops, edges],
   );
+  const held = useLastSettled(answered, [root, hops, ...edges].join("\n"));
+  const lensGraph = held ?? EMPTY;
   const forest = useMemo(
     () => buildTreeForest(lensGraph.nodes, lensGraph.edges, root),
     [lensGraph, root],
@@ -88,6 +92,8 @@ export function NeighbourhoodGraph({ params }: ViewProps<NeighbourhoodParams>) {
       }
     />
   );
+  // "Nothing to draw" is a finding only once the queries have answered.
+  if (held === null) return null;
   if (lensGraph.nodes.length === 0)
     return (
       <WorkspaceState

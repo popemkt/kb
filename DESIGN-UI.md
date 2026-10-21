@@ -169,6 +169,37 @@ is not treated as a special case. The replica asks `since(rev)`, the server
 answers `snapshot-required` for a rev ahead of its head, and the snapshot's rev
 is authoritative. The browser never infers a restart from a head.
 
+### Replica queries
+
+The page asks datalog of the replica's engine, and the engine answers in
+its own time: no page code holds a synchronous query handle. What the page
+holds is its **query answers** (`ReplicaQueries`, `@kb/ui-sdk`), one per
+query text, each as of a generation of the replica.
+
+- **A read never blocks.** A reader reads the last answer the page has for a
+  query and whether it is current. A query not yet answered reads as no
+  rows; one the engine refused reads as the error it threw. Reading a query
+  that is not current asks the engine for it, after the reader's turn.
+- **One execution per query.** Every reader of one query text shares its
+  answer, so the results under a query node, its count and a chart over it
+  are one run, and a query asked twice before it is answered is asked once.
+- **Live while watched.** A mounted reader watches the queries it read
+  (`useQueryAnswer`, `useAnswered`); when the replica moves, the watched ones
+  are asked again, and until their new answers arrive readers keep the last
+  ones, so a write never blanks what the page shows. A query nobody watches
+  is asked again only when read, and is forgotten once enough others have
+  been read since.
+- **Pure readers stay pure.** A `@kb/model` reader that takes a synchronous
+  runner (`resolveOntology`, `allowedRefIdsOf`, `relationFieldsFor`) runs
+  over the answers' runner, and a React reader re-runs it when an answer it
+  read arrives (`useAnswered`); an event handler waits for every query it
+  asks to be answered as of now (`settle`, the page's `answered`).
+- **A value that must not be drawn half-built** (a graph) is held at its
+  last settled value for the same subject (`useLastSettled`).
+- **Actions.** An isomorphic action that runs on the page asks datalog of
+  `QueryEngineService`, which the page binds to the same engine, one query
+  at a time, outside the shared answers (its query may carry inputs).
+
 ## SubscriptionHub — the "other apps can subscribe" layer
 
 Designed as a backend service now, minimal v1, clear growth path:

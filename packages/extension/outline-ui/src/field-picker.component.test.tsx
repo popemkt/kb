@@ -15,7 +15,10 @@ import {
   derivedWith,
   fieldContextOf,
   fieldTypeValue,
+  inThreadTransport,
   OptionPreviewPoint,
+  resolveAllowedRefIds,
+  ReplicaQueries,
   schemaOfGraph,
   syncUiPlugins,
   SYSTEM_IDS,
@@ -60,13 +63,26 @@ const GRAPH: WireNode[] = [
 
 const show = (v: PropValue) => (v.t === "ref" ? v.v : JSON.stringify(v));
 
-function contextOf(graph: WireNode[]): FieldContext {
+/** A context over `graph` whose answers are whatever has been asked of them so far. */
+function freshContextOf(graph: WireNode[]): FieldContext {
   const nodes = wireToOutlineMap(graph, new Set());
-  return fieldContextOf({
-    schema: schemaOfGraph(nodes),
-    nodes,
-    index: new DatascriptIndex(graph, { derived: derivedWith({}) }),
+  const schema = schemaOfGraph(nodes);
+  const index = new DatascriptIndex(graph, { derived: derivedWith({}) });
+  const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+  return fieldContextOf({ schema, nodes, queries });
+}
+
+/**
+ * A context whose field targets are already answered, so a test of what the
+ * picker does with its targets is not also a test of their arrival (which
+ * "fills in a query's targets when they arrive" is).
+ */
+async function contextOf(graph: WireNode[]): Promise<FieldContext> {
+  const context = freshContextOf(graph);
+  await context.queries?.settle((run) => {
+    for (const node of context.outline.values()) resolveAllowedRefIds(node, context.schema, run);
   });
+  return context;
 }
 
 describe("FieldPicker", () => {
@@ -122,12 +138,19 @@ describe("FieldPicker", () => {
    * keystroke on a value at rest starts it with. (React's `onChange` does not
    * fire for an `<input>` under happy-dom, so typing itself is not driven.)
    */
-  async function open(fieldId: string, field: FieldHandle, initialQuery = "") {
+  async function open(
+    fieldId: string,
+    field: FieldHandle,
+    initialQuery = "",
+    context?: FieldContext,
+  ) {
+    // One set of answers for the picker's whole life: a context is not rebuilt per render.
+    context ??= await contextOf(GRAPH);
     await act(async () => {
       root.render(
         createElement(FieldPicker, {
           fieldId,
-          context: contextOf(GRAPH),
+          context,
           field,
           initialQuery,
           onReplace: (id: string) => calls.push(`replace ${id}`),
@@ -250,6 +273,15 @@ describe("FieldPicker", () => {
     await open("f.picked", handle([], true), "Beta");
     expect(rows()).toEqual([]);
     expect(container.textContent).toContain("No matches");
+  });
+
+  it("fills in a query's targets when their answer arrives", async () => {
+    // Opened before its target query is answered: the first draw has nothing.
+    await open("f.picked", handle([], true), "", freshContextOf(GRAPH));
+    await act(async () => {
+      for (let turn = 0; turn < 5; turn += 1) await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(rows().map((r) => r.text)).toEqual(["Alpha"]);
   });
 
   it("Escape closes it", async () => {

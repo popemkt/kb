@@ -11,6 +11,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 
 describe("schema zoom queries", () => {
   const qdb = new DatascriptIndex(fixtureGraph.nodes, { derived: derivedWith({}) });
+  const run = (edn: string) => qdb.runDatalog(edn);
   const nodes = wireToOutlineMap(fixtureGraph.nodes, new Set());
 
   it("detects tag vs field zoom kinds", () => {
@@ -20,7 +21,7 @@ describe("schema zoom queries", () => {
   });
 
   it("lists everything tagged with a tag node", () => {
-    const hits = queryTaggedInstances(qdb, "tag.todo");
+    const hits = queryTaggedInstances(run, "tag.todo");
     const ids = hits.map((h) => h.id);
     expect(ids).toContain("n.root-a");
     expect(ids).toContain("n.root-b");
@@ -29,7 +30,7 @@ describe("schema zoom queries", () => {
   });
 
   it("lists nodes carrying a field", () => {
-    const hits = queryFieldCarriers(qdb, "field.status");
+    const hits = queryFieldCarriers(run, "field.status");
     const ids = hits.map((h) => h.id);
     expect(ids).toContain("n.root-a");
     expect(ids).toContain("n.root-b");

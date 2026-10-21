@@ -129,9 +129,12 @@ describe("instance identity (component)", () => {
     void treeContent;
   });
 
-  it("arrow from query-result instance stays in the query region", () => {
+  it("arrow from query-result instance stays in the query region", async () => {
     const refA = queryResultInstanceKey("n.q1", "n.root-a");
     const refB = queryResultInstanceKey("n.q1", "n.root-b");
+    // The results are the replica's answer: the first walk asks for them, the next has them.
+    useOutlineStore.getState().getVisibleInstances();
+    await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
     const instances = useOutlineStore.getState().getVisibleInstances();
     expect(instances.some((i) => i.instanceKey === refA)).toBe(true);
 

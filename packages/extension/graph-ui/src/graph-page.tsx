@@ -13,8 +13,7 @@ import {
   SidebarToggle,
   ThemeIcon,
   useAppearance,
-  useGeneration,
-  useIndex,
+  useAnswered,
   usePageGraph,
   usePrefsOpen,
   useSidebarToggle,
@@ -22,8 +21,15 @@ import {
   useWireNodes,
   ViewSlot,
   WorkspaceState,
+  useLastSettled,
 } from "@kb/ui-sdk";
-import { extractLensGraph, lensReport, listPerspectiveNodes, parsePerspective } from "./graph-lens";
+import {
+  extractLensGraph,
+  type GraphLens,
+  lensReport,
+  listPerspectiveNodes,
+  parsePerspective,
+} from "./graph-lens";
 import {
   buildTreeForest,
   resolvePerspective,
@@ -43,6 +49,8 @@ import { useGraphTrace } from "./graph-trace";
 import { useRelated } from "./graph-related";
 import { graphPath } from "./routes";
 
+const EMPTY_LENS: GraphLens = { nodes: [], edges: [], dropped: 0, queryError: null };
+
 // GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
 const SYS_STORAGE_KEY = "kb-graph-include-sys";
 
@@ -58,8 +66,6 @@ export interface GraphPageProps {
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCFTMWY5EYHEWP9QVH8Z9]]
 export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
   const wireNodes = useWireNodes();
-  const queryDb = useIndex();
-  const generation = useGeneration();
   const { zoomTo } = browserHost();
   const ontologyMembers = usePageGraph((s) => s.ontologyMembers);
   const theme = useTheme();
@@ -85,10 +91,8 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     });
   };
 
-  const perspectiveNodes = useMemo(
-    () => listPerspectiveNodes(queryDb, wireNodes),
-    [queryDb, wireNodes],
-  );
+  const listed = useAnswered((run) => listPerspectiveNodes(run, wireNodes), [wireNodes]);
+  const perspectiveNodes = listed.value;
   const perspectives = useMemo(() => perspectiveNodes.map(parsePerspective), [perspectiveNodes]);
 
   const active: LensPerspective | null = useMemo(
@@ -113,39 +117,50 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   // orthogonal, so both pickers sit in the header together (r5 §1.4).
   const ontologies = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
 
+  // What the graph is extracted from, settled for 300ms: an edit burst
+  // re-extracts once, after it, rather than on every keystroke.
+  const lensInput = useMemo(
+    () => ({ wireNodes, active, includeSystemNodes, restrictTo, ontologyId }),
+    [wireNodes, active, includeSystemNodes, restrictTo, ontologyId],
+  );
+  // The first perspective to arrive is extracted at once: there is no burst
+  // to wait out while nothing is drawn.
+  const [extractFrom, setExtractFrom] = useState(lensInput);
+  const drawing = extractFrom.active !== null;
+  useEffect(() => {
+    const handle = window.setTimeout(() => setExtractFrom(lensInput), drawing ? 300 : 0);
+    return () => window.clearTimeout(handle);
+  }, [lensInput, drawing]);
+
   // The graph and the view it was extracted for are one snapshot: the view
   // key renderers see always names the node set they are drawing, never the
-  // next one still waiting on the debounce.
-  const [extracted, setExtracted] = useState(() => ({
-    graph:
-      queryDb && active
-        ? extractLensGraph(queryDb, wireNodes, active, {
-            includeSystemNodes,
-            ...(restrictTo ? { restrictTo } : {}),
-          })
-        : { nodes: [], edges: [], dropped: 0, queryError: null },
-    view: {
-      id: active?.id ?? "",
-      query: active?.query ?? "",
-      includeSystemNodes,
-      ontologyId,
+  // next one still waiting on the debounce or on its query's answer. Until
+  // the lens query is answered the graph held is the last one it answered,
+  // so a write never redraws the graph from a stale answer and new nodes.
+  const extraction = useAnswered(
+    (run) => {
+      const from = extractFrom;
+      return {
+        graph:
+          from.active === null
+            ? EMPTY_LENS
+            : extractLensGraph(run, from.wireNodes, from.active, {
+                includeSystemNodes: from.includeSystemNodes,
+                ...(from.restrictTo ? { restrictTo: from.restrictTo } : {}),
+              }),
+        view: {
+          id: from.active?.id ?? "",
+          query: from.active?.query ?? "",
+          includeSystemNodes: from.includeSystemNodes,
+          ontologyId: from.ontologyId,
+        },
+      };
     },
-  }));
+    [extractFrom],
+  );
+  const held = useLastSettled(extraction, "graph");
+  const extracted = held ?? { graph: EMPTY_LENS, view: extraction.value.view };
   const lensGraph = extracted.graph;
-
-  useEffect(() => {
-    if (!queryDb || !active) return undefined;
-    const handle = window.setTimeout(() => {
-      setExtracted({
-        graph: extractLensGraph(queryDb, wireNodes, active, {
-          includeSystemNodes,
-          ...(restrictTo ? { restrictTo } : {}),
-        }),
-        view: { id: active.id, query: active.query, includeSystemNodes, ontologyId },
-      });
-    }, 300);
-    return () => window.clearTimeout(handle);
-  }, [queryDb, wireNodes, active, generation, includeSystemNodes, restrictTo, ontologyId]);
 
   const forest = useMemo(
     () => (active ? buildTreeForest(lensGraph.nodes, lensGraph.edges, active.focus) : []),
@@ -169,7 +184,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const selectedNode = lensGraph.nodes.find((node) => node.id === selectedId);
   const selection = selectedNode ? selectionFromNode(selectedNode) : null;
   const traced = useGraphTrace(active, lensGraph, wireNodes, selectedId);
-  const related = useRelated(queryDb, active, lensGraph, wireNodes, selectedId);
+  const related = useRelated(active, lensGraph, wireNodes, selectedId);
   const { trace, pick: pickTraceEnd, clear: clearTrace } = traced;
   // While a trace waits for its end, the next node selected is that end.
   const setSelection = useCallback(
@@ -352,7 +367,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         </button>
       </header>
       <div className="relative min-h-0 flex-1 kb-workspace-reveal">
-        {!active || !queryDb ? (
+        {!listed.settled && !active ? null : !active ? (
           <WorkspaceState
             title="No graph perspectives yet"
             description="A perspective chooses which nodes and connections to explore."
@@ -375,7 +390,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             onSaveTrace={(name) => void saveTrace(name)}
             savingTrace={savingTrace}
           >
-            {lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
+            {held !== null && lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
               <WorkspaceState
                 title="No nodes in view"
                 description="Broaden the node query in Graph settings."

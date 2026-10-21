@@ -14,9 +14,10 @@ import {
   Bullet,
   DatascriptIndex,
   derivedWith,
+  inThreadTransport,
   type OutlineNode,
+  ReplicaQueries,
   resultNodeIds,
-  runQuery,
   SYSTEM_IDS,
   wireToOutlineMap,
 } from "@kb/ui-sdk";
@@ -51,12 +52,13 @@ function renderBullet(node: OutlineNode, isRef: boolean): string {
 }
 
 describe("result row render (W4)", () => {
-  it("query rows resolve to real nodes and render dashed ref bullets", () => {
+  it("query rows resolve to real nodes and render dashed ref bullets", async () => {
     const nodes = outlineMap();
     const db = new DatascriptIndex([...fixtureGraph.nodes, queryWire()], {
       derived: derivedWith({}),
     });
-    const rows = runQuery(db, TODO_EDN);
+    const queries = new ReplicaQueries(inThreadTransport(db), () => db.generation);
+    const rows = await queries.settle((run) => run(TODO_EDN));
     const ids = resultNodeIds(rows, nodes, { excludeId: "n.q1" });
     expect(ids.toSorted()).toEqual(["n.root-a", "n.root-b"]);
 

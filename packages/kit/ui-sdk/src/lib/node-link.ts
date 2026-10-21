@@ -9,7 +9,7 @@
  */
 import type { WireNode } from "@kb/contracts";
 import { Service } from "@kb/plugin";
-import type { KbIndex } from "../query";
+import type { EdnRunner } from "../query";
 
 export interface NodeLinkNode {
   readonly id: string;
@@ -33,12 +33,12 @@ export interface NodeLinkGraph {
 
 /**
  * What the service answers: the node-link graph of the view node `viewId`
- * names, else of the default one its family opens on, over `index` and
- * `wireNodes`. Null when there is no view node to draw.
+ * names, else of the default one its family opens on, over the answers
+ * `run` reads and `wireNodes`. Null when there is no view node to draw.
  */
 export interface NodeLinkGraphs {
   readonly ofView: (
-    index: KbIndex,
+    run: EdnRunner,
     wireNodes: readonly WireNode[],
     viewId: string | null,
   ) => NodeLinkGraph | null;

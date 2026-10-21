@@ -1,6 +1,6 @@
 /**
- * The graph's lens: the extract of {nodes, edges} from the page's index and
- * wire nodes, driven by a graph view node's lens props. It is the one
+ * The graph's lens: the extract of {nodes, edges} from the page's query
+ * answers and wire nodes, driven by a graph view node's lens props. It is the one
  * extraction: the graph page draws it, and it answers the kit's
  * `NodeLinkGraphService` for any other half that reads the graph (the lab).
  */
@@ -24,13 +24,12 @@ import {
   graphDisplayText,
   hashTagColor,
   type BulletAppearance,
-  type KbIndex,
+  type EdnRunner,
   logWarn,
   type NodeLinkGraph,
   type NodeLinkGraphs,
   type NodeLinkNode,
   queryFamilyViewNodes,
-  runQuery,
   SYSTEM_IDS,
   tagColorOf,
   tagPalette,
@@ -96,14 +95,10 @@ export function firstTagOf(
 
 /**
  * The graphs: the view nodes whose view is a renderer, by the query that says
- * so (`familyViewNodesQuery`), in label order. None while the index loads.
+ * so (`familyViewNodesQuery`), in label order. None until that query is answered.
  */
-export function listPerspectiveNodes(
-  db: KbIndex | null,
-  wireNodes: readonly WireNode[],
-): WireNode[] {
-  if (db === null) return [];
-  const ids = new Set(queryFamilyViewNodes(db, "graph.renderer"));
+export function listPerspectiveNodes(run: EdnRunner, wireNodes: readonly WireNode[]): WireNode[] {
+  const ids = new Set(queryFamilyViewNodes(run, "graph.renderer"));
   return wireNodes
     .filter((node) => ids.has(node.id))
     .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
@@ -227,7 +222,7 @@ export interface ExtractLensOptions {
 }
 
 function resolveNodeSet(
-  db: KbIndex,
+  run: EdnRunner,
   wireNodes: readonly WireNode[],
   perspective: LensPerspective,
   opts: ExtractLensOptions = {},
@@ -241,7 +236,7 @@ function resolveNodeSet(
   const edn = perspective.query.trim();
   if (!edn) return { nodeSet: tracedSet(wireNodes, all, perspective), queryError: null };
   try {
-    const rows = runQuery(db, edn);
+    const rows = run(edn);
     return {
       nodeSet: tracedSet(wireNodes, idsFromQueryRows(rows, all), perspective),
       queryError: null,
@@ -361,13 +356,13 @@ function resolveMeasure(wire: WireNode, sizeBy: string, degree: number): number 
 }
 
 export function extractLensGraph(
-  db: KbIndex,
+  run: EdnRunner,
   wireNodes: readonly WireNode[],
   perspective: LensPerspective,
   opts: ExtractLensOptions = {},
 ): GraphLens {
   const byId = new Map(wireNodes.map((n) => [n.id, n]));
-  const { nodeSet, queryError } = resolveNodeSet(db, wireNodes, perspective, opts);
+  const { nodeSet, queryError } = resolveNodeSet(run, wireNodes, perspective, opts);
   const kinds = new Set(perspective.edgeKinds);
   const rawEdges = collectEdges(wireNodes, nodeSet, kinds);
   const candidateIds = [...nodeSet];
@@ -440,11 +435,11 @@ export function extractLensGraph(
  * perspective's the graph page opens on, by the same extraction the page draws.
  */
 export const lensGraphs: NodeLinkGraphs = {
-  ofView: (index, wireNodes, viewId) => {
+  ofView: (run, wireNodes, viewId) => {
     const perspective = resolvePerspective(
-      listPerspectiveNodes(index, wireNodes).map(parsePerspective),
+      listPerspectiveNodes(run, wireNodes).map(parsePerspective),
       viewId,
     );
-    return perspective === null ? null : extractLensGraph(index, wireNodes, perspective);
+    return perspective === null ? null : extractLensGraph(run, wireNodes, perspective);
   },
 };

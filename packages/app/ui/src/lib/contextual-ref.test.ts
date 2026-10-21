@@ -185,7 +185,9 @@ describe("references section reach", () => {
       [...fixtureGraph.nodes, ...REF_SEED_WIRES, ctxRefWire("n.ctx", "n.root-a")],
       { derived: derivedWith({}) },
     );
-    expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toContain("n.ctx");
+    expect(queryBacklinks((edn) => db.runDatalog(edn), "n.root-a").map((b) => b.id)).toContain(
+      "n.ctx",
+    );
   });
 
   it("a plain text mention still resolves, so the relation is one relation", () => {
@@ -194,6 +196,8 @@ describe("references section reach", () => {
       text: "See [[n.root-a|Ship kb ui shell]] for context",
     });
     const db = new DatascriptIndex([...fixtureGraph.nodes, referrer], { derived: derivedWith({}) });
-    expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
+    expect(queryBacklinks((edn) => db.runDatalog(edn), "n.root-a").map((b) => b.id)).toEqual([
+      "n.referrer",
+    ]);
   });
 });

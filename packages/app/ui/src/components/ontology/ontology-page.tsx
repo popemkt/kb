@@ -4,6 +4,7 @@ import type { WireNode } from "@kb/contracts";
 import {
   isOntologyNode,
   refValuesOf,
+  resolveOntology,
   strValueOf,
   typeRefsOf,
   wouldCreateExtendsCycle,
@@ -19,10 +20,11 @@ import {
   tagColorOf,
   tagPalette,
   textOr,
+  useAnswered,
 } from "@kb/ui-sdk";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
-import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
+import { excludedRows, memberRows } from "@/lib/ontology-scope";
 import { pageProjection, useGraphStore, useShownNodes } from "@/stores/graph.store";
 
 export interface OntologyPageProps {
@@ -39,8 +41,6 @@ export interface OntologyPageProps {
 export function OntologyPage({ ontologyId }: OntologyPageProps) {
   const wireNodes = useGraphStore((s) => s.wireNodes);
   const nodes = useShownNodes();
-  const queryDb = useGraphStore((s) => s.index);
-  const generation = useGraphStore((s) => s.index?.generation ?? 0);
 
   const byId = useMemo(() => new Map(wireNodes.map((n) => [n.id, n])), [wireNodes]);
   const onto = byId.get(ontologyId);
@@ -53,9 +53,11 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
     [byId, nodes],
   );
 
-  const resolution = useMemo(
-    () => resolveScope(wireNodes, ontologyId, queryDb, generation),
-    [wireNodes, ontologyId, queryDb, generation],
+  // The scope's query is answered by the replica's engine; until it is, the
+  // members read as those the tags, extends and pins give.
+  const { value: resolution } = useAnswered(
+    (runQuery) => resolveOntology(wireNodes, ontologyId, { runQuery }),
+    [wireNodes, ontologyId],
   );
 
   const members = useMemo(() => memberRows(resolution, labelFor), [resolution, labelFor]);

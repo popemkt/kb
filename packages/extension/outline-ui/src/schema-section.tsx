@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useOutlineStore, useOutlineNode, useOutlineNodes } from "./outline.store";
 import {
   browserHost,
@@ -10,9 +9,9 @@ import {
   type SchemaHit,
   schemaZoomKind,
   TagChipGroup,
+  useAnswered,
   useFollow,
   useOpenNode,
-  usePageGraph,
   useRefInk,
 } from "@kb/ui-sdk";
 import { TagFieldsConfig } from "./tag-fields-config";
@@ -23,20 +22,18 @@ import { TagFieldsConfig } from "./tag-fields-config";
  */
 export function SchemaSection({ nodeId }: { nodeId: string }) {
   const node = useOutlineNode(nodeId);
-  const queryDb = usePageGraph((s) => s.index);
-  const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useOpenNode();
 
   const kind = schemaZoomKind(node);
 
-  const hits = useMemo(() => {
-    if (!queryDb || !kind) return [];
-    return kind === "tag"
-      ? queryTaggedInstances(queryDb, nodeId)
-      : queryFieldCarriers(queryDb, nodeId);
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation, not queryDb identity, tracks graph content
-  }, [queryDb, nodeId, kind, generation]);
+  const { value: hits, settled } = useAnswered(
+    (run): SchemaHit[] => {
+      if (!kind) return [];
+      return kind === "tag" ? queryTaggedInstances(run, nodeId) : queryFieldCarriers(run, nodeId);
+    },
+    [nodeId, kind],
+  );
 
   if (!kind) return null;
 
@@ -50,8 +47,8 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
         <span className="ml-1.5 font-normal normal-case tracking-normal">({hits.length})</span>
       </h2>
       {hits.length === 0 ? (
-        <p className="px-1 text-ui text-foreground/50" role="status">
-          None yet
+        <p className="px-1 text-ui text-foreground/50" role="status" aria-busy={!settled}>
+          {settled ? "None yet" : "Loading…"}
         </p>
       ) : (
         hits.map((hit) => (

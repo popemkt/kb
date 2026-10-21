@@ -1,5 +1,5 @@
-import { useEffect, useId, useMemo, useState } from "react";
-import { runQuery, type KbIndex } from "../query";
+import { useEffect, useId, useState } from "react";
+import type { QueryRead } from "./replica-queries";
 import type { NodeMap } from "./types";
 
 /** Where a query node's subscribed rows go. */
@@ -26,8 +26,9 @@ export interface QueryNodeRows {
 
 /**
  * The rows an expanded query node currently has, from whichever source can
- * answer: a /ws subscription while the socket is open, the local index
- * otherwise.
+ * answer: a /ws subscription while the socket is open, the replica's answer
+ * otherwise (`local`, read by the caller through `useQueryAnswer`, which
+ * keeps it live as the replica moves).
  *
  * Both halves live here rather than in the component that renders them. A
  * surface renders what it is given; opening and closing a server subscription
@@ -35,10 +36,6 @@ export interface QueryNodeRows {
  * (`query.ts`) — `@kb/model`'s `query-node.ts` stays pure system-node
  * modeling, and this is the one place that turns a query node's EDN into
  * rows, and its rows into the nodes they name (`resultNodeIds`).
- *
- * `generation` is the index's mutation counter: the local query re-runs when
- * the replica advances, which `index` alone cannot express because it is the
- * same instance across a transaction.
  */
 export function useQueryNodeRows(input: {
   nodeId: string;
@@ -47,10 +44,10 @@ export function useQueryNodeRows(input: {
   live: boolean;
   /** How to subscribe while live. */
   subscribe: QueryRowsSubscribe;
-  index: KbIndex | null;
-  generation: number;
+  /** The replica's answer to `edn`, read while not live. */
+  local: QueryRead;
 }): QueryNodeRows {
-  const { nodeId, edn, index, generation, subscribe } = input;
+  const { nodeId, edn, local, subscribe } = input;
   const liveEdn = input.live ? edn : null;
   // Each caller holds its own subscription (`querySubscriptionId`).
   const subscriber = useId();
@@ -77,20 +74,12 @@ export function useQueryNodeRows(input: {
     };
   }, [liveEdn, nodeId, subscriber, subscribe]);
 
-  const local = useMemo((): QueryNodeRows => {
-    if (liveEdn !== null || edn === null || !index) return { rows: null, error: null };
-    try {
-      return { rows: runQuery(index, edn), error: null };
-    } catch (err) {
-      return {
-        rows: null,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the index revision; the index object's identity is stable
-  }, [liveEdn, edn, index, generation]);
-
-  return liveEdn === null ? local : { rows: liveRows, error: liveError };
+  if (liveEdn !== null) return { rows: liveRows, error: liveError };
+  const { answer } = local;
+  if (edn === null || answer === null) return { rows: null, error: null };
+  return answer.kind === "rows"
+    ? { rows: answer.rows, error: null }
+    : { rows: null, error: answer.message };
 }
 
 /**

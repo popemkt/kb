@@ -34,9 +34,10 @@ import {
   NodeRow,
   NotFound,
   useAppearance,
+  useAnswered,
   useGeneration,
-  useIndex,
   useNodes,
+  useReplicaQueries,
   useSchema,
   ViewScripts,
   createViewLayout,
@@ -115,7 +116,7 @@ interface CanvasPageProps {
 export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProps) {
   const nodes = useNodes();
   const schema = useSchema();
-  const queryDb = useIndex();
+  const queries = useReplicaQueries();
   const rev = useGeneration();
   const canvasNode = nodes.get(canvasId);
 
@@ -239,11 +240,13 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     [applyPointerResult, byId, docRef, membership, scope, selRef],
   );
 
-  const refFields = useMemo(
-    () =>
-      selectedEdgeObj === null ? [] : edgeFields(selectedEdgeObj, { byId, nodes: schema, queryDb }),
-    [selectedEdgeObj, byId, schema, queryDb],
-  );
+  // A field whose target query has not answered yet is left out of the menu
+  // until it has; the menu fills in as the answers arrive.
+  const refFields = useAnswered(
+    (run) =>
+      selectedEdgeObj === null ? [] : edgeFields(selectedEdgeObj, { byId, nodes: schema, run }),
+    [selectedEdgeObj, byId, schema],
+  ).value;
 
   const stageRef = useRef<HTMLDivElement>(null);
   const projection = useCanvasProjection({
@@ -493,7 +496,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     byId,
     docRef,
     nodes: schema,
-    queryDb,
+    queries,
     flushPersist,
     setSelection,
     setInspectorAnchor,

@@ -12,13 +12,7 @@
  * reducer takes its edge ids, so a plan is a function of its inputs.
  */
 import { relationFieldFit, relationFieldsFor } from "@kb/model";
-import {
-  runQuery,
-  type KbIndex,
-  type OutlineNode,
-  type PropValue,
-  type SchemaIndex,
-} from "@kb/ui-sdk";
+import type { EdnRunner, OutlineNode, PropValue, SchemaIndex } from "@kb/ui-sdk";
 import type { CanvasEdge, CanvasNode, KbLinkMode } from "@kb/canvas";
 import { planNativeBind } from "./canvas-api";
 
@@ -29,7 +23,11 @@ export interface EdgeRelinkContext {
   byId: ReadonlyMap<string, CanvasNode>;
   /** Field definitions the link is checked against (`lib/schema.ts`). */
   nodes: SchemaIndex;
-  queryDb: KbIndex | null;
+  /**
+   * The datalog a field's declared target query runs on: the page's answers,
+   * as of whenever the caller read them. None reads no target query.
+   */
+  run: EdnRunner | null;
   /** Binding id for an edge that does not have one yet. */
   bindingId: string;
 }
@@ -83,13 +81,8 @@ function linkFor(
   };
 }
 
-/** What the fields an edge can bind are read against: its items, the schema and the index. */
-export type EdgeFieldContext = Pick<EdgeRelinkContext, "byId" | "nodes" | "queryDb">;
-
-/** The index's EDN runner, which a field's declared target query runs on; none without an index. */
-function runnerOf({ queryDb }: EdgeFieldContext): ((edn: string) => unknown[][]) | null {
-  return queryDb === null ? null : (edn) => runQuery(queryDb, edn);
-}
+/** What the fields an edge can bind are read against: its items, the schema and the query answers. */
+export type EdgeFieldContext = Pick<EdgeRelinkContext, "byId" | "nodes" | "run">;
 
 /**
  * The ref fields a native link on `edge` can bind: those a relation from its
@@ -99,15 +92,13 @@ function runnerOf({ queryDb }: EdgeFieldContext): ((edn: string) => unknown[][])
 export function edgeFields(edge: CanvasEdge, ctx: EdgeFieldContext): OutlineNode[] {
   const endpoints = kbEndpoints(edge, ctx);
   if (endpoints === null) return [];
-  return relationFieldsFor(ctx.nodes, endpoints.to.nodeId, runnerOf(ctx));
+  return relationFieldsFor(ctx.nodes, endpoints.to.nodeId, ctx.run);
 }
 
 /** Whether `fieldId` can type a relation to `target`, by the one rule (`relationFieldFit`). */
 function bindsTo(fieldId: string, target: string, ctx: EdgeFieldContext): boolean {
   const field = ctx.nodes.get(fieldId);
-  return (
-    field !== undefined && relationFieldFit(field, target, ctx.nodes, runnerOf(ctx)) === "fits"
-  );
+  return field !== undefined && relationFieldFit(field, target, ctx.nodes, ctx.run) === "fits";
 }
 
 /**

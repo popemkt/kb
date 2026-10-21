@@ -1,4 +1,4 @@
-import { lazy, use, useMemo } from "react";
+import { lazy, use } from "react";
 import { GraphIcon } from "@phosphor-icons/react";
 import type { ParamsOf } from "@kb/views";
 import {
@@ -17,7 +17,7 @@ import {
   paramsOf,
   SidebarRow,
   SidebarSection,
-  useIndex,
+  useAnswered,
   useWireNodes,
   ViewErrorBoundary,
   type MatchedRoute,
@@ -91,16 +91,15 @@ export function GraphSurface({ params }: ViewProps<GraphParams>) {
   const perspectiveId = params.perspective ?? null;
   const ontologyId = params.ontology ?? null;
   const wireNodes = useWireNodes();
-  const index = useIndex();
-  // Not missing while the index loads: the graphs are a query over it.
-  const missing = useMemo(
-    () =>
-      perspectiveId !== null &&
-      index !== null &&
-      !listPerspectiveNodes(index, wireNodes).some((n) => n.id === perspectiveId),
-    [index, wireNodes, perspectiveId],
+  // The graphs are a query, so a perspective is missing only once that query
+  // has answered as of now without it, never while the answer is on its way.
+  const listed = useAnswered(
+    (run) =>
+      perspectiveId === null ||
+      listPerspectiveNodes(run, wireNodes).some((n) => n.id === perspectiveId),
+    [wireNodes, perspectiveId],
   );
-  if (missing)
+  if (listed.settled && !listed.value)
     return (
       <NotFound
         what="Graph perspective"
@@ -120,8 +119,10 @@ export function GraphSurface({ params }: ViewProps<GraphParams>) {
 
 export function GraphSection({ route }: { readonly route: MatchedRoute | null }) {
   const wireNodes = useWireNodes();
-  const index = useIndex();
-  const perspectives = useMemo(() => listPerspectiveNavItems(index, wireNodes), [index, wireNodes]);
+  const perspectives = useAnswered(
+    (run) => listPerspectiveNavItems(run, wireNodes),
+    [wireNodes],
+  ).value;
   const graph = paramsOf(route, GraphView);
   return (
     <SidebarSection>

@@ -29,8 +29,9 @@ describe("inline References (W8a)", () => {
     const db = new DatascriptIndex([...fixtureGraph.nodes, referrer()], {
       derived: derivedWith({}),
     });
-    expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
-    expect(queryBacklinks(db, "n.root-b")).toEqual([]);
+    const run = (edn: string) => db.runDatalog(edn);
+    expect(queryBacklinks(run, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
+    expect(queryBacklinks(run, "n.root-b")).toEqual([]);
   });
 
   it("renders a References header + one ref row per backlink", () => {

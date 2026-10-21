@@ -12,13 +12,12 @@ import {
   frameViewOf,
   hasText,
   isQueryResultInstance,
-  type KbIndex,
+  type EdnRunner,
   MAIN_OUTLINE_HOST,
   type NodeMap,
   outlineInstanceKey,
   queryResultInstanceKey,
   resultNodeIds,
-  runQuery,
   type SchemaIndex,
   shownNode,
   showsAncestor,
@@ -37,12 +36,17 @@ export type VisibleInstance = {
 /** Pages revealed per frame in paginating modes, keyed by frame node id. */
 type FramePagesMap = Readonly<Record<string, number>>;
 
-/** What a walk carries all the way down: the graph, the query db, the
+/** What a walk carries all the way down: the graph, the query answers, the
  * per-frame page counts, and the list it appends to. */
 interface WalkContext {
   nodes: NodeMap;
   schema: SchemaIndex;
-  queryDb: KbIndex | null;
+  /**
+   * The answers a query node's results are read from: the same ones its
+   * rendered results show (`useQueryRows`), so a walk offers the rows the
+   * page draws.
+   */
+  run: EdnRunner | null;
   /** The frame views provided, which a frame's props resolve against. */
   views: readonly FrameViewKey[];
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
@@ -88,7 +92,7 @@ function walkVisibleInstances(
   instanceKey: string,
   chain: SlotChain,
 ): void {
-  const { nodes, schema, queryDb, out } = ctx;
+  const { nodes, schema, run, out } = ctx;
   const node = nodes.get(nodeId);
   if (!node) return;
   out.push({ nodeId, instanceKey });
@@ -107,9 +111,9 @@ function walkVisibleInstances(
   // result row does not re-run its own query (`resolveRowChrome` agrees).
   if (!isQueryResultInstance(instanceKey) && isQueryNode(frame)) {
     const def = queryDefOf(frame);
-    if (hasText(def?.edn) && queryDb) {
+    if (hasText(def?.edn) && run) {
       try {
-        const rows = runQuery(queryDb, def.edn);
+        const rows = run(def.edn);
         const ids = resultNodeIds(rows, nodes, {
           limit: def.limit,
           excludeId: frameId,

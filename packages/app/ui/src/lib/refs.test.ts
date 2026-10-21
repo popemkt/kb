@@ -48,7 +48,7 @@ const nodes: NodeMap = new Map([
     }),
   ],
 ]);
-const context = fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index: null });
+const context = fieldContextOf({ schema: schemaOfGraph(nodes), nodes, queries: null });
 
 describe("where a picker mints a new target", () => {
   it("an option goes under its field; a tagged field's target carries the tag", () => {

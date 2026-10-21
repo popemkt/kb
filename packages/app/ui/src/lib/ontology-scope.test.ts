@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { present } from "@kb/model";
+import { present, resolveOntology } from "@kb/model";
 import {
   DatascriptIndex,
   derivedWith,
+  inThreadTransport,
   listOntologyItems,
+  ReplicaQueries,
+  type QueryAnswers,
   SYSTEM_IDS,
   wireToOutlineMap,
 } from "@kb/ui-sdk";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
+
+/** The replica's answers over `wire`, with the ontology's queries already answered. */
+async function answeredOver(wire: WireNode[], ontologyId: string): Promise<QueryAnswers> {
+  const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
+  const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+  await queries.settle((run) => resolveOntology(wire, ontologyId, { runQuery: run }));
+  return queries;
+}
 
 const ISO = "2026-08-23T00:00:00.000Z";
 
@@ -58,19 +69,19 @@ function graph(): WireNode[] {
 }
 
 describe("resolveScope", () => {
-  it("resolves membership through the shared resolver", () => {
+  it("resolves membership through the shared resolver", async () => {
     const wire = graph();
-    const r = resolveScope(wire, "o.1", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
+    const r = resolveScope(wire, "o.1", await answeredOver(wire, "o.1"));
     expect([...r.members].toSorted()).toEqual(["n.a", "n.b"]);
     expect(r.warnings).toEqual([]);
   });
 
-  it("memoizes per snapshot identity, not per rev", () => {
+  it("memoizes per snapshot identity, and again when the answers move", async () => {
     const wire = graph();
-    const db = new DatascriptIndex(wire, { derived: derivedWith({}) });
-    const a = resolveScope(wire, "o.1", db, 1);
-    expect(resolveScope(wire, "o.1", db, 1)).toBe(a);
-    // Same rev but a NEW snapshot (an optimistic local edit) must re-resolve:
+    const queries = await answeredOver(wire, "o.1");
+    const a = resolveScope(wire, "o.1", queries);
+    expect(resolveScope(wire, "o.1", queries)).toBe(a);
+    // A NEW snapshot (an optimistic local edit) must re-resolve:
     // rev does not move for local edits, so it cannot be the cache key.
     const edited = [
       ...wire.filter((n) => n.id !== "o.1"),
@@ -79,19 +90,15 @@ describe("resolveScope", () => {
         [SYSTEM_IDS.ontoExcludeField]: [{ t: "ref", v: "n.b" }],
       }),
     ];
-    const b = resolveScope(
-      edited,
-      "o.1",
-      new DatascriptIndex(edited, { derived: derivedWith({}) }),
-      1,
-    );
+    const b = resolveScope(edited, "o.1", await answeredOver(edited, "o.1"));
     expect(b).not.toBe(a);
     expect([...b.members]).toEqual(["n.a"]);
-    // A new rev on the same array also re-resolves.
-    expect(resolveScope(wire, "o.1", db, 2)).not.toBe(a);
+    // An answer arriving (the answers' version moving) re-resolves the same array.
+    await queries.ask("[:find ?id :where [?n :node/id ?id]]");
+    expect(resolveScope(wire, "o.1", queries)).not.toBe(a);
   });
 
-  it("runs a parameter-free onto.query through the client datalog engine", () => {
+  it("runs a parameter-free onto.query through the client datalog engine", async () => {
     const wire = [
       ...graph(),
       onto("o.q", "Query-defined", {
@@ -103,24 +110,19 @@ describe("resolveScope", () => {
         ],
       }),
     ];
-    const r = resolveScope(wire, "o.q", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
+    const r = resolveScope(wire, "o.q", await answeredOver(wire, "o.q"));
     expect([...r.members]).toEqual(["n.x"]);
     expect(r.warnings).toEqual([]);
   });
 
-  it("surfaces malformed EDN as a warning, not a throw", () => {
+  it("surfaces malformed EDN as a warning, not a throw", async () => {
     const wire = [
       ...graph(),
       onto("o.bad", "Broken", {
         [SYSTEM_IDS.ontoQueryField]: [{ t: "str", v: "[:find ?id :where" }],
       }),
     ];
-    const r = resolveScope(
-      wire,
-      "o.bad",
-      new DatascriptIndex(wire, { derived: derivedWith({}) }),
-      1,
-    );
+    const r = resolveScope(wire, "o.bad", await answeredOver(wire, "o.bad"));
     expect(r.members.size).toBe(0);
     expect(r.warnings.some((w) => w.startsWith("onto.query failed"))).toBe(true);
   });
@@ -133,7 +135,7 @@ const labelOf = (map: ReturnType<typeof wireToOutlineMap>) => (id: string) => {
 };
 
 describe("member rows", () => {
-  it("labels provenance and flags pins, sorted by label", () => {
+  it("labels provenance and flags pins, sorted by label", async () => {
     const wire = [
       tagDef("t.svc", "service"),
       tagged("n.a", "zeta", "t.svc"),
@@ -145,7 +147,7 @@ describe("member rows", () => {
       }),
     ];
     const map = wireToOutlineMap(wire, new Set());
-    const r = resolveScope(wire, "o", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
+    const r = resolveScope(wire, "o", await answeredOver(wire, "o"));
     const rows = memberRows(r, labelOf(map));
     expect(rows.map((x) => x.label)).toEqual(["alpha", "pinned one", "zeta"]);
     const pinned = present(
@@ -161,7 +163,7 @@ describe("member rows", () => {
     expect(aRow.reasons).toEqual([{ kind: "tag", via: "t.svc" }]);
   });
 
-  it("lists excluded ids separately", () => {
+  it("lists excluded ids separately", async () => {
     const wire = [
       tagDef("t.svc", "service"),
       tagged("n.a", "alpha", "t.svc"),
@@ -171,12 +173,12 @@ describe("member rows", () => {
       }),
     ];
     const map = wireToOutlineMap(wire, new Set());
-    const r = resolveScope(wire, "o", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
+    const r = resolveScope(wire, "o", await answeredOver(wire, "o"));
     expect(memberRows(r, labelOf(map))).toEqual([]);
     expect(excludedRows(r, labelOf(map)).map((x) => x.label)).toEqual(["alpha"]);
   });
 
-  it("an excluded node still gets its text, even when the scope omits it", () => {
+  it("an excluded node still gets its text, even when the scope omits it", async () => {
     // A scoped node map cannot contain an excluded node by definition, so
     // resolving its label there always fell through to printing a raw id.
     const wire = [
@@ -187,7 +189,7 @@ describe("member rows", () => {
         [SYSTEM_IDS.ontoExcludeField]: [{ t: "ref", v: "n.a" }],
       }),
     ];
-    const r = resolveScope(wire, "o", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
+    const r = resolveScope(wire, "o", await answeredOver(wire, "o"));
     // A members-only map: exactly what the ontology page holds while scoped.
     const scoped = wireToOutlineMap(
       wire.filter((n) => n.id !== "n.a"),
@@ -208,7 +210,7 @@ describe("member rows", () => {
 });
 
 describe("listOntologyItems", () => {
-  it("returns #ontology nodes sorted, with a fallback label", () => {
+  it("returns #ontology nodes sorted, with a fallback label", async () => {
     const wire = [...graph(), onto("o.3", "")];
     expect(listOntologyItems(wire)).toEqual([
       { id: "o.2", label: "Empty" },

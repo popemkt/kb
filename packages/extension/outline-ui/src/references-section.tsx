@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { backlinkRows, type BacklinkRow } from "./backlinks";
 import {
   Bullet,
@@ -6,6 +5,7 @@ import {
   NodeRow,
   schemaOf,
   TagChipGroup,
+  useAnswered,
   useFollow,
   useOpenNode,
   usePageGraph,
@@ -17,14 +17,10 @@ import { useOutlineNodes } from "./outline.store";
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
  */
 export function ReferencesSection({ nodeId }: { nodeId: string }) {
-  const queryDb = usePageGraph((s) => s.index);
   const schema = usePageGraph(schemaOf);
-  const generation = usePageGraph((s) => s.index?.generation ?? 0);
-
-  const backlinks = useMemo(
-    (): BacklinkRow[] => backlinkRows(queryDb, schema, nodeId),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the index revision; queryDb's identity is stable while its contents change
-    [queryDb, nodeId, generation, schema],
+  const { value: backlinks } = useAnswered(
+    (run): BacklinkRow[] => backlinkRows(run, schema, nodeId),
+    [nodeId, schema],
   );
 
   return <ReferencesView nodeId={nodeId} backlinks={backlinks} />;

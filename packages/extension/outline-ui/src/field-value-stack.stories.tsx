@@ -4,7 +4,7 @@ import { FieldValueStack } from "./fields-section";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap): FieldContext {
-  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index: null });
+  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, queries: null });
 }
 
 const emptyNodes: NodeMap = new Map();

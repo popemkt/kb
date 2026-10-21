@@ -7,7 +7,7 @@ import {
   fieldContextOf,
   SYSTEM_IDS,
   type FieldContext,
-  type KbIndex,
+  type QueryAnswers,
   type NodeMap,
   type PropValue,
   schemaOfGraph,
@@ -20,8 +20,8 @@ import { FieldValueStack } from "./fields-section";
 import { bundledSeed } from "@kb/bundled";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
-function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
-  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index });
+function contextFor(nodes: NodeMap, queries: QueryAnswers | null = null): FieldContext {
+  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, queries });
 }
 
 const nodes = new Map() as NodeMap;

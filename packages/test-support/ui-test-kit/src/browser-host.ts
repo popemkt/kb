@@ -69,6 +69,7 @@ const PREFS: Prefs = {
 const AT_HOME: PageGraphState = {
   wireNodes: NO_WIRE,
   index: null,
+  queries: null,
   rootNodeId: WORKSPACE_ROOT_ID,
   homeRootId: WORKSPACE_ROOT_ID,
   ontologyId: null,
@@ -181,7 +182,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     },
     nodes: () => nodes,
     schema: schemaNow,
-    index: () => null,
+    queries: () => null,
     node: (id) => nodes.get(id),
     isActive: (nodeId, instanceKey) =>
       active?.nodeId === nodeId && active.instanceKey === instanceKey,

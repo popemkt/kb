@@ -2,7 +2,7 @@
   "lanes": {
     "blocking": {
       "eslint/max-lines-per-function": 21,
-      "react/exhaustive-effect-dependencies": 8,
+      "react/exhaustive-effect-dependencies": 7,
       "react/globals": 1,
       "react/memo-dependencies": 2,
       "react/refs": 9,
