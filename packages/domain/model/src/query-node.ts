@@ -35,13 +35,22 @@ export function isQueryNode(node: Carrier | undefined): boolean {
   return hasQueryDef(node?.props);
 }
 
-/** EDN and limit off the node's props; null when it is no query node or holds no EDN yet. */
-export function queryDefOf(node: Carrier | undefined): QueryNodeDef | null {
-  if (!node) return null;
-  const edn = (node.props[SYSTEM_IDS.queryField] ?? []).find(
+/**
+ * The EDN a query node stores, as written: its field's text, empty while a
+ * query is being written; null when it is no query node.
+ */
+export function queryTextOf(node: Carrier | undefined): string | null {
+  if (!isQueryNode(node)) return null;
+  const edn = (node?.props[SYSTEM_IDS.queryField] ?? []).find(
     (v) => v.t === "str" && v.v.trim() !== "",
   );
-  if (edn?.t !== "str") return null;
+  return edn?.t === "str" ? edn.v : "";
+}
+
+/** EDN and limit off the node's props: what it runs; null when it is no query node or holds no EDN yet. */
+export function queryDefOf(node: Carrier | undefined): QueryNodeDef | null {
+  const edn = queryTextOf(node)?.trim() ?? "";
+  if (node === undefined || edn === "") return null;
   const limit = (node.props[SYSTEM_IDS.queryLimitField] ?? []).find((v) => v.t === "num");
-  return { edn: edn.v.trim(), limit: limit?.t === "num" ? limit.v : null };
+  return { edn, limit: limit?.t === "num" ? limit.v : null };
 }

@@ -105,6 +105,9 @@
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
 - Overnight plans (2026-10-17): canvas tldraw parity first, then locations, agent providers, family footprints, trace and label — start only after O3–O5. Index: docs/brainstorms/2026-10-17-kb-overnight-plans.md
 - oxlint 1.83 → 1.86 with @oxlint/plugins and oxc-parser
+- Query builder: a query that comes back with no results says which condition removed the last node
+- Query builder: a query that does not lift says which clause, and text that does not parse says its line and column
+- Query builder: the hop limit of is under / is above is shown, not edited, and numbers and dates have no between
 - safe minors and patches + bun audit fix (35 advisories, 15 high: rerun bun audit for the full list); drop root overrides that repeat the catalog's vite/vitest
 - Sidebar agent config (model, executable) as fields on the agent's extension node; folds into the plugin-config step
 - Vite+ 1.0 stack: vite-plus 1.0, vitest 5, plugin-react 6, vp migrate (vi.mock in 16 files)

@@ -12,6 +12,7 @@ import {
 import {
   browserHost,
   cn,
+  EdnEditor,
   hasText,
   navigate,
   NotFound,
@@ -162,10 +163,14 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         </DefinitionRow>
 
         <DefinitionRow label="query" align="start">
-          <QueryEditor
-            ontologyId={ontologyId}
+          {/* Parameter-free EDN only: the client datalog runner takes no inputs,
+              so an ontology's query cannot be parameterised (r5 §0.1). */}
+          <EdnEditor
             value={storedQuery}
+            label="Ontology query (EDN)"
+            placeholder="[:find ?id :where …]  — parameter-free EDN"
             warning={resolution.warnings.find((w) => w.startsWith("onto.query"))}
+            onCommit={(text) => void browserHost().writes.ontologySetQuery(ontologyId, text)}
           />
         </DefinitionRow>
 
@@ -396,69 +401,6 @@ function Segmented<T extends string>({
           {o.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-/**
- * Parameter-free EDN only: the client datalog runner takes no inputs, so an
- * ontology's query cannot be parameterised (r5 §0.1).
- */
-function QueryEditor({
-  ontologyId,
-  value,
-  warning,
-}: {
-  ontologyId: string;
-  value: string;
-  warning: string | undefined;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    if (!editing) setDraft(value);
-  }, [value, editing]);
-
-  const commit = () => {
-    setEditing(false);
-    if (draft.trim() === value.trim()) return;
-    void browserHost().writes.ontologySetQuery(ontologyId, draft);
-  };
-
-  return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1">
-      <textarea
-        value={draft}
-        rows={draft.includes("\n") ? 3 : 1}
-        spellCheck={false}
-        aria-label="Ontology query (EDN)"
-        placeholder="[:find ?id :where …]  — parameter-free EDN"
-        className={cn(
-          "w-full resize-y rounded-md bg-foreground/[0.03] px-2 py-1",
-          "font-mono text-label leading-[1.5] text-foreground/75 outline-none",
-          "placeholder:text-foreground/25 focus:bg-foreground/[0.05]",
-          hasText(warning) && "ring-1 ring-warning/40",
-        )}
-        onFocus={() => setEditing(true)}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.preventDefault();
-            setDraft(value);
-            setEditing(false);
-            e.currentTarget.blur();
-            return;
-          }
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            commit();
-            e.currentTarget.blur();
-          }
-        }}
-      />
-      {hasText(warning) ? <span className="text-label text-warning">{warning}</span> : null}
     </div>
   );
 }

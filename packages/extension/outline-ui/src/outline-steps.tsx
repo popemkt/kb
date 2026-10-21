@@ -20,8 +20,12 @@ import {
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
 
-/** Nodes whose kind slot points at `kind`, by name. */
-function nodesOfKind(wireNodes: readonly WireNode[], kind: string): PickerCandidate[] {
+/**
+ * Nodes whose kind slot points at `kind`, by name: the tags (`sys.tag`) the
+ * add-tag step offers, the fields (`sys.field`) the add-field step offers,
+ * and the same candidates wherever else a tag or a field is picked.
+ */
+export function nodesOfKind(wireNodes: readonly WireNode[], kind: string): PickerCandidate[] {
   return wireNodes
     .filter((n) => (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === kind))
     .map((n) => ({ id: n.id, label: n.text || n.id }))

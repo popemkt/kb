@@ -132,7 +132,7 @@ export {
   siblingSlots,
 } from "./order.ts";
 export type { NodeRank, RankSlot, SiblingGroups, Slots } from "./order.ts";
-export { hasQueryDef, isQueryNode, queryDefOf } from "./query-node.ts";
+export { hasQueryDef, isQueryNode, queryDefOf, queryTextOf } from "./query-node.ts";
 export type { QueryNodeDef } from "./query-node.ts";
 export {
   ResolveError,

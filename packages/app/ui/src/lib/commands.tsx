@@ -296,7 +296,6 @@ const NODE_COMMANDS: readonly Command[] = [
     chrome: () => ({ label: "Add tag", icon: <HashIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-tag"),
   },
-  // GAP [[01M5CRYKQAHJNG5SSRVSYE77GN]] the query this writes has no editor afterwards
   {
     id: "turn-query",
     scope: "node",

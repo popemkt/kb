@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, hasQueryDef, isQueryNode, queryDefOf } from "@kb/model";
+import { SYSTEM_IDS, hasQueryDef, isQueryNode, queryDefOf, queryTextOf } from "@kb/model";
 
 const EDN = "[:find ?id :where [?n :node/id ?id]]";
 
@@ -18,12 +18,20 @@ describe("query nodes", () => {
   test("an empty EDN is a query being written: a query node with nothing to run", () => {
     const node = { props: { [SYSTEM_IDS.queryField]: [{ t: "str" as const, v: " " }] } };
     expect(hasQueryDef(node.props)).toBe(true);
+    expect(queryTextOf(node)).toBe("");
     expect(queryDefOf(node)).toBeNull();
+  });
+
+  test("its text is the EDN as written; what it runs is that text, trimmed", () => {
+    const node = { props: { [SYSTEM_IDS.queryField]: [{ t: "str" as const, v: `  ${EDN}\n` }] } };
+    expect(queryTextOf(node)).toBe(`  ${EDN}\n`);
+    expect(queryDefOf(node)?.edn).toBe(EDN);
   });
 
   test("a node without the field is no query node", () => {
     expect(isQueryNode({ props: {} })).toBe(false);
     expect(queryDefOf({ props: {} })).toBeNull();
+    expect(queryTextOf({ props: {} })).toBeNull();
     expect(queryDefOf(undefined)).toBeNull();
   });
 });
