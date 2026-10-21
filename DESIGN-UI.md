@@ -2049,8 +2049,10 @@ how the stored name resolves to the key among them.
   toolbar, the node menu and the `view-as` commands list the provided frame
   views by their pickers, and every one of them, the toolbar's settings
   included, writes the frame's view node (`planEditFrameView`), making it on
-  the first edit; none writes the frame's own props. A view node is edited
-  as a row with fields, like any node, where it is filed. A view node is
+  the first edit; none writes the frame's own props. A view node's
+  settings are fields its seed hides from field rows (DESIGN.md → Data
+  model → field visibility), since the toolbar draws and writes them; its
+  debug fields show them where it is filed. A view node is
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
