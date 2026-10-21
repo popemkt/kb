@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { KbNode } from "@kb/model";
-import { DatascriptIndex, derivedWith } from "@kb/query";
+import { answerOf, DatascriptIndex, derivedWith } from "@kb/query";
 import {
-  answerOf,
   type QueryAnswer,
   type QueryRequest,
   type QueryTransport,
   ReplicaQueries,
 } from "./replica-queries";
+
+const clock = () => performance.now();
 
 function node(id: string, text = id): KbNode {
   return {
@@ -31,7 +32,7 @@ function heldTransport(index: DatascriptIndex) {
   const transport: QueryTransport = {
     run: (request) =>
       new Promise<QueryAnswer>((resolve) => {
-        out.push({ request, release: () => resolve(answerOf(index, request)) });
+        out.push({ request, release: () => resolve(answerOf(index, request, clock)) });
       }),
   };
   return {
@@ -116,7 +117,7 @@ describe("the page's query answers", () => {
   it("a runner throws a refused query as the engine threw it", async () => {
     const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     const queries = new ReplicaQueries(
-      { run: async (request) => answerOf(index, request) },
+      { run: async (request) => answerOf(index, request, clock) },
       () => index.generation,
     );
     const bad = "[:find ?x :where [?y :node/id ?z]]";
@@ -129,7 +130,7 @@ describe("the page's query answers", () => {
       derived: derivedWith({}),
     });
     const queries = new ReplicaQueries(
-      { run: async (request) => answerOf(index, request) },
+      { run: async (request) => answerOf(index, request, clock) },
       () => index.generation,
     );
     const follow = (run: (edn: string) => unknown[][]) => {

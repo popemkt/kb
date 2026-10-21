@@ -1,7 +1,8 @@
+import { answersOver } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import { normalizeEdnQuery } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { fixtureGraph } from "@/api/fixture-graph";
-import { DatascriptIndex, derivedWith, inThreadTransport, ReplicaQueries } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
 
 /**
  * The page's one datalog seam is an `EdnRunner`: the helpers take one, and
@@ -9,7 +10,7 @@ import { DatascriptIndex, derivedWith, inThreadTransport, ReplicaQueries } from 
  */
 describe("client datalog execution", () => {
   const qdb = new DatascriptIndex(fixtureGraph.nodes, { derived: derivedWith({}) });
-  const queries = new ReplicaQueries(inThreadTransport(qdb), () => qdb.generation);
+  const queries = answersOver(qdb);
   /** The runner as the page reads it: over the answers, once they are in. */
   const run = (edn: string) => queries.settle((r) => r(edn));
 
@@ -39,7 +40,7 @@ describe("client datalog execution", () => {
   });
 
   it("reads as no rows until answered, never blocking", () => {
-    const fresh = new ReplicaQueries(inThreadTransport(qdb), () => qdb.generation);
+    const fresh = answersOver(qdb);
     expect(fresh.runner()("[:find ?id :where [?n :node/id ?id]]")).toEqual([]);
   });
 

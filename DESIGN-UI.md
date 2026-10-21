@@ -176,6 +176,27 @@ its own time: no page code holds a synchronous query handle. What the page
 holds is its **query answers** (`ReplicaQueries`, `@kb/ui-sdk`), one per
 query text, each as of a generation of the replica.
 
+- **The engine lives in a Web Worker.** The page's replica index is a
+  `RemoteIndex` (`@kb/query`): the node table and its point reads stay on
+  the main thread, and the derived datalog database lives in a worker
+  (`engine/index.worker.ts`, `serveIndex`), fed the same txs. A query is
+  a message to it and its answer a message back, so a slow query never
+  holds the page. The server and the CLI keep their in-process index; the
+  worker is the page's alone. A host without workers (the unit tests)
+  serves the same protocol in-thread (`inThreadPort`).
+- **Every run has a budget.** A query is given `QUERY_BUDGET_MS` from the
+  moment the engine starts it. A run that overruns is stopped — the worker
+  is terminated, a fresh one is loaded from the table, and the runs it had
+  queued are asked again — and its answer is `over-budget`, which readers
+  show as "took too long" rather than as wrong datalog. A run the engine
+  cannot interrupt (in-thread) is still answered `over-budget` when it
+  returns late. The worker boundary is the seam a read-set-based re-run
+  would live behind; today a move of the replica asks every watched query
+  again.
+- **Query nodes too.** The rows under a query node, a chart over it and a
+  count of it are answers like any other: the page subscribes to no query
+  over `/ws`, whether the socket is open or not.
+
 - **A read never blocks.** A reader reads the last answer the page has for a
   query and whether it is current. A query not yet answered reads as no
   rows; one the engine refused reads as the error it threw. Reading a query
@@ -217,8 +238,9 @@ WS protocol (JSON):
   from the current nodes; on fs change it re-runs each subscription's query and
   pushes rows if the result hash changed. Coarse but correct; 50k nodes re-query
   in ~20ms, fine for tens of subscriptions.
-- The browser UI is just subscriber #0 (it mostly uses `tx` events + local
-  re-run; thin clients use `rows` subscriptions and need no DataScript).
+- The browser UI subscribes to `tx` only and answers every query from its
+  own replica (→ Replica queries); `rows` subscriptions are for thin
+  clients, which need no DataScript.
 - Growth path kept open, not built: result diffing, per-query dependency
   tracking (nxus has a reference impl), auth token if ever exposed beyond
   localhost. Server binds 127.0.0.1 only.
@@ -2239,14 +2261,12 @@ so a pane, a dashboard's pane and the pane switcher (which offers it for
 every node by its key) reach it with nothing of its own.
 
 - **Its rows are live.** `useChartData` (`@kb/chart-ui`'s `chart-data`)
-  reads the source query node's rows from the query node's subscription
-  over `/ws`, or from the local index while the socket is closed
-  (`useQueryNodeRows`, the one path a query node's rows take), and names
-  and caps them through `@kb/chart`'s `chartRecords`, as the server's text
-  does. A subscription id names
-  its subscriber (`querySubscriptionId`), so a chart and the query's row in
-  another pane each keep their own. When there is nothing to draw the page
-  says why: no source, a source that is no query, a query that fails.
+  reads the source query node's rows as the replica answers them
+  (`useQueryRows`, the one path a query node's rows take, so the chart and
+  the query's results are one run; → Replica queries), and names and caps
+  them through `@kb/chart`'s `chartRecords`, as the server's text does.
+  When there is nothing to draw the page says why: no source, a source
+  that is no query, a query that fails, a query stopped at its budget.
 - **Vega loads in a chunk of its own**, inside the page's chunk, only once
   there are rows (`chart-canvas`, the one UI module that imports
   `@kb/chart-vega`; the lazy-chunk fence in `harness/src/constraints.ts`

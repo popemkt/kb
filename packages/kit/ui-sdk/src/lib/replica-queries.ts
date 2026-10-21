@@ -14,57 +14,19 @@
  * what the page shows. A query no one watches is asked again only when it is
  * read, and forgotten once enough others have been read since.
  */
-import type { EdnRunner, KbIndex } from "@kb/query";
+import type { EdnRunner, QueryAnswer, QueryRequest, QueryTransport } from "@kb/query";
 
-/** What the engine said to one query, as of the generation it answered at. */
-export type QueryAnswer =
-  | { readonly kind: "rows"; readonly rows: unknown[][]; readonly generation: number }
-  | {
-      readonly kind: "error";
-      /** The engine's name for what it threw: `DatalogError` when the datalog is wrong. */
-      readonly name: string;
-      readonly message: string;
-      readonly generation: number;
-    };
-
-/** One query as the engine runs it: datalog, and the inputs after `$` its `:in` names. */
-export interface QueryRequest {
-  readonly edn: string;
-  readonly inputs?: readonly unknown[];
-}
+export type { QueryAnswer, QueryRequest, QueryTransport } from "@kb/query";
 
 /**
- * How the engine is reached: one query, asked when the replica is at
- * `generation`, answered whenever, as of the generation it ran at. It never
- * rejects: a query the engine refuses is an `error` answer.
+ * How long one run of the page's engine may take before its answer is that
+ * it took too long: long enough for any query a person reads the answer of,
+ * short enough that a slow one is stopped well before it is a hang.
  */
-export interface QueryTransport {
-  readonly run: (request: QueryRequest, generation: number) => Promise<QueryAnswer>;
-}
+export const QUERY_BUDGET_MS = 3000;
 
-/** `request` answered by `index`, as of the generation it stands at. */
-export function answerOf(index: KbIndex, request: QueryRequest): QueryAnswer {
-  const generation = index.generation;
-  try {
-    return {
-      kind: "rows",
-      rows: index.runDatalog(request.edn, ...(request.inputs ?? [])),
-      generation,
-    };
-  } catch (error) {
-    return {
-      kind: "error",
-      name: error instanceof Error ? error.name : "Error",
-      message: error instanceof Error ? error.message : String(error),
-      generation,
-    };
-  }
-}
-
-/** The transport of an engine in this thread: each query answered on the turn after it is asked. */
-export function inThreadTransport(index: KbIndex): QueryTransport {
-  return { run: (request) => Promise.resolve().then(() => answerOf(index, request)) };
-}
+/** A query the page asks, without the budget every run of it gets. */
+export type PageQuery = Omit<QueryRequest, "budgetMs">;
 
 /**
  * A query's answer as a reader finds it: the last one (null before any) and
@@ -88,11 +50,17 @@ interface Entry {
   readonly listeners: Set<() => void>;
 }
 
-/** A refused answer, thrown as an in-process runner would throw it. */
+/** What a query that is not rows says, in a sentence: the engine's refusal, or that it ran too long. */
+export function answerMessage(answer: Exclude<QueryAnswer, { kind: "rows" }>): string {
+  if (answer.kind === "error") return answer.message;
+  return `the query took longer than ${answer.budgetMs / 1000} s to run, so it was stopped`;
+}
+
+/** An answer that is not rows, thrown as an in-process runner would throw it. */
 class AnsweredError extends Error {
-  constructor(answer: Extract<QueryAnswer, { kind: "error" }>) {
-    super(answer.message);
-    this.name = answer.name;
+  constructor(answer: Exclude<QueryAnswer, { kind: "rows" }>) {
+    super(answerMessage(answer));
+    this.name = answer.kind === "error" ? answer.name : "QueryOverBudget";
   }
 }
 
@@ -112,7 +80,7 @@ export interface QueryAnswers {
   read(edn: string): QueryRead;
   watch(edn: string): () => void;
   moved(): void;
-  once(request: QueryRequest): Promise<QueryAnswer>;
+  once(request: PageQuery): Promise<QueryAnswer>;
   ask(edn: string): Promise<QueryAnswer>;
   runner(reads?: Map<string, QueryRead>): EdnRunner;
   settle<T>(read: (run: EdnRunner) => T): Promise<T>;
@@ -126,9 +94,16 @@ export class ReplicaQueries implements QueryAnswers {
   readonly #listeners = new Set<() => void>();
   #version = 0;
 
-  constructor(transport: QueryTransport, generation: () => number) {
+  readonly #budgetMs: number;
+
+  constructor(
+    transport: QueryTransport,
+    generation: () => number,
+    budgetMs: number = QUERY_BUDGET_MS,
+  ) {
     this.#transport = transport;
     this.#generation = generation;
+    this.#budgetMs = budgetMs;
   }
 
   /** Bumps whenever any answer arrives: what a reader of many queries compares. */
@@ -185,8 +160,8 @@ export class ReplicaQueries implements QueryAnswers {
    * `request` answered once, as of now, outside the cache: a query with
    * inputs, which no reader shares (an action's `graph.query`).
    */
-  once(request: QueryRequest): Promise<QueryAnswer> {
-    return this.#transport.run(request, this.#generation());
+  once(request: PageQuery): Promise<QueryAnswer> {
+    return this.#transport.run({ ...request, budgetMs: this.#budgetMs });
   }
 
   /** The answer to `edn` as of the current generation, when it arrives. */
@@ -204,7 +179,8 @@ export class ReplicaQueries implements QueryAnswers {
 
   /**
    * A synchronous runner over the answers the page has: a query's last rows,
-   * a thrown error for a refused one, no rows for one never answered. Each
+   * a thrown error for a refused one or one that ran too long, no rows for
+   * one never answered. Each
    * query it reads is asked for when not current, and named in `reads` when
    * given, so a caller can watch what it read.
    */
@@ -214,7 +190,7 @@ export class ReplicaQueries implements QueryAnswers {
       reads?.set(edn, read);
       const { answer } = read;
       if (answer === null) return [];
-      if (answer.kind === "error") throw new AnsweredError(answer);
+      if (answer.kind !== "rows") throw new AnsweredError(answer);
       return answer.rows;
     };
   }
@@ -287,7 +263,7 @@ export class ReplicaQueries implements QueryAnswers {
     if (entry.asking === generation) return;
     if (entry.answer !== null && entry.answer.generation >= generation) return;
     entry.asking = generation;
-    void this.#transport.run({ edn }, generation).then(
+    void this.#transport.run({ edn, budgetMs: this.#budgetMs }).then(
       (answer) => this.#land(entry, answer),
       (error: unknown) =>
         this.#land(entry, {

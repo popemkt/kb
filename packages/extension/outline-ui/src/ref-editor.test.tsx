@@ -11,19 +11,18 @@
  * (constrain, then limit — not limit, then constrain), and the one-placeholder
  * rule for the ref editing slot.
  */
+import { answersOver } from "@kb/ui-test-kit";
 import {
   DatascriptIndex,
   derivedWith,
   FIELD_TYPE_OPTION_IDS,
   fieldContextOf,
-  inThreadTransport,
   nodeCandidates,
   resolveAllowedRefIds,
   SYSTEM_IDS,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
   type FieldContext,
-  ReplicaQueries,
   type QueryAnswers,
   type NodeMap,
   type SchemaIndex,
@@ -104,7 +103,7 @@ async function answeredOver(
   fieldId: string = SYSTEM_IDS.fieldTypeField,
 ): Promise<QueryAnswers> {
   const index = new DatascriptIndex(graph, { derived: derivedWith({}) });
-  const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+  const queries = answersOver(index);
   const nodes = wireToOutlineMap(graph, new Set());
   await queries.settle((run) =>
     resolveAllowedRefIds(nodes.get(fieldId), schemaOfGraph(nodes), run),

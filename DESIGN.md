@@ -1606,9 +1606,9 @@ same lane. One path to a client, whatever a node's provenance.
   nodes, then queries that value.
 - `kb query '<edn datalog>'` for raw power; pull API via `kb get <id> --depth N`.
 - **One parser, one compiler.** Every datalog surface — `kb query`, `kb run`,
-  MCP `graph_query`, `#query` nodes over `/ws`, the UI's `@/ds` seam — hands
-  its EDN to `KbIndex.runDatalog`, which is `compile(parseEdn(edn))` then
-  DataScript. The subset `parseEdn` understands becomes the kb IR
+  MCP `graph_query`, `rows` subscriptions over `/ws`, the page's engine
+  worker — hands its EDN to `runDatalog` on a `DatascriptIndex`, which is
+  `compile(parseEdn(edn))` then DataScript. The subset `parseEdn` understands becomes the kb IR
   (`@kb/query`'s `ir.ts`); anything else passes through as `raw`, unchanged.
 - **Two halves, one owner.** An index is its node set and point reads
   (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, the text scan, the
@@ -1621,6 +1621,9 @@ same lane. One path to a client, whatever a node's provenance.
   synchronous runner (`resolveOntology`, `allowedRefIdsOf`) runs against any
   engine through `answered`. A surface that only runs where the engine is in
   process (render, docs, the server's subscriptions) reads `KbIndexService`.
+  The page's index is the one whose engine is not in process: a
+  `RemoteIndex` keeps the node table and asks a worker for datalog, each
+  run under a budget (`DESIGN-UI.md` → Replica queries).
 - **A number stays a number when the query parses.** A ref prop and a number
   prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
   so a result value that equals a live eid could be either. For a query in

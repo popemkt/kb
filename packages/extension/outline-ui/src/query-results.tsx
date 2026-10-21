@@ -46,7 +46,7 @@ export function QueryResultsSection({
   const def = queryDefOf(node);
   const edn = def?.edn ?? null;
 
-  const { rows, error } = useQueryRows({ nodeId, edn });
+  const { rows, error } = useQueryRows(edn);
 
   if (!def || edn === null) return null;
 

@@ -209,8 +209,6 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     setNodePaletteOpen: () => {},
     follow: () => {},
     wireNodes: () => NO_WIRE,
-    live: () => false,
-    subscribeQuery: () => () => {},
     appearance: () => LIGHT,
     prefs: () => PREFS,
     prefsOpen: () => false,

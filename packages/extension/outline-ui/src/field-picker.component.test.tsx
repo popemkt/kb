@@ -9,16 +9,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
-import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { installDomGlobals, type InstalledDom, answersOver } from "@kb/ui-test-kit";
 import {
   DatascriptIndex,
   derivedWith,
   fieldContextOf,
   fieldTypeValue,
-  inThreadTransport,
   OptionPreviewPoint,
   resolveAllowedRefIds,
-  ReplicaQueries,
   schemaOfGraph,
   syncUiPlugins,
   SYSTEM_IDS,
@@ -68,7 +66,7 @@ function freshContextOf(graph: WireNode[]): FieldContext {
   const nodes = wireToOutlineMap(graph, new Set());
   const schema = schemaOfGraph(nodes);
   const index = new DatascriptIndex(graph, { derived: derivedWith({}) });
-  const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+  const queries = answersOver(index);
   return fieldContextOf({ schema, nodes, queries });
 }
 

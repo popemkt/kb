@@ -8,12 +8,10 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { installDomGlobals, type InstalledDom, answersOver } from "@kb/ui-test-kit";
 import {
   DatascriptIndex,
   derivedWith,
-  inThreadTransport,
-  ReplicaQueries,
   resolveAllowedRefIds,
   fieldContextOf,
   fieldTypeValue,
@@ -759,10 +757,7 @@ describe("an option value is a chip", () => {
   // The option set is the field's children, a declaration resolved by query.
   const optionNodes = wireToOutlineMap(optionWire, new Set());
   const optionIndex = new DatascriptIndex(optionWire, { derived: derivedWith({}) });
-  const optionQueries = new ReplicaQueries(
-    inThreadTransport(optionIndex),
-    () => optionIndex.generation,
-  );
+  const optionQueries = answersOver(optionIndex);
   const optionContext = fieldContextOf({
     schema: schemaOfGraph(optionNodes),
     nodes: optionNodes,

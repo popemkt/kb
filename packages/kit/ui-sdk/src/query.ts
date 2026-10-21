@@ -10,7 +10,15 @@ import { familyViewNodesQuery, type ViewFamily } from "@kb/model";
 import { backlinksQuery, neighbourhoodQuery, type EdnRunner } from "@kb/query";
 
 export type { EdnRunner, KbIndex, NodeIndex } from "@kb/query";
-export { DatascriptIndex, derivedWith, queryRecords } from "@kb/query";
+export {
+  answerOf,
+  DatascriptIndex,
+  derivedWith,
+  inThreadPort,
+  queryRecords,
+  RemoteIndex,
+} from "@kb/query";
+export type { EnginePort, FromEngine, Timers } from "@kb/query";
 export type { QueryRecords } from "@kb/query";
 
 /**

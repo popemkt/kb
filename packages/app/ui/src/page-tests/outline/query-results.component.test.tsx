@@ -1,14 +1,15 @@
 /**
- * A live query node answers with rows or with an error, and both reach the
- * results section. Before, only rows did: a query the server could not run
- * left "Loading results…" on screen forever (closing audit P1-6).
+ * A query node answers with rows or with an error, and both reach the
+ * results section. Before, only rows did: a query that could not run left
+ * "Loading results…" on screen forever (closing audit P1-6). The answer is
+ * the replica's engine's, socket open or not (DESIGN-UI.md → Replica
+ * queries).
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import type { SubscriptionSink } from "@/api/ws";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
@@ -16,15 +17,6 @@ import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { OutlineListView } from "@kb/views";
 import { QueryResultsSection } from "@kb/outline-ui";
-
-const sinks = new Map<string, SubscriptionSink>();
-
-vi.mock("@/api/live", () => ({
-  getLiveClient: () => ({
-    subscribe: (id: string, _query: string, sink: SubscriptionSink) => sinks.set(id, sink),
-    unsubscribe: (id: string) => sinks.delete(id),
-  }),
-}));
 
 const BAD_EDN = "[:find ?id :where";
 
@@ -39,7 +31,7 @@ function queryWire(): WireNode {
   };
 }
 
-describe("query results: a live subscription's error (component)", () => {
+describe("query results: the replica's error answer (component)", () => {
   let dom: Window;
   let container: HTMLDivElement;
   let root: Root;
@@ -54,7 +46,6 @@ describe("query results: a live subscription's error (component)", () => {
   });
 
   beforeEach(() => {
-    sinks.clear();
     resetOutlineStore();
     useGraphStore
       .getState()
@@ -71,7 +62,7 @@ describe("query results: a live subscription's error (component)", () => {
     useUiStore.getState().setWsStatus("idle");
   });
 
-  it("shows the server's error in place of the loading state", () => {
+  it("shows the engine's error in place of the loading state", async () => {
     act(() =>
       root.render(
         createElement(QueryResultsSection, {
@@ -84,17 +75,15 @@ describe("query results: a live subscription's error (component)", () => {
     );
     expect(container.textContent).toContain("Loading results…");
 
-    const [sink] = [...sinks.entries()].flatMap(([id, s]) =>
-      id.startsWith("query-node:n.bad#") ? [s] : [],
-    );
-    expect(sink).toBeDefined();
-    act(() => sink?.error({ code: "query_error", message: "bad find spec" }));
-
-    expect(container.textContent).toContain("bad find spec");
+    // The reader that asks it throws the refusal; the section shows it.
+    await act(async () => {
+      await useGraphStore
+        .getState()
+        .queries?.settle((run) => run(BAD_EDN))
+        .catch(() => undefined);
+    });
     expect(container.textContent).not.toContain("Loading results…");
-
-    // A later answer replaces the error.
-    act(() => sink?.rows([], 2));
-    expect(container.textContent).not.toContain("bad find spec");
+    const shown = container.querySelector('[data-query-results-for="n.bad"] .text-destructive');
+    expect(shown?.textContent).toContain("Unexpected EOF");
   });
 });

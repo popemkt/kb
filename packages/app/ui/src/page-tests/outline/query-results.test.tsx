@@ -6,6 +6,7 @@
  * store-coupled components are covered by the logic tests in
  * lib/query-node.test.ts + instance-identity.component.test.tsx).
  */
+import { answersOver } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
@@ -14,9 +15,7 @@ import {
   Bullet,
   DatascriptIndex,
   derivedWith,
-  inThreadTransport,
   type OutlineNode,
-  ReplicaQueries,
   resultNodeIds,
   SYSTEM_IDS,
   wireToOutlineMap,
@@ -57,7 +56,7 @@ describe("result row render (W4)", () => {
     const db = new DatascriptIndex([...fixtureGraph.nodes, queryWire()], {
       derived: derivedWith({}),
     });
-    const queries = new ReplicaQueries(inThreadTransport(db), () => db.generation);
+    const queries = answersOver(db);
     const rows = await queries.settle((run) => run(TODO_EDN));
     const ids = resultNodeIds(rows, nodes, { excludeId: "n.q1" });
     expect(ids.toSorted()).toEqual(["n.root-a", "n.root-b"]);

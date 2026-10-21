@@ -331,15 +331,15 @@ export {
   type TagBadge,
   WORKSPACE_ROOT_ID,
 } from "./lib/types";
+export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
-  type QueryRowsSubscribe,
-  resultNodeIds,
-  useQueryNodeRows,
-} from "./lib/use-query-node-rows";
-export {
+  answerOf,
   DatascriptIndex,
   derivedWith,
   type EdnRunner,
+  type EnginePort,
+  type FromEngine,
+  inThreadPort,
   type KbIndex,
   type NodeIndex,
   queryBacklinks,
@@ -347,10 +347,13 @@ export {
   queryNeighbourhood,
   queryRecords,
   type QueryRecords,
+  RemoteIndex,
+  type Timers,
 } from "./query";
 export {
-  answerOf,
-  inThreadTransport,
+  answerMessage,
+  type PageQuery,
+  QUERY_BUDGET_MS,
   type QueryAnswer,
   type QueryRead,
   type QueryRequest,

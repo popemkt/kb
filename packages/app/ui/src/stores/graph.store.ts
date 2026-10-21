@@ -10,7 +10,6 @@
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import {
-  DatascriptIndex,
   inScope,
   shownNodesOf,
   type GraphChange,
@@ -18,11 +17,11 @@ import {
   type PageGraphState,
   type PageProjection,
   PageProjectionService,
+  type RemoteIndex,
   type ScopeSource,
   toast,
   UNDO_DEPTH,
   WORKSPACE_ROOT_ID,
-  inThreadTransport,
   type NodeMap,
   type OutlineNode,
   type QueryAnswers,
@@ -32,16 +31,8 @@ import { followProvided, portSlot } from "@/stores/port-slot";
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
-import { bundledDerived } from "@kb/bundled";
+import { replicaOver } from "@/session/engine";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
-
-/**
- * The page's index over `nodes`, deriving what the bundled families declare
- * (`bundledDerived`), as the server's index does, so References agree.
- */
-const indexOver = (nodes: readonly WireNode[]) =>
-  // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive ownership from the bundled fold only
-  new DatascriptIndex(nodes, { derived: bundledDerived() });
 
 /** Who listens for an answer arriving, whichever replica's answers it is. */
 const answerListeners = new Set<() => void>();
@@ -56,9 +47,9 @@ export function subscribeAnswers(listener: () => void): () => void {
   return () => answerListeners.delete(listener);
 }
 
-/** The replica's query answers over `index`, told to the page's answer listeners. */
-function answersOver(index: DatascriptIndex): QueryAnswers {
-  const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+/** The replica's query answers over `index`'s engine, told to the page's answer listeners. */
+function answersOver(index: RemoteIndex): QueryAnswers {
+  const queries = new ReplicaQueries(index.transport, () => index.generation);
   queries.subscribe(() => {
     for (const listener of answerListeners) listener();
   });
@@ -80,6 +71,8 @@ interface UndoEntry {
  * (`scopedWireOf`).
  */
 interface GraphState extends PageGraphState {
+  /** The replica: its node set here, its engine in a worker (`replicaOver`). */
+  readonly index: RemoteIndex | null;
   rev: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
@@ -252,7 +245,8 @@ export function replaceGraph(next: GraphStateData): void {
 
 function hydrateFromWire(wireNodes: WireNode[], rev: number, source: "api" | "fixtures"): void {
   // A fresh load starts unscoped; App re-applies the URL scope after.
-  const index = indexOver(wireNodes);
+  now().index?.close();
+  const index = replicaOver(wireNodes);
   const queries = answersOver(index);
   replaceBrowserSession(wireNodes, rev, index, queries, {
     onLocalCommit: syncFromIndex,

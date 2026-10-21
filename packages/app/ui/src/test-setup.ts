@@ -1,5 +1,18 @@
 import { beforeAll } from "vitest";
 
+// No test DOM has workers: the page's query engine runs in the test's own
+// thread, behind the same port, so a page under test answers as the page does.
+// Loaded once the file's module has been evaluated, as the host below is, so
+// a module the file mocks is mocked here too.
+beforeAll(async () => {
+  const [{ bundledDerived }, { inThreadPort }, { provideEngine }] = await Promise.all([
+    import("@kb/bundled"),
+    import("@kb/ui-sdk"),
+    import("@/session/engine"),
+  ]);
+  provideEngine(() => inThreadPort(bundledDerived(), () => performance.now(), queueMicrotask));
+});
+
 // The shell's tests run in a page: before a file's own hooks, the UI kernel
 // holds the shell's host, as the app's does, so a family reaching the page
 // through it (`browserHost()`) finds it. It is loaded once the file's module

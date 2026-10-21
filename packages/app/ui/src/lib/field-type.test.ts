@@ -1,14 +1,13 @@
+import { answersOver } from "@kb/ui-test-kit";
 import {
   clearAllowedRefIdsCache,
   DatascriptIndex,
   derivedWith,
   emptyValueForType,
-  inThreadTransport,
   fieldTypeValue,
   isSysPrefixed,
   isValueMismatch,
   nodeCandidates,
-  ReplicaQueries,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
   resolveFieldType,
@@ -155,7 +154,7 @@ describe("field types", () => {
     const field = nodes.get("field.assignee");
     const schema = schemaFor(nodes);
     const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
-    const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+    const queries = answersOver(index);
     const a = resolveAllowedRefIdsCached("field.assignee", field, schema, queries);
     const b = resolveAllowedRefIdsCached("field.assignee", field, schema, queries);
     expect(a).toBe(b);
@@ -195,7 +194,7 @@ describe("field types", () => {
     const field = nodes.get("field.q");
     const schema = schemaFor(nodes);
     const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
-    const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+    const queries = answersOver(index);
     const before = resolveAllowedRefIdsCached("field.q", field, schema, queries);
     expect([...present(before, "unanswered")]).toEqual([]);
     await queries.ask(edn);

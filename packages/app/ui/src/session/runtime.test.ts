@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { DatascriptIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
+import { bundledDerived } from "@kb/bundled";
+import { inThreadPort } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
+import { provideEngine } from "@/session/engine";
 import { invoke, invokeLocal, setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 
@@ -68,11 +70,21 @@ describe("browser action runtime", () => {
   });
 
   it("keeps fifty local node updates incremental", async () => {
+    // Each update reaches the engine as one transaction, never as a reload
+    // of the graph; the engine's index takes a transaction incrementally
+    // (`DatascriptIndex`, its own suite).
+    const sent: string[] = [];
+    provideEngine(() => {
+      const port = inThreadPort(bundledDerived(), () => performance.now(), queueMicrotask);
+      return {
+        ...port,
+        send: (message) => {
+          sent.push(message.op);
+          port.send(message);
+        },
+      };
+    });
     useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
-    const index = useGraphStore.getState().index;
-    expect(index).toBeInstanceOf(DatascriptIndex);
-    if (!(index instanceof DatascriptIndex)) throw new Error("expected a DatascriptIndex");
-    const before = index.rebuilds;
 
     await Array.from({ length: 50 }, (_, i) => i).reduce(
       (tail, i) =>
@@ -87,7 +99,8 @@ describe("browser action runtime", () => {
       Promise.resolve(),
     );
 
-    expect(index.rebuilds).toBe(before);
+    expect(sent.filter((op) => op !== "query")).toEqual(["load", ...Array(50).fill("tx")]);
+    provideEngine(() => inThreadPort(bundledDerived(), () => performance.now(), queueMicrotask));
   });
 
   it("an equal confirming echo converges without duplicating the node", async () => {

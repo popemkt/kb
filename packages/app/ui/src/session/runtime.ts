@@ -29,7 +29,13 @@ import {
   noteStoreSynced,
 } from "@kb/operations";
 import { postAction, type ActionResponse } from "@/api/action";
-import { type QueryAnswer, type QueryAnswers, toast, uiKernelReader } from "@kb/ui-sdk";
+import {
+  answerMessage,
+  type QueryAnswer,
+  type QueryAnswers,
+  toast,
+  uiKernelReader,
+} from "@kb/ui-sdk";
 import { livePageCatalog } from "@/lib/view-catalog";
 import { BrowserStore } from "./browser-store";
 import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
@@ -72,11 +78,17 @@ function noteBrowserStoreSynced(current: BrowserSession): void {
   Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));
 }
 
-/** What an engine threw, as the action boundary reads it (`classifyQueryError`). */
-function refusal(answer: Extract<QueryAnswer, { kind: "error" }>): Error {
-  if (answer.name === "DatalogError") return new DatalogError(answer.message);
-  const error = new Error(answer.message);
-  error.name = answer.name;
+/**
+ * An answer that is not rows, as the action boundary reads it
+ * (`classifyQueryError`): wrong datalog is the caller's; a refusal of any
+ * other kind, or a run stopped at its budget, is not.
+ */
+function refusal(answer: Exclude<QueryAnswer, { kind: "rows" }>): Error {
+  if (answer.kind === "error" && answer.name === "DatalogError") {
+    return new DatalogError(answer.message);
+  }
+  const error = new Error(answerMessage(answer));
+  error.name = answer.kind === "error" ? answer.name : "QueryOverBudget";
   return error;
 }
 

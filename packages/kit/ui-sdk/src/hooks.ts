@@ -14,7 +14,7 @@ import {
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
 import type { EdnRunner } from "./query";
-import type { QueryRead, QueryAnswers } from "./lib/replica-queries";
+import { answerMessage, type QueryRead, type QueryAnswers } from "./lib/replica-queries";
 import {
   type Answered,
   useAnsweredThrough,
@@ -27,7 +27,6 @@ import type { RefInk } from "./lib/md-edit";
 import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
 import { schemaOf, type SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
-import { useQueryNodeRows, type QueryNodeRows } from "./lib/use-query-node-rows";
 import type { PageGraphState } from "./lib/page-graph";
 import type { Appearance, Prefs, ThemePref } from "./lib/theme";
 import { useNarrowViewport } from "./lib/viewport";
@@ -173,23 +172,22 @@ export function useGeneration(): number {
   return useHostValue((host) => host.graph.state().index?.generation ?? 0);
 }
 
+/** A query node's rows, or why there are none. */
+export interface QueryNodeRows {
+  readonly rows: unknown[][] | null;
+  readonly error: string | null;
+}
+
 /**
- * A query node's rows, live: a subscription while the socket is open, the
- * local index otherwise (`useQueryNodeRows`).
+ * A query node's rows: the replica's answer to its EDN, kept live as the
+ * replica moves (`useQueryAnswer`). Null rows and no error while unanswered.
  */
-export function useQueryRows(input: {
-  readonly nodeId: string;
-  readonly edn: string | null;
-}): QueryNodeRows {
-  const live = useHostValue((host) => host.live());
-  const local = useQueryAnswer(live ? null : input.edn);
-  return useQueryNodeRows({
-    nodeId: input.nodeId,
-    edn: input.edn,
-    live,
-    local,
-    subscribe: browserHost().subscribeQuery,
-  });
+export function useQueryRows(edn: string | null): QueryNodeRows {
+  const { answer } = useQueryAnswer(edn);
+  if (edn === null || answer === null) return { rows: null, error: null };
+  return answer.kind === "rows"
+    ? { rows: answer.rows, error: null }
+    : { rows: null, error: answerMessage(answer) };
 }
 
 /** How references in rendered text are inked, for `MdView`'s `ink`. */

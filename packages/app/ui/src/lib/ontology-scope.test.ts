@@ -1,12 +1,11 @@
+import { answersOver } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present, resolveOntology } from "@kb/model";
 import {
   DatascriptIndex,
   derivedWith,
-  inThreadTransport,
   listOntologyItems,
-  ReplicaQueries,
   type QueryAnswers,
   SYSTEM_IDS,
   wireToOutlineMap,
@@ -16,7 +15,7 @@ import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
 /** The replica's answers over `wire`, with the ontology's queries already answered. */
 async function answeredOver(wire: WireNode[], ontologyId: string): Promise<QueryAnswers> {
   const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
-  const queries = new ReplicaQueries(inThreadTransport(index), () => index.generation);
+  const queries = answersOver(index);
   await queries.settle((run) => resolveOntology(wire, ontologyId, { runQuery: run }));
   return queries;
 }
