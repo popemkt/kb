@@ -12,6 +12,8 @@ import {
   compile,
   isCanonicalIr,
   parseEdn,
+  printEdn,
+  type Ir,
   type IrQuery,
 } from "@kb/query";
 import { describe, expect, test } from "bun:test";
@@ -323,37 +325,45 @@ describe("the canonical domain is what parseEdn produces", () => {
   });
 });
 
-describe("generated IR round-trips through compile(parseEdn(compile(ir)))", () => {
-  const index = indexFor([
-    node("sys.tag", { text: "tag" }),
-    node("n.todo", {
-      text: "a todo",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] },
-    }),
-    node("p", { children: ["c1", "c2"] }),
-    node("c1", { text: "[[c2]]" }),
-    node("c2"),
-    node("a", { text: "[[b]]" }),
-    node("b", { text: "[[c]]" }),
-    node("c", { text: "leaf" }),
-  ]);
+const STORE_IDS = ["sys.tag", "n.todo", "p", "c1", "c2", "a", "b", "c"];
 
-  test("rows match query(edn) on the fixture", () => {
-    const outcome = (edn: string, extra: unknown[]) => {
+/** A small graph over `STORE_IDS`: texts that mention, children, and tag refs, all drawn. */
+const storeArb: fc.Arbitrary<KbNode[]> = fc.tuple(
+  ...STORE_IDS.map((id) =>
+    fc
+      .record({
+        text: fc.constantFrom(id, "a todo", "leaf", "[[b]]", "[[c]]", "[[c2]] and [[a]]"),
+        children: fc.subarray(
+          STORE_IDS.filter((other) => other !== id),
+          { maxLength: 3 },
+        ),
+        tagged: fc.boolean(),
+      })
+      .map(({ text, children, tagged }) =>
+        node(id, {
+          text,
+          children,
+          props: tagged ? { "sys.f.type": [{ t: "ref", v: "sys.tag" }] } : {},
+        }),
+      ),
+  ),
+);
+
+describe("property 3: printing keeps the answer", () => {
+  test("rows of parseEdn(printEdn(ir)) equal the rows of ir, over a generated store", () => {
+    const outcome = (index: DatascriptIndex, ir: Ir) => {
       try {
-        return { rows: sortedRows(index.runDatalog(edn, ...extra)) };
+        return { rows: sortedRows(index.run(ir)) };
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }
     };
     fc.assert(
-      fc.property(irArb, (ir) => {
-        const compiled = compile(ir);
-        const roundTripped = compile(parseEdn(compiled.query));
-        const extra = compiled.rules !== undefined ? [compiled.rules] : [];
-        expect(outcome(roundTripped.query, extra)).toEqual(outcome(compiled.query, extra));
+      fc.property(irArb, storeArb, (ir, store) => {
+        const index = indexFor(store);
+        expect(outcome(index, parseEdn(printEdn(ir)))).toEqual(outcome(index, ir));
       }),
-      { numRuns: 50 },
+      { numRuns: 100 },
     );
   });
 });

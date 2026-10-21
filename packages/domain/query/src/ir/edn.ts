@@ -1,8 +1,9 @@
 /**
- * The EDN reader the query IR is read through: the values a stored query is
- * made of, and the lexical forms they are read from. One home for the
- * grammar, so the parser (EDN → IR) and the canonical domain
- * (`isCanonicalIr`) agree on what reads as what.
+ * The EDN reader and writer the query IR is read and printed through: the
+ * values a stored query is made of, and the lexical forms they are read from.
+ * One home for the grammar, so the parser (EDN → IR), the printer
+ * (IR → EDN) and the canonical domain (`isCanonicalIr`) agree on what reads
+ * as what.
  */
 import { present } from "@kb/model";
 
@@ -24,6 +25,16 @@ class ParseFail extends Error {}
 const KEYWORD_CHAR = /[A-Za-z0-9_./+*-]/;
 /** EDN's symbol characters, so a predicate (`[(> ?n 2)]`) reads as a symbol. */
 const SYMBOL_CHAR = /[A-Za-z0-9_./+*?$%!<>=&'-]/;
+/** The escapes an EDN string may hold besides `\uXXXX`, and what each stands for. */
+const STRING_ESCAPES: Readonly<Record<string, string>> = {
+  '"': '"',
+  "\\": "\\",
+  n: "\n",
+  t: "\t",
+  r: "\r",
+  b: "\b",
+  f: "\f",
+};
 
 /** `text` as one EDN value, or null when it is not exactly one value the reader reads. */
 export function readEdn(text: string): Edn | null {
@@ -53,6 +64,52 @@ export function isReadableNumber(n: number): boolean {
   if (!Number.isFinite(n) || Object.is(n, -0)) return false;
   const read = readEdn(String(n));
   return read?.k === "num" && read.v === n;
+}
+
+/**
+ * `value` as EDN text the reader reads back as `value`: one space between
+ * forms, a string escaped as EDN escapes it, a number as `String(n)` prints
+ * it (so only a number {@link isReadableNumber} accepts round-trips).
+ */
+export function writeEdn(value: Edn): string {
+  switch (value.k) {
+    case "str":
+      return writeString(value.v);
+    case "num":
+      return String(value.v);
+    case "bool":
+      return value.v ? "true" : "false";
+    case "kw":
+    case "sym":
+      return value.v;
+    case "vec":
+      return `[${value.v.map(writeEdn).join(" ")}]`;
+    case "list":
+      return `(${value.v.map(writeEdn).join(" ")})`;
+    case "map":
+      return `{${value.v.map(([k, v]) => `${writeEdn(k)} ${writeEdn(v)}`).join(" ")}}`;
+    default: {
+      const _exhaustive: never = value;
+      return _exhaustive;
+    }
+  }
+}
+
+/** What each character that cannot stand for itself in a string is written as. */
+const ESCAPED: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(STRING_ESCAPES).map(([escape, char]) => [char, `\\${escape}`]),
+);
+
+function writeString(s: string): string {
+  let out = '"';
+  for (const c of s) {
+    const code = c.charCodeAt(0);
+    const escaped = ESCAPED[c];
+    if (escaped !== undefined) out += escaped;
+    else if (code < 0x20 || code === 0x7f) out += `\\u${code.toString(16).padStart(4, "0")}`;
+    else out += c;
+  }
+  return `${out}"`;
 }
 
 function readsAs(text: string, kind: "kw" | "sym"): boolean {
@@ -95,17 +152,6 @@ function startsNumber(s: string, i: number): boolean {
   const c = s[i];
   return isDigit(c) || ((c === "-" || c === "+") && isDigit(s[i + 1]));
 }
-
-/** The escapes an EDN string may hold besides `\uXXXX`, and what each stands for. */
-const STRING_ESCAPES: Readonly<Record<string, string>> = {
-  '"': '"',
-  "\\": "\\",
-  n: "\n",
-  t: "\t",
-  r: "\r",
-  b: "\b",
-  f: "\f",
-};
 
 function readString(src: Src): string {
   src.i += 1;
