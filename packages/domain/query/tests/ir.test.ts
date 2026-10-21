@@ -650,6 +650,10 @@ describe("children clause replaces the cartesian join", () => {
   });
 });
 
+/** A find naming the order of a children clause in each branch of a plain `or`, then `extra`. */
+const inOr = (extra: string) =>
+  `[:find ?id ?o :where (or (and [?p :node/id "p"] [?p :node/child ?c] [?p :node/child-order ?o]) (and [?p :node/id "q"] [?p :node/child ?c] [?p :node/child-order ?o])) [?c :node/id ?id]${extra}]`;
+
 describe("a find variable gets a column unless it is a children clause's order", () => {
   const index = indexFor([node("p", { text: "parent", children: ["c1", "c2", "c3"] }), node("c1")]);
 
@@ -661,6 +665,31 @@ describe("a find variable gets a column unless it is a children clause's order",
   test("a :node/child-order pattern without a :node/child one is kept, not dropped", () => {
     const edn = '[:find ?o :where [?p :node/id "p"] [?p :node/child-order ?o]]';
     expect(sortedRows(index.runDatalog(edn))).toEqual([[0]]);
+  });
+
+  const family = indexFor([node("p", { children: ["c1", "c2"] }), node("c1"), node("c2")]);
+
+  test("the order of a children clause inside a plain or branch has no column", () => {
+    const edn = inOr("");
+    expect(compile(parseEdn(edn)).find?.map((p) => p.kind === "var" && p.name)).toEqual(["id"]);
+    expect(sortedRows(family.runDatalog(edn))).toEqual([["c1"], ["c2"]]);
+  });
+
+  test("that order keeps its column when another clause binds it", () => {
+    const edn = inOr(" [(= 1 1) ?o]");
+    expect(sortedRows(family.runDatalog(edn))).toEqual([
+      ["c1", true],
+      ["c2", true],
+    ]);
+  });
+
+  test("the order of a children clause in an or-join branch, off its vector, is private to it", () => {
+    const edn =
+      '[:find ?id ?o :where (or-join [?c] (and [?p :node/id "p"] [?p :node/child ?c] [?p :node/child-order ?o])) [?c :node/id ?id] [?c :node/text ?o]]';
+    expect(sortedRows(family.runDatalog(edn))).toEqual([
+      ["c1", "c1"],
+      ["c2", "c2"],
+    ]);
   });
 
   test("a variable nothing binds is the engine's error, as in raw EDN", () => {

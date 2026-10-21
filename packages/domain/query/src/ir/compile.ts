@@ -10,7 +10,7 @@ import type {
   ReachClause,
   Term,
 } from "./ir.ts";
-import { boundVars } from "./scope.ts";
+import { boundVars, outerClauses } from "./scope.ts";
 import { isKbFunction, kbFunctionInput } from "./kb-functions.ts";
 
 const QUERY_DIRECTIVES = new Set([
@@ -118,8 +118,9 @@ function everyClause(where: readonly Clause[]): Clause[] {
 }
 
 /**
- * The find positions that get a column: every one but a `children` clause's
- * order variable, which the projection does not bind (`ChildrenClause`),
+ * The find positions that get a column: every one but the order variable of
+ * a `children` clause in the find's scope (`outerClauses`: the top level and
+ * every `or` branch), which the projection does not bind (`ChildrenClause`),
  * unless something else binds it. Any other variable is the engine's to
  * accept or reject, as it would be in raw EDN.
  */
@@ -127,7 +128,9 @@ function compiledFind(ir: IrQuery): FindPos[] {
   const bound = boundVars(ir.where);
   for (const slot of ir.in ?? []) bound.add(slot);
   const orders = new Set(
-    ir.where.flatMap((c) => (c.kind === "children" && !bound.has(c.order) ? [c.order] : [])),
+    outerClauses(ir.where).flatMap((c) =>
+      c.kind === "children" && !bound.has(c.order) ? [c.order] : [],
+    ),
   );
   return ir.find.filter((p) => p.kind !== "var" || !orders.has(p.name));
 }
