@@ -860,7 +860,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: outline zoom is one per tab, not one per pane
 
 - **expected** — each pane's outline has its own zoom root
-- **current** — the outline at / reads the store's single zoom, so two panes at / show the same node
+- **current** — the page has one zoom, which follows the focused pane's location (/outline/<id>), so two panes at outline locations show the focused pane's zoom
 - **impact** — two outline panes cannot be zoomed into different nodes at the root route
 - **closes** — move the zoom into the pane's location
 - **node** — `01M411FP5AGQ4VB5SGJWCJAN66`

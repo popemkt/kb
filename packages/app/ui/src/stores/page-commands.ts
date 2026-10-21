@@ -26,6 +26,7 @@ export function pageCommandApi(): OutlineCommandApi {
     wireNodes: graph.wireNodes,
     jumpToNode: pageProjection().reveal,
     zoomTo: graph.zoomTo,
+    leaveScope: graph.leaveScope,
     frameViews: providedFrameViews,
   };
 }

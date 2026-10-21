@@ -20,7 +20,7 @@ import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
 import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
-import { useGraphStore } from "@/stores/graph.store";
+import { startOutlineLocation, useGraphStore } from "@/stores/graph.store";
 import { pageEditor } from "@/stores/page-editor";
 import { useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -197,6 +197,7 @@ export function App() {
 
   // The URL names the focused pane: a navigation moves it.
   useEffect(() => startWorkspace(), []);
+  useEffect(() => startOutlineLocation(), []);
 
   const reload = useCallback(async () => {
     setStatus("loading");

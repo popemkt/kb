@@ -208,7 +208,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
         toast("Not inside an ontology");
         return;
       }
-      navigate("/");
+      ctx.outline.leaveScope();
     },
   },
   { id: SYSTEM_IDS.cmdPreferences, scope: "global", run: (ctx) => ctx.ui.setPrefsOpen(true) },

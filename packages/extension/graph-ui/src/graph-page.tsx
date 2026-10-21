@@ -170,13 +170,8 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     [lensGraph.nodes, lensGraph.edges, active],
   );
 
-  const onNodeOpen = useCallback(
-    (id: string) => {
-      navigate(ontologyId !== null ? ontologyPath(ontologyId, "outline") : "/");
-      zoomTo(id);
-    },
-    [ontologyId, zoomTo],
-  );
+  // Zooming navigates: in the scope, to the scope's outline.
+  const onNodeOpen = useCallback((id: string) => zoomTo(id), [zoomTo]);
 
   const renderer = active?.renderer ?? DEFAULT_RENDERER;
   const rendererKey = useRenderer(renderer);
@@ -341,10 +336,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           <button
             type="button"
             className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-caption font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
-            onClick={() => {
-              navigate("/");
-              zoomTo(active.id);
-            }}
+            onClick={() => zoomTo(active.id)}
           >
             edit max-nodes
           </button>

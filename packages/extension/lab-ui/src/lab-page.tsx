@@ -139,10 +139,7 @@ function Study({
     (id: string, value: LabControlValue) => setValues((current) => ({ ...current, [id]: value })),
     [],
   );
-  const onOpen = useCallback((id: string) => {
-    navigate("/");
-    browserHost().zoomTo(id);
-  }, []);
+  const onOpen = useCallback((id: string) => browserHost().zoomTo(id), []);
   const { Panel } = study;
   return (
     <div className="absolute inset-0 bg-[var(--lab-ground)]" data-lab-study={scene}>

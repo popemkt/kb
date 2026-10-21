@@ -462,6 +462,9 @@ export {
   navigate,
   nodePath,
   ontologyPath,
+  outlineLocationOf,
+  type OutlineLocation,
+  outlinePath,
   replacePath,
   subscribePath,
 } from "./lib/router";

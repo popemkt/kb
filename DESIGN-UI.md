@@ -765,8 +765,10 @@ The reading-mode consumption of the resolver documented in
 [DESIGN.md → Ontologies](./DESIGN.md#ontologies--a-lens-over-the-graph).
 
 **Scope lives in the URL**, so it is linkable, survives reload, and the back
-button exits it: `/o` (list), `/o/<id>` (members page), `/o/<id>/outline`,
-`/o/<id>/graph` (`lib/router.ts`, `ontologyPath()`).
+button exits it: `/o` (list), `/o/<id>` (members page), `/o/<id>/outline`
+(zoomed: `/o/<id>/outline/<zoom>`), `/o/<id>/graph` (`lib/router.ts`,
+`ontologyPath()`, `outlinePath()`). Leaving the scope (`leaveScope`) is a
+navigation to the outline where the page stood before it entered.
 
 **Scope is a projection, not a sandbox.** The graph store holds `ontologyId`,
 `ontologyMembers`, `ontologyWarnings`, `preScopeRootId` and `setOntologyScope`,
@@ -2236,11 +2238,18 @@ until "Save workspace".
   lists every route's `entry`. Choosing one moves the pane, and nothing is
   written.
 - **Opening a node is the pane's.** `open` (a bullet's follow, a crumb, a
-  reference) zooms the outline when the pane shows the zoomed outline at
-  `/`. When the pane shows an outline rooted at a node (`/node/<id>`), it
-  moves that pane to the node instead (`OpenNodeContext`, `useOpenNode`).
-  The zoom is the store's, one per tab, so two panes at `/` show the same
-  node (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
+  reference) zooms the outline when the pane shows the page's outline. When
+  the pane shows an outline rooted at a node (`/node/<id>`), it moves that
+  pane to the node instead (`OpenNodeContext`, `useOpenNode`).
+- **The zoom is a location.** The page's outline at its home is `/`, and
+  zoomed to a node it is `/outline/<id>`; in an ontology's scope they are
+  `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,
+  `outlineLocationOf`). A zoom (`zoomTo`, `zoomHome`, and every gesture that
+  ends in one) pushes that location, and the page stands where the URL names
+  (`followOutlineLocation`), so back and forward walk the zooms and a reload
+  or a link lands at one. A location whose node the page cannot show is
+  replaced by the scope's home. The page still has one zoom, so two panes at
+  outline locations show the focused pane's (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
 - **Each outline on screen is its own host.** An outline keys its rows
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,
