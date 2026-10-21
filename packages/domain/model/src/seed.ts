@@ -344,12 +344,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "text",
   );
 
-  // A view's subject (`lens.query`, `lens.focus`): every view's, so core's.
-  const lensQueryField = singleField(SYSTEM_IDS.lensQueryField, "lens.query", "text");
-  const lensFocusField = singleField(SYSTEM_IDS.lensFocusField, "lens.focus", "ref");
+  // A view's subject (`lens.query`, `lens.focus`): every view's, so core's,
+  // and written by the view that reads it (the graph's lens settings).
+  const lensQueryField = singleField(SYSTEM_IDS.lensQueryField, "lens.query", "text", HIDE);
+  const lensFocusField = singleField(SYSTEM_IDS.lensFocusField, "lens.focus", "ref", HIDE);
 
-  // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
-  const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
+  // A layout view's arrangement (`layout.grid`): its pane tree as JSON text,
+  // written by the layout view, never as a row.
+  const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text", HIDE);
 
   // Ontologies (r5 core): #ontology tag templating the sys.f.onto.* algebra.
   // No default ontology is seeded — an empty ontology list is a legitimate

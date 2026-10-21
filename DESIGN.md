@@ -530,10 +530,14 @@ type PropValue =
   (`seededField`'s option) on two kinds of field only: one that is a node's
   structure (`sys.f.type`, `sys.f.fields`, which option set a node belongs
   to) and one a surface of its own draws and writes (a query node's builder,
-  a view's toolbar, the graph's lens settings, a canvas, a chart, an
-  ontology's page, a reference row). Every other field, a system one
-  included, is drawn and edited like any field: a field's cardinality and
-  inverse, an agent provider's adapter and endpoint, a docs view's template.
+  a view's toolbar, a view's subject and the graph's lens settings, a layout
+  view's arrangement, a canvas, a chart, an ontology's page, a reference
+  row). Every other field, a system one included, is drawn and edited like
+  any field: a field's cardinality and inverse, an agent provider's adapter
+  and endpoint, a docs view's template. A prop whose field node the graph
+  does not hold has nothing to say it is hidden, so it is drawn, named by
+  its id: a store seeds every bundled family's fields, so this is a family
+  a build leaves out entirely, whose values then show as what they are.
   Whether a drawn row may be written is the system-write rule's
   (`isWritableField`), never visibility's; a node's debug fields reveal its
   hidden rows, and they are written under the same rule.
