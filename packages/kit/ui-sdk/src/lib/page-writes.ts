@@ -10,7 +10,7 @@
  * rejects for a refusal.
  */
 import type { FieldType } from "@kb/model";
-import type { FrameViewKey, SortSpec } from "@kb/views";
+import type { FrameViewKey, SortSpec, ViewFilter } from "@kb/views";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
@@ -147,8 +147,8 @@ export interface PageWrites {
   readonly setColumnWidth: (frameId: string, fieldId: string, widthPx: number) => Promise<void>;
   readonly setViewPagesize: (frameId: string, pagesize: number) => Promise<void>;
   readonly setViewGroup: (frameId: string, fieldId: string | null) => Promise<void>;
-  readonly addViewFilter: (frameId: string, edn: string) => Promise<void>;
-  readonly removeViewFilter: (frameId: string, edn: string) => Promise<void>;
+  readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
+  readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly moveBoardCard: (
     nodeId: string,
     fieldId: string,

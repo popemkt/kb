@@ -443,6 +443,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYMAK7SZT2PPBBS849NNQ`
 
+### GAP: a view's narrowing is evaluated in JS by the condition evaluator, not ANDed onto the frame's query at compile
+
+- **expected** — A view's narrowing is lowered (lowerIr) and ANDed onto its frame's rows in datalog: appended to the :where of a query frame that does not aggregate, and run over the children of any other frame, in one budgeted execution with the query's results
+- **current** — frameRows narrows a frame's rows in JS with conditionsMatcher (@kb/query evaluate.ts), a second implementation of the condition model held to compile(lowerIr) by a shared contract property; the page builds its graph over the core derived refs only, so a family's ref carriers do not feed links-to there
+- **impact** — Two implementations of one contract: a comparison across value kinds (a number field against a date string, a ref against a number) answers false in JS where DataScript orders the kinds; the contract property draws fields of one kind for comparisons. No stored narrowing can hold a mentions row today, so the core-only carriers cost nothing yet
+- **closes** — Once anywhere-contains has a datalog form (GAP GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form), frameRows asks the page's engine for the narrowed rows through the replica answers, one budgeted execution with the query's results (the worker engine, DESIGN-UI.md → Replica queries), and the evaluator is deleted
+- **node** — `01M5E7RM5EQ2TSJZSMM330T5DH`
+
 ### GAP: action registry has no A2A adapter
 
 - **expected** — A2A joins CLI, MCP, HTTP and WebMCP as one more adapter over the action registry
@@ -1252,6 +1260,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A store opened elsewhere keeps the retired field nodes as clutter, the graph-perspective tag keeps listing them, and a value a perspective held under the old field is silently ignored (its choice reverts to the default).
 - **closes** — A declared retirement table in @kb/model (old id to replacement, option ids to option ids) that ensureSystemSeed applies before seeding, with the legacy all-mentions migration folded into it and a seed test over it.
 - **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
+
+### GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form
+
+- **expected** — sys.f.view.filter holds a view's narrowing as the printed :where of its conditions (printEdn), the form sys.f.query holds, so any condition the query placement can hold the narrowing can too, and both lift and lower through one IR
+- **current** — frame.ts reads {:field <id> :eq <v>} as field-is <id> with a label value and {:text <s>} as anywhere-contains, and writes those two back; anywhere-contains (node text or any value, a ref by its node's label) is a narrowing-only row, because the IR has no attribute variable to say any field
+- **impact** — A view's narrowing can hold only the two rows the legacy syntax spells; the narrowing placement has one row the query placement lacks
+- **closes** — An IR form for text-anywhere (an attribute-variable pattern, or a derived searchable-text attribute the index builds), then storing the narrowing as printed EDN with the legacy maps read on the way in
+- **node** — `01M5E7S398F4GM2490R3RZ3ZPP`
 
 ### GAP: the write check covers written values only, so a retype or a delete can strand stored ones
 

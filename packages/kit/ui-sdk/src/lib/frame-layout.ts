@@ -1,11 +1,12 @@
 /**
  * How a frame view lays a frame's rows out, by the settings it reads: the
- * filters every frame view applies, the field columns and sort of a view
+ * narrowing every frame view applies, the field columns and sort of a view
  * that shows rows as a table, and the columns a field groups rows into, in
  * the order they flatten to. Which view a frame is shown
  * in, and the settings its view node holds, are `frameViewOf` and
  * `frameConfigOf`.
  */
+import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
 import { isSysPrefixed, type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";
 import { textOr } from "./text";
@@ -24,35 +25,20 @@ function propValueLabel(v: PropValue, schema: SchemaIndex): string {
   return String(v.v);
 }
 
-function matchesFilter(node: OutlineNode, filter: ViewFilter, schema: SchemaIndex): boolean {
-  if (filter.kind === "text") {
-    const q = filter.text.toLowerCase();
-    if (!q) return true;
-    if (node.text.toLowerCase().includes(q)) return true;
-    for (const vals of Object.values(node.props)) {
-      for (const v of vals) {
-        if (propValueLabel(v, schema).toLowerCase().includes(q)) return true;
-      }
-    }
-    return false;
-  }
-
-  const vals = node.props[filter.fieldId] ?? [];
-  if (vals.length === 0) return false;
-  return vals.some((v) => {
-    if (v.t === "ref") return v.v === filter.value || propValueLabel(v, schema) === filter.value;
-    return String(v.v) === filter.value;
-  });
-}
-
-/** Apply view filters (AND). Empty filters = identity. */
+/**
+ * A view's narrowing applied to a frame's rows (`ViewFilter`, ANDed): the
+ * condition model's evaluator over the whole graph, so a ref's label is read
+ * from its node wherever it sits. Empty filters = identity. The graph's
+ * reference relation is read by the core carriers, the ones frameRows can
+ * reach. GAP [[01M5E7RM5EQ2TSJZSMM330T5DH]]
+ */
 export function applyViewFilters(
   children: OutlineNode[],
   filters: readonly ViewFilter[],
   schema: SchemaIndex,
 ): OutlineNode[] {
   if (filters.length === 0) return children;
-  return children.filter((n) => filters.every((f) => matchesFilter(n, f, schema)));
+  return children.filter(conditionsMatcher(filters, conditionGraph(schema, derivedWith({}))));
 }
 
 export interface TableColumnSpec {

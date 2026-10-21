@@ -349,29 +349,24 @@ describe("view-config", () => {
     expect(originalChildren.map((n) => n.id)).toEqual(["c1", "c2"]);
   });
 
-  it("parses filter EDN (good) and ignores bad EDN", () => {
+  it("reads filter EDN as conditions (good) and ignores bad EDN", () => {
     const eq = parseViewFilterEdn('{:field field.status :eq "doing"}');
     expect(eq).toEqual({
-      kind: "eq",
-      fieldId: "field.status",
-      value: "doing",
-      raw: '{:field field.status :eq "doing"}',
+      kind: "field-is",
+      field: "field.status",
+      values: [{ t: "label", v: "doing" }],
     });
     const text = parseViewFilterEdn('{:text "ship"}');
-    expect(text).toEqual({
-      kind: "text",
-      text: "ship",
-      raw: '{:text "ship"}',
+    expect(text).toEqual({ kind: "anywhere-contains", text: "ship", exactCase: false });
+    expect(parseViewFilterEdn("{:field f :eq :doing}")).toEqual({
+      kind: "field-is",
+      field: "f",
+      values: [{ t: "label", v: "doing" }],
     });
     expect(parseViewFilterEdn("{:bogus}")).toBeNull();
     expect(parseViewFilterEdn("not edn")).toBeNull();
     expect(
-      serializeViewFilter({
-        kind: "eq",
-        fieldId: "f",
-        value: "x",
-        raw: "",
-      }),
+      serializeViewFilter({ kind: "field-is", field: "f", values: [{ t: "label", v: "x" }] }),
     ).toBe('{:field f :eq "x"}');
   });
 
@@ -392,8 +387,8 @@ describe("view-config", () => {
       });
       expect(config.groupFieldId).toBe("field.status");
       expect(config.filters).toHaveLength(2);
-      expect(config.filters[0]?.kind).toBe("eq");
-      expect(config.filters[1]?.kind).toBe("text");
+      expect(config.filters[0]?.kind).toBe("field-is");
+      expect(config.filters[1]?.kind).toBe("anywhere-contains");
       expect(warns.some((w) => w.includes(`${SYSTEM_IDS.viewFilterField}[1] ignored`))).toBe(true);
     } finally {
       console.warn = warn;
@@ -427,13 +422,8 @@ describe("view-config", () => {
     const filtered = applyViewFilters(
       [a, b],
       [
-        {
-          kind: "eq",
-          fieldId: "field.status",
-          value: "doing",
-          raw: "",
-        },
-        { kind: "text", text: "ship", raw: "" },
+        { kind: "field-is", field: "field.status", values: [{ t: "label", v: "doing" }] },
+        { kind: "anywhere-contains", text: "ship", exactCase: false },
       ],
       schemaFor(nodes),
     );

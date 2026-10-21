@@ -1049,6 +1049,25 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   filed in the Views list — and names it first; every later edit writes
   that node. Its text is empty: it is found from its frame and in the Views
   list, and a text naming its view or its frame would go stale.
+- **A view's filter is a narrowing of its frame's rows by conditions** of
+  the query layer's one model ([Query layer](#query-layer-horizontal) →
+  Conditions), ANDed: the second placement of the vocabulary a query's
+  `:where` holds, applied to the rows the frame shows, a query's result
+  nodes or its children, and never appended to a query, so one that
+  aggregates is narrowed by the node rows it shows as any other is. Each
+  condition is one `sys.f.view.filter` text in the syntax views were
+  written in before the model, which spells two rows: `{:field <id> :eq
+  <v>}` is `field-is` with a label value (the field holds a node whose id
+  or text is `v`, or a literal whose text is), and `{:text "<s>"}` is
+  `anywhere-contains` (the node's text or any value's label contains `s`,
+  ignoring case), a row only the narrowing holds, as the IR cannot say "any
+  field" (GAP [[01M5E7S398F4GM2490R3RZ3ZPP]]). `@kb/views`' `frame.ts` is
+  the one reader and writer of the syntax, so stored filters read as they
+  always did and nothing is migrated; a filter is written back in its
+  canonical spelling. `frameRows` narrows in JS through the model's
+  evaluator (`conditionsMatcher`), held to the query placement's answer by
+  a shared contract property, until a narrowing runs in datalog with its
+  frame's query (GAP [[01M5E7RM5EQ2TSJZSMM330T5DH]]).
 - **A store written before view nodes is migrated on purpose**, by the
   write action `views.migrate` (`migrateToViewNodes`), never by opening:
   opening only warns that a root still holds the old
@@ -1721,7 +1740,13 @@ same lane. One path to a client, whatever a node's provenance.
   one node is `has tag`). Its laws — lower then lift is the identity on
   canonical conditions, lift is blind to renaming, lift loses nothing — are
   `@kb/query`'s `conditions.test.ts` properties, with a semantic example
-  per row on kb's index. The design and its review:
+  per row on kb's index. The model has a second placement, a view's
+  narrowing of its frame's rows ([View nodes](#view-nodes) → a view's
+  filter), answered in JS by `conditionsMatcher` (`ir/evaluate.ts`) over a
+  `ConditionGraph` (a node lookup, the reference relation as the index
+  derives it, the run's clock sample); `evaluate.test.ts` holds it to
+  `compile(lowerIr(…))` on generated graphs, node for node. The design and
+  its review:
   [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
 - **A number stays a number when the query parses.** A ref prop and a number
   prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),

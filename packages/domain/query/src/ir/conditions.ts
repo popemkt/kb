@@ -1,7 +1,8 @@
 /**
  * The condition model: what a person can say about which nodes a query
  * answers, without writing datalog, and how it is the IR. One vocabulary,
- * placed in a query's `:where` (`lowerIr`, `lift`). The rows, their lowering and the laws that hold
+ * and two placements: a query's `:where` (`lowerIr`, `lift`) and a view's
+ * narrowing of its frame's rows (`evaluate.ts`). The rows, their lowering and the laws that hold
  * them are DESIGN.md → Query layer → Conditions; the design record is
  * docs/brainstorms/2026-10-20-query-builder.
  *
@@ -116,6 +117,21 @@ export type GroupOf<X extends PlacementRow> =
 /** A condition a query's `:where` holds. */
 export type Condition = ConditionOf<never>;
 
+/**
+ * Node text or any value — a ref by its node's label — contains `text`: a
+ * view filter's `{:text …}`. The IR has no attribute variable, so a query
+ * cannot say "any field": the row has no lowering, and only the narrowing
+ * placement holds it. GAP [[01M5E7S398F4GM2490R3RZ3ZPP]]
+ */
+export type AnywhereContains = {
+  readonly kind: "anywhere-contains";
+  readonly text: string;
+  readonly exactCase: boolean;
+};
+
+/** A condition a view's narrowing holds: the query's, and `anywhere-contains`. */
+export type NarrowingCondition = ConditionOf<AnywhereContains>;
+
 /** `has tag #t`: `type is t`, one row of the vocabulary under its own name. */
 const TYPE_FIELD = SYSTEM_IDS.typeField;
 
@@ -149,11 +165,11 @@ const ROW_KINDS: ReadonlySet<string> = new Set(
   } satisfies Record<ConditionRow["kind"], true>),
 );
 
-function isRow<X extends PlacementRow>(c: ConditionOf<X>): c is ConditionRow {
+export function isRow<X extends PlacementRow>(c: ConditionOf<X>): c is ConditionRow {
   return ROW_KINDS.has(c.kind);
 }
 
-function isGroup<X extends PlacementRow>(c: ConditionOf<X>): c is GroupOf<X> {
+export function isGroup<X extends PlacementRow>(c: ConditionOf<X>): c is GroupOf<X> {
   return c.kind === "any-of" || c.kind === "all-of" || c.kind === "none-of";
 }
 
@@ -278,7 +294,7 @@ function edgeAttr(edge: ConditionEdge): string {
   return fieldAttr(edge.field);
 }
 
-const includesFn = (exactCase: boolean): PredicateName =>
+export const includesFn = (exactCase: boolean): "kb/includes?" | "kb/includes-ci?" =>
   exactCase ? "kb/includes?" : "kb/includes-ci?";
 
 /** A query's own variables: one prefix per role, numbered across the query, so every branch has its own. */
@@ -292,7 +308,7 @@ class Vars {
 }
 
 /** The number a label reads as, when `String` of it is the label, as a view filter compared it. */
-function labelNumber(label: string): number | undefined {
+export function labelNumber(label: string): number | undefined {
   const n = Number(label);
   return label.trim() !== "" && Number.isFinite(n) && String(n) === label ? n : undefined;
 }

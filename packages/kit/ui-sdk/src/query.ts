@@ -12,6 +12,8 @@ import { backlinksQuery, neighbourhoodQuery, type EdnRunner } from "@kb/query";
 export type { EdnRunner, KbIndex, NodeIndex } from "@kb/query";
 export {
   answerOf,
+  conditionGraph,
+  conditionsMatcher,
   DatascriptIndex,
   derivedWith,
   inThreadPort,
