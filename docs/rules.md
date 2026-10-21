@@ -416,15 +416,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — each view key carries a markdown projection beside its params
 - **node** — `01M40X30G92A0E57C02JHQ9A1G`
 
-### GAP: a view's group, display and page size have page writes no gesture calls
-
-- **expected** — Every view setting the page can write has the gesture that writes it, or the write is deleted.
-- **current** — setViewGroup, setViewDisplay and setViewPagesize are declared on PageWrites and implemented in mutations.ts; only tests call them, and the board says 'Set view.group to use the board.' with no way to do so.
-- **impact** — A board cannot be grouped from the editor, and three declared writes read as covered while nothing reaches them: a dead seam.
-- **closes** — A group/display/page-size control in the view toolbar that calls them, or their removal until one exists.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYMAK7SZT2PPBBS849NNQ`
-
 ### GAP: a view's narrowing is evaluated in JS by the condition evaluator, not ANDed onto the frame's query at compile
 
 - **expected** — A view's narrowing is lowered (lowerIr) and ANDed onto its frame's rows in datalog: appended to the :where of a query frame that does not aggregate, and run over the children of any other frame, in one budgeted execution with the query's results
@@ -1466,6 +1457,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A green/red signal that depends on what else the machine is doing; agents learn to rerun instead of trusting the gate.
 - **closes** — Move the timing to an observation (print a table) or a calibrated ratio; keep the algorithmic assertion.
 - **node** — `01M1R19NXBMTVQG6AH0S7VTC7D`
+
+### GAP: a view's group, display and page size have page writes no gesture calls
+
+- **expected** — Every view setting the page can write has the gesture that writes it, or the write is deleted.
+- **current** — setViewGroup, setViewDisplay and setViewPagesize are declared on PageWrites and implemented in mutations.ts; only tests call them, and the board says 'Set view.group to use the board.' with no way to do so.
+- **impact** — A board cannot be grouped from the editor, and three declared writes read as covered while nothing reaches them: a dead seam.
+- **closes** — A group/display/page-size control in the view toolbar that calls them, or their removal until one exists.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYMAK7SZT2PPBBS849NNQ`
 
 ### GAP: action registry does not validate output schemas
 

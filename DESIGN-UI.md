@@ -1811,8 +1811,7 @@ The rules that hold everywhere, so no surface re-invents them:
   an accessible label and current-page marker, and tag chips expose real
   navigate / remove / configure buttons instead of click-only regions.
 
-Deferred from i5 and still open: view-settings
-and Board setup flows, the Add-field flow, palette ranking/highlighting, URL and
+Deferred from i5 and still open: the Add-field flow, palette ranking/highlighting, URL and
 history handling, and a toast-model redesign.
 
 ### Node-scoped commands: debug fields, pin
@@ -2052,7 +2051,17 @@ how the stored name resolves to the key among them.
   the first edit; none writes the frame's own props. A view node's
   settings are fields its seed hides from field rows (DESIGN.md → Data
   model → field visibility), since the toolbar draws and writes them; its
-  debug fields show them where it is filed. A view node is
+  debug fields show them where it is filed. The toolbar's gear (and ⌘K
+  "Filter…") opens the frame's one view settings popover
+  (`ViewSettingsPopoverHost`): above the filters every view reads, a section
+  for each setting the view's params declare, group by (`groupFieldId`),
+  fields (`display`) and page size (`pagesize`), so which controls a view
+  offers is its declaration, as what `frameRows` does is. Each is drawn
+  with the query builder's slot (`ChoiceSlot` over the one node picker):
+  a field is picked from the rows' fields, those their tags template first;
+  the fields shown are chips, removed one by one and added from the same
+  candidates, and "tags' fields" names none again. A board with no group
+  field says so and opens the popover. A view node is
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.

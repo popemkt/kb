@@ -230,7 +230,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).toContain("node-row");
   });
 
-  it("board with null group shows empty state + switch to cards", () => {
+  it("board with null group asks for a group field, or offers cards", () => {
     useGraphStore.getState().hydrateFromWire(withFrame1("board", {}), 2, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
@@ -241,7 +241,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       }),
     );
     expect(html).toContain('data-board-empty="true"');
-    expect(html).toContain("view.group");
+    expect(html).toContain('data-choose-group="true"');
     expect(html).toContain('data-switch-to-cards="true"');
     expect(html).not.toContain('data-view-card="true"');
   });

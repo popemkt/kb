@@ -18,6 +18,7 @@ import {
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineNode } from "./outline.store";
 import { listFilterFieldOptions } from "./view-settings-fields";
+import { ViewSettingsSections } from "./view-settings-sections";
 
 /** The two rows a view filter's stored syntax spells (`ViewFilter`). */
 type FilterKind = ViewFilter["kind"];
@@ -54,7 +55,8 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
 
 /**
  * A frame's view settings, in one popover: the toolbar's gear and ⌘K
- * "Filter…" open it. It portals to document.body so it is visible regardless
+ * "Filter…" open it. Above the filters, every view's, are the settings the
+ * frame's view declares (`ViewSettingsSections`). It portals to document.body so it is visible regardless
  * of nested-frame hover opacity.
  */
 export function ViewSettingsPopoverHost() {
@@ -153,6 +155,8 @@ export function ViewSettingsPopoverHost() {
       onClick={(e) => e.stopPropagation()}
     >
       <div data-view-settings-popover="true" data-frame-id={frameId}>
+        <ViewSettingsSections frameId={frameId} />
+        <h3 className="px-1.5 pt-0.5 pb-0.5 text-meta text-foreground/40">Filters</h3>
         {config.filters.length === 0 ? (
           <p className="px-1.5 py-1 text-meta text-foreground/40">No filters</p>
         ) : (
