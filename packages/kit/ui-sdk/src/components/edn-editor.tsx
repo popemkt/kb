@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import { hasText } from "../lib/text";
 
@@ -21,8 +21,8 @@ export interface EdnEditorProps {
  * kb has no code editor component, and adding one is its own decision.
  *
  * It edits a draft, never the store: the stored text is written as typed
- * when the editor is left or on ⌘↵ (and only when it changed), and Escape
- * puts the stored text back. While it is not being edited it follows the
+ * when the editor is left or on ⌘↵ (once, and only when it changed), and
+ * Escape puts the stored text back and writes nothing. While it is not being edited it follows the
  * stored value, so a write from elsewhere shows.
  */
 export function EdnEditor({
@@ -44,10 +44,18 @@ export function EdnEditor({
     onDraft?.(draft);
   }, [draft, onDraft]);
 
-  const commit = () => {
+  /**
+   * Set when a key has ended the edit, so the blur that follows ends nothing:
+   * the draft it would read is the render's, not what the key decided.
+   */
+  const ended = useRef(false);
+
+  /** End the edit: write `text` when it is given and changed; put the stored text back when not. */
+  const end = (text: string | null) => {
+    ended.current = true;
     setEditing(false);
-    if (draft.trim() === value.trim()) return;
-    onCommit(draft);
+    if (text === null) setDraft(value);
+    else if (text.trim() !== value.trim()) onCommit(text);
   };
 
   return (
@@ -65,20 +73,24 @@ export function EdnEditor({
           "placeholder:text-foreground/25 focus:bg-foreground/[0.05]",
           hasText(warning) && "ring-1 ring-warning/40",
         )}
-        onFocus={() => setEditing(true)}
+        onFocus={() => {
+          ended.current = false;
+          setEditing(true);
+        }}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
+        onBlur={() => {
+          if (!ended.current) end(draft);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
-            setDraft(value);
-            setEditing(false);
+            end(null);
             e.currentTarget.blur();
             return;
           }
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            commit();
+            end(draft);
             e.currentTarget.blur();
           }
         }}

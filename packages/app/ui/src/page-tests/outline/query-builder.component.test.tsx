@@ -354,6 +354,21 @@ describe("the query builder", () => {
     expect($('[role="tab"][aria-selected="true"]')?.textContent).toBe("EDN");
   });
 
+  it("Escape in the EDN tab puts the stored text back and writes nothing", async () => {
+    await mount(TODO_EDN);
+    await click(present($('[data-qb-tab="edn"]'), "EDN tab"));
+    const editor = ednEditor();
+    await act(async () => {
+      editor.focus();
+    });
+    await type(DEFAULT_QUERY_EDN, editor);
+    await key(editor, "Escape");
+    await answered();
+    expect(stored()).toBe(TODO_EDN);
+    expect(ednEditor().value).toBe(TODO_EDN);
+    expect(dom.window.document.activeElement).not.toBe(ednEditor());
+  });
+
   it("while the EDN tab holds text that does not parse, the count is the last one, dimmed", async () => {
     await mount(TODO_EDN);
     await click(present($('[data-qb-tab="edn"]'), "EDN tab"));
