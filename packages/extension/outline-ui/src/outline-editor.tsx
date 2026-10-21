@@ -1,7 +1,8 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useContext, useEffect } from "react";
 import {
   browserHost,
   isTextEntry,
+  OpenNodeContext,
   useFrameView,
   useNodePaletteOpen,
   usePageGraph,
@@ -36,10 +37,11 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   // The keyboard walk of this outline's rows starts where its root frame's slot does.
   const host = useOutlineHost();
   const slotChain = useSlotChain();
+  const open = useContext(OpenNodeContext);
   useEffect(() => {
-    setOutlineHost(host, { root: rootProp ?? null, chain: slotChain });
+    setOutlineHost(host, { root: rootProp ?? null, chain: slotChain, open });
     return () => setOutlineHost(host, null);
-  }, [host, rootProp, slotChain]);
+  }, [host, rootProp, slotChain, open]);
   const leads = useLeadsOutlines();
 
   /**

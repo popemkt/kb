@@ -21,6 +21,7 @@ import {
 import { outlineSource, useOutlineStore } from "./outline.store";
 import type { EditingIntent } from "./editing-keymap";
 import { enterFields } from "./value-slot-nav";
+import { openFromRow } from "./outline-hosts";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
 
@@ -109,8 +110,8 @@ const EDITING_STEPS: EditingSteps = {
   moveUp: ({ nodeId }) => void browserHost().writes.moveNodeUp(nodeId),
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodeDown(nodeId),
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
-  // Collapsed / leaf: jump to the enclosing page (zoomed root).
-  zoomToParent: ({ parentId }) => browserHost().zoomTo(parentId),
+  // Collapsed / leaf: open the enclosing page, as the row's outline opens one.
+  zoomToParent: ({ parentId, instanceKey }) => openFromRow(instanceKey, parentId),
   moveCaretToRow: ({ nodeId, instanceKey, cursor, x }) =>
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),

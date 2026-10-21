@@ -383,7 +383,7 @@ describe("outline store (WireNode adaptation)", () => {
       useGraphStore.getState().zoomTo("n.root-b");
       // An outline open in another pane, rooted at `n.root-a`, edits a row the
       // reader just minted there, still empty.
-      setOutlineHost("pane:p2", { root: "n.root-a", chain: [] });
+      setOutlineHost("pane:p2", { root: "n.root-a", chain: [], open: null });
       const rootA = present(
         useGraphStore.getState().wireNodes.find((n) => n.id === "n.root-a"),
         "n.root-a",

@@ -22,8 +22,8 @@ import {
   useDismiss,
 } from "@kb/ui-sdk";
 import { usePageCatalog } from "@/lib/view-catalog";
-import { useShownNodes } from "@/stores/graph.store";
-import { zoomOf } from "./pane-title";
+import { useGraphStore, useShownNodes } from "@/stores/graph.store";
+import { shownZoomAt } from "./pane-title";
 
 interface Choice {
   readonly path: string;
@@ -86,8 +86,9 @@ function useSections(path: string): readonly Section[] {
   const views = useContributions(ViewPoint);
   const catalog = usePageCatalog();
   const nodes = useShownNodes();
+  const zoom = useGraphStore((s) => s.rootNodeId);
   const route = matchRoute(routes, path);
-  const host = route === null ? null : (hostOf(route.params) ?? zoomOf(path) ?? null);
+  const host = route === null ? null : (hostOf(route.params) ?? shownZoomAt(path, zoom) ?? null);
   const sections: Section[] = [];
   const hostNode = host === null ? undefined : nodes.get(host);
   if (host !== null && hostNode !== undefined) {

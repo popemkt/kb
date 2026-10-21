@@ -21,7 +21,7 @@ export type SelectionKeyAction =
   | { type: "outdent"; nodeId: string }
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
-  | { type: "zoom"; nodeId: string }
+  | { type: "zoom"; nodeId: string; instanceKey: string }
   | { type: "createAfter"; nodeId: string }
   | { type: "createBefore"; nodeId: string }
   | { type: "delete"; nodeId: string; instanceKey: string }
@@ -132,7 +132,10 @@ const SELECTION_KEYMAP: readonly SelectionBinding[] = [
     chord: { key: "ArrowDown", mod: true, shift: true },
     toAction: ({ nodeId }) => ({ type: "moveDown", nodeId }),
   },
-  { chord: { key: ".", mod: true }, toAction: ({ nodeId }) => ({ type: "zoom", nodeId }) },
+  {
+    chord: { key: ".", mod: true },
+    toAction: ({ nodeId, instanceKey }) => ({ type: "zoom", nodeId, instanceKey }),
+  },
   { chord: { mod: true }, toAction: () => null },
   { chord: { key: "ArrowUp" }, toAction: upOrIntoFields },
   { chord: { key: "ArrowDown" }, toAction: downOrIntoFields },

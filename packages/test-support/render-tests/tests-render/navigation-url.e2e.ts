@@ -45,3 +45,17 @@ test("a link to a zoom of a node that is not there lands at home", async ({ page
   await expect(page).toHaveURL("/");
   await expect(page.locator(`[data-node-id="${ROOT}"]`).first()).toBeVisible();
 });
+
+test("⌘. in an outline rooted at a node opens the row's node page, not the zoom", async ({
+  page,
+}) => {
+  await page.goto(`/node/${ROOT}`);
+  // A row under the root: any node row but the root's own header.
+  const target = page.locator(`[data-node-id]:not([data-node-id="${ROOT}"])`).first();
+  await expect(target).toBeVisible();
+  const id = await target.getAttribute("data-node-id");
+  await target.locator(".node-content").first().click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ControlOrMeta+.");
+  await expect(page).toHaveURL(`/node/${id}`);
+});

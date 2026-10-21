@@ -2248,8 +2248,13 @@ until "Save workspace".
   ends in one) pushes that location, and the page stands where the URL names
   (`followOutlineLocation`), so back and forward walk the zooms and a reload
   or a link lands at one. A location whose node the page cannot show is
-  replaced by the scope's home. The page still has one zoom, so two panes at
-  outline locations show the focused pane's (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
+  replaced by the scope's home, and reaching a node outside the scope pushes
+  the unscoped location it lands at. A zoom key (⌘., ⌘↑) opens as its row's
+  outline opens a node (`openFromRow`): a rooted outline moves its pane. A
+  zoom in a dashboard's outline moves the pane that holds the dashboard, as
+  every open from a dashboard does (`navigatePane`). The page still has one
+  zoom, so every pane at an outline location shows, and is titled by, the
+  focused pane's (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
 - **Each outline on screen is its own host.** An outline keys its rows
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,

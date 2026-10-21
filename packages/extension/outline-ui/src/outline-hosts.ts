@@ -1,17 +1,19 @@
-import { hostOfInstance, MAIN_OUTLINE_HOST, type SlotChain } from "@kb/ui-sdk";
+import { browserHost, hostOfInstance, MAIN_OUTLINE_HOST, type SlotChain } from "@kb/ui-sdk";
 
 /**
  * An outline on screen, as the keyboard walk needs it: the node it is rooted
- * at (null for the outline's zoom, which the store owns) and the slots around
- * its root frame, as its host renders them.
+ * at (null for the outline's zoom, which the store owns), the slots around
+ * its root frame, as its host renders them, and how it opens a node (its
+ * pane's `OpenNodeContext`; null for the zoomed outline, which zooms).
  */
 interface OutlineHost {
   readonly root: string | null;
   readonly chain: SlotChain;
+  readonly open: ((id: string) => void) | null;
 }
 
 /** The zoomed outline, before any host has said where it sits. */
-const UNMOUNTED_MAIN: OutlineHost = { root: null, chain: [] };
+const UNMOUNTED_MAIN: OutlineHost = { root: null, chain: [], open: null };
 
 /**
  * The outlines on screen, by host id (`outlineHostOfPane`): each mounted
@@ -31,6 +33,15 @@ export function setOutlineHost(id: string, host: OutlineHost | null): void {
 /** Where host `id` is rooted, or undefined when no outline is mounted under it. */
 export function outlineHostOf(id: string): OutlineHost | undefined {
   return hosts.get(id) ?? (id === MAIN_OUTLINE_HOST ? UNMOUNTED_MAIN : undefined);
+}
+
+/**
+ * Open `id` from the outline whose rows include `instanceKey`, as a click in
+ * it does (`useOpenNode`): a rooted outline moves its pane, the zoomed one zooms.
+ */
+export function openFromRow(instanceKey: string | null, id: string): void {
+  const open = outlineHostOf(outlineHostOfInstance(instanceKey))?.open ?? null;
+  (open ?? browserHost().zoomTo)(id);
 }
 
 /**
