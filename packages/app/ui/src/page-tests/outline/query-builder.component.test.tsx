@@ -66,6 +66,11 @@ function graph(edn: string): WireNode[] {
       props: { ...isField, [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")] },
     }),
     wire({
+      id: "f.note",
+      text: "note",
+      props: { ...isField, [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")] },
+    }),
+    wire({
       id: "t.todo",
       text: "todo",
       props: {
@@ -87,7 +92,7 @@ function graph(edn: string): WireNode[] {
       text: "Write it",
       props: { [SYSTEM_IDS.typeField]: [ref("t.todo")], "f.status": [ref("s.done")] },
     }),
-    wire({ id: "n.c", text: "Retro notes" }),
+    wire({ id: "n.c", text: "Retro notes", props: { "f.note": [{ t: "str", v: "kept" }] } }),
     wire({
       id: QUERY,
       text: "Open work",
@@ -280,6 +285,22 @@ describe("the query builder", () => {
     const rows = container.querySelectorAll('[aria-label="remove condition"]');
     await click(present(rows[1] as HTMLElement | undefined, "second row's remove"));
     await vi.waitFor(() => expect(stored()).toBe(printed(TODO_EDN)));
+  });
+
+  it("an edit beside a lifted condition with an empty operand keeps it written", async () => {
+    const notes =
+      '[:find ?id :where [?n :node/id ?id] [?n :f/f.note ?v1] [(kb/includes-ci? ?v1 "")]]';
+    await mount(notes);
+    // Every node with a note: an empty text is in every text.
+    expect(results()).toEqual(["n.c"]);
+    await click(present($('[data-qb-slot="add-condition"]'), "add condition"));
+    await pick("has children");
+    await vi.waitFor(() => expect(stored()).toContain(":node/child"));
+    expect(stored()).toContain('[(kb/includes-ci? ?v1 "")]');
+    await answered();
+    expect(results()).toEqual([]);
+    // The empty text is a text, shown as one.
+    expect(slot("text").getAttribute("aria-label")).toBe('text: ""');
   });
 
   it("a query that does not lift says why and offers only the EDN tab", async () => {

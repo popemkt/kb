@@ -4,14 +4,16 @@
  * React, no DOM.
  *
  * The tree is `@kb/query`'s condition model (`ir/conditions.ts`) with one
- * row of the builder's own, `blank` — a condition added and not yet said —
- * placed the way the model places a row (`ConditionOf`). What is written is
- * never the tree itself: a blank row and a row still missing what it needs
- * (`isComplete`) say nothing yet, so they are left out, and the rest is
- * printed canonically, `printEdn(lowerIr(…))` (`lowerIr` lowers a list's
- * canonical form). The tree is kept as the person built it; only the
- * stored text is canonical (docs/brainstorms/2026-10-20-query-builder →
- * Switching between the builder and the advanced editor).
+ * row of the builder's own, a `draft` — a condition a person is still
+ * saying: no subject picked yet, or an operand not given yet — placed the
+ * way the model places a row (`ConditionOf`). Whether an operand is given
+ * is the draft's to say, never its value's: an empty text, tag or node is a
+ * value like any other, and a row lifted from stored text is always a row.
+ * What is written is the tree without its drafts, printed canonically,
+ * `printEdn(lowerIr(…))` (`lowerIr` lowers a list's canonical form). The
+ * tree is kept as the person built it; only the stored text is canonical
+ * (docs/brainstorms/2026-10-20-query-builder → Switching between the
+ * builder and the advanced editor).
  */
 import type { FieldType, PropValue } from "@kb/model";
 import {
@@ -29,25 +31,50 @@ import {
   type Lifted,
 } from "@kb/query";
 
-/** A condition a person added and has not said anything with yet. */
-export interface BlankRow {
-  readonly kind: "blank";
+/**
+ * A condition a person is still saying: no subject picked yet (`row` null),
+ * or a row whose operand they have not given yet, the operand's place in
+ * `row` holding nothing anyone reads. It says nothing, so it is not written.
+ */
+export interface DraftRow {
+  readonly kind: "draft";
+  readonly row: ConditionRow | null;
 }
 
-/** One condition of a person's tree: a row of the model, a group, or a blank row. */
-export type BuilderCondition = ConditionOf<BlankRow>;
+/** One condition of a person's tree: a row of the model, a group, or a draft. */
+export type BuilderCondition = ConditionOf<DraftRow>;
+
+/** A condition that is not a group: a row, or a draft of one. */
+export type Line = ConditionRow | DraftRow;
 
 /** A person's conditions, ANDed, as they built them. */
 export type BuilderTree = readonly BuilderCondition[];
 
-export type Group = GroupOf<BlankRow>;
+export type Group = GroupOf<DraftRow>;
 
 export type GroupKind = Group["kind"];
 
 /** Where a condition is: an index into the top-level list, then into each group's children in turn. */
 export type Path = readonly number[];
 
-export const BLANK: BlankRow = { kind: "blank" };
+/** A condition just added: nothing said yet. */
+export const BLANK: DraftRow = { kind: "draft", row: null };
+
+/** The row a line is, or is a draft of; null while no subject is picked. */
+export function rowOf(line: Line): ConditionRow | null {
+  return line.kind === "draft" ? line.row : line;
+}
+
+/** `row`, as a row when its operand is given, else as a draft of one. */
+function given(row: ConditionRow, operand: boolean): Line {
+  return operand ? row : { kind: "draft", row };
+}
+
+/** `line` with its row changed by `f`, a draft still a draft: the edit gives no operand. */
+function mapLine(line: Line, f: (row: ConditionRow) => ConditionRow): Line {
+  if (line.kind !== "draft") return f(line);
+  return line.row === null ? line : { kind: "draft", row: f(line.row) };
+}
 
 export function isGroupCondition(c: BuilderCondition): c is Group {
   return c.kind === "any-of" || c.kind === "all-of" || c.kind === "none-of";
@@ -56,7 +83,7 @@ export function isGroupCondition(c: BuilderCondition): c is Group {
 /** A row about one field: what it says of the field's values. */
 export type FieldRow = Extract<ConditionRow, { readonly field: string }>;
 
-export function isFieldRow(row: ConditionRow | BlankRow): row is FieldRow {
+export function isFieldRow(row: ConditionRow): row is FieldRow {
   return "field" in row;
 }
 
@@ -67,66 +94,16 @@ export function isFieldRow(row: ConditionRow | BlankRow): row is FieldRow {
 /** Days, as the vocabulary counts them: a whole number. */
 const isDayCount = (n: number): boolean => Number.isInteger(n) && n >= 0;
 
-/** Whether a field row says what it needs of its field: a value, a whole number of days. */
-function fieldRowSays(row: FieldRow): boolean {
-  switch (row.kind) {
-    case "field-set":
-    case "field-unset":
-      return true;
-    case "date-within":
-      return isDayCount(row.days);
-    case "field-is":
-    case "field-is-not":
-    case "field-contains":
-    case "field-compares":
-      return valuesOfRow(row).length > 0;
-    default: {
-      const _exhaustive: never = row;
-      return _exhaustive;
-    }
-  }
-}
-
-/**
- * Whether a row says something yet: it has its tag, its node, its text, a
- * value, a whole number of days. A row that does not is the person's, on
- * screen, and is not written.
- */
-export function isComplete(row: ConditionRow): boolean {
-  if (isFieldRow(row)) return row.field !== "" && fieldRowSays(row);
-  switch (row.kind) {
-    case "has-tag":
-    case "lacks-tag":
-      return row.tag !== "";
-    case "text-contains":
-      return row.text !== "";
-    case "instant-within":
-      return isDayCount(row.days);
-    case "under":
-    case "above":
-    case "child-of":
-    case "links-to":
-    case "linked-from":
-      return row.node !== "";
-    case "has-children":
-      return true;
-    default: {
-      const _exhaustive: never = row;
-      return _exhaustive;
-    }
-  }
-}
-
 function writableOne(c: BuilderCondition): Condition[] {
-  if (c.kind === "blank") return [];
+  if (c.kind === "draft") return [];
   if (c.kind === "all-of") return [{ kind: "all-of", conditions: writable(c.conditions) }];
   if (c.kind === "any-of" || c.kind === "none-of") {
     return [{ kind: c.kind, branches: c.branches.map(writable) }];
   }
-  return isComplete(c) ? [c] : [];
+  return [c];
 }
 
-/** What a person's tree says: the tree without its blank rows and the rows still missing what they need. */
+/** What a person's tree says: the tree without its drafts. */
 export function writable(tree: BuilderTree): Condition[] {
   return tree.flatMap(writableOne);
 }
@@ -228,7 +205,7 @@ export function removeAt(tree: BuilderTree, path: Path): BuilderTree {
   return editList(tree, list, (xs) => xs.filter((_, i) => i !== index));
 }
 
-/** A new group of `kind`, holding one blank row to say its first condition with. */
+/** A new group of `kind`, holding one draft to say its first condition with. */
 export function newGroup(kind: GroupKind): Group {
   return kind === "all-of"
     ? { kind: "all-of", conditions: [BLANK] }
@@ -290,12 +267,12 @@ export type Subject =
   | { readonly t: "field"; readonly field: string }
   | { readonly t: "attr"; readonly attr: Attribute };
 
-/** A row's subject; null for a blank row. */
-export function subjectOf(row: ConditionRow | BlankRow): Subject | null {
+/** A line's subject; null while none is picked. */
+export function subjectOf(line: Line): Subject | null {
+  const row = rowOf(line);
+  if (row === null) return null;
   if (isFieldRow(row)) return { t: "field", field: row.field };
   switch (row.kind) {
-    case "blank":
-      return null;
     case "has-tag":
     case "lacks-tag":
     case "under":
@@ -319,24 +296,24 @@ export function subjectOf(row: ConditionRow | BlankRow): Subject | null {
 /** How many days a new relative-date row counts, before the person says. */
 const DEFAULT_DAYS = { next: 14, last: 7 } as const;
 
-/** The row a newly picked attribute starts as. */
-function attributeRow(attr: Attribute): ConditionRow {
+/** The line a newly picked attribute starts as: a draft until its operand is given. */
+function attributeRow(attr: Attribute): Line {
   switch (attr) {
     case "has-tag":
     case "lacks-tag":
-      return { kind: attr, tag: "" };
+      return given({ kind: attr, tag: "" }, false);
     case "text":
-      return { kind: "text-contains", text: "", exactCase: false };
+      return given({ kind: "text-contains", text: "", exactCase: false }, false);
     case "created":
     case "edited":
       return { kind: "instant-within", attr, days: DEFAULT_DAYS.last };
     case "under":
     case "above":
-      return { kind: attr, node: "", via: { t: "child" } };
+      return given({ kind: attr, node: "", via: { t: "child" } }, false);
     case "child-of":
     case "links-to":
     case "linked-from":
-      return { kind: attr, node: "" };
+      return given({ kind: attr, node: "" }, false);
     case "has-children":
       return { kind: "has-children" };
     default: {
@@ -346,17 +323,14 @@ function attributeRow(attr: Attribute): ConditionRow {
   }
 }
 
-/** The row a subject starts as, picked over `from`: the same field keeps its row. */
-export function rowForSubject(subject: Subject, from: ConditionRow | BlankRow): ConditionRow {
-  if (subject.t === "attr") {
-    const same = subjectOf(from);
-    return same?.t === "attr" && same.attr === subject.attr && from.kind !== "blank"
-      ? from
-      : attributeRow(subject.attr);
-  }
+/** The line a subject starts as, picked over `from`: the same subject keeps its line. */
+export function rowForSubject(subject: Subject, from: Line): Line {
   const same = subjectOf(from);
-  if (same?.t === "field" && same.field === subject.field && from.kind !== "blank") return from;
-  return { kind: "field-is", field: subject.field, values: [] };
+  if (subject.t === "attr") {
+    return same?.t === "attr" && same.attr === subject.attr ? from : attributeRow(subject.attr);
+  }
+  if (same?.t === "field" && same.field === subject.field) return from;
+  return given({ kind: "field-is", field: subject.field, values: [] }, false);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -456,16 +430,16 @@ export function operatorOf(row: ConditionRow): Operator | null {
   }
 }
 
-/** The values a field row holds, as `is` would hold them. */
+/** The values a field row holds, as `is` would hold them; a draft's operand is none. */
 function valuesOfRow(row: FieldRow): readonly ConditionValue[] {
   switch (row.kind) {
     case "field-is":
     case "field-is-not":
       return row.values;
     case "field-contains":
-      return row.text === "" ? [] : [{ t: "str", v: row.text }];
+      return [{ t: "str", v: row.text }];
     case "field-compares":
-      return row.value.t === "str" && row.value.v === "" ? [] : [row.value];
+      return [row.value];
     case "date-within":
     case "field-set":
     case "field-unset":
@@ -486,33 +460,42 @@ function comparable(
   return null;
 }
 
+/** What a draft's comparison holds in its value's place: nothing anyone reads. */
 const NO_VALUE: Extract<ConditionValue, { t: "str" }> = { t: "str", v: "" };
 
+/** The values a line's operand holds: none for a draft or a row not about a field. */
+function operandValues(line: Line): readonly ConditionValue[] {
+  return line.kind !== "draft" && isFieldRow(line) ? valuesOfRow(line) : [];
+}
+
+/** `field contains` the first text among `values`: a draft when there is none. */
+function containsLine(field: string, values: readonly ConditionValue[], exactCase: boolean): Line {
+  const text = values.find(
+    (v): v is Extract<ConditionValue, { t: "str" | "label" }> => v.t === "str" || v.t === "label",
+  );
+  return given(
+    { kind: "field-contains", field, text: text?.v ?? "", exactCase },
+    text !== undefined,
+  );
+}
+
 /**
- * `row` with its operator changed to `op`, on the field it is about,
+ * `line` with its operator changed to `op`, on the field it is about,
  * keeping what still applies: `is` and `is not` keep their values, a
  * comparison keeps one, `contains` keeps a text, a window keeps its days.
+ * What it keeps nothing for is a draft.
  */
-export function withOperator(row: ConditionRow, field: string, op: Operator): ConditionRow {
-  const values = isFieldRow(row) ? valuesOfRow(row) : [];
-  const days = row.kind === "date-within" ? row.days : undefined;
+export function withOperator(line: Line, field: string, op: Operator): Line {
+  const row = rowOf(line);
+  const values = operandValues(line);
+  const days = row?.kind === "date-within" ? row.days : undefined;
   switch (op) {
     case "is":
-      return { kind: "field-is", field, values };
+      return given({ kind: "field-is", field, values }, values.length > 0);
     case "is-not":
-      return { kind: "field-is-not", field, values };
-    case "contains": {
-      const text = values.find(
-        (v): v is Extract<ConditionValue, { t: "str" | "label" }> =>
-          v.t === "str" || v.t === "label",
-      );
-      return {
-        kind: "field-contains",
-        field,
-        text: text?.v ?? "",
-        exactCase: row.kind === "field-contains" ? row.exactCase : false,
-      };
-    }
+      return given({ kind: "field-is-not", field, values }, values.length > 0);
+    case "contains":
+      return containsLine(field, values, row?.kind === "field-contains" && row.exactCase);
     case "within-next":
       return { kind: "date-within", field, direction: "next", days: days ?? DEFAULT_DAYS.next };
     case "within-last":
@@ -524,8 +507,10 @@ export function withOperator(row: ConditionRow, field: string, op: Operator): Co
     case "<":
     case "<=":
     case ">":
-    case ">=":
-      return { kind: "field-compares", field, op, value: comparable(values[0]) ?? NO_VALUE };
+    case ">=": {
+      const value = comparable(values[0]);
+      return given({ kind: "field-compares", field, op, value: value ?? NO_VALUE }, value !== null);
+    }
     default: {
       const _exhaustive: never = op;
       return _exhaustive;
@@ -547,29 +532,35 @@ function conditionValueOf(value: PropValue): ConditionValue {
   return value.t === "date" ? { t: "str", v: value.v } : value;
 }
 
-/** A row's values as its field's editor holds them. */
-export function rowValues(row: ConditionRow): PropValue[] {
-  return isFieldRow(row) ? valuesOfRow(row).map(propValueOf) : [];
+/** A line's values as its field's editor holds them: none while it is a draft. */
+export function rowValues(line: Line): PropValue[] {
+  return operandValues(line).map(propValueOf);
 }
 
-/** `row` holding `values`, in the shape its operator takes them. */
-export function withValues(row: ConditionRow, values: readonly PropValue[]): ConditionRow {
-  if (!isFieldRow(row)) return row;
+/** `line` holding `values`, in the shape its operator takes them: a draft while they give none. */
+export function withValues(line: Line, values: readonly PropValue[]): Line {
+  const row = rowOf(line);
+  if (row === null || !isFieldRow(row)) return line;
   const held = values.map(conditionValueOf);
   switch (row.kind) {
     case "field-is":
     case "field-is-not":
-      return { ...row, values: held };
+      return given({ ...row, values: held }, held.length > 0);
     case "field-contains": {
       const [first] = held;
-      return { ...row, text: first === undefined ? "" : String(first.v) };
+      return given(
+        { ...row, text: first === undefined ? "" : String(first.v) },
+        first !== undefined,
+      );
     }
-    case "field-compares":
-      return { ...row, value: comparable(held[0]) ?? NO_VALUE };
+    case "field-compares": {
+      const value = comparable(held[0]);
+      return given({ ...row, value: value ?? NO_VALUE }, value !== null);
+    }
     case "date-within":
     case "field-set":
     case "field-unset":
-      return row;
+      return line;
     default: {
       const _exhaustive: never = row;
       return _exhaustive;
@@ -577,48 +568,55 @@ export function withValues(row: ConditionRow, values: readonly PropValue[]): Con
   }
 }
 
-/** `row` counting `days`, when it counts days and `days` is a whole number of them. */
-export function withDays(row: ConditionRow, days: number): ConditionRow {
-  if (!isDayCount(days)) return row;
-  return row.kind === "instant-within" || row.kind === "date-within" ? { ...row, days } : row;
+/** `line` counting `days`, when it counts days and `days` is a whole number of them. */
+export function withDays(line: Line, days: number): Line {
+  if (!isDayCount(days)) return line;
+  return mapLine(line, (row) =>
+    row.kind === "instant-within" || row.kind === "date-within" ? { ...row, days } : row,
+  );
 }
 
-/** `row` naming `id`: the tag a tag row names, the node a node row names. */
-export function withTarget(row: ConditionRow, id: string): ConditionRow {
-  if (row.kind === "has-tag" || row.kind === "lacks-tag") return { ...row, tag: id };
+/** `line` naming `id`, given: the tag a tag row names, the node a node row names. */
+export function withTarget(line: Line, id: string): Line {
+  const row = rowOf(line);
+  if (row?.kind === "has-tag" || row?.kind === "lacks-tag") return { ...row, tag: id };
   if (
-    row.kind === "under" ||
-    row.kind === "above" ||
-    row.kind === "child-of" ||
-    row.kind === "links-to" ||
-    row.kind === "linked-from"
+    row?.kind === "under" ||
+    row?.kind === "above" ||
+    row?.kind === "child-of" ||
+    row?.kind === "links-to" ||
+    row?.kind === "linked-from"
   ) {
     return { ...row, node: id };
   }
-  return row;
+  return line;
 }
 
-/** `row` matching text `text`, when it matches text. */
-export function withText(row: ConditionRow, text: string): ConditionRow {
-  return row.kind === "text-contains" || row.kind === "field-contains" ? { ...row, text } : row;
+/** `line` matching `text`, when it matches text; a draft while there is none (`null`). */
+export function withText(line: Line, text: string | null): Line {
+  const row = rowOf(line);
+  if (row?.kind !== "text-contains" && row?.kind !== "field-contains") return line;
+  return given({ ...row, text: text ?? "" }, text !== null);
 }
 
-/** `row` with case counting or not, when it matches text. */
-export function withExactCase(row: ConditionRow, exactCase: boolean): ConditionRow {
-  return row.kind === "text-contains" || row.kind === "field-contains"
-    ? { ...row, exactCase }
-    : row;
+/** `line` with case counting or not, when it matches text. */
+export function withExactCase(line: Line, exactCase: boolean): Line {
+  return mapLine(line, (row) =>
+    row.kind === "text-contains" || row.kind === "field-contains" ? { ...row, exactCase } : row,
+  );
 }
 
-/** `row` walking `via`, when it walks. */
-export function withVia(row: ConditionRow, via: ConditionEdge): ConditionRow {
-  return row.kind === "under" || row.kind === "above" ? { ...row, via } : row;
+/** `line` walking `via`, when it walks. */
+export function withVia(line: Line, via: ConditionEdge): Line {
+  return mapLine(line, (row) =>
+    row.kind === "under" || row.kind === "above" ? { ...row, via } : row,
+  );
 }
 
 /** The tags a tree says a node has: the fields they template are the fields offered first. */
 export function tagsOf(tree: BuilderTree): string[] {
   return tree.flatMap((c): string[] => {
-    if (c.kind === "has-tag" && c.tag !== "") return [c.tag];
+    if (c.kind === "has-tag") return [c.tag];
     return isGroupCondition(c) ? tagsOf(childrenOf(c)) : [];
   });
 }

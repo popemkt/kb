@@ -6,8 +6,8 @@
  *
  * Keyboard (docs/brainstorms/2026-10-20-query-builder → Interaction): Tab
  * and Shift-Tab move between slots (each is a button), Enter opens a slot,
- * ⌘↵ adds a condition below the one the keyboard is in, and ⌫ on a row that
- * says nothing yet removes it.
+ * ⌘↵ adds a condition below the one the keyboard is in, and ⌫ on a draft
+ * (a row that says nothing yet) removes it.
  */
 import { useMemo, useState, type ReactNode } from "react";
 import { XIcon } from "@phosphor-icons/react";
@@ -39,7 +39,6 @@ import {
   BLANK,
   childrenOf,
   insertAt,
-  isComplete,
   isFieldRow,
   type FieldRow,
   isGroupCondition,
@@ -52,6 +51,7 @@ import {
   removeAt,
   replaceAt,
   rowForSubject,
+  rowOf,
   rowValues,
   subjectOf,
   tagsOf,
@@ -59,13 +59,14 @@ import {
   withExactCase,
   withOperator,
   withTarget,
+  withText,
   withValues,
   withVia,
-  type BlankRow,
   type BuilderCondition,
   type BuilderTree,
   type Group,
   type GroupKind,
+  type Line,
   type Path,
   type Subject,
 } from "./model";
@@ -138,7 +139,25 @@ function labelOf(read: GraphRead, id: string): string {
   return [read.schema.get(id)?.text, read.outline.get(id)?.text].find(hasText) ?? id;
 }
 
-/** The keys a row takes: ⌘↵ adds a condition below it, ⌫ on a row that says nothing removes it. */
+/** A given text as a slot names it: an empty one is `""`, so it reads as the value it is. */
+const shownText = (text: string): string => (text === "" ? '""' : text);
+
+/** An operand as its slot names it: nothing while it is not given. */
+const operandLabel = (given: boolean, text: string): string => (given ? shownText(text) : "");
+
+/**
+ * A row's slots, and where they write: the row as drawn, whether its
+ * operand is given (not while the line is a draft), and the line replaced.
+ */
+interface RowAt<R extends ConditionRow = ConditionRow> {
+  readonly builder: Builder;
+  readonly row: R;
+  readonly line: Line;
+  readonly given: boolean;
+  readonly set: (next: Line) => void;
+}
+
+/** The keys a row takes: ⌘↵ adds a condition below it, ⌫ on a draft removes it. */
 function rowKeys(builder: Builder, path: Path, says: boolean) {
   return (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -212,7 +231,7 @@ function ValuesShown({
 
 function valueText(read: GraphRead, value: PropValue): string {
   if (value.t === "bool") return value.v ? "checked" : "not checked";
-  return formatPropValue(value, read.schema) || String(value.v);
+  return shownText(formatPropValue(value, read.schema) || String(value.v));
 }
 
 const valuesLabel = (read: GraphRead, values: readonly PropValue[]) =>
@@ -236,12 +255,12 @@ const daysOf = (values: readonly PropValue[]): number | null => {
 const timeZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /** The slots of a row about a field: the operator, then what it compares with. */
-function FieldSlots({ builder, row, path }: { builder: Builder; row: FieldRow; path: Path }) {
+function FieldSlots(at: RowAt<FieldRow>) {
+  const { builder, row, line, set } = at;
   const { read } = builder;
   const type = resolveFieldTypeById(row.field, read.schema);
   const kind = operandKindOf(type);
   const op = operatorOf(row) ?? "is";
-  const set = (next: ConditionRow) => builder.edit(replaceAt(builder.tree, path, next));
   const opCandidates = OPERATORS[kind].map((o) => ({ id: o, label: operatorLabel(o, kind) }));
   const name = labelOf(read, row.field);
   return (
@@ -253,31 +272,29 @@ function FieldSlots({ builder, row, path }: { builder: Builder; row: FieldRow; p
         candidates={opCandidates}
         chosen={op}
         pickLabel={`Pick how ${name} compares`}
-        onPick={(id) => set(withOperator(row, row.field, id))}
+        onPick={(id) => set(withOperator(line, row.field, id))}
       />
       {(row.kind === "field-is" ||
         row.kind === "field-is-not" ||
         row.kind === "field-compares") && (
         <ValuesSlot
           name={row.kind === "field-compares" ? "value" : "values"}
-          label={valuesLabel(read, rowValues(row))}
+          label={valuesLabel(read, rowValues(line))}
           fieldId={row.field}
           context={read}
-          values={rowValues(row)}
+          values={rowValues(line)}
           editing={
             row.kind === "field-compares" ? { t: "typed", type } : editingOf(read, row.field)
           }
-          onValues={(values) => set(withValues(row, values))}
+          onValues={(values) => set(withValues(line, values))}
           placeholder="value"
           tone={declaresOptionSet(read.schema.get(row.field)) ? "chips" : "value"}
         >
-          <ValuesShown read={read} fieldId={row.field} values={rowValues(row)} />
+          <ValuesShown read={read} fieldId={row.field} values={rowValues(line)} />
         </ValuesSlot>
       )}
-      {row.kind === "field-contains" && <TextSlots builder={builder} row={row} path={path} />}
-      {row.kind === "date-within" && (
-        <DaysSlot builder={builder} row={row} path={path} fieldId={row.field} civil />
-      )}
+      {row.kind === "field-contains" && <TextSlots {...at} row={row} />}
+      {row.kind === "date-within" && <DaysSlot {...at} row={row} fieldId={row.field} civil />}
     </>
   );
 }
@@ -286,29 +303,28 @@ function FieldSlots({ builder, row, path }: { builder: Builder; row: FieldRow; p
 function TextSlots({
   builder,
   row,
-  path,
-}: {
-  builder: Builder;
-  row: Extract<ConditionRow, { kind: "text-contains" | "field-contains" }>;
-  path: Path;
-}) {
-  const set = (next: ConditionRow) => builder.edit(replaceAt(builder.tree, path, next));
-  const values: PropValue[] = row.text === "" ? [] : [{ t: "str", v: row.text }];
+  line,
+  given,
+  set,
+}: RowAt<Extract<ConditionRow, { kind: "text-contains" | "field-contains" }>>) {
+  const values: PropValue[] = given ? [{ t: "str", v: row.text }] : [];
   return (
     <>
       <ValuesSlot
         name="text"
-        label={row.text}
+        label={operandLabel(given, row.text)}
         fieldId={row.kind === "field-contains" ? row.field : ""}
         context={builder.read}
         values={values}
         editing={{ t: "typed", type: "text" }}
         onValues={(next) => {
           const [first] = next;
-          set({ ...row, text: first?.t === "str" ? first.v : "" });
+          set(withText(line, first?.t === "str" ? first.v : null));
         }}
         placeholder="text"
-      />
+      >
+        {operandLabel(given, row.text)}
+      </ValuesSlot>
       <button
         type="button"
         className={cn(
@@ -320,7 +336,7 @@ function TextSlots({
         aria-pressed={row.exactCase}
         title={row.exactCase ? "Case counts" : "Case does not count"}
         data-qb-slot="case"
-        onClick={() => set(withExactCase(row, !row.exactCase))}
+        onClick={() => set(withExactCase(line, !row.exactCase))}
       >
         Aa
       </button>
@@ -332,18 +348,15 @@ function TextSlots({
 function DaysSlot({
   builder,
   row,
-  path,
+  line,
+  set,
   fieldId,
   civil,
-}: {
-  builder: Builder;
-  row: Extract<ConditionRow, { kind: "date-within" | "instant-within" }>;
-  path: Path;
+}: RowAt<Extract<ConditionRow, { kind: "date-within" | "instant-within" }>> & {
   fieldId: string;
   /** A civil date (a date field), read in the person's zone; else an instant, in UTC. */
   civil: boolean;
 }) {
-  const set = (next: ConditionRow) => builder.edit(replaceAt(builder.tree, path, next));
   const values: PropValue[] = [{ t: "num", v: row.days }];
   const reading = civil
     ? `civil dates, from today in ${timeZone()}, both ends included`
@@ -359,7 +372,7 @@ function DaysSlot({
         editing={{ t: "typed", type: "number" }}
         onValues={(next) => {
           const days = daysOf(next);
-          if (days !== null) set(withDays(row, days));
+          if (days !== null) set(withDays(line, days));
         }}
       >
         {row.days} {row.days === 1 ? "day" : "days"}
@@ -390,26 +403,23 @@ function viaOf(id: string): ConditionEdge {
 function NodeSlots({
   builder,
   row,
-  path,
-}: {
-  builder: Builder;
-  row: Extract<ConditionRow, { node: string }>;
-  path: Path;
-}) {
+  line,
+  given,
+  set,
+}: RowAt<Extract<ConditionRow, { node: string }>>) {
   const { read } = builder;
-  const set = (next: ConditionRow) => builder.edit(replaceAt(builder.tree, path, next));
   const candidates = useMemo(() => nodeCandidates(read.outline), [read.outline]);
   return (
     <>
       <ChoiceSlot
         name="node"
-        label={row.node === "" ? "" : labelOf(read, row.node)}
+        label={operandLabel(given, labelOf(read, row.node))}
         tone="value"
         candidates={candidates}
-        chosen={row.node}
+        chosen={given ? row.node : undefined}
         pickLabel="Pick a node"
         placeholder="node"
-        onPick={(id) => set(withTarget(row, id))}
+        onPick={(id) => set(withTarget(line, id))}
       />
       {(row.kind === "under" || row.kind === "above") && (
         <ChoiceSlot
@@ -419,7 +429,7 @@ function NodeSlots({
           candidates={viaCandidates(builder)}
           chosen={viaId(row.via)}
           pickLabel="Pick what to walk"
-          onPick={(id) => set(withVia(row, viaOf(id)))}
+          onPick={(id) => set(withVia(line, viaOf(id)))}
         />
       )}
       {(row.kind === "under" || row.kind === "above") && row.maxHops !== undefined && (
@@ -454,25 +464,23 @@ function viaCandidates(builder: Builder): PickerCandidate[] {
 function TagSlot({
   builder,
   row,
-  path,
-}: {
-  builder: Builder;
-  row: Extract<ConditionRow, { kind: "has-tag" | "lacks-tag" }>;
-  path: Path;
-}) {
+  line,
+  given,
+  set,
+}: RowAt<Extract<ConditionRow, { kind: "has-tag" | "lacks-tag" }>>) {
   const { read, wireNodes } = builder;
   const candidates = useMemo(() => nodesOfKind(wireNodes, SYSTEM_IDS.tag), [wireNodes]);
-  const name = row.tag === "" ? "" : labelOf(read, row.tag);
+  const name = operandLabel(given, labelOf(read, row.tag));
   return (
     <ChoiceSlot
       name="tag"
       label={name}
       tone="chips"
       candidates={candidates}
-      chosen={row.tag}
+      chosen={given ? row.tag : undefined}
       pickLabel="Pick a tag"
       placeholder="tag"
-      onPick={(id) => builder.edit(replaceAt(builder.tree, path, withTarget(row, id)))}
+      onPick={(id) => set(withTarget(line, id))}
     >
       <TagChip tag={{ id: row.tag, name, color: tagColorOf(row.tag, tagPalette(wireNodes)) }} />
     </ChoiceSlot>
@@ -480,24 +488,25 @@ function TagSlot({
 }
 
 /** What follows a row's subject: its operator and values, by what the row is. */
-function RowSlots({ builder, row, path }: { builder: Builder; row: ConditionRow; path: Path }) {
-  if (isFieldRow(row)) return <FieldSlots builder={builder} row={row} path={path} />;
+function RowSlots(at: RowAt) {
+  const { row } = at;
+  if (isFieldRow(row)) return <FieldSlots {...at} row={row} />;
   switch (row.kind) {
     case "has-tag":
     case "lacks-tag":
-      return <TagSlot builder={builder} row={row} path={path} />;
+      return <TagSlot {...at} row={row} />;
     case "text-contains":
       return (
         <>
           <span className="text-meta text-foreground/50">contains</span>
-          <TextSlots builder={builder} row={row} path={path} />
+          <TextSlots {...at} row={row} />
         </>
       );
     case "instant-within":
       return (
         <>
           <span className="text-meta text-foreground/50">in the last</span>
-          <DaysSlot builder={builder} row={row} path={path} fieldId="" civil={false} />
+          <DaysSlot {...at} row={row} fieldId="" civil={false} />
         </>
       );
     case "under":
@@ -505,7 +514,7 @@ function RowSlots({ builder, row, path }: { builder: Builder; row: ConditionRow;
     case "child-of":
     case "links-to":
     case "linked-from":
-      return <NodeSlots builder={builder} row={row} path={path} />;
+      return <NodeSlots {...at} row={row} />;
     case "has-children":
       return null;
     default: {
@@ -516,18 +525,12 @@ function RowSlots({ builder, row, path }: { builder: Builder; row: ConditionRow;
 }
 
 /** One condition: its subject, then what it says of it, then its remove. */
-function ConditionLine({
-  builder,
-  row,
-  path,
-}: {
-  builder: Builder;
-  row: ConditionRow | BlankRow;
-  path: Path;
-}) {
+function ConditionLine({ builder, line, path }: { builder: Builder; line: Line; path: Path }) {
   const { read } = builder;
-  const subject = subjectOf(row);
-  const says = row.kind !== "blank" && isComplete(row);
+  const subject = subjectOf(line);
+  const row = rowOf(line);
+  const says = line.kind !== "draft";
+  const set = (next: Line) => builder.edit(replaceAt(builder.tree, path, next));
   const subjectLabel =
     subject === null
       ? ""
@@ -551,11 +554,9 @@ function ConditionLine({
         pickLabel="Pick a field or a condition"
         placeholder="field or condition"
         autoOpen={builder.opening === key(path)}
-        onPick={(id) =>
-          builder.edit(replaceAt(builder.tree, path, rowForSubject(subjectFromId(id), row)))
-        }
+        onPick={(id) => set(rowForSubject(subjectFromId(id), line))}
       />
-      {row.kind !== "blank" && <RowSlots builder={builder} row={row} path={path} />}
+      {row !== null && <RowSlots builder={builder} row={row} line={line} given={says} set={set} />}
       <RemoveButton
         label="remove condition"
         onRemove={() => builder.edit(removeAt(builder.tree, path))}
@@ -645,7 +646,7 @@ function ConditionList({
     return isGroupCondition(c) ? (
       <GroupBox key={key(at)} builder={builder} group={c} path={at} />
     ) : (
-      <ConditionLine key={key(at)} builder={builder} row={c} path={at} />
+      <ConditionLine key={key(at)} builder={builder} line={c} path={at} />
     );
   });
 }
