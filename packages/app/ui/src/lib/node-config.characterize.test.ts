@@ -384,13 +384,8 @@ describe("getViewConfig — per-field carriers and fallbacks", () => {
         ],
       });
       expect(config.filters).toEqual([
-        {
-          kind: "eq",
-          fieldId: "field.status",
-          value: "doing",
-          raw: '{:field field.status :eq "doing"}',
-        },
-        { kind: "text", text: "drift", raw: '{:text "drift"}' },
+        { kind: "field-is", field: "field.status", values: [{ t: "label", v: "doing" }] },
+        { kind: "anywhere-contains", text: "drift", exactCase: false },
       ]);
     } finally {
       warn.mockRestore();

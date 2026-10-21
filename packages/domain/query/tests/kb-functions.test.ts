@@ -237,6 +237,25 @@ describe("a kb function inside or-join and not-join", () => {
   });
 });
 
+describe("kb/includes? keeps case, and is total", () => {
+  test("text contains, case and all", () => {
+    const { index } = pinned("UTC");
+    expect(ids(index, q('[?n :node/text ?x] [(kb/includes? ?x "RETRO")]'))).toEqual(["fresh"]);
+  });
+
+  test("false for a value that is not a string, where clojure.string/includes? throws", () => {
+    const { index } = pinned("UTC");
+    const numbers = new DatascriptIndex([node("n", { props: { est: [{ t: "num", v: 3 }] } })], {
+      derived: derivedWith({}),
+    });
+    expect(ids(numbers, q('[?n :f/est ?v] [(kb/includes? ?v "3")]'))).toEqual([]);
+    expect(() =>
+      numbers.runDatalog(q('[?n :f/est ?v] [(clojure.string/includes? ?v "3")]')),
+    ).toThrow(DatalogError);
+    expect(ids(index, q('[?n :node/created-at _] [(kb/includes? 3 "3")]'))).toEqual([]);
+  });
+});
+
 describe("one clock sample per run, and none without a clocked function", () => {
   test("a run calling two clocked functions over many rows samples once", () => {
     const { index, samples } = pinned("UTC");

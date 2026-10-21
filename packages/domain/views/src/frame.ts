@@ -30,11 +30,6 @@ export interface SortSpec {
   dir: SortDir;
 }
 
-/** Parsed sys.f.view.filter EDN clause. */
-export type ViewFilter =
-  | { kind: "eq"; fieldId: string; value: string; raw: string }
-  | { kind: "text"; text: string; raw: string };
-
 /**
  * Every setting any frame view reads, decoded from a frame's view node's
  * `sys.f.view.*` props. A view reads only the ones its params declare
@@ -47,6 +42,7 @@ export interface ViewConfig {
   pagesize: number;
   /** Board group-by field id (null = ungrouped / cards). */
   groupFieldId: string | null;
+  /** The view's narrowing of its frame's rows, ANDed. */
   filters: ViewFilter[];
 }
 
@@ -59,17 +55,45 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   filters: [],
 };
 
-/** Serialize a filter back to the EDN string stored on the frame. */
-export function serializeViewFilter(filter: Exclude<ViewFilter, never> & { raw?: string }): string {
-  if (filter.kind === "text") {
-    return `{:text ${JSON.stringify(filter.text)}}`;
-  }
-  return `{:field ${filter.fieldId} :eq ${JSON.stringify(filter.value)}}`;
+/**
+ * A view's narrowing of its frame's rows is conditions of the one condition
+ * model (`@kb/query`'s `NarrowingCondition`, DESIGN.md → Query layer →
+ * Conditions), ANDed. Stored, each is one `sys.f.view.filter` text in the
+ * syntax views were written in before that model, which spells two rows:
+ * `{:field <id> :eq <v>}`, the field is the value labelled `v` (by a node's
+ * id or text, or a literal's text), and `{:text "<s>"}`, the node's text or
+ * any of its values contains `s`, ignoring case. A `ViewFilter` is a
+ * condition in one of those two rows; this module is the one place that
+ * reads and writes the syntax. GAP [[01M5E7S398F4GM2490R3RZ3ZPP]]
+ */
+const ViewFilterSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("field-is"),
+    field: Schema.NonEmptyString,
+    values: Schema.Tuple([Schema.Struct({ t: Schema.Literal("label"), v: Schema.String })]),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("anywhere-contains"),
+    text: Schema.String,
+    exactCase: Schema.Literal(false),
+  }),
+]);
+
+/** A narrowing condition in a row the stored syntax spells (`ViewFilterSchema`). */
+export type ViewFilter = typeof ViewFilterSchema.Type;
+
+/** The filter's stored text. */
+export function serializeViewFilter(filter: ViewFilter): string {
+  if (filter.kind === "anywhere-contains") return `{:text ${JSON.stringify(filter.text)}}`;
+  return `{:field ${filter.field} :eq ${JSON.stringify(filter.values[0].v)}}`;
 }
 
+const unescape = (text: string) => text.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+
 /**
- * Parse filter EDN: `{:field <id> :eq <value>}` or `{:text "substr"}`.
- * Bad EDN → null (caller warns); never throws.
+ * A stored filter's condition: `{:field <id> :eq <value>}` (the value quoted
+ * or bare, a bare keyword without its colon) or `{:text "substr"}`. Text in
+ * neither form → null (the caller warns); never throws.
  */
 export function parseViewFilterEdn(edn: string): ViewFilter | null {
   const raw = edn.trim();
@@ -77,23 +101,15 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
 
   const textValue = raw.match(/^\{:text\s+"((?:\\.|[^"\\])*)"\s*\}$/)?.[1];
   if (textValue !== undefined) {
-    return {
-      kind: "text",
-      text: textValue.replace(/\\"/g, '"').replace(/\\\\/g, "\\"),
-      raw,
-    };
+    return { kind: "anywhere-contains", text: unescape(textValue), exactCase: false };
   }
 
-  // {:field <id> :eq "value"} | {:field <id> :eq bare}
   const eqMatch = raw.match(/^\{:field\s+(\S+)\s+:eq\s+(?:"((?:\\.|[^"\\])*)"|(\S+))\s*\}$/);
   if (eqMatch) {
-    const [, fieldId, quoted, bare] = eqMatch;
-    const value =
-      quoted === undefined
-        ? bare?.replace(/^:/, "")
-        : quoted.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
-    if (fieldId !== undefined && value !== undefined) {
-      return { kind: "eq", fieldId, value, raw };
+    const [, field, quoted, bare] = eqMatch;
+    const value = quoted === undefined ? bare?.replace(/^:/, "") : unescape(quoted);
+    if (field !== undefined && value !== undefined) {
+      return { kind: "field-is", field, values: [{ t: "label", v: value }] };
     }
   }
 
@@ -199,20 +215,6 @@ const PositiveSchema = Schema.Finite.check(Schema.isGreaterThan(0));
 
 const WidthsSchema = Schema.Record(Schema.String, PositiveSchema);
 
-const ViewFilterSchema = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("eq"),
-    fieldId: Schema.NonEmptyString,
-    value: Schema.String,
-    raw: Schema.String,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("text"),
-    text: Schema.String,
-    raw: Schema.String,
-  }),
-]);
-
 /**
  * A filter is stored as EDN text, so reading the clause out of the text is the
  * carrier step and the schema validates the clause it produced.
@@ -232,9 +234,9 @@ const sortSpecWrite = (specs: readonly SortSpec[]): SlotWrite => ({
   [SYSTEM_IDS.viewSortDirField]: specs.map((spec) => strValue(spec.dir)),
 });
 
-/** A filter is written as the EDN it was read from, else as its serialization. */
+/** Each filter is written as its stored text. */
 const filtersWrite = (filters: readonly ViewFilter[]): SlotWrite => ({
-  [SYSTEM_IDS.viewFilterField]: filters.map((f) => strValue(f.raw || serializeViewFilter(f))),
+  [SYSTEM_IDS.viewFilterField]: filters.map((f) => strValue(serializeViewFilter(f))),
 });
 
 /**

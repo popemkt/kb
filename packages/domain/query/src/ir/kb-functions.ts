@@ -105,6 +105,8 @@ function civilDay(name: KbFunctionName, sample: ClockSample, n: number): string 
 /**
  * Every kb function over one clock sample:
  *
+ * - `(kb/includes? s sub)`: `s` contains `sub`, case and all; false when
+ *   either is not a string, where `clojure.string/includes?` throws.
  * - `(kb/includes-ci? s sub)`: `s` contains `sub`, ignoring case; false when
  *   either is not a string.
  * - `(kb/today)`, `(kb/date-in-days n)`: the civil date, `YYYY-MM-DD` in the
@@ -126,6 +128,7 @@ export function kbFunctions(sample: ClockSample | undefined): {
     return sample;
   };
   return {
+    "kb/includes?": (s, sub) => typeof s === "string" && typeof sub === "string" && s.includes(sub),
     "kb/includes-ci?": (s, sub) =>
       typeof s === "string" &&
       typeof sub === "string" &&

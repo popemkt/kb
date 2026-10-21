@@ -19,16 +19,17 @@ import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineNode } from "./outline.store";
 import { listFilterFieldOptions } from "./view-filter-fields";
 
-type FilterKind = "eq" | "text";
+/** The two rows a view filter's stored syntax spells (`ViewFilter`). */
+type FilterKind = ViewFilter["kind"];
 
 const FILTER_KIND_OPTIONS: readonly EnumOption<FilterKind>[] = [
-  { value: "eq", label: "field equals" },
-  { value: "text", label: "text contains" },
+  { value: "field-is", label: "field equals" },
+  { value: "anywhere-contains", label: "text contains" },
 ];
 
 function filterLabel(f: ViewFilter): string {
-  if (f.kind === "text") return `text ∋ ${f.text}`;
-  return `${f.fieldId} = ${f.value}`;
+  if (f.kind === "anywhere-contains") return `text ∋ ${f.text}`;
+  return `${f.field} = ${f.values[0].v}`;
 }
 
 function elRect(el: Element | null): DOMRect | null {
@@ -71,7 +72,7 @@ export function ViewFilterPopoverHost() {
 
   const config = getViewConfig(useFrameViewNode(frame)?.props);
 
-  const [kind, setKind] = useState<FilterKind>("eq");
+  const [kind, setKind] = useState<FilterKind>("field-is");
   const [fieldId, setFieldId] = useState("");
   const [value, setValue] = useState("");
 
@@ -118,24 +119,21 @@ export function ViewFilterPopoverHost() {
   if (frameId === null || !anchor) return null;
 
   const add = () => {
-    if (kind === "text") {
-      const text = value.trim();
-      if (!text) return;
-      void browserHost().writes.addViewFilter(
-        frameId,
-        serializeViewFilter({ kind: "text", text, raw: "" }),
-      );
+    const text = value.trim();
+    if (!text) return;
+    if (kind === "anywhere-contains") {
+      void browserHost().writes.addViewFilter(frameId, {
+        kind: "anywhere-contains",
+        text,
+        exactCase: false,
+      });
     } else {
-      if (!fieldId || !value.trim()) return;
-      void browserHost().writes.addViewFilter(
-        frameId,
-        serializeViewFilter({
-          kind: "eq",
-          fieldId,
-          value: value.trim(),
-          raw: "",
-        }),
-      );
+      if (!fieldId) return;
+      void browserHost().writes.addViewFilter(frameId, {
+        kind: "field-is",
+        field: fieldId,
+        values: [{ t: "label", v: text }],
+      });
     }
     setValue("");
   };
@@ -159,17 +157,17 @@ export function ViewFilterPopoverHost() {
         ) : (
           <ul className="mb-1 flex flex-col gap-0.5">
             {config.filters.map((f) => {
-              const raw = f.raw || serializeViewFilter(f);
+              const key = serializeViewFilter(f);
               return (
                 <li
-                  key={raw}
+                  key={key}
                   className="flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-meta text-foreground/70 hover:bg-foreground/[0.04]"
                 >
                   <span className="min-w-0 flex-1 truncate">{filterLabel(f)}</span>
                   <button
                     type="button"
                     className="flex h-5 w-5 items-center justify-center rounded-sm text-foreground/30 hover:text-foreground/60"
-                    onClick={() => void browserHost().writes.removeViewFilter(frameId, raw)}
+                    onClick={() => void browserHost().writes.removeViewFilter(frameId, f)}
                     aria-label="Remove filter"
                   >
                     <XIcon size={11} weight="bold" />
@@ -189,7 +187,7 @@ export function ViewFilterPopoverHost() {
           />
         </PrefFieldRow>
 
-        {kind === "eq" && (
+        {kind === "field-is" && (
           <PrefFieldRow icon={FunnelIcon} label="field">
             <select
               className={POPOVER_VALUE_CLASS}
@@ -209,7 +207,7 @@ export function ViewFilterPopoverHost() {
           </PrefFieldRow>
         )}
 
-        <PrefFieldRow icon={TextTIcon} label={kind === "text" ? "text" : "value"}>
+        <PrefFieldRow icon={TextTIcon} label={kind === "anywhere-contains" ? "text" : "value"}>
           <input
             className={POPOVER_VALUE_CLASS}
             value={value}
@@ -220,7 +218,7 @@ export function ViewFilterPopoverHost() {
                 add();
               }
             }}
-            placeholder={kind === "text" ? "substring" : "value"}
+            placeholder={kind === "anywhere-contains" ? "substring" : "value"}
           />
         </PrefFieldRow>
 

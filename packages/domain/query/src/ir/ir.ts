@@ -68,6 +68,7 @@ type RuleCallClause = {
  * not register. What each answers: `kbFunctions` (`kb-functions.ts`).
  */
 export const KB_FUNCTIONS = [
+  "kb/includes?",
   "kb/includes-ci?",
   "kb/today",
   "kb/date-in-days",

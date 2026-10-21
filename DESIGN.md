@@ -1049,6 +1049,25 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   filed in the Views list — and names it first; every later edit writes
   that node. Its text is empty: it is found from its frame and in the Views
   list, and a text naming its view or its frame would go stale.
+- **A view's filter is a narrowing of its frame's rows by conditions** of
+  the query layer's one model ([Query layer](#query-layer-horizontal) →
+  Conditions), ANDed: the second placement of the vocabulary a query's
+  `:where` holds, applied to the rows the frame shows, a query's result
+  nodes or its children, and never appended to a query, so one that
+  aggregates is narrowed by the node rows it shows as any other is. Each
+  condition is one `sys.f.view.filter` text in the syntax views were
+  written in before the model, which spells two rows: `{:field <id> :eq
+  <v>}` is `field-is` with a label value (the field holds a node whose id
+  or text is `v`, or a literal whose text is), and `{:text "<s>"}` is
+  `anywhere-contains` (the node's text or any value's label contains `s`,
+  ignoring case), a row only the narrowing holds, as the IR cannot say "any
+  field" (GAP [[01M5E7S398F4GM2490R3RZ3ZPP]]). `@kb/views`' `frame.ts` is
+  the one reader and writer of the syntax, so stored filters read as they
+  always did and nothing is migrated; a filter is written back in its
+  canonical spelling. `frameRows` narrows in JS through the model's
+  evaluator (`conditionsMatcher`), held to the query placement's answer by
+  a shared contract property, until a narrowing runs in datalog with its
+  frame's query (GAP [[01M5E7RM5EQ2TSJZSMM330T5DH]]).
 - **A store written before view nodes is migrated on purpose**, by the
   write action `views.migrate` (`migrateToViewNodes`), never by opening:
   opening only warns that a root still holds the old
@@ -1646,8 +1665,9 @@ same lane. One path to a client, whatever a node's provenance.
   read from that scope (`ir/scope.ts`). The find spec is kept as written.
 - **kb functions** are the predicates DataScript lacks, namespaced `kb/` and
   written as ordinary calls, so a stored query reads as datalog:
-  `(kb/includes-ci? s sub)` (substring ignoring case, false unless both are
-  strings); `(kb/today)` and `(kb/date-in-days n)`, a civil date
+  `(kb/includes? s sub)` and `(kb/includes-ci? s sub)` (substring, keeping
+  case and ignoring it, false unless both are strings, where
+  `clojure.string/includes?` throws on a value that is not one); `(kb/today)` and `(kb/date-in-days n)`, a civil date
   `YYYY-MM-DD` in the run's time zone, as date fields hold them; and
   `(kb/instant-now)` and `(kb/instant-days-ago n)`, an instant in UTC as
   `currentIso` writes `created`/`edited`. Offsets are whole days. `compile`
@@ -1684,6 +1704,50 @@ same lane. One path to a client, whatever a node's provenance.
   `@kb/query`'s print-then-parse and parse-then-print properties. It is for
   storage and for showing a person a query; `compile` is what runs one, and
   a `raw` query is never printed.
+- **Conditions** (`ir/conditions.ts`) are what a person can say about which
+  nodes a query answers, without writing datalog: one vocabulary over the
+  IR, owned here and not by any UI. The subject of every condition is the
+  result node `?n`; a list is ANDed; a group is `any-of`, `all-of` or
+  `none-of` (not any of its branches, each branch a conjunction). The rows:
+  `has-tag` / `lacks-tag` (`type is` the tag), `field-set` / `field-unset`,
+  `field-is` / `field-is-not` over values that are a node, a literal, or a
+  `label` (the text a person typed, matching a literal whose text it is or
+  a node whose id or text it is), `field-contains` and `text-contains`
+  (`kb/includes-ci?` by default, `kb/includes?` for exact case),
+  `field-compares` (`<` `<=` `>` `>=` against a number or a civil date),
+  `instant-within` (`created`/`edited` in the last n days, ending now),
+  `date-within` (a civil-date field within the next or last n days, both
+  ends included), `under` / `above` (`reach` from or to a node along the
+  outline, the reference relation or a ref field, optionally within n
+  levels), `child-of`, `has-children`, `links-to`, `linked-from`.
+  `lowerIr` writes the canonical query, `[:find ?id :where [?n :node/id
+  ?id] …]`: `?n` bound first so every negation finds it bound, every `or`
+  and `not` the `-join` form over `[?n]` with variables of its own, a
+  negated row `not-join` over its positive one, and a node value matched
+  from the node (`[?v :node/id "x"] [?n :f/status ?v]`): bound the other
+  way, a value that is a string — a text, a dangling ref — reaches the
+  entity slot, and DataScript throws. `lift` is all or nothing: it reads a
+  query by structure, whatever its variables are called, and accepts the
+  reading only when lowering it back is alpha-equivalent to the query
+  (`alphaEquivalent`: a scope-respecting bijection of variables, the same
+  clauses in the same order, the same constants), so lifting a query and
+  writing it back never changes what it asks; otherwise it says why.
+  Different trees can lower to one query, so lift answers the canonical one
+  (`canonicalConditions`: an `all-of` is spliced into its parent, an empty
+  group, branch or value list is dropped, a one-branch `any-of` is its
+  branch, branches that are each one `is` on one field are one multi-value
+  row, a `none-of` of one row with an operator form is that form, `type is`
+  one node is `has tag`). Its laws — lower then lift is the identity on
+  canonical conditions, lift is blind to renaming, lift loses nothing — are
+  `@kb/query`'s `conditions.test.ts` properties, with a semantic example
+  per row on kb's index. The model has a second placement, a view's
+  narrowing of its frame's rows ([View nodes](#view-nodes) → a view's
+  filter), answered in JS by `conditionsMatcher` (`ir/evaluate.ts`) over a
+  `ConditionGraph` (a node lookup, the reference relation as the index
+  derives it, the run's clock sample); `evaluate.test.ts` holds it to
+  `compile(lowerIr(…))` on generated graphs, node for node. The design and
+  its review:
+  [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
 - **A number stays a number when the query parses.** A ref prop and a number
   prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
   so a result value that equals a live eid could be either. For a query in

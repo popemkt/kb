@@ -19,6 +19,23 @@ export { compile, normalizeEdnQuery } from "./ir/compile.ts";
 export { findColumns, parseEdn } from "./ir/parse.ts";
 export { isCanonicalIr } from "./ir/canonical.ts";
 export { printEdn } from "./ir/print.ts";
+export { alphaEquivalent } from "./ir/alpha.ts";
+export { canonicalConditions, lift, lowerIr } from "./ir/conditions.ts";
+export { conditionGraph, conditionsMatcher } from "./ir/evaluate.ts";
+export type { ConditionGraph } from "./ir/evaluate.ts";
+export type {
+  AnywhereContains,
+  CompareOp,
+  Condition,
+  ConditionEdge,
+  ConditionOf,
+  ConditionRow,
+  ConditionValue,
+  GroupOf,
+  Lifted,
+  NarrowingCondition,
+  PlacementRow,
+} from "./ir/conditions.ts";
 export { queryRecords } from "./records.ts";
 export type { QueryRecords } from "./records.ts";
 export { KB_FUNCTIONS, PREDICATES } from "./ir/ir.ts";

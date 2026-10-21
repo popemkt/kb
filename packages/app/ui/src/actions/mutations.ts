@@ -4,7 +4,7 @@
 import { ASSET_MAX_BYTES } from "@kb/operations";
 import { ulid } from "ulid";
 import { z } from "zod";
-import type { FrameViewKey, SortSpec, ViewConfig } from "@kb/views";
+import type { FrameViewKey, SortSpec, ViewConfig, ViewFilter } from "@kb/views";
 import type { FieldType } from "@kb/model";
 import { runOptimistic } from "@/actions/optimistic";
 import {
@@ -694,26 +694,17 @@ export const mutations: PageWrites = {
     await editFrameView(frameId, frameViewGroup(fieldId));
   },
 
-  async addViewFilter(frameId: string, edn: string): Promise<void> {
-    const { serializeViewFilter, parseViewFilterEdn } = await import("@kb/views");
-    const parsed = parseViewFilterEdn(edn);
-    if (!parsed) {
-      toast(`Bad filter EDN: ${edn}`);
-      return;
-    }
-    // A new filter is stored in its canonical form, not as it was typed.
-    const next = [
-      ...(await frameConfig(frameId)).filters,
-      { ...parsed, raw: serializeViewFilter(parsed) },
-    ];
+  async addViewFilter(frameId: string, filter: ViewFilter): Promise<void> {
+    const next = [...(await frameConfig(frameId)).filters, filter];
     const { frameViewFilters } = await import("@/actions/plan");
     await editFrameView(frameId, frameViewFilters(next));
   },
 
-  async removeViewFilter(frameId: string, edn: string): Promise<void> {
+  async removeViewFilter(frameId: string, filter: ViewFilter): Promise<void> {
     const { serializeViewFilter } = await import("@kb/views");
+    const gone = serializeViewFilter(filter);
     const next = (await frameConfig(frameId)).filters.filter(
-      (f) => (f.raw || serializeViewFilter(f)) !== edn,
+      (f) => serializeViewFilter(f) !== gone,
     );
     const { frameViewFilters } = await import("@/actions/plan");
     await editFrameView(frameId, frameViewFilters(next));

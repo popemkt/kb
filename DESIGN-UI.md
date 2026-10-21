@@ -2042,7 +2042,7 @@ how the stored name resolves to the key among them.
   that already selected the view node from the store (`useFrameView`) hands
   it to `frameViewThrough`, the same resolution without the lookup. What
   `frameRows` does with the rows follows from the params: every view
-  filters, and a view sorts, groups its columns by a field, or pages exactly
+  narrows them by its filter (DESIGN.md → View nodes), and a view sorts, groups its columns by a field, or pages exactly
   when its params declare `sort`, `groupFieldId` or `pagesize`. The
   toolbar, the node menu and the `view-as` commands list the provided frame
   views by their pickers, and every one of them, the toolbar's settings
