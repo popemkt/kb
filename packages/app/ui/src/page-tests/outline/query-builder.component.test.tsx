@@ -11,7 +11,7 @@ import { isQueryNode, present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { fieldTypeValue, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { browserHost, fieldTypeValue, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { OutlineListView } from "@kb/views";
 import {
   outlineNodes,
@@ -305,6 +305,25 @@ describe("the query builder", () => {
     expect(count()).toBe("2 nodes");
   });
 
+  it("an undo shows the conditions of the query it restores, and the next edit builds on them", async () => {
+    await mount(TODO_EDN);
+    await click(slot("remove condition"));
+    await vi.waitFor(() => expect(stored()).toBe(writtenEmpty()));
+    expect(container.textContent).toContain("No conditions");
+    await act(async () => {
+      await browserHost().writes.undo();
+    });
+    await vi.waitFor(() => expect(stored()).toBe(TODO_EDN));
+    await answered();
+    expect(slot("tag").getAttribute("aria-label")).toBe("tag: todo");
+    expect(count()).toBe("2 nodes");
+    // The next edit is made to what is shown: has tag todo is kept.
+    await click(present($('[data-qb-slot="add-condition"]'), "add condition"));
+    await pick("has children");
+    await vi.waitFor(() => expect(stored()).toContain(":node/child"));
+    expect(stored()).toContain('"t.todo"');
+  });
+
   it("the EDN tab writes the text as typed, and the last tab used is kept for the node", async () => {
     await mount(DEFAULT_QUERY_EDN);
     await click(present($('[data-qb-tab="edn"]'), "EDN tab"));
@@ -427,6 +446,9 @@ describe("the query builder", () => {
     expect(results()).toEqual(["n.b"]);
   });
 });
+
+/** What the builder writes for no conditions. */
+const writtenEmpty = () => printed(DEFAULT_QUERY_EDN);
 
 /** `edn` as the builder prints it. */
 function printed(edn: string): string {

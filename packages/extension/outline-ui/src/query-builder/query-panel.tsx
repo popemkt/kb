@@ -8,8 +8,8 @@
  *   that does not lift offers only the EDN tab, and says why.
  * - **Every condition edit is a write**, printed canonically
  *   (`writtenEdn`). The tree the person built is kept on screen for as long
- *   as the stored text is one it wrote; a write from anywhere else is
- *   lifted and shown instead.
+ *   as the stored text is the one it wrote; any other text — an undo, a
+ *   write from anywhere else — is lifted and shown instead.
  * - **Opening never writes.** Nothing here writes until a person edits.
  * - The tab last used for a node is the outline's screen state
  *   (`queryTabs`); a node it has never seen opens Conditions.
@@ -39,24 +39,46 @@ function writeQuery(nodeId: string, text: string): void {
 }
 
 /**
- * The tree the Conditions tab shows: the person's own, while the stored text
- * is one it wrote (or the text it was edited from, before the write lands),
- * else what the stored text lifts to.
+ * A tree the person built, and the stored text it stands for: the text it
+ * wrote, or the one it was edited from when the edit said nothing new.
+ * `superseded` are the texts it replaced whose write has not landed yet.
+ */
+interface Held {
+  readonly tree: BuilderTree;
+  readonly text: string;
+  readonly superseded: ReadonlySet<string>;
+}
+
+/**
+ * The tree the Conditions tab shows: the person's own while the stored text
+ * is the one it stands for (or one it replaced, before the write lands),
+ * else what the stored text lifts to — an undo, a write from elsewhere.
  */
 function useConditionTree(nodeId: string, edn: string, lifted: BuilderTree | null) {
-  const [held, setHeld] = useState<{
-    readonly tree: BuilderTree;
-    readonly texts: ReadonlySet<string>;
-  } | null>(null);
-  const own = held !== null && held.texts.has(edn);
+  const [held, setHeld] = useState<Held | null>(null);
+  // The write landed: what it replaced is history, which only lifts now.
+  if (held !== null && held.superseded.size > 0 && held.text === edn) {
+    setHeld({ ...held, superseded: new Set() });
+  }
+  const own = held !== null && (held.text === edn || held.superseded.has(edn));
   const tree = own ? held.tree : (lifted ?? []);
   const edit = (next: BuilderTree) => {
     const text = writtenEdn(next);
-    setHeld({ tree: next, texts: new Set([...(own ? held.texts : []), edn, text]) });
     // Only a change to what the conditions say writes: a row added and not
     // yet said, or one taken away that said nothing, leaves the text alone,
     // a hand-written one byte for byte.
-    if (text !== writtenEdn(tree)) writeQuery(nodeId, text);
+    const writes = text !== writtenEdn(tree);
+    const standing = own ? held.text : edn;
+    setHeld({
+      tree: next,
+      text: writes ? text : standing,
+      superseded: writes
+        ? new Set([...(own ? held.superseded : []), standing, edn])
+        : own
+          ? held.superseded
+          : new Set(),
+    });
+    if (writes) writeQuery(nodeId, text);
   };
   return { tree, edit };
 }
