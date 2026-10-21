@@ -167,7 +167,7 @@ const mockWire: WireNode[] = [
 describe("W7.1 BoardCardsView + toolbar", () => {
   beforeEach(() => {
     useGraphStore.getState().hydrateFromWire(mockWire, 1, "fixtures");
-    useUiStore.setState({ filterPopoverFrameId: null, toasts: [] });
+    useUiStore.setState({ viewSettingsFrameId: null, toasts: [] });
   });
 
   afterEach(() => {
@@ -182,7 +182,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).toContain('data-mode-button="table"');
     expect(html).toContain('data-mode-button="board"');
     expect(html).toContain('data-mode-button="cards"');
-    expect(html).toContain('data-filter-button="true"');
+    expect(html).toContain('data-view-settings-button="true"');
   });
 
   it("zoomed-header shows the toolbar when mode ≠ list, and a quiet gear on list", () => {
@@ -370,14 +370,14 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 describe("Filter… host visibility", () => {
   beforeEach(() => {
     useGraphStore.getState().hydrateFromWire(mockWire, 1, "fixtures");
-    useUiStore.setState({ filterPopoverFrameId: null, toasts: [] });
+    useUiStore.setState({ viewSettingsFrameId: null, toasts: [] });
   });
 
   it("opens portal popover when frame host exists", async () => {
     const { Window } = await import("happy-dom");
     const { createRoot } = await import("react-dom/client");
     const { act } = await import("react");
-    const { ViewFilterPopoverHost } = await import("@kb/outline-ui");
+    const { ViewSettingsPopoverHost } = await import("@kb/outline-ui");
     const { runCommand, commandTargetNodeId, viewTargetFrameId } = await import("@/lib/commands");
 
     const win = new Window({ url: "https://kb.test/" });
@@ -402,7 +402,7 @@ describe("Filter… host visibility", () => {
 
     const root = createRoot(host as unknown as Element);
     await act(async () => {
-      root.render(createElement(ViewFilterPopoverHost));
+      root.render(createElement(ViewSettingsPopoverHost));
     });
 
     useGraphStore.getState().zoomTo("frame1");
@@ -419,8 +419,8 @@ describe("Filter… host visibility", () => {
       });
     });
 
-    expect(useUiStore.getState().filterPopoverFrameId).toBe("frame1");
-    expect(win.document.querySelector('[data-view-filter-popover="true"]')).toBeTruthy();
+    expect(useUiStore.getState().viewSettingsFrameId).toBe("frame1");
+    expect(win.document.querySelector('[data-view-settings-popover="true"]')).toBeTruthy();
 
     await act(async () => {
       root.unmount();
@@ -434,7 +434,7 @@ describe("Filter… host visibility", () => {
     const { Window } = await import("happy-dom");
     const { createRoot } = await import("react-dom/client");
     const { act } = await import("react");
-    const { ViewFilterPopoverHost } = await import("@kb/outline-ui");
+    const { ViewSettingsPopoverHost } = await import("@kb/outline-ui");
 
     const win = new Window({ url: "https://kb.test/" });
     const g = globalThis as typeof globalThis & {
@@ -454,14 +454,14 @@ describe("Filter… host visibility", () => {
     // no frame anchor in the document
     const root = createRoot(host as unknown as Element);
     await act(async () => {
-      root.render(createElement(ViewFilterPopoverHost));
+      root.render(createElement(ViewSettingsPopoverHost));
     });
 
     await act(async () => {
-      useUiStore.getState().setFilterPopoverFrameId("frame1");
+      useUiStore.getState().setViewSettingsFrameId("frame1");
     });
 
-    expect(useUiStore.getState().filterPopoverFrameId).toBeNull();
+    expect(useUiStore.getState().viewSettingsFrameId).toBeNull();
     expect(
       useUiStore.getState().toasts.some((t) => t.text.toLowerCase().includes("select a frame")),
     ).toBe(true);

@@ -1,5 +1,5 @@
 /**
- * Field candidates offered by the view filter popover. Same source as
+ * Field candidates offered by the view settings popover. Same source as
  * resolveTableColumns: projected rows' tags. Lives outside the popover
  * component so the popover file exports components only.
  */

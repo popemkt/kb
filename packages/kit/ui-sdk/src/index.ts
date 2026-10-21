@@ -17,7 +17,7 @@ export {
   useAppearance,
   useDebugFieldIds,
   useDebugFields,
-  useFilterFrame,
+  useViewSettingsFrame,
   useFollow,
   useFrameView,
   useFrameViewNode,

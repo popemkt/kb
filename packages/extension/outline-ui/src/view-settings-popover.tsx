@@ -10,14 +10,14 @@ import {
   PopoverShell,
   PrefFieldRow,
   toast,
-  useFilterFrame,
+  useViewSettingsFrame,
   useFrameViewNode,
   usePageGraph,
   useDismiss,
 } from "@kb/ui-sdk";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineNode } from "./outline.store";
-import { listFilterFieldOptions } from "./view-filter-fields";
+import { listFilterFieldOptions } from "./view-settings-fields";
 
 /** The two rows a view filter's stored syntax spells (`ViewFilter`). */
 type FilterKind = ViewFilter["kind"];
@@ -42,7 +42,7 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
   return (
     elRect(
       document.querySelector(
-        `[data-view-toolbar][data-frame-id="${id}"] [data-filter-button="true"]`,
+        `[data-view-toolbar][data-frame-id="${id}"] [data-view-settings-button="true"]`,
       ),
     ) ??
     elRect(document.querySelector(`[data-view-toolbar][data-frame-id="${id}"]`)) ??
@@ -53,12 +53,13 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
 }
 
 /**
- * Global filter popover host — portals to document.body so palette-opened
- * Filter… is visible regardless of nested-frame hover opacity.
+ * A frame's view settings, in one popover: the toolbar's gear and ⌘K
+ * "Filter…" open it. It portals to document.body so it is visible regardless
+ * of nested-frame hover opacity.
  */
-export function ViewFilterPopoverHost() {
-  const frameId = useFilterFrame();
-  const setOpenId = browserHost().setFilterFrame;
+export function ViewSettingsPopoverHost() {
+  const frameId = useViewSettingsFrame();
+  const setOpenId = browserHost().setViewSettingsFrame;
   const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const frame = useOutlineNode(frameId);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -112,7 +113,7 @@ export function ViewFilterPopoverHost() {
   // A filter button is a trigger: its click opens or closes its own frame's filter.
   useDismiss(
     frameId !== null && anchor !== null,
-    { inside: [panelRef], trigger: '[data-filter-button="true"]' },
+    { inside: [panelRef], trigger: '[data-view-settings-button="true"]' },
     () => setOpenId(null),
   );
 
@@ -144,14 +145,14 @@ export function ViewFilterPopoverHost() {
   return createPortal(
     <PopoverShell
       panelRef={panelRef}
-      title="Filters"
-      aria-label="View filters"
-      data-testid="view-filter-popover"
+      title="View settings"
+      aria-label="View settings"
+      data-testid="view-settings-popover"
       className="fixed"
       style={{ top, left }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div data-view-filter-popover="true" data-frame-id={frameId}>
+      <div data-view-settings-popover="true" data-frame-id={frameId}>
         {config.filters.length === 0 ? (
           <p className="px-1.5 py-1 text-meta text-foreground/40">No filters</p>
         ) : (
