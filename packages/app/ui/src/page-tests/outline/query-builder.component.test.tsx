@@ -348,7 +348,7 @@ describe("the query builder", () => {
   it("the EDN tab writes the text as typed, and the last tab used is kept for the node", async () => {
     await mount(DEFAULT_QUERY_EDN);
     await click(present($('[data-qb-tab="edn"]'), "EDN tab"));
-    expect(useOutlineStore.getState().queryTabs[QUERY]).toBe("edn");
+    expect(useOutlineStore.getState().queryBuilders[QUERY]?.tab).toBe("edn");
     const editor = ednEditor();
     await act(async () => {
       editor.focus();
