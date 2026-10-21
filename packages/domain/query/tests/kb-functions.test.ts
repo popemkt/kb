@@ -278,3 +278,42 @@ describe("a day offset is a whole number", () => {
     ).toThrow(/Mars\/Olympus is not a time zone/);
   });
 });
+
+describe("how long a clocked answer holds", () => {
+  const at = (nowMs: number, timeZone: string) =>
+    new DatascriptIndex([node("a")], {
+      derived: derivedWith({}),
+      clock: (): ClockSample => ({ nowMs, timeZone }),
+    });
+
+  test("a query that reads no clock holds until the graph moves", () => {
+    const index = at(NOW, "Europe/Amsterdam");
+    expect(index.answerDatalog("[:find ?id :where [?n :node/id ?id]]").holdsUntilMs).toBeNull();
+    expect(
+      index.answerDatalog('[:find ?t :where [?n :node/text ?t] [(kb/includes-ci? ?t "A")]]')
+        .holdsUntilMs,
+    ).toBeNull();
+  });
+
+  test("a civil date holds until the next local midnight, on a day that is 23 hours long", () => {
+    // 2026-03-29 in Amsterdam skips 02:00–03:00; at 10:00 UTC it is 12:00 there.
+    const index = at(Date.UTC(2026, 2, 29, 10), "Europe/Amsterdam");
+    // The next midnight there is 2026-03-29T22:00Z (UTC+2 from the transition).
+    expect(index.answerDatalog("[:find ?d :where [(kb/today) ?d]]").holdsUntilMs).toBe(
+      Date.UTC(2026, 2, 29, 22),
+    );
+  });
+
+  test("an instant holds for the refresh cadence, and the earliest bound wins", () => {
+    const nowMs = Date.UTC(2026, 2, 10, 22, 59, 30);
+    const index = at(nowMs, "UTC");
+    expect(index.answerDatalog("[:find ?t :where [(kb/instant-now) ?t]]").holdsUntilMs).toBe(
+      nowMs + 60_000,
+    );
+    // Thirty seconds before midnight UTC, the day boundary comes first.
+    const both = at(Date.UTC(2026, 2, 10, 23, 59, 30), "UTC").answerDatalog(
+      "[:find ?t ?d :where [(kb/instant-now) ?t] [(kb/today) ?d]]",
+    );
+    expect(both.holdsUntilMs).toBe(Date.UTC(2026, 2, 11));
+  });
+});

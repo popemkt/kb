@@ -150,6 +150,9 @@ function fixtureContext(initial: readonly KbNode[]) {
     runDatalog() {
       return [];
     },
+    answerDatalog() {
+      return { rows: [], holdsUntilMs: null };
+    },
     pull() {
       return undefined;
     },

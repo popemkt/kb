@@ -7,7 +7,13 @@
  */
 import { bundledDerived } from "@kb/bundled";
 import type { KbNode } from "@kb/model";
-import { type EnginePort, type FromEngine, RemoteIndex, type Timers } from "@kb/ui-sdk";
+import {
+  type EnginePort,
+  type FromEngine,
+  RemoteIndex,
+  type Timers,
+  type AnswerClock,
+} from "@kb/ui-sdk";
 
 /** The engine in a fresh Web Worker. */
 function workerEngine(): EnginePort {
@@ -39,6 +45,9 @@ const pageTimers: Timers = {
     return () => clearTimeout(handle);
   },
 };
+
+/** The page's wall clock, as its query answers are held against it (`holdsUntilMs`). */
+export const pageClock: AnswerClock = { now: () => Date.now(), set: pageTimers.set };
 
 /**
  * The page's replica over `nodes`: the node set here, its engine behind the

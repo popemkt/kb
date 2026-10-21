@@ -69,6 +69,13 @@ describe("a graph view's query reads (component)", () => {
         },
       },
       () => index.generation,
+      {
+        now: () => Date.now(),
+        set: (run, ms) => {
+          const handle = setTimeout(run, ms);
+          return () => clearTimeout(handle);
+        },
+      },
     );
     // Nothing but the graph store tells the view of a move: no other watched
     // query brings an answer by the way.

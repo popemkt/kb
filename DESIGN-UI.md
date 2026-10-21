@@ -193,6 +193,12 @@ query text, each as of a generation of the replica.
   returns late. The worker boundary is the seam a read-set-based re-run
   would live behind; today a move of the replica asks every watched query
   again.
+- **Time moves answers too.** An answer whose run read the clock
+  (`kb/today`, `kb/instant-now`, …) holds until a time (`holdsUntilMs`,
+  DESIGN.md → Query layer); from then it is not current, and a watched one
+  is asked again, so a page left open past midnight shows the new day
+  without a write. The page holds answers against its wall clock
+  (`AnswerClock`, `pageClock`).
 - **Query nodes too.** The rows under a query node, a chart over it and a
   count of it are answers like any other: the page subscribes to no query
   over `/ws`, whether the socket is open or not.

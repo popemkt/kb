@@ -6,7 +6,7 @@ export type { IndexOptions } from "./index/datascript-index.ts";
 export { derivedWith, nodeMentions } from "./index/derived.ts";
 export type { DerivedRef, DerivedSources, FieldRefCarrier } from "./index/derived.ts";
 export { KbIndexService } from "./index/index.ts";
-export type { KbIndex, NodeIndex } from "./index/index.ts";
+export type { DatalogAnswer, KbIndex, NodeIndex } from "./index/index.ts";
 export { NodeTable } from "./index/node-table.ts";
 export { answered, engineOf, QueryEngineService, QueryError } from "./index/engine.ts";
 export type { EdnRunner, QueryEngine } from "./index/engine.ts";

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { KbNode } from "@kb/model";
 import { answerOf, DatascriptIndex, derivedWith } from "@kb/query";
 import {
+  type AnswerClock,
   type QueryAnswer,
   type QueryRequest,
   type QueryTransport,
@@ -9,6 +10,40 @@ import {
 } from "./replica-queries";
 
 const clock = () => performance.now();
+
+/** The wall clock and timers of a test that does not move time. */
+const wall: AnswerClock = {
+  now: () => Date.now(),
+  set: (run, ms) => {
+    const handle = setTimeout(run, ms);
+    return () => clearTimeout(handle);
+  },
+};
+
+/** A wall clock a test moves by hand, firing the timers it passes. */
+function handClock(startMs: number) {
+  let nowMs = startMs;
+  const timers = new Set<{ readonly at: number; readonly run: () => void }>();
+  const wallClock: AnswerClock = {
+    now: () => nowMs,
+    set: (run, ms) => {
+      const timer = { at: nowMs + ms, run };
+      timers.add(timer);
+      return () => timers.delete(timer);
+    },
+  };
+  return {
+    clock: wallClock,
+    advance: (ms: number) => {
+      nowMs += ms;
+      for (const timer of [...timers].filter((t) => t.at <= nowMs)) {
+        timers.delete(timer);
+        timer.run();
+      }
+    },
+    nowMs: () => nowMs,
+  };
+}
 
 function node(id: string, text = id): KbNode {
   return {
@@ -59,7 +94,7 @@ describe("the page's query answers", () => {
   it("asks a query once however many read it before it is answered", async () => {
     const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     const held = heldTransport(index);
-    const queries = new ReplicaQueries(held.transport, () => index.generation);
+    const queries = new ReplicaQueries(held.transport, () => index.generation, wall);
     expect(queries.read(IDS)).toEqual({ answer: null, current: false });
     queries.read(IDS);
     queries.watch(IDS);
@@ -73,7 +108,7 @@ describe("the page's query answers", () => {
   it("keeps the last answer, not current, until the replica's next one arrives", async () => {
     const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     const held = heldTransport(index);
-    const queries = new ReplicaQueries(held.transport, () => index.generation);
+    const queries = new ReplicaQueries(held.transport, () => index.generation, wall);
     queries.watch(IDS);
     await turn();
     await held.releaseAll();
@@ -91,7 +126,7 @@ describe("the page's query answers", () => {
   it("asks a query no one watches again only when it is read", async () => {
     const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     const held = heldTransport(index);
-    const queries = new ReplicaQueries(held.transport, () => index.generation);
+    const queries = new ReplicaQueries(held.transport, () => index.generation, wall);
     queries.read(IDS);
     await turn();
     await held.releaseAll();
@@ -107,7 +142,7 @@ describe("the page's query answers", () => {
   it("a read is the same object until its answer or currency moves", async () => {
     const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     const held = heldTransport(index);
-    const queries = new ReplicaQueries(held.transport, () => index.generation);
+    const queries = new ReplicaQueries(held.transport, () => index.generation, wall);
     queries.read(IDS);
     await turn();
     await held.releaseAll();
@@ -119,6 +154,7 @@ describe("the page's query answers", () => {
     const queries = new ReplicaQueries(
       { run: async (request) => answerOf(index, request, clock) },
       () => index.generation,
+      wall,
     );
     const bad = "[:find ?x :where [?y :node/id ?z]]";
     await queries.ask(bad);
@@ -132,6 +168,7 @@ describe("the page's query answers", () => {
     const queries = new ReplicaQueries(
       { run: async (request) => answerOf(index, request, clock) },
       () => index.generation,
+      wall,
     );
     const follow = (run: (edn: string) => unknown[][]) => {
       const path = ["a"];
@@ -144,5 +181,77 @@ describe("the page's query answers", () => {
     };
     const direct = follow((edn) => index.runDatalog(edn));
     expect(await queries.settle(follow)).toEqual(direct);
+  });
+
+  it("a clocked answer lapses at the next local midnight, and a watched one is asked again", async () => {
+    // 2026-03-10T22:00:00Z: 23:00 in Amsterdam, an hour before its midnight.
+    const hand = handClock(Date.UTC(2026, 2, 10, 22));
+    const index = new DatascriptIndex([node("a")], {
+      derived: derivedWith({}),
+      clock: () => ({ nowMs: hand.nowMs(), timeZone: "Europe/Amsterdam" }),
+    });
+    let asked = 0;
+    const queries = new ReplicaQueries(
+      {
+        run: async (request) => {
+          asked += 1;
+          return answerOf(index, request, clock);
+        },
+      },
+      () => index.generation,
+      hand.clock,
+    );
+    const TODAY = "[:find ?d :where [(kb/today) ?d]]";
+    const release = queries.watch(TODAY);
+    await turn();
+    expect(idsOf(queries.read(TODAY).answer)).toEqual(["2026-03-10"]);
+    expect(queries.read(TODAY).current).toBe(true);
+
+    hand.advance(59 * 60_000);
+    expect(queries.read(TODAY).current).toBe(true);
+    expect(asked).toBe(1);
+
+    // Midnight in Amsterdam: the answer lapses, and the watched query is asked again.
+    hand.advance(60_000);
+    expect(queries.read(TODAY).current).toBe(false);
+    await turn();
+    expect(asked).toBe(2);
+    expect(idsOf(queries.read(TODAY).answer)).toEqual(["2026-03-11"]);
+    expect(queries.read(TODAY).current).toBe(true);
+    release();
+  });
+
+  it("a query that reads no clock holds until the graph moves, however long", async () => {
+    const hand = handClock(Date.UTC(2026, 2, 10, 22));
+    const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
+    const queries = new ReplicaQueries(
+      { run: async (request) => answerOf(index, request, clock) },
+      () => index.generation,
+      hand.clock,
+    );
+    await queries.ask(IDS);
+    hand.advance(7 * 86_400_000);
+    expect(queries.read(IDS).current).toBe(true);
+  });
+
+  it("an answer that read an instant is asked again on the refresh cadence", async () => {
+    const hand = handClock(Date.UTC(2026, 2, 10, 12));
+    const index = new DatascriptIndex([node("a")], {
+      derived: derivedWith({}),
+      clock: () => ({ nowMs: hand.nowMs(), timeZone: "UTC" }),
+    });
+    const queries = new ReplicaQueries(
+      { run: async (request) => answerOf(index, request, clock) },
+      () => index.generation,
+      hand.clock,
+    );
+    const NOW = "[:find ?t :where [(kb/instant-now) ?t]]";
+    const release = queries.watch(NOW);
+    await turn();
+    const first = idsOf(queries.read(NOW).answer);
+    hand.advance(60_000);
+    await turn();
+    expect(idsOf(queries.read(NOW).answer)).not.toEqual(first);
+    release();
   });
 });

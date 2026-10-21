@@ -5,14 +5,14 @@ import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import {
   datascriptExecutor,
   pull as dsPull,
-  query as dsQuery,
+  answerQuery,
   runIr,
   type ClockSampler,
 } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
-import type { KbIndex } from "./index.ts";
+import type { DatalogAnswer, KbIndex } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
 
 /** Identity of a datom within one entity — attr plus value, compared structurally. */
@@ -149,7 +149,12 @@ export class DatascriptIndex implements KbIndex {
   }
 
   runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {
-    return normalizeRows(dsQuery(this.#datascriptDb(), edn, inputs, this.#clock));
+    return this.answerDatalog(edn, ...inputs).rows;
+  }
+
+  answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer {
+    const { value, holdsUntilMs } = answerQuery(this.#datascriptDb(), edn, inputs, this.#clock);
+    return { rows: normalizeRows(value), holdsUntilMs };
   }
 
   run(ir: Ir, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {

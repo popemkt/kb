@@ -2,6 +2,12 @@ import { Context } from "effect";
 import type { KbNode, NodeId, StoreTx } from "@kb/model";
 import type { Ir } from "../ir/ir.ts";
 
+/** A datalog query's rows, and until when (epoch ms) they hold; null until the graph moves. */
+export interface DatalogAnswer {
+  readonly rows: Array<Array<unknown>>;
+  readonly holdsUntilMs: number | null;
+}
+
 /**
  * The node set an index answers over, and its point reads: the half of an
  * index that is a lookup, not a query engine. A host whose query engine runs
@@ -81,6 +87,13 @@ export interface KbIndex extends NodeIndex {
    * `subscribe` frame expose to users, EDN and all.
    */
   runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>>;
+
+  /**
+   * {@link runDatalog}'s rows, and until when they hold: a query that read
+   * the clock (`kb/today`, …) answers for a while only (`holdsUntil`), one
+   * that did not until the graph moves (null).
+   */
+  answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer;
 
   /**
    * Engine-neutral query IR. Unlike the raw EDN surface, result positions are

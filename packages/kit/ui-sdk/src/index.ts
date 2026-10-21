@@ -353,6 +353,7 @@ export {
 export {
   answerMessage,
   type PageQuery,
+  type AnswerClock,
   QUERY_BUDGET_MS,
   type QueryAnswer,
   type QueryRead,

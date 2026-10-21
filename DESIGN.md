@@ -1669,6 +1669,13 @@ same lane. One path to a client, whatever a node's provenance.
   clocked function takes no sample, and an index built without a clock
   refuses a clocked one by name. The server answers a thin client's query
   in its own zone (GAP [[01M5E2YBN75HF5C8HZPG62CAJH]]).
+- **A clocked answer holds for a while.** An answer that read the clock
+  says until when it holds (`answerDatalog`'s `holdsUntilMs`,
+  `holdsUntil`): until the sample's next local midnight when it read a
+  civil date, `INSTANT_REFRESH_MS` (a minute) on when it read an instant,
+  the earlier when both; an answer that read none holds until the graph
+  moves. A reader that keeps answers (the page's, `DESIGN-UI.md` → Replica
+  queries) asks again then.
 - **Printed back canonically.** `printEdn` writes an IR as stored EDN, the
   inverse of `parseEdn` on the IR's canonical domain (`isCanonicalIr`: the
   values `parseEdn` produces): the head on one line, each `:where` clause on

@@ -5,7 +5,7 @@ import { present, type ClockSample, type NodeId } from "@kb/model";
 import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
 import type { FindPos, Ir, IrQuery, KbFunctionName } from "./ir/ir.ts";
-import { kbFunctions, readsClock } from "./ir/kb-functions.ts";
+import { holdsUntil, kbFunctions, readsClock } from "./ir/kb-functions.ts";
 import { parseEdn } from "./ir/parse.ts";
 import { outerClauses } from "./ir/scope.ts";
 import { DatalogError } from "./datalog-error.ts";
@@ -59,40 +59,43 @@ export function datascriptExecutor(db: DatascriptDb): EdnExecutor {
  */
 export type ClockSampler = () => ClockSample;
 
-/** `ir`'s rows as the engine answers them, and the find positions they are columns of (none for `raw`). */
+/**
+ * `ir`'s rows as the engine answers them, the find positions they are
+ * columns of (none for `raw`), and until when they hold (`holdsUntil`).
+ */
 function executeIr(
   exec: EdnExecutor,
   ir: Ir,
   inputs: readonly unknown[],
   clock: ClockSampler | undefined,
-): { raw: unknown; find: readonly FindPos[] | undefined } {
+): { raw: unknown; find: readonly FindPos[] | undefined; holdsUntilMs: number | null } {
   const compiled = compile(ir);
+  const names = compiled.functions ?? [];
   const normalized = inputs.map(normalizeQueryInput);
-  const functions = functionInputs(compiled.functions ?? [], clock);
+  const sample = clockSample(names, clock);
+  const fns = kbFunctions(sample);
   const raw = exec(
     compiled.query,
     ...withCompiledRules(ir, compiled.rules, normalized),
-    ...functions,
+    ...names.map((name) => fns[name]),
   );
-  return { raw, find: compiled.find };
+  return { raw, find: compiled.find, holdsUntilMs: holdsUntil(names, sample) };
 }
 
 /**
- * The closures for the kb functions a compiled query names, in its slot
- * order, over one clock sample taken now, or none when no function there
- * reads the clock.
+ * The one clock sample of a run that calls the kb functions `names`, taken
+ * now, or none when none of them reads the clock.
  */
-function functionInputs(
+function clockSample(
   names: readonly KbFunctionName[],
   clock: ClockSampler | undefined,
-): unknown[] {
-  if (names.length === 0) return [];
+): ClockSample | undefined {
   const clocked = names.find(readsClock);
-  if (clocked !== undefined && clock === undefined) {
+  if (clocked === undefined) return undefined;
+  if (clock === undefined) {
     throw new DatalogError(`${clocked} reads the clock, and this index was built without one`);
   }
-  const fns = kbFunctions(clocked === undefined ? undefined : clock?.());
-  return names.map((name) => fns[name]);
+  return clock();
 }
 
 /**
@@ -174,10 +177,25 @@ export function query(
   inputs: readonly unknown[] = [],
   clock?: ClockSampler,
 ): unknown {
+  return answerQuery(db, edn, inputs, clock).value;
+}
+
+/** {@link query}'s value, and until when it holds (`holdsUntil`): null until the graph moves. */
+export function answerQuery(
+  db: DatascriptDb,
+  edn: string,
+  inputs: readonly unknown[] = [],
+  clock?: ClockSampler,
+): { readonly value: unknown; readonly holdsUntilMs: number | null } {
   const ir = parseEdn(edn);
-  const { raw, find } = executeIr(datascriptExecutor(db), ir, inputs, clock);
-  if (ir.kind === "raw" || find === undefined) return reviveValue(raw, db.ids);
-  return reviveTyped(raw, findWithRefAttrs(ir, find, db.refAttrs), db.ids);
+  const { raw, find, holdsUntilMs } = executeIr(datascriptExecutor(db), ir, inputs, clock);
+  if (ir.kind === "raw" || find === undefined) {
+    return { value: reviveValue(raw, db.ids), holdsUntilMs };
+  }
+  return {
+    value: reviveTyped(raw, findWithRefAttrs(ir, find, db.refAttrs), db.ids),
+    holdsUntilMs,
+  };
 }
 
 /**
