@@ -66,6 +66,8 @@ function answer(edn: string): unknown[] {
     .toSorted((x, y) => String(x).localeCompare(String(y)));
 }
 
+const byFirst = (x: unknown[], y: unknown[]) => String(x[0]).localeCompare(String(y[0]));
+
 const q = (where: string) => `[:find ?id :where [?n :node/id ?id] ${where}]`;
 
 describe("predicates of the closed set", () => {
@@ -168,6 +170,50 @@ describe("scope: what a find column is", () => {
     expect(answer(edn)).toEqual(["a"]);
   });
 
+  test("an or-join's join variable is a node where a branch binds it as an entity", () => {
+    const own = new DatascriptIndex([node("x", { text: "a" }), node("y", { text: "b" })], {
+      derived: derivedWith({}),
+    });
+    const edn = '[:find ?m :where (or-join [?m] [?m :node/text "a"] [?m :node/text "b"])]';
+    const ir = parseEdn(edn);
+    expect(ir.kind === "query" && ir.find).toEqual([{ kind: "var", name: "m", type: "node-ref" }]);
+    expect(own.runDatalog(edn).toSorted(byFirst)).toEqual([["x"], ["y"]]);
+  });
+
+  test("an or-join's join variable is a node where a branch binds it as a ref value", () => {
+    const core =
+      '[:find ?m :where [?n :node/id "c"] (or-join [?n ?m] [?n :node/mentions ?m] [?n :node/child ?m])]';
+    const coreIr = parseEdn(core);
+    expect(coreIr.kind === "query" && coreIr.find[0]?.type).toBe("node-ref");
+    expect(answer(core)).toEqual(["a"]);
+    const field = '[:find ?s :where [?n :node/id "b"] (or-join [?n ?s] [?n :f/status ?s])]';
+    expect(answer(field)).toEqual(["s.doing", "s.done"]);
+  });
+
+  test("an or-join's branch-local variable stays inside it, though it shares a name outside", () => {
+    // The branch's ?v is a `status` ref; the outer ?v an estimate, a number
+    // that may equal a live eid, so it must not revive as a node.
+    const edn =
+      '[:find ?id ?v :where [?n :node/id ?id] [?n :f/estimate ?v] (or-join [?n] (and [?n :f/status ?v] [?v :node/id "s.doing"]) [?n :node/text "Draft plan"])]';
+    const ir = parseEdn(edn);
+    expect(ir.kind === "query" && ir.find[1]).toEqual({ kind: "var", name: "v", type: "scalar" });
+    expect(index.runDatalog(edn).toSorted(byFirst)).toEqual([
+      ["a", 3],
+      ["b", 5],
+    ]);
+  });
+
+  test("a not-join's join variable takes no type from inside it", () => {
+    const edn =
+      '[:find ?id ?v :where [?n :node/id ?id] [?n :f/estimate ?v] (not-join [?v] [?v :node/id ?x] [?x :f/status ?v] [?x :node/text "none"])]';
+    const ir = parseEdn(edn);
+    expect(ir.kind === "query" && ir.find[1]).toEqual({ kind: "var", name: "v", type: "scalar" });
+    expect(index.runDatalog(edn).toSorted(byFirst)).toEqual([
+      ["a", 3],
+      ["b", 5],
+    ]);
+  });
+
   test("a variable bound only inside a not is not bound outside it", () => {
     const edn = "[:find ?id ?v :where [?n :node/id ?id] (not [?n :f/status ?v])]";
     const ir = parseEdn(edn);
@@ -179,9 +225,7 @@ describe("scope: what a find column is", () => {
     const edn = "[:find ?id ?big :where [?n :node/id ?id] [?n :f/estimate ?e] [(> ?e 4) ?big]]";
     const ir = parseEdn(edn);
     expect(ir.kind === "query" && ir.find[1]?.type).toBe("scalar");
-    expect(
-      index.runDatalog(edn).toSorted((x, y) => String(x[0]).localeCompare(String(y[0]))),
-    ).toEqual([
+    expect(index.runDatalog(edn).toSorted(byFirst)).toEqual([
       ["a", false],
       ["b", true],
     ]);

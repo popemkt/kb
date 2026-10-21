@@ -1640,9 +1640,10 @@ same lane. One path to a client, whatever a node's provenance.
   `(and …)` when they are more than one form, and `(not …)`/`(not-join
   [?v…] …)`, over the same clauses at any depth. Scope follows DataScript:
   a plain `or`'s branches share the variables around them, an `or-join`
-  shares its join vector, a `not` binds nothing outside it; a find column's
-  type is read from that scope (`ir/scope.ts`). The find spec is kept as
-  written.
+  shares its join vector (what a branch says of a join variable reaches the
+  scope; its other variables stay private to the branch), a `not` or
+  `not-join` binds and types nothing outside it; a find column's type is
+  read from that scope (`ir/scope.ts`). The find spec is kept as written.
 - **kb functions** are the predicates DataScript lacks, namespaced `kb/` and
   written as ordinary calls, so a stored query reads as datalog:
   `(kb/includes-ci? s sub)` (substring ignoring case, false unless both are

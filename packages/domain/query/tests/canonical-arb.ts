@@ -193,7 +193,11 @@ function outer(where: readonly Clause[]): Clause[] {
   );
 }
 
-/** The variables `where`'s own scope binds as nodes; by construction, only `n…` and `p…` ones. */
+/**
+ * The variables `where`'s own scope binds as nodes; by construction, only
+ * `n…` and `p…` ones. An `or-join` adds those of its join vector that one of
+ * its branches binds as nodes, and keeps the rest of the branch to itself.
+ */
 function nodeNames(where: readonly Clause[]): Set<string> {
   const names = new Set<string>();
   for (const c of outer(where)) {
@@ -208,6 +212,10 @@ function nodeNames(where: readonly Clause[]): Set<string> {
       names.add(c.to);
     } else if (c.kind === "rule") {
       for (const a of c.args) if (a.t === "var") names.add(a.name);
+    } else if (c.kind === "or" && c.join !== undefined) {
+      for (const branch of c.branches) {
+        for (const n of nodeNames(branch)) if (c.join.includes(n)) names.add(n);
+      }
     }
   }
   return names;
