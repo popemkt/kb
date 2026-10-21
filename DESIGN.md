@@ -537,7 +537,13 @@ type PropValue =
   and endpoint, a docs view's template. A prop whose field node the graph
   does not hold has nothing to say it is hidden, so it is drawn, named by
   its id: a store seeds every bundled family's fields, so this is a family
-  a build leaves out entirely, whose values then show as what they are.
+  a build leaves out entirely, or a seeded field retired while nodes still
+  hold its values (the seed has no general retirement), whose values then
+  show as what they are. A setting (`sys.f.configures`) is a row on the node
+  it configures however many other places draw it with the same field
+  editor (the Extensions panel, Preferences). A table that names no columns
+  derives them from its rows' tag templates by the same rule, so a table of
+  field nodes or of agent providers shows their settings as columns.
   Whether a drawn row may be written is the system-write rule's
   (`isWritableField`), never visibility's; a node's debug fields reveal its
   hidden rows, and they are written under the same rule.
