@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { pageTokenIdentity, startUi } from "@kb/server";
+import { startUi } from "@kb/server";
 import { FIXTURE_TIMESTAMP, renderFixtureNodes } from "./fixture.ts";
 import { bundledSeed } from "@kb/bundled";
 
@@ -27,7 +27,6 @@ process.env.KB_HOME = join(scratchRoot, "home");
 
 const server = await Effect.runPromise(
   startUi({
-    identity: [pageTokenIdentity()],
     root: scratchRoot,
     // Per-spec port: a spec that writes must not share a store with one that
     // counts (see harness-server.ts).
@@ -36,9 +35,6 @@ const server = await Effect.runPromise(
   }),
 );
 console.log(`render harness UI: ${server.url} (scratch root: ${scratchRoot})`);
-// The harness reads this line: a tab opened at it holds the page token, as
-// one `kb ui` opens does (harness-server.ts).
-console.log(`render harness page: ${server.page}`);
 
 const stop = async () => {
   await Effect.runPromise(server.stop);

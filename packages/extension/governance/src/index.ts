@@ -4,6 +4,8 @@
  * and the policy vocabulary and resolver its guard reads.
  */
 export { governanceExtension, governancePlugin } from "./extension.ts";
+// The guards the plugin contributes again once policies are re-introduced. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+export { approvalGuard, forceGuard } from "./approval.ts";
 export {
   ACTOR_OPTION_IDS,
   APPROVAL_POLICIES_QUERY,

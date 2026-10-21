@@ -6,22 +6,8 @@
  * `@kb/locations` and only committed here, in a session over the home store.
  */
 import { Effect } from "effect";
-import {
-  CurrentCall,
-  KbCtx,
-  KbRoots,
-  KbStore,
-  type KbContext,
-  type KbRootsPort,
-} from "@kb/contracts";
-import {
-  actsAsOwner,
-  currentIso,
-  domainError,
-  freshId,
-  type DomainError,
-  type KbNode,
-} from "@kb/model";
+import { KbCtx, KbRoots, KbStore, type KbContext, type KbRootsPort } from "@kb/contracts";
+import { currentIso, domainError, freshId, type DomainError, type KbNode } from "@kb/model";
 import { persistPlannedEffect } from "@kb/operations";
 import {
   forgetWrites,
@@ -219,21 +205,8 @@ const openTarget = Effect.fn("ext.locations.openTarget")(function* (
 });
 
 /**
- * Where a browser opens the `kb ui` at `url` for this call: its page URL for
- * the owner's own call, when the server kept a token for them; else `url`.
- */
-const opensAt = Effect.fn("ext.locations.opensAt")(function* (
-  roots: KbRootsPort,
-  url: string,
-): Effect.fn.Return<string, DomainError> {
-  const call = yield* CurrentCall;
-  if (call === null || !actsAsOwner(call.invocation.actor)) return url;
-  return (yield* roots.page(url)) ?? url;
-});
-
-/**
- * Open a root: answer the URL of the `kb ui` serving it, and where a browser
- * opens it (`opensAt`). A served root only moves first among the locations;
+ * Open a root: answer the URL of the `kb ui` serving it, where a browser
+ * opens it. A served root only moves first among the locations;
  * a closed one gets a server started for it, and that server ranks its root
  * first itself, as every `kb ui` does, so a start that fails ranks nothing.
  */
@@ -251,8 +224,8 @@ export const locationOpenEffect = Effect.fn("ext.locations.open")(function* (inp
   const served = yield* roots.served(probe.path);
   if (served === null) {
     const url = yield* roots.serve(probe.path);
-    return { url, open: yield* opensAt(roots, url), path: probe.path };
+    return { url, path: probe.path };
   }
   yield* locationRegisterEffect({ path: probe.path });
-  return { url: served, open: yield* opensAt(roots, served), path: probe.path };
+  return { url: served, path: probe.path };
 });

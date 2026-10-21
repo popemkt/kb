@@ -1,8 +1,7 @@
 /**
  * Who may reach the `kb ui` server's API, and on whose wire it calls: the
  * one request guard, applied to the `/ws` upgrade and every `/api/*` route
- * before anything else runs (`DESIGN.md` → Surfaces, the request guard and
- * the page token).
+ * before anything else runs (`DESIGN.md` → Surfaces → Who the person is).
  *
  * The server listens on loopback, but a web page in the same browser can
  * still send it requests, so loopback alone does not keep other sites out.
@@ -20,28 +19,27 @@
  *   form or `text/plain` POST to any origin without a preflight; JSON needs
  *   one, which the Origin check then refuses.
  *
- * Those keep other sites out; they do not say who is calling, since a local
- * program may send any Origin it likes. The deployment's identity providers
- * do (`auth.ts`): a request it finds is the person's is on the page's wire,
- * one it refuses is refused, and any other is a local program's, whatever
- * its Origin.
+ * A request that passes them and carries the UI's Origin is the page's: a
+ * browser sets Origin on every request a page makes but a same-origin GET,
+ * and no site but the UI's gets past the Origin check. It is on the page's
+ * wire, the person's, under the name the deployment's identity providers
+ * give them (`auth.ts`), or the server's owner's when none does; a provider
+ * that refuses a request refuses it. Any other request is a local
+ * program's, an agent's. A local program may send the UI's Origin too, and
+ * then passes as the page: kb's actors are a record of who made a call, not
+ * a security boundary, which is who can reach the server at all (the
+ * machine's accounts, a tailnet's grants; DESIGN.md → Surfaces → Who the
+ * person is). The same holds on every deployment, a TCP port, a proxy or a
+ * socket.
  */
-import {
-  PAGE_PROTOCOL,
-  PAGE_WIRE,
-  type Identification,
-  type Person,
-  type SurfaceWire,
-} from "@kb/contracts";
+import { PAGE_WIRE, type Identification, type Person, type SurfaceWire } from "@kb/contracts";
 import type { Listener } from "./listener.ts";
 
 /**
- * HTTP's wire for a local program: a request the authentication does not
- * find is the person's (the CLI's relay, curl, another app, or anything
- * claiming the UI's Origin). Its calls are an agent's, the more cautious
- * caller: one cannot say it is someone else, or that a person approved it,
- * since nothing shows a person stands behind it. The person's own requests
- * are the page's wire (`PAGE_WIRE`).
+ * HTTP's wire for a local program: a request that carries no Origin (the
+ * CLI's relay, curl, another app). Its calls are an agent's, and it cannot
+ * say a person approved one. The page's requests are the page's wire
+ * (`PAGE_WIRE`).
  */
 export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
 
@@ -58,18 +56,20 @@ export interface GuardSite {
   readonly publicOrigin?: string;
   /** Who a request is, by every identity provider the server holds (`identifyBy`). */
   readonly identify: (req: Request) => Identification;
+  /** Who the page is when no provider names them (`serverOwner`). */
+  readonly owner: Person;
 }
 
 /**
- * Who a request the guard lets through comes from: the person, or nobody
- * (`null`), and the wire that follows from which.
+ * Who a request the guard lets through comes from: the page, which is the
+ * person, or a local program, which is nobody (`null`), and its wire.
  */
 export interface Caller {
   readonly wire: SurfaceWire;
   readonly person: Person | null;
 }
 
-/** A local program's request: nobody the authentication vouches for, on HTTP's wire. */
+/** A local program's request: nobody's, on HTTP's wire. */
 export const PROGRAM: Caller = { wire: HTTP_WIRE, person: null };
 
 /** What the guard makes of a request: refused, or let through from its caller. */
@@ -116,21 +116,9 @@ function addressesOf(site: GuardSite): { origins: Set<string>; hosts: Set<string
   return { origins, hosts };
 }
 
-/** The wire a request is on: the page's when it is the person's, a local program's otherwise. */
-function admitted(person: Person | null): Admission {
-  return { caller: person === null ? PROGRAM : { wire: PAGE_WIRE, person } };
-}
-
-/**
- * The response headers that accept a handshake on the page's subprotocol,
- * when it offers it: a browser closes a socket whose server answers with a
- * subprotocol it did not offer, or with none when it offered one.
- */
-export function handshakeHeaders(req: Request): Record<string, string> {
-  const offered = (req.headers.get("sec-websocket-protocol") ?? "")
-    .split(",")
-    .map((protocol) => protocol.trim());
-  return offered.includes(PAGE_PROTOCOL) ? { "sec-websocket-protocol": PAGE_PROTOCOL } : {};
+/** The page's request, as `person`. */
+function page(person: Person): Admission {
+  return { caller: { wire: PAGE_WIRE, person } };
 }
 
 export function requestGuard(site: GuardSite): RequestGuard {
@@ -140,7 +128,7 @@ export function requestGuard(site: GuardSite): RequestGuard {
   });
   return {
     admit: (req, url) => {
-      if (url.pathname !== "/ws" && !url.pathname.startsWith("/api/")) return admitted(null);
+      if (url.pathname !== "/ws" && !url.pathname.startsWith("/api/")) return { caller: PROGRAM };
       const host = req.headers.get("host");
       if (host === null || !hosts.has(host)) {
         return refused(403, `host ${host ?? "(none)"} is not this kb ui`);
@@ -158,7 +146,8 @@ export function requestGuard(site: GuardSite): RequestGuard {
       }
       const identified = site.identify(req);
       if ("refused" in identified) return refused(403, identified.refused);
-      return admitted(identified.person);
+      if (origin === null) return { caller: PROGRAM };
+      return page(identified.person ?? site.owner);
     },
   };
 }

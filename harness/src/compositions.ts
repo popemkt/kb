@@ -12,7 +12,7 @@
  * - `registry`: the session registry over a fresh root with every optional
  *   family switched on, so every bundled family's plugin is loaded;
  * - `server`: the `kb ui` server's own kernel, as `startUi` composes it,
- *   with both identity providers and the hosted agent;
+ *   with the identity provider and the hosted agent;
  * - `browser`: the page's kernel with the shell's plugins and every
  *   family's browser entry.
  */
@@ -73,7 +73,7 @@ const { openKb } = await import("@kb/runtime");
 const server = process.cwd() + "/../server/src/";
 const { SubscriptionHub } = await import(server + "session.ts");
 const { channelsOf, loadServerPlugins } = await import(server + "plugins.ts");
-const { identityHeaderIdentity, pageTokenIdentity } = await import(server + "auth.ts");
+const { identityHeaderIdentity } = await import(server + "auth.ts");
 const ctx = await openKb(root);
 const kernel = makeKernel();
 const hub = new SubscriptionHub(ctx, channelsOf(kernel));
@@ -83,7 +83,7 @@ await Effect.runPromise(
     ctx,
     hub.screens,
     [{ declaration: agentExtension, entry: agentPlugin({ adapters: [], secrets: NO_SECRETS }) }],
-    [pageTokenIdentity(), identityHeaderIdentity({ header: "X-Login", people: ["p"] })],
+    [identityHeaderIdentity({ header: "X-Login", people: ["p"] })],
   ),
 );
 report(kernel);

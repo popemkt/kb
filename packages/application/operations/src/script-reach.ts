@@ -7,12 +7,13 @@
  * subject holds, as the action declares what a call acts on (`targets`).
  */
 import { Option, Schema } from "effect";
-import type {
-  ActionDefinition,
-  ActionInvocation,
-  ActionRequest,
-  KbContext,
-  RunningCall,
+import {
+  madeBy,
+  type ActionDefinition,
+  type ActionInvocation,
+  type ActionRequest,
+  type KbContext,
+  type RunningCall,
 } from "@kb/contracts";
 import { isVocabulary, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { CodeGrant, callTargets, grantRefusal, subjectReach } from "@kb/sandbox";
@@ -23,18 +24,18 @@ const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
  * `request` as a call made while `outer` runs, as an action calls another
  * through its host (`CoreInvoke`): a call a script's call makes is that
  * script's, with its reach, whatever it says, so the grant follows the call
- * down; any other is made by the actor it names, or else by its caller's.
- * Null for a request naming no actor made while nothing runs: no one makes
- * it.
+ * down; one already made on a wire keeps who made it, and a bare request
+ * is made by its caller. Null for a bare request made while nothing runs: no
+ * one makes it.
  */
 export function callWithin(outer: RunningCall | null, request: ActionInvocation): ActionInvocation;
 export function callWithin(
   outer: RunningCall | null,
-  request: ActionRequest,
+  request: ActionRequest | ActionInvocation,
 ): ActionInvocation | null;
 export function callWithin(
   outer: RunningCall | null,
-  request: ActionRequest,
+  request: ActionRequest | ActionInvocation,
 ): ActionInvocation | null {
   const caller = outer?.invocation;
   if (caller?.actor === "script") {
@@ -45,7 +46,7 @@ export function callWithin(
       ...(caller.script === undefined ? {} : { script: caller.script }),
     };
   }
-  const actor = request.actor ?? caller?.actor;
+  const actor = madeBy(request) ?? caller?.actor;
   return actor === undefined ? null : { ...request, actor };
 }
 

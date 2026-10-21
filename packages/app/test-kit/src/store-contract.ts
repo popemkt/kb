@@ -237,6 +237,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     "a cardinality-one field holds one value: set replaces in one transaction, two are refused",
     singleValuedFieldHoldsOne,
   ],
+  [
+    "the tail records who made each commit, and a reopened store reads it back",
+    tailRecordsWhoCommitted,
+  ],
   ["a commit merges into what is there: upserts overwrite, deletes remove", commitMerges],
   ["the fingerprint is stable across loads and moves when the content does", fingerprintTracks],
   ["another writer's commit is visible, and changes this store's fingerprint", externalWriteIsSeen],
@@ -810,6 +814,39 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
           expect(both.status).toBe("failed");
         }
         expect(yield* held).toEqual([num(96)]);
+      }),
+    ),
+  );
+}
+
+/**
+ * Who made a commit is recorded on its tail entry, durably and only when it
+ * is said: a record naming an actor reads back with it from another store
+ * over the same files, one naming none reads back with no key, and a call
+ * made through the invoke core records its actor without its caller saying.
+ */
+function tailRecordsWhoCommitted(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const store = makeStore(root);
+        yield* store.commitEffect(
+          { upserts: [plainNode("n-agent", "a")], deletes: [] },
+          { at: AT, actor: "agent" },
+        );
+        yield* store.commitEffect({ upserts: [plainNode("n-none", "b")], deletes: [] }, { at: AT });
+        const [agent, none] = makeStore(root).txTail.entries().slice(-2);
+        expect(agent?.actor).toBe("agent");
+        expect(none !== undefined && "actor" in none).toBe(false);
+
+        const ctx = yield* openSession(root);
+        const made = yield* invokeReceiptEffect(
+          ctx,
+          onWire(IN_PROCESS_WIRE, { id: "node.add", input: { id: "n-cli", text: "c" } }),
+        ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+        expect(made.status).toBe("succeeded");
+        expect(makeStore(root).txTail.entries().at(-1)?.actor).toBe("cli");
       }),
     ),
   );

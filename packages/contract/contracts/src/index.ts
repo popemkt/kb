@@ -2,6 +2,8 @@ export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
 export {
   ActionCatalog,
   ActionRequestSchema,
+  envelopeOf,
+  requestOf,
   ActionReceiptSchema,
   ManifestEntrySchema,
   CoreInvoke,
@@ -21,11 +23,11 @@ export {
   ShownConfigurationSchema,
   approvalAsk,
   hasPerson,
+  madeBy,
   listedOn,
   listingOf,
   onWire,
   PAGE_WIRE,
-  requestOnWire,
 } from "./approval.ts";
 export type {
   ApprovalAsk,
@@ -103,15 +105,6 @@ export type {
   ExtensionPromiseHandler,
   LoadedExtension,
 } from "./extension.ts";
-export {
-  PAGE_PROTOCOL,
-  PAGE_TOKEN_HEADER,
-  offeredPageToken,
-  pageProtocols,
-  pageTokenOf,
-  pageUrlOf,
-  withoutPageToken,
-} from "./page-token.ts";
 export {
   ActionGuardPoint,
   ActionInterceptorPoint,

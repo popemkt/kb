@@ -185,6 +185,7 @@ export {
 } from "./declared-option.ts";
 export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
 export type { KbTx, StoreTx } from "./tx.ts";
+export { recordedTx } from "./tx.ts";
 
 export {
   DOCS_VIEW_OPTION,

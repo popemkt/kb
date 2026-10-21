@@ -22,7 +22,7 @@ import { dirname } from "node:path";
 const BUSY_TIMEOUT_MS = 15_000;
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
-const SCHEMA_VERSION = "3";
+const SCHEMA_VERSION = "4";
 
 /**
  * `meta.rev` is the store's commit mark, and the database keeps it: a trigger
@@ -70,10 +70,17 @@ function initialize(db: Database): void {
        rev INTEGER PRIMARY KEY,
        at TEXT NOT NULL,
        origin TEXT,
+       actor TEXT,
        ops TEXT NOT NULL,
        mark TEXT NOT NULL
      )`,
   );
+  // The migration from schema 3: a tail made before `actor` was recorded
+  // gains the column, empty on every row it already holds.
+  const txColumns = db.query<{ name: string }, []>("PRAGMA table_info(tx)").all();
+  if (!txColumns.some((column) => column.name === "actor")) {
+    db.run("ALTER TABLE tx ADD COLUMN actor TEXT");
+  }
   db.run(
     `INSERT INTO meta (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}'), ('rev', '0')
      ON CONFLICT(key) DO NOTHING`,

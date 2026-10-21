@@ -96,12 +96,11 @@ describe("opening a location", () => {
     id: "location.open",
     output: {
       url: "http://127.0.0.1:5000",
-      open: "http://127.0.0.1:5000/#token=f00d",
       path: "/r/notes",
     },
   };
 
-  test("goes where it answers the root opens, its page, in this tab, and a new tab when asked", async () => {
+  test("goes where it answers the root is served, in this tab, and a new tab when asked", async () => {
     const { calls, invoke } = invoker(() => opened);
     const { went, tabs, exits } = recordedExits();
     await openLocation(invoke, { id: "notes" }, false, exits);
@@ -110,8 +109,8 @@ describe("opening a location", () => {
       { id: "location.open", input: { id: "notes" } },
       { id: "location.open", input: { id: "notes" } },
     ]);
-    expect(went).toEqual(["http://127.0.0.1:5000/#token=f00d"]);
-    expect(tabs).toEqual([{ url: "http://127.0.0.1:5000/#token=f00d", closed: false }]);
+    expect(went).toEqual(["http://127.0.0.1:5000"]);
+    expect(tabs).toEqual([{ url: "http://127.0.0.1:5000", closed: false }]);
   });
 
   test("a refused open stays put, closes the tab it opened, and says why", async () => {

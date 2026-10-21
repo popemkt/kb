@@ -1,6 +1,5 @@
 import { GraphSnapshotSchema, type GraphSnapshot } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { pageHeaders } from "@/api/page-token";
 
 export type GraphLoadSource = "api" | "fixtures";
 
@@ -24,7 +23,7 @@ async function defaultFetchGraphSnapshot(): Promise<GraphSnapshot> {
     return validatedFixtures();
   }
 
-  const res = await fetch("/api/graph", { headers: pageHeaders() });
+  const res = await fetch("/api/graph");
   if (!res.ok) throw new Error(`GET /api/graph → ${res.status}`);
   const json: unknown = await res.json();
   return GraphSnapshotSchema.parse(json);

@@ -62,29 +62,16 @@ describe("approval policies", () => {
     expect(approvalPoliciesOf(nodes)).toEqual([]);
   });
 
-  test("the seed tags its vocabulary as options and asks an agent or a script before a delete or a rewrite", () => {
+  test("the seed tags its vocabulary as options and, while policies are deferred, holds no policy", () => {
     const seed = bundledSeed();
     const byId = new Map(seed.map((seeded) => [seeded.id, seeded]));
     expect(byId.get(GOVERNANCE_IDS.actorField)?.children).toEqual(Object.values(ACTOR_OPTION_IDS));
     expect(byId.get(GOVERNANCE_IDS.decisionField)?.children).toEqual(
       Object.values(DECISION_OPTION_IDS),
     );
-    const policies = approvalPoliciesOf(seed);
-    expect(policies.map(({ match, actor, decision }) => ({ match, actor, decision }))).toEqual([
-      { match: "node.delete", actor: "agent", decision: "ask" },
-      { match: "views.migrate", actor: "agent", decision: "ask" },
-      { match: "node.delete", actor: "script", decision: "ask" },
-      { match: "views.migrate", actor: "script", decision: "ask" },
-      { match: "sandbox.trust", actor: "agent", decision: "deny" },
-      { match: "sandbox.trust", actor: "script", decision: "deny" },
-      { match: "extension.switch", actor: "agent", decision: "ask" },
-      { match: "extension.switch", actor: "script", decision: "deny" },
-    ]);
-    // Filed under the query node that lists every policy, and editable.
-    expect(byId.get(GOVERNANCE_IDS.policies)?.children.toSorted()).toEqual(
-      policies.map((p) => p.id).toSorted(),
-    );
-    expect(policies.every((p) => !p.id.startsWith("sys."))).toBe(true);
+    // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+    expect(approvalPoliciesOf(seed)).toEqual([]);
+    expect(byId.get(GOVERNANCE_IDS.policies)?.children).toEqual([]);
   });
 
   test("the policies are managed in a table view of that query, pinned in the sidebar", () => {

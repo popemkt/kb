@@ -17,7 +17,14 @@
 import { appendFileSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Predicate } from "effect";
-import { canonicalJson, decodeStoredTx, domainError, type KbTx, type StoreTx } from "@kb/model";
+import {
+  canonicalJson,
+  decodeStoredTx,
+  domainError,
+  recordedTx,
+  type KbTx,
+  type StoreTx,
+} from "@kb/model";
 import {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
@@ -99,10 +106,7 @@ export class JsonlTxTail implements TxTail {
   append(ops: StoreTx, record: TxRecord, mark = storeMark(this.nodesPath)): KbTx {
     const existing = this.records();
     const rev = (existing.at(-1)?.tx.rev ?? 0) + 1;
-    const tx: KbTx =
-      record.origin === undefined
-        ? { rev, ops, at: record.at }
-        : { rev, ops, at: record.at, origin: record.origin };
+    const tx = recordedTx(rev, ops, record);
     const line: TailRecord = { tx, mark: mark ?? "" };
 
     if (existing.length + 1 > TX_TAIL_MAX_ENTRIES) {

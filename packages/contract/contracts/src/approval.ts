@@ -2,7 +2,6 @@ import { Context } from "effect";
 import { z } from "zod";
 import type { Actor } from "@kb/model";
 import {
-  ActionRequestSchema,
   ManifestEntrySchema,
   type ActionInvocation,
   type ActionRequest,
@@ -39,80 +38,61 @@ export interface SurfaceWire {
   /** Who a call on this wire is made by. */
   readonly actor: Actor;
   /**
-   * Whether the wire relays calls others make, each naming who makes it and,
-   * for a script's call, its reach: the page's, which carries the person's
-   * gestures, the agent it hosts, WebMCP's tools and the scripts it runs. A
-   * call on any other wire is made by the wire's own actor.
+   * Whether the wire relays calls others make: the page's, which carries the
+   * person's gestures, the agent it hosts, WebMCP's tools and the scripts it
+   * runs, and kb's own in process. A call relayed from another wire in this
+   * process (an {@link ActionInvocation}) keeps who made it; one that
+   * carries a script's reach is the script's. Any other call on any wire is
+   * made by the wire's own actor.
    */
   readonly relays?: true;
 }
 
-/** What a call may state of itself beyond the action and its input. */
-const STATED = ["approved", "actor", "script"] as const;
-type Stated = (typeof STATED)[number];
+/**
+ * Whether a call on `wire` carries `what` it states: a person's approval,
+ * where the wire carries approval, and a script's reach, where it relays
+ * calls others make. What a wire does not carry is dropped, never refused.
+ */
+function carries(wire: SurfaceWire, what: "approved" | "script"): boolean {
+  return what === "approved" ? wire.carriesApproval : wire.relays === true;
+}
 
 /**
- * Whether a call on `wire` may state `what` as `request` does: that a
- * person approved it, where the wire carries approval, and who makes it and
- * a script's reach, where it relays them. The surface owns who calls, so a
- * caller can never say it is someone else, or that a person approved what
- * no person saw. Naming the actor the wire makes it anyway claims nothing,
- * so any wire takes that (a page nobody is verified for calls WebMCP's
- * tools as the agent it already is).
+ * Who made `call`, when it was already made on a wire in this process (an
+ * {@link ActionInvocation}); undefined for a bare request, which says no one.
  */
-// GAP [[01M5BVBDY7HNGXN2ZQJR4BHMPP]]
-function mayState(wire: SurfaceWire, what: Stated, request: ActionRequest): boolean {
-  if (what === "approved") return wire.carriesApproval;
-  return wire.relays === true || (what === "actor" && request.actor === wire.actor);
+export function madeBy(call: ActionRequest | ActionInvocation): Actor | undefined {
+  return "actor" in call ? call.actor : undefined;
 }
 
 /**
  * The invocation as it reaches the invoke core from `wire`: made by the
- * wire's actor, or, on a wire that relays, by the actor the call names,
- * and carrying only what the wire lets a call state (`mayState`). Every
- * surface hands the core its calls through this.
+ * wire's actor or, on a wire that relays, by whoever made the call it
+ * relays (`relays`), and carrying only what the wire carries
+ * (`carries`). Every surface hands the core its calls through this.
  */
-export function onWire(wire: SurfaceWire, request: ActionRequest): ActionInvocation {
-  const { approved, actor, script, ...call } = request;
+export function onWire(
+  wire: SurfaceWire,
+  request: ActionRequest | ActionInvocation,
+): ActionInvocation {
+  const relayed = wire.relays === true ? madeBy(request) : undefined;
+  const { approved, script, ...call } = request;
+  const scripted = script !== undefined && carries(wire, "script");
   return {
     ...call,
-    ...(approved !== undefined && mayState(wire, "approved", request) ? { approved } : {}),
-    ...(script !== undefined && mayState(wire, "script", request) ? { script } : {}),
-    actor: actor !== undefined && mayState(wire, "actor", request) ? actor : wire.actor,
+    ...(approved !== undefined && carries(wire, "approved") ? { approved } : {}),
+    ...(scripted ? { script } : {}),
+    actor: scripted ? "script" : (relayed ?? wire.actor),
   };
 }
 
 /**
- * The request `raw` makes on `wire`, a call's envelope as it arrives from
- * outside kb (an HTTP body, `kb action-invoke`'s JSON), or why it may not
- * be made: a call that states what its wire does not let it is refused, so
- * its caller hears it rather than finding it ignored.
- */
-export function requestOnWire(
-  wire: SurfaceWire,
-  raw: unknown,
-):
-  | { readonly request: ActionRequest }
-  | { readonly invalid: string }
-  | { readonly refused: string } {
-  const parsed = ActionRequestSchema.safeParse(raw);
-  if (!parsed.success) return { invalid: parsed.error.issues.map((i) => i.message).join("; ") };
-  const stated = STATED.filter(
-    (what) => parsed.data[what] !== undefined && !mayState(wire, what, parsed.data),
-  );
-  if (stated.length === 0) return { request: parsed.data };
-  return {
-    refused: `a call here cannot state ${stated.join(" or ")}: this surface says who calls, and a person approves only through a surface they control`,
-  };
-}
-
-/**
- * The page's wire: what the UI sends, in the person's browser. It relays
- * the calls the page makes for others (the agent sidebar's, WebMCP's, the
- * scripts it hosts), each naming its actor, and a call that names none is
- * the person's gesture. The server takes a call as the page's only when it
- * carries this run's page token (`page-token.ts`), which the page has from
- * the URL that opened it and nothing the server serves carries.
+ * The page's wire: what the UI sends, in the person's browser, when the
+ * server knows it is the person's (DESIGN.md → Surfaces → Who the person
+ * is). It relays the calls the page makes for others in its own process (the
+ * agent sidebar's, WebMCP's, the scripts it hosts); a call that names none
+ * is the person's gesture. A page the server vouches for nobody behind
+ * calls on a local program's wire, and its gestures run there unrefused.
  */
 export const PAGE_WIRE: SurfaceWire = { carriesApproval: true, actor: "human", relays: true };
 

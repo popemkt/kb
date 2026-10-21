@@ -24,7 +24,7 @@ describe("local action plans", () => {
     expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("Ship");
     expect(useGraphStore.getState().index?.getNode("n.split")?.text).toBe(" kb ui shell");
     await waitForBrowserPushes();
-    expect(calls).toEqual(plan.actions.map((action) => ({ ...action, actor: "human" })));
+    expect(calls).toEqual(plan.actions);
   });
 
   it("fixture mode runs locally without pushing", async () => {

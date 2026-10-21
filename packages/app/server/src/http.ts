@@ -5,7 +5,7 @@ import {
   TxOrigin,
   listingOf,
   onWire,
-  requestOnWire,
+  requestOf,
   type ActionResponse,
   type HostedFamilies,
   type KbContext,
@@ -164,23 +164,17 @@ const handleHttpRequestEffect = (
       return jsonResponse(yield* read(deps));
     }
 
-    // The request guard (`guard.ts`) has already refused another site's page
-    // and a stale page token, and said whose wire this is: the page's when
-    // it carries this run's token, else a local program's.
+    // The request guard (`guard.ts`) has already refused another site's
+    // page, and said whose wire this is: the page's when it carries the UI's
+    // Origin, else a local program's.
     if (url.pathname === "/api/action" && req.method === "POST") {
       const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
       if (Option.isNone(body)) {
         return invalidInput("request body must be JSON");
       }
 
-      const made = requestOnWire(wire, body.value);
+      const made = requestOf(body.value);
       if ("invalid" in made) return invalidInput(made.invalid);
-      if ("refused" in made) {
-        return jsonResponse(
-          { status: "failed", id: "unknown", code: "forbidden", message: made.refused },
-          { status: 403 },
-        );
-      }
 
       const receipt = yield* serverInvoke(ctx, onWire(wire, made.request)).pipe(
         Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined),

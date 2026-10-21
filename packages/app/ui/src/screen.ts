@@ -25,7 +25,7 @@ import {
   familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { getClientOrigin } from "@/api/action";
+import { renewTabSession, tabSession } from "@/api/tab-session";
 import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
 import { NodeView, layoutPanes, resolveNodeView, type LayoutPane } from "@kb/views";
 import {
@@ -229,8 +229,10 @@ function watchScreen(page: Window, listener: () => void): () => void {
 export interface ScreenPluginOptions {
   /** The tab's window; null where there is none (a test, a server render), and then the plugin does nothing. */
   readonly page: () => Window | null;
-  /** The id the tab first publishes as. */
+  /** The id the tab first publishes as: its session id (`tab-session.ts`). */
   readonly tabId: () => string;
+  /** A fresh id for the tab, once the server refused the one it held: another tab holds it. */
+  readonly freshTabId: () => string;
   /** Send this tab's screen to the server, as the tab `tab`. */
   readonly publish: (tab: string, state: ScreenState) => void;
   /** Install (or, with null, remove) the tab's side of what the server says. */
@@ -249,10 +251,10 @@ interface Publisher {
  */
 function startPublishing(
   page: Window,
-  firstTab: string,
-  publish: (tab: string, state: ScreenState) => void,
+  options: Pick<ScreenPluginOptions, "tabId" | "freshTabId" | "publish">,
 ): Publisher {
-  let tab = firstTab;
+  const { publish } = options;
+  let tab = options.tabId();
   let last = "";
   let lastProblem = "";
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -288,7 +290,7 @@ function startPublishing(
     },
     refused: (taken) => {
       if (taken !== tab) return;
-      tab = crypto.randomUUID();
+      tab = options.freshTabId();
       last = "";
       flush();
     },
@@ -305,7 +307,7 @@ export function screenPlugin(options: ScreenPluginOptions): Plugin {
           Effect.sync(() => {
             const page = options.page();
             if (page === null) return () => undefined;
-            const publisher = startPublishing(page, options.tabId(), options.publish);
+            const publisher = startPublishing(page, options);
             options.attach({ carryOut, refused: publisher.refused });
             return () => {
               publisher.stop();
@@ -320,8 +322,9 @@ export function screenPlugin(options: ScreenPluginOptions): Plugin {
 
 export const screenUiPlugin = screenPlugin({
   page: () => (typeof window === "undefined" ? null : window),
-  // The page's origin id: one per page load, so per tab, and the id its writes carry.
-  tabId: getClientOrigin,
+  // The tab's session id, which its writes carry too.
+  tabId: tabSession,
+  freshTabId: renewTabSession,
   publish: (tab, state) => getLiveClient().publishScreen(tab, state),
   attach: setScreenTab,
 });

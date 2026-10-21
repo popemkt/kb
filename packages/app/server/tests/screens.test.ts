@@ -20,9 +20,9 @@ import {
 } from "@kb/contracts";
 import { invoke, openKb } from "@kb/runtime";
 import { FAKE_TAB_SCREEN, FakeTab } from "@kb/test-kit";
-import { pageTokenIdentity, startUi, type UiServerHandle } from "../src/index.ts";
+import { startUi, type UiServerHandle } from "../src/index.ts";
 
-/** Who a tab opened from the page URL `kb ui` printed is: the account that started it. */
+/** Who the page is: the account that runs the server. */
 const PERSON = { name: userInfo().username };
 
 const run = Effect.runPromise;
@@ -73,16 +73,14 @@ describe("screen state", () => {
   const tabs: FakeTab[] = [];
 
   async function tab(id: string, state?: ScreenState): Promise<FakeTab> {
-    const opened = await run(FakeTab.open(handle.page, id, state));
+    const opened = await run(FakeTab.open(handle.url, id, state));
     tabs.push(opened);
     return opened;
   }
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "kb-screens-"));
-    handle = await run(
-      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
-    );
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
   });
 
   afterEach(async () => {
@@ -99,9 +97,9 @@ describe("screen state", () => {
       tabs: [{ tab: "tab.a", person: PERSON, ...FAKE_TAB_SCREEN }],
     });
 
-    // A tab opened from the bare URL carries no page token: it publishes all
-    // the same, as nobody's, after the person's.
-    const bare = await run(FakeTab.open(handle.url, "tab.bare"));
+    // A local program's socket, which carries no Origin, publishes all the
+    // same, as nobody's, after the person's.
+    const bare = await run(FakeTab.open(handle.url, "tab.bare", FAKE_TAB_SCREEN, "program"));
     expect((await screen(handle)).tabs.map((t) => [t.tab, t.person])).toEqual([
       ["tab.a", PERSON],
       ["tab.bare", null],
@@ -186,6 +184,30 @@ describe("screen state", () => {
       tab: "tab.a",
     });
     expect(a.commands).toEqual([{ kind: "navigate", pane: "main", to: { route: "/graph" } }]);
+  });
+
+  test("an agent's command reaches the page tab whose session id it names, and the person's tab before a program's", async () => {
+    // Two pages, each publishing under the session id its tab minted, and a
+    // local program's socket publishing last, so it is the most recent.
+    const mine = await tab("session.mine");
+    const other = await tab("session.other");
+    const program = await run(
+      FakeTab.open(handle.url, "session.program", FAKE_TAB_SCREEN, "program"),
+    );
+    tabs.push(program);
+    // The agent's call (this post carries no Origin) names a session: only that tab hears it.
+    expect(await command(handle, "ui.navigate", { tab: "session.mine", route: "/graph" })).toEqual({
+      outcome: "applied",
+      tab: "session.mine",
+    });
+    expect(mine.commands).toEqual([{ kind: "navigate", to: { route: "/graph" } }]);
+    expect(other.commands).toEqual([]);
+    // Naming none, it goes to the person's most recent tab, never to the program's.
+    expect(await command(handle, "ui.navigate", { node: "n.x" })).toEqual({
+      outcome: "applied",
+      tab: "session.other",
+    });
+    expect(program.commands).toEqual([]);
   });
 
   test("select carries the selection and focus, and a tab's refusal is its receipt", async () => {
@@ -276,9 +298,7 @@ describe("screen state with no kb ui", () => {
 
   test("a server removes .kb/ui.json when it stops", async () => {
     const presence = join(root, ".kb", "ui.json");
-    const handle = await run(
-      startUi({ identity: [pageTokenIdentity()], root, port: 0, openBrowser: false }),
-    );
+    const handle = await run(startUi({ root, port: 0, openBrowser: false }));
     expect(existsSync(presence)).toBe(true);
     await run(handle.stop);
     expect(existsSync(presence)).toBe(false);
@@ -317,10 +337,8 @@ describe("screen state with no kb ui", () => {
 
   test("a presence file whose port another root's kb ui now holds names no tabs", async () => {
     const other = await mkdtemp(join(tmpdir(), "kb-screens-other-"));
-    const elsewhere = await run(
-      startUi({ identity: [pageTokenIdentity()], root: other, port: 0, openBrowser: false }),
-    );
-    const stranger = await run(FakeTab.open(elsewhere.page, "tab.stranger"));
+    const elsewhere = await run(startUi({ root: other, port: 0, openBrowser: false }));
+    const stranger = await run(FakeTab.open(elsewhere.url, "tab.stranger"));
     try {
       const ctx = await openKb(root);
       await writePresence(root, elsewhere.url);

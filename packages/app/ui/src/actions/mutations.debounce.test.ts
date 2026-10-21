@@ -38,7 +38,6 @@ describe("debounced text invocation", () => {
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
       input: { id: "n.root-a", text: "two" },
-      actor: "human",
     });
   });
 });

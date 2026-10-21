@@ -9,8 +9,6 @@ import { present } from "@kb/model";
 import {
   SCREEN_APPLIED,
   ServerMessageSchema,
-  pageProtocols,
-  pageTokenOf,
   type ClientMessage,
   type ScreenAck,
   type ScreenCommand,
@@ -79,21 +77,23 @@ export class FakeTab {
   }
 
   /**
-   * Connect to a `kb ui` as the tab `id` of its page at `page` (the URL
-   * carrying its page token, `pageUrlOf`), and publish `screen`. With `null`
-   * it publishes none, and the connection is no tab at all.
+   * Connect to a `kb ui` at `page` as the tab `id`, its session id, and
+   * publish `screen`. With `null` it publishes none, and the connection is
+   * no tab at all. It is the page, sending the page's Origin as a browser
+   * does, unless `from` is `"program"`, a local program's socket, which
+   * sends none.
    */
   static open(
     page: string,
     id: string,
     screen: ScreenState | null = FAKE_TAB_SCREEN,
+    from: "page" | "program" = "page",
   ): Effect.Effect<FakeTab> {
     return Effect.gen(function* () {
-      const token = pageTokenOf(page);
-      const socket = new WebSocket(
-        `${new URL(page).origin.replace(/^http/, "ws")}/ws`,
-        token === null ? [] : pageProtocols(token),
-      );
+      const origin = new URL(page).origin;
+      const socket = new WebSocket(`${origin.replace(/^http/, "ws")}/ws`, {
+        headers: from === "page" ? { origin } : {},
+      });
       const tab = new FakeTab(id, socket);
       yield* tab.#exchange(null, (msg) => msg.op === "hello");
       if (screen !== null) yield* tab.publish(screen);

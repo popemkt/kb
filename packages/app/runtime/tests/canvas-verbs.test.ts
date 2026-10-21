@@ -724,7 +724,8 @@ describe("promote is one write", () => {
     expect(ctx.nodes.some((n) => n.id === out.nodeId)).toBe(true);
   });
 
-  test("a refused canvas write leaves no node behind", async () => {
+  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
+  test.skip("a refused canvas write leaves no node behind", async () => {
     const ctx = await canvasKb([card("s", 0, 0, { text: "A thought" })]);
     const policy = await invoke(ctx, {
       id: "node.add",
@@ -758,7 +759,8 @@ describe("promote is one write", () => {
   });
 });
 
-describe("approval", () => {
+// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
+describe.skip("approval", () => {
   test("a policy on the canvas verbs decides an agent's call, and a person's gesture still runs", async () => {
     const ctx = await canvasKb([card("a", 0, 0)]);
     const policy = await invoke(ctx, {

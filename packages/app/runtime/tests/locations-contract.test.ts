@@ -35,9 +35,8 @@ import { Effect } from "effect";
 import {
   KbRoots,
   onWire,
-  pageUrlOf,
   type ActionReceipt,
-  type ActionRequest,
+  type ActionInvocation,
   type KbContext,
 } from "@kb/contracts";
 import {
@@ -47,7 +46,7 @@ import {
   LocationRowSchema,
 } from "@kb/locations";
 import { SYSTEM_IDS, domainError, type Actor, type DomainError, type KbNode } from "@kb/model";
-import { readUiPresence, writePageToken, writeUiPresence } from "@kb/workspace-fs";
+import { readUiPresence, writeUiPresence } from "@kb/workspace-fs";
 import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
@@ -155,7 +154,7 @@ function locationsContract(homeBackend: StoreBackend): void {
     const invoke = Effect.fn("locationsContract.invoke")(function* (
       id: string,
       input: unknown,
-      claims: Pick<ActionRequest, "actor" | "approved"> = {},
+      claims: Partial<Pick<ActionInvocation, "actor" | "approved">> = {},
     ): Effect.fn.Return<ActionReceipt> {
       if (session === null) throw new Error("no session: beforeEach did not run");
       const ctx = session;
@@ -361,31 +360,9 @@ function locationsContract(homeBackend: StoreBackend): void {
           const a = yield* register(yield* storeRoot("a"));
           yield* register(yield* storeRoot("b"));
           const url = yield* answerFor(a.path);
-          expect(yield* open({ id: a.id })).toEqual({ url, open: url, path: a.path });
+          expect(yield* open({ id: a.id })).toEqual({ url, path: a.path });
           expect(started).toEqual([]);
           expect((yield* order())[0]).toBe(a.id);
-        }),
-      ));
-
-    test("the owner's open is handed the page its server kept for them; any other caller, the bare URL", () =>
-      run(
-        Effect.gen(function* () {
-          const a = yield* register(yield* storeRoot("a"));
-          const url = yield* answerFor(a.path);
-          yield* writePageToken(home, url, "f00d").pipe(Effect.provide(bunFileSystemLayer));
-          expect(yield* open({ id: a.id })).toEqual({
-            url,
-            open: pageUrlOf(url, "f00d"),
-            path: a.path,
-          });
-          const agent = yield* invoke(
-            "location.open",
-            { id: a.id },
-            { actor: "agent", approved: true },
-          );
-          expect(agent).toMatchObject({ status: "succeeded", output: { url, open: url } });
-          const elsewhere = yield* answerFor((yield* register(yield* storeRoot("b"))).path);
-          expect((yield* open({ path: join(scratch, "b") })).open).toBe(elsewhere);
         }),
       ));
 
@@ -449,7 +426,8 @@ function locationsContract(homeBackend: StoreBackend): void {
         }),
       ));
 
-    test("an agent registers, forgets and opens only with the owner's approval; it lists freely", () =>
+    // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
+    test.skip("an agent registers, forgets and opens only with the owner's approval; it lists freely", () =>
       run(
         Effect.gen(function* () {
           const a = yield* register(yield* storeRoot("a"));
@@ -474,7 +452,8 @@ function locationsContract(homeBackend: StoreBackend): void {
         }),
       ));
 
-    test("the root a person opens is registered as a call on their surface's wire", () =>
+    // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
+    test.skip("the root a person opens is registered as a call on their surface's wire", () =>
       run(
         Effect.gen(function* () {
           if (session === null) throw new Error("no session: beforeEach did not run");

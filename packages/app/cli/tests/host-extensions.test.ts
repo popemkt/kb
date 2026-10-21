@@ -20,16 +20,10 @@ import {
   scriptedRuntime,
 } from "@kb/agent";
 import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
-import {
-  NO_SECRETS,
-  PAGE_TOKEN_HEADER,
-  pageTokenOf,
-  type ExtensionEntry,
-  type ExtensionRow,
-} from "@kb/contracts";
+import { NO_SECRETS, type ExtensionEntry, type ExtensionRow } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { pageTokenIdentity, startUi } from "@kb/server";
+import { startUi } from "@kb/server";
 import { hostAgentAdapters, hostExtensions } from "../src/host-plugins.ts";
 
 const AGENT: ExtensionEntry = {
@@ -48,9 +42,8 @@ async function call(page: string, id: string, input: unknown): Promise<Record<st
     headers: {
       "content-type": "application/json",
       origin: url,
-      [PAGE_TOKEN_HEADER]: pageTokenOf(page) ?? "",
     },
-    body: JSON.stringify({ id, input, actor: "human" }),
+    body: JSON.stringify({ id, input }),
   });
   return (await response.json()) as Record<string, unknown>;
 }
@@ -70,7 +63,6 @@ async function served<T>(
 ): Promise<T> {
   const handle = await Effect.runPromise(
     startUi({
-      identity: [pageTokenIdentity()],
       root,
       port: 0,
       openBrowser: false,
@@ -78,7 +70,7 @@ async function served<T>(
     }).pipe(Effect.provide(bunFileSystemLayer)),
   );
   try {
-    return await against(handle.page);
+    return await against(handle.url);
   } finally {
     await Effect.runPromise(handle.stop);
   }

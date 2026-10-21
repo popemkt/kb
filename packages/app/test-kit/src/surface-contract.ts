@@ -32,7 +32,7 @@ import {
   DecidedEntrySchema,
   listedOn,
   onWire,
-  requestOnWire,
+  requestOf,
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
@@ -90,8 +90,6 @@ export interface ActionSurface {
 export interface LiveUi {
   /** Where it listens, `http://host:port`. */
   readonly url: string;
-  /** Its page: `url` carrying the page token it minted (`pageUrlOf`). */
-  readonly page: string;
   /** The extensions it hosts beside the registry's, as its `kb.manifest` reports them. */
   readonly hosted: readonly ExtensionRow[];
   stop(): Promise<void>;
@@ -273,6 +271,13 @@ function asWireData(receipt: ActionReceipt): unknown {
   return JSON.parse(JSON.stringify(receipt));
 }
 
+/** `action` as a wire that cannot carry approval may list it: its mode without `approval`. */
+function withoutApproval(action: ListedAction): ListedAction {
+  if (action.mode.kind !== "write") return action;
+  const { approval: _approval, ...mode } = action.mode;
+  return { id: action.id, mode };
+}
+
 function byId(actions: readonly ListedAction[]): ListedAction[] {
   return actions.map(({ id, mode }) => ({ id, mode })).toSorted((a, b) => a.id.localeCompare(b.id));
 }
@@ -296,7 +301,7 @@ function serveRoot(serve: ServeUi, root: string) {
   return Effect.acquireRelease(
     Effect.gen(function* () {
       const ui = yield* Effect.promise(() => serve(root));
-      return { ui, tab: yield* FakeTab.open(ui.page, CONTRACT_TAB) };
+      return { ui, tab: yield* FakeTab.open(ui.url, CONTRACT_TAB) };
     }),
     ({ ui, tab }) => tab.close.pipe(Effect.andThen(Effect.promise(() => ui.stop()))),
   );
@@ -404,7 +409,15 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
             listedOn(surface.wire, decisionOf.get(entry.id) ?? "deny"),
           );
           const listed = yield* Effect.promise(() => surface.list());
-          expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(callable) });
+          // While nothing asks, an action that declares approval is listed even on a wire
+          // that cannot carry it, and such a wire need not say it does (WebMCP's hints
+          // cannot). GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+          const stated = (entries: readonly ListedAction[]) =>
+            surface.wire.carriesApproval ? entries : entries.map(withoutApproval);
+          expect({ name, listed: byId(stated(listed)) }).toEqual({
+            name,
+            listed: byId(stated(callable)),
+          });
         }),
       ),
   ],
@@ -445,6 +458,124 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
         }),
       ),
   ],
+  [
+    "every surface writes an extension's setting on its node as it writes any field, " +
+      "and nothing else of that node",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          const write = (value: string): ActionRequest => ({
+            id: "node.update",
+            input: {
+              id: EXTENSION_NODE,
+              setProps: [{ field: SETTING_FIELD, value: { t: "str", v: value } }],
+              unsetProps: [{ field: SETTING_FIELD }],
+            },
+          });
+          const receipt = yield* via(write(name));
+          if (receipt === null) {
+            // Only a surface that cannot reach the write at all may not make it.
+            const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+            expect({ name, listed: listed.has("node.update") }).toEqual({ name, listed: false });
+            return;
+          }
+          // Whoever calls: no policy asks while policies are deferred. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+          expect({ name, status: receipt.status }).toEqual({ name, status: "succeeded" });
+          // Read back through the surface: the session the contract opened has not seen the write.
+          const read = yield* via({ id: "node.get", input: { id: EXTENSION_NODE, depth: 0 } });
+          expect({ name, read: read?.status === "succeeded" ? read.output : read }).toMatchObject({
+            name,
+            read: { node: { text: "Core", props: { [SETTING_FIELD]: [{ t: "str", v: name }] } } },
+          });
+          // The same node is still write-protected beyond its settings.
+          const renamed = yield* via({
+            id: "node.update",
+            input: { id: EXTENSION_NODE, text: "renamed" },
+          });
+          expect({ name, code: renamed?.status === "failed" ? renamed.code : "ran" }).toEqual({
+            name,
+            code: "forbidden",
+          });
+        }),
+      ),
+  ],
+  [
+    "the commit holds every action to the system-write rule: no surface renames, deletes or " +
+      "files under a system node without force, whichever action plans the write",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+          const writes: readonly ActionRequest[] = [
+            { id: "node.update", input: { id: EXTENSION_NODE, text: "renamed" } },
+            { id: "node.delete", input: { id: EXTENSION_NODE } },
+            { id: "node.addTree", input: { outline: "- filed", parent: EXTENSION_NODE } },
+          ];
+          for (const write of writes) {
+            // Approved, so where a policy asks first the commit still decides.
+            const receipt = yield* via({ ...write, approved: true });
+            const outcome =
+              receipt === null ? "uncallable" : receipt.status === "failed" ? receipt.code : "ran";
+            // Only a surface that does not list the action may be unable to make it, and only
+            // one whose wire cannot carry the approval may stop at the ask.
+            const before =
+              (outcome === "uncallable" && !listed.has(write.id)) ||
+              (outcome === "approval_required" && !surface.wire.carriesApproval);
+            expect({ name, action: write.id, outcome }).toEqual({
+              name,
+              action: write.id,
+              outcome: before ? outcome : "forbidden",
+            });
+          }
+        }),
+      ),
+  ],
+  [
+    "no call says who makes it: the wire does, and an actor a call states is dropped, never refused",
+    (set) =>
+      overSurfaces(set, ({ name, surface }) =>
+        Effect.sync(() => {
+          const { wire } = surface;
+          const claims = {
+            id: "node.get",
+            input: { id: EXTENSION_NODE },
+            actor: wire.actor === "human" ? "agent" : "human",
+            approved: true,
+            script: { subject: EXTENSION_NODE, grant: {} },
+          };
+          const stated = requestOf(claims);
+          if (!("request" in stated)) throw new Error(stated.invalid);
+          expect({ name, request: stated.request }).toEqual({
+            name,
+            request: { id: claims.id, input: claims.input, approved: true, script: claims.script },
+          });
+          const made = onWire(wire, stated.request);
+          expect({ name, actor: made.actor, script: made.script }).toEqual({
+            name,
+            // A script's reach makes the call the script's, where the wire relays it.
+            actor: wire.relays === true ? "script" : wire.actor,
+            script: wire.relays === true ? claims.script : undefined,
+          });
+          expect({ name, approved: made.approved }).toEqual({
+            name,
+            approved: wire.carriesApproval ? true : undefined,
+          });
+          expect({ name, actor: onWire(wire, { id: "node.get", input: {} }).actor }).toEqual({
+            name,
+            actor: wire.actor,
+          });
+        }),
+      ),
+  ],
+];
+
+/**
+ * The properties of approval, `force` and policy writes: what a policy asks
+ * or refuses on each surface. They hold again once policies are
+ * re-introduced; until then nothing asks or refuses, and they are skipped.
+ */
+// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+const DEFERRED: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<void>]> = [
   [
     "an approved call runs only through a surface whose wire carries the approval",
     (set) =>
@@ -523,58 +654,6 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
       ),
   ],
   [
-    "every surface writes an extension's setting on its node as it writes any field, " +
-      "and nothing else of that node; a caller acting for the owner only with approval",
-    (set) =>
-      overSurfaces(set, ({ name, surface, via }) =>
-        Effect.gen(function* () {
-          const write = (value: string): ActionRequest => ({
-            id: "node.update",
-            input: {
-              id: EXTENSION_NODE,
-              setProps: [{ field: SETTING_FIELD, value: { t: "str", v: value } }],
-              unsetProps: [{ field: SETTING_FIELD }],
-            },
-          });
-          const receipt = yield* via(write(name));
-          if (receipt === null) {
-            // Only a surface that cannot reach the write at all may not make it.
-            const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
-            expect({ name, listed: listed.has("node.update") }).toEqual({ name, listed: false });
-            return;
-          }
-          if (!actsAsOwner(surface.wire.actor)) {
-            // Configuration is the owner's: a caller acting for them asks first.
-            expect({ name, code: receipt.status === "failed" ? receipt.code : "ran" }).toEqual({
-              name,
-              code: "approval_required",
-            });
-            const approved = yield* via({ ...write(name), approved: true });
-            const ran = approved?.status === "succeeded";
-            expect({ name, ran }).toEqual({ name, ran: surface.wire.carriesApproval });
-            if (!ran) return;
-          } else {
-            expect({ name, status: receipt.status }).toEqual({ name, status: "succeeded" });
-          }
-          // Read back through the surface: the session the contract opened has not seen the write.
-          const read = yield* via({ id: "node.get", input: { id: EXTENSION_NODE, depth: 0 } });
-          expect({ name, read: read?.status === "succeeded" ? read.output : read }).toMatchObject({
-            name,
-            read: { node: { text: "Core", props: { [SETTING_FIELD]: [{ t: "str", v: name }] } } },
-          });
-          // The same node is still write-protected beyond its settings.
-          const renamed = yield* via({
-            id: "node.update",
-            input: { id: EXTENSION_NODE, text: "renamed" },
-          });
-          expect({ name, code: renamed?.status === "failed" ? renamed.code : "ran" }).toEqual({
-            name,
-            code: "forbidden",
-          });
-        }),
-      ),
-  ],
-  [
     "force is the owner's: a surface whose caller acts for the owner sets it, and one whose " +
       "caller acts for them is refused, whatever the policies say",
     (set) =>
@@ -594,37 +673,6 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
             name,
             outcome: actsAsOwner(surface.wire.actor) ? "ran" : "forbidden",
           });
-        }),
-      ),
-  ],
-  [
-    "the commit holds every action to the system-write rule: no surface renames, deletes or " +
-      "files under a system node without force, whichever action plans the write",
-    (set) =>
-      overSurfaces(set, ({ name, surface, via }) =>
-        Effect.gen(function* () {
-          const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
-          const writes: readonly ActionRequest[] = [
-            { id: "node.update", input: { id: EXTENSION_NODE, text: "renamed" } },
-            { id: "node.delete", input: { id: EXTENSION_NODE } },
-            { id: "node.addTree", input: { outline: "- filed", parent: EXTENSION_NODE } },
-          ];
-          for (const write of writes) {
-            // Approved, so where a policy asks first the commit still decides.
-            const receipt = yield* via({ ...write, approved: true });
-            const outcome =
-              receipt === null ? "uncallable" : receipt.status === "failed" ? receipt.code : "ran";
-            // Only a surface that does not list the action may be unable to make it, and only
-            // one whose wire cannot carry the approval may stop at the ask.
-            const before =
-              (outcome === "uncallable" && !listed.has(write.id)) ||
-              (outcome === "approval_required" && !surface.wire.carriesApproval);
-            expect({ name, action: write.id, outcome }).toEqual({
-              name,
-              action: write.id,
-              outcome: before ? outcome : "forbidden",
-            });
-          }
         }),
       ),
   ],
@@ -649,43 +697,6 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
         }),
       ),
   ],
-  [
-    "no call says who makes it, that a person approved it, or a script's reach, beyond what its wire lets it state",
-    (set) =>
-      overSurfaces(set, ({ name, surface }) =>
-        Effect.sync(() => {
-          const { wire } = surface;
-          const other = wire.actor === "human" ? "script" : "human";
-          const claims = {
-            id: "node.get",
-            input: { id: EXTENSION_NODE },
-            actor: other,
-            approved: true,
-            script: { subject: EXTENSION_NODE, grant: {} },
-          } as const;
-          const made = onWire(wire, claims);
-          expect({ name, actor: made.actor, script: made.script }).toEqual({
-            name,
-            actor: wire.relays === true ? other : wire.actor,
-            script: wire.relays === true ? claims.script : undefined,
-          });
-          expect({ name, approved: made.approved }).toEqual({
-            name,
-            approved: wire.carriesApproval ? true : undefined,
-          });
-          // Stated from outside kb, a claim the wire does not let it make is refused, not ignored.
-          const stated = requestOnWire(wire, claims);
-          expect({ name, refused: "refused" in stated }).toEqual({
-            name,
-            refused: wire.relays !== true,
-          });
-          expect({ name, plain: "request" in requestOnWire(wire, { id: "node.get" }) }).toEqual({
-            name,
-            plain: true,
-          });
-        }),
-      ),
-  ],
 ];
 
 /**
@@ -699,5 +710,7 @@ export function surfaceContract(set: SurfaceSet): void {
   const names = Object.keys(set.surfaces).join(", ");
   describe(`action surfaces (${names}) — one registry contract`, () => {
     for (const [title, property] of PROPERTIES) test(title, () => property(set));
+    // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+    for (const [title, property] of DEFERRED) test.skip(title, () => property(set));
   });
 }

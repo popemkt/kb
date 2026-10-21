@@ -46,16 +46,9 @@ const LOAD_SOURCE: Record<"api" | "fixtures", string> = {
 };
 
 /**
- * What a live tab the server does not take to be the person's is told, once,
- * here and nowhere else (DESIGN-UI.md → Who the tab is).
- */
-const UNVERIFIED =
-  "This tab is not verified as you: it reads, edits and shows its screen as an agent would. The agent and approvals need a tab that is verified: open the page kb ui printed, or reach it through the sign-in the deployment trusts.";
-
-/**
- * Connection state in one plain word, and on a live tab nobody is verified
- * for, one more. The revision and the load source are diagnostics, not
- * status: they live in the tooltip, not in the header.
+ * Connection state in one plain word. The revision, the load source and the
+ * person the tab is verified as are diagnostics, not status: they live in
+ * the tooltip, not in the header.
  */
 function ConnectionDot() {
   const wsStatus = useUiStore((s) => s.wsStatus);
@@ -64,15 +57,14 @@ function ConnectionDot() {
   const loadSource = useGraphStore((s) => s.loadSource);
   const dot = WS_DOT[wsStatus];
   const source = loadSource === null ? "not loaded" : `from ${LOAD_SOURCE[loadSource]}`;
-  const unverified = wsStatus === "open" && person === null;
-  const who = person ? ` · verified as ${person.name}` : unverified ? `. ${UNVERIFIED}` : "";
+  const who = person ? ` · verified as ${person.name}` : "";
   return (
     <span
       className="flex items-center gap-1.5 text-label text-foreground/40"
       title={`Connection: ${dot.label} · revision ${rev}, ${source}${who}`}
     >
       <span className={cn("h-2 w-2 rounded-full", dot.className)} />
-      {unverified ? `${dot.label} · unverified` : dot.label}
+      {dot.label}
     </span>
   );
 }
