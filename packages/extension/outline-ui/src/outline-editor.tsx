@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import {
   browserHost,
   isTextEntry,
+  type OutlineNode,
   useFrameView,
   useNodePaletteOpen,
   usePageGraph,
@@ -9,11 +10,14 @@ import {
   WORKSPACE_ROOT_ID,
   PageBackdrop,
 } from "@kb/ui-sdk";
-import { projectsRows } from "@kb/views";
+import { isQueryNode } from "@kb/model";
+import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineNode, outlineNodes } from "./outline.store";
 import { createTransientNode } from "./editing-writes";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
+import { NodeBlock } from "./node-block";
+import { QueryResultsSection } from "./query-results";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
@@ -21,6 +25,25 @@ import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 import { setOutlineHost } from "./outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
+
+/**
+ * The root's rows. The root is a frame like any other: its view shows its
+ * rows, whether it is the workspace root or a zoomed-in node. A query's rows
+ * are its results, as under a query row, and they are not children to add to.
+ */
+function RootRows({ root, view }: { root: OutlineNode; view: FrameViewKey | null }) {
+  if (!isQueryNode(root)) return <FrameViewSlot frameId={root.id} depth={0} />;
+  return (
+    <QueryResultsSection
+      nodeId={root.id}
+      depth={-1}
+      view={view}
+      renderNode={({ nodeId, instanceKey, depth }) => (
+        <NodeBlock key={instanceKey} nodeId={nodeId} instanceKey={instanceKey} depth={depth} />
+      )}
+    />
+  );
+}
 
 /**
  * Home (`__kb_root__`) is a virtual node with empty props — view.mode cannot
@@ -66,10 +89,9 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
     );
   }
 
-  // The root is a frame like any other: its view shows its rows, whether it is
-  // the workspace root or a zoomed-in node.
   const projected = projectsRows(rootView?.key ?? null);
-  const rootRows = <FrameViewSlot frameId={rootNodeId} depth={0} />;
+  const isQuery = isQueryNode(root);
+  const rootRows = <RootRows root={root} view={rootView?.key ?? null} />;
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
@@ -79,7 +101,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
         {rootRows}
 
-        {!projected && (
+        {!projected && !isQuery && (
           <div
             data-create-child-zone={rootNodeId}
             role="button"
