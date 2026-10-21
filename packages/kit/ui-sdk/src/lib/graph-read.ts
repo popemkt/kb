@@ -16,7 +16,10 @@
  * a schema reader never asks about expansion). When any of them moves, the
  * component gets a new view and re-renders, and the new view starts recording
  * afresh. A map walk (`values()`, iteration, `size`) depends on the whole
- * map, and a read of the query answers depends on every answer arriving.
+ * map. A query read through the answers (`runner`, `read`) depends on that
+ * query's answer, and is watched while the component is mounted, so a move
+ * of the replica asks it again (`useAnswered` reads queries the same way);
+ * any other use of the answers depends on every answer arriving.
  *
  * Reads always answer from the source's current maps, never from the
  * snapshot the view was made on; the recording only decides when the view is
@@ -30,11 +33,11 @@
  * mechanism is one hook over a port, so the shell's outline store and the
  * page's `BrowserHost` are two bindings of one body.
  */
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { sameMeaning } from "./graph-view";
 import type { FieldContext, SchemaIndex } from "./schema";
 import type { EdnRunner } from "../query";
-import type { QueryAnswers } from "./replica-queries";
+import type { QueryAnswers, QueryRead } from "./replica-queries";
 import type { NodeMap } from "./types";
 
 /** The graph as a component reads it: the outline as shown, its schema, the query answers. */
@@ -159,13 +162,19 @@ function mapView<V, M extends ReadonlyMap<string, V>>(
   });
 }
 
-/** The query answers as a recording view: any use of them depends on every answer arriving. */
+/**
+ * The query answers as a recording view: a query read (`read`, `runner`) is
+ * recorded in `reads` with what it answered; any other use depends on every
+ * answer arriving (`onRead`).
+ */
 class AnswersRead implements QueryAnswers {
   readonly #answers: QueryAnswers;
   readonly #onRead: () => void;
+  readonly #reads: Map<string, QueryRead>;
 
-  constructor(answers: QueryAnswers, onRead: () => void) {
+  constructor(answers: QueryAnswers, reads: Map<string, QueryRead>, onRead: () => void) {
     this.#answers = answers;
+    this.#reads = reads;
     this.#onRead = onRead;
   }
 
@@ -185,8 +194,10 @@ class AnswersRead implements QueryAnswers {
   ): ReturnType<QueryAnswers["subscribeTo"]> {
     return this.#read().subscribeTo(...args);
   }
-  read(...args: Parameters<QueryAnswers["read"]>): ReturnType<QueryAnswers["read"]> {
-    return this.#read().read(...args);
+  read(edn: string): QueryRead {
+    const read = this.#answers.read(edn);
+    this.#reads.set(edn, read);
+    return read;
   }
   watch(...args: Parameters<QueryAnswers["watch"]>): ReturnType<QueryAnswers["watch"]> {
     return this.#read().watch(...args);
@@ -200,8 +211,12 @@ class AnswersRead implements QueryAnswers {
   ask(...args: Parameters<QueryAnswers["ask"]>): ReturnType<QueryAnswers["ask"]> {
     return this.#read().ask(...args);
   }
-  runner(...args: Parameters<QueryAnswers["runner"]>): ReturnType<QueryAnswers["runner"]> {
-    return this.#read().runner(...args);
+  runner(reads?: Map<string, QueryRead>): EdnRunner {
+    const run = this.#answers.runner(reads);
+    return (edn) => {
+      this.#reads.set(edn, this.#answers.read(edn));
+      return run(edn);
+    };
   }
   settle<T>(read: (run: EdnRunner) => T): Promise<T> {
     return this.#read().settle(read);
@@ -213,8 +228,14 @@ class Reader {
   #sources: Sources;
   readonly #outline = new MapReads();
   readonly #schema = new MapReads();
+  /** The queries read through the view, with what each answered. */
+  readonly reads = new Map<string, QueryRead>();
   #queried = false;
   readonly view: GraphRead;
+
+  get queries(): QueryAnswers | null {
+    return this.#sources.queries;
+  }
 
   constructor(sources: Sources) {
     this.#sources = sources;
@@ -225,7 +246,7 @@ class Reader {
       queries:
         queries === null
           ? null
-          : new AnswersRead(queries, () => {
+          : new AnswersRead(queries, this.reads, () => {
               this.#queried = true;
             }),
     };
@@ -240,6 +261,8 @@ class Reader {
     const prev = this.#sources;
     if (next.queries !== prev.queries) return false;
     if (this.#queried && next.answers !== prev.answers) return false;
+    // Reading a query that is not current asks it again (`QueryAnswers.read`).
+    for (const [edn, at] of this.reads) if (next.queries?.read(edn) !== at) return false;
     if (!this.#outline.unchanged(prev.outline, next.outline, identical)) return false;
     // A schema entry is read for what it says, never for its expansion — an
     // unscoped schema's entries are the projection's (`lib/schema.ts`), so an
@@ -253,6 +276,13 @@ class Reader {
 /** A component's current reader; replaced when a read it served changed. */
 class ReaderSlot {
   #reader: Reader | null = null;
+
+  /** The answers the current reader read queries of, and those queries, as one key. */
+  watched(): { readonly queries: QueryAnswers | null; readonly key: string } {
+    const reader = this.#reader;
+    if (reader === null) return { queries: null, key: "" };
+    return { queries: reader.queries, key: [...reader.reads.keys()].toSorted().join("\u0000") };
+  }
 
   readonly snapshot = (source: GraphSource): GraphRead => {
     const next = sourcesOf(source);
@@ -268,5 +298,40 @@ class ReaderSlot {
 export function useGraphReadThrough(source: GraphSource): GraphRead {
   const [slot] = useState(() => new ReaderSlot());
   const snapshot = () => slot.snapshot(source);
-  return useSyncExternalStore(source.subscribe, snapshot, snapshot);
+  const view = useSyncExternalStore(source.subscribe, snapshot, snapshot);
+  useWatchedQueries(slot);
+  return view;
+}
+
+/**
+ * Keep the queries the slot's reader read live while mounted. They are read
+ * during render, after the snapshot, so they are looked at after every
+ * render, and watched again only when they change.
+ */
+interface Held {
+  readonly queries: QueryAnswers | null;
+  readonly key: string;
+  readonly releases: ReadonlyArray<() => void>;
+}
+
+function releaseHeld(held: { current: Held | null }): void {
+  for (const done of held.current?.releases ?? []) done();
+  held.current = null;
+}
+
+function useWatchedQueries(slot: ReaderSlot): void {
+  const held = useRef<Held | null>(null);
+  useEffect(() => {
+    const { queries, key } = slot.watched();
+    const prev = held.current;
+    if (prev !== null && prev.queries === queries && prev.key === key) return;
+    releaseHeld(held);
+    if (queries === null || key === "") return;
+    held.current = {
+      queries,
+      key,
+      releases: key.split("\u0000").map((edn) => queries.watch(edn)),
+    };
+  });
+  useEffect(() => () => releaseHeld(held), []);
 }
