@@ -41,8 +41,9 @@ export const layoutUiPlugin = definePlugin({
           provideRoute({
             view: NodeView,
             match: matchNode,
-            // The page it resolves to frames itself (NodeViewSurface).
-            frame: () => "fixed",
+            // The page it resolves to frames itself (NodeViewSurface, PageFrame):
+            // a frame here would hold that page's scroll region inside its own.
+            frame: () => "full",
             pendingTitle: () => "Opening…",
           }),
         ),

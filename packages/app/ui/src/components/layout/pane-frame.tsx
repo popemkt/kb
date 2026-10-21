@@ -22,7 +22,7 @@ const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
  * the centered column — breadcrumb included — shifted ~3px. Fixing it here is
  * what keeps every downstream element free of compensating offsets.
  */
-export function ScrollRegion({
+function ScrollRegion({
   scroll,
   children,
 }: {
@@ -45,6 +45,28 @@ export function ScrollRegion({
     >
       {children}
     </main>
+  );
+}
+
+/**
+ * A page framed as its route says (its `frame`): in a scroll region that
+ * scrolls, in one that does not (a page with its own viewport), or not at
+ * all (a page that frames itself). The one place a page is framed, so a page
+ * reached through a route and one a route resolves to another view
+ * (`/node/<id>`, `NodeViewSurface`) are framed alike, and a pane holds
+ * exactly one scroll region, never one nested in another.
+ */
+export function PageFrame({
+  frame,
+  children,
+}: {
+  readonly frame: ResolvedRoute["frame"];
+  readonly children: ReactNode;
+}) {
+  return frame === "full" ? (
+    children
+  ) : (
+    <ScrollRegion scroll={frame === "scroll"}>{children}</ScrollRegion>
   );
 }
 
@@ -81,11 +103,7 @@ export function PaneFrame({ path, subject }: { readonly path: string; readonly s
   return (
     <>
       {route?.chrome}
-      {route?.frame === "full" ? (
-        body
-      ) : (
-        <ScrollRegion scroll={route === null || route.frame === "scroll"}>{body}</ScrollRegion>
-      )}
+      <PageFrame frame={route?.frame ?? "scroll"}>{body}</PageFrame>
     </>
   );
 }
