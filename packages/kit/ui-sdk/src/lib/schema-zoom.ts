@@ -1,7 +1,7 @@
 /**
  * Schema-page live queries for zoomed tag / field nodes (DESIGN-REFINE §2 W3).
  */
-import { runQuery, type KbIndex } from "../query";
+import type { EdnRunner } from "../query";
 import { SYSTEM_IDS, type OutlineNode } from "./types";
 
 export type SchemaZoomKind = "tag" | "field" | null;
@@ -37,13 +37,13 @@ export function fieldCarriersQuery(fieldId: string): string {
 }
 
 /** Everything tagged with this tag node (Tana schema page). */
-export function queryTaggedInstances(qdb: KbIndex, tagId: string): SchemaHit[] {
-  return rowsToHits(runQuery(qdb, taggedInstancesQuery(tagId))).filter((h) => h.id !== tagId);
+export function queryTaggedInstances(run: EdnRunner, tagId: string): SchemaHit[] {
+  return rowsToHits(run(taggedInstancesQuery(tagId))).filter((h) => h.id !== tagId);
 }
 
 /** Nodes that carry this field as a prop key. */
-export function queryFieldCarriers(qdb: KbIndex, fieldId: string): SchemaHit[] {
-  return rowsToHits(runQuery(qdb, fieldCarriersQuery(fieldId))).filter((h) => h.id !== fieldId);
+export function queryFieldCarriers(run: EdnRunner, fieldId: string): SchemaHit[] {
+  return rowsToHits(run(fieldCarriersQuery(fieldId))).filter((h) => h.id !== fieldId);
 }
 
 function rowsToHits(rows: unknown[][]): SchemaHit[] {

@@ -6,12 +6,15 @@
  *    `since` question) between the socket and the replica's sync machine,
  *    which alone decides what they mean (session/replica.ts)
  *  - who the server takes this connection to be: the person, or nobody
- *  - live query subscriptions (rows pushed on change)
  *  - this tab's screen: the latest record it published, and the commands the
  *    server sends it and their answers
  *  - plugin channels: a plugin's frames to this connection, and ours to it
- *  - reconnect with capped exponential backoff, resubscribing and
- *    republishing the screen on open
+ *  - reconnect with capped exponential backoff, republishing the screen on
+ *    open
+ *
+ * The page subscribes no queries: its replica's engine answers them
+ * (DESIGN-UI.md → Replica queries). Live query subscriptions are for
+ * clients without a replica.
  */
 import {
   ServerMessageSchema,
@@ -84,21 +87,6 @@ export interface KbWsClientOptions {
 }
 
 /**
- * Where one live query's answers go: its rows, or the error the server
- * answers it with (a query that does not parse or run). Both belong to the
- * subscriber, which is the only one that can show them in place.
- */
-export interface SubscriptionSink {
-  rows: (rows: unknown[][], rev: number) => void;
-  error: (err: { code: string; message: string }) => void;
-}
-
-interface Subscription {
-  query: string;
-  sink: SubscriptionSink;
-}
-
-/**
  * Where one plugin channel's frames go (`@kb/contracts` → `channel.ts`): the
  * data the plugin sends this connection, or the error the server answers the
  * channel with (no loaded plugin owns it).
@@ -128,7 +116,6 @@ export class KbWsClient {
   private socket: WsLike | null = null;
   /** Detaches the listeners attached to {@link socket}; null when there are none. */
   private detachSocket: (() => void) | null = null;
-  private subs = new Map<string, Subscription>();
   private channels = new Map<string, ChannelSink>();
   /** The screen this tab last published; sent again whenever the socket opens. */
   private screen: { tab: string; state: ScreenState } | null = null;
@@ -163,17 +150,6 @@ export class KbWsClient {
     this.dropSocket();
     socket?.close();
     this.setStatus("closed");
-  }
-
-  /** Live query: rows pushed now and on every change. Survives reconnect. */
-  subscribe(id: string, query: string, sink: SubscriptionSink): void {
-    this.subs.set(id, { query, sink });
-    this.send({ op: "subscribe", id, query });
-  }
-
-  unsubscribe(id: string): void {
-    this.subs.delete(id);
-    this.send({ op: "unsubscribe", id });
   }
 
   /** Ask for every transaction after `rev`. */
@@ -243,9 +219,6 @@ export class KbWsClient {
       this.attempts = 0;
       this.setStatus("open");
       this.send({ op: "watch-tx", enabled: true });
-      for (const [id, sub] of this.subs) {
-        this.send({ op: "subscribe", id, query: sub.query });
-      }
       if (this.screen !== null) this.send({ op: "screen", ...this.screen });
     };
     const onMessage = (event: { data: unknown }): void => {
@@ -291,10 +264,9 @@ export class KbWsClient {
     }, delay);
   }
 
-  /** An error naming a live subscription or a channel is that sink's to show; any other is the toast's. */
+  /** An error naming a channel is that sink's to show; any other is the toast's. */
   private routeError(err: { id?: string | undefined; code: string; message: string }): void {
-    const sink =
-      err.id === undefined ? undefined : (this.subs.get(err.id)?.sink ?? this.channels.get(err.id));
+    const sink = err.id === undefined ? undefined : this.channels.get(err.id);
     if (sink) sink.error(err);
     else this.opts.onServerError?.(err);
   }
@@ -325,10 +297,9 @@ export class KbWsClient {
       case "snapshot-required":
         this.opts.onGraph(msg);
         break;
-      case "rows": {
-        this.subs.get(msg.id)?.sink.rows(msg.rows, msg.rev);
+      case "rows":
+        // No subscription asked for these: the page asks its own engine.
         break;
-      }
       case "error":
         this.routeError(msg);
         break;

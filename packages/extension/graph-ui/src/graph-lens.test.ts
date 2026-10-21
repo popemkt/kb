@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { DatascriptIndex, derivedWith, SYSTEM_IDS } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, type EdnRunner, SYSTEM_IDS } from "@kb/ui-sdk";
 import {
   buildTreeForest,
   DEFAULT_EDGE_KINDS,
@@ -22,6 +22,12 @@ import {
   resolveSize,
   buildParentMap,
 } from "./graph-lens";
+
+/** The datalog of `nodes`, read as the page reads its query answers. */
+function runOver(nodes: ConstructorParameters<typeof DatascriptIndex>[0]): EdnRunner {
+  const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+  return (edn) => index.runDatalog(edn);
+}
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
@@ -137,12 +143,9 @@ function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
 describe("parsePerspective / listPerspectiveNodes", () => {
   it("lists the view nodes whose view is a renderer, and applies defaults", () => {
     const nodes = baseGraph();
-    const listed = listPerspectiveNodes(
-      new DatascriptIndex(nodes, { derived: derivedWith({}) }),
-      nodes,
-    );
+    const listed = listPerspectiveNodes(runOver(nodes), nodes);
     expect(listed.map((n) => n.id)).toEqual([GRAPH_IDS.lensAllMentions]);
-    expect(listPerspectiveNodes(null, nodes)).toEqual([]);
+    expect(listPerspectiveNodes(() => [], nodes)).toEqual([]);
     const p = parsePerspective(present(listed[0], "listed perspective"));
     expect(p.renderer).toBe("sys.view.graph.force2d");
     expect(p.edgeKinds).toEqual(["mention", "child"]);
@@ -163,8 +166,8 @@ describe("extractLensGraph", () => {
   });
 
   it("includes mention + child edges by default", () => {
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const g = extractLensGraph(db, nodes, perspective());
+    const run = runOver(nodes);
+    const g = extractLensGraph(run, nodes, perspective());
     const kinds = new Set(g.edges.map((e) => e.kind));
     expect(kinds.has("mention")).toBe(true);
     expect(kinds.has("child")).toBe(true);
@@ -184,8 +187,8 @@ describe("extractLensGraph", () => {
   });
 
   it("smart-elides sys/command/schema by default; toggle re-includes", () => {
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const elided = extractLensGraph(db, nodes, perspective());
+    const run = runOver(nodes);
+    const elided = extractLensGraph(run, nodes, perspective());
     const elidedIds = new Set(elided.nodes.map((n) => n.id));
     expect(elidedIds.has("sys.field")).toBe(false);
     expect(elidedIds.has("sys.f.type")).toBe(false);
@@ -193,7 +196,7 @@ describe("extractLensGraph", () => {
     expect(elidedIds.has("n.a")).toBe(true);
     expect(elidedIds.has("n.b")).toBe(true);
 
-    const full = extractLensGraph(db, nodes, perspective(), {
+    const full = extractLensGraph(run, nodes, perspective(), {
       includeSystemNodes: true,
     });
     const fullIds = new Set(full.nodes.map((n) => n.id));
@@ -203,9 +206,9 @@ describe("extractLensGraph", () => {
   });
 
   it("a saved trace draws the paths between its ends, and nothing else", () => {
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const run = runOver(nodes);
     const traced = extractLensGraph(
-      db,
+      run,
       nodes,
       perspective({
         edgeKinds: ["mention", "child", "ref-prop"],
@@ -215,16 +218,16 @@ describe("extractLensGraph", () => {
     );
     // n.a1 ← n.a → n.b → n.c: the one path, ends included; the tags it carries are scaffolding.
     expect(traced.nodes.map((n) => n.id)).toEqual(["n.a", "n.a1", "n.b", "n.c"]);
-    const none = extractLensGraph(db, nodes, perspective({ traceFrom: "n.a", traceTo: "n.c" }));
+    const none = extractLensGraph(run, nodes, perspective({ traceFrom: "n.a", traceTo: "n.c" }));
     // Under mentions and children alone nothing reaches n.c: no path, no nodes.
     expect(none.nodes).toEqual([]);
   });
 
   it("a saved trace from a node the graph elides starts there, as the server's trace does", () => {
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const run = runOver(nodes);
     const kinds = ["mention", "child", "ref-prop"] as const;
     const traced = extractLensGraph(
-      db,
+      run,
       nodes,
       perspective({ edgeKinds: [...kinds], traceFrom: "tag.todo", traceTo: "n.c" }),
     );
@@ -243,8 +246,8 @@ describe("extractLensGraph", () => {
   });
 
   it("selects only ref-prop edges when configured", () => {
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["ref-prop"] }));
+    const run = runOver(nodes);
+    const g = extractLensGraph(run, nodes, perspective({ edgeKinds: ["ref-prop"] }));
     expect(g.edges.every((e) => e.kind.startsWith("prop:"))).toBe(true);
     expect(g.edges).toContainEqual({
       source: "n.b",
@@ -255,9 +258,9 @@ describe("extractLensGraph", () => {
   });
 
   it("filters nodes by lens.query EDN", () => {
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const run = runOver(nodes);
     const g = extractLensGraph(
-      db,
+      run,
       nodes,
       perspective({
         query:
@@ -274,9 +277,9 @@ describe("extractLensGraph", () => {
 
   it("bad EDN query yields empty set and warns (never all-nodes)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const run = runOver(nodes);
     const g = extractLensGraph(
-      db,
+      run,
       nodes,
       perspective({
         query: "[:find ?id :where this-is-not-valid-edn",
@@ -291,9 +294,9 @@ describe("extractLensGraph", () => {
 
   it("caps to highest-degree nodes and logs dropped count", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const run = runOver(nodes);
     const g = extractLensGraph(
-      db,
+      run,
       nodes,
       perspective({ maxNodes: 3, edgeKinds: ["mention", "child", "ref-prop"] }),
     );
@@ -349,8 +352,8 @@ describe("extractLensGraph", () => {
   });
 
   it("buildTreeForest: forest roots vs focus root, cycle-safe", () => {
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["child"] }));
+    const run = runOver(nodes);
+    const g = extractLensGraph(run, nodes, perspective({ edgeKinds: ["child"] }));
     const forest = buildTreeForest(g.nodes, g.edges, null);
     const rootIds = forest.map((t) => t.id).toSorted();
     expect(rootIds).toContain("n.a");
@@ -363,11 +366,7 @@ describe("extractLensGraph", () => {
 
     // Cycle: a → a1 → a
     const cyclic = nodes.map((n) => (n.id === "n.a1" ? { ...n, children: ["n.a"] } : { ...n }));
-    const g2 = extractLensGraph(
-      new DatascriptIndex(cyclic, { derived: derivedWith({}) }),
-      cyclic,
-      perspective({ edgeKinds: ["child"] }),
-    );
+    const g2 = extractLensGraph(runOver(cyclic), cyclic, perspective({ edgeKinds: ["child"] }));
     expect(() => buildTreeForest(g2.nodes, g2.edges, "n.a")).not.toThrow();
     const cyc = buildTreeForest(g2.nodes, g2.edges, "n.a");
     expect(present(cyc[0], "cycle root").id).toBe("n.a");
@@ -404,7 +403,7 @@ describe("graph projection mappings", () => {
       node({ id: "c", text: "C" }),
     ];
     const graph = extractLensGraph(
-      new DatascriptIndex(nodes, { derived: derivedWith({}) }),
+      runOver(nodes),
       nodes,
       perspective({
         edgeKinds: ["prop:field.depends"],
@@ -420,7 +419,7 @@ describe("graph projection mappings", () => {
       weight: 16,
     });
     const combined = extractLensGraph(
-      new DatascriptIndex(nodes, { derived: derivedWith({}) }),
+      runOver(nodes),
       nodes,
       perspective({ edgeKinds: ["ref-prop", "prop:field.depends"] }),
     );

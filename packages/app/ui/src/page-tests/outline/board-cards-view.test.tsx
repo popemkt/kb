@@ -334,7 +334,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const visible = collectVisibleInstances("frame1", {
       nodes,
       schema: schemaFor(nodes),
-      queryDb: useGraphStore.getState().index,
+      run: null,
       views: frameViewKeys(),
       chain: [],
       pages: {},

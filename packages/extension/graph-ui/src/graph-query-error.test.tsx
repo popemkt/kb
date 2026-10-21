@@ -9,11 +9,17 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, type EdnRunner } from "@kb/ui-sdk";
 import { DEFAULT_EDGE_KINDS, DEFAULT_MAX_NODES, GRAPH_IDS, type LensPerspective } from "@kb/graph";
 import { extractLensGraph } from "./graph-lens";
 import { GraphCanvasFrame } from "./graph-canvas-frame";
 import meta, { QueryError } from "./graph-canvas-frame.stories";
+
+/** The datalog of `nodes`, read as the page reads its query answers. */
+function runOver(nodes: ConstructorParameters<typeof DatascriptIndex>[0]): EdnRunner {
+  const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+  return (edn) => index.runDatalog(edn);
+}
 
 const NODES: WireNode[] = [
   { id: "n.a", text: "A", props: {}, children: [], createdAt: "", updatedAt: "" },
@@ -47,11 +53,7 @@ const PERSPECTIVE: LensPerspective = {
 
 describe("a perspective whose query cannot run", () => {
   it("is reported on the graph's lens graph, which draws no nodes", () => {
-    const graph = extractLensGraph(
-      new DatascriptIndex(NODES, { derived: derivedWith({}) }),
-      NODES,
-      PERSPECTIVE,
-    );
+    const graph = extractLensGraph(runOver(NODES), NODES, PERSPECTIVE);
     expect(graph.queryError).not.toBeNull();
     expect(graph.nodes).toEqual([]);
   });

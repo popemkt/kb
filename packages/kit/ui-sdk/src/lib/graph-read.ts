@@ -2,11 +2,12 @@
  * A component's read of the graph, subscribed to exactly what it read.
  *
  * The page holds the graph as whole values — the projection (`nodes`), the
- * schema it resolves against (`schemaOf`) and the query index — and every
+ * schema it resolves against (`schemaOf`) and the replica's query answers
+ * (`QueryAnswers`) — and every
  * graph change or expand replaces the maps. A row that selected a map would
  * re-render on every change anywhere. A row instead reads through a
  * {@link GraphRead}: the same three, as views that remember which node ids
- * were asked for (and whether a map was walked, or the index queried).
+ * were asked for (and whether a map was walked, or the answers read).
  *
  * The view keeps its identity for as long as every read it served is
  * unchanged in its {@link GraphSource}: the projection is persistent
@@ -15,7 +16,10 @@
  * a schema reader never asks about expansion). When any of them moves, the
  * component gets a new view and re-renders, and the new view starts recording
  * afresh. A map walk (`values()`, iteration, `size`) depends on the whole
- * map, and a query on the index depends on its generation.
+ * map. A query read through the answers (`runner`, `read`) depends on that
+ * query's answer, and is watched while the component is mounted, so a move
+ * of the replica asks it again (`useAnswered` reads queries the same way);
+ * any other use of the answers depends on every answer arriving.
  *
  * Reads always answer from the source's current maps, never from the
  * snapshot the view was made on; the recording only decides when the view is
@@ -29,13 +33,14 @@
  * mechanism is one hook over a port, so the shell's outline store and the
  * page's `BrowserHost` are two bindings of one body.
  */
-import { useState, useSyncExternalStore } from "react";
-import type { KbIndex } from "../query";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { sameMeaning } from "./graph-view";
 import type { FieldContext, SchemaIndex } from "./schema";
+import type { EdnRunner } from "../query";
+import type { QueryAnswers, QueryRead } from "./replica-queries";
 import type { NodeMap } from "./types";
 
-/** The graph as a component reads it: the outline as shown, its schema, the index. */
+/** The graph as a component reads it: the outline as shown, its schema, the query answers. */
 export interface GraphRead extends FieldContext {
   readonly outline: NodeMap;
 }
@@ -52,25 +57,25 @@ export interface GraphSource {
   readonly nodes: () => NodeMap;
   /** The graph's schema: fields, tags and their types. */
   readonly schema: () => SchemaIndex;
-  /** The replica's index, or null before the graph has loaded. */
-  readonly index: () => KbIndex | null;
+  /** The replica's query answers, or null before the graph has loaded. */
+  readonly queries: () => QueryAnswers | null;
 }
 
 /** The store values a read stands on, as of one check. */
 interface Sources {
   readonly outline: NodeMap;
   readonly schema: SchemaIndex;
-  readonly index: KbIndex | null;
-  readonly generation: number;
+  readonly queries: QueryAnswers | null;
+  readonly answers: number;
 }
 
 function sourcesOf(source: GraphSource): Sources {
-  const index = source.index();
+  const queries = source.queries();
   return {
     outline: source.nodes(),
     schema: source.schema(),
-    index,
-    generation: index?.generation ?? 0,
+    queries,
+    answers: queries?.version ?? 0,
   };
 }
 
@@ -157,56 +162,64 @@ function mapView<V, M extends ReadonlyMap<string, V>>(
   });
 }
 
-/** The index as a recording view: any use of it depends on its generation. */
-class IndexRead implements KbIndex {
-  readonly #index: KbIndex;
+/**
+ * The query answers as a recording view: a query read (`read`, `runner`) is
+ * recorded in `reads` with what it answered; any other use depends on every
+ * answer arriving (`onRead`).
+ */
+class AnswersRead implements QueryAnswers {
+  readonly #answers: QueryAnswers;
   readonly #onRead: () => void;
+  readonly #reads: Map<string, QueryRead>;
 
-  constructor(index: KbIndex, onRead: () => void) {
-    this.#index = index;
+  constructor(answers: QueryAnswers, reads: Map<string, QueryRead>, onRead: () => void) {
+    this.#answers = answers;
+    this.#reads = reads;
     this.#onRead = onRead;
   }
 
-  #read(): KbIndex {
+  #read(): QueryAnswers {
     this.#onRead();
-    return this.#index;
+    return this.#answers;
   }
 
-  get generation(): number {
-    return this.#read().generation;
+  get version(): number {
+    return this.#read().version;
   }
-  rebuild(...args: Parameters<KbIndex["rebuild"]>): void {
-    this.#read().rebuild(...args);
+  subscribe(...args: Parameters<QueryAnswers["subscribe"]>): ReturnType<QueryAnswers["subscribe"]> {
+    return this.#read().subscribe(...args);
   }
-  applyTx(...args: Parameters<KbIndex["applyTx"]>): void {
-    this.#read().applyTx(...args);
+  subscribeTo(
+    ...args: Parameters<QueryAnswers["subscribeTo"]>
+  ): ReturnType<QueryAnswers["subscribeTo"]> {
+    return this.#read().subscribeTo(...args);
   }
-  runDatalog(...args: Parameters<KbIndex["runDatalog"]>): ReturnType<KbIndex["runDatalog"]> {
-    return this.#read().runDatalog(...args);
+  read(edn: string): QueryRead {
+    const read = this.#answers.read(edn);
+    this.#reads.set(edn, read);
+    return read;
   }
-  run(...args: Parameters<KbIndex["run"]>): ReturnType<KbIndex["run"]> {
-    return this.#read().run(...args);
+  watch(...args: Parameters<QueryAnswers["watch"]>): ReturnType<QueryAnswers["watch"]> {
+    return this.#read().watch(...args);
   }
-  pull(...args: Parameters<KbIndex["pull"]>): unknown {
-    return this.#read().pull(...args);
+  moved(): void {
+    this.#read().moved();
   }
-  getNode(...args: Parameters<KbIndex["getNode"]>): ReturnType<KbIndex["getNode"]> {
-    return this.#read().getNode(...args);
+  once(...args: Parameters<QueryAnswers["once"]>): ReturnType<QueryAnswers["once"]> {
+    return this.#read().once(...args);
   }
-  referencesOf(...args: Parameters<KbIndex["referencesOf"]>): ReturnType<KbIndex["referencesOf"]> {
-    return this.#read().referencesOf(...args);
+  ask(...args: Parameters<QueryAnswers["ask"]>): ReturnType<QueryAnswers["ask"]> {
+    return this.#read().ask(...args);
   }
-  allNodes(): ReturnType<KbIndex["allNodes"]> {
-    return this.#read().allNodes();
+  runner(reads?: Map<string, QueryRead>): EdnRunner {
+    const run = this.#answers.runner(reads);
+    return (edn) => {
+      this.#reads.set(edn, this.#answers.read(edn));
+      return run(edn);
+    };
   }
-  storedNodes(): ReturnType<KbIndex["storedNodes"]> {
-    return this.#read().storedNodes();
-  }
-  search(...args: Parameters<KbIndex["search"]>): ReturnType<KbIndex["search"]> {
-    return this.#read().search(...args);
-  }
-  withVirtual(...args: Parameters<KbIndex["withVirtual"]>): void {
-    this.#read().withVirtual(...args);
+  settle<T>(read: (run: EdnRunner) => T): Promise<T> {
+    return this.#read().settle(read);
   }
 }
 
@@ -215,33 +228,41 @@ class Reader {
   #sources: Sources;
   readonly #outline = new MapReads();
   readonly #schema = new MapReads();
-  #index = false;
+  /** The queries read through the view, with what each answered. */
+  readonly reads = new Map<string, QueryRead>();
+  #queried = false;
   readonly view: GraphRead;
+
+  get queries(): QueryAnswers | null {
+    return this.#sources.queries;
+  }
 
   constructor(sources: Sources) {
     this.#sources = sources;
-    const index = sources.index;
+    const queries = sources.queries;
     this.view = {
       outline: mapView(sources.outline, () => this.#sources.outline, this.#outline),
       schema: mapView(sources.schema, () => this.#sources.schema, this.#schema),
-      index:
-        index === null
+      queries:
+        queries === null
           ? null
-          : new IndexRead(index, () => {
-              this.#index = true;
+          : new AnswersRead(queries, this.reads, () => {
+              this.#queried = true;
             }),
     };
   }
 
   /**
    * Move onto `next` when every read served so far answers the same there,
-   * and say whether it did. The index view is bound to one index, so a new
-   * index always needs a new view.
+   * and say whether it did. The answers view is bound to one set of
+   * answers, so a new one always needs a new view.
    */
   follow(next: Sources): boolean {
     const prev = this.#sources;
-    if (next.index !== prev.index) return false;
-    if (this.#index && next.generation !== prev.generation) return false;
+    if (next.queries !== prev.queries) return false;
+    if (this.#queried && next.answers !== prev.answers) return false;
+    // Reading a query that is not current asks it again (`QueryAnswers.read`).
+    for (const [edn, at] of this.reads) if (next.queries?.read(edn) !== at) return false;
     if (!this.#outline.unchanged(prev.outline, next.outline, identical)) return false;
     // A schema entry is read for what it says, never for its expansion — an
     // unscoped schema's entries are the projection's (`lib/schema.ts`), so an
@@ -255,6 +276,13 @@ class Reader {
 /** A component's current reader; replaced when a read it served changed. */
 class ReaderSlot {
   #reader: Reader | null = null;
+
+  /** The answers the current reader read queries of, and those queries, as one key. */
+  watched(): { readonly queries: QueryAnswers | null; readonly key: string } {
+    const reader = this.#reader;
+    if (reader === null) return { queries: null, key: "" };
+    return { queries: reader.queries, key: [...reader.reads.keys()].toSorted().join("\u0000") };
+  }
 
   readonly snapshot = (source: GraphSource): GraphRead => {
     const next = sourcesOf(source);
@@ -270,5 +298,40 @@ class ReaderSlot {
 export function useGraphReadThrough(source: GraphSource): GraphRead {
   const [slot] = useState(() => new ReaderSlot());
   const snapshot = () => slot.snapshot(source);
-  return useSyncExternalStore(source.subscribe, snapshot, snapshot);
+  const view = useSyncExternalStore(source.subscribe, snapshot, snapshot);
+  useWatchedQueries(slot);
+  return view;
+}
+
+/**
+ * Keep the queries the slot's reader read live while mounted. They are read
+ * during render, after the snapshot, so they are looked at after every
+ * render, and watched again only when they change.
+ */
+interface Held {
+  readonly queries: QueryAnswers | null;
+  readonly key: string;
+  readonly releases: ReadonlyArray<() => void>;
+}
+
+function releaseHeld(held: { current: Held | null }): void {
+  for (const done of held.current?.releases ?? []) done();
+  held.current = null;
+}
+
+function useWatchedQueries(slot: ReaderSlot): void {
+  const held = useRef<Held | null>(null);
+  useEffect(() => {
+    const { queries, key } = slot.watched();
+    const prev = held.current;
+    if (prev !== null && prev.queries === queries && prev.key === key) return;
+    releaseHeld(held);
+    if (queries === null || key === "") return;
+    held.current = {
+      queries,
+      key,
+      releases: key.split("\u0000").map((edn) => queries.watch(edn)),
+    };
+  });
+  useEffect(() => () => releaseHeld(held), []);
 }

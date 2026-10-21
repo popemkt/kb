@@ -18,7 +18,7 @@ describe("queryBacklinks", () => {
 
   it("finds nodes that mention the target via :node/mentions", () => {
     const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const hits = queryBacklinks(db, "n.root-a");
+    const hits = queryBacklinks((edn) => db.runDatalog(edn), "n.root-a");
     expect(hits.map((h) => h.id)).toContain("n.root-b");
   });
 });

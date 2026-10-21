@@ -29,7 +29,7 @@ import {
   present,
 } from "@kb/model";
 import { persistEffect, type PersistOptions } from "./session.ts";
-import { DatalogError, type KbIndex, KbIndexService } from "@kb/query";
+import { DatalogError, QueryEngineService, type NodeIndex } from "@kb/query";
 
 type KbWriteEnv = KbCtx | KbStore;
 
@@ -209,7 +209,7 @@ export const graphSearchDef = {
   }),
 } satisfies ActionDefinition;
 
-function nodeById(ctx: KbContext, id: NodeId): KbNode | undefined {
+function nodeById(ctx: KbContext<NodeIndex>, id: NodeId): KbNode | undefined {
   return ctx.index.getNode(id);
 }
 
@@ -221,11 +221,11 @@ function nodeById(ctx: KbContext, id: NodeId): KbNode | undefined {
  * index's virtual nodes never reach the store, so a plan never reads one as a
  * parent or a taken id.
  */
-export function sessionGraph(ctx: KbContext): IndexedNodes {
+export function sessionGraph(ctx: KbContext<NodeIndex>): IndexedNodes {
   return IndexedNodes.of(ctx.nodes);
 }
 
-export function requireNode(ctx: KbContext, id: NodeId): KbNode {
+export function requireNode(ctx: KbContext<NodeIndex>, id: NodeId): KbNode {
   const n = nodeById(ctx, id);
   if (!n) throw new ResolveError("not_found", `node not found: ${id}`, { id });
   return n;
@@ -342,21 +342,8 @@ export function placedRank(
   return rankForInsert(siblings, position ?? siblings.length, node.order);
 }
 
-function subtreePattern(depth: number): string {
-  if (depth <= 0) return `[:node/id :node/text]`;
-  if (depth === 1) {
-    return `[:node/id :node/text :node/children {:node/child [:node/id :node/text]}]`;
-  }
-  // recursive-ish: nest child pulls
-  let inner = `[:node/id :node/text]`;
-  for (let i = 0; i < depth; i++) {
-    inner = `[:node/id :node/text :node/children {:node/child ${inner}}]`;
-  }
-  return inner;
-}
-
 /** Prefer structured pull from our nodes map for reliable ordered depth. */
-function pullSubtree(ctx: KbContext, id: NodeId, depth: number): unknown {
+function pullSubtree(ctx: KbContext<NodeIndex>, id: NodeId, depth: number): unknown {
   const node = nodeById(ctx, id);
   if (!node) return null;
 
@@ -554,11 +541,7 @@ export const nodeGetEffect = Effect.fn("node.get")(function* (
 ): Effect.fn.Return<{ node: unknown }, DomainError, KbCtx> {
   const ctx = yield* KbCtx;
   yield* syncDomain(() => requireNode(ctx, input.id));
-  const node = pullSubtree(ctx, input.id, input.depth);
-  if (input.depth <= 1) {
-    void ctx.index.pull(subtreePattern(input.depth), input.id);
-  }
-  return { node };
+  return { node: pullSubtree(ctx, input.id, input.depth) };
 });
 
 export const fieldDefineEffect = Effect.fn("field.define")(function* (
@@ -636,30 +619,31 @@ export function classifyQueryError(err: unknown, queryString: string): DomainErr
   );
 }
 
-/** Shared datalog execution for graph.query / graph.run. */
-function runDatalog(
-  index: KbIndex,
+/** Shared datalog execution for graph.query / graph.run, on whichever engine the host runs. */
+const runDatalog = Effect.fn("runDatalog")(function* (
   edn: string,
   inputs?: unknown[],
-): Effect.Effect<unknown[][], DomainError> {
-  return Effect.try({
-    try: () => index.runDatalog(edn, ...(inputs ?? [])),
-    catch: (err) => classifyQueryError(err, edn),
-  });
-}
+): Effect.fn.Return<unknown[][], DomainError, QueryEngineService> {
+  const engine = yield* QueryEngineService;
+  return yield* engine
+    .runDatalog(edn, inputs)
+    .pipe(Effect.mapError(({ cause }) => classifyQueryError(cause, edn)));
+});
 
 export const graphQueryEffect = Effect.fn("graph.query")(function* (
   input: z.infer<typeof graphQueryDef.inputSchema>,
-): Effect.fn.Return<{ rows: unknown }, DomainError, KbIndexService> {
-  const index = yield* KbIndexService;
-  const rows = yield* runDatalog(index, input.query, input.inputs);
+): Effect.fn.Return<{ rows: unknown }, DomainError, QueryEngineService> {
+  const rows = yield* runDatalog(input.query, input.inputs);
   return { rows };
 });
 
 export const graphRunEffect = Effect.fn("graph.run")(function* (
   input: z.infer<typeof graphRunDef.inputSchema>,
-): Effect.fn.Return<z.infer<typeof graphRunDef.outputSchema>, DomainError, KbCtx | SavedQueries> {
-  const ctx = yield* KbCtx;
+): Effect.fn.Return<
+  z.infer<typeof graphRunDef.outputSchema>,
+  DomainError,
+  QueryEngineService | SavedQueries
+> {
   const queries = yield* SavedQueries;
   const edn = yield* queries.read(input.name);
   if (edn === null) {
@@ -667,13 +651,13 @@ export const graphRunEffect = Effect.fn("graph.run")(function* (
       name: input.name,
     });
   }
-  const rows = yield* runDatalog(ctx.index, edn, input.inputs);
+  const rows = yield* runDatalog(edn, input.inputs);
   return { name: input.name, query: edn.trim(), rows };
 });
 
 export const graphSearchEffect = Effect.fn("graph.search")(function* (
   input: z.infer<typeof graphSearchDef.inputSchema>,
-): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbIndexService> {
-  const index = yield* KbIndexService;
+): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbCtx> {
+  const { index } = yield* KbCtx;
   return { rows: index.search(input.text, input.limit).map((n) => [n.id, n.text]) };
 });

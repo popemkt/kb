@@ -4,7 +4,7 @@
  * Kinds, roles and options → View nodes states what a neighbourhood is.
  */
 import type { WireNode } from "@kb/contracts";
-import { queryNeighbourhood, type KbIndex } from "@kb/ui-sdk";
+import { queryNeighbourhood, type EdnRunner } from "@kb/ui-sdk";
 import { extractLensGraph, type GraphLens, lensConfig } from "./graph-lens";
 import type { EdgeKind, LensPerspective } from "@kb/graph";
 
@@ -33,12 +33,12 @@ export interface NeighbourhoodSpec {
  * encodings and edges, over that node set.
  */
 export function extractNeighbourhood(
-  db: KbIndex,
+  run: EdnRunner,
   wireNodes: WireNode[],
   spec: NeighbourhoodSpec,
 ): GraphLens {
   const attributes = [...new Set(spec.edges.map(reachAttribute))];
-  const ids = queryNeighbourhood(db, spec.root, spec.hops, attributes);
+  const ids = queryNeighbourhood(run, spec.root, spec.hops, attributes);
   const lens: LensPerspective = {
     id: spec.root,
     label: "",
@@ -47,5 +47,5 @@ export function extractNeighbourhood(
     focus: spec.root,
     hops: spec.hops,
   };
-  return extractLensGraph(db, wireNodes, lens, { restrictTo: ids });
+  return extractLensGraph(run, wireNodes, lens, { restrictTo: ids });
 }

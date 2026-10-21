@@ -8,10 +8,11 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { installDomGlobals, type InstalledDom, answersOver } from "@kb/ui-test-kit";
 import {
   DatascriptIndex,
   derivedWith,
+  resolveAllowedRefIds,
   fieldContextOf,
   fieldTypeValue,
   SYSTEM_IDS,
@@ -29,7 +30,7 @@ import { stubOutlineNode } from "@/catalog/fixtures";
 import { FieldValueStack, formatNumber, numberEditText, ValueSlot } from "@kb/outline-ui";
 
 const noNodes: NodeMap = new Map();
-const context = fieldContextOf({ schema: schemaOfGraph(noNodes), nodes: noNodes, index: null });
+const context = fieldContextOf({ schema: schemaOfGraph(noNodes), nodes: noNodes, queries: null });
 
 describe("ValueSlot gestures", () => {
   let dom: InstalledDom;
@@ -166,7 +167,7 @@ describe("ValueSlot follows like a link", () => {
   const nodes: NodeMap = new Map([
     ["n.target", stubOutlineNode({ id: "n.target", text: "Target one" })],
   ]);
-  const refContext = fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index: null });
+  const refContext = fieldContextOf({ schema: schemaOfGraph(nodes), nodes, queries: null });
 
   beforeAll(() => {
     dom = installDomGlobals();
@@ -661,7 +662,7 @@ describe("a checkbox value", () => {
   const boxContext = fieldContextOf({
     schema: schemaOfGraph(boxNodes),
     nodes: boxNodes,
-    index: null,
+    queries: null,
   });
 
   beforeAll(() => {
@@ -755,13 +756,21 @@ describe("an option value is a chip", () => {
   ];
   // The option set is the field's children, a declaration resolved by query.
   const optionNodes = wireToOutlineMap(optionWire, new Set());
+  const optionIndex = new DatascriptIndex(optionWire, { derived: derivedWith({}) });
+  const optionQueries = answersOver(optionIndex);
   const optionContext = fieldContextOf({
     schema: schemaOfGraph(optionNodes),
     nodes: optionNodes,
-    index: new DatascriptIndex(optionWire, { derived: derivedWith({}) }),
+    queries: optionQueries,
   });
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    // A picker reads the answers it is handed: the option set is given answered.
+    await optionQueries.settle((run) => {
+      for (const node of optionNodes.values()) {
+        resolveAllowedRefIds(node, optionContext.schema, run);
+      }
+    });
     dom = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   });

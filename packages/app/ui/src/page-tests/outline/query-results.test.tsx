@@ -6,6 +6,7 @@
  * store-coupled components are covered by the logic tests in
  * lib/query-node.test.ts + instance-identity.component.test.tsx).
  */
+import { answersOver } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
@@ -16,7 +17,6 @@ import {
   derivedWith,
   type OutlineNode,
   resultNodeIds,
-  runQuery,
   SYSTEM_IDS,
   wireToOutlineMap,
 } from "@kb/ui-sdk";
@@ -51,12 +51,13 @@ function renderBullet(node: OutlineNode, isRef: boolean): string {
 }
 
 describe("result row render (W4)", () => {
-  it("query rows resolve to real nodes and render dashed ref bullets", () => {
+  it("query rows resolve to real nodes and render dashed ref bullets", async () => {
     const nodes = outlineMap();
     const db = new DatascriptIndex([...fixtureGraph.nodes, queryWire()], {
       derived: derivedWith({}),
     });
-    const rows = runQuery(db, TODO_EDN);
+    const queries = answersOver(db);
+    const rows = await queries.settle((run) => run(TODO_EDN));
     const ids = resultNodeIds(rows, nodes, { excludeId: "n.q1" });
     expect(ids.toSorted()).toEqual(["n.root-a", "n.root-b"]);
 

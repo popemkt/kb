@@ -736,7 +736,7 @@ function visibleInstancesOf(
     {
       nodes: rowsOf(graph, expansion),
       schema: schemaOf(graph),
-      queryDb: graph.index,
+      run: graph.queries?.runner() ?? null,
       views,
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
@@ -781,11 +781,11 @@ export const outlineProjection: PageProjection = {
 };
 
 /**
- * This outline's rows with the graph they project and its index, read now:
+ * This outline's rows with the graph they project and its query answers, read now:
  * what a step that knows a row only by id resolves against (`rowTextOf`,
  * `fieldContextOf`).
  */
 export function outlineSource(): FieldContextSource {
   const graph = graphNow();
-  return { schema: schemaOf(graph), index: graph.index, nodes: outlineNodes() };
+  return { schema: schemaOf(graph), queries: graph.queries, nodes: outlineNodes() };
 }

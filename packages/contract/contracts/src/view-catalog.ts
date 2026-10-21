@@ -16,7 +16,9 @@ import type { KbContext } from "./session.ts";
  * How a view says itself on a surface that shows text (DESIGN.md → Extension
  * families → a view's text is part of its contribution), from the settings
  * its key read for the node it is shown for. A view without one is shown as
- * its settings and its subject, the generic body.
+ * its settings and its subject, the generic body. Text is drawn where the
+ * query engine runs in process, so a view reads datalog synchronously: a
+ * `KbContext` holds a `KbIndex`, not only the node set every session has.
  */
 export interface ViewText<P> {
   /** The markdown lines under the view's heading. */

@@ -1,3 +1,4 @@
+import type { NodeIndex } from "@kb/query";
 import { Effect, Predicate } from "effect";
 import {
   type ActionDefinition,
@@ -195,7 +196,7 @@ function asDeclaredInput(parsed: unknown): never {
 /** Pair an action's handler with its parsed input; `null` when it has neither. */
 function dispatch<R>(
   entry: RegisteredAction<R>,
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
   parsed: unknown,
 ): Effect.Effect<unknown, ActionSchemaError | DomainError, R> | null {
   const { effect, handler } = entry;
@@ -251,7 +252,7 @@ export const MAX_CALL_DEPTH = 16;
  */
 export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
   asked: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   // A call an action makes while another runs is made as that one's caller.
@@ -318,7 +319,7 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
  */
 export const invokeReceiptWith = Effect.fn("kb.invokeReceipt")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
-  ctx: KbContext,
+  ctx: KbContext<NodeIndex>,
   invocation: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, never, R> {
   return yield* invokeWith(actions, ctx, invocation).pipe(

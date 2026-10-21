@@ -4,16 +4,10 @@ import * as d from "datascript";
 import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { datascriptExecutor, pull as dsPull, query as dsQuery, runIr } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
-import {
-  type Datom,
-  type DatascriptDb,
-  type IdMap,
-  nodeRefs,
-  nodeToDatoms,
-  schemaFor,
-} from "./datoms.ts";
+import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
 import type { KbIndex } from "./index.ts";
+import { NodeTable } from "./node-table.ts";
 
 /** Identity of a datom within one entity — attr plus value, compared structurally. */
 function datomKey(attr: string, value: unknown): string {
@@ -37,10 +31,6 @@ export interface IndexOptions {
   readonly derived: readonly DerivedRef[];
 }
 
-function byId(a: KbNode, b: KbNode): number {
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
-
 /**
  * The one {@link KbIndex} implementation: an in-memory DataScript db kept
  * incrementally in step with the store.
@@ -53,23 +43,14 @@ function byId(a: KbNode, b: KbNode): number {
  * attr, falls back to a full rebuild and is counted in {@link rebuilds}.
  */
 export class DatascriptIndex implements KbIndex {
+  readonly #table: NodeTable;
   #db: unknown;
-  #generation = 0;
   #rebuilds = 0;
-  /** stored + virtual, in the order `storedNodes` must reproduce */
-  #nodes = new Map<NodeId, KbNode>();
-  #virtual: KbNode[] = [];
-  #virtualIds = new Set<NodeId>();
   #ids: IdMap = { toEid: new Map(), toId: new Map() };
   #nextEid = 1;
   #attrs = new Set<string>();
   /** Field attrs that have held a node ref since the last rebuild (`DatascriptDb.refAttrs`). */
   #refAttrs = new Set<string>();
-  /** node → the ids it points at */
-  #refsFrom = new Map<NodeId, Set<NodeId>>();
-  /** id → the nodes pointing at it, resolvable or not */
-  #refsTo = new Map<NodeId, Set<NodeId>>();
-  #storedCache: { generation: number; nodes: KbNode[] } | null = null;
   /** The derived ref attributes this index builds (`DerivedRef`). */
   readonly #derived: readonly DerivedRef[];
 
@@ -80,11 +61,12 @@ export class DatascriptIndex implements KbIndex {
    */
   constructor(nodes: ReadonlyArray<KbNode>, options: IndexOptions) {
     this.#derived = options.derived;
-    this.rebuild(nodes);
+    this.#table = new NodeTable(nodes, options.derived);
+    this.#buildDatoms();
   }
 
   get generation(): number {
-    return this.#generation;
+    return this.#table.generation;
   }
 
   /** Full index builds since construction — the number Phase 4 gates on. */
@@ -97,83 +79,57 @@ export class DatascriptIndex implements KbIndex {
   }
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {
-    const stored = new Set(nodes.map((n) => n.id));
-    this.#virtual = this.#virtual.filter((n) => !stored.has(n.id));
-    this.#virtualIds = new Set(this.#virtual.map((n) => n.id));
-    const merged = [...nodes, ...this.#virtual];
+    this.#table.rebuild(nodes);
+    this.#buildDatoms();
+  }
 
-    this.#nodes = new Map(merged.map((n) => [n.id, n]));
+  /** Every datom from the table's nodes, at once: the build `d.db_with` cannot grow into. */
+  #buildDatoms(): void {
+    const merged = [...this.#table.allNodes()];
     this.#syncIds(merged);
-    this.#refsFrom = new Map();
-    this.#refsTo = new Map();
     this.#attrs = new Set();
     this.#refAttrs = new Set();
-
     const datoms: Datom[] = [];
     for (const node of merged) {
       const built = nodeToDatoms(node, this.#ids, this.#derived);
       datoms.push(...built.datoms);
       for (const attr of built.attrs) this.#attrs.add(attr);
       for (const attr of built.refAttrs) this.#refAttrs.add(attr);
-      this.#setRefs(node.id, built.refs);
     }
-
     this.#db = d.init_db(datoms, schemaFor(this.#attrs, this.#derived));
     this.#rebuilds += 1;
-    this.#generation += 1;
   }
 
   applyTx(tx: StoreTx): void {
-    const created = tx.upserts.filter((n) => !this.#nodes.has(n.id)).map((n) => n.id);
-    const removed = tx.deletes.filter((id) => this.#nodes.has(id));
-    if (created.length === 0 && removed.length === 0 && tx.upserts.length === 0) return;
-
     // Retractions name the eids as they stand, so they are collected before the
     // id map moves under them.
-    const retracts: unknown[] = removed.map((id) => [
-      ":db/retractEntity",
-      present(this.#ids.toEid.get(id), `eid for ${id}`),
-    ]);
-
-    for (const id of created) this.#allocate(id);
-    for (const id of removed) this.#forget(id);
-    for (const node of tx.upserts) this.#nodes.set(node.id, node);
-    for (const id of removed) this.#nodes.delete(id);
-    this.#dropVirtual(tx.upserts.map((n) => n.id));
-
-    // A node's datoms depend on whether its targets exist, so every referrer of
-    // an id that just appeared or vanished is re-derived alongside the tx.
-    const restated = new Map<NodeId, KbNode>();
-    for (const node of tx.upserts) restated.set(node.id, node);
-    for (const id of [...created, ...removed]) {
-      for (const referrer of this.#refsTo.get(id) ?? []) {
-        const node = this.#nodes.get(referrer);
-        if (node !== undefined) restated.set(referrer, node);
-      }
-    }
+    const retracts: unknown[] = tx.deletes
+      .filter((id) => this.#table.getNode(id) !== undefined)
+      .map((id) => [":db/retractEntity", present(this.#ids.toEid.get(id), `eid for ${id}`)]);
+    const change = this.#table.change(tx);
+    if (change === null) return;
+    for (const id of change.created) this.#allocate(id);
+    for (const id of change.removed) this.#forget(id);
 
     const adds: unknown[] = [];
-    const grown = new Set<string>();
-    for (const node of restated.values()) {
+    let grown = false;
+    for (const node of change.restated) {
       const built = nodeToDatoms(node, this.#ids, this.#derived);
       for (const attr of built.attrs) {
-        if (!this.#attrs.has(attr)) grown.add(attr);
+        if (!this.#attrs.has(attr)) grown = true;
       }
       for (const attr of built.refAttrs) this.#refAttrs.add(attr);
-      this.#setRefs(node.id, built.refs);
       const eid = present(this.#ids.toEid.get(node.id), `eid for ${node.id}`);
       this.#diffEntity(eid, built.datoms, retracts, adds);
     }
 
-    if (grown.size > 0) {
+    if (grown) {
       // The schema is fixed at `init_db`: a first-seen attr needs its
       // cardinality declared, and only a rebuild can declare it.
-      this.rebuild(this.#currentStored());
+      this.#buildDatoms();
       return;
     }
-
     this.#db = d.db_with(this.#db, [...retracts, ...adds]);
-    this.#generation += 1;
   }
 
   runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {
@@ -189,48 +145,28 @@ export class DatascriptIndex implements KbIndex {
   }
 
   referencesOf(node: KbNode): ReadonlySet<NodeId> {
-    return nodeRefs(node, this.#derived);
+    return this.#table.referencesOf(node);
   }
 
   getNode(id: NodeId): KbNode | undefined {
-    return this.#nodes.get(id);
+    return this.#table.getNode(id);
   }
 
   allNodes(): Iterable<KbNode> {
-    return this.#nodes.values();
+    return this.#table.allNodes();
   }
 
   storedNodes(): Array<KbNode> {
-    if (this.#storedCache?.generation === this.#generation) return this.#storedCache.nodes;
-    const nodes = this.#currentStored();
-    this.#storedCache = { generation: this.#generation, nodes };
-    return nodes;
+    return this.#table.storedNodes();
   }
 
   search(text: string, limit?: number): Array<KbNode> {
-    const needle = text.toLowerCase();
-    const hits: KbNode[] = [];
-    for (const node of this.#nodes.values()) {
-      if (node.text.toLowerCase().includes(needle)) hits.push(node);
-    }
-    hits.sort(byId);
-    return limit !== undefined && hits.length > limit ? hits.slice(0, limit) : hits;
+    return this.#table.search(text, limit);
   }
 
   withVirtual(nodes: ReadonlyArray<KbNode>): void {
-    const stored = this.#currentStored();
-    const storedIds = new Set(stored.map((n) => n.id));
-    this.#virtual = nodes.filter((n) => !storedIds.has(n.id));
-    this.#virtualIds = new Set(this.#virtual.map((n) => n.id));
-    this.rebuild(stored);
-  }
-
-  #currentStored(): KbNode[] {
-    const nodes: KbNode[] = [];
-    for (const node of this.#nodes.values()) {
-      if (!this.#virtualIds.has(node.id)) nodes.push(node);
-    }
-    return nodes;
+    this.#table.withVirtual(nodes);
+    this.#buildDatoms();
   }
 
   /** Retract what this entity has and add what it should have — the difference only. */
@@ -250,26 +186,6 @@ export class DatascriptIndex implements KbIndex {
     }
   }
 
-  #setRefs(id: NodeId, refs: Set<NodeId>): void {
-    for (const target of this.#refsFrom.get(id) ?? []) {
-      this.#refsTo.get(target)?.delete(id);
-    }
-    if (refs.size === 0) this.#refsFrom.delete(id);
-    else this.#refsFrom.set(id, refs);
-    for (const target of refs) {
-      const referrers = this.#refsTo.get(target);
-      if (referrers === undefined) this.#refsTo.set(target, new Set([id]));
-      else referrers.add(id);
-    }
-  }
-
-  #dropVirtual(ids: ReadonlyArray<NodeId>): void {
-    if (!ids.some((id) => this.#virtualIds.has(id))) return;
-    const stored = new Set(ids);
-    this.#virtual = this.#virtual.filter((n) => !stored.has(n.id));
-    this.#virtualIds = new Set(this.#virtual.map((n) => n.id));
-  }
-
   #allocate(id: NodeId): void {
     if (this.#ids.toEid.has(id)) return;
     this.#ids.toEid.set(id, this.#nextEid);
@@ -283,7 +199,6 @@ export class DatascriptIndex implements KbIndex {
     if (eid === undefined) return;
     this.#ids.toEid.delete(id);
     this.#ids.toId.delete(eid);
-    this.#setRefs(id, new Set());
   }
 
   #syncIds(nodes: ReadonlyArray<KbNode>): void {

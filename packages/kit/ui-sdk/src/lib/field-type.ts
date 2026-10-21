@@ -24,7 +24,8 @@ import {
   type FieldType,
 } from "@kb/model";
 import { hasText } from "./text";
-import { runQuery, type KbIndex } from "../query";
+import type { EdnRunner } from "../query";
+import type { QueryAnswers } from "./replica-queries";
 import type { OutlineNode, PropValue } from "./types";
 
 export { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue, type FieldType };
@@ -40,7 +41,8 @@ export function resolveFieldTypeById(fieldId: string, schema: SchemaIndex): Fiel
 
 /**
  * Allowed ref target ids for a field — the browser binding of
- * `@kb/model`'s resolver, with DataScript supplied as its EDN runner.
+ * `@kb/model`'s resolver, with an EDN runner over the replica's query
+ * answers (`allowedRefsOf` binds the page's).
  *
  * There is no logic here on purpose. Resolution answers "what does this field
  * node declare", which is a question about the graph, so it is owned by core
@@ -52,14 +54,14 @@ export function resolveFieldTypeById(fieldId: string, schema: SchemaIndex): Fiel
 export function resolveAllowedRefIds(
   fieldNode: OutlineNode | undefined,
   schema: SchemaIndex,
-  queryDb: KbIndex | null,
+  run: EdnRunner | null,
 ): Set<string> | null {
-  return allowedRefIdsOf(fieldNode, schema, queryDb ? (edn) => runQuery(queryDb, edn) : null);
+  return allowedRefIdsOf(fieldNode, schema, run);
 }
 
-/** Cache keyed by fieldId + constraint fingerprint (EDN / tags), per index generation and schema. */
+/** Cache keyed by fieldId + constraint fingerprint (EDN / tags), per set of answers and schema. */
 const allowedRefCache = new Map<string, Set<string> | null>();
-let allowedRefCacheGeneration = -1;
+let allowedRefCacheAnswers: { queries: QueryAnswers | null; version: number } | null = null;
 let allowedRefCacheSchema: SchemaIndex | null = null;
 
 function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
@@ -74,53 +76,61 @@ function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
   return `c:${children.join(",")}`;
 }
 
+/** Whether a target query's answer is as of the replica now, so a resolution over it may be kept. */
+function settledFor(fieldNode: OutlineNode | undefined, queries: QueryAnswers | null): boolean {
+  const edn = targetQueryOf(fieldNode);
+  return queries === null || !hasText(edn) || queries.read(edn).current;
+}
+
 /**
- * Memoized allowed-ref set. Recomputes only when the index generation or the
- * field's targetQuery/targetTag constraint changes — not per React render/keystroke.
+ * Memoized allowed-ref set over the replica's answers. Recomputes only when
+ * an answer arrives, the schema moves, or the field's targetQuery/targetTag
+ * constraint changes — not per React render/keystroke. A target query not
+ * yet answered reads as no targets and is not kept; a reader through a
+ * `GraphRead` is renewed when its answer arrives.
  */
 export function resolveAllowedRefIdsCached(
   fieldId: string,
   fieldNode: OutlineNode | undefined,
   schema: SchemaIndex,
-  queryDb: KbIndex | null,
-  generation: number,
+  queries: QueryAnswers | null,
 ): Set<string> | null {
   // The answer depends on the schema it was resolved against as much as on
-  // the index generation. A schema is one object per snapshot (`schemaOf`), so
+  // the answers it read. A schema is one object per snapshot (`schemaOf`), so
   // this restarts on a new snapshot, never on a collapse or an expand.
-  if (allowedRefCacheGeneration !== generation || allowedRefCacheSchema !== schema) {
+  const version = queries?.version ?? 0;
+  if (
+    allowedRefCacheAnswers?.queries !== queries ||
+    allowedRefCacheAnswers.version !== version ||
+    allowedRefCacheSchema !== schema
+  ) {
     allowedRefCache.clear();
-    allowedRefCacheGeneration = generation;
+    allowedRefCacheAnswers = { queries, version };
     allowedRefCacheSchema = schema;
   }
   const key = `${fieldId}\0${constraintFingerprint(fieldNode)}`;
   const cached = allowedRefCache.get(key);
   if (cached !== undefined || allowedRefCache.has(key)) return cached ?? null;
-  const value = resolveAllowedRefIds(fieldNode, schema, queryDb);
-  allowedRefCache.set(key, value);
+  const value = resolveAllowedRefIds(fieldNode, schema, queries?.runner() ?? null);
+  if (settledFor(fieldNode, queries)) allowedRefCache.set(key, value);
   return value;
 }
 
 /**
  * The targets `fieldId` declares, resolved against a field context: its
- * schema, and the index a declared target query runs on. The one call every
- * ref editor makes (`refSearchOf`), so no surface computes the set itself.
+ * schema, and the query answers a declared target query is read from. The
+ * one call every ref editor makes (`refSearchOf`), so no surface computes
+ * the set itself.
  */
 export function allowedRefsOf(context: FieldContext, fieldId: string): Set<string> | null {
-  const { schema, index } = context;
-  return resolveAllowedRefIdsCached(
-    fieldId,
-    schema.get(fieldId),
-    schema,
-    index,
-    index?.generation ?? 0,
-  );
+  const { schema, queries } = context;
+  return resolveAllowedRefIdsCached(fieldId, schema.get(fieldId), schema, queries);
 }
 
 /** Test helper — drop memo between cases. */
 export function clearAllowedRefIdsCache(): void {
   allowedRefCache.clear();
-  allowedRefCacheGeneration = -1;
+  allowedRefCacheAnswers = null;
 }
 
 /**

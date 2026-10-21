@@ -1,5 +1,11 @@
 import { isSysPrefixed, relationInverseOf } from "@kb/model";
-import { queryBacklinks, rowText, type KbIndex, type SchemaIndex, type TagBadge } from "@kb/ui-sdk";
+import {
+  type EdnRunner,
+  queryBacklinks,
+  rowText,
+  type SchemaIndex,
+  type TagBadge,
+} from "@kb/ui-sdk";
 
 /**
  * A typed relation the referrer holds to the node, worded from the node's
@@ -31,13 +37,8 @@ export interface BacklinkRow {
  * outline row: a referrer whose own text is empty is a contextual reference,
  * and would otherwise render as a blank line.
  */
-export function backlinkRows(
-  index: KbIndex | null,
-  schema: SchemaIndex,
-  nodeId: string,
-): BacklinkRow[] {
-  if (index === null) return [];
-  return queryBacklinks(index, nodeId)
+export function backlinkRows(run: EdnRunner, schema: SchemaIndex, nodeId: string): BacklinkRow[] {
+  return queryBacklinks(run, nodeId)
     .filter((b) => b.id !== nodeId)
     .map((b) => {
       // The referrer's own text is schema-level too: a referrer outside the

@@ -30,7 +30,7 @@ import {
   legacyDocsViewsLayer,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
-import { KbIndexService } from "@kb/query";
+import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
 import { IN_PROCESS_WIRE, invoke } from "../src/invoke.ts";
 import {
   invokeReceiptEffect,
@@ -249,6 +249,7 @@ describe("Effect-native action registry", () => {
         Effect.provideService(KbCtx, ctx),
         Effect.provideService(KbStore, fakeStore),
         Effect.provideService(KbIndexService, ctx.index),
+        Effect.provideService(QueryEngineService, engineOf(ctx.index)),
         Effect.provide(
           Layer.mergeAll(
             bunFileSystemLayer,

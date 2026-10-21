@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import type { ActionGuard, ActionInvocation, GuardVerdict, KbContext } from "@kb/contracts";
 import { actsAsOwner } from "@kb/model";
-import type { KbIndex } from "@kb/query";
+import type { NodeIndex } from "@kb/query";
 import { approvalPoliciesOf, type ApprovalPolicy } from "./policy.ts";
 import {
   approvalRefusal,
@@ -15,9 +15,9 @@ import {
  * moves the generation, so a policy written a moment ago decides the next
  * call, and a run of calls between writes reads the graph once.
  */
-const held = new WeakMap<KbIndex, { generation: number; policies: readonly ApprovalPolicy[] }>();
+const held = new WeakMap<NodeIndex, { generation: number; policies: readonly ApprovalPolicy[] }>();
 
-function policiesOf(ctx: KbContext): readonly ApprovalPolicy[] {
+function policiesOf(ctx: KbContext<NodeIndex>): readonly ApprovalPolicy[] {
   const cached = held.get(ctx.index);
   if (cached?.generation === ctx.index.generation) return cached.policies;
   const policies = approvalPoliciesOf(ctx.index.allNodes());
@@ -26,7 +26,7 @@ function policiesOf(ctx: KbContext): readonly ApprovalPolicy[] {
 }
 
 /** What the session's policies decide about `call`. */
-function decide(ctx: KbContext, call: ApprovalCall): ApprovalResolution {
+function decide(ctx: KbContext<NodeIndex>, call: ApprovalCall): ApprovalResolution {
   return resolveApproval(policiesOf(ctx), call);
 }
 

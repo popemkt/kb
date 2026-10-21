@@ -63,7 +63,7 @@ function ctx(overrides: Partial<EdgeRelinkContext> = {}): EdgeRelinkContext {
   return {
     byId: new Map(cards.map((card) => [card.id, card])),
     nodes: schemaFor(nodes),
-    queryDb: null,
+    run: null,
     bindingId: "bind-new",
     ...overrides,
   };

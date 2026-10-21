@@ -15,6 +15,7 @@ import {
   pickerRows,
   schemaOf,
   useContributions,
+  useAnswers,
   useDebugFieldIds,
   usePageGraph,
   usePickerKeys,
@@ -103,8 +104,10 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const palette: PaletteSurface = { close: onClose, openStep: goToStep };
 
   // The menu is read against the page as it is now; a row whose label says
-  // which way it switches (debug fields) re-reads when the switch moves.
+  // which way it switches (debug fields) re-reads when the switch moves, and
+  // a command a query decides (`when`) when its answer arrives.
   useDebugFieldIds();
+  useAnswers();
   const commands = browserHost().nodeCommands(
     { nodeId: targetNodeId, frameId: targetNodeId },
     palette,

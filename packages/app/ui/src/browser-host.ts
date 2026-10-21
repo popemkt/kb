@@ -10,7 +10,6 @@ import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
 import { proposeView } from "@/lib/propose-view";
-import { subscribeLiveQueryNode } from "@/lib/query-node";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke } from "@/session/runtime";
@@ -63,8 +62,6 @@ const host: BrowserHost = {
   },
   toggleCollapse: (nodeId) => pageEditor().getState().toggleCollapse(nodeId),
   wireNodes: () => useGraphStore.getState().wireNodes,
-  live: () => useUiStore.getState().wsStatus === "open",
-  subscribeQuery: subscribeLiveQueryNode,
   appearance: () => appearanceIn(useDesignSystemStore.getState().painted, usePrefsStore.getState()),
   prefs: () => usePrefsStore.getState(),
   prefsOpen: () => useUiStore.getState().prefsOpen,

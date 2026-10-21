@@ -14,7 +14,13 @@ import {
   onWire,
 } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";
-import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
+import {
+  DatalogError,
+  type NodeIndex,
+  type QueryEngine,
+  QueryEngineService,
+  QueryError,
+} from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { StoreTxLog } from "@kb/tx-log";
 import {
   interceptionFrom,
@@ -23,7 +29,13 @@ import {
   noteStoreSynced,
 } from "@kb/operations";
 import { postAction, type ActionResponse } from "@/api/action";
-import { toast, uiKernelReader } from "@kb/ui-sdk";
+import {
+  answerMessage,
+  type QueryAnswer,
+  type QueryAnswers,
+  toast,
+  uiKernelReader,
+} from "@kb/ui-sdk";
 import { livePageCatalog } from "@/lib/view-catalog";
 import { BrowserStore } from "./browser-store";
 import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
@@ -36,9 +48,9 @@ export interface BrowserSessionView {
 }
 
 interface BrowserSession {
-  readonly ctx: KbContext;
+  readonly ctx: KbContext<NodeIndex>;
   readonly store: BrowserStore;
-  readonly layer: Layer.Layer<KbCtx | KbStore | KbIndexService | ViewCatalog>;
+  readonly layer: Layer.Layer<KbCtx | KbStore | QueryEngineService | ViewCatalog>;
   readonly onLocalCommit: () => void;
   readonly replica: BrowserReplica;
 }
@@ -66,15 +78,49 @@ function noteBrowserStoreSynced(current: BrowserSession): void {
   Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));
 }
 
-/** Install the browser infrastructure around the graph store's one index. */
+/**
+ * An answer that is not rows, as the action boundary reads it
+ * (`classifyQueryError`): wrong datalog is the caller's; a refusal of any
+ * other kind, or a run stopped at its budget, is not.
+ */
+function refusal(answer: Exclude<QueryAnswer, { kind: "rows" }>): Error {
+  if (answer.kind === "error" && answer.name === "DatalogError") {
+    return new DatalogError(answer.message);
+  }
+  const error = new Error(answerMessage(answer));
+  error.name = answer.kind === "error" ? answer.name : "QueryOverBudget";
+  return error;
+}
+
+/**
+ * The page's query engine as an action asks it (`QueryEngineService`): each
+ * query answered by the replica's engine, once, as of now. An action's query
+ * may carry inputs, which no reader of the page's answers shares, so it is
+ * asked outside them (`QueryAnswers.once`).
+ */
+function pageEngine(queries: QueryAnswers): QueryEngine {
+  return {
+    runDatalog: (edn, inputs) =>
+      Effect.promise(() => queries.once({ edn, ...(inputs === undefined ? {} : { inputs }) })).pipe(
+        Effect.flatMap((answer) =>
+          answer.kind === "rows"
+            ? Effect.succeed(answer.rows)
+            : Effect.fail(new QueryError({ cause: refusal(answer) })),
+        ),
+      ),
+  };
+}
+
+/** Install the browser infrastructure around the graph store's one index and its engine. */
 export function replaceBrowserSession(
   nodes: readonly KbNode[],
   rev: number,
-  index: KbIndex,
+  index: NodeIndex,
+  queries: QueryAnswers,
   view: BrowserSessionView,
 ): void {
   const store = new BrowserStore(nodes);
-  const ctx: KbContext = {
+  const ctx: KbContext<NodeIndex> = {
     root: "browser",
     store,
     index,
@@ -89,7 +135,7 @@ export function replaceBrowserSession(
     layer: Layer.mergeAll(
       kbStoreLayer(store),
       kbCtxLayer(ctx),
-      Layer.succeed(KbIndexService, index),
+      Layer.succeed(QueryEngineService, pageEngine(queries)),
       Layer.succeed(ViewCatalog, livePageCatalog),
     ),
     onLocalCommit: view.onLocalCommit,

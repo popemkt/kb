@@ -3,26 +3,14 @@ import type { KbNode, NodeId, StoreTx } from "@kb/model";
 import type { Ir } from "../ir/ir.ts";
 
 /**
- * The one owner of "the current graph as something you can ask questions of".
- *
- * A kb session has exactly two collaborators: {@link KbStore}, which owns the
- * committed truth (`.kb/nodes.jsonl`), and this, which owns everything derived
- * from it — the datoms, the id map, the node lookup, the text scan. Nothing
- * outside an implementation of this port may hold a query engine handle, and
- * nothing beside it may hold a second copy of the node set: a service standing
- * next to a `qdb` field is the parallel path Rule 1 forbids.
- *
- * The index is derived and rebuildable. `rebuild` is always correct, so any
- * incremental path an implementation takes is an optimisation it may abandon
- * (see {@link KbIndex.applyTx}), never a source of truth.
- *
- * Reads are synchronous. Every caller today is inside an `Effect.try` that
- * assumes a synchronous throw; an implementation whose point reads are async
- * (a SQLite index) would change three surfaces. Recorded as a `#gap`, not
- * papered over here.
+ * The node set an index answers over, and its point reads: the half of an
+ * index that is a lookup, not a query engine. A host whose query engine runs
+ * somewhere else (the page's, in a worker) keeps this half where its writes
+ * run, so a write reads the nodes it touches synchronously; every
+ * {@link KbIndex} is one too.
  */
-export interface KbIndex {
-  /** Bumps on every `rebuild` / `applyTx` / `withVirtual`. */
+export interface NodeIndex {
+  /** Bumps on every `rebuild` / `applyTx` / `withVirtual` that changes something. */
   readonly generation: number;
 
   /** Replace the stored node set. The virtual set (see `withVirtual`) survives. */
@@ -34,22 +22,6 @@ export interface KbIndex {
    * outside what their incremental path covers.
    */
   applyTx(tx: StoreTx): void;
-
-  /**
-   * Raw datalog in the engine's own dialect, as rows. Engine-specific by
-   * construction: this is the surface `graph.query` / `kb query` / the WS
-   * `subscribe` frame expose to users, EDN and all.
-   */
-  runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>>;
-
-  /**
-   * Engine-neutral query IR. Unlike the raw EDN surface, result positions are
-   * typed, so aggregate numbers are never mistaken for engine entity ids.
-   */
-  run(ir: Ir, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>>;
-
-  /** Engine pull for one node. Engine-specific for the same reason. */
-  pull(pattern: string, id: NodeId): unknown;
 
   getNode(id: NodeId): KbNode | undefined;
 
@@ -81,6 +53,43 @@ export interface KbIndex {
    * a stored node of the same id always wins.
    */
   withVirtual(nodes: ReadonlyArray<KbNode>): void;
+}
+
+/**
+ * The one owner of "the current graph as something you can ask questions of".
+ *
+ * A kb session has exactly two collaborators: {@link KbStore}, which owns the
+ * committed truth (`.kb/nodes.jsonl`), and this, which owns everything derived
+ * from it — the datoms, the id map, the node lookup, the text scan. Nothing
+ * outside an implementation of this port may hold a query engine handle, and
+ * nothing beside it may hold a second copy of the node set: a service standing
+ * next to a `qdb` field is the parallel path Rule 1 forbids.
+ *
+ * The index is derived and rebuildable. `rebuild` is always correct, so any
+ * incremental path an implementation takes is an optimisation it may abandon
+ * (see {@link NodeIndex.applyTx}), never a source of truth.
+ *
+ * Reads are synchronous. Every caller today is inside an `Effect.try` that
+ * assumes a synchronous throw; an implementation whose point reads are async
+ * (a SQLite index) would change three surfaces. Recorded as a `#gap`, not
+ * papered over here.
+ */
+export interface KbIndex extends NodeIndex {
+  /**
+   * Raw datalog in the engine's own dialect, as rows. Engine-specific by
+   * construction: this is the surface `graph.query` / `kb query` / the WS
+   * `subscribe` frame expose to users, EDN and all.
+   */
+  runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>>;
+
+  /**
+   * Engine-neutral query IR. Unlike the raw EDN surface, result positions are
+   * typed, so aggregate numbers are never mistaken for engine entity ids.
+   */
+  run(ir: Ir, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>>;
+
+  /** Engine pull for one node. Engine-specific for the same reason. */
+  pull(pattern: string, id: NodeId): unknown;
 }
 
 export class KbIndexService extends Context.Service<KbIndexService, KbIndex>()("kb/KbIndex") {}

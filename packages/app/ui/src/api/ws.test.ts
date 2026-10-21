@@ -131,34 +131,21 @@ describe("KbWsClient", () => {
     expect(h.server.received("since")).toEqual([{ op: "since", rev: 4 }]);
   });
 
-  it("routes subscription rows and resubscribes after reconnect", () => {
+  it("asks for tx again after a reconnect, and subscribes no query", () => {
     const h = makeHarness();
-    const rowsSeen: unknown[][][] = [];
     h.client.connect();
     h.server.accept(0);
-    h.client.subscribe("s1", "[:find ?id :where [?n :node/id ?id]]", {
-      rows: (rows) => rowsSeen.push(rows),
-      error: () => {},
-    });
-    expect(h.server.received("subscribe")).toHaveLength(1);
-    h.server.push({ op: "rows", id: "s1", rev: 0, rows: [["n.a"]] });
+    // Rows nobody asked for are dropped: the page asks its own engine.
     h.server.push({ op: "rows", id: "other", rev: 0, rows: [["nope"]] });
-    expect(rowsSeen).toEqual([[["n.a"]]]);
+    expect(h.errors).toEqual([]);
 
-    // drop + backoff reconnect → watch-tx and subscription re-sent
     h.server.drop();
     expect(h.client.status).toBe("closed");
     vi.advanceTimersByTime(100);
     expect(h.server.sockets).toHaveLength(2);
     h.server.accept(0);
     expect(h.server.received("watch-tx")).toEqual([{ op: "watch-tx", enabled: true }]);
-    expect(h.server.received("subscribe")).toEqual([
-      {
-        op: "subscribe",
-        id: "s1",
-        query: "[:find ?id :where [?n :node/id ?id]]",
-      },
-    ]);
+    expect(h.server.received("subscribe")).toEqual([]);
   });
 
   it("backs off exponentially and stops reconnecting after disconnect()", () => {
@@ -178,19 +165,6 @@ describe("KbWsClient", () => {
     vi.advanceTimersByTime(60_000);
     expect(h.server.sockets).toHaveLength(3);
     expect(h.client.status).toBe("closed");
-  });
-
-  it("routes an error naming a live subscription to that subscription, not the toast", () => {
-    const h = makeHarness();
-    const errors: { code: string; message: string }[] = [];
-    h.client.connect();
-    h.server.accept(0);
-    h.client.subscribe("s1", "[:find", { rows: () => {}, error: (err) => errors.push(err) });
-    h.server.push({ op: "error", id: "s1", code: "query_error", message: "bad find spec" });
-    expect(errors).toEqual([
-      { op: "error", id: "s1", code: "query_error", message: "bad find spec" },
-    ]);
-    expect(h.errors).toEqual([]);
   });
 
   it("surfaces server error messages", () => {

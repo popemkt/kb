@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex, derivedWith, SYSTEM_IDS } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, type EdnRunner, SYSTEM_IDS } from "@kb/ui-sdk";
 import { bundledSeed } from "@kb/bundled";
 import { listPerspectiveNavItems } from "./perspective-nav";
 import { GRAPH_IDS } from "@kb/graph";
+
+/** The datalog of `nodes`, read as the page reads its query answers. */
+function runOver(nodes: ConstructorParameters<typeof DatascriptIndex>[0]): EdnRunner {
+  const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+  return (edn) => index.runDatalog(edn);
+}
 
 const wireNode = (id: string, text: string, props: WireNode["props"] = {}): WireNode => ({
   id,
@@ -28,12 +34,10 @@ describe("the Graph section's selector", () => {
       wireNode("t1", "A table", view("sys.view.outline.table")),
       wireNode("other", "nope"),
     ];
-    expect(
-      listPerspectiveNavItems(new DatascriptIndex(wire, { derived: derivedWith({}) }), wire),
-    ).toEqual([
+    expect(listPerspectiveNavItems(runOver(wire), wire)).toEqual([
       { id: GRAPH_IDS.lensAllMentions, label: "All mentions" },
       { id: "p1", label: "Lens A" },
     ]);
-    expect(listPerspectiveNavItems(null, wire)).toEqual([]);
+    expect(listPerspectiveNavItems(() => [], wire)).toEqual([]);
   });
 });

@@ -10,7 +10,6 @@
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import {
-  DatascriptIndex,
   inScope,
   shownNodesOf,
   type GraphChange,
@@ -18,28 +17,44 @@ import {
   type PageGraphState,
   type PageProjection,
   PageProjectionService,
+  type RemoteIndex,
   type ScopeSource,
   toast,
   UNDO_DEPTH,
   WORKSPACE_ROOT_ID,
-  type KbIndex,
   type NodeMap,
   type OutlineNode,
+  type QueryAnswers,
+  ReplicaQueries,
 } from "@kb/ui-sdk";
 import { followProvided, portSlot } from "@/stores/port-slot";
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
-import { bundledDerived } from "@kb/bundled";
+import { replicaOver } from "@/session/engine";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
+/** Who listens for an answer arriving, whichever replica's answers it is. */
+const answerListeners = new Set<() => void>();
+
 /**
- * The page's index over `nodes`, deriving what the bundled families declare
- * (`bundledDerived`), as the server's index does, so References agree.
+ * Listen for an answer to any of the page's queries arriving: what a reader
+ * of the answers follows beside the graph (`pageGraph`). It outlives a load,
+ * which brings new answers.
  */
-const indexOver = (nodes: readonly WireNode[]) =>
-  // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive ownership from the bundled fold only
-  new DatascriptIndex(nodes, { derived: bundledDerived() });
+export function subscribeAnswers(listener: () => void): () => void {
+  answerListeners.add(listener);
+  return () => answerListeners.delete(listener);
+}
+
+/** The replica's query answers over `index`'s engine, told to the page's answer listeners. */
+function answersOver(index: RemoteIndex): QueryAnswers {
+  const queries = new ReplicaQueries(index.transport, () => index.generation);
+  queries.subscribe(() => {
+    for (const listener of answerListeners) listener();
+  });
+  return queries;
+}
 
 /** One write, as the inverse-invocation pair that undoes and redoes it. */
 interface UndoEntry {
@@ -56,6 +71,8 @@ interface UndoEntry {
  * (`scopedWireOf`).
  */
 interface GraphState extends PageGraphState {
+  /** The replica: its node set here, its engine in a worker (`replicaOver`). */
+  readonly index: RemoteIndex | null;
   rev: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
@@ -101,6 +118,7 @@ export type GraphStateData = {
 export const initialGraphState: GraphStateData = {
   wireNodes: [],
   index: null,
+  queries: null,
   rev: 0,
   loadSource: null,
   loadError: null,
@@ -179,14 +197,18 @@ export function useShownNode(id: string | null): OutlineNode | undefined {
   return useSyncExternalStore(useGraphStore.subscribe, read, read);
 }
 
-/** The resolution of scope `ontologyId` over `wire`, as the state holds it. */
+/**
+ * The resolution of scope `ontologyId` over `wire`, as the state holds it:
+ * from the answers the page has, so a scope whose query is not answered yet
+ * is resolved again when it is (`subscribeAnswers`, below).
+ */
 function scopeFields(
   wire: WireNode[],
   ontologyId: string | null,
-  index: KbIndex,
+  queries: QueryAnswers | null,
 ): Pick<GraphStateData, "ontologyMembers" | "ontologyWarnings"> {
   if (ontologyId === null) return { ontologyMembers: null, ontologyWarnings: [] };
-  const resolution = resolveScope(wire, ontologyId, index, index.generation);
+  const resolution = resolveScope(wire, ontologyId, queries);
   return { ontologyMembers: resolution.members, ontologyWarnings: resolution.warnings };
 }
 
@@ -199,11 +221,15 @@ function now(): GraphState {
   return useGraphStore.getState();
 }
 
-/** Move to `patch` by `change`: the projection follows first, then the store moves once. */
+/**
+ * Move to `patch` by `change`: the projection follows first, then the store
+ * moves once, and the queries the page keeps live are asked again.
+ */
 function moveTo(change: GraphChange, patch: Partial<GraphStateData>): void {
   const prev = now();
   pageProjection().follow(change, prev, { ...prev, ...patch });
   useGraphStore.setState(patch);
+  now().queries?.moved();
 }
 
 /**
@@ -219,8 +245,10 @@ export function replaceGraph(next: GraphStateData): void {
 
 function hydrateFromWire(wireNodes: WireNode[], rev: number, source: "api" | "fixtures"): void {
   // A fresh load starts unscoped; App re-applies the URL scope after.
-  const index = indexOver(wireNodes);
-  replaceBrowserSession(wireNodes, rev, index, {
+  now().index?.close();
+  const index = replicaOver(wireNodes);
+  const queries = answersOver(index);
+  replaceBrowserSession(wireNodes, rev, index, queries, {
     onLocalCommit: syncFromIndex,
     applyServerTx: (tx, txRev) => applyTx(tx.upserts, tx.deletes, { rev: txRev }),
     installServerSnapshot: (nodes, snapshotRev) => refreshFromWire(nodes, snapshotRev),
@@ -228,6 +256,7 @@ function hydrateFromWire(wireNodes: WireNode[], rev: number, source: "api" | "fi
   moveTo("load", {
     wireNodes,
     index,
+    queries,
     rev,
     loadSource: source,
     loadError: null,
@@ -246,12 +275,10 @@ function applyTx(upserts: WireNode[], deletes: string[], opts?: { rev?: number }
   const prev = now();
   ingestBrowserTx({ upserts, deletes });
   const wireNodes = mergeTx(prev.wireNodes, upserts, deletes);
-  const index = prev.index ?? indexOver(wireNodes);
-  const scope = scopeFields(wireNodes, prev.ontologyId, index);
+  const scope = scopeFields(wireNodes, prev.ontologyId, prev.queries);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
   moveTo("tx", {
     ...next,
-    index,
     rev: opts?.rev ?? prev.rev,
     rootNodeId: clampedRoot(next, prev),
   });
@@ -261,18 +288,17 @@ function syncFromIndex(): void {
   const prev = now();
   if (prev.index === null) return;
   const wireNodes = prev.index.storedNodes();
-  const scope = scopeFields(wireNodes, prev.ontologyId, prev.index);
+  const scope = scopeFields(wireNodes, prev.ontologyId, prev.queries);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
   moveTo("sync", { ...next, rootNodeId: clampedRoot(next, prev) });
 }
 
 function refreshFromWire(wireNodes: WireNode[], rev: number): void {
   const prev = now();
-  const index = prev.index ?? indexOver(wireNodes);
   if (prev.index !== null) installBrowserNodes(wireNodes);
-  const scope = scopeFields(wireNodes, prev.ontologyId, index);
+  const scope = scopeFields(wireNodes, prev.ontologyId, prev.queries);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
-  moveTo("resync", { ...next, index, rev, rootNodeId: clampedRoot(next, prev) });
+  moveTo("resync", { ...next, rev, rootNodeId: clampedRoot(next, prev) });
 }
 
 // Where the page stands: the scope and the zoom.
@@ -285,8 +311,7 @@ function setOntologyScope(id: string | null): void {
 
 /** Where scope `id` (or none) puts the page from `st`. */
 function scopeMove(st: GraphStateData, id: string | null): Partial<GraphStateData> {
-  const index = st.index ?? indexOver(st.wireNodes);
-  const scope = scopeFields(st.wireNodes, id, index);
+  const scope = scopeFields(st.wireNodes, id, st.queries);
   if (id === null) {
     // Leaving: return to the root the user was on before entering.
     const restored =
@@ -426,3 +451,22 @@ export const useGraphStore = create<GraphState>()(() => ({
 
 // The projection a plugin provides is the one this store tells.
 followProvided(PageProjectionService, providePageProjection, withdrawPageProjection);
+
+/**
+ * A scope's members come from its query's answer, which arrives after the
+ * move that entered the scope or changed the graph: when it does, the scope
+ * is resolved again, and the page moves only if its members changed.
+ */
+subscribeAnswers(() => {
+  const st = now();
+  if (st.ontologyId === null) return;
+  const scope = scopeFields(st.wireNodes, st.ontologyId, st.queries);
+  if (sameMembers(scope.ontologyMembers, st.ontologyMembers)) return;
+  const next = { wireNodes: st.wireNodes, ontologyId: st.ontologyId, ...scope };
+  moveTo("sync", { ...scope, rootNodeId: clampedRoot(next, st) });
+});
+
+function sameMembers(a: Set<string> | null, b: Set<string> | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.size === b.size && [...a].every((id) => b.has(id));
+}

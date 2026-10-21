@@ -13,7 +13,7 @@ import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 import { GRAPH_IDS } from "@kb/graph";
-import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, type EdnRunner } from "@kb/ui-sdk";
 import { extractLensGraph, type GraphLens, parsePerspective, resolveSize } from "./graph-lens";
 import { fa2Settings } from "./fa2-layout";
 import { computeLayoutPositions } from "./graph-layouts";
@@ -26,6 +26,12 @@ import {
   linkWidth,
   separateDiscs,
 } from "./graph-discs";
+
+/** The datalog of `nodes`, read as the page reads its query answers. */
+function runOver(nodes: ConstructorParameters<typeof DatascriptIndex>[0]): EdnRunner {
+  const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+  return (edn) => index.runDatalog(edn);
+}
 
 /** How far two discs may overlap after settle: a hair, in layout units. */
 const TOLERANCE = 0.05;
@@ -80,14 +86,9 @@ function seededLens(): GraphLens {
     nodes.find((n) => n.id === GRAPH_IDS.lensAllMentions),
     "the seeded perspective",
   );
-  return extractLensGraph(
-    new DatascriptIndex(nodes, { derived: derivedWith({}) }),
-    nodes,
-    parsePerspective(lens),
-    {
-      includeSystemNodes: true,
-    },
-  );
+  return extractLensGraph(runOver(nodes), nodes, parsePerspective(lens), {
+    includeSystemNodes: true,
+  });
 }
 
 /** Six hubs of eighty leaves each, and a few links between the hubs. */

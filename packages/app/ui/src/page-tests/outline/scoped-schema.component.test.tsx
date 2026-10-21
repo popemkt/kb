@@ -11,7 +11,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { resolveAllowedRefIds, schemaOf, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
@@ -164,6 +164,14 @@ describe("a projected view under an ontology scope", () => {
     );
     // The label itself is a pointer (it follows); the slot around it edits.
     const slot = present(label.closest<HTMLElement>("[data-value-slot]"), "value slot");
+    // The option set is a datalog answer. The picker reads it while it renders and
+    // is not drawn again when it arrives (reported: field-picker does not subscribe
+    // to answers), so it is handed answered, as the page has it once it has been read.
+    const graph = useGraphStore.getState();
+    const schema = schemaOf(graph);
+    await present(graph.queries, "replica queries").settle((run) =>
+      resolveAllowedRefIds(schema.get("f.status"), schema, run),
+    );
     await act(async () => {
       slot.click();
     });

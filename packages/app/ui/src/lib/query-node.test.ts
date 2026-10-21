@@ -1,15 +1,12 @@
 /**
  * W4 query-node lib: definition extraction, result-id mapping, and the
- * subscribe/unsubscribe lifecycle over the /ws client.
+ * collapse state a query node starts with.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { isQueryNode, present, queryDefOf } from "@kb/model";
-import { KbWsClient } from "@/api/ws";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { querySubscriptionId, subscribeQueryNode } from "@/lib/query-node";
 import { resultNodeIds, SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { FakeWsSocket } from "@/test-support/ws";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type { WireNode } from "@kb/contracts";
 import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
@@ -165,103 +162,5 @@ describe("query node collapse state (cheap-by-default)", () => {
     expect(outlineNodes().get("n.new")).toBeDefined();
     expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(false);
     expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
-  });
-});
-
-function openClient(): { client: KbWsClient; socket: FakeWsSocket } {
-  const socket = new FakeWsSocket();
-  const client = new KbWsClient({
-    url: "ws://test/ws",
-    makeSocket: () => socket,
-    onGraph: () => {},
-  });
-  client.connect();
-  socket.accept();
-  return { client, socket };
-}
-
-describe("subscribe/unsubscribe lifecycle over /ws", () => {
-  it("expand → subscribe frame, rows delivered, collapse → unsubscribe", () => {
-    const { client, socket } = openClient();
-    const got: unknown[][][] = [];
-
-    const unsubscribe = subscribeQueryNode(client, "n.q1", "s1", EDN, {
-      rows: (rows) => got.push(rows),
-      error: () => {},
-    });
-    const subFrame = JSON.parse(present(socket.sent.at(-1), "last frame")) as Record<
-      string,
-      unknown
-    >;
-    expect(subFrame).toEqual({
-      op: "subscribe",
-      id: querySubscriptionId("n.q1", "s1"),
-      query: EDN,
-    });
-
-    socket.deliver({
-      op: "rows",
-      id: querySubscriptionId("n.q1", "s1"),
-      rev: 1,
-      rows: [["n.root-a", "Ship kb ui shell"]],
-    });
-    expect(got).toEqual([[["n.root-a", "Ship kb ui shell"]]]);
-
-    unsubscribe();
-    const unsubFrame = JSON.parse(present(socket.sent.at(-1), "last frame")) as Record<
-      string,
-      unknown
-    >;
-    expect(unsubFrame).toEqual({
-      op: "unsubscribe",
-      id: querySubscriptionId("n.q1", "s1"),
-    });
-
-    // Late rows for a dead subscription never reach the callback.
-    socket.deliver({
-      op: "rows",
-      id: querySubscriptionId("n.q1", "s1"),
-      rev: 2,
-      rows: [["n.root-b", "late"]],
-    });
-    expect(got.length).toBe(1);
-    client.disconnect();
-  });
-
-  it("two subscribers to one query node each keep theirs when the other lets go", () => {
-    const { client, socket } = openClient();
-    const first: unknown[][][] = [];
-    const second: unknown[][][] = [];
-    const leaveFirst = subscribeQueryNode(client, "n.q1", "s1", EDN, {
-      rows: (rows) => first.push(rows),
-      error: () => {},
-    });
-    subscribeQueryNode(client, "n.q1", "s2", EDN, {
-      rows: (rows) => second.push(rows),
-      error: () => {},
-    });
-    leaveFirst();
-    socket.deliver({ op: "rows", id: querySubscriptionId("n.q1", "s2"), rev: 1, rows: [["x"]] });
-    expect(second).toEqual([[["x"]]]);
-    expect(first).toEqual([]);
-    client.disconnect();
-  });
-
-  it("active query subscriptions resubscribe after reconnect", () => {
-    const { client, socket } = openClient();
-    subscribeQueryNode(client, "n.q1", "s1", EDN, { rows: () => {}, error: () => {} });
-    socket.sent.length = 0;
-
-    // Drop and reopen the socket (client reconnects with same subs).
-    socket.drop();
-    // KbWsClient schedules reconnect; simulate by reconnecting directly.
-    client.connect();
-    // connect() replaced the socket via makeSocket — same fake instance.
-    socket.accept();
-    const frames = socket.sent.map((f) => JSON.parse(f) as { op: string; id?: string });
-    expect(
-      frames.some((f) => f.op === "subscribe" && f.id === querySubscriptionId("n.q1", "s1")),
-    ).toBe(true);
-    client.disconnect();
   });
 });

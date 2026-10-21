@@ -3,6 +3,7 @@ import { Point, type PluginContext, type PluginError } from "@kb/plugin";
 import type { NodeId, NodeLike, NodeWrite } from "@kb/model";
 import type { ActionInvocation } from "./actions.ts";
 import type { CalledAction } from "./approval.ts";
+import type { NodeIndex } from "@kb/query";
 import type { KbContext } from "./session.ts";
 
 /**
@@ -37,7 +38,7 @@ export type GuardVerdict =
 /** A call as a guard is asked about it: everything it may read, nothing it may change. */
 export interface GuardCall {
   /** The session the call runs in. */
-  readonly ctx: KbContext;
+  readonly ctx: KbContext<NodeIndex>;
   /** The invocation as it will run (after every interceptor), made by its actor. */
   readonly invocation: ActionInvocation;
   /** The action it invokes, with its mode and a batch's parts. */
@@ -71,7 +72,7 @@ export interface ActionGuard {
 
 /** A call as an interceptor sees it. */
 export interface InterceptedCall {
-  readonly ctx: KbContext;
+  readonly ctx: KbContext<NodeIndex>;
   readonly invocation: ActionInvocation;
   readonly action: CalledAction;
   readonly signal: AbortSignal;

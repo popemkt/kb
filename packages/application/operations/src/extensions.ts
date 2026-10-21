@@ -43,7 +43,7 @@ import {
   typeRefsOf,
   type DomainError,
 } from "@kb/model";
-import type { KbIndex } from "@kb/query";
+import { type KbIndex, KbIndexService } from "@kb/query";
 import { persistEffect, reloadEffect } from "./session.ts";
 
 export const extensionSwitchDef = {
@@ -137,11 +137,11 @@ export const extensionFootprintEffect = Effect.fn("extension.footprint")(functio
 ): Effect.fn.Return<
   z.infer<typeof extensionFootprintDef.outputSchema>,
   DomainError,
-  FamilyKernels | KbCtx
+  FamilyKernels | KbIndexService
 > {
-  const ctx = yield* KbCtx;
+  const index = yield* KbIndexService;
   const kernels = yield* FamilyKernels;
-  const families = (ctx.index.getNode(SYSTEM_IDS.extensionsRoot)?.children ?? []).flatMap(
+  const families = (index.getNode(SYSTEM_IDS.extensionsRoot)?.children ?? []).flatMap(
     (id) => extensionNameOf(id) ?? [],
   );
   const named =
@@ -151,7 +151,7 @@ export const extensionFootprintEffect = Effect.fn("extension.footprint")(functio
       name: input.name,
     });
   }
-  return { rows: named.flatMap((family) => familyFootprint(ctx.index, family, kernels)) };
+  return { rows: named.flatMap((family) => familyFootprint(index, family, kernels)) };
 });
 
 export const extensionListDef = {

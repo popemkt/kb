@@ -25,7 +25,10 @@ export {
   useEditing,
   useGeneration,
   useGraphRead,
-  useIndex,
+  useAnswered,
+  useAnswers,
+  useQueryAnswer,
+  useReplicaQueries,
   useIsActive,
   useIsSelected,
   useNode,
@@ -328,22 +331,37 @@ export {
   type TagBadge,
   WORKSPACE_ROOT_ID,
 } from "./lib/types";
+export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
-  type QueryRowsSubscribe,
-  resultNodeIds,
-  useQueryNodeRows,
-} from "./lib/use-query-node-rows";
-export {
+  answerOf,
   DatascriptIndex,
   derivedWith,
+  type EdnRunner,
+  type EnginePort,
+  type FromEngine,
+  inThreadPort,
   type KbIndex,
+  type NodeIndex,
   queryBacklinks,
   queryFamilyViewNodes,
   queryNeighbourhood,
   queryRecords,
   type QueryRecords,
-  runQuery,
+  RemoteIndex,
+  type Timers,
 } from "./query";
+export {
+  answerMessage,
+  type PageQuery,
+  QUERY_BUDGET_MS,
+  type QueryAnswer,
+  type QueryRead,
+  type QueryRequest,
+  type QueryTransport,
+  type QueryAnswers,
+  ReplicaQueries,
+} from "./lib/replica-queries";
+export { type Answered, useAnswersOf, useLastSettled } from "./lib/use-replica-queries";
 
 // Pure helpers: bullets, the caret, class names, colours, the DOM, keys,
 // labels, logging, markdown, motion, panes, pickers, pointers, routing,

@@ -3,7 +3,7 @@
  * hook over the host's subscribe and reads. A feature calls these, never a
  * store, and the host holds no hook of its own (see `sdk/host.ts`).
  */
-import { useContext, useMemo, useSyncExternalStore } from "react";
+import { type DependencyList, useContext, useMemo, useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
 import {
   backdropChoice,
@@ -13,14 +13,20 @@ import {
 } from "@kb/model";
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
-import type { KbIndex } from "./query";
+import type { EdnRunner } from "./query";
+import { answerMessage, type QueryRead, type QueryAnswers } from "./lib/replica-queries";
+import {
+  type Answered,
+  useAnsweredThrough,
+  useAnswersOf,
+  useQueryReadThrough,
+} from "./lib/use-replica-queries";
 import { OpenNodeContext, useFollowThrough, type Follow } from "./lib/follow";
 import { useGraphReadThrough, type GraphRead } from "./lib/graph-read";
 import type { RefInk } from "./lib/md-edit";
 import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
 import { schemaOf, type SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
-import { useQueryNodeRows, type QueryNodeRows } from "./lib/use-query-node-rows";
 import type { PageGraphState } from "./lib/page-graph";
 import type { Appearance, Prefs, ThemePref } from "./lib/theme";
 import { useNarrowViewport } from "./lib/viewport";
@@ -130,9 +136,30 @@ export function usePaneScreen(report: PaneReport, carryOut: PaneCarryOut): void 
   usePaneScreenThrough(browserHost().screen, report, carryOut);
 }
 
-/** The replica's index, or null before the graph has loaded. */
-export function useIndex(): KbIndex | null {
-  return useHostValue((host) => host.index());
+/** The replica's query answers, or null before the graph has loaded. */
+export function useReplicaQueries(): QueryAnswers | null {
+  return useHostValue((host) => host.queries());
+}
+
+/** Which answers the page has, moving when any arrives (`useAnswersOf`). */
+export function useAnswers(): number {
+  return useAnswersOf(useReplicaQueries());
+}
+
+/** `edn`'s answer from the replica, kept live while this component is mounted. */
+export function useQueryAnswer(edn: string | null): QueryRead {
+  const host = browserHost();
+  return useQueryReadThrough(useReplicaQueries(), edn, host.subscribe);
+}
+
+/**
+ * What `read` makes of the replica's answers to the queries it asks
+ * (`useAnsweredThrough`): read again when `deps` change or an answer it read
+ * arrives, its queries kept live while mounted.
+ */
+export function useAnswered<T>(read: (run: EdnRunner) => T, deps: DependencyList): Answered<T> {
+  const host = browserHost();
+  return useAnsweredThrough(useReplicaQueries(), host.subscribe, read, deps);
 }
 
 /** The graph's nodes as they came over the wire. */
@@ -140,30 +167,27 @@ export function useWireNodes(): WireNode[] {
   return useHostValue((host) => host.wireNodes());
 }
 
-/** The index's mutation counter: it moves on every change the replica takes. */
+/** The replica's mutation counter: it moves on every change the replica takes. */
 export function useGeneration(): number {
-  return useHostValue((host) => host.index()?.generation ?? 0);
+  return useHostValue((host) => host.graph.state().index?.generation ?? 0);
+}
+
+/** A query node's rows, or why there are none. */
+export interface QueryNodeRows {
+  readonly rows: unknown[][] | null;
+  readonly error: string | null;
 }
 
 /**
- * A query node's rows, live: a subscription while the socket is open, the
- * local index otherwise (`useQueryNodeRows`).
+ * A query node's rows: the replica's answer to its EDN, kept live as the
+ * replica moves (`useQueryAnswer`). Null rows and no error while unanswered.
  */
-export function useQueryRows(input: {
-  readonly nodeId: string;
-  readonly edn: string | null;
-}): QueryNodeRows {
-  const live = useHostValue((host) => host.live());
-  const index = useIndex();
-  const generation = useGeneration();
-  return useQueryNodeRows({
-    nodeId: input.nodeId,
-    edn: input.edn,
-    live,
-    index,
-    generation,
-    subscribe: browserHost().subscribeQuery,
-  });
+export function useQueryRows(edn: string | null): QueryNodeRows {
+  const { answer } = useQueryAnswer(edn);
+  if (edn === null || answer === null) return { rows: null, error: null };
+  return answer.kind === "rows"
+    ? { rows: answer.rows, error: null }
+    : { rows: null, error: answerMessage(answer) };
 }
 
 /** How references in rendered text are inked, for `MdView`'s `ink`. */

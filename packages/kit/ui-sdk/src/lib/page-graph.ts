@@ -12,7 +12,8 @@
 import type { WireNode } from "@kb/contracts";
 import { listOntologyNodes } from "@kb/model";
 import type { SidebarNavItem } from "../components/sidebar-row";
-import type { KbIndex } from "../query";
+import type { NodeIndex } from "../query";
+import type { QueryAnswers } from "./replica-queries";
 import { wireToOutlineMap } from "./graph-view";
 import { schemaOf } from "./schema";
 import { type NodeMap, WORKSPACE_ROOT_ID } from "./types";
@@ -33,8 +34,10 @@ export type GraphChange = "load" | "tx" | "sync" | "resync" | "scope";
 /** The graph state a projection reads: the snapshot, its index, the zoom and the scope. */
 export interface PageGraphState {
   readonly wireNodes: WireNode[];
-  /** The query replica of the whole graph, whatever the scope. */
-  readonly index: KbIndex | null;
+  /** The replica's node set, the whole graph whatever the scope; its generation moves with every change. */
+  readonly index: NodeIndex | null;
+  /** The replica's query answers over the whole graph (`QueryAnswers`). */
+  readonly queries: QueryAnswers | null;
   /** The node the page is zoomed to: the root a pane at "/" shows. */
   readonly rootNodeId: string;
   /** Where "home" zooms to: the workspace, or the ontology while scoped. */

@@ -8,6 +8,8 @@ import type { WireNode } from "@kb/contracts";
 import { cardinalityOf, present } from "@kb/model";
 import {
   formatPropValue,
+  type EdnRunner,
+  resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
   resolveFieldTypeById,
   resolveProps,
@@ -35,6 +37,14 @@ function node(
   children: string[] = [],
 ): WireNode {
   return { id, text, props, children, createdAt: ISO, updatedAt: ISO };
+}
+
+/** What `read` gives once the replica has answered every query it asks. */
+function answered<T>(
+  graph: ReturnType<typeof useGraphStore.getState>,
+  read: (run: EdnRunner) => T,
+): Promise<T> {
+  return present(graph.queries, "replica queries").settle(read);
 }
 
 /**
@@ -93,7 +103,7 @@ describe("schema lookups under an ontology scope", () => {
     expect(schemaOf(useGraphStore.getState())).toBe(scopedSchema);
   });
 
-  it("an option set, its display and its allowed refs resolve as unscoped", () => {
+  it("an option set, its display and its allowed refs resolve as unscoped", async () => {
     const graph = useGraphStore.getState();
     const schema = schemaOf(graph);
     const field = schema.get("f.status");
@@ -101,13 +111,9 @@ describe("schema lookups under an ontology scope", () => {
     expect(resolveFieldTypeById("f.status", schema)).toBe("ref");
     expect(cardinalityOf(field?.props)).toBe("one");
     expect(formatPropValue({ t: "ref", v: "opt.done" }, schema)).toBe("Done");
-    const allowed = resolveAllowedRefIdsCached(
-      "f.status",
-      field,
-      schema,
-      graph.index,
-      graph.index?.generation ?? 0,
-    );
+    // The option set is a datalog answer: wait for the replica to give it.
+    await answered(graph, (run) => resolveAllowedRefIds(field, schema, run));
+    const allowed = resolveAllowedRefIdsCached("f.status", field, schema, graph.queries);
     expect(allowed === null ? null : [...allowed].toSorted()).toEqual(["opt.done", "opt.open"]);
     // The member's field row is named from the field node, not its raw id.
     const member = present(outlineNodes().get("n.a"), "member n.a");
@@ -154,7 +160,7 @@ describe("a contextual reference under a scope", () => {
 });
 
 describe("a member's backlinks under a scope", () => {
-  it("name a non-member contextual referrer by its target's text", () => {
+  it("name a non-member contextual referrer by its target's text", async () => {
     const graph = [
       ...wire(),
       // Not tagged, so not a member: a reference to the member n.a.
@@ -164,13 +170,13 @@ describe("a member's backlinks under a scope", () => {
     useGraphStore.getState().setOntologyScope("o.1");
     const g = useGraphStore.getState();
     expect(outlineNodes().has("n.pointer")).toBe(false);
-    const rows = backlinkRows(g.index, schemaOf(g), "n.a");
+    const rows = await answered(g, (run) => backlinkRows(run, schemaOf(g), "n.a"));
     expect(rows.find((r) => r.id === "n.pointer")?.text).toBe("alpha");
   });
 });
 
 describe("a backlink's typed relations", () => {
-  it("word each ref field the referrer points here through from this side, and skip system fields", () => {
+  it("word each ref field the referrer points here through from this side, and skip system fields", async () => {
     const graph = [
       ...wire(),
       node("f.influences", "influences", {
@@ -187,7 +193,7 @@ describe("a backlink's typed relations", () => {
     ];
     useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
     const g = useGraphStore.getState();
-    const rows = backlinkRows(g.index, schemaOf(g), "n.a");
+    const rows = await answered(g, (run) => backlinkRows(run, schemaOf(g), "n.a"));
     expect(rows.find((r) => r.id === "n.source")?.relations).toEqual([
       { field: "f.influences", label: "influenced by" },
       { field: "f.owner", label: "owner →" },

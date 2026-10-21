@@ -5,35 +5,38 @@ import { removeCanvasEdge, upsertCanvasEdge } from "@kb/canvas";
 import type { useCanvasDoc } from "./use-canvas-doc";
 import { planEdgeRelink, type EdgeRelink, type EdgeRelinkContext } from "./canvas-edge-link";
 import { type CanvasSelection, EMPTY_SELECTION } from "./canvas-selection";
-import { toast } from "@kb/ui-sdk";
+import { toast, type EdnRunner, type QueryAnswers } from "@kb/ui-sdk";
 
 interface CanvasEdgeActionContext {
   selectedEdge: CanvasEdge | null;
   byId: Map<string, CanvasNode>;
   docRef: RefObject<CanvasDoc>;
   nodes: EdgeRelinkContext["nodes"];
-  queryDb: EdgeRelinkContext["queryDb"];
+  /** The page's query answers, which the plan's field check reads; none reads no target query. */
+  queries: QueryAnswers | null;
   flushPersist: ReturnType<typeof useCanvasDoc>["flushPersist"];
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
 }
 
-/** Apply what the planner decided: a toast, nothing, or one atomic write. */
+/**
+ * Apply what the planner decided: a toast, nothing, or one atomic write. The
+ * plan reads the answers to the field's target query as of the click, so a
+ * write is never accepted or refused on an answer from before it.
+ */
 async function relinkEdge(context: CanvasEdgeActionContext, change: EdgeRelink) {
   const edge = context.selectedEdge;
   if (!edge) return;
-  const plan = planEdgeRelink(edge, change, {
-    byId: context.byId,
-    nodes: context.nodes,
-    queryDb: context.queryDb,
-    bindingId: ulid(),
-  });
-  if (plan.kind === "reject") {
-    toast(plan.reason);
+  const bindingId = ulid();
+  const plan = (run: EdnRunner | null) =>
+    planEdgeRelink(edge, change, { byId: context.byId, nodes: context.nodes, run, bindingId });
+  const decided = context.queries === null ? plan(null) : await context.queries.settle(plan);
+  if (decided.kind === "reject") {
+    toast(decided.reason);
     return;
   }
-  if (plan.kind === "none") return;
-  await context.flushPersist(upsertCanvasEdge(context.docRef.current, plan.edge), plan.props);
+  if (decided.kind === "none") return;
+  await context.flushPersist(upsertCanvasEdge(context.docRef.current, decided.edge), decided.props);
 }
 
 async function deleteEdge(context: CanvasEdgeActionContext) {

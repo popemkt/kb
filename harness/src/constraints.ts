@@ -442,6 +442,7 @@ export type UiZone =
   | "fixtures"
   | "catalog"
   | "sandbox"
+  | "engine"
   | `components/${UiSurface}`;
 
 /**
@@ -541,6 +542,9 @@ export const UI_ALLOWS: Record<Exclude<UiZone, UiTestZone>, readonly UiZone[]> =
   // The sandbox frame's own script, a separate build that runs in the frame:
   // it reaches nothing of the page, and nothing of the page reaches it.
   sandbox: ["sandbox"],
+  // The page's query engine, a worker's own build (`engine/index.worker.ts`):
+  // it hosts the replica's DataScript and reaches nothing of the page.
+  engine: ["engine"],
   "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],
   "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib"],
   "components/sidebar": ["components/sidebar", "primitives", "stores", "actions", "lib"],
@@ -548,13 +552,15 @@ export const UI_ALLOWS: Record<Exclude<UiZone, UiTestZone>, readonly UiZone[]> =
 
 /**
  * The one bare-specifier rule inside the UI: `@kb/ui-sdk`'s query module is
- * the page's single `@kb/query` seam, so no zone of `@kb/ui` may import
+ * the page's single `@kb/query` seam, so no zone of the page may import
  * `@kb/query` itself — a second DataScript entry point is a boundary breach
- * rather than a package edge. Every other `@kb/*` and third-party specifier
+ * rather than a package edge. The `engine` zone is the exception it names:
+ * it is not the page but the worker the page's engine runs in, the one
+ * place DataScript is hosted. Every other `@kb/*` and third-party specifier
  * belongs to the package matrix above, not to this one.
  */
 export const UI_SPECIFIER_ALLOWS: Record<string, readonly UiZone[]> = {
-  "@kb/query": [],
+  "@kb/query": ["engine"],
 };
 
 /**

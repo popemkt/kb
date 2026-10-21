@@ -11,6 +11,7 @@
  * (constrain, then limit — not limit, then constrain), and the one-placeholder
  * rule for the ref editing slot.
  */
+import { answersOver } from "@kb/ui-test-kit";
 import {
   DatascriptIndex,
   derivedWith,
@@ -22,7 +23,7 @@ import {
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
   type FieldContext,
-  type KbIndex,
+  type QueryAnswers,
   type NodeMap,
   type SchemaIndex,
   schemaOfGraph,
@@ -39,8 +40,8 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
   return schemaOfGraph(nodes);
 }
 
-function contextFor(nodes: NodeMap, index: KbIndex | null): FieldContext {
-  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index });
+function contextFor(nodes: NodeMap, queries: QueryAnswers | null): FieldContext {
+  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, queries });
 }
 
 const ISO = "2026-08-08T00:00:00.000Z";
@@ -85,10 +86,29 @@ function ontology(): NodeMap {
 /**
  * The EDN runner the resolver needs. `fieldType` declares its options by
  * parenting them, and that declaration is derived into a datalog query like any
- * other, so a picker without an index legitimately resolves to nothing.
+ * other, so a picker without an engine legitimately resolves to nothing.
  */
-function queryDb(): DatascriptIndex {
-  return new DatascriptIndex(fieldTypeOntology(), { derived: derivedWith({}) });
+function queryRun(graph: WireNode[] = fieldTypeOntology()): (edn: string) => unknown[][] {
+  const index = new DatascriptIndex(graph, { derived: derivedWith({}) });
+  return (edn) => index.runDatalog(edn);
+}
+
+/**
+ * The page's answers over `graph`, with the field's declared targets already
+ * answered: the editor reads them synchronously, and a render does not wait
+ * for the engine (it is told when an answer arrives).
+ */
+async function answeredOver(
+  graph: WireNode[] = fieldTypeOntology(),
+  fieldId: string = SYSTEM_IDS.fieldTypeField,
+): Promise<QueryAnswers> {
+  const index = new DatascriptIndex(graph, { derived: derivedWith({}) });
+  const queries = answersOver(index);
+  const nodes = wireToOutlineMap(graph, new Set());
+  await queries.settle((run) =>
+    resolveAllowedRefIds(nodes.get(fieldId), schemaOfGraph(nodes), run),
+  );
+  return queries;
 }
 
 /**
@@ -100,7 +120,7 @@ function queryDb(): DatascriptIndex {
  */
 function renderRefSlot(
   nodes: NodeMap,
-  index: KbIndex | null,
+  queries: QueryAnswers | null,
   autoOpen = true,
   fieldId: string = SYSTEM_IDS.fieldTypeField,
 ) {
@@ -112,7 +132,7 @@ function renderRefSlot(
       fieldId,
       autoOpen,
       onCommit: () => {},
-      context: contextFor(nodes, index),
+      context: contextFor(nodes, queries),
       onFollow: () => undefined,
     }),
   );
@@ -124,7 +144,7 @@ describe("ref picker candidates (declared targets win)", () => {
   it("resolves declared sys option nodes as the allowed set", () => {
     const nodes = ontology();
     const allowed = present(
-      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), schemaFor(nodes), queryDb()),
+      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), schemaFor(nodes), queryRun()),
       "allowed refs",
     );
     // The constraint is data on the field node; it is not display policy, so
@@ -132,16 +152,16 @@ describe("ref picker candidates (declared targets win)", () => {
     expect([...allowed].toSorted()).toEqual(OPTION_IDS);
   });
 
-  it("offers the declared targets in the picker for fieldType", () => {
+  it("offers the declared targets in the picker for fieldType", async () => {
     const nodes = ontology();
     const allowed = resolveAllowedRefIds(
       nodes.get(SYSTEM_IDS.fieldTypeField),
       schemaFor(nodes),
-      queryDb(),
+      queryRun(),
     );
     // The editor resolves the same set itself, from the field and the index.
     expect(allowed).not.toBeNull();
-    const html = renderRefSlot(nodes, queryDb());
+    const html = renderRefSlot(nodes, await answeredOver());
     expect(html).toContain('role="listbox"');
     for (const id of OPTION_IDS) expect(html).toContain(id);
   });
@@ -160,7 +180,7 @@ describe("ref picker candidates (declared targets win)", () => {
     expect(ids.slice().toSorted()).toEqual(OPTION_IDS);
   });
 
-  it("constrains before the limit, so a late-sorting target survives", () => {
+  it("constrains before the limit, so a late-sorting target survives", async () => {
     // 20 filler nodes sort ahead of the one allowed target. Filtering the
     // already-limited top 12 dropped it entirely.
     const filler = Array.from({ length: 20 }, (_, i) =>
@@ -181,12 +201,7 @@ describe("ref picker candidates (declared targets win)", () => {
       }),
     ];
     const nodes = wireToOutlineMap(graph, new Set());
-    const html = renderRefSlot(
-      nodes,
-      new DatascriptIndex(graph, { derived: derivedWith({}) }),
-      true,
-      "f.pick",
-    );
+    const html = renderRefSlot(nodes, await answeredOver(graph, "f.pick"), true, "f.pick");
     expect(html).toContain('role="listbox"');
     expect(html).toContain("n.target");
     expect(html).not.toContain("n.aa-00");
@@ -194,12 +209,12 @@ describe("ref picker candidates (declared targets win)", () => {
 });
 
 describe("an unset ref slot opens on focus, not on mount", () => {
-  it("renders closed: no input, no dropdown, just the placeholder", () => {
+  it("renders closed: no input, no dropdown, just the placeholder", async () => {
     // `useState(!refId)` made every unset option field on a page mount open,
     // so their dropdowns all rendered at once and their autoFocus inputs fought
     // each other (and outline keyboard navigation) for the caret.
     const nodes = ontology();
-    const html = renderRefSlot(nodes, queryDb(), false);
+    const html = renderRefSlot(nodes, await answeredOver(), false);
     expect(html).not.toContain('role="listbox"');
     expect(html).not.toContain("<input");
     expect(html).not.toContain("autofocus");
@@ -209,9 +224,9 @@ describe("an unset ref slot opens on focus, not on mount", () => {
     expect(html).toContain('tabindex="0"');
   });
 
-  it('a slot the user minted with "+ value" opens focused', () => {
+  it('a slot the user minted with "+ value" opens focused', async () => {
     const nodes = ontology();
-    const html = renderRefSlot(nodes, queryDb(), true);
+    const html = renderRefSlot(nodes, await answeredOver(), true);
     expect(html).toContain("autofocus");
     expect(html).toContain('role="listbox"');
     expect(html).not.toContain('data-ref-slot="closed"');
@@ -230,9 +245,9 @@ describe("ref editing slot placeholder (one mechanism)", () => {
     expect(html).not.toContain("data-empty-placeholder");
   });
 
-  it("keeps a single placeholder once candidates exist", () => {
+  it("keeps a single placeholder once candidates exist", async () => {
     const nodes = ontology();
-    const html = renderRefSlot(nodes, queryDb());
+    const html = renderRefSlot(nodes, await answeredOver());
     expect(count(html, "placeholder=")).toBe(1);
     expect(html).not.toContain("data-empty-placeholder");
   });

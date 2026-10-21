@@ -23,7 +23,6 @@ import type { PaneScreenPort } from "./lib/pane-screen";
 import { currentService } from "./lib/plugins";
 import type { Appearance, Prefs } from "./lib/theme";
 import type { OutlineNode } from "./lib/types";
-import type { QueryRowsSubscribe } from "./lib/use-query-node-rows";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
 
 /** A view node to make from settings: what `view.propose` checks. */
@@ -57,10 +56,6 @@ export interface BrowserHost extends NodeTextPort {
   readonly toggleCollapse: (nodeId: string) => void;
   /** The graph's nodes as they came over the wire. */
   readonly wireNodes: () => WireNode[];
-  /** Whether the live socket is open, so a query subscribes instead of running locally. */
-  readonly live: () => boolean;
-  /** Subscribe a query node's rows over the live socket, as one subscriber; returns the unsubscribe. */
-  readonly subscribeQuery: QueryRowsSubscribe;
   readonly appearance: () => Appearance;
   /** The device-level preferences now. */
   readonly prefs: () => Prefs;

@@ -15,7 +15,7 @@ import { extensionNodeId, extractMentions, relationFieldsFor } from "@kb/model";
 import type { ContributionEntry } from "@kb/plugin";
 import {
   browserHost,
-  runQuery,
+  type EdnRunner,
   toast,
   type Command,
   type PaletteStep,
@@ -29,10 +29,13 @@ const STEP_ID = `${graphExtension.name}.${STEP}`;
 /** A candidate's id carries the field and the target; no node id holds a NUL. */
 const SEPARATOR = "\u0000";
 
-/** The host index's EDN runner, which a field's declared target query runs on. */
-function hostQuery(): ((edn: string) => unknown[][]) | null {
-  const index = browserHost().index();
-  return index === null ? null : (edn) => runQuery(index, edn);
+/**
+ * The runner a field's declared target query runs on: the answers the page
+ * has now. The palette reads it while it renders and draws again when an
+ * answer arrives, so a stale answer is corrected rather than waited for.
+ */
+function hostQuery(): EdnRunner | null {
+  return browserHost().queries()?.runner() ?? null;
 }
 
 /**
@@ -42,7 +45,7 @@ function hostQuery(): ((edn: string) => unknown[][]) | null {
 function referenceTypings(
   wireNodes: readonly WireNode[],
   sourceId: string,
-  query: ((edn: string) => unknown[][]) | null,
+  query: EdnRunner | null,
 ): PickerCandidate[] {
   const nodes = new Map(wireNodes.map((node) => [node.id, node]));
   const source = nodes.get(sourceId);

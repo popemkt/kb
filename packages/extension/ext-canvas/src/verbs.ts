@@ -14,6 +14,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { CoreInvoke, KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contracts";
 import { planNodeAddEffect } from "@kb/operations";
+import type { KbIndexService } from "@kb/query";
 import { freshId, relationFieldFit, relationMisfit, resolveFieldId, type KbNode } from "@kb/model";
 import {
   CANVAS_ALIGN_EDGES,
@@ -80,7 +81,7 @@ import {
   type CanvasWrite,
 } from "./write.ts";
 
-type WriteEnv = KbCtx | KbStore | FileSystem;
+type WriteEnv = KbCtx | KbStore | FileSystem | KbIndexService;
 
 /** An item as a write reports it: what it is and the box it now takes up. */
 const PlacedSchema = z.object({
@@ -555,7 +556,7 @@ const connectOutput = z.object({
 const bindableFieldEffect = Effect.fn("ext.canvas.connect.bind")(function* (
   field: string,
   target: string | undefined,
-): Effect.fn.Return<string, CanvasFail, KbCtx> {
+): Effect.fn.Return<string, CanvasFail, KbCtx | KbIndexService> {
   const readable = yield* readableEffect();
   const runQuery = yield* readableQueryEffect();
   return yield* canvasStep(() => {

@@ -1,6 +1,6 @@
 import { Cause, Effect, Layer } from "effect";
 import { bunFileSystemLayer } from "./platform.ts";
-import { KbIndexService } from "@kb/query";
+import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
 import {
   ActionCatalog,
   CurrentInterception,
@@ -74,6 +74,7 @@ export function kbRuntimeLayer(
     kbCtxLayer(ctx),
     graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),
     Layer.succeed(KbIndexService, ctx.index),
+    Layer.succeed(QueryEngineService, engineOf(ctx.index)),
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     codeTrustLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),

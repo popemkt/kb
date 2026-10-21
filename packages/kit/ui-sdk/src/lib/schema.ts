@@ -22,7 +22,7 @@
  * a story — is its own schema ({@link schemaOfGraph}).
  */
 import type { WireNode } from "@kb/contracts";
-import type { KbIndex } from "../query";
+import type { QueryAnswers } from "./replica-queries";
 import { isPartialProjection, wireToOutlineMap } from "./graph-view";
 import type { NodeMap, OutlineNode } from "./types";
 
@@ -80,15 +80,15 @@ export function schemaOfGraph(graph: ReadonlyMap<string, OutlineNode>): SchemaIn
 
 /**
  * Everything a field value's editor resolves against, as one value: the
- * schema, the outline as shown, and the index a declared target query runs
- * on. Editors take this and derive the rest themselves — which option set a
+ * schema, the outline as shown, and the replica's query answers a declared
+ * target query is read from. Editors take this and derive the rest themselves — which option set a
  * field declares, and where its picker searches (`refSearchOf`) — so no
  * surface computes, or forgets to pass, a part of it.
  */
 export interface FieldContext {
   readonly schema: SchemaIndex;
   readonly outline: ReadonlyMap<string, OutlineNode>;
-  readonly index: KbIndex | null;
+  readonly queries: QueryAnswers | null;
 }
 
 /** Rows and the schema they resolve against: what a reader of rows by id takes. */
@@ -97,27 +97,31 @@ export interface RowSource {
   readonly nodes: NodeMap;
 }
 
-/** What a field context is built from: the rows, their schema and the index. */
+/** What a field context is built from: the rows, their schema and the query answers. */
 export interface FieldContextSource extends RowSource {
-  readonly index: KbIndex | null;
+  readonly queries: QueryAnswers | null;
 }
 
 const contexts = new WeakMap<NodeMap, FieldContext>();
 
 /**
  * The field context of a source — the one constructor. One object per
- * projection map, schema and index, so a selector over it is referentially
+ * projection map, schema and query answers, so a selector over it is referentially
  * stable.
  */
 export function fieldContextOf(source: FieldContextSource): FieldContext {
   const cached = contexts.get(source.nodes);
-  if (cached !== undefined && cached.index === source.index && cached.schema === source.schema) {
+  if (
+    cached !== undefined &&
+    cached.queries === source.queries &&
+    cached.schema === source.schema
+  ) {
     return cached;
   }
   const context: FieldContext = {
     schema: source.schema,
     outline: source.nodes,
-    index: source.index,
+    queries: source.queries,
   };
   contexts.set(source.nodes, context);
   return context;

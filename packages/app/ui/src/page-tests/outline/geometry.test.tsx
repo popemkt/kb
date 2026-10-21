@@ -7,7 +7,7 @@ import {
   type FieldContext,
   fieldContextOf,
   FieldRow,
-  type KbIndex,
+  type QueryAnswers,
   type NodeMap,
   NodeRow,
   type PropValue,
@@ -22,8 +22,8 @@ import { browserSource } from "@/test-support/browser-packages";
 import { fieldGlyphOf, ValueSlot } from "@kb/outline-ui";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
-function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
-  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index });
+function contextFor(nodes: NodeMap, queries: QueryAnswers | null = null): FieldContext {
+  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, queries });
 }
 
 const outlineDir = browserSource("@kb/outline-ui");

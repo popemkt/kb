@@ -1,10 +1,18 @@
+import { answersOver } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import { normalizeEdnQuery } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { fixtureGraph } from "@/api/fixture-graph";
-import { DatascriptIndex, derivedWith, runQuery } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
 
+/**
+ * The page's one datalog seam is an `EdnRunner`: the helpers take one, and
+ * the replica's answers (`QueryAnswers`) are what hands the page its runner.
+ */
 describe("client datalog execution", () => {
   const qdb = new DatascriptIndex(fixtureGraph.nodes, { derived: derivedWith({}) });
+  const queries = answersOver(qdb);
+  /** The runner as the page reads it: over the answers, once they are in. */
+  const run = (edn: string) => queries.settle((r) => r(edn));
 
   it("normalizes keywords but not directives", () => {
     expect(normalizeEdnQuery("[:find ?id :where [?n :node/id ?id]]")).toBe(
@@ -12,27 +20,31 @@ describe("client datalog execution", () => {
     );
   });
 
-  it("runs a query and returns tuple rows", () => {
-    const rows = runQuery(qdb, "[:find ?id :where [?n :node/id ?id]]");
+  it("runs a query and returns tuple rows", async () => {
+    const rows = await run("[:find ?id :where [?n :node/id ?id]]");
     const ids = rows.map((r) => r[0]);
     expect(ids).toContain("n.root-a");
     expect(ids).toContain("sys.tag");
   });
 
-  it("revives entity ids in results to node ids", () => {
-    const rows = runQuery(qdb, '[:find ?n :where [?n :node/text "Ship kb ui shell"]]');
+  it("revives entity ids in results to node ids", async () => {
+    const rows = await run('[:find ?n :where [?n :node/text "Ship kb ui shell"]]');
     expect(rows).toEqual([["n.root-a"]]);
   });
 
-  it("joins through ref props (same dialect as the server)", () => {
-    const rows = runQuery(
-      qdb,
+  it("joins through ref props (same dialect as the server)", async () => {
+    const rows = await run(
       '[:find ?id :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id]]',
     );
     expect(rows.map((r) => r[0])).toContain("n.root-a");
   });
 
-  it("throws on malformed queries (caller shows the error)", () => {
-    expect(() => runQuery(qdb, "[:find ?x :where")).toThrow();
+  it("reads as no rows until answered, never blocking", () => {
+    const fresh = answersOver(qdb);
+    expect(fresh.runner()("[:find ?id :where [?n :node/id ?id]]")).toEqual([]);
+  });
+
+  it("throws on malformed queries (caller shows the error)", async () => {
+    await expect(run("[:find ?x :where")).rejects.toThrow();
   });
 });

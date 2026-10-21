@@ -26,7 +26,7 @@ import {
 } from "@kb/canvas";
 import { freshId } from "@kb/model";
 import { graphQueryEffect } from "@kb/operations";
-import type { KbIndexService } from "@kb/query";
+import type { KbIndexService, QueryEngineService } from "@kb/query";
 import { CanvasTxError, canvasStep, createCanvasEffect, type CanvasFail } from "./write.ts";
 
 /** The action that answers the edges among a set of nodes, which the graph family provides. */
@@ -107,7 +107,7 @@ function linkOf(edge: z.infer<typeof edgesSchema>["edges"][number]): DiagramLink
 const querySpecEffect = Effect.fn("ext.canvas.diagram.query")(function* (
   query: string,
   input: DiagramInput,
-): Effect.fn.Return<{ spec: DiagramSpec; reported: string[] }, CanvasFail, KbIndexService> {
+): Effect.fn.Return<{ spec: DiagramSpec; reported: string[] }, CanvasFail, QueryEngineService> {
   const { rows } = yield* graphQueryEffect({ query });
   const ids = rowIds(rows);
   if (ids.length === 0) {
@@ -163,7 +163,7 @@ const canvasDiagramEffect = Effect.fn("ext.canvas.diagram")(function* (
 ): Effect.fn.Return<
   z.infer<typeof diagramOutput>,
   CanvasFail,
-  KbCtx | KbStore | FileSystem | KbIndexService
+  KbCtx | KbStore | FileSystem | KbIndexService | QueryEngineService
 > {
   const { spec, reported } =
     input.query === undefined

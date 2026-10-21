@@ -15,15 +15,12 @@ export type ChartData =
   | { readonly kind: "error"; readonly message: string }
   | ({ readonly kind: "rows" } & QueryRecords);
 
-/** The rows the chart draws for its `source` node (null for none), from whichever source answers. */
+/** The rows the chart draws for its `source` node (null for none), as the replica answers its query. */
 export function useChartData(
   source: { readonly id: string; readonly props: Record<string, PropValue[]> } | null,
 ): ChartData {
   const def = useMemo(() => queryDefOf(source ?? undefined), [source]);
-  const { rows, error } = useQueryRows({
-    nodeId: source?.id ?? "",
-    edn: def?.edn ?? null,
-  });
+  const { rows, error } = useQueryRows(def?.edn ?? null);
   return useMemo((): ChartData => {
     if (source === null) return { kind: "missing", reason: "no-source" };
     if (def === null) return { kind: "missing", reason: "no-query" };

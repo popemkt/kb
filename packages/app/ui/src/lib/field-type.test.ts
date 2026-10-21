@@ -1,3 +1,4 @@
+import { answersOver } from "@kb/ui-test-kit";
 import {
   clearAllowedRefIdsCache,
   DatascriptIndex,
@@ -103,7 +104,9 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const qdb = new DatascriptIndex(wire, { derived: derivedWith({}) });
-    const allowed = resolveAllowedRefIds(nodes.get("field.pick"), schemaFor(nodes), qdb);
+    const allowed = resolveAllowedRefIds(nodes.get("field.pick"), schemaFor(nodes), (query) =>
+      qdb.runDatalog(query),
+    );
     const set = present(allowed, "allowed refs");
     expect([...set]).toEqual(["n.root-a"]);
   });
@@ -125,13 +128,15 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const qdb = new DatascriptIndex(wire, { derived: derivedWith({}) });
-    const allowed = resolveAllowedRefIds(nodes.get("field.both"), schemaFor(nodes), qdb);
+    const allowed = resolveAllowedRefIds(nodes.get("field.both"), schemaFor(nodes), (query) =>
+      qdb.runDatalog(query),
+    );
     const set = present(allowed, "allowed refs");
     // Query matches n.root-c only; tag.todo would have included a/b — query wins.
     expect([...set]).toEqual(["n.root-c"]);
   });
 
-  it("resolveAllowedRefIdsCached reuses the set for the same fieldId+rev", () => {
+  it("resolveAllowedRefIdsCached reuses the set while answers and schema stand still", async () => {
     clearAllowedRefIdsCache();
     const wire = [
       ...fixtureGraph.nodes,
@@ -147,14 +152,55 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const field = nodes.get("field.assignee");
-    const a = resolveAllowedRefIdsCached("field.assignee", field, schemaFor(nodes), null, 1);
-    const b = resolveAllowedRefIdsCached("field.assignee", field, schemaFor(nodes), null, 1);
+    const schema = schemaFor(nodes);
+    const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
+    const queries = answersOver(index);
+    const a = resolveAllowedRefIdsCached("field.assignee", field, schema, queries);
+    const b = resolveAllowedRefIdsCached("field.assignee", field, schema, queries);
     expect(a).toBe(b);
-    const c = resolveAllowedRefIdsCached("field.assignee", field, schemaFor(nodes), null, 2);
+    // An answer arriving moves the answers' version: the set is resolved again.
+    await queries.ask("[:find ?id :where [?n :node/id ?id]]");
+    const c = resolveAllowedRefIdsCached("field.assignee", field, schema, queries);
     expect(c).not.toBe(a);
-    const aSet = present(a, "cached allowed refs");
-    const cSet = present(c, "cached allowed refs rev 2");
-    expect([...cSet].toSorted()).toEqual([...aSet].toSorted());
+    expect([...present(c, "after an answer")].toSorted()).toEqual(
+      [...present(a, "cached allowed refs")].toSorted(),
+    );
+    // A new schema (another snapshot) does the same.
+    const d = resolveAllowedRefIdsCached(
+      "field.assignee",
+      field,
+      schemaFor(wireToOutlineMap(wire, new Set())),
+      queries,
+    );
+    expect(d).not.toBe(c);
+  });
+
+  it("does not keep a target query's set until the query is answered", async () => {
+    clearAllowedRefIdsCache();
+    const edn = `[:find ?id :where [?n :node/id ?id] [?n :node/text "Ship kb ui shell"]]`;
+    const wire = [
+      ...fixtureGraph.nodes,
+      fieldNode({
+        id: "field.q",
+        text: "q",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+          [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }],
+        },
+      }),
+    ];
+    const nodes = wireToOutlineMap(wire, new Set());
+    const field = nodes.get("field.q");
+    const schema = schemaFor(nodes);
+    const index = new DatascriptIndex(wire, { derived: derivedWith({}) });
+    const queries = answersOver(index);
+    const before = resolveAllowedRefIdsCached("field.q", field, schema, queries);
+    expect([...present(before, "unanswered")]).toEqual([]);
+    await queries.ask(edn);
+    const after = resolveAllowedRefIdsCached("field.q", field, schema, queries);
+    expect([...present(after, "answered")]).toEqual(["n.root-a"]);
+    expect(resolveAllowedRefIdsCached("field.q", field, schema, queries)).toBe(after);
   });
 
   it("plan helpers write fieldType / targetTag / targetQuery", () => {
@@ -352,10 +398,9 @@ describe("allowed ref targets: resolution vs display", () => {
       }),
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const allowed = resolveAllowedRefIds(
-      nodes.get("field.onto-ish"),
-      schemaFor(nodes),
-      new DatascriptIndex(wire, { derived: derivedWith({}) }),
+    const db = new DatascriptIndex(wire, { derived: derivedWith({}) });
+    const allowed = resolveAllowedRefIds(nodes.get("field.onto-ish"), schemaFor(nodes), (query) =>
+      db.runDatalog(query),
     );
     const set = present(allowed, "allowed refs");
     expect([...set]).toEqual([SYSTEM_IDS.typeField]);

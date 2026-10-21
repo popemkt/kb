@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, type EdnRunner } from "@kb/ui-sdk";
 import { extractLensGraph } from "./graph-lens";
 import { DEFAULT_MAX_NODES, type LensPerspective } from "@kb/graph";
+
+/** The datalog of `nodes`, read as the page reads its query answers. */
+function runOver(nodes: ConstructorParameters<typeof DatascriptIndex>[0]): EdnRunner {
+  const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+  return (edn) => index.runDatalog(edn);
+}
 
 const ISO = "2026-08-23T00:00:00.000Z";
 
@@ -44,8 +50,8 @@ function wire(): WireNode[] {
 describe("extractLensGraph — restrictTo (ontology scope)", () => {
   it("keeps only member nodes and their internal edges", () => {
     const nodes = wire();
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const graph = extractLensGraph(db, nodes, PERSPECTIVE, {
+    const run = runOver(nodes);
+    const graph = extractLensGraph(run, nodes, PERSPECTIVE, {
       restrictTo: new Set(["n.a", "n.b"]),
     });
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.a", "n.b"]);
@@ -54,8 +60,8 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("drops edges with either endpoint outside the set", () => {
     const nodes = wire();
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const graph = extractLensGraph(db, nodes, PERSPECTIVE, {
+    const run = runOver(nodes);
+    const graph = extractLensGraph(run, nodes, PERSPECTIVE, {
       restrictTo: new Set(["n.b", "n.c"]),
     });
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.b", "n.c"]);
@@ -65,8 +71,8 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("renders nothing for an empty member set", () => {
     const nodes = wire();
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const graph = extractLensGraph(db, nodes, PERSPECTIVE, {
+    const run = runOver(nodes);
+    const graph = extractLensGraph(run, nodes, PERSPECTIVE, {
       restrictTo: new Set(),
     });
     expect(graph.nodes).toEqual([]);
@@ -75,9 +81,9 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("composes with a perspective query (intersection, not replacement)", () => {
     const nodes = wire();
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const run = runOver(nodes);
     const graph = extractLensGraph(
-      db,
+      run,
       nodes,
       {
         ...PERSPECTIVE,
@@ -90,8 +96,8 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("is inert when restrictTo is omitted", () => {
     const nodes = wire();
-    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
-    const graph = extractLensGraph(db, nodes, PERSPECTIVE, {});
+    const run = runOver(nodes);
+    const graph = extractLensGraph(run, nodes, PERSPECTIVE, {});
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.a", "n.b", "n.c"]);
     expect(graph.edges).toHaveLength(2);
   });
