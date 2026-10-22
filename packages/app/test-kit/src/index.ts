@@ -30,6 +30,7 @@ export type {
   ServeUi,
   SurfaceFactory,
   SurfaceSet,
+  UiListenerKind,
 } from "./surface-contract.ts";
 export { FakeModelContext } from "./fake-model-context.ts";
 export { FAKE_TAB_SCREEN, FakeTab } from "./fake-tab.ts";

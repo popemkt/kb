@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Predicate } from "effect";
+import { Effect, Layer, Option } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   ActionResponseSchema,
@@ -12,20 +12,14 @@ import {
   type UiCaptureInput,
   type UiNavigateInput,
   type UiSelectInput,
-  uiAddressOf,
+  uiListenerName,
 } from "@kb/contracts";
 import { domainError, type DomainError } from "@kb/model";
 import { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "@kb/operations";
-import { requestUi, servingUi } from "@kb/workspace-fs";
+import { nothingListens, requestUi, servingUi } from "@kb/workspace-fs";
 
 /** How much longer than the command's own wait the server gets to answer. */
 const ANSWER_MARGIN_MS = 2000;
-
-/** Whether a request failed because nothing listens at its address (Bun's and Node's codes). */
-function refused(cause: unknown): boolean {
-  if (!Predicate.hasProperty(cause, "code")) return false;
-  return cause.code === "ConnectionRefused" || cause.code === "ECONNREFUSED";
-}
 
 /** What a decoded answer is, or why it is not one. */
 type Decoded<A> = { success: true; data: A } | { success: false; error: { message: string } };
@@ -54,7 +48,7 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
       ): Effect.fn.Return<A, DomainError, FileSystem> {
         const at = yield* servingUi(root);
         if (at === null) return none;
-        const url = uiAddressOf(at);
+        const where = uiListenerName(at);
         const post = Effect.tryPromise({
           try: (signal) =>
             requestUi(at, "/api/action", {
@@ -64,7 +58,7 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
               signal,
             }),
           // Nothing listens there, or the request failed some other way.
-          catch: (cause) => (refused(cause) ? ("gone" as const) : ("failed" as const)),
+          catch: (cause) => (nothingListens(cause) ? ("gone" as const) : ("failed" as const)),
         }).pipe(
           Effect.flatMap((res) =>
             Effect.tryPromise(() => res.json()).pipe(
@@ -78,31 +72,31 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
           Effect.catch((failure) =>
             failure === "gone"
               ? Effect.succeed(null)
-              : Effect.fail(domainError("internal", `kb ui at ${url} could not be asked ${id}`)),
+              : Effect.fail(domainError("internal", `kb ui at ${where} could not be asked ${id}`)),
           ),
         );
         // Nothing listens where the presence file points: its server has gone.
         if (sent === null) return none;
         if (Option.isNone(sent)) {
-          return yield* domainError("internal", `kb ui at ${url} did not answer ${id} in time`);
+          return yield* domainError("internal", `kb ui at ${where} did not answer ${id} in time`);
         }
         const { status, body } = sent.value;
         const response = ActionResponseSchema.safeParse(body);
         if (!response.success) {
-          return yield* domainError("internal", `kb ui at ${url} answered ${id} with ${status}`);
+          return yield* domainError("internal", `kb ui at ${where} answered ${id} with ${status}`);
         }
         if (response.data.status === "failed") {
           const { code, message } = response.data;
           return yield* domainError(
             "internal",
-            `kb ui at ${url} failed ${id} (${code}): ${message}`,
+            `kb ui at ${where} failed ${id} (${code}): ${message}`,
           );
         }
         const output = decode(response.data.output);
         if (!output.success) {
           return yield* domainError(
             "internal",
-            `kb ui at ${url} answered ${id} with output its schema rejects: ${output.error.message}`,
+            `kb ui at ${where} answered ${id} with output its schema rejects: ${output.error.message}`,
           );
         }
         return output.data;

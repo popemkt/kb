@@ -228,14 +228,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
-### GAP: a kb ui on a Unix socket records no presence, so the CLI's and kb mcp's screen actions and kb open do not reach it
-
-- **expected** — Presence records where a process on this machine reaches the server, a socket as much as a TCP port, and servingUi and its readers reach a socket server through it (Bun's fetch unix option)
-- **current** — Presence (.kb/ui.json) names only a loopback http origin, so a socket server (kb ui --socket) writes none; localUrlOf in listener.ts answers null for a socket
-- **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
-- **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
-- **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
-
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -1408,6 +1400,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — graph views cannot be embedded outside the graph page yet
 - **closes** — plugin-composition A1 neighbourhood view hosting a renderer (roadmap step 2)
 - **node** — `01M3R5NKA34ATJKJV9GVQRS16Z`
+
+### GAP: a kb ui on a Unix socket records no presence, so the CLI's and kb mcp's screen actions and kb open do not reach it
+
+- **expected** — Presence records where a process on this machine reaches the server, a socket as much as a TCP port, and servingUi and its readers reach a socket server through it (Bun's fetch unix option)
+- **current** — closed by feat/socket-presence: presence (.kb/ui.json) records the server's UiListener, a loopback TCP port or a socket's absolute path and page origin; requestUi in @kb/workspace-fs reaches either (Bun's fetch unix option), and servingUi, the screen relay, kb open and the locations list read presence through it; surfaceContract runs over a TCP and a socket kb ui
+- **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
+- **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
+- **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
 
 ### GAP: a proposed graph view cannot set its query or mappings
 

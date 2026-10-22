@@ -79,6 +79,7 @@
         "@kb/plugin": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@kb/webmcp": "workspace:*",
+        "@kb/workspace-fs": "workspace:*",
         "@modelcontextprotocol/sdk": "catalog:",
         "@types/bun": "catalog:",
         "typescript": "catalog:",

@@ -6,6 +6,7 @@ export { savedQueriesLayer } from "./saved-queries.ts";
 export {
   canonicalRoot,
   clearUiPresence,
+  nothingListens,
   readUiPresence,
   requestUi,
   servingUi,

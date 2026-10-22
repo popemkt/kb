@@ -14,6 +14,11 @@ export type UiListener =
       readonly origin: string;
     };
 
+/** Where it listens, as a message names it: the TCP listener's address, or the socket's path. */
+export function uiListenerName(at: UiListener): string {
+  return at.kind === "tcp" ? uiAddressOf(at) : at.path;
+}
+
 /** Where the page is: the TCP listener's own address, or the socket's proxy. */
 export function uiAddressOf(at: UiListener): string {
   return at.kind === "tcp" ? `http://${at.hostname}:${at.port}` : at.origin;

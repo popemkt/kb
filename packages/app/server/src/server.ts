@@ -1,5 +1,5 @@
 import { watch } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { Cause, Effect, Exit, Scope, Stream, type Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
@@ -278,7 +278,8 @@ function serveUi(deps: {
 /**
  * Where `opts` asks the server to listen. A socket is reached through its
  * proxy alone, so it needs the proxy's public origin, which is where its
- * page is.
+ * page is. Its path is absolute and its origin bare, as its presence names
+ * them for a process in any directory.
  */
 function listenerOf(opts: UiServerOptions): Effect.Effect<UiListener, DomainError> {
   if (opts.socket === undefined) {
@@ -296,7 +297,15 @@ function listenerOf(opts: UiServerOptions): Effect.Effect<UiListener, DomainErro
       ),
     );
   }
-  return Effect.succeed({ kind: "socket", path: opts.socket, origin: opts.publicOrigin });
+  const { socket, publicOrigin } = opts;
+  return Effect.try({
+    try: (): UiListener => ({
+      kind: "socket",
+      path: resolve(socket),
+      origin: new URL(publicOrigin).origin,
+    }),
+    catch: () => domainError("invalid_input", `${publicOrigin} is not a public origin`),
+  });
 }
 
 /** Where `server` listens, as `at` asked: a TCP port of 0 is the one it bound. */
@@ -417,17 +426,14 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // Say where this root is served, so a process that needs its tabs (the CLI
   // or `kb mcp` asking for the screen) can reach them. Losing that costs only
   // the screen actions in other processes, so a failed write is reported and
-  // the server still serves. A socket server records none.
-  // GAP [[01M5CMVS78WRBD760MNSS3BMJJ]]
-  if (at.kind === "tcp") {
-    yield* writeUiPresence(opts.root, at).pipe(
-      Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
-    );
-    yield* Scope.addFinalizer(
-      lifetime,
-      clearUiPresence(opts.root, at).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
-    );
-  }
+  // the server still serves.
+  yield* writeUiPresence(opts.root, at).pipe(
+    Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
+  );
+  yield* Scope.addFinalizer(
+    lifetime,
+    clearUiPresence(opts.root, at).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
+  );
 
   if (openBrowserFlag) openBrowser(url);
 

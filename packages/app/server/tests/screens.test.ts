@@ -74,7 +74,7 @@ describe("screen state", () => {
   const tabs: FakeTab[] = [];
 
   async function tab(id: string, state?: ScreenState): Promise<FakeTab> {
-    const opened = await run(FakeTab.open(handle.url, id, state));
+    const opened = await run(FakeTab.open(handle.at, id, state));
     tabs.push(opened);
     return opened;
   }
@@ -100,7 +100,7 @@ describe("screen state", () => {
 
     // A local program's socket, which carries no Origin, publishes all the
     // same, as nobody's, after the person's.
-    const bare = await run(FakeTab.open(handle.url, "tab.bare", FAKE_TAB_SCREEN, "program"));
+    const bare = await run(FakeTab.open(handle.at, "tab.bare", FAKE_TAB_SCREEN, "program"));
     expect((await screen(handle)).tabs.map((t) => [t.tab, t.person])).toEqual([
       ["tab.a", PERSON],
       ["tab.bare", null],
@@ -193,7 +193,7 @@ describe("screen state", () => {
     const mine = await tab("session.mine");
     const other = await tab("session.other");
     const program = await run(
-      FakeTab.open(handle.url, "session.program", FAKE_TAB_SCREEN, "program"),
+      FakeTab.open(handle.at, "session.program", FAKE_TAB_SCREEN, "program"),
     );
     tabs.push(program);
     // The agent's call (this post carries no Origin) names a session: only that tab hears it.
@@ -339,7 +339,7 @@ describe("screen state with no kb ui", () => {
   test("a presence file whose port another root's kb ui now holds names no tabs", async () => {
     const other = await mkdtemp(join(tmpdir(), "kb-screens-other-"));
     const elsewhere = await run(startUi({ root: other, port: 0, openBrowser: false }));
-    const stranger = await run(FakeTab.open(elsewhere.url, "tab.stranger"));
+    const stranger = await run(FakeTab.open(elsewhere.at, "tab.stranger"));
     try {
       const ctx = await openKb(root);
       await writePresence(root, elsewhere.at);
