@@ -3,7 +3,7 @@
  * decision 16; DESIGN.md → Canvas documents): describe it, lint it, place
  * items by relation, lay them out, connect, group and ungroup them, and
  * promote a text card to a node. Each is an ordinary registry action, so
- * every surface lists it and the invoke core decides its approval; each
+ * every surface lists it and the guards decide about it as any call; each
  * resolves its relation with `@kb/canvas`'s pure verbs — the code a
  * person's gestures go through — and each write is one canvas write
  * (`commitCanvasEffect`), so it is one step of an open canvas's history

@@ -3551,7 +3551,7 @@ answers `{canvasId, items, edges, reported}`.
 | `ext.canvas.tx.apply`                                                        | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared                                                                                                                                                                                                                                                                                                                                                                              |
 | `ext.canvas.describe` / `ext.canvas.lint`                                    | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `ext.code.script.list`                                                       | read  | the `#script` nodes some nodes name, each with its grant and whether a person trusts it (Sandbox → Scripts)                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ext.code.script.run`                                                        | write | run a trusted `#script` once against a node until it is quiet, its calls the script's (Sandbox → Scripts); approval required                                                                                                                                                                                                                                                                                                                                                                |
+| `ext.code.script.run`                                                        | write | run a trusted `#script` once against a node until it is quiet, its calls the script's (Sandbox → Scripts); declares approval required                                                                                                                                                                                                                                                                                                                                                                |
 | `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `ui.screen`                                                                  | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `ui.navigate` / `ui.select`                                                  | write | open a node or route, or point a canvas camera / set the selection or focus in a UI tab ([Screen state](#screen-state))                                                                                                                                                                                                                                                                                                                                                                     |
@@ -4601,20 +4601,20 @@ system, one runner, one trust.
 - **Once, on request** (tldraw's exec): `ext.code.script.run` runs a
   trusted `#script` against a node until it is quiet (`snapshotRun`, with
   `CoreInvoke` as `write`), on the host's engine, each call the script's.
-  It asks approval as a write that requires it: a person's runs, an
-  agent's only once approved, and an untrusted script is refused before
-  anything runs. The scripts panel's Run once is the person's. Code never
-  starts a run: the code family's guard denies it to `script`
-  (`script-run`), so code cannot chain runs that each ask the person
-  again.
+  It declares approval required, which no guard that ships enforces for
+  now (Action registry → Current stance), so a person's run and an
+  agent's both run; an untrusted script is refused before anything runs.
+  The scripts panel's Run once is the person's. Code never starts a run:
+  the code family's guard denies it to `script` (`script-run`), so code
+  cannot chain runs.
 - **Listed with its trust**: `ext.code.script.list` tells the scripts some
   nodes name, each with its grant and whether a person trusts it; a view's
   agent verb says which scripts run on it through it (the canvas's
   `describe`), so a view never reads a script's fields.
 - **It writes through the view's actions.** A canvas script reads with
   `kb.invoke("ext.canvas.describe", …)` and writes with the canvas verbs,
-  within its grant, as the `script` actor: locks, lints, approval and the
-  sys-write and configuration rules hold because they hold for the path.
+  within its grant, as the `script` actor: locks, lints, the guards and the
+  sys-write rule hold because they hold for the path.
 
 ### Snapshots
 
