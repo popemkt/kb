@@ -140,18 +140,4 @@ describe("graph.relation.type", () => {
     });
     expect(ctx.log.head).toBe(head + 1);
   });
-
-  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-  test.skip("an agent asks before typing a relation, by the action's own mode; the command line does not", async () => {
-    const ctx = await openKb(root);
-    await seed(ctx);
-    const input = { source: "a", target: "b", field: "f.influences" };
-    const asked = await invoke(ctx, { id: "graph.relation.type", input, actor: "agent" });
-    expect(asked.status === "failed" && asked.code).toBe("approval_required");
-    expect(ctx.index.getNode("a")?.props["f.influences"]).toBeUndefined();
-    const script = await invoke(ctx, { id: "graph.relation.type", input, actor: "script" });
-    expect(script.status === "failed" && script.code).toBe("forbidden");
-    const cli = await invoke(ctx, { id: "graph.relation.type", input, actor: "cli" });
-    expect(cli.status).toBe("succeeded");
-  });
 });

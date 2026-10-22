@@ -249,7 +249,7 @@ export const GRAPH_ACTIONS: readonly ExtensionAction[] = [
       "one transaction, leaving the text (and any mention of the target) as it is. The field " +
       "node's text is the relation's label. Refuses a field that is not a ref and a target the " +
       "field does not allow; typing a relation the source already holds writes nothing. " +
-      "An agent's call asks the person first",
+      "It declares delegated approval (the owner's to say), which no guard that ships enforces for now",
     // Typing a relation says what a connection means, which is the owner's to say.
     mode: { kind: "write", approval: "delegated" },
     inputSchema: relationInput,

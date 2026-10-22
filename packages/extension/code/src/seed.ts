@@ -2,9 +2,12 @@
  * The code family's seed: the two fields a code view node or a script keeps
  * its code and its grant in, both text and run as stored; the `#script` tag
  * over them; and `sys.f.scripts`, which names a node's scripts. Both the tag
- * and the field configure the family (`sys.f.configures`): minting, editing
- * or attaching a script decides what code runs where, so each is
- * configuration — an agent is asked, a script is refused. Declared the
+ * and the field configure the family (`sys.f.configures`), metadata that
+ * says minting, editing or attaching a script is configuration, since it
+ * decides what code runs where. Core enforces nothing by it: a guard may
+ * (the governance family's `writesConfiguration`), and none that ships does
+ * for now (DESIGN.md → Action registry → Current stance,
+ * GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]). Declared the
  * way core declares its own. The bundled seed folds it after core's nodes
  * (DESIGN.md → Extension families → the seed is the bundled fold).
  */

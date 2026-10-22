@@ -126,8 +126,9 @@ export interface PersistOptions {
  *
  * Inside an invocation, the guards are asked again with what the commit
  * writes (`guardCommit`), and a refusal is made here, before the store is
- * touched: approval's guard, for one, refuses a write to an approval policy
- * with no person behind the call, whatever the policies say.
+ * touched, as a guard reads what is written (the governance family's
+ * approval guard would refuse a write to an approval policy with no person
+ * behind the call; it is not contributed for now).
  */
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext<NodeIndex>,

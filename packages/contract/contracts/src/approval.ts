@@ -14,9 +14,10 @@ import {
  * Approval (DESIGN.md → Action registry → Approval): what can be decided
  * about a call, whether a person stands behind it, who makes it on each
  * wire, and what a surface needs to project the decision. Who decides is
- * the guards' (Interception); the governance family's policies are one of
- * them. Every surface reads the decision the guards give its caller to list
- * its actions.
+ * the guards' (Interception); the governance family's policies would be one
+ * of them, and contribute none for now (DESIGN.md → Action registry → Current
+ * stance). Every surface reads the decision the guards give its caller to
+ * list its actions.
  */
 
 /**
@@ -35,7 +36,10 @@ export type ApprovalDecision = (typeof APPROVAL_DECISIONS)[number];
 export interface SurfaceWire {
   /** Whether a call on this wire has an envelope that can carry `approved`. */
   readonly carriesApproval: boolean;
-  /** Who a call on this wire is made by. */
+  /**
+   * Who a call on this wire is made by: the author its transaction records
+   * (`KbTx.actor`), which grants the call nothing by itself.
+   */
   readonly actor: Actor;
   /**
    * Whether the wire relays calls others make: the page's, which carries the
@@ -84,6 +88,17 @@ export function onWire(
     ...(scripted ? { script } : {}),
     actor: scripted ? "script" : (relayed ?? wire.actor),
   };
+}
+
+/**
+ * Whether sandboxed code made the call: one that carried a script's reach
+ * onto a wire that relays it (`onWire`), one made on the sandbox's own wire,
+ * or one made while such a call runs (`callWithin`). The one actor kb holds
+ * to anything by its name: such a call is held to its run's grant
+ * (DESIGN.md → Sandbox → Grants), and never starts a script run.
+ */
+export function madeByScript(invocation: ActionInvocation): boolean {
+  return invocation.actor === "script";
 }
 
 /**

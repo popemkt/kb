@@ -341,47 +341,4 @@ import { z } from "zod";`,
     expect(markerBody).toBe("finalized");
     expect(await Bun.file(late).exists()).toBe(false);
   });
-
-  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-  test.skip("an approval-required write runs only when its invocation is approved", async () => {
-    const root = await makeRoot();
-    const dir = join(root, ".kb", "extensions");
-    await mkdir(dir, { recursive: true });
-    const ran = join(root, "ran.marker");
-    await writeTrustedExtension(
-      root,
-      "gate.ts",
-      extensionModule("gate", {
-        prelude: `import { writeFile } from "node:fs/promises";
-import { z } from "zod";`,
-        actions: `[
-  {
-    id: "stamp",
-    title: "Stamp",
-    description: "a write a person must approve",
-    mode: { kind: "write", approval: "required" },
-    inputSchema: z.object({ path: z.string() }),
-    outputSchema: z.object({ ok: z.boolean() }),
-    handler: async (_ctx, input) => {
-      await writeFile(input.path, "ran");
-      return { ok: true };
-    },
-  },
-]`,
-      }),
-    );
-
-    const ctx = await openKb(root);
-    const refused = await invoke(ctx, { id: "ext.gate.stamp", input: { path: ran } });
-    expect(refused).toMatchObject({ status: "failed", code: "approval_required" });
-    expect(await Bun.file(ran).exists()).toBe(false);
-
-    const approved = await invoke(ctx, {
-      id: "ext.gate.stamp",
-      input: { path: ran },
-      approved: true,
-    });
-    expect(approved).toEqual({ status: "succeeded", id: "ext.gate.stamp", output: { ok: true } });
-    expect(await Bun.file(ran).text()).toBe("ran");
-  });
 });
