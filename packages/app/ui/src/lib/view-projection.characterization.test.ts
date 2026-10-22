@@ -110,13 +110,14 @@ describe("table columns", () => {
     expect(columnIds(cols)).toEqual([SYSTEM_IDS.hiddenField]);
   });
 
-  it("derivation skips sys fields and hidden fields both", () => {
+  it("derivation skips the fields whose nodes say hidden, and only those", () => {
+    // A system field is a column like any field unless its node hides it.
     const cols = resolveTableColumns(
       DEFAULT_VIEW_CONFIG,
       [row("r1", ["t.todo"])],
       schemaFor(nodes),
     );
-    expect(columnIds(cols)).toEqual(["f.status"]);
+    expect(columnIds(cols)).toEqual(["f.status", SYSTEM_IDS.hiddenField]);
   });
 
   it("derivation walks every row's tags once, in first-seen order", () => {
@@ -125,7 +126,7 @@ describe("table columns", () => {
       [row("r1", ["t.dated"]), row("r2", ["t.todo"])],
       schemaFor(nodes),
     );
-    expect(columnIds(cols)).toEqual(["f.due", "f.status"]);
+    expect(columnIds(cols)).toEqual(["f.due", "f.status", SYSTEM_IDS.hiddenField]);
   });
 
   it("an unresolvable tag contributes nothing", () => {
@@ -137,7 +138,7 @@ describe("table columns", () => {
     expect(cols).toEqual([]);
   });
 
-  it("debug columns keep the sys and hidden fields the normal pass drops", () => {
+  it("debug columns keep the hidden fields the normal pass drops", () => {
     const cols = resolveTableColumns(
       DEFAULT_VIEW_CONFIG,
       [row("r1", ["t.todo"])],

@@ -1820,8 +1820,10 @@ history handling, and a toast-model redesign.
 Two questions that look like settings are actually questions about one node, and
 both are answered from the node ⌘K menu rather than from a device switch.
 
-- **Debug fields are per node.** "Show me the `sys.*` and hidden props" is asked
-  of the node you are inspecting. `stores/debug-fields.store.ts` owns the set of
+- **Debug fields are per node.** "Show me the hidden props" (the fields whose
+  nodes say hidden, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
+  is asked of the node you are inspecting; a debug row is written wherever the
+  system-write rule lets a person write it. `stores/debug-fields.store.ts` owns the set of
   node ids that answer yes, persisted with the same `loadIdSet`/`saveIdSet`
   encoding the expanded rows use (key `kb-debug-fields`); it is the only reader
   and writer, so no component touches `localStorage`. The old device-wide
@@ -2047,8 +2049,10 @@ how the stored name resolves to the key among them.
   toolbar, the node menu and the `view-as` commands list the provided frame
   views by their pickers, and every one of them, the toolbar's settings
   included, writes the frame's view node (`planEditFrameView`), making it on
-  the first edit; none writes the frame's own props. A view node is edited
-  as a row with fields, like any node, where it is filed. A view node is
+  the first edit; none writes the frame's own props. A view node's
+  settings are fields its seed hides from field rows (DESIGN.md → Data
+  model → field visibility), since the toolbar draws and writes them; its
+  debug fields show them where it is filed. A view node is
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.

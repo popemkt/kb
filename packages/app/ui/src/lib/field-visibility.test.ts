@@ -1,6 +1,5 @@
 import {
-  isFieldNodeHidden,
-  isIntrinsicSystemPropKey,
+  isFieldHidden,
   resolveVisibleProps,
   wireToOutlineMap,
   type NodeMap,
@@ -9,6 +8,7 @@ import {
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { planSetFieldHidden } from "@/actions/plan";
 import { useGraphStore } from "@/stores/graph.store";
@@ -23,14 +23,50 @@ function mapFromFixture() {
 }
 
 describe("field visibility", () => {
-  it("hides sys.* prop keys and user-hidden fields by default", () => {
+  it("hides the fields whose nodes say hidden, a system field's as much as a person's", () => {
     const nodes = mapFromFixture();
     const node = present(nodes.get("n.root-a"), "n.root-a");
     const visible = resolveVisibleProps(node, schemaFor(nodes));
     expect(visible.map((p) => p.fieldId)).toEqual(["field.status"]);
-    expect(isIntrinsicSystemPropKey("sys.f.type")).toBe(true);
-    expect(isIntrinsicSystemPropKey("sys.f.color")).toBe(false);
-    expect(isFieldNodeHidden("field.noisy", schemaFor(nodes))).toBe(true);
+    expect(isFieldHidden("sys.f.type", schemaFor(nodes))).toBe(true);
+    expect(isFieldHidden("sys.f.color", schemaFor(nodes))).toBe(false);
+    expect(isFieldHidden("field.noisy", schemaFor(nodes))).toBe(true);
+  });
+
+  it("draws a system field its node does not hide, with no list in the page", () => {
+    // The gap this closes: an allow-list of five sys fields decided what a
+    // person saw, so a field's cardinality and inverse, which sys.field
+    // templates, were hidden on every field page.
+    const wire = [
+      ...fixtureGraph.nodes.filter((n) => n.id !== "sys.field"),
+      ...bundledSeed("2026-10-21T00:00:00.000Z").filter((n) =>
+        ["sys.field", "sys.f.cardinality", "sys.f.relation.inverse", "sys.f.query"].includes(n.id),
+      ),
+      {
+        id: "n.with-query",
+        text: "a query node",
+        children: [],
+        props: { "sys.f.query": [{ t: "str" as const, v: "[:find ?n :where [?n :node/id]]" }] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ];
+    const nodes = wireToOutlineMap(wire, new Set());
+    const field = resolveVisibleProps(
+      present(nodes.get("field.status"), "field.status"),
+      schemaFor(nodes),
+    );
+    expect(field.map((p) => p.fieldId)).toEqual(
+      expect.arrayContaining(["sys.f.cardinality", "sys.f.relation.inverse"]),
+    );
+    // A query node's query is its builder's to draw: its field node says hidden.
+    const query = present(nodes.get("n.with-query"), "n.with-query");
+    expect(resolveVisibleProps(query, schemaFor(nodes)).map((p) => p.fieldId)).toEqual([]);
+    expect(
+      resolveVisibleProps(query, schemaFor(nodes), { showDebugFields: true }).find(
+        (p) => p.fieldId === "sys.f.query",
+      )?.debug,
+    ).toBe(true);
   });
 
   it("reveals hidden + sys props in debug mode with debug flag", () => {

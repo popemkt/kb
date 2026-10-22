@@ -3,7 +3,7 @@
  *
  * The store test pins the set; this pins the thing the owner asked for — "debug
  * 1 node instead of turn on for everything". Two sibling rows, one flag: only
- * the flagged node reveals its `sys.*` rows.
+ * the flagged node reveals the rows its fields' nodes hide.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -11,6 +11,8 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { bundledSeed } from "@kb/bundled";
+import { present } from "@kb/model";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -22,13 +24,17 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
   return { props: {}, children: [], createdAt: ISO, updatedAt: ISO, ...partial };
 }
 
-/** Two ordinary rows, each with one visible field and one sys.* prop. */
+/** Two ordinary rows, each with one visible field and the type field, which its seeded node hides. */
 function graph(): WireNode[] {
   const props = {
     [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: "t.x" }],
     "f.status": [{ t: "str" as const, v: "doing" }],
   };
   return [
+    present(
+      bundledSeed(ISO).find((n) => n.id === SYSTEM_IDS.typeField),
+      SYSTEM_IDS.typeField,
+    ),
     wire({
       id: "f.status",
       text: "status",
