@@ -153,18 +153,28 @@ export function BoardCardsView({
         data-board-empty="true"
         data-frame-id={frameId}
       >
-        {/* GAP [[01M5CRYMAK7SZT2PPBBS849NNQ]] the hint names a setting the editor has no control for */}
-        <p>
-          Set <code className="text-foreground/60">view.group</code> to use the board.
-        </p>
-        <button
-          type="button"
-          className="mt-2 rounded-md bg-foreground/[0.06] px-2 py-1 text-meta font-medium text-foreground/70 hover:bg-foreground/[0.1]"
-          data-switch-to-cards="true"
-          onClick={() => void browserHost().writes.setFrameView(frameId, CollectionCardsView)}
-        >
-          Switch to cards
-        </button>
+        <p>A board has a column per value of one field. Choose which.</p>
+        <div className="mt-2 flex items-center gap-1.5">
+          <button
+            type="button"
+            className="rounded-md bg-foreground/[0.06] px-2 py-1 text-meta font-medium text-foreground/70 hover:bg-foreground/[0.1]"
+            data-choose-group="true"
+            onClick={(e) => {
+              e.stopPropagation();
+              browserHost().setViewSettingsFrame(frameId);
+            }}
+          >
+            Group by a field…
+          </button>
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 text-meta font-medium text-foreground/50 hover:bg-foreground/[0.06]"
+            data-switch-to-cards="true"
+            onClick={() => void browserHost().writes.setFrameView(frameId, CollectionCardsView)}
+          >
+            Switch to cards
+          </button>
+        </div>
       </div>
     );
   }

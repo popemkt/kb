@@ -119,7 +119,7 @@ describe("palette command routing (characterization)", () => {
       toasts: [],
       prefsOpen: false,
       globalPaletteOpen: false,
-      filterPopoverFrameId: null,
+      viewSettingsFrameId: null,
     });
     useDebugFieldsStore.setState({ ids: new Set() });
     usePrefsStore.setState({ theme: "light", width: "centered" });
@@ -297,13 +297,13 @@ describe("palette command routing (characterization)", () => {
   it("view-filter opens the popover on the target frame", async () => {
     useGraphStore.setState({ rootNodeId: "n.root-a" });
     await run(SYSTEM_IDS.cmdViewFilter);
-    expect(useUiStore.getState().filterPopoverFrameId).toBe("n.root-a");
+    expect(useUiStore.getState().viewSettingsFrameId).toBe("n.root-a");
   });
 
   it("view-filter with no frame toasts", async () => {
     await run(SYSTEM_IDS.cmdViewFilter);
     expect(toasts()).toEqual(["select a frame first"]);
-    expect(useUiStore.getState().filterPopoverFrameId).toBeNull();
+    expect(useUiStore.getState().viewSettingsFrameId).toBeNull();
   });
 
   it("an unknown id toasts rather than failing silently", async () => {

@@ -82,8 +82,8 @@ const host: BrowserHost = {
     ids: () => useDebugFieldsStore.getState().ids,
     toggle: (nodeId) => useDebugFieldsStore.getState().toggle(nodeId),
   },
-  filterFrame: () => useUiStore.getState().filterPopoverFrameId,
-  setFilterFrame: (frameId) => useUiStore.getState().setFilterPopoverFrameId(frameId),
+  viewSettingsFrame: () => useUiStore.getState().viewSettingsFrameId,
+  setViewSettingsFrame: (frameId) => useUiStore.getState().setViewSettingsFrameId(frameId),
   nodePaletteOpen: () => useUiStore.getState().nodePaletteOpen,
   nodeCommands: (target, palette) => listNodeCommands(pageCommandContext(target, palette)),
   activateNode: (nodeId, cursorPos, instanceKey) =>

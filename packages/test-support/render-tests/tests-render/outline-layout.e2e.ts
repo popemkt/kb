@@ -77,3 +77,50 @@ for (const width of [1280, 390]) {
     }
   });
 }
+
+const LONG_TITLE =
+  "A page title long enough that no page is wide enough to hold it on one line, ".repeat(2);
+
+/** The page heading's box against its text: overflow it hides, and how many lines it takes. */
+function titleBox(page: Page, selector: string) {
+  return page.locator(selector).evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
+    return {
+      hidden: el.scrollWidth - el.clientWidth,
+      lines: Math.round((box.height - 8) / lineHeight),
+      height: box.height,
+      text: el.textContent,
+    };
+  });
+}
+
+for (const width of [1280, 390]) {
+  test(`a long page title at ${width}px wraps whole, and keeps its shape while edited`, async ({
+    page,
+    request,
+  }) => {
+    const response = await request.post("/api/action", {
+      data: { id: "node.add", input: { id: "layout.long", text: LONG_TITLE.trim(), position: 0 } },
+    });
+    expect((await response.json()).status).toBe("succeeded");
+    await home(page, width);
+    await page
+      .locator('[data-node-id="layout.long"] button.bullet-container')
+      .first()
+      .click({ modifiers: ["ControlOrMeta"] });
+
+    const view = await titleBox(page, "[data-zoom-title]");
+    expect(view.text).toBe(LONG_TITLE.trim());
+    expect(view.hidden).toBe(0);
+    expect(view.lines).toBeGreaterThan(1);
+
+    await page.locator("[data-zoom-title]").click();
+    const edit = await titleBox(page, "[data-zoom-title-editor]");
+    expect(edit.hidden).toBe(0);
+    expect(edit.height).toBe(view.height);
+
+    const m = await measure(page);
+    expect(m?.overflow).toBe(0);
+  });
+}

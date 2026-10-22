@@ -65,12 +65,14 @@ describe("visible instances", () => {
     setOutlineHost(MAIN_OUTLINE_HOST, {
       root: null,
       chain: [slotLink(OutlineListView, graph.rootNodeId)],
+      open: null,
     });
     expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
     // The root frame's slot at the depth limit.
     setOutlineHost(MAIN_OUTLINE_HOST, {
       root: null,
       chain: Array.from({ length: MAX_VIEW_DEPTH }, (_, i) => `contract.view:${i}`),
+      open: null,
     });
     expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
   });
@@ -172,7 +174,7 @@ describe("outlines in several panes", () => {
   afterEach(() => setOutlineHost("pane:p2", null));
 
   it("walks an outline open in another pane under that pane's host, apart from the main one", () => {
-    setOutlineHost("pane:p2", { root: "n.root-a", chain: [] });
+    setOutlineHost("pane:p2", { root: "n.root-a", chain: [], open: null });
     const store = useOutlineStore.getState();
     const rows = store.getVisibleInstances("pane:p2");
     expect(rows.map((row) => row.instanceKey)).toContain("pane:p2/n.root-a/n.child-a1");
@@ -188,7 +190,7 @@ describe("outlines in several panes", () => {
   });
 
   it("activates a row in the outline being worked in when no instance is named", () => {
-    setOutlineHost("pane:p2", { root: "n.root-a", chain: [] });
+    setOutlineHost("pane:p2", { root: "n.root-a", chain: [], open: null });
     useOutlineStore.getState().selectNode("n.child-a1", "pane:p2/n.root-a/n.child-a1");
     useOutlineStore.getState().activateNode("n.child-a2");
     expect(useOutlineStore.getState().activeInstanceKey).toBe("pane:p2/n.root-a/n.child-a2");

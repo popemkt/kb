@@ -44,6 +44,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Effect v4 idiom | AGENTS.md#effect | repo | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | effect-tsgo's effectFnOpportunity, promoted to error in the src/ lane of tsconfig.iso.json. Today it is off, and switching it on does not help yet: in effect-tsgo 0.40.0 it reports nothing through tsc, not even at error on a probe function that only returns an Effect.gen, so it has no sites to count. The other non-negotiables are partly held by errors that already run (outdatedApi, missingReturnYieldStar), which does not make the rule checked. |
 | Kinds, roles and options | DESIGN.md#kinds-roles-and-options | repo | A supertag says what a node is; a behaviour is a field; an option set is children. Strip the behaviour and ask whether the node is still that thing. | prose | A lint rejecting a new supertag that templates no fields would close the option-set clause (@kb/model kinds.test.ts pins it for the seed); the strip test itself stays a reviewer judgement. |
 | Lab principles | DESIGN-UI.md#lab-principles | packages/extension/lab-ui packages/kit lab scene graph | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one scene kit (@kb/scene and @kb/scene-gpu), which the 3D graph stands on too; a study's info card cites the principles by id and never restates them. | prose | The measured bounds are their own rule (Lab principles: measured bounds). What is left is judgement: a render-lane frame-budget and reduced-motion-still check would close P3 and M7; composition and light stay a review verdict. |
+| Navigation is in the URL | DESIGN-UI.md#decisions-from-qa | packages/app/ui packages/extension | Going somewhere moves the focused pane through the router, which pushes a history entry; minor state is replaced. Stated in DESIGN-UI.md → Decisions → Navigation. | prose | a harness check that no UI code moves the page's place (the zoom, a scope) outside the router; today navigation-url.e2e.ts and graph.store.test.ts prove the zoom and the scope |
 | One contract, every implementation | AGENTS.md#one-contract-every-implementation | repo | A behaviour one implementation of a port guarantees is a guarantee of the port: stated once in the spec and proved by one contract suite that runs over every implementation. | prose | A harness check that every port with more than one implementation has a contract suite run over its whole registry. Not built yet, because half the ports are not discoverable: the store and tail ports are nominal (class … implements), but the scene handle, the graph renderers and the design systems are object-literal registries, so a check over implements clauses alone would read as covering the rule while missing them. The first step is one registry form every port declares. Found while looking: storeContract and logContract run over JsonlStore and SqliteStore (and their tails), but not over the UI's BrowserStore or tx-log's MemoryTxTail. |
 | Property selection | DESIGN.md#testing-doctrine | tests | A property states a falsifiable domain claim and is exercised from the rejecting side. TAUTOLOGY, STRUCTURAL and quantifier theatre are review verdicts cited by name. | prose | — |
 | Spec-first changes | DESIGN.md#spec-first-changes | repo | The design doc is edited before the code it describes, in the same change and earlier in commit order. If the section cannot be written, the code cannot be written. | prose | — |
@@ -375,15 +376,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
-### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
-
-- **expected** — Every field a person may set is drawn and edited in the editor like any field, its visibility derived from the field node (its hidden flag, the system-write rule), never from a list in the page.
-- **current** — SCHEMA_SURFACE_FIELDS (field-visibility.ts) allow-lists five sys fields (color, hidden, fieldType, targetTag, targetQuery); a query node edits its own sys.f.query and sys.f.query.limit in its builder (query-builder/query-panel.tsx), and every other sys.* prop is hidden, with Debug: show all fields drawing them read-only (fields-section.tsx).
-- **impact** — A field's cardinality and relation inverse, an agent provider's adapter/endpoint/model, a saved layout's spec and a docs view's template and output can be set only through node.update from the CLI or MCP.
-- **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYK42Y4G74JD62AD00BZS`
-
 ### GAP: a tag's template fields cannot be reordered
 
 - **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
@@ -424,15 +416,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Claude Code and other hosts without ui:// see a flat list where the person sees a board, table or graph
 - **closes** — each view key carries a markdown projection beside its params
 - **node** — `01M40X30G92A0E57C02JHQ9A1G`
-
-### GAP: a view's group, display and page size have page writes no gesture calls
-
-- **expected** — Every view setting the page can write has the gesture that writes it, or the write is deleted.
-- **current** — setViewGroup, setViewDisplay and setViewPagesize are declared on PageWrites and implemented in mutations.ts; only tests call them, and the board says 'Set view.group to use the board.' with no way to do so.
-- **impact** — A board cannot be grouped from the editor, and three declared writes read as covered while nothing reaches them: a dead seam.
-- **closes** — A group/display/page-size control in the view toolbar that calls them, or their removal until one exists.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYMAK7SZT2PPBBS849NNQ`
 
 ### GAP: a view's narrowing is evaluated in JS by the condition evaluator, not ANDed onto the frame's query at compile
 
@@ -714,7 +697,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: icon-only buttons are hand-rolled outside IconButton
 
 - **expected** — Every icon-only control draws the shared IconButton.
-- **current** — About 12 sites build their own box (App header, sidebar-toggle, lab-page, graph-page, graph/canvas toolbars, view-toolbar, view-filter-popover, ontology-page chip x, canvas-ports), mostly h-6/h-7 rounded-md against the primitive's rounded-sm.
+- **current** — About 12 sites build their own box (App header, sidebar-toggle, lab-page, graph-page, graph/canvas toolbars, view-toolbar, view-settings-popover, ontology-page chip x, canvas-ports), mostly h-6/h-7 rounded-md against the primitive's rounded-sm.
 - **impact** — Size, hover and focus ring drift per site - the bug the field row's x/+ just had.
 - **closes** — An IconButton option for the header radius (or one radius), migrate each site, then a lint rule against hand-built icon-only buttons.
 - **rule** — Abstraction before addition (Rule 1)
@@ -859,8 +842,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: outline zoom is one per tab, not one per pane
 
-- **expected** — each pane's outline has its own zoom root
-- **current** — the outline at / reads the store's single zoom, so two panes at / show the same node
+- **expected** — each pane's outline has its own zoom root, read from the pane's location; the store's rootNodeId is derived from it, not stored beside it
+- **current** — the page has one zoom, which follows the focused pane's location (/outline/<id>): every pane at an outline location shows (and is titled by) that zoom, and a pane's own location shows its zoom only once the pane is focused
 - **impact** — two outline panes cannot be zoomed into different nodes at the root route
 - **closes** — move the zoom into the pane's location
 - **node** — `01M411FP5AGQ4VB5SGJWCJAN66`
@@ -1451,6 +1434,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
 
+### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
+
+- **expected** — Every field a person may set is drawn and edited in the editor like any field, its visibility derived from the field node (its hidden flag, the system-write rule), never from a list in the page.
+- **current** — SCHEMA_SURFACE_FIELDS (field-visibility.ts) allow-lists five sys fields (color, hidden, fieldType, targetTag, targetQuery); a query node edits its own sys.f.query and sys.f.query.limit in its builder (query-builder/query-panel.tsx), and every other sys.* prop is hidden, with Debug: show all fields drawing them read-only (fields-section.tsx).
+- **impact** — A field's cardinality and relation inverse, an agent provider's adapter/endpoint/model, a saved layout's spec and a docs view's template and output can be set only through node.update from the CLI or MCP.
+- **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYK42Y4G74JD62AD00BZS`
+
 ### GAP: a trusted identity header is believed from any process that reaches kb ui's port, not only from the proxy
 
 - **expected** — kb ui believes the identity header only on requests that came through the trusted proxy: it listens where only the proxy can connect (a unix socket owned by the service, which tailscale serve can target), or it authenticates the proxy itself
@@ -1466,6 +1458,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A green/red signal that depends on what else the machine is doing; agents learn to rerun instead of trusting the gate.
 - **closes** — Move the timing to an observation (print a table) or a calibrated ratio; keep the algorithmic assertion.
 - **node** — `01M1R19NXBMTVQG6AH0S7VTC7D`
+
+### GAP: a view's group, display and page size have page writes no gesture calls
+
+- **expected** — Every view setting the page can write has the gesture that writes it, or the write is deleted.
+- **current** — setViewGroup, setViewDisplay and setViewPagesize are declared on PageWrites and implemented in mutations.ts; only tests call them, and the board says 'Set view.group to use the board.' with no way to do so.
+- **impact** — A board cannot be grouped from the editor, and three declared writes read as covered while nothing reaches them: a dead seam.
+- **closes** — A group/display/page-size control in the view toolbar that calls them, or their removal until one exists.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYMAK7SZT2PPBBS849NNQ`
 
 ### GAP: action registry does not validate output schemas
 

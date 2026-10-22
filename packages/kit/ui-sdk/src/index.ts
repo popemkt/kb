@@ -17,7 +17,7 @@ export {
   useAppearance,
   useDebugFieldIds,
   useDebugFields,
-  useFilterFrame,
+  useViewSettingsFrame,
   useFollow,
   useFrameView,
   useFrameViewNode,
@@ -208,11 +208,7 @@ export {
   resolveFieldType,
   resolveFieldTypeById,
 } from "./lib/field-type";
-export {
-  isFieldNodeHidden,
-  isIntrinsicSystemPropKey,
-  resolveVisibleProps,
-} from "./lib/field-visibility";
+export { isFieldHidden, resolveVisibleProps } from "./lib/field-visibility";
 export {
   type NodeLinkEdge,
   type NodeLinkGraph,
@@ -462,6 +458,9 @@ export {
   navigate,
   nodePath,
   ontologyPath,
+  outlineLocationOf,
+  type OutlineLocation,
+  outlinePath,
   replacePath,
   subscribePath,
 } from "./lib/router";

@@ -394,7 +394,7 @@ interface NodeFieldProps {
   depth?: number;
   /** A table cell: the column header is the label, so the row draws none. */
   valueOnly?: boolean;
-  /** A `sys.*` prop shown because the node asked for its debug fields. */
+  /** A field its node hides, shown because the node asked for its debug fields. */
   debug?: boolean;
   /** The row instance the field is drawn under (the keyboard's way back). */
   instanceKey?: string;
@@ -439,8 +439,7 @@ export function NodeField({
         fieldType={fieldType}
         values={values}
         context={context}
-        // GAP [[01M5CRYK42Y4G74JD62AD00BZS]] a debug row is read-only even where the system-write rule allows the write
-        readOnly={!isWritableField(nodeId, fieldId, context.schema.get(fieldId)) || debug}
+        readOnly={!isWritableField(nodeId, fieldId, context.schema.get(fieldId))}
         onFollow={follow}
         instanceKey={instanceKey}
       />

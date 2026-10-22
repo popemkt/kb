@@ -16,6 +16,7 @@ subscribe to live queries later. MCP Apps generative UI is phase 2.
 | Edit scope v1   | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | MCP Apps        | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Editing surface | **The editor is the main human editing surface.** The outline (`@kb/outline`) and its UI (`@kb/outline-ui`) are where a person creates and edits every core concept: nodes, tags, fields and their types and options, references, queries, views and their settings, layouts, and the switches and settings of extension families. A concept that can be written only through the CLI or MCP, or only as a raw `sys.*` value, is a gap, recorded as a `#gap` node (the editor audit: `docs/research/2026-10-20-editor-audit.md`). The CLI and MCP are equal surfaces for agents: they reach the same actions, and neither is the editor's fallback.                                      |
+| Navigation | **Every navigation is in the URL.** Going somewhere (opening a node, zooming or unzooming the outline, entering or leaving an ontology scope, switching a page, a perspective, a canvas or a lab scene) goes through the router: the focused pane moves by `navigate`, which pushes a history entry, so back and forward walk it and a reload lands where the page was. No gesture moves the place the focused pane shows by writing a store alone; the page's zoom follows the URL (Panes and layouts: the zoom is a location). Minor state a page chooses to reflect is replaced, not pushed (`replacePath`): which pane is focused, including a pane just opened beside (its predecessor stays on screen), and a location the page cannot show. The URL names the focused pane only: a pane that is not focused moves in the layout, without a history entry, and a link restores the focused pane, not the arrangement around it. Not places: selection, a reveal within the zoom, a popover, an expanded row, entering a canvas group, presenting a canvas, scroll. |
 
 ## Why bun _and_ vite (your question)
 
@@ -785,8 +786,10 @@ The reading-mode consumption of the resolver documented in
 [DESIGN.md → Ontologies](./DESIGN.md#ontologies--a-lens-over-the-graph).
 
 **Scope lives in the URL**, so it is linkable, survives reload, and the back
-button exits it: `/o` (list), `/o/<id>` (members page), `/o/<id>/outline`,
-`/o/<id>/graph` (`lib/router.ts`, `ontologyPath()`).
+button exits it: `/o` (list), `/o/<id>` (members page), `/o/<id>/outline`
+(zoomed: `/o/<id>/outline/<zoom>`), `/o/<id>/graph` (`lib/router.ts`,
+`ontologyPath()`, `outlinePath()`). Leaving the scope (`leaveScope`) is a
+navigation to the outline where the page stood before it entered.
 
 **Scope is a projection, not a sandbox.** The graph store holds `ontologyId`,
 `ontologyMembers`, `ontologyWarnings`, `preScopeRootId` and `setOntologyScope`,
@@ -1831,8 +1834,7 @@ The rules that hold everywhere, so no surface re-invents them:
   an accessible label and current-page marker, and tag chips expose real
   navigate / remove / configure buttons instead of click-only regions.
 
-Deferred from i5 and still open: view-settings
-and Board setup flows, the Add-field flow, palette ranking/highlighting, URL and
+Deferred from i5 and still open: the Add-field flow, palette ranking/highlighting, URL and
 history handling, and a toast-model redesign.
 
 ### Node-scoped commands: debug fields, pin
@@ -1840,8 +1842,10 @@ history handling, and a toast-model redesign.
 Two questions that look like settings are actually questions about one node, and
 both are answered from the node ⌘K menu rather than from a device switch.
 
-- **Debug fields are per node.** "Show me the `sys.*` and hidden props" is asked
-  of the node you are inspecting. `stores/debug-fields.store.ts` owns the set of
+- **Debug fields are per node.** "Show me the hidden props" (the fields whose
+  nodes say hidden, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
+  is asked of the node you are inspecting; a debug row is written wherever the
+  system-write rule lets a person write it. `stores/debug-fields.store.ts` owns the set of
   node ids that answer yes, persisted with the same `loadIdSet`/`saveIdSet`
   encoding the expanded rows use (key `kb-debug-fields`); it is the only reader
   and writer, so no component touches `localStorage`. The old device-wide
@@ -2067,8 +2071,20 @@ how the stored name resolves to the key among them.
   toolbar, the node menu and the `view-as` commands list the provided frame
   views by their pickers, and every one of them, the toolbar's settings
   included, writes the frame's view node (`planEditFrameView`), making it on
-  the first edit; none writes the frame's own props. A view node is edited
-  as a row with fields, like any node, where it is filed. A view node is
+  the first edit; none writes the frame's own props. A view node's
+  settings are fields its seed hides from field rows (DESIGN.md → Data
+  model → field visibility), since the toolbar draws and writes them; its
+  debug fields show them where it is filed. The toolbar's gear (and ⌘K
+  "Filter…") opens the frame's one view settings popover
+  (`ViewSettingsPopoverHost`): above the filters every view reads, a section
+  for each setting the view's params declare, group by (`groupFieldId`),
+  fields (`display`) and page size (`pagesize`), so which controls a view
+  offers is its declaration, as what `frameRows` does is. Each is drawn
+  with the query builder's slot (`ChoiceSlot` over the one node picker):
+  a field is picked from the rows' fields, those their tags template first;
+  the fields shown are chips, removed one by one and added from the same
+  candidates, and "tags' fields" names none again. A board with no group
+  field says so and opens the popover. A view node is
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
@@ -2176,10 +2192,10 @@ A page overlay is chrome too, with no toggle: something a plugin mounts once
 for the whole page, beside every pane, such as a popover host that portals to
 the document. A plugin contributes it to `OverlayPoint` (`ui.overlays`) as
 `{order, Component}`, and the shell (`src/overlays.tsx`) mounts every one, in
-`order`. The first is the outline's frame filter popover host, which the
-"Filter…" command opens on a frame. The outline is a required family, so the
-page loads its browser half on every convergence, and its host is mounted
-on every page, as it was when the shell mounted it.
+`order`. The first is the outline's frame view settings popover host, which
+the toolbar's gear and the "Filter…" command open on a frame. The outline is a
+required family, so the page loads its browser half on every convergence, and
+its host is mounted on every page, as it was when the shell mounted it.
 
 The first dock is the agent's chat (`@kb/agent-ui`), the optional `agent`
 plugin. It draws the conversation the agent channel reports
@@ -2256,11 +2272,23 @@ until "Save workspace".
   lists every route's `entry`. Choosing one moves the pane, and nothing is
   written.
 - **Opening a node is the pane's.** `open` (a bullet's follow, a crumb, a
-  reference) zooms the outline when the pane shows the zoomed outline at
-  `/`. When the pane shows an outline rooted at a node (`/node/<id>`), it
-  moves that pane to the node instead (`OpenNodeContext`, `useOpenNode`).
-  The zoom is the store's, one per tab, so two panes at `/` show the same
-  node (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
+  reference) zooms the outline when the pane shows the page's outline. When
+  the pane shows an outline rooted at a node (`/node/<id>`), it moves that
+  pane to the node instead (`OpenNodeContext`, `useOpenNode`).
+- **The zoom is a location.** The page's outline at its home is `/`, and
+  zoomed to a node it is `/outline/<id>`; in an ontology's scope they are
+  `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,
+  `outlineLocationOf`). A zoom (`zoomTo`, `zoomHome`, and every gesture that
+  ends in one) pushes that location, and the page stands where the URL names
+  (`followOutlineLocation`), so back and forward walk the zooms and a reload
+  or a link lands at one. A location whose node the page cannot show is
+  replaced by the scope's home, and reaching a node outside the scope pushes
+  the unscoped location it lands at. A zoom key (⌘., ⌘↑) opens as its row's
+  outline opens a node (`openFromRow`): a rooted outline moves its pane. A
+  zoom in a dashboard's outline moves the pane that holds the dashboard, as
+  every open from a dashboard does (`navigatePane`). The page still has one
+  zoom, so every pane at an outline location shows, and is titled by, the
+  focused pane's (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
 - **Each outline on screen is its own host.** An outline keys its rows
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,
@@ -3205,6 +3233,19 @@ with the element (`leading-*`, or the `.kb-text` role's `--kb-text-leading`).
   `cn("text-label", "text-foreground/50")` would drop the size.
   `lib/tokens.test.ts` fails if `TYPE_STEPS`, the bridge and the layer-1
   values ever list different names.
+
+### Long text
+
+A node's text wraps, all of it, wherever it is the content: a row, and the
+zoomed page's title, in view and in edit alike (`.kb-text-row`, pre-wrap).
+A title is never cut short on the page it heads: the page is where a person
+reads it whole, as Notion, Logseq, Workflowy and Tana all wrap a page
+heading. Text clamps to one line with an ellipsis (`truncate`, or
+`.kb-text-clamp`) only where room is the constraint and the text is a
+pointer to somewhere else: breadcrumbs, sidebar entries, chips, picker
+rows. A clamped label carries its full text in a `title` tooltip.
+`outline-layout.e2e.ts` measures the title in a real engine at a desktop
+and a phone width.
 
 ### Elevation
 

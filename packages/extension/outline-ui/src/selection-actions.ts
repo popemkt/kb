@@ -22,6 +22,7 @@ import {
 import type { SelectionKeyAction } from "./selection-keymap";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { enterFields } from "./value-slot-nav";
+import { openFromRow } from "./outline-hosts";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 
@@ -80,10 +81,10 @@ function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
   void browserHost().writes.updateNodeContent(textNodeId, nextText);
 }
 
-/** Open the page of the node the row shows — a reference's original. */
-function zoom({ nodeId }: ActionOf<"zoom">): void {
+/** Open the page of the node the row shows — a reference's original — as its outline opens one. */
+function zoom({ nodeId, instanceKey }: ActionOf<"zoom">): void {
   const node = outlineNodes().get(nodeId);
-  browserHost().zoomTo(node ? shownNodeId(node) : nodeId);
+  openFromRow(instanceKey, node ? shownNodeId(node) : nodeId);
 }
 
 /** Delete, then take the focus to the previous visible row, else the next. */

@@ -7,7 +7,6 @@ import {
   browserHost,
   listPinnedNavItems,
   type MatchedRoute,
-  navigate,
   nodePath,
   OpenNodeContext,
   paramsOf,
@@ -22,9 +21,10 @@ import { useOutlineNodes } from "./outline.store";
 
 /**
  * The outline: at its `root` when it has one (a node opened in a pane), else
- * at the outline's zoom. A rooted outline opens a node by moving its pane to
- * it; the zoomed one zooms. The zoom is the store's, one per tab, so two panes
- * at `/` show the same node. GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]
+ * at the page's zoom. A rooted outline opens a node by moving its pane to it;
+ * the zoomed one zooms, which pushes the zoom's location (`/outline/<id>`).
+ * The page has one zoom, which follows the focused pane's location, so two
+ * panes at outline locations show the same node. GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]
  */
 export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
   const zoomRoot = usePageGraph((s) => s.rootNodeId);
@@ -55,10 +55,7 @@ export function HomeSection({ route }: { readonly route: MatchedRoute | null }) 
         label="Home"
         icon={<HouseIcon size={14} />}
         active={paramsOf(route, OutlineView) !== null && rootNodeId === homeRootId}
-        onClick={() => {
-          navigate("/");
-          zoomHome();
-        }}
+        onClick={zoomHome}
       />
     </SidebarSection>
   );
@@ -81,10 +78,7 @@ export function PinnedSection({ route }: { readonly route: MatchedRoute | null }
             label={f.label}
             icon={<PushPinIcon size={14} />}
             active={onOutline && rootNodeId === f.id}
-            onClick={() => {
-              navigate("/");
-              zoomTo(f.id);
-            }}
+            onClick={() => zoomTo(f.id)}
           />
         ))
       )}

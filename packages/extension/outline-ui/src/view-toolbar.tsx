@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { GearSixIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { queryTextOf } from "@kb/model";
-import { browserHost, cn, useFilterFrame, useFrameViews } from "@kb/ui-sdk";
+import { browserHost, cn, useViewSettingsFrame, useFrameViews } from "@kb/ui-sdk";
 import { type FrameViewKey, localIdOf } from "@kb/views";
 import { useOutlineNode } from "./outline.store";
 import { queryBuilderId, setQueryBuilderOpen, useQueryBuilderOpen } from "./query-builder/open";
@@ -12,8 +12,8 @@ interface ViewToolbarProps {
   view: FrameViewKey | null;
   className?: string;
   /**
-   * Zoomed-header mode: collapse modes and filter behind a single gear until
-   * expanded on demand (or while this frame's filter popover is open). A
+   * Zoomed-header mode: collapse modes and settings behind a single gear until
+   * expanded on demand (or while this frame's settings popover is open). A
    * query's toolbar is never tucked, so it holds no Query button here.
    */
   tucked?: boolean;
@@ -52,12 +52,12 @@ function QueryToggle({ frameId, open }: { frameId: string; open: boolean }) {
  */
 export function ViewToolbar({ frameId, view, className, tucked = false }: ViewToolbarProps) {
   const options = useFrameViews();
-  const filterOpen = useFilterFrame() === frameId;
-  const setFilterFrame = browserHost().setFilterFrame;
+  const settingsOpen = useViewSettingsFrame() === frameId;
+  const setViewSettingsFrame = browserHost().setViewSettingsFrame;
   const query = queryTextOf(useOutlineNode(frameId));
   const queryOpen = useQueryBuilderOpen(frameId, query);
   const [expanded, setExpanded] = useState(false);
-  const showChrome = !tucked || expanded || filterOpen;
+  const showChrome = !tucked || expanded || settingsOpen;
 
   const handleSelect = useCallback(
     (next: FrameViewKey, e: React.MouseEvent) => {
@@ -124,18 +124,18 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
         type="button"
         className={cn(
           "flex h-6 w-6 items-center justify-center rounded-xs text-foreground/40 hover:bg-foreground/[0.04] hover:text-foreground/70",
-          filterOpen && "bg-background text-foreground shadow-edge",
+          settingsOpen && "bg-background text-foreground shadow-edge",
         )}
-        data-filter-button="true"
-        aria-expanded={filterOpen}
-        title="Filters"
-        aria-label="Filters"
+        data-view-settings-button="true"
+        aria-expanded={settingsOpen}
+        title="View settings"
+        aria-label="View settings"
         onClick={(e) => {
           e.stopPropagation();
-          setFilterFrame(filterOpen ? null : frameId);
+          setViewSettingsFrame(settingsOpen ? null : frameId);
         }}
       >
-        <GearSixIcon size={12} weight={filterOpen ? "fill" : "regular"} />
+        <GearSixIcon size={12} weight={settingsOpen ? "fill" : "regular"} />
       </button>
       {tucked ? (
         <button
@@ -146,7 +146,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           onClick={(e) => {
             e.stopPropagation();
             setExpanded(false);
-            if (filterOpen) setFilterFrame(null);
+            if (settingsOpen) setViewSettingsFrame(null);
           }}
         >
           ×

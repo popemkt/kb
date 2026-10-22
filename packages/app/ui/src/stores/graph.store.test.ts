@@ -12,6 +12,7 @@ import {
   EMPTY_PROJECTION,
   type GraphChange,
   inScope,
+  outlineLocationOf,
   type PageGraphState,
   type PageProjection,
   scopedWireOf,
@@ -20,10 +21,12 @@ import {
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import {
   type GraphStateData,
   providePageProjection,
+  startOutlineLocation,
   useGraphStore,
   withdrawPageProjection,
 } from "@/stores/graph.store";
@@ -87,6 +90,84 @@ describe("the zoom", () => {
     graph().zoomTo("n.root-c");
     graph().applyTx([], ["n.root-c"], { rev: 2 });
     expect(graph().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+  });
+});
+
+const path = () => window.location.pathname;
+
+/** Move the address bar as back and forward do: the location changes, then `popstate`. */
+function travel(to: string): void {
+  window.history.replaceState({}, "", to);
+  window.dispatchEvent(new window.PopStateEvent("popstate"));
+}
+
+describe("the outline location", () => {
+  let dom: InstalledDom;
+  let stop: () => void;
+
+  beforeEach(() => {
+    dom = installDomGlobals();
+    stop = startOutlineLocation();
+  });
+  afterEach(() => {
+    stop();
+    dom.restore();
+  });
+
+  it("a zoom pushes its location, and going home pushes /", () => {
+    seed();
+    const before = window.history.length;
+    graph().zoomTo("n.root-a");
+    expect(path()).toBe("/outline/n.root-a");
+    graph().zoomHome();
+    expect(path()).toBe("/");
+    expect(window.history.length).toBe(before + 2);
+  });
+
+  it("the page stands where the URL names, on back and forward", () => {
+    seed();
+    travel("/outline/n.root-a");
+    expect(graph().rootNodeId).toBe("n.root-a");
+    travel("/");
+    expect(graph().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+  });
+
+  it("a zoomed node deleted under the page puts the URL at home", () => {
+    seed();
+    graph().zoomTo("n.root-c");
+    graph().applyTx([], ["n.root-c"], { rev: 2 });
+    expect(graph().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    expect(path()).toBe("/");
+  });
+
+  it("a zoom out of the scope is one step, to the unscoped outline", () => {
+    hydrate();
+    travel("/o/o.1/outline");
+    graph().setOntologyScope("o.1");
+    const before = window.history.length;
+    graph().zoomTo("n.other");
+    expect(path()).toBe("/outline/n.other");
+    expect(graph().ontologyId).toBeNull();
+    expect(graph().rootNodeId).toBe("n.other");
+    expect(window.history.length).toBe(before + 1);
+  });
+
+  it("reaching a node outside the scope leaves it in the URL too", () => {
+    hydrate();
+    travel("/o/o.1/outline");
+    graph().setOntologyScope("o.1");
+    expect(graph().reach("n.other")).toBe(true);
+    expect(graph().ontologyId).toBeNull();
+    expect(outlineLocationOf(path())?.ontology).toBeNull();
+  });
+
+  it("leaving the scope returns to the zoom the page entered it from", () => {
+    hydrate();
+    graph().zoomTo("n.other");
+    travel("/o/o.1/outline");
+    graph().setOntologyScope("o.1");
+    graph().leaveScope();
+    expect(path()).toBe("/outline/n.other");
   });
 });
 

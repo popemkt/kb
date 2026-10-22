@@ -3,7 +3,6 @@ import { NO_TRACE } from "./graph-trace";
 import { Result } from "effect";
 import {
   browserHost,
-  navigate,
   useAppearance,
   useAnswered,
   useWireNodes,
@@ -55,13 +54,7 @@ export function NeighbourhoodGraph({ params }: ViewProps<NeighbourhoodParams>) {
     (value: GraphSelection | null) => setSelectedId(value?.nodeId ?? null),
     [],
   );
-  const onNodeOpen = useCallback(
-    (id: string) => {
-      navigate("/");
-      zoomTo(id);
-    },
-    [zoomTo],
-  );
+  const onNodeOpen = useCallback((id: string) => zoomTo(id), [zoomTo]);
   const layoutKey = `neighbourhood:${root}:${hops}`;
   const frame = useMemo(
     (): GraphFrame => ({

@@ -6,7 +6,7 @@
  * to open: the ontology picker and the outline's frame filter.
  */
 import { act } from "react";
-import { ViewFilterPopoverHost } from "@kb/outline-ui";
+import { ViewSettingsPopoverHost } from "@kb/outline-ui";
 import { OntologyPicker } from "@kb/ui-sdk";
 import { dismissContract, renderPopover } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -65,7 +65,7 @@ dismissContract({
       find('[role="listbox"][aria-label="Ontologies"]'),
       trigger('button[aria-label="Ontology"]'),
     ),
-  "packages/extension/outline-ui/src/view-filter-popover.tsx": async (host) => {
+  "packages/extension/outline-ui/src/view-settings-popover.tsx": async (host) => {
     useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
     const frame = fixtureGraph.nodes[0]?.id ?? "";
     // The filter opens beside the frame it filters: here, the frame's row.
@@ -75,16 +75,16 @@ dismissContract({
     document.body.append(row);
     const shown = renderPopover(
       host,
-      <ViewFilterPopoverHost />,
-      find('[data-testid="view-filter-popover"]'),
+      <ViewSettingsPopoverHost />,
+      find('[data-testid="view-settings-popover"]'),
       // Each frame's filter button opens its own frame's filter; the suite opens it by the store.
       null,
     );
-    await act(async () => useUiStore.getState().setFilterPopoverFrameId(frame));
+    await act(async () => useUiStore.getState().setViewSettingsFrameId(frame));
     return {
       ...shown,
       unmount: () => {
-        useUiStore.getState().setFilterPopoverFrameId(null);
+        useUiStore.getState().setViewSettingsFrameId(null);
         shown.unmount();
       },
     };

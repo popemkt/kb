@@ -37,7 +37,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
     return (
       <h1
         title={`${text || "Untitled"} (system, read-only)`}
-        className={cn(TITLE_CLASS, "truncate text-foreground/60")}
+        className={cn(TITLE_CLASS, "text-foreground/60")}
         data-zoom-title-readonly="true"
       >
         {text || "Untitled"}
@@ -72,7 +72,6 @@ function EditableTitle({ node }: { node: OutlineNode }) {
     <div
       role="button"
       tabIndex={0}
-      title={text || "Untitled"}
       onClick={(e) => {
         e.stopPropagation();
         setEditing(true);
@@ -85,7 +84,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
       }}
       className={cn(
         TITLE_CLASS,
-        "cursor-text truncate text-foreground/90",
+        "cursor-text text-foreground/90",
         "rounded-sm transition-colors duration-100 hover:text-foreground",
         !text && 'empty:before:content-["Untitled"]',
       )}
@@ -96,8 +95,15 @@ function EditableTitle({ node }: { node: OutlineNode }) {
   );
 }
 
+/**
+ * The page heading wraps, every line of it, in view and in edit alike: it is
+ * row text (`kb-text-row`, pre-wrap) at the title step. Truncation belongs to
+ * the places that are short of room — breadcrumbs, the sidebar — which keep
+ * the full text in a tooltip. One line is the height of the side controls'
+ * box (`h-9`), so they sit level with the first line however many follow.
+ */
 const TITLE_CLASS = cn(
-  "flex min-h-9 min-w-0 flex-1 items-center px-1",
+  "kb-text-row min-h-9 min-w-0 flex-1 px-1 py-1",
   "text-title font-semibold leading-[1.4]",
 );
 
@@ -127,11 +133,11 @@ export function ZoomedRootHeader({
       <div className="relative pl-7 pt-1">
         <PageBackdrop color={washColor ?? "var(--primary)"} node={node} />
 
-        <div className="group/header relative flex min-h-9 items-center justify-between gap-2">
+        <div className="group/header relative flex min-h-9 items-start justify-between gap-2">
           <EditableTitle node={node} />
           {isSysPrefixed(node.id) && (
             <span
-              className="shrink-0 text-foreground/30"
+              className="flex h-9 shrink-0 items-center text-foreground/30"
               title="System node — read-only"
               data-sys-lock="true"
             >
@@ -145,7 +151,7 @@ export function ZoomedRootHeader({
               toolbar outright. */}
           <span
             className={cn(
-              "shrink-0 transition-opacity duration-100",
+              "flex h-9 shrink-0 items-center transition-opacity duration-100",
               isList &&
                 "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100 has-[[aria-expanded=true]]:opacity-100",
               tucked && "has-[[data-view-toolbar]]:opacity-100",

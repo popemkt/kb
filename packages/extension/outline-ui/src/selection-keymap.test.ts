@@ -121,6 +121,7 @@ describe("mapSelectionKey", () => {
     expect(mapSelectionKey(key(".", { metaKey: true }), ctx("b"))).toEqual({
       type: "zoom",
       nodeId: "b",
+      instanceKey: "tree/b",
     });
   });
 
@@ -212,13 +213,23 @@ describe("mapSelectionKey chord table (characterization)", () => {
       { type: "moveDown", nodeId: "b" },
     ],
     // 3. Zoom ignores Shift, so it also claims Meta+Shift+".".
-    ["Meta+.", key(".", { metaKey: true }), "b", { type: "zoom", nodeId: "b" }],
-    ["Ctrl+.", key(".", { ctrlKey: true }), "b", { type: "zoom", nodeId: "b" }],
+    [
+      "Meta+.",
+      key(".", { metaKey: true }),
+      "b",
+      { type: "zoom", nodeId: "b", instanceKey: "tree/b" },
+    ],
+    [
+      "Ctrl+.",
+      key(".", { ctrlKey: true }),
+      "b",
+      { type: "zoom", nodeId: "b", instanceKey: "tree/b" },
+    ],
     [
       "Meta+Shift+.",
       key(".", { metaKey: true, shiftKey: true }),
       "b",
-      { type: "zoom", nodeId: "b" },
+      { type: "zoom", nodeId: "b", instanceKey: "tree/b" },
     ],
     // 4. Every other modified chord is unhandled — the cutoff, not a default.
     ["Meta+k", key("k", { metaKey: true }), "b", null],

@@ -80,7 +80,7 @@ export type EditingIntent =
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
   | { type: "toggleCollapse"; nodeId: string }
-  | { type: "zoomToParent"; parentId: string }
+  | { type: "zoomToParent"; parentId: string; instanceKey: string }
   | {
       type: "moveCaretToRow";
       nodeId: string;
@@ -185,7 +185,7 @@ function revealIntent(ctx: EditingKeyContext, key: string): EditingIntent {
     }
     return ctx.parentId === null
       ? { type: "claim" }
-      : { type: "zoomToParent", parentId: ctx.parentId };
+      : { type: "zoomToParent", parentId: ctx.parentId, instanceKey: ctx.instanceKey };
   }
   if (ctx.collapsed && (ctx.childCount > 0 || ctx.tagCount > 0)) {
     return { type: "toggleCollapse", nodeId: ctx.nodeId };

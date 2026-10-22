@@ -208,7 +208,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
         toast("Not inside an ontology");
         return;
       }
-      navigate("/");
+      ctx.outline.leaveScope();
     },
   },
   { id: SYSTEM_IDS.cmdPreferences, scope: "global", run: (ctx) => ctx.ui.setPrefsOpen(true) },
@@ -249,14 +249,14 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     },
   },
   {
-    // Portal host (the outline's ViewFilterPopoverHost overlay) anchors to
+    // Portal host (the outline's ViewSettingsPopoverHost overlay) anchors to
     // toolbar/frame row; if no DOM host exists it toasts and clears — never a
     // silent no-op.
     id: SYSTEM_IDS.cmdViewFilter,
     scope: "global",
     run: (ctx) =>
       withFrame(ctx, (frameId) => {
-        ctx.ui.setFilterPopoverFrameId(frameId);
+        ctx.ui.setViewSettingsFrameId(frameId);
       }),
   },
   {
@@ -449,7 +449,7 @@ const NODE_COMMANDS_AFTER_VIEWS: readonly Command[] = [
     id: "view-filter",
     scope: "node",
     chrome: () => ({ label: "Filter…", icon: <MagnifyingGlassIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => ctx.ui.setFilterPopoverFrameId(nodeId)),
+    run: (ctx) => nodeAction(ctx, (nodeId) => ctx.ui.setViewSettingsFrameId(nodeId)),
   },
 ];
 

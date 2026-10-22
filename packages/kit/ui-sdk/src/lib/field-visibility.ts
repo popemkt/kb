@@ -1,46 +1,29 @@
 import type { SchemaIndex } from "./schema";
 import type { OutlineNode, PropValue, ResolvedProp } from "./types";
-import { SYSTEM_IDS, isSysPrefixed } from "./types";
+import { SYSTEM_IDS } from "./types";
+
+/** Where field nodes are read: the schema, or any map of nodes by id. */
+export interface FieldNodes {
+  get(id: string): { readonly props: OutlineNode["props"] } | undefined;
+}
 
 /**
- * Schema props that live under sys.* but are meant to edit like ordinary
- * fields on tag/field schema (i10 item 4 — color/hidden on a tag page).
- *
- * The field-configuration trio is here for the same reason: a field node's type
- * and ref constraints are the field's own settings, and editing them on the
- * field's page is what removes the need for a configurator panel built only
- * for them.
+ * Whether a field's rows are left out unless a node asks for its debug
+ * fields: its field node carries `sys.f.hidden` = true. The field node is
+ * the one place that says it, a system field's as much as a person's
+ * (DESIGN.md → Data model → field visibility), and every surface reads it
+ * here: the field rows, a row's collapse default and a table's columns.
+ * Whether a shown row may be written is the system-write rule's
+ * (`isWritableField`), never this.
  */
-// GAP [[01M5CRYK42Y4G74JD62AD00BZS]] an allow-list in the page decides which sys fields a person may edit
-const SCHEMA_SURFACE_FIELDS = new Set<string>([
-  SYSTEM_IDS.colorField,
-  SYSTEM_IDS.hiddenField,
-  SYSTEM_IDS.fieldTypeField,
-  SYSTEM_IDS.targetTagField,
-  SYSTEM_IDS.targetQueryField,
-]);
-
-/** Prop keys that are system/metadata and hidden from normal field rows. */
-export function isIntrinsicSystemPropKey(fieldId: string): boolean {
-  if (SCHEMA_SURFACE_FIELDS.has(fieldId)) return false;
-  return isSysPrefixed(fieldId);
-}
-
-/** True when the field definition node carries sys.f.hidden = true. */
-export function isFieldNodeHidden(fieldId: string, schema: SchemaIndex): boolean {
-  const fieldNode = schema.get(fieldId);
-  if (!fieldNode) return false;
-  const hidden = fieldNode.props[SYSTEM_IDS.hiddenField]?.[0];
+export function isFieldHidden(fieldId: string, fields: FieldNodes): boolean {
+  const hidden = fields.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0];
   return hidden?.t === "bool" && hidden.v;
-}
-
-function isPropHiddenByDefault(fieldId: string, schema: SchemaIndex): boolean {
-  return isIntrinsicSystemPropKey(fieldId) || isFieldNodeHidden(fieldId, schema);
 }
 
 export interface ResolvePropsOptions {
   /**
-   * Reveal this node's `sys.*` + hidden fields with muted styling.
+   * Reveal this node's hidden fields with muted styling.
    *
    * Per node, per call — the caller reads it from
    * `stores/debug-fields.store` for the node it is rendering. It was once a
@@ -50,7 +33,7 @@ export interface ResolvePropsOptions {
 }
 
 export type VisibleProp = ResolvedProp & {
-  /** Muted debug row (sys.* or user-hidden field). */
+  /** Muted debug row: a field its node hides. */
   debug?: boolean;
   /** Template slot with no value yet (still editable). */
   empty?: boolean;
@@ -91,9 +74,7 @@ export function resolveVisibleProps(
   const seen = new Set<string>();
 
   for (const [fieldId, values] of Object.entries(node.props)) {
-    if (fieldId === SYSTEM_IDS.typeField && !showAll) continue;
-
-    const hiddenByDefault = isPropHiddenByDefault(fieldId, schema);
+    const hiddenByDefault = isFieldHidden(fieldId, schema);
     if (!showAll && hiddenByDefault) continue;
 
     const fieldNode = schema.get(fieldId);
@@ -111,7 +92,7 @@ export function resolveVisibleProps(
   // as soon as the tag declares them.
   for (const fieldId of templatedFieldIds(node, schema)) {
     if (seen.has(fieldId)) continue;
-    if (!showAll && isPropHiddenByDefault(fieldId, schema)) continue;
+    if (!showAll && isFieldHidden(fieldId, schema)) continue;
     const fieldNode = schema.get(fieldId);
     out.push({
       fieldId,
