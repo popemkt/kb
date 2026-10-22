@@ -12,17 +12,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import {
-  CurrentCall,
-  GraphWrites,
-  type GraphWritesPort,
-  type KbContext,
-  type RunningCall,
-} from "@kb/contracts";
+import { GraphWrites, type GraphWritesPort, type KbContext } from "@kb/contracts";
 import { present, type DomainError, type KbNode } from "@kb/model";
 import { persist } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
-import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
 
 const AT = "2026-10-04T00:00:00.000Z";
@@ -84,32 +77,6 @@ describe("GraphWrites, as kbRuntimeLayer binds it", () => {
     expect(failure.code).toBe("invalid_input");
     expect(ctx.index.getNode("n.orphan-parent")).toBeUndefined();
     expect(ctx.log.head).toBe(head);
-  });
-
-  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-  test.skip("inside a call, a write to an approval policy needs a person behind it", async () => {
-    const ctx = await openKb(root);
-    const policy = present(ctx.index.getNode("approval.agent-delete"), "a seeded policy");
-    const call: RunningCall = {
-      invocation: { id: "ext.family.write", input: {}, actor: "agent" },
-      action: { id: "ext.family.write", mode: { kind: "write" } },
-    };
-    const failure = await failureOf(ctx, (writes) =>
-      writes
-        .commit(() =>
-          Effect.succeed({ upserts: [{ ...policy, text: "agents never ask" }], deletes: [] }),
-        )
-        .pipe(Effect.provideService(CurrentCall, call)),
-    );
-    expect(failure.code).toBe("approval_required");
-    expect(ctx.index.getNode("approval.agent-delete")?.text).toBe(policy.text);
-    // The same write by the person's own hand goes through.
-    await invoke(ctx, {
-      id: "node.update",
-      input: { id: "approval.agent-delete", text: "agents never ask" },
-      actor: "human",
-    });
-    expect(ctx.index.getNode("approval.agent-delete")?.text).toBe("agents never ask");
   });
 
   test("a plan is planned again over a store that moved, so the write in between is kept", async () => {

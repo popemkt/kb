@@ -24,7 +24,6 @@ import { backlinksQuery } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
-import { ACTOR_OPTION_IDS, DECISION_OPTION_IDS, GOVERNANCE_IDS } from "@kb/governance";
 
 type Kb = Awaited<ReturnType<typeof openKb>>;
 
@@ -722,82 +721,5 @@ describe("promote is one write", () => {
     const out = output(await invoke(ctx, verb("promote", { id: "s" })));
     expect(ctx.log.head).toBe(head + 1);
     expect(ctx.nodes.some((n) => n.id === out.nodeId)).toBe(true);
-  });
-
-  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-  test.skip("a refused canvas write leaves no node behind", async () => {
-    const ctx = await canvasKb([card("s", 0, 0, { text: "A thought" })]);
-    const policy = await invoke(ctx, {
-      id: "node.add",
-      approved: true,
-      input: {
-        id: "p.promote-ask",
-        text: "agents ask before promoting",
-        props: [
-          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: GOVERNANCE_IDS.policyTag } },
-          { field: GOVERNANCE_IDS.matchField, value: { t: "str", v: "ext.canvas.promote" } },
-          { field: GOVERNANCE_IDS.actorField, value: { t: "ref", v: ACTOR_OPTION_IDS.agent } },
-          {
-            field: GOVERNANCE_IDS.decisionField,
-            value: { t: "ref", v: DECISION_OPTION_IDS.ask },
-          },
-        ],
-      },
-    });
-    expect(policy.status).toBe("succeeded");
-    const before = ctx.nodes.length;
-    const head = ctx.log.head;
-    const refused = await invoke(
-      ctx,
-      verb("promote", { id: "s", nodeId: "n.promoted" }, { actor: "agent" }),
-    );
-    expect(refused).toMatchObject({ status: "failed", code: "approval_required" });
-    expect(ctx.nodes.some((n) => n.id === "n.promoted")).toBe(false);
-    expect(ctx.nodes).toHaveLength(before);
-    expect(ctx.log.head).toBe(head);
-    expect(stored(ctx).nodes[0]).toMatchObject({ type: "text", text: "A thought" });
-  });
-});
-
-// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-describe.skip("approval", () => {
-  test("a policy on the canvas verbs decides an agent's call, and a person's gesture still runs", async () => {
-    const ctx = await canvasKb([card("a", 0, 0)]);
-    const policy = await invoke(ctx, {
-      id: "node.add",
-      approved: true,
-      input: {
-        id: "p.canvas-ask",
-        text: "agents ask before canvas writes",
-        props: [
-          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: GOVERNANCE_IDS.policyTag } },
-          { field: GOVERNANCE_IDS.matchField, value: { t: "str", v: "ext.canvas.*" } },
-          { field: GOVERNANCE_IDS.actorField, value: { t: "ref", v: ACTOR_OPTION_IDS.agent } },
-          {
-            field: GOVERNANCE_IDS.decisionField,
-            value: { t: "ref", v: DECISION_OPTION_IDS.ask },
-          },
-        ],
-      },
-    });
-    expect(policy.status).toBe("succeeded");
-    const place = verb(
-      "place",
-      { items: [{ make: {}, near: "a", side: "right" }] },
-      { actor: "agent" },
-    );
-    expect(await invoke(ctx, place)).toMatchObject({
-      status: "failed",
-      code: "approval_required",
-      details: { policy: "p.canvas-ask" },
-    });
-    expect(stored(ctx).nodes).toHaveLength(1);
-    expect(await invoke(ctx, { ...place, approved: true })).toMatchObject({ status: "succeeded" });
-    expect(await invoke(ctx, { ...place, actor: "human" })).toMatchObject({ status: "succeeded" });
-    // A pattern names reads too: one that should spare them says `every write` instead.
-    expect(await invoke(ctx, verb("describe", {}, { actor: "agent" }))).toMatchObject({
-      status: "failed",
-      code: "approval_required",
-    });
   });
 });

@@ -75,7 +75,6 @@
         "effect": "catalog:",
       },
       "devDependencies": {
-        "@kb/governance": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@kb/webmcp": "workspace:*",

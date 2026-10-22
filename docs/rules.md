@@ -657,9 +657,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: governance ships no rules that bite — policies empty, guards uncontributed, actors only recorded
 
 - **expected** — The governance family contributes its approval and force guards on the invoke core's guard point, and seeds default policies (an agent asks before deleting, switching an extension, rewriting the store; never trusts code), so a caller that is not the person is asked or refused.
-- **current** — governancePlugin contributes no guard and governanceSeedNodes seeds no policy; approvalGuard, forceGuard and resolveApproval are defined but nothing loads them; every call runs whoever makes it, and its actor is only recorded on the tx record.
+- **current** — governancePlugin contributes no guard and governanceSeedNodes seeds no policy; approvalGuard, forceGuard and resolveApproval are defined but nothing loads them; every call runs whoever makes it, and its actor is only recorded on the tx record. The enforcement tests (approval policies, force, configuration writes, the surface contract's approval properties) were deleted rather than kept skipped, so nothing describes enforcement that no longer exists.
 - **impact** — An agent (MCP, the sidebar, WebMCP) or any local program reaching kb ui can delete nodes, switch extensions, write configuration, trust code and set force with no prompt. Governance is not a security boundary here; tailnet grants and Unix accounts are.
-- **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled.
+- **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
 - **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
 
 ### GAP: graph link labels are 2D only

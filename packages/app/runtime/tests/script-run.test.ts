@@ -1,8 +1,7 @@
 /**
  * A script run once against a canvas (`ext.code.script.run`, DESIGN.md →
- * Sandbox → Scripts): only a script a person trusts runs, an agent's run
- * asks for approval, and the script writes through the canvas verbs as the
- * `script` actor, within its grant.
+ * Sandbox → Scripts): only trusted code runs, and the script writes through
+ * the canvas verbs as the `script` actor, within its grant.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -41,8 +40,7 @@ describe("running a script once", () => {
     resetRegistryCache();
   });
 
-  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-  test.skip("an untrusted script never runs; a trusted one writes through the verbs as the script", async () => {
+  test("an untrusted script never runs; a trusted one writes through the verbs as the script", async () => {
     const ctx = await openKb(root);
     await invoke(ctx, {
       id: "node.add",
@@ -65,12 +63,7 @@ describe("running a script once", () => {
       return raw === undefined ? [] : parseCanvasDoc(String(raw.v)).nodes.map((n) => n.id);
     };
 
-    // An agent asks before it runs one at all.
-    expect(await invoke(ctx, run({ actor: "agent" }))).toMatchObject({
-      status: "failed",
-      code: "approval_required",
-    });
-    // Approved or a person's, an untrusted script still never runs.
+    // Whoever runs it, an untrusted script never runs.
     expect(await invoke(ctx, run({ actor: "human" }))).toMatchObject({
       status: "failed",
       code: "forbidden",
@@ -82,7 +75,7 @@ describe("running a script once", () => {
       await invoke(ctx, { id: "sandbox.trust", input: { digest }, actor: "human" }),
     ).toMatchObject({ status: "succeeded" });
 
-    const ran = await invoke(ctx, run({ actor: "agent", approved: true }));
+    const ran = await invoke(ctx, run({ actor: "agent" }));
     expect(ran).toMatchObject({ status: "succeeded" });
     expect(items()).toEqual(["from-script"]);
   });
