@@ -13,7 +13,7 @@ import {
   type SchemaIndex,
   shownNode,
   useDebugFields,
-  useFilterFrame,
+  useViewSettingsFrame,
   useFollow,
   useFrameView,
   useGraphRead,
@@ -68,7 +68,7 @@ export const NodeBlock = memo(function NodeBlock({
   // instance key, the keymaps — stays `nodeId`.
   const { shown, shownId } = rowShows(nodeId, node, schema);
   const showDebugFields = useDebugFields(shownId);
-  const filterOpen = useFilterFrame() === shownId;
+  const settingsOpen = useViewSettingsFrame() === shownId;
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, outline);
   // Focus is this instance's or not: a row re-renders when it gains or loses
@@ -167,7 +167,7 @@ export const NodeBlock = memo(function NodeBlock({
           <div
             className={cn(
               "absolute right-2 transition-opacity z-10",
-              filterOpen
+              settingsOpen
                 ? "opacity-100"
                 : "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100",
             )}

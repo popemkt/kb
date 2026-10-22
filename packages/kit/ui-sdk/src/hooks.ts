@@ -267,8 +267,8 @@ export function useDebugFieldIds(): ReadonlySet<string> {
 }
 
 /** The frame whose filter popover is open, if any. */
-export function useFilterFrame(): string | null {
-  return useHostValue((host) => host.filterFrame());
+export function useViewSettingsFrame(): string | null {
+  return useHostValue((host) => host.viewSettingsFrame());
 }
 
 /** Whether the node palette is open. */

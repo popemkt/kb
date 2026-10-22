@@ -49,7 +49,7 @@ interface UiState {
   globalPaletteOpen: boolean;
   nodePaletteOpen: boolean;
   /** W7.1: open filter popover for this frame (toolbar ⚙ / palette Filter…). */
-  filterPopoverFrameId: string | null;
+  viewSettingsFrameId: string | null;
   /**
    * The dock open at the workspace's right edge (`DockPoint`), by its
    * contribution id; null when none is. One at a time, and transient.
@@ -62,7 +62,7 @@ interface UiState {
   setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
   setNodePaletteOpen: (open: boolean) => void;
-  setFilterPopoverFrameId: (frameId: string | null) => void;
+  setViewSettingsFrameId: (frameId: string | null) => void;
   setOpenDock: (dock: string | null) => void;
   pushToast: (kind: Toast["kind"], text: string) => void;
   dismissToast: (id: number) => void;
@@ -78,7 +78,7 @@ export const useUiStore = create<UiState>((set) => ({
   sidebarOverlayOpen: false,
   globalPaletteOpen: false,
   nodePaletteOpen: false,
-  filterPopoverFrameId: null,
+  viewSettingsFrameId: null,
   openDock: null,
 
   // Whose a connection is, it is told after it opens; a closed one is no one's yet.
@@ -97,7 +97,7 @@ export const useUiStore = create<UiState>((set) => ({
       nodePaletteOpen,
       globalPaletteOpen: nodePaletteOpen ? false : s.globalPaletteOpen,
     })),
-  setFilterPopoverFrameId: (filterPopoverFrameId) => set({ filterPopoverFrameId }),
+  setViewSettingsFrameId: (viewSettingsFrameId) => set({ viewSettingsFrameId }),
   setOpenDock: (openDock) => set({ openDock }),
 
   pushToast: (kind, text) => {

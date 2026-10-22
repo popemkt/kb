@@ -10,14 +10,15 @@ import {
   PopoverShell,
   PrefFieldRow,
   toast,
-  useFilterFrame,
+  useViewSettingsFrame,
   useFrameViewNode,
   usePageGraph,
   useDismiss,
 } from "@kb/ui-sdk";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineNode } from "./outline.store";
-import { listFilterFieldOptions } from "./view-filter-fields";
+import { frameFieldCandidates } from "./view-settings-fields";
+import { ViewSettingsSections } from "./view-settings-sections";
 
 /** The two rows a view filter's stored syntax spells (`ViewFilter`). */
 type FilterKind = ViewFilter["kind"];
@@ -42,7 +43,7 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
   return (
     elRect(
       document.querySelector(
-        `[data-view-toolbar][data-frame-id="${id}"] [data-filter-button="true"]`,
+        `[data-view-toolbar][data-frame-id="${id}"] [data-view-settings-button="true"]`,
       ),
     ) ??
     elRect(document.querySelector(`[data-view-toolbar][data-frame-id="${id}"]`)) ??
@@ -53,12 +54,14 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
 }
 
 /**
- * Global filter popover host — portals to document.body so palette-opened
- * Filter… is visible regardless of nested-frame hover opacity.
+ * A frame's view settings, in one popover: the toolbar's gear and ⌘K
+ * "Filter…" open it. Above the filters, every view's, are the settings the
+ * frame's view declares (`ViewSettingsSections`). It portals to document.body so it is visible regardless
+ * of nested-frame hover opacity.
  */
-export function ViewFilterPopoverHost() {
-  const frameId = useFilterFrame();
-  const setOpenId = browserHost().setFilterFrame;
+export function ViewSettingsPopoverHost() {
+  const frameId = useViewSettingsFrame();
+  const setOpenId = browserHost().setViewSettingsFrame;
   const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const frame = useOutlineNode(frameId);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -66,7 +69,7 @@ export function ViewFilterPopoverHost() {
 
   const fields = useMemo(() => {
     if (frameId === null) return [];
-    return listFilterFieldOptions(frameId, outlineNodes(), browserHost().schema());
+    return frameFieldCandidates(frameId, outlineNodes(), browserHost().schema());
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
   }, [frameId, generation]);
 
@@ -112,7 +115,7 @@ export function ViewFilterPopoverHost() {
   // A filter button is a trigger: its click opens or closes its own frame's filter.
   useDismiss(
     frameId !== null && anchor !== null,
-    { inside: [panelRef], trigger: '[data-filter-button="true"]' },
+    { inside: [panelRef], trigger: '[data-view-settings-button="true"]' },
     () => setOpenId(null),
   );
 
@@ -144,14 +147,16 @@ export function ViewFilterPopoverHost() {
   return createPortal(
     <PopoverShell
       panelRef={panelRef}
-      title="Filters"
-      aria-label="View filters"
-      data-testid="view-filter-popover"
+      title="View settings"
+      aria-label="View settings"
+      data-testid="view-settings-popover"
       className="fixed"
       style={{ top, left }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div data-view-filter-popover="true" data-frame-id={frameId}>
+      <div data-view-settings-popover="true" data-frame-id={frameId}>
+        <ViewSettingsSections frameId={frameId} />
+        <h3 className="px-1.5 pt-0.5 pb-0.5 text-meta text-foreground/40">Filters</h3>
         {config.filters.length === 0 ? (
           <p className="px-1.5 py-1 text-meta text-foreground/40">No filters</p>
         ) : (
@@ -199,7 +204,7 @@ export function ViewFilterPopoverHost() {
               ) : (
                 fields.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.text}
+                    {f.label}
                   </option>
                 ))
               )}

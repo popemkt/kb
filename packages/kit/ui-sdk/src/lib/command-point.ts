@@ -40,7 +40,7 @@ interface PrefsCommandApi {
 interface UiCommandApi {
   setPrefsOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
-  setFilterPopoverFrameId: (id: string | null) => void;
+  setViewSettingsFrameId: (id: string | null) => void;
 }
 
 /** What commands read and drive on the workspace (its panes and their arrangement). */

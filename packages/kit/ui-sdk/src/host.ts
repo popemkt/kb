@@ -83,8 +83,8 @@ export interface BrowserHost extends NodeTextPort {
     readonly toggle: (nodeId: string) => void;
   };
   /** The frame whose filter popover is open, if any, and how to open one or close it. */
-  readonly filterFrame: () => string | null;
-  readonly setFilterFrame: (frameId: string | null) => void;
+  readonly viewSettingsFrame: () => string | null;
+  readonly setViewSettingsFrame: (frameId: string | null) => void;
   /** Whether the node palette is open (`setNodePaletteOpen` opens and closes it). */
   readonly nodePaletteOpen: () => boolean;
   /**

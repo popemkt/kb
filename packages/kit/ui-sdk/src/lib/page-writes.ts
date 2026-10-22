@@ -142,7 +142,6 @@ export interface PageWrites {
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
   readonly setViewSort: (frameId: string, sortSpecs: SortSpec[]) => Promise<void>;
   readonly toggleViewSort: (frameId: string, fieldId: string) => Promise<void>;
-  // GAP [[01M5CRYMAK7SZT2PPBBS849NNQ]] setViewDisplay, setViewPagesize and setViewGroup have no gesture
   readonly setViewDisplay: (frameId: string, displayFieldIds: string[]) => Promise<void>;
   readonly setColumnWidth: (frameId: string, fieldId: string, widthPx: number) => Promise<void>;
   readonly setViewPagesize: (frameId: string, pagesize: number) => Promise<void>;

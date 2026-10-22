@@ -4,7 +4,7 @@ import { definePlugin } from "@kb/plugin";
 import { ListFrameView } from "./frame-views";
 import { matchOutline } from "./routes";
 import { HomeSection, OutlineSurface, PinnedSection } from "./surfaces";
-import { ViewFilterPopoverHost } from "./view-filter-popover";
+import { ViewSettingsPopoverHost } from "./view-settings-popover";
 import { outlineExtension, outlinePlugin } from "@kb/outline";
 import { OutlineListView, OutlineSnippetView, OutlineView, DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { OutlineSnippet } from "./outline-snippet";
@@ -121,7 +121,7 @@ export const outlineUiPlugin = definePlugin({
         ...OUTLINE_STEPS.map((step) => ctx.contribute(PaletteStepPoint, step)),
         ctx.contribute(OverlayPoint, {
           id: "view-filter",
-          value: { order: 0, Component: ViewFilterPopoverHost },
+          value: { order: 0, Component: ViewSettingsPopoverHost },
         }),
       ],
       { discard: true },
