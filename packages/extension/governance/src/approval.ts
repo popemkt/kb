@@ -1,8 +1,7 @@
 import { Effect } from "effect";
 import type { ActionGuard, ActionInvocation, GuardVerdict, KbContext } from "@kb/contracts";
-import { actsAsOwner } from "@kb/model";
 import type { NodeIndex } from "@kb/query";
-import { approvalPoliciesOf, type ApprovalPolicy } from "./policy.ts";
+import { actsAsOwner, approvalPoliciesOf, type ApprovalPolicy } from "./policy.ts";
 import {
   approvalRefusal,
   resolveApproval,

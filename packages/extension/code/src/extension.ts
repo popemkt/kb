@@ -15,6 +15,7 @@ import {
   defineExtension,
   extensionNamespace,
   guardAction,
+  madeByScript,
   provideAction,
   viewDef,
   type ActionGuard,
@@ -45,7 +46,7 @@ export const codeExtension = defineExtension({
 const scriptRunGuard: Omit<ActionGuard, "match"> = {
   before: ({ invocation }) =>
     Effect.succeed(
-      invocation.actor === "script"
+      madeByScript(invocation)
         ? {
             decision: "deny",
             rule: "script-run",

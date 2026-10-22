@@ -87,6 +87,17 @@ export function onWire(
 }
 
 /**
+ * Whether sandboxed code made the call: one that carried a script's reach
+ * onto a wire that relays it (`onWire`), one made on the sandbox's own wire,
+ * or one made while such a call runs (`callWithin`). The one actor kb holds
+ * to anything by its name: such a call is held to its run's grant
+ * (DESIGN.md → Sandbox → Grants), and never starts a script run.
+ */
+export function madeByScript(invocation: ActionInvocation): boolean {
+  return invocation.actor === "script";
+}
+
+/**
  * The page's wire: what the UI sends, in the person's browser, when the
  * server knows it is the person's (DESIGN.md → Surfaces → Who the person
  * is). It relays the calls the page makes for others in its own process (the

@@ -24,6 +24,7 @@ export {
   approvalAsk,
   hasPerson,
   madeBy,
+  madeByScript,
   listedOn,
   listingOf,
   onWire,
