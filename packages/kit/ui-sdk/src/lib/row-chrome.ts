@@ -36,7 +36,10 @@ export interface RowChrome {
   hasFrameRows: boolean;
   /** What the bullet's toggle affordance promises. */
   isExpandable: boolean;
-  /** Tana model: list = no chrome; toolbar only when the view is not the list AND expanded. */
+  /**
+   * Tana model: the frame's settings sit beside it while it is expanded, when
+   * there is something to set — a view other than the list, or a query.
+   */
   showToolbar: boolean;
   /** The view renders a flat projection, so rows are the projection's business. */
   projected: boolean;
@@ -105,7 +108,7 @@ export function resolveRowChrome({
     showsChildren,
     hasFrameRows,
     isExpandable,
-    showToolbar: hasFrameRows && !node.collapsed && projected,
+    showToolbar: hasFrameRows && !node.collapsed && (projected || showsQueryResults),
     projected,
     showsCreateChild: !isQueryResult && !projected,
     showsChildContainer: isExpandable && !node.collapsed,

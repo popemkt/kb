@@ -504,6 +504,26 @@ expanded rows (load ≈ 0.2 s at 1×, 1.1 s at 6×), named as
 `sys.*` id to selection so no caret ever enters one; the row shows a hover
 padlock instead of failing on write.
 
+**A query node's query is tucked away; its results are its content.** As
+Tana keeps a search node's expression behind "Edit query", the builder
+(`outline-ui/src/query-builder/`) is drawn only while open, and the control
+that opens it is the node's own view toolbar, beside its view modes and
+filters: a Query button (`data-query-toggle`, `aria-expanded`,
+`aria-controls` the builder). On a row the toolbar shows on hover or focus
+within, and stays while anything it opened is open; on a zoomed query page it
+sits in the header, one click from the query, never behind the plain list's
+gear. A zoomed query page draws the query's results as its rows, as under a
+query row, and offers no create strip. Open or closed is the outline's
+screen state per node (`queryBuilders`), kept for the session and never
+written to the graph. A query that says nothing yet — no EDN, or no
+conditions, as a new one starts — opens its builder; one that says something
+opens closed. A write from the builder pins it open, so the first condition
+never folds it away under the caret. A query that fails shows its error
+with an "Edit query" button beside it, the way to its editor while it is
+tucked. From the keyboard: Tab reaches the
+button, and the node menu offers "Edit query" / "Hide query", opening a
+closed row to show it (`outline-ui/src/outline-commands.tsx`).
+
 ### Contextual references (2026-08-27)
 
 Tana's _reference_, expressed with no new storage shape and no new

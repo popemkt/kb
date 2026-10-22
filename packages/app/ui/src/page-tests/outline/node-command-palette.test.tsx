@@ -236,6 +236,25 @@ describe("node command palette", () => {
     expect(labels()).not.toContain("Add chart");
   });
 
+  it("Edit query opens a query node's tucked builder, and then offers to hide it", async () => {
+    await open("n.plain");
+    expect(labels()).not.toContain("Edit query");
+    expect(outlineNodes().get("n.query")?.collapsed).toBe(true);
+    await open("n.query");
+    const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === "Edit query",
+    ) as HTMLElement | undefined;
+    await act(async () => {
+      present(row, "edit query row").click();
+    });
+    expect(useOutlineStore.getState().queryBuilders["n.query"]?.open).toBe(true);
+    // The builder is drawn under the row, so a closed row is opened to show it.
+    expect(outlineNodes().get("n.query")?.collapsed).toBe(false);
+    await open("n.query");
+    expect(labels()).toContain("Hide query");
+    expect(labels()).not.toContain("Edit query");
+  });
+
   it("drops Turn into query on a node that already is one", async () => {
     await open("n.query");
     expect(labels()).not.toContain("Turn into query");

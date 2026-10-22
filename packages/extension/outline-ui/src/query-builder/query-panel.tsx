@@ -11,8 +11,10 @@
  *   as the stored text is the one it wrote; any other text — an undo, a
  *   write from anywhere else — is lifted and shown instead.
  * - **Opening never writes.** Nothing here writes until a person edits.
+ * - **It is tucked away** behind its node's view control, and drawn only
+ *   while open (`./open`).
  * - The tab last used for a node is the outline's screen state
- *   (`queryTabs`); a node it has never seen opens Conditions.
+ *   (`queryBuilders`); a node it has never seen opens Conditions.
  */
 import { useState } from "react";
 import type { WireNode } from "@kb/contracts";
@@ -31,9 +33,11 @@ import { outlineNodes, useOutlineStore, type QueryTab } from "../outline.store";
 import { ConditionsEditor } from "./conditions";
 import { CountChip, type QueryCount } from "./count-chip";
 import { readQuery, writtenEdn, type BuilderTree } from "./model";
+import { keepOpen, queryBuilderId } from "./open";
 
 /** Replace the node's query with `text`, as typed: its one value, whatever it is now. */
 function writeQuery(nodeId: string, text: string): void {
+  keepOpen(nodeId);
   const [old] = outlineNodes().get(nodeId)?.props[SYSTEM_IDS.queryField] ?? [];
   void browserHost().writes.updateProp(nodeId, SYSTEM_IDS.queryField, { t: "str", v: text }, old);
 }
@@ -127,8 +131,9 @@ export interface QueryPanelProps {
 /** The Conditions and EDN tabs over a query node's query, with its count. */
 export function QueryPanel({ nodeId, edn, count, depth, read }: QueryPanelProps) {
   const reading = readQuery(edn);
-  const chosen = useOutlineStore((s) => s.queryTabs[nodeId] ?? "conditions");
-  const setQueryTab = useOutlineStore((s) => s.setQueryTab);
+  const chosen = useOutlineStore((s) => s.queryBuilders[nodeId]?.tab ?? "conditions");
+  const setQueryBuilder = useOutlineStore((s) => s.setQueryBuilder);
+  const setQueryTab = (t: QueryTab) => setQueryBuilder(nodeId, { tab: t });
   const tab: QueryTab = reading.lifted ? chosen : "edn";
   const { tree, edit } = useConditionTree(nodeId, edn, reading.lifted ? reading.conditions : null);
   const [draft, setDraft] = useState(edn);
@@ -140,20 +145,17 @@ export function QueryPanel({ nodeId, edn, count, depth, read }: QueryPanelProps)
     <div
       className="my-1.5 border-l-2 border-foreground/[0.08] pl-3"
       style={indentStyle(depth + 1)}
+      id={queryBuilderId(nodeId)}
       data-query-builder={nodeId}
     >
       <div className="mb-1.5 flex items-center gap-2">
         <div role="tablist" aria-label="Query" className="flex items-center gap-0.5">
           {reading.lifted && (
-            <Tab
-              tab="conditions"
-              selected={tab === "conditions"}
-              onSelect={(t) => setQueryTab(nodeId, t)}
-            >
+            <Tab tab="conditions" selected={tab === "conditions"} onSelect={setQueryTab}>
               Conditions
             </Tab>
           )}
-          <Tab tab="edn" selected={tab === "edn"} onSelect={(t) => setQueryTab(nodeId, t)}>
+          <Tab tab="edn" selected={tab === "edn"} onSelect={setQueryTab}>
             EDN
           </Tab>
         </div>

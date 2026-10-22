@@ -16,6 +16,7 @@ import {
   MAIN_OUTLINE_HOST,
   type NodeMap,
   outlineInstanceKey,
+  type OutlineNode,
   queryResultInstanceKey,
   resultNodeIds,
   type SchemaIndex,
@@ -86,13 +87,42 @@ function underSlot(chain: SlotChain, view: FrameView, frameId: string): SlotChai
   return slotRenders(chain, link) ? [...chain, link] : null;
 }
 
+/**
+ * A query frame's results, as its results section draws them
+ * (`QueryResultsSection`): a projected view emits them flat from the
+ * frame's slot; the list walks each as a row of its own. A query with no
+ * definition, or one that fails, offers none.
+ */
+function walkQueryResults(
+  ctx: WalkContext,
+  frame: OutlineNode,
+  view: FrameView,
+  chain: SlotChain,
+): void {
+  const def = queryDefOf(frame);
+  if (!hasText(def?.edn) || ctx.run === null) return;
+  let ids: string[];
+  try {
+    ids = resultNodeIds(ctx.run(def.edn), ctx.nodes, { limit: def.limit, excludeId: frame.id });
+  } catch {
+    return;
+  }
+  const keyFor = (id: string) => queryResultInstanceKey(frame.id, id);
+  if (projectsRows(view.key)) {
+    if (underSlot(chain, view, frame.id) !== null)
+      emitProjectedRows(ctx, frame.id, view, ids, keyFor);
+    return;
+  }
+  for (const id of ids) walkVisibleInstances(ctx, id, keyFor(id), chain);
+}
+
 function walkVisibleInstances(
   ctx: WalkContext,
   nodeId: string,
   instanceKey: string,
   chain: SlotChain,
 ): void {
-  const { nodes, schema, run, out } = ctx;
+  const { nodes, schema, out } = ctx;
   const node = nodes.get(nodeId);
   if (!node) return;
   out.push({ nodeId, instanceKey });
@@ -107,33 +137,9 @@ function walkVisibleInstances(
   if (view === null) return;
   const projected = projectsRows(view.key);
 
-  // Query results — list walks refs; projected modes emit flat result rows. A
-  // result row does not re-run its own query (`resolveRowChrome` agrees).
+  // A result row does not re-run its own query (`resolveRowChrome` agrees).
   if (!isQueryResultInstance(instanceKey) && isQueryNode(frame)) {
-    const def = queryDefOf(frame);
-    if (hasText(def?.edn) && run) {
-      try {
-        const rows = run(def.edn);
-        const ids = resultNodeIds(rows, nodes, {
-          limit: def.limit,
-          excludeId: frameId,
-        });
-
-        // Projected results sit in the query frame's slot; the list draws
-        // them itself, as rows of its own.
-        if (projected) {
-          if (underSlot(chain, view, frameId) !== null)
-            emitProjectedRows(ctx, frameId, view, ids, (id) => queryResultInstanceKey(frameId, id));
-          return;
-        }
-
-        for (const id of ids) {
-          walkVisibleInstances(ctx, id, queryResultInstanceKey(frameId, id), chain);
-        }
-      } catch {
-        // Broken EDN: skip results
-      }
-    }
+    walkQueryResults(ctx, frame, view, chain);
     // Non-projected query: also walk structural children below results.
   }
 
@@ -175,6 +181,11 @@ export function collectVisibleInstances(
   // The root's rows sit in the root frame's slot, inside the outline's.
   const view = frameViewOf(root, schema, views);
   if (view === null) return out;
+  // A query root shows its results, as a query row does, and not its children.
+  if (isQueryNode(root)) {
+    walkQueryResults(ctx, root, view, source.chain);
+    return out;
+  }
   const inner = underSlot(source.chain, view, rootNodeId);
   if (inner === null) return out;
   if (projectsRows(view.key)) {

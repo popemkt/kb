@@ -105,6 +105,19 @@ describe("visible instances", () => {
     expect(across?.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-b"));
   });
 
+  it("a zoomed query node offers its results, as the rows its page draws", async () => {
+    useGraphStore.getState().zoomTo("n.q1");
+    await resultsAnswered();
+    const keys = useOutlineStore
+      .getState()
+      .getVisibleInstances()
+      .map((i) => i.instanceKey);
+    expect(keys).toEqual([
+      queryResultInstanceKey("n.q1", "n.root-a"),
+      queryResultInstanceKey("n.q1", "n.root-b"),
+    ]);
+  });
+
   it("zoomed children use full-chain outline keys", () => {
     useGraphStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().toggleCollapse("n.child-a2");
