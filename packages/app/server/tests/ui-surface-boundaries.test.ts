@@ -177,7 +177,7 @@ describe("ui http boundary", () => {
     await writeFile(join(root, ".kb", "queries", "q.edn"), "[:find ?x]");
     const ctx = await openKb(root);
     const hub = new SubscriptionHub(ctx);
-    const deps = { root, ctx, hub };
+    const deps = { root, page: "http://127.0.0.1:4321", ctx, hub };
     const jsonCt = "application/json;charset=utf-8";
 
     const graph = await handleHttpRequest(
@@ -250,6 +250,7 @@ describe("ui http boundary", () => {
     try {
       const res = await handleHttpRequest(new Request("http://127.0.0.1/assets/x.png"), HTTP_WIRE, {
         root,
+        page: "http://127.0.0.1:4321",
         ctx,
         hub,
       });
@@ -282,6 +283,7 @@ describe("ui http boundary", () => {
       HTTP_WIRE,
       {
         root,
+        page: "http://127.0.0.1:4321",
         ctx,
         hub,
       },
@@ -304,7 +306,7 @@ describe("ui http boundary", () => {
         body: JSON.stringify({ id: "graph.query", input: { query: "not [valid" } }),
       }),
       HTTP_WIRE,
-      { root, ctx, hub },
+      { root, page: "http://127.0.0.1:4321", ctx, hub },
     );
     expect(res.status).toBe(200);
     const receipt = (await res.json()) as {
@@ -332,7 +334,7 @@ describe("ui http boundary", () => {
         }),
       }),
       HTTP_WIRE,
-      { root, ctx, hub },
+      { root, page: "http://127.0.0.1:4321", ctx, hub },
     );
     expect(res.status).toBe(200);
     const receipt = (await res.json()) as { status: string; code: string };
@@ -362,7 +364,7 @@ describe("ui http boundary", () => {
         }),
       }),
       HTTP_WIRE,
-      { root, ctx, hub },
+      { root, page: "http://127.0.0.1:4321", ctx, hub },
     );
     expect(res.status).toBe(200);
     const receipt = (await res.json()) as { status: string; code: string };

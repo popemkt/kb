@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
-import type { UiListener } from "@kb/contracts";
+import { uiAddressOf, type UiListener } from "@kb/contracts";
 import { clearUiPresence, readUiPresence, servingUi, writeUiPresence } from "../src/index.ts";
 
 const roots: string[] = [];
@@ -45,17 +45,32 @@ function socketIn(dir: string, name: string): Extract<UiListener, { kind: "socke
   return { kind: "socket", path: join(dir, name), origin: ORIGIN };
 }
 
-/** A server listening the way `kind` says, in `dir` for a socket, that says it serves `root`. */
+/**
+ * A server listening the way `kind` says, in `dir` for a socket, that says
+ * it serves `root` and that its page is its listener's, as a `kb ui` does.
+ */
 function identityServer(kind: UiListener["kind"], dir: string, root: string): UiListener {
-  const fetch = () => Response.json({ root });
   if (kind === "tcp") {
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch });
+    let at = tcp(0);
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.json({ root, page: uiAddressOf(at) }),
+    });
     servers.push(server);
-    return tcp(server.port ?? 0);
+    at = tcp(server.port ?? 0);
+    return at;
   }
   const at = socketIn(dir, `ui-${servers.length}.sock`);
-  servers.push(Bun.serve({ unix: at.path, fetch }));
+  servers.push(Bun.serve({ unix: at.path, fetch: () => Response.json({ root, page: at.origin }) }));
   return at;
+}
+
+/** `at` with another page than its server's: a socket's origin swapped, a port named by another host. */
+function withForgedPage(at: UiListener): UiListener {
+  return at.kind === "tcp"
+    ? { ...at, hostname: "localhost" }
+    : { ...at, origin: "https://attacker.example" };
 }
 
 /** A listener of `kind` nothing listens on. */
@@ -86,6 +101,14 @@ describe("servingUi", () => {
       const gone = await scratchRoot();
       await run(writeUiPresence(gone, goneListener(kind, gone)));
       expect(await run(servingUi(gone))).toBeNull();
+    });
+
+    test(`presence naming this root's ${kind} server with another page is not trusted`, async () => {
+      const root = await scratchRoot();
+      const at = identityServer(kind, root, await realpath(root));
+      await run(writeUiPresence(root, withForgedPage(at)));
+      expect(await run(readUiPresence(root))).not.toBeNull();
+      expect(await run(servingUi(root))).toBeNull();
     });
   }
 

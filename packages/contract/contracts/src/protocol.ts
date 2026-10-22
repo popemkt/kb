@@ -65,12 +65,14 @@ export const ActionResponseSchema = z.discriminatedUnion("status", [
 export type ActionResponse = z.infer<typeof ActionResponseSchema>;
 
 /**
- * Which root this server serves (absolute, symlinks resolved). A process
- * that found the server through `.kb/ui.json` asks this before it forwards
- * anything, so a stale file whose port another root's server now holds is
- * never mistaken for its own.
+ * Which root this server serves (absolute, symlinks resolved), and where
+ * its page is (`uiAddressOf` its listener). A process that found the server
+ * through `.kb/ui.json` asks this before it forwards anything or opens the
+ * page: the file says only where to knock, and the server says what it is.
+ * So a stale file whose port another root's server now holds is never
+ * mistaken for its own, and a forged one cannot name another page.
  */
-export const ServerIdentitySchema = z.object({ root: z.string() });
+export const ServerIdentitySchema = z.object({ root: z.string(), page: z.string() });
 export type ServerIdentity = z.infer<typeof ServerIdentitySchema>;
 
 export const SavedQuerySchema = z.object({

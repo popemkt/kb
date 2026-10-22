@@ -30,7 +30,7 @@ async function served() {
   await mkdir(join(root, ".kb"), { recursive: true });
   const ctx = await openKb(root);
   const hub = new SubscriptionHub(ctx);
-  const deps = { root, ctx, hub };
+  const deps = { root, page: "http://127.0.0.1:4321", ctx, hub };
   const action = async (id: string, input: unknown) => {
     const response = await handleHttpRequest(
       new Request("http://127.0.0.1/api/action", {

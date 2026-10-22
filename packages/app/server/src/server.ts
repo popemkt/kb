@@ -228,8 +228,9 @@ function serveUi(deps: {
     ...deps.where,
     fetch(req, srv) {
       const url = new URL(req.url);
+      const at = bound(deps.at, srv);
       guard ??= requestGuard({
-        at: bound(deps.at, srv),
+        at,
         uiPort: deps.uiPort,
         publicOrigin: deps.publicOrigin,
         identify: (request) =>
@@ -255,6 +256,7 @@ function serveUi(deps: {
 
       return handleHttpRequest(req, caller.wire, {
         root: deps.root,
+        page: uiAddressOf(at),
         ctx,
         hub,
         hosted: deps.hosted,

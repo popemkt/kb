@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { ServerMessage } from "@kb/contracts";
+import { bunFileSystemLayer } from "@kb/runtime";
+import { servingUi } from "@kb/workspace-fs";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
@@ -85,6 +87,23 @@ describe("kb ui server", () => {
       await run(second.stop);
       await rm(other, { recursive: true, force: true });
     }
+  });
+
+  test("the server says where its page is, and presence naming its port with another page is no server", async () => {
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    const identity = (await (await fetch(`${handle.url}/api/identity`)).json()) as {
+      page: string;
+    };
+    expect(identity.page).toBe(handle.url);
+    const file = join(root, ".kb", "ui.json");
+    const presence = JSON.parse(await readFile(file, "utf8")) as { at: object };
+    // The same server, named by another host: the page a reader would open is not the server's.
+    await writeFile(
+      file,
+      JSON.stringify({ ...presence, at: { ...presence.at, hostname: "localhost" } }),
+    );
+    const served = await run(servingUi(root).pipe(Effect.provide(bunFileSystemLayer)));
+    expect(served).toBeNull();
   });
 
   test("a root a person serves is one of their locations; a server nobody opened lists nothing", async () => {

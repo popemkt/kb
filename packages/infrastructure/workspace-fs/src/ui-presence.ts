@@ -179,8 +179,10 @@ const PROBE_MS = 500;
 /**
  * Where the `kb ui` that serves `root` now listens, or null. The presence
  * file only says where one was: the server there is asked which root it
- * serves, briefly, and anything short of this root's own answer (no file,
- * nothing listening, too slow, another root) means no server.
+ * serves and where its page is, briefly, and anything short of this root's
+ * own answer with the file's own page (no file, nothing listening, too
+ * slow, another root, another page) means no server. The page a reader
+ * opens is the server's word, then, not the file's.
  */
 export const servingUi = Effect.fn("kb.uiPresence.serving")(function* (
   root: string,
@@ -197,7 +199,11 @@ export const servingUi = Effect.fn("kb.uiPresence.serving")(function* (
     Effect.orElseSucceed(() => Option.none()),
   );
   if (Option.isNone(identity) || !identity.value.success) return null;
-  return identity.value.data.root === expected ? presence.at : null;
+  // The file says only where to knock; the server says what it is. Its root
+  // and its page must both be the file's, so a file that names the right
+  // server with another page (a socket's origin swapped) is no server.
+  const { root: served, page } = identity.value.data;
+  return served === expected && page === uiAddressOf(presence.at) ? presence.at : null;
 });
 
 /** Whether `a` and `b` are one listener. */

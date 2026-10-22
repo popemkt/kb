@@ -90,6 +90,23 @@ describe("kb ui on a Unix socket", () => {
     expect(served).toEqual(handle.at);
   });
 
+  test("the server says where its page is, and presence naming its socket with another page is no server", async () => {
+    const identity: unknown = await (await requestUi(handle.at, "/api/identity")).json();
+    expect(identity).toEqual({ root: await realpath(root), page: PUBLIC });
+    const file = join(root, ".kb", "ui.json");
+    const written = await readFile(file, "utf8");
+    try {
+      const forged = { ...handle.at, origin: "https://attacker.example" };
+      await writeFile(file, JSON.stringify({ ...JSON.parse(written), at: forged }));
+      const served = await Effect.runPromise(
+        servingUi(root).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(served).toBeNull();
+    } finally {
+      await writeFile(file, written);
+    }
+  });
+
   test("a request through the socket without the page's Origin is a local program's, nobody's", async () => {
     // Whom `/ws` says the connection is: the guard's caller for the request.
     const personOf = async (headers: Record<string, string>) => {

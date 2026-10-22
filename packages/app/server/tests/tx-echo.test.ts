@@ -95,7 +95,7 @@ describe("the server echoes every tx to every watcher", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       const a = await watcher(hub, "client-a");
       const b = await watcher(hub, "client-b");
 
@@ -118,7 +118,7 @@ describe("the server echoes every tx to every watcher", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       const a = await watcher(hub, "client-a");
 
       const res = await addNode(deps, "n.one", "client-a");
@@ -139,7 +139,7 @@ describe("the server echoes every tx to every watcher", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       const a = await watcher(hub, "client-a");
 
       // The optimistic apply the origin made before the request went out.
@@ -174,7 +174,7 @@ describe("the server echoes every tx to every watcher", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       const a = await watcher(hub, "client-a");
       const b = await watcher(hub, "client-b");
 
@@ -231,7 +231,7 @@ describe("the server echoes every tx to every watcher", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
 
       await addNode(deps, "n.1");
       const at = ctx.log.head;
@@ -255,7 +255,7 @@ describe("the server echoes every tx to every watcher", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       await addNode(deps, "n.1");
       const frames = await watcher(hub, "client-a");
 
@@ -275,7 +275,7 @@ describe("the server echoes every tx to every watcher", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       const a = await watcher(hub, "client-a");
       hub.dispose();
       await addNode(deps, "n.after", "client-a");

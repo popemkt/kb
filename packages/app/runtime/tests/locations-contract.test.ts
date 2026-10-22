@@ -119,7 +119,7 @@ function locationsContract(homeBackend: StoreBackend): void {
       const server = Bun.serve({
         hostname: "127.0.0.1",
         port: 0,
-        fetch: () => Response.json({ root }),
+        fetch: (req) => Response.json({ root, page: new URL(req.url).origin }),
       });
       servers.push(server);
       const at: UiListener = { kind: "tcp", hostname: "127.0.0.1", port: server.port ?? 0 };
@@ -401,7 +401,7 @@ function locationsContract(homeBackend: StoreBackend): void {
             const identity = yield* Effect.promise(() =>
               fetch(`${opened.url}/api/identity`).then((res) => res.json()),
             );
-            expect(identity).toEqual({ root: a.path });
+            expect(identity).toEqual({ root: a.path, page: opened.url });
             expect((yield* list()).rows.find((row) => row.id === a.id)).toMatchObject({
               status: "served",
               url: opened.url,

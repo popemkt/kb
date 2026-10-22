@@ -127,7 +127,7 @@ describe("kb open", () => {
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
-      fetch: () => Response.json({ root: beta }),
+      fetch: (req) => Response.json({ root: beta, page: new URL(req.url).origin }),
     });
     try {
       const url = `http://127.0.0.1:${server.port}`;

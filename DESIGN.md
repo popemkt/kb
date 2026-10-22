@@ -2496,7 +2496,8 @@ the CLI and `kb mcp` reach it over the socket (`requestUi`), naming
 `localhost` as the proxy does and sending no Origin, so the guard takes
 them as a local program, on HTTP's wire, as on a port. So the screen
 actions reach the person's tabs, and `kb open` and the locations list
-answer the public origin, where the page is. Only a process of the
+answer the public origin, where the page is, once the server, asked
+through the socket, says that origin is its own. Only a process of the
 account that serves the socket can connect to it, so only that account's
 CLI finds the server; another account's finds none, as it would find no
 presence it cannot read.
@@ -3969,10 +3970,12 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   registry → Hosted behind a proxy); a server bound anywhere else writes
   none. Before it
   forwards anything, the reader asks the server named there which root it
-  serves (`GET /api/identity`, behind the request guard, with a short
-  timeout). A root that no server serves has no tabs. Neither has one whose
-  file points at a server that has died, does not answer in time, or serves
-  another root. That is an answer, not a failure. So `ui.*` reach MCP, HTTP,
+  serves and where its page is (`GET /api/identity`, behind the request
+  guard, with a short timeout): the file says only where to knock, and the
+  server says what it is. A root that no server serves has no tabs. Neither
+  has one whose file points at a server that has died, does not answer in
+  time, serves another root, or names another page than the server's own,
+  so a forged file cannot send `kb open` to a page of its choosing. That is an answer, not a failure. So `ui.*` reach MCP, HTTP,
   the CLI and WebMCP like any action, and `surfaceContract` runs them over
   every surface against one fake tab connected to the root's one `kb ui`,
   on a port and on a socket.

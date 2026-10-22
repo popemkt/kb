@@ -54,7 +54,7 @@ describe("index rebuilds on the interactive path", () => {
     try {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
-      const deps = { root: dir, ctx, hub };
+      const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       const before = rebuildsOf(ctx.index);
 
       const res = await handleHttpRequest(
