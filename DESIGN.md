@@ -2491,7 +2491,7 @@ host; `http://localhost` is no origin of a socket's, since no browser loads
 the page from it. A socket server records no presence (`.kb/ui.json` names
 a loopback origin only), so the CLI's and `kb mcp`'s screen actions and
 `kb open` do not reach it (`// GAP [[01M5CMVS78WRBD760MNSS3BMJJ]]` in
-`listener.ts`).
+`startUi`, `server.ts`).
 
 The recipe behind Tailscale, on Linux, as a service account `kb` whose
 systemd unit has `RuntimeDirectory=kb` and `RuntimeDirectoryMode=0700`:
@@ -3949,12 +3949,15 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   server passes its `ScreenHub`, so it never asks itself. Every other
   process gets the default, `remoteScreensLayer`, which reads
   `.kb/ui.json` and asks that server the same action. `kb ui` writes
-  `{url, pid, root}` there (mode 0600) when it listens and removes it when
-  it stops, if it is still its own: a reused port can name a later server,
-  so the URL and the pid both have to match. It is runtime state, gitignored and not backed up. The file is
-  only a file in the root, so its `url` is read only when it is the bare
-  `http` origin of a loopback host and port, and a server bound anywhere
-  else writes none. Before it
+  `{at, pid, root}` there (mode 0600) when it listens and removes it when
+  it stops, if it is still its own: `at` is where it listens, its
+  `UiListener` (`@kb/contracts`), and a reused port can name a later
+  server, so the listener and the pid both have to match. It is runtime
+  state, gitignored and not backed up. Every reader reaches the server
+  where `at` says through one request, `requestUi` (`@kb/workspace-fs`).
+  The file is only a file in the root, so a TCP listener is read only when
+  its address is the bare `http` origin of a loopback host and port, and a
+  server bound anywhere else writes none. Before it
   forwards anything, the reader asks the server named there which root it
   serves (`GET /api/identity`, behind the request guard, with a short
   timeout). A root that no server serves has no tabs. Neither has one whose
@@ -4275,7 +4278,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   store, hub, plugin kernel, query watcher and presence file. Switching is
   therefore navigation to the process that serves the other root, never a
   rebind. A started server binds any free port (`kb ui --port 0`) and its
-  presence records the URL it bound, which is how a starter reads it back.
+  presence records the port it bound, which is how a starter reads its URL
+  back.
 - **The home store** is `$KB_HOME` when set, else
   `~/Library/Application Support/kb/home` on macOS and
   `${XDG_DATA_HOME:-~/.local/share}/kb/home` elsewhere. It is a full root,

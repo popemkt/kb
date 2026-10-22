@@ -94,6 +94,8 @@ export {
   provideTemplate,
 } from "./extension.ts";
 export { isLoopbackHost } from "./loopback.ts";
+export { uiAddressOf } from "./ui-listener.ts";
+export type { UiListener } from "./ui-listener.ts";
 export { mcpToolHints, mcpToolName, mcpToolResult } from "./mcp-tool.ts";
 export { JSON_RPC_VERSION, MCP_APP_MIME, MCP_APPS_METHODS, MCP_APPS_VERSION } from "./mcp-apps.ts";
 export type { McpToolHints, McpToolResult } from "./mcp-tool.ts";

@@ -7,6 +7,7 @@ export {
   canonicalRoot,
   clearUiPresence,
   readUiPresence,
+  requestUi,
   servingUi,
   writeUiPresence,
 } from "./ui-presence.ts";

@@ -133,7 +133,11 @@ describe("kb open", () => {
       const url = `http://127.0.0.1:${server.port}`;
       await writeFile(
         join(beta, ".kb", "ui.json"),
-        JSON.stringify({ url, pid: process.pid, root: beta }),
+        JSON.stringify({
+          at: { kind: "tcp", hostname: "127.0.0.1", port: server.port },
+          pid: process.pid,
+          root: beta,
+        }),
       );
       expect(await kb(alpha, ["open", "beta", "--no-browser"])).toEqual({
         code: 0,

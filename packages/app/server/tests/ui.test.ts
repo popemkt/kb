@@ -64,7 +64,7 @@ describe("kb ui server", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("port 0 binds a free port, and presence records the URL it bound", async () => {
+  test("port 0 binds a free port, and presence records the port it bound", async () => {
     const other = await tempRoot();
     handle = await run(startUi({ root, port: 0, openBrowser: false }));
     const second = await run(startUi({ root: other, port: 0, openBrowser: false }));
@@ -74,9 +74,9 @@ describe("kb ui server", () => {
       expect(second.at).not.toEqual(handle.at);
       expect(handle.url).toBe(`http://127.0.0.1:${port}`);
       const recorded = JSON.parse(await readFile(join(root, ".kb", "ui.json"), "utf8")) as {
-        url: string;
+        at: unknown;
       };
-      expect(recorded.url).toBe(handle.url);
+      expect(recorded.at).toEqual({ kind: "tcp", hostname: "127.0.0.1", port });
       const identity = (await (await fetch(`${second.url}/api/identity`)).json()) as {
         root: string;
       };

@@ -12,10 +12,11 @@ import {
   type UiCaptureInput,
   type UiNavigateInput,
   type UiSelectInput,
+  uiAddressOf,
 } from "@kb/contracts";
 import { domainError, type DomainError } from "@kb/model";
 import { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "@kb/operations";
-import { servingUi } from "@kb/workspace-fs";
+import { requestUi, servingUi } from "@kb/workspace-fs";
 
 /** How much longer than the command's own wait the server gets to answer. */
 const ANSWER_MARGIN_MS = 2000;
@@ -36,7 +37,7 @@ type Decoded<A> = { success: true; data: A } | { success: false; error: { messag
  * `ui.*` action its caller invoked; the server's own adapter answers it. A
  * root no server serves has no tabs: the list is empty and a command gets
  * `no-tab`. So does a presence file whose server no longer answers, or
- * whose port a server of another root now holds (`servingUi`).
+ * whose listener a server of another root now holds (`servingUi`).
  */
 export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, FileSystem> {
   return Layer.effect(
@@ -51,11 +52,12 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
         decode: (output: unknown) => Decoded<A>,
         none: A,
       ): Effect.fn.Return<A, DomainError, FileSystem> {
-        const url = yield* servingUi(root);
-        if (url === null) return none;
+        const at = yield* servingUi(root);
+        if (at === null) return none;
+        const url = uiAddressOf(at);
         const post = Effect.tryPromise({
           try: (signal) =>
-            fetch(`${url}/api/action`, {
+            requestUi(at, "/api/action", {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ id, input }),

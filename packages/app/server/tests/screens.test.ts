@@ -17,6 +17,7 @@ import {
   ScreenReceiptSchema,
   type ActionRequest,
   type ScreenState,
+  type UiListener,
 } from "@kb/contracts";
 import { invoke, openKb } from "@kb/runtime";
 import { FAKE_TAB_SCREEN, FakeTab } from "@kb/test-kit";
@@ -57,9 +58,9 @@ async function eventually<A>(read: () => Promise<A>, done: (value: A) => boolean
   return value;
 }
 
-/** A presence file for `root`, as a server at `url` in this process would write it. */
-async function writePresence(root: string, url: string): Promise<void> {
-  const presence = { url, pid: process.pid, root: await realpath(root) };
+/** A presence file for `root`, as a server listening `at` in this process would write it. */
+async function writePresence(root: string, at: UiListener): Promise<void> {
+  const presence = { at, pid: process.pid, root: await realpath(root) };
   await writeFile(join(root, ".kb", "ui.json"), JSON.stringify(presence));
 }
 
@@ -264,7 +265,7 @@ describe("screen state", () => {
   test("another process reaches the tabs through .kb/ui.json", async () => {
     const file = join(root, ".kb", "ui.json");
     const presence = JSON.parse(await readFile(file, "utf8")) as unknown;
-    expect(presence).toEqual({ url: handle.url, pid: process.pid, root: await realpath(root) });
+    expect(presence).toEqual({ at: handle.at, pid: process.pid, root: await realpath(root) });
     // Readable by its owner only.
     expect((await stat(file)).mode & 0o777).toBe(0o600);
 
@@ -322,9 +323,9 @@ describe("screen state with no kb ui", () => {
     const ctx = await openKb(root);
     // Bind and release a port, so nothing listens where the file points.
     const probe = Bun.serve({ port: 0, fetch: () => new Response() });
-    const url = `http://127.0.0.1:${probe.port}`;
+    const at: UiListener = { kind: "tcp", hostname: "127.0.0.1", port: probe.port ?? 0 };
     void probe.stop(true);
-    await writePresence(root, url);
+    await writePresence(root, at);
     const started = Date.now();
     expect(await invoke(ctx, { id: "ui.navigate", input: { node: "n.x" } })).toEqual({
       status: "succeeded",
@@ -341,7 +342,7 @@ describe("screen state with no kb ui", () => {
     const stranger = await run(FakeTab.open(elsewhere.url, "tab.stranger"));
     try {
       const ctx = await openKb(root);
-      await writePresence(root, elsewhere.url);
+      await writePresence(root, elsewhere.at);
       expect(await invoke(ctx, { id: "ui.screen", input: {} })).toEqual({
         status: "succeeded",
         id: "ui.screen",
@@ -365,7 +366,7 @@ describe("screen state with no kb ui", () => {
     // Takes the connection and never answers.
     const silent = Bun.serve({ port: 0, fetch: () => new Promise<Response>(() => undefined) });
     try {
-      await writePresence(root, `http://127.0.0.1:${silent.port}`);
+      await writePresence(root, { kind: "tcp", hostname: "127.0.0.1", port: silent.port ?? 0 });
       const started = Date.now();
       expect(await invoke(ctx, { id: "ui.select", input: { focus: "n.x" } })).toEqual({
         status: "succeeded",
