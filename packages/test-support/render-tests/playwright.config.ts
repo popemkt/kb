@@ -1,5 +1,17 @@
 import { defineConfig } from "playwright/test";
 
+// Headless Chromium hides WebGPU behind `--enable-unsafe-webgpu`. With it, a
+// machine that has an adapter proves the WebGPU path; one without falls back
+// to WebGL2, and the specs read which (`gpu` in harness-test.ts). On Linux,
+// Chromium reaches a real GPU (Mesa's radv, say) only through Vulkan, for
+// WebGPU and for ANGLE's WebGL alike; without these it draws in SwiftShader
+// even where a GPU is present. A Linux host with no GPU still falls back to
+// SwiftShader. macOS needs none of them: Metal is the default there.
+const chromiumGpuArgs = [
+  "--enable-unsafe-webgpu",
+  ...(process.platform === "linux" ? ["--enable-features=Vulkan", "--use-angle=vulkan"] : []),
+];
+
 export default defineConfig({
   testDir: "./tests-render",
   testMatch: "**/*.e2e.ts",
@@ -20,9 +32,6 @@ export default defineConfig({
     channel: "chromium",
     viewport: { width: 1280, height: 900 },
     deviceScaleFactor: 1,
-    // Headless Chromium hides WebGPU behind this flag. With it, a machine
-    // that has an adapter proves the WebGPU path; one without falls back to
-    // WebGL2, and the specs read which (`gpu` in harness-test.ts).
-    launchOptions: { args: ["--enable-unsafe-webgpu"] },
+    launchOptions: { args: chromiumGpuArgs },
   },
 });
