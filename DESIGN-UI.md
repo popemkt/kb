@@ -191,9 +191,10 @@ query text, each as of a generation of the replica.
   queued are asked again — and its answer is `over-budget`, which readers
   show as "took too long" rather than as wrong datalog. A run the engine
   cannot interrupt (in-thread) is still answered `over-budget` when it
-  returns late. The worker boundary is the seam a read-set-based re-run
-  would live behind; today a move of the replica asks every watched query
-  again.
+  returns late. A move of the replica asks every watched query again, and
+  the engine runs only those whose last run read something the move
+  touched; the others it answers from what it remembers (DESIGN.md → Query
+  layer → A run's read set). A restarted engine remembers nothing.
 - **Time moves answers too.** An answer whose run read the clock
   (`kb/today`, `kb/instant-now`, …) holds until a time (`holdsUntilMs`,
   DESIGN.md → Query layer); from then it is not current, and a watched one
@@ -243,14 +244,14 @@ WS protocol (JSON):
 
 - v1 implementation: on every load, the server rebuilds a DataScript database
   from the current nodes; on fs change it re-runs each subscription's query and
-  pushes rows if the result hash changed. Coarse but correct; 50k nodes re-query
-  in ~20ms, fine for tens of subscriptions.
+  pushes rows if the result hash changed. The index runs only the queries a
+  change touched (DESIGN.md → Query layer → A run's read set) and answers
+  the rest from what it remembers.
 - The browser UI subscribes to `tx` only and answers every query from its
   own replica (→ Replica queries); `rows` subscriptions are for thin
   clients, which need no DataScript.
-- Growth path kept open, not built: result diffing, per-query dependency
-  tracking (nxus has a reference impl), auth token if ever exposed beyond
-  localhost. Server binds 127.0.0.1 only.
+- Growth path kept open, not built: result diffing, auth token if ever
+  exposed beyond localhost. Server binds 127.0.0.1 only.
 
 ## Fork from nxus (verdict: fork the tree, ignore the plumbing)
 
