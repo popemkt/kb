@@ -2,7 +2,7 @@
  * The interception points' matching cost (`bun run bench`): many listeners,
  * many actions, and what finding a call's listeners costs once the index
  * has seen the action, beside scanning every listener per call, as a host
- * without the index would. It runs only when named, prints the table, and
+ * without the index would. It runs only in the bench lane, prints the table, and
  * holds the index to two things: it finds exactly what scanning finds, and
  * finding is cheaper than scanning.
  */
@@ -11,9 +11,9 @@ import { Effect } from "effect";
 import type { ActionGuard, CalledAction, Listener } from "@kb/contracts";
 import { matchSpecificity } from "@kb/model";
 import { interceptionOf } from "@kb/operations";
+import { benchmarkEnabled as enabled } from "@kb/test-kit";
 import { writeOut } from "../src/output.ts";
 
-const enabled = Bun.argv.some((arg) => arg.endsWith("benchmark.test.ts"));
 const LISTENERS = 2000;
 const ACTIONS = 400;
 const CALLS = 200_000;

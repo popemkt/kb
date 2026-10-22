@@ -19,6 +19,7 @@ export { seedGolden } from "./seed-golden.ts";
 export { storeContract } from "./store-contract.ts";
 export { CONTRACT_AT, persist, scratchRoot } from "./store-session.ts";
 export type { StoreFactory } from "./store-session.ts";
+export { benchmarkEnabled } from "./bench.ts";
 export { storeBenchmark } from "./store-benchmark.ts";
 export { surfaceContract } from "./surface-contract.ts";
 export type {
