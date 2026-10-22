@@ -3199,6 +3199,19 @@ with the element (`leading-*`, or the `.kb-text` role's `--kb-text-leading`).
   `lib/tokens.test.ts` fails if `TYPE_STEPS`, the bridge and the layer-1
   values ever list different names.
 
+### Long text
+
+A node's text wraps, all of it, wherever it is the content: a row, and the
+zoomed page's title, in view and in edit alike (`.kb-text-row`, pre-wrap).
+A title is never cut short on the page it heads: the page is where a person
+reads it whole, as Notion, Logseq, Workflowy and Tana all wrap a page
+heading. Text clamps to one line with an ellipsis (`truncate`, or
+`.kb-text-clamp`) only where room is the constraint and the text is a
+pointer to somewhere else: breadcrumbs, sidebar entries, chips, picker
+rows. A clamped label carries its full text in a `title` tooltip.
+`outline-layout.e2e.ts` measures the title in a real engine at a desktop
+and a phone width.
+
 ### Elevation
 
 How far a surface floats above the page, lowest first. `--elevation-<level>`
