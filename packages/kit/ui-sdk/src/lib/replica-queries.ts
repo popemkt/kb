@@ -11,7 +11,8 @@
  * An answer is as of a generation of the replica. A query someone watches is
  * asked again when the generation moves, and until the new answer arrives its
  * readers keep the last one (it is not `current`), so a write never blanks
- * what the page shows. A query no one watches is asked again only when it is
+ * what the page shows. A new answer with the rows of the last keeps the
+ * last one's rows array. A query no one watches is asked again only when it is
  * read, and forgotten once enough others have been read since.
  *
  * An answer whose run read the clock (`kb/today`, …) also holds only until
@@ -75,6 +76,23 @@ class AnsweredError extends Error {
     super(answerMessage(answer));
     this.name = answer.kind === "error" ? answer.name : "QueryOverBudget";
   }
+}
+
+/**
+ * Whether `next` answers the rows `last` did: then the page keeps the rows
+ * it has, so a reader that derives from them (memoised on the array) does
+ * no work for a move that did not change them. The engine's answers cross
+ * a worker, so equal rows arrive as a new array every time.
+ */
+function sameRows(
+  last: QueryAnswer | null,
+  next: QueryAnswer,
+): last is Extract<QueryAnswer, { kind: "rows" }> {
+  if (last?.kind !== "rows" || next.kind !== "rows") return false;
+  if (last.rows === next.rows) return true;
+  return (
+    last.rows.length === next.rows.length && JSON.stringify(last.rows) === JSON.stringify(next.rows)
+  );
 }
 
 /** How many rounds `settle` lets a reader take to name every query it asks before it is a defect. */
@@ -324,11 +342,12 @@ export class ReplicaQueries implements QueryAnswers {
   #land(edn: string, entry: Entry, answer: QueryAnswer): void {
     if (entry.asking !== null && entry.asking <= answer.generation) entry.asking = null;
     if (entry.answer !== null && entry.answer.generation > answer.generation) return;
-    entry.answer = answer;
-    this.#lapseAt(edn, entry, answer);
-    const ready = entry.waiting.filter((w) => w.generation <= answer.generation);
-    entry.waiting = entry.waiting.filter((w) => w.generation > answer.generation);
-    for (const waiter of ready) waiter.settle(answer);
+    const landed = sameRows(entry.answer, answer) ? { ...answer, rows: entry.answer.rows } : answer;
+    entry.answer = landed;
+    this.#lapseAt(edn, entry, landed);
+    const ready = entry.waiting.filter((w) => w.generation <= landed.generation);
+    entry.waiting = entry.waiting.filter((w) => w.generation > landed.generation);
+    for (const waiter of ready) waiter.settle(landed);
     this.#version += 1;
     for (const listener of entry.listeners) listener();
     for (const listener of this.#listeners) listener();

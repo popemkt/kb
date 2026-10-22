@@ -139,6 +139,26 @@ describe("the page's query answers", () => {
     expect(held.out).toHaveLength(1);
   });
 
+  it("a new answer with the same rows keeps the rows the page has", async () => {
+    const index = new DatascriptIndex([node("a"), node("b")], { derived: derivedWith({}) });
+    // Rows that cross a worker arrive as new arrays.
+    const queries = new ReplicaQueries(
+      { run: async (request) => structuredClone(answerOf(index, request, clock)) },
+      () => index.generation,
+      wall,
+    );
+    const first = await queries.ask(IDS);
+    index.applyTx({ upserts: [node("a", "typed")], deletes: [] });
+    const second = await queries.ask(IDS);
+    expect(second.generation).toBeGreaterThan(first.generation);
+    expect(second.kind === "rows" && first.kind === "rows" && second.rows === first.rows).toBe(
+      true,
+    );
+    index.applyTx({ upserts: [node("c")], deletes: [] });
+    const third = await queries.ask(IDS);
+    expect(idsOf(third)).toEqual(["a", "b", "c"]);
+  });
+
   it("a read is the same object until its answer or currency moves", async () => {
     const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     const held = heldTransport(index);
