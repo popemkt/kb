@@ -10,6 +10,7 @@ import {
   type ClockSampler,
 } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
+import { parseEdn } from "../ir/parse.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
 import type { DatalogAnswer, KbIndex } from "./index.ts";
@@ -153,7 +154,12 @@ export class DatascriptIndex implements KbIndex {
   }
 
   answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer {
-    const { value, holdsUntilMs } = answerQuery(this.#datascriptDb(), edn, inputs, this.#clock);
+    const { value, holdsUntilMs } = answerQuery(
+      this.#datascriptDb(),
+      parseEdn(edn),
+      inputs,
+      this.#clock,
+    );
     return { rows: normalizeRows(value), holdsUntilMs };
   }
 

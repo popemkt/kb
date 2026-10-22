@@ -177,17 +177,19 @@ export function query(
   inputs: readonly unknown[] = [],
   clock?: ClockSampler,
 ): unknown {
-  return answerQuery(db, edn, inputs, clock).value;
+  return answerQuery(db, parseEdn(edn), inputs, clock).value;
 }
 
-/** {@link query}'s value, and until when it holds (`holdsUntil`): null until the graph moves. */
+/**
+ * {@link query}'s value for a query already parsed (`parseEdn`), and until
+ * when it holds (`holdsUntil`): null until the graph moves.
+ */
 export function answerQuery(
   db: DatascriptDb,
-  edn: string,
+  ir: Ir,
   inputs: readonly unknown[] = [],
   clock?: ClockSampler,
 ): { readonly value: unknown; readonly holdsUntilMs: number | null } {
-  const ir = parseEdn(edn);
   const { raw, find, holdsUntilMs } = executeIr(datascriptExecutor(db), ir, inputs, clock);
   if (ir.kind === "raw" || find === undefined) {
     return { value: reviveValue(raw, db.ids), holdsUntilMs };
