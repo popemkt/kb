@@ -14,8 +14,6 @@
  * - a malformed location lists as broken, and two for one root warn;
  * - listing writes to no listed store;
  * - the tag and the field are minted once;
- * - the root a person opens is registered on their surface's wire, so an
- *   agent's asks;
  * - opening a served root answers its URL and ranks it first; opening a
  *   closed one starts a server for it, and a start that fails ranks
  *   nothing; opening what is missing or not a store starts nothing; opening

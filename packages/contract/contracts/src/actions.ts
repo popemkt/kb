@@ -26,13 +26,15 @@ import type { KbRoots } from "./roots.ts";
 /**
  * What invoking an action does, declared once on its definition and read by
  * every surface: a `read` changes nothing, and a `write` may change the graph,
- * the workspace, or what a UI tab shows. A write can also require approval, meaning a person must
- * have approved the call. The invoke core refuses an unapproved call to such
- * an action ({@link requiresApproval}), so no surface can skip the check.
- * A write can instead delegate approval (`"delegated"`): the owner's own
- * actors run it, an agent asks, and sandboxed code is denied
- * (the governance family's `declaredDecision`). Approval exists only on a write, so it is part of
- * the write arm and not a flag beside the mode.
+ * the workspace, or what a UI tab shows. A write can also declare approval:
+ * `"required"`, a person must approve each call, or `"delegated"`, the
+ * owner's own calls need no approval and anyone acting for them does. Core
+ * decides nothing by it: a declaration is what a guard may read (the
+ * governance family's `declaredDecision`), and while that family contributes
+ * no guard every call runs (DESIGN.md → Action registry → Current stance).
+ * Every surface still shows it ({@link requiresApproval}). Approval exists
+ * only on a write, so it is part of the write arm and not a flag beside the
+ * mode.
  *
  * An action touches its own kb root and nothing else, unless its mode says
  * `outsideRoot`: it reaches past the root, to another store on this machine
@@ -57,7 +59,7 @@ export function isActionMode(value: unknown): value is ActionMode {
   return ActionModeSchema.safeParse(value).success;
 }
 
-/** True when invoking an action with this mode needs a person's approval. */
+/** True when an action with this mode declares that each call needs a person's approval. */
 export function requiresApproval(mode: ActionMode): boolean {
   return mode.kind === "write" && mode.approval === "required";
 }
@@ -187,21 +189,21 @@ export interface ActionDefinition<
  * tool call, the CLI's verbs plan one) constructs this same shape. An absent
  * or `null` input is the empty input.
  *
- * `approved` is the statement that a person approved this call. It sits on
- * the envelope, not in the input, because it is about the call and not an
- * argument to the action. It survives only on a wire that carries approval
- * (`onWire`): the page's, `kb action-invoke`'s. An MCP tool call has no
- * envelope, its arguments being the input, and a local program's HTTP
- * request has no person behind it, so there an action whose mode requires
- * approval gets an `approval_required` receipt.
+ * `approved` is the statement that a person approved this call: the answer
+ * to a guard that asks (`approval_required`). It sits on the envelope, not in
+ * the input, because it is about the call and not an argument to the action.
+ * It survives only on a wire that carries approval (`onWire`): the page's,
+ * `kb action-invoke`'s. An MCP tool call has no envelope, its arguments being
+ * the input, and a local program's HTTP request has no person behind it, so
+ * there a call a guard asks about stays refused.
  *
  * `script` is a script's reach. A request never says who makes it: the
  * surface it arrives on does (`onWire`), so the envelope has no actor, and a
  * caller that sends one anyway has it dropped, never refused. A script's
  * reach survives only on a wire that relays calls others make (the page's,
- * kb's own in process); stated from outside kb where its wire does not let
- * it, it is refused (`requestOnWire`). What reaches the invoke core is an
- * {@link ActionInvocation}, which always names who makes it.
+ * kb's own in process), and is dropped on any other. What reaches the invoke
+ * core is an {@link ActionInvocation}, which always names who makes it, the
+ * author its transaction records.
  */
 export const ActionRequestSchema = z.object({
   id: z.string().min(1),
@@ -255,6 +257,8 @@ export function envelopeOf(call: ActionRequest): ActionRequest {
  * A call as it reaches the invoke core: a request with who makes it, which
  * the surface it arrived on stamps (`onWire`) and every call made while
  * another runs takes from it, so no call reaches the core without an actor.
+ * The actor is a record of who made the call (`KbTx.actor`), and grants
+ * nothing by itself; only a script's call is held to more (`madeByScript`).
  */
 export type ActionInvocation = ActionRequest & { readonly actor: Actor };
 

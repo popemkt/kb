@@ -16,7 +16,7 @@ export class DomainError extends Schema.TaggedError<DomainError>()("Kb/DomainErr
     "invalid_input",
     "conflict",
     "internal",
-    // A commit that writes an approval policy without a person behind the call.
+    // A commit a guard asks a person about, with no person behind the call.
     "approval_required",
   ]),
   message: Schema.String,

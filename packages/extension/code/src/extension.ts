@@ -38,10 +38,10 @@ export const codeExtension = defineExtension({
 });
 
 /**
- * A run is a person's act or an agent's: code never starts one, so it
- * cannot chain runs that each ask the person again. The family's own rule
- * about its own action, so it is the family's guard, held whether or not
- * the deployment governs calls; a person's policies decide everything else.
+ * A run is a person's act or an agent's: code never starts one, so a script
+ * cannot chain runs of itself or of others. The family's own rule about its
+ * own action, so it is the family's guard, held whether or not any policy
+ * governs calls.
  */
 const scriptRunGuard: Omit<ActionGuard, "match"> = {
   before: ({ invocation }) =>

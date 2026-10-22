@@ -12,8 +12,8 @@
  * too: it refuses a family that is unknown or not optional, and commits
  * through the same system-write rule (`persistEffect`) as every write.
  * The page's Preferences row calls it, and so may the CLI. It changes which
- * code the server loads, so the seeded approval policies ask an agent and
- * deny sandboxed code (DESIGN.md → Action registry → Approval).
+ * code the server loads, which is what a governing policy would decide
+ * about; none ships for now (DESIGN.md → Action registry → Current stance).
  */
 import { Effect } from "effect";
 import { z } from "zod";

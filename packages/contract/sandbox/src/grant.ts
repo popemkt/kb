@@ -2,8 +2,8 @@
  * A grant, what sandboxed code may ask of the graph, and how it decides a
  * call (DESIGN.md → Sandbox → Grants). A call the grant does not cover is
  * refused before it reaches the invoke core, and one it covers still meets
- * the approval policies there, as the `script` actor. A code view keeps its
- * grant as a setting (`@kb/code`).
+ * the guards there, as the `script` actor. A code view keeps its grant as a
+ * setting (`@kb/code`).
  */
 import { Option, Schema } from "effect";
 import type { KbNode } from "@kb/model";
@@ -25,7 +25,7 @@ export const CodeGrant = Schema.Struct({
   actions: Schema.Array(Schema.NonEmptyString),
 }).annotate({
   description:
-    "What the code may ask of the graph. reads: none, subject (the node it is shown for and the nodes under it, through node.get) or graph (every node, through node.get and graph.query). actions: the ids of any other actions it may call through kb.invoke; each call still meets the approval policies as the script actor, and a write that asks for a person waits for one.",
+    "What the code may ask of the graph. reads: none, subject (the node it is shown for and the nodes under it, through node.get) or graph (every node, through node.get and graph.query). actions: the ids of any other actions it may call through kb.invoke; each call is made as the script actor, and a write a guard asks a person about waits for one.",
 });
 export type CodeGrant = typeof CodeGrant.Type;
 

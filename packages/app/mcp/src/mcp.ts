@@ -234,7 +234,7 @@ function mcpTool(a: ManifestEntry): Tool {
 
 /**
  * `tools/list`, read at each request: what `kb.manifest` lists to an agent,
- * less what this wire could never call. The policies are graph data, so the
+ * less what this wire could never call. A guard may decide by graph data, so the
  * list follows them as they change.
  */
 const listToolsEffect = Effect.fn("mcp.listTools")(function* (ctx: KbContext) {

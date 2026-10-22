@@ -1,8 +1,8 @@
 /**
  * The canvas verbs through the invoke core (plan 2026-10-02, decision 16):
  * each resolves its relation on the stored document, writes it in one
- * canvas write whose receipt carries the lints it made and cleared, and is
- * decided by the approval policies like any action. The pure halves are
+ * canvas write whose receipt carries the lints it made and cleared, and
+ * meets the guards like any action. The pure halves are
  * `@kb/canvas`'s tests (`verbs.test.ts`).
  */
 import { afterEach, describe, expect, test } from "bun:test";

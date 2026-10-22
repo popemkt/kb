@@ -4,7 +4,7 @@
  * call as the script's, with what its run may reach (its grant and its
  * subject), and the invoke core decides it: the grant first
  * (`grantRefusal`, against the nodes the action declares the call acts on),
- * then the approval policies, as for any other call. The guest's call
+ * then the guards, as for any other call. The guest's call
  * carries no envelope, so it never says who it is, what it may reach, or
  * approves itself: only its host can bring a person's answer to a call that
  * asks.

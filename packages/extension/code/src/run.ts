@@ -4,8 +4,9 @@
  * until it is quiet, on the host's engine, its calls answered by the invoke
  * core as writes, each as the `script` actor within its grant. Only a script
  * a person trusts runs, by the digest of exactly its code and grant. The
- * run itself asks approval as configuration does: a person's runs it, an
- * agent's only with approval, a script's never on its own.
+ * run declares delegated approval, as a write to configuration does, which
+ * a guard may read (none that ships does for now), and a script never
+ * starts one (the family's own guard, `extension.ts`).
  */
 import { Effect } from "effect";
 import { z } from "zod";

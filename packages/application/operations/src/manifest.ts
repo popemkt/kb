@@ -17,9 +17,10 @@
  * page loads the browser entry of each one reported enabled, and none other.
  *
  * It lists every action, and says of each what is decided about the caller's
- * own call to it (`decision`): the policies for the actor the call was made
- * by, else the action's mode. That is what each surface lists from
- * (`listingOf`), so a surface and the invoke core cannot disagree.
+ * own call to it (`decision`): what the guards answer for that call as a
+ * listing (`guardBefore`), `allow` where none matches. That is what each
+ * surface lists from (`listingOf`), so a surface and the invoke core cannot
+ * disagree.
  */
 import { Effect } from "effect";
 import { z } from "zod";
