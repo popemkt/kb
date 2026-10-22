@@ -53,6 +53,7 @@ export function OntologyChrome({ params }: { readonly params: OntologyScopeParam
   const { id } = params;
   const members = useGraphStore((s) => s.ontologyMembers);
   const warnings = useGraphStore((s) => s.ontologyWarnings);
+  const leaveScope = useGraphStore((s) => s.leaveScope);
   const onto = useOntologyNode(id);
   if (onto === undefined) return null;
   const label = textOr(onto.text.trim(), "Untitled ontology");
@@ -63,7 +64,7 @@ export function OntologyChrome({ params }: { readonly params: OntologyScopeParam
       memberCount={members?.size ?? 0}
       warnings={warnings}
       view={params.view}
-      onExit={() => navigate("/")}
+      onExit={leaveScope}
     />
   );
 }

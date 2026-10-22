@@ -26,6 +26,8 @@ export interface OutlineCommandApi {
   readonly wireNodes: WireNode[];
   jumpToNode: (id: string) => void;
   zoomTo: (id: string) => void;
+  /** Leave the ontology scope for where the page stood before it entered. */
+  leaveScope: () => void;
   /** The frame views provided, in their pickers' order. */
   frameViews: () => readonly FamilyView<FrameViewKey>[];
 }

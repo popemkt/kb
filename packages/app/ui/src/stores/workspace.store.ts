@@ -31,13 +31,12 @@ import {
   MAIN_PANE,
   navigate,
   nodePath,
+  outlineLocationOf,
   replacePath,
   subscribePath,
   toast,
-  WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { proposeView } from "@/lib/propose-view";
-import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 
 export const WORKSPACE_STORAGE_KEY = "kb-workspace";
@@ -174,16 +173,15 @@ export function currentWorkspace(): WorkspaceStore {
 }
 
 /**
- * The live arrangement as a layout to keep: a pane showing the outline's zoom
- * keeps the node it is zoomed to (`/node/<id>`), since the zoom moves on.
+ * The live arrangement as a layout to keep: a pane at a zoom of the outline
+ * keeps the node it is zoomed to (`/node/<id>`), since a layout's panes are
+ * drawn side by side and the page has one zoom, which moves on.
  */
 function keptLayout(layout: LayoutTree): LayoutTree {
-  const zoom = useGraphStore.getState().rootNodeId;
-  if (zoom === WORKSPACE_ROOT_ID) return layout;
-  return layoutPanes(layout).reduce(
-    (kept, pane) => (pane.path === "/" ? withPanePath(kept, pane.id, nodePath(zoom)) : kept),
-    layout,
-  );
+  return layoutPanes(layout).reduce((kept, pane) => {
+    const zoom = outlineLocationOf(pane.path)?.zoom ?? null;
+    return zoom === null ? kept : withPanePath(kept, pane.id, nodePath(zoom));
+  }, layout);
 }
 
 /**

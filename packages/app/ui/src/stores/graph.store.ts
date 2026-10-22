@@ -10,8 +10,15 @@
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import {
+  getPath,
   inScope,
+  navigate,
+  type OutlineLocation,
+  outlineLocationOf,
+  outlinePath,
+  replacePath,
   shownNodesOf,
+  subscribePath,
   type GraphChange,
   EMPTY_PROJECTION,
   type PageGraphState,
@@ -99,6 +106,8 @@ interface GraphState extends PageGraphState {
   reach: (id: string) => boolean;
   zoomTo: (id: string) => void;
   zoomHome: () => void;
+  /** Leave the ontology scope for where the page stood before it entered. */
+  leaveScope: () => void;
   search: (query: string) => Array<{ id: string; text: string }>;
   /** Push an undo entry (trims redo tail). */
   recordUndo: (entry: UndoEntry) => void;
@@ -362,14 +371,26 @@ export function reachedState(id: string): GraphStateData | null {
   return move === "shown" ? st : { ...st, ...move };
 }
 
+/**
+ * Whether the page can show `id`, leaving the scope when `id` is outside it.
+ * Leaving the scope is going somewhere, so it is pushed as the outline's
+ * location, where the page then stands.
+ */
 function reach(id: string): boolean {
   const move = reachMove(now(), id);
   if (move === null) return false;
   if (move === "shown") return true;
+  leaveScopeBy(move);
+  const { rootNodeId, homeRootId } = now();
+  navigate(outlinePath({ ontology: null, zoom: rootNodeId === homeRootId ? null : rootNodeId }));
+  return true;
+}
+
+/** Leave the scope by `move` (`reachMove`), saying so. */
+function leaveScopeBy(move: Partial<GraphStateData>): void {
   leavePage();
   moveTo("scope", move);
   toast("Left the ontology to follow that node");
-  return true;
 }
 
 /**
@@ -382,13 +403,87 @@ function standAt(at: "zoom" | "home", rootNodeId: string): void {
   useGraphStore.setState({ rootNodeId });
 }
 
+/**
+ * Zooming is navigating: the zoom is pushed as the focused pane's location,
+ * and the page stands where the location names (`followOutlineLocation`),
+ * so back undoes it and a reload lands there. Where there is no address bar
+ * to follow, the page stands there itself.
+ */
 function zoomTo(id: string): void {
-  if (!reach(id)) return;
-  standAt("zoom", id);
+  const st = now();
+  const move = reachMove(st, id);
+  if (move === null) return;
+  const reached = move === "shown" ? st : { ...st, ...move };
+  const at = { ontology: reached.ontologyId, zoom: id === reached.homeRootId ? null : id };
+  navigate(outlinePath(at));
+  // The scope is left on the ontology surface's next render, and where no
+  // address bar is followed nothing stands the page: leave and stand here.
+  if (move !== "shown" && now().ontologyId !== null) leaveScopeBy(move);
+  standAtLocation(at);
 }
 
 function zoomHome(): void {
-  standAt("home", now().homeRootId);
+  const at = { ontology: now().ontologyId, zoom: null };
+  navigate(outlinePath(at));
+  standAtLocation(at);
+}
+
+/** Stand the page at `at` in the scope it is in: its zoom, else its home. */
+function standAtLocation(at: OutlineLocation): void {
+  const { rootNodeId, homeRootId } = now();
+  const target = at.zoom ?? homeRootId;
+  if (target !== rootNodeId) standAt(at.zoom === null ? "home" : "zoom", target);
+}
+
+/**
+ * Leave the ontology scope for the outline at the zoom the page stood at
+ * before it entered: a navigation, so back returns into the scope.
+ */
+function leaveScope(): void {
+  const { preScopeRootId } = now();
+  navigate(
+    outlinePath({
+      ontology: null,
+      zoom: preScopeRootId === null || preScopeRootId === WORKSPACE_ROOT_ID ? null : preScopeRootId,
+    }),
+  );
+}
+
+/** Whether the page is standing where the URL names, so its own store writes are not followed. */
+let following = false;
+
+/**
+ * The page follows the outline location the URL names: on load, on back and
+ * forward, and when a link or a command moves the focused pane there. A zoom
+ * gesture has already stood the page where it pushed (`zoomTo`), so this is
+ * a no-op for it. The scope is the ontology surface's to follow, so a
+ * location in a scope the page has not entered yet waits for it; a location
+ * whose node the page cannot show is replaced by the scope's home.
+ */
+function followOutlineLocation(): void {
+  if (following) return;
+  following = true;
+  try {
+    const at = outlineLocationOf(getPath());
+    const st = now();
+    if (at === null || st.loadSource === null || at.ontology !== st.ontologyId) return;
+    const shown = at.zoom === null || inScope(st, at.zoom) ? at : { ...at, zoom: null };
+    if (shown !== at) replacePath(outlinePath(shown));
+    standAtLocation(shown);
+  } finally {
+    following = false;
+  }
+}
+
+/** Keep the page at the outline location the URL names. Returns the unsubscribe. */
+export function startOutlineLocation(): () => void {
+  followOutlineLocation();
+  const unsubscribePath = subscribePath(followOutlineLocation);
+  const unsubscribeGraph = useGraphStore.subscribe(followOutlineLocation);
+  return () => {
+    unsubscribePath();
+    unsubscribeGraph();
+  };
 }
 
 function search(query: string): Array<{ id: string; text: string }> {
@@ -443,6 +538,7 @@ export const useGraphStore = create<GraphState>()(() => ({
   reach,
   zoomTo,
   zoomHome,
+  leaveScope,
   search,
   recordUndo,
   applyUndo,
