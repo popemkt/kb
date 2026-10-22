@@ -146,7 +146,7 @@ export function runIr(
  * ref field's value is an entity, a number field's a number, though both are
  * stored as a bare number. GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]
  */
-function findWithRefAttrs(
+export function findWithRefAttrs(
   ir: IrQuery,
   find: readonly FindPos[],
   refAttrs: ReadonlySet<string>,

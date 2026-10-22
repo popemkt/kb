@@ -1748,20 +1748,23 @@ same lane. One path to a client, whatever a node's provenance.
     retracts (an entity retracted whole is every datom it had), by
     attribute; an answer whose read set one of them matches is forgotten.
     A rebuild (a first-seen attribute, `rebuild`, `withVirtual`) forgets
-    every answer.
+    every answer, and so does an attribute that holds a ref for the first
+    time: a run revives that attribute's values as nodes, whichever entity
+    holds them. A run that revives a field's value as a node reads every
+    node's id, since that value names a node only while the node lives.
   - *Soundness.* DataScript runs a conjunction in written order, and a
     string that reaches an entity slot makes the run throw, so a narrowing
     applies only to the clauses after the one that makes it — except a
-    predicate's test, which also narrows the pattern that binds its variable
-    when no clause between names it. `[?n :node/id ?id]` is dropped when
+    predicate's test, which also narrows the pattern just before it when
+    that pattern binds its variable. `[?n :node/id ?id]` is dropped when
     another clause of its conjunction already has `?n` as its entity: an
     entity's id datom comes and goes with all of its others. The law —
     after any edits, a remembered answer is what a run over the same db
     answers, errors included — is `read-set.test.ts`'s property, over the
     builder's conditions, the repository's queries and hand-written edge
     cases.
-  - *Everything.* A raw query, a caller's rules (`%`), a pull of `*` or of
-    a nested pattern, or more than `MAX_READS` clauses reads everything:
+  - *Everything.* A raw query, a caller's rules (`%`), a pull of `*`, of a
+    reverse attribute or of a nested pattern, or more than `MAX_READS` clauses reads everything:
     any transaction forgets it. A query with inputs is never remembered.
   - *Bounds.* `KEPT_ANSWERS` (256) answers, least recently asked forgotten
     first, none over `KEPT_ROWS` rows; a read set is the size of its query.

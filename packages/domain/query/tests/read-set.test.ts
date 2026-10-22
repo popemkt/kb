@@ -25,14 +25,14 @@ const DATES = ["2026-10-14", "2026-10-20", "2026-10-21", "2026-11-03"];
 const pick = <T>(xs: readonly T[]) => fc.constantFrom(...xs);
 const ref = pick([...IDS, "gone"]).map((v): PropValue => ({ t: "ref", v }));
 const str = pick([...TEXTS, ...DATES]).map((v): PropValue => ({ t: "str", v }));
-// Numbers that no eid in these graphs equals, so a revived row is the same on any db.
-const num = pick([1000.5, 3.25, -7.5, 0.5]).map((v): PropValue => ({ t: "num", v }));
+// Small integers are eids too: a run revives one as a node once its attribute holds a ref.
+const num = pick([1000.5, 3.25, -7.5, 0.5, 1, 2, 3]).map((v): PropValue => ({ t: "num", v }));
 const bool = fc.boolean().map((v): PropValue => ({ t: "bool", v }));
 const FIELD_VALUES: Record<string, fc.Arbitrary<PropValue>> = {
   "sys.f.type": ref,
   status: fc.oneof(ref, str),
   due: str,
-  est: num,
+  est: fc.oneof({ weight: 4, arbitrary: num }, { weight: 1, arbitrary: ref }),
   note: fc.oneof(str, bool),
   owner: ref,
 };
@@ -94,6 +94,9 @@ const HAND: readonly string[] = [
   `[:find ?id ?u :where [?n :node/id ?id] [?n :node/updated-at ?u] [(> ?u "2026-10-10")]]`,
   `[:find ?id :where [?n :node/id ?id] [?n :f/due ?d] [(kb/today) ?today] [(<= ?d ?today)]]`,
   `[:find ?x :where [?n :node/id ?x] [(get-else $ ?n :node/text "") ?t]]`,
+  `[:find ?v :where [?n :node/id "a"] [?n :f/est ?v]]`,
+  `[:find (pull ?n [:node/id :node/_child]) :where [?n :node/id "a"]]`,
+  `[:find ?id :where [?n :f/est ?v] [(clojure.string/includes? ?n "x")] [(> ?v 1)] [?n :node/id ?id]]`,
 ];
 
 const corpus = ednCorpus()

@@ -34,12 +34,12 @@ const KEPT_ANSWERS = 256;
 /** An answer with more rows than this is not remembered: the bound on what one remembered answer holds. */
 const KEPT_ROWS = 50_000;
 
-/** An answer the index remembers: its rows, until when they hold, and what the run that made them read. */
 /** One operation of a transaction the index hands DataScript. */
 type TxOp =
   | readonly [":db/add" | ":db/retract", number, string, unknown]
   | readonly [":db/retractEntity", number];
 
+/** An answer the index remembers: its rows, until when they hold, and what the run that made them read. */
 interface Kept extends DatalogAnswer {
   readonly reads: ReadSet;
 }
@@ -57,7 +57,8 @@ export interface IndexOptions {
    * Where a run's clock sample comes from: the `Clock` and zone of the host
    * that builds the index (`clockSampler` in `@kb/model`), sampled once by a
    * run that calls a clocked kb function (`kb/today`, …) and never by any
-   * other. Without one, such a query fails naming the function; the index
+   * other run, and by a remembered clocked answer to learn whether it still
+   * holds. Without one, such a query fails naming the function; the index
    * never falls back to a wall clock of its own.
    */
   readonly clock?: ClockSampler;
@@ -71,8 +72,10 @@ export interface IndexOptions {
  * never reused, so a revived eid always means the node it meant before. The
  * schema is derived from the data (a `:f/<field>` attr is a ref attr because
  * some node put a ref in it), which is the one thing `d.db_with` cannot grow:
- * a transaction that introduces a new attr, or turns a known attr into a ref
- * attr, falls back to a full rebuild and is counted in {@link rebuilds}.
+ * a transaction that introduces a new attr falls back to a full rebuild and
+ * is counted in {@link rebuilds}. One that turns a known attr into a ref attr
+ * changes how a run revives that attr's values, not the db, so it forgets
+ * every remembered answer instead.
  */
 export class DatascriptIndex implements KbIndex {
   readonly #table: NodeTable;
@@ -160,12 +163,16 @@ export class DatascriptIndex implements KbIndex {
 
     const adds: TxOp[] = [];
     let grown = false;
+    let revived = false;
     for (const node of change.restated) {
       const built = nodeToDatoms(node, this.#ids, this.#derived);
       for (const attr of built.attrs) {
         if (!this.#attrs.has(attr)) grown = true;
       }
-      for (const attr of built.refAttrs) this.#refAttrs.add(attr);
+      for (const attr of built.refAttrs) {
+        if (!this.#refAttrs.has(attr)) revived = true;
+        this.#refAttrs.add(attr);
+      }
       const eid = present(this.#ids.toEid.get(node.id), `eid for ${node.id}`);
       this.#diffEntity(eid, built.datoms, retracts, adds);
     }
@@ -178,6 +185,9 @@ export class DatascriptIndex implements KbIndex {
     }
     const changed = this.#changedBy(retracts, adds);
     this.#db = d.db_with(this.#db, [...retracts, ...adds]);
+    // A run revives a ref attr's values as nodes wherever they sit
+    // (`findWithRefAttrs`), so a new one can change any answer that reads it.
+    if (revived) this.#answers.clear();
     for (const [edn, kept] of this.#answers) {
       if (touches(kept.reads, changed)) this.#answers.delete(edn);
     }
@@ -228,7 +238,7 @@ export class DatascriptIndex implements KbIndex {
     const answer = this.#answer(ir, inputs);
     this.#answers.delete(edn);
     if (answer.rows.length <= KEPT_ROWS) {
-      this.#answers.set(edn, { ...answer, reads: readSetOf(ir, (id) => this.#ids.toEid.get(id)) });
+      this.#answers.set(edn, { ...answer, reads: readSetOf(ir, this.#datascriptDb()) });
       for (const oldest of this.#answers.keys()) {
         if (this.#answers.size <= KEPT_ANSWERS) break;
         this.#answers.delete(oldest);

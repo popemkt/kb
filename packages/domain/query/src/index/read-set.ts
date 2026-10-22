@@ -22,11 +22,15 @@ import type {
   Clause,
   FindPos,
   Ir,
+  IrQuery,
   PredicateArg,
   PredicateClause,
   PredicateName,
 } from "../ir/ir.ts";
+import { findWithRefAttrs } from "../datascript.ts";
 import { kbFunctions } from "../ir/kb-functions.ts";
+import { outerClauses } from "../ir/scope.ts";
+import type { DatascriptDb } from "./datoms.ts";
 
 /** A datom as a transaction adds or retracts it. */
 export interface ChangedDatom {
@@ -69,17 +73,18 @@ type Scope = ReadonlyMap<string, Narrowing>;
 class Opaque extends Error {}
 
 /**
- * The read set of `ir` run against the db whose node ids `eidOf` resolves.
- * The eids are as of that db: a node created later is a `:node/id` datom the
- * set reads, so its creation touches the set before any eid in it is stale.
+ * The read set of `ir` run against `db`. The eids are as of that db: a node
+ * created later is a `:node/id` datom the set reads, so its creation touches
+ * the set before any eid in it is stale.
  */
-export function readSetOf(ir: Ir, eidOf: (id: string) => number | undefined): ReadSet {
+export function readSetOf(ir: Ir, db: DatascriptDb): ReadSet {
   if (ir.kind === "raw") return READS_EVERYTHING;
   if ((ir.in ?? []).includes("%")) return READS_EVERYTHING;
   const reads: DatomRead[] = [];
   try {
-    const top = conjunction(ir.where, new Map(), eidOf, reads);
+    const top = conjunction(ir.where, new Map(), (id) => db.ids.toEid.get(id), reads);
     for (const pos of ir.find) pullReads(pos, top, reads);
+    reads.push(...revivalReads(ir, db.refAttrs));
   } catch (error) {
     if (error instanceof Opaque) return READS_EVERYTHING;
     throw error;
@@ -87,12 +92,34 @@ export function readSetOf(ir: Ir, eidOf: (id: string) => number | undefined): Re
   return reads.length > MAX_READS ? READS_EVERYTHING : { kind: "datoms", reads };
 }
 
-/** The attributes a find's pull reads off its entities; one it cannot list (`*`, a nested pull) is opaque. */
+/**
+ * What reviving a run's rows reads: a field value revived as a node
+ * (`findWithRefAttrs`) is a node id while its eid is a live node and a bare
+ * number otherwise, so it reads every node's id — a number field's value and
+ * a ref look alike (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]).
+ */
+function revivalReads(ir: IrQuery, refAttrs: ReadonlySet<string>): DatomRead[] {
+  const fieldValues = new Set(
+    outerClauses(ir.where).flatMap((c) =>
+      c.kind === "pattern" && c.value.t === "var" && c.attr !== ":node/id" ? [c.value.name] : [],
+    ),
+  );
+  const revived = findWithRefAttrs(ir, ir.find, refAttrs).some(
+    (pos) => pos.kind === "var" && pos.type === "node-ref" && fieldValues.has(pos.name),
+  );
+  return revived ? [{ attr: ":node/id" }] : [];
+}
+
+/** The attributes a find's pull reads off its entities; one it cannot list (`*`, a reverse attribute, a nested pull) is opaque. */
 function pullReads(pos: FindPos, scope: Scope, reads: DatomRead[]): void {
   if (pos.kind !== "pull") return;
   const entities = scope.get(pos.of)?.eids;
   for (const el of pos.pattern) {
-    if (typeof el !== "string" || el === "*") throw new Opaque();
+    // A reverse attribute (`:node/_child`) reads datoms whose value, not
+    // entity, is the pulled one: opaque, as `*` is.
+    if (typeof el !== "string" || el === "*" || el.split("/").at(-1)?.startsWith("_") === true) {
+      throw new Opaque();
+    }
     reads.push(entities === undefined ? { attr: el } : { attr: el, entities });
   }
 }
@@ -247,61 +274,30 @@ function narrow(
 }
 
 /**
- * The tests of predicates that narrow a pattern written before them: the
- * pattern that binds the variable a predicate tests, when no clause between
- * the two names that variable. Its other values then reach nothing before
- * the predicate drops them, so they can neither change the answer nor make
- * the run throw; the predicate itself throws on none of the values its test
- * rules out (`testOf`).
+ * The tests of predicates that narrow the pattern written just before them,
+ * when that pattern binds the variable the predicate tests. Its other values
+ * then reach no clause but the predicate, which drops them, so they can
+ * neither change the answer nor make the run throw; the predicate itself
+ * throws on none of the values its test rules out (`testOf`). A clause in
+ * between would see those values first, and could throw on them.
  */
 function testsAhead(clauses: readonly Clause[]): Map<Clause, ValueTest[]> {
   const ahead = new Map<Clause, ValueTest[]>();
   for (const [k, c] of clauses.entries()) {
     if (c.kind !== "predicate" || c.bind !== undefined) continue;
     const test = testOf(c);
-    if (test === null) continue;
-    for (let j = k - 1; j >= 0; j -= 1) {
-      const before = clauses[j];
-      if (before === undefined || !mentions(before, test.name)) continue;
-      if (
-        before.kind === "pattern" &&
-        before.value.t === "var" &&
-        before.value.name === test.name &&
-        before.entity !== test.name
-      ) {
-        ahead.set(before, [...(ahead.get(before) ?? []), test.test]);
-      }
-      break;
+    const before = clauses[k - 1];
+    if (
+      test !== null &&
+      before?.kind === "pattern" &&
+      before.value.t === "var" &&
+      before.value.name === test.name &&
+      before.entity !== test.name
+    ) {
+      ahead.set(before, [...(ahead.get(before) ?? []), test.test]);
     }
   }
   return ahead;
-}
-
-/** Whether `c` names the variable `name` anywhere, nested clauses included. */
-function mentions(c: Clause, name: string): boolean {
-  const term = (t: { t: string; name?: string }): boolean => t.t === "var" && t.name === name;
-  switch (c.kind) {
-    case "pattern":
-      return c.entity === name || term(c.value);
-    case "children":
-      return c.parent === name || c.child === name || c.order === name;
-    case "reach":
-      return c.from === name || c.to === name;
-    case "rule":
-      return c.args.some(term);
-    case "predicate":
-      return c.args.some(term) || c.bind === name;
-    case "or":
-      return (
-        (c.join ?? []).includes(name) || c.branches.some((b) => b.some((x) => mentions(x, name)))
-      );
-    case "not":
-      return (c.join ?? []).includes(name) || c.clauses.some((x) => mentions(x, name));
-    default: {
-      const _exhaustive: never = c;
-      return _exhaustive;
-    }
-  }
 }
 
 type Constant = string | number | boolean;
