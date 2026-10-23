@@ -1,5 +1,4 @@
-import { lazy, useEffect, useMemo, useState } from "react";
-import { Result } from "effect";
+import { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { HexagonIcon, PlusIcon } from "@phosphor-icons/react";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import {
@@ -7,15 +6,12 @@ import {
   OntologyListView,
   OntologyScopeView,
   type OntologyScopeParams,
-  paramsFrom,
-  resolveDefaultViewType,
   viewNamed,
 } from "@kb/views";
 import { isOntologyNode } from "@kb/model";
 import {
   browserHost,
   listOntologyItems,
-  logWarn,
   type MatchedRoute,
   navigate,
   NotFound,
@@ -30,6 +26,7 @@ import {
   ViewSlot,
   ViewNotLoaded,
 } from "@kb/ui-sdk";
+import { DefaultViewSlot } from "@/lib/default-view";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore } from "@/stores/graph.store";
 
@@ -123,35 +120,13 @@ function OntologyGraph({ ontologyId }: { readonly ontologyId: string }) {
 
 /**
  * The scope's nodes as a node that names no view opens: the store's default
- * view type (`resolveDefaultViewType`), shown for no node, so the ontology
- * names no other plugin's view. Its plugin off, or the data naming none, it
- * says which it cannot show, as the graph's tab does.
+ * view type, shown for no node (`DefaultViewSlot`), so the ontology names no
+ * other plugin's view.
  */
 function ScopeDefaultView({ ontologyId }: { readonly ontologyId: string }) {
   const schema = useGraphStore(schemaOf);
-  const catalog = usePageCatalog();
-  const target = useMemo(() => {
-    const resolved = resolveDefaultViewType(
-      ontologyId,
-      catalog,
-      (node) => schema.get(node),
-      (warning) => logWarn(`[kb/ontology] ${ontologyId}: ${warning}`),
-    );
-    if (Result.isFailure(resolved) || resolved.success.key === null) return null;
-    const { key, input, subject } = resolved.success;
-    const params = paramsFrom(key, input);
-    return Result.isSuccess(params) ? { key, params: params.success, subject } : null;
-  }, [ontologyId, catalog, schema]);
-  if (target === null) return <ViewNotLoaded label="Default view" placement="page" />;
-  return (
-    <ViewSlot
-      view={target.key}
-      params={target.params}
-      placement="page"
-      subject={target.subject}
-      fallback={<ViewNotLoaded label={target.key.label} placement="page" />}
-    />
-  );
+  const lookup = useCallback((node: string) => schema.get(node), [schema]);
+  return <DefaultViewSlot subject={ontologyId} lookup={lookup} warnAs="ontology" />;
 }
 
 export function OntologyListSurface() {

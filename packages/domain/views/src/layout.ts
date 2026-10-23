@@ -8,7 +8,7 @@
 import { Result, Schema } from "effect";
 import { SYSTEM_IDS, canonicalJson, firstStr } from "@kb/model";
 import { subjectRootOf, subjectRootProps } from "./subject.ts";
-import { issueText, paramsIssues, viewKey, type ConfigReport } from "./view-key.ts";
+import { NoParams, issueText, paramsIssues, viewKey, type ConfigReport } from "./view-key.ts";
 
 /** The layout plugin's namespace and view keys: what a host imports, never the components. */
 export const LAYOUT_NAMESPACE = "layout";
@@ -146,7 +146,7 @@ export const NodeParams = Schema.Struct({
   view: Schema.optionalKey(Schema.NonEmptyString),
 }).annotate({
   description:
-    "A node shown in its default view (the first view node it names, or its outline when it names none), or through view: one of its view nodes, or a view type by its option. Stored, node is lens.focus, else the node it is shown for.",
+    "A node shown in its default view (the first view node it names, or the store's default view type when it names none), or through view: one of its view nodes, or a view type by its option. Stored, node is lens.focus, else the node it is shown for.",
 });
 export type NodeParams = typeof NodeParams.Type;
 
@@ -156,6 +156,46 @@ export const NodeView = viewKey(`${LAYOUT_NAMESPACE}.node`, "Node", NodeParams, 
     return node === undefined ? {} : { node };
   },
   write: ({ node }) => subjectRootProps(node),
+});
+
+/**
+ * Where the page stands (`/`, `/outline/<id>`): the page's zoom, shown in the
+ * store's default view type for no node, as a scope's nodes are
+ * (`resolveDefaultViewType`). The zoom is the page's, not any family's, so
+ * the home is core's whatever view draws it.
+ */
+export const HomeView = viewKey(
+  `${LAYOUT_NAMESPACE}.home`,
+  "Home",
+  NoParams.annotate({
+    description:
+      "Where the page stands: its zoom (/, /outline/<id>), shown in the store's default view type. It reads no settings.",
+  }),
+);
+
+/**
+ * A node read, not edited: its text, then its descendants. Core's, so a node
+ * always has a view to open in: it is what a node that names no view opens in
+ * where the host holds no key for the store's default view type, or the
+ * store names none (`resolveNodeView`). Rooted at `root`; without one, at
+ * the page's zoom.
+ */
+export const NodeReadParams = Schema.Struct({
+  root: Schema.optionalKey(Schema.NonEmptyString),
+  /** The label of the view it is read in place of, which this host does not hold. */
+  insteadOf: Schema.optionalKey(Schema.NonEmptyString),
+}).annotate({
+  description:
+    "A node read-only: its text, then its descendants, rooted at root, or at the page's zoom (/) when there is none. What a node opens in when the view it would open in is not loaded, which insteadOf names. Stored, root is lens.focus, else the node it is shown for; insteadOf is never stored.",
+});
+export type NodeReadParams = typeof NodeReadParams.Type;
+
+export const NodeReadView = viewKey(`${LAYOUT_NAMESPACE}.read`, "Read", NodeReadParams, {
+  read: (props, host) => {
+    const root = subjectRootOf(props, host);
+    return root === undefined ? {} : { root };
+  },
+  write: ({ root }) => (root === undefined ? {} : subjectRootProps(root)),
 });
 
 // ── the tree's edits: pure, each returning a layout the schema accepts ────

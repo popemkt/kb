@@ -1027,11 +1027,18 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     prop), like every seed addition. The store contract holds that over
     every backend.
   - **Opening through it.** Opening a node through the default is opening it
-    through that view type by name. A default whose family is switched off
-    therefore opens as "cannot be shown here", like any view named so, and
-    no code names the default. A default that is missing, or names no view
-    type, is a broken definition (Layout views, below), reported and opened
-    as one, never thrown.
+    through that view type by name, and no code names the default.
+  - **Core's read view is the floor.** A default this host holds no key
+    for (its family switched off, or not bundled), or a store that names
+    none (a bundle in which no family provides one), opens the node in
+    core's read view instead (`layout.read`, `NodeReadView`): its text and
+    its descendants, read-only, saying which view it is read in place of.
+    So no family is one a node needs to open in, and the outline, which
+    provides the default, is optional. The floor is the resolver's, not the
+    data's: opening never writes, so a store seeded with the outline as its
+    default keeps it, and reads its nodes while the outline is off. A
+    default that names no view type is a broken definition (Layout views,
+    below), reported and opened as one, never thrown.
   - **Not order.** Order is not the mechanism here, as it is for a host's
     views: the order of `sys.views` is the fold's, and a store seeded earlier
     may hold it otherwise.
@@ -1160,16 +1167,24 @@ children: [≥2 layouts], sizes?}`). A split inside a row is a column and
   through a named view node, read for the node; as the view node itself
   when the node is one; otherwise in the node's default view (the first it
   names) or, when it names none, through the store's default view type, as
-  if the node named it (View nodes, above: seeded as the outline). A view
-  whose page is another view's says so in its key (`ViewKey.page`), so the
-  resolver names no view: a frame view's page is the outline at the frame,
-  and a graph renderer's page is the graph page drawing that view node. The
-  UI's links, a pane, a dashboard's panes and `ui.navigate` all open nodes
-  this way.
+  if the node named it (View nodes, above: seeded as the outline, with
+  core's read view the floor). A view whose page is another view's says so
+  in its key (`ViewKey.page`), so the resolver names no view: a frame view's
+  page is the outline at the frame, and a graph renderer's page is the graph
+  page drawing that view node. A page this host holds no key for (the
+  outline at a frame, with the outline off) is the node read in its place,
+  as the default is. The UI's links, a pane, a dashboard's panes and
+  `ui.navigate` all open nodes this way.
+- **The home is core's.** `/` and `/outline/<id>` are where the page stands
+  (its zoom, `outlineLocationOf`), owned by core's `layout.home`
+  (`HomeView`), which shows the zoom in the store's default view type for
+  no node (`resolveDefaultViewType`), as an ontology's scope shows its
+  nodes. With the outline loaded the home is the outline at the zoom; with
+  it off, the zoom read. The sidebar's Home row is core's too.
 - **A broken definition opens, saying why; only a wrong location fails.**
   When the view the data names for a node is broken (a host's view node
   that is gone or names no view kb knows, a view node naming such a view,
-  or a default view type that is missing or names none), the resolver
+  or a default view type that names no view type), the resolver
   reports it through the caller's `ConfigReport` and resolves to a broken
   target carrying that warning (`BrokenViewTarget`), which the node route
   draws as the one "cannot be shown here" state with the warning as its
@@ -2920,12 +2935,12 @@ and it adds no field an extension author must fill in.
   and nodes are written, updated and deleted. So a run-time dependency of
   core on a family a deployment may leave out fails CI.
 - **kb's tags:**
-  - `core`: `coreExtension`, the required families (`outline`, `docs`,
-    `check`), the server's host plugin and the page's shell plugins;
+  - `core`: `coreExtension`, the required families (`docs`, `check`), the
+    server's host plugin and the page's shell plugins;
   - `governance`;
   - `identity`: the proxy-header provider;
   - `ui`: every browser half, beside its family's tag, and the shell's;
-  - one tag per optional family for the rest (`collections`, `graph`,
+  - one tag per optional family for the rest (`outline`, `collections`, `graph`,
     `canvas`, `lab`, `code`, `chart`, `locations`, `backdrops`, `themes`,
     `agent`).
 
@@ -2979,14 +2994,16 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   loaded by its host, so its actions and views leave the registry, the
   catalog, MCP's tools and the agent's, and the page drops its browser
   half. There is never a second switch in the browser.
-  - **Which families can be switched.** The collections (the table,
-    board and cards frame views), canvas, chart, code, the page-head
+  - **Which families can be switched.** The outline, the collections (the
+    table, board and cards frame views), canvas, chart, code, the page-head
     backdrops (DESIGN-UI.md → Page-head backdrops), the themes (DESIGN-UI.md
     → Design tokens → Design systems) and the agent are
     optional and on by default; the lab is optional and off by
-    default. The outline, docs and check are required. The outline is the
-    default editing mode and provides the default view type, the view a
-    node opens in when it names none. Docs owns the templates core's
+    default. Docs and check are required. The outline is the default
+    editing mode and provides the default view type, the view a node opens
+    in when it names none; switched off, a node is read in core's read view
+    instead (View nodes → core's read view is the floor), and the home is
+    core's, so nothing else needs it. Docs owns the templates core's
     `docs.markdown` views render with, so with docs off a core view would
     break rather than read as unavailable, and docs and check run the
     repository's gates (`docs.check`, `check:audit`). A required family is on wherever it

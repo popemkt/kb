@@ -2,17 +2,36 @@ import { Effect } from "effect";
 import { coreExtension } from "@kb/operations";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { LAYOUT_NAMESPACE, LayoutView, NodeView } from "@kb/views";
-import { provideRoute, provideView, RoutePoint, ViewPoint } from "@kb/ui-sdk";
+import { HomeView, LAYOUT_NAMESPACE, LayoutView, NodeReadView, NodeView } from "@kb/views";
+import {
+  provideRoute,
+  provideView,
+  RoutePoint,
+  schemaOf,
+  SidebarSectionPoint,
+  ViewPoint,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
+import { defaultViewFrame } from "@/lib/default-view-frame";
+import { useGraphStore } from "@/stores/graph.store";
+import { HomeSection, HomeSurface } from "./home";
 import { LayoutViewSurface } from "./layout-view";
+import { NodeReadSurface } from "./node-read";
 import { NodeViewSurface } from "./node-view";
-import { matchNode } from "./routes";
+import { matchHome, matchNode } from "./routes";
+
+/** The graph as the page holds it now, for a route's frame, which is read outside a render. */
+const homeLookup = (id: string) => schemaOf(useGraphStore.getState()).get(id);
 
 /**
- * Layouts and the node route: the layout view (`layout.grid`, a dashboard
- * when shown inside a pane) and `/node/<id>[/<view>]`, the one route a node
- * is opened by. The workspace's own panes are the shell's
- * (`components/layout/workspace`), drawn with the same grid.
+ * Layouts, the home and the node route: the layout view (`layout.grid`, a
+ * dashboard when shown inside a pane), `/node/<id>[/<view>]`, the one route
+ * a node is opened by, the home at `/` and `/outline/<id>` (where the page
+ * stands, in the store's default view type) with its sidebar row, and the
+ * read view a node opens in where that view is not loaded. So no family is
+ * one the page needs to open a node or stand anywhere. The workspace's own
+ * panes are the shell's (`components/layout/workspace`), drawn with the same
+ * grid.
  */
 export const layoutUiPlugin = definePlugin({
   name: LAYOUT_NAMESPACE,
@@ -47,6 +66,34 @@ export const layoutUiPlugin = definePlugin({
             pendingTitle: () => "Opening…",
           }),
         ),
+        ctx.contribute(
+          ViewPoint,
+          provideView(HomeView, { placements: ["page"], sample: {}, Component: HomeSurface }),
+        ),
+        ctx.contribute(
+          RoutePoint,
+          provideRoute({
+            view: HomeView,
+            match: matchHome,
+            entry: "/",
+            // Framed as the default view type says a page it is the whole of is.
+            frame: () => defaultViewFrame(WORKSPACE_ROOT_ID, homeLookup),
+            pendingTitle: () => "Opening your workspace…",
+          }),
+        ),
+        ctx.contribute(
+          ViewPoint,
+          provideView(NodeReadView, {
+            placements: ["page"],
+            sample: { root: "n.root-a" },
+            Component: NodeReadSurface,
+            frame: "scroll",
+          }),
+        ),
+        ctx.contribute(SidebarSectionPoint, {
+          id: "home",
+          value: { order: 0, Component: HomeSection },
+        }),
       ],
       { discard: true },
     ),

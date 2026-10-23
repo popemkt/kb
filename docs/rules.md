@@ -228,6 +228,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
+### GAP: a frame view's page is the outline at the frame
+
+- **expected** — A frame opened as a page shows its frame view (a table, a board) whichever family draws the page, so the collections family stands without the outline.
+- **current** — frameViewKey's page is OutlineView at the frame, and the collections' frame views offer only the inline placement; with the outline off, the resolver reads the frame in its place (layout.read), so its table or board is not shown.
+- **impact** — With the outline switched off and the collections on, a frame opens as its children read as a list, and no table, board or cards view of it can be opened.
+- **closes** — Frame views that offer the page placement, or a core frame page that lays the frame out through its first frame view, chosen by the resolver when the outline is not held.
+- **node** — `01M5MWXPDDZGG2PFEGMG95HMBY`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -1324,6 +1332,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A regression in a WebGPU-only path (storage atomics, compute) is caught only by a local test:render run, not by CI.
 - **closes** — A CI runner with a GPU adapter (a self-hosted Apple silicon runner, or a hosted runner that exposes Metal to Chromium), after which the skip condition never holds and can be deleted.
 - **node** — `01M3E6QH4WZFJQTQM96NBZ7VVA`
+
+### GAP: with no editor family loaded, a field draws nothing
+
+- **expected** — A field reads as its value wherever it is drawn, with or without an editor: core draws a read-only value when no family provides the page's field editor (FieldEditorService).
+- **current** — FieldEditorService is the outline's NodeField; without it useFieldEditor answers NO_FIELD_EDITOR, which renders nothing, and core's read view (layout.read) shows a node's text and descendants but none of its fields.
+- **impact** — With the outline switched off, the Extensions panel's settings, Preferences' core settings and the agent dock's settings draw no rows and cannot be edited in the page (the CLI and MCP still write them), and a read node shows no fields or tags.
+- **closes** — A core read-only field value (the value views of @kb/outline-ui's value-views moved to the kit), drawn by useFieldEditor's fallback and by the read view.
+- **node** — `01M5MWXM43Y12KDBM4JG7X1VRX`
 
 
 ## Closed

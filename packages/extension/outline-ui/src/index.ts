@@ -5,8 +5,8 @@
  * sections and node commands. It reaches the page only through
  * `@kb/ui-sdk`'s `BrowserHost`. The page loads its entry,
  * `outlineUiPlugin`, through `BROWSER_EXTENSIONS` under the family's declared
- * name, from the main bundle; the outline is a required family, so it is
- * always loaded.
+ * name, from the main bundle, while the server reports the family on (it is
+ * optional and on by default).
  */
 export { outlineUiPlugin } from "./plugin";
 

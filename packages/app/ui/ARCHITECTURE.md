@@ -30,13 +30,18 @@ the server holds too. A view embeds another plugin's view with `<ViewSlot>`
 and that view's key from `@kb/views` (an ontology's outline view is the
 outline view), never by importing a sibling folder's components.
 
-| plugin     | views and the routes to them                                    | sidebar                |
-| ---------- | --------------------------------------------------------------- | ---------------------- |
-| `outline`  | `outline.main` `/`                                              | Home (0), Pinned (100) |
-| `graph`    | `graph.page` `/graph[/<perspective>]` (optional, on by default) | Graph (10)             |
-| `ontology` | `ontology.list` `/o`, `ontology.scope` `/o/<id>[/outline        | /graph]`               | Ontologies (20) |
-| `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`           | Canvases (30)          |
-| `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)          | Lab (40)               |
+| plugin     | views and the routes to them                                    | sidebar       |
+| ---------- | --------------------------------------------------------------- | ------------- |
+| `outline`  | `outline.main`, no route: the default view type shown at `/`    | Pinned (100)  |
+| `layout`   | `layout.home` `/`, `layout.read`, `/node/<id>` (core's)         | Home (0)      |
+| `graph`    | `graph.page` `/graph[/<perspective>]` (optional, on by default) | Graph (10)    |
+| `ontology` | `ontology.list` `/o`, `ontology.scope` `/o/<id>[/outline        | /graph]`      | Ontologies (20) |
+| `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`           | Canvases (30) |
+| `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)          | Lab (40)      |
+
+Core's `layout` plugin owns `/` and the Home sidebar row, not the outline:
+`/` shows the store's default view type (the outline while it is loaded, else
+the read view) framed as that view says. The outline can be switched off.
 
 The `agent` plugin (`@kb/agent-ui`, bound to the page's ports in `src/ui-plugins.ts`)
 contributes no view either: it contributes the agent's chat dock, which the

@@ -108,7 +108,7 @@ describe("the tab's screen", () => {
 
   it("publishes the route and its view on start, then each change once, throttled", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
     expect(published).toHaveLength(1);
     expect(published[0]).toMatchObject({
       route: "/",
@@ -134,7 +134,7 @@ describe("the tab's screen", () => {
 
   it("carries what the open view reports: its subject, focus and selection", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     report();
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
     expect(published.at(-1)?.panes).toEqual([
@@ -151,13 +151,13 @@ describe("the tab's screen", () => {
   it("names no view on a path no view owns", () => {
     navigate("/nowhere");
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     expect(published[0]?.panes[0]?.view).toBeNull();
   });
 
   it("navigates to a route a view owns, and refuses one no view owns", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
     expect(carryOut({ kind: "navigate", to: { route: "/canvas" } })).toEqual({
       outcome: "applied",
     });
@@ -251,7 +251,7 @@ describe("the tab's screen", () => {
 
   it("hands a select to the open view, whose answer is the tab's", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     expect(carryOut({ kind: "select", selection: [] })).toEqual({
       outcome: "rejected",
       reason: "the open view takes no selection",
@@ -298,7 +298,7 @@ describe("the tab's screen", () => {
 
   it("refuses a pane it does not have", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     expect(carryOut({ kind: "navigate", pane: "right", to: { route: "/" } })).toEqual({
       outcome: "rejected",
       reason: "no pane right; this tab has main",
@@ -307,7 +307,7 @@ describe("the tab's screen", () => {
 
   it("picks a fresh id and publishes again when its id is refused", () => {
     const { plugin, ids, refused } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     expect(ids).toEqual(["tab.first"]);
     // A refusal for an id it no longer uses changes nothing.
     refused("tab.other");
@@ -319,7 +319,7 @@ describe("the tab's screen", () => {
 
   it("retries a screen it could not read on the next tick, without another change", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     // A subject no record holds, as a view part-way through an update might report.
     const midUpdate = { subject: "", focused: null, selection: [] };
     useScreenStore.setState({
@@ -372,14 +372,14 @@ describe("the tab's screen", () => {
 
   it("does nothing where there is no page", () => {
     const { plugin, published, installed } = tab(() => null);
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     expect(published).toEqual([]);
     expect(installed()).toBe(false);
   });
 
   it("stops publishing and carrying out commands when it unloads", () => {
     const { plugin, published, installed } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
     expect(installed()).toBe(true);
     syncUiPlugins([browserHostUiPlugin, outlineUiPlugin]);
     expect(installed()).toBe(false);

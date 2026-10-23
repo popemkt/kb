@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { HouseIcon, PushPinIcon } from "@phosphor-icons/react";
+import { PushPinIcon } from "@phosphor-icons/react";
 import { OutlineColumn } from "./outline-column";
 import { useOutlineScreen } from "./use-outline-screen";
-import { OutlineView, type OutlineParams } from "@kb/views";
+import { HomeView, type OutlineParams } from "@kb/views";
 import {
   browserHost,
   listPinnedNavItems,
@@ -45,28 +45,13 @@ export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
   );
 }
 
-export function HomeSection({ route }: { readonly route: MatchedRoute | null }) {
-  const zoomHome = browserHost().zoomHome;
-  const rootNodeId = usePageGraph((s) => s.rootNodeId);
-  const homeRootId = usePageGraph((s) => s.homeRootId);
-  return (
-    <SidebarSection>
-      <SidebarRow
-        label="Home"
-        icon={<HouseIcon size={14} />}
-        active={paramsOf(route, OutlineView) !== null && rootNodeId === homeRootId}
-        onClick={zoomHome}
-      />
-    </SidebarSection>
-  );
-}
-
 export function PinnedSection({ route }: { readonly route: MatchedRoute | null }) {
   const nodes = useOutlineNodes();
   const zoomTo = browserHost().zoomTo;
   const rootNodeId = usePageGraph((s) => s.rootNodeId);
   const pinned = useMemo(() => listPinnedNavItems(nodes), [nodes]);
-  const onOutline = paramsOf(route, OutlineView) !== null;
+  // The pinned are zoom targets: one is active while the page stands at it.
+  const onOutline = paramsOf(route, HomeView) !== null;
   return (
     <SidebarSection title="Pinned">
       {pinned.length === 0 ? (
