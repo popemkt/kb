@@ -29,7 +29,7 @@ const graph: WireNode[] = [
 ];
 const nodes = schemaOfGraph(wireToOutlineMap(graph, new Set()));
 const rows = (root: string, depth?: number, max?: number) =>
-  readRows(nodes, nodes, root, depth, max);
+  readRows(nodes, nodes, root, depth, max).rows;
 
 describe("the read view's rows", () => {
   it("lays descendants out in reading order, to its depth, counting what it leaves out", () => {
@@ -45,7 +45,22 @@ describe("the read view's rows", () => {
 
   it("reads the workspace as its top-level nodes, and stops at its cap", () => {
     expect(rows(WORKSPACE_ROOT_ID, 1).map((row) => row.id)).toEqual(["a", "g"]);
-    expect(rows("a", READ_DEPTH, 2).map((row) => row.id)).toEqual(["b", "c"]);
+  });
+
+  it("spends its cap shallowest level first, so the top level always appears, and counts what it drops", () => {
+    // Cap 2 would keep b, c in a depth-first walk and drop f and r; the top level wins instead.
+    const capped = readRows(nodes, nodes, "a", READ_DEPTH, 2);
+    expect(capped.rows.map((row) => row.id)).toEqual(["b", "f", "r"]);
+    expect(capped.more).toBe(2);
+    expect(readRows(nodes, nodes, "a").more).toBe(0);
+    // The top level is never capped, even by a cap of none.
+    expect(readRows(nodes, nodes, "a", READ_DEPTH, 0).rows.map((row) => row.id)).toEqual([
+      "b",
+      "f",
+      "r",
+    ]);
+    // A level keeps what is left of the cap, in reading order, still under kept parents.
+    expect(rows("a", READ_DEPTH, 4).map((row) => row.id)).toEqual(["b", "c", "f", "r"]);
   });
 
   it("reads a leaf, or a node the map does not hold, as no rows", () => {

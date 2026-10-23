@@ -9,7 +9,7 @@
 import { useMemo } from "react";
 import { Result } from "effect";
 import { paramsFrom, resolveDefaultViewType } from "@kb/views";
-import { logWarn, ViewNotLoaded, ViewSlot } from "@kb/ui-sdk";
+import { logWarn, ViewNotLoaded, ViewSlot, ViewUnavailable } from "@kb/ui-sdk";
 import { usePageCatalog } from "@/lib/view-catalog";
 
 /** A node as the resolver reads it: its props, and its text when it names a view. */
@@ -28,16 +28,23 @@ export function DefaultViewSlot({
   readonly warnAs: string;
 }) {
   const catalog = usePageCatalog();
-  const target = useMemo(() => {
+  const shown = useMemo(() => {
     const resolved = resolveDefaultViewType(subject, catalog, lookup, (warning) =>
       logWarn(`[kb/${warnAs}] ${subject}: ${warning}`),
     );
-    if (Result.isFailure(resolved) || resolved.success.key === null) return null;
-    const { key, input } = resolved.success;
+    if (Result.isFailure(resolved)) return { kind: "broken", why: resolved.failure } as const;
+    const target = resolved.success;
+    // A view this host holds no key for is named by the view's own label.
+    if (target.key === null) return { kind: "unloaded", label: target.listed.label } as const;
+    const { key, input } = target;
     const params = paramsFrom(key, input);
-    return Result.isSuccess(params) ? { key, params: params.success } : null;
+    return Result.isSuccess(params)
+      ? ({ kind: "shown", key, params: params.success } as const)
+      : ({ kind: "unloaded", label: key.label } as const);
   }, [subject, catalog, lookup, warnAs]);
-  if (target === null) return <ViewNotLoaded label="Default view" placement="page" />;
+  if (shown.kind === "broken") return <ViewUnavailable why={shown.why} placement="page" />;
+  if (shown.kind === "unloaded") return <ViewNotLoaded label={shown.label} placement="page" />;
+  const target = shown;
   return (
     <ViewSlot
       view={target.key}

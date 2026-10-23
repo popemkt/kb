@@ -17,7 +17,7 @@ import {
   type NodeProps,
 } from "@kb/model";
 import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
-import { NodeReadView, type NodeParams } from "./layout.ts";
+import { HomeView, NodeReadView, type NodeParams } from "./layout.ts";
 import type { ConfigReport, ViewKey, ViewPage } from "./view-key.ts";
 
 /** What the resolver reads of a node: its props, and its text when it names a view. */
@@ -77,6 +77,9 @@ interface Resolving {
   readonly lookup: (id: NodeId) => Carrier | undefined;
   readonly report: ConfigReport;
 }
+
+/** Why the home is refused as a view a node opens in: it would draw itself. */
+const HOME_REFUSED = `${HomeView.id} is the page's home, no view a node opens in`;
 
 type Opened = Result.Result<HeldViewTarget | UnheldViewTarget, string>;
 
@@ -214,16 +217,28 @@ function throughDefaultType(host: NodeId | null, subject: NodeId, r: Resolving):
     return Result.fail(
       `${SYSTEM_IDS.viewsRoot}'s default view type ${option} is no view type (${SYSTEM_IDS.viewDefaultField})`,
     );
-  const key = type === null ? null : r.catalog.keyOf(type);
+  if (type === null) {
+    // Missing: the node is read in its place, and the store's gap is logged.
+    const missing = `${SYSTEM_IDS.viewsRoot} names no default view type (${SYSTEM_IDS.viewDefaultField})`;
+    const read = readInPlace(host, { subject }, null, r);
+    if (read === null) return Result.fail(missing);
+    r.report(missing);
+    return read;
+  }
+  // The home is the page's own zoom, shown in the default view type: it is no view one opens in.
+  if (type === HomeView.id) {
+    return (
+      readInPlace(host, { subject }, labelOf(type, r) ?? HomeView.label, r) ??
+      Result.fail(HOME_REFUSED)
+    );
+  }
+  const key = r.catalog.keyOf(type);
   if (key !== null) return shownPage(pageOf(key, {}, host, null, r.report), host, { subject }, r);
-  const insteadOf = type === null ? null : (labelOf(type, r) ?? type);
+  // Only a view type kb knows but this host does not load is read in place; a name no view has stays broken.
+  const label = labelOf(type, r);
+  if (label === undefined) return Result.fail(`no view ${type}`);
   return (
-    readInPlace(host, { subject }, insteadOf, r) ??
-    (type === null
-      ? Result.fail(
-          `${SYSTEM_IDS.viewsRoot} names no default view type (${SYSTEM_IDS.viewDefaultField})`,
-        )
-      : unheld(r, type, { subject }, `no view ${type}`))
+    readInPlace(host, { subject }, label, r) ?? unheld(r, type, { subject }, `no view ${type}`)
   );
 }
 
@@ -244,6 +259,7 @@ export function resolveDefaultViewType(
 
 /** View type `type`, read from an empty view node, shown for `host` in a slot shown for `subject`. */
 function throughType(type: string, host: NodeId | null, subject: NodeId, r: Resolving): Opened {
+  if (type === HomeView.id) return Result.fail(HOME_REFUSED);
   const key = r.catalog.keyOf(type);
   if (key === null) return unheld(r, type, { subject }, `no view ${type}`);
   return shownPage(pageOf(key, {}, host, null, r.report), host, { subject }, r);
@@ -255,6 +271,7 @@ function throughViewNode(viewId: NodeId, host: NodeId | null, r: Resolving): Ope
   const option = viewOptionOf(view);
   const missing = `${viewId} is no view node`;
   if (view === undefined || option === null) return Result.fail(missing);
+  if (option === HomeView.option) return Result.fail(HOME_REFUSED);
   const key = r.catalog.keyOf(option);
   if (key === null) return unheld(r, option, { subject: viewId, viewNode: viewId }, missing);
   const page = pageOf(key, view.props, host, viewId, r.report);

@@ -3,12 +3,25 @@ import { coreExtension } from "@kb/operations";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { HomeView, LAYOUT_NAMESPACE, LayoutView, NodeReadView, NodeView } from "@kb/views";
-import { provideRoute, provideView, RoutePoint, SidebarSectionPoint, ViewPoint } from "@kb/ui-sdk";
+import {
+  provideRoute,
+  provideView,
+  RoutePoint,
+  schemaOf,
+  SidebarSectionPoint,
+  ViewPoint,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
+import { defaultViewFrame } from "@/lib/default-view-frame";
+import { useGraphStore } from "@/stores/graph.store";
 import { HomeSection, HomeSurface } from "./home";
 import { LayoutViewSurface } from "./layout-view";
 import { NodeReadSurface } from "./node-read";
 import { NodeViewSurface } from "./node-view";
 import { matchHome, matchNode } from "./routes";
+
+/** The graph as the page holds it now, for a route's frame, which is read outside a render. */
+const homeLookup = (id: string) => schemaOf(useGraphStore.getState()).get(id);
 
 /**
  * Layouts, the home and the node route: the layout view (`layout.grid`, a
@@ -63,7 +76,8 @@ export const layoutUiPlugin = definePlugin({
             view: HomeView,
             match: matchHome,
             entry: "/",
-            frame: () => "scroll",
+            // Framed as the default view type says a page it is the whole of is.
+            frame: () => defaultViewFrame(WORKSPACE_ROOT_ID, homeLookup),
             pendingTitle: () => "Opening your workspace…",
           }),
         ),

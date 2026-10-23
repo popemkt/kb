@@ -45,7 +45,7 @@ export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
   const rootId = params.root ?? zoom;
   const root = nodes.get(rootId);
   const schema = useGraphStore(schemaOf);
-  const rows = useMemo(() => readRows(nodes, schema, rootId), [nodes, schema, rootId]);
+  const { rows, more } = useMemo(() => readRows(nodes, schema, rootId), [nodes, schema, rootId]);
   if (root === undefined)
     return <NotFound what="Node" id={rootId} back={{ label: "Home", path: "/" }} />;
   const open = (id: string) =>
@@ -89,6 +89,11 @@ export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
               )}
             </li>
           ))}
+          {more === 0 ? null : (
+            <li className="ps-5 text-meta text-foreground/40" data-read-more={more}>
+              {more} more
+            </li>
+          )}
         </ul>
       )}
     </div>

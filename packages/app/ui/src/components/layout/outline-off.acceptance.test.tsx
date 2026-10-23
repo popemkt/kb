@@ -26,6 +26,7 @@ const { setFetchGraphSnapshot } = await import("@/api/graph");
 const { setPostAction } = await import("@/api/action");
 const { getPath, navigate, WORKSPACE_ROOT_ID } = await import("@kb/ui-sdk");
 const { pageCatalog } = await import("@/lib/view-catalog");
+const { loadManifest } = await import("@/lib/manifest");
 
 const ISO = "2026-10-24T00:00:00.000Z";
 const OFF = outlineExtension.name;
@@ -36,9 +37,16 @@ const SERVED = viewCatalogOf(
     (declaration) => declaration.views ?? [],
   ),
 ).entries();
-const LOADED = BUNDLED_FAMILIES.map((declaration) =>
+const SERVED_ON = viewCatalogOf(
+  BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
+).entries();
+const LOADED_ON = BUNDLED_FAMILIES.map((declaration) => extensionRow(declaration, "bundled", true));
+const LOADED_OFF = BUNDLED_FAMILIES.map((declaration) =>
   extensionRow(declaration, "bundled", declaration.name !== OFF),
 );
+
+/** Whether the server reports the outline loaded; a test switches it, then asks the server again. */
+let outlineOn = false;
 
 function node(
   id: string,
@@ -103,7 +111,11 @@ describe("the outline switched off (acceptance)", () => {
         ? {
             status: "succeeded",
             id: invocation.id,
-            output: { actions: [], views: SERVED, extensions: LOADED },
+            output: {
+              actions: [],
+              views: outlineOn ? SERVED_ON : SERVED,
+              extensions: outlineOn ? LOADED_ON : LOADED_OFF,
+            },
             rev: 1,
           }
         : { status: "failed", id: invocation.id, code: "unknown_action", message: "none", rev: 1 },
@@ -117,6 +129,7 @@ describe("the outline switched off (acceptance)", () => {
   });
 
   beforeEach(async () => {
+    outlineOn = false;
     dom.window.history.pushState({}, "", "/");
     container = dom.window.document.createElement("div") as unknown as HTMLElement;
     dom.window.document.body.appendChild(container as unknown as never);
@@ -152,6 +165,8 @@ describe("the outline switched off (acceptance)", () => {
     );
     expect(home?.querySelector('[data-read-row="n.plans"]')).not.toBeNull();
     expect(container.textContent).not.toContain("Page not found");
+    // Framed as the read view says (it scrolls), not hardcoded by the route.
+    expect(home?.closest("main")?.getAttribute("data-main-region")).toBe("scroll");
     // The sidebar's way home is core's, so it outlives the outline.
     expect(container.textContent).toContain("Home");
   });
@@ -170,6 +185,24 @@ describe("the outline switched off (acceptance)", () => {
     await act(async () => row?.click());
     await until(() => read("n.flights") !== null);
     expect(getPath()).toBe("/node/n.flights");
+  });
+
+  it("follows the outline switched on and off mid-session, at home", async () => {
+    await until(() => read(WORKSPACE_ROOT_ID) !== null);
+    expect(read(WORKSPACE_ROOT_ID)).not.toBeNull();
+    outlineOn = true;
+    await act(async () => loadManifest());
+    await until(() => read(WORKSPACE_ROOT_ID) === null);
+    expect(getPath()).toBe("/");
+    expect(read(WORKSPACE_ROOT_ID)).toBeNull();
+    expect(container.querySelector("[data-read-instead-of]")).toBeNull();
+    expect(container.textContent).toContain("Plans");
+    expect(container.textContent).not.toContain("Page not found");
+    outlineOn = false;
+    await act(async () => loadManifest());
+    await until(() => read(WORKSPACE_ROOT_ID) !== null);
+    expect(read(WORKSPACE_ROOT_ID)?.querySelector('[data-read-row="n.plans"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("Page not found");
   });
 
   it("zooms from the home to a row, which the home still reads", async () => {

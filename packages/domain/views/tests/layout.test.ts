@@ -8,6 +8,7 @@ import { Result } from "effect";
 import { SYSTEM_IDS, present, viewOptionId, type NodeProps } from "@kb/model";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 import {
+  HomeView,
   LayoutView,
   NodeReadView,
   OutlineSnippetView,
@@ -408,10 +409,54 @@ describe("what /node/<id> opens", () => {
     );
   });
 
+  test("a default view type no view has (a typo) stays broken, never read in its place", () => {
+    const typo = viewOptionId("sys.view.outline.mian");
+    const missing = "no view sys.view.outline.mian";
+    expect(openIn(withDefault(typo), "n.plain", outlineOff)).toEqual(broken("n.plain", missing));
+    expect(openIn(withDefault(typo), "n.plain")).toEqual(broken("n.plain", missing));
+  });
+
+  test("the home is refused as the default view type, as a target and as a view node's view", () => {
+    const home = viewOptionId(HomeView.id);
+    const refused = `${HomeView.id} is the page's home, no view a node opens in`;
+    // As the default: read in its place (the home is known, but is no view a node opens in).
+    const asDefault = new Map<string, { props: NodeProps; text?: string }>([
+      ...withDefault(home),
+      [home, { props: {}, text: "Home" }],
+    ]);
+    const read = {
+      target: Result.succeed({
+        key: NodeReadView,
+        input: { root: "n.plain", insteadOf: "Home" },
+        subject: "n.plain",
+      }),
+      warnings: [],
+    };
+    expect(openIn(asDefault, "n.plain")).toEqual(read);
+    expect(
+      resolveDefaultViewType(
+        "o.scope",
+        catalog,
+        (id) => asDefault.get(id),
+        () => {},
+      ),
+    ).toEqual(
+      Result.succeed({ key: NodeReadView, input: { insteadOf: "Home" }, subject: "o.scope" }),
+    );
+    // As a page target, or a view node of it: broken, never a self-render.
+    expect(open("n.plain", home)).toEqual(Result.fail(refused));
+    const viewNode = new Map<string, { props: NodeProps; text?: string }>([
+      ...nodes,
+      ["v.home", { props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: home }] } }],
+    ]);
+    expect(openIn(viewNode, "v.home")).toEqual(broken("v.home", refused));
+  });
+
   test("a store naming no default view type reads the node; one naming no view type opens as broken", () => {
+    // Read in place, and the gap is logged, not swallowed.
     expect(openIn(withDefault(null), "n.plain")).toEqual({
       target: Result.succeed({ key: NodeReadView, input: { root: "n.plain" }, subject: "n.plain" }),
-      warnings: [],
+      warnings: [`sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`],
     });
     const notAType = `sys.views's default view type v.table is no view type (${SYSTEM_IDS.viewDefaultField})`;
     expect(openIn(withDefault("v.table"), "n.plain")).toEqual(broken("n.plain", notAType));
