@@ -6,7 +6,7 @@ import {
   type ActionRequest,
   type ActionResponse,
 } from "@kb/contracts";
-import { tabSession } from "@/api/tab-session";
+import { inTabSession, tabSession } from "@/api/tab-session";
 
 export type { ActionRequest, ActionResponse };
 
@@ -41,8 +41,9 @@ export function setPostAction(fn: PostActionFn | null): void {
 
 /**
  * Send one invocation's envelope to the server, which says who makes it
- * from the request it arrives on (DESIGN.md → Surfaces → Who the person is).
+ * from the request it arrives on (DESIGN.md → Surfaces → Who the person is),
+ * made in this tab's session unless it names another.
  */
 export function postAction(invocation: ActionRequest): Promise<ActionResponse> {
-  return postActionImpl(invocation);
+  return postActionImpl(inTabSession(invocation));
 }

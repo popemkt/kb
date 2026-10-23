@@ -261,6 +261,21 @@ export function envelopeOf(call: ActionRequest): ActionRequest {
 }
 
 /**
+ * The `_meta` key a call over a protocol whose arguments are the input (an
+ * MCP `tools/call`) names its tab session under: that protocol's own
+ * envelope, so the input stays the action's.
+ */
+export const SESSION_META_KEY = "kb/session";
+
+const SessionMetaSchema = z.object({ [SESSION_META_KEY]: z.string().min(1) });
+
+/** The tab session a call's `_meta` names, if it names one. */
+export function sessionOfMeta(meta: unknown): string | undefined {
+  const parsed = SessionMetaSchema.safeParse(meta);
+  return parsed.success ? parsed.data[SESSION_META_KEY] : undefined;
+}
+
+/**
  * A call as it reaches the invoke core: a request with who makes it, which
  * the surface it arrived on stamps (`onWire`) and every call made while
  * another runs takes from it, so no call reaches the core without an actor.

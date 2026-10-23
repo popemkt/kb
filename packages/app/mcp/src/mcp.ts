@@ -24,6 +24,7 @@ import {
   type KbContext,
   type ManifestEntry,
   type SurfaceWire,
+  sessionOfMeta,
 } from "@kb/contracts";
 import { type DomainError, currentIso, domainError, ensureDomainError } from "@kb/model";
 import {
@@ -130,6 +131,7 @@ export function callToolEffect(
   name: string,
   args: unknown,
   tools: McpToolContext,
+  session?: string,
 ): Effect.Effect<CallToolResult> {
   return containToolResult(
     Effect.gen(function* () {
@@ -138,7 +140,11 @@ export function callToolEffect(
         return mcpToolResult(failed(name, "unknown_action", `unknown tool: ${name}`));
       }
 
-      const invocation = onWire(MCP_WIRE, { id: action.id, input: args ?? {} });
+      const invocation = onWire(MCP_WIRE, {
+        id: action.id,
+        input: args ?? {},
+        ...(session === undefined ? {} : { session }),
+      });
       // Long-lived server vs CLI mutators: reload keeps per-invocation freshness.
       yield* reloadEffect(ctx);
       return mcpToolResult(yield* invokeReceiptEffect(ctx, invocation));
@@ -275,9 +281,9 @@ function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext) {
   );
 
   server.setRequestHandler(CallToolRequestSchema, (request) => {
-    const { name, arguments: args } = request.params;
+    const { name, arguments: args, _meta } = request.params;
     // callToolEffect provides kbRuntimeLayer and maps Fail/Die → isError.
-    return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx));
+    return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx, sessionOfMeta(_meta)));
   });
 
   return server;

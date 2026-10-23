@@ -29,6 +29,7 @@ import {
   noteStoreSynced,
 } from "@kb/operations";
 import { postAction, type ActionResponse } from "@/api/action";
+import { inTabSession } from "@/api/tab-session";
 import {
   answerMessage,
   type QueryAnswer,
@@ -223,7 +224,7 @@ export function waitForBrowserPushes(): Promise<void> {
 export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
   const current = requireSession();
   return Effect.runPromise(
-    invokeReceiptWith(localActions, current.ctx, onWire(PAGE_WIRE, invocation)).pipe(
+    invokeReceiptWith(localActions, current.ctx, onWire(PAGE_WIRE, inTabSession(invocation))).pipe(
       Effect.provideService(CurrentInterception, localInterception),
       Effect.provide(current.layer),
     ),

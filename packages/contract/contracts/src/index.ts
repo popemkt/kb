@@ -3,6 +3,8 @@ export {
   ActionCatalog,
   ActionRequestSchema,
   envelopeOf,
+  SESSION_META_KEY,
+  sessionOfMeta,
   requestOf,
   ActionReceiptSchema,
   ManifestEntrySchema,

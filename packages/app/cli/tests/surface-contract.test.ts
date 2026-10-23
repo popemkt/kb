@@ -28,6 +28,7 @@ import {
   type ActionReceipt,
   type UiListener,
   uiAddressOf,
+  SESSION_META_KEY,
 } from "@kb/contracts";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
@@ -97,6 +98,7 @@ const cli: SurfaceFactory = async (root) => {
     );
   return {
     wire: ACTION_INVOKE_WIRE,
+    session: "stated",
     host: "own",
     list: async () => manifestOf(await invokeCli({ id: "kb.manifest", input: {} })),
     invoke: invokeCli,
@@ -116,8 +118,9 @@ const McpFailureSchema = z.object({
 
 /**
  * MCP: the tool list is the listing, read from each tool's `_meta`. A call
- * is `tools/call` on that tool with the input as its arguments. There is no
- * envelope, so `approved` has nowhere to go and is dropped.
+ * is `tools/call` on that tool with the input as its arguments, and the tab
+ * session under `_meta`. There is no envelope, so `approved` has nowhere to
+ * go and is dropped.
  */
 const mcp: SurfaceFactory = async (root) => {
   const server = await Effect.runPromise(
@@ -134,14 +137,19 @@ const mcp: SurfaceFactory = async (root) => {
 
   return {
     wire: MCP_WIRE,
+    session: "stated",
     host: "own",
     list: async () => listed.map(({ action }) => action),
-    invoke: async ({ id, input }) => {
+    invoke: async ({ id, input, session }) => {
       // An action MCP leaves out of tools/list is still called by its tool
       // name: the id with `.` mangled to `_`, as a caller would guess it.
       const tool = listed.find(({ action }) => action.id === id)?.tool ?? id.replaceAll(".", "_");
       const result = McpToolResultSchema.parse(
-        await client.callTool({ name: tool, arguments: input as Record<string, unknown> }),
+        await client.callTool({
+          name: tool,
+          arguments: input as Record<string, unknown>,
+          ...(session === undefined ? {} : { _meta: { [SESSION_META_KEY]: session } }),
+        }),
       );
       const body: unknown = JSON.parse(result.content[0]?.text ?? "null");
       if (result.isError !== true) return { status: "succeeded", id, output: body };
@@ -242,6 +250,7 @@ async function postAction(
  */
 const http: SurfaceFactory = async (_root, ui) => ({
   wire: HTTP_WIRE,
+  session: "stated",
   host: "ui",
   list: async () =>
     z.array(ListedActionSchema).parse(await (await requestUi(ui.at, "/api/manifest")).json()),
@@ -277,6 +286,7 @@ const webmcp: SurfaceFactory = async (_root, ui) => {
   await adapter.settled();
   return {
     wire: WEBMCP_WIRE,
+    session: "own",
     host: "ui",
     list: async () => page.tools().map((tool) => ({ id: tool.name, mode: modeOf(tool) })),
     invoke: async ({ id, input }) => {
@@ -350,6 +360,7 @@ const agent: SurfaceFactory = async (_root, ui) => {
   };
   return {
     wire: AGENT_WIRE,
+    session: "own",
     host: "ui",
     list: async () =>
       z.array(ListedActionSchema).parse(JSON.parse(await say({ list: true }, false))),

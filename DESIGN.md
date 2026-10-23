@@ -2388,8 +2388,20 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     call's session (`callWithin`); a script's call is always made in its
     run's session. A screen command made in a session goes to that tab
     unless it names another, so an agent working in the person's tab moves
-    that tab, not whichever is most recently active. The plan this follows
-    is `docs/brainstorms/2026-10-22-kb-tab-sessions/README.md`.
+    that tab, not whichever is most recently active. Each surface says it
+    its own way:
+    - the page makes every call in its own tab session, on both lanes
+      (`inTabSession`), so its WebMCP tools and the calls the agent
+      sidebar's person approves do too;
+    - kb's agent makes its tool calls in the tab session of the person who
+      asked (the tab their connection publishes as);
+    - `POST /api/action` and `kb action-invoke` take `session` on the
+      envelope they decode;
+    - an MCP `tools/call` names it under `_meta["kb/session"]`, MCP's own
+      envelope, so the tool's arguments stay the action's input.
+
+    The plan this follows is
+    `docs/brainstorms/2026-10-22-kb-tab-sessions/README.md`.
   - **What binds a caller.** Nothing kb decides by actor binds anyone while
     policies are deferred. What does bind is who can reach `kb ui`'s HTTP
     and `/ws` at all, decided by the request guard, applied before `/ws`

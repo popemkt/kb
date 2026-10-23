@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
+import { tabSession } from "@/api/tab-session";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { bundledDerived } from "@kb/bundled";
 import { inThreadPort } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
@@ -29,10 +30,11 @@ describe("browser action runtime", () => {
     await invoked;
     expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("local first");
     await waitForBrowserPushes();
-    // The page states no actor: the server says who calls.
+    // The page states no actor, since the server says who calls; it states its tab session.
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
       input: { id: "n.root-a", text: "local first" },
+      session: tabSession(),
     });
   });
 
