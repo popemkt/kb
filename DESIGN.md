@@ -1723,6 +1723,63 @@ same lane. One path to a client, whatever a node's provenance.
   the earlier when both; an answer that read none holds until the graph
   moves. A reader that keeps answers (the page's, `DESIGN-UI.md` → Replica
   queries) asks again then.
+- **A run's read set.** An index remembers each answer it gives
+  (`DatascriptIndex.answerDatalog`, by query text) with what the run that
+  made it read (`readSetOf`, `index/read-set.ts`), and runs the query again
+  only when a transaction since then touched that, or a clocked answer's
+  time is up. Every host's reader is served by it: the page's engine
+  worker, the server's `rows` subscriptions, the CLI.
+  - *What is read.* A read set is datom patterns, not rows: each clause the
+    run evaluated (`[?e :attr v]`, a `children` clause's
+    `:node/children`, a `reach` edge and the node test of its hops, a
+    `missing?` attribute, a pull's attributes), narrowed to the entities and
+    values its conjunction allows. `[?t :node/id "x"]` narrows `?t` to that
+    node; a predicate between a variable and constants (`=`, `not=`, `<` …,
+    the string tests, `kb/includes?`, `kb/includes-ci?`) narrows its values,
+    answering "may match" wherever JS and DataScript could disagree. So a
+    node's text, a children list, a tag's members (`sys.f.type` valued at the
+    tag) and a node's backlinks (`:node/mentions` valued at it) are each a
+    narrowed pattern.
+  - *Negative reads.* Because the set is the clauses and not what they
+    found, "no node has X" (`not`, `missing?`, a constant naming a node
+    that does not exist) is a pattern like any other, and the datom that
+    would make it true matches it.
+  - *Matching.* A transaction's change set is the datoms it adds and
+    retracts (an entity retracted whole is every datom it had), by
+    attribute; an answer whose read set one of them matches is forgotten.
+    A rebuild (a first-seen attribute, `rebuild`, `withVirtual`) forgets
+    every answer, and so does an attribute that holds a ref for the first
+    time: a run revives that attribute's values as nodes, whichever entity
+    holds them. A run that revives a field's value as a node reads every
+    node's id, since that value names a node only while the node lives.
+  - *Soundness.* DataScript runs a conjunction in written order, and a
+    string that reaches an entity slot makes the run throw, so a narrowing
+    applies only to the clauses after the one that makes it — except a
+    predicate's test, which also narrows the pattern just before it when
+    that pattern binds its variable. `[?n :node/id ?id]` is dropped when
+    another clause of its conjunction already has `?n` as its entity: an
+    entity's id datom comes and goes with all of its others. The law —
+    after any edits, a remembered answer is what a run over the same db
+    answers, errors included — is `read-set.test.ts`'s property, over the
+    builder's conditions, the repository's queries and hand-written edge
+    cases.
+  - *Everything.* A raw query, a caller's rules (`%`), a pull of `*`, of a
+    reverse attribute or of a nested pattern, or more than `MAX_READS` clauses reads everything:
+    any transaction forgets it. A query with inputs is never remembered.
+  - *Bounds.* `KEPT_ANSWERS` (256) answers, least recently asked forgotten
+    first, none over `KEPT_ROWS` rows; a read set is the size of its query.
+    Rows are shared between askers and never changed.
+  - *Budget and clock.* A run's budget is the host's (`answerOf`,
+    `RemoteIndex`); a remembered answer costs no run, and a run that was
+    stopped is never remembered, as a restarted engine starts with none.
+    A clocked answer is given again only before `holdsUntilMs`, read from the
+    index's clock.
+  - *Not narrowed.* A read set is derived from the query and the ids it
+    names, not from the rows a run walked: `[?n :f/sys.f.type ?t] [?t
+    :node/text "todo"] [?n :node/text ?x]` reads every node's text, so any
+    typing runs it again. `bun run bench` (`read-set.benchmark.test.ts`)
+    replays a page's watched queries over seeded edits and prints runs per
+    edit, per query.
 - **Printed back canonically.** `printEdn` writes an IR as stored EDN, the
   inverse of `parseEdn` on the IR's canonical domain (`isCanonicalIr`: the
   values `parseEdn` produces): the head on one line, each `:where` clause on

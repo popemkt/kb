@@ -146,7 +146,7 @@ export function runIr(
  * ref field's value is an entity, a number field's a number, though both are
  * stored as a bare number. GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]
  */
-function findWithRefAttrs(
+export function findWithRefAttrs(
   ir: IrQuery,
   find: readonly FindPos[],
   refAttrs: ReadonlySet<string>,
@@ -177,17 +177,19 @@ export function query(
   inputs: readonly unknown[] = [],
   clock?: ClockSampler,
 ): unknown {
-  return answerQuery(db, edn, inputs, clock).value;
+  return answerQuery(db, parseEdn(edn), inputs, clock).value;
 }
 
-/** {@link query}'s value, and until when it holds (`holdsUntil`): null until the graph moves. */
+/**
+ * {@link query}'s value for a query already parsed (`parseEdn`), and until
+ * when it holds (`holdsUntil`): null until the graph moves.
+ */
 export function answerQuery(
   db: DatascriptDb,
-  edn: string,
+  ir: Ir,
   inputs: readonly unknown[] = [],
   clock?: ClockSampler,
 ): { readonly value: unknown; readonly holdsUntilMs: number | null } {
-  const ir = parseEdn(edn);
   const { raw, find, holdsUntilMs } = executeIr(datascriptExecutor(db), ir, inputs, clock);
   if (ir.kind === "raw" || find === undefined) {
     return { value: reviveValue(raw, db.ids), holdsUntilMs };
