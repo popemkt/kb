@@ -1,3 +1,4 @@
+import { useBreakoutShift } from "./use-breakout";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
@@ -151,12 +152,16 @@ export function TableView({
     [frameId],
   );
 
-  if (!frameNode && !rowIds) return null;
-
   const breakoutCentered = widthPref === "centered";
+  const breakoutRef = useBreakoutShift<HTMLDivElement>(
+    breakoutCentered && (frameNode !== undefined || rowIds !== undefined),
+  );
+
+  if (!frameNode && !rowIds) return null;
 
   return (
     <div
+      ref={breakoutRef}
       className={cn(
         "table-view kb-text overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background",
         // w-full is a utility, so it would beat the breakout's width.

@@ -210,24 +210,25 @@
     word-break: break-word;
   }
 
-  /* A pane: the width a breakout spans. */
-  .kb-pane {
+  /* The scroll region: the width a breakout spans. A container's width is its
+   * content box, so `100cqw` here excludes a classic scrollbar's track, which
+   * the pane's own width (it holds the scroller) does not. */
+  [data-main-region="scroll"] {
     container-type: inline-size;
   }
 
   /*
-   * W7: table breaks out of the centered max-w-3xl shell to the pane's width,
-   * not the viewport's: with the sidebar open, a viewport-wide table ran under
-   * it. Only the table region — not the whole page (RED4 / DESIGN views).
+   * W7: table breaks out of the centered max-w-3xl shell to the scroll region's
+   * visible width, not the viewport's: with the sidebar open, a viewport-wide
+   * table ran under it. Only the table region — not the whole page (RED4 /
+   * DESIGN views). `--breakout-shift` is how far the element sits right of the
+   * region's content edge (an indented child's parent is off-centre); it is
+   * measured in `use-breakout.ts` since CSS cannot know it.
    */
   .table-view-breakout {
     width: 100cqw;
     max-width: 100cqw;
-    position: relative;
-    left: 50%;
-    right: 50%;
-    margin-left: -50cqw;
-    margin-right: -50cqw;
+    margin-left: calc(-1 * var(--breakout-shift, 0px));
     padding-left: 1rem;
     padding-right: 1rem;
     box-sizing: border-box;
