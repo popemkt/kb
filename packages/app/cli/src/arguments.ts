@@ -19,6 +19,15 @@ export const toPort = (value: string): number => {
     `a port is a whole number from 0 to 65535 (0: any free port), not ${value}`,
   );
 };
+/** `kb mcp --session`: the one mode there is, following the person's most recently active tab. */
+export const toSessionMode = (value: string): "follow" => {
+  if (value === "follow") return value;
+  throw new CommanderError(
+    EXIT_USAGE,
+    "commander.invalidArgument",
+    `--session takes follow (each call in the person's most recently active tab), not ${value}`,
+  );
+};
 export const toOrigin = (value: string): string => {
   try {
     const url = new URL(value);

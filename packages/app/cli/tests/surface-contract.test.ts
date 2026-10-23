@@ -110,6 +110,9 @@ const McpToolResultSchema = z.object({
   isError: z.boolean().optional(),
   content: z.array(z.object({ type: z.literal("text"), text: z.string() })).min(1),
 });
+const McpFilledSchema = z.object({
+  context: z.record(z.string(), z.object({ from: z.string(), value: z.unknown() })),
+});
 const McpFailureSchema = z.object({
   code: z.string(),
   message: z.string(),
@@ -152,7 +155,18 @@ const mcp: SurfaceFactory = async (root) => {
         }),
       );
       const body: unknown = JSON.parse(result.content[0]?.text ?? "null");
-      if (result.isError !== true) return { status: "succeeded", id, output: body };
+      if (result.isError !== true) {
+        // What the call's session filled comes after the output, as `{context}`.
+        const filled = result.content[1];
+        const { context } =
+          filled === undefined ? {} : McpFilledSchema.parse(JSON.parse(filled.text));
+        return {
+          status: "succeeded",
+          id,
+          output: body,
+          ...(context === undefined ? {} : { context }),
+        };
+      }
       return ActionReceiptSchema.parse({ status: "failed", id, ...McpFailureSchema.parse(body) });
     },
     close: async () => {

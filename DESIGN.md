@@ -2404,7 +2404,12 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     - `POST /api/action` and `kb action-invoke` take `session` on the
       envelope they decode;
     - an MCP `tools/call` names it under `_meta["kb/session"]`, MCP's own
-      envelope, so the tool's arguments stay the action's input.
+      envelope, so the tool's arguments stay the action's input. A server
+      started with `kb mcp --session follow` makes a call that names none
+      in the person's most recently active tab, resolved per call (tab
+      ids are minted in the browser and renewed, so a fixed id would go
+      stale). That is the hands-on mode for an agent that has only MCP;
+      without the flag, its calls are made in no session.
 
     The plan this follows is
     `docs/brainstorms/2026-10-22-kb-tab-sessions/README.md`.
@@ -2465,8 +2470,9 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       to stderr. `kb.manifest` lists each action's `context` with what
       each reference is on a pane, and every tool listing says it in the
       input's description (`toolInputSchema`). Where a surface's calls
-      are made in a session — WebMCP's, the page's own — the input is no
-      longer required there; elsewhere it stays required.
+      are made in a session — WebMCP's, the page's own, and
+      `kb mcp --session follow`'s — the input is no longer required there;
+      elsewhere it stays required.
   - **What binds a caller.** Nothing kb decides by actor binds anyone while
     policies are deferred. What does bind is who can reach `kb ui`'s HTTP
     and `/ws` at all, decided by the request guard, applied before `/ws`

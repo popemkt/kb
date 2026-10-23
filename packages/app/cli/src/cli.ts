@@ -42,6 +42,7 @@ import {
   toInt,
   toOrigin,
   toPort,
+  toSessionMode,
 } from "./arguments.ts";
 import {
   ACTION_INVOKE_WIRE,
@@ -268,12 +269,17 @@ function buildProgram(): Command {
   program
     .command("mcp")
     .description("Serve the kb MCP server on stdio")
+    .option(
+      "--session <mode>",
+      "follow: make each call that names no session in the person's most recently active tab",
+      toSessionMode,
+    )
     .action(
-      cliAction((globals) =>
+      cliAction((globals, [opts]: [{ session?: "follow" }]) =>
         Effect.gen(function* () {
           const { startMcp } = yield* Effect.promise(() => import("@kb/mcp"));
           const root = yield* resolveRootEffect({ root: globals.root });
-          yield* startMcp(root);
+          yield* startMcp(root, opts.session === undefined ? {} : { session: opts.session });
           // keep the process alive; the transport owns stdio from here
           return yield* Effect.never;
         }),

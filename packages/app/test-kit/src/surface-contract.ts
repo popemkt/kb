@@ -50,7 +50,7 @@ import {
   manifest,
   openKb,
 } from "@kb/runtime";
-import { FakeTab } from "./fake-tab.ts";
+import { FAKE_TAB_SCREEN, FakeTab } from "./fake-tab.ts";
 
 /** One listed action, as a surface's own listing states it. */
 export interface ListedAction {
@@ -153,6 +153,8 @@ const CONTRACT_TAB = "tab.surface-contract";
 const MISSING_TAB = "tab.surface-contract-missing";
 /** A second tab, opened after the contract's own, so a command made in no session goes to it. */
 const LATER_TAB = "tab.surface-contract-later";
+/** The tabs a fill reads, one per surface, each focused on a node of its own. */
+const FOCUS_TAB = "tab.surface-contract-focus";
 
 /**
  * A write with no side effect and a fixed output, so that receipts from
@@ -451,6 +453,41 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
                 id: navigate.id,
                 output: { outcome: "applied", tab: LATER_TAB },
               },
+            });
+          }),
+        ),
+      ),
+  ],
+  [
+    "every surface that states a session fills what it leaves out from that tab, " +
+      "says what it filled, and fills nothing in no session",
+    (set) =>
+      overSurfaces(set, ({ name, surface, ui, core, via }) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            if (surface.session !== "stated") return;
+            const id = `n.focused-${name}`;
+            const added = yield* core({ id: "node.add", input: { id, text: "before" } });
+            expect(added.status).toBe("succeeded");
+            const focusedOn = {
+              ...FAKE_TAB_SCREEN,
+              panes: FAKE_TAB_SCREEN.panes.map((pane) => ({ ...pane, focused: id })),
+            };
+            const tab = `${FOCUS_TAB}.${name}`;
+            yield* Effect.acquireRelease(FakeTab.open(ui.at, tab, focusedOn), (open) => open.close);
+            const rename = { id: "node.update", input: { text: "renamed here" } };
+            const receipt = yield* via({ ...rename, session: tab });
+            expect({ name, receipt }).toMatchObject({
+              name,
+              receipt: {
+                status: "succeeded",
+                output: { id },
+                context: { id: { from: "focused", value: id } },
+              },
+            });
+            expect({ name, receipt: yield* via(rename) }).toMatchObject({
+              name,
+              receipt: { status: "failed", code: "invalid_input" },
             });
           }),
         ),
