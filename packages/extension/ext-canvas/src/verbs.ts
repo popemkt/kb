@@ -12,7 +12,14 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { CoreInvoke, KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contracts";
+import {
+  CoreInvoke,
+  CurrentCall,
+  KbCtx,
+  Screens,
+  type ExtensionAction,
+  type KbStore,
+} from "@kb/contracts";
 import { planNodeAddEffect } from "@kb/operations";
 import type { KbIndexService } from "@kb/query";
 import { freshId, relationFieldFit, relationMisfit, resolveFieldId, type KbNode } from "@kb/model";
@@ -133,7 +140,6 @@ const describeInput = z.object({
     .array(z.string())
     .optional()
     .describe("item ids to describe in full; else the open tab's selection, else what it shows"),
-  tab: z.string().min(1).optional().describe("the UI tab whose screen sets the detail"),
 });
 
 const describeOutput = z.object({
@@ -186,16 +192,17 @@ const canvasScriptsEffect = Effect.fn("ext.canvas.scripts")(function* (
 });
 
 /**
- * The open tab showing `canvasId`, most recently active first: its pane's
- * selection, camera and what that camera shows. Null when no tab shows it
- * or the screen cannot be reached — a description needs no screen.
+ * The open tab showing `canvasId` — the call's tab session's, else any, most
+ * recently active first: its pane's selection, camera and what that camera
+ * shows. Null when no tab shows it or the screen cannot be reached — a
+ * description needs no screen.
  */
-const canvasScreenEffect = Effect.fn("ext.canvas.screen")(function* (
-  canvasId: string,
-  tab: string | undefined,
-) {
+const canvasScreenEffect = Effect.fn("ext.canvas.screen")(function* (canvasId: string) {
   const screens = yield* Screens;
-  const { tabs } = yield* screens.screen({ tab }).pipe(Effect.orElseSucceed(() => ({ tabs: [] })));
+  const session = (yield* CurrentCall)?.invocation.session;
+  const { tabs } = yield* screens
+    .screen({ session })
+    .pipe(Effect.orElseSucceed(() => ({ tabs: [] })));
   for (const shown of tabs) {
     const panes = shown.panes.toSorted(
       (a, b) => Number(b.id === shown.activePane) - Number(a.id === shown.activePane),
@@ -219,7 +226,7 @@ const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
   input: z.infer<typeof describeInput>,
 ): Effect.fn.Return<z.infer<typeof describeOutput>, CanvasFail, KbCtx | Screens> {
   const doc = yield* readCanvasEffect(input.canvasId);
-  const screen = yield* canvasScreenEffect(input.canvasId, input.tab);
+  const screen = yield* canvasScreenEffect(input.canvasId);
   const chosen =
     input.focus ?? (screen !== null && screen.selection.length > 0 ? screen.selection : null);
   const visible = screen === null ? undefined : new Set(screen.visible);

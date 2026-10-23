@@ -13,8 +13,9 @@
  * person sees, and they need no approval; `DESIGN.md` → Screen state says
  * why. A capture moves nothing a person sees: it is a read.
  *
- * A command goes to the tab it names, else to the tab session the call is
- * made in, else to the person's most recently active tab.
+ * A command goes to the tab session the call is made in, else to the
+ * person's most recently active tab. Which tab is the call's to say, never
+ * the input's (DESIGN.md → Action registry → A call made in a tab session).
  */
 import { Effect } from "effect";
 import {
@@ -41,7 +42,8 @@ export const uiScreenDef = {
   title: "Read the screen",
   description:
     "What each open kb UI tab shows, most recently active first: route, panes, the open view, " +
-    "focused node, selection, and a canvas's viewport and visible items. Pass `tab` for one tab.",
+    "focused node, selection, and a canvas's viewport and visible items. Pass `session` for one " +
+    "tab session's tab.",
   mode: { kind: "read" } as const,
   inputSchema: UiScreenInputSchema,
   outputSchema: ScreenListSchema,
@@ -89,18 +91,15 @@ export const uiCaptureDef = {
   outputSchema: ScreenReceiptSchema,
 } satisfies ActionDefinition;
 
-/** `input` aimed at the tab it names, else at the tab session its call is made in. */
-const inSession = Effect.fn("ui.session")(function* <
-  I extends { readonly tab?: string | undefined },
->(input: I) {
-  const session = (yield* CurrentCall)?.invocation.session;
-  return input.tab === undefined && session !== undefined ? { ...input, tab: session } : input;
+/** The tab session the running call is made in, if it names one. */
+const callSession = Effect.gen(function* () {
+  return (yield* CurrentCall)?.invocation.session;
 });
 
 export const uiCaptureEffect = Effect.fn("ui.capture")(function* (
   input: UiCaptureInput,
 ): Effect.fn.Return<ScreenReceipt, DomainError, Screens> {
-  return yield* (yield* Screens).capture(yield* inSession(input));
+  return yield* (yield* Screens).capture(input, yield* callSession);
 });
 
 export const uiScreenEffect = Effect.fn("ui.screen")(function* (
@@ -112,11 +111,11 @@ export const uiScreenEffect = Effect.fn("ui.screen")(function* (
 export const uiNavigateEffect = Effect.fn("ui.navigate")(function* (
   input: UiNavigateInput,
 ): Effect.fn.Return<ScreenReceipt, DomainError, Screens> {
-  return yield* (yield* Screens).navigate(yield* inSession(input));
+  return yield* (yield* Screens).navigate(input, yield* callSession);
 });
 
 export const uiSelectEffect = Effect.fn("ui.select")(function* (
   input: UiSelectInput,
 ): Effect.fn.Return<ScreenReceipt, DomainError, Screens> {
-  return yield* (yield* Screens).select(yield* inSession(input));
+  return yield* (yield* Screens).select(input, yield* callSession);
 });

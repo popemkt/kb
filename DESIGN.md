@@ -3884,8 +3884,9 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   the selection in the view's own ids, and for a canvas the projection
   showing, its camera as a `pose` (Canvas documents; in 2D the top view,
   orthographic; in 3D as it last came to rest) and the ids of the items that
-  camera shows. The message names its tab id; the UI starts as its
-  page's origin id, which is minted per page load and so is per tab.
+  camera shows. The message names its tab id, the tab session the page
+  keeps in its sessionStorage ([Action registry](#action-registry) → The
+  tab session).
   The id belongs to the first live connection that publishes it. Another
   connection naming a live tab's id gets `screen-refused`, picks a fresh id
   and publishes again, so no connection can take over another's tab. A
@@ -3908,12 +3909,22 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   nobody's). The person's come first, then nobody's, each most recently
   active first: the last tab to publish while it had attention comes
   first, and tabs that never had it follow in the order they arrived. A
-  command that names no tab goes to the first, so it reaches the person's
-  screen before any other ([Action registry](#action-registry) → What needs the person). `tab`
-  narrows the list to that tab.
+  command made in no tab session goes to the first, so it reaches the
+  person's screen before any other ([Action registry](#action-registry) →
+  What needs the person). `session` narrows the list to that tab session's
+  tab.
+- **Which tab a command goes to is the call's to say.** A command goes to
+  the tab session the call is made in ([Action registry](#action-registry)
+  → A call made in a tab session), else to the first tab above. No `ui.*`
+  input names a tab.
+
+  **Breaking change, with no alias.** `ui.navigate`, `ui.select`,
+  `ui.capture` and `ext.canvas.describe` no longer take `tab`, and
+  `ui.screen`'s `tab` filter is now `session`. A caller that named a tab
+  makes its call in that tab session instead (`session` on the envelope,
+  `_meta["kb/session"]` over MCP).
 - **`ui.navigate` and `ui.select`** (writes) are commands. The server sends
-  `{op: "screen-command", id, command}` to one tab, the most recently
-  active by default, and waits up to `timeoutMs` (default 2 s) for that
+  `{op: "screen-command", id, command}` to one tab, and waits up to `timeoutMs` (default 2 s) for that
   tab's `{op: "screen-ack", id, result}`. The receipt is always a success
   whose output says what happened: `applied`, `rejected` with the tab's
   reason, `timeout`, or `no-tab` when no live tab could take the command,

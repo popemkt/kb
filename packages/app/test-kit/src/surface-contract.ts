@@ -211,13 +211,13 @@ const CALLS: readonly ActionRequest[] = [
     },
   },
   { id: "ui.screen", input: {} },
-  { id: "ui.screen", input: { tab: MISSING_TAB } },
+  { id: "ui.screen", input: { session: MISSING_TAB } },
   { id: "ui.navigate", input: { route: "/canvas" } },
   { id: "ui.navigate", input: {} },
   { id: "ui.navigate", input: { camera: { preset: "front" } } },
   { id: "ui.capture", input: { view: { preset: "top" } } },
   { id: "ui.select", input: { selection: [] } },
-  { id: "ui.select", input: { tab: MISSING_TAB, focus: "sys.tag" } },
+  { id: "ui.select", input: { focus: "sys.tag" }, session: MISSING_TAB },
 ];
 
 /** `kb.manifest`'s output: each action with what is decided about its caller's call. */
@@ -347,6 +347,17 @@ function overSurfaces(
   );
 }
 
+/**
+ * `call` as `surface` makes it: a surface that makes its calls in its own
+ * tab session (`own`) makes them in none here, since its tab publishes no
+ * screen, whatever session the call names.
+ */
+function asMadeOn(surface: ActionSurface, call: ActionRequest): ActionRequest {
+  if (surface.session === "stated") return call;
+  const { session: _named, ...made } = call;
+  return made;
+}
+
 const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
   [
     "every surface lists the registry's action ids with their declared modes, " +
@@ -407,7 +418,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
                 expect({ name, call, receipt: asWireData(receipt) }).toEqual({
                   name,
                   call,
-                  receipt: asWireData(yield* core(call)),
+                  receipt: asWireData(yield* core(asMadeOn(surface, call))),
                 });
               }),
             { discard: true },

@@ -24,7 +24,6 @@ import {
   type ScreenCommand,
   type ScreenState,
 } from "@kb/contracts";
-import { tabSession } from "@/api/tab-session";
 import type { GraphMessage } from "@/session/replica";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
@@ -99,7 +98,7 @@ export interface ChannelSink {
 function defaultUrl(): string {
   const loc = window.location;
   const proto = loc.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${loc.host}/ws?origin=${encodeURIComponent(tabSession())}`;
+  return `${proto}//${loc.host}/ws`;
 }
 
 /**

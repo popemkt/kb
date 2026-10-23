@@ -2,6 +2,8 @@ import { Effect, Layer, Option } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   ActionResponseSchema,
+  envelopeOf,
+  type ActionRequest,
   SCREEN_COMMAND_TIMEOUT_MS,
   ScreenListSchema,
   ScreenReceiptSchema,
@@ -28,7 +30,8 @@ type Decoded<A> = { success: true; data: A } | { success: false; error: { messag
  * The {@link Screens} port for every process that is not the `kb ui` server:
  * the CLI, `kb mcp`, a test. The tabs live in the server that serves this
  * root, so each call asks that server, found through `.kb/ui.json`, the same
- * `ui.*` action its caller invoked; the server's own adapter answers it. A
+ * `ui.*` action its caller invoked, made in the tab session the command is
+ * for; the server's own adapter answers it. A
  * root no server serves has no tabs: the list is empty and a command gets
  * `no-tab`. So does a presence file whose server no longer answers, or
  * whose listener a server of another root now holds (`servingUi`).
@@ -40,12 +43,12 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
       const context = yield* Effect.context<FileSystem>();
 
       const ask = Effect.fn("kb.screens.ask")(function* <A>(
-        id: string,
-        input: unknown,
+        call: ActionRequest,
         waitMs: number,
         decode: (output: unknown) => Decoded<A>,
         none: A,
       ): Effect.fn.Return<A, DomainError, FileSystem> {
+        const { id } = call;
         const at = yield* servingUi(root);
         if (at === null) return none;
         const where = uiListenerName(at);
@@ -54,7 +57,7 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
             requestUi(at, "/api/action", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({ id, input }),
+              body: JSON.stringify(envelopeOf(call)),
               signal,
             }),
           // Nothing listens there, or the request failed some other way.
@@ -102,27 +105,29 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
         return output.data;
       });
 
-      const command = (id: string, input: UiNavigateInput | UiSelectInput | UiCaptureInput) =>
+      const command = (
+        id: string,
+        input: UiNavigateInput | UiSelectInput | UiCaptureInput,
+        tab: string | undefined,
+      ) =>
         ask<ScreenReceipt>(
-          id,
-          input,
+          { id, input, ...(tab === undefined ? {} : { session: tab }) },
           input.timeoutMs ?? SCREEN_COMMAND_TIMEOUT_MS,
           (output) => ScreenReceiptSchema.safeParse(output),
-          noTabReceipt(input.tab),
+          noTabReceipt(tab),
         ).pipe(Effect.provide(context));
 
       return Screens.of({
         screen: (input) =>
           ask<ScreenList>(
-            uiScreenDef.id,
-            input,
+            { id: uiScreenDef.id, input },
             0,
             (output) => ScreenListSchema.safeParse(output),
             { tabs: [] },
           ).pipe(Effect.provide(context)),
-        navigate: (input) => command(uiNavigateDef.id, input),
-        select: (input) => command(uiSelectDef.id, input),
-        capture: (input) => command(uiCaptureDef.id, input),
+        navigate: (input, tab) => command(uiNavigateDef.id, input, tab),
+        select: (input, tab) => command(uiSelectDef.id, input, tab),
+        capture: (input, tab) => command(uiCaptureDef.id, input, tab),
       });
     }),
   );
