@@ -14,6 +14,8 @@ import {
   type ScreenCommand,
   type ScreenState,
   type ServerMessage,
+  type UiListener,
+  uiAddressOf,
 } from "@kb/contracts";
 
 /** What a plugin channel says to this connection: its data, or the server's error naming it. */
@@ -77,23 +79,24 @@ export class FakeTab {
   }
 
   /**
-   * Connect to a `kb ui` at `page` as the tab `id`, its session id, and
-   * publish `screen`. With `null` it publishes none, and the connection is
-   * no tab at all. It is the page, sending the page's Origin as a browser
+   * Connect to the `kb ui` listening `at` as the tab `id`, its session id,
+   * and publish `screen`. With `null` it publishes none, and the connection
+   * is no tab at all. It is the page, sending the page's Origin as a browser
    * does, unless `from` is `"program"`, a local program's socket, which
-   * sends none.
+   * sends none. A Unix socket is reached as its proxy reaches it, naming
+   * `localhost`.
    */
   static open(
-    page: string,
+    at: UiListener,
     id: string,
     screen: ScreenState | null = FAKE_TAB_SCREEN,
     from: "page" | "program" = "page",
   ): Effect.Effect<FakeTab> {
     return Effect.gen(function* () {
-      const origin = new URL(page).origin;
-      const socket = new WebSocket(`${origin.replace(/^http/, "ws")}/ws`, {
-        headers: from === "page" ? { origin } : {},
-      });
+      const origin = new URL(uiAddressOf(at)).origin;
+      const url =
+        at.kind === "tcp" ? `${origin.replace(/^http/, "ws")}/ws` : `ws+unix://${at.path}:/ws`;
+      const socket = new WebSocket(url, { headers: from === "page" ? { origin } : {} });
       const tab = new FakeTab(id, socket);
       yield* tab.#exchange(null, (msg) => msg.op === "hello");
       if (screen !== null) yield* tab.publish(screen);

@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
+import { uiAddressOf, type UiListener } from "@kb/contracts";
 import { clearUiPresence, readUiPresence, servingUi, writeUiPresence } from "../src/index.ts";
 
 const roots: string[] = [];
@@ -26,15 +27,55 @@ async function scratchRoot(): Promise<string> {
   return root;
 }
 
-/** A server that says it serves `root`. */
-function identityServer(root: string): string {
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch: () => Response.json({ root }),
-  });
-  servers.push(server);
-  return `http://127.0.0.1:${server.port}`;
+/** A TCP listener on this machine at `port`. */
+function tcp(port: number): Extract<UiListener, { kind: "tcp" }> {
+  return { kind: "tcp", hostname: "127.0.0.1", port };
+}
+
+/** Where a socket's proxy serves its page. */
+const ORIGIN = "https://kb.example.test";
+
+/** Every way a `kb ui` listens, each once: the presence properties hold for each. */
+const KINDS = { tcp: "tcp", socket: "socket" } as const satisfies {
+  readonly [K in UiListener["kind"]]: K;
+};
+
+/** A socket at `name` in `dir`, which nothing listens on yet. */
+function socketIn(dir: string, name: string): Extract<UiListener, { kind: "socket" }> {
+  return { kind: "socket", path: join(dir, name), origin: ORIGIN };
+}
+
+/**
+ * A server listening the way `kind` says, in `dir` for a socket, that says
+ * it serves `root` and that its page is its listener's, as a `kb ui` does.
+ */
+function identityServer(kind: UiListener["kind"], dir: string, root: string): UiListener {
+  if (kind === "tcp") {
+    let at = tcp(0);
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.json({ root, page: uiAddressOf(at) }),
+    });
+    servers.push(server);
+    at = tcp(server.port ?? 0);
+    return at;
+  }
+  const at = socketIn(dir, `ui-${servers.length}.sock`);
+  servers.push(Bun.serve({ unix: at.path, fetch: () => Response.json({ root, page: at.origin }) }));
+  return at;
+}
+
+/** `at` with another page than its server's: a socket's origin swapped, a port named by another host. */
+function withForgedPage(at: UiListener): UiListener {
+  return at.kind === "tcp"
+    ? { ...at, hostname: "localhost" }
+    : { ...at, origin: "https://attacker.example" };
+}
+
+/** A listener of `kind` nothing listens on. */
+function goneListener(kind: UiListener["kind"], dir: string): UiListener {
+  return kind === "tcp" ? tcp(9) : socketIn(dir, "gone.sock");
 }
 
 const run = <A, E>(effect: Effect.Effect<A, E, FileSystem>) =>
@@ -45,21 +86,31 @@ describe("servingUi", () => {
     expect(await run(servingUi(await scratchRoot()))).toBeNull();
   });
 
-  test("presence whose server answers for this root names that server", async () => {
-    const root = await scratchRoot();
-    const url = identityServer(await realpath(root));
-    await run(writeUiPresence(root, url));
-    expect(await run(servingUi(root))).toBe(url);
-  });
+  for (const kind of Object.values(KINDS)) {
+    test(`presence whose ${kind} server answers for this root names that server`, async () => {
+      const root = await scratchRoot();
+      const at = identityServer(kind, root, await realpath(root));
+      await run(writeUiPresence(root, at));
+      expect(await run(servingUi(root))).toEqual(at);
+    });
 
-  test("presence whose server answers for another root, or nothing at all, is not trusted", async () => {
-    const root = await scratchRoot();
-    await run(writeUiPresence(root, identityServer("/elsewhere")));
-    expect(await run(servingUi(root))).toBeNull();
-    const gone = await scratchRoot();
-    await run(writeUiPresence(gone, "http://127.0.0.1:9"));
-    expect(await run(servingUi(gone))).toBeNull();
-  });
+    test(`presence whose ${kind} server answers for another root, or nothing at all, is not trusted`, async () => {
+      const root = await scratchRoot();
+      await run(writeUiPresence(root, identityServer(kind, root, "/elsewhere")));
+      expect(await run(servingUi(root))).toBeNull();
+      const gone = await scratchRoot();
+      await run(writeUiPresence(gone, goneListener(kind, gone)));
+      expect(await run(servingUi(gone))).toBeNull();
+    });
+
+    test(`presence naming this root's ${kind} server with another page is not trusted`, async () => {
+      const root = await scratchRoot();
+      const at = identityServer(kind, root, await realpath(root));
+      await run(writeUiPresence(root, withForgedPage(at)));
+      expect(await run(readUiPresence(root))).not.toBeNull();
+      expect(await run(servingUi(root))).toBeNull();
+    });
+  }
 
   test("presence naming anything but a kb ui on this machine is not read, nor asked", async () => {
     const root = await scratchRoot();
@@ -73,18 +124,24 @@ describe("servingUi", () => {
       },
     });
     servers.push(server);
-    const at = `http://127.0.0.1:${server.port}`;
-    for (const url of [
-      `${at}/elsewhere`,
-      `${at}?next=https://example.com`,
-      `http://user:pw@127.0.0.1:${server.port}`,
-      "http://127.0.0.1",
-      `https://127.0.0.1:${server.port}`,
-      "http://example.com:80",
-      "http://10.0.0.1:4321",
-      "javascript:alert(1)",
-    ]) {
-      const forged = { url, pid: process.pid, root: await realpath(root) };
+    const port = server.port ?? 0;
+    const forgeries: unknown[] = [
+      { kind: "tcp", hostname: "127.0.0.1/elsewhere", port },
+      { kind: "tcp", hostname: "user:pw@127.0.0.1", port },
+      { kind: "tcp", hostname: "127.0.0.1", port: port + 0.5 },
+      { kind: "tcp", hostname: "example.com", port: 80 },
+      { kind: "tcp", hostname: "10.0.0.1", port: 4321 },
+      { kind: "tcp", hostname: "0.0.0.0", port },
+      { kind: "https", hostname: "127.0.0.1", port },
+      { kind: "socket", path: "relative/kb.sock", origin: ORIGIN },
+      { kind: "socket", path: join(root, "kb.sock"), origin: `${ORIGIN}/elsewhere` },
+      { kind: "socket", path: join(root, "kb.sock"), origin: "javascript:alert(1)" },
+      { kind: "socket", path: join(root, "kb.sock") },
+      // What a server wrote before presence named its listener.
+      `http://127.0.0.1:${port}`,
+    ];
+    for (const at of forgeries) {
+      const forged = { at, url: at, pid: process.pid, root: await realpath(root) };
       await writeFile(join(root, ".kb", "ui.json"), JSON.stringify(forged));
       expect(await run(readUiPresence(root))).toBeNull();
       expect(await run(servingUi(root))).toBeNull();
@@ -92,34 +149,39 @@ describe("servingUi", () => {
     expect(asked).toBe(0);
   });
 
-  test("a server writes presence only for an address on this machine", async () => {
+  test("a server writes presence only for a listener on this machine", async () => {
     const root = await scratchRoot();
-    const refused = await run(Effect.flip(writeUiPresence(root, "http://0.0.0.0:4321")));
-    expect(refused.code).toBe("invalid_input");
-    expect(await run(readUiPresence(root))).toBeNull();
+    const elsewhere: UiListener[] = [
+      { kind: "tcp", hostname: "0.0.0.0", port: 4321 },
+      { kind: "socket", path: "kb.sock", origin: ORIGIN },
+    ];
+    for (const at of elsewhere) {
+      const refused = await run(Effect.flip(writeUiPresence(root, at)));
+      expect(refused.code).toBe("invalid_input");
+      expect(await run(readUiPresence(root))).toBeNull();
+    }
   });
 });
 
 describe("clearUiPresence", () => {
   test("removes the file this process's server wrote", async () => {
     const root = await scratchRoot();
-    await run(writeUiPresence(root, "http://127.0.0.1:4321"));
-    await run(clearUiPresence(root, "http://127.0.0.1:4321"));
-    expect(await run(readUiPresence(root))).toBeNull();
+    for (const at of [tcp(4321), socketIn(root, "kb.sock")]) {
+      await run(writeUiPresence(root, at));
+      await run(clearUiPresence(root, at));
+      expect(await run(readUiPresence(root))).toBeNull();
+    }
   });
 
-  test("leaves a file another server wrote, at another URL or from another process at the same one", async () => {
+  test("leaves a file another server wrote, at another listener or from another process at the same one", async () => {
     const root = await scratchRoot();
-    await run(writeUiPresence(root, "http://127.0.0.1:4322"));
-    await run(clearUiPresence(root, "http://127.0.0.1:4321"));
+    await run(writeUiPresence(root, tcp(4322)));
+    await run(clearUiPresence(root, tcp(4321)));
+    await run(clearUiPresence(root, socketIn(root, "kb.sock")));
     expect(await run(readUiPresence(root))).not.toBeNull();
-    const reused = {
-      url: "http://127.0.0.1:4321",
-      pid: process.pid + 1,
-      root: await realpath(root),
-    };
+    const reused = { at: tcp(4321), pid: process.pid + 1, root: await realpath(root) };
     await writeFile(join(root, ".kb", "ui.json"), JSON.stringify(reused));
-    await run(clearUiPresence(root, "http://127.0.0.1:4321"));
+    await run(clearUiPresence(root, tcp(4321)));
     expect(await run(readUiPresence(root))).toEqual(reused);
   });
 });

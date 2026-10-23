@@ -17,7 +17,9 @@
  * `kb ui` serves the root for the whole property, as
  * one serves a real root: the surfaces that speak to a server (HTTP, the
  * page's WebMCP) speak to that one, and none starts a second over the same
- * root.
+ * root. The whole suite runs once for each way a `kb ui` listens, a TCP port
+ * and a Unix socket: every surface keeps its promises whichever the server
+ * it reaches listens on.
  */
 import { extensionModule, writeTrustedExtensionEffect } from "./extension-files.ts";
 import { describe, expect, test } from "bun:test";
@@ -37,6 +39,7 @@ import {
   type ActionReceipt,
   type ExtensionRow,
   type SurfaceWire,
+  type UiListener,
 } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import {
@@ -86,15 +89,26 @@ export interface ActionSurface {
 
 /** The `kb ui` serving the root under test. */
 export interface LiveUi {
-  /** Where it listens, `http://host:port`. */
-  readonly url: string;
+  /** Where it listens: a TCP port, or a Unix socket and its proxy's origin. */
+  readonly at: UiListener;
   /** The extensions it hosts beside the registry's, as its `kb.manifest` reports them. */
   readonly hosted: readonly ExtensionRow[];
   stop(): Promise<void>;
 }
 
-/** Start a `kb ui` over a root; the contract stops it when the property ends. */
-export type ServeUi = (root: string) => Promise<LiveUi>;
+/** How a `kb ui` listens: each kind of `UiListener`. */
+export type UiListenerKind = UiListener["kind"];
+
+/** Every kind of listener, each named once, so a new kind joins the suite or fails to compile. */
+const LISTENER_KINDS = { tcp: "tcp", socket: "socket" } as const satisfies {
+  readonly [K in UiListenerKind]: K;
+};
+
+/**
+ * Start a `kb ui` over a root, listening the way `kind` says; the contract
+ * stops it when the property ends.
+ */
+export type ServeUi = (root: string, kind: UiListenerKind) => Promise<LiveUi>;
 
 /**
  * Open the surface over a root that already exists, has been opened once, and
@@ -231,11 +245,11 @@ const scratchRoot = Effect.acquireRelease(
  * scope closes. Every surface reaches that one tab: HTTP and WebMCP through
  * the server, the CLI, MCP and the invoke core through `.kb/ui.json`.
  */
-function serveRoot(serve: ServeUi, root: string) {
+function serveRoot(serve: ServeUi, root: string, kind: UiListenerKind) {
   return Effect.acquireRelease(
     Effect.gen(function* () {
-      const ui = yield* Effect.promise(() => serve(root));
-      return { ui, tab: yield* FakeTab.open(ui.url, CONTRACT_TAB) };
+      const ui = yield* Effect.promise(() => serve(root, kind));
+      return { ui, tab: yield* FakeTab.open(ui.at, CONTRACT_TAB) };
     }),
     ({ ui, tab }) => tab.close.pipe(Effect.andThen(Effect.promise(() => ui.stop()))),
   );
@@ -269,16 +283,21 @@ export interface SurfaceSet {
   readonly surfaces: Readonly<Record<string, SurfaceFactory>>;
 }
 
+/** The set as one run of the suite takes it: with the way its `kb ui` listens. */
+interface OnListener extends SurfaceSet {
+  readonly listener: UiListenerKind;
+}
+
 /**
  * Each surface in turn over one scratch root. The root is opened once first,
  * so the system seed and the root's setting are written before any surface
  * opens it, and every surface then reads the same store; then its one
- * `kb ui` starts. The
+ * `kb ui` starts, listening as the run says. The
  * surfaces run one after another because each owns process-wide resources
  * (stdout, a port).
  */
 function overSurfaces(
-  { serve, surfaces }: SurfaceSet,
+  { serve, surfaces, listener }: OnListener,
   check: (c: SurfaceCase) => Effect.Effect<void>,
 ): Promise<void> {
   return Effect.runPromise(
@@ -288,7 +307,7 @@ function overSurfaces(
         const ctx = yield* Effect.promise(() => openKb(root));
         const written = yield* Effect.promise(() => invoke(ctx, SETTING_INVOCATION));
         expect(written.status).toBe("succeeded");
-        const { ui } = yield* serveRoot(serve, root);
+        const { ui } = yield* serveRoot(serve, root, listener);
         yield* Effect.forEach(
           Object.entries(surfaces),
           ([name, open]) =>
@@ -317,7 +336,7 @@ function overSurfaces(
   );
 }
 
-const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<void>]> = [
+const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
   [
     "every surface lists the registry's action ids with their declared modes, " +
       "leaving out only what is denied to its actor or asks where its wire cannot approve",
@@ -493,7 +512,8 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
 ];
 
 /**
- * Run the contract over every surface at once.
+ * Run the contract over every surface at once, once for each way the root's
+ * `kb ui` listens.
  *
  * @param set - how a root is served, and each surface's factory by name. The
  *   map is the list of surfaces, so adding a surface means adding an entry,
@@ -501,7 +521,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
  */
 export function surfaceContract(set: SurfaceSet): void {
   const names = Object.keys(set.surfaces).join(", ");
-  describe(`action surfaces (${names}) — one registry contract`, () => {
-    for (const [title, property] of PROPERTIES) test(title, () => property(set));
-  });
+  for (const listener of Object.values(LISTENER_KINDS)) {
+    const run: OnListener = { ...set, listener };
+    describe(`action surfaces (${names}) on a ${listener} kb ui — one registry contract`, () => {
+      for (const [title, property] of PROPERTIES) test(title, () => property(run));
+    });
+  }
 }

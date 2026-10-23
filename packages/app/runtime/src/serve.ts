@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { domainError, ensureDomainError, type DomainError } from "@kb/model";
+import { uiAddressOf } from "@kb/contracts";
 import { servingUi } from "@kb/workspace-fs";
 import { childProcessEnv } from "./child-env.ts";
 
@@ -149,8 +150,8 @@ export const serveRoot = Effect.fn("kb.serve")(function* (
   );
   const answered = yield* Effect.gen(function* () {
     for (;;) {
-      const url = yield* servingUi(root);
-      if (url !== null) return { kind: "served", url } as const;
+      const at = yield* servingUi(root);
+      if (at !== null) return { kind: "served", url: uiAddressOf(at) } as const;
       if (ended !== null) return { kind: "stopped", how: ended } as const;
       yield* Effect.sleep(POLL_MS);
     }

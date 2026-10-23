@@ -127,13 +127,17 @@ describe("kb open", () => {
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
-      fetch: () => Response.json({ root: beta }),
+      fetch: (req) => Response.json({ root: beta, page: new URL(req.url).origin }),
     });
     try {
       const url = `http://127.0.0.1:${server.port}`;
       await writeFile(
         join(beta, ".kb", "ui.json"),
-        JSON.stringify({ url, pid: process.pid, root: beta }),
+        JSON.stringify({
+          at: { kind: "tcp", hostname: "127.0.0.1", port: server.port },
+          pid: process.pid,
+          root: beta,
+        }),
       );
       expect(await kb(alpha, ["open", "beta", "--no-browser"])).toEqual({
         code: 0,

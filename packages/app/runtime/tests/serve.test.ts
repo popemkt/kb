@@ -14,6 +14,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Deferred, Effect, Fiber } from "effect";
+import { uiAddressOf } from "@kb/contracts";
 import { readUiPresence, servingUi } from "@kb/workspace-fs";
 import { domainError } from "@kb/model";
 import { childProcessEnv } from "../src/child-env.ts";
@@ -84,7 +85,7 @@ describe("starting a kb ui for a root", () => {
     await rm(scratch, { recursive: true, force: true });
   });
 
-  test("kb ui --port 0 starts detached, and the URL in its presence answers for the root", async () => {
+  test("kb ui --port 0 starts detached, and the listener in its presence answers for the root", async () => {
     const url = await run(
       serveRoot(root, launch([process.execPath, CLI], 20_000)).pipe(
         Effect.provide(bunFileSystemLayer),
@@ -92,7 +93,8 @@ describe("starting a kb ui for a root", () => {
     );
     expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
     expect(url).not.toBe("http://127.0.0.1:4321");
-    expect(await run(servingUi(root).pipe(Effect.provide(bunFileSystemLayer)))).toBe(url);
+    const at = await run(servingUi(root).pipe(Effect.provide(bunFileSystemLayer)));
+    expect(at === null ? null : uiAddressOf(at)).toBe(url);
     const identity = (await (await fetch(`${url}/api/identity`)).json()) as { root: string };
     expect(identity.root).toBe(root);
   }, 30_000);

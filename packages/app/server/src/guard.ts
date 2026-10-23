@@ -32,8 +32,13 @@
  * person is). The same holds on every deployment, a TCP port, a proxy or a
  * socket.
  */
-import { PAGE_WIRE, type Identification, type Person, type SurfaceWire } from "@kb/contracts";
-import type { Listener } from "./listener.ts";
+import {
+  PAGE_WIRE,
+  type Identification,
+  type Person,
+  type SurfaceWire,
+  type UiListener,
+} from "@kb/contracts";
 
 /**
  * HTTP's wire for a local program: a request that carries no Origin (the
@@ -46,7 +51,7 @@ export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" }
 /** Where the server listens, and where the browser loads the UI from. */
 export interface GuardSite {
   /** Where the server listens. */
-  readonly at: Listener;
+  readonly at: UiListener;
   /**
    * The port the UI page is served from, when another server serves it (the
    * Vite dev server's). Default: the TCP listener's own.

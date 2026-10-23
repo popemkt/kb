@@ -27,6 +27,8 @@ const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
 
 export interface UiHttpDeps {
   root: string;
+  /** Where its page is (`uiAddressOf` its listener), as `/api/identity` says it. */
+  page: string;
   ctx: KbContext;
   hub: SubscriptionHub;
   /** The extensions the server hosts beside the registry's, as it reports them; none when absent. */
@@ -78,8 +80,8 @@ const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
   ["/api/queries", ({ root }) => listSavedQueriesEffect(root)],
   [
     "/api/identity",
-    ({ root }) =>
-      canonicalRoot(root).pipe(Effect.map((served): ServerIdentity => ({ root: served }))),
+    ({ root, page }) =>
+      canonicalRoot(root).pipe(Effect.map((served): ServerIdentity => ({ root: served, page }))),
   ],
 ]);
 

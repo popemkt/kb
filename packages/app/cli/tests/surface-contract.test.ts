@@ -9,6 +9,9 @@
  * into a listing and a receipt without consulting the registry. That way a
  * surface that drops, renames or re-shapes something fails the contract.
  */
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect } from "effect";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -23,6 +26,8 @@ import {
   onWire,
   type ActionRequest,
   type ActionReceipt,
+  type UiListener,
+  uiAddressOf,
 } from "@kb/contracts";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
@@ -48,6 +53,7 @@ import {
   type SurfaceFactory,
 } from "@kb/test-kit";
 import { ToolCallFailed, WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
+import { requestUi } from "@kb/workspace-fs";
 import { z } from "zod";
 import { main } from "../src/cli.ts";
 import { ACTION_INVOKE_WIRE } from "../src/command.ts";
@@ -167,12 +173,21 @@ const contractRuntime = scriptedRuntime((turn): readonly ScriptStep[] => {
   return [{ call: id, input, answer: (receipt) => JSON.stringify(receipt) }];
 });
 
-/** The root's one `kb ui`, on an ephemeral port, hosting the agent over the scripted model. */
-const serve: ServeUi = async (root) => {
+/** Where a socket `kb ui`'s proxy serves its page; no proxy runs, and the tests reach the socket as one would. */
+const PUBLIC_ORIGIN = "https://kb.surface-contract.test";
+
+/**
+ * The root's one `kb ui`, hosting the agent over the scripted model: on an
+ * ephemeral port, or on a socket in a directory of its own, removed with it.
+ */
+const serve: ServeUi = async (root, kind) => {
+  const dir = kind === "socket" ? await mkdtemp(join(tmpdir(), "kb-sc-")) : null;
+  const listen =
+    dir === null ? { port: 0 } : { socket: join(dir, "kb.sock"), publicOrigin: PUBLIC_ORIGIN };
   const handle = await Effect.runPromise(
     startUi({
       root,
-      port: 0,
+      ...listen,
       openBrowser: false,
       extensions: [
         {
@@ -186,28 +201,30 @@ const serve: ServeUi = async (root) => {
     }).pipe(Effect.provide(bunFileSystemLayer)),
   );
   return {
-    url: handle.url,
+    at: handle.at,
     hosted: [extensionRow(agentExtension, "host", true)],
-    stop: () => Effect.runPromise(handle.stop),
+    stop: async () => {
+      await Effect.runPromise(handle.stop);
+      if (dir !== null) await rm(dir, { recursive: true, force: true });
+    },
   };
 };
 
 /**
- * `POST /api/action` to the `kb ui` at `at`, and the receipt from its
+ * `POST /api/action` to the `kb ui` listening `at`, and the receipt from its
  * response: from its page, as the page sends it, with the UI's own Origin;
  * from a local program, with none.
  */
 async function postAction(
-  at: string,
+  at: UiListener,
   invocation: ActionRequest,
   from: "page" | "program",
 ): Promise<ActionReceipt> {
-  const url = new URL(at).origin;
-  const res = await fetch(`${url}/api/action`, {
+  const res = await requestUi(at, "/api/action", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(from === "page" ? { origin: url } : {}),
+      ...(from === "page" ? { origin: uiAddressOf(at) } : {}),
     },
     body: JSON.stringify(invocation),
   });
@@ -227,8 +244,8 @@ const http: SurfaceFactory = async (_root, ui) => ({
   wire: HTTP_WIRE,
   host: "ui",
   list: async () =>
-    z.array(ListedActionSchema).parse(await (await fetch(`${ui.url}/api/manifest`)).json()),
-  invoke: ({ approved: _approved, ...invocation }) => postAction(ui.url, invocation, "program"),
+    z.array(ListedActionSchema).parse(await (await requestUi(ui.at, "/api/manifest")).json()),
+  invoke: ({ approved: _approved, ...invocation }) => postAction(ui.at, invocation, "program"),
   close: async () => undefined,
 });
 
@@ -252,7 +269,7 @@ const webmcp: SurfaceFactory = async (_root, ui) => {
   const page = new FakeModelContext();
   const adapter = startWebMcp({
     modelContext: () => page,
-    invoke: (invocation) => postAction(ui.url, invocation, "page"),
+    invoke: (invocation) => postAction(ui.at, invocation, "page"),
     report: (message) => {
       throw new Error(message);
     },
@@ -298,7 +315,7 @@ function agentEvents(tab: FakeTab, from: number, conversation: string): AgentEve
  */
 const agent: SurfaceFactory = async (_root, ui) => {
   // A connection that publishes no screen, so the root's one tab stays the contract's own.
-  const tab = await Effect.runPromise(FakeTab.open(ui.url, "sidebar.surface-contract", null));
+  const tab = await Effect.runPromise(FakeTab.open(ui.at, "sidebar.surface-contract", null));
   let turns = 0;
   const say = async (ask: unknown, approved: boolean): Promise<string> => {
     turns += 1;
@@ -318,7 +335,7 @@ const agent: SurfaceFactory = async (_root, ui) => {
         );
         if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
         const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
-        const receipt = await postAction(ui.url, invocation, "page");
+        const receipt = await postAction(ui.at, invocation, "page");
         tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
       }
       const end = events.find((event) => event.type === "turn-end");

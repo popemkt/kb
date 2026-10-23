@@ -10,7 +10,7 @@
 import { resolve } from "node:path";
 import { Effect, Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { KbRoots, type RootProbe } from "@kb/contracts";
+import { KbRoots, uiAddressOf, type RootProbe } from "@kb/contracts";
 import { ensureDomainError, type DomainError } from "@kb/model";
 import { canonicalRoot, currentHome, servingUi } from "@kb/workspace-fs";
 import { openKbEffect } from "./open.ts";
@@ -62,7 +62,11 @@ export const kbRootsLayer: Layer.Layer<KbRoots, never, FileSystem> = Layer.effec
     return KbRoots.of({
       home: currentHome,
       probe: (path) => probeRoot(path).pipe(Effect.provide(context)),
-      served: (root) => servingUi(root).pipe(Effect.provide(context)),
+      served: (root) =>
+        servingUi(root).pipe(
+          Effect.map((at) => (at === null ? null : uiAddressOf(at))),
+          Effect.provide(context),
+        ),
       create: (root) => createRoot(root).pipe(Effect.provide(context)),
       // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: the store opened here is never
       // released, as no selected store is; a sqlite root keeps its connection.

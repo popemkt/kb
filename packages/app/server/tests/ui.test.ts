@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { ServerMessage } from "@kb/contracts";
+import { bunFileSystemLayer } from "@kb/runtime";
+import { servingUi } from "@kb/workspace-fs";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
@@ -64,7 +66,7 @@ describe("kb ui server", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("port 0 binds a free port, and presence records the URL it bound", async () => {
+  test("port 0 binds a free port, and presence records the port it bound", async () => {
     const other = await tempRoot();
     handle = await run(startUi({ root, port: 0, openBrowser: false }));
     const second = await run(startUi({ root: other, port: 0, openBrowser: false }));
@@ -74,9 +76,9 @@ describe("kb ui server", () => {
       expect(second.at).not.toEqual(handle.at);
       expect(handle.url).toBe(`http://127.0.0.1:${port}`);
       const recorded = JSON.parse(await readFile(join(root, ".kb", "ui.json"), "utf8")) as {
-        url: string;
+        at: unknown;
       };
-      expect(recorded.url).toBe(handle.url);
+      expect(recorded.at).toEqual({ kind: "tcp", hostname: "127.0.0.1", port });
       const identity = (await (await fetch(`${second.url}/api/identity`)).json()) as {
         root: string;
       };
@@ -85,6 +87,23 @@ describe("kb ui server", () => {
       await run(second.stop);
       await rm(other, { recursive: true, force: true });
     }
+  });
+
+  test("the server says where its page is, and presence naming its port with another page is no server", async () => {
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    const identity = (await (await fetch(`${handle.url}/api/identity`)).json()) as {
+      page: string;
+    };
+    expect(identity.page).toBe(handle.url);
+    const file = join(root, ".kb", "ui.json");
+    const presence = JSON.parse(await readFile(file, "utf8")) as { at: object };
+    // The same server, named by another host: the page a reader would open is not the server's.
+    await writeFile(
+      file,
+      JSON.stringify({ ...presence, at: { ...presence.at, hostname: "localhost" } }),
+    );
+    const served = await run(servingUi(root).pipe(Effect.provide(bunFileSystemLayer)));
+    expect(served).toBeNull();
   });
 
   test("a root a person serves is one of their locations; a server nobody opened lists nothing", async () => {

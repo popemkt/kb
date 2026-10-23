@@ -1,5 +1,5 @@
 import { watch } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { Cause, Effect, Exit, Scope, Stream, type Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
@@ -12,6 +12,8 @@ import {
   type HostedFamilies,
   type KbContext,
   type SurfaceWire,
+  type UiListener,
+  uiAddressOf,
 } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
@@ -35,7 +37,7 @@ import {
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
-import { addressOf, listen, localUrlOf, type BindOptions, type Listener } from "./listener.ts";
+import { listen, type BindOptions } from "./listener.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
@@ -94,7 +96,7 @@ export interface UiServerOptions {
 
 export interface UiServerHandle {
   /** Where it listens: the TCP port it bound (0 resolved), or its socket. */
-  at: Listener;
+  at: UiListener;
   /** Where the page is: the TCP listener's address, or the proxy's public origin. */
   url: string;
   /** Close the scope that owns the listener and the ingest lanes. */
@@ -209,7 +211,7 @@ function ingestEach(
  */
 function serveUi(deps: {
   where: BindOptions;
-  at: Listener;
+  at: UiListener;
   uiPort: number | undefined;
   publicOrigin: string | undefined;
   root: string;
@@ -226,8 +228,9 @@ function serveUi(deps: {
     ...deps.where,
     fetch(req, srv) {
       const url = new URL(req.url);
+      const at = bound(deps.at, srv);
       guard ??= requestGuard({
-        at: bound(deps.at, srv),
+        at,
         uiPort: deps.uiPort,
         publicOrigin: deps.publicOrigin,
         identify: (request) =>
@@ -253,6 +256,7 @@ function serveUi(deps: {
 
       return handleHttpRequest(req, caller.wire, {
         root: deps.root,
+        page: uiAddressOf(at),
         ctx,
         hub,
         hosted: deps.hosted,
@@ -276,9 +280,10 @@ function serveUi(deps: {
 /**
  * Where `opts` asks the server to listen. A socket is reached through its
  * proxy alone, so it needs the proxy's public origin, which is where its
- * page is.
+ * page is. Its path is absolute and its origin bare, as its presence names
+ * them for a process in any directory.
  */
-function listenerOf(opts: UiServerOptions): Effect.Effect<Listener, DomainError> {
+function listenerOf(opts: UiServerOptions): Effect.Effect<UiListener, DomainError> {
   if (opts.socket === undefined) {
     return Effect.succeed({
       kind: "tcp",
@@ -294,11 +299,19 @@ function listenerOf(opts: UiServerOptions): Effect.Effect<Listener, DomainError>
       ),
     );
   }
-  return Effect.succeed({ kind: "socket", path: opts.socket, origin: opts.publicOrigin });
+  const { socket, publicOrigin } = opts;
+  return Effect.try({
+    try: (): UiListener => ({
+      kind: "socket",
+      path: resolve(socket),
+      origin: new URL(publicOrigin).origin,
+    }),
+    catch: () => domainError("invalid_input", `${publicOrigin} is not a public origin`),
+  });
 }
 
 /** Where `server` listens, as `at` asked: a TCP port of 0 is the one it bound. */
-function bound(at: Listener, server: { port?: number | undefined }): Listener {
+function bound(at: UiListener, server: { port?: number | undefined }): UiListener {
   return at.kind === "tcp" ? { ...at, port: server.port ?? at.port } : at;
 }
 
@@ -408,7 +421,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   );
 
   const at = bound(asked, server);
-  const url = addressOf(at);
+  const url = uiAddressOf(at);
   if (opts.openedBy !== undefined) {
     yield* takeOpenedRoot({ ctx, layer, openedBy: opts.openedBy });
   }
@@ -416,16 +429,13 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // or `kb mcp` asking for the screen) can reach them. Losing that costs only
   // the screen actions in other processes, so a failed write is reported and
   // the server still serves.
-  const local = localUrlOf(at);
-  if (local !== null) {
-    yield* writeUiPresence(opts.root, local).pipe(
-      Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
-    );
-    yield* Scope.addFinalizer(
-      lifetime,
-      clearUiPresence(opts.root, local).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
-    );
-  }
+  yield* writeUiPresence(opts.root, at).pipe(
+    Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
+  );
+  yield* Scope.addFinalizer(
+    lifetime,
+    clearUiPresence(opts.root, at).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
+  );
 
   if (openBrowserFlag) openBrowser(url);
 

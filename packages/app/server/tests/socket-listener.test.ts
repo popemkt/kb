@@ -7,12 +7,16 @@
  * named by the identity header the proxy sets where it sets one. A
  * stale socket is replaced, a live one (whatever listens on it) or a file
  * that is no socket is refused, and the socket is gone once the server stops.
+ * Its presence names the socket, so a process on this machine reaches it
+ * there, as a local program (`requestUi`, `servingUi`).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { Effect, Exit } from "effect";
+import { bunFileSystemLayer } from "@kb/runtime";
+import { requestUi, servingUi } from "@kb/workspace-fs";
 import { identityHeaderIdentity, startUi, type UiServerHandle } from "../src/index.ts";
 
 const HEADER = "Tailscale-User-Login";
@@ -72,6 +76,61 @@ describe("kb ui on a Unix socket", () => {
     );
   });
 
+  test("its presence names the socket, and a process on this machine reaches it there", async () => {
+    const file = join(root, ".kb", "ui.json");
+    expect(JSON.parse(await readFile(file, "utf8"))).toEqual({
+      at: { kind: "socket", path, origin: PUBLIC },
+      pid: process.pid,
+      root: await realpath(root),
+    });
+    expect((await stat(file)).mode & 0o777).toBe(0o600);
+    const served = await Effect.runPromise(
+      servingUi(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    expect(served).toEqual(handle.at);
+  });
+
+  test("the server says where its page is, and presence naming its socket with another page is no server", async () => {
+    const identity: unknown = await (await requestUi(handle.at, "/api/identity")).json();
+    expect(identity).toEqual({ root: await realpath(root), page: PUBLIC });
+    const file = join(root, ".kb", "ui.json");
+    const written = await readFile(file, "utf8");
+    try {
+      const forged = { ...handle.at, origin: "https://attacker.example" };
+      await writeFile(file, JSON.stringify({ ...JSON.parse(written), at: forged }));
+      const served = await Effect.runPromise(
+        servingUi(root).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(served).toBeNull();
+    } finally {
+      await writeFile(file, written);
+    }
+  });
+
+  test("a request through the socket without the page's Origin is a local program's, nobody's", async () => {
+    // Whom `/ws` says the connection is: the guard's caller for the request.
+    const personOf = async (headers: Record<string, string>) => {
+      const ws = new WebSocket(`ws+unix://${path}:/ws`, { headers });
+      try {
+        return await new Promise<unknown>((resolve, reject) => {
+          ws.addEventListener("error", () => reject(new Error("refused")));
+          ws.addEventListener("message", (event) => {
+            const msg = JSON.parse(String(event.data)) as { op: string; person?: unknown };
+            if (msg.op === "person") resolve(msg.person);
+          });
+        });
+      } finally {
+        ws.close();
+      }
+    };
+    // The proxy's header does not make a program the person: only the page's Origin does.
+    expect(await personOf({ [HEADER]: OWNER })).toBeNull();
+    expect(await personOf({ [HEADER]: OWNER, Origin: PUBLIC })).toEqual({ name: OWNER });
+    // And presence's own request is a program's, which the API answers.
+    const listed = (await (await requestUi(handle.at, "/api/manifest")).json()) as unknown[];
+    expect(listed.length).toBeGreaterThan(0);
+  });
+
   test("a page on localhost is no origin of a socket's", async () => {
     const res = await viaSocket("/api/manifest", { headers: { Origin: "http://localhost" } });
     expect(res.status).toBe(403);
@@ -116,6 +175,22 @@ describe("claiming the socket path", () => {
     expect((await stat(stale)).isSocket()).toBe(true);
     await Effect.runPromise(again.stop);
     expect(await Bun.file(stale).exists()).toBe(false);
+  });
+
+  test("a socket named by a relative path is present by its absolute one, until the server stops", async () => {
+    const absolute = join(dir, "relative.sock");
+    const other = await mkdtemp(join(dir, "root-"));
+    const served = await Effect.runPromise(serve(relative(process.cwd(), absolute), other));
+    const file = join(other, ".kb", "ui.json");
+    try {
+      expect(served.at).toEqual({ kind: "socket", path: absolute, origin: PUBLIC });
+      const presence = JSON.parse(await readFile(file, "utf8")) as { at: unknown };
+      expect(presence.at).toEqual(served.at);
+    } finally {
+      await Effect.runPromise(served.stop);
+    }
+    expect(await Bun.file(file).exists()).toBe(false);
+    expect(await Bun.file(absolute).exists()).toBe(false);
   });
 
   test("a socket a live server answers on is refused", async () => {

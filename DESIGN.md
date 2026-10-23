@@ -2372,7 +2372,9 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   properties of `surfaceContract` in `@kb/test-kit`
   (`surface-contract.ts`). They run over all surfaces at once, from
   `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins
-  that map.
+  that map. The suite runs once for each way the root's `kb ui` listens, a
+  TCP port and a Unix socket, so a surface that reaches the server through
+  presence keeps every promise over either.
 - `registryFor(root)` builds a handler table per kb root (cached for the
   process); `manifest(root)` + `invoke(ctx, invocation)` / `invokeReceiptEffect` dispatch through it.
 - Dispatch prefers `effect` and composes it under `Effect.scoped` (finalizers / interrupt). Legacy Promise `handler`s (third-party `.kb/extensions`) are the only path lifted via `tryPromise`.
@@ -2408,10 +2410,17 @@ or a path that is not a socket, is refused;
 the socket is removed when the server stops. The request guard admits
 `Host: localhost`, as the proxy names a socket, and the public origin's
 host; `http://localhost` is no origin of a socket's, since no browser loads
-the page from it. A socket server records no presence (`.kb/ui.json` names
-a loopback origin only), so the CLI's and `kb mcp`'s screen actions and
-`kb open` do not reach it (`// GAP [[01M5CMVS78WRBD760MNSS3BMJJ]]` in
-`listener.ts`).
+the page from it. A socket server is present as a TCP one is: `.kb/ui.json`
+names its listener, the socket's absolute path and the public origin, and
+the CLI and `kb mcp` reach it over the socket (`requestUi`), naming
+`localhost` as the proxy does and sending no Origin, so the guard takes
+them as a local program, on HTTP's wire, as on a port. So the screen
+actions reach the person's tabs, and `kb open` and the locations list
+answer the public origin, where the page is, once the server, asked
+through the socket, says that origin is its own. Only a process of the
+account that serves the socket can connect to it, so only that account's
+CLI finds the server; another account's finds none, as it would find no
+presence it cannot read.
 
 The recipe behind Tailscale, on Linux, as a service account `kb` whose
 systemd unit has `RuntimeDirectory=kb` and `RuntimeDirectoryMode=0700`:
@@ -3871,19 +3880,27 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   server passes its `ScreenHub`, so it never asks itself. Every other
   process gets the default, `remoteScreensLayer`, which reads
   `.kb/ui.json` and asks that server the same action. `kb ui` writes
-  `{url, pid, root}` there (mode 0600) when it listens and removes it when
-  it stops, if it is still its own: a reused port can name a later server,
-  so the URL and the pid both have to match. It is runtime state, gitignored and not backed up. The file is
-  only a file in the root, so its `url` is read only when it is the bare
-  `http` origin of a loopback host and port, and a server bound anywhere
-  else writes none. Before it
+  `{at, pid, root}` there (mode 0600) when it listens and removes it when
+  it stops, if it is still its own: `at` is where it listens, its
+  `UiListener` (`@kb/contracts`), and a reused port can name a later
+  server, so the listener and the pid both have to match. It is runtime
+  state, gitignored and not backed up. Every reader reaches the server
+  where `at` says through one request, `requestUi` (`@kb/workspace-fs`).
+  The file is only a file in the root, so a TCP listener is read only when
+  its address is the bare `http` origin of a loopback host and port, and a
+  socket only at an absolute path with a bare `http(s)` page origin (Action
+  registry → Hosted behind a proxy); a server bound anywhere else writes
+  none. Before it
   forwards anything, the reader asks the server named there which root it
-  serves (`GET /api/identity`, behind the request guard, with a short
-  timeout). A root that no server serves has no tabs. Neither has one whose
-  file points at a server that has died, does not answer in time, or serves
-  another root. That is an answer, not a failure. So `ui.*` reach MCP, HTTP,
+  serves and where its page is (`GET /api/identity`, behind the request
+  guard, with a short timeout): the file says only where to knock, and the
+  server says what it is. A root that no server serves has no tabs. Neither
+  has one whose file points at a server that has died, does not answer in
+  time, serves another root, or names another page than the server's own,
+  so a forged file cannot send `kb open` to a page of its choosing. That is an answer, not a failure. So `ui.*` reach MCP, HTTP,
   the CLI and WebMCP like any action, and `surfaceContract` runs them over
-  every surface against one fake tab connected to the root's one `kb ui`.
+  every surface against one fake tab connected to the root's one `kb ui`,
+  on a port and on a socket.
   `remoteScreensLayer` is kb's one mechanism for asking the `kb ui` that
   serves a root. It is written for the screens alone. When a second port
   needs the serving `kb ui`, generalize it into one forwarder rather than
@@ -4197,7 +4214,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   store, hub, plugin kernel, query watcher and presence file. Switching is
   therefore navigation to the process that serves the other root, never a
   rebind. A started server binds any free port (`kb ui --port 0`) and its
-  presence records the URL it bound, which is how a starter reads it back.
+  presence records the port it bound, which is how a starter reads its URL
+  back.
 - **The home store** is `$KB_HOME` when set, else
   `~/Library/Application Support/kb/home` on macOS and
   `${XDG_DATA_HOME:-~/.local/share}/kb/home` elsewhere. It is a full root,

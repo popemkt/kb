@@ -64,7 +64,7 @@ describe("subscription fan-out", () => {
           body: JSON.stringify({ id: "node.add", input: { text: "edited", id: "n.edit" } }),
         }),
         HTTP_WIRE,
-        { root: dir, ctx, hub },
+        { root: dir, page: "http://127.0.0.1:4321", ctx, hub },
       );
       expect(res.status).toBe(200);
 

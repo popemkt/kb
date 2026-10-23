@@ -1,38 +1,16 @@
 /**
- * Where a `kb ui` server listens (DESIGN.md → Action registry → Hosted behind a
- * proxy): a TCP port on a host, or a Unix socket only its owner can
- * connect to. A socket is how a hosted deployment keeps its proxy the one
- * way in: the proxy (`tailscale serve`, run as root) connects to it, and no
- * other account's process can, so a header the proxy sets is the proxy's.
+ * Binding a `kb ui` server where its `UiListener` says (DESIGN.md → Action
+ * registry → Hosted behind a proxy): a TCP port on a host, or a Unix socket
+ * only its owner can connect to. A socket is how a hosted deployment keeps
+ * its proxy the one way in: the proxy (`tailscale serve`, run as root)
+ * connects to it, and no other account's process can, so a header the proxy
+ * sets is the proxy's.
  */
 import { createConnection } from "node:net";
 import { Effect, Scope } from "effect";
 import { FileSystem } from "effect/FileSystem";
+import type { UiListener } from "@kb/contracts";
 import { type DomainError, domainError } from "@kb/model";
-
-export type Listener =
-  | { readonly kind: "tcp"; readonly hostname: string; readonly port: number }
-  | {
-      readonly kind: "socket";
-      readonly path: string;
-      /** The proxy's public origin, the one way to the socket and where its page is. */
-      readonly origin: string;
-    };
-
-/** Where the page is: the TCP listener's own address, or the socket's proxy. */
-export function addressOf(at: Listener): string {
-  return at.kind === "tcp" ? `http://${at.hostname}:${at.port}` : at.origin;
-}
-
-/**
- * Where a process on this machine reaches the server, as `.kb/ui.json`
- * records it for the CLI and `kb mcp`: the TCP listener's address. A
- * socket has none it can record, so a socket server writes no presence.
- */
-// GAP [[01M5CMVS78WRBD760MNSS3BMJJ]]
-export function localUrlOf(at: Listener): string | null {
-  return at.kind === "tcp" ? addressOf(at) : null;
-}
 
 /** What `Bun.serve` is told to bind. */
 export type BindOptions = { hostname: string; port: number } | { unix: string };
@@ -77,7 +55,7 @@ function stale(path: string): Effect.Effect<boolean> {
 export const listen = Effect.fn("kb.listen")(function* <
   T extends { stop(force?: boolean): unknown },
 >(
-  at: Listener,
+  at: UiListener,
   lifetime: Scope.Closeable,
   serve: (where: BindOptions) => T,
 ): Effect.fn.Return<T, DomainError, FileSystem> {
