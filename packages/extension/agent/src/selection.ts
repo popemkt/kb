@@ -168,7 +168,7 @@ export const chooseProvider = Effect.fn("kb.agent.chooseProvider")(function* (
       });
     }
     // Only a provider is read as one: tagging a node as a provider is the
-    // owner's to approve, so a node nobody made one never configures a turn.
+    // owner's to say, so a node nobody made one never configures a turn.
     if (!typeRefsOf(provider).includes(AGENT_IDS.providerTag)) {
       return yield* new AgentRuntimeError({
         message: `The selected node ${selected} is not an #agent-provider; tag it as one, or choose another.`,

@@ -132,9 +132,9 @@ export function kbAction<A extends readonly unknown[], E>(
 
 /**
  * The CLI's wire: `kb action-invoke`'s JSON argument is the whole invocation
- * envelope, so it carries `approved` and may name its actor, and its listing
- * (`kb.manifest`) is the whole registry. A call that names no actor, and every
- * call a verb (`kb add`, `kb rm`, …) plans, is made by the command line.
+ * envelope, so it carries `approved`, and its listing (`kb.manifest`) is the
+ * whole registry. Every call on it, and every call a verb (`kb add`, `kb rm`,
+ * …) plans, is recorded as the command line's.
  */
 export const ACTION_INVOKE_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli" };
 

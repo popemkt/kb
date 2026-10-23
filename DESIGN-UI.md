@@ -2226,8 +2226,8 @@ the ui store (`person`). The tab names itself: it mints a session id once
 and keeps it in its sessionStorage (`DESIGN.md` → Surfaces → The tab
 session), the id its screen is published as and an agent's screen command
 names. While policies are deferred nothing the page does asks for approval
-(`DESIGN.md` → Action registry → Current stance), so the approval card and
-prompts below never show.
+(`DESIGN.md` → Action registry → Current stance), so neither approval card
+(the agent dock's, above, and a code view's, Code views) shows.
 
 ### Panes and layouts
 

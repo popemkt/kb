@@ -508,9 +508,10 @@ type PropValue =
   commit that is not a person's write says which it is (`systemWrites`):
   `forced`, the owner's `--force`, or `system`, kb's own code writing the
   schema it owns (`views.migrate`, the locations family minting its nodes
-  in the home store, a test fixture). `force` is the owner's: the invoke
-  core refuses it from a caller that acts for the owner ([Action
-  registry](#action-registry) → Approval → actors).
+  in the home store, a test fixture). `force` is meant as the owner's:
+  the governance family's force guard would refuse it from a caller that
+  acts for the owner, and is not contributed for now ([Action
+  registry](#action-registry) → Current stance).
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
@@ -1932,11 +1933,9 @@ includeSystem?}` is the projection itself as a host answers it
   picker offers what it accepts (`relationFieldsFor`): the graph's "Link
   as…" and the edge inspector's field menu, so nothing is offered that a
   write refuses. A full one-valued field is a `conflict`, never a silent
-  replace; typing a relation already held writes nothing. The action declares no
-  approval, so the command line and a person's gesture never ask; an agent
-  asks where the repository's policy says so (`#approval-policy` matching
-  `ext.graph.relation.type` for the agent, deciding `ask`), one relation per
-  call, and the surface contract holds every surface to it.
+  replace; typing a relation already held writes nothing. The action
+  declares delegated approval (Action registry → Mode), which no guard that
+  ships reads for now, so every caller types one relation per call.
 - **A saved trace is a graph view node.** Its lens params `lens.trace-from`,
   `lens.trace-to` (refs) and `lens.trace-paths` (a number, the trace's own
   default when absent) are extraction's, like the query, so every renderer
@@ -2045,18 +2044,19 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   `{kind: "write", approval?: "required" | "delegated"}` may change the
   graph, the workspace, or what a UI tab shows
   ([Screen state](#screen-state)). Approval can only be declared on a
-  write, so there is no read-with-approval state. `required` asks a person
-  for every call. `delegated` makes the write a governing write by its
-  mode: the declared decision for it is at least `delegatedDecision` for
-  the caller (`declaredDecision`), so the owner's own actors run it, an
-  agent asks and sandboxed code is denied, with no policy node written, and
-  only a policy naming the action by its own id lowers it. Typing a
-  relation (`graph.relation.type`) declares it, since what a connection
-  means is the owner's to say. Either kind may add `outsideRoot: true`: the
-  action reaches past its kb root, to another store on this machine or a
-  process it starts. Without it, an action touches only its root. A write
-  that reaches outside delegates its approval as `delegated` does, whatever
-  else it declares; a read that reaches outside asks nobody. The manifest publishes the
+  write, so there is no read-with-approval state. `required` declares that
+  a person approves every call. `delegated` declares a governing write:
+  the owner's own calls need no approval, and anyone acting for them does.
+  Typing a relation (`graph.relation.type`) declares it, since what a
+  connection means is the owner's to say. Either kind may add
+  `outsideRoot: true`: the action reaches past its kb root, to another
+  store on this machine or a process it starts. Without it, an action
+  touches only its root, and a write that reaches outside counts as
+  `delegated`. **Core decides nothing by a declaration.** It is what a
+  guard may read: the governance family's resolver turns it into a
+  decision for the caller (`declaredDecision`), and that family contributes
+  no guard for now (Current stance, below), so every call runs
+  whatever its mode declares. The manifest publishes the
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
   - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is
@@ -2183,120 +2183,38 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   ([The transaction tail](#the-transaction-tail--the-store-records-what-changed-in-order)),
   for later use only. Governance is not a security boundary here: who can
   reach a `kb ui` at all is (tailnet grants, the host's Unix accounts, the
-  request guard). The guard point, the resolver, the policy vocabulary and
-  the surface contract's approval properties (skipped) stay, so policies
-  come back by contributing the guards again
-  (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]` in `governance/src/extension.ts`).
-  The rest of this entry is the mechanism as it decides once they do.
-- **Approval** is the governance family's guard (`@kb/governance`; core
-  contributes no guard). It decides in one place, one resolver
-  (`resolveApproval` in `@kb/governance`), asked by that guard on the guard
-  point before anything runs
-  (roadmap decision 13 in
-  `docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). What it
-  decides about a call is `allow`, `ask` or `deny`. A denied call fails
-  `forbidden`. A call that asks runs only with a person behind it, and
-  otherwise fails `approval_required`. Both refusals name the deciding
-  policy in `details.policy`.
-  - **Policies are nodes.** An `#approval-policy` node (`sys.tag.approval-policy`)
-    has `approval.match` (an action id, a pattern where `*` is any run of
-    characters such as `ext.*`, or a mode word, `every read` or
-    `every write`), `approval.actor` (one of its option children `human`,
-    `agent`, `cli`, `script`; absent means every actor) and `approval.decision` (one of
-    `allow`, `ask`, `deny`). The tag, the fields and the options are seeded,
-    and a policy names an option by id, so renaming one changes nothing. A
-    policy missing its match or its decision decides nothing.
-  - **The most specific policy wins.** A policy applies when its match names
-    the action and its actor is the call's or absent. Specificity is ordered
-    by match first: the action's own id, then a pattern by how many literal
-    characters it holds, then a mode word, then a bare `*`. Then a policy
-    naming the actor beats one naming none. Two policies that still tie
-    decide the stricter, so order never matters. With none, the action's
-    declared mode decides (decision 3): `ask` where it requires approval,
-    else `allow`.
-  - **A declared approval is a floor that only a policy naming the action by
-    its own id can lower.** Its author said every call needs a person. A
-    pattern or a mode word is written for many actions and must not unsay
-    that by accident, while a person who names the one action means it.
-    Any policy may raise a decision.
-  - **A person stands behind a call** when it carries `approved: true` or its
-    actor is `human`. A gesture is the person, so a human is never asked:
-    the owner's "a human gesture never asks" holds in the resolver, not as a
-    policy row that could be edited into a confirm the UI has no way to show.
-    A policy can still deny a human.
-  - **Actors: the owner, and those who act for them** (`actsAsOwner`, beside
-    `ACTORS` in `@kb/model`). A human gesture and the command line act as
-    the owner. The CLI runs with the owner's own shell, so whoever runs it
-    already holds what the owner holds. An agent and sandboxed code act for
-    the owner and never hold the owner's capabilities. `force`, the override of
-    the `sys.*` write guard, is the owner's: the invoke core refuses an
-    input that sets it from any other caller with `forbidden`, before the
-    handler runs and whatever the policies say.
-  - **Writing a policy always asks**, whatever the policies say, so no caller
-    can allow itself. A write counts when it writes an `#approval-policy`
-    node (tagged before or after, so tagging and untagging count) or the
-    tag, the fields and the options policies are written in; a denial stays
-    a denial. This is a rule of the resolver, which weighs the call's writes
-    as part of the call (`ApprovalCall.writes`): the invoke core asks it
-    before the handler runs, and `persistEffect` asks it again with what the
-    commit writes and refuses with `approval_required`
-    (`details.writes: "approval-policy"`) before the store is touched. So a
-    human edits the policies table directly, while an agent's edit reaches
-    the sidebar's approval card and MCP, WebMCP and an unapproved CLI call
-    are refused. Every core write commits through `persistEffect`; a
-    third-party extension's Promise handler that commits through the store
-    port itself is trusted repo code and is not asked.
-  - **Writing configuration is the owner's**, whatever the policies say.
-    Configuration is what the code runs with, such as the agent's
-    provider: its endpoint and the key reference sent there. A write counts
-    when it changes a value of a system field that configures an extension
-    (`sys.f.configures`), on whichever node it lands: the switch, the
-    selection, and every field a provider is read from. A value on a node
-    the configuration does not name yet still counts, since a later
-    reference could make it the one that runs. It also counts when it
-    writes a node of a system kind that configures an extension:
-    `#agent-provider`, whose tag carries `sys.f.configures`. That kind may
-    be tagged before or after, so minting, editing, untagging and deleting
-    such a node all count (`writesConfiguration`, `@kb/model`). The same resolver rule weighs it,
-    from the same commit writes (`details.writes: "configuration"`). What
-    it needs depends on the actor (`delegatedDecision`, beside
-    `actsAsOwner`):
-    - the owner's own actors (a human, the CLI) write it as any node;
-    - an agent asks, so its write reaches the sidebar's approval card, and
-      MCP and WebMCP, which cannot carry approval, are refused;
-    - sandboxed code is denied, as it is the switch verb.
-
-    So nothing acting for the owner can point a key at an endpoint the owner
-    did not choose. The ask says what the person approves: the refusal's
-    `details.configuration` (`configurationShown`, `@kb/model`) lists each
-    node the write configures with its settings as they will be, and each
-    node such a setting names with that node's settings, so approving a
-    selection shows the provider's endpoint, executable and credential
-    reference.
-
-  - **No seeded defaults** while policies are deferred (Current stance,
-    above). Policies, once written, are ordinary editable nodes filed under
-    the query node `approval.policies` ("Approval policies"). The defaults
-    to re-introduce with the guards: an agent, and sandboxed code, asks
-    before `node.delete` and before `views.migrate`, and neither may
-    `sandbox.trust` ([Sandbox](#trust)); an agent asks before
-    `extension.switch`, and sandboxed code may not call it, since it changes
-    which code the server loads ([Extension families](#extension-families)).
-    A store seeded before keeps those nodes as data, which no guard reads.
+  request guard). The guard point, the governance family's vocabulary,
+  resolver and guards stay, so policies come back by contributing the
+  guards again (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]` in
+  `governance/src/extension.ts`); the tests of what they enforce are
+  written again with them.
+- **Approval** is the answer to a guard that asks. A call a guard answers
+  `ask` runs only with a person behind it (`hasPerson`): it carries
+  `approved: true`, or its actor is `human`, a person's own gesture.
+  Otherwise it fails `approval_required`, and a denied call fails
+  `forbidden`. No guard that ships asks for now; the code family's own
+  guard denies a script's run of a script (Sandbox → Scripts).
+  - **The governance family** (`@kb/governance`) holds what policies would
+    decide by, uncontributed: the `#approval-policy` vocabulary
+    (`approval.match`, `approval.actor`, `approval.decision` and their
+    options), the resolver (`resolveApproval`, which reads each action's
+    declared approval, Mode above) and its two guards (`approvalGuard`;
+    `forceGuard`, which keeps `force` to the owner's actors,
+    `actsAsOwner`). Their rules are stated with them, in the family's
+    `policy.ts`, `resolve.ts` and `approval.ts`, and return to this
+    document when the guards are contributed again.
   - **Policies are managed in a saved table, pinned in the sidebar; there is
-    no settings page.** The query node lists every `#approval-policy` node
-    wherever it is filed, and names a seeded table view node
-    (`view.approval.policies`, filed in the Views list) whose columns are
-    the three fields. The Pinned list's seeded reference
+    no settings page.** The family seeds no policy. Its query node
+    `approval.policies` ("Approval policies") lists every
+    `#approval-policy` node wherever it is filed, and names a seeded table
+    view node (`view.approval.policies`, filed in the Views list) whose
+    columns are the three fields. The Pinned list's seeded reference
     (`pin.approval.policies`) puts it in the sidebar. All three are
     ordinary user-editable nodes, edited like any query, view or pin. A
     seeded node its owner deletes comes back on the next open, because the
     seed adds every id it misses (`// GAP [[01M413SPC35K20DFC4TRP4DJYH]]` in
-    `seed.ts`): to retire a default policy, set its decision rather than
-    delete it.
-  - The policies are read from the session's own graph, once per index
-    generation, so a policy written a moment ago decides the next call, and
-    the browser's replica decides a local call exactly as the server does.
+    `seed.ts`). A store seeded when defaults were seeded keeps those policy
+    nodes as data, which no guard reads.
   - The flag goes on the invocation envelope, not in the input, so a surface
     can carry approval only if its wire format has an envelope.
     `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
@@ -2305,7 +2223,11 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   - The wire also names its **actor**, who a call on it is made by: `human`
     (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP, and any
     program that calls over HTTP), `cli`, or `script` (code in the sandbox,
-    [Sandbox](#sandbox)). **The surface says who calls, never the call.**
+    [Sandbox](#sandbox)). The actor is a record, the author the call's
+    transaction carries
+    ([The transaction tail](#the-transaction-tail--the-store-records-what-changed-in-order)),
+    and grants nothing by its name; only a script's call is held to more,
+    its grant (`madeByScript`). **The surface says who calls, never the call.**
     A request (`ActionRequest`) has no actor: a caller that sends one has it
     dropped with any other key the envelope lacks, never refused
     (`requestOf` reads an HTTP body or `kb action-invoke`'s JSON). Every
@@ -2339,8 +2261,8 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     actor, or one that asks on a wire that cannot carry approval
     (`listingOf`). A call by its id or tool name still reaches the invoke
     core and is refused. MCP's `tools/list` and each agent turn read it
-    afresh, and the page's WebMCP lists again when its replica's policies
-    change.
+    afresh, and the page's WebMCP lists again when its replica's graph
+    settles, since a guard may decide by graph data.
   - **Who the person is.** A request from the kb page in a browser is the
     person's; anything else (the CLI's relay, MCP, curl, another program)
     is a local program's. The request guard tells them apart the same way
@@ -2413,9 +2335,12 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     page's word that a person approved a call, or made it, is declared,
     not proven (`// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]` in `approval.ts`).
   - The browser's one invoke path takes the whole envelope, on the local
-    replica and on the push lane. Its caller that sets `approved` is the
-    agent sidebar's approval prompt, which makes the call as the agent's,
-    with the person's answer (DESIGN-UI.md → Docks).
+    replica and on the push lane. Its callers that set `approved` are the
+    two places a person answers a call a guard asks about: the agent
+    sidebar's approval card, which makes the call as the agent's with the
+    person's answer (DESIGN-UI.md → Docks), and a code view's, for a call
+    its script made ([Sandbox](#sandbox)). Neither shows while no guard
+    asks.
 - **A batch is decided as what it batches.** An action whose every call is a
   batch of another action's calls declares the parts' ids (`batchOf` on its
   definition; `node.addTree` is a batch of `node.add`). A part's mode is stated once, on the part's own definition:
@@ -2425,11 +2350,10 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   plugin that declares a batch breaking this is a plugin that cannot load:
   it is unloaded as a unit and reported where a failed load is
   (`kb ext list`). Core breaking it is a programming error
-  (`unloadBrokenBatches`). The resolver decides the batch as
-  itself and as each part, each with its own declared mode, and the
-  stricter decision holds. A policy that asks before or denies an action
-  therefore governs every batch of it. A policy naming the batch can tighten
-  that decision but cannot loosen what its parts ask.
+  (`unloadBrokenBatches`). A guard is matched to the batch as itself and
+  as each part (Interception → Matching is indexed), so a guard on an
+  action governs every batch of it, and the governance resolver decides
+  each part with its own declared mode, the stricter decision holding.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP,
   WebMCP and the sidebar agent each list the registry's action ids with
@@ -2441,14 +2365,10 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   from the composition it reaches (a `kb ui` also reports the extensions it
   hosts, so its `kb.manifest` lists the agent), unless its wire cannot make the
   call at all, which only an action it leaves out may be (WebMCP cannot call
-  a tool it never registered). An approved call runs only through a surface
-  whose wire carries the approval. One policy decides the same on every
-  surface: a denial refuses, an ask refuses an unapproved call, and only a
-  policy naming the action lowers its declared approval; no surface
-  writes a policy without a person behind the call; `force` runs only where
-  the surface's caller acts as the owner; and every surface
-  writes an extension's setting on its node, and nothing else of that node
-  (Extension families → configuration). These are
+  a tool it never registered). Every surface holds every action to the
+  commit's system-write rule; no call states who makes it, the wire does;
+  and every surface writes an extension's setting on its node, and nothing
+  else of that node (Extension families → configuration). These are
   properties of `surfaceContract` in `@kb/test-kit`
   (`surface-contract.ts`). They run over all surfaces at once, from
   `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins
@@ -2621,9 +2541,9 @@ where, how rows become markdown, repo-specific output of any kind — lives in
     code, which runs with the owner's power on the server and with the
     page's in the page. What it reaches by reflection (`globalThis[name]`,
     `[].constructor.constructor`), a process it starts, or a file it reads
-    and acts on, is not caught, by design. The approval policies still
-    decide every invocation of every action, whoever contributed it (Action
-    registry → Approval). Sandboxed code (code views, snapshots, scripts) is
+    and acts on, is not caught, by design. The guards still decide every
+    invocation of every action, whoever contributed it (Action registry →
+    Interception). Sandboxed code (code views, snapshots, scripts) is
     unchanged: it runs in QuickJS or a Worker under its grant
     ([Sandbox](#sandbox)).
   - **Trust is read on every load.** `rootFamilies` bundles a root's
@@ -2746,19 +2666,21 @@ from "kb-ext-sdk"`. Types are generated from
 #### Governance
 
 Approval is policy, and core ships mechanism only, so governance is a
-family: `@kb/governance`, a required bundled family. Its one plugin, the
-same on the server and in the page, contributes two guards to the guard
-point ([Action registry](#action-registry) → Interception):
+family: `@kb/governance`, a required bundled family. It defines two guards
+for the guard point ([Action registry](#action-registry) → Interception),
+and its one plugin, the same on the server and in the page, contributes
+neither for now (Action registry → Current stance,
+`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`):
 
-- **`approval`**: the policies and each action's declared mode, through
-  `resolveApproval`, before a call runs and again before it commits (the
-  always-ask rule for a write to a policy, the delegated rule for a write
-  to an extension's configuration);
-- **`force`**: the owner's override of the `sys.*` write guard. A call
-  that sets it is denied unless its actor acts as the owner
+- **`approval`** (`approvalGuard`): the policies and each action's
+  declared mode, through `resolveApproval`, before a call runs and again
+  before it commits;
+- **`force`** (`forceGuard`): the owner's override of the `sys.*` write
+  guard, denied to a call whose actor does not act as the owner
   (`actsAsOwner`).
 
-Core contributes no guard. With none, every call proceeds.
+Core contributes no guard either. With none that asks or denies, every
+call the core's invariants admit proceeds.
 
 **Whether calls are governed is the deployment's, never the graph's.**
 
@@ -2770,35 +2692,35 @@ Core contributes no guard. With none, every call proceeds.
 - The family is required, so no store can switch it off: `extension.switch`
   refuses it as it refuses every required family.
 - `kb --governance off` leaves the family out of the composition, its seed
-  included, so a store it opens holds no policy node. There is no guard: every call that the core's invariants admit (Interception,
-  above) runs, including an agent's `force` and `sandbox.trust`. It is meant for a single-user tool where every caller is
-  the owner anyway.
+  included, so a store it opens holds none of its nodes. It is meant for a
+  single-user tool where every caller is the owner anyway. While the
+  family contributes no guard, the two modes run the same calls.
 - The setting is process-wide, set by the CLI before any registry is
   composed (`deployGovernance`, `app/runtime/src/deployment.ts`).
 
 **The family owns all of it.** Its guards, and what they read: the policy
 vocabulary (`GOVERNANCE_IDS`, the actor and decision option ids, the
-policy reader, `policy.ts`), the resolver (`resolveApproval`,
-`approvalRefusal`, `writesConfiguration`, `resolve.ts`) and the policy seed
-(the `#approval-policy` tag and its fields, their options, the default
-policies, the query node, its table and its pin, `seed.ts`), which the fold
-files among core's Views and Pinned lists by the declaration's `files`.
-Core keeps only what every call has whoever governs it: who makes it
-(`Actor`, `actsAsOwner`, `@kb/model`), what can be decided about it and
-whether a person stands behind it (`APPROVAL_DECISIONS`, `hasPerson`,
-`@kb/contracts`). No core package and no contract suite names a policy:
-the surface contract reads what is decided about each caller through the
-invoke core's own `kb.manifest`, and the composition that runs it says how
-a policy is written (`SurfaceSet.policy`). A deployment that leaves the
+policy reader, who acts as the owner, `policy.ts`), the resolver
+(`resolveApproval`, `approvalRefusal`, `writesConfiguration`,
+`resolve.ts`) and the policy seed (the `#approval-policy` tag and its
+fields, their options, the query node, its table and its pin, `seed.ts`),
+which the fold files among core's Views and Pinned lists by the
+declaration's `files`. Core keeps only what every call has whoever governs
+it: who made it, the author its transaction records (`Actor`,
+`@kb/model`), what a guard can decide about it and whether a person stands
+behind it (`APPROVAL_DECISIONS`, `hasPerson`, `@kb/contracts`). No core
+package and no contract suite names a policy: the surface contract reads
+what is decided about each caller through the invoke core's own
+`kb.manifest`. A deployment that leaves the
 family out leaves out its seed too (`deploys`, `deployment.ts`; read by
 `rootFamilies`, which both the registry and the seed compose from), so a
 store opened under `--governance off` holds no policy node. One opened
 earlier with governance keeps the nodes it was seeded with, as a store
 keeps every node: they decide nothing while no guard reads them.
 
-**The approval card** stays where it is drawn: the agent dock and the
-sandbox runner. Only governance's guards ask, so without governance no
-card ever shows.
+**The approval card** is drawn where a person answers a call a guard asks
+about: the agent dock and the sandbox runner. It answers any guard's ask,
+governance's or another plugin's, and shows nowhere while none asks.
 
 ##### Plugin organisation — tags and derived dependencies
 
@@ -3171,7 +3093,7 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     tree is the workspace;
   - the docs view type (`docs.markdown`). `@kb/ext-docs` owns the templates
     and actions, not the view type;
-  - approval policy, `view.propose`, `render.view`, `ui://`, the sandbox
+  - the interception points, `view.propose`, `render.view`, `ui://`, the sandbox
     port, engines and frame host;
   - the generic UI points.
 - **Enforcement.** The harness checks the boundary in
@@ -3437,9 +3359,9 @@ outline, which shows it as it shows any child; what it is on is its fields.
 
 An agent that cannot see a canvas edits it by relation, never by working out
 a coordinate (plan 2026-10-02, decision 16). The verbs are `ext.canvas.*`
-actions (Operations), so every surface lists them and the invoke core
-decides their approval like any action's: a policy names one by its id,
-the family by `ext.canvas.*`, or every write. Each is a pure function in
+actions (Operations), so every surface lists them and the guards decide
+about them like any action's: a guard's `match` names one by its id, the
+family by `ext.canvas.*`, or every write. Each is a pure function in
 `@kb/canvas` over the document, resolved through the code a person's
 gestures go through — the one transform (`transformItem`), surface snap
 (`snap.ts`), membership and the drop rule (`membership.ts`), placing on a
@@ -3638,19 +3560,19 @@ answers `{canvasId, items, edges, reported}`.
 | `ext.canvas.tx.apply`                                                        | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared                                                                                                                                                                                                                                                                                                                                                                              |
 | `ext.canvas.describe` / `ext.canvas.lint`                                    | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `ext.code.script.list`                                                       | read  | the `#script` nodes some nodes name, each with its grant and whether a person trusts it (Sandbox → Scripts)                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ext.code.script.run`                                                        | write | run a trusted `#script` once against a node until it is quiet, its calls the script's (Sandbox → Scripts); approval required                                                                                                                                                                                                                                                                                                                                                                |
+| `ext.code.script.run`                                                        | write | run a trusted `#script` once against a node until it is quiet, its calls the script's (Sandbox → Scripts); declares approval required                                                                                                                                                                                                                                                                                                                                                                |
 | `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `ui.screen`                                                                  | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `ui.navigate` / `ui.select`                                                  | write | open a node or route, or point a canvas camera / set the selection or focus in a UI tab ([Screen state](#screen-state))                                                                                                                                                                                                                                                                                                                                                                     |
 | `ui.capture`                                                                 | read  | have a tab's canvas draw a view as a PNG, kept under `.kb/captures/`, the camera left where it is ([Screen state](#screen-state))                                                                                                                                                                                                                                                                                                                                                           |
-| `sandbox.trust` / `sandbox.untrust`                                          | write | trust, or stop trusting, sandboxed code on this machine by its digest; trusting asks ([Sandbox](#trust))                                                                                                                                                                                                                                                                                                                                                                                    |
+| `sandbox.trust` / `sandbox.untrust`                                          | write | trust, or stop trusting, sandboxed code on this machine by its digest; trusting declares approval ([Sandbox](#trust))                                                                                                                                                                                                                                                                                                                                                                                    |
 | `sandbox.trusted`                                                            | read  | which of these code digests a person trusted on this machine ([Sandbox](#trust))                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 **Breaking change (roadmap step 5c), with no alias:** deleting is
 `node.delete`. `node.update` no longer takes `delete` or `descendants`, and
 its output always carries the node. Deleting is its own action because it is
-the write a caller most needs to name on its own: an approval policy matches
-an action by its id ([Action registry](#action-registry)).
+the write a caller most needs to name on its own: a guard matches an action
+by its id ([Action registry](#action-registry) → Interception).
 
 ### Outline paste — `node.addTree`
 
@@ -3830,7 +3752,7 @@ and props, but not fields minted on the command line
     context reaches no agent without a browser extension or relay beside it.
   - One tool per action `kb.manifest` lists to an agent, less what
     `listedOn` leaves out for `WEBMCP_WIRE`; it lists again when the
-    replica's approval policies change. The name is the action id (dotted ids are legal WebMCP
+    replica's graph settles, since a guard may decide by graph data. The name is the action id (dotted ids are legal WebMCP
     names), the title and description are the manifest's, the `inputSchema` is
     the same object schema MCP publishes (`asObjectSchema`), and the hints
     come from the mode ([Action registry](#action-registry)).
@@ -4052,9 +3974,10 @@ The sidebar agent lives outside core, in packages that core never imports
     (`HOSTED_FAMILIES` in `@kb/bundled`), so every store holds them,
     whichever process opens it. The kind and each of its fields configure
     the agent (`sys.f.configures`), so a provider, its settings wherever
-    they are written, and the selection are configuration, and the agent
-    writes none of them without the owner's approval
-    ([Action registry](#action-registry) → Approval).
+    they are written, and the selection are configuration
+    (`writesConfiguration`), which the governance family's approval guard
+    would keep to the owner; it is not contributed for now
+    ([Action registry](#action-registry) → Current stance).
   - The selection is a setting of the agent's own node:
     `sys.f.agent.provider`, a ref to a provider, which configures
     `sys.extension.agent` and is written like any field
@@ -4102,10 +4025,9 @@ The sidebar agent lives outside core, in packages that core never imports
     binds nothing (the adapter as it runs with no settings, the person's
     own Claude login) needs none. A provider node is data, and a store a
     root carries may hold one someone else wrote (a clone pointing a key
-    at their host): writing one through kb is configuration, which an
-    agent asks for and a script never makes (Action registry → Approval),
-    but a node already in the store was never asked for, so it is the
-    trust, not the write, that decides what a key is sent to. Its adapter
+    at their host), and no guard that ships decides who writes one through
+    kb (Action registry → Current stance), so it is the trust, not the
+    write, that decides what a key is sent to. Its adapter
     is handed a secret source bound to that one reference, so a resolved
     value is that key alone: a reference names any variable or keychain
     item, as a person's own shell would, and which ones a machine sends,
@@ -4369,17 +4291,17 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   it listens, and before it writes its presence, so a start that reads the
   presence as done finds the root ranked first) and `kb init` register their root
   (`registerOpenedRoot`): a `location.register` call on the wire of the
-  surface that opened it, so approval sees who made it like any call. A
+  surface that opened it, so its transaction records who made it like any
+  call's. A
   server started with no `openedBy` (a test, a harness) registers nothing.
   A refusal is reported on stderr and the open goes on. No other command
   touches home, since hooks and pre-commit run `kb` constantly.
-- **An agent asks before it registers, forgets or opens.** Those writes
-  reach outside the root, so their mode is the floor
-  ([Action registry](#action-registry) → Mode): an agent asks and sandboxed
-  code is denied, while the CLI's own `kb open` runs. It is not a declared
-  `approval: "required"`, which would make that `kb open` fail, and no
-  policy node has to be written. The agent can list locations; it never
-  reads another store's content.
+- **Registering, forgetting and opening reach outside the root**, so their
+  mode says `outsideRoot` ([Action registry](#action-registry) → Mode),
+  which counts as delegated approval, not a declared
+  `approval: "required"` that a guard would hold the CLI's own `kb open`
+  to. No guard that ships reads it for now, so every caller runs them. The
+  agent can list locations; it never reads another store's content.
 - **Surfaces.** `kb locations [--json]`, `kb locations add [path]
 [--label]`, `kb locations forget <id|label|path>`, and `kb open
 [location]` (by id, label or path; `--no-browser` prints the URL; with
@@ -4512,14 +4434,15 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
     scripts through `ext.code.script.list` only for a grant that names it.
     `script-reach.test.ts` replays each escape through the real invoke core.
 - **`script`** is the fourth actor (`ACTORS` in `@kb/model`): code in the
-  sandbox, whoever wrote it, never a person. `SCRIPT_WIRE` carries approval
-  only as far as its host can put a person behind a call. Its seeded
-  policies give it the agent's caution — it is asked before `node.delete`
-  and `views.migrate` — and deny it `sandbox.trust`; writing a policy asks
-  it like every caller. In the kb UI a call that asks shows a card in the
-  code view: Approve once makes the same call as the script's with
-  `approved`, Decline makes it without, and the invoke core refuses that
-  again (DESIGN-UI.md → Code views).
+  sandbox, whoever wrote it, never a person. It is the one actor kb holds
+  to something by its name (`madeByScript`): a script's call meets its
+  grant, as above, and never starts a script run (the code family's
+  `script-run` guard). `SCRIPT_WIRE` carries approval only as far as its
+  host can put a person behind a call. In the kb UI a call a guard asks
+  about shows a card in the code view: Approve once makes the same call as
+  the script's with `approved`, Decline makes it without, and the invoke
+  core refuses that again (DESIGN-UI.md → Code views). No guard that ships
+  asks for now (Action registry → Current stance).
 
 ### Limits
 
@@ -4590,7 +4513,7 @@ sends it more than 400 messages a second.
 - **Where untrusted code runs.** Trust changes only the engine: untrusted
   code runs in QuickJS, trusted code in a Worker, and both get the same API
   and the same grant. So untrusted code runs only where its grant, the
-  approval policies and its scope bound what it does. A code view runs
+  guards and its scope bound what it does. A code view runs
   untrusted, because it runs only when a person opens it, and it draws for
   them. A snapshot (Snapshots, above) runs untrusted on the server, in the
   read scope, so it writes nothing and, like every run, reaches no network.
@@ -4605,14 +4528,16 @@ sends it more than 400 messages a second.
   untrimmed, and its grant (`kb.sandbox/1`). The page computes it from the
   code it shows and hands the frame, never reads it from the node or the
   guest; one changed character, or a wider grant, is code nobody trusted.
-- `sandbox.trust` (write, approval required), `sandbox.untrust` (write) and
+- `sandbox.trust` (write, declaring approval required), `sandbox.untrust` (write) and
   `sandbox.trusted` (read) reach the `CodeTrust` port (`@kb/contracts`),
   whose adapter (`@kb/workspace-fs`) keeps `.kb/trust.json`: gitignored,
   backed up by Mackup, each record naming its machine and only this
   machine's honoured (`docs/backup-strategy.md` → kb Code Trust).
-- A human's gesture is never asked; the seed denies `sandbox.trust` to an
-  agent and to a script, so no code promotes itself and no agent promotes
-  code a person has not seen; the CLI asks. Trust changes the engine and
+- Who may trust is a policy's to say, and none ships for now: an agent's
+  `sandbox.trust` runs as a person's does, so code can be trusted that no
+  person has seen (Action registry → Current stance,
+  `// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`). A script's cannot, since the
+  action declares no `targets` and so is no code's to call (Grants). Trust changes the engine and
   its limits, never the capabilities: a trusted run has the same API and
   the same grant.
 - **What trust approves.** Trusting a digest approves the behaviour of
@@ -4642,11 +4567,12 @@ system, one runner, one trust.
   (`@kb/code` `script.ts`). The `#script` tag and `sys.f.scripts` both
   configure the code family (`sys.f.configures`), so minting, editing or
   untagging a script, and attaching one to a node or taking it off, is
-  configuration (Action registry → Approval): a person writes it freely, an
-  agent only with the owner's approval, a script never. Attaching is gated
-  as writing is because trust is per digest: a script a person trusted for
-  one board would otherwise act, with its grant, on any node an agent
-  attached it to.
+  configuration (`writesConfiguration`), which the governance family's
+  approval guard would keep to the owner, attaching as much as writing,
+  since trust is per digest: a script a person trusted for one board would
+  otherwise act, with its grant, on any node an agent attached it to. That
+  guard is not contributed for now (Action registry → Current stance,
+  `// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`), so any caller attaches one.
 - **A view declares what it tells a script** (`ViewKey.events`) and emits
   it on a channel (`createViewEvents`, `@kb/ui-sdk`); it mounts
   `ViewScripts` for the nodes it shows. The family that keeps scripts
@@ -4693,20 +4619,20 @@ system, one runner, one trust.
 - **Once, on request** (tldraw's exec): `ext.code.script.run` runs a
   trusted `#script` against a node until it is quiet (`snapshotRun`, with
   `CoreInvoke` as `write`), on the host's engine, each call the script's.
-  It asks approval as a write that requires it: a person's runs, an
-  agent's only once approved, and an untrusted script is refused before
-  anything runs. The scripts panel's Run once is the person's. Code never
-  starts a run: the code family's guard denies it to `script`
-  (`script-run`), so code cannot chain runs that each ask the person
-  again.
+  It declares approval required, which no guard that ships enforces for
+  now (Action registry → Current stance), so a person's run and an
+  agent's both run; an untrusted script is refused before anything runs.
+  The scripts panel's Run once is the person's. Code never starts a run:
+  the code family's guard denies it to `script` (`script-run`), so code
+  cannot chain runs.
 - **Listed with its trust**: `ext.code.script.list` tells the scripts some
   nodes name, each with its grant and whether a person trusts it; a view's
   agent verb says which scripts run on it through it (the canvas's
   `describe`), so a view never reads a script's fields.
 - **It writes through the view's actions.** A canvas script reads with
   `kb.invoke("ext.canvas.describe", …)` and writes with the canvas verbs,
-  within its grant, as the `script` actor: locks, lints, approval and the
-  sys-write and configuration rules hold because they hold for the path.
+  within its grant, as the `script` actor: locks, lints, the guards and the
+  sys-write rule hold because they hold for the path.
 
 ### Snapshots
 
@@ -4742,9 +4668,9 @@ Each threat, the fences against it, and the tests that pin them.
 | Frame origin and CSP   | `sandbox="allow-scripts"` without `allow-same-origin`, repeated as the CSP's `sandbox`; `script-src 'self' 'wasm-unsafe-eval'`, no `'unsafe-inline'` script and no `'unsafe-eval'`; `frame-ancestors 'self'`                                                                               | `capability.test.ts` (the policy), `request-guard.test.ts` (served with it)                                                                                                                             |
 | postMessage spoofing   | The page hears only its frame's own window and decodes every message; the frame hears only its parent; the page posts nothing to a frame that loaded a second document                                                                                                                     | `sandbox-host.test.ts`                                                                                                                                                                                  |
 | Exfiltration           | `connect-src`, images, fonts, media, forms and frames `'none'`, inherited by the trusted Worker; the drawing allowlist drops every element and attribute that loads or navigates, so the one navigation a CSP cannot forbid has nothing to start it                                        | `drawing.test.ts`; contract: no network                                                                                                                                                                 |
-| Prompt-injected writes | The grant names every action the code may call; each call meets the policies as `script` (asked before deletes and rewrites, denied trust, a policy write always asks); the guest cannot set `approved` or its actor; a snapshot refuses every write                                       | contract: outside the grant never reaches the invoke core, approval cannot be self-granted; `capability.test.ts`; `approval.test.ts` (runtime); `view-render.test.ts` (a snapshot's write is forbidden) |
+| Prompt-injected writes | The grant names every action the code may call; each call is made as `script` and meets its grant at the call and at the commit; the guest cannot set `approved` or its actor; a snapshot refuses every write                                       | contract: outside the grant never reaches the invoke core, approval cannot be self-granted; `capability.test.ts`; `view-render.test.ts` (a snapshot's write is forbidden) |
 | Denial of service      | Turn deadline (interrupt, watchdog), heap and stack caps in QuickJS, message rate and size, waiting-call bound, drawing bound, the page's own rate limit on the frame                                                                                                                      | contract: infinite loop, loop in a handler, memory bomb, flood, oversized, waiting calls; QuickJS heap and stack tests; `sandbox-host.test.ts` (flood)                                                  |
-| Trust spoofing         | The digest is over exactly what runs, computed by the host from the code it runs; trust is local state, per machine, never committed; only a human gesture trusts                                                                                                                          | `capability.test.ts` (digest covers every character and the grant); `approval.test.ts` (who may trust; an edited digest is untrusted; nothing written to the store); `trust.test.ts` (per machine)      |
+| Trust spoofing         | The digest is over exactly what runs, computed by the host from the code it runs; trust is local state, per machine, never committed; trusting is a call to `sandbox.trust`, which no guest can reach                                                                                                                          | `capability.test.ts` (digest covers every character and the grant); `trust.test.ts` (per machine)      |
 
 What the sandbox does not promise: `approved` and the actor are declared,
 not proven (GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]); a Worker's heap is not

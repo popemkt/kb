@@ -14,8 +14,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { BUNDLED_FAMILIES, bundledSeed } from "@kb/bundled";
-import { CoreInvoke, switchWrites, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
-import { SYSTEM_IDS, extensionNodeId, present, type Actor, type KbNode } from "@kb/model";
+import { CoreInvoke, switchWrites, type ActionReceipt } from "@kb/contracts";
+import { SYSTEM_IDS, extensionNodeId, present, type KbNode } from "@kb/model";
 import { kbManifestDef, persistEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
 import { kbRuntimeLayer } from "../src/layers.ts";
@@ -199,69 +199,19 @@ describe("the gates do not depend on a switch", () => {
   });
 });
 
-/** A call to switch the lab on, made by `actor`, with a person's approval or without. */
-function call(actor: Actor, approved?: boolean): ActionInvocation {
-  return {
-    id: "extension.switch",
-    input: { name: "lab", on: true },
-    actor,
-    ...(approved === undefined ? {} : { approved }),
-  };
-}
-
 /**
- * Who may switch: switching changes which code the server loads, so the
- * seeded approval policies ask an agent and deny sandboxed code, while a
- * person's gesture and the CLI need no row (DESIGN.md → Action registry →
- * Approval). A code view's figure reaches actions only as a read, so it
- * cannot switch either.
+ * What `extension.switch` will not do, whoever calls: it mints no node, and
+ * a code view's figure reaches actions only as a read, so it cannot switch.
  */
-// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-describe.skip("who may switch an extension", () => {
+describe("what extension.switch refuses", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "kb-extension-switch-approval-"));
+    root = await mkdtemp(join(tmpdir(), "kb-extension-switch-refused-"));
   });
 
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
-  });
-
-  test("an agent is asked: refused without a person's approval, run with it", async () => {
-    const ctx = await openKb(root);
-    expect(await invoke(ctx, call("agent"))).toMatchObject({
-      status: "failed",
-      code: "approval_required",
-      details: { policy: "approval.agent-extension-switch" },
-    });
-    expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
-    expect((await invoke(ctx, call("agent", true))).status).toBe("succeeded");
-    expect(await labIn(ctx)).toMatchObject({ row: { enabled: true } });
-  });
-
-  test("the switch is a setting: node.update writes it by the same rule, and asks an agent as configuration", async () => {
-    const ctx = await openKb(root);
-    const write = (actor: Actor, on: boolean): ActionInvocation => ({
-      id: "node.update",
-      input: { id: LAB_NODE, setProps: [{ field: ENABLED, value: { t: "bool", v: on } }] },
-      actor,
-    });
-    expect((await invoke(ctx, write("human", true))).status).toBe("succeeded");
-    expect(await labIn(ctx)).toMatchObject({ row: { enabled: true }, listed: true });
-    expect(await invoke(ctx, write("agent", false))).toMatchObject({
-      status: "failed",
-      code: "approval_required",
-      details: { writes: "configuration" },
-    });
-    // A script running for the extension's node, its grant naming node.update, still may not.
-    const script = { subject: LAB_NODE, grant: { reads: "subject", actions: ["node.update"] } };
-    expect(await invoke(ctx, { ...write("script", false), script, approved: true })).toMatchObject({
-      status: "failed",
-      code: "forbidden",
-      details: { writes: "configuration" },
-    });
-    expect(await labIn(ctx)).toMatchObject({ row: { enabled: true } });
   });
 
   test("extension.switch mints no node: a store without the family's node is refused", async () => {
@@ -274,33 +224,12 @@ describe.skip("who may switch an extension", () => {
     expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
   });
 
-  test("a person's gesture and the CLI switch with no approval", async () => {
-    const ctx = await openKb(root);
-    expect((await invoke(ctx, call("human"))).status).toBe("succeeded");
-    expect((await invoke(ctx, { ...call("cli"), input: { name: "lab", on: false } })).status).toBe(
-      "succeeded",
-    );
-    expect(await labIn(ctx)).toMatchObject({ row: { enabled: false } });
-  });
-
-  test("sandboxed code is refused, even with an approval", async () => {
-    const ctx = await openKb(root);
-    for (const approved of [undefined, true]) {
-      expect(await invoke(ctx, call("script", approved))).toMatchObject({
-        status: "failed",
-        code: "forbidden",
-        details: { policy: "approval.script-extension-switch" },
-      });
-    }
-    expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
-  });
-
   test("a code view's figure, which invokes only as a read, cannot switch", async () => {
     const ctx = await openKb(root);
     const receipt = await Effect.runPromise(
       Effect.gen(function* () {
         const core = present(yield* CoreInvoke, "the runtime binds CoreInvoke");
-        return yield* core(call("script"), "read");
+        return yield* core({ id: "extension.switch", input: { name: "lab", on: true } }, "read");
       }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     expect(receipt).toMatchObject({ status: "failed", code: "forbidden" });

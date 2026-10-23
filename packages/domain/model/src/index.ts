@@ -1,5 +1,5 @@
-export { ACTORS, actsAsOwner } from "./actor.ts";
-export type { Actor, OwnerActor } from "./actor.ts";
+export { ACTORS } from "./actor.ts";
+export type { Actor } from "./actor.ts";
 export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
 export { byNodeId, canonicalJson, canonicalJsonl } from "./canonical.ts";
 export {

@@ -4,10 +4,12 @@
  * run in a Worker on this machine. Trust is local state behind the
  * `CodeTrust` port, never a node.
  *
- * `sandbox.trust` declares approval, so it asks everyone but a person's own
- * gesture, and the seed denies it to agents and to sandboxed code outright:
- * no code can promote itself, and no agent can promote code a person has not
- * looked at. Dropping trust is always safe, so `sandbox.untrust` asks nobody.
+ * `sandbox.trust` declares that each call needs a person's approval, which a
+ * guard may read; none that ships does for now, so an agent's call trusts
+ * as a person's does (DESIGN.md → Sandbox → Trust,
+ * GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]). Sandboxed code cannot call it: the
+ * action declares no `targets`, so no grant reaches it. Dropping trust is
+ * always safe, so `sandbox.untrust` declares nothing.
  */
 import { Effect } from "effect";
 import { z } from "zod";
@@ -21,7 +23,7 @@ export const sandboxTrustDef = {
   id: "sandbox.trust",
   title: "Trust code",
   description:
-    "Trust, on this machine, by the digest of exactly what it covers: sandboxed code and its grant (it then runs in a Worker instead of QuickJS), a repository extension's source (it then runs with the server's reach, and so does what it loads or evaluates when it runs), or an agent provider's binding (the key it sends, the endpoint it sends it to, the executable it starts). A person's own gesture; it is never written to the graph.",
+    "Trust, on this machine, by the digest of exactly what it covers: sandboxed code and its grant (it then runs in a Worker instead of QuickJS), a repository extension's source (it then runs with the server's reach, and so does what it loads or evaluates when it runs), or an agent provider's binding (the key it sends, the endpoint it sends it to, the executable it starts). Meant as a person's own gesture: it declares approval, which no guard that ships enforces for now. It is never written to the graph.",
   mode: { kind: "write", approval: "required" } as const,
   inputSchema: z.object({ digest: Digest }),
   outputSchema: z.object({ digest: z.string(), trusted: z.literal(true) }),

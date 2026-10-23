@@ -45,7 +45,7 @@ const LIMITS: SandboxLimits = {
   maxDrawNodes: 100,
 };
 
-/** An action that asks for a person, as an approval policy would make it. */
+/** An action that asks for a person, as a guard that asks would make it. */
 const ASKING_ACTION = "ext.gated.stamp";
 
 function node(id: string, children: string[] = []): KbNode {

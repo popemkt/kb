@@ -104,7 +104,7 @@ export const nodeUpdateDef = {
 /**
  * Deleting is its own action, not a flag on `node.update`: it is the one
  * write whose loss a person cannot see in the node that remains, so it is
- * the write a caller (an approval policy, a person reading a tool list) most
+ * the write a caller (a guard, a person reading a tool list) most
  * needs to name on its own.
  */
 export const nodeDeleteDef = {

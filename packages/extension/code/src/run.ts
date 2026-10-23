@@ -4,8 +4,9 @@
  * until it is quiet, on the host's engine, its calls answered by the invoke
  * core as writes, each as the `script` actor within its grant. Only a script
  * a person trusts runs, by the digest of exactly its code and grant. The
- * run itself asks approval as configuration does: a person's runs it, an
- * agent's only with approval, a script's never on its own.
+ * run declares that each call needs a person's approval, which a guard may
+ * read (none that ships does for now, GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]), and a
+ * script never starts one (the family's own guard, `extension.ts`).
  */
 import { Effect } from "effect";
 import { z } from "zod";
@@ -73,7 +74,7 @@ export const SCRIPT_RUN: ExtensionAction = {
   id: "script.run",
   title: "Run a script once",
   description:
-    "Run a #script node once against a node (a canvas, say), until it is quiet: its code runs sandboxed with that node as kb.subject, and each call it makes is decided as the script's, within its grant (a canvas script writes with the ext.canvas verbs). Only a script a person has trusted on this machine runs. A run asks for approval: an agent's runs only once the person approves it.",
+    "Run a #script node once against a node (a canvas, say), until it is quiet: its code runs sandboxed with that node as kb.subject, and each call it makes is decided as the script's, within its grant (a canvas script writes with the ext.canvas verbs). Only a script trusted on this machine runs, and sandboxed code never starts a run. The action declares that each run needs a person's approval; no guard that ships enforces that for now.",
   mode: { kind: "write", approval: "required" },
   targets: ["subject", "script"],
   inputSchema: runInput,

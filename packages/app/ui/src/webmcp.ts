@@ -10,7 +10,7 @@
  * which the page sees as the live socket opening again; a page restored from
  * the back-forward cache lists it again too. What is listed also follows what
  * the guards decide about an agent's calls, which they may read from the
- * graph (governance reads its policies there), so the graph settling after a
+ * graph (a governance policy would be graph data), so the graph settling after a
  * change lists again; a listing that comes out the same registers nothing.
  */
 import { modelContextOf, webMcpPlugin } from "@kb/webmcp";

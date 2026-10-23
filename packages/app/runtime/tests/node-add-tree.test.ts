@@ -11,7 +11,6 @@ import { SYSTEM_IDS, fieldTypeValue, type FieldType, type KbNode } from "@kb/mod
 import type { ActionReceipt } from "@kb/contracts";
 import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
-import { DECISION_OPTION_IDS, GOVERNANCE_IDS } from "@kb/governance";
 
 type Kb = Awaited<ReturnType<typeof openKb>>;
 
@@ -233,37 +232,6 @@ describe("node.addTree", () => {
     );
     expect(small.reads()).toBeGreaterThan(0);
     expect(large.reads()).toBe(small.reads());
-  });
-
-  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-  test.skip("a policy that asks before node.add asks before node.addTree, its batch", async () => {
-    const { ctx } = await session();
-    const policy = (match: string, decision: "ask" | "allow") =>
-      succeed(
-        invoke(ctx, {
-          id: "node.add",
-          approved: true,
-          input: {
-            text: `${decision} ${match}`,
-            props: [
-              { field: SYSTEM_IDS.typeField, value: { t: "ref", v: GOVERNANCE_IDS.policyTag } },
-              { field: GOVERNANCE_IDS.matchField, value: { t: "str", v: match } },
-              {
-                field: GOVERNANCE_IDS.decisionField,
-                value: { t: "ref", v: DECISION_OPTION_IDS[decision] },
-              },
-            ],
-          },
-        }),
-      );
-    await policy("node.add", "ask");
-    const call = { id: "node.addTree", input: { outline: "- a" }, actor: "agent" } as const;
-    const asked = await invoke(ctx, call);
-    expect(asked).toMatchObject({ status: "failed", code: "approval_required" });
-    // A policy naming the batch itself cannot unsay what its node.adds ask.
-    await policy("node.addTree", "allow");
-    expect(await invoke(ctx, call)).toMatchObject({ status: "failed", code: "approval_required" });
-    expect(await invoke(ctx, { ...call, approved: true })).toMatchObject({ status: "succeeded" });
   });
 
   test("a sys.* parent needs force, as node.add's does", async () => {

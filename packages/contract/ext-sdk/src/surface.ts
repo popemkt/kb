@@ -18,12 +18,13 @@ import type * as effect from "effect";
 
 /**
  * What invoking the action does. A `read` changes nothing. A `write` may
- * change the graph or the workspace, and `approval: "required"` means a
- * person must approve each call. kb refuses an unapproved call with
- * `approval_required`. `approval: "delegated"` means the owner's own calls
- * run it, an agent's asks, and sandboxed code's is refused. `outsideRoot:
- * true` says the action reaches past its kb root, to another store or a
- * process it starts, and delegates its approval as `"delegated"` does.
+ * change the graph or the workspace. `approval: "required"` declares that a
+ * person must approve each call, and `approval: "delegated"` that the
+ * owner's own calls need no approval and anyone acting for them does.
+ * `outsideRoot: true` says the action reaches past its kb root, to another
+ * store or a process it starts. kb shows these on every surface and decides
+ * nothing by them: a guard may (`ActionGuardPoint`), and none that ships
+ * does for now.
  */
 export type ActionMode =
   | { readonly kind: "read"; readonly outsideRoot?: true }
@@ -356,7 +357,11 @@ export interface ActionContribution extends Omit<ActionDefinition, "id" | "effec
 /** The params of a view that renders from nothing but the store. */
 export type NoParams = { readonly [key: string]: never };
 
-/** Who makes a call: the person's gesture, an agent, the owner's CLI, or code in the sandbox. */
+/**
+ * Who made a call, as the surface it arrived on says: the person's gesture,
+ * an agent, the owner's CLI, or code in the sandbox. kb records it on the
+ * transaction the call commits, and grants nothing by it.
+ */
 export type Actor = "human" | "agent" | "cli" | "script";
 
 /** A call as the invoke core runs it: the action, its input, and who makes it. */

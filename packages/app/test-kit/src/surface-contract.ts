@@ -12,10 +12,9 @@
  * exactly what this suite catches, so it is not a per-adapter test.
  *
  * Every property runs against a fresh scratch root. That root holds one
- * fixture extension whose actions the root's approval policies decide in
- * each way there is — one requires approval, one is denied, one asks an
- * agent — so every approval path gets exercised even though no core action
- * requires approval. One `kb ui` serves the root for the whole property, as
+ * fixture extension with an action that declares approval, which no core
+ * action does, so every surface shows how it lists such a declaration. One
+ * `kb ui` serves the root for the whole property, as
  * one serves a real root: the surfaces that speak to a server (HTTP, the
  * page's WebMCP) speak to that one, and none starts a second over the same
  * root. The whole suite runs once for each way a `kb ui` listens, a TCP port
@@ -38,12 +37,11 @@ import {
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
-  type ApprovalDecision,
   type ExtensionRow,
   type SurfaceWire,
   type UiListener,
 } from "@kb/contracts";
-import { SYSTEM_IDS, actsAsOwner, extensionNodeId, type Actor } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import {
   bunFileSystemLayer,
   invoke,
@@ -98,23 +96,6 @@ export interface LiveUi {
   stop(): Promise<void>;
 }
 
-/** A policy the root holds: what it matches, whose calls, and what it decides. */
-export interface RootPolicy {
-  readonly match: string;
-  /** The actor it is about; `null` is every actor. */
-  readonly actor: Actor | null;
-  readonly decision: ApprovalDecision;
-}
-
-/**
- * How the composition under test writes a policy: the input of the
- * `node.add` call that makes its node. Policies are the governance family's
- * vocabulary, which the composition names and this suite never does; the
- * suite reads what they decide only through the invoke core's own
- * `kb.manifest`.
- */
-export type PolicyInput = (policy: RootPolicy) => Readonly<Record<string, unknown>>;
-
 /** How a `kb ui` listens: each kind of `UiListener`. */
 export type UiListenerKind = UiListener["kind"];
 
@@ -135,18 +116,8 @@ export type ServeUi = (root: string, kind: UiListenerKind) => Promise<LiveUi>;
  */
 export type SurfaceFactory = (root: string, ui: LiveUi) => Promise<ActionSurface>;
 
+/** The fixture's write that declares approval. */
 const APPROVAL_ACTION = "ext.gated.stamp";
-/** A plain write that a policy denies to every actor. */
-const DENIED_ACTION = "ext.gated.blocked";
-/** A plain write that a policy asks an agent about. */
-const ASKED_ACTION = "ext.gated.checked";
-/**
- * A family's write that the repository's policy asks an agent about: typing
- * a relation (the graph family's), which a person's gesture never asks.
- */
-const TYPED_ACTION = "ext.graph.relation.type";
-/** One of the seeded default policies. */
-const SEEDED_POLICY = "approval.agent-delete";
 
 /** An extension's node every store holds (core's), and a field the root declares a setting of it. */
 const EXTENSION_NODE = extensionNodeId("core");
@@ -175,64 +146,31 @@ const CONTRACT_TAB = "tab.surface-contract";
 const MISSING_TAB = "tab.surface-contract-missing";
 
 /**
- * Writes with no side effect and a fixed output, so that receipts from
- * different surfaces can be compared: one that requires approval, and two
- * plain ones for the policies to decide. Their schemas are bare `{parse}`
- * objects, so the module imports nothing but the SDK and loads from any
- * scratch directory.
+ * A write with no side effect and a fixed output, so that receipts from
+ * different surfaces can be compared, which declares approval. Its schemas
+ * are bare `{parse}` objects, so the module imports nothing but the SDK and
+ * loads from any scratch directory.
  */
 const GATED_EXTENSION = extensionModule("gated", {
-  prelude: `const passthrough = { parse: (input) => input ?? {} };
-const write = (id, output, mode = { kind: "write" }) => ({
-  id,
-  title: id,
-  description: "a write for the surface contract",
-  mode,
-  inputSchema: passthrough,
-  outputSchema: passthrough,
-  handler: async () => output,
-});`,
+  prelude: `const passthrough = { parse: (input) => input ?? {} };`,
   actions: `[
-  write("stamp", { stamped: true }, { kind: "write", approval: "required" }),
-  write("blocked", { blocked: false }),
-  write("checked", { checked: true }),
+  {
+    id: "stamp",
+    title: "stamp",
+    description: "a write for the surface contract",
+    mode: { kind: "write", approval: "required" },
+    inputSchema: passthrough,
+    outputSchema: passthrough,
+    handler: async () => ({ stamped: true }),
+  },
 ]`,
 });
 
 /**
- * The root's policies, beside the seeded defaults: a denial for everyone, an
- * ask for an agent, an exact allow that lowers the declared approval of the
- * stamp for the command line only, a pattern allow for an agent that lowers
- * nothing the stamp declares, and an allow of every write to anyone, which a
- * write to a policy ignores; and the repository's ask before an agent types
- * a relation.
- */
-const POLICIES: readonly RootPolicy[] = [
-  { match: DENIED_ACTION, actor: null, decision: "deny" },
-  { match: ASKED_ACTION, actor: "agent", decision: "ask" },
-  { match: APPROVAL_ACTION, actor: "cli", decision: "allow" },
-  { match: "ext.gated.*", actor: "agent", decision: "allow" },
-  { match: "node.update", actor: null, decision: "allow" },
-  { match: TYPED_ACTION, actor: "agent", decision: "ask" },
-];
-
-/** A policy as a node, written through the invoke core with a person's approval. */
-function policyInvocation(input: PolicyInput, policy: RootPolicy): ActionRequest {
-  return {
-    id: "node.add",
-    approved: true,
-    input: {
-      text: `${policy.actor ?? "anyone"}: ${policy.decision} ${policy.match}`,
-      ...input(policy),
-    },
-  };
-}
-
-/**
  * Calls whose receipts do not depend on when or where they run: reads, each
- * kind of failure, the listing itself, an unapproved call to the gated
- * action, and the screen actions against the root's one tab, which answers
- * every command the same way.
+ * kind of failure, the listing itself, a call to the gated action, and the
+ * screen actions against the root's one tab, which answers every command
+ * the same way.
  */
 const CALLS: readonly ActionRequest[] = [
   { id: "kb.manifest", input: {} },
@@ -252,10 +190,6 @@ const CALLS: readonly ActionRequest[] = [
   { id: "view.propose", input: { view: "outline.nope" } },
   { id: "view.propose", input: { view: "outline.board", params: { groupFieldId: 7 } } },
   { id: APPROVAL_ACTION, input: {} },
-  { id: DENIED_ACTION, input: {} },
-  { id: ASKED_ACTION, input: {} },
-  // A write to a policy asks whatever the policies say, and writes nothing when refused.
-  { id: "node.update", input: { id: SEEDED_POLICY, text: "agents never ask" } },
   // A system field that is not one of an extension's settings is not written on its node.
   {
     id: "node.update",
@@ -343,11 +277,10 @@ interface SurfaceCase {
   readonly via: (invocation: ActionRequest) => Effect.Effect<ActionReceipt | null>;
 }
 
-/** What the contract runs over: how a root is served, the surfaces by name, and how a policy is written. */
+/** What the contract runs over: how a root is served, and the surfaces by name. */
 export interface SurfaceSet {
   readonly serve: ServeUi;
   readonly surfaces: Readonly<Record<string, SurfaceFactory>>;
-  readonly policy: PolicyInput;
 }
 
 /** The set as one run of the suite takes it: with the way its `kb ui` listens. */
@@ -357,14 +290,14 @@ interface OnListener extends SurfaceSet {
 
 /**
  * Each surface in turn over one scratch root. The root is opened once first,
- * so the system seed and the root's policies are written before any surface
+ * so the system seed and the root's setting are written before any surface
  * opens it, and every surface then reads the same store; then its one
  * `kb ui` starts, listening as the run says. The
  * surfaces run one after another because each owns process-wide resources
  * (stdout, a port).
  */
 function overSurfaces(
-  { serve, surfaces, policy, listener }: OnListener,
+  { serve, surfaces, listener }: OnListener,
   check: (c: SurfaceCase) => Effect.Effect<void>,
 ): Promise<void> {
   return Effect.runPromise(
@@ -372,14 +305,8 @@ function overSurfaces(
       Effect.gen(function* () {
         const root = yield* scratchRoot;
         const ctx = yield* Effect.promise(() => openKb(root));
-        const writes = [
-          ...POLICIES.map((each) => policyInvocation(policy, each)),
-          SETTING_INVOCATION,
-        ];
-        for (const invocation of writes) {
-          const written = yield* Effect.promise(() => invoke(ctx, invocation));
-          expect(written.status).toBe("succeeded");
-        }
+        const written = yield* Effect.promise(() => invoke(ctx, SETTING_INVOCATION));
+        expect(written.status).toBe("succeeded");
         const { ui } = yield* serveRoot(serve, root, listener);
         yield* Effect.forEach(
           Object.entries(surfaces),
@@ -531,19 +458,15 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
             { id: "node.addTree", input: { outline: "- filed", parent: EXTENSION_NODE } },
           ];
           for (const write of writes) {
-            // Approved, so where a policy asks first the commit still decides.
-            const receipt = yield* via({ ...write, approved: true });
+            const receipt = yield* via(write);
             const outcome =
               receipt === null ? "uncallable" : receipt.status === "failed" ? receipt.code : "ran";
-            // Only a surface that does not list the action may be unable to make it, and only
-            // one whose wire cannot carry the approval may stop at the ask.
-            const before =
-              (outcome === "uncallable" && !listed.has(write.id)) ||
-              (outcome === "approval_required" && !surface.wire.carriesApproval);
+            // Only a surface that does not list the action may be unable to make it.
+            const uncallable = outcome === "uncallable" && !listed.has(write.id);
             expect({ name, action: write.id, outcome }).toEqual({
               name,
               action: write.id,
-              outcome: before ? outcome : "forbidden",
+              outcome: uncallable ? outcome : "forbidden",
             });
           }
         }),
@@ -589,136 +512,6 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
 ];
 
 /**
- * The properties of approval, `force` and policy writes: what a policy asks
- * or refuses on each surface. They hold again once policies are
- * re-introduced; until then nothing asks or refuses, and they are skipped.
- */
-// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
-const DEFERRED: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
-  [
-    "an approved call runs only through a surface whose wire carries the approval",
-    (set) =>
-      overSurfaces(set, ({ name, surface, core, via }) =>
-        Effect.gen(function* () {
-          const call: ActionRequest = { id: ASKED_ACTION, input: {}, approved: true };
-          // Where the wire cannot carry approval, the call that arrives is the unapproved one.
-          const { carriesApproval } = surface.wire;
-          const arrives = carriesApproval ? call : { id: call.id, input: call.input };
-          const expected = yield* core(arrives);
-          // The command line is never asked about this action; an agent is.
-          const asked = surface.wire.actor === "agent";
-          expect(expected.status).toBe(carriesApproval || !asked ? "succeeded" : "failed");
-          const receipt = yield* via(call);
-          // A wire that cannot make the call cannot run it either: no answer is
-          // right only where the wire cannot carry approval and so does not
-          // list the action. The listing property above runs in this same
-          // suite and proves the second half for every surface, so a null
-          // here cannot hide a surface that drops a call it does list.
-          if (receipt === null) {
-            const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
-            expect({ name, carriesApproval, listed: listed.has(call.id) }).toEqual({
-              name,
-              carriesApproval: false,
-              listed: false,
-            });
-            return;
-          }
-          expect({ name, receipt: asWireData(receipt) }).toEqual({
-            name,
-            receipt: asWireData(expected),
-          });
-        }),
-      ),
-  ],
-  [
-    "one policy decides the same on every surface: a denial refuses, an ask refuses an " +
-      "unapproved call, and only a policy naming the action lowers a declared approval",
-    (set) =>
-      overSurfaces(set, ({ name, surface, via }) =>
-        Effect.gen(function* () {
-          const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
-          // What a call came to: "ran", its failure code, or "uncallable" where
-          // the wire cannot make it at all, which only an unlisted action may be.
-          const outcome = (id: string, input: unknown = {}) =>
-            Effect.map(via({ id, input }), (receipt) => {
-              if (receipt !== null) return receipt.status === "failed" ? receipt.code : "ran";
-              expect({ name, id, listed: listed.has(id) }).toEqual({ name, id, listed: false });
-              return "uncallable";
-            });
-          // The refusal `code`, or the wire's own where it cannot make the call.
-          const refusal = (code: string, seen: string) =>
-            seen === "uncallable" && !surface.wire.carriesApproval ? seen : code;
-          const agent = surface.wire.actor === "agent";
-          const denied = yield* outcome(DENIED_ACTION);
-          const asked = yield* outcome(ASKED_ACTION);
-          const declared = yield* outcome(APPROVAL_ACTION);
-          // Nodes the root does not hold: a call that runs reaches the action and is not_found.
-          const typed = yield* outcome(TYPED_ACTION, {
-            source: "n.x",
-            target: "n.y",
-            field: "f.z",
-          });
-          expect({ name, denied, asked, declared, typed }).toEqual({
-            name,
-            // Denied to every actor, whatever the wire.
-            denied: refusal("forbidden", denied),
-            // Asked of an agent, never of the command line.
-            asked: agent ? refusal("approval_required", asked) : "ran",
-            // The exact allow is the command line's; an agent's pattern allow lowers nothing.
-            declared: agent ? refusal("approval_required", declared) : "ran",
-            // A family's write asks an agent under the repository's policy, as core's do.
-            typed: agent ? refusal("approval_required", typed) : "not_found",
-          });
-        }),
-      ),
-  ],
-  [
-    "force is the owner's: a surface whose caller acts for the owner sets it, and one whose " +
-      "caller acts for them is refused, whatever the policies say",
-    (set) =>
-      overSurfaces(set, ({ name, surface, via }) =>
-        Effect.gen(function* () {
-          // A forced write that changes nothing but the node's stamp.
-          const forced = yield* via({
-            id: "node.update",
-            input: { id: EXTENSION_NODE, setProps: [], force: true },
-          });
-          if (forced === null) {
-            const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
-            expect({ name, listed: listed.has("node.update") }).toEqual({ name, listed: false });
-            return;
-          }
-          expect({ name, outcome: forced.status === "failed" ? forced.code : "ran" }).toEqual({
-            name,
-            outcome: actsAsOwner(surface.wire.actor) ? "ran" : "forbidden",
-          });
-        }),
-      ),
-  ],
-  [
-    "no surface writes a policy without a person behind the call, whatever the policies say",
-    (set) =>
-      overSurfaces(set, ({ name, surface, via }) =>
-        Effect.gen(function* () {
-          // A policy that would allow every write to anyone: it lowers nothing here.
-          const edit: ActionRequest = {
-            id: "node.update",
-            input: { id: SEEDED_POLICY, setProps: [] },
-          };
-          const unapproved = yield* via(edit);
-          expect({ name, code: unapproved?.status === "failed" ? unapproved.code : "ran" }).toEqual(
-            { name, code: "approval_required" },
-          );
-          const approved = yield* via({ ...edit, approved: true });
-          // Approved, it runs exactly where the wire carries the approval.
-          const ran = approved?.status === "succeeded";
-          expect({ name, ran }).toEqual({ name, ran: surface.wire.carriesApproval });
-        }),
-      ),
-  ],
-];
-
-/**
  * Run the contract over every surface at once, once for each way the root's
  * `kb ui` listens.
  *
@@ -732,8 +525,6 @@ export function surfaceContract(set: SurfaceSet): void {
     const run: OnListener = { ...set, listener };
     describe(`action surfaces (${names}) on a ${listener} kb ui — one registry contract`, () => {
       for (const [title, property] of PROPERTIES) test(title, () => property(run));
-      // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
-      for (const [title, property] of DEFERRED) test.skip(title, () => property(run));
     });
   }
 }

@@ -10,6 +10,7 @@ import type { NodeIndex } from "@kb/query";
 import { Option, Schema } from "effect";
 import {
   madeBy,
+  madeByScript,
   type ActionDefinition,
   type ActionInvocation,
   type ActionRequest,
@@ -39,7 +40,7 @@ export function callWithin(
   request: ActionRequest | ActionInvocation,
 ): ActionInvocation | null {
   const caller = outer?.invocation;
-  if (caller?.actor === "script") {
+  if (caller !== undefined && madeByScript(caller)) {
     const { approved: _ignored, ...rest } = request;
     return {
       ...rest,
@@ -58,7 +59,7 @@ export function scriptRefusal(
   input: unknown,
   ctx: KbContext<NodeIndex>,
 ): { readonly message: string; readonly details?: unknown } | null {
-  if (invocation.actor !== "script") return null;
+  if (!madeByScript(invocation)) return null;
   const scope = invocation.script;
   if (scope === undefined) {
     return { message: "a script's call says what its run may reach, and this one says nothing" };
@@ -115,7 +116,7 @@ export function scriptWriteRefusal(
   tx: StoreTx,
   ctx: KbContext<NodeIndex>,
 ): { readonly message: string; readonly details: unknown } | null {
-  if (invocation.actor !== "script") return null;
+  if (!madeByScript(invocation)) return null;
   const subject = invocation.script?.subject ?? null;
   const written = new Map(tx.upserts.map((node) => [node.id, node]));
   const deleted = new Set(tx.deletes);
@@ -154,7 +155,7 @@ export function scriptWriteRefusal(
 
 /** Whether `invocation` reads the whole graph: any call but a script's, and a script's whose grant reads it. */
 function readsGraph(invocation: ActionInvocation | undefined): boolean {
-  if (invocation?.actor !== "script") return true;
+  if (invocation === undefined || !madeByScript(invocation)) return true;
   return Option.getOrUndefined(decodeGrant(invocation.script?.grant))?.reads === "graph";
 }
 

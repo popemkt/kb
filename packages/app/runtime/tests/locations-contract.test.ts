@@ -14,8 +14,6 @@
  * - a malformed location lists as broken, and two for one root warn;
  * - listing writes to no listed store;
  * - the tag and the field are minted once;
- * - the root a person opens is registered on their surface's wire, so an
- *   agent's asks;
  * - opening a served root answers its URL and ranks it first; opening a
  *   closed one starts a server for it, and a start that fails ranks
  *   nothing; opening what is missing or not a store starts nothing; opening
@@ -47,14 +45,13 @@ import {
   LocationOpenedSchema,
   LocationRowSchema,
 } from "@kb/locations";
-import { SYSTEM_IDS, domainError, type Actor, type DomainError, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, domainError, type DomainError, type KbNode } from "@kb/model";
 import { readUiPresence, writeUiPresence } from "@kb/workspace-fs";
 import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { childProcessEnv } from "../src/child-env.ts";
-import { registerOpenedRoot } from "../src/locations.ts";
 import { IN_PROCESS_WIRE } from "../src/invoke.ts";
 import { invokeReceiptEffect } from "../src/registry.ts";
 import { serveRoot } from "../src/serve.ts";
@@ -425,49 +422,6 @@ function locationsContract(homeBackend: StoreBackend): void {
               code: "not_found",
             });
           expect(started).toEqual([]);
-        }),
-      ));
-
-    // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-    test.skip("an agent registers, forgets and opens only with the owner's approval; it lists freely", () =>
-      run(
-        Effect.gen(function* () {
-          const a = yield* register(yield* storeRoot("a"));
-          const b = yield* storeRoot("b");
-          const before = yield* homeNodes();
-          for (const [id, input] of [
-            ["location.register", { path: b }],
-            ["location.forget", { id: a.id }],
-            ["location.open", { id: a.id }],
-          ] as const) {
-            expect({ id, receipt: yield* invoke(id, input, { actor: "agent" }) }).toMatchObject({
-              id,
-              receipt: { status: "failed", code: "approval_required" },
-            });
-          }
-          expect(yield* homeNodes()).toEqual(before);
-          expect(started).toEqual([]);
-          expect((yield* invoke("location.list", {}, { actor: "agent" })).status).toBe("succeeded");
-          expect((yield* invoke("location.open", { id: a.id }, { actor: "script" })).status).toBe(
-            "failed",
-          );
-        }),
-      ));
-
-    // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]: policies are deferred, so nothing asks or refuses.
-    test.skip("the root a person opens is registered as a call on their surface's wire", () =>
-      run(
-        Effect.gen(function* () {
-          if (session === null) throw new Error("no session: beforeEach did not run");
-          const ctx = session;
-          const opened = (actor: Actor) =>
-            registerOpenedRoot(ctx, { carriesApproval: true, actor }).pipe(
-              Effect.provide(kbRuntimeLayer(ctx)),
-            );
-          expect(yield* opened("agent")).toContain("approval");
-          expect((yield* list()).rows).toEqual([]);
-          expect(yield* opened("cli")).toBeNull();
-          expect((yield* list()).rows.map(({ path }) => path)).toEqual([ctx.root]);
         }),
       ));
 
