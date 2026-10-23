@@ -1564,6 +1564,11 @@ when set; SQLite keeps it in a column schema 4 added (`ALTER TABLE` on an
 older database, whose rows read with none). It is recorded for later use
 only: nothing decides by it (Action registry → Current stance).
 
+Beside it, `session`: the tab session that call was made in, when it named
+one (Action registry → A call made in a tab session) — the same path, and a
+column schema 5 added the same way. It is not `origin`, which names the
+producer (`@kb/client`, the virtual set); a tab's commit names its tab here.
+
 Both records carry `mark`: the store's own durable commit mark as of that
 append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`) — on both, the
 store's fingerprint. `TxTail.isCurrent()`
@@ -2375,8 +2380,9 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     (`api/tab-session.ts` in the UI) and keeps it in the tab's
     sessionStorage, so a reload keeps it and another tab has its own. It is
     nothing the server issues, no URL carries it, and it proves nothing: it
-    is the tab's name, sent as `X-KB-Origin` on its actions and published
-    as its screen's tab id, so an agent's screen command (`ui.screen`,
+    is the tab's name, stated in the envelope of every call the tab makes
+    (and so recorded on each transaction it commits, `session` on the tail)
+    and published as its screen's tab id, so an agent's screen command (`ui.screen`,
     `ui.navigate`, …) reaches the tab session it names. A duplicated tab
     starts with a copy of it; the server refuses the second publisher of a
     tab id (`screen-refused`), and that tab mints and keeps a fresh one.

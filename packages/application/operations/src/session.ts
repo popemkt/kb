@@ -173,9 +173,11 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   const caughtUpTo = seen.get(ctx) ?? null;
   // Who made the call is recorded with what it wrote; nothing decides by it.
   const actor = call === null ? {} : { actor: call.invocation.actor };
+  const session = call?.invocation.session;
+  const where = session === undefined ? {} : { session };
   const commit = yield* store.commitEffect(
     tx,
-    { at: yield* currentIso, origin, ...actor },
+    { at: yield* currentIso, origin, ...actor, ...where },
     expected,
   );
   if (commit.base !== null && commit.base === caughtUpTo) {

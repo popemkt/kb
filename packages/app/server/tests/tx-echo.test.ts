@@ -76,13 +76,12 @@ function apply(nodes: KbNode[], frame: TxFrame | undefined): KbNode[] {
 function addNode(
   deps: Parameters<typeof handleHttpRequest>[2],
   id: string,
-  origin?: string,
+  session?: string,
 ): Promise<Response> {
   return handleHttpRequest(
     new Request("http://127.0.0.1/api/action", {
       method: "POST",
-      headers: origin === undefined ? {} : { "x-kb-origin": origin },
-      body: JSON.stringify({ id: "node.add", input: { text: id, id } }),
+      body: JSON.stringify({ id: "node.add", input: { text: id, id }, session }),
     }),
     HTTP_WIRE,
     deps,

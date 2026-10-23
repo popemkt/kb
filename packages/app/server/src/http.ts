@@ -2,7 +2,6 @@ import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
-  TxOrigin,
   listingOf,
   onWire,
   requestOf,
@@ -178,9 +177,7 @@ const handleHttpRequestEffect = (
       const made = requestOf(body.value);
       if ("invalid" in made) return invalidInput(made.invalid);
 
-      const receipt = yield* serverInvoke(ctx, onWire(wire, made.request)).pipe(
-        Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined),
-      );
+      const receipt = yield* serverInvoke(ctx, onWire(wire, made.request));
       // The head once the invocation has committed: the rev a client waits
       // for before it lets the server's image replace its own (protocol.ts →
       // ActionResponseSchema).

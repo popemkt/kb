@@ -6,7 +6,7 @@ import {
   type ActionRequest,
   type ActionResponse,
 } from "@kb/contracts";
-import { inTabSession, tabSession } from "@/api/tab-session";
+import { inTabSession } from "@/api/tab-session";
 
 export type { ActionRequest, ActionResponse };
 
@@ -17,10 +17,7 @@ let postActionImpl: PostActionFn = defaultPostAction;
 async function defaultPostAction(invocation: ActionRequest): Promise<ActionResponse> {
   const res = await fetch("/api/action", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-KB-Origin": tabSession(),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(envelopeOf(invocation)),
   });
   const json: unknown = await res.json().catch(() => null);

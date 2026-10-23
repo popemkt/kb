@@ -78,8 +78,8 @@ describe("SqliteStore", () => {
             const version = db
               .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'")
               .get();
-            // 4 since the tail records who committed; see `connection.ts`.
-            expect(present(version, "expected schema_version").value).toBe("4");
+            // 5 since the tail records the tab session of each commit; see `connection.ts`.
+            expect(present(version, "expected schema_version").value).toBe("5");
           });
         }),
       ),
@@ -99,6 +99,7 @@ describe("SqliteStore", () => {
           // Back to schema 3: the tail as it was before `actor` was recorded.
           withRawConnection(store.path, (db) => {
             db.run("ALTER TABLE tx DROP COLUMN actor");
+            db.run("ALTER TABLE tx DROP COLUMN session");
             db.run("UPDATE meta SET value = '3' WHERE key = 'schema_version'");
           });
 
@@ -112,6 +113,40 @@ describe("SqliteStore", () => {
             const [old, made] = reopened.txTail.entries();
             expect(old !== undefined && "actor" in old).toBe(false);
             expect(made?.actor).toBe("human");
+          } finally {
+            reopened.close();
+          }
+        }),
+      ),
+    ));
+
+  test("a schema-4 tail gains the session column: its rows read back, and a new commit records its session", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const root = yield* Effect.acquireRelease(
+            Effect.promise(() => mkdtemp(join(tmpdir(), "kb-sqlite-"))),
+            (dir) => Effect.promise(() => rm(dir, { recursive: true, force: true })),
+          );
+          const store = new SqliteStore(root);
+          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+          store.close();
+          // Back to schema 4: the tail as it was before `session` was recorded.
+          withRawConnection(store.path, (db) => {
+            db.run("ALTER TABLE tx DROP COLUMN session");
+            db.run("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
+          });
+
+          const reopened = new SqliteStore(root);
+          try {
+            expect(reopened.txTail.entries().map((tx) => tx.rev)).toEqual([1]);
+            yield* reopened.commitEffect(
+              { upserts: [node("n-b", "b")], deletes: [] },
+              { at: AT, actor: "agent", session: "tab.a" },
+            );
+            const [old, made] = reopened.txTail.entries();
+            expect(old !== undefined && "session" in old).toBe(false);
+            expect(made?.session).toBe("tab.a");
           } finally {
             reopened.close();
           }

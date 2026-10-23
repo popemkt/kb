@@ -214,7 +214,9 @@ export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null
  * rather than so the server can skip it. `at` is the caller's `Clock` reading:
  * the log is synchronous, and the seam that owns time is an Effect service.
  * `actor` is who made the call that committed it, when an invocation did; it
- * is recorded for later use, and nothing decides by it.
+ * is recorded for later use, and nothing decides by it. `session` is the tab
+ * session that call was made in, when it named one: what a person's tab, or
+ * an agent working in it, wrote there.
  */
 export interface KbTx {
   rev: number;
@@ -222,6 +224,7 @@ export interface KbTx {
   at: string;
   origin?: string;
   actor?: Actor;
+  session?: string;
 }
 
 /**
@@ -231,7 +234,12 @@ export interface KbTx {
 export function recordedTx(
   rev: number,
   ops: StoreTx,
-  record: { readonly at: string; readonly origin?: string; readonly actor?: Actor },
+  record: {
+    readonly at: string;
+    readonly origin?: string;
+    readonly actor?: Actor;
+    readonly session?: string;
+  },
 ): KbTx {
   return {
     rev,
@@ -239,5 +247,6 @@ export function recordedTx(
     at: record.at,
     ...(record.origin === undefined ? {} : { origin: record.origin }),
     ...(record.actor === undefined ? {} : { actor: record.actor }),
+    ...(record.session === undefined ? {} : { session: record.session }),
   };
 }
