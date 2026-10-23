@@ -69,6 +69,7 @@ describe("ui assets boundary", () => {
       expect(forbidden?.headers.get("Content-Type")).toBeNull();
       const spa = await serveStatic("/some/client/route");
       expect(spa?.status).toBe(200);
+      expect(spa?.headers.get("Content-Security-Policy")).toBe("frame-ancestors 'self'");
 
       // Canonical-path containment: symlink under dist → outside file → 403.
       const outside = join(tmpdir(), `kb-ui-static-escape-${Date.now()}.txt`);
@@ -85,6 +86,39 @@ describe("ui assets boundary", () => {
         await unlink(outside).catch(() => {});
       }
     }
+  });
+});
+
+/** The `person` frame a hub greets a local program's connection with. */
+async function greeted(hub: SubscriptionHub): Promise<unknown> {
+  const frames: string[] = [];
+  const send = (text: string) =>
+    Effect.sync(() => {
+      frames.push(text);
+    });
+  await Effect.runPromise(hub.addClient("c1", send, PROGRAM));
+  hub.dispose();
+  return JSON.parse(present(frames[1], "the person frame"));
+}
+
+describe("who may frame the page", () => {
+  test("its own origin, and each origin kb ui --embed-origin names", () => {
+    expect(assets.frameAncestors([])).toBe("frame-ancestors 'self'");
+    expect(assets.frameAncestors(["https://bb.example", "http://localhost:3000"])).toBe(
+      "frame-ancestors 'self' https://bb.example http://localhost:3000",
+    );
+  });
+
+  test("each connection is told the origins that may frame the page, and none when there are none", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-embed-"));
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const ctx = await openKb(root);
+    expect(await greeted(new SubscriptionHub(ctx, undefined, ["https://bb.example"]))).toEqual({
+      op: "person",
+      person: null,
+      embedders: ["https://bb.example"],
+    });
+    expect(await greeted(new SubscriptionHub(ctx))).toEqual({ op: "person", person: null });
   });
 });
 

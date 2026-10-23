@@ -12,9 +12,14 @@
  * The two commands that move a tab are writes, because they change what a
  * person sees, and they need no approval; `DESIGN.md` → Screen state says
  * why. A capture moves nothing a person sees: it is a read.
+ *
+ * A command goes to the tab session the call is made in, else to the
+ * person's most recently active tab. Which tab is the call's to say, never
+ * the input's (DESIGN.md → Action registry → A call made in a tab session).
  */
 import { Effect } from "effect";
 import {
+  CurrentCall,
   ScreenListSchema,
   ScreenReceiptSchema,
   Screens,
@@ -37,7 +42,8 @@ export const uiScreenDef = {
   title: "Read the screen",
   description:
     "What each open kb UI tab shows, most recently active first: route, panes, the open view, " +
-    "focused node, selection, and a canvas's viewport and visible items. Pass `tab` for one tab.",
+    "focused node, selection, and a canvas's viewport and visible items. Pass `session` for one " +
+    "tab session's tab.",
   mode: { kind: "read" } as const,
   inputSchema: UiScreenInputSchema,
   outputSchema: ScreenListSchema,
@@ -47,8 +53,8 @@ export const uiNavigateDef = {
   id: "ui.navigate",
   title: "Navigate a tab",
   description:
-    "Open a node (`node`) or a route (`route`) in a kb UI tab, the most recently active by " +
-    "default, and/or point the camera of the canvas it shows (`camera`): items to frame (one " +
+    "Open a node (`node`) or a route (`route`) in a kb UI tab (the call's tab session, else the " +
+    "most recently active), and/or point the camera of the canvas it shows (`camera`): items to frame (one " +
     "frame alone is looked at face-on), a view preset to look from (top, front, right, back, " +
     "left, oblique), both, or a pose as ui.screen reports one — to show the person something. " +
     "Answers whether a live tab applied it within `timeoutMs`.",
@@ -62,7 +68,8 @@ export const uiSelectDef = {
   title: "Select in a tab",
   description:
     "Set the selection (`selection`, ids in the open view's terms) or move the focus (`focus`, a " +
-    "node id) in a kb UI tab, the most recently active by default. Answers whether a live tab " +
+    "node id) in a kb UI tab (the call's tab session, else the most recently active). Answers " +
+    "whether a live tab " +
     "applied it within `timeoutMs`.",
   mode: { kind: "write" } as const,
   inputSchema: UiSelectInputSchema,
@@ -73,7 +80,8 @@ export const uiCaptureDef = {
   id: "ui.capture",
   title: "Capture a canvas",
   description:
-    "Have the canvas open in a kb UI tab (the most recently active by default) draw what its " +
+    "Have the canvas open in a kb UI tab (the call's tab session, else the most recently active) " +
+    "draw what its " +
     "camera would see from `view` — items to frame, a view preset (top, front, right, back, " +
     "left, oblique), both, or a pose — without moving the person's camera, and keep it as a PNG " +
     "file; the receipt's `capture.path` is where it is. A canvas showing 2D draws it through its " +
@@ -83,10 +91,15 @@ export const uiCaptureDef = {
   outputSchema: ScreenReceiptSchema,
 } satisfies ActionDefinition;
 
+/** The tab session the running call is made in, if it names one. */
+const callSession = Effect.gen(function* () {
+  return (yield* CurrentCall)?.invocation.session;
+});
+
 export const uiCaptureEffect = Effect.fn("ui.capture")(function* (
   input: UiCaptureInput,
 ): Effect.fn.Return<ScreenReceipt, DomainError, Screens> {
-  return yield* (yield* Screens).capture(input);
+  return yield* (yield* Screens).capture(input, yield* callSession);
 });
 
 export const uiScreenEffect = Effect.fn("ui.screen")(function* (
@@ -98,11 +111,11 @@ export const uiScreenEffect = Effect.fn("ui.screen")(function* (
 export const uiNavigateEffect = Effect.fn("ui.navigate")(function* (
   input: UiNavigateInput,
 ): Effect.fn.Return<ScreenReceipt, DomainError, Screens> {
-  return yield* (yield* Screens).navigate(input);
+  return yield* (yield* Screens).navigate(input, yield* callSession);
 });
 
 export const uiSelectEffect = Effect.fn("ui.select")(function* (
   input: UiSelectInput,
 ): Effect.fn.Return<ScreenReceipt, DomainError, Screens> {
-  return yield* (yield* Screens).select(input);
+  return yield* (yield* Screens).select(input, yield* callSession);
 });

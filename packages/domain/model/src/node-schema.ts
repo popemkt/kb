@@ -95,6 +95,7 @@ const KbTxSchema = Schema.Struct({
   at: Schema.String,
   origin: Schema.optionalKey(Schema.String),
   actor: Schema.optionalKey(Schema.Literals(ACTORS)),
+  session: Schema.optionalKey(Schema.String),
   ops: Schema.Struct({
     upserts: Schema.mutable(Schema.Array(KbNodeSchema)),
     deletes: Schema.mutable(Schema.Array(Schema.String)),

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
+import { tabSession } from "@/api/tab-session";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
@@ -38,6 +39,7 @@ describe("debounced text invocation", () => {
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
       input: { id: "n.root-a", text: "two" },
+      session: tabSession(),
     });
   });
 });

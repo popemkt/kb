@@ -24,7 +24,6 @@ import {
   type ScreenCommand,
   type ScreenState,
 } from "@kb/contracts";
-import { tabSession } from "@/api/tab-session";
 import type { GraphMessage } from "@/session/replica";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
@@ -71,9 +70,9 @@ export interface KbWsClientOptions {
   /**
    * Who the server takes this connection to be, told on every connect: the
    * person, or nobody (`null`), whose socket may not speak on a plugin
-   * channel.
+   * channel. `embedders` are the origins allowed to frame the page.
    */
-  onPerson?: (person: Person | null) => void;
+  onPerson?: (person: Person | null, embedders: readonly string[]) => void;
   /**
    * A command the server asks this tab to carry out; the answer goes back
    * with {@link KbWsClient.answerScreenCommand} under the same id.
@@ -99,7 +98,7 @@ export interface ChannelSink {
 function defaultUrl(): string {
   const loc = window.location;
   const proto = loc.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${loc.host}/ws?origin=${encodeURIComponent(tabSession())}`;
+  return `${proto}//${loc.host}/ws`;
 }
 
 /**
@@ -313,7 +312,7 @@ export class KbWsClient {
         this.opts.onScreenRefused?.(msg.tab);
         break;
       case "person":
-        this.opts.onPerson?.(msg.person);
+        this.opts.onPerson?.(msg.person, msg.embedders ?? []);
         break;
       case "pong":
         break;

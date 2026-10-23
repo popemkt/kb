@@ -2,7 +2,11 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   ActionPoint,
+  ContextReferencePoint,
+  CurrentContextReferences,
   CurrentInterception,
+  contextReferencesOf,
+  contextRefusal,
   TemplatePoint,
   ViewKeyPoint,
   declarationPlugin,
@@ -16,6 +20,7 @@ import {
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
+  type ContextReferences,
   type ExtensionFailure,
   type ExtensionRow,
   type Interception,
@@ -69,6 +74,8 @@ export interface Registry {
   kernel: Kernel;
   /** The guards and interceptors its plugins contribute, which every call through it goes through. */
   interception: Interception;
+  /** The context references its plugins contribute, which fill a call made in a tab session. */
+  references: ContextReferences;
   /** When its kernel is released: once it is replaced, and the calls that hold it have settled. */
   lifetime: RegistryLifetime;
   actions: readonly RegisteredAction[];
@@ -155,6 +162,11 @@ const corePlugin = definePlugin({
     ),
 });
 
+/** The context references a kernel's plugins contribute, core's first. */
+function referencesOf(kernel: Pick<Kernel, "contributions">): ContextReferences {
+  return contextReferencesOf(() => kernel.contributions(ContextReferencePoint));
+}
+
 /** The top-level plugin a contribution belongs to (a child answers for its parent). */
 function rootOwner(contribution: Contribution<unknown>): string {
   return contribution.owner.split("/")[0] ?? contribution.owner;
@@ -175,6 +187,7 @@ function registeredAction(contribution: Contribution<ActionContribution>): Regis
       mode: value.mode,
       ...(value.batchOf === undefined ? {} : { batchOf: value.batchOf }),
       ...(value.targets === undefined ? {} : { targets: value.targets }),
+      ...(value.context === undefined ? {} : { context: value.context }),
       inputSchema: value.inputSchema,
       outputSchema: value.outputSchema,
     },
@@ -195,18 +208,55 @@ function registeredTemplate(contribution: Contribution<TemplateFn>): RegisteredT
 }
 
 /**
- * The one rule of a batch's parts: each is a registered action that is not
- * itself a batch. A batch is decided as itself and as each part by the
- * part's own mode, one level deep, so a part must be there to read and must
- * not need deciding as parts of its own.
+ * The rules every registered action keeps, as the error the first one that
+ * breaks them is refused with:
  *
- * A plugin whose action breaks the rule is a plugin that cannot load: it is
- * unloaded as a unit and reported in `failures`, the list a failed load
- * reaches (`kb ext list`, and stderr). Unloading it can take away another
- * batch's part, so the check runs until every batch left holds. Core
- * breaking it is a programming error, and dies.
+ * - **A batch's parts.** Each is a registered action that is not itself a
+ *   batch. A batch is decided as itself and as each part by the part's own
+ *   mode, one level deep, so a part must be there to read and must not need
+ *   deciding as parts of its own.
+ * - **What a session fills.** Each key its `context` names is one its input
+ *   requires, read from a reference a loaded plugin contributes
+ *   (`contextRefusal`).
  */
-export const unloadBrokenBatches = Effect.fnUntraced(function* (
+function brokenAction(
+  contributions: readonly Contribution<ActionContribution>[],
+  references: ContextReferences,
+): { readonly contribution: Contribution<ActionContribution>; readonly error: string } | null {
+  const batches = new Set(
+    contributions.flatMap((c) => (c.value.batchOf === undefined ? [] : [c.id, ...c.aliases])),
+  );
+  const registered = new Set(contributions.flatMap((c) => [c.id, ...c.aliases]));
+  for (const contribution of contributions) {
+    const bad = (contribution.value.batchOf ?? []).filter(
+      (part) => !registered.has(part) || batches.has(part),
+    );
+    if (bad.length > 0) {
+      const why = bad
+        .map(
+          (part) => `${part} ${registered.has(part) ? "is itself a batch" : "is not registered"}`,
+        )
+        .join("; ");
+      return {
+        contribution,
+        error: `action ${contribution.id} is a batch of an action that cannot be one of its parts: ${why}`,
+      };
+    }
+    const refused = contextRefusal({ ...contribution.value, id: contribution.id }, references);
+    if (refused !== null) return { contribution, error: refused };
+  }
+  return null;
+}
+
+/**
+ * A plugin whose action breaks a rule every action keeps (`brokenAction`)
+ * is a plugin that cannot load: it is unloaded as a unit and reported in
+ * `failures`, the list a failed load reaches (`kb ext list`, and stderr).
+ * Unloading it can take away another batch's part, or a reference another
+ * action fills from, so the check runs until every action left holds. Core
+ * breaking one is a programming error, and dies.
+ */
+export const unloadBrokenActions = Effect.fnUntraced(function* (
   kernel: Kernel,
   loaded: {
     readonly core: string;
@@ -215,23 +265,9 @@ export const unloadBrokenBatches = Effect.fnUntraced(function* (
   },
 ): Effect.fn.Return<void> {
   for (;;) {
-    const contributions = kernel.contributions(ActionPoint);
-    const batches = new Set(
-      contributions.flatMap((c) => (c.value.batchOf === undefined ? [] : [c.id, ...c.aliases])),
-    );
-    const registered = new Set(contributions.flatMap((c) => [c.id, ...c.aliases]));
-    const broken = contributions.flatMap((c) => {
-      const bad = (c.value.batchOf ?? []).filter(
-        (part) => !registered.has(part) || batches.has(part),
-      );
-      return bad.length === 0 ? [] : [{ contribution: c, bad }];
-    });
-    const [first] = broken;
-    if (first === undefined) return undefined;
-    const why = first.bad
-      .map((part) => `${part} ${registered.has(part) ? "is itself a batch" : "is not registered"}`)
-      .join("; ");
-    const error = `action ${first.contribution.id} is a batch of an action that cannot be one of its parts: ${why}`;
+    const first = brokenAction(kernel.contributions(ActionPoint), referencesOf(kernel));
+    if (first === null) return undefined;
+    const { error } = first;
     const owner = rootOwner(first.contribution);
     if (owner === loaded.core) return yield* Effect.die(new Error(`core: ${error}`));
     const inside = (name: string) => name === owner || name.startsWith(`${owner}/`);
@@ -282,7 +318,7 @@ const buildRegistry = Effect.fnUntraced(function* (
   yield* load(corePlugin, "core");
   for (const { entry, source } of on) yield* load(entry, source);
 
-  yield* unloadBrokenBatches(kernel, { core: corePlugin.name, sources, failures });
+  yield* unloadBrokenActions(kernel, { core: corePlugin.name, sources, failures });
 
   for (const failure of failures) {
     writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
@@ -311,10 +347,11 @@ const buildRegistry = Effect.fnUntraced(function* (
     }));
 
   const modeOf = (id: string) => byId.get(id)?.def.mode;
+  const references = referencesOf(kernel);
   const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
-    actionToManifestEntry(action.def, modeOf),
+    actionToManifestEntry(action.def, modeOf, references),
     ...action.aliases.map((alias) => ({
-      ...actionToManifestEntry(action.def, modeOf),
+      ...actionToManifestEntry(action.def, modeOf, references),
       id: alias,
       aliasOf: action.def.id,
     })),
@@ -335,6 +372,7 @@ const buildRegistry = Effect.fnUntraced(function* (
   return {
     kernel,
     interception: interceptionFrom(kernel, { required }),
+    references,
     lifetime: registryLifetime(kernel),
     actions,
     byId,
@@ -416,6 +454,7 @@ const withSessionRegistry = <A, E, R>(
     if (!registry.lifetime.acquire()) return yield* withSessionRegistry(ctx, use);
     return yield* use(registry).pipe(
       Effect.provideService(CurrentInterception, registry.interception),
+      Effect.provideService(CurrentContextReferences, registry.references),
       Effect.ensuring(registry.lifetime.settle),
     );
   });

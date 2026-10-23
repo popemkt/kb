@@ -13,6 +13,7 @@ import {
 } from "@kb/model";
 import type { KbIndexService, QueryEngineService } from "@kb/query";
 import type { Screens } from "./screen.ts";
+import { NO_CONTEXT, type ContextReferences } from "./context.ts";
 import type { GraphWrites } from "./graph-writes.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
@@ -65,18 +66,43 @@ export function requiresApproval(mode: ActionMode): boolean {
 }
 
 /**
- * The input schema a surface publishes for a tool. MCP and WebMCP both need a
- * JSON Schema whose root is an object, so an action whose schema is anything
- * else is published as an object that takes no properties. One rule, so every
- * surface shows an agent the same schema for the same action.
+ * The input schema a surface publishes for an action's tool. MCP and WebMCP
+ * both need a JSON Schema whose root is an object, so an action whose schema
+ * is anything else is published as an object that takes no properties. An
+ * input a tab session may fill (`ManifestEntry.context`) says so in its
+ * description, and on a surface whose calls are made in a session
+ * (`sessioned`) it is no longer required: the agent may leave it out. One
+ * rule, so every surface shows an agent the same schema for the same action.
  */
-export function asObjectSchema(
-  schema: unknown,
+export function toolInputSchema(
+  entry: Pick<ManifestEntry, "inputSchema" | "context">,
+  sessioned = false,
 ): { readonly type: "object" } & Record<string, unknown> {
-  if (Predicate.isObject(schema) && schema.type === "object") {
-    return { ...schema, type: "object" as const };
+  const { inputSchema } = entry;
+  if (!Predicate.isObject(inputSchema) || inputSchema.type !== "object") {
+    return { type: "object" as const, properties: {} };
   }
-  return { type: "object" as const, properties: {} };
+  const schema = { ...inputSchema, type: "object" as const };
+  const context = new Map(Object.entries(entry.context ?? {}));
+  const { properties, required } = inputSchema;
+  if (context.size === 0 || !Predicate.isObject(properties)) return schema;
+  const noted = Object.entries(properties).map(([key, property]) => {
+    const fill = context.get(key);
+    if (fill === undefined || !Predicate.isObject(property)) return [key, property];
+    const note = sessioned
+      ? `Left out, it is ${fill.description} in the call's tab session.`
+      : `A call made in a tab session may leave it out for ${fill.description}.`;
+    const said = typeof property.description === "string" ? `${property.description}. ` : "";
+    return [key, { ...property, description: `${said}${note}` }];
+  });
+  const stillRequired = Array.isArray(required)
+    ? required.filter((key) => !sessioned || !context.has(String(key)))
+    : required;
+  return {
+    ...schema,
+    properties: Object.fromEntries(noted),
+    ...(stillRequired === undefined ? {} : { required: stillRequired }),
+  };
 }
 
 /**
@@ -173,6 +199,16 @@ export interface ActionDefinition<
    * inferred.
    */
   targets?: readonly string[];
+  /**
+   * The required keys of its input a call made in a tab session may leave
+   * out, each with the context reference that fills it from what the
+   * session's person is looking at (`ContextReference`): `{ canvasId:
+   * "ext.canvas.open" }`. Only required keys, so a call that works without a
+   * session means the same with one; the registry refuses any other
+   * (DESIGN.md → Action registry → What a session fills). Declared by the
+   * action, never inferred.
+   */
+  context?: Readonly<Record<string, string>>;
   inputSchema: TIn;
   outputSchema: TOut;
   /**
@@ -197,6 +233,11 @@ export interface ActionDefinition<
  * the input, and a local program's HTTP request has no person behind it, so
  * there a call a guard asks about stays refused.
  *
+ * `session` is the tab session the call is made in (DESIGN.md → Action
+ * registry → The tab session): a tab's name, which proves nothing and grants
+ * nothing, so every wire carries it. A call made in a session is about what
+ * that tab shows; one that names none is made in no tab.
+ *
  * `script` is a script's reach. A request never says who makes it: the
  * surface it arrives on does (`onWire`), so the envelope has no actor, and a
  * caller that sends one anyway has it dropped, never refused. A script's
@@ -212,6 +253,7 @@ export const ActionRequestSchema = z.object({
     .optional()
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
+  session: z.string().min(1).optional(),
   /**
    * A script's call: what its run may reach — the node it runs for and its
    * grant — stamped by the host that answers the guest (`answerToolCall`)
@@ -244,13 +286,29 @@ export function requestOf(
  * calls there.
  */
 export function envelopeOf(call: ActionRequest): ActionRequest {
-  const { id, input, approved, script } = call;
+  const { id, input, approved, session, script } = call;
   return {
     id,
     input,
     ...(approved === undefined ? {} : { approved }),
+    ...(session === undefined ? {} : { session }),
     ...(script === undefined ? {} : { script }),
   };
+}
+
+/**
+ * The `_meta` key a call over a protocol whose arguments are the input (an
+ * MCP `tools/call`) names its tab session under: that protocol's own
+ * envelope, so the input stays the action's.
+ */
+export const SESSION_META_KEY = "kb/session";
+
+const SessionMetaSchema = z.object({ [SESSION_META_KEY]: z.string().min(1) });
+
+/** The tab session a call's `_meta` names, if it names one. */
+export function sessionOfMeta(meta: unknown): string | undefined {
+  const parsed = SessionMetaSchema.safeParse(meta);
+  return parsed.success ? parsed.data[SESSION_META_KEY] : undefined;
 }
 
 /**
@@ -262,10 +320,19 @@ export function envelopeOf(call: ActionRequest): ActionRequest {
  */
 export type ActionInvocation = ActionRequest & { readonly actor: Actor };
 
+/** One input a session filled: the reference it was read from, and the value it read. */
+export const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });
+export type FilledInput = z.infer<typeof FilledInputSchema>;
+
 export const SucceededReceiptSchema = z.object({
   status: z.literal("succeeded"),
   id: z.string(),
   output: z.unknown(),
+  /**
+   * The inputs the call's tab session filled, by key: what "this" meant
+   * (`ActionDefinition.context`). Absent when it filled none.
+   */
+  context: z.record(z.string(), FilledInputSchema).optional(),
 });
 
 export const FailedReceiptSchema = z.object({
@@ -282,8 +349,14 @@ export const ActionReceiptSchema = z.discriminatedUnion("status", [
 ]);
 export type ActionReceipt = z.infer<typeof ActionReceiptSchema>;
 
-export function succeeded(id: string, output: unknown): ActionReceipt {
-  return { status: "succeeded", id, output };
+export function succeeded(
+  id: string,
+  output: unknown,
+  context?: Readonly<Record<string, FilledInput>>,
+): ActionReceipt {
+  return context === undefined
+    ? { status: "succeeded", id, output }
+    : { status: "succeeded", id, output, context: { ...context } };
 }
 
 export function failed(
@@ -308,6 +381,14 @@ export const ManifestEntrySchema = z.object({
   batchOf: z.array(z.object({ id: z.string(), mode: ActionModeSchema })).optional(),
   inputSchema: z.unknown(),
   outputSchema: z.unknown(),
+  /**
+   * The required inputs a call made in a tab session may leave out, each
+   * with the reference that fills it and what that is on a pane
+   * (`ActionDefinition.context`).
+   */
+  context: z
+    .record(z.string(), z.object({ reference: z.string(), description: z.string() }))
+    .optional(),
   /** Present when this id is a compat alias for another registered id. */
   aliasOf: z.string().optional(),
 });
@@ -344,8 +425,16 @@ export function approvalSubject(def: ActionDefinition, modeOf: ModeOf) {
   return { id: def.id, mode: def.mode, ...(parts === undefined ? {} : { batchOf: parts }) };
 }
 
-export function actionToManifestEntry(def: ActionDefinition, modeOf: ModeOf): ManifestEntry {
+export function actionToManifestEntry(
+  def: ActionDefinition,
+  modeOf: ModeOf,
+  references: ContextReferences = NO_CONTEXT,
+): ManifestEntry {
   const parts = batchPartsOf(def, modeOf);
+  const context = Object.entries(def.context ?? {}).map(([key, reference]) => [
+    key,
+    { reference, description: references.of(reference)?.description ?? reference },
+  ]);
   return {
     id: def.id,
     title: def.title,
@@ -354,6 +443,7 @@ export function actionToManifestEntry(def: ActionDefinition, modeOf: ModeOf): Ma
     ...(parts === undefined ? {} : { batchOf: parts }),
     inputSchema: schemaToJsonSchema(def.inputSchema, "input"),
     outputSchema: schemaToJsonSchema(def.outputSchema, "output"),
+    ...(context.length === 0 ? {} : { context: Object.fromEntries(context) }),
   };
 }
 

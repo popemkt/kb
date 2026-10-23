@@ -2,7 +2,6 @@ import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
-  TxOrigin,
   listingOf,
   onWire,
   requestOf,
@@ -33,6 +32,8 @@ export interface UiHttpDeps {
   hub: SubscriptionHub;
   /** The extensions the server hosts beside the registry's, as it reports them; none when absent. */
   hosted?: HostedFamilies;
+  /** The origins allowed to frame the page beside its own (`UiServerOptions.embedOrigins`); none when absent. */
+  embedOrigins?: readonly string[];
 }
 
 function jsonResponse(
@@ -178,9 +179,7 @@ const handleHttpRequestEffect = (
       const made = requestOf(body.value);
       if ("invalid" in made) return invalidInput(made.invalid);
 
-      const receipt = yield* serverInvoke(ctx, onWire(wire, made.request)).pipe(
-        Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined),
-      );
+      const receipt = yield* serverInvoke(ctx, onWire(wire, made.request));
       // The head once the invocation has committed: the rev a client waits
       // for before it lets the server's image replace its own (protocol.ts →
       // ActionResponseSchema).
@@ -197,7 +196,7 @@ const handleHttpRequestEffect = (
       return plainStatus("not found", 404);
     }
 
-    const staticResp = yield* assets.serveStaticEffect(url.pathname);
+    const staticResp = yield* assets.serveStaticEffect(url.pathname, deps.embedOrigins ?? []);
     if (staticResp) return staticResp;
 
     return jsonResponse(

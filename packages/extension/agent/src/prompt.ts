@@ -64,7 +64,9 @@ export const screenContext = Effect.fn("kb.agent.screenContext")(function* (
   tab: string | null,
 ) {
   if (tab === null) return null;
-  const receipt = yield* host.invoke(onWire(AGENT_WIRE, { id: "ui.screen", input: { tab } }));
+  const receipt = yield* host.invoke(
+    onWire(AGENT_WIRE, { id: "ui.screen", input: { session: tab } }),
+  );
   if (receipt.status !== "succeeded") return null;
   const screen = ScreenListSchema.safeParse(receipt.output).data?.tabs[0];
   if (screen === undefined) return null;

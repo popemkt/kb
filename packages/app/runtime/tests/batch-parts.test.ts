@@ -1,5 +1,5 @@
 /**
- * The one rule of a batch's parts (`unloadBrokenBatches`): each is a
+ * The one rule of a batch's parts (`unloadBrokenActions`): each is a
  * registered action that is not itself a batch. A plugin breaking it is
  * unloaded as a unit and reported as a failed load; core breaking it dies.
  */
@@ -9,7 +9,7 @@ import { z } from "zod";
 import { ActionPoint, type ExtensionFailure } from "@kb/contracts";
 import { definePlugin, makeKernel, type Kernel } from "@kb/plugin";
 import { bunFileSystemLayer } from "../src/platform.ts";
-import { registryFor, unloadBrokenBatches } from "../src/registry.ts";
+import { registryFor, unloadBrokenActions } from "../src/registry.ts";
 
 /** A plugin in the root namespace contributing `actions`, each `[id, batchOf?]`. */
 function plugin(
@@ -50,7 +50,7 @@ function check(...plugins: ReturnType<typeof plugin>[]) {
       sources.set(p.name, `${p.name}.ts`);
     }
     const core = plugins[0]?.name ?? "core";
-    const exit = yield* Effect.exit(unloadBrokenBatches(kernel, { core, sources, failures }));
+    const exit = yield* Effect.exit(unloadBrokenActions(kernel, { core, sources, failures }));
     return {
       exit,
       actions: kernel
@@ -131,7 +131,7 @@ describe("a batch's parts are registered actions that are not batches", () => {
         yield* kernel.load(plugin("core", [["p"]]));
         yield* kernel.load(plugin("x", [["x.batch", ["nope"]]]));
         return yield* Effect.exit(
-          unloadBrokenBatches(stubborn, { core: "core", sources: new Map(), failures: [] }),
+          unloadBrokenActions(stubborn, { core: "core", sources: new Map(), failures: [] }),
         );
       }),
     );

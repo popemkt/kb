@@ -22,8 +22,10 @@ import {
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
+  type ScreensPort,
   familyTags,
 } from "@kb/contracts";
+import { domainError } from "@kb/model";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { renewTabSession, tabSession } from "@/api/tab-session";
 import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
@@ -42,6 +44,8 @@ import {
 import { pageCatalog } from "@/lib/view-catalog";
 import { useGraphStore } from "@/stores/graph.store";
 import { useScreenStore } from "@/stores/screen.store";
+import { useUiStore } from "@/stores/ui.store";
+import { setLocalScreens } from "@/session/runtime";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /** How often, at most, a tab publishes its screen. */
@@ -100,6 +104,33 @@ function readScreen(document: Document) {
     activePane: focused,
     panes: layoutPanes(layout).map(paneScreen),
   });
+}
+
+const notHere = Effect.fail(
+  domainError("internal", "a screen command is the server's to send, not the page's own"),
+);
+
+/**
+ * This tab as the `Screens` port answers for it, to the page's own calls:
+ * what a call the page makes in its session fills from (DESIGN.md → Action
+ * registry → What a session fills). It reads the live screen, not the copy
+ * the server holds, so a local commit and the push it makes agree on what
+ * "this" was. It knows only this tab, and a command belongs to the server,
+ * which reaches every tab.
+ */
+function ownTabScreens(page: Window, tabId: () => string): ScreensPort {
+  return {
+    screen: ({ session }) =>
+      Effect.sync(() => {
+        const tab = tabId();
+        const read = readScreen(page.document);
+        if (!read.success || (session !== undefined && session !== tab)) return { tabs: [] };
+        return { tabs: [{ tab, person: useUiStore.getState().person ?? null, ...read.data }] };
+      }),
+    navigate: () => notHere,
+    select: () => notHere,
+    capture: () => notHere,
+  };
 }
 
 /** Show `route` in `pane`, when a view owns it. */
@@ -237,9 +268,13 @@ export interface ScreenPluginOptions {
   readonly publish: (tab: string, state: ScreenState) => void;
   /** Install (or, with null, remove) the tab's side of what the server says. */
   readonly attach: (tab: ScreenTab | null) => void;
+  /** Install (or, with null, remove) this tab's screen as the page's own calls read it. */
+  readonly serve: (screens: ScreensPort | null) => void;
 }
 
 interface Publisher {
+  /** The id the tab publishes as now. */
+  readonly tab: () => string;
   readonly stop: () => void;
   /** The server refused `taken`: when that is this tab's id, pick a fresh one and publish again. */
   readonly refused: (taken: string) => void;
@@ -284,6 +319,7 @@ function startPublishing(
   const unwatch = watchScreen(page, schedule);
   flush();
   return {
+    tab: () => tab,
     stop: () => {
       unwatch();
       if (timer !== null) clearTimeout(timer);
@@ -309,9 +345,11 @@ export function screenPlugin(options: ScreenPluginOptions): Plugin {
             if (page === null) return () => undefined;
             const publisher = startPublishing(page, options);
             options.attach({ carryOut, refused: publisher.refused });
+            options.serve(ownTabScreens(page, publisher.tab));
             return () => {
               publisher.stop();
               options.attach(null);
+              options.serve(null);
             };
           }),
           (stop) => Effect.sync(stop),
@@ -327,4 +365,5 @@ export const screenUiPlugin = screenPlugin({
   freshTabId: renewTabSession,
   publish: (tab, state) => getLiveClient().publishScreen(tab, state),
   attach: setScreenTab,
+  serve: setLocalScreens,
 });

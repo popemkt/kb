@@ -15,8 +15,9 @@ import { Effect, Predicate } from "effect";
 import { z } from "zod";
 import {
   DecidedEntrySchema,
-  asObjectSchema,
+  toolInputSchema,
   failed,
+  succeeded,
   listedOn,
   onWire,
   type ActionInvocation,
@@ -114,7 +115,7 @@ function receiptFor(
       (receipt): ActionReceipt =>
         receipt.status === "failed"
           ? receipt
-          : { status: "succeeded", id: receipt.id, output: receipt.output },
+          : succeeded(receipt.id, receipt.output, receipt.context),
     ),
     Effect.catch((message) => Effect.succeed(failed(invocation.id, "internal", message))),
   );
@@ -147,7 +148,8 @@ export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelCon
     name: entry.id,
     title: entry.title,
     description: entry.description,
-    inputSchema: asObjectSchema(entry.inputSchema),
+    // The page makes every call in its own tab session.
+    inputSchema: toolInputSchema(entry, true),
     annotations: {
       readOnlyHint: reads,
       consequentialHint: !reads,

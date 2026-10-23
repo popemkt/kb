@@ -11,6 +11,7 @@ import type { ActionRequest, ActionResponse, DecidedEntry, ManifestEntry } from 
 import { makeKernel } from "@kb/plugin";
 import { ToolCallFailed, type ModelContextTool } from "@kb/webmcp";
 import { setPostAction } from "@/api/action";
+import { tabSession } from "@/api/tab-session";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
@@ -81,7 +82,12 @@ describe("the page's WebMCP plugin", () => {
     const kernel = makeKernel();
     Effect.runSync(kernel.load(webMcpUiPlugin));
     await settle();
-    expect(post).toHaveBeenCalledWith({ id: "kb.manifest", input: {}, actor: "agent" });
+    expect(post).toHaveBeenCalledWith({
+      id: "kb.manifest",
+      input: {},
+      actor: "agent",
+      session: tabSession(),
+    });
     expect([...tools.keys()]).toEqual(["node.get", "render.views"]);
     Effect.runSync(kernel.unload("webmcp"));
     expect([...tools.keys()]).toEqual([]);
@@ -108,7 +114,12 @@ describe("the page's WebMCP plugin", () => {
       id: "render.views",
       output: "from the server",
     });
-    expect(post).toHaveBeenCalledWith({ id: "render.views", input: {}, actor: "agent" });
+    expect(post).toHaveBeenCalledWith({
+      id: "render.views",
+      input: {},
+      actor: "agent",
+      session: tabSession(),
+    });
     Effect.runSync(kernel.unload("webmcp"));
   });
 
@@ -127,7 +138,12 @@ describe("the page's WebMCP plugin", () => {
     useUiStore.getState().setWsStatus("closed");
     useUiStore.getState().setWsStatus("open");
     await settle();
-    expect(post).toHaveBeenCalledWith({ id: "kb.manifest", input: {}, actor: "agent" });
+    expect(post).toHaveBeenCalledWith({
+      id: "kb.manifest",
+      input: {},
+      actor: "agent",
+      session: tabSession(),
+    });
     Effect.runSync(kernel.unload("webmcp"));
   });
 

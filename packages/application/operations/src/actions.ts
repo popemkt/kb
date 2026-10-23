@@ -83,6 +83,8 @@ export const nodeUpdateDef = {
   description: "Edit text, set/unset props, or move a node",
   mode: { kind: "write" } as const,
   targets: ["id", "parent"],
+  // "Rename this": a call made in a tab session may leave out the node it edits.
+  context: { id: "focused" },
   inputSchema: z.object({
     id: z.string(),
     text: z.string().optional(),

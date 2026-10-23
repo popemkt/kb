@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Result } from "effect";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
-import { ViewKeyPoint } from "@kb/contracts";
+import { ContextReferencePoint, ViewKeyPoint, type PaneScreen } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { makeKernel } from "@kb/plugin";
 import { issueText, paramsFrom, viewNodeFor } from "@kb/views";
@@ -94,6 +94,40 @@ describe("canvas family", () => {
     const views = contributed();
     expect(views.map((view) => view.id)).toEqual([CanvasListView.id, CanvasView.id]);
     expect(views.map((view) => view.value.text)).toEqual([undefined, undefined]);
+  });
+
+  test("its plugin contributes what a session fills from a canvas pane, and only from one", () => {
+    const references = Effect.runSync(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        yield* kernel.load(canvasPlugin());
+        const found = new Map(
+          kernel.contributions(ContextReferencePoint).map(({ id, value }) => [id, value]),
+        );
+        yield* kernel.shutdown;
+        return found;
+      }),
+    );
+    expect([...references.keys()]).toEqual(["ext.canvas.open", "ext.canvas.selection"]);
+    const open = references.get("ext.canvas.open");
+    const selection = references.get("ext.canvas.selection");
+    const onCanvas: PaneScreen = {
+      id: "p1",
+      route: "/canvas/c.one",
+      view: { key: CanvasView.id, subject: "c.one" },
+      focused: null,
+      selection: ["item.a"],
+    };
+    const outline: PaneScreen = {
+      ...onCanvas,
+      route: "/",
+      view: { key: "outline.main", subject: "c.one" },
+    };
+    expect(open?.resolve(onCanvas)).toBe("c.one");
+    expect(selection?.resolve(onCanvas)).toEqual(["item.a"]);
+    expect(open?.resolve(outline)).toBeUndefined();
+    expect(selection?.resolve(outline)).toBeUndefined();
+    expect(selection?.resolve({ ...onCanvas, selection: [] })).toBeUndefined();
   });
 
   test("one canvas is named by its node's id", () => {

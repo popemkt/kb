@@ -43,8 +43,14 @@ async function screen(handle: UiServerHandle, input: object = {}) {
   return ScreenListSchema.parse(await post(handle, { id: "ui.screen", input }));
 }
 
-async function command(handle: UiServerHandle, id: "ui.navigate" | "ui.select", input: object) {
-  return ScreenReceiptSchema.parse(await post(handle, { id, input }));
+async function command(
+  handle: UiServerHandle,
+  id: "ui.navigate" | "ui.select",
+  input: object,
+  session?: string,
+) {
+  const made = session === undefined ? { id, input } : { id, input, session };
+  return ScreenReceiptSchema.parse(await post(handle, made));
 }
 
 /** `read` until `done` accepts it, for at most two seconds; the last answer either way. */
@@ -136,8 +142,8 @@ describe("screen state", () => {
     await run(a.publish(on("/graph", true)));
     expect((await screen(handle)).tabs.map((t) => t.tab)).toEqual(["tab.a", "tab.b"]);
 
-    expect((await screen(handle, { tab: "tab.b" })).tabs.map((t) => t.tab)).toEqual(["tab.b"]);
-    expect(await screen(handle, { tab: "tab.gone" })).toEqual({ tabs: [] });
+    expect((await screen(handle, { session: "tab.b" })).tabs.map((t) => t.tab)).toEqual(["tab.b"]);
+    expect(await screen(handle, { session: "tab.gone" })).toEqual({ tabs: [] });
   });
 
   test("a tab that has never had attention comes after one that has", async () => {
@@ -152,7 +158,7 @@ describe("screen state", () => {
     expect(hijacker.refused).toEqual(["tab.a"]);
     expect(owner.refused).toEqual([]);
     expect((await screen(handle)).tabs.map((t) => [t.tab, t.route])).toEqual([["tab.a", "/"]]);
-    expect(await command(handle, "ui.navigate", { tab: "tab.a", route: "/graph" })).toEqual({
+    expect(await command(handle, "ui.navigate", { route: "/graph" }, "tab.a")).toEqual({
       outcome: "applied",
       tab: "tab.a",
     });
@@ -179,7 +185,7 @@ describe("screen state", () => {
     expect(a.commands).toEqual([]);
 
     expect(
-      await command(handle, "ui.navigate", { tab: "tab.a", pane: "main", route: "/graph" }),
+      await command(handle, "ui.navigate", { pane: "main", route: "/graph" }, "tab.a"),
     ).toEqual({
       outcome: "applied",
       tab: "tab.a",
@@ -187,7 +193,7 @@ describe("screen state", () => {
     expect(a.commands).toEqual([{ kind: "navigate", pane: "main", to: { route: "/graph" } }]);
   });
 
-  test("an agent's command reaches the page tab whose session id it names, and the person's tab before a program's", async () => {
+  test("a command made in a tab session reaches that tab, and with none the person's tab before a program's", async () => {
     // Two pages, each publishing under the session id its tab minted, and a
     // local program's socket publishing last, so it is the most recent.
     const mine = await tab("session.mine");
@@ -196,8 +202,8 @@ describe("screen state", () => {
       FakeTab.open(handle.at, "session.program", FAKE_TAB_SCREEN, "program"),
     );
     tabs.push(program);
-    // The agent's call (this post carries no Origin) names a session: only that tab hears it.
-    expect(await command(handle, "ui.navigate", { tab: "session.mine", route: "/graph" })).toEqual({
+    // The agent's call (this post carries no Origin) is made in a session: only that tab hears it.
+    expect(await command(handle, "ui.navigate", { route: "/graph" }, "session.mine")).toEqual({
       outcome: "applied",
       tab: "session.mine",
     });
@@ -225,7 +231,7 @@ describe("screen state", () => {
   test("with no tab, or not the tab asked for, a command is no-tab", async () => {
     expect(await command(handle, "ui.navigate", { route: "/" })).toEqual({ outcome: "no-tab" });
     await tab("tab.a");
-    expect(await command(handle, "ui.select", { tab: "tab.gone", selection: [] })).toEqual({
+    expect(await command(handle, "ui.select", { selection: [] }, "tab.gone")).toEqual({
       outcome: "no-tab",
       tab: "tab.gone",
     });
@@ -312,7 +318,9 @@ describe("screen state with no kb ui", () => {
       id: "ui.screen",
       output: { tabs: [] },
     });
-    expect(await invoke(ctx, { id: "ui.select", input: { tab: "tab.a", focus: "n.x" } })).toEqual({
+    expect(
+      await invoke(ctx, { id: "ui.select", input: { focus: "n.x" }, session: "tab.a" }),
+    ).toEqual({
       status: "succeeded",
       id: "ui.select",
       output: { outcome: "no-tab", tab: "tab.a" },

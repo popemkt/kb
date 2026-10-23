@@ -13,7 +13,7 @@ import {
 import { Cause, Effect, Exit } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
-  asObjectSchema,
+  toolInputSchema,
   failed,
   listingOf,
   onWire,
@@ -24,6 +24,8 @@ import {
   type KbContext,
   type ManifestEntry,
   type SurfaceWire,
+  sessionOfMeta,
+  Screens,
 } from "@kb/contracts";
 import { type DomainError, currentIso, domainError, ensureDomainError } from "@kb/model";
 import {
@@ -121,6 +123,36 @@ export interface McpToolContext {
 }
 
 /**
+ * Which tab session this server's calls are made in (DESIGN.md → Action
+ * registry → A call made in a tab session). By default only the one a call
+ * names under `_meta`; with `follow`, a call that names none is made in the
+ * person's most recently active tab, resolved per call, so an agent that has
+ * only MCP can work on what the person is looking at.
+ */
+export interface McpOptions {
+  readonly session?: "follow";
+}
+
+/** The session a call is made in: the one it names, else, when following, the person's latest tab. */
+interface McpCallSession {
+  readonly stated?: string;
+  readonly follow?: boolean;
+}
+
+/**
+ * The person's most recently active tab, as the screens list it (the
+ * person's first, most recently active first): none when no tab of theirs
+ * is open, and then the call is made in no session.
+ */
+const followedSession = Effect.gen(function* () {
+  const { tabs } = yield* (yield* Screens)
+    .screen({ session: undefined })
+    .pipe(Effect.orElseSucceed(() => ({ tabs: [] })));
+  const [latest] = tabs;
+  return latest !== undefined && latest.person !== null ? latest.tab : undefined;
+});
+
+/**
  * Effect program for one MCP CallTool request. Failures and Die defects are
  * mapped to {@link CallToolResult} with `isError`. Interrupt-only cancellation
  * is not converted into a tool result (see {@link containToolResult}).
@@ -130,6 +162,7 @@ export function callToolEffect(
   name: string,
   args: unknown,
   tools: McpToolContext,
+  made: McpCallSession = {},
 ): Effect.Effect<CallToolResult> {
   return containToolResult(
     Effect.gen(function* () {
@@ -138,7 +171,12 @@ export function callToolEffect(
         return mcpToolResult(failed(name, "unknown_action", `unknown tool: ${name}`));
       }
 
-      const invocation = onWire(MCP_WIRE, { id: action.id, input: args ?? {} });
+      const session = made.stated ?? (made.follow === true ? yield* followedSession : undefined);
+      const invocation = onWire(MCP_WIRE, {
+        id: action.id,
+        input: args ?? {},
+        ...(session === undefined ? {} : { session }),
+      });
       // Long-lived server vs CLI mutators: reload keeps per-invocation freshness.
       yield* reloadEffect(ctx);
       return mcpToolResult(yield* invokeReceiptEffect(ctx, invocation));
@@ -212,21 +250,26 @@ export function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A
  */
 export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   root: string,
+  options: McpOptions = {},
   // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
 ): Effect.fn.Return<Server, DomainError, FileSystem> {
   const ctx = yield* openKbEffect(root);
   const actions = (yield* sessionRegistry(ctx)).manifestEntries;
   const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
-  return bindMcpHandlers(ctx, { byToolName });
+  return bindMcpHandlers(ctx, { byToolName }, options);
 }, Effect.provide(bunFileSystemLayer));
 
-/** One listed action as an MCP tool, its hints from the mode and `{id, mode}` under `_meta`. */
-function mcpTool(a: ManifestEntry): Tool {
+/**
+ * One listed action as an MCP tool, its hints from the mode and `{id, mode}`
+ * under `_meta`. A server that follows the person's tab lists what a session
+ * fills as inputs a call may leave out.
+ */
+function mcpTool(a: ManifestEntry, sessioned: boolean): Tool {
   return {
     name: mcpToolName(a.id),
     title: a.title,
     description: a.description,
-    inputSchema: asObjectSchema(a.inputSchema),
+    inputSchema: toolInputSchema(a, sessioned),
     annotations: { title: a.title, ...mcpToolHints(a.mode) },
     _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
   };
@@ -237,13 +280,14 @@ function mcpTool(a: ManifestEntry): Tool {
  * less what this wire could never call. A guard may decide by graph data, so the
  * list follows them as they change.
  */
-const listToolsEffect = Effect.fn("mcp.listTools")(function* (ctx: KbContext) {
+const listToolsEffect = Effect.fn("mcp.listTools")(function* (ctx: KbContext, options: McpOptions) {
   yield* reloadEffect(ctx);
   const manifest = yield* invokeReceiptEffect(
     ctx,
     onWire(MCP_WIRE, { id: "kb.manifest", input: {} }),
   );
-  return { tools: listingOf(MCP_WIRE, manifest).map(mcpTool) };
+  const sessioned = options.session === "follow";
+  return { tools: listingOf(MCP_WIRE, manifest).map((entry) => mcpTool(entry, sessioned)) };
 });
 
 /**
@@ -251,7 +295,7 @@ const listToolsEffect = Effect.fn("mcp.listTools")(function* (ctx: KbContext) {
  * this is where kb's Effects are run — a plain function beside the builder,
  * not inside it.
  */
-function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext) {
+function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext, options: McpOptions) {
   // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
   const server = new Server(
     { name: "kb", version: "0.1.0" },
@@ -259,7 +303,7 @@ function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext) {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, () =>
-    runResourceHandler(listToolsEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
+    runResourceHandler(listToolsEffect(ctx, options).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
   );
 
   // MCP Apps: every view (a docs view by name, any other view node by id) is a
@@ -275,9 +319,10 @@ function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext) {
   );
 
   server.setRequestHandler(CallToolRequestSchema, (request) => {
-    const { name, arguments: args } = request.params;
+    const { name, arguments: args, _meta } = request.params;
     // callToolEffect provides kbRuntimeLayer and maps Fail/Die → isError.
-    return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx));
+    const made = { stated: sessionOfMeta(_meta), follow: options.session === "follow" };
+    return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx, made));
   });
 
   return server;
@@ -289,8 +334,9 @@ function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext) {
  */
 export const startMcp = Effect.fn("kb.startMcp")(function* (
   root: string,
+  options: McpOptions = {},
 ): Effect.fn.Return<void, DomainError, FileSystem> {
-  const server = yield* createMcpServer(root);
+  const server = yield* createMcpServer(root, options);
   const transport = new StdioServerTransport();
   yield* Effect.tryPromise({
     try: () => server.connect(transport),

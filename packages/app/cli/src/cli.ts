@@ -38,10 +38,12 @@ import {
   EXIT_USAGE,
   checkUiListen,
   collectIdentity,
+  collectOrigins,
   toGovernance,
   toInt,
   toOrigin,
   toPort,
+  toSessionMode,
 } from "./arguments.ts";
 import {
   ACTION_INVOKE_WIRE,
@@ -52,7 +54,7 @@ import {
   kbAction,
   type GlobalOpts,
 } from "./command.ts";
-import { formatReceipt } from "./format.ts";
+import { filledLines, formatReceipt } from "./format.ts";
 import { extensionCommands } from "./extensions.ts";
 import { gateCommands } from "./gates.ts";
 import { locationCommands } from "./locations.ts";
@@ -268,12 +270,17 @@ function buildProgram(): Command {
   program
     .command("mcp")
     .description("Serve the kb MCP server on stdio")
+    .option(
+      "--session <mode>",
+      "follow: make each call that names no session in the person's most recently active tab",
+      toSessionMode,
+    )
     .action(
-      cliAction((globals) =>
+      cliAction((globals, [opts]: [{ session?: "follow" }]) =>
         Effect.gen(function* () {
           const { startMcp } = yield* Effect.promise(() => import("@kb/mcp"));
           const root = yield* resolveRootEffect({ root: globals.root });
-          yield* startMcp(root);
+          yield* startMcp(root, opts.session === undefined ? {} : { session: opts.session });
           // keep the process alive; the transport owns stdio from here
           return yield* Effect.never;
         }),
@@ -292,6 +299,11 @@ function buildProgram(): Command {
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
     .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
     .option(
+      "--embed-origin <url>",
+      "let the page at this origin frame kb, and tell it the tab's session (repeatable)",
+      collectOrigins,
+    )
+    .option(
       "--identity-header <header=login>",
       "trust the reverse proxy's <header> to name the person; a request whose header is <login> is theirs (repeatable; with --socket)",
       collectIdentity,
@@ -308,6 +320,7 @@ function buildProgram(): Command {
               dev?: boolean;
               devPort?: number;
               publicOrigin?: string;
+              embedOrigin?: readonly string[];
               identityHeader?: { header: string; people: readonly string[] };
               open?: boolean;
             },
@@ -327,6 +340,7 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
+              embedOrigins: opts.embedOrigin ?? [],
               // The page is the server's owner; a hosted deployment may name
               // the person by the proxy it trusts instead.
               identity:
@@ -701,6 +715,7 @@ function buildProgram(): Command {
           const raw = yield* readActionJsonEffect(jsonArg);
           const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw));
           const receipt = yield* invokeReceiptEffect(ctx, invocation);
+          if (globals.json !== true) for (const line of filledLines(receipt)) writeErr(line);
           writeOut(formatReceipt(receipt, { json: globals.json === true }));
           return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
         }),

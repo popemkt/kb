@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
+import { tabSession } from "@/api/tab-session";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { planSplit } from "./plan";
 import { runOptimistic } from "./optimistic";
@@ -24,7 +25,7 @@ describe("local action plans", () => {
     expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("Ship");
     expect(useGraphStore.getState().index?.getNode("n.split")?.text).toBe(" kb ui shell");
     await waitForBrowserPushes();
-    expect(calls).toEqual(plan.actions);
+    expect(calls).toEqual(plan.actions.map((action) => ({ ...action, session: tabSession() })));
   });
 
   it("fixture mode runs locally without pushing", async () => {

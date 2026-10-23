@@ -50,7 +50,7 @@ import {
   manifest,
   openKb,
 } from "@kb/runtime";
-import { FakeTab } from "./fake-tab.ts";
+import { FAKE_TAB_SCREEN, FakeTab } from "./fake-tab.ts";
 
 /** One listed action, as a surface's own listing states it. */
 export interface ListedAction {
@@ -84,6 +84,13 @@ export interface ActionSurface {
    * which hosts none. The invoke core it is held to is that composition's.
    */
   readonly host: "ui" | "own";
+  /**
+   * Which tab session a call on this surface is made in: the one the call
+   * names (`stated`: the envelope, MCP's `_meta`), or the surface's own tab
+   * whatever the call names (`own`: the page's WebMCP tools, kb's agent),
+   * which the page's and the agent's own tests prove.
+   */
+  readonly session: "stated" | "own";
   close(): Promise<void>;
 }
 
@@ -144,6 +151,10 @@ const SETTING_INVOCATION: ActionRequest = {
 /** The one tab connected to the root's `kb ui`, which applies every command it gets. */
 const CONTRACT_TAB = "tab.surface-contract";
 const MISSING_TAB = "tab.surface-contract-missing";
+/** A second tab, opened after the contract's own, so a command made in no session goes to it. */
+const LATER_TAB = "tab.surface-contract-later";
+/** The tabs a fill reads, one per surface, each focused on a node of its own. */
+const FOCUS_TAB = "tab.surface-contract-focus";
 
 /**
  * A write with no side effect and a fixed output, so that receipts from
@@ -202,13 +213,13 @@ const CALLS: readonly ActionRequest[] = [
     },
   },
   { id: "ui.screen", input: {} },
-  { id: "ui.screen", input: { tab: MISSING_TAB } },
+  { id: "ui.screen", input: { session: MISSING_TAB } },
   { id: "ui.navigate", input: { route: "/canvas" } },
   { id: "ui.navigate", input: {} },
   { id: "ui.navigate", input: { camera: { preset: "front" } } },
   { id: "ui.capture", input: { view: { preset: "top" } } },
   { id: "ui.select", input: { selection: [] } },
-  { id: "ui.select", input: { tab: MISSING_TAB, focus: "sys.tag" } },
+  { id: "ui.select", input: { focus: "sys.tag" }, session: MISSING_TAB },
 ];
 
 /** `kb.manifest`'s output: each action with what is decided about its caller's call. */
@@ -268,6 +279,8 @@ interface SurfaceCase {
   readonly name: string;
   readonly surface: ActionSurface;
   readonly root: string;
+  /** The root's `kb ui`. */
+  readonly ui: LiveUi;
   /**
    * The invoke core's receipt for the call, on the same root, as it arrives
    * from this surface: made by the actor the surface declares for it.
@@ -326,7 +339,7 @@ function overSurfaces(
                   );
                 const via = (invocation: ActionRequest) =>
                   Effect.promise(() => surface.invoke(invocation));
-                yield* check({ name, surface, root, core, via });
+                yield* check({ name, surface, root, ui, core, via });
               }),
             ),
           { discard: true },
@@ -334,6 +347,17 @@ function overSurfaces(
       }),
     ),
   );
+}
+
+/**
+ * `call` as `surface` makes it: a surface that makes its calls in its own
+ * tab session (`own`) makes them in none here, since its tab publishes no
+ * screen, whatever session the call names.
+ */
+function asMadeOn(surface: ActionSurface, call: ActionRequest): ActionRequest {
+  if (surface.session === "stated") return call;
+  const { session: _named, ...made } = call;
+  return made;
 }
 
 const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
@@ -396,12 +420,77 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
                 expect({ name, call, receipt: asWireData(receipt) }).toEqual({
                   name,
                   call,
-                  receipt: asWireData(yield* core(call)),
+                  receipt: asWireData(yield* core(asMadeOn(surface, call))),
                 });
               }),
             { discard: true },
           );
         }),
+      ),
+  ],
+  [
+    "every surface that states a session makes a screen command in it, " +
+      "not in the most recently active tab",
+    (set) =>
+      overSurfaces(set, ({ name, surface, ui, via }) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            if (surface.session !== "stated") return;
+            yield* Effect.acquireRelease(FakeTab.open(ui.at, LATER_TAB), (later) => later.close);
+            const navigate = { id: "ui.navigate", input: { route: "/graph" } };
+            expect({ name, receipt: yield* via({ ...navigate, session: CONTRACT_TAB }) }).toEqual({
+              name,
+              receipt: {
+                status: "succeeded",
+                id: navigate.id,
+                output: { outcome: "applied", tab: CONTRACT_TAB },
+              },
+            });
+            expect({ name, receipt: yield* via(navigate) }).toEqual({
+              name,
+              receipt: {
+                status: "succeeded",
+                id: navigate.id,
+                output: { outcome: "applied", tab: LATER_TAB },
+              },
+            });
+          }),
+        ),
+      ),
+  ],
+  [
+    "every surface that states a session fills what it leaves out from that tab, " +
+      "says what it filled, and fills nothing in no session",
+    (set) =>
+      overSurfaces(set, ({ name, surface, ui, core, via }) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            if (surface.session !== "stated") return;
+            const id = `n.focused-${name}`;
+            const added = yield* core({ id: "node.add", input: { id, text: "before" } });
+            expect(added.status).toBe("succeeded");
+            const focusedOn = {
+              ...FAKE_TAB_SCREEN,
+              panes: FAKE_TAB_SCREEN.panes.map((pane) => ({ ...pane, focused: id })),
+            };
+            const tab = `${FOCUS_TAB}.${name}`;
+            yield* Effect.acquireRelease(FakeTab.open(ui.at, tab, focusedOn), (open) => open.close);
+            const rename = { id: "node.update", input: { text: "renamed here" } };
+            const receipt = yield* via({ ...rename, session: tab });
+            expect({ name, receipt }).toMatchObject({
+              name,
+              receipt: {
+                status: "succeeded",
+                output: { id },
+                context: { id: { from: "focused", value: id } },
+              },
+            });
+            expect({ name, receipt: yield* via(rename) }).toMatchObject({
+              name,
+              receipt: { status: "failed", code: "invalid_input" },
+            });
+          }),
+        ),
       ),
   ],
   [

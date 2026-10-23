@@ -2,11 +2,13 @@
  * This tab's session id (DESIGN.md → Surfaces → The tab's session): minted
  * in the browser the first time the tab asks, and kept in the tab's
  * sessionStorage, so a reload is the same session and another tab is
- * another. The page publishes its screen under it and labels its writes
- * with it, and its one job is to let an agent's call reach the tab it names
- * (`ui.screen`, `ui.navigate`). It proves nothing and the server never
- * issues it.
+ * another. The page publishes its screen under it, and every call the page
+ * makes is made in it (`inTabSession`), so an agent's call that names it, or
+ * that the page makes for it, reaches this tab (`ui.navigate`). It proves
+ * nothing and the server never issues it.
  */
+
+import type { ActionRequest } from "@kb/contracts";
 
 const STORAGE_KEY = "kb.tab-session";
 
@@ -49,5 +51,23 @@ export function tabSession(): string {
  * sessionStorage, and the server refuses the second to publish under it).
  */
 export function renewTabSession(): string {
-  return keep(mint());
+  const id = keep(mint());
+  for (const listener of renewed) listener(id);
+  return id;
+}
+
+const renewed = new Set<(id: string) => void>();
+
+/** Hear each time this tab's session id is renewed; returns the unsubscribe. */
+export function onTabSessionRenewed(listener: (id: string) => void): () => void {
+  renewed.add(listener);
+  return () => renewed.delete(listener);
+}
+
+/**
+ * `call` as this tab makes it: in the session it names, else in this tab's.
+ * Every lane the page runs a call on (the local replica, the push) states it.
+ */
+export function inTabSession<C extends ActionRequest>(call: C): C {
+  return call.session === undefined ? { ...call, session: tabSession() } : call;
 }
