@@ -1,6 +1,10 @@
 # Sessioned calls — an agent acts in the tab the person is looking at
 
-**Status: design for the owner's review, not built.** Date: 2026-10-22.
+**Status: built on `feat/tab-sessions` (S1–S9), 2026-10-23, with the
+recommended answers to Questions 1 and 2 (the `tab` inputs removed with no
+alias; `node.add` unchanged); Questions 3–6 stay open. DESIGN.md is now the
+record of what was built; where the build departs from this plan is under
+[As built](#as-built).** Date: 2026-10-22.
 Written against `origin/main` at `8fd2beb1`. It was revised the same day
 after an independent adversarial review; what changed and why is under
 [Review](#review). It builds on
@@ -436,6 +440,37 @@ three steps are behaviour-preserving, with the existing suite as the proof.
 | S7 | Context declarations on the canvas verbs, `node.update` and `graph.trace` | add | S |
 | S8 | `kb mcp --session follow` | add | S |
 | S9 | `--embed-origin`, `frame-ancestors`, the `kb.session` post | add | S |
+
+## As built
+
+Where the implementation departs from the plan above, and why:
+
+- **Reference ids are namespaced like actions.** The canvas family's are
+  `ext.canvas.open` and `ext.canvas.selection`, not `canvas.open`: a
+  reference belongs to the family that resolves it, and its actions are
+  `ext.canvas.*`. Core's stay bare (`focused`, `subject`).
+- **References are carried by the family's declaration**
+  (`ExtensionDeclaration.context`), and `declarationPlugin` contributes them.
+  Both hosts already load every family's declaration through that plugin, so
+  the page and the server resolve the same references with no per-host
+  wiring. Core's are on core's declaration, contributed like anyone's.
+- **The registration check joined the batch check.** `unloadBrokenBatches`
+  became `unloadBrokenActions`, one fixpoint over the rules every action
+  keeps (a batch's parts; what a session fills), rather than a second pass.
+- **One tool-schema rule.** `asObjectSchema` became `toolInputSchema(entry,
+  sessioned)`, used by MCP, WebMCP, kb's agent and the Claude tool server, so
+  the "may be left out" annotation and the dropped `required` key cannot
+  differ between surfaces.
+- **The page's own-tab `Screens` is installed by the screen plugin**
+  (`setLocalScreens`), as the runtime's other seams are, because the runtime
+  importing the screen module made an import cycle. It answers under the id
+  the tab publishes as.
+- **The surface contract's fill property** covers the surfaces that state a
+  session (CLI, MCP, HTTP); WebMCP and kb's agent make calls in their own tab
+  and are covered by their own tests. `kb mcp --session follow` has its own
+  end-to-end test, since following changes what "no session" means.
+- **`embedders` is left off the `person` frame when there are none**, so a
+  server with no `--embed-origin` sends what it sent before.
 
 ## Questions for the owner
 
