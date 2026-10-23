@@ -215,7 +215,9 @@ query text, each as of a generation of the replica.
 - **Live while watched.** A mounted reader watches the queries it read
   (`useQueryAnswer`, `useAnswered`); when the replica moves, the watched ones
   are asked again, and until their new answers arrive readers keep the last
-  ones, so a write never blanks what the page shows. A query nobody watches
+  ones, so a write never blanks what the page shows. A new answer whose rows
+  are the last one's keeps the last one's rows array, so a reader that
+  derives from the rows does no work for a move that did not change them. A query nobody watches
   is asked again only when read, and is forgotten once enough others have
   been read since.
 - **Pure readers stay pure.** A `@kb/model` reader that takes a synchronous
