@@ -4,7 +4,8 @@
  *
  * ```sql
  * CREATE TABLE tx (rev INTEGER PRIMARY KEY, at TEXT NOT NULL,
- *                  origin TEXT, actor TEXT, ops TEXT NOT NULL, mark TEXT NOT NULL);
+ *                  origin TEXT, actor TEXT, session TEXT, ops TEXT NOT NULL,
+ *                  mark TEXT NOT NULL);
  * ```
  *
  * `ops` is the `canonicalJson` of the `StoreTx` — the nodes' own bytes again,
@@ -46,6 +47,7 @@ interface TxRow {
   at: string;
   origin: string | null;
   actor: string | null;
+  session: string | null;
   ops: string;
 }
 
@@ -56,6 +58,7 @@ function toKbTx(row: TxRow): KbTx {
     ops: JSON.parse(row.ops),
     ...(row.origin === null ? {} : { origin: row.origin }),
     ...(row.actor === null ? {} : { actor: row.actor }),
+    ...(row.session === null ? {} : { session: row.session }),
   });
 }
 
@@ -91,7 +94,7 @@ export class SqliteTxTail implements TxTail {
     const db = this.connection.peek();
     if (db === null) return [];
     return db
-      .query<TxRow, []>("SELECT rev, at, origin, actor, ops FROM tx ORDER BY rev")
+      .query<TxRow, []>("SELECT rev, at, origin, actor, session, ops FROM tx ORDER BY rev")
       .all()
       .map(toKbTx);
   }
@@ -117,10 +120,18 @@ export class SqliteTxTail implements TxTail {
       const mark = commitMark(db) ?? "";
       const insert = db.prepare<
         unknown,
-        [number, string, string | null, string | null, string, string]
-      >("INSERT INTO tx (rev, at, origin, actor, ops, mark) VALUES (?, ?, ?, ?, ?, ?)");
+        [number, string, string | null, string | null, string | null, string, string]
+      >("INSERT INTO tx (rev, at, origin, actor, session, ops, mark) VALUES (?, ?, ?, ?, ?, ?, ?)");
       for (const tx of kept) {
-        insert.run(tx.rev, tx.at, tx.origin ?? null, tx.actor ?? null, canonicalJson(tx.ops), mark);
+        insert.run(
+          tx.rev,
+          tx.at,
+          tx.origin ?? null,
+          tx.actor ?? null,
+          tx.session ?? null,
+          canonicalJson(tx.ops),
+          mark,
+        );
       }
     }).immediate();
   }
@@ -133,13 +144,17 @@ export class SqliteTxTail implements TxTail {
   appendWithin(db: Database, ops: StoreTx, record: TxRecord): KbTx {
     const rev =
       (db.query<{ rev: number | null }, []>("SELECT MAX(rev) AS rev FROM tx").get()?.rev ?? 0) + 1;
-    db.prepare<unknown, [number, string, string | null, string | null, string, string]>(
-      "INSERT INTO tx (rev, at, origin, actor, ops, mark) VALUES (?, ?, ?, ?, ?, ?)",
+    db.prepare<
+      unknown,
+      [number, string, string | null, string | null, string | null, string, string]
+    >(
+      "INSERT INTO tx (rev, at, origin, actor, session, ops, mark) VALUES (?, ?, ?, ?, ?, ?, ?)",
     ).run(
       rev,
       record.at,
       record.origin ?? null,
       record.actor ?? null,
+      record.session ?? null,
       canonicalJson(ops),
       commitMark(db) ?? "",
     );

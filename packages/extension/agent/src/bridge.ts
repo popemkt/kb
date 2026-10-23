@@ -235,7 +235,8 @@ class Bridge {
   }
 
   /**
-   * Run one tool call through the invoke core, hand it to the person where
+   * Run one tool call through the invoke core, made in the tab session of the
+   * person who asked (the tab their connection publishes as), hand it to the person where
    * the core asks for them, and tell the sidebar about it on both sides.
    */
   private call(
@@ -262,7 +263,7 @@ class Bridge {
       title: entry?.title ?? action,
       input,
     }).pipe(
-      Effect.andThen(host.invoke(onWire(AGENT_WIRE, { id: action, input }))),
+      Effect.andThen(host.invoke(onWire(AGENT_WIRE, { id: action, input, ...inTabOf(peer) }))),
       Effect.filterOrElse(
         (receipt) => receipt.status !== "failed" || receipt.code !== "approval_required",
         (refused) => askPerson(refused),
@@ -332,4 +333,10 @@ export function agentPlugin(options: {
         yield* ctx.contribute(ChannelPoint, { id: AGENT_CHANNEL_ID, value: bridge.channel });
       }),
   });
+}
+
+/** The tab session a call `peer` asked for is made in: the tab its connection publishes as. */
+function inTabOf(peer: ChannelPeer): { readonly session?: string } {
+  const tab = peer.tab();
+  return tab === null ? {} : { session: tab };
 }

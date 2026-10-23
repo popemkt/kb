@@ -10,7 +10,7 @@
  * no family necessary: the home, where the page stands, and the read view
  * a node opens in where the default view type is not loaded (`NodeReadView`).
  */
-import { defineExtension, viewDef } from "@kb/contracts";
+import { CORE_CONTEXT_REFERENCES, defineExtension, viewDef } from "@kb/contracts";
 import { DESIGN_SYSTEM_OPTIONS, systemSeedNodes, type SeedOption } from "@kb/model";
 import {
   DocsMarkdownView,
@@ -46,4 +46,5 @@ export const coreExtension = defineExtension({
     viewDef(NodeReadView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
+  context: CORE_CONTEXT_REFERENCES,
 });

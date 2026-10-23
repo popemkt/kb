@@ -71,6 +71,13 @@ export interface UiServerOptions {
   /** Browser origin when a reverse proxy serves this UI. */
   publicOrigin?: string;
   /**
+   * The origins allowed to frame the page (`kb ui --embed-origin`): sent
+   * as its `frame-ancestors` beside its own, and told to the page so a
+   * framed page can tell its embedder its tab session. Default: none, so
+   * only the page's own origin may frame it.
+   */
+  embedOrigins?: readonly string[];
+  /**
    * The identity providers this deployment names the person with
    * (`auth.ts`): plugins that contribute to `IdentityPoint`, held whatever
    * the store switches. Default: none, so the page is the account that
@@ -214,6 +221,7 @@ function serveUi(deps: {
   at: UiListener;
   uiPort: number | undefined;
   publicOrigin: string | undefined;
+  embedOrigins: readonly string[];
   root: string;
   ctx: KbContext;
   hub: SubscriptionHub;
@@ -260,6 +268,7 @@ function serveUi(deps: {
         ctx,
         hub,
         hosted: deps.hosted,
+        embedOrigins: deps.embedOrigins,
       });
     },
     websocket: {
@@ -350,7 +359,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
 
   const ctx = yield* openKbEffect(opts.root);
   const kernel = makeKernel();
-  const hub = new SubscriptionHub(ctx, channelsOf(kernel));
+  const hub = new SubscriptionHub(ctx, channelsOf(kernel), opts.embedOrigins ?? []);
   const hosted = yield* loadServerPlugins(
     kernel,
     ctx,
@@ -386,6 +395,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
       at: asked,
       uiPort: opts.uiPort,
       publicOrigin: opts.publicOrigin,
+      embedOrigins: opts.embedOrigins ?? [],
       root: opts.root,
       ctx,
       hub,
@@ -466,6 +476,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   devPort: number;
   uiRoot: string;
   publicOrigin?: string;
+  embedOrigins?: readonly string[];
   identity?: readonly Plugin[];
   spawn?: UiDevSpawn;
   extensions?: readonly ExtensionEntry[];
@@ -477,6 +488,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
     openBrowser: false,
     uiPort: opts.devPort,
     publicOrigin: opts.publicOrigin,
+    embedOrigins: opts.embedOrigins,
     identity: opts.identity,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
@@ -516,6 +528,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   openBrowser: boolean;
   uiRoot: string;
   publicOrigin?: string;
+  embedOrigins?: readonly string[];
   identity?: readonly Plugin[];
   ensureBuilt?: EnsureUiBuilt;
   extensions?: readonly ExtensionEntry[];
@@ -529,6 +542,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
     socket: opts.socket,
     openBrowser: opts.openBrowser,
     publicOrigin: opts.publicOrigin,
+    embedOrigins: opts.embedOrigins,
     identity: opts.identity,
     extensions: opts.extensions,
     openedBy: opts.openedBy,
@@ -560,6 +574,7 @@ export interface RunUiCliOptions {
   devPort?: number;
   uiRoot?: string;
   publicOrigin?: string;
+  embedOrigins?: readonly string[];
   /** How the person is authenticated ({@link UiServerOptions.identity}). */
   identity?: readonly Plugin[];
   /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
@@ -592,6 +607,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
       uiRoot,
       spawn: opts.spawnDev,
       publicOrigin: opts.publicOrigin,
+      embedOrigins: opts.embedOrigins,
       identity: opts.identity,
       extensions: opts.extensions,
       openedBy: opts.openedBy,
@@ -618,6 +634,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     uiRoot,
     ensureBuilt: opts.ensureBuilt,
     publicOrigin: opts.publicOrigin,
+    embedOrigins: opts.embedOrigins,
     identity: opts.identity,
     extensions: opts.extensions,
     openedBy: opts.openedBy,

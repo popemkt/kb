@@ -6,7 +6,7 @@ import {
   type ActionRequest,
   type ActionResponse,
 } from "@kb/contracts";
-import { tabSession } from "@/api/tab-session";
+import { inTabSession } from "@/api/tab-session";
 
 export type { ActionRequest, ActionResponse };
 
@@ -17,10 +17,7 @@ let postActionImpl: PostActionFn = defaultPostAction;
 async function defaultPostAction(invocation: ActionRequest): Promise<ActionResponse> {
   const res = await fetch("/api/action", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-KB-Origin": tabSession(),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(envelopeOf(invocation)),
   });
   const json: unknown = await res.json().catch(() => null);
@@ -41,8 +38,9 @@ export function setPostAction(fn: PostActionFn | null): void {
 
 /**
  * Send one invocation's envelope to the server, which says who makes it
- * from the request it arrives on (DESIGN.md → Surfaces → Who the person is).
+ * from the request it arrives on (DESIGN.md → Surfaces → Who the person is),
+ * made in this tab's session unless it names another.
  */
 export function postAction(invocation: ActionRequest): Promise<ActionResponse> {
-  return postActionImpl(invocation);
+  return postActionImpl(inTabSession(invocation));
 }

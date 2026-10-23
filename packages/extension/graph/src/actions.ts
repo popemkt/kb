@@ -210,6 +210,8 @@ export const GRAPH_ACTIONS: readonly ExtensionAction[] = [
       "kind, its direction, its label and a sentence. Ties in length go to the path through less " +
       "connected nodes. A path is not a datalog relation, so this is not graph.query",
     mode: { kind: "read" },
+    // "How does this connect to …": the trace may start at the focused node.
+    context: { from: "focused" },
     inputSchema: traceInput,
     outputSchema: traceOutput,
     effect: graphTraceEffect,

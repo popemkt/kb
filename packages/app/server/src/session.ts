@@ -109,12 +109,19 @@ export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
   private readonly channels: ChannelDirectory;
+  /** The origins allowed to frame the page, which each connection is told. */
+  private readonly embedOrigins: readonly string[];
   private readonly unsubscribe: () => void;
   /** The screens of the connections that are UI tabs; the pictures they draw kept under the root. */
   readonly screens: ScreenHub;
 
-  constructor(ctx: KbContext, channels: ChannelDirectory = NO_CHANNELS) {
+  constructor(
+    ctx: KbContext,
+    channels: ChannelDirectory = NO_CHANNELS,
+    embedOrigins: readonly string[] = [],
+  ) {
     this.ctx = ctx;
+    this.embedOrigins = embedOrigins;
     this.screens = new ScreenHub((name, picture) =>
       keepCapture(ctx.root, name, picture).pipe(Effect.provide(bunFileSystemLayer)),
     );
@@ -154,7 +161,11 @@ export class SubscriptionHub {
     this.clients.set(clientId, { send, deliver, caller, watchTx: false, subs: new Map() });
     const greeting: ServerMessage[] = [
       { op: "hello", rev: this.ctx.log.head },
-      { op: "person", person: caller.person },
+      {
+        op: "person",
+        person: caller.person,
+        ...(this.embedOrigins.length === 0 ? {} : { embedders: [...this.embedOrigins] }),
+      },
     ];
     return Effect.forEach(greeting, (frame) => send(JSON.stringify(frame)), { discard: true });
   }

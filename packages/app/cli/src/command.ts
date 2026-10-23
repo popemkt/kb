@@ -21,7 +21,7 @@ import {
 import { type FailureCode, ResolveError, isDomainError, receiptCodeOf } from "@kb/model";
 import { UsageError } from "@kb/operations";
 import { EXIT_USAGE } from "./arguments.ts";
-import { formatReceipt } from "./format.ts";
+import { filledLines, formatReceipt } from "./format.ts";
 
 export const EXIT_OK = 0;
 export const EXIT_FAILED = 1;
@@ -152,6 +152,7 @@ export function report(
     writeOut(formatReceipt(receipt, { json: globals.json === true }));
     return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
   }
+  for (const line of filledLines(receipt)) writeErr(line);
   for (const line of lines(receipt.output)) writeOut(line);
   return EXIT_OK;
 }

@@ -271,16 +271,18 @@ function omittable<T extends z.ZodType>(schema: T) {
   return schema.nullish().transform((value) => value ?? undefined);
 }
 
-const tabField = omittable(z.string().min(1));
-
-/** Which tab and pane a command goes to, and how long it waits for the answer. */
+/**
+ * Which pane a command goes to, and how long it waits for the answer. Which
+ * tab is the call's to say, not its input's: the tab session it is made in
+ * (`ActionRequest.session`), else the person's most recently active tab.
+ */
 const commandTargetShape = {
-  tab: tabField,
   pane: omittable(z.string().min(1)),
   timeoutMs: omittable(z.number().int().min(1).max(SCREEN_COMMAND_TIMEOUT_MAX_MS)),
 };
 
-export const UiScreenInputSchema = z.object({ tab: tabField });
+/** `ui.screen`'s input: `session` narrows the list to that tab session's tab. */
+export const UiScreenInputSchema = z.object({ session: omittable(z.string().min(1)) });
 export type UiScreenInput = z.output<typeof UiScreenInputSchema>;
 
 export const UiNavigateInputSchema = z
@@ -358,18 +360,24 @@ export function captureCommand({ pane, view }: UiCaptureInput): ScreenCommand {
  * answer (`no-tab`, an empty list), not a failure.
  */
 export interface ScreensPort {
-  /** The live tabs, most recently active first; `tab` narrows the list to that one. */
+  /** The live tabs, most recently active first; `session` narrows the list to that one. */
   screen(input: UiScreenInput): Effect.Effect<ScreenList, DomainError>;
-  /** Open a node or a route in a tab (the most recently active by default). */
-  navigate(input: UiNavigateInput): Effect.Effect<ScreenReceipt, DomainError>;
-  /** Set a tab's selection or focus (the most recently active by default). */
-  select(input: UiSelectInput): Effect.Effect<ScreenReceipt, DomainError>;
+  /** Open a node or a route in tab `tab` (the person's most recently active when absent). */
+  navigate(
+    input: UiNavigateInput,
+    tab: string | undefined,
+  ): Effect.Effect<ScreenReceipt, DomainError>;
+  /** Set a tab's selection or focus (the person's most recently active when `tab` is absent). */
+  select(input: UiSelectInput, tab: string | undefined): Effect.Effect<ScreenReceipt, DomainError>;
   /**
    * Have a tab's canvas draw what its camera sees from a view, without
-   * moving the camera, and keep the picture as a file (the most recently
-   * active tab by default).
+   * moving the camera, and keep the picture as a file (the person's most
+   * recently active tab when `tab` is absent).
    */
-  capture(input: UiCaptureInput): Effect.Effect<ScreenReceipt, DomainError>;
+  capture(
+    input: UiCaptureInput,
+    tab: string | undefined,
+  ): Effect.Effect<ScreenReceipt, DomainError>;
 }
 
 export class Screens extends Context.Service<Screens, ScreensPort>()("kb/Screens") {}

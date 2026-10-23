@@ -43,7 +43,7 @@ export function mcpToolHints(mode: ActionMode): McpToolHints {
 }
 
 /**
- * An MCP `CallToolResult`, as far as a receipt fills one: one text block,
+ * An MCP `CallToolResult`, as far as a receipt fills one: text blocks of
  * JSON. Mutable and a type literal, as the MCP SDK's own type is, so that
  * it is one.
  */
@@ -53,12 +53,18 @@ export type McpToolResult = {
 };
 
 /**
- * A receipt as a tool result: the output as JSON when it succeeded, else an
+ * A receipt as a tool result: the output as JSON when it succeeded, and
+ * after it, when the call's tab session filled inputs, `{context}` saying
+ * what each was (the agent that said "this" learns which); else an
  * `isError` result whose JSON is `{code, message, details?}`.
  */
 export function mcpToolResult(receipt: ActionReceipt): McpToolResult {
   if (receipt.status === "succeeded") {
-    return { content: [{ type: "text", text: JSON.stringify(receipt.output) }] };
+    const { output, context } = receipt;
+    const filled = context === undefined ? [] : [JSON.stringify({ context })];
+    return {
+      content: [JSON.stringify(output), ...filled].map((text) => ({ type: "text", text })),
+    };
   }
   const { code, message, details } = receipt;
   const body = { code, message, ...(details === undefined ? {} : { details }) };

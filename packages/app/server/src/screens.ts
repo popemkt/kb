@@ -208,15 +208,14 @@ export class ScreenHub {
     screen: (input) =>
       Effect.sync(() => {
         const tabs = this.ordered();
-        return {
-          tabs: input.tab === undefined ? tabs : tabs.filter(({ tab }) => tab === input.tab),
-        };
+        const { session } = input;
+        return { tabs: session === undefined ? tabs : tabs.filter(({ tab }) => tab === session) };
       }),
-    navigate: (input) =>
-      this.command(input.tab, navigateCommand(input), input.timeoutMs ?? SCREEN_COMMAND_TIMEOUT_MS),
-    select: (input) =>
-      this.command(input.tab, selectCommand(input), input.timeoutMs ?? SCREEN_COMMAND_TIMEOUT_MS),
-    capture: (input) => this.command(input.tab, captureCommand(input), input.timeoutMs),
+    navigate: (input, tab) =>
+      this.command(tab, navigateCommand(input), input.timeoutMs ?? SCREEN_COMMAND_TIMEOUT_MS),
+    select: (input, tab) =>
+      this.command(tab, selectCommand(input), input.timeoutMs ?? SCREEN_COMMAND_TIMEOUT_MS),
+    capture: (input, tab) => this.command(tab, captureCommand(input), input.timeoutMs),
   };
 }
 

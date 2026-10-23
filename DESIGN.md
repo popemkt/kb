@@ -1579,6 +1579,11 @@ when set; SQLite keeps it in a column schema 4 added (`ALTER TABLE` on an
 older database, whose rows read with none). It is recorded for later use
 only: nothing decides by it (Action registry → Current stance).
 
+Beside it, `session`: the tab session that call was made in, when it named
+one (Action registry → A call made in a tab session) — the same path, and a
+column schema 5 added the same way. It is not `origin`, which names the
+producer (`@kb/client`, the virtual set); a tab's commit names its tab here.
+
 Both records carry `mark`: the store's own durable commit mark as of that
 append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`) — on both, the
 store's fingerprint. `TxTail.isCurrent()`
@@ -2390,12 +2395,99 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     (`api/tab-session.ts` in the UI) and keeps it in the tab's
     sessionStorage, so a reload keeps it and another tab has its own. It is
     nothing the server issues, no URL carries it, and it proves nothing: it
-    is the tab's name, sent as `X-KB-Origin` on its actions and published
-    as its screen's tab id, so an agent's screen command (`ui.screen`,
+    is the tab's name, stated in the envelope of every call the tab makes
+    (and so recorded on each transaction it commits, `session` on the tail)
+    and published as its screen's tab id, so an agent's screen command (`ui.screen`,
     `ui.navigate`, …) reaches the tab session it names. A duplicated tab
     starts with a copy of it; the server refuses the second publisher of a
     tab id (`screen-refused`), and that tab mints and keeps a fresh one.
     `kb ui` opens and prints the bare page URL.
+  - **A call made in a tab session.** A call may name the tab session it
+    is made in: `session` on its envelope (`ActionRequest`), beside
+    `approved` and `script`. Because the session is a name, not a grant,
+    every wire carries it. A call made inside another is made in the outer
+    call's session (`callWithin`); a script's call is always made in its
+    run's session. A screen command made in a session goes to that tab,
+    so an agent working in the person's tab moves that tab, not whichever
+    is most recently active (Screen state → Which tab a command goes to is
+    the call's to say). Each surface says it its own way:
+    - the page makes every call in its own tab session, on both lanes
+      (`inTabSession`), so its WebMCP tools and the calls the agent
+      sidebar's person approves do too;
+    - kb's agent makes its tool calls in the tab session of the person who
+      asked (the tab their connection publishes as);
+    - `POST /api/action` and `kb action-invoke` take `session` on the
+      envelope they decode;
+    - an MCP `tools/call` names it under `_meta["kb/session"]`, MCP's own
+      envelope, so the tool's arguments stay the action's input. A server
+      started with `kb mcp --session follow` makes a call that names none
+      in the person's most recently active tab, resolved per call (tab
+      ids are minted in the browser and renewed, so a fixed id would go
+      stale). That is the hands-on mode for an agent that has only MCP;
+      without the flag, its calls are made in no session.
+
+    The plan this follows is
+    `docs/brainstorms/2026-10-22-kb-tab-sessions/README.md`.
+  - **What a session fills.** A call made in a tab session may leave out
+    an input that means "this": the node the person is focused on, the
+    canvas they have open. The action says which, on its definition:
+    `context`, each key of its input with the *context reference* that
+    fills it (`{ canvasId: "ext.canvas.open" }`).
+    - **Only required inputs.** The registry refuses a `context` key the
+      input schema does not require, as it refuses a broken batch: a
+      family whose action declares one does not load, and core declaring
+      one dies (`contextRefusal`, `unloadBrokenActions`). A key whose
+      absence already means something (`node.add` without `parent` is a
+      forest root) is therefore never filled, and every call that works
+      without a session means the same with one.
+    - **References are a family's.** A reference
+      (`ContextReference`: a description and `resolve(pane)`) is what a
+      pane holds under it, and the family that understands that pane
+      resolves it. A declaration carries its family's references by full
+      id (`ExtensionDeclaration.context`) and `declarationPlugin`
+      contributes them to `ContextReferencePoint`, so both hosts resolve
+      them alike. Core's are `focused` and `subject`, which every pane
+      reports; the canvas family's are `ext.canvas.open`, the canvas a
+      canvas pane shows, and `ext.canvas.selection`, its selected item
+      ids. A selection is read as item ids only on a canvas pane.
+    - **Who declares one.** `node.update` fills `id` from `focused`
+      ("rename this"), and `graph.trace` fills `from` from it. The canvas
+      verbs fill `canvasId` from `ext.canvas.open`, and those over items
+      (`arrange`, `group`, `ungroup`) fill `ids` from
+      `ext.canvas.selection`. `node.add`'s `parent` is optional, so it is
+      never filled: an agent that means "here" passes it, read from the
+      screen.
+    - **The fill.** The invoke core fills before the interceptors
+      (`fillFromSession`, `context-fill.ts`), so a listener, a guard, the
+      input schema and a script's grant all see the input as it will run.
+      It reads the session's tab through `Screens`, and only a person's
+      tab: a nobody's is a screen any program may publish. It reads the
+      tab's active pane, the one the person last worked in; a canvas open
+      only in another pane is not open. A given input is never replaced,
+      and a reference that reads nothing fills nothing: the schema then
+      refuses the call, and the refusal names what to pass and what could
+      have filled it. Only the outermost call is filled; a handler's own
+      calls and a script's are made in the session but never change with
+      where the person is looking.
+    - **Filled once, in the browser.** The page's own calls fill from its
+      live screen, not the copy the server holds: the screen plugin serves
+      the tab's screen as the `Screens` its local calls read
+      (`setLocalScreens`), under the id it publishes as. A local write that
+      filled pushes the input as filled, so the server fills nothing and
+      commits what the replica did, and the settled receipt carries the
+      local receipt's `context`. A call the page sends straight to the
+      server is filled there, from the server's copy.
+    - **The receipt says what "this" was.** A succeeded receipt carries
+      `context`, each filled key with the reference it was read from and
+      its value. HTTP and `kb action-invoke --json` return it as part of
+      the receipt; MCP and kb's agent add it as a second text block
+      (`mcpToolResult`); WebMCP's tools resolve to it; the CLI prints it
+      to stderr. `kb.manifest` lists each action's `context` with what
+      each reference is on a pane, and every tool listing says it in the
+      input's description (`toolInputSchema`). Where a surface's calls
+      are made in a session — WebMCP's, the page's own, and
+      `kb mcp --session follow`'s — the input is no longer required there;
+      elsewhere it stays required.
   - **What binds a caller.** Nothing kb decides by actor binds anyone while
     policies are deferred. What does bind is who can reach `kb ui`'s HTTP
     and `/ws` at all, decided by the request guard, applied before `/ws`
@@ -3828,8 +3920,9 @@ and props, but not fields minted on the command line
     `listedOn` leaves out for `WEBMCP_WIRE`; it lists again when the
     replica's graph settles, since a guard may decide by graph data. The name is the action id (dotted ids are legal WebMCP
     names), the title and description are the manifest's, the `inputSchema` is
-    the same object schema MCP publishes (`asObjectSchema`), and the hints
-    come from the mode ([Action registry](#action-registry)).
+    the same object schema MCP publishes (`toolInputSchema`), less the
+    inputs the page's tab session fills, since every WebMCP call is made in
+    it, and the hints come from the mode ([Action registry](#action-registry)).
   - `execute` runs through the browser's one invoke path, which decides
     whether the call runs on the local replica or on the server
     (DESIGN-UI.md → Architecture). WebMCP reads a throw as the tool's error, so
@@ -3844,6 +3937,25 @@ and props, but not fields minted on the command line
   - `execute` has no envelope for `approved`, and `consequentialHint` asks the
     agent to confirm a write without telling the page whether it did, so
     actions that ask an agent are left out (`GAP-WEBMCP-APPROVAL`).
+- **Embedding the page.** Another app may show kb beside its own work (bb,
+  the owner's agentic IDE, frames it next to a thread) and have its agent
+  act in the tab the person sees there.
+  - **Who may frame it.** `kb ui --embed-origin <origin>` (repeatable)
+    names the pages allowed to; the page is served with
+    `Content-Security-Policy: frame-ancestors 'self' <origins>`
+    (`frameAncestors`, `server/assets.ts`). With none named only its own
+    origin may, so no other page can lay kb under its gestures, which are
+    the person's. `kb ui --dev` serves the page from Vite, which sends no
+    such header.
+  - **What crosses the frame.** Only the tab's session. The server names
+    the allowed origins on the `person` frame (`embedders`), and a framed
+    page posts `{type: "kb.session", session}` to its parent once per
+    origin, that origin as the target, so the browser delivers it only to
+    a parent that is one (`app/ui/src/api/embed.ts`). It posts again when
+    the id is renewed. The embedder's agent then calls kb's server with
+    that session (Action registry → A call made in a tab session); calls
+    never go through the frame, so there stays one route to a tab, and an
+    agent's work does not depend on the frame being mounted.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
@@ -3880,8 +3992,9 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   the selection in the view's own ids, and for a canvas the projection
   showing, its camera as a `pose` (Canvas documents; in 2D the top view,
   orthographic; in 3D as it last came to rest) and the ids of the items that
-  camera shows. The message names its tab id; the UI starts as its
-  page's origin id, which is minted per page load and so is per tab.
+  camera shows. The message names its tab id, the tab session the page
+  keeps in its sessionStorage ([Action registry](#action-registry) → The
+  tab session).
   The id belongs to the first live connection that publishes it. Another
   connection naming a live tab's id gets `screen-refused`, picks a fresh id
   and publishes again, so no connection can take over another's tab. A
@@ -3904,12 +4017,22 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   nobody's). The person's come first, then nobody's, each most recently
   active first: the last tab to publish while it had attention comes
   first, and tabs that never had it follow in the order they arrived. A
-  command that names no tab goes to the first, so it reaches the person's
-  screen before any other ([Action registry](#action-registry) → What needs the person). `tab`
-  narrows the list to that tab.
+  command made in no tab session goes to the first, so it reaches the
+  person's screen before any other ([Action registry](#action-registry) →
+  What needs the person). `session` narrows the list to that tab session's
+  tab.
+- **Which tab a command goes to is the call's to say.** A command goes to
+  the tab session the call is made in ([Action registry](#action-registry)
+  → A call made in a tab session), else to the first tab above. No `ui.*`
+  input names a tab.
+
+  **Breaking change, with no alias.** `ui.navigate`, `ui.select`,
+  `ui.capture` and `ext.canvas.describe` no longer take `tab`, and
+  `ui.screen`'s `tab` filter is now `session`. A caller that named a tab
+  makes its call in that tab session instead (`session` on the envelope,
+  `_meta["kb/session"]` over MCP).
 - **`ui.navigate` and `ui.select`** (writes) are commands. The server sends
-  `{op: "screen-command", id, command}` to one tab, the most recently
-  active by default, and waits up to `timeoutMs` (default 2 s) for that
+  `{op: "screen-command", id, command}` to one tab, and waits up to `timeoutMs` (default 2 s) for that
   tab's `{op: "screen-ack", id, result}`. The receipt is always a success
   whose output says what happened: `applied`, `rejected` with the tab's
   reason, `timeout`, or `no-tab` when no live tab could take the command,

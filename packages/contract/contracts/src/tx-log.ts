@@ -94,6 +94,8 @@ export interface TxRecord {
   readonly origin?: string;
   /** Who made the call that committed it, when an invocation did (`KbTx.actor`). */
   readonly actor?: Actor;
+  /** The tab session that call was made in, when it named one (`KbTx.session`). */
+  readonly session?: string;
 }
 
 /**
@@ -163,6 +165,9 @@ export interface TxTail {
  * one line that records it would put a request-shaped argument in the domain.
  * A `Reference` has a default, so nothing downstream gains a requirement — an
  * origin-less surface (the CLI, the watcher) simply gets `undefined`.
+ *
+ * It names the producer, not the tab: `@kb/client` and the virtual set state
+ * one. The tab a call was made in is the call's `session`, recorded beside it.
  *
  * It is a label on the transaction, not a filter: the server echoes every tx
  * to every watcher including its origin, so a client can recognise the

@@ -6,12 +6,14 @@
  * `packages/app/server/tests/screens.test.ts`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Effect } from "effect";
 import {
   SCREEN_APPLIED,
   declarationPlugin,
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
+  type ScreensPort,
 } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { graphPlugin } from "@kb/graph";
@@ -24,6 +26,7 @@ import { getPath, navigate, syncUiPlugins, type PaneCarryOut } from "@kb/ui-sdk"
 import { SCREEN_PUBLISH_MS, screenPlugin } from "@/screen";
 import { useGraphStore } from "@/stores/graph.store";
 import { useScreenStore } from "@/stores/screen.store";
+import { useUiStore } from "@/stores/ui.store";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes, singlePane } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
@@ -33,6 +36,7 @@ function tab(page: () => Window | null = () => window) {
   const published: ScreenState[] = [];
   const ids: string[] = [];
   let attached: ScreenTab | null = null;
+  let served: ScreensPort | null = null;
   const plugin = screenPlugin({
     page,
     tabId: () => "tab.first",
@@ -44,6 +48,9 @@ function tab(page: () => Window | null = () => window) {
     attach: (next) => {
       attached = next;
     },
+    serve: (next) => {
+      served = next;
+    },
   });
   const side = (): ScreenTab => {
     if (attached === null) throw new Error("no screen side attached");
@@ -52,7 +59,15 @@ function tab(page: () => Window | null = () => window) {
   const carryOut = (command: ScreenCommand): ScreenAck | Promise<ScreenAck> =>
     side().carryOut(command);
   const refused = (id: string): void => side().refused(id);
-  return { plugin, published, ids, carryOut, refused, installed: () => attached !== null };
+  return {
+    plugin,
+    published,
+    ids,
+    carryOut,
+    refused,
+    installed: () => attached !== null,
+    served: () => served,
+  };
 }
 
 function report(carryOut: PaneCarryOut = () => ({ outcome: "applied" })) {
@@ -321,6 +336,38 @@ describe("the tab's screen", () => {
       key: "outline.main",
       subject: "n.root-a",
     });
+  });
+
+  it("serves its own screen to the page's calls, as its person's and under the id it publishes as", () => {
+    const { plugin, served } = tab();
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    report();
+    useUiStore.setState({ person: { name: "A" } });
+    const screens = served();
+    if (screens === null) throw new Error("no screen served");
+    const own = Effect.runSync(screens.screen({ session: "tab.first" }));
+    expect(own.tabs).toMatchObject([
+      {
+        tab: "tab.first",
+        person: { name: "A" },
+        activePane: "main",
+        panes: [{ id: "main", focused: "n.root-a" }],
+      },
+    ]);
+    expect(Effect.runSync(screens.screen({ session: "tab.other" })).tabs).toEqual([]);
+    // Before the server says whose it is, the tab is nobody's.
+    useUiStore.setState({ person: undefined });
+    expect(Effect.runSync(screens.screen({ session: undefined })).tabs[0]?.person).toBeNull();
+    // It knows no other tab, so a command is the server's to send.
+    const exit = Effect.runSyncExit(
+      screens.navigate(
+        { route: "/", pane: undefined, timeoutMs: undefined, node: undefined, camera: undefined },
+        "tab.first",
+      ),
+    );
+    expect(exit._tag).toBe("Failure");
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin]);
+    expect(served()).toBeNull();
   });
 
   it("does nothing where there is no page", () => {

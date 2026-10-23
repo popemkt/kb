@@ -126,10 +126,24 @@ export function serveKbAsset(kbRoot: string, pathname: string): Promise<Response
 }
 
 /**
- * Serve a file from `ui/dist`, or SPA fallback to index.html.
- * Returns null when the UI has not been built.
+ * Who may frame the page (DESIGN.md → Surfaces → Embedding the page): its
+ * own origin, and the ones `kb ui --embed-origin` names. With none named,
+ * only its own, so no other page can lay kb under its gestures.
  */
-export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (pathname: string) {
+export function frameAncestors(embedOrigins: readonly string[]): string {
+  return `frame-ancestors ${["'self'", ...embedOrigins].join(" ")}`;
+}
+
+/**
+ * Serve a file from `ui/dist`, or SPA fallback to index.html, saying who
+ * may frame it ({@link frameAncestors}). Returns null when the UI has not
+ * been built.
+ */
+export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
+  pathname: string,
+  embedOrigins: readonly string[] = [],
+) {
+  const headers = { "Content-Security-Policy": frameAncestors(embedOrigins) };
   const fs = yield* FileSystem;
   const indexHtml = join(UI_DIST, "index.html");
   // Platform I/O errors become defects; HTTP catchCause maps them to 500.
@@ -147,9 +161,7 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (pathn
   if (yield* fs.exists(candidate).pipe(Effect.orDie)) {
     const contained = yield* resolveContainedFile(UI_DIST, candidate);
     if (contained.kind === "ok") {
-      return HttpServerResponse.raw(Bun.file(contained.path), {
-        status: 200,
-      });
+      return HttpServerResponse.raw(Bun.file(contained.path), { status: 200, headers });
     }
     if (contained.kind === "forbidden") {
       return plainStatus("forbidden", 403);
@@ -158,7 +170,7 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (pathn
   }
 
   // SPA fallback
-  return HttpServerResponse.raw(Bun.file(indexHtml), { status: 200 });
+  return HttpServerResponse.raw(Bun.file(indexHtml), { status: 200, headers });
 });
 
 /** Promise facade for the WS-free HTTP path / tests. */

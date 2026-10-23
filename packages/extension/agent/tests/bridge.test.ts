@@ -288,8 +288,9 @@ describe("the agent bridge", () => {
       receipt: approved,
     });
     // The host saw only the agent's own call, which it refused; the bridge never approves.
+    // The call is made in the tab session of the person who asked.
     expect(h.invoked.filter((invocation) => invocation.id === "ext.gated.stamp")).toEqual([
-      { id: "ext.gated.stamp", input: {}, actor: "agent" },
+      { id: "ext.gated.stamp", input: {}, actor: "agent", session: "tab.a" },
     ]);
   });
 

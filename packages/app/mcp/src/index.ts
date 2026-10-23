@@ -8,4 +8,4 @@ export {
   runResourceHandler,
   startMcp,
 } from "./mcp.ts";
-export type { McpToolContext } from "./mcp.ts";
+export type { McpOptions, McpToolContext } from "./mcp.ts";

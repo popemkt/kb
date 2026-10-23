@@ -29,6 +29,17 @@ export function formatReceipt(
   return formatSuccess(receipt.id, receipt.output, opts.command);
 }
 
+/**
+ * What a call's tab session filled, one line each, for stderr beside the
+ * output: which value "this" was, and what it was read from.
+ */
+export function filledLines(receipt: ActionReceipt): readonly string[] {
+  if (receipt.status !== "succeeded" || receipt.context === undefined) return [];
+  return Object.entries(receipt.context).map(
+    ([key, { from, value }]) => `kb: ${key} filled from ${from}: ${JSON.stringify(value)}`,
+  );
+}
+
 function asObject(output: unknown): { [key: PropertyKey]: unknown } | null {
   return Predicate.isObject(output) ? output : null;
 }

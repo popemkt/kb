@@ -28,7 +28,7 @@ function socket(): { send: ClientSend; frames: ServerMessage[] } {
 const gone: ClientSend = () => Effect.fail(new ClientGone());
 
 function routes(hub: ScreenHub) {
-  return run(hub.port.screen({ tab: undefined })).then(({ tabs }) =>
+  return run(hub.port.screen({ session: undefined })).then(({ tabs }) =>
     tabs.map(({ tab, route }) => [tab, route]),
   );
 }
@@ -81,19 +81,21 @@ describe("ScreenHub", () => {
     await run(
       hub.publish("c2", "tab.nobodys", nobodys.send, { ...at("/graph"), active: true }, null),
     );
-    const { tabs } = await run(hub.port.screen({ tab: undefined }));
+    const { tabs } = await run(hub.port.screen({ session: undefined }));
     expect(tabs.map(({ tab, person: by }) => [tab, by])).toEqual([
       ["tab.theirs", person],
       ["tab.nobodys", null],
     ]);
     void run(
-      hub.port.select({
-        tab: undefined,
-        pane: undefined,
-        timeoutMs: 50,
-        selection: undefined,
-        focus: "n1",
-      }),
+      hub.port.select(
+        {
+          pane: undefined,
+          timeoutMs: 50,
+          selection: undefined,
+          focus: "n1",
+        },
+        undefined,
+      ),
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(theirs.frames.map(({ op }) => op)).toEqual(["screen-command"]);
@@ -105,14 +107,16 @@ describe("ScreenHub", () => {
     await run(hub.publish("c1", "tab.a", gone, at("/"), null));
     const started = Date.now();
     const receipt = await run(
-      hub.port.navigate({
-        tab: undefined,
-        pane: undefined,
-        timeoutMs: 5000,
-        node: undefined,
-        route: "/",
-        camera: undefined,
-      }),
+      hub.port.navigate(
+        {
+          pane: undefined,
+          timeoutMs: 5000,
+          node: undefined,
+          route: "/",
+          camera: undefined,
+        },
+        undefined,
+      ),
     );
     expect(receipt).toEqual({ outcome: "no-tab", tab: "tab.a" });
     expect(Date.now() - started).toBeLessThan(1000);
@@ -123,12 +127,14 @@ describe("ScreenHub", () => {
     const { send, frames } = socket();
     await run(hub.publish("c1", "tab.a", send, at("/canvas"), null));
     const receipt = Effect.runPromise(
-      hub.port.capture({
-        tab: undefined,
-        pane: undefined,
-        timeoutMs: 5000,
-        view: { preset: "top" },
-      }),
+      hub.port.capture(
+        {
+          pane: undefined,
+          timeoutMs: 5000,
+          view: { preset: "top" },
+        },
+        undefined,
+      ),
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     const [frame] = frames;

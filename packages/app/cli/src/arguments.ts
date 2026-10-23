@@ -19,6 +19,15 @@ export const toPort = (value: string): number => {
     `a port is a whole number from 0 to 65535 (0: any free port), not ${value}`,
   );
 };
+/** `kb mcp --session`: the one mode there is, following the person's most recently active tab. */
+export const toSessionMode = (value: string): "follow" => {
+  if (value === "follow") return value;
+  throw new CommanderError(
+    EXIT_USAGE,
+    "commander.invalidArgument",
+    `--session takes follow (each call in the person's most recently active tab), not ${value}`,
+  );
+};
 export const toOrigin = (value: string): string => {
   try {
     const url = new URL(value);
@@ -57,6 +66,12 @@ const toIdentity = (value: string): { header: string; login: string } => {
     `--identity-header is <header>=<login>, e.g. Tailscale-User-Login=you@github, not ${value}`,
   );
 };
+
+/** Every `--embed-origin` given, each an origin. */
+export const collectOrigins = (value: string, held: readonly string[] = []): readonly string[] => [
+  ...held,
+  toOrigin(value),
+];
 
 /** Every `--identity-header` given, as the one header they name and its logins. */
 export const collectIdentity = (
