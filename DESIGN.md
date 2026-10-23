@@ -2381,6 +2381,15 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     starts with a copy of it; the server refuses the second publisher of a
     tab id (`screen-refused`), and that tab mints and keeps a fresh one.
     `kb ui` opens and prints the bare page URL.
+  - **A call made in a tab session.** A call may name the tab session it
+    is made in: `session` on its envelope (`ActionRequest`), beside
+    `approved` and `script`. Because the session is a name, not a grant,
+    every wire carries it. A call made inside another is made in the outer
+    call's session (`callWithin`); a script's call is always made in its
+    run's session. A screen command made in a session goes to that tab
+    unless it names another, so an agent working in the person's tab moves
+    that tab, not whichever is most recently active. The plan this follows
+    is `docs/brainstorms/2026-10-22-kb-tab-sessions/README.md`.
   - **What binds a caller.** Nothing kb decides by actor binds anyone while
     policies are deferred. What does bind is who can reach `kb ui`'s HTTP
     and `/ws` at all, decided by the request guard, applied before `/ws`

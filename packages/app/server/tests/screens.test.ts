@@ -211,6 +211,24 @@ describe("screen state", () => {
     expect(program.commands).toEqual([]);
   });
 
+  test("a command made in a tab session reaches that tab, and a tab it names wins", async () => {
+    const mine = await tab("session.mine");
+    const other = await tab("session.other");
+    // `other` published last, so a command made in no session would reach it.
+    const sessioned = { id: "ui.navigate", input: { route: "/graph" }, session: "session.mine" };
+    expect(ScreenReceiptSchema.parse(await post(handle, sessioned))).toEqual({
+      outcome: "applied",
+      tab: "session.mine",
+    });
+    expect(mine.commands).toEqual([{ kind: "navigate", to: { route: "/graph" } }]);
+    expect(other.commands).toEqual([]);
+    const named = { ...sessioned, input: { route: "/graph", tab: "session.other" } };
+    expect(ScreenReceiptSchema.parse(await post(handle, named))).toEqual({
+      outcome: "applied",
+      tab: "session.other",
+    });
+  });
+
   test("select carries the selection and focus, and a tab's refusal is its receipt", async () => {
     const a = await tab("tab.a");
     a.answer = { outcome: "rejected", reason: "the open view takes no selection" };

@@ -197,6 +197,11 @@ export interface ActionDefinition<
  * the input, and a local program's HTTP request has no person behind it, so
  * there a call a guard asks about stays refused.
  *
+ * `session` is the tab session the call is made in (DESIGN.md → Action
+ * registry → The tab session): a tab's name, which proves nothing and grants
+ * nothing, so every wire carries it. A call made in a session is about what
+ * that tab shows; one that names none is made in no tab.
+ *
  * `script` is a script's reach. A request never says who makes it: the
  * surface it arrives on does (`onWire`), so the envelope has no actor, and a
  * caller that sends one anyway has it dropped, never refused. A script's
@@ -212,6 +217,7 @@ export const ActionRequestSchema = z.object({
     .optional()
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
+  session: z.string().min(1).optional(),
   /**
    * A script's call: what its run may reach — the node it runs for and its
    * grant — stamped by the host that answers the guest (`answerToolCall`)
@@ -244,11 +250,12 @@ export function requestOf(
  * calls there.
  */
 export function envelopeOf(call: ActionRequest): ActionRequest {
-  const { id, input, approved, script } = call;
+  const { id, input, approved, session, script } = call;
   return {
     id,
     input,
     ...(approved === undefined ? {} : { approved }),
+    ...(session === undefined ? {} : { session }),
     ...(script === undefined ? {} : { script }),
   };
 }
