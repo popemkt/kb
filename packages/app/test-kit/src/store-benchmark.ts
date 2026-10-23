@@ -20,6 +20,7 @@ import { bundledSeed } from "@kb/bundled";
 import { SYSTEM_IDS, type KbNode } from "@kb/model";
 import { DatascriptIndex, derivedWith } from "@kb/query";
 import { writeOut } from "@kb/runtime";
+import { benchmarkEnabled } from "./bench.ts";
 import type { StoreFactory } from "./store-contract.ts";
 
 const N = 50_000;
@@ -28,9 +29,6 @@ const TAG_ID = "01BENCHTAG0000000000000001";
  * second source of time outside the determinism seam for no benefit. */
 const AT = "2026-01-01T00:00:00.000Z";
 const EDITED_AT = "2026-01-01T00:00:01.000Z";
-
-/** Only when this file was named on the command line — never in a normal run. */
-const benchmarkEnabled = Bun.argv.some((arg) => arg.endsWith("benchmark.test.ts"));
 
 function elapsedSince(start: number): number {
   return performance.now() - start;
