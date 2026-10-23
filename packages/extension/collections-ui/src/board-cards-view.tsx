@@ -1,3 +1,4 @@
+import { useBreakoutShift } from "./use-breakout";
 import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
@@ -142,6 +143,11 @@ export function BoardCardsView({
     [dragNodeId, groupFieldId, isQuerySource, nodes],
   );
 
+  const breakout = view.key === CollectionBoardView && widthPref === "centered";
+  const breakoutRef = useBreakoutShift<HTMLDivElement>(
+    breakout && groupFieldId !== null && (frameNode !== undefined || rowIds !== undefined),
+  );
+
   if (!frameNode && !rowIds) return null;
 
   if (view.key === CollectionBoardView && groupFieldId === null) {
@@ -179,10 +185,9 @@ export function BoardCardsView({
     );
   }
 
-  const breakout = view.key === CollectionBoardView && widthPref === "centered";
-
   return (
     <div
+      ref={breakoutRef}
       className={cn(
         "board-cards-view my-2",
         view.key === CollectionBoardView && "overflow-x-auto",
