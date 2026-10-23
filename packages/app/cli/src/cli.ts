@@ -38,6 +38,7 @@ import {
   EXIT_USAGE,
   checkUiListen,
   collectIdentity,
+  collectOrigins,
   toGovernance,
   toInt,
   toOrigin,
@@ -298,6 +299,11 @@ function buildProgram(): Command {
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
     .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
     .option(
+      "--embed-origin <url>",
+      "let the page at this origin frame kb, and tell it the tab's session (repeatable)",
+      collectOrigins,
+    )
+    .option(
       "--identity-header <header=login>",
       "trust the reverse proxy's <header> to name the person; a request whose header is <login> is theirs (repeatable; with --socket)",
       collectIdentity,
@@ -314,6 +320,7 @@ function buildProgram(): Command {
               dev?: boolean;
               devPort?: number;
               publicOrigin?: string;
+              embedOrigin?: readonly string[];
               identityHeader?: { header: string; people: readonly string[] };
               open?: boolean;
             },
@@ -333,6 +340,7 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
+              embedOrigins: opts.embedOrigin ?? [],
               // The page is the server's owner; a hosted deployment may name
               // the person by the proxy it trusts instead.
               identity:

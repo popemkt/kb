@@ -51,7 +51,17 @@ export function tabSession(): string {
  * sessionStorage, and the server refuses the second to publish under it).
  */
 export function renewTabSession(): string {
-  return keep(mint());
+  const id = keep(mint());
+  for (const listener of renewed) listener(id);
+  return id;
+}
+
+const renewed = new Set<(id: string) => void>();
+
+/** Hear each time this tab's session id is renewed; returns the unsubscribe. */
+export function onTabSessionRenewed(listener: (id: string) => void): () => void {
+  renewed.add(listener);
+  return () => renewed.delete(listener);
 }
 
 /**

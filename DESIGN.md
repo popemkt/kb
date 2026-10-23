@@ -3903,8 +3903,9 @@ and props, but not fields minted on the command line
     `listedOn` leaves out for `WEBMCP_WIRE`; it lists again when the
     replica's graph settles, since a guard may decide by graph data. The name is the action id (dotted ids are legal WebMCP
     names), the title and description are the manifest's, the `inputSchema` is
-    the same object schema MCP publishes (`asObjectSchema`), and the hints
-    come from the mode ([Action registry](#action-registry)).
+    the same object schema MCP publishes (`toolInputSchema`), less the
+    inputs the page's tab session fills, since every WebMCP call is made in
+    it, and the hints come from the mode ([Action registry](#action-registry)).
   - `execute` runs through the browser's one invoke path, which decides
     whether the call runs on the local replica or on the server
     (DESIGN-UI.md → Architecture). WebMCP reads a throw as the tool's error, so
@@ -3919,6 +3920,25 @@ and props, but not fields minted on the command line
   - `execute` has no envelope for `approved`, and `consequentialHint` asks the
     agent to confirm a write without telling the page whether it did, so
     actions that ask an agent are left out (`GAP-WEBMCP-APPROVAL`).
+- **Embedding the page.** Another app may show kb beside its own work (bb,
+  the owner's agentic IDE, frames it next to a thread) and have its agent
+  act in the tab the person sees there.
+  - **Who may frame it.** `kb ui --embed-origin <origin>` (repeatable)
+    names the pages allowed to; the page is served with
+    `Content-Security-Policy: frame-ancestors 'self' <origins>`
+    (`frameAncestors`, `server/assets.ts`). With none named only its own
+    origin may, so no other page can lay kb under its gestures, which are
+    the person's. `kb ui --dev` serves the page from Vite, which sends no
+    such header.
+  - **What crosses the frame.** Only the tab's session. The server names
+    the allowed origins on the `person` frame (`embedders`), and a framed
+    page posts `{type: "kb.session", session}` to its parent once per
+    origin, that origin as the target, so the browser delivers it only to
+    a parent that is one (`app/ui/src/api/embed.ts`). It posts again when
+    the id is renewed. The embedder's agent then calls kb's server with
+    that session (Action registry → A call made in a tab session); calls
+    never go through the frame, so there stays one route to a tab, and an
+    agent's work does not depend on the frame being mounted.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 

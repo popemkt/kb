@@ -32,6 +32,8 @@ export interface UiHttpDeps {
   hub: SubscriptionHub;
   /** The extensions the server hosts beside the registry's, as it reports them; none when absent. */
   hosted?: HostedFamilies;
+  /** The origins allowed to frame the page beside its own (`UiServerOptions.embedOrigins`); none when absent. */
+  embedOrigins?: readonly string[];
 }
 
 function jsonResponse(
@@ -194,7 +196,7 @@ const handleHttpRequestEffect = (
       return plainStatus("not found", 404);
     }
 
-    const staticResp = yield* assets.serveStaticEffect(url.pathname);
+    const staticResp = yield* assets.serveStaticEffect(url.pathname, deps.embedOrigins ?? []);
     if (staticResp) return staticResp;
 
     return jsonResponse(

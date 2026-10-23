@@ -67,6 +67,12 @@ const toIdentity = (value: string): { header: string; login: string } => {
   );
 };
 
+/** Every `--embed-origin` given, each an origin. */
+export const collectOrigins = (value: string, held: readonly string[] = []): readonly string[] => [
+  ...held,
+  toOrigin(value),
+];
+
 /** Every `--identity-header` given, as the one header they name and its logins. */
 export const collectIdentity = (
   value: string,

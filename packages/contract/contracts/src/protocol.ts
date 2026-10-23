@@ -129,8 +129,14 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
    * person, as the deployment's authentication named them, or nobody
    * (`null`). A connection that is nobody's reads, writes and publishes its
    * screen as an agent does, and may not speak on a plugin channel.
+   * `embedders` are the origins allowed to frame the page beside its own
+   * (`kb ui --embed-origin`): a framed page tells each its tab session.
    */
-  z.object({ op: z.literal("person"), person: PersonSchema.nullable() }),
+  z.object({
+    op: z.literal("person"),
+    person: PersonSchema.nullable(),
+    embedders: z.array(z.string()).optional(),
+  }),
   /** Node-level delta after a store change (from any surface: UI, CLI,
    * MCP, agents). Clients transact this into their local DataScript. */
   z.object({
