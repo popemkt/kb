@@ -5,13 +5,71 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { bundledDerived } from "@kb/bundled";
 import { inThreadPort } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { provideEngine } from "@/session/engine";
-import { invoke, invokeLocal, setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
+import { Effect } from "effect";
+import { declarationPlugin, type ScreensPort } from "@kb/contracts";
+import { coreExtension } from "@kb/operations";
+import { syncUiPlugins } from "@kb/ui-sdk";
+import {
+  invoke,
+  invokeLocal,
+  invokeSettled,
+  setBrowserLink,
+  setLocalScreens,
+  waitForBrowserPushes,
+} from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 
 describe("browser action runtime", () => {
   afterEach(() => {
     setPostAction(null);
     setBrowserLink(null);
+    setLocalScreens(null);
+    syncUiPlugins([]);
+  });
+
+  it("fills a local write from this tab's own screen, and pushes what it filled as given", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    syncUiPlugins([declarationPlugin(coreExtension)]);
+    const none = Effect.die(new Error("no screen command here"));
+    const ownTab: ScreensPort = {
+      screen: () =>
+        Effect.succeed({
+          tabs: [
+            {
+              tab: tabSession(),
+              person: { name: "A" },
+              route: "/",
+              active: true,
+              activePane: "main",
+              panes: [{ id: "main", route: "/", view: null, focused: "n.root-a", selection: [] }],
+            },
+          ],
+        }),
+      navigate: () => none,
+      select: () => none,
+      capture: () => none,
+    };
+    setLocalScreens(ownTab);
+    const post = vi.fn(async (invocation) => ({
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: {},
+      rev: 2,
+    }));
+    setPostAction(post);
+
+    const invoked = await invokeSettled({ id: "node.update", input: { text: "renamed here" } });
+    const filled = { id: { from: "focused", value: "n.root-a" } };
+    expect(invoked.receipt).toMatchObject({ status: "succeeded", context: filled });
+    expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("renamed here");
+    // The server is given what the replica committed, so it fills nothing itself.
+    await waitForBrowserPushes();
+    expect(post).toHaveBeenCalledWith({
+      id: "node.update",
+      input: { text: "renamed here", id: "n.root-a" },
+      session: tabSession(),
+    });
+    expect(await invoked.settled).toMatchObject({ status: "succeeded", context: filled });
   });
 
   it("changes the local index before the network push starts", async () => {

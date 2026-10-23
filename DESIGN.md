@@ -2449,13 +2449,24 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       have filled it. Only the outermost call is filled; a handler's own
       calls and a script's are made in the session but never change with
       where the person is looking.
+    - **Filled once, in the browser.** The page's own calls fill from its
+      live screen, not the copy the server holds: the screen plugin serves
+      the tab's screen as the `Screens` its local calls read
+      (`setLocalScreens`), under the id it publishes as. A local write that
+      filled pushes the input as filled, so the server fills nothing and
+      commits what the replica did, and the settled receipt carries the
+      local receipt's `context`. A call the page sends straight to the
+      server is filled there, from the server's copy.
     - **The receipt says what "this" was.** A succeeded receipt carries
       `context`, each filled key with the reference it was read from and
       its value. HTTP and `kb action-invoke --json` return it as part of
       the receipt; MCP and kb's agent add it as a second text block
       (`mcpToolResult`); WebMCP's tools resolve to it; the CLI prints it
       to stderr. `kb.manifest` lists each action's `context` with what
-      each reference is on a pane.
+      each reference is on a pane, and every tool listing says it in the
+      input's description (`toolInputSchema`). Where a surface's calls
+      are made in a session — WebMCP's, the page's own — the input is no
+      longer required there; elsewhere it stays required.
   - **What binds a caller.** Nothing kb decides by actor binds anyone while
     policies are deferred. What does bind is who can reach `kb ui`'s HTTP
     and `/ws` at all, decided by the request guard, applied before `/ws`

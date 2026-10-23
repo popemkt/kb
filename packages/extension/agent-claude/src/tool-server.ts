@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { asObjectSchema, failed, mcpToolHints, mcpToolName, mcpToolResult } from "@kb/contracts";
+import { failed, toolInputSchema, mcpToolHints, mcpToolName, mcpToolResult } from "@kb/contracts";
 import type { AgentTurn } from "@kb/agent";
 
 /** The in-process MCP server's name; the model sees the tools as `mcp__kb__<tool>`. */
@@ -27,7 +27,7 @@ export function kbToolServer(turn: AgentTurn, signal: AbortSignal): McpServer {
       name,
       title: entry.title,
       description: entry.description,
-      inputSchema: asObjectSchema(entry.inputSchema),
+      inputSchema: toolInputSchema(entry),
       annotations: { title: entry.title, ...mcpToolHints(entry.mode) },
       // Kept in the prompt rather than behind tool search: these are all there is.
       _meta: { "anthropic/alwaysLoad": true },

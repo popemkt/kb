@@ -1,12 +1,18 @@
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Predicate } from "effect";
 import {
   type ActionRequest,
   type ActionReceipt,
+  type FilledInput,
   type KbContext,
   type KbCtx,
   type KbStore,
+  ContextReferencePoint,
+  CurrentContextReferences,
   CurrentInterception,
   PAGE_WIRE,
+  Screens,
+  type ScreensPort,
+  contextReferencesOf,
   ViewCatalog,
   failed,
   kbCtxLayer,
@@ -74,6 +80,14 @@ const localActions = new Map(isomorphicActions.map((action) => [action.def.id, a
  * a local call as the server does. The server decides again on the push.
  */
 const localInterception = interceptionFrom(uiKernelReader);
+
+/**
+ * The context references a local call is filled from: the page kernel's, the
+ * same families' declarations the server loads, so both resolve "this" alike.
+ */
+const localReferences = contextReferencesOf(() =>
+  uiKernelReader.contributions(ContextReferencePoint),
+);
 
 function noteBrowserStoreSynced(current: BrowserSession): void {
   Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));
@@ -177,6 +191,17 @@ export function browserReplica(): BrowserReplica | null {
   return session?.replica ?? null;
 }
 
+/**
+ * This tab's screen as its own calls read it, once the screen plugin serves
+ * it (`screen.ts`): what a local call made in the tab's session fills from.
+ * Without it a local call fills nothing.
+ */
+let localScreens: ScreensPort | null = null;
+
+export function setLocalScreens(screens: ScreensPort | null): void {
+  localScreens = screens;
+}
+
 /** The network the sync machine talks through (the live socket and /api/graph). */
 export function setBrowserLink(next: ReplicaLink | null): void {
   link = next;
@@ -223,12 +248,17 @@ export function waitForBrowserPushes(): Promise<void> {
  */
 export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
   const current = requireSession();
-  return Effect.runPromise(
-    invokeReceiptWith(localActions, current.ctx, onWire(PAGE_WIRE, inTabSession(invocation))).pipe(
-      Effect.provideService(CurrentInterception, localInterception),
-      Effect.provide(current.layer),
-    ),
-  ).then((receipt) => {
+  const call = invokeReceiptWith(
+    localActions,
+    current.ctx,
+    onWire(PAGE_WIRE, inTabSession(invocation)),
+  ).pipe(
+    Effect.provideService(CurrentInterception, localInterception),
+    Effect.provideService(CurrentContextReferences, localReferences),
+  );
+  const screened =
+    localScreens === null ? call : call.pipe(Effect.provideService(Screens, localScreens));
+  return Effect.runPromise(screened.pipe(Effect.provide(current.layer))).then((receipt) => {
     // Only a write commits; a read leaves the graph store nothing to follow.
     const writes = localActions.get(invocation.id)?.def.mode.kind === "write";
     if (writes && receipt.status === "succeeded") current.onLocalCommit();
@@ -293,10 +323,16 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
   if (local.def.mode.kind === "read") return done(await invokeLocal(invocation));
   const { receipt, hold } = await writeLocal(invocation);
   if (receipt.status === "failed") return done(receipt);
-  const settled = pushInvocation(invocation, hold).then(
+  // What the local commit filled from this tab's screen is pushed as given,
+  // so the server fills nothing and commits what the replica did; its
+  // receipt says what was filled, as the local one does.
+  const { context } = receipt;
+  const settled = pushInvocation(asFilled(invocation, context), hold).then(
     (response): ActionReceipt => {
       surfacePushFailure(response);
-      return response;
+      return response.status === "succeeded" && context !== undefined
+        ? { ...response, context }
+        : response;
     },
     (error: unknown): ActionReceipt => {
       const message = error instanceof Error ? error.message : String(error);
@@ -305,6 +341,16 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
     },
   );
   return { receipt, settled };
+}
+
+/** `invocation` with the inputs its tab session filled given, as the local commit ran it. */
+function asFilled(
+  invocation: ActionRequest,
+  context: Readonly<Record<string, FilledInput>> | undefined,
+): ActionRequest {
+  if (context === undefined || !Predicate.isObject(invocation.input)) return invocation;
+  const filled = Object.entries(context).map(([key, { value }]) => [key, value]);
+  return { ...invocation, input: { ...invocation.input, ...Object.fromEntries(filled) } };
 }
 
 /** {@link invokeSettled} for a caller that acts on the first receipt and lets a rejected push surface as a toast. */

@@ -1,6 +1,6 @@
 import { Effect, Stream } from "effect";
 import {
-  asObjectSchema,
+  toolInputSchema,
   failed,
   mcpToolName,
   mcpToolResult,
@@ -63,7 +63,7 @@ function stepTool(entry: ManifestEntry): StepTool {
   return {
     name: mcpToolName(entry.id),
     description: entry.description,
-    parameters: asObjectSchema(entry.inputSchema),
+    parameters: toolInputSchema(entry),
   };
 }
 

@@ -66,18 +66,43 @@ export function requiresApproval(mode: ActionMode): boolean {
 }
 
 /**
- * The input schema a surface publishes for a tool. MCP and WebMCP both need a
- * JSON Schema whose root is an object, so an action whose schema is anything
- * else is published as an object that takes no properties. One rule, so every
- * surface shows an agent the same schema for the same action.
+ * The input schema a surface publishes for an action's tool. MCP and WebMCP
+ * both need a JSON Schema whose root is an object, so an action whose schema
+ * is anything else is published as an object that takes no properties. An
+ * input a tab session may fill (`ManifestEntry.context`) says so in its
+ * description, and on a surface whose calls are made in a session
+ * (`sessioned`) it is no longer required: the agent may leave it out. One
+ * rule, so every surface shows an agent the same schema for the same action.
  */
-export function asObjectSchema(
-  schema: unknown,
+export function toolInputSchema(
+  entry: Pick<ManifestEntry, "inputSchema" | "context">,
+  sessioned = false,
 ): { readonly type: "object" } & Record<string, unknown> {
-  if (Predicate.isObject(schema) && schema.type === "object") {
-    return { ...schema, type: "object" as const };
+  const { inputSchema } = entry;
+  if (!Predicate.isObject(inputSchema) || inputSchema.type !== "object") {
+    return { type: "object" as const, properties: {} };
   }
-  return { type: "object" as const, properties: {} };
+  const schema = { ...inputSchema, type: "object" as const };
+  const context = new Map(Object.entries(entry.context ?? {}));
+  const { properties, required } = inputSchema;
+  if (context.size === 0 || !Predicate.isObject(properties)) return schema;
+  const noted = Object.entries(properties).map(([key, property]) => {
+    const fill = context.get(key);
+    if (fill === undefined || !Predicate.isObject(property)) return [key, property];
+    const note = sessioned
+      ? `Left out, it is ${fill.description} in the call's tab session.`
+      : `A call made in a tab session may leave it out for ${fill.description}.`;
+    const said = typeof property.description === "string" ? `${property.description}. ` : "";
+    return [key, { ...property, description: `${said}${note}` }];
+  });
+  const stillRequired = Array.isArray(required)
+    ? required.filter((key) => !sessioned || !context.has(String(key)))
+    : required;
+  return {
+    ...schema,
+    properties: Object.fromEntries(noted),
+    ...(stillRequired === undefined ? {} : { required: stillRequired }),
+  };
 }
 
 /**

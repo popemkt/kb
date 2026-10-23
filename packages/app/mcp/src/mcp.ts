@@ -13,7 +13,7 @@ import {
 import { Cause, Effect, Exit } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
-  asObjectSchema,
+  toolInputSchema,
   failed,
   listingOf,
   onWire,
@@ -232,7 +232,7 @@ function mcpTool(a: ManifestEntry): Tool {
     name: mcpToolName(a.id),
     title: a.title,
     description: a.description,
-    inputSchema: asObjectSchema(a.inputSchema),
+    inputSchema: toolInputSchema(a),
     annotations: { title: a.title, ...mcpToolHints(a.mode) },
     _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
   };

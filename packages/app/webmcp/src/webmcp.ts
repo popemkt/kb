@@ -15,7 +15,7 @@ import { Effect, Predicate } from "effect";
 import { z } from "zod";
 import {
   DecidedEntrySchema,
-  asObjectSchema,
+  toolInputSchema,
   failed,
   succeeded,
   listedOn,
@@ -148,7 +148,8 @@ export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelCon
     name: entry.id,
     title: entry.title,
     description: entry.description,
-    inputSchema: asObjectSchema(entry.inputSchema),
+    // The page makes every call in its own tab session.
+    inputSchema: toolInputSchema(entry, true),
     annotations: {
       readOnlyHint: reads,
       consequentialHint: !reads,

@@ -12,7 +12,7 @@ export {
   CoreInvoke,
   actionToManifestEntry,
   approvalSubject,
-  asObjectSchema,
+  toolInputSchema,
   failed,
   isActionMode,
   requiresApproval,
