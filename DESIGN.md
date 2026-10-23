@@ -2430,6 +2430,13 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       reports; the canvas family's are `ext.canvas.open`, the canvas a
       canvas pane shows, and `ext.canvas.selection`, its selected item
       ids. A selection is read as item ids only on a canvas pane.
+    - **Who declares one.** `node.update` fills `id` from `focused`
+      ("rename this"), and `graph.trace` fills `from` from it. The canvas
+      verbs fill `canvasId` from `ext.canvas.open`, and those over items
+      (`arrange`, `group`, `ungroup`) fill `ids` from
+      `ext.canvas.selection`. `node.add`'s `parent` is optional, so it is
+      never filled: an agent that means "here" passes it, read from the
+      screen.
     - **The fill.** The invoke core fills before the interceptors
       (`fillFromSession`, `context-fill.ts`), so a listener, a guard, the
       input schema and a script's grant all see the input as it will run.

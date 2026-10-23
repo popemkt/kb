@@ -326,3 +326,4 @@ export type {
   CanvasTextNode,
   KbLinkMode,
 } from "./doc.ts";
+export { CANVAS_OPEN, CANVAS_SELECTION } from "./context.ts";

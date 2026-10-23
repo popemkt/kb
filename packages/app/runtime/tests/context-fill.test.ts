@@ -42,7 +42,7 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-const PERSON = { id: "person.a", name: "A" };
+const PERSON = { name: "A" };
 
 function pane(id: string, focused: string | null): PaneScreen {
   return { id, route: "/", view: null, focused, selection: [] };

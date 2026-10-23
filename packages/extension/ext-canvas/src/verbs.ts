@@ -55,6 +55,8 @@ import {
   type CanvasNode,
   type CanvasEdge,
   type CanvasWhere,
+  CANVAS_OPEN,
+  CANVAS_SELECTION,
 } from "@kb/canvas";
 import { COMMENT_VERB } from "./comment.ts";
 import { LintDiffSchema, LintSchema } from "./lints.ts";
@@ -753,6 +755,14 @@ const canvasPromoteEffect = Effect.fn("ext.canvas.promote")(function* (
  */
 const ON_ITS_CANVAS = ["canvasId"] as const;
 
+/**
+ * What a verb called in a tab session may leave out (DESIGN.md → Action
+ * registry → What a session fills): the canvas the person has open, and
+ * for a verb over items, the ones they selected on it.
+ */
+const ON_THE_OPEN_CANVAS = { canvasId: CANVAS_OPEN };
+const ON_ITS_SELECTION = { ...ON_THE_OPEN_CANVAS, ids: CANVAS_SELECTION };
+
 export const CANVAS_VERBS: ExtensionAction[] = [
   {
     id: "describe",
@@ -766,6 +776,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "frame; with no focus and no open tab every item is in full. Also its lints and camera.",
     mode: { kind: "read" },
     targets: ON_ITS_CANVAS,
+    context: ON_THE_OPEN_CANVAS,
     inputSchema: describeInput,
     outputSchema: describeOutput,
     effect: canvasDescribeEffect,
@@ -779,6 +790,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "missing-node, missing-group, outside-frame. Every canvas write also answers {new, resolved}.",
     mode: { kind: "read" },
     targets: ON_ITS_CANVAS,
+    context: ON_THE_OPEN_CANVAS,
     inputSchema: lintInput,
     outputSchema: lintOutput,
     effect: canvasLintEffect,
@@ -793,6 +805,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "further out by the grid until clear. Placed in order in one write (one undo step).",
     mode: { kind: "write" },
     targets: ON_ITS_CANVAS,
+    context: ON_THE_OPEN_CANVAS,
     inputSchema: placeInput,
     outputSchema: placeOutput,
     effect: canvasPlaceEffect,
@@ -807,6 +820,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "y). A frame's members move with it. One write (one undo step).",
     mode: { kind: "write" },
     targets: ON_ITS_CANVAS,
+    context: ON_ITS_SELECTION,
     inputSchema: arrangeInput,
     outputSchema: arrangeOutput,
     effect: canvasArrangeEffect,
@@ -822,6 +836,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "node, once (both must stand for nodes).",
     mode: { kind: "write" },
     targets: ON_ITS_CANVAS,
+    context: ON_THE_OPEN_CANVAS,
     inputSchema: connectInput,
     outputSchema: connectOutput,
     effect: canvasConnectEffect,
@@ -832,6 +847,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     description: "Gather items into a new frame a grid step round them; they become its members.",
     mode: { kind: "write" },
     targets: ON_ITS_CANVAS,
+    context: ON_ITS_SELECTION,
     inputSchema: groupInput,
     outputSchema: groupOutput,
     effect: canvasGroupEffect,
@@ -843,6 +859,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "Take frames apart; their members stay where they are and belong where the frame did.",
     mode: { kind: "write" },
     targets: ON_ITS_CANVAS,
+    context: ON_ITS_SELECTION,
     inputSchema: ungroupInput,
     outputSchema: ungroupOutput,
     effect: canvasUngroupEffect,
@@ -855,6 +872,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "Make a node of a text card's words (no parent) and turn the card into a card of that node, " +
       "its box, colour and frame kept.",
     mode: { kind: "write" },
+    context: ON_THE_OPEN_CANVAS,
     inputSchema: promoteInput,
     outputSchema: promoteOutput,
     effect: canvasPromoteEffect,
