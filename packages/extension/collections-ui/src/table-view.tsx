@@ -158,8 +158,9 @@ export function TableView({
   return (
     <div
       className={cn(
-        "table-view kb-text w-full overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background",
-        breakoutCentered && "table-view-breakout",
+        "table-view kb-text overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background",
+        // w-full is a utility, so it would beat the breakout's width.
+        breakoutCentered ? "table-view-breakout" : "w-full",
       )}
       data-table-view="true"
       data-frame-id={frameId}

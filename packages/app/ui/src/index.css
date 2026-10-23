@@ -210,18 +210,24 @@
     word-break: break-word;
   }
 
+  /* A pane: the width a breakout spans. */
+  .kb-pane {
+    container-type: inline-size;
+  }
+
   /*
-   * W7: table breaks out of the centered max-w-3xl shell to viewport width.
-   * Only the table region — not the whole page (RED4 / DESIGN views).
+   * W7: table breaks out of the centered max-w-3xl shell to the pane's width,
+   * not the viewport's: with the sidebar open, a viewport-wide table ran under
+   * it. Only the table region — not the whole page (RED4 / DESIGN views).
    */
   .table-view-breakout {
-    width: 100vw;
-    max-width: 100vw;
+    width: 100cqw;
+    max-width: 100cqw;
     position: relative;
     left: 50%;
     right: 50%;
-    margin-left: -50vw;
-    margin-right: -50vw;
+    margin-left: -50cqw;
+    margin-right: -50cqw;
     padding-left: 1rem;
     padding-right: 1rem;
     box-sizing: border-box;
