@@ -27,7 +27,14 @@ import {
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { renewTabSession, tabSession } from "@/api/tab-session";
 import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
-import { NodeView, layoutPanes, resolveNodeView, type LayoutPane } from "@kb/views";
+import {
+  HomeView,
+  NodeView,
+  layoutPanes,
+  resolveDefaultViewType,
+  resolveNodeView,
+  type LayoutPane,
+} from "@kb/views";
 import {
   currentContributions,
   getPath,
@@ -37,6 +44,7 @@ import {
   paramsOf,
   RoutePoint,
   schemaOf,
+  WORKSPACE_ROOT_ID,
   subscribePath,
 } from "@kb/ui-sdk";
 import { pageCatalog } from "@/lib/view-catalog";
@@ -49,21 +57,22 @@ export const SCREEN_PUBLISH_MS = 100;
 
 /**
  * The view a pane at `route` shows: the route's view, or, for a node opened
- * at `/node/<id>`, the view it resolves to and the view node it shows.
+ * at `/node/<id>`, the view it resolves to and the view node it shows, and,
+ * at the home, the view the page stands in (the store's default view type).
  */
 function viewAt(route: string): { key: string; node?: string } | null {
   const matched = matchRoute(currentContributions(RoutePoint), route);
   if (matched === null) return null;
-  const opened = paramsOf(matched, NodeView);
-  if (opened === null) return { key: matched.view.id };
   const schema = schemaOf(useGraphStore.getState());
-  const target = resolveNodeView(
-    opened,
-    pageCatalog(),
-    (id) => schema.get(id),
-    () => {},
-  );
-  if (Result.isFailure(target)) return { key: matched.view.id };
+  const lookup = (id: string) => schema.get(id);
+  const opened = paramsOf(matched, NodeView);
+  const target =
+    opened !== null
+      ? resolveNodeView(opened, pageCatalog(), lookup, () => {})
+      : paramsOf(matched, HomeView) !== null
+        ? resolveDefaultViewType(WORKSPACE_ROOT_ID, pageCatalog(), lookup, () => {})
+        : null;
+  if (target === null || Result.isFailure(target)) return { key: matched.view.id };
   const found = target.success;
   // A broken view names no view, so the pane names the route's.
   if ("broken" in found) return { key: matched.view.id };

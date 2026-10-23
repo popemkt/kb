@@ -81,6 +81,13 @@ export interface View<P> {
   readonly Component: FunctionComponent<ViewProps<P>>;
   /** How a picker names it, for a view of a family a host chooses between. */
   readonly picker?: ViewPicker;
+  /**
+   * How a page it is the whole of is framed where no route opens it (a node
+   * opened in it, `/node/<id>`): a view a route opens is framed as that route
+   * frames it ({@link pageFrameOf}). Default: `fixed`, a page with its own
+   * viewport.
+   */
+  readonly frame?: RouteFrame;
 }
 
 /**
@@ -93,6 +100,7 @@ export interface ProvidedView {
   readonly sample: unknown;
   readonly Component: FunctionComponent<ViewProps<never>>;
   readonly picker?: ViewPicker;
+  readonly frame?: RouteFrame;
 }
 
 export const ViewPoint = Point<ProvidedView>()("ui.views");
@@ -538,16 +546,19 @@ export function paramsOf<P>(route: MatchedRoute | null, key: ViewKey<P>): P | nu
 
 /**
  * How `key`'s page is framed when it shows `params`: as the route that opens
- * that view frames it, or null when no route opens it. A host that shows a
- * view no route led to (a node opened in its default view) frames it so.
+ * that view frames it, else as the view says a page it is the whole of is
+ * framed (`View.frame`), or null when neither says. A host that shows a view
+ * no route led to (a node opened in its default view) frames it so.
  */
 export function pageFrameOf<P>(
   routes: readonly Contribution<ProvidedRoute>[],
+  views: readonly Contribution<ProvidedView>[],
   key: ViewKey<P>,
   params: P,
 ): RouteFrame | null {
   const route = routes.find(({ value }) => value.view === key);
-  return route === undefined ? null : route.value.frameOf(params);
+  if (route !== undefined) return route.value.frameOf(params);
+  return views.find(({ value }) => value.key === key)?.value.frame ?? null;
 }
 
 /** The route that owns `path`, or null when none does; the first match wins. */

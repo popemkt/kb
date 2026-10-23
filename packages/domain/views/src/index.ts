@@ -83,6 +83,7 @@ export {
 export { viewNodeFor, type ViewNodeProposal } from "./view-node.ts";
 export { SUBJECT_SLOTS, subjectRootOf, subjectRootProps } from "./subject.ts";
 export {
+  HomeView,
   LAYOUT_NAMESPACE,
   LayoutParams,
   LayoutView,

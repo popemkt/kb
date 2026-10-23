@@ -8,6 +8,7 @@ import {
   RoutePoint,
   schemaOf,
   useContributions,
+  ViewPoint,
   ViewSlot,
   ViewNotLoaded,
   ViewUnavailable,
@@ -31,6 +32,7 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
   const schema = useGraphStore(schemaOf);
   const catalog = usePageCatalog();
   const routes = useContributions(RoutePoint);
+  const views = useContributions(ViewPoint);
   const page = useMemo(() => {
     const target = resolveNodeView(
       params,
@@ -38,15 +40,16 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
       (id) => schema.get(id),
       (warning) => logWarn(`[kb/node] ${params.node}: ${warning}`),
     );
-    return nodePage(params, target, routes);
-  }, [params, catalog, schema, routes]);
+    return nodePage(params, target, routes, views);
+  }, [params, catalog, schema, routes, views]);
   return <PageFrame frame={page.frame}>{page.body}</PageFrame>;
 }
 
 /**
  * What the node page shows, and its frame. A view is framed as the route that
- * opens it frames it, and a view no route opens has the pane's box,
- * unscrolled, as a page with its own viewport does. Any other outcome (no
+ * opens it frames it, else as it says it frames a page (`View.frame`: the
+ * outline scrolls), else in the pane's box, unscrolled, as a page with its
+ * own viewport is. Any other outcome (no
  * such node, a view this page cannot draw) is framed as a page no route
  * matched is: in a scroll region.
  */
@@ -54,6 +57,7 @@ function nodePage(
   params: NodeParams,
   target: Result.Result<NodeViewTarget, string>,
   routes: Parameters<typeof pageFrameOf>[0],
+  views: Parameters<typeof pageFrameOf>[1],
 ): { readonly frame: ResolvedRoute["frame"]; readonly body: ReactNode } {
   if (Result.isFailure(target))
     return {
@@ -79,7 +83,7 @@ function nodePage(
       body: <WorkspaceState title="This view cannot be shown" description={decoded.failure} />,
     };
   return {
-    frame: pageFrameOf(routes, found.key, decoded.success) ?? "fixed",
+    frame: pageFrameOf(routes, views, found.key, decoded.success) ?? "fixed",
     body: (
       <ViewSlot
         view={found.key}

@@ -44,7 +44,7 @@ function route(path: string): { surface: string; params: unknown } | null {
 }
 
 describe("built-in routes", () => {
-  it("match the canvas, graph and outline paths", () => {
+  it("match the canvas, graph and home paths", () => {
     expect(route("/canvas")).toEqual({ surface: "canvas.list", params: {} });
     expect(route("/canvas/abc")).toEqual({ surface: "canvas.page", params: { id: "abc" } });
     expect(route("/graph")).toEqual({ surface: "graph.page", params: {} });
@@ -52,7 +52,9 @@ describe("built-in routes", () => {
       surface: "graph.page",
       params: { perspective: "p 1" },
     });
-    expect(route("/")).toEqual({ surface: "outline.main", params: {} });
+    // The home is core's, whatever view draws it: the outline, while it is loaded.
+    expect(route("/")).toEqual({ surface: "layout.home", params: {} });
+    expect(route("/outline/n.a")).toEqual({ surface: "layout.home", params: {} });
   });
 
   it("match the ontology list, page, outline and graph views", () => {
@@ -69,7 +71,7 @@ describe("built-in routes", () => {
   });
 
   it("leave unknown sub-views and deeper paths unowned, which is not found", () => {
-    expect(route("/")?.surface).toBe("outline.main");
+    expect(route("/")?.surface).toBe("layout.home");
     expect(route("/o/abc/schema")).toBeNull();
     expect(route("/o/abc/graph/extra")).toBeNull();
     expect(route("/other")).toBeNull();
@@ -87,7 +89,7 @@ describe("built-in routes", () => {
       .toSorted((a, b) => a.value.order - b.value.order)
       .map((section) => section.id);
     expect(sections).toEqual([
-      "outline.home",
+      "layout.home",
       "graph.section",
       "ontology.section",
       "canvas.section",

@@ -1903,7 +1903,8 @@ a separate point that only points at it.
 - **`ViewPoint`** (`ui.views`) holds a `View<P>`: its `key`, the `placements`
   it can fill, a `sample: P` (the params the contract suite mounts it with),
   and `Component`, which receives `{ params: P, host: ViewHost }`. A view owns
-  no route and no chrome.
+  no route and no chrome. A page view no route opens may say how a page it is
+  the whole of is framed (`frame`): the outline scrolls.
 - **`RoutePoint`** (`ui.routes`) holds a route: the `view` key it renders,
   `match(path) → P | null`, and, from those params, the shell `frame`
   (`scroll`, `fixed` or `full`), the `pendingTitle`, and an optional `Chrome`
@@ -1915,8 +1916,8 @@ a separate point that only points at it.
   path that opens its view with nothing chosen, which a pane's view
   switcher offers. A host that shows a view no route led it to (a node
   opened in its default view) frames that view's page as the route that
-  opens the view frames it (`pageFrameOf`), and lets it fill its box when
-  no route opens it.
+  opens the view frames it (`pageFrameOf`), else as the view's own `frame`
+  says, and lets it fill its box when neither says.
 - **`ViewHost`** is what a host guarantees a view. It is never a store and
   never `ctx`. It carries `placement`, which is `page` (the view fills
   the box its host gives it: the shell's page, the graph's canvas) or
@@ -2278,8 +2279,8 @@ until "Save workspace".
   reference) zooms the outline when the pane shows the page's outline. When
   the pane shows an outline rooted at a node (`/node/<id>`), it moves that
   pane to the node instead (`OpenNodeContext`, `useOpenNode`).
-- **The zoom is a location.** The page's outline at its home is `/`, and
-  zoomed to a node it is `/outline/<id>`; in an ontology's scope they are
+- **The zoom is a location.** The page's home is `/`, and zoomed to a node
+  it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,
   `outlineLocationOf`). A zoom (`zoomTo`, `zoomHome`, and every gesture that
   ends in one) pushes that location, and the page stands where the URL names
@@ -2292,6 +2293,13 @@ until "Save workspace".
   every open from a dashboard does (`navigatePane`). The page still has one
   zoom, so every pane at an outline location shows, and is titled by, the
   focused pane's (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
+- **The home is core's, the outline draws it.** The unscoped zoom
+  locations are the route of core's home view (`layout.home`, the layout
+  plugin), which shows the zoom in the store's default view type for no
+  node (DESIGN.md → Layout views → the home is core's), as an ontology's
+  scope does. With the outline loaded that is the outline at the zoom, and
+  the outline contributes no route of its own. The sidebar's Home row is the
+  layout plugin's; the outline adds its Pinned section.
 - **Each outline on screen is its own host.** An outline keys its rows
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,

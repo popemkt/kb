@@ -10,6 +10,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot } from "@kb/contracts";
+import { SYSTEM_IDS } from "@kb/model";
+import { OutlineView } from "@kb/views";
 
 const { App } = await import("@/components/App");
 const { setFetchGraphSnapshot } = await import("@/api/graph");
@@ -20,7 +22,18 @@ const ISO = "2026-09-24T00:00:00.000Z";
 function snapshot(): GraphSnapshot {
   return {
     rev: 1,
-    nodes: [{ id: "n.a", text: "a note", props: {}, children: [], createdAt: ISO, updatedAt: ISO }],
+    nodes: [
+      { id: "n.a", text: "a note", props: {}, children: [], createdAt: ISO, updatedAt: ISO },
+      // The home shows the store's default view type, which every store's seed names.
+      {
+        id: SYSTEM_IDS.viewsRoot,
+        text: "Views",
+        props: { [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: OutlineView.option }] },
+        children: [],
+        createdAt: ISO,
+        updatedAt: ISO,
+      },
+    ],
   };
 }
 
@@ -103,7 +116,7 @@ describe("not found, on every route (acceptance)", () => {
     expect(container.textContent).not.toContain("a note");
   });
 
-  it("the outline still owns /", () => {
+  it("the home still shows the outline at /", () => {
     expect(container.querySelector("[data-not-found]")).toBeNull();
     expect(container.textContent).toContain("a note");
   });

@@ -1166,6 +1166,12 @@ children: [≥2 layouts], sizes?}`). A split inside a row is a column and
   and a graph renderer's page is the graph page drawing that view node. The
   UI's links, a pane, a dashboard's panes and `ui.navigate` all open nodes
   this way.
+- **The home is core's.** `/` and `/outline/<id>` are where the page stands
+  (its zoom, `outlineLocationOf`), owned by core's `layout.home`
+  (`HomeView`), which shows the zoom in the store's default view type for
+  no node (`resolveDefaultViewType`), as an ontology's scope shows its
+  nodes. With the outline loaded the home is the outline at the zoom. The
+  sidebar's Home row is core's too.
 - **A broken definition opens, saying why; only a wrong location fails.**
   When the view the data names for a node is broken (a host's view node
   that is gone or names no view kb knows, a view node naming such a view,

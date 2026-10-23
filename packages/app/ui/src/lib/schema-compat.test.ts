@@ -85,13 +85,13 @@ describe("UI datalog on DatascriptIndex", () => {
       // then four view and lens fields, the view options with their list and families,
       // the ontology tag in place of the retired graph-perspective tag, the
       // docs view option (+26, +4), the layout and node view options (+2), the
-      // chart view option (+1), the code view option (+1), and the
-      // Extensions panel's view option (+1).
-      ["queries.list-all", 82],
+      // chart view option (+1), the code view option (+1), the
+      // Extensions panel's view option (+1), and core's home view option (+1).
+      ["queries.list-all", 83],
       ["queries.list-fields", 30],
       ["queries.list-tags", 2],
       ["queries.backlinks-n.root-a", 0],
-      ["query-node.default", 82],
+      ["query-node.default", 83],
       ["schema-zoom.tagged-todo", 2],
       ["schema-zoom.field-status", 2],
       ["graph-lens.todo-via-id", 2],

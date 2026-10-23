@@ -2,8 +2,7 @@ import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { ListFrameView } from "./frame-views";
-import { matchOutline } from "./routes";
-import { HomeSection, OutlineSurface, PinnedSection } from "./surfaces";
+import { OutlineSurface, PinnedSection } from "./surfaces";
 import { ViewSettingsPopoverHost } from "./view-settings-popover";
 import { outlineExtension, outlinePlugin } from "@kb/outline";
 import { OutlineListView, OutlineSnippetView, OutlineView, DEFAULT_VIEW_CONFIG } from "@kb/views";
@@ -16,9 +15,7 @@ import {
   PageEditorService,
   PaletteStepPoint,
   PageProjectionService,
-  provideRoute,
   provideView,
-  RoutePoint,
   SidebarSectionPoint,
   SYSTEM_IDS,
   ViewPoint,
@@ -39,10 +36,12 @@ const { filters } = DEFAULT_VIEW_CONFIG;
  * views are the collections family's (`@kb/collections-ui`).
  */
 const OUTLINE_VIEWS = [
+  // The outline at a node, opened at `/node/<id>`, scrolls as its home does.
   provideView(OutlineView, {
     placements: ["page"],
     sample: {},
     Component: OutlineSurface,
+    frame: "scroll",
   }),
   provideView(OutlineListView, {
     placements: ["inline"],
@@ -64,10 +63,12 @@ const OUTLINE_VIEWS = [
 ];
 
 /**
- * The outline: its views, the route to its page at `/`, the Home and Pinned
- * sidebar sections, its expand-all and collapse-all commands, its node-palette
- * steps (add a tag, a field, a reference), and the page overlay that hosts a
- * frame's filter popover.
+ * The outline: its views, the Pinned sidebar section, its expand-all and
+ * collapse-all commands, its node-palette steps (add a tag, a field, a
+ * reference), and the page overlay that hosts a frame's filter popover. It
+ * owns no route: the page's home (`/`, `/outline/<id>`) is core's
+ * (`HomeView`), shown in the store's default view type, which the outline
+ * provides, so while it is loaded the home is the outline at the page's zoom.
  *
  * It reaches the page through the host (its projection and editor read the
  * graph through it), so it injects `BrowserHostService` and applies after the
@@ -97,20 +98,6 @@ export const outlineUiPlugin = definePlugin({
         // Its field row is the page's field editor, wherever a field is drawn.
         ctx.provide(FieldEditorService, NodeField),
         ...OUTLINE_VIEWS.map((view) => ctx.contribute(ViewPoint, view)),
-        ctx.contribute(
-          RoutePoint,
-          provideRoute({
-            view: OutlineView,
-            match: matchOutline,
-            entry: "/",
-            frame: () => "scroll",
-            pendingTitle: () => "Opening your workspace…",
-          }),
-        ),
-        ctx.contribute(SidebarSectionPoint, {
-          id: "home",
-          value: { order: 0, Component: HomeSection },
-        }),
         ctx.contribute(SidebarSectionPoint, {
           id: "pinned",
           value: { order: 100, Component: PinnedSection },
