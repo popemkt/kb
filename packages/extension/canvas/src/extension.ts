@@ -1,7 +1,8 @@
 /**
  * The canvas family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The declaration is the one home of the family's
- * name, seed, views and the references its documents carry; the bundled
+ * name, seed, views, the references its documents carry and the context
+ * references it resolves on a pane; the bundled
  * fold reads it, and both hosts' entries
  * load {@link canvasPlugin}, so the keys and the seed cannot differ between
  * them. The server's entry (`@kb/ext-canvas`) adds the family's actions, and
@@ -10,6 +11,7 @@
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
+import { CANVAS_CONTEXT } from "./context.ts";
 import { CANVAS_IDS } from "./ids.ts";
 import { canvasReferences } from "./references.ts";
 import { canvasSeedNodes } from "./seed.ts";
@@ -23,6 +25,7 @@ export const canvasExtension = defineExtension({
   seed: canvasSeedNodes,
   views: [viewDef(CanvasListView), viewDef(CanvasView)],
   refCarriers: [{ field: CANVAS_IDS.canvasField, refsOf: canvasReferences }],
+  context: CANVAS_CONTEXT,
 });
 
 /**

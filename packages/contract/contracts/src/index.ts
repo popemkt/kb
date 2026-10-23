@@ -7,6 +7,7 @@ export {
   sessionOfMeta,
   requestOf,
   ActionReceiptSchema,
+  FilledInputSchema,
   ManifestEntrySchema,
   CoreInvoke,
   actionToManifestEntry,
@@ -50,6 +51,7 @@ export type {
   ActionInvocation,
   ActionRequest,
   ActionReceipt,
+  FilledInput,
   ManifestEntry,
   CoreInvoker,
   InvokeScope,
@@ -129,6 +131,15 @@ export type {
   Interception,
   Listener,
 } from "./interception.ts";
+export {
+  CORE_CONTEXT_REFERENCES,
+  NO_CONTEXT,
+  ContextReferencePoint,
+  CurrentContextReferences,
+  contextReferencesOf,
+  contextRefusal,
+} from "./context.ts";
+export type { ContextReference, ContextReferences } from "./context.ts";
 export { IdentityPoint, PersonSchema } from "./person.ts";
 export type { IdentityAnswer, Identification, IdentityProvider, Person } from "./person.ts";
 export {

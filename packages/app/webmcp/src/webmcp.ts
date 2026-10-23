@@ -17,6 +17,7 @@ import {
   DecidedEntrySchema,
   asObjectSchema,
   failed,
+  succeeded,
   listedOn,
   onWire,
   type ActionInvocation,
@@ -114,7 +115,7 @@ function receiptFor(
       (receipt): ActionReceipt =>
         receipt.status === "failed"
           ? receipt
-          : { status: "succeeded", id: receipt.id, output: receipt.output },
+          : succeeded(receipt.id, receipt.output, receipt.context),
     ),
     Effect.catch((message) => Effect.succeed(failed(invocation.id, "internal", message))),
   );

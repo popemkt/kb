@@ -13,6 +13,7 @@ import {
 } from "@kb/model";
 import type { KbIndexService, QueryEngineService } from "@kb/query";
 import type { Screens } from "./screen.ts";
+import { NO_CONTEXT, type ContextReferences } from "./context.ts";
 import type { GraphWrites } from "./graph-writes.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
@@ -173,6 +174,16 @@ export interface ActionDefinition<
    * inferred.
    */
   targets?: readonly string[];
+  /**
+   * The required keys of its input a call made in a tab session may leave
+   * out, each with the context reference that fills it from what the
+   * session's person is looking at (`ContextReference`): `{ canvasId:
+   * "ext.canvas.open" }`. Only required keys, so a call that works without a
+   * session means the same with one; the registry refuses any other
+   * (DESIGN.md → Action registry → What a session fills). Declared by the
+   * action, never inferred.
+   */
+  context?: Readonly<Record<string, string>>;
   inputSchema: TIn;
   outputSchema: TOut;
   /**
@@ -284,10 +295,19 @@ export function sessionOfMeta(meta: unknown): string | undefined {
  */
 export type ActionInvocation = ActionRequest & { readonly actor: Actor };
 
+/** One input a session filled: the reference it was read from, and the value it read. */
+export const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });
+export type FilledInput = z.infer<typeof FilledInputSchema>;
+
 export const SucceededReceiptSchema = z.object({
   status: z.literal("succeeded"),
   id: z.string(),
   output: z.unknown(),
+  /**
+   * The inputs the call's tab session filled, by key: what "this" meant
+   * (`ActionDefinition.context`). Absent when it filled none.
+   */
+  context: z.record(z.string(), FilledInputSchema).optional(),
 });
 
 export const FailedReceiptSchema = z.object({
@@ -304,8 +324,14 @@ export const ActionReceiptSchema = z.discriminatedUnion("status", [
 ]);
 export type ActionReceipt = z.infer<typeof ActionReceiptSchema>;
 
-export function succeeded(id: string, output: unknown): ActionReceipt {
-  return { status: "succeeded", id, output };
+export function succeeded(
+  id: string,
+  output: unknown,
+  context?: Readonly<Record<string, FilledInput>>,
+): ActionReceipt {
+  return context === undefined
+    ? { status: "succeeded", id, output }
+    : { status: "succeeded", id, output, context: { ...context } };
 }
 
 export function failed(
@@ -330,6 +356,14 @@ export const ManifestEntrySchema = z.object({
   batchOf: z.array(z.object({ id: z.string(), mode: ActionModeSchema })).optional(),
   inputSchema: z.unknown(),
   outputSchema: z.unknown(),
+  /**
+   * The required inputs a call made in a tab session may leave out, each
+   * with the reference that fills it and what that is on a pane
+   * (`ActionDefinition.context`).
+   */
+  context: z
+    .record(z.string(), z.object({ reference: z.string(), description: z.string() }))
+    .optional(),
   /** Present when this id is a compat alias for another registered id. */
   aliasOf: z.string().optional(),
 });
@@ -366,8 +400,16 @@ export function approvalSubject(def: ActionDefinition, modeOf: ModeOf) {
   return { id: def.id, mode: def.mode, ...(parts === undefined ? {} : { batchOf: parts }) };
 }
 
-export function actionToManifestEntry(def: ActionDefinition, modeOf: ModeOf): ManifestEntry {
+export function actionToManifestEntry(
+  def: ActionDefinition,
+  modeOf: ModeOf,
+  references: ContextReferences = NO_CONTEXT,
+): ManifestEntry {
   const parts = batchPartsOf(def, modeOf);
+  const context = Object.entries(def.context ?? {}).map(([key, reference]) => [
+    key,
+    { reference, description: references.of(reference)?.description ?? reference },
+  ]);
   return {
     id: def.id,
     title: def.title,
@@ -376,6 +418,7 @@ export function actionToManifestEntry(def: ActionDefinition, modeOf: ModeOf): Ma
     ...(parts === undefined ? {} : { batchOf: parts }),
     inputSchema: schemaToJsonSchema(def.inputSchema, "input"),
     outputSchema: schemaToJsonSchema(def.outputSchema, "output"),
+    ...(context.length === 0 ? {} : { context: Object.fromEntries(context) }),
   };
 }
 

@@ -52,7 +52,7 @@ import {
   kbAction,
   type GlobalOpts,
 } from "./command.ts";
-import { formatReceipt } from "./format.ts";
+import { filledLines, formatReceipt } from "./format.ts";
 import { extensionCommands } from "./extensions.ts";
 import { gateCommands } from "./gates.ts";
 import { locationCommands } from "./locations.ts";
@@ -701,6 +701,7 @@ function buildProgram(): Command {
           const raw = yield* readActionJsonEffect(jsonArg);
           const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw));
           const receipt = yield* invokeReceiptEffect(ctx, invocation);
+          if (globals.json !== true) for (const line of filledLines(receipt)) writeErr(line);
           writeOut(formatReceipt(receipt, { json: globals.json === true }));
           return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
         }),

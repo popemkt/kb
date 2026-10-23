@@ -13,6 +13,7 @@ import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
+import { ContextReferencePoint, type ContextReference } from "./context.ts";
 
 export interface ExtensionDeclaration {
   /** The family's name: the one home of it, which its plugins and its manifest row read. */
@@ -47,6 +48,13 @@ export interface ExtensionDeclaration {
   readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   /** The views the family provides; the seed derives each one's option node from its key. */
   readonly views?: readonly ViewDef<unknown>[];
+  /**
+   * The context references the family resolves on a pane, by their full id
+   * (`ext.canvas.open`, or core's bare `focused`): what a call made in a tab
+   * session may fill a required input from (`ContextReference`). Declared
+   * here, so every host that loads the family resolves them alike.
+   */
+  readonly context?: Readonly<Record<string, ContextReference>>;
   /**
    * The view type a node that names no view opens in, when this family is
    * the one that provides it: one of its own `views`, by its key. The seed
@@ -100,9 +108,19 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
     tags: familyTags(declaration),
     namespace: "",
     apply: (ctx) =>
-      Effect.forEach(
-        declaration.views ?? [],
-        (view) => ctx.contribute(ViewKeyPoint, { id: view.key.id, value: view }),
+      Effect.all(
+        [
+          Effect.forEach(
+            declaration.views ?? [],
+            (view) => ctx.contribute(ViewKeyPoint, { id: view.key.id, value: view }),
+            { discard: true },
+          ),
+          Effect.forEach(
+            Object.entries(declaration.context ?? {}),
+            ([id, value]) => ctx.contribute(ContextReferencePoint, { id, value }),
+            { discard: true },
+          ),
+        ],
         { discard: true },
       ),
   });

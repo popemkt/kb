@@ -12,6 +12,7 @@ import {
   type ExtensionPromiseHandler,
   type KbContext,
   CurrentCall,
+  CurrentContextReferences,
   CurrentInterception,
   approvalSubject,
 } from "@kb/contracts";
@@ -35,6 +36,7 @@ import {
   sealedPart,
 } from "./interception.ts";
 import { callWithin, scriptRefusal } from "./script-reach.ts";
+import { fillFromSession, withContextHint } from "./context-fill.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
   sandboxTrustDef,
@@ -277,7 +279,11 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const action = yield* sealedPart(
     approvalSubject(entry.def, (part) => actions.get(part)?.def.mode),
   );
-  const held = yield* sealedPart(made);
+  // A call made in a tab session is first given the required inputs it left
+  // out from what its person is looking at, so all that follows sees the
+  // input as it will run (`context-fill.ts`).
+  const fill = yield* fillFromSession(entry.def, made, outer);
+  const held = yield* sealedPart(fill.invocation);
   // Everything the call runs — its listeners as much as its handler — runs
   // as this call, so a call any of them makes nests in it and counts
   // toward the depth limit.
@@ -298,7 +304,10 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const refusal = refusalOf(outcome, invocation);
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 
-  const parsed = yield* parseBySchema(entry.def.inputSchema, input);
+  const hinted = withContextHint(entry.def, invocation, yield* CurrentContextReferences);
+  const parsed = yield* parseBySchema(entry.def.inputSchema, input).pipe(
+    Effect.mapError((err) => (err instanceof ActionSchemaError ? hinted(err) : err)),
+  );
   const outOfReach = scriptRefusal(entry.def, invocation, parsed, ctx);
   if (outOfReach !== null) return failed(id, "forbidden", outOfReach.message, outOfReach.details);
   const run = dispatch(entry, ctx, parsed);
@@ -308,7 +317,7 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
     asCall(invocation),
   );
-  return succeeded(id, yield* parseOutput(entry.def, output));
+  return succeeded(id, yield* parseOutput(entry.def, output), fill.context);
 });
 
 /**

@@ -8,7 +8,7 @@
  * and the default view type it provides, are `@kb/outline`'s, and the
  * graph's, with its seed, are `@kb/graph`'s.
  */
-import { defineExtension, viewDef } from "@kb/contracts";
+import { CORE_CONTEXT_REFERENCES, defineExtension, viewDef } from "@kb/contracts";
 import { DESIGN_SYSTEM_OPTIONS, systemSeedNodes, type SeedOption } from "@kb/model";
 import {
   DocsMarkdownView,
@@ -40,4 +40,5 @@ export const coreExtension = defineExtension({
     viewDef(ExtensionsView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
+  context: CORE_CONTEXT_REFERENCES,
 });

@@ -2392,10 +2392,10 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     `approved` and `script`. Because the session is a name, not a grant,
     every wire carries it. A call made inside another is made in the outer
     call's session (`callWithin`); a script's call is always made in its
-    run's session. A screen command made in a session goes to that tab
-    unless it names another, so an agent working in the person's tab moves
-    that tab, not whichever is most recently active. Each surface says it
-    its own way:
+    run's session. A screen command made in a session goes to that tab,
+    so an agent working in the person's tab moves that tab, not whichever
+    is most recently active (Screen state → Which tab a command goes to is
+    the call's to say). Each surface says it its own way:
     - the page makes every call in its own tab session, on both lanes
       (`inTabSession`), so its WebMCP tools and the calls the agent
       sidebar's person approves do too;
@@ -2408,6 +2408,47 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
 
     The plan this follows is
     `docs/brainstorms/2026-10-22-kb-tab-sessions/README.md`.
+  - **What a session fills.** A call made in a tab session may leave out
+    an input that means "this": the node the person is focused on, the
+    canvas they have open. The action says which, on its definition:
+    `context`, each key of its input with the *context reference* that
+    fills it (`{ canvasId: "ext.canvas.open" }`).
+    - **Only required inputs.** The registry refuses a `context` key the
+      input schema does not require, as it refuses a broken batch: a
+      family whose action declares one does not load, and core declaring
+      one dies (`contextRefusal`, `unloadBrokenActions`). A key whose
+      absence already means something (`node.add` without `parent` is a
+      forest root) is therefore never filled, and every call that works
+      without a session means the same with one.
+    - **References are a family's.** A reference
+      (`ContextReference`: a description and `resolve(pane)`) is what a
+      pane holds under it, and the family that understands that pane
+      resolves it. A declaration carries its family's references by full
+      id (`ExtensionDeclaration.context`) and `declarationPlugin`
+      contributes them to `ContextReferencePoint`, so both hosts resolve
+      them alike. Core's are `focused` and `subject`, which every pane
+      reports; the canvas family's are `ext.canvas.open`, the canvas a
+      canvas pane shows, and `ext.canvas.selection`, its selected item
+      ids. A selection is read as item ids only on a canvas pane.
+    - **The fill.** The invoke core fills before the interceptors
+      (`fillFromSession`, `context-fill.ts`), so a listener, a guard, the
+      input schema and a script's grant all see the input as it will run.
+      It reads the session's tab through `Screens`, and only a person's
+      tab: a nobody's is a screen any program may publish. It reads the
+      tab's active pane, the one the person last worked in; a canvas open
+      only in another pane is not open. A given input is never replaced,
+      and a reference that reads nothing fills nothing: the schema then
+      refuses the call, and the refusal names what to pass and what could
+      have filled it. Only the outermost call is filled; a handler's own
+      calls and a script's are made in the session but never change with
+      where the person is looking.
+    - **The receipt says what "this" was.** A succeeded receipt carries
+      `context`, each filled key with the reference it was read from and
+      its value. HTTP and `kb action-invoke --json` return it as part of
+      the receipt; MCP and kb's agent add it as a second text block
+      (`mcpToolResult`); WebMCP's tools resolve to it; the CLI prints it
+      to stderr. `kb.manifest` lists each action's `context` with what
+      each reference is on a pane.
   - **What binds a caller.** Nothing kb decides by actor binds anyone while
     policies are deferred. What does bind is who can reach `kb ui`'s HTTP
     and `/ws` at all, decided by the request guard, applied before `/ws`
