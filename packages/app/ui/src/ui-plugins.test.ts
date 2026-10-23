@@ -232,6 +232,7 @@ describe("an optional family switched off on the server", () => {
 
   it("is any family that can be switched and has a browser half", () => {
     expect(SWITCHABLE.map(({ name }) => name)).toEqual([
+      "outline",
       "collections",
       "graph",
       "canvas",

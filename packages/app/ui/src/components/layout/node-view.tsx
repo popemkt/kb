@@ -48,8 +48,8 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
 /**
  * What the node page shows, and its frame. A view is framed as the route that
  * opens it frames it, else as it says it frames a page (`View.frame`: the
- * outline scrolls), else in the pane's box, unscrolled, as a page with its
- * own viewport is. Any other outcome (no
+ * outline and the read view scroll), else in the pane's box, unscrolled, as
+ * a page with its own viewport is. Any other outcome (no
  * such node, a view this page cannot draw) is framed as a page no route
  * matched is: in a scroll region.
  */

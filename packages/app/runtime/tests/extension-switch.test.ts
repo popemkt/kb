@@ -165,10 +165,11 @@ describe("the gates do not depend on a switch", () => {
   });
 
   test("docs and check written off by hand still load, and their gates still run", async () => {
-    // The families that run the gates are required, as are governance and
-    // the outline, the default editing mode; every required one is written off.
+    // The families that run the gates are required, as is governance; every
+    // required one is written off. The outline, the default editing mode, is
+    // optional: a node it would open is read in core's view without it.
     const required = BUNDLED_FAMILIES.filter((family) => family.optional === undefined);
-    expect(required.map(({ name }) => name)).toEqual(["governance", "outline", "docs", "check"]);
+    expect(required.map(({ name }) => name)).toEqual(["governance", "docs", "check"]);
     const ctx = await openKb(root);
     const off: KbNode[] = [];
     for (const family of required) {

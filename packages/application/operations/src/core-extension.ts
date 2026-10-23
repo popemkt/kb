@@ -6,8 +6,9 @@
  * reads, and both hosts load its views through `declarationPlugin`. A
  * feature's views are its family's declaration's, never core's: the outline's,
  * and the default view type it provides, are `@kb/outline`'s, and the
- * graph's, with its seed, are `@kb/graph`'s. Core's own include the home,
- * where the page stands, which names no family's view.
+ * graph's, with its seed, are `@kb/graph`'s. Core's own are those that make
+ * no family necessary: the home, where the page stands, and the read view
+ * a node opens in where the default view type is not loaded (`NodeReadView`).
  */
 import { defineExtension, viewDef } from "@kb/contracts";
 import { DESIGN_SYSTEM_OPTIONS, systemSeedNodes, type SeedOption } from "@kb/model";
@@ -16,6 +17,7 @@ import {
   ExtensionsView,
   HomeView,
   LayoutView,
+  NodeReadView,
   NodeView,
   OntologyListView,
   OntologyScopeView,
@@ -41,6 +43,7 @@ export const coreExtension = defineExtension({
     viewDef(NodeView),
     viewDef(ExtensionsView),
     viewDef(HomeView),
+    viewDef(NodeReadView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
 });

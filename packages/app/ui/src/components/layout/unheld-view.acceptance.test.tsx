@@ -12,9 +12,10 @@
  * nowhere, but its option node is seeded whatever loads: it opens as the
  * same state, named by that option, and the switcher names it the same way.
  *
- * A view the data names that is broken (a host's view node that is gone, or,
- * as in this graph, which holds no `sys.views`, a store naming no default view
- * type) opens as the same state too, saying why, never as a node not found.
+ * A view the data names that is broken (a host's view node that is gone)
+ * opens as the same state too, saying why, never as a node not found. A node
+ * naming no view in a store naming no default view type (this graph holds no
+ * `sys.views`) is read, in core's read view.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -180,12 +181,11 @@ describe("a view the page cannot draw (acceptance)", () => {
     expect(container.querySelector('[data-not-found="Node"]')).toBeNull();
   });
 
-  it("opens a node naming no view, where no default view type is named, as a view it cannot show, saying why", async () => {
+  it("reads a node naming no view, where no default view type is named", async () => {
     await act(async () => navigate("/node/n.plain"));
-    await until(() => container.textContent.includes("This view cannot be shown here"));
-    expect(container.textContent).toContain(
-      `sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`,
-    );
+    await until(() => container.querySelector('[data-node-read="n.plain"]') !== null);
+    expect(container.querySelector('[data-node-read="n.plain"]')?.textContent).toContain("Plain");
+    expect(container.textContent).not.toContain("This view cannot be shown here");
     expect(container.querySelector('[data-not-found="Node"]')).toBeNull();
   });
 

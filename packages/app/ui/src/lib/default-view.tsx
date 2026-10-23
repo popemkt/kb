@@ -2,7 +2,9 @@
  * What a surface that shows "nodes as a node opens" draws: the store's
  * default view type, for no node (`resolveDefaultViewType`), so the surface
  * names no view itself. The page's home (`HomeView`) and an ontology's scope
- * both show it.
+ * both show it. Where the store names a default this page holds no key for,
+ * the resolver reads the nodes instead (`NodeReadView`, core's), so no
+ * family is one the surface needs.
  */
 import { useMemo } from "react";
 import { Result } from "effect";

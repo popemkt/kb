@@ -14,8 +14,8 @@ import { useGraphStore } from "@/stores/graph.store";
 
 /**
  * Where the page stands (`HomeView`, at `/` and `/outline/<id>`): its zoom,
- * in the store's default view type for no node (`DefaultViewSlot`): the
- * outline, which provides the default view type, at the zoom.
+ * in the store's default view type for no node (`DefaultViewSlot`). The
+ * outline draws it while it is loaded; without it the zoom is read.
  */
 export function HomeSurface() {
   const schema = useGraphStore(schemaOf);

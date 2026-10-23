@@ -58,7 +58,8 @@ export const SCREEN_PUBLISH_MS = 100;
 /**
  * The view a pane at `route` shows: the route's view, or, for a node opened
  * at `/node/<id>`, the view it resolves to and the view node it shows, and,
- * at the home, the view the page stands in (the store's default view type).
+ * at the home, the view the page stands in (the store's default view type,
+ * or the read view in its place).
  */
 function viewAt(route: string): { key: string; node?: string } | null {
   const matched = matchRoute(currentContributions(RoutePoint), route);

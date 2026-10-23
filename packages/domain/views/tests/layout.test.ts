@@ -9,6 +9,7 @@ import { SYSTEM_IDS, present, viewOptionId, type NodeProps } from "@kb/model";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 import {
   LayoutView,
+  NodeReadView,
   OutlineSnippetView,
   OutlineView,
   closePane,
@@ -303,7 +304,7 @@ describe("what /node/<id> opens", () => {
     expect(openIn(graph, "n.frame").target).toEqual(open("n.frame"));
   });
 
-  test("a default view type the host holds no key for opens as that view, unavailable here", () => {
+  test("a default view type the host holds no key for is read in its place, named", () => {
     const off = viewCatalogOf(catalog.items.filter((item) => item.key !== OutlineSnippetView));
     const graph = new Map([
       ...withDefault(OutlineSnippetView.option),
@@ -311,12 +312,78 @@ describe("what /node/<id> opens", () => {
     ]);
     expect(openIn(graph, "n.plain", off)).toEqual({
       target: Result.succeed({
-        key: null,
-        listed: { id: "outline.snippet", label: "Outline snippet" },
+        key: NodeReadView,
+        input: { root: "n.plain", insteadOf: "Outline snippet" },
         subject: "n.plain",
       }),
       warnings: [],
     });
+  });
+
+  /**
+   * The bundled catalog with the family that provides the default view type
+   * (the outline) switched off: none of its views is held.
+   */
+  const outlineOff = viewCatalogOf(
+    BUNDLED_DECLARATIONS.filter((declaration) => declaration.defaultView === undefined).flatMap(
+      (declaration) => declaration.views ?? [],
+    ),
+  );
+
+  test("with the outline off, a node naming no view is read, as is the home and a scope", () => {
+    const graph = new Map<string, { props: NodeProps; text?: string }>([
+      ...nodes,
+      [OutlineView.option, { props: {}, text: "Outline" }],
+    ]);
+    expect(openIn(graph, "n.plain", outlineOff)).toEqual({
+      target: Result.succeed({
+        key: NodeReadView,
+        input: { root: "n.plain", insteadOf: "Outline" },
+        subject: "n.plain",
+      }),
+      warnings: [],
+    });
+    expect(
+      resolveDefaultViewType(
+        "o.scope",
+        outlineOff,
+        (id) => graph.get(id),
+        () => {},
+      ),
+    ).toEqual(
+      Result.succeed({ key: NodeReadView, input: { insteadOf: "Outline" }, subject: "o.scope" }),
+    );
+  });
+
+  test("with the outline off, a frame's page (the outline at it) is the frame read", () => {
+    // The table is the collections family's, still on: its page is the outline's.
+    expect(openIn(nodes, "n.frame", outlineOff).target).toEqual(
+      Result.succeed({
+        key: NodeReadView,
+        input: { root: "n.frame", insteadOf: "Outline" },
+        subject: "v.table",
+        viewNode: "v.table",
+      }),
+    );
+  });
+
+  test("a host that holds no read view either says which view it cannot draw, as before", () => {
+    const bare = viewCatalogOf(
+      outlineOff.items.filter((item) => item.key !== NodeReadView && item.key !== OutlineView),
+    );
+    const graph = new Map<string, { props: NodeProps; text?: string }>([
+      ...nodes,
+      [OutlineView.option, { props: {}, text: "Outline" }],
+    ]);
+    expect(openIn(graph, "n.plain", bare).target).toEqual(
+      Result.succeed({
+        key: null,
+        listed: { id: "outline.main", label: "Outline" },
+        subject: "n.plain",
+      }),
+    );
+    const missing = `sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`;
+    expect(openIn(withDefault(null), "n.plain", bare)).toEqual(broken("n.plain", missing));
   });
 
   test("a surface's default view is the default view type, for no node, as a node naming none opens", () => {
@@ -335,12 +402,17 @@ describe("what /node/<id> opens", () => {
         subject: "o.scope",
       }),
     );
-    expect(Result.isFailure(at(withDefault(null)))).toBe(true);
+    // A store naming no default (a bundle with no family providing one) reads the nodes.
+    expect(at(withDefault(null))).toEqual(
+      Result.succeed({ key: NodeReadView, input: {}, subject: "o.scope" }),
+    );
   });
 
-  test("a default view type missing, or naming no view type, opens as broken, reported, never failing", () => {
-    const missing = `sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`;
-    expect(openIn(withDefault(null), "n.plain")).toEqual(broken("n.plain", missing));
+  test("a store naming no default view type reads the node; one naming no view type opens as broken", () => {
+    expect(openIn(withDefault(null), "n.plain")).toEqual({
+      target: Result.succeed({ key: NodeReadView, input: { root: "n.plain" }, subject: "n.plain" }),
+      warnings: [],
+    });
     const notAType = `sys.views's default view type v.table is no view type (${SYSTEM_IDS.viewDefaultField})`;
     expect(openIn(withDefault("v.table"), "n.plain")).toEqual(broken("n.plain", notAType));
   });

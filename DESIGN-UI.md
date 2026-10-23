@@ -1904,7 +1904,7 @@ a separate point that only points at it.
   it can fill, a `sample: P` (the params the contract suite mounts it with),
   and `Component`, which receives `{ params: P, host: ViewHost }`. A view owns
   no route and no chrome. A page view no route opens may say how a page it is
-  the whole of is framed (`frame`): the outline scrolls.
+  the whole of is framed (`frame`): the outline and core's read view scroll.
 - **`RoutePoint`** (`ui.routes`) holds a route: the `view` key it renders,
   `match(path) → P | null`, and, from those params, the shell `frame`
   (`scroll`, `fixed` or `full`), the `pendingTitle`, and an optional `Chrome`
@@ -2298,8 +2298,12 @@ until "Save workspace".
   plugin), which shows the zoom in the store's default view type for no
   node (DESIGN.md → Layout views → the home is core's), as an ontology's
   scope does. With the outline loaded that is the outline at the zoom, and
-  the outline contributes no route of its own. The sidebar's Home row is the
-  layout plugin's; the outline adds its Pinned section.
+  the outline contributes no route of its own; with it switched off, the
+  zoom is read in core's read view (`layout.read`): its text and its
+  descendants as links, a row opening its node in the pane (rooted) or
+  zooming (at the home), and a line saying which view it is read in place
+  of. The sidebar's Home row is the layout plugin's; the outline adds its
+  Pinned section.
 - **Each outline on screen is its own host.** An outline keys its rows
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,

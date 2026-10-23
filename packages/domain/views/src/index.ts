@@ -88,6 +88,8 @@ export {
   LayoutParams,
   LayoutView,
   NodeParams,
+  NodeReadParams,
+  NodeReadView,
   NodeView,
   SPLIT_DIRECTIONS,
   closePane,

@@ -34,6 +34,7 @@ export interface FieldEditorProps {
 export const FieldEditorService = Service<ComponentType<FieldEditorProps>>()("ui.field-editor");
 
 /** What a field is drawn with while no editor is provided: nothing. */
+// GAP [[01M5MWXM43Y12KDBM4JG7X1VRX]] with no editor family loaded, a field draws nothing
 const NO_FIELD_EDITOR: ComponentType<FieldEditorProps> = () => null;
 
 /** The page's field editor now, re-read when the plugins change. */

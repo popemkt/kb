@@ -242,7 +242,8 @@ describe("kb ext list", () => {
     expect(output.failures.map(({ file }) => file)).toEqual(["stranger.ts"]);
     expect(output.failures[0]?.error).toContain("not trusted");
     const tagsOf = (name: string) => output.extensions.find((e) => e.name === name)?.tags;
-    expect(tagsOf("outline")).toEqual(["core"]);
+    expect(tagsOf("docs")).toEqual(["core"]);
+    expect(tagsOf("outline")).toEqual(["outline"]);
     expect(tagsOf("governance")).toEqual(["governance"]);
     expect(tagsOf("canvas")).toEqual(["canvas"]);
     const guards = output.points.find(({ point }) => point === "action/guard")?.listeners;

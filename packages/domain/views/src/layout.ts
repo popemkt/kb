@@ -173,6 +173,31 @@ export const HomeView = viewKey(
   }),
 );
 
+/**
+ * A node read, not edited: its text, then its descendants. Core's, so a node
+ * always has a view to open in: it is what a node that names no view opens in
+ * where the host holds no key for the store's default view type, or the
+ * store names none (`resolveNodeView`). Rooted at `root`; without one, at
+ * the page's zoom.
+ */
+export const NodeReadParams = Schema.Struct({
+  root: Schema.optionalKey(Schema.NonEmptyString),
+  /** The label of the view it is read in place of, which this host does not hold. */
+  insteadOf: Schema.optionalKey(Schema.NonEmptyString),
+}).annotate({
+  description:
+    "A node read-only: its text, then its descendants, rooted at root, or at the page's zoom (/) when there is none. What a node opens in when the view it would open in is not loaded, which insteadOf names. Stored, root is lens.focus, else the node it is shown for; insteadOf is never stored.",
+});
+export type NodeReadParams = typeof NodeReadParams.Type;
+
+export const NodeReadView = viewKey(`${LAYOUT_NAMESPACE}.read`, "Read", NodeReadParams, {
+  read: (props, host) => {
+    const root = subjectRootOf(props, host);
+    return root === undefined ? {} : { root };
+  },
+  write: ({ root }) => (root === undefined ? {} : subjectRootProps(root)),
+});
+
 // ── the tree's edits: pure, each returning a layout the schema accepts ────
 
 /** One pane on its own: a workspace before anything is opened beside it. */

@@ -1,9 +1,11 @@
 /**
  * The outline family's declaration and its shared plugin (DESIGN.md →
- * Extension families). The outline is the default editing mode, so it is a
- * required family: a store cannot switch it off (`extension.switch` refuses
- * it), and its declaration provides the default view type (`defaultView`),
- * the view a node opens in when it names none. The declaration is the one
+ * Extension families). The outline is the default editing mode: its
+ * declaration provides the default view type (`defaultView`), the view a
+ * node opens in when it names none. It is optional and on by default:
+ * switched off, or not bundled, a node that names no view is read in core's
+ * read view (`NodeReadView`) instead, and the page's home is core's, so
+ * nothing else needs the outline. The declaration is the one
  * home of the family's name and views; the bundled seed folds it, and both
  * hosts' entries are {@link outlinePlugin}: the server's directly, the page's
  * as a child of `@kb/outline-ui`'s entry.
@@ -19,7 +21,8 @@ import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 export const outlineExtension = defineExtension({
   name: "outline",
   label: "Outline",
-  tags: ["core"],
+  optional: { byDefault: "on" },
+  tags: ["outline"],
   defaultView: OutlineView,
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
 });
