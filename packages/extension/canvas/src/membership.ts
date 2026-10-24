@@ -62,7 +62,26 @@ function honouredParent(node: CanvasNode, byId: ReadonlyMap<string, CanvasNode>)
   return named;
 }
 
-export function canvasMembership(nodes: readonly CanvasNode[]): CanvasMembership {
+/**
+ * `derive` of a document's items, made once per items array and kept while
+ * the array is: a document is never changed in place, so every reader of
+ * one document — the page, the pointer, both projections — shares one
+ * answer, and a document that moved one item works it out once.
+ */
+function heldPerItems<T extends object>(
+  derive: (nodes: readonly CanvasNode[]) => T,
+): (nodes: readonly CanvasNode[]) => T {
+  const held = new WeakMap<readonly CanvasNode[], T>();
+  return (nodes) => {
+    const known = held.get(nodes);
+    if (known !== undefined) return known;
+    const made = derive(nodes);
+    held.set(nodes, made);
+    return made;
+  };
+}
+
+const memberships = heldPerItems((nodes): CanvasMembership => {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const parents = new Map<string, string | null>();
   const members = new Map<string | null, string[]>();
@@ -81,6 +100,10 @@ export function canvasMembership(nodes: readonly CanvasNode[]): CanvasMembership
     parentOf: (id) => parents.get(id) ?? null,
     membersOf: (group) => members.get(group) ?? NONE,
   };
+});
+
+export function canvasMembership(nodes: readonly CanvasNode[]): CanvasMembership {
+  return memberships(nodes);
 }
 
 /** The groups `id` belongs to, innermost first. */
@@ -431,18 +454,7 @@ export function viewpointFrames(
   );
 }
 
-/**
- * Items back to front: by the height of their top surface; at one height a
- * group before its members, at any depth, and otherwise in document order,
- * which bring-to-front and send-to-back rearrange. Every projection paints
- * and hit-tests in this order, so from the top a higher item covers a lower
- * one and a frame lies under what belongs to it.
- */
-// A cone or a sphere is ordered by its point, so from the top a raised card
-// over its low rim paints under it there; a tilted item is ordered by its
-// highest corner, so the same holds over its low side.
-// GAP [[01M41GAYYABEV7H197ZPAVD260]]
-export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
+const paintOrders = heldPerItems((nodes): readonly CanvasNode[] => {
   const membership = canvasMembership(nodes);
   const index = new Map(nodes.map((node, i) => [node.id, i]));
   // Each item's place in the tree: the document index of every group above it, then its own;
@@ -457,6 +469,21 @@ export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   ];
   const keyed = nodes.map((node) => ({ node, top: boxTop(node), place: place(node) }));
   return keyed.toSorted((a, b) => a.top - b.top || byPlace(a.place, b.place)).map((k) => k.node);
+});
+
+/**
+ * Items back to front: by the height of their top surface; at one height a
+ * group before its members, at any depth, and otherwise in document order,
+ * which bring-to-front and send-to-back rearrange. Every projection paints
+ * and hit-tests in this order, so from the top a higher item covers a lower
+ * one and a frame lies under what belongs to it.
+ */
+// A cone or a sphere is ordered by its point, so from the top a raised card
+// over its low rim paints under it there; a tilted item is ordered by its
+// highest corner, so the same holds over its low side.
+// GAP [[01M41GAYYABEV7H197ZPAVD260]]
+export function paintOrder(nodes: readonly CanvasNode[]): readonly CanvasNode[] {
+  return paintOrders(nodes);
 }
 
 /** Tree order: a group before what belongs to it, and siblings in document order. */
