@@ -7,6 +7,7 @@ import {
   routePoints,
   type CanvasDoc,
   type CanvasEdge,
+  type CanvasItemLink,
   type CanvasNode,
   type CanvasThread,
   type EdgeRoute,
@@ -114,6 +115,29 @@ export function threadPins(
       at: { x: rect.right, y: rect.top },
     })),
   );
+}
+
+/** Where an item's link mark stands on the stage: the bottom right corner it hangs from. */
+export interface LinkMark {
+  readonly item: string;
+  readonly link: CanvasItemLink;
+  readonly at: CanvasPoint;
+}
+
+/**
+ * Where `view` hangs the link mark of each item of `doc` that carries a
+ * link, on a stage of `size`: at the bottom right of its box as drawn
+ * (`itemScreenRects`); none for an item none of which is in front of the eye.
+ */
+export function linkMarks(doc: CanvasDoc, view: CanvasView, size: ViewSize): LinkMark[] {
+  const linked = doc.nodes.filter((item) => item.link !== undefined);
+  const rects = itemScreenRects(linked, view, size);
+  return linked.flatMap(({ id, link }) => {
+    const rect = rects.get(id);
+    return rect === undefined || link === undefined
+      ? []
+      : [{ item: id, link, at: { x: rect.right, y: rect.bottom } }];
+  });
 }
 
 /**

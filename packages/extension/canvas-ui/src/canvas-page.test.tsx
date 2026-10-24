@@ -617,6 +617,47 @@ describe("CanvasPage pointer interactions", () => {
     });
   });
 
+  it("a linked item wears a link mark that says where it leads, and a click follows it", async () => {
+    const linked: CanvasDoc = {
+      ...initialDoc,
+      nodes: initialDoc.nodes.map((item) =>
+        item.id === "a" ? { ...item, link: { item: "b" } } : item,
+      ),
+    };
+    host.setNodes([
+      {
+        ...canvasNode,
+        props: {
+          ...canvasNode.props,
+          [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(linked) }],
+        },
+      },
+    ]);
+    const sides = ["clientWidth", "clientHeight"] as const;
+    const held = sides.map((side) =>
+      Object.getOwnPropertyDescriptor(dom.HTMLElement.prototype, side),
+    );
+    for (const side of sides) {
+      Object.defineProperty(dom.HTMLElement.prototype, side, { configurable: true, value: 800 });
+    }
+    try {
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      const marks = [...container.querySelectorAll<HTMLButtonElement>("[data-link-mark]")];
+      expect(marks.map((mark) => mark.dataset.linkMark)).toEqual(["a"]);
+      expect(marks[0]?.getAttribute("aria-label")).toBe("Shows b on this canvas");
+      act(() => marks[0]?.click());
+      expect(container.querySelector('[data-card-id="b"] [data-resize]')).not.toBeNull();
+    } finally {
+      sides.forEach((side, i) => {
+        const was = held[i];
+        if (was === undefined) Reflect.deleteProperty(dom.HTMLElement.prototype, side);
+        else Object.defineProperty(dom.HTMLElement.prototype, side, was);
+      });
+    }
+  });
+
   it("a modal grab follows the pointer, and a press confirms or cancels it, reaching nothing", async () => {
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);

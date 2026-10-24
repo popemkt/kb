@@ -7,19 +7,8 @@
  */
 import { useState } from "react";
 import { withLink, type CanvasItemLink, type CanvasNode, type CanvasWorld } from "@kb/canvas";
-import { linkOfText, textOfLink } from "./item-link-text";
+import { leadsTo, linkOfText, textOfLink } from "./item-link-text";
 import type { CanvasPageTab } from "./canvas-page-strip";
-
-/** Where `link` leads, in words. */
-function leadsTo(link: CanvasItemLink, world: CanvasWorld): string {
-  if ("url" in link) return `Opens ${link.url}`;
-  const item = link.item === undefined ? "" : `, at ${link.item}`;
-  if (!("node" in link)) return `Shows ${link.item} on this canvas`;
-  const text = world.textOf(link.node);
-  return text === undefined
-    ? `Leads to ${link.node}, which is gone`
-    : `Opens ${text || "∅"}${item}`;
-}
 
 // GAP [[01M5486YWGBMNG9G60EY4MPS0X]] people cannot pick a canvas item as a link target
 export function LinkRow({

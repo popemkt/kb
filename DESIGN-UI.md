@@ -1497,6 +1497,11 @@ manipulation feel professional rather than merely functional.
   comment shows what it says and not who said it
   (gap `01M54GBYH3K67TAW016HFCJHBC`, marked at the panel). The projection
   contract holds where each pin stands.
+- **Item links**: an item that carries a link (DESIGN.md → Canvas
+  documents, `link`) wears a small link mark under its bottom right corner
+  as the shown projection draws it, in either projection
+  (`canvas-link-marks.tsx`), as tldraw's shape link button does. It says
+  where the link leads (`leadsTo`), and a click follows it as ⌘↵ does.
 
 #### Projections
 

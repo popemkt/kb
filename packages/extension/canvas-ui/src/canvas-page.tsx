@@ -71,6 +71,7 @@ import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
 import { pressPans, strokeOf, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
 import { CanvasCommentLayer } from "./canvas-comments";
+import { CanvasLinkMarks } from "./canvas-link-marks";
 import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
 import { useCanvasComments } from "./use-canvas-comments";
 import type { PresentAct } from "./canvas-keymap";
@@ -399,7 +400,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     setSelection(selNode(id));
     viewport.frame([shown]);
   };
-  // GAP [[01M546BF0GJ09QQV8H747X0JM7]] an item's link shows no mark on the canvas; it is followed from the inspector or ⌘↵
   /** Go where `link` leads: out of kb, to another page, or to an item here. */
   const follow = (link: CanvasItemLink) => {
     const step = linkStep(link, canvasId, world);
@@ -749,6 +749,16 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           view={CanvasView}
           events={scriptEvents}
           layout={scriptLayout}
+        />
+        <CanvasLinkMarks
+          rig={projection.rig}
+          in3d={in3d}
+          flatView={projection.flatView()}
+          width={projection.camera().size.width}
+          height={projection.camera().size.height}
+          doc={doc}
+          world={world}
+          onFollow={follow}
         />
         <CanvasCommentLayer
           rig={projection.rig}
