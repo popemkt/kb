@@ -6,6 +6,9 @@
     <title>kb</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- The graph the boot loads first (api/graph.ts), asked for while the
+         bundle downloads rather than after it (DESIGN-UI.md → Delivery). -->
+    <link rel="preload" href="/api/graph" as="fetch" crossorigin="anonymous" />
     <!-- Blocking no-FOUC prefs: theme class + width attr before first paint
          (kb-prefs, DESIGN-RESKIN §1.7; pattern from nxus __root.tsx). -->
     <style>

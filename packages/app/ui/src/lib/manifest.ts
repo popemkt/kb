@@ -44,23 +44,36 @@ function setServedManifest(next: ServedManifest): void {
 }
 
 /**
- * Ask the server what it loaded. A server that cannot answer leaves the page
- * as it was, and says so in the log; it never fails the boot.
+ * Ask the server what it loaded, without following the answer yet: null
+ * when it cannot answer, which the log says. The boot asks this beside the
+ * graph and follows it once the graph is in (`components/App.tsx`).
  */
-export async function loadManifest(): Promise<void> {
+export async function readManifest(): Promise<ServedManifest | null> {
   const response = await postAction({ id: kbManifestDef.id, input: {} }).catch((error: unknown) => {
     logWarn(`[kb/manifest] kb.manifest unreachable: ${String(error)}`);
     return null;
   });
-  if (response === null) return;
+  if (response === null) return null;
   if (response.status !== "succeeded") {
     logWarn(`[kb/manifest] kb.manifest failed: ${response.message}`);
-    return;
+    return null;
   }
   const manifest = kbManifestDef.outputSchema.safeParse(response.output);
   if (!manifest.success) {
     logWarn(`[kb/manifest] kb.manifest answered in another shape: ${manifest.error.message}`);
-    return;
+    return null;
   }
-  setServedManifest({ views: manifest.data.views, extensions: manifest.data.extensions });
+  return { views: manifest.data.views, extensions: manifest.data.extensions };
+}
+
+/**
+ * Follow `read`, a manifest {@link readManifest} asked for (a fresh ask by
+ * default). A server that could not answer leaves the page as it was; it
+ * never fails the boot.
+ */
+export async function loadManifest(
+  read: Promise<ServedManifest | null> = readManifest(),
+): Promise<void> {
+  const manifest = await read;
+  if (manifest !== null) setServedManifest(manifest);
 }

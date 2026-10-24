@@ -261,6 +261,10 @@ be kept, never how it is sent.
   manifest is the largest JSON the page reads). An encoding is computed
   once per body per process and kept by the body's digest, within a 64 MiB
   budget.
+- **Asked early.** `index.html` preloads `/api/graph`, so the snapshot
+  downloads beside the bundle rather than after it, and the boot asks for
+  `kb.manifest` beside the graph and follows it once the graph is in
+  (`components/App.tsx`).
 
 ## SubscriptionHub — the "other apps can subscribe" layer
 

@@ -16,7 +16,7 @@ import { PreferencesPopover, PreferencesTrigger } from "@/components/prefs/prefe
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { loadManifest } from "@/lib/manifest";
+import { loadManifest, readManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
 import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
@@ -203,14 +203,17 @@ export function App() {
     setStatus("loading");
     setError(null);
     try {
+      // The page follows the server: it asks which extensions and views the
+      // server loaded beside the graph, so the two round trips overlap, and
+      // follows the answer once the graph is in. It opens the workspace only
+      // once their plugins are in, so a layout never shows one of their views
+      // as unavailable on the way. Offline, the page is its own server, and
+      // its own reading is already in.
+      const manifest = readManifest();
       const { snapshot, source } = await loadGraph();
       hydrateFromWire(snapshot.nodes, snapshot.rev, source);
-      // The page follows the server: ask which extensions and views it loaded,
-      // and open the workspace only once their plugins are in, so a layout
-      // never shows one of their views as unavailable on the way. Offline, the
-      // page is its own server, and its own reading is already in.
       if (source === "api") {
-        await loadManifest();
+        await loadManifest(manifest);
         await extensionsSettled();
       }
       setStatus("ready");
