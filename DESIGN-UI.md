@@ -48,6 +48,7 @@ implementation modules under `packages/app/server/src/` split by concern:
 | ------------------ | -------------------------------------------------------------------------------- |
 | `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown         |
 | `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback      |
+| `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
 | `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core     |
 | `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)       |
 | `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
@@ -234,6 +235,32 @@ query text, each as of a generation of the replica.
 - **Actions.** An isomorphic action that runs on the page asks datalog of
   `QueryEngineService`, which the page binds to the same engine, one query
   at a time, outside the shared answers (its query may carry inputs).
+
+### Delivery
+
+How the page's bytes reach a browser, which is often across a tailnet relay
+with a round trip of 100 ms or more. The server's HTTP boundary
+(`packages/app/server/src/delivery.ts`) is the one place an answer is
+encoded or answered `304`; a route says what it answers and how long it may
+be kept, never how it is sent.
+
+- **Kept by name.** Everything under `ui/dist/static/` is the bundler's
+  output, named by its digest (Vite's `build.assetsDir`), and is sent
+  `Cache-Control: public, max-age=31536000, immutable`: a browser that has
+  it never asks again. Every other `ui/dist` file (`index.html` and the SPA
+  fallback, the public files, the sandbox frame's script) is `no-cache`
+  with a weak `ETag` from its size and mtime, so a reload revalidates it in
+  one round trip and gets `304` when it has not changed
+  (`staticCacheHeaders`, `assets.ts`). A repository extension's page half
+  is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
+- **Compressed when it is text.** A `200` whose type is script, style,
+  markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
+  (quality 6) or gzip, whichever the request's `Accept-Encoding` prefers,
+  with `Vary: Accept-Encoding`; media, which is compressed already, goes as
+  it is. A `POST /api/action` receipt is encoded as a read is (the
+  manifest is the largest JSON the page reads). An encoding is computed
+  once per body per process and kept by the body's digest, within a 64 MiB
+  budget.
 
 ## SubscriptionHub — the "other apps can subscribe" layer
 
@@ -3499,6 +3526,7 @@ aliases were found and deleted. It also fails when the scale lists in
   packages/app/server/src/
     server.ts                    # Bun.serve boundary + Effect Scope stop + fs-watch
     http.ts                      # Effect REST/API + asset GET + SPA fallback
+    delivery.ts                  # 304 revalidation + brotli/gzip for every answer
     session.ts                   # Effect SubscriptionHub (WS protocol)
     assets.ts                    # Effect ui/dist static + .kb/assets
     saved-queries.ts             # Effect .kb/queries listing / virtual nodes

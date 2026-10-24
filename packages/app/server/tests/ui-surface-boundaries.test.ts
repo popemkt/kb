@@ -70,6 +70,9 @@ describe("ui assets boundary", () => {
       const spa = await serveStatic("/some/client/route");
       expect(spa?.status).toBe(200);
       expect(spa?.headers.get("Content-Security-Policy")).toBe("frame-ancestors 'self'");
+      // index.html is revalidated, never kept blind (DESIGN-UI.md → Delivery).
+      expect(spa?.headers.get("Cache-Control")).toBe("no-cache");
+      expect(spa?.headers.get("ETag")).toMatch(/^W\//);
 
       // Canonical-path containment: symlink under dist → outside file → 403.
       const outside = join(tmpdir(), `kb-ui-static-escape-${Date.now()}.txt`);

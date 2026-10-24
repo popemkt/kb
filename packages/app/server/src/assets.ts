@@ -1,6 +1,6 @@
 import { join, normalize, relative, resolve, isAbsolute } from "node:path";
 import { Effect, Option } from "effect";
-import { FileSystem } from "effect/FileSystem";
+import { FileSystem, type File } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { resolveAssetFile, assetsDir } from "@kb/workspace-fs";
 import { bunFileSystemLayer } from "@kb/runtime";
@@ -83,7 +83,7 @@ const resolveContainedFile = Effect.fn("kb.ui.resolveContainedFile")(function* (
   if (Option.isNone(info) || info.value.type !== "File") {
     return { kind: "forbidden" as const };
   }
-  return { kind: "ok" as const, path: fileReal.value };
+  return { kind: "ok" as const, path: fileReal.value, info: info.value };
 });
 
 /**
@@ -135,15 +135,39 @@ export function frameAncestors(embedOrigins: readonly string[]): string {
 }
 
 /**
+ * Where the bundler writes its output inside `ui/dist` (the UI's Vite
+ * `build.assetsDir`). Every file under it is named by its digest, so its
+ * bytes never change under its name.
+ */
+const DIGEST_NAMED_DIR = "static/";
+
+/**
+ * How long a client may keep a `ui/dist` file (DESIGN-UI.md → Delivery): a
+ * digest-named file for good, anything else (index.html, the public files,
+ * the sandbox frame's script) only after asking whether it changed, which
+ * its `ETag` answers with a `304` when it has not.
+ */
+export function staticCacheHeaders(rel: string, info: File.Info): Record<string, string> {
+  if (rel.startsWith(DIGEST_NAMED_DIR)) {
+    return { "Cache-Control": "public, max-age=31536000, immutable" };
+  }
+  const mtime = Option.match(info.mtime, { onNone: () => 0, onSome: (at) => at.getTime() });
+  return {
+    "Cache-Control": "no-cache",
+    ETag: `W/"${Number(info.size).toString(36)}-${mtime.toString(36)}"`,
+  };
+}
+
+/**
  * Serve a file from `ui/dist`, or SPA fallback to index.html, saying who
- * may frame it ({@link frameAncestors}). Returns null when the UI has not
- * been built.
+ * may frame it ({@link frameAncestors}) and how long it may be kept
+ * ({@link staticCacheHeaders}). Returns null when the UI has not been built.
  */
 export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
   pathname: string,
   embedOrigins: readonly string[] = [],
 ) {
-  const headers = { "Content-Security-Policy": frameAncestors(embedOrigins) };
+  const framing = { "Content-Security-Policy": frameAncestors(embedOrigins) };
   const fs = yield* FileSystem;
   const indexHtml = join(UI_DIST, "index.html");
   // Platform I/O errors become defects; HTTP catchCause maps them to 500.
@@ -158,10 +182,16 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
     return plainStatus("forbidden", 403);
   }
 
+  const served = (path: string, inDist: string, info: File.Info) =>
+    HttpServerResponse.raw(Bun.file(path), {
+      status: 200,
+      headers: { ...framing, ...staticCacheHeaders(inDist, info) },
+    });
+
   if (yield* fs.exists(candidate).pipe(Effect.orDie)) {
     const contained = yield* resolveContainedFile(UI_DIST, candidate);
     if (contained.kind === "ok") {
-      return HttpServerResponse.raw(Bun.file(contained.path), { status: 200, headers });
+      return served(contained.path, rel, contained.info);
     }
     if (contained.kind === "forbidden") {
       return plainStatus("forbidden", 403);
@@ -170,7 +200,8 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
   }
 
   // SPA fallback
-  return HttpServerResponse.raw(Bun.file(indexHtml), { status: 200, headers });
+  const index = yield* fs.stat(indexHtml).pipe(Effect.orDie);
+  return served(indexHtml, "index.html", index);
 });
 
 /** Promise facade for the WS-free HTTP path / tests. */
