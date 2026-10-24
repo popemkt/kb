@@ -7,7 +7,7 @@ import { beforeAll } from "vitest";
 beforeAll(async () => {
   const [{ bundledDerived }, { inThreadPort }, { provideEngine }] = await Promise.all([
     import("@kb/bundled"),
-    import("@kb/ui-sdk"),
+    import("@kb/ui-test-kit"),
     import("@/session/engine"),
   ]);
   provideEngine(() =>

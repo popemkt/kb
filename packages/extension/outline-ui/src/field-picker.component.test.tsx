@@ -9,9 +9,13 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
-import { installDomGlobals, type InstalledDom, answersOver } from "@kb/ui-test-kit";
 import {
+  answersOver,
   DatascriptIndex,
+  installDomGlobals,
+  type InstalledDom,
+} from "@kb/ui-test-kit";
+import {
   derivedWith,
   fieldContextOf,
   fieldTypeValue,

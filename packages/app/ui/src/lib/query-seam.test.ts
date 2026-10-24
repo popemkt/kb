@@ -1,8 +1,8 @@
-import { answersOver } from "@kb/ui-test-kit";
+import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import { normalizeEdnQuery } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { fixtureGraph } from "@/api/fixture-graph";
-import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
+import { derivedWith } from "@kb/ui-sdk";
 
 /**
  * The page's one datalog seam is an `EdnRunner`: the helpers take one, and

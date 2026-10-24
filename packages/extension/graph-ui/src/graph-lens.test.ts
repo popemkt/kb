@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { DatascriptIndex, derivedWith, type EdnRunner, SYSTEM_IDS } from "@kb/ui-sdk";
+import { derivedWith, type EdnRunner, SYSTEM_IDS } from "@kb/ui-sdk";
+import { DatascriptIndex } from "@kb/ui-test-kit";
 import {
   buildTreeForest,
   DEFAULT_EDGE_KINDS,

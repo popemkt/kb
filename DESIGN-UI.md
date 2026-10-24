@@ -184,7 +184,11 @@ query text, each as of a generation of the replica.
   a message to it and its answer a message back, so a slow query never
   holds the page. The server and the CLI keep their in-process index; the
   worker is the page's alone. A host without workers (the unit tests)
-  serves the same protocol in-thread (`inThreadPort`).
+  serves the same protocol in-thread (`inThreadPort`, which a test takes
+  from `@kb/ui-test-kit`). DataScript is the worker's: the page SDK carries
+  no index (`@kb/ui-sdk` exports neither `DatascriptIndex` nor
+  `inThreadPort`) and `@kb/query` declares itself free of side effects, so
+  the page's own bundle carries no DataScript.
 - **Every run has a budget.** A query is given `QUERY_BUDGET_MS` from the
   moment the engine starts it. A run that overruns is stopped — the worker
   is terminated, a fresh one is loaded from the table, and the runs it had

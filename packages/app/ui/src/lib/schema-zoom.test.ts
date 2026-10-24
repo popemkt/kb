@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  DatascriptIndex,
   derivedWith,
   queryFieldCarriers,
   queryTaggedInstances,
   schemaZoomKind,
   wireToOutlineMap,
 } from "@kb/ui-sdk";
+import { DatascriptIndex } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 
 describe("schema zoom queries", () => {
