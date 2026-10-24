@@ -121,6 +121,22 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 // ── WS: server -> client ────────────────────────────────────────────────
 
+/**
+ * What the deployment lets an app that frames the page have (DESIGN.md →
+ * Surfaces → Embedding the page): `origins` may frame it beside its own
+ * (`kb ui --embed-origin`), and a framed page tells each its tab session;
+ * `scripts` are the URLs of classic scripts a framed page loads for them
+ * (`kb ui --embed-script`), each told the origins as `data-parent-origins`.
+ */
+export const EmbeddingSchema = z.object({
+  origins: z.array(z.string()).readonly(),
+  scripts: z.array(z.string()).readonly(),
+});
+export type Embedding = z.infer<typeof EmbeddingSchema>;
+
+/** No embedder: only the page's own origin may frame it, and it loads nothing for one. */
+export const NO_EMBEDDING: Embedding = { origins: [], scripts: [] };
+
 export const ServerMessageSchema = z.discriminatedUnion("op", [
   /** First message after connect. */
   z.object({ op: z.literal("hello"), rev: z.number().int() }),
@@ -129,13 +145,13 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
    * person, as the deployment's authentication named them, or nobody
    * (`null`). A connection that is nobody's reads, writes and publishes its
    * screen as an agent does, and may not speak on a plugin channel.
-   * `embedders` are the origins allowed to frame the page beside its own
-   * (`kb ui --embed-origin`): a framed page tells each its tab session.
+   * `embedding` is what the deployment lets an app that frames the page
+   * have; absent when no other origin may.
    */
   z.object({
     op: z.literal("person"),
     person: PersonSchema.nullable(),
-    embedders: z.array(z.string()).optional(),
+    embedding: EmbeddingSchema.optional(),
   }),
   /** Node-level delta after a store change (from any surface: UI, CLI,
    * MCP, agents). Clients transact this into their local DataScript. */

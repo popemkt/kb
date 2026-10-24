@@ -67,6 +67,36 @@ const toIdentity = (value: string): { header: string; login: string } => {
   );
 };
 
+/**
+ * An `--embed-script`: an absolute HTTP(S) URL with no credentials in it,
+ * which a framed page loads as a classic script.
+ */
+const toScriptUrl = (value: string): string => {
+  try {
+    const url = new URL(value);
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.username === "" &&
+      url.password === ""
+    ) {
+      return url.href;
+    }
+  } catch {
+    // Report malformed URLs through the same CLI usage error as other non-script URLs.
+  }
+  throw new CommanderError(
+    EXIT_USAGE,
+    "commander.invalidArgument",
+    `--embed-script must be an HTTP(S) URL, e.g. https://bb.example/bridge.js, not ${value}`,
+  );
+};
+
+/** Every `--embed-script` given, each a script URL. */
+export const collectScripts = (value: string, held: readonly string[] = []): readonly string[] => [
+  ...held,
+  toScriptUrl(value),
+];
+
 /** Every `--embed-origin` given, each an origin. */
 export const collectOrigins = (value: string, held: readonly string[] = []): readonly string[] => [
   ...held,
@@ -108,6 +138,8 @@ export interface UiListenArguments {
   readonly devPort?: number;
   readonly publicOrigin?: string;
   readonly identityHeader?: { header: string; people: readonly string[] };
+  readonly embedOrigin?: readonly string[];
+  readonly embedScript?: readonly string[];
 }
 
 /**
@@ -122,6 +154,10 @@ export const checkUiListen = (args: UiListenArguments): void => {
   const usage = (message: string): never => {
     throw new CommanderError(EXIT_USAGE, "commander.conflictingOption", message);
   };
+  // A script is loaded only for a page some other origin frames.
+  if (args.embedScript !== undefined && (args.embedOrigin ?? []).length === 0) {
+    usage("--embed-script is loaded for the pages that frame kb; name them with --embed-origin");
+  }
   if (args.socket === undefined) {
     if (args.identityHeader !== undefined) {
       usage("--identity-header is believed only on a --socket its proxy is the one way into");

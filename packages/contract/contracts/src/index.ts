@@ -147,6 +147,8 @@ export {
   ClientMessageSchema,
   GraphSnapshotSchema,
   SavedQuerySchema,
+  EmbeddingSchema,
+  NO_EMBEDDING,
   ServerIdentitySchema,
   ServerMessageSchema,
   UI_DEFAULT_PORT,
@@ -155,6 +157,7 @@ export {
 export type {
   ActionResponse,
   ClientMessage,
+  Embedding,
   GraphSnapshot,
   SavedQuery,
   ServerIdentity,

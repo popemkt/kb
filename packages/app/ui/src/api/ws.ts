@@ -17,8 +17,10 @@
  * clients without a replica.
  */
 import {
+  NO_EMBEDDING,
   ServerMessageSchema,
   type ClientMessage,
+  type Embedding,
   type Person,
   type ScreenAck,
   type ScreenCommand,
@@ -70,9 +72,9 @@ export interface KbWsClientOptions {
   /**
    * Who the server takes this connection to be, told on every connect: the
    * person, or nobody (`null`), whose socket may not speak on a plugin
-   * channel. `embedders` are the origins allowed to frame the page.
+   * channel. `embedding` is what an app that frames the page may have.
    */
-  onPerson?: (person: Person | null, embedders: readonly string[]) => void;
+  onPerson?: (person: Person | null, embedding: Embedding) => void;
   /**
    * A command the server asks this tab to carry out; the answer goes back
    * with {@link KbWsClient.answerScreenCommand} under the same id.
@@ -312,7 +314,7 @@ export class KbWsClient {
         this.opts.onScreenRefused?.(msg.tab);
         break;
       case "person":
-        this.opts.onPerson?.(msg.person, msg.embedders ?? []);
+        this.opts.onPerson?.(msg.person, msg.embedding ?? NO_EMBEDDING);
         break;
       case "pong":
         break;

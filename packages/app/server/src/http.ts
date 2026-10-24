@@ -6,6 +6,7 @@ import {
   onWire,
   requestOf,
   type ActionResponse,
+  type Embedding,
   type HostedFamilies,
   type KbContext,
   type ServerIdentity,
@@ -32,8 +33,8 @@ export interface UiHttpDeps {
   hub: SubscriptionHub;
   /** The extensions the server hosts beside the registry's, as it reports them; none when absent. */
   hosted?: HostedFamilies;
-  /** The origins allowed to frame the page beside its own (`UiServerOptions.embedOrigins`); none when absent. */
-  embedOrigins?: readonly string[];
+  /** What an app that frames the page may have (`UiServerOptions.embedding`); nothing when absent. */
+  embedding?: Embedding;
 }
 
 function jsonResponse(
@@ -196,7 +197,7 @@ const handleHttpRequestEffect = (
       return plainStatus("not found", 404);
     }
 
-    const staticResp = yield* assets.serveStaticEffect(url.pathname, deps.embedOrigins ?? []);
+    const staticResp = yield* assets.serveStaticEffect(url.pathname, deps.embedding?.origins ?? []);
     if (staticResp) return staticResp;
 
     return jsonResponse(

@@ -3,7 +3,9 @@ import {
   type Channel,
   type ChannelPeer,
   type KbContext,
+  type Embedding,
   ClientMessageSchema,
+  NO_EMBEDDING,
   GraphSnapshotSchema,
   WireNodeSchema,
   type GraphSnapshot,
@@ -109,8 +111,8 @@ export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
   private readonly channels: ChannelDirectory;
-  /** The origins allowed to frame the page, which each connection is told. */
-  private readonly embedOrigins: readonly string[];
+  /** What an app that frames the page may have, which each connection is told. */
+  private readonly embedding: Embedding;
   private readonly unsubscribe: () => void;
   /** The screens of the connections that are UI tabs; the pictures they draw kept under the root. */
   readonly screens: ScreenHub;
@@ -118,10 +120,10 @@ export class SubscriptionHub {
   constructor(
     ctx: KbContext,
     channels: ChannelDirectory = NO_CHANNELS,
-    embedOrigins: readonly string[] = [],
+    embedding: Embedding = NO_EMBEDDING,
   ) {
     this.ctx = ctx;
-    this.embedOrigins = embedOrigins;
+    this.embedding = embedding;
     this.screens = new ScreenHub((name, picture) =>
       keepCapture(ctx.root, name, picture).pipe(Effect.provide(bunFileSystemLayer)),
     );
@@ -164,7 +166,7 @@ export class SubscriptionHub {
       {
         op: "person",
         person: caller.person,
-        ...(this.embedOrigins.length === 0 ? {} : { embedders: [...this.embedOrigins] }),
+        ...(this.embedding.origins.length === 0 ? {} : { embedding: this.embedding }),
       },
     ];
     return Effect.forEach(greeting, (frame) => send(JSON.stringify(frame)), { discard: true });
