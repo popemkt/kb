@@ -47,8 +47,8 @@ interface CanvasGestureContext {
   choose: (chooser: CanvasChooser) => void;
   /** Open an item's editor: a text card placed with its tool is typed into at once, as in tldraw. */
   edit: (id: string) => void;
-  /** Start a comment thread at `place`, written in a panel opened at `client`. */
-  comment: (place: CommentPlace, client: { x: number; y: number }) => void;
+  /** Start a comment thread at `place`, written in its panel. */
+  comment: (place: CommentPlace) => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
   setZoom: Dispatch<SetStateAction<number>>;
@@ -257,11 +257,7 @@ function createToolPress({
   edit,
   comment,
 }: StageGestureContext) {
-  return (
-    spot: ToolSpot,
-    client: { x: number; y: number },
-    screen: { x: number; y: number },
-  ): boolean => {
+  return (spot: ToolSpot, screen: { x: number; y: number }): boolean => {
     const pressed = pressWithTool(docRef.current, toolState.tool, spot, ulid());
     if (pressed === null) return false;
     if (pressed.kind === "stroke") {
@@ -272,7 +268,7 @@ function createToolPress({
     }
     setToolState((s) => reduceCanvasTool(s, { type: "used" }));
     if (pressed.kind === "comment") {
-      comment(pressed.place, client);
+      comment(pressed.place);
       return true;
     }
     schedulePersist(pressed.doc);
@@ -315,9 +311,8 @@ function createStageGestures(
       return;
     }
     if (e.button === 0 && isEmptyStageTarget(e.target)) {
-      const client = { x: e.clientX, y: e.clientY };
       const at = { ...screenToWorld(e.clientX, e.clientY, e.currentTarget), z: 0 };
-      if (pressTool({ place: { at, face: null }, item: null }, client, screen)) {
+      if (pressTool({ place: { at, face: null }, item: null }, screen)) {
         // The press keeps its focus change to itself: a text card placed here is typed into.
         e.preventDefault();
         return;

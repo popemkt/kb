@@ -17,6 +17,7 @@ import {
 } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@kb/ui-sdk";
+import { DOCK_PANEL_WIDTH } from "./canvas-dock-size";
 
 /**
  * What the dock remembers while it is up, by name: which panels are folded
@@ -33,7 +34,7 @@ function useDockFlag(flag: string): [boolean, (on: boolean) => void] {
   return [flags.on.has(flag), (on) => flags.set(flag, on)];
 }
 
-/** The column: its head (the view widget) at the top, then its panels. */
+/** The column: its head (the comments switch and the view widget) at the top, then its panels. */
 export function CanvasDock({
   head,
   children,
@@ -61,15 +62,12 @@ export function CanvasDock({
         className="pointer-events-none absolute top-3 right-3 bottom-3 z-30 flex flex-col items-end gap-2"
         data-testid="canvas-dock"
       >
-        <div className="pointer-events-auto">{head}</div>
+        <div className="pointer-events-auto flex items-start gap-2">{head}</div>
         {children}
       </div>
     </DockFlags.Provider>
   );
 }
-
-/** How wide a docked panel stands: four 40px picks across, as tldraw's style panel. */
-const PANEL = "w-44";
 
 /**
  * One panel of the dock: a titled card as tall as what it holds, scrolled
@@ -97,8 +95,8 @@ export function DockPanel({
     <section
       aria-label={name}
       data-testid={testId}
+      style={{ width: DOCK_PANEL_WIDTH }}
       className={cn(
-        PANEL,
         "pointer-events-auto flex min-h-0 shrink flex-col rounded-lg border border-foreground/10 bg-popover/95 shadow-floating backdrop-blur-sm",
         className,
       )}

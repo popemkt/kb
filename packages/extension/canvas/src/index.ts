@@ -195,7 +195,7 @@ export type {
   EdgeTerminal,
 } from "./edges.ts";
 export type { CanvasConnection } from "./connect.ts";
-export { describeCanvas, itemKind } from "./describe.ts";
+export { describeCanvas, itemKind, itemWords } from "./describe.ts";
 export type {
   CanvasDescription,
   DescribedCluster,

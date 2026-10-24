@@ -1469,13 +1469,29 @@ manipulation feel professional rather than merely functional.
   threads the canvas's world reads (`threadsOn`), with no store of their
   own. The comment tool (M) starts a thread where it is pressed: on the
   item under it (a card's thread is on its node) or at the point on the
-  floor, and returns to select. A pin (`canvas-comments.tsx`) stands at the
-  top right of each item a thread is pinned on as the shown projection
-  draws it, or where its point is drawn (`threadPins`, from the item
-  anchors scripts stand on), faint once resolved, cut off at the stage's
-  edge as the items are; a thread whose pin is lost has none. The pins lie
-  above the scripts' drawing, as the toolbars do. A pin opens the thread's
-  panel: its comments in order, a reply, and Resolve or Reopen. Every write
+  floor, and returns to select; while it is armed, the item it would
+  comment on is marked, with what it is in words (`targetLabel`: the
+  item's kind and what it says, `itemKind` and `itemWords`). A pin
+  (`canvas-comments.tsx`) stands at the top right of each item a thread is
+  pinned on as the shown projection draws it, or where its point is drawn
+  (`threadPins`, over `anchorRects`, from the item anchors scripts stand
+  on), cut off at the stage's edge as the items are; a thread whose pin is
+  lost has none. An open thread's pin is filled in the primary and says
+  how many comments it holds; a resolved one is faint. The pins lie above
+  the scripts' drawing, as the toolbars do. Pointing at a pin, or at a
+  thread in the list, marks what it is on with the selection's outline,
+  and pointing at an item with threads swells its pin. A pin opens the
+  thread's panel (`canvas-comment-thread.tsx`): what it is on, its
+  comments in order, a reply, and Resolve or Reopen. It stands beside what
+  it is on — right of it, else left, else under or over it, clear of the
+  pin and the dock (`placeBeside`) — and goes with it as the camera moves,
+  while what it is on stays marked; it dismisses as every popover does.
+  The **comments list** (`canvas-comment-list.tsx`) stands in the dock,
+  put out by the switch at the dock's head, which counts the open
+  threads: every thread on the canvas, open, resolved or all — the same
+  filter says which pins are drawn — each with what it is on and how many
+  replies; picking one frames what it is on (`anchorFrame`: its items, or
+  the floor about its point at the zoom it has) and opens it. Every write
   is the agent's: a comment through `ext.canvas.comment`, resolving through
   `node.update` of `sys.f.comment.state` (`use-canvas-comments.ts`). A
   comment shows what it says and not who said it

@@ -1,32 +1,116 @@
 /**
  * Comment threads over the canvas (DESIGN-UI.md → Canvas → Comments): a
- * pin for each thread where the shown projection draws what it is on
- * (`threadPins`, the camera model's), and the panel a pin opens, where a
- * person reads a thread, replies, and resolves or reopens it. The panel
- * opens in the canvas popover (`CanvasPopover`).
+ * pin for each thread shown where the shown projection draws what it is on
+ * (`threadPins`, the camera model's), with how many comments it holds; the
+ * mark round what a thread is on while it is pointed at or open, and round
+ * what the comment tool would comment on; and the open thread's panel,
+ * beside what it is on.
  */
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ChatCircleIcon } from "@phosphor-icons/react";
-import type { CanvasDoc, CanvasThread } from "@kb/canvas";
-import { cn, PopoverShell } from "@kb/ui-sdk";
-import type { CanvasView } from "./canvas-camera";
+import { pinnedItems, type CanvasDoc, type CanvasWorld, type CommentAnchor } from "@kb/canvas";
+import { cn } from "@kb/ui-sdk";
+import type { CanvasView, ScreenRect, ViewSize } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
-import { CanvasPopover } from "./canvas-popover";
-import { threadPins } from "./canvas-visible";
-import type { CanvasComments } from "./use-canvas-comments";
+import { CommentThreadPanel } from "./canvas-comment-thread";
+import type { CanvasTool } from "./canvas-tool";
+import { anchorRects, itemUnder, threadPins } from "./canvas-visible";
+import { targetLabel } from "./comment-target";
+import { shows, type CanvasComments } from "./use-canvas-comments";
 import { useShownView } from "./use-shown-view";
 
+/** How far a pin reaches up and right of the corner it stands on, scaled while hinted. */
+const PIN_REACH = 30;
+
+/** A box with the pin at its top right: what a thread's panel keeps clear of. */
+const withPin = (r: ScreenRect): ScreenRect => ({
+  ...r,
+  top: r.top - PIN_REACH,
+  right: r.right + PIN_REACH,
+});
+
+/** The mark round what a thread is on: the selection's outline, in its primary. */
+const MARK =
+  "pointer-events-none absolute rounded-sm border-2 border-primary/70 ring-4 ring-primary/15";
+
+/** The mark round each of `rects`; a point's is a dot. */
+function TargetMarks({ rects }: { readonly rects: readonly ScreenRect[] }) {
+  return rects.map((r) =>
+    r.right === r.left ? (
+      <span
+        key={`${r.left},${r.top}`}
+        data-comment-target
+        className={cn(MARK, "h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full")}
+        style={{ left: r.left, top: r.top }}
+      />
+    ) : (
+      <span
+        key={`${r.left},${r.top},${r.right},${r.bottom}`}
+        data-comment-target
+        className={MARK}
+        style={{
+          left: r.left - 4,
+          top: r.top - 4,
+          width: r.right - r.left + 8,
+          height: r.bottom - r.top + 8,
+        }}
+      />
+    ),
+  );
+}
+
 /**
- * Each thread's pin, drawn over the stage where the shown camera puts what
- * it is pinned on, and cut off at the stage's edge as the items are.
+ * The item the pointer is over on `stage`, among `among()`'s, as `view()`
+ * draws them (`itemUnder`), in either projection: what a pin is hinted
+ * for, and what the comment tool would comment on.
  */
-export function CanvasCommentPins({
+function usePointedItem(
+  stage: RefObject<HTMLElement | null>,
+  among: () => {
+    readonly items: CanvasDoc["nodes"];
+    readonly view: CanvasView;
+    readonly size: ViewSize;
+  },
+): string | null {
+  const [item, setItem] = useState<string | null>(null);
+  const read = useRef(among);
+  useLayoutEffect(() => {
+    read.current = among;
+  });
+  useEffect(() => {
+    const el = stage.current;
+    if (el === null) return undefined;
+    const move = (e: PointerEvent) => {
+      const box = el.getBoundingClientRect();
+      const { items, view, size } = read.current();
+      setItem(itemUnder(items, view, size, { x: e.clientX - box.left, y: e.clientY - box.top }));
+    };
+    const leave = () => setItem(null);
+    el.addEventListener("pointermove", move, { passive: true });
+    el.addEventListener("pointerleave", leave);
+    return () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerleave", leave);
+    };
+  }, [stage]);
+  return item;
+}
+
+/**
+ * Each shown thread's pin, drawn over the stage where the shown camera puts
+ * what it is pinned on and cut off at the stage's edge as the items are;
+ * the marks; and the open thread's panel.
+ */
+export function CanvasCommentLayer({
   rig,
   in3d,
   flatView,
   width,
   height,
   doc,
+  world,
+  tool,
+  stage,
   comments,
 }: {
   readonly rig: CanvasCameraRig;
@@ -36,116 +120,88 @@ export function CanvasCommentPins({
   readonly width: number;
   readonly height: number;
   readonly doc: CanvasDoc;
+  readonly world: CanvasWorld;
+  /** The armed tool: the comment tool marks what a press would comment on. */
+  readonly tool: CanvasTool;
+  /** The stage the pointer moves over. */
+  readonly stage: RefObject<HTMLElement | null>;
   readonly comments: CanvasComments;
 }) {
   const view = useShownView(rig, in3d, flatView);
-  const pins = threadPins(comments.threads, doc, view, { width, height });
+  const size = { width, height };
+  const shown = comments.threads.filter((thread) => shows(comments.filter, thread));
+  const commenting = tool === "comment";
+  const pointedItem = usePointedItem(stage, () => ({
+    items: commenting
+      ? doc.nodes
+      : shown.flatMap(({ anchor }) => (anchor === null ? [] : pinnedItems(anchor, doc))),
+    view,
+    size,
+  }));
+  const pins = threadPins(shown, doc, view, size);
+  const rectsOf = (anchor: CommentAnchor | null) =>
+    anchorRects(anchor, doc, view, size).map(({ rect }) => rect);
+  const pointed = comments.threads.find((thread) => thread.id === comments.pointed);
+  const { open } = comments;
+  const marked = [
+    ...(open === null ? [] : rectsOf(open.anchor)),
+    ...(pointed === undefined || pointed.id === open?.thread?.id ? [] : rectsOf(pointed.anchor)),
+    ...(commenting && pointedItem !== null ? rectsOf({ item: pointedItem }) : []),
+  ];
+  const aimed = commenting && pointedItem !== null ? rectsOf({ item: pointedItem })[0] : undefined;
   return (
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-      {pins.map(({ thread, item, at }) => (
-        <button
-          key={`${thread.id}:${item ?? "at"}`}
-          type="button"
-          data-comment-pin={thread.id}
-          aria-label={`Comment: ${thread.text}`}
-          title={thread.text}
-          className={cn(
-            "pointer-events-auto absolute flex h-6 w-6 -translate-y-full items-center justify-center",
-            "rounded-full rounded-bl-none border border-foreground/15 bg-popover text-foreground/70",
-            "shadow-floating hover:text-foreground",
-            thread.resolved && "opacity-40",
-          )}
-          style={{ left: at.x, top: at.y }}
-          onClick={(e) => comments.show(thread.id, { x: e.clientX, y: e.clientY })}
+      <TargetMarks rects={marked} />
+      {aimed !== undefined && (
+        <span
+          data-comment-aim
+          className="absolute -translate-y-full rounded-md bg-primary px-1.5 py-0.5 text-label whitespace-nowrap text-primary-foreground shadow-floating"
+          style={{ left: aimed.left - 4, top: aimed.top - 8 }}
         >
-          <ChatCircleIcon size={14} />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** The panel open, if any: a thread's, or a new thread's being written. */
-export function CanvasCommentPanel({ comments }: { readonly comments: CanvasComments }) {
-  const { open } = comments;
-  if (open === null) return null;
-  return (
-    <ThreadPanel
-      key={open.thread?.id ?? "new"}
-      anchor={open.anchor}
-      thread={open.thread}
-      comments={comments}
-    />
-  );
-}
-
-const ACTION = cn(
-  "rounded-md px-2 py-1 text-meta text-foreground/60 hover:bg-foreground/5 hover:text-foreground/85",
-  "disabled:opacity-40 disabled:hover:bg-transparent",
-);
-
-function ThreadPanel({
-  anchor,
-  thread,
-  comments,
-}: {
-  readonly anchor: { readonly x: number; readonly y: number };
-  readonly thread: CanvasThread | null;
-  readonly comments: CanvasComments;
-}) {
-  const [draft, setDraft] = useState("");
-  const send = () => {
-    const text = draft.trim();
-    if (text === "") return;
-    setDraft("");
-    void comments.post(text);
-  };
-  const title = thread === null ? "New comment" : thread.resolved ? "Resolved comment" : "Comment";
-  // GAP [[01M54GBYH3K67TAW016HFCJHBC]] a comment shows what it says, not who said it: the store keeps no writer for a node
-  const said = thread === null ? [] : [thread, ...thread.replies];
-  return (
-    <CanvasPopover anchor={anchor} onClose={comments.close}>
-      <PopoverShell title={title} className="w-72" data-testid="comment-panel">
-        {said.map((comment) => (
-          <p
-            key={comment.id}
-            data-comment={comment.id}
-            className="whitespace-pre-wrap px-1.5 py-1 text-ui text-foreground/80"
+          Comment on {targetLabel({ item: pointedItem ?? "" }, doc, world)}
+        </span>
+      )}
+      {pins.map(({ thread, item, at }) => {
+        const count = 1 + thread.replies.length;
+        const hinted =
+          comments.pointed === thread.id || open?.thread?.id === thread.id || item === pointedItem;
+        return (
+          <button
+            key={`${thread.id}:${item ?? "at"}`}
+            type="button"
+            data-comment-pin={thread.id}
+            aria-label={`Comment: ${thread.text}`}
+            title={thread.text}
+            className={cn(
+              "pointer-events-auto absolute flex h-6 min-w-6 -translate-y-full items-center justify-center gap-0.5 px-1",
+              "rounded-full rounded-bl-none border text-label font-semibold tabular-nums shadow-floating",
+              "transition-transform duration-100 origin-bottom-left",
+              thread.resolved
+                ? "border-foreground/15 bg-popover text-foreground/50 opacity-70"
+                : "border-primary/40 bg-primary text-primary-foreground",
+              hinted && "scale-125",
+            )}
+            style={{ left: at.x, top: at.y }}
+            onPointerEnter={() => comments.point(thread.id)}
+            onPointerLeave={() => comments.point(null)}
+            onClick={() => comments.show(thread.id)}
           >
-            {comment.text}
-          </p>
-        ))}
-        <textarea
-          autoFocus
-          aria-label={thread === null ? "Comment" : "Reply"}
-          placeholder={thread === null ? "Comment…" : "Reply…"}
-          rows={2}
-          value={draft}
-          className="mt-1 w-full resize-none rounded-md border border-foreground/10 bg-background px-2 py-1 text-ui outline-none"
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.shiftKey) return;
-            e.preventDefault();
-            send();
-          }}
-        />
-        <div className="flex items-center justify-between pt-1">
-          {thread === null ? (
-            <span />
-          ) : (
-            <button
-              type="button"
-              className={ACTION}
-              onClick={() => void comments.resolve(!thread.resolved)}
-            >
-              {thread.resolved ? "Reopen" : "Resolve"}
-            </button>
-          )}
-          <button type="button" className={ACTION} disabled={draft.trim() === ""} onClick={send}>
-            {thread === null ? "Comment" : "Reply"}
+            {count > 1 ? count : <ChatCircleIcon size={13} weight="fill" />}
           </button>
-        </div>
-      </PopoverShell>
-    </CanvasPopover>
+        );
+      })}
+      {open !== null && (
+        <CommentThreadPanel
+          key={open.thread?.id ?? "new"}
+          thread={open.thread}
+          on={targetLabel(open.anchor, doc, world)}
+          target={rectsOf(open.anchor).map(withPin)}
+          stage={size}
+          onClose={comments.close}
+          onPost={(text) => void comments.post(text)}
+          onResolve={(resolved) => void comments.resolve(resolved)}
+        />
+      )}
+    </div>
   );
 }

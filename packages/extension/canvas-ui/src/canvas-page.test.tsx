@@ -584,6 +584,37 @@ describe("CanvasPage pointer interactions", () => {
       // Its pin is drawn wherever b is: one on the canvas.
       expect(container.querySelectorAll("[data-comment-pin]")).toHaveLength(1);
     });
+
+    it("a pin counts its comments; the list shows the open threads, and picking one opens it on what it is on", async () => {
+      host.setNodes([canvasNode, thread, reply]);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      expect(container.querySelector('[data-comment-pin="t1"]')?.textContent).toBe("2");
+      const toggle = present(
+        container.querySelector<HTMLButtonElement>('[data-testid="comments-toggle"]'),
+        "the comments switch",
+      );
+      expect(toggle.textContent).toBe("1");
+      act(() => toggle.click());
+      const entry = present(
+        container.querySelector<HTMLButtonElement>('[data-comment-entry="t1"]'),
+        "t1 in the list",
+      );
+      expect(entry.textContent).toContain("look here");
+      expect(entry.textContent).toContain("1 reply");
+      act(() => entry.click());
+      expect(panel()?.querySelector("[data-comment-on]")?.textContent).toMatch(/^On /);
+      expect(container.querySelectorAll("[data-comment-target]")).toHaveLength(1);
+      // Resolved threads are the other filter's.
+      const resolved = present(
+        container.querySelector<HTMLButtonElement>('[aria-label="Show: Resolved"]'),
+        "the resolved filter",
+      );
+      act(() => resolved.click());
+      expect(container.querySelector('[data-comment-entry="t1"]')).toBeNull();
+      expect(container.querySelector('[data-comment-pin="t1"]')).toBeNull();
+    });
   });
 
   it("a modal grab follows the pointer, and a press confirms or cancels it, reaching nothing", async () => {
