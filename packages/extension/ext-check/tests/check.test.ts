@@ -62,6 +62,10 @@ class FixtureTail implements TxTail {
     return [...this.recorded];
   }
 
+  since(rev: number): KbTx[] {
+    return this.recorded.filter((tx) => tx.rev > rev);
+  }
+
   append(ops: StoreTx, record: TxRecord): KbTx {
     const rev = this.head() + 1;
     const tx: KbTx = {

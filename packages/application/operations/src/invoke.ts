@@ -55,6 +55,8 @@ import {
   graphRunEffect,
   graphSearchDef,
   graphSearchEffect,
+  graphChangesDef,
+  graphChangesEffect,
   nodeAddDef,
   nodeAddEffect,
   nodeDeleteDef,
@@ -135,6 +137,7 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
   coreNative(tagDefineDef, tagDefineEffect),
   coreNative(graphQueryDef, graphQueryEffect),
   coreNative(graphSearchDef, graphSearchEffect),
+  coreNative(graphChangesDef, graphChangesEffect),
   coreNative(ontologyMembersDef, ontologyMembersEffect),
   coreNative(viewProposeDef, viewProposeEffect),
 ];

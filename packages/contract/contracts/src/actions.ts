@@ -238,6 +238,13 @@ export interface ActionDefinition<
  * nothing, so every wire carries it. A call made in a session is about what
  * that tab shows; one that names none is made in no tab.
  *
+ * `via` is the caller's own label for the work the call belongs to (an agent
+ * session, a job, a script run outside kb): kb records it on the transaction
+ * the call commits (`KbTx.via`) and never interprets it, so a caller can later
+ * ask which writes were its own (`graph.changes`). Like `session` it proves and
+ * grants nothing, and every wire carries it; a wire whose process states one
+ * gives it to every call that names none (`SurfaceWire.via`, `viaOn`).
+ *
  * `script` is a script's reach. A request never says who makes it: the
  * surface it arrives on does (`onWire`), so the envelope has no actor, and a
  * caller that sends one anyway has it dropped, never refused. A script's
@@ -246,6 +253,43 @@ export interface ActionDefinition<
  * core is an {@link ActionInvocation}, which always names who makes it, the
  * author its transaction records.
  */
+/** The longest `via` a call may state: a label, not a payload. */
+export const VIA_MAX = 256;
+
+/**
+ * The `via` a process was started with: `KB_VIA` from its environment, when
+ * it is a label a call may state, else none. A process's environment is
+ * passed in, so this stays free of any runtime.
+ */
+function viaOfEnv(env: Readonly<Record<string, string | undefined>>): string | undefined {
+  const via = env.KB_VIA?.trim();
+  return via === undefined || via === "" || via.length > VIA_MAX ? undefined : via;
+}
+
+/** What separates the parts of a `via` label, so a prefix can stop at one ({@link viaWithin}). */
+const VIA_SEPARATORS = [":", "/", "."];
+
+/**
+ * Whether `via` is `prefix`'s or one of its parts: the same label, or one that
+ * continues it past a separator (`:`, `/`, `.`). A prefix that ends in a
+ * separator is its own boundary. So `job:a` holds `job:a` and `job:a:1`, not
+ * `job:ab`; `job:` holds every `job:…`.
+ */
+export function viaWithin(via: string, prefix: string): boolean {
+  if (via === prefix) return true;
+  if (!via.startsWith(prefix)) return false;
+  const boundary = VIA_SEPARATORS.some((s) => prefix.endsWith(s)) ? "" : via[prefix.length];
+  return boundary === "" || VIA_SEPARATORS.includes(boundary ?? "");
+}
+
+/** {@link viaOfEnv} as the part of a wire it makes (`SurfaceWire.via`): empty when there is none. */
+export function viaOn(env: Readonly<Record<string, string | undefined>>): {
+  readonly via?: string;
+} {
+  const via = viaOfEnv(env);
+  return via === undefined ? {} : { via };
+}
+
 export const ActionRequestSchema = z.object({
   id: z.string().min(1),
   input: z
@@ -254,6 +298,7 @@ export const ActionRequestSchema = z.object({
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
   session: z.string().min(1).optional(),
+  via: z.string().min(1).max(VIA_MAX).optional(),
   /**
    * A script's call: what its run may reach — the node it runs for and its
    * grant — stamped by the host that answers the guest (`answerToolCall`)
@@ -286,12 +331,13 @@ export function requestOf(
  * calls there.
  */
 export function envelopeOf(call: ActionRequest): ActionRequest {
-  const { id, input, approved, session, script } = call;
+  const { id, input, approved, session, via, script } = call;
   return {
     id,
     input,
     ...(approved === undefined ? {} : { approved }),
     ...(session === undefined ? {} : { session }),
+    ...(via === undefined ? {} : { via }),
     ...(script === undefined ? {} : { script }),
   };
 }

@@ -6,6 +6,7 @@ import {
   KbCtx,
   type KbStore,
   SavedQueries,
+  viaWithin,
 } from "@kb/contracts";
 import {
   ResolveError,
@@ -208,6 +209,40 @@ export const graphSearchDef = {
   }),
   outputSchema: z.object({
     rows: z.unknown(),
+  }),
+} satisfies ActionDefinition;
+
+/** The most changes one `graph.changes` answer reads; a caller pages on from `through`. */
+const GRAPH_CHANGES_MAX = 500;
+/** The most recorded ops one `graph.changes` answer decodes (TxPage.maxBytes). */
+const GRAPH_CHANGES_BYTES = 4 * 1024 * 1024;
+
+const ChangeSchema = z.object({
+  rev: z.number(),
+  at: z.string(),
+  actor: z.string().optional(),
+  session: z.string().optional(),
+  via: z.string().optional(),
+  wrote: z.array(z.object({ id: z.string(), text: z.string(), tags: z.array(z.string()) })),
+  deleted: z.array(z.string()),
+});
+
+export const graphChangesDef = {
+  id: "graph.changes",
+  title: "Changes since",
+  description:
+    "The transactions committed after rev `since`, oldest first, one page at a time: when, who made each (actor, tab session, the caller's via label) and which nodes it wrote or deleted. `viaPrefix` keeps the ones whose via is that label or one of its parts. Read on from `through` while it is below `head`. `complete` is false when the log no longer reaches back to `since`.",
+  mode: { kind: "read" } as const,
+  inputSchema: z.object({
+    since: z.number().int().nonnegative(),
+    viaPrefix: z.string().min(1).optional(),
+    limit: z.number().int().positive().max(GRAPH_CHANGES_MAX).optional(),
+  }),
+  outputSchema: z.object({
+    head: z.number(),
+    through: z.number(),
+    complete: z.boolean(),
+    changes: z.array(ChangeSchema),
   }),
 } satisfies ActionDefinition;
 
@@ -655,6 +690,48 @@ export const graphRunEffect = Effect.fn("graph.run")(function* (
   }
   const rows = yield* runDatalog(edn, input.inputs);
   return { name: input.name, query: edn.trim(), rows };
+});
+
+/** A node's tags as `graph.changes` reports them: the ids its type field refers to. */
+function tagIdsOf(node: KbNode): string[] {
+  return (node.props[SYSTEM_IDS.typeField] ?? []).flatMap((value) =>
+    value.t === "ref" ? [value.v] : [],
+  );
+}
+
+/**
+ * One page of what the log holds past `since`, each transaction told as who
+ * made it and what it touched. The log first adopts what other processes
+ * committed (`refresh`), so the answer is the store's, not this session's
+ * last look at it. `through` is the last rev the page read, filtered or not:
+ * the caller reads on from it. A log that cannot reach back that far answers
+ * no changes, `through: head` and `complete: false`.
+ */
+export const graphChangesEffect = Effect.fn("graph.changes")(function* (
+  input: z.infer<typeof graphChangesDef.inputSchema>,
+): Effect.fn.Return<z.infer<typeof graphChangesDef.outputSchema>, DomainError, KbCtx> {
+  const { log } = yield* KbCtx;
+  log.refresh();
+  const head = log.head;
+  const txs = log.since(input.since, {
+    limit: input.limit ?? GRAPH_CHANGES_MAX,
+    maxBytes: GRAPH_CHANGES_BYTES,
+  });
+  if (txs === "snapshot-required") return { head, through: head, complete: false, changes: [] };
+  const prefix = input.viaPrefix;
+  const through = txs.at(-1)?.rev ?? head;
+  const changes = txs
+    .filter((tx) => prefix === undefined || (tx.via !== undefined && viaWithin(tx.via, prefix)))
+    .map((tx) => ({
+      rev: tx.rev,
+      at: tx.at,
+      ...(tx.actor === undefined ? {} : { actor: tx.actor }),
+      ...(tx.session === undefined ? {} : { session: tx.session }),
+      ...(tx.via === undefined ? {} : { via: tx.via }),
+      wrote: tx.ops.upserts.map((node) => ({ id: node.id, text: node.text, tags: tagIdsOf(node) })),
+      deleted: [...tx.ops.deletes],
+    }));
+  return { head, through, complete: true, changes };
 });
 
 export const graphSearchEffect = Effect.fn("graph.search")(function* (

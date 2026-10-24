@@ -1,5 +1,5 @@
-import type { TxRecord, TxTail } from "@kb/contracts";
-import type { KbTx, StoreTx } from "@kb/model";
+import { pageLength, type TxPage, type TxRecord, type TxTail } from "@kb/contracts";
+import { canonicalJson, recordedTx, type KbTx, type StoreTx } from "@kb/model";
 
 /**
  * A {@link TxTail} that lives and dies with the process.
@@ -29,12 +29,20 @@ export class MemoryTxTail implements TxTail {
     return [...this.entriesInOrder];
   }
 
+  since(rev: number, page?: TxPage): KbTx[] {
+    const after = this.entriesInOrder.filter((tx) => tx.rev > rev);
+    if (page === undefined) return after;
+    return after.slice(
+      0,
+      pageLength(
+        after.map((tx) => canonicalJson(tx.ops).length),
+        page,
+      ),
+    );
+  }
+
   append(ops: StoreTx, record: TxRecord): KbTx {
-    const rev = this.head() + 1;
-    const tx: KbTx =
-      record.origin === undefined
-        ? { rev, ops, at: record.at }
-        : { rev, ops, at: record.at, origin: record.origin };
+    const tx = recordedTx(this.head() + 1, ops, record);
     this.entriesInOrder.push(tx);
     return tx;
   }

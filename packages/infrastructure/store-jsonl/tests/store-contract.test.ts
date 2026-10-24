@@ -4,11 +4,25 @@
  * specific to JSONL — the `.lock` file, `.bak` rotation, line-numbered decode
  * errors — is tested where that behaviour is described.
  */
-import { logContract, storeContract } from "@kb/test-kit";
+import { Effect } from "effect";
+import { logContract, storeContract, tailContract } from "@kb/test-kit";
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { JsonlStore, txTailPath } from "../src/index.ts";
 
 storeContract("JsonlStore", (root) => new JsonlStore(root));
+
+const scratchRoot = Effect.acquireRelease(
+  Effect.promise(() => mkdtemp(join(tmpdir(), "kb-tail-contract-"))),
+  (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),
+);
+
+tailContract(
+  "JsonlTxTail",
+  Effect.map(scratchRoot, (root) => new JsonlStore(root).txTail),
+);
 
 logContract("JsonlStore", {
   makeStore: (root) => new JsonlStore(root),

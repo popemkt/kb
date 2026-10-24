@@ -66,7 +66,11 @@ export interface KbTxLog {
   append(ops: StoreTx, at: string, origin?: string): KbTx;
 
   /**
-   * Everything after `rev`, oldest first. Empty when the caller is current.
+   * Everything after `rev`, oldest first, or one page of it ({@link
+   * TxTail.since}) when a `page` bounds the read. Empty when the caller is
+   * current; a page ends before head when the reader should read on from its
+   * last rev. It answers what this log has caught up to, so a reader that
+   * must see another process's commits calls {@link refresh} first.
    *
    * `"snapshot-required"` when the log cannot express the difference as
    * frames. That is one answer with three causes, deliberately: the tail has
@@ -76,7 +80,7 @@ export interface KbTxLog {
    * trusted. All three mean the same thing to a caller, and naming them apart
    * would put the distinction at every call site instead of here.
    */
-  since(rev: number): KbTx[] | "snapshot-required";
+  since(rev: number, page?: TxPage): KbTx[] | "snapshot-required";
 
   /** Observe every subsequent append. Returns the unsubscribe. */
   subscribe(fn: (tx: KbTx) => void): () => void;
@@ -96,6 +100,8 @@ export interface TxRecord {
   readonly actor?: Actor;
   /** The tab session that call was made in, when it named one (`KbTx.session`). */
   readonly session?: string;
+  /** The caller's label for the work that call belonged to, when it stated one (`KbTx.via`). */
+  readonly via?: string;
 }
 
 /**
@@ -143,6 +149,13 @@ export interface TxTail {
   /** Everything the tail still holds, oldest first. */
   entries(): KbTx[];
 
+  /**
+   * The records after `rev`, oldest first, as one page: all of them without
+   * a `page`, else as many as {@link pageLength} lets in. A reader that pages
+   * through the tail decodes one page at a time, never the whole tail.
+   */
+  since(rev: number, page?: TxPage): KbTx[];
+
   /** Assign the next rev, persist the record, and return it. */
   append(ops: StoreTx, record: TxRecord): KbTx;
 
@@ -176,6 +189,33 @@ export interface TxTail {
 export const TxOrigin = Context.Reference<string | undefined>("kb/TxOrigin", {
   defaultValue: () => undefined,
 });
+
+/**
+ * One page of a read past a rev ({@link TxTail.since}): at most `limit`
+ * records, and no more than `maxBytes` of their recorded ops.
+ */
+export interface TxPage {
+  readonly limit: number;
+  readonly maxBytes: number;
+}
+
+/**
+ * How many of the records after a rev one page takes, given each one's size
+ * in bytes, oldest first: at most `limit`, and only while their sizes fit in
+ * `maxBytes` — but always the first, so a reader paging past one record larger
+ * than a page still moves. The one statement of the rule; every tail applies
+ * it to its own sizes.
+ */
+export function pageLength(sizes: readonly number[], page: TxPage): number {
+  let bytes = 0;
+  let taken = 0;
+  for (const size of sizes) {
+    if (taken >= page.limit || (taken > 0 && bytes + size > page.maxBytes)) break;
+    bytes += size;
+    taken += 1;
+  }
+  return taken;
+}
 
 /** The origin the saved-query virtual set carries. See {@link KbTxLog.append}. */
 export const VIRTUAL_ORIGIN = "virtual";

@@ -175,9 +175,11 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   const actor = call === null ? {} : { actor: call.invocation.actor };
   const session = call?.invocation.session;
   const where = session === undefined ? {} : { session };
+  const via = call?.invocation.via;
+  const label = via === undefined ? {} : { via };
   const commit = yield* store.commitEffect(
     tx,
-    { at: yield* currentIso, origin, ...actor, ...where },
+    { at: yield* currentIso, origin, ...actor, ...where, ...label },
     expected,
   );
   if (commit.base !== null && commit.base === caughtUpTo) {

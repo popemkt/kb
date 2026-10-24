@@ -77,6 +77,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (adapter: LogAdapter) => Promi
   ["a commit is recorded: one entry, the caller's `at` and `origin`", commitIsRecorded],
   ["rev is monotonic and survives a reopen", revSurvivesReopen],
   ["a reopened log serves `since` from the durable tail", sinceAfterReopen],
+  [
+    "a commit another instance makes reaches `since` once the log refreshes",
+    sinceSeesAnotherWriter,
+  ],
   ["`since` beyond head is snapshot-required", sinceBeyondHead],
   ["an empty commit records nothing", emptyCommitRecordsNothing],
   ["an append that cannot be written leaves head unchanged", failedAppendKeepsHead],
@@ -166,6 +170,30 @@ function sinceAfterReopen(adapter: LogAdapter): Promise<void> {
 function frames(answer: KbTx[] | "snapshot-required"): KbTx[] {
   expect(answer).not.toBe("snapshot-required");
   return answer === "snapshot-required" ? [] : answer;
+}
+
+/**
+ * A log answers what it has caught up to: a commit through a second instance
+ * over the same files (another process, in port terms) is in `since` once the
+ * log adopts it with `refresh`, and not before.
+ */
+function sinceSeesAnotherWriter(adapter: LogAdapter): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        yield* commit(adapter.makeStore(root), upsert("n-a", "a"));
+        const log = new StoreTxLog(adapter.makeStore(root).txTail);
+        expect(log.head).toBe(1);
+
+        yield* commit(adapter.makeStore(root), upsert("n-b", "b"));
+        expect(log.since(1)).toEqual([]);
+        expect(log.refresh().map((tx) => tx.rev)).toEqual([2]);
+        const caught = frames(log.since(1));
+        expect(caught.map((tx) => tx.ops.upserts[0]?.id)).toEqual(["n-b"]);
+      }),
+    ),
+  );
 }
 
 function sinceBeyondHead(adapter: LogAdapter): Promise<void> {

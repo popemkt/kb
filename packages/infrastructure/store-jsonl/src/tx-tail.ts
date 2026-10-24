@@ -28,6 +28,8 @@ import {
 import {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
+  pageLength,
+  type TxPage,
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
@@ -38,6 +40,12 @@ import { contentMark, storeMark } from "./content-mark.ts";
 interface TailRecord {
   readonly tx: KbTx;
   readonly mark: string;
+  /** The length of its line: what a page of the tail counts against its byte budget. */
+  readonly bytes: number;
+}
+
+function lineOf(tx: KbTx, mark: string): string {
+  return `${canonicalJson({ ...tx, mark })}\n`;
 }
 
 /**
@@ -98,6 +106,22 @@ export class JsonlTxTail implements TxTail {
     return this.records().map((record) => record.tx);
   }
 
+  /** One page past `rev`, from the parse cache: the file is read once, whatever the paging. */
+  since(rev: number, page?: TxPage): KbTx[] {
+    const after = this.records().filter((record) => record.tx.rev > rev);
+    const taken =
+      page === undefined
+        ? after
+        : after.slice(
+            0,
+            pageLength(
+              after.map((r) => r.bytes),
+              page,
+            ),
+          );
+    return taken.map((record) => record.tx);
+  }
+
   /**
    * `mark` is the store's mark this record is written at. The store's own
    * commit passes the mark of the bytes it just wrote rather than have the tail
@@ -107,7 +131,7 @@ export class JsonlTxTail implements TxTail {
     const existing = this.records();
     const rev = (existing.at(-1)?.tx.rev ?? 0) + 1;
     const tx = recordedTx(rev, ops, record);
-    const line: TailRecord = { tx, mark: mark ?? "" };
+    const line: TailRecord = { tx, mark: mark ?? "", bytes: lineOf(tx, mark ?? "").length };
 
     if (existing.length + 1 > TX_TAIL_MAX_ENTRIES) {
       this.write([...existing.slice(-(TX_TAIL_KEEP_ENTRIES - 1)), line]);
@@ -119,7 +143,9 @@ export class JsonlTxTail implements TxTail {
 
   adopt(txs: readonly KbTx[]): void {
     const mark = storeMark(this.nodesPath) ?? "";
-    this.write(txs.slice(-TX_TAIL_KEEP_ENTRIES).map((tx) => ({ tx, mark })));
+    this.write(
+      txs.slice(-TX_TAIL_KEEP_ENTRIES).map((tx) => ({ tx, mark, bytes: lineOf(tx, mark).length })),
+    );
   }
 
   /** The tail as records, from the cache while the file has not moved. */
@@ -147,7 +173,7 @@ export class JsonlTxTail implements TxTail {
       if (line.trim().length === 0) continue;
       try {
         const raw: unknown = JSON.parse(line);
-        records.push({ tx: decodeStoredTx(raw), mark: markOf(raw) });
+        records.push({ tx: decodeStoredTx(raw), mark: markOf(raw), bytes: line.length + 1 });
       } catch {
         // A tail is state, not intent: an unreadable record costs the readers
         // after it a snapshot, which the port already has an answer for.
@@ -173,7 +199,7 @@ export class JsonlTxTail implements TxTail {
   private appendLine(existing: TailRecord[], line: TailRecord): void {
     try {
       mkdirSync(dirname(this.path), { recursive: true });
-      appendFileSync(this.path, `${canonicalJson({ ...line.tx, mark: line.mark })}\n`);
+      appendFileSync(this.path, lineOf(line.tx, line.mark));
     } catch (err) {
       this.cache = null;
       throw domainError(
@@ -187,9 +213,7 @@ export class JsonlTxTail implements TxTail {
 
   /** Replace the whole tail — compaction and {@link JsonlTxTail.adopt}. */
   private write(records: readonly TailRecord[]): void {
-    const body = records
-      .map((record) => `${canonicalJson({ ...record.tx, mark: record.mark })}\n`)
-      .join("");
+    const body = records.map((record) => lineOf(record.tx, record.mark)).join("");
     try {
       durableReplaceFile(this.path, this.backupPath, body);
     } catch (err) {

@@ -8,6 +8,8 @@ export {
   graphRunEffect,
   graphSearchDef,
   graphSearchEffect,
+  graphChangesDef,
+  graphChangesEffect,
   nodeAddDef,
   nodeAddEffect,
   planNodeAddEffect,

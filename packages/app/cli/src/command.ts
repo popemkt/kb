@@ -11,6 +11,7 @@ import type { ActionReceipt, KbContext, SurfaceWire } from "@kb/contracts";
 import {
   kbRuntimeLayer,
   openKbEffect,
+  processVia,
   type ActionHandlerEnv,
   resolveRootEffect,
   RootNotFoundError,
@@ -134,9 +135,14 @@ export function kbAction<A extends readonly unknown[], E>(
  * The CLI's wire: `kb action-invoke`'s JSON argument is the whole invocation
  * envelope, so it carries `approved`, and its listing (`kb.manifest`) is the
  * whole registry. Every call on it, and every call a verb (`kb add`, `kb rm`,
- * …) plans, is recorded as the command line's.
+ * …) plans, is recorded as the command line's, labelled with the `KB_VIA`
+ * the command was run with when it states no `via` of its own.
  */
-export const ACTION_INVOKE_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli" };
+export const ACTION_INVOKE_WIRE: SurfaceWire = {
+  carriesApproval: true,
+  actor: "cli",
+  ...processVia,
+};
 
 /**
  * Print a command's receipt: as is under --json, the failure as the CLI

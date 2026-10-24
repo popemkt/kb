@@ -22,7 +22,7 @@ import { dirname } from "node:path";
 const BUSY_TIMEOUT_MS = 15_000;
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
-const SCHEMA_VERSION = "5";
+const SCHEMA_VERSION = "6";
 
 /**
  * `meta.rev` is the store's commit mark, and the database keeps it: a trigger
@@ -72,6 +72,7 @@ function initialize(db: Database): void {
        origin TEXT,
        actor TEXT,
        session TEXT,
+       via TEXT,
        ops TEXT NOT NULL,
        mark TEXT NOT NULL
      )`,
@@ -86,6 +87,11 @@ function initialize(db: Database): void {
   // gains the column, empty on every row it already holds.
   if (!txColumns.some((column) => column.name === "session")) {
     db.run("ALTER TABLE tx ADD COLUMN session TEXT");
+  }
+  // The migration from schema 5: a tail made before `via` was recorded gains
+  // the column, empty on every row it already holds.
+  if (!txColumns.some((column) => column.name === "via")) {
+    db.run("ALTER TABLE tx ADD COLUMN via TEXT");
   }
   db.run(
     `INSERT INTO meta (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}'), ('rev', '0')

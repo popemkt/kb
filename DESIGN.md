@@ -1584,6 +1584,25 @@ one (Action registry → A call made in a tab session) — the same path, and a
 column schema 5 added the same way. It is not `origin`, which names the
 producer (`@kb/client`, the virtual set); a tab's commit names its tab here.
 
+And `via`: the caller's own label for the work the call belonged to, when it
+stated one (Action registry → The caller's via), in a column schema 6 added
+the same way. The tail is read past a rev by `graph.changes`, which a caller
+uses to find the writes made for its via; compaction bounds how far back it
+reaches, so a reader that wants every one keeps up.
+
+**Reading past a rev in pages.** `TxTail.since(rev, page?)` reads the records
+after a rev, oldest first, and a `TxPage` bounds one read: at most `limit`
+records and `maxBytes` of their recorded ops, but never fewer than one, so a
+reader paging past a record larger than a page still moves (`pageLength`, the
+rule's one statement). SQLite reads the sizes first (`length(ops)`) and decodes
+only the rows the page takes; JSONL pages its parse cache; the memory tail its
+array. `KbTxLog.since` takes the same page, and `refresh` reads only what is
+past head instead of the whole tail. The log answers what it has caught up to,
+so `graph.changes` refreshes first and answers the store's sequence, a commit
+another process made included; it says how far a page read (`through`) for the
+caller to read on from. The shared tail contract (`tailContract` in
+`@kb/test-kit`) runs over all three tails.
+
 Both records carry `mark`: the store's own durable commit mark as of that
 append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`) — on both, the
 store's fingerprint. `TxTail.isCurrent()`
@@ -2428,6 +2447,24 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
 
     The plan this follows is
     `docs/brainstorms/2026-10-22-kb-tab-sessions/README.md`.
+  - **The caller's via.** A call may also state `via` on its envelope: the
+    caller's own label for the work it belongs to (an agent's session, a
+    job, a script run outside kb), at most `VIA_MAX` (256) characters. kb
+    records it on the transaction the call commits (`via` on the tail) and
+    never reads it: it is a name like `session`, granting and deciding
+    nothing, so every wire carries it, and a call made inside another is
+    made for the outer call's (`callWithin`; a script's always). A wire
+    whose process is started for one caller states it for every call that
+    names none (`SurfaceWire.via`): the CLI and `kb mcp` read `KB_VIA` from
+    their environment (`viaOn`), so a harness that starts them can label
+    every write an agent makes without the agent saying so. A caller asks
+    which writes were its own with `graph.changes` (`viaPrefix`, which holds
+    a label and its parts past a separator — `:`, `/`, `.` — so `job:a`
+    holds `job:a:1` but not `job:ab`; `viaWithin`). It is **advisory**: any
+    caller that can reach kb can state any via, so a reader treats a via as
+    the caller's claim about whose work a write was, never as proof. It is
+    not `session` — a tab is where a call acts, a via is whose work it is —
+    and not `origin`, which names the producing client.
   - **What a session fills.** A call made in a tab session may leave out
     an input that means "this": the node the person is focused on, the
     canvas they have open. The action says which, on its definition:
@@ -3714,6 +3751,7 @@ answers `{canvasId, items, edges, reported}`.
 | `graph.query`                                                                | read  | raw datalog → JSON rows                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `graph.run`                                                                  | read  | execute saved query from `.kb/queries/`                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `graph.search`                                                               | read  | text/prop filter convenience                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `graph.changes`                                                              | read  | one page of the transactions committed after a rev, oldest first: who made each (actor, tab session, via) and the nodes it wrote or deleted, `through` the rev to read on from; `complete: false` when the tail no longer reaches back ([The transaction tail](#the-transaction-tail--the-store-records-what-changed-in-order))                                                                                                                                                                                                            |
 | `ontology.members`                                                           | read  | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph))                                                                                                                                                                                                                                                                                                                                                                                |
 | `asset.upload`                                                               | write | write bytes to `.kb/assets/<ulid>.<ext>`, at most `ASSET_MAX_BYTES` (25 MiB, the one limit a page also checks before reading a file); returns the `assets/…` markdown path. An `.svg` is markup that can carry script, so it is kept only as `sanitizeSvg` (`@kb/model`) writes it back: read token by token, drawing kept, scripts, handlers, foreign HTML and references outside the document left out, refused when it does not read as SVG; and it is served as an image, never inlined |
 | `render.view`                                                                | read  | render a docs view (a `docs.markdown` view node, by name) to html or md                                                                                                                                                                                                                                                                                                                                                                                                                     |

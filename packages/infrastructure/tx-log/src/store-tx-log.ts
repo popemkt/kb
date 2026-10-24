@@ -1,4 +1,4 @@
-import type { KbTxLog, TxTail } from "@kb/contracts";
+import type { KbTxLog, TxPage, TxTail } from "@kb/contracts";
 import type { KbTx, StoreTx } from "@kb/model";
 
 /**
@@ -36,7 +36,7 @@ export class StoreTxLog implements KbTxLog {
   }
 
   refresh(): KbTx[] {
-    const caught = this.tail.entries().filter((tx) => tx.rev > this.rev);
+    const caught = this.tail.since(this.rev);
     for (const tx of caught) this.record(tx);
     return caught;
   }
@@ -47,7 +47,7 @@ export class StoreTxLog implements KbTxLog {
     return tx;
   }
 
-  since(rev: number): KbTx[] | "snapshot-required" {
+  since(rev: number, page?: TxPage): KbTx[] | "snapshot-required" {
     // Ahead of head: the caller counted against another store. Nothing this
     // tail holds describes the graph they have.
     if (rev > this.rev) return "snapshot-required";
@@ -55,7 +55,7 @@ export class StoreTxLog implements KbTxLog {
     // caller that is *at* head is holding a graph no frame can correct.
     if (rev < this.floor) return "snapshot-required";
     if (rev === this.rev) return [];
-    const entries = this.tail.entries().filter((tx) => tx.rev > rev);
+    const entries = this.tail.since(rev, page);
     // The caller needs rev+1 onwards; if compaction has dropped it, no
     // sequence of frames can reconstruct the graph they are holding.
     const oldest = entries[0];
