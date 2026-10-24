@@ -13,14 +13,22 @@
  * pen, P, and the highlighter, ⇧D) draw rather than place: a press anywhere,
  * on an item or not, begins a stroke the pointer runs (`stroke/start`,
  * `canvas-pointer.ts`), and they stay armed for the next, as tldraw's do.
+ * A placing tool's press is a draft the pointer runs too (`draft/start`):
+ * dragged, it draws its item out (`draftItem`: a box between where it went
+ * down and where it is, or a line between them); a click places the
+ * preset at its own size, centred where it was pressed, as tldraw's do.
  */
 import {
   CANVAS_SHAPE_PRESETS,
   CANVAS_SOLID_PRESETS,
   isGroupNode,
+  isPathNode,
+  lineThrough,
   placeItems,
   placedOnFace,
   presetItem,
+  presetType,
+  withBox,
   type CanvasDoc,
   type CanvasFrame,
   type CanvasNode,
@@ -48,7 +56,7 @@ const isStrokeTool = (tool: CanvasToolPick): tool is CanvasStrokeTool =>
   Object.hasOwn(STROKE_TOOLS, tool);
 
 /** The stroke `tool` draws, or null for a tool that draws none (`STROKE_TOOLS`). */
-export function strokeOf(tool: CanvasTool): { readonly highlight: boolean } | null {
+function strokeOf(tool: CanvasTool): { readonly highlight: boolean } | null {
   return isStrokeTool(tool) ? STROKE_TOOLS[tool] : null;
 }
 
@@ -216,14 +224,91 @@ export interface ToolSpot {
   readonly item: CanvasNode | null;
 }
 
+/** Whether `tool` draws a line (the line and the arrow), which runs from where it is pressed. */
+function drawsLine(tool: CanvasTool): boolean {
+  return placesItem(tool) && isPresetTool(tool) && presetType(tool) === "path";
+}
+
 /**
  * Whether a press with `tool` on `item` is the tool's rather than the
  * item's: a placing tool places on a frame it is pressed on, not into it;
  * the comment tool comments on whatever it is pressed on, and a stroke tool
- * draws over it.
+ * or a line's tool draws over it (an arrow drawn from an item is bound to it).
  */
 export function toolTakes(tool: CanvasTool, item: CanvasNode): boolean {
-  return tool === "comment" || isStrokeTool(tool) || (placesItem(tool) && isGroupNode(item));
+  return (
+    tool === "comment" ||
+    isStrokeTool(tool) ||
+    drawsLine(tool) ||
+    (placesItem(tool) && isGroupNode(item))
+  );
+}
+
+/**
+ * Whether a press with `tool` begins something the pointer then draws —
+ * a stroke, or a placing tool's draft — rather than waiting to be a tap:
+ * where a drag would otherwise orbit (3D's empty floor), it draws instead.
+ */
+export function drawsFromPress(tool: CanvasTool): boolean {
+  return isStrokeTool(tool) || placesItem(tool);
+}
+
+/** How far across a line dragged out reaches at least, canvas units: as far as its preset's, so it is picked as easily. */
+const LINE_REACH = 24;
+/** The step a line dragged out with ⇧ turns in: tldraw's 15°. */
+const LINE_STEP = Math.PI / 12;
+
+interface FloorPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** `to`, seen from `from`, turned to the nearest `LINE_STEP` at the same length. */
+function stepped(from: FloorPoint, to: FloorPoint): FloorPoint {
+  const length = Math.hypot(to.x - from.x, to.y - from.y);
+  const angle = Math.round(Math.atan2(to.y - from.y, to.x - from.x) / LINE_STEP) * LINE_STEP;
+  return { x: from.x + length * Math.cos(angle), y: from.y + length * Math.sin(angle) };
+}
+
+/**
+ * How far a draft must reach, canvas units, to be drawn rather than placed:
+ * shorter both ways, it places the preset at its own size, as a click does;
+ * and the box it draws is at least this much each way, so it can be picked.
+ */
+const MIN_DRAFT = 8;
+
+/** The box from `from` toward `to`, a square as wide as its longer side when `square`. */
+function boxBetween(from: FloorPoint, to: FloorPoint, square: boolean) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const side = Math.max(Math.abs(dx), Math.abs(dy), MIN_DRAFT);
+  const w = square ? side : Math.max(MIN_DRAFT, Math.abs(dx));
+  const h = square ? side : Math.max(MIN_DRAFT, Math.abs(dy));
+  return { x: dx < 0 ? from.x - w : from.x, y: dy < 0 ? from.y - h : from.y, width: w, height: h };
+}
+
+/**
+ * The item a draft of `preset` makes, as item `id`: pressed at `from` and
+ * dragged to `to`, a line from one to the other (turned in 15° steps with
+ * `held`, ⇧), or anything else filling the box between them (a square with
+ * ⇧); a click (`to` null), or a drag shorter than `MIN_DRAFT` both ways,
+ * places the preset at its own size, centred on `from`, as tldraw's tools do.
+ */
+export function draftItem(
+  preset: CanvasPresetKind,
+  id: string,
+  from: FloorPoint,
+  to: FloorPoint | null,
+  held: boolean,
+): CanvasNode {
+  const made = presetItem(preset, from, id);
+  const short =
+    to !== null && Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)) < MIN_DRAFT;
+  if (to === null || short) {
+    return { ...made, x: from.x - made.width / 2, y: from.y - made.height / 2 };
+  }
+  if (isPathNode(made)) return lineThrough(made, [from, held ? stepped(from, to) : to], LINE_REACH);
+  return withBox(made, boxBetween(from, to, held));
 }
 
 /**
@@ -233,6 +318,18 @@ export function toolTakes(tool: CanvasTool, item: CanvasNode): boolean {
  */
 export type ToolPress =
   | { readonly kind: "place"; readonly doc: CanvasDoc; readonly node: CanvasNode }
+  /**
+   * A placing tool's draft of `preset`, item `id`, begun at `at` on the
+   * floor (`draftItem`); `on` is the item an arrow is drawn from, which it
+   * is bound to when it ends on another.
+   */
+  | {
+      readonly kind: "draft";
+      readonly preset: CanvasPresetKind;
+      readonly id: string;
+      readonly at: FloorPoint;
+      readonly on: string | null;
+    }
   | { readonly kind: "comment"; readonly place: CommentPlace }
   | { readonly kind: "stroke"; readonly id: string; readonly highlight: boolean };
 
@@ -255,6 +352,12 @@ export function pressWithTool(
     return { kind: "comment", place: { at: { x: spot.place.at.x, y: spot.place.at.y } } };
   }
   if (spot.place === null) return null;
+  // On the floor a placing tool drafts its item; on a face that stands it is placed there.
+  if (spot.place.face === null && isPresetTool(tool) && placesItem(tool)) {
+    const from =
+      spot.item !== null && tool === "arrow" && !isGroupNode(spot.item) ? spot.item : null;
+    return { kind: "draft", preset: tool, id, at: spot.place.at, on: from?.id ?? null };
+  }
   const placed = placeWithTool(doc, tool, spot.place.at, id, spot.place.face);
   return placed === null ? null : { kind: "place", doc: placed.doc, node: placed.node };
 }

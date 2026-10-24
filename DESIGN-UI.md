@@ -1273,6 +1273,9 @@ manipulation feel professional rather than merely functional.
   and the canvas shows as an image, never as markup in the page; and any
   other words become a text card centred at the pointer, selected. A field
   keeps its own paste, and a modal transform takes none.
+  ⌘X is ⌘C and then, once the clipboard holds the copy, the Delete of what
+  was cut, written as the delete's one undo step; a copy the browser
+  refuses deletes nothing.
 - **Pictures** (plan 2026-10-02, step 7). An image is a `file` item showing
   an asset (DESIGN.md → Canvas documents): the image preset over the one
   item record, so it moves, turns, lifts, extrudes and belongs to frames as
@@ -1330,6 +1333,16 @@ manipulation feel professional rather than merely functional.
   snap, and a typed value is never snapped.
   `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
+  A pinch, or the wheel with ⌘ or Ctrl, zooms about the cursor in either
+  projection by as much as the event says (`wheelZoomFactor`: a percent a
+  pixel, at most a tenth an event), as tldraw's does, so a trackpad's stream
+  of small deltas zooms as gently as the fingers move; each event starts
+  from the camera the one before left, not from the last frame drawn.
+  Both stages hear the wheel themselves, not passively, so the zoom is the
+  canvas's alone and the page around it (bb's) does not zoom too.
+- **The tool strip** stands down the stage's left edge, inside the stage:
+  where the stage is too short for one column of tools it wraps into a
+  second rather than running over the page strip above it.
 - **Sticky tools.** `canvas-ui/src/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
@@ -1350,7 +1363,20 @@ manipulation feel professional rather than merely functional.
   would orbit), which the shared pointer reducer runs (`stroke/start`),
   writing the item as it goes and placing it in its frame as one history
   step (`freehandItem`); they stay armed for the next stroke, as tldraw's
-  do. A shape is data: its outline is a row of `CANVAS_FOOTPRINTS`,
+  do. A placing tool draws too (`draftItem`, the reducer's `draft/start`):
+  dragged on empty canvas or a frame's face, its item spans the drag from
+  corner to corner, a line or arrow runs from the press to the pointer
+  (⇧ squares a box and steps a line by 15°), drawn as it goes and placed
+  as one history step; a click places it at its preset size, centred on
+  the pointer, as tldraw's do. Click or drag is read where the pointer is
+  let go — within the slop of the press it is a click, however it wandered
+  — and a drag shorter than `MIN_DRAFT` both ways places the preset as a
+  click does, while a box drawn is at least `MIN_DRAFT` each way. The
+  arrow tool pressed on an item and let go on another connects them
+  (`connectItems`, the one edge record, bound at both ends, its ports the
+  sides that face each other); let go on nothing, it draws a free arrow
+  from the press; let go back on its own item, or clicked there, it draws
+  nothing. A shape is data: its outline is a row of `CANVAS_FOOTPRINTS`,
   and what it wears inside it (a check box's tick) is a mark every painter
   draws from `itemMarks`, so a new shape is a row, not a painter's case.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
@@ -1467,6 +1493,24 @@ manipulation feel professional rather than merely functional.
   `@kb/canvas` `edges.ts`'s (`edgeRoute`, `edgeHead`); an edge's line and
   heads are drawn as `edgePaint` says (`@kb/canvas` `paint.ts`); the edge
   inspector (The style panel, below) picks them.
+- **The context menu** (`canvas-context-menu.tsx`), tldraw's: a
+  right-click on the 2D stage selects what it lands on unless it is
+  selected already, and nothing on empty canvas (`selectForMenu`), and
+  opens there, kept inside the stage, a menu of the keymap's own commands
+  with their keys (`CANVAS_MENUS`, `menuRows`, `canvas-keymap.ts`), sent through the
+  keymap's applier, so a row and its key cannot mean different things. On
+  the selection: edit its words and follow its link, cut, copy, duplicate
+  and delete, group, ungroup and lock, front and back, the flips, and
+  framing it; on empty canvas: undo and redo, select all, frame all and
+  100%. Each command names the menus it stands in and where (`menus` on
+  its row of the table), so no menu joins the table by its words. A row
+  with nothing to act on is left out (`intentApplies`, `menuCommands`). A
+  menu a modal transform's press swallowed opens nothing, and a
+  right-click on words being typed keeps the browser's own menu. The header's zoom
+  readout is a button that opens the zoom menu, drawn the same way
+  (`CommandMenu`, `canvas-menu.tsx`, which keeps a menu opened at a point inside the stage): in, out, 100%, frame all and the
+  selection. The view menu shares their surface, rows and keys
+  (`use-canvas-menu.ts`).
 - **Floating selection toolbar** with Group / Ungroup / Delete /
   Bring-to-front / Send-to-back. Items paint by the height of their top
   (`z + depth`), then in document order, and the two buttons reorder the
@@ -1476,10 +1520,15 @@ manipulation feel professional rather than merely functional.
   widget heads it, and under it stand the style panel of what is selected
   and the comments list. A panel there is never anchored to what it is
   about, so it never opens over the selection it edits; it is as tall as
-  its rows, scrolls inside itself once the column is full, and folds to its
-  title. A pick in it keeps the keyboard where it was, so the canvas's
-  shortcuts still reach it. What the dock remembers — a panel folded, More
-  open — lasts while the canvas is open.
+  its rows, scrolls inside itself once the column is full (which ends above
+  the selection toolbar), and folds to its title. On a narrow stage — a
+  side panel's, under `DOCK_COMPACT_WIDTH` — every panel stands folded to
+  its title until opened, as tldraw's style panel waits behind a button on
+  a small screen. A pick in it keeps the keyboard where it was, so the
+  canvas's shortcuts still reach it. What the dock remembers — the fold a
+  person chose for a panel, which holds however the stage is sized (one
+  no one has folded or opened follows the stage), More open — lasts while
+  the canvas is open.
 - **The style panel** (`canvas-style-panel.tsx`) follows the selection:
   one item shows the item inspector, one edge the edge inspector, none or
   more nothing; nothing opens or closes it, and it stands aside while a
@@ -1800,7 +1849,9 @@ the view node switches every page showing the canvas through it.
   twin of the stage's camera, so handles keep their size and turns their
   pace.
   A drag on empty canvas orbits the turntable (across turns the floor with
-  the hand, down tips toward the top view), a tap places the current tool on the plane
+  the hand, down tips toward the top view) unless the armed tool draws
+  (`drawsFromPress`: a stroke tool or a placing tool, which then draws on
+  the floor as in 2D), a tap places the current tool on the plane
   (or clears the selection), the right or middle button, Space or the hand
   tool pans, the
   wheel pans and a pinch zooms about the cursor (`canvas-scene-gestures.ts`).
@@ -1834,8 +1885,14 @@ the view node switches every page showing the canvas through it.
   the editor, so G, S and E type; Escape, Enter (in a label or a card) or a
   press elsewhere closes it, and the camera flies back to where it was —
   unless it was taken elsewhere meanwhile (`CanvasCameraRig.visit`). A
-  text card or a label placed with its tool opens its editor at once, in
-  either projection, as tldraw's text does (where it lands; no flight).
+  text card or a label placed with its tool, or the text card a
+  double-click on empty canvas makes, opens its editor at once, in
+  either projection, as tldraw's text does (where it lands; no flight); and
+  ↵ opens the editor of the one item selected that has one, as a
+  double-click does (`edit`, the page's one `openEditor`); with none to
+  open (a frame, two items) ↵ is the browser's, so a focused button or
+  menu row still takes it — a shortcut that needs a selection treats one
+  with nothing to act on as none (`acts`, `intentApplies`).
   Switching to 2D while editing hands the edit to the 2D canvas, which
   opens the same editor in place; the 3D camera is not flown back.
 - **A note grows to fit its words** (tldraw's note). A text card's editor
@@ -1847,7 +1904,9 @@ the view node switches every page showing the canvas through it.
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour
-on the stroke itself, edge endpoint re-routing; in 3D, a flat item that is
+on the stroke itself, edge endpoint re-routing, a paste row in the context
+menu (the browser's paste event is the canvas's one paste), the context menu
+in 3D (`GAP [[01M5QQVBJFGF3GKZJVF151CABJ]]`); in 3D, a flat item that is
 not a billboard seen exactly level (the front and side presets), which is a
 hairline on its plane (`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a cone or a sphere paints by
 the height of its point, so a raised card floating over its rim is drawn

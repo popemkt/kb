@@ -3,6 +3,7 @@ import { present } from "@kb/model";
 import {
   boxFrame,
   edgeRoute,
+  isPathNode,
   parseCanvasDoc,
   presetItem,
   stringifyCanvasDoc,
@@ -10,12 +11,15 @@ import {
   type CanvasDoc,
 } from "@kb/canvas";
 import {
+  draftItem,
+  drawsFromPress,
   pickTool,
   placesItem,
   placeWithTool,
   pressWithTool,
   reduceCanvasTool,
   toolTakes,
+  type CanvasTool,
   type ToolState,
 } from "./canvas-tool";
 
@@ -242,13 +246,85 @@ describe("a press with the armed tool", () => {
     expect(pressWithTool(doc, "comment", { place: null, item: null }, "x")).toBeNull();
   });
 
-  test("a placing tool places at the spot, and select does nothing there", () => {
-    const placed = pressWithTool(doc, "rect", { place: floor, item: frame }, "r");
-    expect(placed?.kind === "place" && placed.doc.nodes.at(-1)).toMatchObject({
+  test("a placing tool drafts at the spot on the floor, and select does nothing there", () => {
+    expect(pressWithTool(doc, "rect", { place: floor, item: frame }, "r")).toEqual({
+      kind: "draft",
+      preset: "rect",
       id: "r",
-      parent: "f",
+      at: floor.at,
+      on: null,
     });
     expect(pressWithTool(doc, "select", { place: floor, item: null }, "s")).toBeNull();
     expect(pressWithTool(doc, "rect", { place: null, item: frame }, "r")).toBeNull();
+  });
+
+  test("the line and the arrow draw over an item; an arrow is drawn from it, a frame's from none", () => {
+    expect([toolTakes("arrow", card), toolTakes("line", card)]).toEqual([true, true]);
+    expect(pressWithTool(doc, "arrow", { place: floor, item: card }, "a")).toMatchObject({
+      kind: "draft",
+      on: "c",
+    });
+    expect(pressWithTool(doc, "line", { place: floor, item: card }, "l")).toMatchObject({
+      kind: "draft",
+      on: null,
+    });
+    expect(pressWithTool(doc, "arrow", { place: floor, item: frame }, "a")).toMatchObject({
+      on: null,
+    });
+  });
+
+  test("on a face that stands, a placing tool places on it at once", () => {
+    const standing = { ...frame, z: 150, rotation: { x: -90 } } as const;
+    const wall = { at: { x: 40, y: 0, z: 30 }, face: boxFrame(standing) };
+    const placed = pressWithTool(doc, "rect", { place: wall, item: standing }, "r");
+    expect(placed?.kind).toBe("place");
+  });
+
+  test("a press draws from itself where a drag would orbit: a stroke's, or a placing tool's", () => {
+    expect(
+      ["draw", "rect", "arrow", "select", "hand", "comment"].map((t) =>
+        drawsFromPress(t as CanvasTool),
+      ),
+    ).toEqual([true, true, true, false, false, false]);
+  });
+});
+
+describe("a draft", () => {
+  const from = { x: 100, y: 100 };
+
+  test("a click places the preset at its own size, centred where it was pressed", () => {
+    expect(draftItem("rect", "r", from, null, false)).toMatchObject({
+      x: 20,
+      y: 50,
+      width: 160,
+      height: 100,
+    });
+  });
+
+  test("a drag fills the box between where it went down and where it is, either way", () => {
+    expect(draftItem("ellipse", "e", from, { x: 40, y: 260 }, false)).toMatchObject({
+      x: 40,
+      y: 100,
+      width: 60,
+      height: 160,
+    });
+    // ⇧: a square, as wide as its longer side, toward the pointer.
+    expect(draftItem("rect", "r", from, { x: 40, y: 260 }, true)).toMatchObject({
+      x: -60,
+      y: 100,
+      width: 160,
+      height: 160,
+    });
+  });
+
+  test("a line runs from the press to the pointer, its box reaching across it; ⇧ turns it in 15° steps", () => {
+    const arrow = draftItem("arrow", "a", from, { x: 300, y: 104 }, false);
+    expect(arrow).toMatchObject({ type: "path", x: 100, width: 200, height: 24, toHead: "arrow" });
+    const level = draftItem("line", "l", from, { x: 300, y: 104 }, true);
+    expect(level).toMatchObject({ y: 88, height: 24 });
+    expect(isPathNode(level) && level.points).toEqual([
+      { x: 0, y: 0.5 },
+      { x: 1, y: 0.5 },
+    ]);
   });
 });

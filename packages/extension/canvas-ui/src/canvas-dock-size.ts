@@ -7,3 +7,9 @@
 export const DOCK_PANEL_WIDTH = 176;
 const DOCK_INSET = 12;
 export const DOCK_RESERVE = DOCK_PANEL_WIDTH + 2 * DOCK_INSET;
+/**
+ * A stage narrower than this — a side panel's — stands the dock's panels
+ * folded to their titles until one is opened, as tldraw's style panel sits
+ * behind a button on a small screen: open, a panel would cover what it edits.
+ */
+export const DOCK_COMPACT_WIDTH = 720;

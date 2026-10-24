@@ -5,7 +5,8 @@
  * edits. The view widget heads it; under it, the style panel of what is
  * selected (`ItemInspector`, `EdgeInspector`) and the comments list. Each
  * panel is as tall as its rows, and the column scrolls a panel inside
- * itself rather than letting it run off the stage.
+ * itself rather than letting it run off the stage — or under the selection
+ * toolbar, which the column ends above.
  */
 import {
   createContext,
@@ -27,7 +28,9 @@ import { DOCK_PANEL_WIDTH } from "./canvas-dock-size";
 const DockFlags = createContext<{
   readonly on: ReadonlySet<string>;
   readonly set: (flag: string, on: boolean) => void;
-}>({ on: new Set(), set: () => {} });
+  /** The stage is narrow (`DOCK_COMPACT_WIDTH`): a panel stands folded until opened. */
+  readonly compact: boolean;
+}>({ on: new Set(), set: () => {}, compact: false });
 
 function useDockFlag(flag: string): [boolean, (on: boolean) => void] {
   const flags = useContext(DockFlags);
@@ -37,9 +40,12 @@ function useDockFlag(flag: string): [boolean, (on: boolean) => void] {
 /** The column: its head (the comments switch and the view widget) at the top, then its panels. */
 export function CanvasDock({
   head,
+  compact,
   children,
 }: {
   readonly head: ReactNode;
+  /** The stage is narrow: each panel stands folded to its title until it is opened. */
+  readonly compact: boolean;
   readonly children: ReactNode;
 }) {
   const [on, setOn] = useState<ReadonlySet<string>>(new Set());
@@ -53,13 +59,14 @@ export function CanvasDock({
           else next.delete(flag);
           return next;
         }),
+      compact,
     }),
-    [on],
+    [on, compact],
   );
   return (
     <DockFlags.Provider value={flags}>
       <div
-        className="pointer-events-none absolute top-3 right-3 bottom-3 z-30 flex flex-col items-end gap-2"
+        className="pointer-events-none absolute top-3 right-3 bottom-16 z-30 flex flex-col items-end gap-2"
         data-testid="canvas-dock"
       >
         <div className="pointer-events-auto flex items-start gap-2">{head}</div>
@@ -90,7 +97,17 @@ export function DockPanel({
   readonly className?: string;
   readonly "data-testid"?: string;
 }) {
-  const [folded, setFolded] = useDockFlag(`folded:${name}`);
+  // What the dock remembers is the fold the person chose, which holds
+  // however the stage is sized; a panel no one has folded or opened stands
+  // as the stage has it — folded where it is narrow, open elsewhere.
+  const { compact } = useContext(DockFlags);
+  const [chosenFolded, setChosenFolded] = useDockFlag(`folded:${name}`);
+  const [chosenOpen, setChosenOpen] = useDockFlag(`opened:${name}`);
+  const folded = chosenFolded || (!chosenOpen && compact);
+  const setFolded = (fold: boolean) => {
+    setChosenFolded(fold);
+    setChosenOpen(!fold);
+  };
   return (
     <section
       aria-label={name}

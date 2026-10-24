@@ -26,7 +26,6 @@ import {
   viewpointFrames,
 } from "@kb/canvas";
 import {
-  asElement,
   browserHost,
   Bullet,
   cn,
@@ -49,6 +48,7 @@ import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { CanvasDock } from "./canvas-dock";
+import { DOCK_COMPACT_WIDTH } from "./canvas-dock-size";
 import { CanvasStylePanel } from "./canvas-style-panel";
 import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
@@ -70,8 +70,14 @@ import { createCanvasNode } from "./canvas-api";
 import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
-import { classifyCardPointer } from "./card-pointer";
-import { pressPans, strokeOf, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
+import { cardIdAt, classifyCardPointer } from "./card-pointer";
+import {
+  drawsFromPress,
+  pressPans,
+  toolTakes,
+  type CanvasChooser,
+  type ToolState,
+} from "./canvas-tool";
 import { CanvasCommentLayer } from "./canvas-comments";
 import { CanvasLinkMarks } from "./canvas-link-marks";
 import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
@@ -88,6 +94,9 @@ import {
   selectNode as selNode,
   selectionEmpty,
 } from "./canvas-selection";
+import { CanvasContextMenu } from "./canvas-context-menu";
+import { CanvasZoomMenu } from "./canvas-zoom-menu";
+import { useCanvasContextMenu } from "./use-canvas-menu";
 import {
   carriesItems,
   createPointerState,
@@ -100,11 +109,6 @@ import {
 
 /** The 3D projection's chunk: three loads only when a canvas is looked at in depth. */
 const Canvas3dStage = lazy(() => import("./canvas-3d-stage"));
-
-/** The id of the item a DOM event landed on, in the 2D stage. */
-function cardIdAt(target: EventTarget | null): string | undefined {
-  return asElement(target)?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId;
-}
 
 /** A lint as a script is told it: plain data. */
 const told = ({ rule, ids, message }: CanvasLint) => ({ rule, ids: [...ids], message });
@@ -207,11 +211,14 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     onCardPointerDown(card, ...rest);
   };
 
+  /** Opens an item's editor once the page has its face editing (`openEditor`, below). */
+  const openEditorRef = useRef<(id: string) => void>(() => {});
   const applyPointerResult = useCallback(
     (next: PointerResult) => {
       pointerRef.current = next.state;
       setPointerState(next.state);
       if (next.selection) setSelection(next.selection);
+      if (next.edit !== undefined) openEditorRef.current(next.edit);
       if (next.persist === "cancel") {
         cancelPreview();
         return;
@@ -289,6 +296,11 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     select: (id) => setSelection(selNode(id)),
     enter,
   });
+  /** An item's editor opened, in whichever projection is showing: what a placed text card, a double-click and ↵ open. */
+  const openEditor = (id: string) => faces.onEdit(id, true);
+  useLayoutEffect(() => {
+    openEditorRef.current = openEditor;
+  });
   /** What a tool placed with something chosen first opens: a card's node picker, an image's file chooser. */
   const choose = (chooser: CanvasChooser) => {
     const opens: Record<CanvasChooser, () => void> = {
@@ -329,7 +341,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     flushPersist,
     setPickerOpen,
     choose,
-    edit: (id) => faces.onEdit(id, true),
+    edit: openEditor,
     comment: comments.start,
     setSelection,
     setToolState,
@@ -455,6 +467,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   });
   const modal = pointerState.drag?.kind === "transform" && pointerState.drag.modal;
   const modalDrag = modal ? pointerState.drag : null;
+  const contextMenu = useCanvasContextMenu(selection, setSelection);
   /** Present mode steps through the frames, flying to each face-on; past either end it stays. */
   const present = (act: PresentAct) => {
     const step = act === "next" ? 1 : act === "previous" ? -1 : 0;
@@ -493,6 +506,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     chooseProjection: projection.choose,
     openViewMenu: () => setViewMenuOpen(true),
     openShortcuts: () => setShortcutsOpen(true),
+    edit: openEditor,
     follow,
     turnPage,
   });
@@ -551,7 +565,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         >
           Add node
         </button>
-        <span className="text-label text-foreground/30">{Math.round(zoom * 100)}%</span>
+        <CanvasZoomMenu zoom={zoom} selection={selection} byId={byId} onIntent={applyIntent} />
       </div>
 
       <CanvasPageStrip
@@ -603,6 +617,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             e.stopPropagation();
             pressCard(card, e, (id) => startMoveForSelection(e, id));
           }}
+          onContextMenu={contextMenu.open}
           onDoubleClickCapture={(e) => {
             const card = byId.get(cardIdAt(e.target) ?? "");
             if (modal || card === undefined || !enter(card)) return;
@@ -685,13 +700,20 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
                   setSelection(EMPTY_SELECTION);
                 }}
                 onDraw={(spot, press) =>
-                  strokeOf(toolState.tool) !== null && pressTool(spot, press.local)
+                  drawsFromPress(toolState.tool) && pressTool(spot, press.local)
                 }
                 onViewSettled={projection.onViewSettled}
               />
             </Suspense>
           </div>
         )}
+        <CanvasContextMenu
+          at={contextMenu.at}
+          selection={selection}
+          byId={byId}
+          onIntent={applyIntent}
+          onClose={contextMenu.close}
+        />
         <CanvasFaceEditor
           item={faces.deep}
           rig={projection.rig}
@@ -700,6 +722,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onChange={(item) => schedulePersist(upsertCanvasNode(docRef.current, item))}
         />
         <CanvasDock
+          compact={stageSize.width < DOCK_COMPACT_WIDTH}
           head={
             <>
               <CommentsToggle comments={comments} />

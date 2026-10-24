@@ -1,9 +1,10 @@
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasSide, CommentPlace } from "@kb/canvas";
 import { isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
 import {
+  draftItem,
   pickTool,
   pressWithTool,
   reduceCanvasTool,
@@ -24,6 +25,7 @@ import { asElement } from "@kb/ui-sdk";
 import {
   clampZoom,
   clientToCanvas,
+  wheelZoomFactor,
   fitView,
   hitTest,
   panOfView,
@@ -136,9 +138,13 @@ function useViewportControls({
   docRef,
   dispatchPointer,
   pan,
+  pointerRef,
   setZoom,
   zoom,
-}: Pick<CanvasGestureContext, "docRef" | "dispatchPointer" | "pan" | "setZoom" | "zoom">) {
+}: Pick<
+  CanvasGestureContext,
+  "docRef" | "dispatchPointer" | "pan" | "pointerRef" | "setZoom" | "zoom"
+>) {
   const frame = useCallback(
     (items: readonly CanvasHitItem[]) => {
       const stageEl = document.querySelector("[data-canvas-viewport]");
@@ -170,17 +176,28 @@ function useViewportControls({
     [docRef, pan, zoom],
   );
 
-  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+  /**
+   * The zoom the last wheel event left, ahead of the render that shows it:
+   * a trackpad sends wheel events faster than frames, and each one starts
+   * from where the one before left the camera, never from the last render's.
+   */
+  const zoomNow = useRef(zoom);
+  useLayoutEffect(() => {
+    zoomNow.current = zoom;
+  }, [zoom]);
+  const onWheel = (e: WheelEvent, element: HTMLElement) => {
+    const from = pointerRef.current.pan;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const factor = e.deltaY > 0 ? 0.92 : 1.08;
-      const newZoom = clampZoom(zoom * factor);
+      const was = zoomNow.current;
+      const newZoom = clampZoom(was * wheelZoomFactor(e));
+      zoomNow.current = newZoom;
       // Cursor-centered zoom
-      const rect = e.currentTarget.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
-      const worldX = (px - pan.x) / zoom;
-      const worldY = (py - pan.y) / zoom;
+      const worldX = (px - from.x) / was;
+      const worldY = (py - from.y) / was;
       dispatchPointer({
         type: "pan/set",
         pan: {
@@ -193,7 +210,7 @@ function useViewportControls({
     }
     dispatchPointer({
       type: "pan/set",
-      pan: { x: pan.x - e.deltaX, y: pan.y - e.deltaY },
+      pan: { x: from.x - e.deltaX, y: from.y - e.deltaY },
     });
   };
   /** The top-view camera's answers to the keymap; a key zooms with the pan held, as it always has. */
@@ -243,9 +260,10 @@ function createCardGestures(dispatchPointer: CanvasGestureContext["dispatchPoint
 
 /**
  * A press with the armed tool, at the spot it landed on in whichever
- * projection saw it (`pressWithTool`): a placing tool drops its item there,
- * the comment tool starts a thread there. False when the tool does nothing
- * there (select), so the press means something else.
+ * projection saw it (`pressWithTool`): a placing tool begins drafting its
+ * item there (or places it on a face that stands), a stroke tool begins a
+ * stroke, the comment tool starts a thread there. False when the tool does
+ * nothing there (select), so the press means something else.
  */
 function createToolPress({
   dispatchPointer,
@@ -269,6 +287,21 @@ function createToolPress({
     setToolState((s) => reduceCanvasTool(s, { type: "used" }));
     if (pressed.kind === "comment") {
       comment(pressed.place);
+      return true;
+    }
+    if (pressed.kind === "draft") {
+      // The pointer draws it out from here, and its release writes it (`endDraft`).
+      const { id, preset, at, on } = pressed;
+      dispatchPointer({
+        type: "draft/start",
+        id,
+        preset,
+        at,
+        on,
+        screen,
+        edgeId: ulid(),
+        bindingId: ulid(),
+      });
       return true;
     }
     schedulePersist(pressed.doc);
@@ -327,9 +360,11 @@ function createStageGestures(
     if (!isEmptyStageTarget(e.target)) return;
     if (toolState.tool !== "select") return;
     const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-    const card = presetItem("text", world, ulid());
+    const card = draftItem("text", ulid(), world, null, false);
     schedulePersist(placeItems(docRef.current, [card]));
     setSelection(selNode(card.id));
+    // tldraw's: the text a double-click makes is typed into at once, as the text tool's is.
+    context.edit(card.id);
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {

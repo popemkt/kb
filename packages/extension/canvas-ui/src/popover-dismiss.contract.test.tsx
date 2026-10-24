@@ -2,7 +2,7 @@
  * The canvas's popovers, each run through the dismiss contract
  * (`dismissContract`, DESIGN-UI.md → Cross-surface polish → Popovers dismiss
  * one way): a comment thread's panel, the solid picker, the view menu, the
- * shortcuts sheet and the node picker.
+ * command menus (context, zoom), the shortcuts sheet and the node picker.
  */
 import { useState } from "react";
 import { afterAll, beforeAll } from "vitest";
@@ -17,9 +17,12 @@ import {
 import { viewOfPan } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import { CommentThreadPanel } from "./canvas-comment-thread";
+import { CanvasContextMenu } from "./canvas-context-menu";
+import { EMPTY_SELECTION } from "./canvas-selection";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasToolbar } from "./canvas-toolbar";
 import { CanvasViewWidget } from "./canvas-view-widget";
+import { CanvasZoomMenu } from "./canvas-zoom-menu";
 import { NodePicker } from "./node-picker";
 
 // The node picker lists the page's nodes through its host: here, a test host.
@@ -92,6 +95,14 @@ dismissContract({
       find('[data-testid="canvas-view-menu"]'),
       trigger('button[aria-haspopup="menu"]'),
     ),
+  // The command menus (context, zoom) dismiss through the one CommandMenu: the zoom menu opens from its button.
+  "packages/extension/canvas-ui/src/canvas-menu.tsx": (host) =>
+    renderPopover(
+      host,
+      <CanvasZoomMenu zoom={1} selection={EMPTY_SELECTION} byId={new Map()} onIntent={noop} />,
+      find('[data-testid="canvas-zoom-menu"]'),
+      trigger('button[title="Zoom"]'),
+    ),
   "packages/extension/canvas-ui/src/canvas-shortcuts-sheet.tsx": (host) =>
     renderPopover(
       host,
@@ -108,6 +119,27 @@ dismissContract({
         {(dismiss) => <NodePicker onPick={noop} onClose={dismiss} />}
       </UntilDismissed>,
       find('input[placeholder="Add existing node…"]'),
+      null,
+    ),
+});
+
+// The same CommandMenu opened by a right-click: no trigger, so a press anywhere outside shuts it.
+dismissContract({
+  "packages/extension/canvas-ui/src/canvas-menu.tsx": (host) =>
+    renderPopover(
+      host,
+      <UntilDismissed>
+        {(dismiss) => (
+          <CanvasContextMenu
+            at={{ x: 10, y: 10 }}
+            selection={EMPTY_SELECTION}
+            byId={new Map()}
+            onIntent={noop}
+            onClose={dismiss}
+          />
+        )}
+      </UntilDismissed>,
+      find('[data-testid="canvas-context-menu"]'),
       null,
     ),
 });

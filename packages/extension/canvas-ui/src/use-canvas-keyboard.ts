@@ -29,6 +29,7 @@ import {
   selectAll,
   selectNode,
   selectionEmpty,
+  soleItem,
 } from "./canvas-selection";
 import {
   mapCanvasKey,
@@ -47,6 +48,8 @@ import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@kb/ui-sdk";
 import { readPastedText } from "./canvas-paste";
+import { hasEditor } from "./canvas-face-overlay";
+import { intentApplies } from "./use-canvas-menu";
 
 /**
  * The canvas keyboard surface: `canvas-keymap` decides *what* a chord
@@ -93,6 +96,8 @@ interface CanvasKeyboardContext {
   openViewMenu: () => void;
   /** Open the sheet listing every shortcut. */
   openShortcuts: () => void;
+  /** Open an item's editor, in whichever projection is showing. */
+  edit: (id: string) => void;
   /** Go where a link leads (`linkStep`). */
   follow: (link: CanvasItemLink) => void;
   /** Open the board's next page (1) or the one before (-1); none past either end. */
@@ -107,11 +112,36 @@ function deleteSelection(context: CanvasKeyboardContext) {
   context.setSelection(EMPTY_SELECTION);
 }
 
-/** A copy takes the selected items with their members, the edges among them and the edges selected. */
-function copySelection(context: CanvasKeyboardContext) {
+/**
+ * A copy takes the selected items with their members, the edges among them
+ * and the edges selected; it answers once the clipboard holds them.
+ */
+function copySelection(context: CanvasKeyboardContext): Promise<void> {
   const { nodeIds, edgeIds } = context.selRef.current;
   const copied = carriedPart(context.docRef.current, nodeIds, edgeIds);
-  void navigator.clipboard.writeText(JSON.stringify(copied));
+  return navigator.clipboard.writeText(JSON.stringify(copied));
+}
+
+/**
+ * ⌘X: a copy of the selection, then — only once the clipboard holds it —
+ * the delete of what was cut, the one undo step. A copy the browser refuses
+ * deletes nothing.
+ */
+function cutSelection(context: CanvasKeyboardContext) {
+  const cut = context.selRef.current;
+  copySelection(context)
+    .then(() => {
+      context.schedulePersist(deleteSelected(context.docRef.current, cut));
+      if (context.selRef.current === cut) context.setSelection(EMPTY_SELECTION);
+    })
+    // Refused (no permission, the page not focused): what was cut stays where it was.
+    .catch(() => {});
+}
+
+/** ↵: the one item selected, when it has words of its own to type, opened for typing. */
+function editSelection(context: CanvasKeyboardContext) {
+  const item = soleItem(context.selRef.current, context.byId);
+  if (item !== undefined && hasEditor(item)) context.edit(item.id);
 }
 
 /**
@@ -242,8 +272,7 @@ function toggleLock(context: CanvasKeyboardContext): void {
 
 /** Where the one item selected leads, followed; nothing when more are selected or it leads nowhere. */
 function followSelection(context: CanvasKeyboardContext): void {
-  const [id, ...more] = context.selRef.current.nodeIds;
-  const item = id === undefined || more.length > 0 ? undefined : context.byId.get(id);
+  const item = soleItem(context.selRef.current, context.byId);
   const link = item === undefined ? undefined : itemLead(item);
   if (link !== undefined) context.follow(link);
 }
@@ -310,8 +339,10 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
   },
   delete: deleteSelection,
   selectAll: (context) => context.setSelection(selectAll(context.docRef.current, context.scope)),
-  copy: copySelection,
+  copy: (context) => void copySelection(context),
+  cut: cutSelection,
   duplicate: duplicateSelection,
+  edit: editSelection,
   escape: escapeCanvas,
   panModifier: (context) => context.setSpaceDown(true),
   nudge: (context, intent) => nudgeSelection(context, intent.dx, intent.dy),
@@ -367,6 +398,7 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
         selectionEmpty: selectionEmpty(context.selRef.current),
         transforming: context.transforming(),
         presenting: context.presenting(),
+        acts: (intent) => intentApplies(intent, context.selRef.current, context.byId),
       });
       if (binding === null) return;
       if (binding.intent !== null) applyCanvasIntent(context, binding.intent);

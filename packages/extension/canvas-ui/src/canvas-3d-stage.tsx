@@ -8,7 +8,7 @@
  */
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
-import type { CanvasPoint, ViewSize } from "./canvas-camera";
+import { wheelZoomFactor, type CanvasPoint, type ViewSize } from "./canvas-camera";
 import type { CanvasPainter } from "./canvas-capture";
 import { toolTakes, type CanvasTool, type ToolSpot } from "./canvas-tool";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
@@ -133,7 +133,7 @@ function useSceneGestures(
   const wheel = useEffectEvent((el: HTMLElement, event: WheelEvent) => {
     event.preventDefault();
     if (event.ctrlKey || event.metaKey) {
-      props.rig.zoomAt(event.deltaY > 0 ? 0.92 : 1.08, localOf(el, event), sizeOf(el));
+      props.rig.zoomAt(wheelZoomFactor(event), localOf(el, event), sizeOf(el));
     } else props.rig.panBy(-event.deltaX, -event.deltaY);
   });
   const settled = useEffectEvent(() => props.onViewSettled());
@@ -159,6 +159,7 @@ function useSceneGestures(
       if (timer !== null) clearTimeout(timer);
       timer = setTimeout(settled, WHEEL_SETTLE_MS);
     };
+    // GAP [[01M5QQVBJFGF3GKZJVF151CABJ]] canvas context menu opens in 2D only
     const onMenu = (e: Event) => e.preventDefault();
     const onDoubleClick = (e: MouseEvent) => gestures.doubleClick(pressOf(el, e));
     el.addEventListener("pointerdown", onDown);

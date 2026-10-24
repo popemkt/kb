@@ -40,7 +40,11 @@ records the frame-to-frame deltas:
 - **zoom**: 100 ⌃-wheel steps, out and back in;
 - **1-item drag**: 120 pointer moves on one card;
 - **N-item drag**: the same on one card of a marquee selection, 30 at 100%,
-  and 56 after six zoom-out steps (61%).
+  and 56 after six zoom-out steps (61%);
+- **draft** (added 2026-10-25): a rectangle drawn out with the R tool on
+  empty canvas, 120 pointer moves growing then shrinking its box, then
+  undone. Each move writes the draft as a silent preview of the whole
+  document, as a stroke does.
 
 ```js
 // Canvas perf harness: synthetic input once per animation frame, frame deltas recorded.
@@ -116,6 +120,20 @@ records the frame-to-frame deltas:
       ptr(vp(), "pointerup", x0, y0);
       return res;
     },
+    async draft(n = 120) {
+      document.activeElement?.blur?.();
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "r", code: "KeyR", bubbles: true }));
+      await raf();
+      const c = center(); const x0 = c.x - 200, y0 = c.y - 150;
+      ptr(vp(), "pointerdown", x0, y0);
+      await raf();
+      const res = await run(n, (i) => { const d = i < n / 2 ? i : n - i; ptr(vp(), "pointermove", x0 + 20 + d * 3, y0 + 20 + d * 2); });
+      ptr(vp(), "pointerup", x0 + 20, y0 + 20);
+      await raf(); await raf();
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", code: "KeyZ", metaKey: true, ctrlKey: true, bubbles: true }));
+      await raf();
+      return res;
+    },
     async marquee(x0, y0, x1, y1) {
       ptr(vp(), "pointerdown", x0, y0); await raf();
       for (let i = 1; i <= 5; i++) { ptr(vp(), "pointermove", x0 + ((x1 - x0) * i) / 5, y0 + ((y1 - y0) * i) / 5); await raf(); }
@@ -157,6 +175,20 @@ p95 and the longest frame in ms.
 | 1-item drag  | 13.5 · 98.8 · 141.7  | 60.0 · 17.7 · 18.5  |
 | 30-item drag | 14.4 · 91.7 · 106.9  | 58.8 · 18.6 · 24.9  |
 | 56-item drag | 13.6 · 99.5 · 123.9  | 59.4 · 18.6 · 25.4  |
+
+Drafting, measured 2026-10-25 on `feat/canvas-ux-pass` with the same
+canvas, build and harness, two runs each beside the 1-item drag as its
+control (another build's load on the machine took a few fps off both):
+
+| Scenario    | fps · p95 · max      |
+| ----------- | -------------------- |
+| 1-item drag | 56.5 · 25.1 · 25.4   |
+| draft       | 55.6 · 25.2 · 25.7   |
+| 1-item drag | 56.5 · 25.2 · 26.3   |
+| draft       | 54.5 · 25.3 · 26.5   |
+
+A draft costs what a carried item does: its preview re-deriving the
+document on each move is not measurably slower, so it is left as it is.
 
 Ten unrelated writes: no long task in two runs of three, the same frame
 shape as the control; the third had one task of 57ms, not seen again.

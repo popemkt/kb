@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   freehandItem,
+  lineThrough,
   itemOutline,
   itemPaint,
   paintOrder,
@@ -28,6 +29,38 @@ const kinds = (item: CanvasNode) => itemOutline(item, item.width, item.height, 0
 
 /** The items' ids in the order they are painted. */
 const ids = (nodes: readonly CanvasNode[]) => paintOrder(nodes).map((n) => n.id);
+
+describe("a line through points", () => {
+  const line = { id: "l", type: "path", x: 0, y: 0, width: 1, height: 1, points: [] } as const;
+
+  test("its box is their bounds, its points anchors of it", () => {
+    const drawn = lineThrough({ ...line, points: [] }, [
+      { x: 10, y: 20 },
+      { x: 110, y: 70 },
+    ]);
+    expect(drawn).toMatchObject({ x: 10, y: 20, width: 100, height: 50 });
+    expect(drawn.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ]);
+  });
+
+  test("a box narrower than its reach is widened about the line, which stays where it runs", () => {
+    const drawn = lineThrough(
+      { ...line, points: [] },
+      [
+        { x: 10, y: 20 },
+        { x: 110, y: 20 },
+      ],
+      24,
+    );
+    expect(drawn).toMatchObject({ x: 10, y: 8, width: 100, height: 24 });
+    expect(drawn.points).toEqual([
+      { x: 0, y: 0.5 },
+      { x: 1, y: 0.5 },
+    ]);
+  });
+});
 
 describe("a freehand line", () => {
   test("runs smoothly through every point it was drawn through", () => {
@@ -71,11 +104,12 @@ describe("a freehand line", () => {
       ],
       false,
     );
-    expect(stroke).toMatchObject({ x: 100, y: 50, height: 1, freehand: true });
+    // A flat stroke's box is a unit tall, the line along its middle: where it was drawn.
+    expect(stroke).toMatchObject({ x: 100, y: 49.5, height: 1, freehand: true });
     expect(stroke?.width).toBeCloseTo(40.4);
     expect(stroke?.points).toEqual([
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
+      { x: 0, y: 0.5 },
+      { x: 1, y: 0.5 },
     ]);
     expect(stroke?.highlight).toBeUndefined();
     expect(

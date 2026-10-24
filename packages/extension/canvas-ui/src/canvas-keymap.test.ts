@@ -1,9 +1,12 @@
 import { describe, expect, test } from "vitest";
 import {
+  CANVAS_SHORTCUTS,
   CANVAS_VIEW_COMMANDS,
+  menuRows,
   mapCanvasKey,
   type CanvasIntent,
   type CanvasKeyEvent,
+  type CanvasMenuName,
 } from "./canvas-keymap";
 import { ZOOM_STEP } from "./canvas-camera";
 
@@ -26,6 +29,8 @@ describe("with something selected", () => {
     [chord("Backspace"), { type: "delete" }],
     [chord("a", { metaKey: true }), { type: "selectAll" }],
     [chord("c", { metaKey: true }), { type: "copy" }],
+    [chord("x", { metaKey: true }), { type: "cut" }],
+    [chord("Enter"), { type: "edit" }],
     [chord("d", { metaKey: true }), { type: "duplicate" }],
     [chord("Escape"), { type: "escape" }],
     [chord(" ", { code: "Space" }), { type: "panModifier" }],
@@ -264,5 +269,38 @@ describe("what the browser still gets", () => {
     expect(mapCanvasKey(chord("a", { metaKey: true }), empty)?.intent).toEqual({
       type: "selectAll",
     });
+  });
+});
+
+const labels = (menu: CanvasMenuName) =>
+  menuRows(menu).map((row) => row.map((command) => command.label));
+
+describe("the command menus", () => {
+  test("list the table's own commands, every row it names found, with their keys", () => {
+    expect(labels("selection")).toEqual([
+      ["Edit its words", "Follow link"],
+      ["Cut", "Copy", "Duplicate", "Delete"],
+      ["Group into a frame", "Ungroup", "Lock or unlock"],
+      ["Bring to front", "Send to back"],
+      ["Flip left for right", "Flip top for bottom"],
+      ["Frame selection"],
+    ]);
+    expect(labels("canvas")).toEqual([
+      ["Undo", "Redo"],
+      ["Select all"],
+      ["Frame all", "Zoom to 100%"],
+    ]);
+    expect(labels("zoom")).toEqual([
+      ["Zoom in", "Zoom out", "Zoom to 100%"],
+      ["Frame all", "Frame selection"],
+    ]);
+    // Every place a shortcut claims in a menu is its own: none stands over another.
+    for (const menu of ["selection", "canvas", "zoom"] as const) {
+      const places = CANVAS_SHORTCUTS.flatMap((s) => s.menus?.[menu]?.join(":") ?? []);
+      expect(new Set(places).size).toBe(places.length);
+    }
+    const cut = menuRows("selection")[1]?.[0];
+    expect(cut?.intent).toEqual({ type: "cut" });
+    expect(cut?.hint).toBe("⌘X");
   });
 });

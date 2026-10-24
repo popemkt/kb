@@ -1,31 +1,31 @@
 import {
-  anchorNear,
   boxFrame,
   canvasTop,
   carriedBy,
-  connectItems,
   freehandItem,
   freeItems,
   placeItems,
   selectionPivot,
   settleMembership,
-  sideTerminal,
   snapCarry,
   snapPrecise,
   stillAbout,
   transformCarried,
   upsertCanvasNode,
-  withBox,
   type CanvasCarried,
   type CanvasDoc,
   type CanvasMembership,
   type CanvasNode,
+  type CanvasPresetKind,
   type CanvasSide,
   type CanvasTransform,
   type SnapGuide,
   type SnappedTransform,
 } from "@kb/canvas";
 import { screenToPlane, type CanvasView, type ViewSize } from "./canvas-camera";
+import { draftItem } from "./canvas-tool";
+import { resizedItem, type ResizeCorner, type ResizeDrag } from "./canvas-pointer-resize";
+import { draftDrawn, edgeDrawn, without, type DraftDrag } from "./canvas-pointer-draw";
 import {
   ALONG_Z,
   groundOf,
@@ -44,13 +44,9 @@ import {
   addNodes,
   marqueeSelect,
   pickAllIn,
-  selectEdge,
   type CanvasScope,
   type CanvasSelection,
 } from "./canvas-selection";
-
-const MIN_NODE_W = 80;
-const MIN_NODE_H = 40;
 
 export interface Point {
   x: number;
@@ -62,12 +58,13 @@ interface Rect extends Point {
   h: number;
 }
 
-export type ResizeCorner = "nw" | "ne" | "se" | "sw";
+export type { ResizeCorner } from "./canvas-pointer-resize";
 
 type Drag =
   | { kind: "pan"; x: number; y: number; ox: number; oy: number }
   /** A stroke drawn by hand (the draw or the highlight tool): the floor points it has run through. */
   | { kind: "stroke"; id: string; highlight: boolean; points: readonly Point[] }
+  | DraftDrag
   | {
       kind: "resize-pending";
       id: string;
@@ -80,16 +77,7 @@ type Drag =
       origW: number;
       origH: number;
     }
-  | {
-      kind: "resize";
-      id: string;
-      corner: ResizeCorner;
-      start: Point;
-      origX: number;
-      origY: number;
-      origW: number;
-      origH: number;
-    }
+  | ResizeDrag
   /**
    * Items under one transform about a pivot: carried by a press on a card,
    * turned by the top-view rotate handle, moved by the 3D gizmo, or made
@@ -180,6 +168,17 @@ export type CanvasPointerEvent =
   | { type: "edge/start"; fromCardId: string; fromSide: CanvasSide; screen: Point }
   /** A stroke drawn by hand begins at `screen`: item `id`, a highlighter's when `highlight`. */
   | { type: "stroke/start"; id: string; highlight: boolean; screen: Point }
+  /** A placing tool's draft begins at `at` on the floor, pressed at `screen` (`ToolPress` "draft"). */
+  | {
+      type: "draft/start";
+      id: string;
+      preset: CanvasPresetKind;
+      at: Point;
+      on: string | null;
+      screen: Point;
+      edgeId: string;
+      bindingId: string;
+    }
   | { type: "marquee/start"; screen: Point; additive: boolean }
   | { type: "pointer/move"; screen: Point; shiftKey: boolean; free?: boolean }
   | {
@@ -211,6 +210,8 @@ export interface PointerResult {
   state: PointerState;
   doc?: CanvasDoc;
   selection?: CanvasSelection;
+  /** An item to open for typing once this is written: the text card a draft placed. */
+  edit?: string;
   persist?: "history" | "silent" | "flush" | "cancel";
   guides: readonly SnapGuide[];
 }
@@ -356,67 +357,16 @@ function startResize(
   });
 }
 
-/**
- * A drag across the floor as a move across an item's face: the face's top
- * view is its own axes seen from above, so the drag is read back through
- * that view; a face seen edge-on takes no part of it.
- */
-function acrossFace(node: CanvasNode, dx: number, dy: number): Point {
-  const m = boxFrame(node).matrix;
-  const det = m[0] * m[4] - m[1] * m[3];
-  if (Math.abs(det) < 1e-6) return { x: 0, y: 0 };
-  return { x: (m[4] * dx - m[1] * dy) / det, y: (m[0] * dy - m[3] * dx) / det };
-}
-
-/**
- * The footprint a resize drag gives, in the item's own terms: as if it were
- * unturned, the pointer's travel read across its face (`acrossFace`).
- */
-function resizedRect(
-  drag: Extract<Drag, { kind: "resize" }>,
-  at: { readonly world: Point; readonly shiftKey: boolean },
-  node: CanvasNode,
-): Rect {
-  const { x: dx, y: dy } = acrossFace(node, at.world.x - drag.start.x, at.world.y - drag.start.y);
-  let x = drag.origX;
-  let y = drag.origY;
-  let w = drag.origW;
-  let h = drag.origH;
-  if (drag.corner === "se" || drag.corner === "ne") w = Math.max(MIN_NODE_W, drag.origW + dx);
-  if (drag.corner === "sw" || drag.corner === "nw") {
-    w = Math.max(MIN_NODE_W, drag.origW - dx);
-    x = drag.origX + drag.origW - w;
-  }
-  if (drag.corner === "se" || drag.corner === "sw") h = Math.max(MIN_NODE_H, drag.origH + dy);
-  if (drag.corner === "ne" || drag.corner === "nw") {
-    h = Math.max(MIN_NODE_H, drag.origH - dy);
-    y = drag.origY + drag.origH - h;
-  }
-  if (at.shiftKey && drag.origW > 0 && drag.origH > 0) {
-    const ratio = drag.origW / drag.origH;
-    if (w / h > ratio) w = Math.max(MIN_NODE_W, h * ratio);
-    else h = Math.max(MIN_NODE_H, w / ratio);
-  }
-  if (drag.corner.endsWith("w")) x = drag.origX + drag.origW - w;
-  if (drag.corner.startsWith("n")) y = drag.origY + drag.origH - h;
-  return { x, y, w, h };
-}
-
 function resizeNode(
   state: PointerState,
-  drag: Extract<Drag, { kind: "resize" }>,
+  drag: ResizeDrag,
   at: { readonly screen: Point; readonly shiftKey: boolean },
   ctx: PointerContext,
 ): PointerResult {
   const node = ctx.byId.get(drag.id);
   if (!node) return result(state);
-  const rect = resizedRect(drag, { world: floorAt(ctx, at.screen), shiftKey: at.shiftKey }, node);
-  const was = { ...node, x: drag.origX, y: drag.origY, width: drag.origW, height: drag.origH };
-  const doc = upsertCanvasNode(
-    ctx.doc,
-    withBox(was, { x: rect.x, y: rect.y, width: rect.w, height: rect.h }),
-  );
-  return result(state, { doc, persist: "silent" });
+  const item = resizedItem(node, drag, floorAt(ctx, at.screen), at.shiftKey);
+  return result(state, { doc: upsertCanvasNode(ctx.doc, item), persist: "silent" });
 }
 
 /**
@@ -582,8 +532,44 @@ function drawStroke(
   }
   const done = { ...state, drag: null };
   if (item === null) return result(done, { persist: "cancel" });
-  const without = { ...ctx.doc, nodes: ctx.doc.nodes.filter((n) => n.id !== drag.id) };
-  return result(done, { doc: placeItems(without, [item]), persist: "history" });
+  return result(done, { doc: placeItems(without(ctx.doc, drag.id), [item]), persist: "history" });
+}
+
+/** The draft `drag` drawn on to `screen`: its item previewed, once the pointer is past the slop. */
+// GAP [[01M5QP28SNK7S9B95ZXD0KWCKR]] canvas drafts do not snap to items or the grid
+function moveDraft(
+  state: PointerState,
+  drag: DraftDrag,
+  event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
+  ctx: PointerContext,
+): PointerResult {
+  const { slop } = drag;
+  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y)) {
+    return result(state);
+  }
+  const item = draftItem(
+    drag.preset,
+    drag.id,
+    drag.from,
+    floorAt(ctx, event.screen),
+    event.shiftKey,
+  );
+  return result(
+    { ...state, drag: { ...drag, slop: null } },
+    { doc: upsertCanvasNode(ctx.doc, item), persist: "silent" },
+  );
+}
+
+/** The release of a draft (`draftDrawn`), or nothing written for an arrow clicked on an item. */
+function endDraft(
+  state: PointerState,
+  drag: DraftDrag,
+  event: Extract<CanvasPointerEvent, { type: "pointer/end" }>,
+  ctx: PointerContext,
+): PointerResult {
+  const to = floorAt(ctx, event.screen);
+  const release = { to, screen: event.screen, shiftKey: event.shiftKey ?? false };
+  return result({ ...state, drag: null }, draftDrawn(ctx, drag, release) ?? { persist: "cancel" });
 }
 
 function reduceMove(
@@ -594,6 +580,7 @@ function reduceMove(
   const drag = state.drag;
   if (!drag) return result(state);
   if (drag.kind === "stroke") return drawStroke(state, drag, event.screen, ctx, false);
+  if (drag.kind === "draft") return moveDraft(state, drag, event, ctx);
   if (drag.kind === "pan") {
     return result({
       ...state,
@@ -672,17 +659,6 @@ function reduceMove(
   });
 }
 
-function closestPort(node: CanvasNode, px: number, py: number): CanvasSide {
-  const sides: CanvasSide[] = ["top", "right", "bottom", "left"];
-  let best: { side: CanvasSide; dist: number } = { side: "left", dist: Infinity };
-  for (const side of sides) {
-    const point = sideTerminal(node, side).at;
-    const dist = Math.hypot(point.x - px, point.y - py);
-    if (dist < best.dist) best = { side, dist };
-  }
-  return best.side;
-}
-
 function finishEdge(
   state: PointerState,
   drag: Extract<Drag, { kind: "edge" }>,
@@ -700,30 +676,15 @@ function finishEdge(
   const from = ctx.byId.get(drag.fromCardId);
   const to = ctx.byId.get(event.edgeTargetId);
   if (!from || !to) return result({ ...state, drag: null });
+  const ids = { id: event.edgeId, bindingId: event.edgeBindingId };
   const world = floorAt(ctx, event.screen);
-  // Let go with ⌘ held, the end lands precisely where it was dropped on the
-  // item's outline (`anchorNear`); else at the side nearest the drop.
-  const lands =
-    event.free === true
-      ? { toAnchor: anchorNear(to, world) }
-      : { toSide: closestPort(to, world.x, world.y) };
-  // The one edge record an agent's `connect` makes too, by the ports the drag chose.
-  const { doc, edge } = connectItems(ctx.doc, {
-    id: event.edgeId,
-    bindingId: event.edgeBindingId,
-    from: from.id,
-    to: to.id,
-    fromSide: drag.fromSide,
-    ...lands,
-  });
-  return result(
-    { ...state, drag: null },
-    {
-      doc,
-      selection: selectEdge(edge.id),
-      persist: "flush",
-    },
+  const drawn = edgeDrawn(
+    ctx.doc,
+    ids,
+    { node: from, side: drag.fromSide },
+    { node: to, world, free: event.free === true },
   );
+  return result({ ...state, drag: null }, drawn);
 }
 
 /**
@@ -771,6 +732,7 @@ function reduceEnd(
   }
   if (drag.kind === "edge") return finishEdge(state, drag, event, ctx);
   if (drag.kind === "stroke") return drawStroke(state, drag, event.screen, ctx, true);
+  if (drag.kind === "draft") return endDraft(state, drag, event, ctx);
   return result({ ...state, drag: null });
 }
 
@@ -872,6 +834,13 @@ export function pointerReduce(
     return result({
       ...state,
       drag: { kind: "stroke", id, highlight, points: [floorAt(ctx, event.screen)] },
+    });
+  }
+  if (event.type === "draft/start") {
+    const { id, preset, at, on, edgeId, bindingId, screen } = event;
+    return result({
+      ...state,
+      drag: { kind: "draft", id, preset, from: at, on, edgeId, bindingId, slop: screen },
     });
   }
   if (event.type === "marquee/start") {

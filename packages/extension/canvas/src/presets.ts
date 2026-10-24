@@ -146,6 +146,11 @@ export function presetItem(
   };
 }
 
+/** The kind of item `preset` makes, read off the table: a path for the line and the arrow. */
+export function presetType(preset: CanvasPresetKind): CanvasNode["type"] {
+  return CANVAS_PRESETS[preset].type;
+}
+
 /** Every preset, in the table's order: what a placement may name. */
 export const CANVAS_PRESET_KINDS: readonly CanvasPresetKind[] = PRESET_KINDS;
 
