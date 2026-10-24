@@ -460,10 +460,45 @@ describe("CanvasPage pointer interactions", () => {
       window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "r" }));
     });
     const frame = present(container.querySelector('[data-card-id="f"] .group\\/card'), "frame");
+    const canvasStage = present(container.querySelector("[data-canvas-stage]"), "stage contents");
+    const surface = present(canvasStage.parentElement?.parentElement, "pointer surface");
+    // A click places the rectangle at its own size, centred where it was pressed.
     dispatchPointer(frame, "pointerdown", { button: 0, clientX: 200, clientY: 200 });
+    dispatchPointer(surface, "pointerup", { button: 0, clientX: 200, clientY: 200 });
     await settle();
     const placed = persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.at(-1);
-    expect(placed).toMatchObject({ type: "shape", shape: "rect", parent: "f" });
+    expect(placed).toMatchObject({ type: "shape", shape: "rect", parent: "f", width: 160 });
+    // A drag draws one out from where it went down to where it is let go.
+    key({ key: "o" });
+    dispatchPointer(frame, "pointerdown", { button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, "pointermove", { button: 0, clientX: 160, clientY: 140 });
+    dispatchPointer(surface, "pointermove", { button: 0, clientX: 180, clientY: 160 });
+    dispatchPointer(surface, "pointerup", { button: 0, clientX: 180, clientY: 160 });
+    await settle();
+    const drawn = persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.at(-1);
+    expect(drawn).toMatchObject({ shape: "ellipse", parent: "f", width: 80, height: 60 });
+  });
+
+  it("the arrow tool draws an arrow from one item to another as the edge between them", async () => {
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    const canvasStage = present(container.querySelector("[data-canvas-stage]"), "stage contents");
+    const surface = present(canvasStage.parentElement?.parentElement, "pointer surface");
+    const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "card a");
+    key({ key: "a" });
+    // a is at (20,20) 100×80 and b at (220,20), the stage panned 40 in: from a's middle to b's.
+    dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 110, clientY: 100 });
+    dispatchPointer(surface, "pointermove", { button: 0, clientX: 200, clientY: 100 });
+    dispatchPointer(surface, "pointermove", { button: 0, clientX: 300, clientY: 100 });
+    dispatchPointer(surface, "pointerup", { button: 0, clientX: 300, clientY: 100 });
+    await settle();
+    const written = persistCanvasDoc.mock.calls.at(-1)?.[1];
+    expect(written?.edges).toEqual([
+      expect.objectContaining({ fromNode: "a", toNode: "b", fromSide: "right", toSide: "left" }),
+    ]);
+    // The preview drawn on the way is gone: the edge is all that was written.
+    expect(written?.nodes.map((n) => n.id)).toEqual(["a", "b"]);
   });
 
   it("a double-click on empty canvas makes a text card that is typed into at once, as ↵ opens one", async () => {

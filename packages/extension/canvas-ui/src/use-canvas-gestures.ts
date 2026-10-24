@@ -4,6 +4,7 @@ import { ulid } from "ulid";
 import type { CanvasDoc, CanvasSide, CommentPlace } from "@kb/canvas";
 import { isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
 import {
+  draftItem,
   pickTool,
   pressWithTool,
   reduceCanvasTool,
@@ -259,9 +260,10 @@ function createCardGestures(dispatchPointer: CanvasGestureContext["dispatchPoint
 
 /**
  * A press with the armed tool, at the spot it landed on in whichever
- * projection saw it (`pressWithTool`): a placing tool drops its item there,
- * the comment tool starts a thread there. False when the tool does nothing
- * there (select), so the press means something else.
+ * projection saw it (`pressWithTool`): a placing tool begins drafting its
+ * item there (or places it on a face that stands), a stroke tool begins a
+ * stroke, the comment tool starts a thread there. False when the tool does
+ * nothing there (select), so the press means something else.
  */
 function createToolPress({
   dispatchPointer,
@@ -285,6 +287,21 @@ function createToolPress({
     setToolState((s) => reduceCanvasTool(s, { type: "used" }));
     if (pressed.kind === "comment") {
       comment(pressed.place);
+      return true;
+    }
+    if (pressed.kind === "draft") {
+      // The pointer draws it out from here, and its release writes it (`endDraft`).
+      const { id, preset, at, on } = pressed;
+      dispatchPointer({
+        type: "draft/start",
+        id,
+        preset,
+        at,
+        on,
+        screen,
+        edgeId: ulid(),
+        bindingId: ulid(),
+      });
       return true;
     }
     schedulePersist(pressed.doc);
@@ -343,7 +360,7 @@ function createStageGestures(
     if (!isEmptyStageTarget(e.target)) return;
     if (toolState.tool !== "select") return;
     const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-    const card = presetItem("text", world, ulid());
+    const card = draftItem("text", ulid(), world, null, false);
     schedulePersist(placeItems(docRef.current, [card]));
     setSelection(selNode(card.id));
     // tldraw's: the text a double-click makes is typed into at once, as the text tool's is.

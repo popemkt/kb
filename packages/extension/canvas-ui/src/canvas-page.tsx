@@ -72,7 +72,13 @@ import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
-import { pressPans, strokeOf, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
+import {
+  drawsFromPress,
+  pressPans,
+  toolTakes,
+  type CanvasChooser,
+  type ToolState,
+} from "./canvas-tool";
 import { CanvasCommentLayer } from "./canvas-comments";
 import { CanvasLinkMarks } from "./canvas-link-marks";
 import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
@@ -208,11 +214,14 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     onCardPointerDown(card, ...rest);
   };
 
+  /** Opens an item's editor once the page has its face editing (`openEditor`, below). */
+  const openEditorRef = useRef<(id: string) => void>(() => {});
   const applyPointerResult = useCallback(
     (next: PointerResult) => {
       pointerRef.current = next.state;
       setPointerState(next.state);
       if (next.selection) setSelection(next.selection);
+      if (next.edit !== undefined) openEditorRef.current(next.edit);
       if (next.persist === "cancel") {
         cancelPreview();
         return;
@@ -292,6 +301,9 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   });
   /** An item's editor opened, in whichever projection is showing: what a placed text card, a double-click and ↵ open. */
   const openEditor = (id: string) => faces.onEdit(id, true);
+  useLayoutEffect(() => {
+    openEditorRef.current = openEditor;
+  });
   /** What a tool placed with something chosen first opens: a card's node picker, an image's file chooser. */
   const choose = (chooser: CanvasChooser) => {
     const opens: Record<CanvasChooser, () => void> = {
@@ -689,7 +701,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
                   setSelection(EMPTY_SELECTION);
                 }}
                 onDraw={(spot, press) =>
-                  strokeOf(toolState.tool) !== null && pressTool(spot, press.local)
+                  drawsFromPress(toolState.tool) && pressTool(spot, press.local)
                 }
                 onViewSettled={projection.onViewSettled}
               />

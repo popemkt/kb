@@ -160,6 +160,7 @@ export type { MermaidDiagram, MermaidReport } from "./mermaid.ts";
 export type { SvgSource } from "./svg.ts";
 export {
   freehandItem,
+  lineThrough,
   isOpenLine,
   itemMarks,
   itemOutline,

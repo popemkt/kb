@@ -1359,7 +1359,15 @@ manipulation feel professional rather than merely functional.
   would orbit), which the shared pointer reducer runs (`stroke/start`),
   writing the item as it goes and placing it in its frame as one history
   step (`freehandItem`); they stay armed for the next stroke, as tldraw's
-  do. A shape is data: its outline is a row of `CANVAS_FOOTPRINTS`,
+  do. A placing tool draws too (`draftItem`, the reducer's `draft/start`):
+  dragged on empty canvas or a frame's face, its item spans the drag from
+  corner to corner, a line or arrow runs from the press to the pointer
+  (⇧ squares a box and steps a line by 15°), drawn as it goes and placed
+  as one history step; a click places it at its preset size, centred on
+  the pointer, as tldraw's do. The arrow tool pressed on an item and let
+  go on another connects them (`connectItems`, the one edge record, bound
+  at both ends, its ports the sides that face each other); let go on
+  nothing, it draws a free arrow from the press. A shape is data: its outline is a row of `CANVAS_FOOTPRINTS`,
   and what it wears inside it (a check box's tick) is a mark every painter
   draws from `itemMarks`, so a new shape is a row, not a painter's case.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
@@ -1814,7 +1822,9 @@ the view node switches every page showing the canvas through it.
   twin of the stage's camera, so handles keep their size and turns their
   pace.
   A drag on empty canvas orbits the turntable (across turns the floor with
-  the hand, down tips toward the top view), a tap places the current tool on the plane
+  the hand, down tips toward the top view) unless the armed tool draws
+  (`drawsFromPress`: a stroke tool or a placing tool, which then draws on
+  the floor as in 2D), a tap places the current tool on the plane
   (or clears the selection), the right or middle button, Space or the hand
   tool pans, the
   wheel pans and a pinch zooms about the cursor (`canvas-scene-gestures.ts`).

@@ -499,6 +499,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Those pages gain a head (canvas-ui, graph-ui) that renders PageBackdrop.
 - **node** — `01M54CEKJJXNDPYNT55AR6KEV8`
 
+### GAP: canvas arrow drawn from an item to empty canvas comes out free, not bound at its start
+
+- **expected** — tldraw's arrow binds whichever end lands on a shape: an arrow pressed on an item and let go on empty canvas stays bound at its start and follows the item
+- **current** — an edge (JSON Canvas) is bound at both ends, so the arrow tool's draft from an item to nothing draws a free path item instead (endDraft, canvas-pointer.ts)
+- **impact** — moving the item leaves the arrow behind; a half-made diagram does not hold together
+- **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
+- **node** — `01M5QP271PQ15E7WZ36KEN055N`
+
+### GAP: canvas drafts and tool presses do not snap to items or the grid
+
+- **expected** — a shape, frame or arrow being drawn snaps its corners and line ends to nearby items' edges and centres, with the guides a drag shows, as tldraw's do
+- **current** — the draft follows the raw pointer (moveDraft, canvas-pointer.ts); only moves and resizes snap
+- **impact** — drawn shapes land a few pixels off the ones beside them and need a nudge to line up
+- **closes** — moveDraft runs the drag's snapper (the one transform/resize use) over the draft's box
+- **node** — `01M5QP28SNK7S9B95ZXD0KWCKR`
+
 ### GAP: canvas PNG export has no rasteriser
 
 - **expected** — ext.canvas.export {format: png} rasterises the canvas's SVG on the server.

@@ -83,12 +83,43 @@ function pathOutline(item: CanvasPathNode, w: number, h: number): CanvasPathComm
 const STROKE_STEP = 2;
 
 /**
+ * `item`, a line, run through `points` (canvas points, in the order it
+ * runs): its box their bounds, at least `reach` across either way and
+ * centred on them where they span less, and its points those anchors of
+ * it. What a line drawn by hand and a line dragged out are both made by.
+ */
+export function lineThrough(
+  item: CanvasPathNode,
+  points: readonly LinePoint[],
+  reach = 1,
+): CanvasPathNode {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const span = (lo: number, hi: number) => {
+    const size = Math.max(reach, hi - lo);
+    return { from: (lo + hi) / 2 - size / 2, size };
+  };
+  const across = span(Math.min(...xs), Math.max(...xs));
+  const down = span(Math.min(...ys), Math.max(...ys));
+  return {
+    ...item,
+    x: across.from,
+    y: down.from,
+    width: across.size,
+    height: down.size,
+    points: points.map((p) => ({
+      x: (p.x - across.from) / across.size,
+      y: (p.y - down.from) / down.size,
+    })),
+  };
+}
+
+/**
  * The path item `id` for a stroke drawn by hand through `stroke` (canvas
- * points, in the order drawn), a highlighter's when `highlight`: its box
- * the stroke's bounds (at least a unit each way), its points those anchors
- * of it, each point nearer than `STROKE_STEP` to the last one kept dropped
- * (the last always kept). Null for a stroke that never left its first
- * point.
+ * points, in the order drawn), a highlighter's when `highlight`: a line
+ * through them (`lineThrough`, at least a unit each way), each point
+ * nearer than `STROKE_STEP` to the last one kept dropped (the last always
+ * kept). Null for a stroke that never left its first point.
  */
 export function freehandItem(
   id: string,
@@ -103,21 +134,18 @@ export function freehandItem(
     else if (i === stroke.length - 1 && kept.length > 1) kept[kept.length - 1] = p;
   }
   if (kept.length < 2) return null;
-  const xs = kept.map((p) => p.x);
-  const ys = kept.map((p) => p.y);
-  const [x, y] = [Math.min(...xs), Math.min(...ys)];
-  const [width, height] = [Math.max(1, Math.max(...xs) - x), Math.max(1, Math.max(...ys) - y)];
-  return {
+  const drawn: CanvasPathNode = {
     id,
     type: "path",
-    x,
-    y,
-    width,
-    height,
-    points: kept.map((p) => ({ x: (p.x - x) / width, y: (p.y - y) / height })),
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+    points: [],
     freehand: true,
     ...(highlight ? { highlight: true } : {}),
   };
+  return lineThrough(drawn, kept);
 }
 
 /**
