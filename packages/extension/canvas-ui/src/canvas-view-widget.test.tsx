@@ -55,7 +55,9 @@ function mount(
     return createElement(CanvasViewWidget, {
       rig,
       in3d,
-      flatView: flat,
+      pan: { x: 0, y: 0 },
+      zoom: 1,
+      ...size,
       projection: in3d ? "3d" : "2d",
       selectionEmpty,
       frames,

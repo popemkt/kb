@@ -7,7 +7,7 @@
  * resolving or reopening a thread is writing its option field, as any field
  * is written.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { browserHost, logError } from "@kb/ui-sdk";
 import {
   CANVAS_IDS,
@@ -70,65 +70,78 @@ function writtenId(output: unknown): string | null {
   return typeof output.id === "string" ? output.id : null;
 }
 
+/** Write `text` where `ask` says, through the comment verb; a new thread opens as itself once written. */
+async function postComment(
+  canvasId: string,
+  ask: CommentAsk | null,
+  text: string,
+  setAsk: (ask: CommentAsk | null) => void,
+): Promise<Written> {
+  if (ask === null) return "No thread is open.";
+  const where = "thread" in ask ? { replyTo: ask.thread } : ask.place;
+  const receipt = await browserHost().invoke("ext.canvas.comment", { canvasId, text, ...where });
+  if (receipt.status === "failed") {
+    logError("[kb/canvas] comment failed:", receipt.message);
+    return receipt.message;
+  }
+  // A new thread opens as itself; one whose receipt names no comment is written but cannot be.
+  if ("place" in ask) {
+    const id = writtenId(receipt.output);
+    setAsk(id === null ? null : { thread: id });
+  }
+  return null;
+}
+
+/** Resolve the thread `ask` shows, or reopen it: writing its state field, as any field is written. */
+async function resolveThread(ask: CommentAsk | null, resolved: boolean): Promise<Written> {
+  if (ask === null || !("thread" in ask)) return "No thread is open.";
+  const field = CANVAS_IDS.commentStateField;
+  const state = resolved ? CANVAS_IDS.commentResolved : CANVAS_IDS.commentOpen;
+  const receipt = await browserHost().invoke("node.update", {
+    id: ask.thread,
+    unsetProps: [{ field }],
+    setProps: [{ field, value: { t: "ref", v: state } }],
+  });
+  if (receipt.status === "failed") {
+    logError("[kb/canvas] resolving failed:", receipt.message);
+    return receipt.message;
+  }
+  return null;
+}
+
+/**
+ * The page's comments: one object while the threads, the panel, the
+ * pointing, the filter and the list stand still, so what is drawn from it
+ * is drawn again only when one of them moves.
+ */
 export function useCanvasComments(canvasId: string, world: CanvasWorld): CanvasComments {
   const [ask, setAsk] = useState<CommentAsk | null>(null);
   const [pointed, point] = useState<string | null>(null);
   const [filter, setFilter] = useState<ThreadFilter>("open");
   const [listed, setListed] = useState(false);
-  const threads = world.threadsOn(canvasId);
-  const open = (() => {
-    if (ask === null) return null;
-    if ("place" in ask) return { thread: null, anchor: anchorOfPlace(ask.place) };
-    // A thread just written opens once kb holds it.
-    const thread = threads.find((one) => one.id === ask.thread);
-    return thread === undefined ? null : { thread, anchor: thread.anchor };
-  })();
-
-  const post = async (text: string): Promise<Written> => {
-    if (ask === null) return "No thread is open.";
-    const where = "thread" in ask ? { replyTo: ask.thread } : ask.place;
-    const receipt = await browserHost().invoke("ext.canvas.comment", { canvasId, text, ...where });
-    if (receipt.status === "failed") {
-      logError("[kb/canvas] comment failed:", receipt.message);
-      return receipt.message;
-    }
-    // A new thread opens as itself; one whose receipt names no comment is written but cannot be.
-    if ("place" in ask) {
-      const id = writtenId(receipt.output);
-      setAsk(id === null ? null : { thread: id });
-    }
-    return null;
-  };
-
-  const resolve = async (resolved: boolean): Promise<Written> => {
-    if (ask === null || !("thread" in ask)) return "No thread is open.";
-    const field = CANVAS_IDS.commentStateField;
-    const state = resolved ? CANVAS_IDS.commentResolved : CANVAS_IDS.commentOpen;
-    const receipt = await browserHost().invoke("node.update", {
-      id: ask.thread,
-      unsetProps: [{ field }],
-      setProps: [{ field, value: { t: "ref", v: state } }],
-    });
-    if (receipt.status === "failed") {
-      logError("[kb/canvas] resolving failed:", receipt.message);
-      return receipt.message;
-    }
-    return null;
-  };
-
-  return {
-    threads,
-    open,
-    start: (place) => setAsk({ place }),
-    show: (thread) => setAsk({ thread }),
-    close: () => setAsk(null),
-    post,
-    resolve,
-    pointed,
-    point,
-    filter,
-    setFilter,
-    listed,
-    setListed,
-  };
+  const threads = useMemo(() => world.threadsOn(canvasId), [world, canvasId]);
+  return useMemo(() => {
+    const open = (() => {
+      if (ask === null) return null;
+      if ("place" in ask) return { thread: null, anchor: anchorOfPlace(ask.place) };
+      // A thread just written opens once kb holds it.
+      const thread = threads.find((one) => one.id === ask.thread);
+      return thread === undefined ? null : { thread, anchor: thread.anchor };
+    })();
+    return {
+      threads,
+      open,
+      start: (place: CommentPlace) => setAsk({ place }),
+      show: (thread: string) => setAsk({ thread }),
+      close: () => setAsk(null),
+      post: (text: string) => postComment(canvasId, ask, text, setAsk),
+      resolve: (resolved: boolean) => resolveThread(ask, resolved),
+      pointed,
+      point,
+      filter,
+      setFilter,
+      listed,
+      setListed,
+    };
+  }, [canvasId, threads, ask, pointed, filter, listed]);
 }

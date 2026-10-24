@@ -218,8 +218,6 @@ export function useCanvasProjection(context: ProjectionContext) {
     },
     /** The showing camera and the viewport it draws on: what every gesture is read through. */
     camera: () => ({ view: current(), size: size() }),
-    /** The 2D view's camera, as the camera model holds it (the top view, orthographic). */
-    flatView: (): CanvasView => viewOfPan(pan, zoom, size()),
     /** The showing camera's answers to the keymap and the view widget, given the 2D ones. */
     viewportOf: (flatControls: FlatViewportControls): CanvasViewportControls =>
       in3d ? rig.controls(size, onViewSettled) : lookFromTop(flatControls, flatLooks),

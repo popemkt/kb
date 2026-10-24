@@ -21,18 +21,13 @@ import {
   screenAxes,
   type CanvasView,
 } from "./canvas-camera";
-import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
-import { useShownView } from "./use-shown-view";
+import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
 
-export interface CanvasViewWidgetProps {
-  readonly rig: CanvasCameraRig;
-  /** The 3D scene is the one showing (otherwise the view is `flatView`). */
-  readonly in3d: boolean;
-  readonly flatView: CanvasView;
+export interface CanvasViewWidgetProps extends ShownCameraProps {
   /** The projection the canvas asks for. */
   readonly projection: CanvasProjectionKind;
   readonly selectionEmpty: boolean;
@@ -329,17 +324,16 @@ function FrameItems({
 }
 
 export function CanvasViewWidget({
-  rig,
-  in3d,
-  flatView,
   projection,
   selectionEmpty,
   frames,
   menuOpen,
   onMenuOpenChange,
   onIntent,
+  ...camera
 }: CanvasViewWidgetProps) {
-  const view = useShownView(rig, in3d, flatView);
+  const { view } = useShownCamera(camera);
+  const { in3d } = camera;
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <div className="flex flex-col items-end gap-1" data-testid="canvas-view-widget">

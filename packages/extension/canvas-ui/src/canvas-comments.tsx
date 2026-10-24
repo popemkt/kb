@@ -4,9 +4,11 @@
  * (`threadPins`, the camera model's), with how many comments it holds; the
  * mark round what a thread is on while it is pointed at or open, and round
  * what the comment tool would comment on; and the open thread's panel,
- * beside what it is on.
+ * beside what it is on. Drawn again only when the threads, the document or
+ * the camera move, or the pointer comes to another item (DESIGN-UI.md →
+ * Canvas → Update cost), never because the page drew.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { ChatCircleIcon } from "@phosphor-icons/react";
 import { paintOrder, type CanvasDoc, type CanvasWorld, type CommentAnchor } from "@kb/canvas";
 import { cn } from "@kb/ui-sdk";
@@ -17,13 +19,12 @@ import {
   type ScreenRect,
   type ViewSize,
 } from "./canvas-camera";
-import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CommentThreadPanel } from "./canvas-comment-thread";
 import type { CanvasTool } from "./canvas-tool";
 import { anchorRects, threadPins } from "./canvas-visible";
 import { targetLabel } from "./comment-target";
 import { shows, type CanvasComments } from "./use-canvas-comments";
-import { useShownView } from "./use-shown-view";
+import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
 
 /** How far a pin reaches up and right of the corner it stands on, scaled while hinted. */
 const PIN_REACH = 30;
@@ -127,37 +128,36 @@ function usePointedItem(
  * what it is pinned on and cut off at the stage's edge as the items are;
  * the marks; and the open thread's panel.
  */
-export function CanvasCommentLayer({
-  rig,
-  in3d,
-  flatView,
-  width,
-  height,
+export const CanvasCommentLayer = memo(function CanvasCommentLayer({
   doc,
   world,
   tool,
   stage,
   comments,
-}: {
-  readonly rig: CanvasCameraRig;
-  /** The 3D scene is the one showing (otherwise the view is `flatView`). */
-  readonly in3d: boolean;
-  readonly flatView: CanvasView;
-  readonly width: number;
-  readonly height: number;
+  ...camera
+}: ShownCameraProps & {
   readonly doc: CanvasDoc;
   readonly world: CanvasWorld;
   /** The armed tool: the comment tool marks what a press would comment on. */
   readonly tool: CanvasTool;
   /** The stage the pointer moves over. */
   readonly stage: RefObject<HTMLElement | null>;
+  /** The page's comments, one object while none of it changes (`useCanvasComments`). */
   readonly comments: CanvasComments;
 }) {
-  const view = useShownView(rig, in3d, flatView);
-  const size = { width, height };
-  const shown = comments.threads.filter((thread) => shows(comments.filter, thread));
+  const { view, size } = useShownCamera(camera);
+  const { threads, filter } = comments;
   const commenting = tool === "comment";
-  const pins = threadPins(shown, doc, view, size);
+  const pins = useMemo(
+    () =>
+      threadPins(
+        threads.filter((thread) => shows(filter, thread)),
+        doc,
+        view,
+        size,
+      ),
+    [threads, filter, doc, view, size],
+  );
   const under = usePointedItem(stage, () =>
     commenting || pins.length > 0 ? { doc, view, size } : null,
   );
@@ -228,4 +228,4 @@ export function CanvasCommentLayer({
       )}
     </div>
   );
-}
+});

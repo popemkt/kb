@@ -1838,6 +1838,12 @@ what it changed.
   edited, wherever they are. A crossing draws only what it brings in, as a
   deferred update. A stage not yet measured draws everything, which is
   what the projection contract runs on.
+- **What is drawn over the stage moves with the camera, not the page**:
+  the link marks and the comment layer are memoised on the document, the
+  threads and the camera (`useShownCamera`, which reads the view and the
+  stage's size as one, so a resize leaves a mark on its item), with
+  handlers that last the page's life; a page drawing again for a pointer
+  move draws neither.
 - **Nothing costs the compositor per item in motion**: a carried item's
   handles are hidden while it moves (`carriesItems`), and the grid is one
   layer slid by a transform.

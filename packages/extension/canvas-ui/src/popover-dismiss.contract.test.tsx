@@ -38,7 +38,10 @@ function ViewWidget() {
     <CanvasViewWidget
       rig={new CanvasCameraRig(flat, TIMING_FALLBACK, true)}
       in3d={false}
-      flatView={flat}
+      pan={{ x: 0, y: 0 }}
+      zoom={1}
+      width={800}
+      height={600}
       projection="2d"
       selectionEmpty
       frames={[]}

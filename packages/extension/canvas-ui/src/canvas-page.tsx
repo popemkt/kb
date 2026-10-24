@@ -52,6 +52,8 @@ import { CanvasDock } from "./canvas-dock";
 import { CanvasStylePanel } from "./canvas-style-panel";
 import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
+import type { ShownCameraProps } from "./use-shown-camera";
+import { useStableActions } from "./use-stable-actions";
 import { useCanvasDoc } from "./use-canvas-doc";
 import { useCanvasPictures } from "./use-canvas-pictures";
 import { CanvasFaceEditor } from "./canvas-face-editor";
@@ -76,7 +78,7 @@ import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
 import { useCanvasComments } from "./use-canvas-comments";
 import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
-import { viewOfPan } from "./canvas-camera";
+import { viewOfPan, type CanvasHitItem } from "./canvas-camera";
 import { placeUnder } from "./canvas-faces";
 import type { TransformCamera } from "./canvas-transform-input";
 import { CanvasTransformGuides } from "./canvas-transform-guides";
@@ -408,6 +410,12 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     else if (step.kind === "path") navigate(step.path);
     else showItem(step.item);
   };
+  /** Where the page's link marks and comments list reach back to it: handlers that last its life. */
+  const overlayActions = useStableActions({
+    follow,
+    camera: projection.camera,
+    frame: (items: readonly CanvasHitItem[]) => viewport.frame(items),
+  });
   /** The pages of the board this canvas is on, each by its node's text (`canvasPages`). */
   const pages = useMemo<CanvasPageTab[]>(
     () =>
@@ -509,6 +517,16 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     );
   }
 
+  const { size: stageSize } = projection.camera();
+  /** What each layer drawn over the stage is told of the camera (`useShownCamera`). */
+  const shownCamera: ShownCameraProps = {
+    rig: projection.rig,
+    in3d,
+    pan,
+    zoom,
+    width: stageSize.width,
+    height: stageSize.height,
+  };
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-3">
@@ -686,9 +704,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             <>
               <CommentsToggle comments={comments} />
               <CanvasViewWidget
-                rig={projection.rig}
-                in3d={in3d}
-                flatView={projection.flatView()}
+                {...shownCamera}
                 projection={projection.target}
                 selectionEmpty={selectionEmpty(selection)}
                 frames={frames}
@@ -718,29 +734,22 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             comments={comments}
             doc={doc}
             world={world}
-            camera={projection.camera}
-            frame={(items) => viewport.frame(items)}
+            camera={overlayActions.camera}
+            frame={overlayActions.frame}
           />
         </CanvasDock>
         {modalDrag?.kind === "transform" && modalDrag.input !== null && (
           <CanvasTransformGuides
             input={modalDrag.input}
             applied={modalDrag.applied}
-            rig={projection.rig}
-            in3d={in3d}
-            flatView={projection.flatView()}
-            size={projection.camera().size}
+            {...shownCamera}
           />
         )}
         <CanvasShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
         <CanvasScriptLayout
-          rig={projection.rig}
-          in3d={in3d}
-          flatView={projection.flatView()}
+          {...shownCamera}
           selected={selection.nodeIds}
           gizmo={sceneGizmo}
-          width={projection.camera().size.width}
-          height={projection.camera().size.height}
           doc={doc}
           layout={scriptLayout}
         />
@@ -751,21 +760,13 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           layout={scriptLayout}
         />
         <CanvasLinkMarks
-          rig={projection.rig}
-          in3d={in3d}
-          flatView={projection.flatView()}
-          width={projection.camera().size.width}
-          height={projection.camera().size.height}
+          {...shownCamera}
           doc={doc}
           world={world}
-          onFollow={follow}
+          onFollow={overlayActions.follow}
         />
         <CanvasCommentLayer
-          rig={projection.rig}
-          in3d={in3d}
-          flatView={projection.flatView()}
-          width={projection.camera().size.width}
-          height={projection.camera().size.height}
+          {...shownCamera}
           doc={doc}
           world={world}
           tool={toolState.tool}
