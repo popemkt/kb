@@ -7,7 +7,7 @@ import {
   ViewErrorBoundary,
   WorkspaceBoundary,
 } from "@kb/ui-sdk";
-import { loadGraph } from "@/api/graph";
+import { fixturesForced, loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
 import { DockHost, DockToggles } from "@/docks";
@@ -16,7 +16,7 @@ import { PreferencesPopover, PreferencesTrigger } from "@/components/prefs/prefe
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { loadManifest } from "@/lib/manifest";
+import { loadManifest, readManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
 import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
@@ -203,14 +203,19 @@ export function App() {
     setStatus("loading");
     setError(null);
     try {
+      // The page follows the server: it asks which extensions and views the
+      // server loaded beside the graph, so the two round trips overlap, and
+      // follows the answer only once the graph came from that server. It
+      // opens the workspace only once their plugins are in, so a layout never
+      // shows one of their views as unavailable on the way. Offline, the page
+      // is its own server: its own reading is already in, and the read asked
+      // beside the graph is dropped unheard. A page built on its fixtures
+      // asks no server at all.
+      const manifest = fixturesForced() ? null : readManifest();
       const { snapshot, source } = await loadGraph();
       hydrateFromWire(snapshot.nodes, snapshot.rev, source);
-      // The page follows the server: ask which extensions and views it loaded,
-      // and open the workspace only once their plugins are in, so a layout
-      // never shows one of their views as unavailable on the way. Offline, the
-      // page is its own server, and its own reading is already in.
-      if (source === "api") {
-        await loadManifest();
+      if (source === "api" && manifest !== null) {
+        await loadManifest(manifest);
         await extensionsSettled();
       }
       setStatus("ready");

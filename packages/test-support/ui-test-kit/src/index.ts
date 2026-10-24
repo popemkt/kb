@@ -9,7 +9,7 @@
  * tests and each family's UI half's tests import it, so a stand-in has one
  * home whichever package the code under test sits in.
  */
-export { answersOver } from "./answers";
+export { answersOver, DatascriptIndex, inThreadPort } from "./answers";
 export { installDomGlobals, type InstalledDom } from "./dom-globals";
 export {
   dismissContract,

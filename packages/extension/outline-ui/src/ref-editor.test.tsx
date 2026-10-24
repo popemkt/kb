@@ -11,9 +11,8 @@
  * (constrain, then limit — not limit, then constrain), and the one-placeholder
  * rule for the ref editing slot.
  */
-import { answersOver } from "@kb/ui-test-kit";
+import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import {
-  DatascriptIndex,
   derivedWith,
   FIELD_TYPE_OPTION_IDS,
   fieldContextOf,

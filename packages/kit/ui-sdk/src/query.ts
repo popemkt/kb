@@ -10,13 +10,15 @@ import { familyViewNodesQuery, type ViewFamily } from "@kb/model";
 import { backlinksQuery, neighbourhoodQuery, type EdnRunner } from "@kb/query";
 
 export type { EdnRunner, KbIndex, NodeIndex } from "@kb/query";
+// No index is exported here: DataScript is the worker's, and the page's
+// bundle carries none (DESIGN-UI.md → Replica queries;
+// `app/server/tests/page-bundle.test.ts` builds the page and holds it to
+// that); a test takes one from `@kb/ui-test-kit`.
 export {
   answerOf,
   conditionGraph,
   conditionsMatcher,
-  DatascriptIndex,
   derivedWith,
-  inThreadPort,
   queryRecords,
   RemoteIndex,
 } from "@kb/query";

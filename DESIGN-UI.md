@@ -48,6 +48,7 @@ implementation modules under `packages/app/server/src/` split by concern:
 | ------------------ | -------------------------------------------------------------------------------- |
 | `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown         |
 | `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback      |
+| `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
 | `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core     |
 | `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)       |
 | `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
@@ -184,7 +185,14 @@ query text, each as of a generation of the replica.
   a message to it and its answer a message back, so a slow query never
   holds the page. The server and the CLI keep their in-process index; the
   worker is the page's alone. A host without workers (the unit tests)
-  serves the same protocol in-thread (`inThreadPort`).
+  serves the same protocol in-thread (`inThreadPort`, which a test takes
+  from `@kb/ui-test-kit`). DataScript is the worker's: the page SDK carries
+  no index (`@kb/ui-sdk` exports neither `DatascriptIndex` nor
+  `inThreadPort`) and `@kb/query` declares itself free of side effects, so
+  the page's own bundle carries no DataScript. A build holds it to that:
+  `packages/app/server/tests/page-bundle.test.ts` fails when a chunk
+  `index.html` loads carries DataScript, or when those chunks pass their
+  byte budget.
 - **Every run has a budget.** A query is given `QUERY_BUDGET_MS` from the
   moment the engine starts it. A run that overruns is stopped — the worker
   is terminated, a fresh one is loaded from the table, and the runs it had
@@ -230,6 +238,40 @@ query text, each as of a generation of the replica.
 - **Actions.** An isomorphic action that runs on the page asks datalog of
   `QueryEngineService`, which the page binds to the same engine, one query
   at a time, outside the shared answers (its query may carry inputs).
+
+### Delivery
+
+How the page's bytes reach a browser, which is often across a tailnet relay
+with a round trip of 100 ms or more. The server's HTTP boundary
+(`packages/app/server/src/delivery.ts`) is the one place an answer is
+encoded or answered `304`; a route says what it answers and how long it may
+be kept, never how it is sent.
+
+- **Kept by name.** Everything under `ui/dist/static/` is the bundler's
+  output, named by its digest (Vite's `build.assetsDir`), and is sent
+  `Cache-Control: public, max-age=31536000, immutable`: a browser that has
+  it never asks again. Every other `ui/dist` file (`index.html` and the SPA
+  fallback, the public files, the sandbox frame's script) is `no-cache`
+  with a weak `ETag` from its size and mtime, so a reload revalidates it in
+  one round trip and gets `304` when it has not changed
+  (`staticCacheHeaders`, `assets.ts`). A repository extension's page half
+  is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
+- **Compressed when it is text.** A `200` whose type is script, style,
+  markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
+  or gzip, whichever the request's `Accept-Encoding` weighs highest (its
+  q-values, `*` for a coding it leaves unnamed, brotli on a tie). Every
+  answer that could be encoded says `Vary: Accept-Encoding`, its `304`
+  too. Media, which is compressed already, an event stream and any
+  streamed body go as they are. A `POST /api/action` receipt is encoded as
+  a read is (the manifest is the largest JSON the page reads). A body the
+  client may keep (it has an `ETag`, or is `immutable`) is encoded once per
+  process at brotli quality 6 and kept by its SHA-256, within a 64 MiB
+  budget; any other body (`/api/graph` after each change, a receipt) is
+  encoded afresh at quality 4 and not kept.
+- **Asked early.** `index.html` preloads `/api/graph`, so the snapshot
+  downloads beside the bundle rather than after it, and the boot asks for
+  `kb.manifest` beside the graph and follows it once the graph is in
+  (`components/App.tsx`).
 
 ## SubscriptionHub — the "other apps can subscribe" layer
 
@@ -3495,6 +3537,7 @@ aliases were found and deleted. It also fails when the scale lists in
   packages/app/server/src/
     server.ts                    # Bun.serve boundary + Effect Scope stop + fs-watch
     http.ts                      # Effect REST/API + asset GET + SPA fallback
+    delivery.ts                  # 304 revalidation + brotli/gzip for every answer
     session.ts                   # Effect SubscriptionHub (WS protocol)
     assets.ts                    # Effect ui/dist static + .kb/assets
     saved-queries.ts             # Effect .kb/queries listing / virtual nodes

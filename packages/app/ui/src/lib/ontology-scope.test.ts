@@ -1,9 +1,8 @@
-import { answersOver } from "@kb/ui-test-kit";
+import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present, resolveOntology } from "@kb/model";
 import {
-  DatascriptIndex,
   derivedWith,
   listOntologyItems,
   type QueryAnswers,

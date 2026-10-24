@@ -1,7 +1,6 @@
-import { answersOver } from "@kb/ui-test-kit";
+import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import {
   clearAllowedRefIdsCache,
-  DatascriptIndex,
   derivedWith,
   emptyValueForType,
   fieldTypeValue,

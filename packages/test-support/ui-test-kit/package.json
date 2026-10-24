@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@kb/plugin": "workspace:*",
+    "@kb/query": "workspace:*",
     "@kb/scene": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@storybook/react": "catalog:",

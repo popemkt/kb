@@ -30,7 +30,9 @@ export default defineConfig({
   plugins: [tailwindcss(), react()],
   build: {
     // `/assets/*` is the kb media route (.kb/assets) on the server; keep the
-    // bundler's hashed output out of that namespace or index.html 404s.
+    // bundler's hashed output out of that namespace or index.html 404s. The
+    // server keeps every file under it for good (DESIGN-UI.md → Delivery),
+    // so whatever is written here must be named by its digest.
     assetsDir: "static",
   },
   resolve: {
@@ -65,7 +67,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
-    setupFiles: ["src/test-setup.ts"],
+    setupFiles: ["src/test-support/setup.ts"],
     // A design system's sheet is imported as text (`?raw`) and is what the
     // design-system contract reads, so the runner keeps raw CSS imports as
     // the build does rather than blanking them as it blanks stylesheets.

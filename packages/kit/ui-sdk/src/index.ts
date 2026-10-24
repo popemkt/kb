@@ -331,12 +331,10 @@ export {
 export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
   answerOf,
-  DatascriptIndex,
   derivedWith,
   type EdnRunner,
   type EnginePort,
   type FromEngine,
-  inThreadPort,
   type KbIndex,
   type NodeIndex,
   queryBacklinks,

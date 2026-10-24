@@ -6,14 +6,13 @@
  * store-coupled components are covered by the logic tests in
  * lib/query-node.test.ts + instance-identity.component.test.tsx).
  */
-import { answersOver } from "@kb/ui-test-kit";
+import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   Bullet,
-  DatascriptIndex,
   derivedWith,
   type OutlineNode,
   resultNodeIds,

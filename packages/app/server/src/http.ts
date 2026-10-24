@@ -16,6 +16,7 @@ import { servedPage, type ActionHandlerEnv } from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
+import { deliver } from "./delivery.ts";
 import { HTTP_WIRE } from "./guard.ts";
 import { serverInvoke } from "./invoke.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
@@ -221,7 +222,8 @@ const handleHttpRequestEffect = (
  * Promise facade for the HTTP layer: runs the routing Effect, for a request
  * the guard let through on `wire`, against the
  * server's runtime Layer (FileSystem + store + session + templates + the
- * screens this server holds) and converts the response to a Web `Response`.
+ * screens this server holds), converts the response to a Web `Response`,
+ * and sends it as every answer is sent (`delivery.ts`).
  */
 export function handleHttpRequest(
   req: Request,
@@ -231,7 +233,7 @@ export function handleHttpRequest(
   return Effect.runPromise(
     handleHttpRequestEffect(req, wire, deps).pipe(
       Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens, deps.hosted)),
-      Effect.map(HttpServerResponse.toWeb),
+      Effect.flatMap((response) => deliver(req, response)),
     ),
   );
 }

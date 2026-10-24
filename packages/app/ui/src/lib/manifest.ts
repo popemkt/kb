@@ -43,24 +43,38 @@ function setServedManifest(next: ServedManifest): void {
   for (const listener of listeners) listener();
 }
 
+/** What the server answered when asked for its manifest: the part the page follows, or why there is none. */
+export type ManifestRead = { readonly manifest: ServedManifest } | { readonly problem: string };
+
 /**
- * Ask the server what it loaded. A server that cannot answer leaves the page
- * as it was, and says so in the log; it never fails the boot.
+ * Ask the server what it loaded, without following the answer or saying
+ * anything about it yet. The boot asks this beside the graph, and only
+ * once the graph came from a server does it follow the answer, or log why
+ * there is none ({@link loadManifest}); offline, the read is dropped
+ * unheard (`components/App.tsx`).
  */
-export async function loadManifest(): Promise<void> {
-  const response = await postAction({ id: kbManifestDef.id, input: {} }).catch((error: unknown) => {
-    logWarn(`[kb/manifest] kb.manifest unreachable: ${String(error)}`);
-    return null;
-  });
-  if (response === null) return;
-  if (response.status !== "succeeded") {
-    logWarn(`[kb/manifest] kb.manifest failed: ${response.message}`);
-    return;
-  }
+export async function readManifest(): Promise<ManifestRead> {
+  const response = await postAction({ id: kbManifestDef.id, input: {} }).catch(
+    (error: unknown) => ({ unreachable: String(error) }) as const,
+  );
+  if ("unreachable" in response)
+    return { problem: `kb.manifest unreachable: ${response.unreachable}` };
+  if (response.status !== "succeeded")
+    return { problem: `kb.manifest failed: ${response.message}` };
   const manifest = kbManifestDef.outputSchema.safeParse(response.output);
   if (!manifest.success) {
-    logWarn(`[kb/manifest] kb.manifest answered in another shape: ${manifest.error.message}`);
-    return;
+    return { problem: `kb.manifest answered in another shape: ${manifest.error.message}` };
   }
-  setServedManifest({ views: manifest.data.views, extensions: manifest.data.extensions });
+  return { manifest: { views: manifest.data.views, extensions: manifest.data.extensions } };
+}
+
+/**
+ * Follow `read`, a manifest {@link readManifest} asked for (a fresh ask by
+ * default). A server that could not answer leaves the page as it was, and
+ * says so in the log; it never fails the boot.
+ */
+export async function loadManifest(read: Promise<ManifestRead> = readManifest()): Promise<void> {
+  const answered = await read;
+  if ("problem" in answered) logWarn(`[kb/manifest] ${answered.problem}`);
+  else setServedManifest(answered.manifest);
 }

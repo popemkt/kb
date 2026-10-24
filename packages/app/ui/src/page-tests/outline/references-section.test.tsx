@@ -9,7 +9,8 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex, derivedWith, queryBacklinks } from "@kb/ui-sdk";
+import { derivedWith, queryBacklinks } from "@kb/ui-sdk";
+import { DatascriptIndex } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { ReferencesView } from "@kb/outline-ui";
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { DatascriptIndex, derivedWith, queryBacklinks } from "@kb/ui-sdk";
+import { derivedWith, queryBacklinks } from "@kb/ui-sdk";
+import { DatascriptIndex } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 

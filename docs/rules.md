@@ -1793,6 +1793,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — About 40 lines of Bun plus a .gitattributes entry; recorded in briefs/p1-persistence.md section 4.
 - **node** — `01M1M08WYY9X6HFNN5GKDCC47E`
 
+### GAP: nothing checks that the page's eager bundle carries no DataScript
+
+- **expected** — A check over the built ui/dist fails when a chunk index.html loads (its entry or a modulepreload) contains DataScript, so the page's bundle stays free of the engine the worker hosts (DESIGN-UI.md → Replica queries).
+- **current** — The property holds by the bundler's tree-shaking: @kb/ui-sdk exports no DatascriptIndex or inThreadPort, and @kb/query declares sideEffects false. The harness's import-graph fences walk modules, not exports, so they cannot see it; a new page export that reaches datascript-index.ts brings ~700 KB back unnoticed.
+- **impact** — A regression costs ~470 KB raw (~70 KB brotli) on every cold load of the page, the largest single item in its eager bundle before this change.
+- **closes** — A bundle-budget test after the UI build (CI's ui build step) that reads dist/index.html's script and modulepreload chunks and fails on a datascript module, or a byte budget for them.
+- **node** — `01M5QK2PFWPD64E846YV9QZWVD`
+
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
