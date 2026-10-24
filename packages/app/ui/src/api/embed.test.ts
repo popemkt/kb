@@ -36,7 +36,7 @@ describe("telling an embedder the tab's session", () => {
   it("posts it to each allowed origin, and again when it is renewed", async () => {
     const posted = page(true);
     const { embed, session } = await load();
-    embed.tellEmbedders(["https://bb.example", "http://localhost:3000"]);
+    embed.embedWith({ origins: ["https://bb.example", "http://localhost:3000"] });
     const first = session.tabSession();
     expect(posted).toEqual([
       { message: { type: "kb.session", session: first }, target: "https://bb.example" },
@@ -54,11 +54,11 @@ describe("telling an embedder the tab's session", () => {
 
   it("posts nothing when no origin may frame it, or it is not framed", async () => {
     const framed = page(true);
-    (await load()).embed.tellEmbedders([]);
+    (await load()).embed.embedWith({ origins: [] });
     expect(framed).toEqual([]);
 
     const alone = page(false);
-    (await load()).embed.tellEmbedders(["https://bb.example"]);
+    (await load()).embed.embedWith({ origins: ["https://bb.example"] });
     expect(alone).toEqual([]);
   });
 });

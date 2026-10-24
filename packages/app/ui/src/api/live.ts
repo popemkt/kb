@@ -13,7 +13,7 @@
  * tolerates; a burst of frames no longer costs a projection each.
  */
 import { screenRejected, type ScreenAck, type ScreenCommand } from "@kb/contracts";
-import { tellEmbedders } from "@/api/embed";
+import { embedWith } from "@/api/embed";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store"; // GAP [[01M1RXMQYDBWX4EWJPEFRDR05H]]
@@ -107,9 +107,9 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
   const next = new KbWsClient({
     onGraph: deliver,
     onStatus: (status) => useUiStore.getState().setWsStatus(status),
-    onPerson: (person, embedders) => {
+    onPerson: (person, embedding) => {
       useUiStore.getState().setPerson(person);
-      tellEmbedders(embedders);
+      embedWith(embedding);
     },
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),

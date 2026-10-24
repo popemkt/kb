@@ -113,10 +113,12 @@ describe("who may frame the page", () => {
     const root = await mkdtemp(join(tmpdir(), "kb-ui-embed-"));
     await mkdir(join(root, ".kb"), { recursive: true });
     const ctx = await openKb(root);
-    expect(await greeted(new SubscriptionHub(ctx, undefined, ["https://bb.example"]))).toEqual({
+    expect(
+      await greeted(new SubscriptionHub(ctx, undefined, { origins: ["https://bb.example"] })),
+    ).toEqual({
       op: "person",
       person: null,
-      embedders: ["https://bb.example"],
+      embedding: { origins: ["https://bb.example"] },
     });
     expect(await greeted(new SubscriptionHub(ctx))).toEqual({ op: "person", person: null });
   });

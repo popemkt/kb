@@ -340,7 +340,7 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
-              embedOrigins: opts.embedOrigin ?? [],
+              embedding: { origins: opts.embedOrigin ?? [] },
               // The page is the server's owner; a hosted deployment may name
               // the person by the proxy it trusts instead.
               identity:

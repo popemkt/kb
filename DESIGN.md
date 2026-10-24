@@ -3948,7 +3948,7 @@ and props, but not fields minted on the command line
     the person's. `kb ui --dev` serves the page from Vite, which sends no
     such header.
   - **What crosses the frame.** Only the tab's session. The server names
-    the allowed origins on the `person` frame (`embedders`), and a framed
+    the allowed origins on the `person` frame (`embedding.origins`), and a framed
     page posts `{type: "kb.session", session}` to its parent once per
     origin, that origin as the target, so the browser delivers it only to
     a parent that is one (`app/ui/src/api/embed.ts`). It posts again when
