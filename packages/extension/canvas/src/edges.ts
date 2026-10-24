@@ -346,6 +346,25 @@ function elbowPath(a: EdgeTerminal, b: EdgeTerminal, bend: number): CanvasPathCo
  * the canvas's axes, its middle run moved by `bend`.
  */
 export function edgeRoute(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): EdgeRoute {
+  const held = routes.get(edge);
+  if (held?.from === from && held.to === to) return held.route;
+  const route = runRoute(from, to, edge);
+  routes.set(edge, { from, to, route });
+  return route;
+}
+
+/**
+ * Each edge's route as last asked for, with the two items it ran between: a
+ * document is never changed in place, so the same edge between the same
+ * items runs the same route, and only an edge whose end moved is routed
+ * again — in every projection, and for every reader of the route.
+ */
+const routes = new WeakMap<
+  CanvasEdge,
+  { readonly from: CanvasNode; readonly to: CanvasNode; readonly route: EdgeRoute }
+>();
+
+function runRoute(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): EdgeRoute {
   const a = endTerminal(from, edge, "from");
   const b = endTerminal(to, edge, "to");
   const chord = Math.hypot(b.at.x - a.at.x, b.at.y - a.at.y);

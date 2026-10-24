@@ -1,7 +1,7 @@
 /**
  * The canvas's part of the screen: the camera of the projection showing, in
  * the document's pose shape, and the items that camera shows — the 2D view's
- * in 2D, the 3D view's as it came to rest in 3D.
+ * in 2D, the 3D view's in 3D, each as it came to rest.
  */
 import { act, createElement, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";

@@ -1773,6 +1773,43 @@ hairline on its plane (`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a co
 the height of its point, so a raised card floating over its rim is drawn
 under it there.
 
+#### Update cost
+
+The bar is tldraw's: 60fps panning, zooming and dragging one item or fifty
+on a canvas of 2000 items and 1000 bound edges, and no dropped frame for a
+write elsewhere in the store. It is measured, not gated
+(`GAP [[01M5PMJEGCJPMVNCKBDYZ0V57G]]`): the benchmark, its harness and its
+numbers are [docs/research/2026-10-24-canvas-perf.md](docs/research/2026-10-24-canvas-perf.md).
+What is gated is the contract it rests on: each change draws again only
+what it changed.
+
+- **A camera move draws no item and no edge again**, and a pan inside the
+  stage's floor window (`floorWindow`) does not draw the layers either.
+  The camera stays the page's state, so the stage itself is drawn.
+- **A moved item draws itself and the edges at its ends**; a selection
+  draws what it selects and lets go; an edit elsewhere in the document, or
+  a write elsewhere in the store, draws nothing, framed items included.
+  Each item (`CanvasItem`) and edge (`CanvasEdgeView`) is memoised on what
+  it draws, with handlers that last the stage's life (`useStableActions`),
+  and what derives from the document is held by the document: routes
+  (`edgeRoute`), membership, paint order, clips (`itemClips`).
+- **The stage draws what its window meets, and what it holds wherever it
+  is**: an item whose floor at rest (`restingReach`) meets it, an edge
+  whose line (`edgeReach`) or label (`labelReach`) does; and the selection,
+  the item edited, the item holding the focus and the edge whose label is
+  edited, wherever they are. A crossing draws only what it brings in, as a
+  deferred update. A stage not yet measured draws everything, which is
+  what the projection contract runs on.
+- **Nothing costs the compositor per item in motion**: a carried item's
+  handles are hidden while it moves (`carriesItems`), and the grid is one
+  layer slid by a transform.
+- **What reads the canvas waits for rest**: the pane's screen in 2D once
+  the view and the document stand still (`useCanvasScreen`), a view's
+  layout only while a script listens (`ViewLayout.set`), and
+  `canvas.change` once a gesture is let go of.
+
+`canvas-update-cost.test.tsx` proves each bullet as render counts.
+
 ### Cross-surface polish (i5)
 
 The rules that hold everywhere, so no surface re-invents them:

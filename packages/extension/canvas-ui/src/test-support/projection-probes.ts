@@ -431,6 +431,7 @@ function stageProps(current: CanvasDoc, scene: ProbeScene, pan: Point, zoom: num
     toolState: { tool: "select" as const },
     editingEdgeLabel: null,
     edgeDrag: null,
+    carrying: false,
     snapGuides: [],
     marqueeRect: null,
     onEditingEdgeLabelChange: noop,

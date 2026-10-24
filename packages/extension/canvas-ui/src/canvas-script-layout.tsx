@@ -7,7 +7,8 @@
  * label, and the 3D gizmo's handles, from the meshes its picking hits —
  * which a script's drawing never lies over. Told again on every render —
  * whenever the page renders, and in 3D on every frame the camera moves,
- * which re-renders only this.
+ * which re-renders only this — as a way to work it out, which the layout
+ * works out only while a script listens (`ViewLayout`).
  */
 import { useEffect } from "react";
 import type { CanvasDoc } from "@kb/canvas";
@@ -48,10 +49,13 @@ export function CanvasScriptLayout({
   // Read on every render: the camera, the page (the selection, the gizmo's mode) and the scene each move it.
   const size = { width, height };
   const shown = canvasProjection(in3d ? "3d" : "2d");
-  const own = in3d ? [gizmo.reach()].filter((reach) => reach !== null) : [];
-  const told = {
-    anchors: Object.fromEntries(itemScreenRects(doc.nodes, view, size)),
-    interactive: pressRegions(doc, view, size, { chrome: shown.chrome, selected, own }),
+  // Worked out when a script listens, not here: the gizmo's reach is read then, as it stands then.
+  const told = () => {
+    const own = in3d ? [gizmo.reach()].filter((reach) => reach !== null) : [];
+    return {
+      anchors: Object.fromEntries(itemScreenRects(doc.nodes, view, size)),
+      interactive: pressRegions(doc, view, size, { chrome: shown.chrome, selected, own }),
+    };
   };
   useEffect(() => layout.set(told));
   return null;

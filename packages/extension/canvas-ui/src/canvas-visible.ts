@@ -1,13 +1,18 @@
 import {
+  canvasTop,
+  edgeReach,
   edgeRoute,
   pinnedItems,
   routeMidpoint,
   routePoints,
   type CanvasDoc,
+  type CanvasEdge,
   type CanvasNode,
   type CanvasThread,
+  type EdgeRoute,
 } from "@kb/canvas";
-import type { ScreenRegion } from "@kb/ui-sdk";
+import { hasText, type ScreenRegion } from "@kb/ui-sdk";
+import { labelReach, restingReach } from "./canvas-chrome";
 import type { PressChrome } from "./canvas-projections";
 import {
   projectPoint,
@@ -59,7 +64,8 @@ export function threadPins(
   view: CanvasView,
   size: ViewSize,
 ): ThreadPin[] {
-  const rects = itemScreenRects(doc.nodes, view, size);
+  // Only the items threads are pinned on are placed: a canvas with no threads places none.
+  const drawn = (item: CanvasNode) => itemScreenRects([item], view, size).get(item.id);
   return threads.flatMap((thread) => {
     const { anchor } = thread;
     if (anchor === null) return [];
@@ -67,7 +73,7 @@ export function threadPins(
       "at" in anchor
         ? [{ item: null, at: projectPoint(view, size, { ...anchor.at, z: 0 }) }]
         : pinnedItems(anchor, doc).map((item) => {
-            const rect = rects.get(item.id);
+            const rect = drawn(item);
             return {
               item: item.id,
               at: rect === undefined ? null : { x: rect.right, y: rect.top },
@@ -175,4 +181,99 @@ export function pressRegions(
     ...labels,
     ...own.map((box) => ({ box })),
   ];
+}
+
+/** A stretch of the floor, canvas units: where the 2D stage draws what it draws. */
+export interface FloorWindow {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+/**
+ * The floor the 2D stage draws for the top view `view` on a stage of
+ * `size`: what it shows, grown by a cell each way, where a cell is half of
+ * what the stage would show at the zoom rounded down to a half octave, and
+ * snapped to those cells. So a pan or a zoom draws nothing new until the
+ * view crosses a cell, and an item is drawn before it comes into sight.
+ * Null when the stage has no size yet: then everything is drawn.
+ */
+export function floorWindow(view: CanvasView, size: ViewSize): FloorWindow | null {
+  if (view.zoom <= 0 || size.width <= 0 || size.height <= 0) return null;
+  const coarse = 2 ** (Math.floor(Math.log2(view.zoom) * 2) / 2);
+  const cell = { x: size.width / coarse / 2, y: size.height / coarse / 2 };
+  const half = { x: size.width / view.zoom / 2, y: size.height / view.zoom / 2 };
+  return {
+    left: (Math.floor((view.x - half.x) / cell.x) - 1) * cell.x,
+    top: (Math.floor((view.y - half.y) / cell.y) - 1) * cell.y,
+    right: (Math.ceil((view.x + half.x) / cell.x) + 1) * cell.x,
+    bottom: (Math.ceil((view.y + half.y) / cell.y) + 1) * cell.y,
+  };
+}
+
+const meets = (window: FloorWindow, box: FloorWindow) =>
+  box.left < window.right &&
+  box.right > window.left &&
+  box.top < window.bottom &&
+  box.bottom > window.top;
+
+/**
+ * Whether the 2D stage draws `item` in `window`: whether the floor it may
+ * paint over — the circle round its box's centre that holds the box however
+ * it is turned, and what it paints past it at rest (`restingReach`) —
+ * meets the window. A selected item is drawn wherever it is, so its
+ * handles are not reached for.
+ */
+export function itemInWindow(window: FloorWindow, item: CanvasNode): boolean {
+  const reach =
+    Math.hypot(item.width, item.height, item.depth ?? 0) / 2 + restingReach(canvasTop(item));
+  const cx = item.x + item.width / 2;
+  const cy = item.y + item.height / 2;
+  return meets(window, {
+    left: cx - reach,
+    top: cy - reach,
+    right: cx + reach,
+    bottom: cy + reach,
+  });
+}
+
+/**
+ * Each route's extent on the floor, worked out once per route. A route is
+ * made for one edge record (`edgeRoute` holds it while that record and its
+ * ends stay), so the edge's look and label it is measured with are its own.
+ */
+const routeExtents = new WeakMap<EdgeRoute, FloorWindow>();
+
+/**
+ * Whether the 2D stage draws `edge`, running `route`, in `window`: whether
+ * its line and heads (`edgeReach`) or its label about the route's middle
+ * (`labelReach`, as a press reaches it) meet the window.
+ */
+export function routeInWindow(window: FloorWindow, edge: CanvasEdge, route: EdgeRoute): boolean {
+  let extent = routeExtents.get(route);
+  if (extent === undefined) {
+    const points = routePoints(route);
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    const line = edgeReach(edge);
+    extent = {
+      left: Math.min(...xs) - line,
+      top: Math.min(...ys) - line,
+      right: Math.max(...xs) + line,
+      bottom: Math.max(...ys) + line,
+    };
+    if (hasText(edge.label)) {
+      const at = routeMidpoint(route);
+      const { halfWidth, halfHeight } = labelReach(edge.label);
+      extent = {
+        left: Math.min(extent.left, at.x - halfWidth),
+        top: Math.min(extent.top, at.y - halfHeight),
+        right: Math.max(extent.right, at.x + halfWidth),
+        bottom: Math.max(extent.bottom, at.y + halfHeight),
+      };
+    }
+    routeExtents.set(route, extent);
+  }
+  return meets(window, extent);
 }

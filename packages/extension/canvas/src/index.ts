@@ -137,6 +137,7 @@ export {
   TYPE_STEPS,
   TYPE_STEP_FALLBACKS,
   edgePaint,
+  edgeReach,
   itemPaint,
 } from "./paint.ts";
 export type {

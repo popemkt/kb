@@ -52,3 +52,22 @@ export function labelReach(label: string): {
     halfHeight: Math.max(chip.height, LABEL_FIELD.height) / 2,
   };
 }
+
+/**
+ * The shadow a raised item casts on the floor (`CanvasLiftShadow`): how far
+ * it drops, and how much it is blurred, both growing with how high the
+ * item stands and both held to a bound.
+ */
+export function liftShadow(top: number): { readonly drop: number; readonly blur: number } {
+  return { drop: Math.min(18, 2 + top * 0.06), blur: Math.min(16, 3 + top * 0.05) };
+}
+
+/**
+ * How far an item at rest may paint past its face, canvas units: its ports,
+ * or the shadow it casts when raised, its blur spread three deviations.
+ */
+export function restingReach(top: number): number {
+  if (top <= 0) return chromeReach(false);
+  const { drop, blur } = liftShadow(top);
+  return Math.max(chromeReach(false), drop + 3 * blur);
+}

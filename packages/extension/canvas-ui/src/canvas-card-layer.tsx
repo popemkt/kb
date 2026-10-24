@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 import type { CanvasClip, CanvasDoc, CanvasNode, CanvasSide } from "@kb/canvas";
 import {
   canvasDepth,
@@ -36,10 +36,15 @@ import { ItemOutline } from "./canvas-item-outline";
 import { inkStyle, wordsStyle } from "./canvas-dom-paint";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles } from "./canvas-resize-handles";
+import { itemInWindow, type FloorWindow } from "./canvas-visible";
+import { liftShadow } from "./canvas-chrome";
 
-interface CanvasCardLayerProps {
-  doc: CanvasDoc;
-  selection: CanvasSelection;
+/**
+ * What an item's face does when it is pressed and changed, by the page: one
+ * object for the life of the stage (`useStableActions`), so a face is drawn
+ * again only when what it draws changes.
+ */
+interface CanvasItemActions {
   onCardSelect: (card: CanvasNode, anchor?: { x: number; y: number }) => void;
   onCardChange: (card: CanvasNode) => void;
   onResizeStart: (cardId: string, corner: ResizeCorner, screen: { x: number; y: number }) => void;
@@ -51,16 +56,26 @@ interface CanvasCardLayerProps {
     event: React.PointerEvent,
     anchor?: { x: number; y: number },
   ) => void;
-  /** The item being edited, or null. */
-  editing: string | null;
   /** An item's editor opened or closed. */
   onEdit: (id: string, editing: boolean) => void;
 }
 
-type CanvasCardViewProps = Omit<CanvasCardLayerProps, "doc"> & { card: CanvasNode };
+interface CanvasCardLayerProps {
+  doc: CanvasDoc;
+  selection: CanvasSelection;
+  /** The item being edited, or null. */
+  editing: string | null;
+  /** The floor drawn (`floorWindow`): what lies outside it is not drawn, but for the selection and the item edited. Null draws everything. */
+  window: FloorWindow | null;
+  actions: CanvasItemActions;
+}
 
-/** What an item's face is drawn from: the card, the page's handlers, and where it is laid. */
-type CanvasFaceProps = Omit<CanvasCardViewProps, "editing" | "onEdit"> & FaceLayout;
+/** What an item's face is drawn from: the card, whether it is selected, the page's actions, and where it is laid. */
+type CanvasFaceProps = {
+  card: CanvasNode;
+  selected: boolean;
+  actions: Omit<CanvasItemActions, "onEdit">;
+} & FaceLayout;
 
 /** Polygons as one SVG path's data in canvas units, a closed subpath each. */
 function polygonsPath(polygons: readonly (readonly (readonly [number, number])[])[]): string {
@@ -87,8 +102,7 @@ function topViewPaths(card: CanvasNode): { readonly pieces: string; readonly rim
 function CanvasLiftShadow({ card }: { card: CanvasNode }) {
   const top = canvasTop(card);
   if (top <= 0) return null;
-  const drop = Math.min(18, 2 + top * 0.06);
-  const blur = Math.min(16, 3 + top * 0.05);
+  const { drop, blur } = liftShadow(top);
   return (
     <svg
       aria-hidden
@@ -157,14 +171,17 @@ export function CanvasCardFace({
   box,
   editing,
   onEdit,
-  selection,
-  onCardSelect,
-  onCardChange,
-  onResizeStart,
-  onRotateStart,
-  onPortDown,
-  onCardPointerDown: handleCardPointerDown,
+  selected: isSelected,
+  actions,
 }: CanvasFaceProps) {
+  const {
+    onCardSelect,
+    onCardChange,
+    onResizeStart,
+    onRotateStart,
+    onPortDown,
+    onCardPointerDown: handleCardPointerDown,
+  } = actions;
   const layout = { projection, box, editing, onEdit };
   const resizeHandler = (event: React.PointerEvent, corner: ResizeCorner) => {
     onResizeStart(card.id, corner, { x: event.clientX, y: event.clientY });
@@ -178,8 +195,6 @@ export function CanvasCardFace({
     onPortDown(cardId, side, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
-
-  const isSelected = selection.nodeIds.has(card.id);
 
   if (isGroupNode(card)) {
     const paint = itemPaint(card);
@@ -219,7 +234,7 @@ export function CanvasCardFace({
         card={card}
         selected={isSelected}
         onSelect={() => {
-          if (!selection.nodeIds.has(card.id)) {
+          if (!isSelected) {
             onCardSelect(card);
           }
         }}
@@ -240,7 +255,7 @@ export function CanvasCardFace({
         card={card}
         selected={isSelected}
         onSelect={(anchor) => {
-          if (!selection.nodeIds.has(card.id)) {
+          if (!isSelected) {
             onCardSelect(card, anchor);
           }
         }}
@@ -286,7 +301,7 @@ export function CanvasCardFace({
         box={box}
         selected={isSelected}
         onSelect={() => {
-          if (!selection.nodeIds.has(card.id)) onCardSelect(card);
+          if (!isSelected) onCardSelect(card);
         }}
         onMoveStart={(e) => handleCardPointerDown(card, e)}
         onResizeStart={resizeHandler}
@@ -302,7 +317,7 @@ export function CanvasCardFace({
         box={box}
         selected={isSelected}
         onSelect={() => {
-          if (!selection.nodeIds.has(card.id)) onCardSelect(card);
+          if (!isSelected) onCardSelect(card);
         }}
         onMoveStart={(e) => handleCardPointerDown(card, e)}
         onResizeStart={resizeHandler}
@@ -340,7 +355,7 @@ export function CanvasCardFace({
       card={card}
       selected={isSelected}
       onSelect={() => {
-        if (!selection.nodeIds.has(card.id)) {
+        if (!isSelected) {
           onCardSelect(card);
         }
       }}
@@ -354,37 +369,58 @@ export function CanvasCardFace({
   );
 }
 
+/** What one item is drawn from: it, its clip, whether it is selected or edited, and the page's actions. */
+interface CanvasItemProps {
+  card: CanvasNode;
+  clip: CanvasClip | undefined;
+  selected: boolean;
+  editing: boolean;
+  actions: CanvasItemActions;
+}
+
 /**
- * One item: its body (a solid's top view) under its face, both taking the
- * pointer for it, drawn at its style's opacity.
+ * One item: its shadow, and its body (a solid's top view) under its face,
+ * both taking the pointer for it, drawn at its style's opacity and cut to
+ * its clip. Drawn again only when one of those changes: an item another
+ * gesture or another node moved is left as it is.
  */
-function CanvasItemView(props: CanvasCardViewProps) {
-  const { card, selection, onCardPointerDown } = props;
+const CanvasItem = memo(function CanvasItem({
+  card,
+  clip,
+  selected,
+  editing,
+  actions,
+}: CanvasItemProps) {
   const { opacity } = itemPaint(card);
   return (
-    <div
-      data-card-id={card.id}
-      data-selected={selection.nodeIds.has(card.id) ? "" : undefined}
-      style={opacity < 1 ? { opacity } : undefined}
-    >
-      <CanvasItemBody
-        card={card}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          e.stopPropagation();
-          onCardPointerDown(card, e, { x: e.clientX, y: e.clientY });
-        }}
-      />
-      <CanvasCardFace
-        {...props}
-        box={cardBoxStyle(card)}
-        projection="2d"
-        editing={props.editing === card.id}
-        onEdit={(on) => props.onEdit(card.id, on)}
-      />
-    </div>
+    <CanvasClipped clip={clip}>
+      <CanvasLiftShadow card={card} />
+      <div
+        data-card-id={card.id}
+        data-selected={selected ? "" : undefined}
+        style={opacity < 1 ? { opacity } : undefined}
+      >
+        <CanvasItemBody
+          card={card}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            actions.onCardPointerDown(card, e, { x: e.clientX, y: e.clientY });
+          }}
+        />
+        <CanvasCardFace
+          card={card}
+          selected={selected}
+          actions={actions}
+          box={cardBoxStyle(card)}
+          projection="2d"
+          editing={editing}
+          onEdit={(on) => actions.onEdit(card.id, on)}
+        />
+      </div>
+    </CanvasClipped>
   );
-}
+});
 
 /** A clip (`itemClips`) as CSS: its polygon in canvas units, where the stage lays items out. */
 function clipPathOf(clip: CanvasClip): string {
@@ -406,16 +442,51 @@ function CanvasClipped({ clip, children }: { clip: CanvasClip | undefined; child
   );
 }
 
-export function CanvasCardLayer(props: CanvasCardLayerProps) {
-  const clips = useMemo(() => itemClips(props.doc.nodes), [props.doc.nodes]);
+/** The item `target` lies in, if any: the one holding the focus when it lands there. */
+const itemOf = (target: EventTarget | null) =>
+  target instanceof HTMLElement
+    ? (target.closest<HTMLElement>("[data-card-id]")?.dataset.cardId ?? null)
+    : null;
+
+/**
+ * The items, back to front (`paintOrder`): those the floor drawn meets, and
+ * wherever they are the selection, the item edited and the item holding
+ * the focus, so a pan never takes the focus or the edit away with an item.
+ */
+export const CanvasCardLayer = memo(function CanvasCardLayer({
+  doc,
+  selection,
+  editing,
+  window,
+  actions,
+}: CanvasCardLayerProps) {
+  const [focused, setFocused] = useState<string | null>(null);
+  const clips = itemClips(doc.nodes);
   return (
-    <div data-canvas-stage className="contents">
-      {paintOrder(props.doc.nodes).map((card) => (
-        <CanvasClipped key={card.id} clip={clips.get(card.id)}>
-          <CanvasLiftShadow card={card} />
-          <CanvasItemView {...props} card={card} />
-        </CanvasClipped>
-      ))}
+    <div
+      data-canvas-stage
+      className="contents"
+      onFocus={(e) => setFocused(itemOf(e.target))}
+      onBlur={(e) => {
+        if (itemOf(e.relatedTarget) === null) setFocused(null);
+      }}
+    >
+      {paintOrder(doc.nodes).map((card) => {
+        const selected = selection.nodeIds.has(card.id);
+        const edited = editing === card.id;
+        const held = selected || edited || focused === card.id;
+        if (window !== null && !held && !itemInWindow(window, card)) return null;
+        return (
+          <CanvasItem
+            key={card.id}
+            card={card}
+            clip={clips.get(card.id)}
+            selected={selected}
+            editing={edited}
+            actions={actions}
+          />
+        );
+      })}
     </div>
   );
-}
+});

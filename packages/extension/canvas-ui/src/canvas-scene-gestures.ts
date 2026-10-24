@@ -214,14 +214,10 @@ export class SceneGestures {
     if (card !== undefined) this.host.cardDoubleClick(card);
   }
 
-  /** The items in paint order, read again only when the document changes (hover asks on every move). */
-  private ordered: { readonly of: readonly CanvasNode[]; readonly order: CanvasNode[] } | null =
-    null;
-
+  /** The item under `local`; the paint order is the document's, worked out once per document (hover asks on every move). */
   private cardAt(local: CanvasPoint): CanvasNode | undefined {
     const items = this.host.items();
-    if (this.ordered?.of !== items) this.ordered = { of: items, order: paintOrder(items) };
-    const id = hitTest(this.ordered.order, this.host.view(), this.host.size(), local);
+    const id = hitTest(paintOrder(items), this.host.view(), this.host.size(), local);
     return id === null ? undefined : items.find((n) => n.id === id);
   }
 }

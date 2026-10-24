@@ -20,52 +20,51 @@ import {
   edgePaint,
   type EdgePaint,
 } from "@kb/canvas";
+import { memo } from "react";
 import { edgeUnbound } from "./canvas-api";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerState } from "./canvas-pointer";
 import { hasText, type OutlineNode } from "@kb/ui-sdk";
 import { clientToCanvas } from "./canvas-camera";
 import { LABEL_FIELD, labelChip } from "./canvas-chrome";
+import { routeInWindow, type FloorWindow } from "./canvas-visible";
 
-interface CanvasEdgeLayerProps {
-  doc: CanvasDoc;
-  nodes: ReadonlyMap<string, OutlineNode>;
-  byId: Map<string, CanvasNode>;
-  selection: CanvasSelection;
-  pan: { x: number; y: number };
-  zoom: number;
-  editingEdgeLabel: string | null;
-  edgeDrag: Extract<NonNullable<PointerState["drag"]>, { kind: "edge" }> | null;
+/** What an edge does when it is pressed and its label edited, by the page: one object for the life of the stage (`useStableActions`). */
+interface CanvasEdgeActions {
   onEditingEdgeLabelChange: (edgeId: string | null) => void;
   onEdgeLabelCommit: (edge: CanvasEdge, label: string) => void;
   onEdgeClick: (edge: CanvasEdge, event: React.MouseEvent) => void;
 }
 
-type CanvasEdgeViewProps = Pick<
-  CanvasEdgeLayerProps,
-  | "byId"
-  | "editingEdgeLabel"
-  | "nodes"
-  | "onEdgeClick"
-  | "onEdgeLabelCommit"
-  | "onEditingEdgeLabelChange"
-  | "selection"
-> & { edge: CanvasEdge };
+interface CanvasEdgeLayerProps {
+  doc: CanvasDoc;
+  nodes: ReadonlyMap<string, OutlineNode>;
+  byId: ReadonlyMap<string, CanvasNode>;
+  selection: CanvasSelection;
+  editingEdgeLabel: string | null;
+  /** The floor drawn (`floorWindow`): an edge whose route lies outside it is not drawn, but for a selected one. Null draws every edge. */
+  window: FloorWindow | null;
+  actions: CanvasEdgeActions;
+}
 
-type EdgeLabelProps = Pick<
-  CanvasEdgeLayerProps,
-  "editingEdgeLabel" | "onEdgeLabelCommit" | "onEditingEdgeLabelChange"
-> & { edge: CanvasEdge; at: { x: number; y: number } };
+/** What one edge is drawn from: it, the items at its ends, how it is shown, and the page's actions. */
+interface CanvasEdgeViewProps {
+  edge: CanvasEdge;
+  route: EdgeRoute;
+  selected: boolean;
+  unbound: boolean;
+  editingLabel: boolean;
+  actions: CanvasEdgeActions;
+}
+
+type EdgeLabelProps = Pick<CanvasEdgeViewProps, "edge" | "editingLabel" | "actions"> & {
+  at: { x: number; y: number };
+};
 
 /** An edge's label, halfway along its route: a chip, or the field that edits it. */
-function EdgeLabel({
-  edge,
-  at,
-  editingEdgeLabel,
-  onEdgeLabelCommit,
-  onEditingEdgeLabelChange,
-}: EdgeLabelProps) {
-  if (editingEdgeLabel === edge.id) {
+function EdgeLabel({ edge, at, editingLabel, actions }: EdgeLabelProps) {
+  const { onEdgeLabelCommit, onEditingEdgeLabelChange } = actions;
+  if (editingLabel) {
     return (
       <foreignObject
         x={at.x - LABEL_FIELD.width / 2}
@@ -153,28 +152,26 @@ function EdgeHeads({
   });
 }
 
-function CanvasEdgeView({
+/**
+ * One edge: its line, its heads and its label, along its route. Drawn again
+ * only when one of those changes — the route is the same object while
+ * neither end moved (`edgeRoute`), so a drag draws again the edges of what
+ * it carries and no other.
+ */
+const CanvasEdgeView = memo(function CanvasEdgeView({
   edge,
-  byId,
-  editingEdgeLabel,
-  nodes,
-  onEdgeClick: handleEdgeClick,
-  onEdgeLabelCommit,
-  onEditingEdgeLabelChange,
-  selection,
+  route,
+  selected,
+  unbound,
+  editingLabel,
+  actions,
 }: CanvasEdgeViewProps) {
-  const from = byId.get(edge.fromNode);
-  const to = byId.get(edge.toNode);
-  if (!from || !to) return null;
-  const route = edgeRoute(from, to, edge);
   const d = svgPathData(route.path);
-  const selected = selection.edgeIds.has(edge.id);
-  const unbound = edgeUnbound(edge, nodes);
   const paint = edgePaint(edge, { selected, unbound });
   const ink = toneCss(paint.ink);
+  const { onEdgeClick: handleEdgeClick, onEditingEdgeLabelChange } = actions;
   return (
     <g
-      key={edge.id}
       data-edge-id={edge.id}
       data-selected={selected ? "" : undefined}
       opacity={paint.opacity === 1 ? undefined : paint.opacity}
@@ -212,20 +209,25 @@ function CanvasEdgeView({
       <EdgeLabel
         edge={edge}
         at={routeMidpoint(route)}
-        editingEdgeLabel={editingEdgeLabel}
-        onEdgeLabelCommit={onEdgeLabelCommit}
-        onEditingEdgeLabelChange={onEditingEdgeLabelChange}
+        editingLabel={editingLabel}
+        actions={actions}
       />
     </g>
   );
-}
+});
 
-function GhostEdgePath({
+/** The edge being drawn, from its card's side to the pointer, over the edges: the one part of them that follows the camera. */
+export function GhostEdgePath({
   byId,
   edgeDrag,
   pan,
   zoom,
-}: Pick<CanvasEdgeLayerProps, "byId" | "edgeDrag" | "pan" | "zoom">) {
+}: {
+  byId: ReadonlyMap<string, CanvasNode>;
+  edgeDrag: Extract<NonNullable<PointerState["drag"]>, { kind: "edge" }> | null;
+  pan: { x: number; y: number };
+  zoom: number;
+}) {
   if (!edgeDrag) return null;
   const from = byId.get(edgeDrag.fromCardId);
   const stageEl = document.querySelector("[data-canvas-viewport]");
@@ -236,20 +238,38 @@ function GhostEdgePath({
   const end = clientToCanvas({ x: edgeDrag.x, y: edgeDrag.y }, viewport, pan, zoom);
   const route = looseRoute(sideTerminal(from, edgeDrag.fromSide), end);
   return (
-    <path
-      data-testid="canvas-connection-preview"
-      d={svgPathData(route.path)}
-      fill="none"
-      stroke="var(--primary)"
-      strokeWidth={1.5}
-      strokeDasharray="4 4"
-      className="pointer-events-none"
-      opacity={0.6}
-    />
+    <svg
+      className="pointer-events-none absolute top-0 left-0 overflow-visible"
+      width={1}
+      height={1}
+    >
+      <path
+        data-testid="canvas-connection-preview"
+        d={svgPathData(route.path)}
+        fill="none"
+        stroke="var(--primary)"
+        strokeWidth={1.5}
+        strokeDasharray="4 4"
+        className="pointer-events-none"
+        opacity={0.6}
+      />
+    </svg>
   );
 }
 
-export function CanvasEdgeLayer(props: CanvasEdgeLayerProps) {
+/**
+ * The edges whose two ends are on the canvas: those the floor drawn meets,
+ * and wherever they are the selected ones and the one whose label is edited.
+ */
+export const CanvasEdgeLayer = memo(function CanvasEdgeLayer({
+  doc,
+  nodes,
+  byId,
+  selection,
+  editingEdgeLabel,
+  window,
+  actions,
+}: CanvasEdgeLayerProps) {
   return (
     <svg
       className="pointer-events-none absolute top-0 left-0 overflow-visible"
@@ -257,11 +277,28 @@ export function CanvasEdgeLayer(props: CanvasEdgeLayerProps) {
       height={8000}
     >
       <g className="pointer-events-auto">
-        {props.doc.edges.map((edge) => (
-          <CanvasEdgeView key={edge.id} {...props} edge={edge} />
-        ))}
+        {doc.edges.map((edge) => {
+          const from = byId.get(edge.fromNode);
+          const to = byId.get(edge.toNode);
+          if (!from || !to) return null;
+          const route = edgeRoute(from, to, edge);
+          const selected = selection.edgeIds.has(edge.id);
+          const editingLabel = editingEdgeLabel === edge.id;
+          const held = selected || editingLabel;
+          if (window !== null && !held && !routeInWindow(window, edge, route)) return null;
+          return (
+            <CanvasEdgeView
+              key={edge.id}
+              edge={edge}
+              route={route}
+              selected={selected}
+              unbound={edgeUnbound(edge, nodes)}
+              editingLabel={editingLabel}
+              actions={actions}
+            />
+          );
+        })}
       </g>
-      <GhostEdgePath {...props} />
     </svg>
   );
-}
+});

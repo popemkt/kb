@@ -55,26 +55,33 @@ export interface ViewLayoutState {
 
 /**
  * How a view lies on screen now, as it last said: a state, not a stream, so
- * a script that starts later stands its drawing on its things at once.
+ * a script that starts later stands its drawing on its things at once. The
+ * view says it as a way to work it out, which is worked out only while a
+ * script listens: a view with no scripts pays nothing for its layout.
  */
 export interface ViewLayout {
-  readonly set: (layout: ViewLayoutState) => void;
+  readonly set: (layout: () => ViewLayoutState) => void;
   /** Hear how it lies now, then every change; the returned function stops. */
   readonly listen: (listener: (layout: ViewLayoutState) => void) => () => void;
 }
 
+/** How a view lies before it has said: nowhere. */
+const UNTOLD = (): ViewLayoutState => ({ anchors: {}, interactive: [] });
+
 /** A view's layout: one per mounted view, created once, knowing nothing until it is told. */
 export function createViewLayout(): ViewLayout {
   const listeners = new Set<(layout: ViewLayoutState) => void>();
-  let now: ViewLayoutState = { anchors: {}, interactive: [] };
+  let read = UNTOLD;
   return {
     set: (layout) => {
-      now = layout;
-      for (const listener of listeners) listener(layout);
+      read = layout;
+      if (listeners.size === 0) return;
+      const now = layout();
+      for (const listener of listeners) listener(now);
     },
     listen: (listener) => {
       listeners.add(listener);
-      listener(now);
+      listener(read());
       return () => listeners.delete(listener);
     },
   };

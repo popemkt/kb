@@ -215,6 +215,16 @@ export interface PointerResult {
   guides: readonly SnapGuide[];
 }
 
+/**
+ * Whether `drag` is carrying items: a transform under way past its slop
+ * (a press that has not moved yet carries nothing). While it does, the 2D
+ * stage draws no handles on what it carries, as tldraw draws none while it
+ * translates: they would only follow the items, and each frame repaint them.
+ */
+export function carriesItems(drag: Drag | null): boolean {
+  return drag?.kind === "transform" && drag.slop === null;
+}
+
 export function createPointerState(pan: Point = { x: 40, y: 40 }): PointerState {
   return { drag: null, pan, marqueeRect: null, snapGuides: [] };
 }
