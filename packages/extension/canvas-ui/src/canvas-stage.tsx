@@ -5,8 +5,14 @@ import {
   type CanvasNode,
   type CanvasSide,
 } from "@kb/canvas";
+import { useDeferredValue, useRef } from "react";
 import { CanvasCardLayer } from "./canvas-card-layer";
-import { CanvasEdgeLayer } from "./canvas-edge-layer";
+import { CanvasEdgeLayer, GhostEdgePath } from "./canvas-edge-layer";
+import { viewOfPan } from "./canvas-camera";
+import { floorWindow, type FloorWindow } from "./canvas-visible";
+import { useStableActions } from "./use-stable-actions";
+import { useStageSize } from "./use-stage-size";
+import { useSteady } from "./use-steady";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerResult, PointerState, ResizeCorner } from "./canvas-pointer";
 import type { ToolState } from "./canvas-tool";
@@ -24,6 +30,8 @@ interface CanvasStageProps {
   toolState: ToolState;
   editingEdgeLabel: string | null;
   edgeDrag: Extract<NonNullable<PointerState["drag"]>, { kind: "edge" }> | null;
+  /** A gesture is carrying items (`carriesItems`): their handles are not drawn. */
+  carrying: boolean;
   snapGuides: PointerResult["guides"];
   marqueeRect: PointerState["marqueeRect"];
   onEditingEdgeLabelChange: (edgeId: string | null) => void;
@@ -77,6 +85,76 @@ function CanvasSnapGuides({ guides }: { guides: PointerResult["guides"] }) {
   );
 }
 
+/**
+ * The floor's dots, a step apart at the zoom: one layer a step larger than
+ * the viewport each way, slid by what the pan leaves over a whole step. A
+ * pan moves the layer and repaints nothing; a zoom repaints it once.
+ */
+function CanvasGrid({ pan, zoom }: { pan: { x: number; y: number }; zoom: number }) {
+  const step = GRID_STEP * zoom;
+  const over = (at: number) => (((at % step) + step) % step) - step;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute will-change-transform"
+      style={{
+        left: 0,
+        top: 0,
+        width: `calc(100% + ${2 * step}px)`,
+        height: `calc(100% + ${2 * step}px)`,
+        backgroundImage:
+          "radial-gradient(circle, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px)",
+        backgroundSize: `${step}px ${step}px`,
+        transform: `translate(${over(pan.x)}px, ${over(pan.y)}px)`,
+      }}
+    />
+  );
+}
+
+/** The marquee being dragged out, if one is. */
+function CanvasMarquee({ rect }: { rect: PointerState["marqueeRect"] }) {
+  if (rect === null) return null;
+  return (
+    <div
+      className="absolute border border-primary/40 bg-primary/10"
+      style={{
+        left: Math.min(rect.x, rect.x + rect.w),
+        top: Math.min(rect.y, rect.y + rect.h),
+        width: Math.abs(rect.w),
+        height: Math.abs(rect.h),
+        pointerEvents: "none",
+      }}
+    />
+  );
+}
+
+const sameWindow = (a: FloorWindow | null, b: FloorWindow | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.left === b.left &&
+    a.top === b.top &&
+    a.right === b.right &&
+    a.bottom === b.bottom);
+
+/**
+ * The floor the stage draws (`floorWindow`) at `pan` and `zoom`, on the
+ * viewport `ref` holds: one object while the view stays inside its cells,
+ * so the layers draw nothing again as it moves there. What a new window
+ * brings in is drawn in the background, a few items at a time, so a zoom
+ * out that brings in hundreds never stalls a frame: the camera moves
+ * first, the items follow.
+ */
+function useDrawnWindow(
+  ref: React.RefObject<HTMLElement | null>,
+  pan: { x: number; y: number },
+  zoom: number,
+): FloorWindow | null {
+  const size = useStageSize(ref);
+  const crossed = useSteady(floorWindow(viewOfPan(pan, zoom, size), size), sameWindow);
+  return useDeferredValue(crossed);
+}
+
 export function CanvasStage({
   doc,
   nodes,
@@ -88,6 +166,7 @@ export function CanvasStage({
   toolState,
   editingEdgeLabel,
   edgeDrag,
+  carrying,
   snapGuides,
   marqueeRect,
   onEditingEdgeLabelChange,
@@ -109,23 +188,35 @@ export function CanvasStage({
   editing,
   onEdit,
 }: CanvasStageProps) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const window = useDrawnWindow(viewportRef, pan, zoom);
+  const itemActions = useStableActions({
+    onCardSelect,
+    onCardChange,
+    onResizeStart,
+    onRotateStart,
+    onPortDown,
+    onCardPointerDown: handleCardPointerDown,
+    onEdit,
+  });
+  const edgeActions = useStableActions({
+    onEditingEdgeLabelChange,
+    onEdgeLabelCommit,
+    onEdgeClick: handleEdgeClick,
+  });
   return (
     <div
+      ref={viewportRef}
       data-canvas-viewport
       className={cn(
         "relative min-h-0 flex-1 overflow-hidden",
+        carrying && "[&_[data-resize]]:invisible [&_[data-rotate]]:invisible",
         panning
           ? "cursor-grab"
           : toolState.tool !== "select"
             ? "cursor-crosshair"
             : "cursor-default",
       )}
-      style={{
-        backgroundImage:
-          "radial-gradient(circle, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px)",
-        backgroundSize: `${GRID_STEP * zoom}px ${GRID_STEP * zoom}px`,
-        backgroundPosition: `${pan.x}px ${pan.y}px`,
-      }}
       onWheel={onWheel}
       onPointerDownCapture={(event) => {
         if (onModalPress(event)) return;
@@ -141,6 +232,7 @@ export function CanvasStage({
       onPointerCancel={onPointerCancel}
       onDoubleClick={onDoubleClickStage}
     >
+      <CanvasGrid pan={pan} zoom={zoom} />
       <div
         className="absolute inset-0 origin-top-left"
         style={{
@@ -152,42 +244,22 @@ export function CanvasStage({
           nodes={nodes}
           byId={byId}
           selection={selection}
-          pan={pan}
-          zoom={zoom}
           editingEdgeLabel={editingEdgeLabel}
-          edgeDrag={edgeDrag}
-          onEditingEdgeLabelChange={onEditingEdgeLabelChange}
-          onEdgeLabelCommit={onEdgeLabelCommit}
-          onEdgeClick={handleEdgeClick}
+          window={window}
+          actions={edgeActions}
         />
+        <GhostEdgePath byId={byId} edgeDrag={edgeDrag} pan={pan} zoom={zoom} />
 
         <CanvasSnapGuides guides={snapGuides} />
 
-        {/* Marquee selection rectangle */}
-        {marqueeRect && (
-          <div
-            className="absolute border border-primary/40 bg-primary/10"
-            style={{
-              left: Math.min(marqueeRect.x, marqueeRect.x + marqueeRect.w),
-              top: Math.min(marqueeRect.y, marqueeRect.y + marqueeRect.h),
-              width: Math.abs(marqueeRect.w),
-              height: Math.abs(marqueeRect.h),
-              pointerEvents: "none",
-            }}
-          />
-        )}
+        <CanvasMarquee rect={marqueeRect} />
 
         <CanvasCardLayer
           doc={doc}
           selection={selection}
-          onCardSelect={onCardSelect}
-          onCardChange={onCardChange}
-          onResizeStart={onResizeStart}
-          onRotateStart={onRotateStart}
-          onPortDown={onPortDown}
-          onCardPointerDown={handleCardPointerDown}
           editing={editing}
-          onEdit={onEdit}
+          window={window}
+          actions={itemActions}
         />
       </div>
     </div>

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
-import type { CanvasDoc, CanvasProjectionKind } from "@kb/canvas";
+import { useMemo, type RefObject } from "react";
+import { posesAgree, type CanvasDoc, type CanvasProjectionKind } from "@kb/canvas";
 import {
   SCREEN_APPLIED,
   screenRejected,
@@ -18,6 +18,8 @@ import {
 import { visibleItemIds } from "./canvas-visible";
 import type { CanvasSelection } from "./canvas-selection";
 import { usePaneScreen, type PaneCommand, type PaneSelection } from "@kb/ui-sdk";
+import { useStageSize } from "./use-stage-size";
+import { useAtRest } from "./use-steady";
 
 interface CanvasScreenInput {
   readonly canvasId: string;
@@ -37,50 +39,29 @@ interface CanvasScreenInput {
   readonly capture: (view: CanvasView) => Promise<ScreenAck>;
 }
 
-interface Observed {
-  readonly element: HTMLElement;
-  readonly observer: ResizeObserver;
+/** How long the view and the document stand still before what the canvas shows is reported again. */
+const REST_MS = 150;
+
+/** What the screen reports the canvas showing: its document, through a view, on a stage of a size. */
+interface Shown {
+  readonly doc: CanvasDoc;
+  readonly view: CanvasView;
+  readonly width: number;
+  readonly height: number;
 }
 
-/**
- * The stage's size on screen, kept current as it resizes. The stage mounts
- * only once its canvas node is known, so after each render the observer
- * follows whatever element the ref holds now.
- */
-function useStageSize(stage: RefObject<HTMLElement | null>): { width: number; height: number } {
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  const observed = useRef<Observed | null>(null);
-
-  useEffect(() => {
-    const element = stage.current;
-    if (observed.current?.element === element) return;
-    observed.current?.observer.disconnect();
-    observed.current = null;
-    if (element === null || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      setSize({ width: element.clientWidth, height: element.clientHeight });
-    });
-    observer.observe(element);
-    observed.current = { element, observer };
-  });
-
-  useEffect(
-    () => () => {
-      observed.current?.observer.disconnect();
-      observed.current = null;
-    },
-    [],
-  );
-  return size;
-}
+const sameShown = (a: Shown, b: Shown) =>
+  a.doc === b.doc && a.width === b.width && a.height === b.height && posesAgree(a.view, b.view);
 
 /**
  * Report the canvas's part of the screen — the canvas node, its selected
  * items, the camera of the projection showing and the items it shows — and
  * carry out a `ui.select` of item ids, and a `ui.navigate`'s camera target
  * through the showing camera (`viewOfTarget`, then `show`). A canvas has no
- * focus to move. In 3D
- * the camera is reported as it comes to rest, not on every frame of a drag.
+ * focus to move. The camera and the items it shows are reported as they
+ * come to rest, not on every frame of a gesture: in 3D as its camera
+ * settles, in 2D once the view and the document have stood still for
+ * `REST_MS` — so a pan or a drag works out what is visible once, after it.
  */
 export function useCanvasScreen({
   canvasId,
@@ -99,6 +80,15 @@ export function useCanvasScreen({
   const { width, height } = useStageSize(stage);
   const size = { width, height };
   const view = shown === "3d" && settled3d !== null ? settled3d : viewOfPan(pan, zoom, size);
+  const rested = useAtRest({ doc, view, width, height }, sameShown, REST_MS);
+  const shows = useMemo(
+    () => ({
+      // The document's pose shape is the screen's: the bridge is checked here.
+      pose: { ...poseOfView(rested.view), fov: rested.view.fov } satisfies CanvasScreen["pose"],
+      visible: visibleItemIds(rested.doc.nodes, rested.view, rested),
+    }),
+    [rested],
+  );
   const select = (command: PaneSelection): ScreenAck => {
     if (command.focus !== undefined) {
       return screenRejected("a canvas has no focus; select its items instead");
@@ -139,12 +129,7 @@ export function useCanvasScreen({
       subject: canvasId,
       focused: null,
       selection: [...selection.nodeIds, ...selection.edgeIds],
-      canvas: {
-        projection: shown,
-        // The document's pose shape is the screen's: the bridge is checked here.
-        pose: { ...poseOfView(view), fov: view.fov } satisfies CanvasScreen["pose"],
-        visible: visibleItemIds(doc.nodes, view, size),
-      },
+      canvas: { projection: shown, ...shows },
     },
     carryOut,
   );

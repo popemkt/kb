@@ -13,7 +13,6 @@ import { faceFrameOf } from "./canvas-faces";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CanvasCardFace } from "./canvas-card-layer";
 import { faceTransform } from "./canvas-face-overlay";
-import { EMPTY_SELECTION } from "./canvas-selection";
 
 interface CanvasFaceEditorProps {
   /** The item being edited in 3D, or null for none. */
@@ -76,13 +75,15 @@ function LaidFaceEditor({
           projection="3d"
           editing
           onEdit={(on) => onEdit(item.id, on)}
-          selection={EMPTY_SELECTION}
-          onCardSelect={noop}
-          onCardChange={onChange}
-          onResizeStart={noop}
-          onRotateStart={noop}
-          onPortDown={noop}
-          onCardPointerDown={noop}
+          selected={false}
+          actions={{
+            onCardSelect: noop,
+            onCardChange: onChange,
+            onResizeStart: noop,
+            onRotateStart: noop,
+            onPortDown: noop,
+            onCardPointerDown: noop,
+          }}
         />
       </div>
     </div>

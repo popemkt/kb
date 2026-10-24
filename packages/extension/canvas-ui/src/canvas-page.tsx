@@ -83,6 +83,7 @@ import {
   selectionEmpty,
 } from "./canvas-selection";
 import {
+  carriesItems,
   createPointerState,
   pointerReduce,
   type CanvasPointerEvent,
@@ -379,8 +380,9 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   } | null>(null);
   useEffect(() => {
     const before = heardLints.current;
-    // The world moving under the same document is no change to it.
-    if (before?.canvas === canvasId && before.doc === doc) return;
+    // The world moving under the same document is no change to it; nor is a gesture's
+    // preview, which is heard once it is let go of, not on every frame of it.
+    if (isInteracting() || (before?.canvas === canvasId && before.doc === doc)) return;
     const lints = lintCanvas(canvasId, doc, world);
     heardLints.current = { canvas: canvasId, doc, lints };
     // The first document of a page is where it stands, not a change.
@@ -391,7 +393,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
       target: null,
       value: { canvas: canvasId, lints: { new: made.map(told), resolved: resolved.map(told) } },
     });
-  }, [scriptEvents, canvasId, doc, world]);
+  }, [scriptEvents, canvasId, doc, world, isInteracting]);
   /** An item on this canvas shown and selected; nothing when it is not on it. */
   const showItem = (id: string) => {
     const shown = byId.get(id);
@@ -606,6 +608,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             toolState={toolState}
             editingEdgeLabel={editingEdgeLabel}
             edgeDrag={pointerState.drag?.kind === "edge" ? pointerState.drag : null}
+            carrying={carriesItems(pointerState.drag)}
             snapGuides={snapGuides}
             marqueeRect={marqueeRect}
             onEditingEdgeLabelChange={setEditingEdgeLabel}

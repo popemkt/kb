@@ -3991,8 +3991,8 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   view (its view key id and the node it is shown for), the focused node,
   the selection in the view's own ids, and for a canvas the projection
   showing, its camera as a `pose` (Canvas documents; in 2D the top view,
-  orthographic; in 3D as it last came to rest) and the ids of the items that
-  camera shows. The message names its tab id, the tab session the page
+  orthographic; in either as it last came to rest) and the ids of the items
+  that camera shows. The message names its tab id, the tab session the page
   keeps in its sessionStorage ([Action registry](#action-registry) → The
   tab session).
   The id belongs to the first live connection that publishes it. Another

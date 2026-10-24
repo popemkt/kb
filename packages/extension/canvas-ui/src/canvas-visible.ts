@@ -6,6 +6,7 @@ import {
   type CanvasDoc,
   type CanvasNode,
   type CanvasThread,
+  type EdgeRoute,
 } from "@kb/canvas";
 import type { ScreenRegion } from "@kb/ui-sdk";
 import type { PressChrome } from "./canvas-projections";
@@ -59,7 +60,8 @@ export function threadPins(
   view: CanvasView,
   size: ViewSize,
 ): ThreadPin[] {
-  const rects = itemScreenRects(doc.nodes, view, size);
+  // Only the items threads are pinned on are placed: a canvas with no threads places none.
+  const drawn = (item: CanvasNode) => itemScreenRects([item], view, size).get(item.id);
   return threads.flatMap((thread) => {
     const { anchor } = thread;
     if (anchor === null) return [];
@@ -67,7 +69,7 @@ export function threadPins(
       "at" in anchor
         ? [{ item: null, at: projectPoint(view, size, { ...anchor.at, z: 0 }) }]
         : pinnedItems(anchor, doc).map((item) => {
-            const rect = rects.get(item.id);
+            const rect = drawn(item);
             return {
               item: item.id,
               at: rect === undefined ? null : { x: rect.right, y: rect.top },
@@ -175,4 +177,83 @@ export function pressRegions(
     ...labels,
     ...own.map((box) => ({ box })),
   ];
+}
+
+/** A stretch of the floor, canvas units: where the 2D stage draws what it draws. */
+export interface FloorWindow {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+/**
+ * How far past its box an item may paint, canvas units: its lift's shadow,
+ * its outline's stroke, its ports and handles.
+ */
+const ITEM_OVERHANG = 48;
+
+/**
+ * The floor the 2D stage draws for the top view `view` on a stage of
+ * `size`: what it shows, grown by a cell each way, where a cell is half of
+ * what the stage would show at the zoom rounded down to a half octave, and
+ * snapped to those cells. So a pan or a zoom draws nothing new until the
+ * view crosses a cell, and an item is drawn before it comes into sight.
+ * Null when the stage has no size yet: then everything is drawn.
+ */
+export function floorWindow(view: CanvasView, size: ViewSize): FloorWindow | null {
+  if (view.zoom <= 0 || size.width <= 0 || size.height <= 0) return null;
+  const coarse = 2 ** (Math.floor(Math.log2(view.zoom) * 2) / 2);
+  const cell = { x: size.width / coarse / 2, y: size.height / coarse / 2 };
+  const half = { x: size.width / view.zoom / 2, y: size.height / view.zoom / 2 };
+  return {
+    left: (Math.floor((view.x - half.x) / cell.x) - 1) * cell.x,
+    top: (Math.floor((view.y - half.y) / cell.y) - 1) * cell.y,
+    right: (Math.ceil((view.x + half.x) / cell.x) + 1) * cell.x,
+    bottom: (Math.ceil((view.y + half.y) / cell.y) + 1) * cell.y,
+  };
+}
+
+const meets = (window: FloorWindow, box: FloorWindow) =>
+  box.left < window.right &&
+  box.right > window.left &&
+  box.top < window.bottom &&
+  box.bottom > window.top;
+
+/**
+ * Whether the 2D stage draws `item` in `window`: whether the floor it may
+ * paint over — the circle round its box's centre that holds the box however
+ * it is turned, and its overhang — meets the window.
+ */
+export function itemInWindow(window: FloorWindow, item: CanvasNode): boolean {
+  const reach = Math.hypot(item.width, item.height, item.depth ?? 0) / 2 + ITEM_OVERHANG;
+  const cx = item.x + item.width / 2;
+  const cy = item.y + item.height / 2;
+  return meets(window, {
+    left: cx - reach,
+    top: cy - reach,
+    right: cx + reach,
+    bottom: cy + reach,
+  });
+}
+
+/** Each route's extent on the floor, worked out once per route (`edgeRoute` holds a route while its ends stay). */
+const routeExtents = new WeakMap<EdgeRoute, FloorWindow>();
+
+/** Whether the 2D stage draws the edge running `route` in `window`: whether its line, label and heads may. */
+export function routeInWindow(window: FloorWindow, route: EdgeRoute): boolean {
+  let extent = routeExtents.get(route);
+  if (extent === undefined) {
+    const points = routePoints(route);
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    extent = {
+      left: Math.min(...xs) - ITEM_OVERHANG,
+      top: Math.min(...ys) - ITEM_OVERHANG,
+      right: Math.max(...xs) + ITEM_OVERHANG,
+      bottom: Math.max(...ys) + ITEM_OVERHANG,
+    };
+    routeExtents.set(route, extent);
+  }
+  return meets(window, extent);
 }
