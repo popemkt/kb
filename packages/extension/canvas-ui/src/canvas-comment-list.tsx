@@ -31,7 +31,7 @@ export function CommentsToggle({ comments }: { readonly comments: CanvasComments
       className={cn(
         "relative flex h-8 w-8 items-center justify-center rounded-lg border shadow-floating backdrop-blur-sm",
         comments.listed
-          ? "border-primary/30 bg-primary/15 text-primary"
+          ? "border-primary/30 bg-primary/10 text-primary"
           : "border-foreground/10 bg-popover/95 text-foreground/60 hover:text-foreground/85",
       )}
       onClick={() => comments.setListed(!comments.listed)}

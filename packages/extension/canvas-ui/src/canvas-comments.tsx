@@ -174,12 +174,10 @@ export function CanvasCommentLayer({
             title={thread.text}
             className={cn(
               "pointer-events-auto absolute flex h-6 min-w-6 -translate-y-full items-center justify-center gap-0.5 px-1",
-              "rounded-full rounded-bl-none border text-label font-semibold tabular-nums shadow-floating",
-              "transition-transform duration-100 origin-bottom-left",
-              thread.resolved
-                ? "border-foreground/15 bg-popover text-foreground/50 opacity-70"
-                : "border-primary/40 bg-primary text-primary-foreground",
-              hinted && "scale-125",
+              "rounded-full rounded-bl-none border border-primary/40 bg-primary text-label font-semibold text-primary-foreground tabular-nums shadow-floating",
+              "transition-[transform,opacity] duration-100 origin-bottom-left",
+              thread.resolved && "opacity-45 saturate-50",
+              hinted && "scale-125 opacity-100",
             )}
             style={{ left: at.x, top: at.y }}
             onPointerEnter={() => comments.point(thread.id)}
