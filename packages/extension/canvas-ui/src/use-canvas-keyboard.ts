@@ -47,6 +47,7 @@ import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@kb/ui-sdk";
 import { readPastedText } from "./canvas-paste";
+import { hasEditor } from "./canvas-face-overlay";
 
 /**
  * The canvas keyboard surface: `canvas-keymap` decides *what* a chord
@@ -93,6 +94,8 @@ interface CanvasKeyboardContext {
   openViewMenu: () => void;
   /** Open the sheet listing every shortcut. */
   openShortcuts: () => void;
+  /** Open an item's editor, in whichever projection is showing. */
+  edit: (id: string) => void;
   /** Go where a link leads (`linkStep`). */
   follow: (link: CanvasItemLink) => void;
   /** Open the board's next page (1) or the one before (-1); none past either end. */
@@ -112,6 +115,19 @@ function copySelection(context: CanvasKeyboardContext) {
   const { nodeIds, edgeIds } = context.selRef.current;
   const copied = carriedPart(context.docRef.current, nodeIds, edgeIds);
   void navigator.clipboard.writeText(JSON.stringify(copied));
+}
+
+/** ⌘X: a copy of the selection, then its delete, which is the one undo step. */
+function cutSelection(context: CanvasKeyboardContext) {
+  copySelection(context);
+  deleteSelection(context);
+}
+
+/** ↵: the one item selected, when it has words of its own to type, opened for typing. */
+function editSelection(context: CanvasKeyboardContext) {
+  const [id, ...more] = context.selRef.current.nodeIds;
+  const item = id === undefined || more.length > 0 ? undefined : context.byId.get(id);
+  if (item !== undefined && hasEditor(item)) context.edit(item.id);
 }
 
 /**
@@ -311,7 +327,9 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
   delete: deleteSelection,
   selectAll: (context) => context.setSelection(selectAll(context.docRef.current, context.scope)),
   copy: copySelection,
+  cut: cutSelection,
   duplicate: duplicateSelection,
+  edit: editSelection,
   escape: escapeCanvas,
   panModifier: (context) => context.setSpaceDown(true),
   nudge: (context, intent) => nudgeSelection(context, intent.dx, intent.dy),

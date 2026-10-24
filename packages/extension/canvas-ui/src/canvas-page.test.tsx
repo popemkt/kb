@@ -466,6 +466,29 @@ describe("CanvasPage pointer interactions", () => {
     expect(placed).toMatchObject({ type: "shape", shape: "rect", parent: "f" });
   });
 
+  it("a double-click on empty canvas makes a text card that is typed into at once, as ↵ opens one", async () => {
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    const canvasStage = present(container.querySelector("[data-canvas-stage]"), "stage contents");
+    const surface = present(canvasStage.parentElement?.parentElement, "pointer surface");
+    act(() => {
+      surface.dispatchEvent(
+        new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: 600, clientY: 500 }),
+      );
+    });
+    const made = [...container.querySelectorAll("[data-card-id]")].find(
+      (el) => !["a", "b"].includes(el.getAttribute("data-card-id") ?? ""),
+    );
+    const field = present(made?.querySelector("textarea"), "the new card's field");
+    expect(dom.document.activeElement).toBe(field);
+    // Left, then ↵ with it selected: its words are open again.
+    act(() => field.blur());
+    expect(dom.document.activeElement).not.toBe(field);
+    key({ key: "Enter" });
+    expect(dom.document.activeElement).toBe(field);
+  });
+
   describe("comments", () => {
     const thread: OutlineNode = {
       ...canvasNode,

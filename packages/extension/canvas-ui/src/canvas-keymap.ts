@@ -37,7 +37,11 @@ export type CanvasIntent =
   | { type: "delete" }
   | { type: "selectAll" }
   | { type: "copy" }
+  /** ⌘X: the selection copied, then deleted, as one change. */
+  | { type: "cut" }
   | { type: "duplicate" }
+  /** ↵: the one item selected opened for typing, as a double-click opens it. */
+  | { type: "edit" }
   | { type: "escape" }
   | { type: "panModifier" }
   | { type: "nudge"; dx: number; dy: number }
@@ -435,6 +439,9 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   shortcut("Edit", "Copy", { type: "copy" }, [{ key: "c", mod: true }], {
     needsSelection: "swallow",
   }),
+  shortcut("Edit", "Cut", { type: "cut" }, [{ key: "x", mod: true }], {
+    needsSelection: "swallow",
+  }),
   shortcut("Edit", "Group into a frame", { type: "group" }, [{ key: "g", mod: true }], {
     needsSelection: "swallow",
   }),
@@ -449,6 +456,10 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   }),
   shortcut("Navigate", "Follow link", { type: "followLink" }, [{ key: "Enter", mod: true }], {
     needsSelection: "swallow",
+  }),
+  // tldraw's: ↵ types into what is selected, as a double-click does.
+  shortcut("Edit", "Edit its words", { type: "edit" }, [{ key: "Enter", shift: false }], {
+    needsSelection: "pass",
   }),
   // tldraw's: ⌥ and an arrow turns the page, so it does not nudge.
   shortcut("Navigate", "Next page", { type: "page", step: 1 }, [{ key: "ArrowRight", alt: true }]),

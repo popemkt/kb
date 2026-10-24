@@ -25,6 +25,7 @@ import {
   screenToPlane,
   viewOfPan,
   viewOfPose,
+  wheelZoomFactor,
   zoomViewAt,
   type CanvasHitItem,
   type CanvasView,
@@ -471,5 +472,23 @@ describe("billboards", () => {
     const facing = faceOnView(label, size, perspective);
     expect(facing?.yaw).toBe(perspective.yaw);
     expect(facing?.pitch).toBe(perspective.pitch);
+  });
+});
+
+describe("wheelZoomFactor", () => {
+  test("a gentle trackpad pinch zooms gently, not to the zoom's end", () => {
+    // Twenty small deltas, as a pinch of a centimetre or so sends.
+    let zoom = 1;
+    for (let i = 0; i < 20; i++) zoom *= wheelZoomFactor({ deltaY: -1.5 });
+    expect(zoom).toBeGreaterThan(1.3);
+    expect(zoom).toBeLessThan(1.4);
+  });
+
+  test("a mouse wheel's notch zooms one step at most, either way", () => {
+    expect(wheelZoomFactor({ deltaY: -100 })).toBeCloseTo(1.1);
+    expect(wheelZoomFactor({ deltaY: 100 })).toBeCloseTo(0.9);
+    // A wheel that counts in lines (Firefox) counts each as sixteen pixels.
+    expect(wheelZoomFactor({ deltaY: 3, deltaMode: 1 })).toBeCloseTo(0.9);
+    expect(wheelZoomFactor({ deltaY: 0.5, deltaMode: 1 })).toBeCloseTo(0.92);
   });
 });

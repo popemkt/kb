@@ -88,7 +88,7 @@ function ids(selection: CanvasSelection): string {
 }
 
 let dom: Window;
-let root: Root;
+let root: Root | undefined;
 let container: HTMLElement;
 let clipboard: { writes: string[] };
 
@@ -125,7 +125,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  act(() => root.unmount());
+  act(() => root?.unmount());
+  root = undefined;
   container.remove();
 });
 
@@ -250,6 +251,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
     openViewMenu: () => log.push("viewMenu"),
     openShortcuts: () => log.push("shortcuts"),
     follow: (link: CanvasItemLink) => log.push(`follow=${JSON.stringify(link)}`),
+    edit: (id: string) => log.push(`edit=${id}`),
     turnPage: (step: number) => log.push(`page=${step}`),
   };
 
@@ -261,8 +263,12 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
     });
     return null;
   }
-  root = createRoot(container);
-  act(() => root.render(<Probe />));
+  // One canvas listens at a time: a test that presses twice mounts twice, and
+  // the first one's listener would otherwise go on hearing every later key.
+  act(() => root?.unmount());
+  const mounted = createRoot(container);
+  root = mounted;
+  act(() => mounted.render(<Probe />));
   return { log, docs, apply: (intent) => appliers.at(-1)?.(intent) };
 }
 
@@ -368,6 +374,18 @@ describe("clipboard", () => {
     const copied = JSON.parse(clipboard.writes[0] ?? "{}") as CanvasDoc;
     expect(copied.nodes.map((node) => node.id)).toEqual(["a"]);
     expect(copied.edges).toEqual([]);
+  });
+
+  test("cut copies the selection, then deletes it as one change", () => {
+    const recording = press(
+      { key: "x", metaKey: true },
+      { nodeIds: new Set(["a", "b"]), edgeIds: new Set() },
+    );
+    const copied = JSON.parse(clipboard.writes[0] ?? "{}") as CanvasDoc;
+    expect(copied.nodes.map((node) => node.id)).toEqual(["a", "b"]);
+    expect(recording.log).toEqual(["persist", "selection=none"]);
+    expect(recording.docs[0]?.nodes).toEqual([]);
+    expect(recording.defaultPrevented).toBe(true);
   });
 
   const pastedCanvas = JSON.stringify({
@@ -692,7 +710,7 @@ describe("during a modal transform", () => {
 
   test("unmounted, the canvas listens to nothing", () => {
     const recording = during({ key: "Shift" });
-    act(() => root.unmount());
+    act(() => root?.unmount());
     act(() => {
       window.dispatchEvent(new dom.KeyboardEvent("keydown", { key: "x" }) as unknown as Event);
       window.dispatchEvent(new dom.Event("blur") as unknown as Event);
@@ -700,5 +718,29 @@ describe("during a modal transform", () => {
     });
     expect(recording.log).toEqual([]);
     root = createRoot(container);
+  });
+});
+
+describe("↵ opens the selected item for typing", () => {
+  test("the one item selected, with words of its own, is opened", () => {
+    const recording = press({ key: "Enter" });
+    expect(recording.log).toEqual(["edit=a"]);
+    expect(recording.defaultPrevented).toBe(true);
+  });
+
+  test("more than one item selected opens none", () => {
+    expect(
+      press({ key: "Enter" }, { nodeIds: new Set(["a", "b"]), edgeIds: new Set() }).log,
+    ).toEqual([]);
+  });
+
+  test("with nothing selected it is left to the browser", () => {
+    const recording = press({ key: "Enter" }, EMPTY_SELECTION);
+    expect(recording.log).toEqual([]);
+    expect(recording.defaultPrevented).toBe(false);
+  });
+
+  test("a frame has no words of its own to type", () => {
+    expect(press({ key: "Enter" }, selectNode("f"), false, { doc: framed }).log).toEqual([]);
   });
 });

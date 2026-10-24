@@ -132,9 +132,9 @@ describe("canvas gestures", () => {
       "path data",
     );
     const numbers = present(path.match(/-?\d+(?:\.\d+)?/g), "path coordinates").map(Number);
-    // Zoom at (600,400): pan becomes (14.4,20.8), zoom 1.08.
-    expect(numbers.at(-2)).toBeCloseTo((730 - 240 - 14.4) / 1.08);
-    expect(numbers.at(-1)).toBeCloseTo((510 - 120 - 20.8) / 1.08);
+    // A notch of the wheel zooms one step at most: at (600,400) pan becomes (8,16), zoom 1.1.
+    expect(numbers.at(-2)).toBeCloseTo((730 - 240 - 8) / 1.1);
+    expect(numbers.at(-1)).toBeCloseTo((510 - 120 - 16) / 1.1);
     act(() => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     });

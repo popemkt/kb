@@ -254,6 +254,11 @@ function FamilyTool({
   );
 }
 
+/**
+ * The strip of tools down the stage's left edge. It stands within the
+ * stage: where the stage is too short for one column (a side panel's), it
+ * wraps into a second rather than running over the page strip above.
+ */
 export function CanvasToolbar({
   projection,
   onProjectionChange,
@@ -263,7 +268,7 @@ export function CanvasToolbar({
 }: CanvasToolbarProps) {
   return (
     <div
-      className="absolute top-1/2 left-2 z-20 flex -translate-y-1/2 flex-col gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
+      className="absolute top-1/2 left-2 z-20 flex max-h-[calc(100%-1rem)] -translate-y-1/2 flex-col flex-wrap content-start gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
       data-testid="canvas-toolbar"
       role="toolbar"
       aria-label="Canvas tools"

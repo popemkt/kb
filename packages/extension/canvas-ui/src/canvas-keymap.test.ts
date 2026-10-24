@@ -26,6 +26,8 @@ describe("with something selected", () => {
     [chord("Backspace"), { type: "delete" }],
     [chord("a", { metaKey: true }), { type: "selectAll" }],
     [chord("c", { metaKey: true }), { type: "copy" }],
+    [chord("x", { metaKey: true }), { type: "cut" }],
+    [chord("Enter"), { type: "edit" }],
     [chord("d", { metaKey: true }), { type: "duplicate" }],
     [chord("Escape"), { type: "escape" }],
     [chord(" ", { code: "Space" }), { type: "panModifier" }],

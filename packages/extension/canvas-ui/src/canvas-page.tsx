@@ -49,6 +49,7 @@ import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { CanvasDock } from "./canvas-dock";
+import { DOCK_COMPACT_WIDTH } from "./canvas-dock-size";
 import { CanvasStylePanel } from "./canvas-style-panel";
 import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
@@ -289,6 +290,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     select: (id) => setSelection(selNode(id)),
     enter,
   });
+  /** An item's editor opened, in whichever projection is showing: what a placed text card, a double-click and ↵ open. */
+  const openEditor = (id: string) => faces.onEdit(id, true);
   /** What a tool placed with something chosen first opens: a card's node picker, an image's file chooser. */
   const choose = (chooser: CanvasChooser) => {
     const opens: Record<CanvasChooser, () => void> = {
@@ -329,7 +332,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     flushPersist,
     setPickerOpen,
     choose,
-    edit: (id) => faces.onEdit(id, true),
+    edit: openEditor,
     comment: comments.start,
     setSelection,
     setToolState,
@@ -493,6 +496,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     chooseProjection: projection.choose,
     openViewMenu: () => setViewMenuOpen(true),
     openShortcuts: () => setShortcutsOpen(true),
+    edit: openEditor,
     follow,
     turnPage,
   });
@@ -700,6 +704,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onChange={(item) => schedulePersist(upsertCanvasNode(docRef.current, item))}
         />
         <CanvasDock
+          compact={stageSize.width < DOCK_COMPACT_WIDTH}
           head={
             <>
               <CommentsToggle comments={comments} />

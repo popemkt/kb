@@ -93,6 +93,26 @@ export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
 
+/** The most one wheel event zooms by, as a fraction of the zoom it finds. */
+const MAX_WHEEL_STEP = 0.1;
+/** CSS pixels a wheel event counts as per line it reports (`deltaMode` 1, Firefox's mouse wheel). */
+const WHEEL_LINE = 16;
+
+/**
+ * What one zooming wheel event (a pinch, or the wheel with ⌘ or Ctrl)
+ * multiplies the zoom by. A trackpad's pinch sends a stream of small deltas
+ * and a mouse wheel's notch one large one, so the step follows the delta —
+ * one percent a pixel, at most `MAX_WHEEL_STEP` an event — as tldraw's does:
+ * a fixed step an event made a gentle pinch fly to the zoom's end.
+ */
+export function wheelZoomFactor(event: {
+  readonly deltaY: number;
+  readonly deltaMode?: number;
+}): number {
+  const pixels = event.deltaMode === 1 ? event.deltaY * WHEEL_LINE : event.deltaY;
+  return 1 - Math.max(-MAX_WHEEL_STEP, Math.min(MAX_WHEEL_STEP, pixels / 100));
+}
+
 /**
  * What a projection's camera does when a key or a button asks: zoom by a
  * step, zoom to a level, frame some items, look from a preset, or swap its
