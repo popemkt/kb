@@ -11,9 +11,9 @@ import { backlinksQuery, neighbourhoodQuery, type EdnRunner } from "@kb/query";
 
 export type { EdnRunner, KbIndex, NodeIndex } from "@kb/query";
 // No index is exported here: DataScript is the worker's, and the page's
-// bundle carries none (DESIGN-UI.md → Replica queries); a test takes one
-// from `@kb/ui-test-kit`.
-// GAP [[01M5QK2PFWPD64E846YV9QZWVD]] nothing checks the bundle stays free of it
+// bundle carries none (DESIGN-UI.md → Replica queries;
+// `app/server/tests/page-bundle.test.ts` builds the page and holds it to
+// that); a test takes one from `@kb/ui-test-kit`.
 export {
   answerOf,
   conditionGraph,

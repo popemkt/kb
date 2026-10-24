@@ -189,7 +189,10 @@ query text, each as of a generation of the replica.
   from `@kb/ui-test-kit`). DataScript is the worker's: the page SDK carries
   no index (`@kb/ui-sdk` exports neither `DatascriptIndex` nor
   `inThreadPort`) and `@kb/query` declares itself free of side effects, so
-  the page's own bundle carries no DataScript.
+  the page's own bundle carries no DataScript. A build holds it to that:
+  `packages/app/server/tests/page-bundle.test.ts` fails when a chunk
+  `index.html` loads carries DataScript, or when those chunks pass their
+  byte budget.
 - **Every run has a budget.** A query is given `QUERY_BUDGET_MS` from the
   moment the engine starts it. A run that overruns is stopped — the worker
   is terminated, a fresh one is loaded from the table, and the runs it had
