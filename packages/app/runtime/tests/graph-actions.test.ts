@@ -205,3 +205,57 @@ describe("graph.run / graph.search surface availability", () => {
     expect(typeof graphSearchEffect).toBe("function");
   });
 });
+
+describe("graph.changes", () => {
+  type Changes = {
+    head: number;
+    complete: boolean;
+    changes: {
+      rev: number;
+      actor?: string;
+      via?: string;
+      wrote: { id: string; tags: string[] }[];
+    }[];
+  };
+  const changesOf = async (
+    ctx: Awaited<ReturnType<typeof openKb>>,
+    input: Record<string, unknown>,
+  ): Promise<Changes> => {
+    const receipt = await invoke(ctx, { id: "graph.changes", input });
+    expect(receipt.status).toBe("succeeded");
+    return (receipt.status === "succeeded" ? receipt.output : null) as Changes;
+  };
+
+  test("tells each commit after a rev: who made it, its via, and the nodes it wrote with their tags", async () => {
+    const ctx = await openKb(await makeRoot());
+    await invoke(ctx, { id: "tag.define", input: { name: "todo" } });
+    const start = (await changesOf(ctx, { since: 0 })).head;
+    const made = await invoke(ctx, {
+      id: "node.add",
+      input: { text: "mine", id: "n.mine", tags: ["todo"] },
+      via: "job:a",
+    });
+    expect(made.status).toBe("succeeded");
+    await invoke(ctx, { id: "node.add", input: { text: "theirs", id: "n.theirs" } });
+
+    const all = await changesOf(ctx, { since: start });
+    expect(all.complete).toBe(true);
+    expect(all.changes.map((c) => c.via)).toEqual(["job:a", undefined]);
+    expect(all.changes[0]?.actor).toBe("cli");
+    const mine = present(all.changes[0], "expected the labelled change").wrote.find(
+      (w) => w.id === "n.mine",
+    );
+    expect(mine?.tags.length).toBe(1);
+
+    const labelled = await changesOf(ctx, { since: start, viaPrefix: "job:" });
+    expect(labelled.changes.map((c) => c.wrote.some((w) => w.id === "n.mine"))).toEqual([true]);
+    expect((await changesOf(ctx, { since: start, limit: 1 })).changes).toHaveLength(1);
+    expect((await changesOf(ctx, { since: all.head })).changes).toEqual([]);
+  });
+
+  test("a rev the log cannot reach back from answers no changes, incomplete", async () => {
+    const ctx = await openKb(await makeRoot());
+    const ahead = await changesOf(ctx, { since: 1_000_000 });
+    expect(ahead).toEqual({ head: ahead.head, complete: false, changes: [] });
+  });
+});

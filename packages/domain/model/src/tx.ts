@@ -216,7 +216,9 @@ export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null
  * `actor` is who made the call that committed it, when an invocation did; it
  * is recorded for later use, and nothing decides by it. `session` is the tab
  * session that call was made in, when it named one: what a person's tab, or
- * an agent working in it, wrote there.
+ * an agent working in it, wrote there. `via` is the caller's own label for the
+ * work that call belonged to, when it stated one (an agent session, a job):
+ * kb records it and never reads it.
  */
 export interface KbTx {
   rev: number;
@@ -225,6 +227,7 @@ export interface KbTx {
   origin?: string;
   actor?: Actor;
   session?: string;
+  via?: string;
 }
 
 /**
@@ -239,6 +242,7 @@ export function recordedTx(
     readonly origin?: string;
     readonly actor?: Actor;
     readonly session?: string;
+    readonly via?: string;
   },
 ): KbTx {
   return {
@@ -248,5 +252,6 @@ export function recordedTx(
     ...(record.origin === undefined ? {} : { origin: record.origin }),
     ...(record.actor === undefined ? {} : { actor: record.actor }),
     ...(record.session === undefined ? {} : { session: record.session }),
+    ...(record.via === undefined ? {} : { via: record.via }),
   };
 }

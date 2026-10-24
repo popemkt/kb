@@ -211,6 +211,37 @@ export const graphSearchDef = {
   }),
 } satisfies ActionDefinition;
 
+/** The most changes one `graph.changes` answer carries; a caller pages on from the last rev. */
+const GRAPH_CHANGES_MAX = 500;
+
+const ChangeSchema = z.object({
+  rev: z.number(),
+  at: z.string(),
+  actor: z.string().optional(),
+  session: z.string().optional(),
+  via: z.string().optional(),
+  wrote: z.array(z.object({ id: z.string(), text: z.string(), tags: z.array(z.string()) })),
+  deleted: z.array(z.string()),
+});
+
+export const graphChangesDef = {
+  id: "graph.changes",
+  title: "Changes since",
+  description:
+    "The transactions committed after rev `since`, oldest first: when, who made each (actor, tab session, the caller's via label) and which nodes it wrote or deleted. `complete` is false when the log no longer reaches back to `since`.",
+  mode: { kind: "read" } as const,
+  inputSchema: z.object({
+    since: z.number().int().nonnegative(),
+    viaPrefix: z.string().min(1).optional(),
+    limit: z.number().int().positive().max(GRAPH_CHANGES_MAX).optional(),
+  }),
+  outputSchema: z.object({
+    head: z.number(),
+    complete: z.boolean(),
+    changes: z.array(ChangeSchema),
+  }),
+} satisfies ActionDefinition;
+
 function nodeById(ctx: KbContext<NodeIndex>, id: NodeId): KbNode | undefined {
   return ctx.index.getNode(id);
 }
@@ -655,6 +686,42 @@ export const graphRunEffect = Effect.fn("graph.run")(function* (
   }
   const rows = yield* runDatalog(edn, input.inputs);
   return { name: input.name, query: edn.trim(), rows };
+});
+
+/** A node's tags as `graph.changes` reports them: the ids its type field refers to. */
+function tagIdsOf(node: KbNode): string[] {
+  return (node.props[SYSTEM_IDS.typeField] ?? []).flatMap((value) =>
+    value.t === "ref" ? [value.v] : [],
+  );
+}
+
+/**
+ * What the log holds past `since`: the session's own view of the store's tail
+ * (`KbTxLog.since`), each transaction told as who made it and what it touched.
+ * A log that cannot reach back that far answers no changes and `complete:
+ * false`, and the caller carries on from `head`.
+ */
+export const graphChangesEffect = Effect.fn("graph.changes")(function* (
+  input: z.infer<typeof graphChangesDef.inputSchema>,
+): Effect.fn.Return<z.infer<typeof graphChangesDef.outputSchema>, DomainError, KbCtx> {
+  const { log } = yield* KbCtx;
+  const head = log.head;
+  const txs = log.since(input.since);
+  if (txs === "snapshot-required") return { head, complete: false, changes: [] };
+  const prefix = input.viaPrefix;
+  const changes = txs
+    .filter((tx) => prefix === undefined || (tx.via?.startsWith(prefix) ?? false))
+    .slice(0, input.limit ?? GRAPH_CHANGES_MAX)
+    .map((tx) => ({
+      rev: tx.rev,
+      at: tx.at,
+      ...(tx.actor === undefined ? {} : { actor: tx.actor }),
+      ...(tx.session === undefined ? {} : { session: tx.session }),
+      ...(tx.via === undefined ? {} : { via: tx.via }),
+      wrote: tx.ops.upserts.map((node) => ({ id: node.id, text: node.text, tags: tagIdsOf(node) })),
+      deleted: [...tx.ops.deletes],
+    }));
+  return { head, complete: true, changes };
 });
 
 export const graphSearchEffect = Effect.fn("graph.search")(function* (

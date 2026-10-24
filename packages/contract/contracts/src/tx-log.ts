@@ -96,6 +96,8 @@ export interface TxRecord {
   readonly actor?: Actor;
   /** The tab session that call was made in, when it named one (`KbTx.session`). */
   readonly session?: string;
+  /** The caller's label for the work that call belonged to, when it stated one (`KbTx.via`). */
+  readonly via?: string;
 }
 
 /**

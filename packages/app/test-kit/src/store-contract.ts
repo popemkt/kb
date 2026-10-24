@@ -238,7 +238,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     singleValuedFieldHoldsOne,
   ],
   [
-    "the tail records who made each commit, and in which tab session, and a reopened store reads both back",
+    "the tail records who made each commit, in which tab session and via what, and a reopened store reads them back",
     tailRecordsWhoCommitted,
   ],
   ["a commit merges into what is there: upserts overwrite, deletes remove", commitMerges],
@@ -820,11 +820,11 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
 }
 
 /**
- * Who made a commit, and the tab session it was made in, are recorded on its
- * tail entry, durably and only when said: a record naming them reads back with
- * them from another store over the same files, one naming neither reads back
- * with no key, and a call made through the invoke core records both without
- * its caller saying more.
+ * Who made a commit, the tab session it was made in and the caller's `via`
+ * label are recorded on its tail entry, durably and only when said: a record
+ * naming them reads back with them from another store over the same files,
+ * one naming none reads back with no key, and a call made through the invoke
+ * core records all three without its caller saying more.
  */
 function tailRecordsWhoCommitted(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(
@@ -834,13 +834,16 @@ function tailRecordsWhoCommitted(makeStore: StoreFactory): Promise<void> {
         const store = makeStore(root);
         yield* store.commitEffect(
           { upserts: [plainNode("n-agent", "a")], deletes: [] },
-          { at: AT, actor: "agent", session: "tab.a" },
+          { at: AT, actor: "agent", session: "tab.a", via: "job:a" },
         );
         yield* store.commitEffect({ upserts: [plainNode("n-none", "b")], deletes: [] }, { at: AT });
         const [agent, none] = makeStore(root).txTail.entries().slice(-2);
         expect(agent?.actor).toBe("agent");
         expect(agent?.session).toBe("tab.a");
-        expect(none !== undefined && ("actor" in none || "session" in none)).toBe(false);
+        expect(agent?.via).toBe("job:a");
+        expect(none !== undefined && ("actor" in none || "session" in none || "via" in none)).toBe(
+          false,
+        );
 
         const ctx = yield* openSession(root);
         const made = yield* invokeReceiptEffect(
@@ -849,12 +852,14 @@ function tailRecordsWhoCommitted(makeStore: StoreFactory): Promise<void> {
             id: "node.add",
             input: { id: "n-cli", text: "c" },
             session: "tab.b",
+            via: "job:b",
           }),
         ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
         expect(made.status).toBe("succeeded");
         expect(makeStore(root).txTail.entries().at(-1)).toMatchObject({
           actor: "cli",
           session: "tab.b",
+          via: "job:b",
         });
       }),
     ),

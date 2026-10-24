@@ -5,6 +5,8 @@ export {
   envelopeOf,
   SESSION_META_KEY,
   sessionOfMeta,
+  VIA_MAX,
+  viaOn,
   requestOf,
   ActionReceiptSchema,
   FilledInputSchema,

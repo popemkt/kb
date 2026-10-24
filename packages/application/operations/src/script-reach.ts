@@ -29,7 +29,8 @@ const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
  * down; one already made on a wire keeps who made it, and a bare request
  * is made by its caller. Null for a bare request made while nothing runs: no
  * one makes it. A call made inside another is made in the outer call's tab
- * session: a script's always, any other's unless it names its own.
+ * session, and for its `via`: a script's always, any other's unless it names
+ * its own.
  */
 export function callWithin(outer: RunningCall | null, request: ActionInvocation): ActionInvocation;
 export function callWithin(
@@ -42,18 +43,25 @@ export function callWithin(
 ): ActionInvocation | null {
   const caller = outer?.invocation;
   if (caller !== undefined && madeByScript(caller)) {
-    const { approved: _ignored, session: _stated, ...rest } = request;
+    const { approved: _ignored, session: _stated, via: _label, ...rest } = request;
     return {
       ...rest,
       actor: "script",
       ...(caller.session === undefined ? {} : { session: caller.session }),
+      ...(caller.via === undefined ? {} : { via: caller.via }),
       ...(caller.script === undefined ? {} : { script: caller.script }),
     };
   }
   const actor = madeBy(request) ?? caller?.actor;
   if (actor === undefined) return null;
   const session = request.session ?? caller?.session;
-  return { ...request, actor, ...(session === undefined ? {} : { session }) };
+  const via = request.via ?? caller?.via;
+  return {
+    ...request,
+    actor,
+    ...(session === undefined ? {} : { session }),
+    ...(via === undefined ? {} : { via }),
+  };
 }
 
 /** Why a script may not make this call, with the grant it was decided by; null when it may, or when it is no script's. */

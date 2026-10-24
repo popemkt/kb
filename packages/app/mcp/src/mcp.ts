@@ -40,6 +40,7 @@ import {
   invokeReceiptEffect,
   kbRuntimeLayer,
   openKbEffect,
+  processVia,
   sessionRegistry,
   resolveRootEffect,
   type RootNotFoundError,
@@ -77,12 +78,15 @@ export const ACTION_META_KEY = "kb/action";
  * input, so it cannot carry `approved`, and every call is an agent's.
  * `tools/list` therefore leaves out what would ask for approval or is denied
  * to an agent (`listedOn`); a call by tool name still reaches the invoke core
- * and is refused, and `kb.manifest` still lists every action.
+ * and is refused, and `kb.manifest` still lists every action. Every call is
+ * labelled with the `KB_VIA` the server was started with: an MCP server runs
+ * for one client, so its environment says whose work its calls are.
  */
 export const MCP_WIRE: SurfaceWire = {
   // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
   carriesApproval: false,
   actor: "agent",
+  ...processVia,
 };
 
 function causeMessage(cause: Cause.Cause<unknown>): string {

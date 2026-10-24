@@ -50,6 +50,12 @@ export interface SurfaceWire {
    * made by the wire's own actor.
    */
   readonly relays?: true;
+  /**
+   * The `via` its process states for every call it makes that names none
+   * (`ActionRequest.via`): what a CLI or MCP process was started for, from
+   * `KB_VIA` (`viaOn`). Absent on a wire that serves many callers.
+   */
+  readonly via?: string;
 }
 
 /**
@@ -72,8 +78,9 @@ export function madeBy(call: ActionRequest | ActionInvocation): Actor | undefine
 /**
  * The invocation as it reaches the invoke core from `wire`: made by the
  * wire's actor or, on a wire that relays, by whoever made the call it
- * relays (`relays`), and carrying only what the wire carries
- * (`carries`). Every surface hands the core its calls through this.
+ * relays (`relays`), carrying only what the wire carries (`carries`), and
+ * labelled with the wire's `via` when it states none of its own. Every
+ * surface hands the core its calls through this.
  */
 export function onWire(
   wire: SurfaceWire,
@@ -82,8 +89,10 @@ export function onWire(
   const relayed = wire.relays === true ? madeBy(request) : undefined;
   const { approved, script, ...call } = request;
   const scripted = script !== undefined && carries(wire, "script");
+  const via = call.via ?? wire.via;
   return {
     ...call,
+    ...(via === undefined ? {} : { via }),
     ...(approved !== undefined && carries(wire, "approved") ? { approved } : {}),
     ...(scripted ? { script } : {}),
     actor: scripted ? "script" : (relayed ?? wire.actor),

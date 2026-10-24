@@ -78,8 +78,8 @@ describe("SqliteStore", () => {
             const version = db
               .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'")
               .get();
-            // 5 since the tail records the tab session of each commit; see `connection.ts`.
-            expect(present(version, "expected schema_version").value).toBe("5");
+            // 6 since the tail records the caller's via of each commit; see `connection.ts`.
+            expect(present(version, "expected schema_version").value).toBe("6");
           });
         }),
       ),
@@ -100,6 +100,7 @@ describe("SqliteStore", () => {
           withRawConnection(store.path, (db) => {
             db.run("ALTER TABLE tx DROP COLUMN actor");
             db.run("ALTER TABLE tx DROP COLUMN session");
+            db.run("ALTER TABLE tx DROP COLUMN via");
             db.run("UPDATE meta SET value = '3' WHERE key = 'schema_version'");
           });
 
@@ -134,6 +135,7 @@ describe("SqliteStore", () => {
           // Back to schema 4: the tail as it was before `session` was recorded.
           withRawConnection(store.path, (db) => {
             db.run("ALTER TABLE tx DROP COLUMN session");
+            db.run("ALTER TABLE tx DROP COLUMN via");
             db.run("UPDATE meta SET value = '4' WHERE key = 'schema_version'");
           });
 
@@ -147,6 +149,40 @@ describe("SqliteStore", () => {
             const [old, made] = reopened.txTail.entries();
             expect(old !== undefined && "session" in old).toBe(false);
             expect(made?.session).toBe("tab.a");
+          } finally {
+            reopened.close();
+          }
+        }),
+      ),
+    ));
+
+  test("a schema-5 tail gains the via column: its rows read back, and a new commit records its via", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const root = yield* Effect.acquireRelease(
+            Effect.promise(() => mkdtemp(join(tmpdir(), "kb-sqlite-"))),
+            (dir) => Effect.promise(() => rm(dir, { recursive: true, force: true })),
+          );
+          const store = new SqliteStore(root);
+          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+          store.close();
+          // Back to schema 5: the tail as it was before `via` was recorded.
+          withRawConnection(store.path, (db) => {
+            db.run("ALTER TABLE tx DROP COLUMN via");
+            db.run("UPDATE meta SET value = '5' WHERE key = 'schema_version'");
+          });
+
+          const reopened = new SqliteStore(root);
+          try {
+            expect(reopened.txTail.entries().map((tx) => tx.rev)).toEqual([1]);
+            yield* reopened.commitEffect(
+              { upserts: [node("n-b", "b")], deletes: [] },
+              { at: AT, actor: "agent", via: "job:a" },
+            );
+            const [old, made] = reopened.txTail.entries();
+            expect(old !== undefined && "via" in old).toBe(false);
+            expect(made?.via).toBe("job:a");
           } finally {
             reopened.close();
           }
