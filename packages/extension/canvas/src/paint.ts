@@ -320,6 +320,16 @@ export function edgePaint(edge: CanvasEdge, state: EdgeState): EdgePaint {
   };
 }
 
+/**
+ * How far an edge's paint reaches past its route, canvas units: its heads,
+ * and its line drawn at its heaviest (selected). What the 2D stage reads to
+ * know an edge is in sight.
+ */
+export function edgeReach(edge: CanvasEdge): number {
+  const { size } = styleOf(edge);
+  return HEAD_LENGTHS[size] + LINE_WIDTHS[size] + SELECTED_WIDEN;
+}
+
 /** How words aligned `align` sit across a line, as CSS and a canvas both say it. */
 export const TEXT_ALIGNS = {
   start: "left",

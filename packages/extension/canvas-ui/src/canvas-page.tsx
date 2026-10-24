@@ -378,11 +378,12 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     readonly doc: CanvasDoc;
     readonly lints: CanvasLint[];
   } | null>(null);
+  const gesturing = pointerState.drag !== null;
   useEffect(() => {
     const before = heardLints.current;
     // The world moving under the same document is no change to it; nor is a gesture's
     // preview, which is heard once it is let go of, not on every frame of it.
-    if (isInteracting() || (before?.canvas === canvasId && before.doc === doc)) return;
+    if (gesturing || (before?.canvas === canvasId && before.doc === doc)) return;
     const lints = lintCanvas(canvasId, doc, world);
     heardLints.current = { canvas: canvasId, doc, lints };
     // The first document of a page is where it stands, not a change.
@@ -393,7 +394,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
       target: null,
       value: { canvas: canvasId, lints: { new: made.map(told), resolved: resolved.map(told) } },
     });
-  }, [scriptEvents, canvasId, doc, world, isInteracting]);
+  }, [scriptEvents, canvasId, doc, world, gesturing]);
   /** An item on this canvas shown and selected; nothing when it is not on it. */
   const showItem = (id: string) => {
     const shown = byId.get(id);

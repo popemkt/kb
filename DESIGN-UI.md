@@ -1775,50 +1775,40 @@ under it there.
 
 #### Update cost
 
-The 2D canvas holds 60fps panning, zooming and dragging one item or fifty
-on a canvas of 2000 items and 1000 bound edges, tldraw's bar; a write
-elsewhere in the store costs it no long task. What each change draws again
-is the work, so each change draws only what it changed:
+The bar is tldraw's: 60fps panning, zooming and dragging one item or fifty
+on a canvas of 2000 items and 1000 bound edges, and no dropped frame for a
+write elsewhere in the store. It is measured, not gated
+(`GAP [[01M5PMJEGCJPMVNCKBDYZ0V57G]]`): the benchmark, its harness and its
+numbers are [docs/research/2026-10-24-canvas-perf.md](docs/research/2026-10-24-canvas-perf.md).
+What is gated is the contract it rests on: each change draws again only
+what it changed.
 
-- **An item and an edge are drawn by what they draw.** The stage hands
-  each item (`CanvasItem`, `canvas-card-layer.tsx`) and each edge
-  (`CanvasEdgeView`) its record, whether it is selected or edited, and one
-  bundle of handlers that never changes for the stage's life
-  (`useStableActions`), and each is memoised on those: a camera move draws
-  no item and no edge again, a moved item draws itself and the edges at its
-  ends, a selection draws what it selects and what it let go. The camera
-  stays the page's state, so a pan draws the stage and its layers again,
-  and nothing under them.
-- **What derives from the document is kept by the document.** An edge's
-  route is kept for its two ends as they were (`edgeRoute`, `@kb/canvas`
-  `edges.ts`), so a drag routes again only the edges at what moved, in
-  either projection; the membership and the paint order are kept per items
-  array (`membership.ts`), and the press picks through that one paint
-  order.
-- **The stage draws what its floor window meets** (`floorWindow`,
-  `canvas-visible.ts`): the view's floor rectangle at a zoom rounded down
-  to a half octave, grown by a cell and snapped to cells, so it changes
-  only when the view crosses a cell or a half octave, and a crossing's new
-  items are drawn as a deferred update the gesture never waits on. An item
-  is in it when its circle, with the room its chrome and lift take, meets
-  it, and an edge when its route's extent does; the selection and the item
-  being edited are drawn wherever they are. A stage not yet measured draws
-  every item, which is what the projection contract runs on.
-- **Nothing costs the compositor per item.** A carried item's handles are
-  hidden while it moves, as tldraw hides them (`carriesItems`), since each
-  is a raised shadow; the grid is its own layer, slid within one cell by a
-  transform, so a pan repaints no background.
-- **Reports wait for rest.** The pane's screen in 2D is the camera and the
-  items it shows once the view and the document have stood still 150ms
-  (`useCanvasScreen`), as the 3D pose is reported as it comes to rest; a
-  view's layout is worked out only while a script listens
-  (`ViewLayout.set` takes a thunk); and `canvas.change` is heard once a
-  gesture lets go, never for its previews.
+- **A camera move draws no item and no edge again**, and a pan inside the
+  stage's floor window (`floorWindow`) does not draw the layers either.
+  The camera stays the page's state, so the stage itself is drawn.
+- **A moved item draws itself and the edges at its ends**; a selection
+  draws what it selects and lets go; an edit elsewhere in the document, or
+  a write elsewhere in the store, draws nothing, framed items included.
+  Each item (`CanvasItem`) and edge (`CanvasEdgeView`) is memoised on what
+  it draws, with handlers that last the stage's life (`useStableActions`),
+  and what derives from the document is held by the document: routes
+  (`edgeRoute`), membership, paint order, clips (`itemClips`).
+- **The stage draws what its window meets, and what it holds wherever it
+  is**: an item whose floor at rest (`restingReach`) meets it, an edge
+  whose line (`edgeReach`) or label (`labelReach`) does; and the selection,
+  the item edited, the item holding the focus and the edge whose label is
+  edited, wherever they are. A crossing draws only what it brings in, as a
+  deferred update. A stage not yet measured draws everything, which is
+  what the projection contract runs on.
+- **Nothing costs the compositor per item in motion**: a carried item's
+  handles are hidden while it moves (`carriesItems`), and the grid is one
+  layer slid by a transform.
+- **What reads the canvas waits for rest**: the pane's screen in 2D once
+  the view and the document stand still (`useCanvasScreen`), a view's
+  layout only while a script listens (`ViewLayout.set`), and
+  `canvas.change` once a gesture is let go of.
 
-`canvas-update-cost.test.tsx` proves each of these as render counts: what
-a camera move, a moved item, a write elsewhere and a selection draw again,
-and what a window holds. The frame times are measured on the scratch
-benchmark, not gated.
+`canvas-update-cost.test.tsx` proves each bullet as render counts.
 
 ### Cross-surface polish (i5)
 

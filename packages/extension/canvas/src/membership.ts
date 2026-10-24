@@ -68,7 +68,7 @@ function honouredParent(node: CanvasNode, byId: ReadonlyMap<string, CanvasNode>)
  * one document — the page, the pointer, both projections — shares one
  * answer, and a document that moved one item works it out once.
  */
-function heldPerItems<T extends object>(
+export function heldPerItems<T extends object>(
   derive: (nodes: readonly CanvasNode[]) => T,
 ): (nodes: readonly CanvasNode[]) => T {
   const held = new WeakMap<readonly CanvasNode[], T>();

@@ -257,7 +257,10 @@ export function GhostEdgePath({
   );
 }
 
-/** The edges whose two ends are on the canvas: those the floor drawn meets, and the selected ones wherever they are. */
+/**
+ * The edges whose two ends are on the canvas: those the floor drawn meets,
+ * and wherever they are the selected ones and the one whose label is edited.
+ */
 export const CanvasEdgeLayer = memo(function CanvasEdgeLayer({
   doc,
   nodes,
@@ -280,7 +283,9 @@ export const CanvasEdgeLayer = memo(function CanvasEdgeLayer({
           if (!from || !to) return null;
           const route = edgeRoute(from, to, edge);
           const selected = selection.edgeIds.has(edge.id);
-          if (window !== null && !selected && !routeInWindow(window, route)) return null;
+          const editingLabel = editingEdgeLabel === edge.id;
+          const held = selected || editingLabel;
+          if (window !== null && !held && !routeInWindow(window, edge, route)) return null;
           return (
             <CanvasEdgeView
               key={edge.id}
@@ -288,7 +293,7 @@ export const CanvasEdgeLayer = memo(function CanvasEdgeLayer({
               route={route}
               selected={selected}
               unbound={edgeUnbound(edge, nodes)}
-              editingLabel={editingEdgeLabel === edge.id}
+              editingLabel={editingLabel}
               actions={actions}
             />
           );

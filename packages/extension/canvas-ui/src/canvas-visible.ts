@@ -1,14 +1,18 @@
 import {
+  canvasTop,
+  edgeReach,
   edgeRoute,
   pinnedItems,
   routeMidpoint,
   routePoints,
   type CanvasDoc,
+  type CanvasEdge,
   type CanvasNode,
   type CanvasThread,
   type EdgeRoute,
 } from "@kb/canvas";
-import type { ScreenRegion } from "@kb/ui-sdk";
+import { hasText, type ScreenRegion } from "@kb/ui-sdk";
+import { labelReach, restingReach } from "./canvas-chrome";
 import type { PressChrome } from "./canvas-projections";
 import {
   projectPoint,
@@ -188,12 +192,6 @@ export interface FloorWindow {
 }
 
 /**
- * How far past its box an item may paint, canvas units: its lift's shadow,
- * its outline's stroke, its ports and handles.
- */
-const ITEM_OVERHANG = 48;
-
-/**
  * The floor the 2D stage draws for the top view `view` on a stage of
  * `size`: what it shows, grown by a cell each way, where a cell is half of
  * what the stage would show at the zoom rounded down to a half octave, and
@@ -223,10 +221,13 @@ const meets = (window: FloorWindow, box: FloorWindow) =>
 /**
  * Whether the 2D stage draws `item` in `window`: whether the floor it may
  * paint over — the circle round its box's centre that holds the box however
- * it is turned, and its overhang — meets the window.
+ * it is turned, and what it paints past it at rest (`restingReach`) —
+ * meets the window. A selected item is drawn wherever it is, so its
+ * handles are not reached for.
  */
 export function itemInWindow(window: FloorWindow, item: CanvasNode): boolean {
-  const reach = Math.hypot(item.width, item.height, item.depth ?? 0) / 2 + ITEM_OVERHANG;
+  const reach =
+    Math.hypot(item.width, item.height, item.depth ?? 0) / 2 + restingReach(canvasTop(item));
   const cx = item.x + item.width / 2;
   const cy = item.y + item.height / 2;
   return meets(window, {
@@ -237,22 +238,41 @@ export function itemInWindow(window: FloorWindow, item: CanvasNode): boolean {
   });
 }
 
-/** Each route's extent on the floor, worked out once per route (`edgeRoute` holds a route while its ends stay). */
+/**
+ * Each route's extent on the floor, worked out once per route. A route is
+ * made for one edge record (`edgeRoute` holds it while that record and its
+ * ends stay), so the edge's look and label it is measured with are its own.
+ */
 const routeExtents = new WeakMap<EdgeRoute, FloorWindow>();
 
-/** Whether the 2D stage draws the edge running `route` in `window`: whether its line, label and heads may. */
-export function routeInWindow(window: FloorWindow, route: EdgeRoute): boolean {
+/**
+ * Whether the 2D stage draws `edge`, running `route`, in `window`: whether
+ * its line and heads (`edgeReach`) or its label about the route's middle
+ * (`labelReach`, as a press reaches it) meet the window.
+ */
+export function routeInWindow(window: FloorWindow, edge: CanvasEdge, route: EdgeRoute): boolean {
   let extent = routeExtents.get(route);
   if (extent === undefined) {
     const points = routePoints(route);
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
+    const line = edgeReach(edge);
     extent = {
-      left: Math.min(...xs) - ITEM_OVERHANG,
-      top: Math.min(...ys) - ITEM_OVERHANG,
-      right: Math.max(...xs) + ITEM_OVERHANG,
-      bottom: Math.max(...ys) + ITEM_OVERHANG,
+      left: Math.min(...xs) - line,
+      top: Math.min(...ys) - line,
+      right: Math.max(...xs) + line,
+      bottom: Math.max(...ys) + line,
     };
+    if (hasText(edge.label)) {
+      const at = routeMidpoint(route);
+      const { halfWidth, halfHeight } = labelReach(edge.label);
+      extent = {
+        left: Math.min(extent.left, at.x - halfWidth),
+        top: Math.min(extent.top, at.y - halfHeight),
+        right: Math.max(extent.right, at.x + halfWidth),
+        bottom: Math.max(extent.bottom, at.y + halfHeight),
+      };
+    }
     routeExtents.set(route, extent);
   }
   return meets(window, extent);

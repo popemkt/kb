@@ -1059,6 +1059,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
 
+### GAP: the canvas's 60fps bar is measured on a scratch benchmark, not gated
+
+- **expected** — A frame-time check over the 2000-item benchmark canvas (pan, zoom, a 1-item and a 50-item drag) that fails the render lane when p95 rises past a frame
+- **current** — canvas-update-cost.test.tsx gates what each change draws again, as render counts; the frame times were measured by hand with the harness in docs/research/2026-10-24-canvas-perf.md
+- **impact** — A change that keeps the render counts but costs the compositor or the main thread (a blurred shadow per item, a layout per frame) slows the canvas with nothing going red
+- **closes** — A render-tests spec that loads the benchmark document and asserts the frame-time histogram, on hardware the CI lane can hold steady
+- **node** — `01M5PMJEGCJPMVNCKBDYZ0V57G`
+
 ### GAP: the CLI has no relative dates (today, next fri)
 
 - **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.

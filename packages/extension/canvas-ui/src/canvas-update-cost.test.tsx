@@ -3,22 +3,27 @@
  * Update cost): a camera move draws no item and no edge again, a moved item
  * draws itself and the edges at its ends, a change elsewhere in the store
  * draws nothing again, and the stage draws only what its floor window
- * meets — but the selection wherever it is.
+ * meets — but the selection wherever it is. A pan inside the window's
+ * cells draws nothing, and one across them draws only what it brings in.
+ * These are the counts the canvas's frame times rest on; the frame times
+ * themselves are measured, not gated here.
  */
+// GAP [[01M5PMJEGCJPMVNCKBDYZ0V57G]] the 60fps bar is measured on a scratch benchmark, not gated
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as KbCanvas from "@kb/canvas";
-import type { CanvasDoc, CanvasEdge, CanvasNode } from "@kb/canvas";
+import type { CanvasDoc, CanvasEdge, CanvasGroupNode, CanvasNode } from "@kb/canvas";
 import type * as CardBox from "./canvas-card-box";
 import type { OutlineNode } from "@kb/ui-sdk";
 import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
 
-/** Every item and every edge drawn, by id, in the order they were. */
-const drawn = vi.hoisted(() => ({ items: [] as string[], edges: [] as string[] }));
+/** Every item and every edge drawn, by id, in the order they were; and how often the items were walked. */
+const drawn = vi.hoisted(() => ({ items: [] as string[], edges: [] as string[], walks: 0 }));
 
-// Each item is laid out once per draw (`cardBoxStyle`), and each edge painted once (`edgePaint`).
+// Each item is laid out once per draw (`cardBoxStyle`), each edge painted once (`edgePaint`),
+// and the item layer walks the items in paint order once each time it is drawn (`paintOrder`).
 vi.mock("./canvas-card-box", async (importOriginal) => {
   const actual = await importOriginal<typeof CardBox>();
   return {
@@ -36,6 +41,10 @@ vi.mock("@kb/canvas", async (importOriginal) => {
     edgePaint: (edge: CanvasEdge, ...rest: [Parameters<typeof actual.edgePaint>[1]]) => {
       drawn.edges.push(edge.id);
       return actual.edgePaint(edge, ...rest);
+    },
+    paintOrder: (nodes: readonly CanvasNode[]) => {
+      drawn.walks += 1;
+      return actual.paintOrder(nodes);
     },
   };
 });
@@ -119,12 +128,48 @@ function show({ doc, pan = { x: 0, y: 0 }, zoom = 1, selection = EMPTY_SELECTION
 function drawnBy(change: () => void): { items: string[]; edges: string[] } {
   drawn.items.length = 0;
   drawn.edges.length = 0;
+  drawn.walks = 0;
   change();
   return { items: [...drawn.items], edges: [...drawn.edges] };
 }
 
 const cardsShown = () =>
   [...container.querySelectorAll<HTMLElement>("[data-card-id]")].map((el) => el.dataset.cardId);
+const edgesShown = () =>
+  [...container.querySelectorAll<HTMLElement>("[data-edge-id]")].map((el) => el.dataset.edgeId);
+
+/** A 40-unit card at `x`, `y`. */
+const smallCard = (id: string, x: number, y: number): CanvasNode => ({
+  id,
+  type: "text",
+  text: id,
+  x,
+  y,
+  width: 40,
+  height: 40,
+});
+
+/** An edge from `from` to `to`, named for its ends. */
+const joined = (from: string, to: string): CanvasEdge => ({
+  id: `${from}${to}`,
+  fromNode: from,
+  toNode: to,
+});
+
+/** `doc` with `frame` added at its foot, holding the first `held` items. */
+function framed(doc: CanvasDoc, held: number): CanvasDoc {
+  const frame: CanvasGroupNode = {
+    id: "f",
+    type: "group",
+    label: "f",
+    x: -20,
+    y: -20,
+    width: held * 200,
+    height: 100,
+  };
+  const nodes = doc.nodes.map((node, i) => (i < held ? { ...node, parent: "f" } : node));
+  return { ...doc, nodes: [frame, ...nodes] };
+}
 
 beforeAll(() => {
   const win = new Window({ url: "https://kb.test/" });
@@ -171,6 +216,13 @@ describe("what the 2D stage draws again", () => {
     const doc = row(50);
     show({ doc, nodes: new Map() });
     expect(drawnBy(() => show({ doc, nodes: new Map() }))).toEqual({ items: [], edges: [] });
+  });
+
+  it("an edit elsewhere draws no item a frame holds again", () => {
+    const doc = framed(row(20), 5);
+    show({ doc });
+    const nodes = doc.nodes.map((node) => (node.id === "n10" ? { ...node, y: 30 } : node));
+    expect(drawnBy(() => show({ doc: { ...doc, nodes } })).items).toEqual(["n10"]);
   });
 
   it("selecting an item draws that item, and no other", () => {
@@ -228,6 +280,51 @@ describe("what the 2D stage draws at all", () => {
     show({ doc, selection: selectNode("n150") });
     show({ doc, selection: selectNode("n150") });
     expect(cardsShown()).toContain("n150");
+  });
+
+  // At zoom 1 on 800 by 600 a cell is 400 by 300, and these pans stay inside one.
+  it("a pan inside the window's cells draws nothing again, not even the item layer", () => {
+    const doc = row(200);
+    show({ doc, pan: { x: -200, y: -150 } });
+    show({ doc, pan: { x: -200, y: -150 } });
+    const before = cardsShown();
+    const moved = drawnBy(() => show({ doc, pan: { x: -300, y: -200 } }));
+    expect(moved).toEqual({ items: [], edges: [] });
+    expect(drawn.walks).toBe(0);
+    expect(cardsShown()).toEqual(before);
+  });
+
+  it("a pan across a cell draws only what it brings in", () => {
+    const doc = row(200);
+    show({ doc, pan: { x: -200, y: -150 } });
+    show({ doc, pan: { x: -200, y: -150 } });
+    const before = new Set(cardsShown());
+    const edgesBefore = new Set(edgesShown());
+    const moved = drawnBy(() => show({ doc, pan: { x: -600, y: -150 } }));
+    const entered = cardsShown().filter((id) => !before.has(id));
+    expect(entered.length).toBeGreaterThan(0);
+    // Each drawn once, and only those.
+    expect(moved.items).toHaveLength(entered.length);
+    expect(new Set(moved.items)).toEqual(new Set(entered));
+    const edgesEntered = edgesShown().filter((id) => !edgesBefore.has(id));
+    expect(moved.edges).toHaveLength(edgesEntered.length);
+    expect(new Set(moved.edges)).toEqual(new Set(edgesEntered));
+  });
+
+  it("draws an edge whose label reaches into the window, though its line is out of it", () => {
+    // The window at this pan runs to x 1600; the cards and the line between them stand past it.
+    const nodes = [smallCard("a", 1700, 0), smallCard("b", 1700, 600)];
+    const edge = (label?: string): CanvasEdge => ({
+      ...joined("a", "b"),
+      ...(label === undefined ? {} : { label }),
+    });
+    const pan = { x: -200, y: -150 };
+    show({ doc: { nodes, edges: [edge()] }, pan });
+    show({ doc: { nodes, edges: [edge()] }, pan });
+    expect(cardsShown()).toEqual([]);
+    expect(edgesShown()).toEqual([]);
+    show({ doc: { nodes, edges: [edge("x".repeat(60))] }, pan });
+    expect(edgesShown()).toEqual(["ab"]);
   });
 
   it("draws what a pan brings near", () => {

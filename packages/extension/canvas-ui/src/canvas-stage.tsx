@@ -141,9 +141,11 @@ const sameWindow = (a: FloorWindow | null, b: FloorWindow | null) =>
  * The floor the stage draws (`floorWindow`) at `pan` and `zoom`, on the
  * viewport `ref` holds: one object while the view stays inside its cells,
  * so the layers draw nothing again as it moves there. What a new window
- * brings in is drawn in the background, a few items at a time, so a zoom
- * out that brings in hundreds never stalls a frame: the camera moves
- * first, the items follow.
+ * brings in is drawn as a deferred update, so a zoom out that brings in
+ * hundreds never stalls a frame: the camera moves first and the items
+ * follow, so a fast pan past a cell may show a frame or two before what it
+ * brings in is drawn. That is the trade, chosen: the window is grown a
+ * cell each way so that it seldom shows.
  */
 function useDrawnWindow(
   ref: React.RefObject<HTMLElement | null>,

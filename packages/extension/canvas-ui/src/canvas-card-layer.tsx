@@ -1,4 +1,4 @@
-import { memo, useMemo, type ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 import type { CanvasClip, CanvasDoc, CanvasNode, CanvasSide } from "@kb/canvas";
 import {
   canvasDepth,
@@ -37,6 +37,7 @@ import { inkStyle, wordsStyle } from "./canvas-dom-paint";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles } from "./canvas-resize-handles";
 import { itemInWindow, type FloorWindow } from "./canvas-visible";
+import { liftShadow } from "./canvas-chrome";
 
 /**
  * What an item's face does when it is pressed and changed, by the page: one
@@ -101,8 +102,7 @@ function topViewPaths(card: CanvasNode): { readonly pieces: string; readonly rim
 function CanvasLiftShadow({ card }: { card: CanvasNode }) {
   const top = canvasTop(card);
   if (top <= 0) return null;
-  const drop = Math.min(18, 2 + top * 0.06);
-  const blur = Math.min(16, 3 + top * 0.05);
+  const { drop, blur } = liftShadow(top);
   return (
     <svg
       aria-hidden
@@ -442,9 +442,16 @@ function CanvasClipped({ clip, children }: { clip: CanvasClip | undefined; child
   );
 }
 
+/** The item `target` lies in, if any: the one holding the focus when it lands there. */
+const itemOf = (target: EventTarget | null) =>
+  target instanceof HTMLElement
+    ? (target.closest<HTMLElement>("[data-card-id]")?.dataset.cardId ?? null)
+    : null;
+
 /**
  * The items, back to front (`paintOrder`): those the floor drawn meets, and
- * the selection and the item edited wherever they are.
+ * wherever they are the selection, the item edited and the item holding
+ * the focus, so a pan never takes the focus or the edit away with an item.
  */
 export const CanvasCardLayer = memo(function CanvasCardLayer({
   doc,
@@ -453,13 +460,22 @@ export const CanvasCardLayer = memo(function CanvasCardLayer({
   window,
   actions,
 }: CanvasCardLayerProps) {
-  const clips = useMemo(() => itemClips(doc.nodes), [doc.nodes]);
+  const [focused, setFocused] = useState<string | null>(null);
+  const clips = itemClips(doc.nodes);
   return (
-    <div data-canvas-stage className="contents">
+    <div
+      data-canvas-stage
+      className="contents"
+      onFocus={(e) => setFocused(itemOf(e.target))}
+      onBlur={(e) => {
+        if (itemOf(e.relatedTarget) === null) setFocused(null);
+      }}
+    >
       {paintOrder(doc.nodes).map((card) => {
         const selected = selection.nodeIds.has(card.id);
         const edited = editing === card.id;
-        if (window !== null && !selected && !edited && !itemInWindow(window, card)) return null;
+        const held = selected || edited || focused === card.id;
+        if (window !== null && !held && !itemInWindow(window, card)) return null;
         return (
           <CanvasItem
             key={card.id}

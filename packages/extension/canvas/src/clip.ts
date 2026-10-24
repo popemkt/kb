@@ -8,7 +8,7 @@
  */
 import { boxCorners } from "./box.ts";
 import type { CanvasNode } from "./doc.ts";
-import { ancestorsOf, canvasMembership } from "./membership.ts";
+import { ancestorsOf, canvasMembership, heldPerItems } from "./membership.ts";
 
 /** A point of the canvas floor: across, then down. */
 export type CanvasFloorPoint = readonly [x: number, y: number];
@@ -39,9 +39,36 @@ function hull(points: readonly CanvasFloorPoint[]): CanvasFloorPoint[] {
   return [...half(sorted), ...half(sorted.toReversed())];
 }
 
+/** Each frame's reach, kept for the frame as it is: a frame that has not moved reaches where it did. */
+const reaches = new WeakMap<CanvasNode, CanvasClip>();
+
 /** What a frame reaches over, seen from above: the hull of its box's corners on the floor. */
-function reachOf(frame: CanvasNode): CanvasFloorPoint[] {
-  return hull(boxCorners(frame).map((c): CanvasFloorPoint => [c.x, c.y]));
+function reachOf(frame: CanvasNode): CanvasClip {
+  const known = reaches.get(frame);
+  if (known !== undefined) return known;
+  const made = hull(boxCorners(frame).map((c): CanvasFloorPoint => [c.x, c.y]));
+  reaches.set(frame, made);
+  return made;
+}
+
+/**
+ * Each meeting, kept for the two regions it met: so an item whose frames
+ * have not moved keeps the very clip it had, and is not drawn again for
+ * an edit elsewhere in its document.
+ */
+const meetings = new WeakMap<CanvasClip, WeakMap<CanvasClip, CanvasClip>>();
+
+function heldMeet(subject: CanvasClip, by: CanvasClip): CanvasClip {
+  let bys = meetings.get(subject);
+  if (bys === undefined) {
+    bys = new WeakMap();
+    meetings.set(subject, bys);
+  }
+  const known = bys.get(by);
+  if (known !== undefined) return known;
+  const made = meet(subject, by);
+  bys.set(by, made);
+  return made;
 }
 
 /**
@@ -71,33 +98,26 @@ function meet(subject: readonly CanvasFloorPoint[], by: readonly CanvasFloorPoin
 /**
  * Each item a frame holds, with its clip: where every frame above it
  * reaches, seen from above. An item no frame holds is drawn whole, so it
- * is absent.
+ * is absent. Made once per items array, and each clip kept while its
+ * frames stand where they did (`reachOf`, `heldMeet`).
  */
-export function itemClips(nodes: readonly CanvasNode[]): ReadonlyMap<string, CanvasClip> {
+export const itemClips = heldPerItems((nodes): ReadonlyMap<string, CanvasClip> => {
   const membership = canvasMembership(nodes);
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const reaches = new Map<string, CanvasFloorPoint[]>();
-  const reach = (id: string) => {
-    const frame = byId.get(id);
-    if (frame === undefined) return null;
-    const known = reaches.get(id) ?? reachOf(frame);
-    reaches.set(id, known);
-    return known;
-  };
   const clips = new Map<string, CanvasClip>();
   for (const node of nodes) {
     const [first, ...rest] = ancestorsOf(membership, node.id).flatMap((id) => {
-      const known = reach(id);
-      return known === null ? [] : [known];
+      const frame = byId.get(id);
+      return frame === undefined ? [] : [reachOf(frame)];
     });
     if (first === undefined) continue;
     clips.set(
       node.id,
-      rest.reduce((region, by) => meet(region, by), first),
+      rest.reduce((region, by) => heldMeet(region, by), first),
     );
   }
   return clips;
-}
+});
 
 /** Whether the floor point `x`, `y` lies in `clip`, its edge counted in. */
 export function inClip(clip: CanvasClip, x: number, y: number): boolean {

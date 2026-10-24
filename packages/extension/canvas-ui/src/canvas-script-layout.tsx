@@ -49,6 +49,7 @@ export function CanvasScriptLayout({
   // Read on every render: the camera, the page (the selection, the gizmo's mode) and the scene each move it.
   const size = { width, height };
   const shown = canvasProjection(in3d ? "3d" : "2d");
+  // Worked out when a script listens, not here: the gizmo's reach is read then, as it stands then.
   const told = () => {
     const own = in3d ? [gizmo.reach()].filter((reach) => reach !== null) : [];
     return {
