@@ -1368,6 +1368,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
+### GAP: a canvas item with a link shows no mark on the canvas
+
+- **expected** — An item that carries a link wears a small link mark in both projections, as tldraw's shape link button does, so a reader sees what leads somewhere and clicks it to follow.
+- **current** — A link is visible only in the item inspector's Link row and in describe; it is followed with ⌘↵ or the inspector's Follow.
+- **impact** — Links are not discoverable by looking at the canvas.
+- **closes** — A link mark drawn over the stage by one overlay layer (canvas-link-marks.tsx) where the shown projection draws the item (linkMarks in canvas-visible.ts), the projection contract asserting its place in both, and a click on the mark following the link as ⌘↵ does.
+- **node** — `01M546BF0GJ09QQV8H747X0JM7`
+
 ### GAP: a canvas seen in 3D reports its 2D camera on the screen
 
 - **expected** — while a canvas is seen in 3D the screen reports the 3D camera pose and the items actually visible in it
