@@ -124,15 +124,18 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 /**
  * What the deployment lets an app that frames the page have (DESIGN.md →
  * Surfaces → Embedding the page): `origins` may frame it beside its own
- * (`kb ui --embed-origin`), and a framed page tells each its tab session.
+ * (`kb ui --embed-origin`), and a framed page tells each its tab session;
+ * `scripts` are the URLs of classic scripts a framed page loads for them
+ * (`kb ui --embed-script`), each told the origins as `data-parent-origins`.
  */
 export const EmbeddingSchema = z.object({
   origins: z.array(z.string()).readonly(),
+  scripts: z.array(z.string()).readonly(),
 });
 export type Embedding = z.infer<typeof EmbeddingSchema>;
 
-/** No embedder: only the page's own origin may frame it. */
-export const NO_EMBEDDING: Embedding = { origins: [] };
+/** No embedder: only the page's own origin may frame it, and it loads nothing for one. */
+export const NO_EMBEDDING: Embedding = { origins: [], scripts: [] };
 
 export const ServerMessageSchema = z.discriminatedUnion("op", [
   /** First message after connect. */

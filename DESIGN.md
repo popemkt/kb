@@ -3956,6 +3956,19 @@ and props, but not fields minted on the command line
     that session (Action registry → A call made in a tab session); calls
     never go through the frame, so there stays one route to a tab, and an
     agent's work does not depend on the frame being mounted.
+  - **What an embedder adds.** `kb ui --embed-script <url>` (repeatable,
+    and only beside an `--embed-origin`) names classic scripts a framed
+    page loads for its embedder: once each, in a page another window
+    frames, with the allowed origins as the script's `data-parent-origins`
+    (`embedding.scripts` on the `person` frame; `app/ui/src/api/embed.ts`).
+    kb knows nothing of what a script does. bb serves its keyboard hint
+    bridge this way (bbim, `/api/v1/plugins/bbim/http/bridge.js`), which
+    answers only those origins and takes a key only while bb's hints are up
+    or for a bb chord the page did not handle itself; serving it from the
+    embedder keeps its two halves the same version without a kb release.
+    A script runs as the page does, with the person's session, so naming
+    one trusts its origin as much as kb's own code. The page sends no
+    `script-src` today; one added later must allow these scripts' origins.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 

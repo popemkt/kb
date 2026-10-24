@@ -109,16 +109,21 @@ describe("who may frame the page", () => {
     );
   });
 
-  test("each connection is told the origins that may frame the page, and none when there are none", async () => {
+  test("each connection is told what an embedder may have, and nothing when no origin may frame it", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-ui-embed-"));
     await mkdir(join(root, ".kb"), { recursive: true });
     const ctx = await openKb(root);
     expect(
-      await greeted(new SubscriptionHub(ctx, undefined, { origins: ["https://bb.example"] })),
+      await greeted(
+        new SubscriptionHub(ctx, undefined, {
+          origins: ["https://bb.example"],
+          scripts: ["https://bb.example/bridge.js"],
+        }),
+      ),
     ).toEqual({
       op: "person",
       person: null,
-      embedding: { origins: ["https://bb.example"] },
+      embedding: { origins: ["https://bb.example"], scripts: ["https://bb.example/bridge.js"] },
     });
     expect(await greeted(new SubscriptionHub(ctx))).toEqual({ op: "person", person: null });
   });

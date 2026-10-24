@@ -39,6 +39,7 @@ import {
   checkUiListen,
   collectIdentity,
   collectOrigins,
+  collectScripts,
   toGovernance,
   toInt,
   toOrigin,
@@ -304,6 +305,11 @@ function buildProgram(): Command {
       collectOrigins,
     )
     .option(
+      "--embed-script <url>",
+      "when a page an --embed-origin names frames kb, load this script in kb for it (repeatable)",
+      collectScripts,
+    )
+    .option(
       "--identity-header <header=login>",
       "trust the reverse proxy's <header> to name the person; a request whose header is <login> is theirs (repeatable; with --socket)",
       collectIdentity,
@@ -321,6 +327,7 @@ function buildProgram(): Command {
               devPort?: number;
               publicOrigin?: string;
               embedOrigin?: readonly string[];
+              embedScript?: readonly string[];
               identityHeader?: { header: string; people: readonly string[] };
               open?: boolean;
             },
@@ -340,7 +347,7 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
-              embedding: { origins: opts.embedOrigin ?? [] },
+              embedding: { origins: opts.embedOrigin ?? [], scripts: opts.embedScript ?? [] },
               // The page is the server's owner; a hosted deployment may name
               // the person by the proxy it trusts instead.
               identity:
