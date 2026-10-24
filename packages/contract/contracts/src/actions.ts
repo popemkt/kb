@@ -266,6 +266,22 @@ function viaOfEnv(env: Readonly<Record<string, string | undefined>>): string | u
   return via === undefined || via === "" || via.length > VIA_MAX ? undefined : via;
 }
 
+/** What separates the parts of a `via` label, so a prefix can stop at one ({@link viaWithin}). */
+const VIA_SEPARATORS = [":", "/", "."];
+
+/**
+ * Whether `via` is `prefix`'s or one of its parts: the same label, or one that
+ * continues it past a separator (`:`, `/`, `.`). A prefix that ends in a
+ * separator is its own boundary. So `job:a` holds `job:a` and `job:a:1`, not
+ * `job:ab`; `job:` holds every `job:…`.
+ */
+export function viaWithin(via: string, prefix: string): boolean {
+  if (via === prefix) return true;
+  if (!via.startsWith(prefix)) return false;
+  const boundary = VIA_SEPARATORS.some((s) => prefix.endsWith(s)) ? "" : via[prefix.length];
+  return boundary === "" || VIA_SEPARATORS.includes(boundary ?? "");
+}
+
 /** {@link viaOfEnv} as the part of a wire it makes (`SurfaceWire.via`): empty when there is none. */
 export function viaOn(env: Readonly<Record<string, string | undefined>>): {
   readonly via?: string;

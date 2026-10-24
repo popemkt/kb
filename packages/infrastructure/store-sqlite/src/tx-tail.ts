@@ -37,6 +37,8 @@ import {
 import {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
+  pageLength,
+  type TxPage,
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
@@ -98,6 +100,40 @@ export class SqliteTxTail implements TxTail {
     return db
       .query<TxRow, []>("SELECT rev, at, origin, actor, session, via, ops FROM tx ORDER BY rev")
       .all()
+      .map(toKbTx);
+  }
+
+  /**
+   * One page past `rev` in two reads: the revs and sizes of up to `limit`
+   * rows, which `pageLength` cuts, then only the rows it took, decoded. The
+   * ops of a row the page does not take are never read.
+   */
+  since(rev: number, page?: TxPage): KbTx[] {
+    const db = this.connection.peek();
+    if (db === null) return [];
+    const columns = "SELECT rev, at, origin, actor, session, via, ops FROM tx";
+    if (page === undefined) {
+      return db
+        .query<TxRow, [number]>(`${columns} WHERE rev > ? ORDER BY rev`)
+        .all(rev)
+        .map(toKbTx);
+    }
+    const sizes = db
+      .query<{ rev: number; size: number }, [number, number]>(
+        "SELECT rev, length(ops) AS size FROM tx WHERE rev > ? ORDER BY rev LIMIT ?",
+      )
+      .all(rev, page.limit);
+    const last =
+      sizes[
+        pageLength(
+          sizes.map((row) => row.size),
+          page,
+        ) - 1
+      ];
+    if (last === undefined) return [];
+    return db
+      .query<TxRow, [number, number]>(`${columns} WHERE rev > ? AND rev <= ? ORDER BY rev`)
+      .all(rev, last.rev)
       .map(toKbTx);
   }
 

@@ -9,6 +9,7 @@ import {
   envelopeOf,
   onWire,
   viaOn,
+  viaWithin,
   type ActionInvocation,
   type RunningCall,
   type SurfaceWire,
@@ -36,7 +37,7 @@ describe("the via a call is made for", () => {
   });
 
   test("a process states one through KB_VIA, trimmed, and none when it is empty or too long", () => {
-    expect(viaOn({ KB_VIA: " bb:thr_1 " })).toEqual({ via: "bb:thr_1" });
+    expect(viaOn({ KB_VIA: " job:run_1 " })).toEqual({ via: "job:run_1" });
     expect(viaOn({ KB_VIA: "  " })).toEqual({});
     expect(viaOn({ KB_VIA: "x".repeat(257) })).toEqual({});
     expect(viaOn({})).toEqual({});
@@ -54,5 +55,17 @@ describe("the via a call is made for", () => {
       script: { subject: null, grant: {} },
     });
     expect(callWithin(run, { id: "node.get", input: {}, via: "job:b" })?.via).toBe("job:a");
+  });
+});
+
+describe("a via prefix", () => {
+  test("holds its own label and its parts past a separator, never a longer word", () => {
+    expect(viaWithin("job:a", "job:a")).toBe(true);
+    expect(viaWithin("job:a:1", "job:a")).toBe(true);
+    expect(viaWithin("job:a/1", "job:a")).toBe(true);
+    expect(viaWithin("job:ab", "job:a")).toBe(false);
+    expect(viaWithin("job:ab", "job:")).toBe(true);
+    expect(viaWithin("job:ab", "job")).toBe(true);
+    expect(viaWithin("jobs:ab", "job")).toBe(false);
   });
 });

@@ -5,10 +5,32 @@
  * keep the fingerprint — is in `sqlite-store.test.ts`.
  */
 import { Database } from "bun:sqlite";
-import { logContract, storeContract } from "@kb/test-kit";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect } from "effect";
+import { logContract, storeContract, tailContract } from "@kb/test-kit";
 import { SqliteStore, sqliteStorePath } from "../src/index.ts";
 
 storeContract("SqliteStore", (root) => new SqliteStore(root));
+
+const scratchRoot = Effect.acquireRelease(
+  Effect.promise(() => mkdtemp(join(tmpdir(), "kb-tail-contract-"))),
+  (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),
+);
+
+tailContract(
+  "SqliteTxTail",
+  Effect.flatMap(scratchRoot, (root) =>
+    Effect.map(
+      Effect.acquireRelease(
+        Effect.sync(() => new SqliteStore(root)),
+        (store) => Effect.sync(() => store.close()),
+      ),
+      (store) => store.txTail,
+    ),
+  ),
+);
 
 logContract("SqliteStore", {
   makeStore: (root) => new SqliteStore(root),

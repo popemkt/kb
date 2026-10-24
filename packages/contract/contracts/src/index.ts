@@ -7,6 +7,7 @@ export {
   sessionOfMeta,
   VIA_MAX,
   viaOn,
+  viaWithin,
   requestOf,
   ActionReceiptSchema,
   FilledInputSchema,
@@ -216,8 +217,14 @@ export { NO_SECRETS, SecretError } from "./secrets.ts";
 export type { SecretSource } from "./secrets.ts";
 export { GraphWrites } from "./graph-writes.ts";
 export type { GraphPlan, GraphWritesPort } from "./graph-writes.ts";
-export { TX_TAIL_KEEP_ENTRIES, TX_TAIL_MAX_ENTRIES, TxOrigin, VIRTUAL_ORIGIN } from "./tx-log.ts";
-export type { KbTxLog, TxRecord, TxTail } from "./tx-log.ts";
+export {
+  TX_TAIL_KEEP_ENTRIES,
+  TX_TAIL_MAX_ENTRIES,
+  TxOrigin,
+  VIRTUAL_ORIGIN,
+  pageLength,
+} from "./tx-log.ts";
+export type { KbTxLog, TxPage, TxRecord, TxTail } from "./tx-log.ts";
 export { TemplateRegistry, renderText, templateRegistryLayer } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";

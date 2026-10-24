@@ -209,6 +209,7 @@ describe("graph.run / graph.search surface availability", () => {
 describe("graph.changes", () => {
   type Changes = {
     head: number;
+    through: number;
     complete: boolean;
     changes: {
       rev: number;
@@ -237,25 +238,51 @@ describe("graph.changes", () => {
     });
     expect(made.status).toBe("succeeded");
     await invoke(ctx, { id: "node.add", input: { text: "theirs", id: "n.theirs" } });
+    await invoke(ctx, { id: "node.add", input: { text: "near", id: "n.near" }, via: "job:ab" });
 
     const all = await changesOf(ctx, { since: start });
     expect(all.complete).toBe(true);
-    expect(all.changes.map((c) => c.via)).toEqual(["job:a", undefined]);
+    expect(all.changes.map((c) => c.via)).toEqual(["job:a", undefined, "job:ab"]);
+    expect(all.through).toBe(all.head);
     expect(all.changes[0]?.actor).toBe("cli");
-    const mine = present(all.changes[0], "expected the labelled change").wrote.find(
+    const wrote = present(all.changes[0], "expected the labelled change").wrote.find(
       (w) => w.id === "n.mine",
     );
-    expect(mine?.tags.length).toBe(1);
+    expect(wrote?.tags.length).toBe(1);
 
-    const labelled = await changesOf(ctx, { since: start, viaPrefix: "job:" });
-    expect(labelled.changes.map((c) => c.wrote.some((w) => w.id === "n.mine"))).toEqual([true]);
-    expect((await changesOf(ctx, { since: start, limit: 1 })).changes).toHaveLength(1);
+    // A prefix holds its own label and the label's parts, never a longer word.
+    const mine = (prefix: string) =>
+      changesOf(ctx, { since: start, viaPrefix: prefix }).then((p) => p.changes.map((c) => c.via));
+    expect(await mine("job:a")).toEqual(["job:a"]);
+    expect(await mine("job:")).toEqual(["job:a", "job:ab"]);
+    expect(await mine("job")).toEqual(["job:a", "job:ab"]);
+    const first = await changesOf(ctx, { since: start, limit: 1 });
+    expect(first.changes).toHaveLength(1);
+    expect(first.through).toBe(start + 1);
+    expect((await changesOf(ctx, { since: first.through, limit: 1 })).changes[0]?.via).toBe(
+      undefined,
+    );
     expect((await changesOf(ctx, { since: all.head })).changes).toEqual([]);
   });
 
   test("a rev the log cannot reach back from answers no changes, incomplete", async () => {
     const ctx = await openKb(await makeRoot());
     const ahead = await changesOf(ctx, { since: 1_000_000 });
-    expect(ahead).toEqual({ head: ahead.head, complete: false, changes: [] });
+    expect(ahead).toEqual({ head: ahead.head, through: ahead.head, complete: false, changes: [] });
+  });
+
+  test("answers what another process committed since, not this session's last look", async () => {
+    const root = await makeRoot();
+    const reader = await openKb(root);
+    const start = (await changesOf(reader, { since: 0 })).head;
+    const writer = await openKb(root);
+    await invoke(writer, {
+      id: "node.add",
+      input: { text: "elsewhere", id: "n.else" },
+      via: "job:w",
+    });
+    const seen = await changesOf(reader, { since: start });
+    expect(seen.changes.map((c) => c.via)).toEqual(["job:w"]);
+    expect(seen.head).toBe(start + 1);
   });
 });
