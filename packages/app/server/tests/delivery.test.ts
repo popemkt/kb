@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { gunzipSync, brotliDecompressSync } from "node:zlib";
-import { Effect, Option } from "effect";
+import { Effect, Option, Stream } from "effect";
 import type { File } from "effect/FileSystem";
+import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { staticCacheHeaders } from "../src/assets.ts";
 import { acceptedEncoding, deliver, matchesEtag } from "../src/delivery.ts";
 
@@ -11,11 +12,16 @@ function request(headers: Record<string, string> = {}, method = "GET"): Request 
   return new Request("http://kb.test/static/x.js", { method, headers });
 }
 
-function answer(body: string, headers: Record<string, string>, status = 200): Response {
-  return new Response(body, { status, headers });
+function answer(
+  body: string,
+  headers: Record<string, string>,
+  status = 200,
+): HttpServerResponse.HttpServerResponse {
+  return HttpServerResponse.raw(body, { status, headers });
 }
 
-const sent = (req: Request, res: Response) => Effect.runPromise(deliver(req, res));
+const sent = (req: Request, res: HttpServerResponse.HttpServerResponse) =>
+  Effect.runPromise(deliver(req, res));
 
 function infoOf(size: number, mtime: Date): File.Info {
   // Only size and mtime name a file's version; the rest is what a stat says beside them.
@@ -28,6 +34,15 @@ describe("what the client accepts", () => {
     expect(acceptedEncoding("gzip;q=1.0, br;q=0")).toBe("gzip");
     expect(acceptedEncoding("identity")).toBeNull();
     expect(acceptedEncoding(null)).toBeNull();
+  });
+
+  test("the coding weighed highest wins, and * stands for a coding left unnamed", () => {
+    expect(acceptedEncoding("br;q=0.5, gzip;q=0.9")).toBe("gzip");
+    expect(acceptedEncoding("gzip;q=0.5, br;q=0.5")).toBe("br");
+    expect(acceptedEncoding("*")).toBe("br");
+    expect(acceptedEncoding("gzip;q=0.8, *;q=0.1")).toBe("gzip");
+    expect(acceptedEncoding("*;q=0")).toBeNull();
+    expect(acceptedEncoding("br;q=junk, gzip")).toBe("gzip");
   });
 
   test("an If-None-Match names an ETag weakly, in a list, or as *", () => {
@@ -89,6 +104,7 @@ describe("how an answer is sent", () => {
     expect(res.status).toBe(304);
     expect(await res.text()).toBe("");
     expect(res.headers.get("etag")).toBe('W/"1-2"');
+    expect(res.headers.get("vary")).toBe("Accept-Encoding");
     expect(res.headers.get("cache-control")).toBe("no-cache");
     expect(res.headers.get("content-security-policy")).toBe("frame-ancestors 'self'");
 
@@ -97,8 +113,34 @@ describe("how an answer is sent", () => {
   });
 
   test("an answer that is not a 200 is sent untouched", async () => {
-    const failed = answer(script, js, 500);
-    expect(await sent(request({ "accept-encoding": "br" }), failed)).toBe(failed);
+    const failed = await sent(request({ "accept-encoding": "br" }), answer(script, js, 500));
+    expect(failed.status).toBe(500);
+    expect(failed.headers.get("content-encoding")).toBeNull();
+    expect(await failed.text()).toBe(script);
+  });
+
+  test("a streamed body and an event stream go as they are written, never gathered to be encoded", async () => {
+    const streamed = HttpServerResponse.stream(Stream.make(new TextEncoder().encode(script)), {
+      contentType: "text/javascript",
+    });
+    const sentStream = await sent(request({ "accept-encoding": "br" }), streamed);
+    expect(sentStream.headers.get("content-encoding")).toBeNull();
+    expect(await sentStream.text()).toBe(script);
+
+    const events = await sent(
+      request({ "accept-encoding": "br" }),
+      answer(script, { "content-type": "text/event-stream" }),
+    );
+    expect(events.headers.get("content-encoding")).toBeNull();
+    expect(events.headers.get("vary")).toBeNull();
+  });
+
+  test("a body the client cannot keep is encoded afresh, and decodes to the same bytes", async () => {
+    const json = { "content-type": "application/json;charset=utf-8" };
+    const first = await sent(request({ "accept-encoding": "br" }), answer(script, json));
+    expect(first.headers.get("content-encoding")).toBe("br");
+    const bytes = new Uint8Array(await first.arrayBuffer());
+    expect(new TextDecoder().decode(brotliDecompressSync(bytes))).toBe(script);
   });
 
   test("a receipt to a POST is encoded too, but a POST is never answered 304", async () => {

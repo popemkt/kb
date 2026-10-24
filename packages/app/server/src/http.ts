@@ -233,8 +233,7 @@ export function handleHttpRequest(
   return Effect.runPromise(
     handleHttpRequestEffect(req, wire, deps).pipe(
       Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens, deps.hosted)),
-      Effect.map(HttpServerResponse.toWeb),
-      Effect.flatMap((res) => deliver(req, res)),
+      Effect.flatMap((response) => deliver(req, response)),
     ),
   );
 }

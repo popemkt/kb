@@ -255,12 +255,16 @@ be kept, never how it is sent.
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
 - **Compressed when it is text.** A `200` whose type is script, style,
   markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
-  (quality 6) or gzip, whichever the request's `Accept-Encoding` prefers,
-  with `Vary: Accept-Encoding`; media, which is compressed already, goes as
-  it is. A `POST /api/action` receipt is encoded as a read is (the
-  manifest is the largest JSON the page reads). An encoding is computed
-  once per body per process and kept by the body's digest, within a 64 MiB
-  budget.
+  or gzip, whichever the request's `Accept-Encoding` weighs highest (its
+  q-values, `*` for a coding it leaves unnamed, brotli on a tie). Every
+  answer that could be encoded says `Vary: Accept-Encoding`, its `304`
+  too. Media, which is compressed already, an event stream and any
+  streamed body go as they are. A `POST /api/action` receipt is encoded as
+  a read is (the manifest is the largest JSON the page reads). A body the
+  client may keep (it has an `ETag`, or is `immutable`) is encoded once per
+  process at brotli quality 6 and kept by its SHA-256, within a 64 MiB
+  budget; any other body (`/api/graph` after each change, a receipt) is
+  encoded afresh at quality 4 and not kept.
 - **Asked early.** `index.html` preloads `/api/graph`, so the snapshot
   downloads beside the bundle rather than after it, and the boot asks for
   `kb.manifest` beside the graph and follows it once the graph is in
