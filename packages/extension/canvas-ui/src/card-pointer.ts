@@ -27,3 +27,13 @@ export function classifyCardPointer(
   if (innerEditor !== undefined && el.closest(innerEditor) !== null) return "edit";
   return "drag";
 }
+
+/** The id of the item a DOM event landed on, in the 2D stage. */
+export function cardIdAt(target: EventTarget | null): string | undefined {
+  return asElement(target)?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId;
+}
+
+/** The id of the edge a DOM event landed on, in the 2D stage. */
+export function edgeIdAt(target: EventTarget | null): string | undefined {
+  return asElement(target)?.closest<SVGElement>("[data-edge-id]")?.dataset.edgeId;
+}

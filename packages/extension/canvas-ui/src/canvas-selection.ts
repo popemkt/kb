@@ -35,6 +35,28 @@ export function selectionCount(sel: CanvasSelection): number {
   return sel.nodeIds.size + sel.edgeIds.size;
 }
 
+/** The one item selected, when exactly one is: what ↵ edits and ⌘↵ follows. */
+export function soleItem(
+  sel: CanvasSelection,
+  byId: ReadonlyMap<string, CanvasNode>,
+): CanvasNode | undefined {
+  const [id, ...more] = sel.nodeIds;
+  return id === undefined || more.length > 0 ? undefined : byId.get(id);
+}
+
+/**
+ * What a right-click leaves selected, tldraw's: the item or edge it lands
+ * on, unless that is selected already, and nothing on empty canvas.
+ */
+export function selectForMenu(
+  sel: CanvasSelection,
+  hit: { readonly node?: string; readonly edge?: string },
+): CanvasSelection {
+  if (hit.node !== undefined) return sel.nodeIds.has(hit.node) ? sel : selectNode(hit.node);
+  if (hit.edge !== undefined) return sel.edgeIds.has(hit.edge) ? sel : selectEdge(hit.edge);
+  return EMPTY_SELECTION;
+}
+
 export function selectNode(nodeId: string): CanvasSelection {
   return { nodeIds: new Set([nodeId]), edgeIds: new Set() };
 }

@@ -26,7 +26,6 @@ import {
   viewpointFrames,
 } from "@kb/canvas";
 import {
-  asElement,
   browserHost,
   Bullet,
   cn,
@@ -71,7 +70,7 @@ import { createCanvasNode } from "./canvas-api";
 import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
-import { classifyCardPointer } from "./card-pointer";
+import { cardIdAt, classifyCardPointer } from "./card-pointer";
 import {
   drawsFromPress,
   pressPans,
@@ -95,6 +94,9 @@ import {
   selectNode as selNode,
   selectionEmpty,
 } from "./canvas-selection";
+import { CanvasContextMenu } from "./canvas-context-menu";
+import { CanvasZoomMenu } from "./canvas-zoom-menu";
+import { useCanvasContextMenu } from "./use-canvas-menu";
 import {
   carriesItems,
   createPointerState,
@@ -107,11 +109,6 @@ import {
 
 /** The 3D projection's chunk: three loads only when a canvas is looked at in depth. */
 const Canvas3dStage = lazy(() => import("./canvas-3d-stage"));
-
-/** The id of the item a DOM event landed on, in the 2D stage. */
-function cardIdAt(target: EventTarget | null): string | undefined {
-  return asElement(target)?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId;
-}
 
 /** A lint as a script is told it: plain data. */
 const told = ({ rule, ids, message }: CanvasLint) => ({ rule, ids: [...ids], message });
@@ -470,6 +467,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   });
   const modal = pointerState.drag?.kind === "transform" && pointerState.drag.modal;
   const modalDrag = modal ? pointerState.drag : null;
+  const contextMenu = useCanvasContextMenu(selection, setSelection);
   /** Present mode steps through the frames, flying to each face-on; past either end it stays. */
   const present = (act: PresentAct) => {
     const step = act === "next" ? 1 : act === "previous" ? -1 : 0;
@@ -567,7 +565,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         >
           Add node
         </button>
-        <span className="text-label text-foreground/30">{Math.round(zoom * 100)}%</span>
+        <CanvasZoomMenu zoom={zoom} selection={selection} byId={byId} onIntent={applyIntent} />
       </div>
 
       <CanvasPageStrip
@@ -619,6 +617,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             e.stopPropagation();
             pressCard(card, e, (id) => startMoveForSelection(e, id));
           }}
+          onContextMenu={contextMenu.open}
           onDoubleClickCapture={(e) => {
             const card = byId.get(cardIdAt(e.target) ?? "");
             if (modal || card === undefined || !enter(card)) return;
@@ -708,6 +707,13 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             </Suspense>
           </div>
         )}
+        <CanvasContextMenu
+          at={contextMenu.at}
+          selection={selection}
+          byId={byId}
+          onIntent={applyIntent}
+          onClose={contextMenu.close}
+        />
         <CanvasFaceEditor
           item={faces.deep}
           rig={projection.rig}

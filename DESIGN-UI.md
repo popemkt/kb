@@ -1484,6 +1484,21 @@ manipulation feel professional rather than merely functional.
   `@kb/canvas` `edges.ts`'s (`edgeRoute`, `edgeHead`); an edge's line and
   heads are drawn as `edgePaint` says (`@kb/canvas` `paint.ts`); the edge
   inspector (The style panel, below) picks them.
+- **The context menu** (`canvas-context-menu.tsx`), tldraw's: a
+  right-click on the 2D stage selects what it lands on unless it is
+  selected already, and nothing on empty canvas (`selectForMenu`), and
+  opens there, kept inside the stage, a menu of the keymap's own commands
+  with their keys (`CANVAS_MENUS`, `menuRows`, `canvas-keymap.ts`), sent through the
+  keymap's applier, so a row and its key cannot mean different things. On
+  the selection: edit its words and follow its link, cut, copy, duplicate
+  and delete, group, ungroup and lock, front and back, the flips, and
+  framing it; on empty canvas: undo and redo, select all, frame all and
+  100%. A row with nothing to act on is left out (`menuCommands`). A menu
+  a modal transform's press swallowed opens nothing. The header's zoom
+  readout is a button that opens the zoom menu, drawn the same way
+  (`CommandMenu`, `canvas-menu.tsx`, which keeps a menu opened at a point inside the stage): in, out, 100%, frame all and the
+  selection. The view menu shares their surface, rows and keys
+  (`use-canvas-menu.ts`).
 - **Floating selection toolbar** with Group / Ungroup / Delete /
   Bring-to-front / Send-to-back. Items paint by the height of their top
   (`z + depth`), then in document order, and the two buttons reorder the
@@ -1874,7 +1889,9 @@ the view node switches every page showing the canvas through it.
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour
-on the stroke itself, edge endpoint re-routing; in 3D, a flat item that is
+on the stroke itself, edge endpoint re-routing, a paste row in the context
+menu (the browser's paste event is the canvas's one paste), the context menu
+in 3D (`GAP [[01M5QQVBJFGF3GKZJVF151CABJ]]`); in 3D, a flat item that is
 not a billboard seen exactly level (the front and side presets), which is a
 hairline on its plane (`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a cone or a sphere paints by
 the height of its point, so a raised card floating over its rim is drawn

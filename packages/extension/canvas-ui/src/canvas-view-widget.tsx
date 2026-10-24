@@ -25,6 +25,8 @@ import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from 
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
+import { MenuHint, MenuSeparator } from "./canvas-menu";
+import { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./use-canvas-menu";
 import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
 
 export interface CanvasViewWidgetProps extends ShownCameraProps {
@@ -181,12 +183,6 @@ function checkedOf(
   return null;
 }
 
-/** The menu's row look, and its kbd hint's. */
-const ROW = cn(
-  "flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left outline-none",
-  "hover:bg-foreground/[0.06] focus-visible:bg-foreground/[0.06] disabled:opacity-40",
-);
-
 function ViewMenu({
   view,
   in3d,
@@ -206,31 +202,16 @@ function ViewMenu({
   onClose: () => void;
   anchor: React.RefObject<HTMLElement | null>;
 }) {
-  const menu = useRef<HTMLDivElement>(null);
-  const items = () => [
-    ...(menu.current?.querySelectorAll<HTMLButtonElement>("[role^=menuitem]:not(:disabled)") ?? []),
-  ];
+  const { ref: menu, onKeyDown } = useMenuKeys();
   // The anchor is its trigger: its click toggles the menu.
   useDismiss(true, { inside: [menu], trigger: anchor }, onClose);
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    const all = items();
-    const at = all.findIndex((item) => item === document.activeElement);
-    const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-    if (step !== 0) all[(at + step + all.length) % all.length]?.focus();
-    else if (e.key === "Home") all[0]?.focus();
-    else if (e.key === "End") all.at(-1)?.focus();
-    else return;
-    // The canvas's own keys (nudge, escape) stay out of an open menu.
-    e.preventDefault();
-    e.stopPropagation();
-  };
   return (
     <div
       ref={menu}
       role="menu"
       aria-label="View"
       data-testid="canvas-view-menu"
-      className="kb-surface-enter absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-foreground/10 bg-popover p-1 text-ui text-popover-foreground shadow-overlay"
+      className={cn(MENU_SURFACE, "absolute right-0 top-full mt-1")}
       onKeyDown={onKeyDown}
     >
       {CANVAS_VIEW_COMMANDS.map((command, index) => {
@@ -250,7 +231,7 @@ function ViewMenu({
               : "menuitemradio";
         return (
           <div key={command.label}>
-            {separated && <div role="separator" className="mx-1 my-1 h-px bg-foreground/10" />}
+            {separated && <MenuSeparator />}
             <button
               type="button"
               role={role}
@@ -258,7 +239,7 @@ function ViewMenu({
               disabled={disabled}
               // The menu opens with its first command focused, for the arrow keys.
               autoFocus={command === CANVAS_VIEW_COMMANDS[0]}
-              className={cn(ROW, checked === true ? "text-foreground" : "text-foreground/70")}
+              className={cn(MENU_ROW, checked === true ? "text-foreground" : "text-foreground/70")}
               onClick={() => {
                 onIntent(intent);
                 onClose();
@@ -272,11 +253,7 @@ function ViewMenu({
                 aria-hidden
               />
               <span className="truncate">{command.label}</span>
-              {command.hint !== "" && (
-                <kbd className="ml-auto font-mono text-label text-foreground/35">
-                  {command.hint}
-                </kbd>
-              )}
+              <MenuHint hint={command.hint} />
             </button>
           </div>
         );
@@ -303,13 +280,13 @@ function FrameItems({
   if (frames.length === 0) return null;
   return (
     <div role="group" aria-label="Frames">
-      <div role="separator" className="mx-1 my-1 h-px bg-foreground/10" />
+      <MenuSeparator />
       {frames.map((frame, at) => (
         <button
           key={frame.id}
           type="button"
           role="menuitem"
-          className={cn(ROW, "text-foreground/70")}
+          className={cn(MENU_ROW, "text-foreground/70")}
           onClick={() => {
             onGo(frame.id);
             onClose(false);

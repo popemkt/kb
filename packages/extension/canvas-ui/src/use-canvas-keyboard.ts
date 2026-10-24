@@ -29,6 +29,7 @@ import {
   selectAll,
   selectNode,
   selectionEmpty,
+  soleItem,
 } from "./canvas-selection";
 import {
   mapCanvasKey,
@@ -125,8 +126,7 @@ function cutSelection(context: CanvasKeyboardContext) {
 
 /** ↵: the one item selected, when it has words of its own to type, opened for typing. */
 function editSelection(context: CanvasKeyboardContext) {
-  const [id, ...more] = context.selRef.current.nodeIds;
-  const item = id === undefined || more.length > 0 ? undefined : context.byId.get(id);
+  const item = soleItem(context.selRef.current, context.byId);
   if (item !== undefined && hasEditor(item)) context.edit(item.id);
 }
 
@@ -258,8 +258,7 @@ function toggleLock(context: CanvasKeyboardContext): void {
 
 /** Where the one item selected leads, followed; nothing when more are selected or it leads nowhere. */
 function followSelection(context: CanvasKeyboardContext): void {
-  const [id, ...more] = context.selRef.current.nodeIds;
-  const item = id === undefined || more.length > 0 ? undefined : context.byId.get(id);
+  const item = soleItem(context.selRef.current, context.byId);
   const link = item === undefined ? undefined : itemLead(item);
   if (link !== undefined) context.follow(link);
 }

@@ -75,6 +75,15 @@ const key = (init: KeyboardEventInit) =>
     window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
   });
 
+/** A right-click on `target`; whether its menu was taken from the browser. */
+function rightClick(target: EventTarget): boolean {
+  const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+  act(() => {
+    target.dispatchEvent(event);
+  });
+  return event.defaultPrevented;
+}
+
 /** Past the canvas's persist debounce. */
 const settle = () => act(async () => new Promise((done) => setTimeout(done, 350)));
 
@@ -417,7 +426,7 @@ describe("CanvasPage pointer interactions", () => {
     const bar = () => container.querySelector('[data-testid="canvas-present-bar"]');
 
     act(() => {
-      present(container.querySelector<HTMLElement>("[aria-haspopup=menu]"), "view menu").click();
+      present(container.querySelector<HTMLElement>('[title^="View menu"]'), "view menu").click();
     });
     const start = [...container.querySelectorAll<HTMLElement>("[role=menuitem]")].find((item) =>
       item.textContent.startsWith("Present frames"),
@@ -499,6 +508,48 @@ describe("CanvasPage pointer interactions", () => {
     ]);
     // The preview drawn on the way is gone: the edge is all that was written.
     expect(written?.nodes.map((n) => n.id)).toEqual(["a", "b"]);
+  });
+
+  it("a right-click opens the context menu on what it lands on; its rows are the keymap's commands", async () => {
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    const canvasStage = present(container.querySelector("[data-canvas-stage]"), "stage contents");
+    const surface = present(canvasStage.parentElement?.parentElement, "pointer surface");
+    const cardB = present(container.querySelector('[data-card-id="b"] .group\\/card'), "card b");
+    const menu = () => container.querySelector('[data-testid="canvas-context-menu"]');
+    const row = (label: string) =>
+      [...(menu()?.querySelectorAll("[role=menuitem]") ?? [])].find((el) =>
+        el.textContent.startsWith(label),
+      ) as HTMLButtonElement | undefined;
+    expect(rightClick(cardB)).toBe(true);
+    // b is selected, and the menu offers what is done to it, with its keys.
+    expect(row("Delete")?.textContent).toContain("Del");
+    expect(row("Undo")).toBeUndefined();
+    // Nothing to ungroup in a rectangle.
+    expect(row("Ungroup")).toBeUndefined();
+    act(() => row("Delete")?.click());
+    expect(menu()).toBeNull();
+    await settle();
+    expect(persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.map((n) => n.id)).toEqual(["a"]);
+    // On empty canvas: what is done to the canvas.
+    expect(rightClick(surface)).toBe(true);
+    expect(row("Delete")).toBeUndefined();
+    act(() => row("Undo")?.click());
+    await settle();
+    expect(persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.map((n) => n.id)).toEqual(["a", "b"]);
+    // The zoom readout is the zoom menu's button.
+    const zoom = present(container.querySelector<HTMLElement>('button[title="Zoom"]'), "zoom");
+    expect(zoom.textContent).toBe("100%");
+    act(() => zoom.click());
+    const zoomIn = [
+      ...container.querySelectorAll<HTMLElement>(
+        '[data-testid="canvas-zoom-menu"] [role=menuitem]',
+      ),
+    ].find((el) => el.textContent.startsWith("Zoom in"));
+    act(() => zoomIn?.click());
+    expect(zoom.textContent).not.toBe("100%");
+    expect(container.querySelector('[data-testid="canvas-zoom-menu"]')).toBeNull();
   });
 
   it("a double-click on empty canvas makes a text card that is typed into at once, as ↵ opens one", async () => {
@@ -788,15 +839,10 @@ describe("CanvasPage pointer interactions", () => {
       dispatchPointer(pointerSurface, "pointermove", { buttons: 0, clientX: 110, clientY: 60 });
       expect(readout()).not.toBeNull();
     };
-    const menu = () => {
-      const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
-      act(() => {
-        cardA.dispatchEvent(event);
-      });
-      return event.defaultPrevented;
-    };
+    const menu = () => rightClick(cardA);
     const persistedA = () =>
       persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.find((node) => node.id === "a");
+    const contextMenu = () => container.querySelector('[data-testid="canvas-context-menu"]');
 
     // The right button cancels, its context menu swallowed; so does a Ctrl-click (macOS's).
     for (const init of [{ button: 2 }, { button: 0, ctrlKey: true }]) {
@@ -804,8 +850,14 @@ describe("CanvasPage pointer interactions", () => {
       dispatchPointer(cardA, "pointerdown", { clientX: 110, clientY: 60, ...init });
       expect(readout()).toBeNull();
       expect(menu()).toBe(true);
-      // Swallowed once: the next menu is the browser's.
-      expect(menu()).toBe(false);
+      expect(contextMenu()).toBeNull();
+      // Swallowed once: the next is the canvas's own menu, which Escape shuts.
+      expect(menu()).toBe(true);
+      expect(contextMenu()).not.toBeNull();
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      });
+      expect(contextMenu()).toBeNull();
       await settle();
       expect(persistCanvasDoc).not.toHaveBeenCalled();
     }

@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
   CANVAS_VIEW_COMMANDS,
+  menuRows,
   mapCanvasKey,
   type CanvasIntent,
   type CanvasKeyEvent,
+  type CanvasMenuName,
 } from "./canvas-keymap";
 import { ZOOM_STEP } from "./canvas-camera";
 
@@ -266,5 +268,33 @@ describe("what the browser still gets", () => {
     expect(mapCanvasKey(chord("a", { metaKey: true }), empty)?.intent).toEqual({
       type: "selectAll",
     });
+  });
+});
+
+const labels = (menu: CanvasMenuName) =>
+  menuRows(menu).map((row) => row.map((command) => command.label));
+
+describe("the command menus", () => {
+  test("list the table's own commands, every row it names found, with their keys", () => {
+    expect(labels("selection")).toEqual([
+      ["Edit its words", "Follow link"],
+      ["Cut", "Copy", "Duplicate", "Delete"],
+      ["Group into a frame", "Ungroup", "Lock or unlock"],
+      ["Bring to front", "Send to back"],
+      ["Flip left for right", "Flip top for bottom"],
+      ["Frame selection"],
+    ]);
+    expect(labels("canvas")).toEqual([
+      ["Undo", "Redo"],
+      ["Select all"],
+      ["Frame all", "Zoom to 100%"],
+    ]);
+    expect(labels("zoom")).toEqual([
+      ["Zoom in", "Zoom out", "Zoom to 100%"],
+      ["Frame all", "Frame selection"],
+    ]);
+    const cut = menuRows("selection")[1]?.[0];
+    expect(cut?.intent).toEqual({ type: "cut" });
+    expect(cut?.hint).toBe("⌘X");
   });
 });

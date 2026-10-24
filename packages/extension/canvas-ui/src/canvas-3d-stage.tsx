@@ -159,6 +159,7 @@ function useSceneGestures(
       if (timer !== null) clearTimeout(timer);
       timer = setTimeout(settled, WHEEL_SETTLE_MS);
     };
+    // GAP [[01M5QQVBJFGF3GKZJVF151CABJ]] canvas context menu opens in 2D only
     const onMenu = (e: Event) => e.preventDefault();
     const onDoubleClick = (e: MouseEvent) => gestures.doubleClick(pressOf(el, e));
     el.addEventListener("pointerdown", onDown);

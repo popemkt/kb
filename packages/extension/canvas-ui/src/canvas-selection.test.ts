@@ -11,9 +11,11 @@ import {
   scopeIn,
   selectAll,
   selectEdge,
+  selectForMenu,
   selectNode,
   selectionCount,
   selectionEmpty,
+  soleItem,
   toggleNode,
 } from "./canvas-selection";
 
@@ -160,5 +162,22 @@ describe("the scope a selection is made in", () => {
     expect(pickAllIn(membership, all, null)).toEqual(new Set(["frame", "c"]));
     expect(pickAllIn(membership, all, "frame")).toEqual(new Set(["a", "inner"]));
     expect(pickAllIn(membership, all, "inner")).toEqual(new Set(["b"]));
+  });
+});
+
+describe("a right-click's selection and the one item selected", () => {
+  test("a right-click selects what it lands on unless that is selected already, and nothing on empty canvas", () => {
+    const both = addNodes(selectNode("a"), new Set(["b"]));
+    expect(selectForMenu(both, { node: "a" })).toBe(both);
+    expect(selectForMenu(both, { node: "c" })).toEqual(selectNode("c"));
+    expect(selectForMenu(both, { edge: "e1" })).toEqual(selectEdge("e1"));
+    expect(selectForMenu(both, {})).toBe(EMPTY_SELECTION);
+  });
+
+  test("the sole item is the one selected, and none for two", () => {
+    const byId = new Map(sampleDoc.nodes.map((node) => [node.id, node]));
+    expect(soleItem(selectNode("a"), byId)?.id).toBe("a");
+    expect(soleItem(addNodes(selectNode("a"), new Set(["b"])), byId)).toBeUndefined();
+    expect(soleItem(EMPTY_SELECTION, byId)).toBeUndefined();
   });
 });

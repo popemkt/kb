@@ -507,6 +507,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
 - **node** — `01M5QP271PQ15E7WZ36KEN055N`
 
+### GAP: canvas context menu opens in 2D only; a right-click in 3D opens nothing
+
+- **expected** — a right-click that does not drag opens the same context menu in 3D as in 2D, on what it lands on
+- **current** — in 3D the right button pans, and the scene swallows every contextmenu event (canvas-3d-stage.tsx), so the menu never opens there
+- **impact** — in 3D the menu's commands are reachable only by key or the selection bar
+- **closes** — the scene gestures tell a right press that did not pan from a right drag, and open useCanvasContextMenu at the release with the item the 3D hit test names
+- **node** — `01M5QQVBJFGF3GKZJVF151CABJ`
+
 ### GAP: canvas drafts and tool presses do not snap to items or the grid
 
 - **expected** — a shape, frame or arrow being drawn snaps its corners and line ends to nearby items' edges and centres, with the guides a drag shows, as tldraw's do

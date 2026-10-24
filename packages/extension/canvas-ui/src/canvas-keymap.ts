@@ -552,6 +552,44 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   shortcut("View", "Zoom to 100%", { type: "zoomTo", zoom: 1 }, [{ key: "0", mod: true }]),
 ];
 
+/** A command a menu lists: a shortcut whose intent is known before any key is pressed. */
+export type CanvasMenuCommand = CanvasShortcut & { readonly intent: CanvasIntent };
+
+/**
+ * The canvas's command menus, tldraw's, as rows of the table's own
+ * shortcuts by label, so a row and its key cannot mean different things:
+ * the context menu on the selection and on empty canvas, and the zoom menu.
+ */
+const CANVAS_MENUS = {
+  selection: [
+    ["Edit its words", "Follow link"],
+    ["Cut", "Copy", "Duplicate", "Delete"],
+    ["Group into a frame", "Ungroup", "Lock or unlock"],
+    ["Bring to front", "Send to back"],
+    ["Flip left for right", "Flip top for bottom"],
+    ["Frame selection"],
+  ],
+  canvas: [["Undo", "Redo"], ["Select all"], ["Frame all", "Zoom to 100%"]],
+  zoom: [
+    ["Zoom in", "Zoom out", "Zoom to 100%"],
+    ["Frame all", "Frame selection"],
+  ],
+} as const;
+
+export type CanvasMenuName = keyof typeof CANVAS_MENUS;
+
+const isMenuCommand = (entry: CanvasShortcut): entry is CanvasMenuCommand =>
+  entry.intent !== null && typeof entry.intent !== "function";
+
+/** Menu `menu`'s rows of commands (`CANVAS_MENUS`). */
+export function menuRows(menu: CanvasMenuName): readonly (readonly CanvasMenuCommand[])[] {
+  return CANVAS_MENUS[menu].map((labels) =>
+    labels.flatMap((label) =>
+      CANVAS_SHORTCUTS.filter((s) => s.label === label && s.mode === "rest").filter(isMenuCommand),
+    ),
+  );
+}
+
 const mod = (event: CanvasKeyEvent) => event.metaKey === true || event.ctrlKey === true;
 
 /** Whether `event` presses `chord`. */
