@@ -9,18 +9,34 @@
  * themselves are measured, not gated here.
  */
 // GAP [[01M5PMJEGCJPMVNCKBDYZ0V57G]] the 60fps bar is measured on a scratch benchmark, not gated
-import { act, createElement } from "react";
+import { act, createElement, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as KbCanvas from "@kb/canvas";
 import type { CanvasDoc, CanvasEdge, CanvasGroupNode, CanvasNode } from "@kb/canvas";
 import type * as CardBox from "./canvas-card-box";
+import type * as Visible from "./canvas-visible";
 import type { OutlineNode } from "@kb/ui-sdk";
 import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
+import { canvasWorld } from "@kb/canvas";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
+import { viewOfPan } from "./canvas-camera";
+import { CanvasCameraRig } from "./canvas-camera-rig";
+import type { CanvasComments } from "./use-canvas-comments";
 
-/** Every item and every edge drawn, by id, in the order they were; and how often the items were walked. */
-const drawn = vi.hoisted(() => ({ items: [] as string[], edges: [] as string[], walks: 0 }));
+/**
+ * Every item and every edge drawn, by id, in the order they were; how often
+ * the items were walked; and how often the layers over the stage placed
+ * their link marks and their comment pins.
+ */
+const drawn = vi.hoisted(() => ({
+  items: [] as string[],
+  edges: [] as string[],
+  walks: 0,
+  marks: 0,
+  pins: 0,
+}));
 
 // Each item is laid out once per draw (`cardBoxStyle`), each edge painted once (`edgePaint`),
 // and the item layer walks the items in paint order once each time it is drawn (`paintOrder`).
@@ -49,7 +65,25 @@ vi.mock("@kb/canvas", async (importOriginal) => {
   };
 });
 
+// Each layer over the stage places its marks (`linkMarks`) and its pins (`threadPins`) once per draw.
+vi.mock("./canvas-visible", async (importOriginal) => {
+  const actual = await importOriginal<typeof Visible>();
+  return {
+    ...actual,
+    linkMarks: (...args: Parameters<typeof actual.linkMarks>) => {
+      drawn.marks += 1;
+      return actual.linkMarks(...args);
+    },
+    threadPins: (...args: Parameters<typeof actual.threadPins>) => {
+      drawn.pins += 1;
+      return actual.threadPins(...args);
+    },
+  };
+});
+
 import { CanvasStage } from "./canvas-stage";
+import { CanvasLinkMarks } from "./canvas-link-marks";
+import { CanvasCommentLayer } from "./canvas-comments";
 
 const noop = () => {};
 
@@ -334,5 +368,92 @@ describe("what the 2D stage draws at all", () => {
     const shown = cardsShown();
     expect(shown).toContain("n150");
     expect(shown).not.toContain("n0");
+  });
+});
+
+describe("what the layers over the stage draw again", () => {
+  const size = { width: 800, height: 600 };
+  const rig = new CanvasCameraRig(viewOfPan({ x: 0, y: 0 }, 1, size), TIMING_FALLBACK, true);
+  const world = canvasWorld([]);
+  const stage = createRef<HTMLElement>();
+  const comments: CanvasComments = {
+    threads: [],
+    open: null,
+    start: noop,
+    show: noop,
+    close: noop,
+    post: async () => null,
+    resolve: async () => null,
+    pointed: null,
+    point: noop,
+    filter: "open",
+    setFilter: noop,
+    listed: false,
+    setListed: noop,
+  };
+  const linked: CanvasDoc = {
+    nodes: [{ ...smallCard("a", 0, 0), link: { url: "https://kb.test/" } }],
+    edges: [],
+  };
+
+  /** Draw both layers as a page does: its camera props made anew, its handlers lasting. */
+  function overlay(doc: CanvasDoc, pan: { x: number; y: number }, step: number) {
+    const camera = { rig, in3d: false, pan, zoom: 1, ...size };
+    act(() =>
+      root.render(
+        createElement(
+          "div",
+          { "data-step": step },
+          createElement(CanvasLinkMarks, { ...camera, doc, world, onFollow: noop }),
+          createElement(CanvasCommentLayer, {
+            ...camera,
+            doc,
+            world,
+            tool: "select",
+            stage,
+            comments,
+          }),
+        ),
+      ),
+    );
+  }
+
+  it("a page drawing again draws neither; a camera move or a new document draws both", () => {
+    const pan = { x: 0, y: 0 };
+    overlay(linked, pan, 0);
+    drawn.marks = 0;
+    drawn.pins = 0;
+    overlay(linked, pan, 1);
+    expect({ marks: drawn.marks, pins: drawn.pins }).toEqual({ marks: 0, pins: 0 });
+    overlay(linked, { x: 30, y: 0 }, 2);
+    expect({ marks: drawn.marks, pins: drawn.pins }).toEqual({ marks: 1, pins: 1 });
+    const moved = { ...smallCard("a", 50, 0), link: { url: "https://kb.test/" } };
+    overlay({ nodes: [moved], edges: [] }, { x: 30, y: 0 }, 3);
+    expect({ marks: drawn.marks, pins: drawn.pins }).toEqual({ marks: 2, pins: 2 });
+  });
+
+  it("a resize keeps a link mark on its item: the view and its stage are one reading", () => {
+    const at = () => {
+      const mark = container.querySelector<HTMLElement>("[data-link-mark]");
+      return { left: mark?.style.left, top: mark?.style.top };
+    };
+    const camera = { rig, in3d: false, pan: { x: 40, y: 40 }, zoom: 1 };
+    const draw = (width: number) =>
+      act(() =>
+        root.render(
+          createElement(CanvasLinkMarks, {
+            ...camera,
+            width,
+            height: 600,
+            doc: linked,
+            world,
+            onFollow: noop,
+          }),
+        ),
+      );
+    draw(800);
+    const before = at();
+    draw(1200);
+    expect(at()).toEqual(before);
   });
 });

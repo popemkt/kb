@@ -34,7 +34,9 @@
  * - a comment thread's pin (`threadPins`) stands at the top right of each
  *   item it is pinned on as drawn — through its node on every card showing
  *   it, or on the item — or where its point is drawn, and nowhere once its
- *   pin is lost.
+ *   pin is lost;
+ * - an item's link mark (`linkMarks`) hangs from the bottom right of the
+ *   item as drawn, and only an item that carries a link wears one.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
  * the GPU stand-ins (`@kb/ui-test-kit`), each read by its probe
@@ -85,7 +87,7 @@ import type { CanvasSelection } from "./canvas-selection";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
-import { itemScreenRects, threadPins } from "./canvas-visible";
+import { itemScreenRects, linkMarks, threadPins } from "./canvas-visible";
 import { PROBES, PROBE_LOOK, useProbePage } from "./test-support/projection-probes";
 
 type Probe = Awaited<ReturnType<(typeof PROBES)["2d"]>>;
@@ -575,6 +577,24 @@ describe("canvas projection contract", () => {
             : { x: Math.max(...drawn.map((p) => p.x)), y: Math.min(...drawn.map((p) => p.y)) };
         expect(Math.abs(pin.at.x - (tip?.x ?? Number.NaN)), `${pin.thread.id} x`).toBeLessThan(1);
         expect(Math.abs(pin.at.y - (tip?.y ?? Number.NaN)), `${pin.thread.id} y`).toBeLessThan(1);
+      }
+      probe.dispose();
+    });
+
+    it("hangs a linked item's mark from its bottom right as drawn, and none on an item without a link", async () => {
+      const probe = await mount(view, scene);
+      const linked = {
+        ...doc,
+        nodes: doc.nodes.map((item) =>
+          item.id === "raised" ? { ...item, link: { url: "https://kb.test/" } } : item,
+        ),
+      };
+      const marks = linkMarks(linked, view, size);
+      expect(marks.map((mark) => mark.item)).toEqual(["raised"]);
+      const drawn = probe.cornersOf("raised") ?? [];
+      for (const mark of marks) {
+        expect(Math.abs(mark.at.x - Math.max(...drawn.map((p) => p.x)))).toBeLessThan(1);
+        expect(Math.abs(mark.at.y - Math.max(...drawn.map((p) => p.y)))).toBeLessThan(1);
       }
       probe.dispose();
     });

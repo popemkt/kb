@@ -1,11 +1,5 @@
 import { useRef, useState } from "react";
-import {
-  isShapeNode,
-  type CanvasDoc,
-  type CanvasEdge,
-  type CanvasMembership,
-  type CanvasNode,
-} from "@kb/canvas";
+import type { CanvasDoc, CanvasEdge, CanvasMembership, CanvasNode } from "@kb/canvas";
 import {
   type CanvasScope,
   type CanvasSelection,
@@ -22,10 +16,7 @@ import {
 /** The modifiers a card press carries; a DOM pointer event is one. */
 type CardPress = Pick<PointerEvent, "shiftKey" | "metaKey" | "ctrlKey">;
 
-/**
- * The moves in and out of groups, read against the scope: `select` sets a
- * selection with the inspectors closed.
- */
+/** The moves in and out of groups, read against the scope: `select` sets a selection. */
 function scopeMoves(
   membership: CanvasMembership,
   scope: CanvasScope,
@@ -74,11 +65,6 @@ export function useCanvasSelection(
   /** The group entered, as last set; one that has since gone is the canvas (`scopeIn`). */
   const [enteredScope, setScope] = useState<CanvasScope>(null);
   const scope = scopeIn(membership, enteredScope);
-  const [inspectorAnchor, setInspectorAnchor] = useState<{ x: number; y: number } | null>(null);
-  const [itemInspectorAnchor, setItemInspectorAnchor] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
 
@@ -95,14 +81,11 @@ export function useCanvasSelection(
    * a press there selects in the scope (`pickIn`): a member of a group not
    * entered stands for its group, and a press outside the scope steps out
    * of it. A modifier toggles that item in the selection; a plain press
-   * selects it and starts moving it (`startMove`, with the item's id). A
-   * shape newly selected opens its inspector at `anchor`, where it was
-   * pressed; any item's inspector opens from the selection toolbar.
+   * selects it and starts moving it (`startMove`, with the item's id).
    */
   const onCardPointerDown = (
     card: CanvasNode,
     press: CardPress,
-    anchor: { x: number; y: number } | undefined,
     startMove: (id: string) => void,
   ) => {
     const picked = pickIn(membership, card.id, scope);
@@ -111,23 +94,13 @@ export function useCanvasSelection(
     const isSelected = selection.nodeIds.has(item.id);
     if (press.shiftKey || press.metaKey || press.ctrlKey) {
       setSelection(toggleNode(selection, item.id));
-      setInspectorAnchor(null);
-      setItemInspectorAnchor(null);
       return;
     }
-    if (!isSelected) {
-      setSelection(selectNode(item.id));
-      setInspectorAnchor(null);
-      setItemInspectorAnchor(isShapeNode(item) && item === card ? (anchor ?? null) : null);
-    }
+    if (!isSelected) setSelection(selectNode(item.id));
     startMove(item.id);
   };
 
-  const { pressReaches, enter, leave } = scopeMoves(membership, scope, setScope, (next) => {
-    setSelection(next);
-    setInspectorAnchor(null);
-    setItemInspectorAnchor(null);
-  });
+  const { pressReaches, enter, leave } = scopeMoves(membership, scope, setScope, setSelection);
 
   const onEdgeClick = (edge: CanvasEdge, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -136,13 +109,10 @@ export function useCanvasSelection(
     } else {
       setSelection(selectEdge(edge.id));
     }
-    setInspectorAnchor({ x: event.clientX, y: event.clientY });
-    setItemInspectorAnchor(null);
   };
 
   return {
     enter,
-    inspectorAnchor,
     leave,
     onCardPointerDown,
     onEdgeClick,
@@ -152,10 +122,7 @@ export function useCanvasSelection(
     selectedItem,
     selection,
     selectionRef,
-    setInspectorAnchor,
     setScope,
     setSelection,
-    setItemInspectorAnchor,
-    itemInspectorAnchor,
   };
 }

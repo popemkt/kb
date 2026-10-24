@@ -1,6 +1,6 @@
 /**
  * The canvas's view widget (DESIGN-UI.md → Canvas → Projections): an axis
- * gizmo in the stage's corner, computed from the camera's frame
+ * gizmo heading the dock (`CanvasDock`), computed from the camera's frame
  * (`screenAxes`), so it needs no second scene, and under it the name of the
  * view, which opens the view menu. In 2D it shows the top view, which is what
  * 2D is.
@@ -21,18 +21,13 @@ import {
   screenAxes,
   type CanvasView,
 } from "./canvas-camera";
-import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
-import { useShownView } from "./use-shown-view";
+import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
 
-export interface CanvasViewWidgetProps {
-  readonly rig: CanvasCameraRig;
-  /** The 3D scene is the one showing (otherwise the view is `flatView`). */
-  readonly in3d: boolean;
-  readonly flatView: CanvasView;
+export interface CanvasViewWidgetProps extends ShownCameraProps {
   /** The projection the canvas asks for. */
   readonly projection: CanvasProjectionKind;
   readonly selectionEmpty: boolean;
@@ -329,23 +324,19 @@ function FrameItems({
 }
 
 export function CanvasViewWidget({
-  rig,
-  in3d,
-  flatView,
   projection,
   selectionEmpty,
   frames,
   menuOpen,
   onMenuOpenChange,
   onIntent,
+  ...camera
 }: CanvasViewWidgetProps) {
-  const view = useShownView(rig, in3d, flatView);
+  const { view } = useShownCamera(camera);
+  const { in3d } = camera;
   const trigger = useRef<HTMLButtonElement>(null);
   return (
-    <div
-      className="absolute right-3 top-3 z-20 flex flex-col items-end gap-1"
-      data-testid="canvas-view-widget"
-    >
+    <div className="flex flex-col items-end gap-1" data-testid="canvas-view-widget">
       <AxisGizmo view={view} onLook={(preset) => onIntent({ type: "look", preset })} />
       <div className="relative">
         <button

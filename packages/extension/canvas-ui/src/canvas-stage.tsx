@@ -36,7 +36,7 @@ interface CanvasStageProps {
   marqueeRect: PointerState["marqueeRect"];
   onEditingEdgeLabelChange: (edgeId: string | null) => void;
   onEdgeLabelCommit: (edge: CanvasEdge, label: string) => void;
-  onCardSelect: (card: CanvasNode, anchor?: { x: number; y: number }) => void;
+  onCardSelect: (card: CanvasNode) => void;
   onCardChange: (card: CanvasNode) => void;
   onResizeStart: (cardId: string, corner: ResizeCorner, screen: { x: number; y: number }) => void;
   onRotateStart: (cardId: string, screen: { x: number; y: number }) => void;
@@ -49,11 +49,7 @@ interface CanvasStageProps {
   onPointerCancel: () => void;
   onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void;
   onDoubleClickStage: (event: React.MouseEvent<HTMLDivElement>) => void;
-  handleCardPointerDown: (
-    card: CanvasNode,
-    event: React.PointerEvent,
-    anchor?: { x: number; y: number },
-  ) => void;
+  handleCardPointerDown: (card: CanvasNode, event: React.PointerEvent) => void;
   handleEdgeClick: (edge: CanvasEdge, event: React.MouseEvent) => void;
   /** The item being edited, or null. */
   editing: string | null;

@@ -2,7 +2,6 @@ import {
   canvasDepth,
   canvasElevation,
   canvasRotation,
-  drawsGround,
   facesCamera,
   isFileNode,
   isGroupNode,
@@ -10,29 +9,26 @@ import {
   isLinkNode,
   isShapeNode,
   isTextNode,
-  styleOf,
   withFlag,
   withDepth,
   withElevation,
   withRotation,
-  withStyle,
   type CanvasItemFlag,
   type CanvasItemLink,
   type CanvasNode,
   type CanvasWorld,
 } from "@kb/canvas";
-import { PopoverShell } from "@kb/ui-sdk";
-import { CanvasPopover } from "./canvas-popover";
+import { DockMore, DockPanel } from "./canvas-dock";
 import { LinkRow } from "./item-link-row";
 import type { CanvasPageTab } from "./canvas-page-strip";
 import { textOfLink } from "./item-link-text";
-import { ColorRow, LookRows } from "./item-style-rows";
+import { ColorSection, LookRows } from "./item-style-rows";
 import { NumberField } from "./number-field";
 
 export interface ItemInspectorProps {
   item: CanvasNode;
-  anchor: { x: number; y: number };
-  onClose: () => void;
+  /** The 3D projection is showing: where the item stands off the floor, faces the camera and turns about X and Y is seen there only. */
+  in3d: boolean;
   onChange: (item: CanvasNode) => void;
   /** What the canvas reads of kb: where the item's link leads, in words. */
   world: CanvasWorld;
@@ -53,7 +49,7 @@ const EXTRUDE_DEPTH = 40;
 function HeightRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
   const depth = canvasDepth(item);
   return (
-    <div className="flex flex-col gap-1.5 px-1.5 pb-1.5">
+    <div className="flex flex-col gap-1.5 px-2.5 pb-1.5">
       <div className="flex items-center justify-between">
         <span className="text-meta text-foreground/50">Height</span>
         <button
@@ -107,7 +103,7 @@ function FlagRow({
 }: Pick<ItemInspectorProps, "item" | "onChange"> & { flag: CanvasItemFlag }) {
   const { label, hint } = FLAG_ROWS[flag];
   return (
-    <label className="flex items-center justify-between px-1.5 pb-1.5" title={hint}>
+    <label className="flex items-center justify-between px-2.5 pb-1.5" title={hint}>
       <span className="text-meta text-foreground/50">{label}</span>
       <input
         type="checkbox"
@@ -120,24 +116,6 @@ function FlagRow({
   );
 }
 
-/** How opaque the item is drawn (its style's opacity), in percent. */
-function OpacityRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
-  const percent = Math.round(styleOf(item).opacity * 100);
-  return (
-    <div className="flex px-1.5 pb-1.5">
-      <NumberField
-        key={`opacity:${percent}`}
-        label="Opacity"
-        hint="How opaque it is drawn, in percent; 100 is fully"
-        value={percent}
-        unit="percent"
-        min={0}
-        onCommit={(p) => onChange(withStyle(item, { opacity: p / 100 }))}
-      />
-    </div>
-  );
-}
-
 /** What each rotation field turns the item about. */
 const TURN_HINTS = {
   x: "Degrees about its own width axis, applied first",
@@ -147,15 +125,21 @@ const TURN_HINTS = {
 
 /**
  * How the item is turned about its centre: degrees about x, then y, then z
- * (Blender's XYZ Euler), each committed as one change.
+ * (Blender's XYZ Euler), each committed as one change. The top view turns
+ * it about z only, so in 2D only z is shown.
  */
-function RotationRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
+function RotationRow({
+  item,
+  in3d,
+  onChange,
+}: Pick<ItemInspectorProps, "item" | "in3d" | "onChange">) {
   const rotation = canvasRotation(item);
+  const axes = in3d ? (["x", "y", "z"] as const) : (["z"] as const);
   return (
-    <div className="flex flex-col gap-1.5 px-1.5 pb-1.5">
+    <div className="flex flex-col gap-1.5 px-2.5 pb-1.5">
       <span className="text-meta text-foreground/50">Rotation</span>
       <div className="flex gap-2">
-        {(["x", "y", "z"] as const).map((axis) => (
+        {axes.map((axis) => (
           <NumberField
             key={`turn:${axis}:${rotation[axis]}`}
             label={axis.toUpperCase()}
@@ -183,25 +167,28 @@ function titleOf(item: CanvasNode): string {
 }
 
 /**
- * The selected item's inspector: a canvas widget, not kb's node inspector,
- * because canvas items are not nodes yet (plan 2026-10-02, owner answer 2).
+ * The selected item's style panel, docked (`CanvasDock`): its colour and
+ * looks first, icon by icon, and its rarer rows — its switches, its link,
+ * where it stands and how it is turned — under More, those the top view
+ * cannot show (its height, facing the camera, turns about X and Y) in 3D
+ * only. A canvas widget, not
+ * kb's node inspector, because canvas items are not nodes yet (plan
+ * 2026-10-02, owner answer 2).
  */
 export function ItemInspector({
   item,
-  anchor,
-  onClose,
+  in3d,
   onChange,
   world,
   pages,
   onFollow,
 }: ItemInspectorProps) {
   return (
-    <CanvasPopover anchor={anchor} onClose={onClose}>
-      <PopoverShell title={titleOf(item)} className="w-72" data-testid="item-inspector">
-        {drawsGround(item) && <ColorRow item={item} onChange={onChange} />}
-        <LookRows item={item} onChange={onChange} />
-        <OpacityRow item={item} onChange={onChange} />
-        <FlagRow item={item} flag="billboard" onChange={onChange} />
+    <DockPanel name="style" title={titleOf(item)} data-testid="item-inspector">
+      <ColorSection item={item} onChange={onChange} />
+      <LookRows item={item} onChange={onChange} />
+      <DockMore>
+        {in3d && <FlagRow item={item} flag="billboard" onChange={onChange} />}
         <FlagRow item={item} flag="locked" onChange={onChange} />
         <LinkRow
           key={`link:${textOfLink(item.link)}`}
@@ -217,11 +204,11 @@ export function ItemInspector({
           aria-label="Place"
           className="m-0 min-w-0 border-0 p-0 disabled:opacity-50"
         >
-          <HeightRow item={item} onChange={onChange} />
+          {in3d && <HeightRow item={item} onChange={onChange} />}
           {/* A flat billboard faces the camera whatever way it is turned. */}
-          {!facesCamera(item) && <RotationRow item={item} onChange={onChange} />}
+          {!facesCamera(item) && <RotationRow item={item} in3d={in3d} onChange={onChange} />}
         </fieldset>
-      </PopoverShell>
-    </CanvasPopover>
+      </DockMore>
+    </DockPanel>
   );
 }

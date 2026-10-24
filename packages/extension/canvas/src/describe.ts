@@ -79,7 +79,7 @@ const cut = (text: string) =>
   text.length <= MAX_WORDS ? text : `${text.slice(0, MAX_WORDS - 1)}…`;
 
 /** What an item says: its text, its label, its node's text, its page's title, or its picture's file. */
-function itemWords(item: CanvasNode, world: CanvasWorld): string {
+export function itemWords(item: CanvasNode, world: CanvasWorld): string {
   if (isTextNode(item)) return item.text;
   if ((isShapeNode(item) || isGroupNode(item)) && item.label !== undefined) return item.label;
   if (item.nodeId !== undefined) return world.textOf(item.nodeId) ?? "";

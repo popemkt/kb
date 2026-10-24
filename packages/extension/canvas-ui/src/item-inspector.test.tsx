@@ -1,7 +1,7 @@
 /**
  * The item inspector edits where any item stands and how far it rises:
  * Extrude makes a flat item a block, Flatten lays it back, and the fields
- * commit one change each.
+ * commit one change each; in 2D it shows only what the top view shows.
  */
 import { act, createElement, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -65,8 +65,7 @@ describe("item inspector", () => {
       const [item, setItem] = useState(sticky);
       return createElement(ItemInspector, {
         item,
-        anchor: { x: 200, y: 100 },
-        onClose: () => {},
+        in3d: true,
         world: canvasWorld([]),
         onFollow: () => {},
         pages: [],
@@ -101,8 +100,7 @@ describe("item inspector", () => {
         root.render(
           createElement(ItemInspector, {
             item,
-            anchor: { x: 200, y: 100 },
-            onClose: () => {},
+            in3d: true,
             onChange: () => {},
             world: canvasWorld([]),
             onFollow: () => {},
@@ -128,8 +126,7 @@ describe("item inspector", () => {
       root.render(
         createElement(ItemInspector, {
           item: { ...sticky, rotation: { x: 10, z: -45 } },
-          anchor: { x: 200, y: 100 },
-          onClose: () => {},
+          in3d: true,
           onChange: () => {},
           world: canvasWorld([]),
           onFollow: () => {},
@@ -138,6 +135,36 @@ describe("item inspector", () => {
       ),
     );
     expect([fieldValue("X"), fieldValue("Y"), fieldValue("Z")]).toEqual(["10", "0", "-45"]);
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  test("in 2D it shows no row the top view cannot show: height, facing the camera, turns about X and Y", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const render = (in3d: boolean) =>
+      act(() =>
+        root.render(
+          createElement(ItemInspector, {
+            item: sticky,
+            in3d,
+            onChange: () => {},
+            world: canvasWorld([]),
+            onFollow: () => {},
+            pages: [],
+          }),
+        ),
+      );
+    const shown = () =>
+      ["Lift", "Depth", "X", "Y", "Z", "Face the camera"].filter(
+        (label) => fieldValue(label) !== undefined,
+      );
+    render(false);
+    expect(shown()).toEqual(["Z"]);
+    expect(button("Extrude")).toBeUndefined();
+    render(true);
+    expect(shown()).toEqual(["Lift", "Depth", "X", "Y", "Z", "Face the camera"]);
     act(() => root.unmount());
     container.remove();
   });
@@ -151,8 +178,7 @@ describe("item inspector", () => {
       const [item, setItem] = useState(linked);
       return createElement(ItemInspector, {
         item,
-        anchor: { x: 200, y: 100 },
-        onClose: () => {},
+        in3d: true,
         world,
         onFollow: (link: CanvasItemLink) => followed.push(link),
         pages: [],

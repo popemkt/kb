@@ -1,7 +1,7 @@
 /**
  * The canvas's popovers, each run through the dismiss contract
  * (`dismissContract`, DESIGN-UI.md → Cross-surface polish → Popovers dismiss
- * one way): its inspectors' popover, the solid picker, the view menu, the
+ * one way): a comment thread's panel, the solid picker, the view menu, the
  * shortcuts sheet and the node picker.
  */
 import { useState } from "react";
@@ -16,7 +16,7 @@ import {
 } from "@kb/ui-test-kit";
 import { viewOfPan } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
-import { CanvasPopover } from "./canvas-popover";
+import { CommentThreadPanel } from "./canvas-comment-thread";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasToolbar } from "./canvas-toolbar";
 import { CanvasViewWidget } from "./canvas-view-widget";
@@ -38,7 +38,10 @@ function ViewWidget() {
     <CanvasViewWidget
       rig={new CanvasCameraRig(flat, TIMING_FALLBACK, true)}
       in3d={false}
-      flatView={flat}
+      pan={{ x: 0, y: 0 }}
+      zoom={1}
+      width={800}
+      height={600}
       projection="2d"
       selectionEmpty
       frames={[]}
@@ -50,17 +53,23 @@ function ViewWidget() {
 }
 
 dismissContract({
-  "packages/extension/canvas-ui/src/canvas-popover.tsx": (host) =>
+  "packages/extension/canvas-ui/src/canvas-comment-thread.tsx": (host) =>
     renderPopover(
       host,
       <UntilDismissed>
         {(dismiss) => (
-          <CanvasPopover anchor={{ x: 200, y: 100 }} onClose={dismiss}>
-            <p data-testid="inspected">an inspector</p>
-          </CanvasPopover>
+          <CommentThreadPanel
+            thread={null}
+            on="a point"
+            target={[{ left: 200, top: 100, right: 200, bottom: 100 }]}
+            stage={{ width: 800, height: 600 }}
+            onClose={dismiss}
+            onPost={async () => null}
+            onResolve={async () => null}
+          />
         )}
       </UntilDismissed>,
-      find('[data-testid="inspected"]'),
+      find('[data-testid="comment-panel"]'),
       null,
     ),
   "packages/extension/canvas-ui/src/canvas-toolbar.tsx": (host) =>

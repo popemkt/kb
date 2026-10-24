@@ -124,14 +124,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The commit records the invoking actor on each tx entry (or on the node), and the thread panel and describe read it.
 - **node** — `01M54GBYH3K67TAW016HFCJHBC`
 
-### GAP: a canvas item with a link shows no mark on the canvas
-
-- **expected** — An item that carries a link wears a small link mark in both projections, as tldraw's shape link button does, so a reader sees what leads somewhere and clicks it to follow.
-- **current** — A link is visible only in the item inspector's Link row and in describe; it is followed with ⌘↵ or the inspector's Follow.
-- **impact** — Links are not discoverable by looking at the canvas.
-- **closes** — A link mark painted from one place (a canvas-style tone plus a face part) by the DOM card layer and canvas-card-face, the projection contract asserting it on both, and a click on the mark following the link.
-- **node** — `01M546BF0GJ09QQV8H747X0JM7`
-
 ### GAP: a canvas path is picked by its box, not its stroke
 
 - **expected** — A path item is hit where its stroke (or, closed, its fill) is drawn, within a screen tolerance, in both projections.
@@ -1375,6 +1367,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+
+### GAP: a canvas item with a link shows no mark on the canvas
+
+- **expected** — An item that carries a link wears a small link mark in both projections, as tldraw's shape link button does, so a reader sees what leads somewhere and clicks it to follow.
+- **current** — A link is visible only in the item inspector's Link row and in describe; it is followed with ⌘↵ or the inspector's Follow.
+- **impact** — Links are not discoverable by looking at the canvas.
+- **closes** — A link mark drawn over the stage by one overlay layer (canvas-link-marks.tsx) where the shown projection draws the item (linkMarks in canvas-visible.ts), the projection contract asserting its place in both, and a click on the mark following the link as ⌘↵ does.
+- **node** — `01M546BF0GJ09QQV8H747X0JM7`
 
 ### GAP: a canvas seen in 3D reports its 2D camera on the screen
 

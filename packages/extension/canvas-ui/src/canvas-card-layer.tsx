@@ -45,17 +45,13 @@ import { liftShadow } from "./canvas-chrome";
  * again only when what it draws changes.
  */
 interface CanvasItemActions {
-  onCardSelect: (card: CanvasNode, anchor?: { x: number; y: number }) => void;
+  onCardSelect: (card: CanvasNode) => void;
   onCardChange: (card: CanvasNode) => void;
   onResizeStart: (cardId: string, corner: ResizeCorner, screen: { x: number; y: number }) => void;
   /** A press on a card's rotate handle, which turns the selection about its centre. */
   onRotateStart: (cardId: string, screen: { x: number; y: number }) => void;
   onPortDown: (cardId: string, side: CanvasSide, screen: { x: number; y: number }) => void;
-  onCardPointerDown: (
-    card: CanvasNode,
-    event: React.PointerEvent,
-    anchor?: { x: number; y: number },
-  ) => void;
+  onCardPointerDown: (card: CanvasNode, event: React.PointerEvent) => void;
   /** An item's editor opened or closed. */
   onEdit: (id: string, editing: boolean) => void;
 }
@@ -254,17 +250,14 @@ export function CanvasCardFace({
         {...layout}
         card={card}
         selected={isSelected}
-        onSelect={(anchor) => {
+        onSelect={() => {
           if (!isSelected) {
-            onCardSelect(card, anchor);
+            onCardSelect(card);
           }
         }}
         onLabelChange={(label) => onCardChange({ ...card, label })}
         onMoveStart={(e) => {
-          handleCardPointerDown(card, e, {
-            x: e.clientX,
-            y: e.clientY,
-          });
+          handleCardPointerDown(card, e);
         }}
         onResizeStart={resizeHandler}
         onRotateStart={rotateHandler}
@@ -405,7 +398,7 @@ const CanvasItem = memo(function CanvasItem({
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             e.stopPropagation();
-            actions.onCardPointerDown(card, e, { x: e.clientX, y: e.clientY });
+            actions.onCardPointerDown(card, e);
           }}
         />
         <CanvasCardFace

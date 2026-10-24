@@ -8,7 +8,6 @@
  */
 import type { CanvasTransform } from "@kb/canvas";
 import { projectPoint, type CanvasView, type ViewSize } from "./canvas-camera";
-import type { CanvasCameraRig } from "./canvas-camera-rig";
 import {
   transformGuides,
   transformReadout,
@@ -16,17 +15,12 @@ import {
   type TransformInput,
 } from "./canvas-transform-input";
 import { AXIS_INK } from "./canvas-gizmo";
-import { useShownView } from "./use-shown-view";
+import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
 
-export interface CanvasTransformGuidesProps {
+export interface CanvasTransformGuidesProps extends ShownCameraProps {
   /** The modal transform under way, and the transform its preview shows. */
   readonly input: TransformInput;
   readonly applied: CanvasTransform | null;
-  readonly rig: CanvasCameraRig;
-  /** The 3D scene is the one showing (otherwise the view is `flatView`). */
-  readonly in3d: boolean;
-  readonly flatView: CanvasView;
-  readonly size: ViewSize;
 }
 
 /** How far a guide reaches each way from the pivot on screen, CSS pixels: past any viewport. */
@@ -50,15 +44,8 @@ function guideLine(view: CanvasView, size: ViewSize, input: TransformInput, guid
   return { x1: a.x - ux * REACH, y1: a.y - uy * REACH, x2: a.x + ux * REACH, y2: a.y + uy * REACH };
 }
 
-export function CanvasTransformGuides({
-  input,
-  applied,
-  rig,
-  in3d,
-  flatView,
-  size,
-}: CanvasTransformGuidesProps) {
-  const view = useShownView(rig, in3d, flatView);
+export function CanvasTransformGuides({ input, applied, ...camera }: CanvasTransformGuidesProps) {
+  const { view, size } = useShownCamera(camera);
   const readout = transformReadout(input, applied, view);
   return (
     <>

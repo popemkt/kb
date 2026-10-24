@@ -7,9 +7,11 @@ import {
   routePoints,
   type CanvasDoc,
   type CanvasEdge,
+  type CanvasItemLink,
   type CanvasNode,
   type CanvasThread,
   type EdgeRoute,
+  type CommentAnchor,
 } from "@kb/canvas";
 import { hasText, type ScreenRegion } from "@kb/ui-sdk";
 import { labelReach, restingReach } from "./canvas-chrome";
@@ -19,6 +21,7 @@ import {
   screenBounds,
   type CanvasPoint,
   type CanvasScreenPoint,
+  type CanvasHitItem,
   type CanvasView,
   type ScreenRect,
   type ViewSize,
@@ -43,6 +46,50 @@ export function itemScreenRects(
   return rects;
 }
 
+/**
+ * What a comment thread is on as `view` draws it on a stage of `size`: the
+ * screen box of each item it is pinned on (`pinnedItems`), or its point on
+ * the floor as a box of no size. None where nothing it is on is in front of
+ * the eye, and none for a pin that is lost (the lint's `orphan-comment`).
+ */
+export function anchorRects(
+  anchor: CommentAnchor | null,
+  doc: CanvasDoc,
+  view: CanvasView,
+  size: ViewSize,
+): { readonly item: string | null; readonly rect: ScreenRect }[] {
+  if (anchor === null) return [];
+  if ("at" in anchor) {
+    const at = projectPoint(view, size, { ...anchor.at, z: 0 });
+    return at === null
+      ? []
+      : [{ item: null, rect: { left: at.x, top: at.y, right: at.x, bottom: at.y } }];
+  }
+  return [...itemScreenRects(pinnedItems(anchor, doc), view, size)].map(([item, rect]) => ({
+    item,
+    rect,
+  }));
+}
+
+/**
+ * What the camera frames to show a thread: the items it is pinned on, or a
+ * stretch of floor about its point as wide as the stage shows now, so the
+ * point comes to the middle at the zoom it has.
+ */
+export function anchorFrame(
+  anchor: CommentAnchor | null,
+  doc: CanvasDoc,
+  view: CanvasView,
+  size: ViewSize,
+): CanvasHitItem[] {
+  if (anchor === null) return [];
+  if (!("at" in anchor)) return pinnedItems(anchor, doc);
+  if (view.zoom <= 0) return [];
+  const [width, height] = [size.width / view.zoom, size.height / view.zoom];
+  const { x, y } = anchor.at;
+  return [{ id: "", x: x - width / 2, y: y - height / 2, width, height }];
+}
+
 /** Where a comment thread's pin stands on the stage: the tip it points from. */
 export interface ThreadPin {
   readonly thread: CanvasThread;
@@ -53,10 +100,7 @@ export interface ThreadPin {
 
 /**
  * Where `view` pins each of `threads` on a stage of `size`: at the top right
- * of each item the thread is pinned on (`pinnedItems`), as that item is
- * drawn (its anchor, `itemScreenRects`), or where its point on the floor is
- * drawn. None where nothing it is pinned on is in front of the eye, and
- * none for a thread whose pin is lost (the lint's `orphan-comment`).
+ * of each box it is on (`anchorRects`), which for a point is the point.
  */
 export function threadPins(
   threads: readonly CanvasThread[],
@@ -64,22 +108,35 @@ export function threadPins(
   view: CanvasView,
   size: ViewSize,
 ): ThreadPin[] {
-  // Only the items threads are pinned on are placed: a canvas with no threads places none.
-  const drawn = (item: CanvasNode) => itemScreenRects([item], view, size).get(item.id);
-  return threads.flatMap((thread) => {
-    const { anchor } = thread;
-    if (anchor === null) return [];
-    const tips =
-      "at" in anchor
-        ? [{ item: null, at: projectPoint(view, size, { ...anchor.at, z: 0 }) }]
-        : pinnedItems(anchor, doc).map((item) => {
-            const rect = drawn(item);
-            return {
-              item: item.id,
-              at: rect === undefined ? null : { x: rect.right, y: rect.top },
-            };
-          });
-    return tips.flatMap(({ item, at }) => (at === null ? [] : [{ thread, item, at }]));
+  return threads.flatMap((thread) =>
+    anchorRects(thread.anchor, doc, view, size).map(({ item, rect }) => ({
+      thread,
+      item,
+      at: { x: rect.right, y: rect.top },
+    })),
+  );
+}
+
+/** Where an item's link mark stands on the stage: the bottom right corner it hangs from. */
+export interface LinkMark {
+  readonly item: string;
+  readonly link: CanvasItemLink;
+  readonly at: CanvasPoint;
+}
+
+/**
+ * Where `view` hangs the link mark of each item of `doc` that carries a
+ * link, on a stage of `size`: at the bottom right of its box as drawn
+ * (`itemScreenRects`); none for an item none of which is in front of the eye.
+ */
+export function linkMarks(doc: CanvasDoc, view: CanvasView, size: ViewSize): LinkMark[] {
+  const linked = doc.nodes.filter((item) => item.link !== undefined);
+  const rects = itemScreenRects(linked, view, size);
+  return linked.flatMap(({ id, link }) => {
+    const rect = rects.get(id);
+    return rect === undefined || link === undefined
+      ? []
+      : [{ item: id, link, at: { x: rect.right, y: rect.bottom } }];
   });
 }
 
@@ -276,4 +333,46 @@ export function routeInWindow(window: FloorWindow, edge: CanvasEdge, route: Edge
     routeExtents.set(route, extent);
   }
   return meets(window, extent);
+}
+
+const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(v, high));
+
+/** How far a panel stands off what it is beside, and off the stage's edges, CSS pixels. */
+const BESIDE_GAP = 12;
+
+/**
+ * Where a panel of `panel` size stands on a stage of `size` beside `target`
+ * (the screen boxes of what it is about), never over it: to its right, else
+ * to its left, else under it, else over it, kept `BESIDE_GAP` inside the
+ * stage less `reserve` on its right (the dock). Its top lines up with the
+ * target's beside it, its left with the target's under or over it.
+ */
+export function placeBeside(
+  target: readonly ScreenRect[],
+  panel: ViewSize,
+  size: ViewSize,
+  reserve: number,
+): CanvasPoint {
+  const right = size.width - reserve - BESIDE_GAP;
+  const fitX = (x: number) => clamp(x, BESIDE_GAP, right - panel.width);
+  const fitY = (y: number) => clamp(y, BESIDE_GAP, size.height - BESIDE_GAP - panel.height);
+  if (target.length === 0) {
+    return { x: fitX((right - panel.width) / 2), y: fitY((size.height - panel.height) / 2) };
+  }
+  const box = {
+    left: Math.min(...target.map((r) => r.left)),
+    top: Math.min(...target.map((r) => r.top)),
+    right: Math.max(...target.map((r) => r.right)),
+    bottom: Math.max(...target.map((r) => r.bottom)),
+  };
+  if (box.right + BESIDE_GAP + panel.width <= right) {
+    return { x: box.right + BESIDE_GAP, y: fitY(box.top) };
+  }
+  if (box.left - BESIDE_GAP - panel.width >= BESIDE_GAP) {
+    return { x: box.left - BESIDE_GAP - panel.width, y: fitY(box.top) };
+  }
+  if (box.bottom + BESIDE_GAP + panel.height <= size.height - BESIDE_GAP) {
+    return { x: fitX(box.left), y: box.bottom + BESIDE_GAP };
+  }
+  return { x: fitX(box.left), y: fitY(box.top - BESIDE_GAP - panel.height) };
 }

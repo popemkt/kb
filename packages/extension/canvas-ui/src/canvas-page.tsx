@@ -48,8 +48,12 @@ import { CanvasOverlays } from "./canvas-overlays";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
+import { CanvasDock } from "./canvas-dock";
+import { CanvasStylePanel } from "./canvas-style-panel";
 import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
+import type { ShownCameraProps } from "./use-shown-camera";
+import { useStableActions } from "./use-stable-actions";
 import { useCanvasDoc } from "./use-canvas-doc";
 import { useCanvasPictures } from "./use-canvas-pictures";
 import { CanvasFaceEditor } from "./canvas-face-editor";
@@ -68,11 +72,13 @@ import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
 import { pressPans, strokeOf, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
-import { CanvasCommentPanel, CanvasCommentPins } from "./canvas-comments";
+import { CanvasCommentLayer } from "./canvas-comments";
+import { CanvasLinkMarks } from "./canvas-link-marks";
+import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
 import { useCanvasComments } from "./use-canvas-comments";
 import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
-import { viewOfPan } from "./canvas-camera";
+import { viewOfPan, type CanvasHitItem } from "./canvas-camera";
 import { placeUnder } from "./canvas-faces";
 import type { TransformCamera } from "./canvas-transform-input";
 import { CanvasTransformGuides } from "./canvas-transform-guides";
@@ -176,7 +182,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
 
   const {
     enter,
-    inspectorAnchor,
     leave,
     onCardPointerDown,
     onEdgeClick,
@@ -186,11 +191,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     selectedItem,
     selection,
     selectionRef: selRef,
-    setInspectorAnchor,
     setScope,
     setSelection,
-    setItemInspectorAnchor,
-    itemInspectorAnchor,
   } = useCanvasSelection(doc, byId, membership);
   /** The events the canvas tells its scripts (`CANVAS_EVENTS`), on one channel for its life. */
   const [scriptEvents] = useState(createViewEvents);
@@ -325,13 +327,11 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     dispatchPointer,
     schedulePersist,
     flushPersist,
-    setInspectorAnchor,
     setPickerOpen,
     choose,
     edit: (id) => faces.onEdit(id, true),
     comment: comments.start,
     setSelection,
-    setItemInspectorAnchor,
     setToolState,
     setZoom,
   });
@@ -402,7 +402,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     setSelection(selNode(id));
     viewport.frame([shown]);
   };
-  // GAP [[01M546BF0GJ09QQV8H747X0JM7]] an item's link shows no mark on the canvas; it is followed from the inspector or ⌘↵
   /** Go where `link` leads: out of kb, to another page, or to an item here. */
   const follow = (link: CanvasItemLink) => {
     const step = linkStep(link, canvasId, world);
@@ -411,6 +410,12 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     else if (step.kind === "path") navigate(step.path);
     else showItem(step.item);
   };
+  /** Where the page's link marks and comments list reach back to it: handlers that last its life. */
+  const overlayActions = useStableActions({
+    follow,
+    camera: projection.camera,
+    frame: (items: readonly CanvasHitItem[]) => viewport.frame(items),
+  });
   /** The pages of the board this canvas is on, each by its node's text (`canvasPages`). */
   const pages = useMemo<CanvasPageTab[]>(
     () =>
@@ -481,8 +486,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     undoCanvasDoc,
     redoCanvasDoc,
     setSelection,
-    setInspectorAnchor,
-    setItemInspectorAnchor,
     choose,
     setSpaceDown,
     setToolState,
@@ -502,7 +505,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     queries,
     flushPersist,
     setSelection,
-    setInspectorAnchor,
   });
 
   if (!canvasNode) {
@@ -515,6 +517,16 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     );
   }
 
+  const { size: stageSize } = projection.camera();
+  /** What each layer drawn over the stage is told of the camera (`useShownCamera`). */
+  const shownCamera: ShownCameraProps = {
+    rig: projection.rig,
+    in3d,
+    pan,
+    zoom,
+    width: stageSize.width,
+    height: stageSize.height,
+  };
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-3">
@@ -577,7 +589,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             const local = { x: client.x - (rect?.left ?? 0), y: client.y - (rect?.top ?? 0) };
             if (
               toolTakes(toolState.tool, card) &&
-              pressTool({ place: placeUnder(view, size, local, card), item: card }, client, local)
+              pressTool({ place: placeUnder(view, size, local, card), item: card }, local)
             ) {
               e.preventDefault();
               e.stopPropagation();
@@ -589,7 +601,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             if (pressReaches(card)) return;
             e.preventDefault();
             e.stopPropagation();
-            pressCard(card, e, undefined, (id) => startMoveForSelection(e, id));
+            pressCard(card, e, (id) => startMoveForSelection(e, id));
           }}
           onDoubleClickCapture={(e) => {
             const card = byId.get(cardIdAt(e.target) ?? "");
@@ -618,11 +630,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
               if (!label) delete updated.label;
               schedulePersist(upsertCanvasEdge(docRef.current, updated));
             }}
-            onCardSelect={(card, anchor) => {
-              setSelection(selNode(card.id));
-              setInspectorAnchor(null);
-              setItemInspectorAnchor(anchor ?? null);
-            }}
+            onCardSelect={(card) => setSelection(selNode(card.id))}
             onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
             onResizeStart={startResize}
             onRotateStart={startRotate}
@@ -634,8 +642,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             onPointerUp={onPointerUp}
             onPointerCancel={cancelPointer}
             onDoubleClickStage={onDoubleClickStage}
-            handleCardPointerDown={(card, event, anchor) => {
-              pressCard(card, event, anchor, (id) => startMoveForSelection(event, id));
+            handleCardPointerDown={(card, event) => {
+              pressCard(card, event, (id) => startMoveForSelection(event, id));
             }}
             handleEdgeClick={onEdgeClick}
             editing={faces.flat}
@@ -667,22 +675,17 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
                   drawing.onPainter(mounted);
                   setSceneGizmo(mounted?.gizmo ?? NO_GIZMO);
                 }}
-                onCardPress={(card, press, startMove) =>
-                  pressCard(card, press, { x: press.clientX, y: press.clientY }, startMove)
-                }
+                onCardPress={pressCard}
                 onCardDoubleClick={faces.doubleClick}
                 dispatchPointer={dispatchPointer}
                 onTap={(spot, press) => {
-                  if (pressTool(spot, { x: press.clientX, y: press.clientY }, press.local)) return;
+                  if (pressTool(spot, press.local)) return;
                   if (press.shiftKey) return;
                   setScope(null);
                   setSelection(EMPTY_SELECTION);
-                  setInspectorAnchor(null);
-                  setItemInspectorAnchor(null);
                 }}
                 onDraw={(spot, press) =>
-                  strokeOf(toolState.tool) !== null &&
-                  pressTool(spot, { x: press.clientX, y: press.clientY }, press.local)
+                  strokeOf(toolState.tool) !== null && pressTool(spot, press.local)
                 }
                 onViewSettled={projection.onViewSettled}
               />
@@ -696,36 +699,57 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onEdit={faces.onEdit}
           onChange={(item) => schedulePersist(upsertCanvasNode(docRef.current, item))}
         />
-        <CanvasViewWidget
-          rig={projection.rig}
-          in3d={in3d}
-          flatView={projection.flatView()}
-          projection={projection.target}
-          selectionEmpty={selectionEmpty(selection)}
-          frames={frames}
-          menuOpen={viewMenuOpen}
-          onMenuOpenChange={setViewMenuOpen}
-          onIntent={applyIntent}
-        />
+        <CanvasDock
+          head={
+            <>
+              <CommentsToggle comments={comments} />
+              <CanvasViewWidget
+                {...shownCamera}
+                projection={projection.target}
+                selectionEmpty={selectionEmpty(selection)}
+                frames={frames}
+                menuOpen={viewMenuOpen}
+                onMenuOpenChange={setViewMenuOpen}
+                onIntent={applyIntent}
+              />
+            </>
+          }
+        >
+          <CanvasStylePanel
+            presenting={presenting !== null}
+            item={selectedItem}
+            edge={selectedEdgeObj}
+            in3d={in3d}
+            world={world}
+            pages={pages.filter((page) => page.id !== canvasId)}
+            onFollow={follow}
+            onItemChange={(item) => schedulePersist(editItem(docRef.current, item))}
+            refFields={refFields}
+            onModeChange={(mode) => void onModeChange(mode)}
+            onFieldChange={(fieldId) => void onFieldChange(fieldId)}
+            onDelete={() => void onDeleteEdge()}
+            onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
+          />
+          <CanvasCommentList
+            comments={comments}
+            doc={doc}
+            world={world}
+            camera={overlayActions.camera}
+            frame={overlayActions.frame}
+          />
+        </CanvasDock>
         {modalDrag?.kind === "transform" && modalDrag.input !== null && (
           <CanvasTransformGuides
             input={modalDrag.input}
             applied={modalDrag.applied}
-            rig={projection.rig}
-            in3d={in3d}
-            flatView={projection.flatView()}
-            size={projection.camera().size}
+            {...shownCamera}
           />
         )}
         <CanvasShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
         <CanvasScriptLayout
-          rig={projection.rig}
-          in3d={in3d}
-          flatView={projection.flatView()}
+          {...shownCamera}
           selected={selection.nodeIds}
           gizmo={sceneGizmo}
-          width={projection.camera().size.width}
-          height={projection.camera().size.height}
           doc={doc}
           layout={scriptLayout}
         />
@@ -735,16 +759,20 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           events={scriptEvents}
           layout={scriptLayout}
         />
-        <CanvasCommentPins
-          rig={projection.rig}
-          in3d={in3d}
-          flatView={projection.flatView()}
-          width={projection.camera().size.width}
-          height={projection.camera().size.height}
+        <CanvasLinkMarks
+          {...shownCamera}
           doc={doc}
+          world={world}
+          onFollow={overlayActions.follow}
+        />
+        <CanvasCommentLayer
+          {...shownCamera}
+          doc={doc}
+          world={world}
+          tool={toolState.tool}
+          stage={stageRef}
           comments={comments}
         />
-        <CanvasCommentPanel comments={comments} />
         <CanvasLaserLayer stage={stageRef} on={presenting !== null} />
         <CanvasOverlays
           transforming={modal}
@@ -763,12 +791,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onProjectionChange={projection.choose}
           selection={selection}
           toolState={toolState}
-          selectedEdge={selectedEdgeObj}
-          selectedItem={selectedItem}
-          inspectorAnchor={inspectorAnchor}
-          itemInspectorAnchor={itemInspectorAnchor}
           pickerOpen={pickerOpen}
-          refFields={refFields}
           onToolChange={setTool}
           onToolDoubleClick={setToolSticky}
           onBringToFront={() => applyIntent({ type: "order", order: "front" })}
@@ -777,20 +800,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             schedulePersist(deleteSelected(docRef.current, selection));
             setSelection(EMPTY_SELECTION);
           }}
-          onCloseEdgeInspector={() => {
-            setSelection(EMPTY_SELECTION);
-            setInspectorAnchor(null);
-          }}
-          onEdgeModeChange={(mode) => void onModeChange(mode)}
-          onEdgeFieldChange={(fieldId) => void onFieldChange(fieldId)}
-          onDeleteEdge={() => void onDeleteEdge()}
-          onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
-          onCloseItemInspector={() => setItemInspectorAnchor(null)}
-          onInspectItem={setItemInspectorAnchor}
-          onItemChange={(item) => schedulePersist(editItem(docRef.current, item))}
-          world={world}
-          pages={pages.filter((page) => page.id !== canvasId)}
-          onFollowLink={follow}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}
           gizmo={in3d ? gizmo : null}

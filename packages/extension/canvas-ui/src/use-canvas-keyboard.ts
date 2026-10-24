@@ -83,8 +83,6 @@ interface CanvasKeyboardContext {
   undoCanvasDoc: () => void;
   redoCanvasDoc: () => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
-  setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
-  setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   /** Open the chooser a tool placed with something chosen first opens (`pickTool`). */
   choose: (chooser: CanvasChooser) => void;
   setSpaceDown: Dispatch<SetStateAction<boolean>>;
@@ -107,8 +105,6 @@ const CLONE_OFFSET = 24;
 function deleteSelection(context: CanvasKeyboardContext) {
   context.schedulePersist(deleteSelected(context.docRef.current, context.selRef.current));
   context.setSelection(EMPTY_SELECTION);
-  context.setInspectorAnchor(null);
-  context.setItemInspectorAnchor(null);
 }
 
 /** A copy takes the selected items with their members, the edges among them and the edges selected. */
@@ -191,8 +187,6 @@ function escapeCanvas(context: CanvasKeyboardContext) {
   if (context.leaveScope()) return;
   context.setToolState((state) => reduceCanvasTool(state, { type: "escape" }));
   context.setSelection(EMPTY_SELECTION);
-  context.setInspectorAnchor(null);
-  context.setItemInspectorAnchor(null);
 }
 
 /**
@@ -272,8 +266,6 @@ function frameItems(context: CanvasKeyboardContext, scope: "all" | "selection"):
 function applyTransformAct(context: CanvasKeyboardContext, act: TransformAct): void {
   switch (act.kind) {
     case "begin":
-      context.setInspectorAnchor(null);
-      context.setItemInspectorAnchor(null);
       context.dispatchPointer({
         type: "transform/begin",
         mode: act.mode,

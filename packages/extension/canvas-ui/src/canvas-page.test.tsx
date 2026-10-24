@@ -547,6 +547,59 @@ describe("CanvasPage pointer interactions", () => {
       expect(persistCanvasDoc).not.toHaveBeenCalled();
     });
 
+    it("a comment kb does not take keeps its words and says why, and is sent once", async () => {
+      const landing = Promise.withResolvers<Awaited<ReturnType<typeof host.invoke>>>();
+      const invoke = vi.spyOn(host, "invoke").mockReturnValue(landing.promise);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      key({ key: "m" });
+      const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "a");
+      dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60 });
+      await write("too wide");
+      // On its way: the send is shut, so a second press writes no second thread.
+      const send = present([...(panel()?.querySelectorAll("button") ?? [])].at(-1), "send");
+      expect(send.disabled).toBe(true);
+      await act(async () => send.click());
+      expect(invoke).toHaveBeenCalledTimes(1);
+      await act(async () =>
+        landing.resolve({
+          status: "failed",
+          id: "ext.canvas.comment",
+          code: "forbidden",
+          message: "the store is read-only",
+        }),
+      );
+      expect(panel()?.querySelector('[role="alert"]')?.textContent).toBe("the store is read-only");
+      expect(panel()?.querySelector("textarea")?.value).toBe("too wide");
+      expect(send.disabled).toBe(false);
+    });
+
+    it("from the keyboard: M, a press, words and Enter write the comment", async () => {
+      const invoke = vi.spyOn(host, "invoke").mockResolvedValue(wrote);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      key({ key: "m" });
+      const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "a");
+      dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60 });
+      const area = present(panel()?.querySelector("textarea"), "the panel's field");
+      expect(dom.document.activeElement).toBe(area);
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(dom.HTMLTextAreaElement.prototype, "value")?.set?.call(
+          area,
+          "by keys",
+        );
+        area.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true, key: "s" }));
+        area.dispatchEvent(new dom.KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+      });
+      expect(invoke).toHaveBeenLastCalledWith("ext.canvas.comment", {
+        canvasId: "canvas",
+        text: "by keys",
+        on: "a",
+      });
+    });
+
     it("a thread's pin opens it: its comments, a reply, and resolving it", async () => {
       host.setNodes([canvasNode, thread, reply]);
       const invoke = vi.spyOn(host, "invoke").mockResolvedValue(wrote);
@@ -584,6 +637,78 @@ describe("CanvasPage pointer interactions", () => {
       // Its pin is drawn wherever b is: one on the canvas.
       expect(container.querySelectorAll("[data-comment-pin]")).toHaveLength(1);
     });
+
+    it("a pin counts its comments; the list shows the open threads, and picking one opens it on what it is on", async () => {
+      host.setNodes([canvasNode, thread, reply]);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      expect(container.querySelector('[data-comment-pin="t1"]')?.textContent).toBe("2");
+      const toggle = present(
+        container.querySelector<HTMLButtonElement>('[data-testid="comments-toggle"]'),
+        "the comments switch",
+      );
+      expect(toggle.textContent).toBe("1");
+      act(() => toggle.click());
+      const entry = present(
+        container.querySelector<HTMLButtonElement>('[data-comment-entry="t1"]'),
+        "t1 in the list",
+      );
+      expect(entry.textContent).toContain("look here");
+      expect(entry.textContent).toContain("1 reply");
+      act(() => entry.click());
+      expect(panel()?.querySelector("[data-comment-on]")?.textContent).toMatch(/^On /);
+      expect(container.querySelectorAll("[data-comment-target]")).toHaveLength(1);
+      // Resolved threads are the other filter's.
+      const resolved = present(
+        container.querySelector<HTMLButtonElement>('[aria-label="Show: Resolved"]'),
+        "the resolved filter",
+      );
+      act(() => resolved.click());
+      expect(container.querySelector('[data-comment-entry="t1"]')).toBeNull();
+      expect(container.querySelector('[data-comment-pin="t1"]')).toBeNull();
+    });
+  });
+
+  it("a linked item wears a link mark that says where it leads, and a click follows it", async () => {
+    const linked: CanvasDoc = {
+      ...initialDoc,
+      nodes: initialDoc.nodes.map((item) =>
+        item.id === "a" ? { ...item, link: { item: "b" } } : item,
+      ),
+    };
+    host.setNodes([
+      {
+        ...canvasNode,
+        props: {
+          ...canvasNode.props,
+          [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(linked) }],
+        },
+      },
+    ]);
+    const sides = ["clientWidth", "clientHeight"] as const;
+    const held = sides.map((side) =>
+      Object.getOwnPropertyDescriptor(dom.HTMLElement.prototype, side),
+    );
+    for (const side of sides) {
+      Object.defineProperty(dom.HTMLElement.prototype, side, { configurable: true, value: 800 });
+    }
+    try {
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      const marks = [...container.querySelectorAll<HTMLButtonElement>("[data-link-mark]")];
+      expect(marks.map((mark) => mark.dataset.linkMark)).toEqual(["a"]);
+      expect(marks[0]?.getAttribute("aria-label")).toBe("Shows b on this canvas");
+      act(() => marks[0]?.click());
+      expect(container.querySelector('[data-card-id="b"] [data-resize]')).not.toBeNull();
+    } finally {
+      sides.forEach((side, i) => {
+        const was = held[i];
+        if (was === undefined) Reflect.deleteProperty(dom.HTMLElement.prototype, side);
+        else Object.defineProperty(dom.HTMLElement.prototype, side, was);
+      });
+    }
   });
 
   it("a modal grab follows the pointer, and a press confirms or cancels it, reaching nothing", async () => {

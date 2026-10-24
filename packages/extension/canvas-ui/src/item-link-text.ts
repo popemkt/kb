@@ -3,7 +3,7 @@
  * address, a node by its reference (`[[id]]`, or a bare id), an item on it
  * after `#`, or an item on this canvas as `#item`.
  */
-import { isLinkUrl, type CanvasItemLink } from "@kb/canvas";
+import { isLinkUrl, type CanvasItemLink, type CanvasWorld } from "@kb/canvas";
 import { extractMentions } from "@kb/model";
 
 /** A node as the row takes it: one `[[id]]` token, or a bare id. */
@@ -39,4 +39,15 @@ export function textOfLink(link: CanvasItemLink | undefined): string {
   if ("url" in link) return link.url;
   const item = link.item === undefined ? "" : `#${link.item}`;
   return "node" in link ? `[[${link.node}]]${item}` : item;
+}
+
+/** Where `link` leads, in words. */
+export function leadsTo(link: CanvasItemLink, world: CanvasWorld): string {
+  if ("url" in link) return `Opens ${link.url}`;
+  const item = link.item === undefined ? "" : `, at ${link.item}`;
+  if (!("node" in link)) return `Shows ${link.item} on this canvas`;
+  const text = world.textOf(link.node);
+  return text === undefined
+    ? `Leads to ${link.node}, which is gone`
+    : `Opens ${text || "∅"}${item}`;
 }

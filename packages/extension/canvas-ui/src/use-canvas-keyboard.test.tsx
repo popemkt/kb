@@ -224,8 +224,6 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
       selRef.current = typeof next === "function" ? next(selRef.current) : next;
       log.push(`selection=${ids(selRef.current)}`);
     },
-    setInspectorAnchor: () => log.push("anchor=null"),
-    setItemInspectorAnchor: () => log.push("shapeAnchor=null"),
     choose: (chooser: string) => log.push(`choose=${chooser}`),
     setSpaceDown: () => log.push("space=true"),
     setToolState: (next: ToolState | ((s: ToolState) => ToolState)) => {
@@ -274,19 +272,11 @@ describe("the canvas keydown table", () => {
     ["redo (shift)", { key: "z", metaKey: true, shiftKey: true }, ["cancelPointer", "redo"]],
     ["redo (Z)", { key: "Z", metaKey: true }, ["cancelPointer", "redo"]],
     ["redo (y)", { key: "y", metaKey: true }, ["cancelPointer", "redo"]],
-    ["delete", { key: "Delete" }, ["persist", "selection=none", "anchor=null", "shapeAnchor=null"]],
-    [
-      "backspace",
-      { key: "Backspace" },
-      ["persist", "selection=none", "anchor=null", "shapeAnchor=null"],
-    ],
+    ["delete", { key: "Delete" }, ["persist", "selection=none"]],
+    ["backspace", { key: "Backspace" }, ["persist", "selection=none"]],
     ["select all", { key: "a", metaKey: true }, ["selection=a+b+e1"]],
     ["duplicate", { key: "d", metaKey: true }, ["persist", "selection=<new>"]],
-    [
-      "escape",
-      { key: "Escape" },
-      ["cancelPointer", "tool=select", "selection=none", "anchor=null", "shapeAnchor=null"],
-    ],
+    ["escape", { key: "Escape" }, ["cancelPointer", "tool=select", "selection=none"]],
     ["space", { key: " ", code: "Space" }, ["space=true"]],
     ["nudge left", { key: "ArrowLeft" }, ["persist"]],
     ["nudge right (shift)", { key: "ArrowRight", shiftKey: true }, ["persist"]],
@@ -298,8 +288,8 @@ describe("the canvas keydown table", () => {
     ["tool ellipse (c)", { key: "c" }, ["tool=ellipse"]],
     ["tool diamond (d)", { key: "d" }, ["tool=diamond"]],
     ["tool group (f)", { key: "f" }, ["tool=group"]],
-    ["grab (g)", { key: "g" }, ["anchor=null", "shapeAnchor=null", "pointer=transform/begin"]],
-    ["extrude (e)", { key: "e" }, ["anchor=null", "shapeAnchor=null", "pointer=transform/begin"]],
+    ["grab (g)", { key: "g" }, ["pointer=transform/begin"]],
+    ["extrude (e)", { key: "e" }, ["pointer=transform/begin"]],
     ["kb-node picker (n)", { key: "n" }, ["tool=select", "choose=node"]],
     ["zoom in", { key: "=", metaKey: true }, ["zoom=1.15"]],
     ["zoom in (+)", { key: "+", metaKey: true }, ["zoom=1.15"]],
