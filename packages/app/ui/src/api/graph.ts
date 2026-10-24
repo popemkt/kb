@@ -10,7 +10,8 @@ export interface GraphLoadResult {
 
 export type FetchGraphSnapshotFn = () => Promise<GraphSnapshot>;
 
-function fixturesForced(): boolean {
+/** Whether the page is built to be its own server: its graph is the fixtures, and it asks no server anything. */
+export function fixturesForced(): boolean {
   return import.meta.env.VITE_USE_FIXTURES === "1" || import.meta.env.VITE_USE_FIXTURES === "true";
 }
 

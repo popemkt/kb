@@ -7,7 +7,7 @@ import {
   ViewErrorBoundary,
   WorkspaceBoundary,
 } from "@kb/ui-sdk";
-import { loadGraph } from "@/api/graph";
+import { fixturesForced, loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
 import { DockHost, DockToggles } from "@/docks";
@@ -205,14 +205,16 @@ export function App() {
     try {
       // The page follows the server: it asks which extensions and views the
       // server loaded beside the graph, so the two round trips overlap, and
-      // follows the answer once the graph is in. It opens the workspace only
-      // once their plugins are in, so a layout never shows one of their views
-      // as unavailable on the way. Offline, the page is its own server, and
-      // its own reading is already in.
-      const manifest = readManifest();
+      // follows the answer only once the graph came from that server. It
+      // opens the workspace only once their plugins are in, so a layout never
+      // shows one of their views as unavailable on the way. Offline, the page
+      // is its own server: its own reading is already in, and the read asked
+      // beside the graph is dropped unheard. A page built on its fixtures
+      // asks no server at all.
+      const manifest = fixturesForced() ? null : readManifest();
       const { snapshot, source } = await loadGraph();
       hydrateFromWire(snapshot.nodes, snapshot.rev, source);
-      if (source === "api") {
+      if (source === "api" && manifest !== null) {
         await loadManifest(manifest);
         await extensionsSettled();
       }
