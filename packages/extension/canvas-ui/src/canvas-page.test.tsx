@@ -538,6 +538,15 @@ describe("CanvasPage pointer interactions", () => {
     act(() => row("Undo")?.click());
     await settle();
     expect(persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.map((n) => n.id)).toEqual(["a", "b"]);
+    // Over words being typed the menu is the browser's.
+    const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "card a");
+    expect(rightClick(cardA)).toBe(true);
+    act(() => row("Edit its words")?.click());
+    expect(menu()).toBeNull();
+    const words = present(dom.document.activeElement, "the open editor");
+    expect(["INPUT", "TEXTAREA"]).toContain(words.tagName);
+    expect(rightClick(words as unknown as Element)).toBe(false);
+    expect(menu()).toBeNull();
     // The zoom readout is the zoom menu's button.
     const zoom = present(container.querySelector<HTMLElement>('button[title="Zoom"]'), "zoom");
     expect(zoom.textContent).toBe("100%");

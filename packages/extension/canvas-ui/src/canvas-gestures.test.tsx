@@ -117,6 +117,8 @@ describe("canvas gestures", () => {
     act(() => {
       stage.dispatchEvent(wheel as unknown as Event);
     });
+    // Heard natively and not passively: the page around the canvas does not zoom too.
+    expect(wheel.defaultPrevented).toBe(true);
     pointer(
       present(card().querySelector('[data-port="right"]'), "right port"),
       "pointerdown",

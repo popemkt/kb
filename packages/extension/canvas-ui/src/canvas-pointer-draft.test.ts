@@ -143,7 +143,7 @@ describe("a draft", () => {
     expect([...(end.selection?.edgeIds ?? [])]).toEqual(["e"]);
   });
 
-  test("an arrow let go on empty canvas, or back on its own item, is a free arrow from the press", () => {
+  test("an arrow let go on empty canvas is a free arrow from the press; back on its own item it draws nothing", () => {
     const empty = draft(
       "arrow",
       [
@@ -170,7 +170,32 @@ describe("a draft", () => {
       ],
       "a",
     ).end;
-    expect(back.doc?.edges).toEqual([]);
+    // A stub lying on the item it came from would bind nothing: none is made.
+    expect(back.persist).toBe("cancel");
+    expect(back.doc).toBeUndefined();
+  });
+
+  test("click or drag is read where it is let go: far from the press with no move between, it draws", () => {
+    const { end } = draft("rect", [
+      { x: 500, y: 300 },
+      { x: 620, y: 380 },
+    ]);
+    expect(end.doc?.nodes.at(-1)).toMatchObject({ x: 500, y: 300, width: 120, height: 80 });
+  });
+
+  test("a drag too short to draw places the preset, and a thin one is drawn at least MIN_DRAFT across", () => {
+    const short = draft("rect", [
+      { x: 500, y: 300 },
+      { x: 510, y: 300 },
+      { x: 504, y: 303 },
+    ]).end;
+    expect(short.doc?.nodes.at(-1)).toMatchObject({ x: 420, y: 250, width: 160, height: 100 });
+    const thin = draft("rect", [
+      { x: 500, y: 300 },
+      { x: 600, y: 300 },
+      { x: 600, y: 301 },
+    ]).end;
+    expect(thin.doc?.nodes.at(-1)).toMatchObject({ x: 500, y: 300, width: 100, height: 8 });
   });
 
   test("an arrow clicked on an item draws nothing", () => {

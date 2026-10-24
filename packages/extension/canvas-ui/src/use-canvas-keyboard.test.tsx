@@ -376,16 +376,35 @@ describe("clipboard", () => {
     expect(copied.edges).toEqual([]);
   });
 
-  test("cut copies the selection, then deletes it as one change", () => {
+  test("cut copies the selection, then, once the clipboard holds it, deletes it as one change", async () => {
     const recording = press(
       { key: "x", metaKey: true },
       { nodeIds: new Set(["a", "b"]), edgeIds: new Set() },
     );
     const copied = JSON.parse(clipboard.writes[0] ?? "{}") as CanvasDoc;
     expect(copied.nodes.map((node) => node.id)).toEqual(["a", "b"]);
+    // Nothing is deleted until the write has gone through.
+    expect(recording.log).toEqual([]);
+    await act(async () => {});
     expect(recording.log).toEqual(["persist", "selection=none"]);
     expect(recording.docs[0]?.nodes).toEqual([]);
     expect(recording.defaultPrevented).toBe(true);
+  });
+
+  test("a cut the clipboard refuses deletes nothing", async () => {
+    const refusing = { writeText: async () => Promise.reject(new Error("denied")) };
+    const was = globalThis.navigator.clipboard;
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: refusing,
+    });
+    try {
+      const recording = press({ key: "x", metaKey: true });
+      await act(async () => {});
+      expect(recording.log).toEqual([]);
+    } finally {
+      Object.defineProperty(globalThis.navigator, "clipboard", { configurable: true, value: was });
+    }
   });
 
   const pastedCanvas = JSON.stringify({
@@ -728,10 +747,10 @@ describe("↵ opens the selected item for typing", () => {
     expect(recording.defaultPrevented).toBe(true);
   });
 
-  test("more than one item selected opens none", () => {
-    expect(
-      press({ key: "Enter" }, { nodeIds: new Set(["a", "b"]), edgeIds: new Set() }).log,
-    ).toEqual([]);
+  test("more than one item selected opens none, and ↵ is left to the browser", () => {
+    const recording = press({ key: "Enter" }, { nodeIds: new Set(["a", "b"]), edgeIds: new Set() });
+    expect(recording.log).toEqual([]);
+    expect(recording.defaultPrevented).toBe(false);
   });
 
   test("with nothing selected it is left to the browser", () => {
@@ -740,7 +759,9 @@ describe("↵ opens the selected item for typing", () => {
     expect(recording.defaultPrevented).toBe(false);
   });
 
-  test("a frame has no words of its own to type", () => {
-    expect(press({ key: "Enter" }, selectNode("f"), false, { doc: framed }).log).toEqual([]);
+  test("a frame has no words of its own to type, so a focused button still takes ↵", () => {
+    const recording = press({ key: "Enter" }, selectNode("f"), false, { doc: framed });
+    expect(recording.log).toEqual([]);
+    expect(recording.defaultPrevented).toBe(false);
   });
 });

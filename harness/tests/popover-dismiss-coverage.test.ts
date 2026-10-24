@@ -33,14 +33,19 @@ function dismissing(): string[] {
     .filter((file) => /\buseDismiss\(/.test(read(file)));
 }
 
-/** The keys of every `dismissContract` suite: the files they say they hold. */
+/**
+ * The keys of every `dismissContract` suite: the files they say they hold,
+ * each once — a file whose popover opens more than one way (from a button,
+ * from a right-click) may be held by a suite for each.
+ */
 function held(): string[] {
-  return gitWorkspaceFiles(["packages/*.test.ts", "packages/*.test.tsx"])
+  const keys = gitWorkspaceFiles(["packages/*.test.ts", "packages/*.test.tsx"])
     .map(read)
     .filter((text) => text.includes("dismissContract({"))
     .flatMap((text) =>
       [...text.matchAll(/^\s*"(packages\/[^"]+\.tsx?)":/gm)].map(([, file = ""]) => file),
     );
+  return [...new Set(keys)];
 }
 
 describe("popover dismiss coverage", () => {

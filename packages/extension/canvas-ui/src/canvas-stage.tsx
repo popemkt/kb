@@ -5,7 +5,7 @@ import {
   type CanvasNode,
   type CanvasSide,
 } from "@kb/canvas";
-import { useDeferredValue, useRef } from "react";
+import { useDeferredValue, useEffect, useRef } from "react";
 import { CanvasCardLayer } from "./canvas-card-layer";
 import { CanvasEdgeLayer, GhostEdgePath } from "./canvas-edge-layer";
 import { viewOfPan } from "./canvas-camera";
@@ -41,7 +41,8 @@ interface CanvasStageProps {
   onResizeStart: (cardId: string, corner: ResizeCorner, screen: { x: number; y: number }) => void;
   onRotateStart: (cardId: string, screen: { x: number; y: number }) => void;
   onPortDown: (cardId: string, side: CanvasSide, screen: { x: number; y: number }) => void;
-  onWheel: (event: React.WheelEvent<HTMLDivElement>) => void;
+  /** A wheel or a pinch over the viewport `element`, heard natively so it may be prevented. */
+  onWheel: (event: WheelEvent, element: HTMLElement) => void;
   onPointerDownStage: (event: React.PointerEvent<HTMLDivElement>) => void;
   /** A press during a modal transform, which only ends it; whether it was one. */
   onModalPress: (event: React.PointerEvent<HTMLDivElement>) => boolean;
@@ -197,6 +198,17 @@ export function CanvasStage({
     onCardPointerDown: handleCardPointerDown,
     onEdit,
   });
+  const wheelActions = useStableActions({ onWheel });
+  // React hears the wheel passively, so its preventDefault does not keep a
+  // ⌘-wheel or a pinch from zooming the page the canvas is in (bb's): the
+  // stage hears it itself, not passively, as the 3D stage does.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return () => {};
+    const onNativeWheel = (event: WheelEvent) => wheelActions.onWheel(event, el);
+    el.addEventListener("wheel", onNativeWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onNativeWheel);
+  }, [wheelActions]);
   const edgeActions = useStableActions({
     onEditingEdgeLabelChange,
     onEdgeLabelCommit,
@@ -215,7 +227,6 @@ export function CanvasStage({
             ? "cursor-crosshair"
             : "cursor-default",
       )}
-      onWheel={onWheel}
       onPointerDownCapture={(event) => {
         if (onModalPress(event)) return;
         if (event.button === 1 || panning || (event.button === 0 && event.altKey)) {

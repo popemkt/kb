@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  CANVAS_SHORTCUTS,
   CANVAS_VIEW_COMMANDS,
   menuRows,
   mapCanvasKey,
@@ -293,6 +294,11 @@ describe("the command menus", () => {
       ["Zoom in", "Zoom out", "Zoom to 100%"],
       ["Frame all", "Frame selection"],
     ]);
+    // Every place a shortcut claims in a menu is its own: none stands over another.
+    for (const menu of ["selection", "canvas", "zoom"] as const) {
+      const places = CANVAS_SHORTCUTS.flatMap((s) => s.menus?.[menu]?.join(":") ?? []);
+      expect(new Set(places).size).toBe(places.length);
+    }
     const cut = menuRows("selection")[1]?.[0];
     expect(cut?.intent).toEqual({ type: "cut" });
     expect(cut?.hint).toBe("⌘X");

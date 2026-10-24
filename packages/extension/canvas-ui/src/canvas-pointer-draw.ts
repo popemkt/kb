@@ -18,6 +18,7 @@ import {
   type CanvasPresetKind,
   type CanvasSide,
 } from "@kb/canvas";
+import { pastSlop } from "@kb/ui-sdk";
 import { hitTest, type CanvasView, type ViewSize } from "./canvas-camera";
 import { selectEdge, selectNode, type CanvasSelection } from "./canvas-selection";
 import { draftItem } from "./canvas-tool";
@@ -112,23 +113,33 @@ export function edgeDrawn(
 }
 
 /**
- * The item an arrow drawn from `on` ends on at `screen`, which it is bound
- * to: the topmost under the pointer that is neither `on` itself nor a frame
- * (an arrow ends inside a frame on what is there), or none.
+ * Where an arrow drawn from `on` ends at `screen`: back on `on` itself
+ * ("own"), on the item it is bound to there — the topmost under the
+ * pointer that is not a frame (an arrow ends inside a frame on what is
+ * there) — or on nothing.
  */
-function arrowTarget(surface: DrawSurface, doc: CanvasDoc, on: string, screen: Spot) {
+function arrowEnd(
+  surface: DrawSurface,
+  doc: CanvasDoc,
+  on: string,
+  screen: Spot,
+): CanvasNode | "own" | null {
   const hit = hitTest(paintOrder(doc.nodes), surface.view, surface.size, screen);
-  const item = hit === null || hit === on ? undefined : surface.byId.get(hit);
+  if (hit === on) return "own";
+  const item = hit === null ? undefined : surface.byId.get(hit);
   return item === undefined || isGroupNode(item) ? null : item;
 }
 
 /**
- * The release of a draft at floor point `to` (`screen` on screen): a click
- * places its preset centred where it was pressed (an arrow clicked on an
- * item draws nothing: null); a drag writes what it drew, an arrow drawn
- * from one item to another as the edge between them, each end leaving its
- * item on the side that faces the other (`edgeDrawn`), and anything else as
- * the item, placed in its frame. Either is one history step, and is selected.
+ * The release of a draft at floor point `to` (`screen` on screen). It is a
+ * click when it is let go within the slop of the press, however the pointer
+ * wandered on the way: a click places its preset centred where it was
+ * pressed. A drag writes what it drew: an arrow drawn from one item to
+ * another as the edge between them, each end leaving its item on the side
+ * that faces the other (`edgeDrawn`), and anything else as the item, placed
+ * in its frame. Either is one history step, and is selected. An arrow from
+ * an item that is clicked, or let go back on its own item, draws nothing
+ * (null): a stub lying on what it came from binds nothing.
  */
 export function draftDrawn(
   surface: DrawSurface,
@@ -136,12 +147,13 @@ export function draftDrawn(
   release: { readonly to: Spot; readonly screen: Spot; readonly shiftKey: boolean },
 ): Drawn | null {
   const doc = without(surface.doc, drag.id);
-  const clicked = drag.slop !== null;
+  const { slop } = drag;
+  const clicked = slop !== null && !pastSlop(release.screen.x - slop.x, release.screen.y - slop.y);
   if (clicked && drag.on !== null) return null;
   const { to } = release;
   const from = drag.on === null ? undefined : surface.byId.get(drag.on);
-  const target =
-    from === undefined || clicked ? null : arrowTarget(surface, doc, from.id, release.screen);
+  const target = from === undefined ? null : arrowEnd(surface, doc, from.id, release.screen);
+  if (target === "own") return null;
   if (from !== undefined && target !== null) {
     const ids = { id: drag.edgeId, bindingId: drag.bindingId };
     const side = closestPort(from, to.x, to.y);

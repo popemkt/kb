@@ -49,6 +49,7 @@ import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@kb/ui-sdk";
 import { readPastedText } from "./canvas-paste";
 import { hasEditor } from "./canvas-face-overlay";
+import { intentApplies } from "./use-canvas-menu";
 
 /**
  * The canvas keyboard surface: `canvas-keymap` decides *what* a chord
@@ -111,17 +112,30 @@ function deleteSelection(context: CanvasKeyboardContext) {
   context.setSelection(EMPTY_SELECTION);
 }
 
-/** A copy takes the selected items with their members, the edges among them and the edges selected. */
-function copySelection(context: CanvasKeyboardContext) {
+/**
+ * A copy takes the selected items with their members, the edges among them
+ * and the edges selected; it answers once the clipboard holds them.
+ */
+function copySelection(context: CanvasKeyboardContext): Promise<void> {
   const { nodeIds, edgeIds } = context.selRef.current;
   const copied = carriedPart(context.docRef.current, nodeIds, edgeIds);
-  void navigator.clipboard.writeText(JSON.stringify(copied));
+  return navigator.clipboard.writeText(JSON.stringify(copied));
 }
 
-/** ⌘X: a copy of the selection, then its delete, which is the one undo step. */
+/**
+ * ⌘X: a copy of the selection, then — only once the clipboard holds it —
+ * the delete of what was cut, the one undo step. A copy the browser refuses
+ * deletes nothing.
+ */
 function cutSelection(context: CanvasKeyboardContext) {
-  copySelection(context);
-  deleteSelection(context);
+  const cut = context.selRef.current;
+  copySelection(context)
+    .then(() => {
+      context.schedulePersist(deleteSelected(context.docRef.current, cut));
+      if (context.selRef.current === cut) context.setSelection(EMPTY_SELECTION);
+    })
+    // Refused (no permission, the page not focused): what was cut stays where it was.
+    .catch(() => {});
 }
 
 /** ↵: the one item selected, when it has words of its own to type, opened for typing. */
@@ -325,7 +339,7 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
   },
   delete: deleteSelection,
   selectAll: (context) => context.setSelection(selectAll(context.docRef.current, context.scope)),
-  copy: copySelection,
+  copy: (context) => void copySelection(context),
   cut: cutSelection,
   duplicate: duplicateSelection,
   edit: editSelection,
@@ -384,6 +398,7 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
         selectionEmpty: selectionEmpty(context.selRef.current),
         transforming: context.transforming(),
         presenting: context.presenting(),
+        acts: (intent) => intentApplies(intent, context.selRef.current, context.byId),
       });
       if (binding === null) return;
       if (binding.intent !== null) applyCanvasIntent(context, binding.intent);

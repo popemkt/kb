@@ -185,7 +185,7 @@ function useViewportControls({
   useLayoutEffect(() => {
     zoomNow.current = zoom;
   }, [zoom]);
-  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+  const onWheel = (e: WheelEvent, element: HTMLElement) => {
     const from = pointerRef.current.pan;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -193,7 +193,7 @@ function useViewportControls({
       const newZoom = clampZoom(was * wheelZoomFactor(e));
       zoomNow.current = newZoom;
       // Cursor-centered zoom
-      const rect = e.currentTarget.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
       const worldX = (px - from.x) / was;

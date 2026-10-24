@@ -119,6 +119,12 @@ export interface CanvasKeyState {
   transforming: boolean;
   /** Frames are being presented. */
   presenting?: boolean;
+  /**
+   * Whether an intent has anything to act on in the selection
+   * (`intentApplies`): a shortcut that needs a selection treats one with
+   * nothing to act on as none (↵ on a frame is the browser's).
+   */
+  acts?: (intent: CanvasIntent) => boolean;
 }
 
 /**
@@ -168,13 +174,24 @@ export interface CanvasShortcut {
   /** The first chord in words, as a menu or a tooltip shows it; "" for none. */
   readonly hint: string;
   readonly mode: ShortcutMode;
-  /** Pressed with nothing selected it does nothing: swallowed, or passed to the browser. */
+  /**
+   * Pressed with nothing selected, or nothing in it to act on (`acts`), it
+   * does nothing: swallowed, or passed to the browser.
+   */
   readonly needsSelection?: "swallow" | "pass";
   /** Whether the browser's default is prevented; Escape, for one, is left to it. */
   readonly prevent: boolean;
   /** In a modal transform, whether a held key acts again (Backspace); others act once. */
   readonly repeats?: boolean;
+  /** The command menus that list it, and where (`menuRows`). */
+  readonly menus?: CanvasMenuPlaces;
 }
+
+/** The canvas's command menus: the context menu on the selection and on empty canvas, and the zoom menu. */
+export type CanvasMenuName = "selection" | "canvas" | "zoom";
+
+/** Where a shortcut stands in each command menu that lists it: its row, then its place in the row. */
+type CanvasMenuPlaces = Partial<Record<CanvasMenuName, readonly [row: number, at: number]>>;
 
 /** A view command: a shortcut whose intent the camera carries out, listed in the view menu. */
 export type CanvasViewCommand = CanvasShortcut & { readonly intent: CanvasViewIntent };
@@ -266,15 +283,20 @@ export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
   view("Orthographic", { type: "toggleLens" }, [{ code: "Numpad5" }]),
   view("2D", { type: "projection", kind: "2d" }, []),
   view("3D", { type: "projection", kind: "3d" }, []),
-  view("Frame all", { type: "frame", scope: "all" }, [
-    { code: "Digit1", shift: true },
-    { key: "!", shift: true },
-  ]),
+  view(
+    "Frame all",
+    { type: "frame", scope: "all" },
+    [
+      { code: "Digit1", shift: true },
+      { key: "!", shift: true },
+    ],
+    { menus: { canvas: [2, 0], zoom: [1, 0] } },
+  ),
   view(
     "Frame selection",
     { type: "frame", scope: "selection" },
     [{ code: "Digit2", shift: true }, { key: "@", shift: true }, { code: "NumpadDecimal" }],
-    { needsSelection: "swallow" },
+    { needsSelection: "swallow", menus: { selection: [5, 0], zoom: [1, 1] } },
   ),
   view("Present frames", { type: "present", act: "start" }, []),
 ];
@@ -289,8 +311,12 @@ const tool = (label: string, pick: CanvasToolPick, keys: readonly (string | Canv
   );
 
 /** An arrangement of the selection, pressed with ⌥ and a letter where the keyboard has it. */
-const arrange = (label: string, intent: CanvasIntent, chords: readonly CanvasChord[]) =>
-  shortcut("Arrange", label, intent, chords, { needsSelection: "swallow" });
+const arrange = (
+  label: string,
+  intent: CanvasIntent,
+  chords: readonly CanvasChord[],
+  menus?: CanvasMenuPlaces,
+) => shortcut("Arrange", label, intent, chords, { needsSelection: "swallow", menus });
 
 /** ⌥ and a letter, by its place: ⌥ makes another character of it on a Mac. */
 const altKey = (letter: string, shift = false): CanvasChord => ({
@@ -413,12 +439,20 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
     { key: " ", shift: true },
   ]),
   present("Stop presenting", "stop", [{ key: "Escape" }]),
-  shortcut("Edit", "Redo", { type: "redo" }, [
-    { key: "z", mod: true, shift: true },
-    { key: "Z", mod: true, cased: true },
-    { key: "y", mod: true },
-  ]),
-  shortcut("Edit", "Undo", { type: "undo" }, [{ key: "z", mod: true }]),
+  shortcut(
+    "Edit",
+    "Redo",
+    { type: "redo" },
+    [
+      { key: "z", mod: true, shift: true },
+      { key: "Z", mod: true, cased: true },
+      { key: "y", mod: true },
+    ],
+    { menus: { canvas: [0, 1] } },
+  ),
+  shortcut("Edit", "Undo", { type: "undo" }, [{ key: "z", mod: true }], {
+    menus: { canvas: [0, 0] },
+  }),
   ...CANVAS_VIEW_COMMANDS,
   // ⌃numpad 7 would look from under the floor: there is no such view, so it does nothing.
   shortcut("View", "", null, [{ code: "Numpad7", ctrl: true }]),
@@ -432,34 +466,44 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
       { key: "Delete", mod: "any" },
       { key: "Backspace", mod: "any" },
     ],
-    { needsSelection: "swallow" },
+    { needsSelection: "swallow", menus: { selection: [1, 3] } },
   ),
-  shortcut("Edit", "Select all", { type: "selectAll" }, [{ key: "a", mod: true }]),
+  shortcut("Edit", "Select all", { type: "selectAll" }, [{ key: "a", mod: true }], {
+    menus: { canvas: [1, 0] },
+  }),
   // ⌘V is not the canvas's: the browser's paste event carries what the clipboard holds.
   shortcut("Edit", "Copy", { type: "copy" }, [{ key: "c", mod: true }], {
     needsSelection: "swallow",
+    menus: { selection: [1, 1] },
   }),
   shortcut("Edit", "Cut", { type: "cut" }, [{ key: "x", mod: true }], {
     needsSelection: "swallow",
+    menus: { selection: [1, 0] },
   }),
   shortcut("Edit", "Group into a frame", { type: "group" }, [{ key: "g", mod: true }], {
     needsSelection: "swallow",
+    menus: { selection: [2, 0] },
   }),
   shortcut("Edit", "Ungroup", { type: "ungroup" }, [{ key: "g", mod: true, shift: true }], {
     needsSelection: "swallow",
+    menus: { selection: [2, 1] },
   }),
   shortcut("Edit", "Duplicate", { type: "duplicate" }, [{ key: "d", mod: true }], {
     needsSelection: "swallow",
+    menus: { selection: [1, 2] },
   }),
   shortcut("Edit", "Lock or unlock", { type: "lock" }, [{ key: "l", shift: true }], {
     needsSelection: "swallow",
+    menus: { selection: [2, 2] },
   }),
   shortcut("Navigate", "Follow link", { type: "followLink" }, [{ key: "Enter", mod: true }], {
     needsSelection: "swallow",
+    menus: { selection: [0, 1] },
   }),
   // tldraw's: ↵ types into what is selected, as a double-click does.
   shortcut("Edit", "Edit its words", { type: "edit" }, [{ key: "Enter", shift: false }], {
     needsSelection: "pass",
+    menus: { selection: [0, 0] },
   }),
   // tldraw's: ⌥ and an arrow turns the page, so it does not nudge.
   shortcut("Navigate", "Next page", { type: "page", step: 1 }, [{ key: "ArrowRight", alt: true }]),
@@ -472,8 +516,12 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   arrange("Backward one step", { type: "order", order: "backward" }, [
     { code: "BracketLeft", alt: true },
   ]),
-  arrange("Bring to front", { type: "order", order: "front" }, [{ code: "BracketRight" }]),
-  arrange("Send to back", { type: "order", order: "back" }, [{ code: "BracketLeft" }]),
+  arrange("Bring to front", { type: "order", order: "front" }, [{ code: "BracketRight" }], {
+    selection: [3, 0],
+  }),
+  arrange("Send to back", { type: "order", order: "back" }, [{ code: "BracketLeft" }], {
+    selection: [3, 1],
+  }),
   arrange("Spread across evenly", { type: "distribute", axis: "x" }, [altKey("H", true)]),
   arrange("Spread down evenly", { type: "distribute", axis: "y" }, [altKey("V", true)]),
   arrange("Align left", { type: "align", edge: "left" }, [altKey("A")]),
@@ -482,12 +530,22 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   arrange("Align top", { type: "align", edge: "top" }, [altKey("W")]),
   arrange("Align middles down", { type: "align", edge: "middle" }, [altKey("V")]),
   arrange("Align bottom", { type: "align", edge: "bottom" }, [altKey("S")]),
-  arrange("Flip left for right", { type: "flip", axis: "x" }, [
-    { key: "h", shift: true, alt: false },
-  ]),
-  arrange("Flip top for bottom", { type: "flip", axis: "y" }, [
-    { key: "v", shift: true, alt: false },
-  ]),
+  arrange(
+    "Flip left for right",
+    { type: "flip", axis: "x" },
+    [{ key: "h", shift: true, alt: false }],
+    {
+      selection: [4, 0],
+    },
+  ),
+  arrange(
+    "Flip top for bottom",
+    { type: "flip", axis: "y" },
+    [{ key: "v", shift: true, alt: false }],
+    {
+      selection: [4, 1],
+    },
+  ),
   shortcut("Edit", "Step out", { type: "escape" }, [{ key: "Escape", mod: "any" }], {
     prevent: false,
   }),
@@ -542,52 +600,50 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   tool("Frame", "group", ["f", "7"]),
   tool("Solid (the last one made)", "solid", ["b", "8"]),
   tool("Comment", "comment", ["m"]),
-  shortcut("View", "Zoom in", { type: "zoomBy", factor: ZOOM_STEP }, [
-    { key: "=", mod: true },
-    { key: "+", mod: true },
-  ]),
-  shortcut("View", "Zoom out", { type: "zoomBy", factor: 1 / ZOOM_STEP }, [
-    { key: "-", mod: true },
-  ]),
-  shortcut("View", "Zoom to 100%", { type: "zoomTo", zoom: 1 }, [{ key: "0", mod: true }]),
+  shortcut(
+    "View",
+    "Zoom in",
+    { type: "zoomBy", factor: ZOOM_STEP },
+    [
+      { key: "=", mod: true },
+      { key: "+", mod: true },
+    ],
+    { menus: { zoom: [0, 0] } },
+  ),
+  shortcut(
+    "View",
+    "Zoom out",
+    { type: "zoomBy", factor: 1 / ZOOM_STEP },
+    [{ key: "-", mod: true }],
+    {
+      menus: { zoom: [0, 1] },
+    },
+  ),
+  shortcut("View", "Zoom to 100%", { type: "zoomTo", zoom: 1 }, [{ key: "0", mod: true }], {
+    menus: { canvas: [2, 1], zoom: [0, 2] },
+  }),
 ];
 
 /** A command a menu lists: a shortcut whose intent is known before any key is pressed. */
 export type CanvasMenuCommand = CanvasShortcut & { readonly intent: CanvasIntent };
 
-/**
- * The canvas's command menus, tldraw's, as rows of the table's own
- * shortcuts by label, so a row and its key cannot mean different things:
- * the context menu on the selection and on empty canvas, and the zoom menu.
- */
-const CANVAS_MENUS = {
-  selection: [
-    ["Edit its words", "Follow link"],
-    ["Cut", "Copy", "Duplicate", "Delete"],
-    ["Group into a frame", "Ungroup", "Lock or unlock"],
-    ["Bring to front", "Send to back"],
-    ["Flip left for right", "Flip top for bottom"],
-    ["Frame selection"],
-  ],
-  canvas: [["Undo", "Redo"], ["Select all"], ["Frame all", "Zoom to 100%"]],
-  zoom: [
-    ["Zoom in", "Zoom out", "Zoom to 100%"],
-    ["Frame all", "Frame selection"],
-  ],
-} as const;
-
-export type CanvasMenuName = keyof typeof CANVAS_MENUS;
-
 const isMenuCommand = (entry: CanvasShortcut): entry is CanvasMenuCommand =>
   entry.intent !== null && typeof entry.intent !== "function";
 
-/** Menu `menu`'s rows of commands (`CANVAS_MENUS`). */
+/**
+ * Menu `menu`'s rows of commands, tldraw's: the shortcuts the table places
+ * in it (`menus`), so a row and its key cannot mean different things.
+ */
 export function menuRows(menu: CanvasMenuName): readonly (readonly CanvasMenuCommand[])[] {
-  return CANVAS_MENUS[menu].map((labels) =>
-    labels.flatMap((label) =>
-      CANVAS_SHORTCUTS.filter((s) => s.label === label && s.mode === "rest").filter(isMenuCommand),
-    ),
-  );
+  const placed = CANVAS_SHORTCUTS.filter(isMenuCommand)
+    .flatMap((command) => {
+      const place = command.menus?.[menu];
+      return place === undefined ? [] : [{ command, row: place[0], at: place[1] }];
+    })
+    .toSorted((a, b) => a.row - b.row || a.at - b.at);
+  const rows = new Map<number, CanvasMenuCommand[]>();
+  for (const { command, row } of placed) rows.set(row, [...(rows.get(row) ?? []), command]);
+  return [...rows.values()];
 }
 
 const mod = (event: CanvasKeyEvent) => event.metaKey === true || event.ctrlKey === true;
@@ -632,6 +688,9 @@ function bindingOf(found: CanvasShortcut, event: CanvasKeyEvent, state: CanvasKe
     return claim(null, found.needsSelection === "swallow");
   }
   const intent = typeof found.intent === "function" ? found.intent(event) : found.intent;
+  if (found.needsSelection !== undefined && intent !== null && state.acts?.(intent) === false) {
+    return claim(null, found.needsSelection === "swallow");
+  }
   return claim(intent, found.prevent);
 }
 

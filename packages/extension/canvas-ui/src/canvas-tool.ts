@@ -27,6 +27,7 @@ import {
   placeItems,
   placedOnFace,
   presetItem,
+  presetType,
   withBox,
   type CanvasDoc,
   type CanvasFrame,
@@ -223,11 +224,9 @@ export interface ToolSpot {
   readonly item: CanvasNode | null;
 }
 
-const ORIGIN = { x: 0, y: 0 };
-
 /** Whether `tool` draws a line (the line and the arrow), which runs from where it is pressed. */
 function drawsLine(tool: CanvasTool): boolean {
-  return placesItem(tool) && isPresetTool(tool) && isPathNode(presetItem(tool, ORIGIN, ""));
+  return placesItem(tool) && isPresetTool(tool) && presetType(tool) === "path";
 }
 
 /**
@@ -271,27 +270,29 @@ function stepped(from: FloorPoint, to: FloorPoint): FloorPoint {
   return { x: from.x + length * Math.cos(angle), y: from.y + length * Math.sin(angle) };
 }
 
+/**
+ * How far a draft must reach, canvas units, to be drawn rather than placed:
+ * shorter both ways, it places the preset at its own size, as a click does;
+ * and the box it draws is at least this much each way, so it can be picked.
+ */
+const MIN_DRAFT = 8;
+
 /** The box from `from` toward `to`, a square as wide as its longer side when `square`. */
 function boxBetween(from: FloorPoint, to: FloorPoint, square: boolean) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
-  const side = Math.max(Math.abs(dx), Math.abs(dy));
-  const w = square ? side : Math.abs(dx);
-  const h = square ? side : Math.abs(dy);
-  return {
-    x: dx < 0 ? from.x - w : from.x,
-    y: dy < 0 ? from.y - h : from.y,
-    width: Math.max(1, w),
-    height: Math.max(1, h),
-  };
+  const side = Math.max(Math.abs(dx), Math.abs(dy), MIN_DRAFT);
+  const w = square ? side : Math.max(MIN_DRAFT, Math.abs(dx));
+  const h = square ? side : Math.max(MIN_DRAFT, Math.abs(dy));
+  return { x: dx < 0 ? from.x - w : from.x, y: dy < 0 ? from.y - h : from.y, width: w, height: h };
 }
 
 /**
  * The item a draft of `preset` makes, as item `id`: pressed at `from` and
  * dragged to `to`, a line from one to the other (turned in 15° steps with
  * `held`, ⇧), or anything else filling the box between them (a square with
- * ⇧); a click (`to` null) places the preset at its own size, centred on
- * `from`, as tldraw's tools do.
+ * ⇧); a click (`to` null), or a drag shorter than `MIN_DRAFT` both ways,
+ * places the preset at its own size, centred on `from`, as tldraw's tools do.
  */
 export function draftItem(
   preset: CanvasPresetKind,
@@ -301,7 +302,9 @@ export function draftItem(
   held: boolean,
 ): CanvasNode {
   const made = presetItem(preset, from, id);
-  if (to === null) {
+  const short =
+    to !== null && Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)) < MIN_DRAFT;
+  if (to === null || short) {
     return { ...made, x: from.x - made.width / 2, y: from.y - made.height / 2 };
   }
   if (isPathNode(made)) return lineThrough(made, [from, held ? stepped(from, to) : to], LINE_REACH);

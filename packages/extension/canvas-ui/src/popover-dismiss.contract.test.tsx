@@ -17,6 +17,7 @@ import {
 import { viewOfPan } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import { CommentThreadPanel } from "./canvas-comment-thread";
+import { CanvasContextMenu } from "./canvas-context-menu";
 import { EMPTY_SELECTION } from "./canvas-selection";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasToolbar } from "./canvas-toolbar";
@@ -118,6 +119,27 @@ dismissContract({
         {(dismiss) => <NodePicker onPick={noop} onClose={dismiss} />}
       </UntilDismissed>,
       find('input[placeholder="Add existing node…"]'),
+      null,
+    ),
+});
+
+// The same CommandMenu opened by a right-click: no trigger, so a press anywhere outside shuts it.
+dismissContract({
+  "packages/extension/canvas-ui/src/canvas-menu.tsx": (host) =>
+    renderPopover(
+      host,
+      <UntilDismissed>
+        {(dismiss) => (
+          <CanvasContextMenu
+            at={{ x: 10, y: 10 }}
+            selection={EMPTY_SELECTION}
+            byId={new Map()}
+            onIntent={noop}
+            onClose={dismiss}
+          />
+        )}
+      </UntilDismissed>,
+      find('[data-testid="canvas-context-menu"]'),
       null,
     ),
 });

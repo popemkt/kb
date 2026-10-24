@@ -6,7 +6,7 @@
  * `useDismiss`'s, as every popover's; the pieces drawn are `canvas-menu.tsx`.
  */
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
-import { cn } from "@kb/ui-sdk";
+import { cn, isTextEntry } from "@kb/ui-sdk";
 import { cardIdAt, edgeIdAt } from "./card-pointer";
 import { isGroupNode, itemLead, type CanvasNode } from "@kb/canvas";
 import {
@@ -64,7 +64,8 @@ interface Spot {
  * The context menu's opening: a right-click on the 2D stage selects what
  * it lands on (`selectForMenu`) and opens the menu where it was made, over
  * the element that heard it. A menu already swallowed opens nothing: the
- * press that ends a modal transform swallows its own (`onModalPress`).
+ * press that ends a modal transform swallows its own (`onModalPress`); and
+ * one over words being typed is the browser's.
  */
 export function useCanvasContextMenu(
   selection: CanvasSelection,
@@ -72,7 +73,8 @@ export function useCanvasContextMenu(
 ): { at: Spot | null; open: (e: MouseEvent<HTMLElement>) => void; close: () => void } {
   const [at, setAt] = useState<Spot | null>(null);
   const open = (e: MouseEvent<HTMLElement>) => {
-    if (e.defaultPrevented) return;
+    // Words being typed keep the browser's menu: spelling, paste, look up.
+    if (e.defaultPrevented || isTextEntry(e.target)) return;
     e.preventDefault();
     setSelection(selectForMenu(selection, { node: cardIdAt(e.target), edge: edgeIdAt(e.target) }));
     const box = e.currentTarget.getBoundingClientRect();
@@ -85,7 +87,7 @@ export function useCanvasContextMenu(
  * Whether `intent` has anything to act on in `selection`: ↵ an editor, ⌘↵
  * a link, ungroup a frame, framing the selection a selection.
  */
-function applies(
+export function intentApplies(
   intent: CanvasIntent,
   selection: CanvasSelection,
   byId: ReadonlyMap<string, CanvasNode>,
@@ -110,6 +112,6 @@ export function menuCommands(
   byId: ReadonlyMap<string, CanvasNode>,
 ): readonly (readonly CanvasMenuCommand[])[] {
   return menuRows(menu)
-    .map((row) => row.filter((command) => applies(command.intent, selection, byId)))
+    .map((row) => row.filter((command) => intentApplies(command.intent, selection, byId)))
     .filter((row) => row.length > 0);
 }

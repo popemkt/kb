@@ -284,6 +284,7 @@ export {
   makeItem,
   placedOnFace,
   presetItem,
+  presetType,
 } from "./presets.ts";
 export {
   CANVAS_FOOTPRINT_KINDS,

@@ -97,13 +97,17 @@ export function DockPanel({
   readonly className?: string;
   readonly "data-testid"?: string;
 }) {
-  // What the dock remembers is whether the person turned it from how the
-  // stage stands it — folded where it is narrow, open elsewhere — so a panel
-  // no one touched follows the stage as it widens or narrows.
+  // What the dock remembers is the fold the person chose, which holds
+  // however the stage is sized; a panel no one has folded or opened stands
+  // as the stage has it — folded where it is narrow, open elsewhere.
   const { compact } = useContext(DockFlags);
-  const [turned, setTurned] = useDockFlag(`turned:${name}`);
-  const folded = turned !== compact;
-  const setFolded = (fold: boolean) => setTurned(fold !== compact);
+  const [chosenFolded, setChosenFolded] = useDockFlag(`folded:${name}`);
+  const [chosenOpen, setChosenOpen] = useDockFlag(`opened:${name}`);
+  const folded = chosenFolded || (!chosenOpen && compact);
+  const setFolded = (fold: boolean) => {
+    setChosenFolded(fold);
+    setChosenOpen(!fold);
+  };
   return (
     <section
       aria-label={name}
