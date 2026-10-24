@@ -3,7 +3,7 @@
  * pin for each thread where the shown projection draws what it is on
  * (`threadPins`, the camera model's), and the panel a pin opens, where a
  * person reads a thread, replies, and resolves or reopens it. The panel
- * opens as the inspectors do (`CanvasPopover`).
+ * opens in the canvas popover (`CanvasPopover`).
  */
 import { useState } from "react";
 import { ChatCircleIcon } from "@phosphor-icons/react";

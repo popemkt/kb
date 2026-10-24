@@ -5,8 +5,8 @@ import { useDismiss } from "@kb/ui-sdk";
 /**
  * A panel the canvas opens at a point on screen (`anchor`, client
  * coordinates): below it, or above it when the window has no room below,
- * and dismissed as every popover is (`useDismiss`). The item and edge
- * inspectors and a comment thread open in it.
+ * and dismissed as every popover is (`useDismiss`). A comment thread
+ * opens in it.
  */
 export function CanvasPopover({
   anchor,
@@ -25,7 +25,7 @@ export function CanvasPopover({
     setTop(below + height > window.innerHeight - 8 ? Math.max(8, anchor.y - height - 8) : below);
   }, [anchor.y]);
 
-  // An inspector or a thread opens from a gesture on the canvas: nothing toggles it.
+  // A thread opens from a gesture on the canvas: nothing toggles it.
   useDismiss(true, { inside: [ref], trigger: null }, onClose);
 
   return createPortal(

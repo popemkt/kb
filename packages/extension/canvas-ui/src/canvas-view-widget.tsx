@@ -1,6 +1,6 @@
 /**
  * The canvas's view widget (DESIGN-UI.md → Canvas → Projections): an axis
- * gizmo in the stage's corner, computed from the camera's frame
+ * gizmo heading the dock (`CanvasDock`), computed from the camera's frame
  * (`screenAxes`), so it needs no second scene, and under it the name of the
  * view, which opens the view menu. In 2D it shows the top view, which is what
  * 2D is.
@@ -342,10 +342,7 @@ export function CanvasViewWidget({
   const view = useShownView(rig, in3d, flatView);
   const trigger = useRef<HTMLButtonElement>(null);
   return (
-    <div
-      className="absolute right-3 top-3 z-20 flex flex-col items-end gap-1"
-      data-testid="canvas-view-widget"
-    >
+    <div className="flex flex-col items-end gap-1" data-testid="canvas-view-widget">
       <AxisGizmo view={view} onLook={(preset) => onIntent({ type: "look", preset })} />
       <div className="relative">
         <button

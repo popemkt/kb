@@ -16,7 +16,6 @@ interface CanvasEdgeActionContext {
   queries: QueryAnswers | null;
   flushPersist: ReturnType<typeof useCanvasDoc>["flushPersist"];
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
-  setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
 }
 
 /**
@@ -62,7 +61,6 @@ async function deleteEdge(context: CanvasEdgeActionContext) {
     await context.flushPersist(next);
   }
   context.setSelection(EMPTY_SELECTION);
-  context.setInspectorAnchor(null);
 }
 
 export function createCanvasEdgeActions(context: CanvasEdgeActionContext) {

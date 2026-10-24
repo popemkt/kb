@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasSide, CommentPlace } from "@kb/canvas";
-import { isShapeNode, isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
+import { isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
 import {
   pickTool,
   pressWithTool,
@@ -42,7 +42,6 @@ interface CanvasGestureContext {
   dispatchPointer: (event: CanvasPointerEvent) => PointerResult;
   schedulePersist: (doc: CanvasDoc) => void;
   flushPersist: (doc: CanvasDoc) => Promise<void>;
-  setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setPickerOpen: Dispatch<SetStateAction<boolean>>;
   /** Open the chooser a tool placed with something chosen first opens (`pickTool`). */
   choose: (chooser: CanvasChooser) => void;
@@ -51,7 +50,6 @@ interface CanvasGestureContext {
   /** Start a comment thread at `place`, written in a panel opened at `client`. */
   comment: (place: CommentPlace, client: { x: number; y: number }) => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
-  setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
   setZoom: Dispatch<SetStateAction<number>>;
   /** Where a card added from the header lands, in the projection that is showing. */
@@ -64,9 +62,7 @@ type StageGestureContext = Pick<
   | "docRef"
   | "pointerRef"
   | "schedulePersist"
-  | "setInspectorAnchor"
   | "setSelection"
-  | "setItemInspectorAnchor"
   | "setToolState"
   | "panning"
   | "toolState"
@@ -96,15 +92,11 @@ function viewportPoint(clientX: number, clientY: number, element?: HTMLElement) 
 function createPointerEnd(context: StageGestureContext, cardAt: CardAt) {
   return (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = context.pointerRef.current.drag;
-    if (drag?.kind === "marquee-pending") {
-      context.setInspectorAnchor(null);
-      context.setItemInspectorAnchor(null);
-    }
     const edgeTarget =
       drag?.kind === "edge"
         ? (cardAt(event.clientX, event.clientY, event.currentTarget) ?? undefined)
         : undefined;
-    const next = context.dispatchPointer({
+    context.dispatchPointer({
       type: "pointer/end",
       shiftKey: event.shiftKey,
       free: event.metaKey || event.ctrlKey,
@@ -113,9 +105,6 @@ function createPointerEnd(context: StageGestureContext, cardAt: CardAt) {
       edgeId: drag?.kind === "edge" ? ulid() : undefined,
       edgeBindingId: drag?.kind === "edge" ? ulid() : undefined,
     });
-    if (next.persist === "flush") {
-      context.setInspectorAnchor({ x: event.clientX, y: event.clientY });
-    }
   };
 }
 
@@ -262,9 +251,7 @@ function createToolPress({
   dispatchPointer,
   docRef,
   schedulePersist,
-  setInspectorAnchor,
   setSelection,
-  setItemInspectorAnchor,
   setToolState,
   toolState,
   edit,
@@ -290,8 +277,6 @@ function createToolPress({
     }
     schedulePersist(pressed.doc);
     setSelection(selNode(pressed.node.id));
-    setInspectorAnchor(null);
-    setItemInspectorAnchor(isShapeNode(pressed.node) ? client : null);
     if (isTextNode(pressed.node)) edit(pressed.node.id);
     return true;
   };

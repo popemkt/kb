@@ -1,19 +1,9 @@
-import type {
-  CanvasEdge,
-  CanvasItemLink,
-  CanvasNode,
-  CanvasProjectionKind,
-  CanvasWorld,
-  KbLinkMode,
-} from "@kb/canvas";
-import { CaretLeftIcon, CaretRightIcon, SlidersHorizontalIcon, XIcon } from "@phosphor-icons/react";
+import type { CanvasNode, CanvasProjectionKind } from "@kb/canvas";
+import { CaretLeftIcon, CaretRightIcon, XIcon } from "@phosphor-icons/react";
 import type { PresentAct } from "./canvas-keymap";
 import { frameName } from "./canvas-frame-name";
 import { CanvasToolbar } from "./canvas-toolbar";
-import { EdgeInspector } from "./edge-inspector";
 import { NodePicker } from "./node-picker";
-import { ItemInspector } from "./item-inspector";
-import type { CanvasPageTab } from "./canvas-page-strip";
 import type { CanvasSelection } from "./canvas-selection";
 import { selectionEmpty } from "./canvas-selection";
 import type { CanvasTool, ToolState } from "./canvas-tool";
@@ -44,32 +34,12 @@ interface CanvasOverlaysProps {
   onProjectionChange: (projection: CanvasProjectionKind) => void;
   selection: CanvasSelection;
   toolState: ToolState;
-  selectedEdge: CanvasEdge | null;
-  selectedItem: CanvasNode | null;
-  inspectorAnchor: { x: number; y: number } | null;
-  itemInspectorAnchor: { x: number; y: number } | null;
   pickerOpen: boolean;
-  refFields: readonly { readonly id: string; readonly text: string }[];
   onToolChange: (tool: CanvasTool) => void;
   onToolDoubleClick: (tool: CanvasTool) => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
   onDeleteSelection: () => void;
-  onCloseEdgeInspector: () => void;
-  onEdgeModeChange: (mode: KbLinkMode) => void;
-  onEdgeFieldChange: (fieldId: string) => void;
-  onDeleteEdge: () => void;
-  onEdgeChange: (edge: CanvasEdge) => void;
-  onCloseItemInspector: () => void;
-  /** Open the selected item's inspector at a point on screen. */
-  onInspectItem: (anchor: { x: number; y: number }) => void;
-  onItemChange: (shape: CanvasNode) => void;
-  /** What the canvas reads of kb: where an item's link leads. */
-  world: CanvasWorld;
-  /** The board's other pages, which an item's link may lead to. */
-  pages: readonly CanvasPageTab[];
-  /** Go where an item's link leads. */
-  onFollowLink: (link: CanvasItemLink) => void;
   onPickNode: (nodeId: string) => void;
   onClosePicker: () => void;
   /** The 3D gizmo's choice, which the selection toolbar switches; null where there is no gizmo (2D). */
@@ -205,17 +175,16 @@ function PresentBar({
 const barButton = "rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5";
 
 /**
- * The floating selection toolbar: in 3D the gizmo's switches, then inspect
- * one item, group or ungroup, reorder, delete.
+ * The floating selection toolbar: in 3D the gizmo's switches, then group
+ * or ungroup, reorder, delete. What it looks like is the docked style
+ * panel's (`CanvasStylePanel`).
  */
 function SelectionBar({
   count,
-  canInspect,
   canGroup,
   canUngroup,
   gizmo,
   onGizmoChange,
-  onInspectItem,
   onGroup,
   onUngroup,
   onBringToFront,
@@ -223,14 +192,12 @@ function SelectionBar({
   onDeleteSelection,
 }: {
   count: number;
-  canInspect: boolean;
   canGroup: boolean;
 } & Pick<
   CanvasOverlaysProps,
   | "canUngroup"
   | "gizmo"
   | "onGizmoChange"
-  | "onInspectItem"
   | "onGroup"
   | "onUngroup"
   | "onBringToFront"
@@ -241,22 +208,6 @@ function SelectionBar({
     <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
       <span className="mr-1 text-label text-foreground/40">{count} selected</span>
       {gizmo !== null && <GizmoSwitches gizmo={gizmo} onGizmoChange={onGizmoChange} />}
-      {canInspect && (
-        <button
-          type="button"
-          title="Inspect: colour, height and rotation"
-          aria-label="Inspect"
-          className="flex items-center gap-1 rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
-          onClick={(e) => {
-            const box = e.currentTarget.getBoundingClientRect();
-            // The inspector stands centred over the button (it opens 160px left of its anchor).
-            onInspectItem({ x: box.left + box.width / 2 + 16, y: box.top });
-          }}
-        >
-          <SlidersHorizontalIcon size={13} />
-          Inspect
-        </button>
-      )}
       {canGroup && (
         <button
           type="button"
@@ -314,28 +265,12 @@ export function CanvasOverlays({
   onProjectionChange,
   selection,
   toolState,
-  selectedEdge,
-  selectedItem,
-  inspectorAnchor,
-  itemInspectorAnchor,
   pickerOpen,
-  refFields,
   onToolChange,
   onToolDoubleClick,
   onBringToFront,
   onSendToBack,
   onDeleteSelection,
-  onCloseEdgeInspector,
-  onEdgeModeChange,
-  onEdgeFieldChange,
-  onDeleteEdge,
-  onEdgeChange,
-  onCloseItemInspector,
-  onInspectItem,
-  onItemChange,
-  world,
-  pages,
-  onFollowLink,
   onPickNode,
   onClosePicker,
   gizmo,
@@ -357,49 +292,18 @@ export function CanvasOverlays({
         <PresentBar presenting={presenting} onPresent={onPresent} />
       )}
 
-      {presenting === null &&
-        !transforming &&
-        !selectionEmpty(selection) &&
-        !inspectorAnchor &&
-        !itemInspectorAnchor && (
-          <SelectionBar
-            count={selection.nodeIds.size + selection.edgeIds.size}
-            canInspect={selectedItem !== null}
-            canGroup={selection.nodeIds.size > 0}
-            canUngroup={canUngroup}
-            gizmo={selection.nodeIds.size > 0 ? gizmo : null}
-            onGizmoChange={onGizmoChange}
-            onInspectItem={onInspectItem}
-            onGroup={onGroup}
-            onUngroup={onUngroup}
-            onBringToFront={onBringToFront}
-            onSendToBack={onSendToBack}
-            onDeleteSelection={onDeleteSelection}
-          />
-        )}
-
-      {selectedEdge && inspectorAnchor && (
-        <EdgeInspector
-          edge={selectedEdge}
-          anchor={inspectorAnchor}
-          refFields={refFields}
-          onClose={onCloseEdgeInspector}
-          onModeChange={onEdgeModeChange}
-          onFieldChange={onEdgeFieldChange}
-          onDelete={onDeleteEdge}
-          onChange={onEdgeChange}
-        />
-      )}
-
-      {selectedItem && itemInspectorAnchor && (
-        <ItemInspector
-          item={selectedItem}
-          anchor={itemInspectorAnchor}
-          onClose={onCloseItemInspector}
-          onChange={onItemChange}
-          world={world}
-          pages={pages}
-          onFollow={onFollowLink}
+      {presenting === null && !transforming && !selectionEmpty(selection) && (
+        <SelectionBar
+          count={selection.nodeIds.size + selection.edgeIds.size}
+          canGroup={selection.nodeIds.size > 0}
+          canUngroup={canUngroup}
+          gizmo={selection.nodeIds.size > 0 ? gizmo : null}
+          onGizmoChange={onGizmoChange}
+          onGroup={onGroup}
+          onUngroup={onUngroup}
+          onBringToFront={onBringToFront}
+          onSendToBack={onSendToBack}
+          onDeleteSelection={onDeleteSelection}
         />
       )}
 

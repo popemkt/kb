@@ -46,7 +46,7 @@ export function LinkRow({
     onChange(withLink(item, link));
   };
   return (
-    <div className="flex flex-col gap-1 px-1.5 pb-1.5">
+    <div className="flex flex-col gap-1 px-2.5 pb-1.5">
       <label
         className="flex flex-col gap-0.5"
         title="A web address, [[a node]], [[a canvas]]#item, or #item here"

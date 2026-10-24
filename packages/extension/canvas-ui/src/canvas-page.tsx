@@ -48,6 +48,8 @@ import { CanvasOverlays } from "./canvas-overlays";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
+import { CanvasDock } from "./canvas-dock";
+import { CanvasStylePanel } from "./canvas-style-panel";
 import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
 import { useCanvasDoc } from "./use-canvas-doc";
@@ -176,7 +178,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
 
   const {
     enter,
-    inspectorAnchor,
     leave,
     onCardPointerDown,
     onEdgeClick,
@@ -186,11 +187,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     selectedItem,
     selection,
     selectionRef: selRef,
-    setInspectorAnchor,
     setScope,
     setSelection,
-    setItemInspectorAnchor,
-    itemInspectorAnchor,
   } = useCanvasSelection(doc, byId, membership);
   /** The events the canvas tells its scripts (`CANVAS_EVENTS`), on one channel for its life. */
   const [scriptEvents] = useState(createViewEvents);
@@ -325,13 +323,11 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     dispatchPointer,
     schedulePersist,
     flushPersist,
-    setInspectorAnchor,
     setPickerOpen,
     choose,
     edit: (id) => faces.onEdit(id, true),
     comment: comments.start,
     setSelection,
-    setItemInspectorAnchor,
     setToolState,
     setZoom,
   });
@@ -481,8 +477,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     undoCanvasDoc,
     redoCanvasDoc,
     setSelection,
-    setInspectorAnchor,
-    setItemInspectorAnchor,
     choose,
     setSpaceDown,
     setToolState,
@@ -502,7 +496,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     queries,
     flushPersist,
     setSelection,
-    setInspectorAnchor,
   });
 
   if (!canvasNode) {
@@ -589,7 +582,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             if (pressReaches(card)) return;
             e.preventDefault();
             e.stopPropagation();
-            pressCard(card, e, undefined, (id) => startMoveForSelection(e, id));
+            pressCard(card, e, (id) => startMoveForSelection(e, id));
           }}
           onDoubleClickCapture={(e) => {
             const card = byId.get(cardIdAt(e.target) ?? "");
@@ -618,11 +611,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
               if (!label) delete updated.label;
               schedulePersist(upsertCanvasEdge(docRef.current, updated));
             }}
-            onCardSelect={(card, anchor) => {
-              setSelection(selNode(card.id));
-              setInspectorAnchor(null);
-              setItemInspectorAnchor(anchor ?? null);
-            }}
+            onCardSelect={(card) => setSelection(selNode(card.id))}
             onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
             onResizeStart={startResize}
             onRotateStart={startRotate}
@@ -634,8 +623,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             onPointerUp={onPointerUp}
             onPointerCancel={cancelPointer}
             onDoubleClickStage={onDoubleClickStage}
-            handleCardPointerDown={(card, event, anchor) => {
-              pressCard(card, event, anchor, (id) => startMoveForSelection(event, id));
+            handleCardPointerDown={(card, event) => {
+              pressCard(card, event, (id) => startMoveForSelection(event, id));
             }}
             handleEdgeClick={onEdgeClick}
             editing={faces.flat}
@@ -667,9 +656,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
                   drawing.onPainter(mounted);
                   setSceneGizmo(mounted?.gizmo ?? NO_GIZMO);
                 }}
-                onCardPress={(card, press, startMove) =>
-                  pressCard(card, press, { x: press.clientX, y: press.clientY }, startMove)
-                }
+                onCardPress={pressCard}
                 onCardDoubleClick={faces.doubleClick}
                 dispatchPointer={dispatchPointer}
                 onTap={(spot, press) => {
@@ -677,8 +664,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
                   if (press.shiftKey) return;
                   setScope(null);
                   setSelection(EMPTY_SELECTION);
-                  setInspectorAnchor(null);
-                  setItemInspectorAnchor(null);
                 }}
                 onDraw={(spot, press) =>
                   strokeOf(toolState.tool) !== null &&
@@ -696,17 +681,37 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onEdit={faces.onEdit}
           onChange={(item) => schedulePersist(upsertCanvasNode(docRef.current, item))}
         />
-        <CanvasViewWidget
-          rig={projection.rig}
-          in3d={in3d}
-          flatView={projection.flatView()}
-          projection={projection.target}
-          selectionEmpty={selectionEmpty(selection)}
-          frames={frames}
-          menuOpen={viewMenuOpen}
-          onMenuOpenChange={setViewMenuOpen}
-          onIntent={applyIntent}
-        />
+        <CanvasDock
+          head={
+            <CanvasViewWidget
+              rig={projection.rig}
+              in3d={in3d}
+              flatView={projection.flatView()}
+              projection={projection.target}
+              selectionEmpty={selectionEmpty(selection)}
+              frames={frames}
+              menuOpen={viewMenuOpen}
+              onMenuOpenChange={setViewMenuOpen}
+              onIntent={applyIntent}
+            />
+          }
+        >
+          <CanvasStylePanel
+            presenting={presenting !== null}
+            item={selectedItem}
+            edge={selectedEdgeObj}
+            in3d={in3d}
+            world={world}
+            pages={pages.filter((page) => page.id !== canvasId)}
+            onFollow={follow}
+            onItemChange={(item) => schedulePersist(editItem(docRef.current, item))}
+            refFields={refFields}
+            onModeChange={(mode) => void onModeChange(mode)}
+            onFieldChange={(fieldId) => void onFieldChange(fieldId)}
+            onDelete={() => void onDeleteEdge()}
+            onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
+          />
+        </CanvasDock>
         {modalDrag?.kind === "transform" && modalDrag.input !== null && (
           <CanvasTransformGuides
             input={modalDrag.input}
@@ -763,12 +768,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onProjectionChange={projection.choose}
           selection={selection}
           toolState={toolState}
-          selectedEdge={selectedEdgeObj}
-          selectedItem={selectedItem}
-          inspectorAnchor={inspectorAnchor}
-          itemInspectorAnchor={itemInspectorAnchor}
           pickerOpen={pickerOpen}
-          refFields={refFields}
           onToolChange={setTool}
           onToolDoubleClick={setToolSticky}
           onBringToFront={() => applyIntent({ type: "order", order: "front" })}
@@ -777,20 +777,6 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             schedulePersist(deleteSelected(docRef.current, selection));
             setSelection(EMPTY_SELECTION);
           }}
-          onCloseEdgeInspector={() => {
-            setSelection(EMPTY_SELECTION);
-            setInspectorAnchor(null);
-          }}
-          onEdgeModeChange={(mode) => void onModeChange(mode)}
-          onEdgeFieldChange={(fieldId) => void onFieldChange(fieldId)}
-          onDeleteEdge={() => void onDeleteEdge()}
-          onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
-          onCloseItemInspector={() => setItemInspectorAnchor(null)}
-          onInspectItem={setItemInspectorAnchor}
-          onItemChange={(item) => schedulePersist(editItem(docRef.current, item))}
-          world={world}
-          pages={pages.filter((page) => page.id !== canvasId)}
-          onFollowLink={follow}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}
           gizmo={in3d ? gizmo : null}

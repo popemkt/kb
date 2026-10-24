@@ -1,7 +1,7 @@
 /**
  * The canvas's popovers, each run through the dismiss contract
  * (`dismissContract`, DESIGN-UI.md → Cross-surface polish → Popovers dismiss
- * one way): its inspectors' popover, the solid picker, the view menu, the
+ * one way): its thread's popover, the solid picker, the view menu, the
  * shortcuts sheet and the node picker.
  */
 import { useState } from "react";

@@ -1423,27 +1423,41 @@ manipulation feel professional rather than merely functional.
   (`routeMidpoint`), editable by double-click. Where an end meets its item,
   the route (curve, straight, arc, elbow) and the head each end wears are
   `@kb/canvas` `edges.ts`'s (`edgeRoute`, `edgeHead`); an edge's line and
-  heads are drawn as `edgePaint` says (`@kb/canvas` `paint.ts`). `EdgeInspector`
-  picks its route and bend, the head at each end, its line's dash and size,
-  and its colour from the palette (`EdgeLookRows`).
-- **Floating selection toolbar** with Inspect (one item) / Delete /
+  heads are drawn as `edgePaint` says (`@kb/canvas` `paint.ts`); the edge
+  inspector (The style panel, below) picks them.
+- **Floating selection toolbar** with Group / Ungroup / Delete /
   Bring-to-front / Send-to-back. Items paint by the height of their top
   (`z + depth`), then in document order, and the two buttons reorder the
   document (`paintOrder`, DESIGN.md → Canvas documents).
-- **The item inspector** (`item-inspector.tsx`) shows the rows that apply to
-  the item: its colour among the palette's swatches and its looks
-  (`item-style-rows.tsx`: fill and outline for an item that draws its own
-  ground, size, and the face and alignment of words that are its own, each
-  a pick of the look's values through `withStyle`), its opacity in percent,
-  every item's height — Lift (`z`) and Depth,
-  with Extrude (a sticky becomes a block, a rectangle a box) and Flatten —
-  and its Rotation, degrees about X, Y and Z in that order, each field
-  committed as one change. A shape opens it where it is pressed, in
-  either projection; Inspect opens it for any item. It is a canvas widget,
-  not kb's node inspector, until items are nodes (plan 2026-10-02, step 7b).
-  It and the edge inspector open in one anchored panel (`canvas-popover.tsx`:
-  below its point, or above it near the window's foot, closed by Escape or
-  a press outside), and so does a comment thread.
+- **The dock** (`canvas-dock.tsx`) is the column down the stage's right
+  edge, always in the same place, as tldraw's style panel is: the view
+  widget heads it, and under it stand the style panel of what is selected
+  and the comments list. A panel there is never anchored to what it is
+  about, so it never opens over the selection it edits; it is as tall as
+  its rows, scrolls inside itself once the column is full, and folds to its
+  title. A pick in it keeps the keyboard where it was, so the canvas's
+  shortcuts still reach it. What the dock remembers — a panel folded, More
+  open — lasts while the canvas is open.
+- **The style panel** (`canvas-style-panel.tsx`) follows the selection:
+  one item shows the item inspector, one edge the edge inspector, none or
+  more nothing; nothing opens or closes it, and it stands aside while a
+  canvas is presented. The **item inspector**
+  (`item-inspector.tsx`) shows, icon first, the rows that apply to the
+  item: its colour among the palette's swatches and its opacity (a slider,
+  committed once when let go), and its looks (`item-style-rows.tsx`: fill
+  and outline for an item that draws its own ground, size, and the face and
+  alignment of words that are its own, each a row of icons whose pick is
+  one change through `withStyle`). Its rarer rows stand under More:
+  Locked, its link, and in 3D only — what the top view cannot show — Face
+  the camera, its height (Lift, `z`, and Depth, with Extrude: a sticky
+  becomes a block, a rectangle a box; and Flatten), and its Rotation about
+  X and Y; 2D shows the turn about Z alone. Each field commits as one
+  change. It is a canvas widget, not kb's node inspector, until items are
+  nodes (plan 2026-10-02, step 7b). The **edge inspector**
+  (`edge-inspector.tsx`) shows its label and colour, its route and bend,
+  its line's dash and size, and the head each end wears, each head drawn at
+  its end (`EdgeLookRows`); under More, whether it is a relationship
+  between its ends' nodes and through which ref field, and its delete.
 - **A press with the armed tool** is one spot in both projections
   (`pressWithTool`, `canvas-tool.ts`): the place under it — on the face of
   a frame it was pressed on, or the floor — and the item it was pressed on,
@@ -1825,7 +1839,7 @@ The rules that hold everywhere, so no surface re-invents them:
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.
 - **Popovers dismiss one way.** Every popover, menu and picker that floats
-  over the page — the canvas's inspectors, comment thread, solid picker,
+  over the page — the canvas's comment thread, solid picker,
   view menu, shortcuts sheet and node picker; the graph's settings and
   perspective picker; the outline's frame filter; Preferences, the
   ontology picker, the add-a-ref picker and the pane switcher — dismisses

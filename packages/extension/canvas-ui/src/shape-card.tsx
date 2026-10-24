@@ -24,7 +24,7 @@ import {
 interface ShapeCardProps extends FaceLayout {
   card: CanvasShapeNode;
   selected: boolean;
-  onSelect: (anchor: { x: number; y: number }) => void;
+  onSelect: () => void;
   onLabelChange: (label: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
@@ -167,16 +167,16 @@ export function ShapeCard({
         const intent = classifyCardPointer(e.target, "input");
         if (intent === "chrome") return;
         if (intent === "edit") {
-          onSelect({ x: e.clientX, y: e.clientY });
+          onSelect();
           return;
         }
         e.stopPropagation();
-        onSelect({ x: e.clientX, y: e.clientY });
+        onSelect();
         onMoveStart(e);
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        onSelect({ x: e.clientX, y: e.clientY });
+        onSelect();
         onEdit(true);
       }}
     >
