@@ -12,6 +12,7 @@ import { cn, useDismiss } from "@kb/ui-sdk";
 import type { CanvasPoint, ScreenRect, ViewSize } from "./canvas-camera";
 import { DOCK_RESERVE } from "./canvas-dock-size";
 import { placeBeside } from "./canvas-visible";
+import type { Written } from "./use-canvas-comments";
 
 const ACTION = cn(
   "rounded-md px-2 py-1 text-meta text-foreground/60 hover:bg-foreground/5 hover:text-foreground/85",
@@ -30,8 +31,9 @@ export interface CommentThreadPanelProps {
   readonly target: readonly ScreenRect[];
   readonly stage: ViewSize;
   readonly onClose: () => void;
-  readonly onPost: (text: string) => void;
-  readonly onResolve: (resolved: boolean) => void;
+  /** Write a comment; the draft is kept until kb holds it. */
+  readonly onPost: (text: string) => Promise<Written>;
+  readonly onResolve: (resolved: boolean) => Promise<Written>;
 }
 
 export function CommentThreadPanel({
@@ -55,15 +57,8 @@ export function CommentThreadPanel({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const [draft, setDraft] = useState("");
   // A thread opens from a gesture on the canvas or the list: nothing toggles it.
   useDismiss(true, { inside: [ref], trigger: null }, onClose);
-  const send = () => {
-    const text = draft.trim();
-    if (text === "") return;
-    setDraft("");
-    onPost(text);
-  };
   const at: CanvasPoint = placeBeside(target, { width: WIDTH, height }, stage, DOCK_RESERVE);
   const title = thread === null ? "New comment" : thread.resolved ? "Resolved" : "Comment";
   // GAP [[01M54GBYH3K67TAW016HFCJHBC]] a comment shows what it says, not who said it: the store keeps no writer for a node
@@ -112,33 +107,81 @@ export function CommentThreadPanel({
           ))}
         </ol>
       )}
-      <div className="shrink-0 border-t border-foreground/[0.06] px-2 pt-1.5 pb-1">
-        <textarea
-          autoFocus
-          aria-label={thread === null ? "Comment" : "Reply"}
-          placeholder={thread === null ? "Comment…" : "Reply…"}
-          rows={2}
-          value={draft}
-          className="w-full resize-none rounded-md border border-foreground/10 bg-background px-2 py-1 text-ui outline-none focus:border-primary/50"
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
-            e.preventDefault();
-            send();
-          }}
-        />
-        <div className="flex items-center justify-between pt-0.5">
-          {thread === null ? (
-            <span />
-          ) : (
-            <button type="button" className={ACTION} onClick={() => onResolve(!thread.resolved)}>
-              {thread.resolved ? "Reopen" : "Resolve"}
-            </button>
-          )}
-          <button type="button" className={ACTION} disabled={draft.trim() === ""} onClick={send}>
-            {thread === null ? "Comment" : "Reply"}
+      <CommentForm thread={thread} onPost={onPost} onResolve={onResolve} />
+    </div>
+  );
+}
+
+/**
+ * What is written from the panel: a comment or a reply, and Resolve or
+ * Reopen. The words stay until kb holds them; a write kb does not take says
+ * why, and nothing more is sent while one is on its way.
+ */
+function CommentForm({
+  thread,
+  onPost,
+  onResolve,
+}: Pick<CommentThreadPanelProps, "thread" | "onPost" | "onResolve">) {
+  const [draft, setDraft] = useState("");
+  /** A write is on its way: nothing more is sent until it lands. */
+  const [sending, setSending] = useState(false);
+  /** Why the last write did not land, shown until the next one. */
+  const [failed, setFailed] = useState<string | null>(null);
+  const write = async (written: () => Promise<Written>): Promise<boolean> => {
+    setSending(true);
+    setFailed(null);
+    const why = await written();
+    setSending(false);
+    setFailed(why);
+    return why === null;
+  };
+  const send = async () => {
+    const text = draft.trim();
+    if (text === "" || sending) return;
+    if (await write(() => onPost(text))) setDraft("");
+  };
+  return (
+    <div className="shrink-0 border-t border-foreground/[0.06] px-2 pt-1.5 pb-1">
+      <textarea
+        autoFocus
+        aria-label={thread === null ? "Comment" : "Reply"}
+        placeholder={thread === null ? "Comment…" : "Reply…"}
+        rows={2}
+        value={draft}
+        className="w-full resize-none rounded-md border border-foreground/10 bg-background px-2 py-1 text-ui outline-none focus:border-primary/50"
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+          e.preventDefault();
+          void send();
+        }}
+      />
+      {failed !== null && (
+        <p role="alert" className="px-0.5 pt-1 text-label text-destructive">
+          {failed}
+        </p>
+      )}
+      <div className="flex items-center justify-between pt-0.5">
+        {thread === null ? (
+          <span />
+        ) : (
+          <button
+            type="button"
+            className={ACTION}
+            disabled={sending}
+            onClick={() => void write(() => onResolve(!thread.resolved))}
+          >
+            {thread.resolved ? "Reopen" : "Resolve"}
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          className={ACTION}
+          disabled={sending || draft.trim() === ""}
+          onClick={() => void send()}
+        >
+          {thread === null ? "Comment" : "Reply"}
+        </button>
       </div>
     </div>
   );

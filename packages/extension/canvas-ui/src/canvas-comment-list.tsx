@@ -25,7 +25,7 @@ export function CommentsToggle({ comments }: { readonly comments: CanvasComments
   return (
     <DockPick
       aria-pressed={comments.listed}
-      aria-label="Comments"
+      aria-label={open > 0 ? `Comments, ${open} open` : "Comments"}
       title={comments.listed ? "Hide comments" : "Show comments"}
       data-testid="comments-toggle"
       className={cn(

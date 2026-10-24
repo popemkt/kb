@@ -141,26 +141,6 @@ export function linkMarks(doc: CanvasDoc, view: CanvasView, size: ViewSize): Lin
 }
 
 /**
- * The item of `items` a point on a stage of `size` falls on as `view` draws
- * them: the smallest whose screen box holds it, so a member wins over the
- * frame round it. Null over none.
- */
-export function itemUnder(
-  items: readonly CanvasNode[],
-  view: CanvasView,
-  size: ViewSize,
-  point: CanvasPoint,
-): string | null {
-  let under: { id: string; area: number } | null = null;
-  for (const [id, r] of itemScreenRects(items, view, size)) {
-    if (point.x < r.left || point.x > r.right || point.y < r.top || point.y > r.bottom) continue;
-    const area = (r.right - r.left) * (r.bottom - r.top);
-    if (under === null || area < under.area) under = { id, area };
-  }
-  return under?.id ?? null;
-}
-
-/**
  * The ids of the items any part of which `view` draws inside a stage of
  * `size`, in document order: what the screen state reports as visible.
  */

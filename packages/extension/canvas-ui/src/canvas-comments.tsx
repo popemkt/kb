@@ -8,13 +8,19 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ChatCircleIcon } from "@phosphor-icons/react";
-import { pinnedItems, type CanvasDoc, type CanvasWorld, type CommentAnchor } from "@kb/canvas";
+import { paintOrder, type CanvasDoc, type CanvasWorld, type CommentAnchor } from "@kb/canvas";
 import { cn } from "@kb/ui-sdk";
-import type { CanvasView, ScreenRect, ViewSize } from "./canvas-camera";
+import {
+  hitTest,
+  type CanvasPoint,
+  type CanvasView,
+  type ScreenRect,
+  type ViewSize,
+} from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CommentThreadPanel } from "./canvas-comment-thread";
 import type { CanvasTool } from "./canvas-tool";
-import { anchorRects, itemUnder, threadPins } from "./canvas-visible";
+import { anchorRects, threadPins } from "./canvas-visible";
 import { targetLabel } from "./comment-target";
 import { shows, type CanvasComments } from "./use-canvas-comments";
 import { useShownView } from "./use-shown-view";
@@ -60,37 +66,57 @@ function TargetMarks({ rects }: { readonly rects: readonly ScreenRect[] }) {
 }
 
 /**
- * The item the pointer is over on `stage`, among `among()`'s, as `view()`
- * draws them (`itemUnder`), in either projection: what a pin is hinted
- * for, and what the comment tool would comment on.
+ * The item the pointer is over on `stage`, as a press there would hit it
+ * (`hitTest` over `paintOrder`, the press's own path), in either
+ * projection: what a pin is hinted for, and what the comment tool would
+ * comment on. Looked for at most once a frame, and only while `seen()`
+ * gives a camera, so a stage nothing is hinted on pays nothing.
  */
 function usePointedItem(
   stage: RefObject<HTMLElement | null>,
-  among: () => {
-    readonly items: CanvasDoc["nodes"];
+  seen: () => {
+    readonly doc: CanvasDoc;
     readonly view: CanvasView;
     readonly size: ViewSize;
-  },
+  } | null,
 ): string | null {
   const [item, setItem] = useState<string | null>(null);
-  const read = useRef(among);
+  const read = useRef(seen);
   useLayoutEffect(() => {
-    read.current = among;
+    read.current = seen;
   });
   useEffect(() => {
     const el = stage.current;
     if (el === null) return undefined;
-    const move = (e: PointerEvent) => {
+    let frame: number | null = null;
+    let client: CanvasPoint | null = null;
+    const look = () => {
+      frame = null;
+      const camera = read.current();
+      if (client === null || camera === null) {
+        setItem(null);
+        return;
+      }
       const box = el.getBoundingClientRect();
-      const { items, view, size } = read.current();
-      setItem(itemUnder(items, view, size, { x: e.clientX - box.left, y: e.clientY - box.top }));
+      const at = { x: client.x - box.left, y: client.y - box.top };
+      setItem(hitTest(paintOrder(camera.doc.nodes), camera.view, camera.size, at));
     };
-    const leave = () => setItem(null);
+    const move = (e: PointerEvent) => {
+      client = { x: e.clientX, y: e.clientY };
+      frame ??= requestAnimationFrame(look);
+    };
+    const leave = () => {
+      client = null;
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = null;
+      setItem(null);
+    };
     el.addEventListener("pointermove", move, { passive: true });
     el.addEventListener("pointerleave", leave);
     return () => {
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerleave", leave);
+      if (frame !== null) cancelAnimationFrame(frame);
     };
   }, [stage]);
   return item;
@@ -131,14 +157,12 @@ export function CanvasCommentLayer({
   const size = { width, height };
   const shown = comments.threads.filter((thread) => shows(comments.filter, thread));
   const commenting = tool === "comment";
-  const pointedItem = usePointedItem(stage, () => ({
-    items: commenting
-      ? doc.nodes
-      : shown.flatMap(({ anchor }) => (anchor === null ? [] : pinnedItems(anchor, doc))),
-    view,
-    size,
-  }));
   const pins = threadPins(shown, doc, view, size);
+  const under = usePointedItem(stage, () =>
+    commenting || pins.length > 0 ? { doc, view, size } : null,
+  );
+  // Out of the comment tool, only an item a pin stands on is hinted.
+  const pointedItem = commenting || pins.some(({ item }) => item === under) ? under : null;
   const rectsOf = (anchor: CommentAnchor | null) =>
     anchorRects(anchor, doc, view, size).map(({ rect }) => rect);
   const pointed = comments.threads.find((thread) => thread.id === comments.pointed);
@@ -182,6 +206,8 @@ export function CanvasCommentLayer({
             style={{ left: at.x, top: at.y }}
             onPointerEnter={() => comments.point(thread.id)}
             onPointerLeave={() => comments.point(null)}
+            onFocus={() => comments.point(thread.id)}
+            onBlur={() => comments.point(null)}
             onClick={() => comments.show(thread.id)}
           >
             {count > 1 ? count : <ChatCircleIcon size={13} weight="fill" />}
@@ -196,8 +222,8 @@ export function CanvasCommentLayer({
           target={rectsOf(open.anchor).map(withPin)}
           stage={size}
           onClose={comments.close}
-          onPost={(text) => void comments.post(text)}
-          onResolve={(resolved) => void comments.resolve(resolved)}
+          onPost={comments.post}
+          onResolve={comments.resolve}
         />
       )}
     </div>

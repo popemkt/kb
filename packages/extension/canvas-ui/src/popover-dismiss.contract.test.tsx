@@ -61,8 +61,8 @@ dismissContract({
             target={[{ left: 200, top: 100, right: 200, bottom: 100 }]}
             stage={{ width: 800, height: 600 }}
             onClose={dismiss}
-            onPost={noop}
-            onResolve={noop}
+            onPost={async () => null}
+            onResolve={async () => null}
           />
         )}
       </UntilDismissed>,

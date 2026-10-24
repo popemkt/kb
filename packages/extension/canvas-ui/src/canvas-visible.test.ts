@@ -5,7 +5,6 @@ import {
   anchorFrame,
   anchorRects,
   edgeScreenLines,
-  itemUnder,
   placeBeside,
   visibleItemIds,
 } from "./canvas-visible";
@@ -98,12 +97,6 @@ describe("comment targets", () => {
     expect(anchorFrame({ at: { x: 100, y: 50 } }, doc, flat({ x: 0, y: 0 }, 2), size)).toEqual([
       { id: "", x: 0, y: -25, width: 200, height: 150 },
     ]);
-  });
-
-  it("finds the smallest item under a point, so a member wins over its frame", () => {
-    expect(itemUnder(doc.nodes, view, size, { x: 30, y: 30 })).toBe("in");
-    expect(itemUnder(doc.nodes, view, size, { x: 200, y: 150 })).toBe("frame");
-    expect(itemUnder(doc.nodes, view, size, { x: 350, y: 250 })).toBeNull();
   });
 });
 

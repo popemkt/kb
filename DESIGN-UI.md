@@ -1470,7 +1470,8 @@ manipulation feel professional rather than merely functional.
   own. The comment tool (M) starts a thread where it is pressed: on the
   item under it (a card's thread is on its node) or at the point on the
   floor, and returns to select; while it is armed, the item it would
-  comment on is marked, with what it is in words (`targetLabel`: the
+  comment on — the one a press there hits (`hitTest` over `paintOrder`) —
+  is marked, with what it is in words (`targetLabel`: the
   item's kind and what it says, `itemKind` and `itemWords`). A pin
   (`canvas-comments.tsx`) stands at the top right of each item a thread is
   pinned on as the shown projection draws it, or where its point is drawn
@@ -1478,11 +1479,13 @@ manipulation feel professional rather than merely functional.
   on), cut off at the stage's edge as the items are; a thread whose pin is
   lost has none. An open thread's pin is filled in the primary and says
   how many comments it holds; a resolved one is faint. The pins lie above
-  the scripts' drawing, as the toolbars do. Pointing at a pin, or at a
-  thread in the list, marks what it is on with the selection's outline,
+  the scripts' drawing, as the toolbars do. Pointing at a pin or focusing
+  it, or pointing at a thread in the list, marks what it is on with the selection's outline,
   and pointing at an item with threads swells its pin. A pin opens the
   thread's panel (`canvas-comment-thread.tsx`): what it is on, its
-  comments in order, a reply, and Resolve or Reopen. It stands beside what
+  comments in order, a reply, and Resolve or Reopen. What is written stays
+  in the field until kb holds it: a write kb does not take says why, in
+  the panel, and nothing more is sent while one is on its way. It stands beside what
   it is on — right of it, else left, else under or over it, clear of the
   pin and the dock (`placeBeside`) — and goes with it as the camera moves,
   while what it is on stays marked; it dismisses as every popover does.

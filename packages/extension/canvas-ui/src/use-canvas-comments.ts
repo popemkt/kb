@@ -48,9 +48,9 @@ export interface CanvasComments {
   readonly show: (thread: string) => void;
   readonly close: () => void;
   /** Write `text`: the new thread, or a reply to the thread open. */
-  readonly post: (text: string) => Promise<void>;
+  readonly post: (text: string) => Promise<Written>;
   /** Resolve the thread open, or reopen it. */
-  readonly resolve: (resolved: boolean) => Promise<void>;
+  readonly resolve: (resolved: boolean) => Promise<Written>;
   /** The thread pointed at, on its pin or in the list, whose target the canvas marks; null for none. */
   readonly pointed: string | null;
   readonly point: (thread: string | null) => void;
@@ -60,6 +60,9 @@ export interface CanvasComments {
   readonly listed: boolean;
   readonly setListed: (listed: boolean) => void;
 }
+
+/** How a write from the panel went: null once kb holds it, else why it did not. */
+export type Written = string | null;
 
 /** The id of the comment a verb's receipt says it wrote, if it says one. */
 function writtenId(output: unknown): string | null {
@@ -81,20 +84,24 @@ export function useCanvasComments(canvasId: string, world: CanvasWorld): CanvasC
     return thread === undefined ? null : { thread, anchor: thread.anchor };
   })();
 
-  const post = async (text: string) => {
-    if (ask === null) return;
+  const post = async (text: string): Promise<Written> => {
+    if (ask === null) return "No thread is open.";
     const where = "thread" in ask ? { replyTo: ask.thread } : ask.place;
     const receipt = await browserHost().invoke("ext.canvas.comment", { canvasId, text, ...where });
     if (receipt.status === "failed") {
       logError("[kb/canvas] comment failed:", receipt.message);
-      return;
+      return receipt.message;
     }
-    const id = writtenId(receipt.output);
-    if ("place" in ask && id !== null) setAsk({ thread: id });
+    // A new thread opens as itself; one whose receipt names no comment is written but cannot be.
+    if ("place" in ask) {
+      const id = writtenId(receipt.output);
+      setAsk(id === null ? null : { thread: id });
+    }
+    return null;
   };
 
-  const resolve = async (resolved: boolean) => {
-    if (ask === null || !("thread" in ask)) return;
+  const resolve = async (resolved: boolean): Promise<Written> => {
+    if (ask === null || !("thread" in ask)) return "No thread is open.";
     const field = CANVAS_IDS.commentStateField;
     const state = resolved ? CANVAS_IDS.commentResolved : CANVAS_IDS.commentOpen;
     const receipt = await browserHost().invoke("node.update", {
@@ -102,7 +109,11 @@ export function useCanvasComments(canvasId: string, world: CanvasWorld): CanvasC
       unsetProps: [{ field }],
       setProps: [{ field, value: { t: "ref", v: state } }],
     });
-    if (receipt.status === "failed") logError("[kb/canvas] resolving failed:", receipt.message);
+    if (receipt.status === "failed") {
+      logError("[kb/canvas] resolving failed:", receipt.message);
+      return receipt.message;
+    }
+    return null;
   };
 
   return {

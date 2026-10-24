@@ -547,6 +547,59 @@ describe("CanvasPage pointer interactions", () => {
       expect(persistCanvasDoc).not.toHaveBeenCalled();
     });
 
+    it("a comment kb does not take keeps its words and says why, and is sent once", async () => {
+      const landing = Promise.withResolvers<Awaited<ReturnType<typeof host.invoke>>>();
+      const invoke = vi.spyOn(host, "invoke").mockReturnValue(landing.promise);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      key({ key: "m" });
+      const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "a");
+      dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60 });
+      await write("too wide");
+      // On its way: the send is shut, so a second press writes no second thread.
+      const send = present([...(panel()?.querySelectorAll("button") ?? [])].at(-1), "send");
+      expect(send.disabled).toBe(true);
+      await act(async () => send.click());
+      expect(invoke).toHaveBeenCalledTimes(1);
+      await act(async () =>
+        landing.resolve({
+          status: "failed",
+          id: "ext.canvas.comment",
+          code: "forbidden",
+          message: "the store is read-only",
+        }),
+      );
+      expect(panel()?.querySelector('[role="alert"]')?.textContent).toBe("the store is read-only");
+      expect(panel()?.querySelector("textarea")?.value).toBe("too wide");
+      expect(send.disabled).toBe(false);
+    });
+
+    it("from the keyboard: M, a press, words and Enter write the comment", async () => {
+      const invoke = vi.spyOn(host, "invoke").mockResolvedValue(wrote);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      key({ key: "m" });
+      const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "a");
+      dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60 });
+      const area = present(panel()?.querySelector("textarea"), "the panel's field");
+      expect(dom.document.activeElement).toBe(area);
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(dom.HTMLTextAreaElement.prototype, "value")?.set?.call(
+          area,
+          "by keys",
+        );
+        area.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true, key: "s" }));
+        area.dispatchEvent(new dom.KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+      });
+      expect(invoke).toHaveBeenLastCalledWith("ext.canvas.comment", {
+        canvasId: "canvas",
+        text: "by keys",
+        on: "a",
+      });
+    });
+
     it("a thread's pin opens it: its comments, a reply, and resolving it", async () => {
       host.setNodes([canvasNode, thread, reply]);
       const invoke = vi.spyOn(host, "invoke").mockResolvedValue(wrote);
