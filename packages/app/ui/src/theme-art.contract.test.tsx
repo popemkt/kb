@@ -37,6 +37,7 @@ import {
   PageBackdrop,
   THEME_GESTURE_MAX_MS,
   ThemeArt,
+  replacePath,
   currentContributions,
   syncUiPlugins,
   type DesignSystem,
@@ -106,21 +107,38 @@ function art(plane: ThemeArtPlane): HTMLElement | null {
 
 /**
  * What the art slot draws for `plane` once mounted and settled: art may load
- * its code on first draw, so the page is given turns until nothing changes.
+ * its code on first draw, so the page is given turns until `ready` holds or,
+ * with no `ready`, until nothing has changed for ten turns. A first load can
+ * take far longer than a turn on a busy machine, so one quiet turn proves
+ * nothing; the wait is bounded at ten seconds.
  */
-async function settled(plane: ThemeArtPlane): Promise<HTMLElement | null> {
+async function settled(
+  plane: ThemeArtPlane,
+  ready?: (host: HTMLElement) => boolean,
+): Promise<HTMLElement | null> {
   const host = document.createElement("div");
   const root = createRoot(host);
   await act(async () => root.render(createElement(ThemeArt, { plane })));
-  let before = "";
-  for (let turn = 0; turn < 50 && host.innerHTML !== before; turn += 1) {
-    before = host.innerHTML;
+  let quiet = 0;
+  for (let turn = 0; turn < 500; turn += 1) {
+    if (ready === undefined ? quiet >= 10 : ready(host)) break;
+    const before = host.innerHTML;
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+    quiet = host.innerHTML === before ? quiet + 1 : 0;
   }
   const drawn = host.firstElementChild?.cloneNode(true) ?? null;
   act(() => root.unmount());
   return drawn as HTMLElement | null;
 }
+
+/** The art slot's plane over one pane, showing the page at `path`. */
+const paneArt = (path: string) => createElement(ThemeArt, { plane: "pane", path });
+
+/** Moves the fake clock on `ms`. */
+const wait = (ms: number) =>
+  act(() => {
+    vi.advanceTimersByTime(ms);
+  });
 
 /** The backdrop the page head shows. */
 function head(): string | undefined {
@@ -152,7 +170,7 @@ describe("every contributed design system's art and pairing", () => {
   it("draws the shown system's art, and only its, in each plane, hidden and inert", () => {
     for (const system of systems()) {
       paint(system.key.id);
-      for (const plane of ["ground", "veil"] as const) {
+      for (const plane of ["ground", "veil", "pane"] as const) {
         const drawn = art(plane);
         if (system.Art === undefined) {
           expect(drawn, `${system.key.id} ${plane}`).toBeNull();
@@ -169,9 +187,10 @@ describe("every contributed design system's art and pairing", () => {
   it("draws a ground once loaded, and holds nothing over the page at rest", async () => {
     for (const system of systems().filter(({ Art }) => Art !== undefined)) {
       paint(system.key.id);
-      const ground = await settled("ground");
+      const ground = await settled("ground", (host) => host.querySelectorAll("*").length > 2);
       expect(ground?.querySelectorAll("*").length, system.key.id).toBeGreaterThan(2);
-      expect((await settled("veil"))?.childElementCount, system.key.id).toBe(0);
+      for (const plane of ["veil", "pane"] as const)
+        expect((await settled(plane))?.childElementCount, `${system.key.id} ${plane}`).toBe(0);
     }
   });
 
@@ -179,11 +198,11 @@ describe("every contributed design system's art and pairing", () => {
     for (const system of systems()) {
       const { Art } = system;
       if (Art === undefined) continue;
-      const veil = (path: string) =>
-        createElement(Art, { plane: "veil", activity: { editing: false, writes: 0 }, path });
+      const pane = (path: string) =>
+        createElement(Art, { plane: "pane", activity: { editing: false, writes: 0 }, path });
       // Load the art's code first, so the fake clock below drives it alone.
       const warm = createRoot(document.createElement("div"));
-      await act(async () => warm.render(veil("/warm")));
+      await act(async () => warm.render(pane("/warm")));
       await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
       act(() => warm.unmount());
 
@@ -192,7 +211,7 @@ describe("every contributed design system's art and pairing", () => {
         const host = document.createElement("div");
         const root = createRoot(host);
         const go = (path: string, ms: number) => {
-          act(() => root.render(veil(path)));
+          act(() => root.render(pane(path)));
           act(() => {
             vi.advanceTimersByTime(ms);
           });
@@ -235,6 +254,53 @@ describe("every contributed design system's art and pairing", () => {
     for (const id of themed)
       counts.set(themeOf(id) ?? "", (counts.get(themeOf(id) ?? "") ?? 0) + 1);
     expect(Math.max(...counts.values())).toBeGreaterThan(1);
+  });
+
+  it("plays a page change only in the pane whose page changed, and nothing when the focus moves", async () => {
+    for (const system of systems().filter(({ Art }) => Art !== undefined)) {
+      paint(system.key.id);
+      // Load the art's code first, so the fake clock below drives it alone.
+      const warm = createRoot(document.createElement("div"));
+      await act(async () => warm.render(paneArt("/warm")));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+      act(() => warm.unmount());
+
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "Date"] });
+      try {
+        const left = document.createElement("div");
+        const right = document.createElement("div");
+        const roots = [createRoot(left), createRoot(right)];
+        const draw = (a: string, b: string) =>
+          act(() => {
+            roots[0]?.render(paneArt(a));
+            roots[1]?.render(paneArt(b));
+          });
+        draw("/node/a", "/node/b");
+        wait(2000);
+        const rest = [left.innerHTML, right.innerHTML];
+        // Two panes, the focus moving between them: the URL names the
+        // focused pane each time, and neither pane's page changes.
+        for (let move = 0; move < 10; move += 1) {
+          act(() => replacePath(move % 2 === 0 ? "/node/b" : "/node/a"));
+          draw("/node/a", "/node/b");
+          wait(60);
+          expect([left.innerHTML, right.innerHTML], `${system.key.id}: focus ${move}`).toEqual(
+            rest,
+          );
+        }
+        // The left pane navigates: one gesture, in it alone.
+        draw("/node/c", "/node/b");
+        expect(left.innerHTML, `${system.key.id}: the pane that changed`).not.toBe(rest[0]);
+        expect(right.innerHTML, `${system.key.id}: the other pane`).toBe(rest[1]);
+        wait(THEME_GESTURE_MAX_MS);
+        expect([left.innerHTML, right.innerHTML], `${system.key.id}: gone`).toEqual(rest);
+        act(() => {
+          for (const root of roots) root.unmount();
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    }
   });
 
   it("tags a theme's backdrops with the theme in Preferences, and marks the shown theme's pairing", () => {

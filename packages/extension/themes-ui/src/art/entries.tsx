@@ -1,4 +1,4 @@
-import type { BackdropProps, ThemeArtProps } from "@kb/ui-sdk";
+import type { BackdropProps, PageActivity, ThemeArtProps } from "@kb/ui-sdk";
 import { deferred } from "./deferred";
 
 /*
@@ -24,14 +24,42 @@ const YorhaGround = deferred(
 );
 const YorhaVeil = deferred(() => import("./yorha-art").then((m) => m.YorhaVeil));
 
+/*
+ * A veil component plays both kinds of passing gesture: a write's, keyed on
+ * the activity, and a page change's, keyed on the path. The window's veil
+ * hears only the activity (its path never changes), and each pane's plane
+ * only its own path (its activity never does), so a write plays once over
+ * the window and a page change only in the pane whose page changed.
+ */
+const STILL: PageActivity = { editing: false, writes: 0 };
+const NOWHERE = "";
+
 /** ZZZ's art (DESIGN-UI.md → Themes): the street under the page, its gestures over it. */
 export function ZzzArt({ plane, activity, path }: ThemeArtProps) {
-  return plane === "ground" ? <StreetGround /> : <StreetVeil activity={activity} path={path} />;
+  switch (plane) {
+    case "ground":
+      return <StreetGround />;
+    case "veil":
+      return <StreetVeil activity={activity} path={NOWHERE} />;
+    case "pane":
+      return <StreetVeil activity={STILL} path={path} />;
+    default:
+      return plane satisfies never;
+  }
 }
 
-/** Transistor's art (DESIGN-UI.md → Themes): Cloudbank under the page, Turn() over it. */
+/** Transistor's art (DESIGN-UI.md → Themes): Cloudbank under the page, Jaunt() over a pane. */
 export function TransistorArt({ plane, activity, path }: ThemeArtProps) {
-  return plane === "ground" ? <CloudbankGround activity={activity} /> : <JauntVeil path={path} />;
+  switch (plane) {
+    case "ground":
+      return <CloudbankGround activity={activity} />;
+    case "veil":
+      return null;
+    case "pane":
+      return <JauntVeil path={path} />;
+    default:
+      return plane satisfies never;
+  }
 }
 
 const BroadcastHead = deferred<BackdropProps>(
@@ -45,11 +73,16 @@ const CloudbankHead = deferred<BackdropProps>(
 
 /** YoRHa's art (DESIGN-UI.md → Themes): the Bunker's grid under the page, its HUD over it. */
 export function YorhaArt({ plane, activity, path }: ThemeArtProps) {
-  return plane === "ground" ? (
-    <YorhaGround activity={activity} />
-  ) : (
-    <YorhaVeil activity={activity} path={path} />
-  );
+  switch (plane) {
+    case "ground":
+      return <YorhaGround activity={activity} />;
+    case "veil":
+      return <YorhaVeil activity={activity} path={NOWHERE} />;
+    case "pane":
+      return <YorhaVeil activity={STILL} path={path} />;
+    default:
+      return plane satisfies never;
+  }
 }
 
 const HollowHead = deferred<BackdropProps>(

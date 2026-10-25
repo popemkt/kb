@@ -47,9 +47,9 @@
 /* Mucha's halo: concentric gilt rings, faint, in the top corner. */
 .kb-cloudbank-halo {
   position: absolute;
-  top: -18vw;
-  right: -14vw;
-  width: 52vw;
+  top: -18cqw;
+  right: -14cqw;
+  width: 52cqw;
   aspect-ratio: 1;
   border-radius: 50%;
   corner-shape: round;
@@ -66,7 +66,7 @@
   left: 0;
   bottom: 0;
   width: 100%;
-  height: 19vh;
+  height: 19cqh;
   min-height: 110px;
 }
 
@@ -127,13 +127,13 @@
     var(--primary)
   );
   opacity: 0.5;
-  translate: -45vw 0;
+  translate: -45cqw 0;
   animation: kb-cloudbank-rail 24s linear infinite;
 }
 
 @keyframes kb-cloudbank-rail {
   to {
-    translate: 110vw 0;
+    translate: 110cqw 0;
   }
 }
 
@@ -141,8 +141,8 @@
 .kb-cloudbank-trail {
   position: absolute;
   left: 0;
-  bottom: 13vh;
-  width: 42vw;
+  bottom: 13cqh;
+  width: 42cqw;
   height: 2.5px;
   border-radius: 2px;
   background: linear-gradient(
@@ -153,7 +153,7 @@
   );
   box-shadow: 0 0 14px 1px color-mix(in oklab, var(--primary) 55%, transparent);
   opacity: 0;
-  translate: -45vw 0;
+  translate: -45cqw 0;
   animation: kb-cloudbank-trail var(--motion-duration-arrive) var(--motion-settle) forwards;
 }
 
@@ -166,7 +166,7 @@
   }
   to {
     opacity: 0;
-    translate: 105vw 0;
+    translate: 105cqw 0;
   }
 }
 
@@ -182,7 +182,7 @@
 .kb-jaunt-cells {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 150vw;
+  width: 150cqw;
   display: grid;
   place-items: center;
   background:
@@ -206,7 +206,7 @@
     transparent 96%
   );
   opacity: 0.92;
-  translate: -150vw 0;
+  translate: -150cqw 0;
   animation: kb-jaunt calc(var(--motion-duration-reveal) * 1.5) steps(14, jump-none) forwards;
 }
 
@@ -228,7 +228,7 @@
 
 @keyframes kb-jaunt {
   to {
-    translate: 100vw 0;
+    translate: 100cqw 0;
   }
 }
 
@@ -353,7 +353,7 @@
 /* Halftone: a dot screen, faded toward the page by a radial mask. */
 .kb-zzz-dots {
   position: absolute;
-  width: 48vw;
+  width: 48cqw;
   aspect-ratio: 1;
   opacity: 0.16;
   mask-image:
@@ -367,14 +367,14 @@
 }
 
 .kb-zzz-dots-top {
-  top: -16vw;
-  right: -12vw;
+  top: -16cqw;
+  right: -12cqw;
   background: var(--chart-1);
 }
 
 .kb-zzz-dots-bottom {
-  bottom: -20vw;
-  left: -16vw;
+  bottom: -20cqw;
+  left: -16cqw;
   background: var(--chart-2);
 }
 
@@ -400,9 +400,9 @@
 /* The hazard band along the bottom, slanted, its marquee crawling by. */
 .kb-zzz-band {
   position: absolute;
-  left: -10vw;
-  right: -10vw;
-  bottom: 6vh;
+  left: -10cqw;
+  right: -10cqw;
+  bottom: 6cqh;
   height: 40px;
   rotate: -3deg;
   overflow: hidden;
@@ -465,7 +465,7 @@
   top: -10%;
   bottom: -10%;
   left: 0;
-  width: 72vw;
+  width: 72cqw;
   background:
     radial-gradient(
         circle,
@@ -476,7 +476,7 @@
     color-mix(in oklab, var(--chart-1) 72%, var(--background));
   border-inline: 6px solid var(--scrim);
   transform: skewX(-16deg);
-  translate: 135vw 0;
+  translate: 135cqw 0;
   animation: kb-zzz-wipe calc(var(--motion-duration-reveal) * 2.4) linear forwards;
 }
 
@@ -488,7 +488,7 @@
   height: 34px;
   display: flex;
   align-items: center;
-  padding-left: 12vw;
+  padding-left: 12cqw;
   background: var(--scrim);
   color: var(--knob);
   font-family: var(--app-font-label);
@@ -496,33 +496,33 @@
   font-variation-settings: var(--label-variation);
   font-size: var(--type-label);
   letter-spacing: 0.1em;
-  translate: 100vw 0;
+  translate: 100cqw 0;
   animation: kb-zzz-wipe-strip calc(var(--motion-duration-reveal) * 2.4) linear forwards;
 }
 
 @keyframes kb-zzz-wipe {
   0% {
-    translate: 135vw 0;
+    translate: 135cqw 0;
   }
   36%,
   58% {
-    translate: 14vw 0;
+    translate: 14cqw 0;
   }
   100% {
-    translate: -120vw 0;
+    translate: -120cqw 0;
   }
 }
 
 @keyframes kb-zzz-wipe-strip {
   0% {
-    translate: 100vw 0;
+    translate: 100cqw 0;
   }
   22%,
   62% {
     translate: 0 0;
   }
   100% {
-    translate: -100vw 0;
+    translate: -100cqw 0;
   }
 }
 

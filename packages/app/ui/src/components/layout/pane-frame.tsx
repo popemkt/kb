@@ -4,6 +4,7 @@ import {
   matchRoute,
   NotFound,
   RoutePoint,
+  ThemeArt,
   useContributions,
   ViewSlot,
   WorkspaceState,
@@ -91,7 +92,8 @@ function RouteBody({ route, subject }: { route: ResolvedRoute; subject: string |
 /**
  * What a pane shows at `path`: the page the route table resolves it to, with
  * the route's chrome above it and, unless the page owns its own viewport, a
- * scroll region around it. A path no route owns is not found.
+ * scroll region around it, and the theme's pane plane over it. A path no
+ * route owns is not found.
  *
  * `subject` is what the pane's slot shows its page for where panes nest (a
  * dashboard's panes give their locations), so a layout open inside itself is
@@ -101,9 +103,15 @@ export function PaneFrame({ path, subject }: { readonly path: string; readonly s
   const route = matchRoute(useContributions(RoutePoint), path);
   const body = route === null ? NOT_FOUND : <RouteBody route={route} subject={subject} />;
   return (
-    <>
+    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" data-pane-path={path}>
       {route?.chrome}
       <PageFrame frame={route?.frame ?? "scroll"}>{body}</PageFrame>
-    </>
+      {/* Over this pane: the theme's gesture for this pane's own page change,
+       * keyed on its path, so moving the focus between panes plays nothing
+       * (`.kb-veil`: hidden under reduced motion and with `pageWipe` off). */}
+      <div className="kb-veil pointer-events-none absolute inset-0 z-40">
+        <ThemeArt plane="pane" path={path} />
+      </div>
+    </div>
   );
 }

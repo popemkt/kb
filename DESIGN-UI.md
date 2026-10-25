@@ -3266,15 +3266,22 @@ above). What each of kb's themes is after, and where each idea lives, is
   opacity, filter or a small element's clip only.
 - **The art slot.** A `DesignSystem` may carry `Art`, a component
   (`ThemeArtProps`: its `plane`, what the owner is doing as a backdrop is
-  told it, `PageActivity`, and the path). The shell renders `ThemeArt` twice
-  and names no system: the `ground` plane under everything it draws, the
-  `veil` over everything (DockHost included). `ThemeArt` draws the art of
-  the system shown and of no other, in a `contain: strict`,
-  `pointer-events: none`, `aria-hidden` box; a system with no art draws nothing.
+  told it, `PageActivity`, and a path). The shell names no system: it
+  renders `ThemeArt` as the `ground` plane under everything it draws, the
+  `veil` over everything (DockHost included), and a `pane` plane over each
+  pane, given that pane's own path. `ThemeArt` draws the art of the system
+  shown and of no other, in a `contain: strict`, `pointer-events: none`,
+  `aria-hidden` box that is a size container (art sizes its gestures in
+  `cqw`/`cqh`, so one fits the pane it plays in); a system with no art draws
+  nothing.
   - The ground is ambient: it sits under opaque surfaces, so it shows only
     where the chrome lets it, and stays faint (a few percent of ink).
-  - The veil is for passing gestures only, a page change or a structural
-    write, and holds nothing at rest. A gesture keyed on a change never
+  - The veil and the pane planes are for passing gestures only, and hold
+    nothing at rest: a structural write plays on the veil, a page change on
+    the plane of the pane whose page changed and nowhere else. A pane's path
+    is its own, so moving the focus between panes (which rewrites the URL
+    and nothing else) changes no pane's path and plays nothing. A gesture
+    keyed on a change never
     plays on arrival: a boot, its redirects and switching to the system are
     not events (`useBeat` in the themes family).
   - A gesture is gone by `THEME_GESTURE_MAX_MS` (`@kb/ui-sdk`) whatever
@@ -3355,7 +3362,7 @@ a `#gap` node, named in the last column.
 | Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `themes-ui/src/design-systems/*.css`, mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
 | The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
 | Theme art: ground and veil | `themes-ui/src/art/*-art.tsx`, `art/*.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the veil plane of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
+| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
 | Faces | `@fontsource*` imports in `themes-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
 | Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Preferences shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
 | Motion keyframes and a theme's base timing | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*` | code: the options rescale and swap them, never name new ones | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens) |

@@ -51,9 +51,9 @@
 }
 
 .kb-yorha-staff {
-  left: 6vw;
-  right: 6vw;
-  bottom: 7vh;
+  left: 6cqw;
+  right: 6cqw;
+  bottom: 7cqh;
   mask-image: linear-gradient(
     90deg,
     transparent,
@@ -143,7 +143,7 @@
     translate: 0 -100px;
   }
   to {
-    translate: 0 100vh;
+    translate: 0 100cqh;
   }
 }
 
@@ -177,7 +177,7 @@
 .kb-yorha-bar:nth-child(4)::after {
   content: "■  ACCESSING  : :  NODE RECORD";
   display: block;
-  padding: 18px 0 0 14vw;
+  padding: 18px 0 0 14cqw;
   color: var(--background);
   font-family: var(--app-font-label);
   font-size: var(--type-label);
