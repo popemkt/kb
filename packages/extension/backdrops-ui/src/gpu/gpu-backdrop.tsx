@@ -29,6 +29,8 @@ import type { GpuBackdropMount, GpuBackdropScene, GpuLook } from "./gpu-scene";
 const SCENES = {
   lens: () => import("../lens/lens-scene").then((m) => m.mountLens),
   blackHole: () => import("../black-hole/black-hole-scene").then((m) => m.mountBlackHole),
+  toonSea: () => import("../toon-sea/toon-sea-scene").then((m) => m.mountToonSea),
+  silk: () => import("../silk/silk-scene").then((m) => m.mountSilk),
 } satisfies Record<string, () => Promise<GpuBackdropMount>>;
 
 export type GpuSceneId = keyof typeof SCENES;

@@ -7,16 +7,16 @@ subscribe to live queries later. MCP Apps generative UI is phase 2.
 
 ## Decisions (from Q&A)
 
-| Decision        | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell           | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                   |
-| Frontend build  | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Bun's role      | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
-| Reactivity      | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Edit scope v1   | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| MCP Apps        | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Editing surface | **The editor is the main human editing surface.** The outline (`@kb/outline`) and its UI (`@kb/outline-ui`) are where a person creates and edits every core concept: nodes, tags, fields and their types and options, references, queries, views and their settings, layouts, and the switches and settings of extension families. A concept that can be written only through the CLI or MCP, or only as a raw `sys.*` value, is a gap, recorded as a `#gap` node (the editor audit: `docs/research/2026-10-20-editor-audit.md`). The CLI and MCP are equal surfaces for agents: they reach the same actions, and neither is the editor's fallback.                                      |
-| Navigation | **Every navigation is in the URL.** Going somewhere (opening a node, zooming or unzooming the outline, entering or leaving an ontology scope, switching a page, a perspective, a canvas or a lab scene) goes through the router: the focused pane moves by `navigate`, which pushes a history entry, so back and forward walk it and a reload lands where the page was. No gesture moves the place the focused pane shows by writing a store alone; the page's zoom follows the URL (Panes and layouts: the zoom is a location). Minor state a page chooses to reflect is replaced, not pushed (`replacePath`): which pane is focused, including a pane just opened beside (its predecessor stays on screen), and a location the page cannot show. The URL names the focused pane only: a pane that is not focused moves in the layout, without a history entry, and a link restores the focused pane, not the arrangement around it. Not places: selection, a reveal within the zoom, a popover, an expanded row, entering a canvas group, presenting a canvas, scroll. |
+| Decision        | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shell           | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Frontend build  | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Bun's role      | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle.                                                                                                                                                                                                                                                                                                                                                                                 |
+| Reactivity      | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Edit scope v1   | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| MCP Apps        | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Editing surface | **The editor is the main human editing surface.** The outline (`@kb/outline`) and its UI (`@kb/outline-ui`) are where a person creates and edits every core concept: nodes, tags, fields and their types and options, references, queries, views and their settings, layouts, and the switches and settings of extension families. A concept that can be written only through the CLI or MCP, or only as a raw `sys.*` value, is a gap, recorded as a `#gap` node (the editor audit: `docs/research/2026-10-20-editor-audit.md`). The CLI and MCP are equal surfaces for agents: they reach the same actions, and neither is the editor's fallback.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Navigation      | **Every navigation is in the URL.** Going somewhere (opening a node, zooming or unzooming the outline, entering or leaving an ontology scope, switching a page, a perspective, a canvas or a lab scene) goes through the router: the focused pane moves by `navigate`, which pushes a history entry, so back and forward walk it and a reload lands where the page was. No gesture moves the place the focused pane shows by writing a store alone; the page's zoom follows the URL (Panes and layouts: the zoom is a location). Minor state a page chooses to reflect is replaced, not pushed (`replacePath`): which pane is focused, including a pane just opened beside (its predecessor stays on screen), and a location the page cannot show. The URL names the focused pane only: a pane that is not focused moves in the layout, without a history entry, and a link restores the focused pane, not the arrangement around it. Not places: selection, a reveal within the zoom, a popover, an expanded row, entering a canvas group, presenting a canvas, scroll. |
 
 ## Why bun _and_ vite (your question)
 
@@ -44,16 +44,16 @@ Server ownership lives behind the stable facade `packages/app/server/src/index.t
 re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
 implementation modules under `packages/app/server/src/` split by concern:
 
-| Module             | Owns                                                                             |
-| ------------------ | -------------------------------------------------------------------------------- |
-| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown         |
-| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback      |
+| Module             | Owns                                                                              |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown          |
+| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback       |
 | `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
-| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core     |
-| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)       |
-| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
-| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                      |
-| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                         |
+| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core      |
+| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)        |
+| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)  |
+| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                       |
+| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                          |
 
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
@@ -3299,7 +3299,12 @@ exist is a plugin point, and the kit names none of them.
   - `backdrops.lens` is a dark star drifting through a nebula and bending its
     light, a new nebula each load (see **GPU scenes** below);
   - `backdrops.black-hole` is Gargantua: a black hole whose thick gas disk
-    streams round it, lensed over and under its shadow.
+    streams round it, lensed over and under its shadow;
+  - `backdrops.toon-sea` is an open sea under anime-game cumulus,
+    cel-shaded: a day sea, and at night a moonlit indigo with
+    bioluminescent wakes;
+  - `backdrops.silk` is silk ribbons in three depths, lit on a stage that
+    opens onto a faint cosmos.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -3418,7 +3423,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens and Black hole are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea and Silk are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -3483,8 +3488,51 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     it, which a further write brightens rather than starts again.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
-- **The contract.** `@kb/backdrops-ui` runs the scene contract over both
-  scenes, each on a dark page and a light one.
+- **Toon sea.** An open sea under anime-game cumulus, cel-shaded: a day
+  sea, and at night a moonlit indigo with bioluminescent wakes.
+  - The sky (gradient, sun or moon with its halo and rays, cirrus, a far
+    bank, and hero clouds built as a body under a crown of puffs, their
+    outlines from a signed distance) is drawn offscreen at a share of the
+    frame's pixels a few times a second; the sea is per pixel below the
+    horizon only, reading the sky for its reflection.
+  - The sea is a plane in perspective with peaked waves filtered by each
+    pixel's footprint, stepped body bands, a toon Fresnel, foam on crests,
+    anime wave lines, and a banded glitter path of star glints.
+  - Under the head's text the shared scrim (`gpu/text-scrim.ts`: the
+    block the title, its tags and the meta line take, from a panel's width
+    to a wide frame's) keeps them readable, and the glitter stays out from
+    under it.
+  - The pointer resting over the water spreads ripple rings. Typing calms
+    the swell. Three splash rings with bursts of glints take turns on one
+    running clock, and the reactions' `impulse` scales them: the owner's
+    activity lifts them, a quiet page leaves them still, and nothing starts
+    one again.
+- **Silk.** Silk ribbons in three depths on a stage that opens onto a faint
+  cosmos, drawn offscreen at a share of the frame's pixels; the cosmos's
+  slow fields (gas, a galactic band and its dust lane) in a pass of their
+  own, a few times a second.
+  - Each ribbon is solved analytically per pixel: a twisted strip whose
+    across-coordinate and normal each pixel finds exactly, so there are no
+    meshes and the one edge is filtered, widened per layer for depth of
+    field. BG ribbons are soft in the haze, the MG hero (a double-faced
+    satin and a sheer organza) is in focus, and two large defocused FG
+    edges frame the right-hand corners, clear of the title. The layers
+    slide at their own parallax rates, and the focus breathes now and then.
+  - Silk's material: anisotropic GGX, thin-film interference (Belcour and
+    Barla), transmission for the sheer one, a woven warp only in focus.
+  - A key spot, a cool back gel, and a strip light that sweeps across,
+    reaching each layer in turn and shadowed by every nearer ribbon; the
+    hero casts a coloured shadow and a caustic on the backdrop.
+  - The pointer is a breath of wind that lifts and flips the ribbons and
+    stirs the dust (summed on the CPU into a strip the shader reads). Typing
+    slows everything and rests the sweep. A shimmer runs along every
+    ribbon without end, as bright as the reactions' `impulse`, and `stir`
+    quickens the ribbons' twist.
+  - The same scrim sits under the head's text, the cosmos keeps clear of
+    it, and in a panel the ribbons rise above the title.
+  - A light page is the paper itself, with a pastel breath of gas.
+- **The contract.** `@kb/backdrops-ui` runs the scene contract over every
+  GPU scene, each on a dark page and a light one.
 
 ### Type scale
 

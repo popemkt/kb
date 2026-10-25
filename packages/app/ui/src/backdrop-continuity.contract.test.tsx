@@ -6,7 +6,7 @@
  *
  * - the slot keeps the one instance it mounted, for every backdrop: its
  *   element is never replaced;
- * - a GPU backdrop (Lens, Black hole) mounts its scene exactly once, and the
+ * - a GPU backdrop (Lens, Black hole, Toon sea, Silk) mounts its scene exactly once, and the
  *   scene's clock only moves forward.
  *
  * Three's renderer is the stand-in (`FAKE_WEBGPU`), so the scenes are real
@@ -56,7 +56,12 @@ vi.mock("three/webgpu", async (importOriginal) => ({
 const AT = "2026-01-01T00:00:00.000Z";
 const CORE = extensionNodeId("core");
 const TYPED = "n.typed";
-const GPU_BACKDROPS = new Set(["backdrops.lens", "backdrops.black-hole"]);
+const GPU_BACKDROPS = new Set([
+  "backdrops.lens",
+  "backdrops.black-hole",
+  "backdrops.toon-sea",
+  "backdrops.silk",
+]);
 
 /** The browser entries of the families on in a store with no switch written, as the page loads them. */
 const PAGE_FAMILIES = await Promise.all(

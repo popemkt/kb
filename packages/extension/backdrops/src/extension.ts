@@ -33,6 +33,12 @@ export const BLACK_HOLE_BACKDROP: SeedBackdrop = {
   label: "Black hole",
 };
 
+/** A cel-shaded sea under anime-game clouds; the pointer ripples it, the owner's activity splashes and glints. */
+export const TOON_SEA_BACKDROP: SeedBackdrop = { id: "backdrops.toon-sea", label: "Toon sea" };
+
+/** Layered silk ribbons on a stage before a faint cosmos; the owner's activity runs a shimmer along them. */
+export const SILK_BACKDROP: SeedBackdrop = { id: "backdrops.silk", label: "Silk" };
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
@@ -48,6 +54,8 @@ export const backdropsExtension = defineExtension({
         ROOST_BACKDROP,
         LENS_BACKDROP,
         BLACK_HOLE_BACKDROP,
+        TOON_SEA_BACKDROP,
+        SILK_BACKDROP,
       ],
     },
   ],
