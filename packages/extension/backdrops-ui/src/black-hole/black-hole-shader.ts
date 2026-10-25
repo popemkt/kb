@@ -225,9 +225,13 @@ function throughSlab({
   // and draw the photon ring, a step takes at least RING_SAMPLES samples: one
   // can miss so thin a crossing, and the ring breaks into dashes.
   const mid = p.add(next).mul(0.5);
-  const ring = select(u.samples.lessThan(RING_SAMPLES), int(RING_SAMPLES), u.samples);
-  const count = select(length(vec2(mid.x, mid.z)).lessThan(RING_RADIUS), ring, u.samples);
-  const samples = float(count);
+  const each = float(u.samples);
+  const samples = select(
+    length(vec2(mid.x, mid.z)).lessThan(RING_RADIUS),
+    max(each, RING_SAMPLES),
+    each,
+  ).toVar();
+  const count = int(samples);
   const ds = length(next.sub(p)).div(samples);
   Loop({ start: 0, end: count, type: "int", condition: "<" }, ({ i }) => {
     const c = mix(p, next, float(i).add(jitter).div(samples)).toVar();
