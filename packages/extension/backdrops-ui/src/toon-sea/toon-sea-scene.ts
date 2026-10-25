@@ -60,7 +60,7 @@ function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   return {
     // The sun (the moon) stands high and right; in a panel a little lower in its corner.
-    panel: { x: 0.72, y: 0.17, scale: 0.85, presence: 0.85 },
+    panel: { x: 0.72, y: 0.17, scale: 0.85, presence: 1 },
     wide: { x: 0.74, y: 0.15, scale: 1, presence: 1 },
     layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
       width = w;
@@ -68,7 +68,7 @@ function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       u.aspect.value = w / h;
       u.size.value.set(w, h);
       u.sun.value.set(composition.x, 1 - composition.y);
-      u.scrim.layout(w);
+      u.scrim.layout(w, h);
       u.detail.value = quality;
       // The sky is soft: at full quality two texels for three device pixels (the stage's ratio,
       // at most 2), so the clouds' outlines stay clean when it is scaled up.
@@ -120,6 +120,9 @@ export function mountToonSea(host: HTMLElement, init: GpuBackdropInit): Promise<
     {
       bloom: { strength: 0.22, radius: 0.4 },
       lens: { aberration: 0.006, streak: 0.1, grain: 0.02 },
+      // Painted to be seen as the prototype was, through a CSS mask over the page.
+      fadeSpace: "display",
+      feather: { sides: 0.1, top: 0.06, bottom: 0.32 },
     },
     toonSea,
   );

@@ -60,6 +60,7 @@ import {
 import { type DataTexture, Vector2, Vector4 } from "three/webgpu";
 import type { OffscreenInputs, PictureSampler, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
+import { darkGrade } from "../gpu/dark-grade";
 import { textScrim } from "../gpu/text-scrim";
 import { fbm4 } from "../gpu/noise";
 import {
@@ -697,19 +698,25 @@ export function cosmosFragment(u: SilkUniforms): V4 {
 
 /**
  * The frame, for `scene.backgroundNode`: the offscreen picture, a scrim
- * under the head's text, as it is on a dark page (its highlights rolled off by the shoulder); on a light one in
- * the page's own terms (`paint`), its glints kept above white for the bloom.
+ * under the head's text, graded on a dark page as its look was drawn
+ * (`darkGrade`, its highlights rolled off by the shoulder); on a light one
+ * in the page's own terms (`paint`), its glints kept above white for the
+ * bloom.
  */
-export function silkFrame(u: SilkUniforms, picture: PictureSampler, { page, paint }: Grounds): V3 {
+export function silkFrame(
+  u: SilkUniforms,
+  picture: PictureSampler,
+  { ground, page, paint }: Grounds,
+): V3 {
   return Fn(() => {
     const at = vec2(screenUV.x, float(1).sub(screenUV.y));
     const shown = picture(at).rgb.toVar();
     // Under the head's text: darker under light text, paler under dark text.
     const scrim = u.scrim.under(at);
     shown.assign(
-      mix(mix(shown, page, scrim.mul(0.4)), shown.mul(float(1).sub(scrim.mul(0.45))), u.dark),
+      mix(mix(shown, page, scrim.mul(0.26)), shown.mul(float(1).sub(scrim.mul(0.3))), u.dark),
     );
     const day = paint(min(shown, vec3(1, 1, 1))).add(max(shown.sub(1), vec3(0, 0, 0)));
-    return mix(day, shown, u.dark);
+    return mix(day, darkGrade(shown, ground), u.dark);
   })();
 }

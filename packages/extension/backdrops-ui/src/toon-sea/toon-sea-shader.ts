@@ -61,6 +61,7 @@ import {
 import { Vector2, Vector3, Vector4 } from "three/webgpu";
 import type { OffscreenInputs, PictureSampler, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
+import { darkGrade } from "../gpu/dark-grade";
 import { textScrim } from "../gpu/text-scrim";
 import { fbm4, hash, hash2, pnoise } from "../gpu/noise";
 
@@ -716,7 +717,7 @@ function seaAt(u: ToonSeaUniforms, pal: Palette, sky: PictureSampler, at: V2, fp
  * horizon, the sea below it mirroring that picture, quieter under the
  * head's text, in the page's terms (`Grounds`).
  */
-export function seaFrame(u: ToonSeaUniforms, sky: PictureSampler, { paint }: Grounds): V3 {
+export function seaFrame(u: ToonSeaUniforms, sky: PictureSampler, { ground, paint }: Grounds): V3 {
   return Fn(() => {
     const pal = palette(u);
     const at = vec2(screenUV.x, float(1).sub(screenUV.y)).toVar();
@@ -730,7 +731,7 @@ export function seaFrame(u: ToonSeaUniforms, sky: PictureSampler, { paint }: Gro
       shown.assign(sky(at).rgb);
     });
     // Under the text: darker under light text, paler under dark text, soft at its edges.
-    const scrim = u.scrim.under(at).mul(pal.byMood(0.42, 0.38));
+    const scrim = u.scrim.under(at).mul(pal.byMood(0.3, 0.26));
     shown.assign(
       mix(
         mix(shown, mix(pal.horizon, vec3(1, 1, 1), 0.6), scrim),
@@ -738,9 +739,9 @@ export function seaFrame(u: ToonSeaUniforms, sky: PictureSampler, { paint }: Gro
         u.dark,
       ),
     );
-    // Dark: light as it is, its highlights rolled off by the shoulder. Light: the day in the page's
+    // Dark: light graded as the look was drawn (`darkGrade`), its highlights rolled off by the shoulder. Light: the day in the page's
     // own terms, its glints kept above white for the bloom.
     const day = paint(min(shown, vec3(1, 1, 1))).add(max(shown.sub(1), vec3(0, 0, 0)));
-    return mix(day, shown, u.dark);
+    return mix(day, darkGrade(shown, ground), u.dark);
   })();
 }

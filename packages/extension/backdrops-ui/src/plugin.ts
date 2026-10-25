@@ -95,11 +95,21 @@ const lens: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: LensBac
 /** Gargantua, its gas disk streaming round it. */
 const blackHole: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: BlackHoleBackdrop };
 
+/**
+ * A whole painted scene's frame: a strength barely veils it, since a veil
+ * over a high-key picture is a wash that takes its colour (the scene keeps
+ * its own quiet: its scrim under the text, its framing by width).
+ */
+const sceneFrame: Omit<Backdrop, "key" | "Component">["presentation"] = {
+  ...gpuFrame,
+  opacity: { subtle: 0.95, soft: 0.98, vivid: 1 },
+};
+
 /** A cel-shaded sea under anime-game clouds. */
-const toonSea: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: ToonSeaBackdrop };
+const toonSea: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: ToonSeaBackdrop };
 
 /** Silk ribbons in three depths on a stage before a faint cosmos. */
-const silk: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: SilkBackdrop };
+const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkBackdrop };
 
 /**
  * The backdrops family's page entry: kb's page-head backdrops, contributed

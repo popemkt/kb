@@ -3498,10 +3498,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - The sea is a plane in perspective with peaked waves filtered by each
     pixel's footprint, stepped body bands, a toon Fresnel, foam on crests,
     anime wave lines, and a banded glitter path of star glints.
-  - Under the head's text the shared scrim (`gpu/text-scrim.ts`: the
-    block the title, its tags and the meta line take, from a panel's width
-    to a wide frame's) keeps them readable, and the glitter stays out from
-    under it.
+  - Under the head's text the shared scrim (`gpu/text-scrim.ts`: a soft
+    block just behind the title and the meta row, sized in CSS pixels, so
+    the rest of the picture keeps its colour) keeps them readable, and the
+    glitter stays out from under it.
   - The pointer resting over the water spreads ripple rings. Typing calms
     the swell. Three splash rings with bursts of glints take turns on one
     running clock, and the reactions' `impulse` scales them: the owner's
@@ -3531,6 +3531,19 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - The same scrim sits under the head's text, the cosmos keeps clear of
     it, and in a panel the ribbons rise above the title.
   - A light page is the paper itself, with a pastel breath of gas.
+- **Painted scenes keep their colour.** Toon sea and Silk were drawn as
+  high-key pictures, and the page must show them as drawn:
+  - a strength barely veils them (`sceneFrame`: 0.95, 0.98, 1), since a
+    veil toward a light page is a wash;
+  - they fade into the page in display values (`fadeSpace: "display"`), as
+    a CSS mask over the page would: halfway to white in linear light reads
+    nearly white;
+  - a dark page grades them by ACES above the ground (`gpu/dark-grade.ts`),
+    the contrast they were drawn under, while the ground meets the page to
+    the level.
+- **The head's rows paint above the frame.** The frame is absolute and
+  reaches below the title, so every row of the head is positioned, the
+  fields row too, or it paints under the scene.
 - **The contract.** `@kb/backdrops-ui` runs the scene contract over every
   GPU scene, each on a dark page and a light one.
 
