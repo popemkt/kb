@@ -678,6 +678,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
 - **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
 
+### GAP: GPU backdrops paint an opaque frame over the page's flat ground
+
+- **expected** — The scene stage has an alpha mode: a backdrop's canvas is transparent where its scene is absent (the feather, the veil), so the page's own ground, flat or a theme's ground art, shows through around it.
+- **current** — The stage's canvas is opaque. Its edges fade to the palette's ground (--background) and the frame meets a flat page exactly, through the shoulder's pre-image (stage.paint), but over a theme whose ground is art the frame shows as a rectangle of flat colour.
+- **impact** — A theme with ground art (kb#34) cannot show the Lens or Black hole backdrop without a visible frame.
+- **closes** — An alpha StageOptions mode in @kb/scene-gpu: premultiplied output whose alpha is the scene's presence (1 - veil), the ground no longer mixed in, and the GPU backdrops built on it.
+- **node** — `01M5STYVFCKQ7TZ8XBSGSRHRH9`
+
 ### GAP: graph link labels are 2D only
 
 - **expected** — Force3dView declares edgeLabels and draws label billboards.
