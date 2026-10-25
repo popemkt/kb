@@ -228,6 +228,12 @@ describe("palette command routing (characterization)", () => {
       { t: "ref", v: designSystemOptionId("themes.terminal") },
     ]);
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("themes.zzz") }]);
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(chosenDesignSystem()).toEqual([
+      { t: "ref", v: designSystemOptionId("themes.transistor") },
+    ]);
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
     expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("kb") }]);
   });
 

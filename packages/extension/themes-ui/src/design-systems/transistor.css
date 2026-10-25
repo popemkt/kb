@@ -1,0 +1,190 @@
+/* Transistor (ART-DIRECTION.md → Transistor; DESIGN-UI.md → Themes).
+ * Layer 1 only; every colour is kb's own oklch, near the source's anchors. */
+
+[data-theme="themes.transistor"] {
+  --background: oklch(0.965 0.016 85);
+  --foreground: oklch(0.24 0.04 225);
+  --card: oklch(0.985 0.01 85);
+  --card-foreground: oklch(0.24 0.04 225);
+  --popover: oklch(0.985 0.01 85);
+  --popover-foreground: oklch(0.24 0.04 225);
+  --primary: oklch(0.47 0.085 205);
+  --header-sun: oklch(0.8 0.13 70);
+  --primary-foreground: oklch(0.985 0.01 85);
+  --secondary: oklch(0.93 0.022 190);
+  --secondary-foreground: oklch(0.24 0.04 225);
+  --muted: oklch(0.935 0.018 85);
+  --muted-foreground: oklch(0.47 0.035 220);
+  --accent: oklch(0.92 0.035 195);
+  --accent-foreground: oklch(0.22 0.04 225);
+  --destructive: oklch(0.48 0.18 22);
+  --border: oklch(0.84 0.03 200);
+  --input: oklch(0.84 0.03 200);
+  --ring: oklch(0.6 0.1 200);
+  --chart-1: oklch(0.62 0.1 200);
+  --chart-2: oklch(0.6 0.09 172);
+  --chart-3: oklch(0.58 0.2 350);
+  --chart-4: oklch(0.55 0.19 25);
+  --chart-5: oklch(0.7 0.13 75);
+  --radius: 6px;
+  --border-width: 1px;
+  --density: 1.04;
+  --sidebar: oklch(0.945 0.02 85);
+  --sidebar-foreground: oklch(0.24 0.04 225);
+  --sidebar-primary: oklch(0.47 0.085 205);
+  --sidebar-primary-foreground: oklch(0.985 0.01 85);
+  --sidebar-accent: oklch(0.91 0.035 195);
+  --sidebar-accent-foreground: oklch(0.22 0.04 225);
+  --sidebar-border: oklch(0.86 0.025 200);
+  --sidebar-ring: oklch(0.6 0.1 200);
+  --warning: oklch(0.45 0.095 70);
+  --tag-ink-mix: 54%;
+  --success: oklch(0.56 0.1 165);
+  --info: oklch(0.5 0.09 215);
+  --scrim: oklch(0.16 0.04 225);
+  --knob: oklch(0.985 0.01 85);
+  --lab-ground: oklch(0.94 0.025 190);
+  --lab-edge: oklch(0.84 0.04 200);
+  --lab-hue: oklch(0.55 0.09 200);
+  --lab-ink: oklch(0.25 0.05 225);
+  --graph-edge: oklch(0.32 0.06 215 / 0.42);
+
+  --type-micro: 9.5px;
+  --type-caption: 10.5px;
+  --type-label: 11.5px;
+  --type-tag: 12px;
+  --type-meta: 12.5px;
+  --type-ui: 13.5px;
+  --type-note: 14.5px;
+  --type-body: 15px;
+  --type-lead: 17px;
+  --type-heading: 20px;
+  --type-title: 25px;
+
+  --elevation-edge: 0 0 0 1px oklch(0.47 0.085 205 / 0.12);
+  --elevation-raised:
+    0 0 0 1px oklch(0.47 0.085 205 / 0.16), 0 2px 6px -2px oklch(0.3 0.06 220 / 0.18);
+  --elevation-lifted:
+    0 0 0 1px oklch(0.47 0.085 205 / 0.2), 0 6px 14px -6px oklch(0.3 0.06 220 / 0.22);
+  --elevation-floating:
+    0 0 0 1px oklch(0.47 0.085 205 / 0.24), 0 10px 24px -10px oklch(0.3 0.06 220 / 0.28);
+  --elevation-overlay:
+    0 0 0 1px oklch(0.47 0.085 205 / 0.28), 0 16px 36px -14px oklch(0.3 0.06 220 / 0.32);
+  --elevation-modal:
+    0 0 0 1px oklch(0.47 0.085 205 / 0.34), 0 24px 60px -18px oklch(0.3 0.06 220 / 0.42);
+
+  --app-font: "Jost Variable", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --app-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --app-font-graph: "Josefin Sans Variable", "Jost Variable", ui-sans-serif, sans-serif;
+  --app-font-serif: ui-serif, "New York", Charter, Cambria, serif;
+  --font-weight-body: 400;
+  --font-weight-ui: 500;
+
+  --app-font-display: "Federant", "Jost Variable", ui-serif, serif;
+  --display-style: normal;
+  --display-case: none;
+  --display-tracking: 0.015em;
+  --display-variation: normal;
+  --app-font-label: "Josefin Sans Variable", "Jost Variable", ui-sans-serif, sans-serif;
+  --label-style: normal;
+  --label-tracking: 0.24em;
+  --label-variation: "wght" 600;
+
+  --art-chrome:
+    linear-gradient(
+      90deg,
+      oklch(0.7 0.13 70 / 0) 0%,
+      oklch(0.7 0.13 70 / 0.1) 50%,
+      oklch(0.7 0.13 70 / 0) 100%
+    ),
+    linear-gradient(180deg, oklch(0.62 0.1 200 / 0.08), oklch(0.62 0.1 200 / 0) 80%);
+  --art-scrim:
+    linear-gradient(180deg, oklch(0.75 0.12 200 / 0.24), oklch(0.5 0.1 210 / 0.12)),
+    repeating-linear-gradient(0deg, oklch(0.4 0.08 210 / 0.08) 0 1px, transparent 1px 4px);
+  --corner-shape: scoop;
+  --chip-skew: 0deg;
+
+  --motion-settle: cubic-bezier(0.33, 0, 0.15, 1);
+  --motion-duration-quick: 260ms;
+  --motion-duration-enter: 340ms;
+  --motion-duration-reveal: 420ms;
+  --motion-duration-theme: 520ms;
+  --motion-duration-arrive: 1100ms;
+  --motion-duration-follow: 560ms;
+  --motion-stagger: 36ms;
+  --motion-ambient-period: 16s;
+  --motion-enter: kb-enter-turn;
+  --motion-reveal: kb-reveal-turn;
+}
+
+.dark[data-theme="themes.transistor"],
+.dark [data-theme="themes.transistor"] {
+  --background: oklch(0.18 0.032 222);
+  --foreground: oklch(0.93 0.025 85);
+  --card: oklch(0.215 0.036 218);
+  --card-foreground: oklch(0.93 0.025 85);
+  --popover: oklch(0.225 0.038 216);
+  --popover-foreground: oklch(0.93 0.025 85);
+  --primary: oklch(0.83 0.12 196);
+  --primary-foreground: oklch(0.18 0.04 222);
+  --secondary: oklch(0.26 0.04 215);
+  --secondary-foreground: oklch(0.93 0.025 85);
+  --muted: oklch(0.245 0.036 218);
+  --muted-foreground: oklch(0.74 0.035 200);
+  --accent: oklch(0.3 0.055 205);
+  --accent-foreground: oklch(0.95 0.02 85);
+  --destructive: oklch(0.7 0.18 22);
+  --border: oklch(0.83 0.12 196 / 16%);
+  --input: oklch(0.83 0.12 196 / 22%);
+  --ring: oklch(0.66 0.11 196);
+  --chart-1: oklch(0.83 0.12 196);
+  --chart-2: oklch(0.74 0.11 172);
+  --chart-3: oklch(0.68 0.2 350);
+  --chart-4: oklch(0.65 0.19 25);
+  --chart-5: oklch(0.82 0.13 75);
+  --sidebar: oklch(0.155 0.03 224);
+  --sidebar-foreground: oklch(0.93 0.025 85);
+  --sidebar-primary: oklch(0.83 0.12 196);
+  --sidebar-primary-foreground: oklch(0.18 0.04 222);
+  --sidebar-accent: oklch(0.27 0.05 205);
+  --sidebar-accent-foreground: oklch(0.95 0.02 85);
+  --sidebar-border: oklch(0.83 0.12 196 / 12%);
+  --sidebar-ring: oklch(0.66 0.11 196);
+  --warning: oklch(0.83 0.13 75);
+  --tag-ink-mix: 20%;
+  --success: oklch(0.78 0.12 165);
+  --info: oklch(0.8 0.1 215);
+  --lab-ground: oklch(0.19 0.04 222);
+  --lab-edge: oklch(0.11 0.03 225);
+  --lab-hue: oklch(0.55 0.1 200);
+  --lab-ink: oklch(0.93 0.03 85);
+  --graph-edge: oklch(0.83 0.12 196 / 0.3);
+
+  --elevation-edge: 0 0 0 1px oklch(0.83 0.12 196 / 0.12);
+  --elevation-raised:
+    0 0 0 1px oklch(0.83 0.12 196 / 0.18), 0 0 16px -6px oklch(0.83 0.12 196 / 0.3);
+  --elevation-lifted:
+    0 0 0 1px oklch(0.83 0.12 196 / 0.22), 0 0 22px -8px oklch(0.83 0.12 196 / 0.34);
+  --elevation-floating:
+    0 0 0 1px oklch(0.83 0.12 196 / 0.26), 0 10px 30px -10px oklch(0.05 0.02 225 / 0.6),
+    0 0 26px -10px oklch(0.83 0.12 196 / 0.38);
+  --elevation-overlay:
+    0 0 0 1px oklch(0.83 0.12 196 / 0.3), 0 16px 40px -14px oklch(0.05 0.02 225 / 0.7),
+    0 0 32px -12px oklch(0.83 0.12 196 / 0.42);
+  --elevation-modal:
+    0 0 0 1px oklch(0.83 0.12 196 / 0.38), 0 24px 70px -18px oklch(0.05 0.02 225 / 0.8),
+    0 0 48px -14px oklch(0.83 0.12 196 / 0.5);
+
+  --art-chrome:
+    linear-gradient(
+      90deg,
+      oklch(0.82 0.13 75 / 0) 0%,
+      oklch(0.82 0.13 75 / 0.07) 50%,
+      oklch(0.82 0.13 75 / 0) 100%
+    ),
+    linear-gradient(180deg, oklch(0.83 0.12 196 / 0.07), oklch(0.83 0.12 196 / 0) 85%);
+  --art-scrim:
+    linear-gradient(180deg, oklch(0.75 0.12 196 / 0.2), oklch(0.45 0.09 210 / 0.16)),
+    repeating-linear-gradient(0deg, oklch(0.85 0.1 196 / 0.07) 0 1px, transparent 1px 4px);
+}

@@ -7,16 +7,16 @@ subscribe to live queries later. MCP Apps generative UI is phase 2.
 
 ## Decisions (from Q&A)
 
-| Decision        | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell           | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                   |
-| Frontend build  | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Bun's role      | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
-| Reactivity      | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Edit scope v1   | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| MCP Apps        | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Editing surface | **The editor is the main human editing surface.** The outline (`@kb/outline`) and its UI (`@kb/outline-ui`) are where a person creates and edits every core concept: nodes, tags, fields and their types and options, references, queries, views and their settings, layouts, and the switches and settings of extension families. A concept that can be written only through the CLI or MCP, or only as a raw `sys.*` value, is a gap, recorded as a `#gap` node (the editor audit: `docs/research/2026-10-20-editor-audit.md`). The CLI and MCP are equal surfaces for agents: they reach the same actions, and neither is the editor's fallback.                                      |
-| Navigation | **Every navigation is in the URL.** Going somewhere (opening a node, zooming or unzooming the outline, entering or leaving an ontology scope, switching a page, a perspective, a canvas or a lab scene) goes through the router: the focused pane moves by `navigate`, which pushes a history entry, so back and forward walk it and a reload lands where the page was. No gesture moves the place the focused pane shows by writing a store alone; the page's zoom follows the URL (Panes and layouts: the zoom is a location). Minor state a page chooses to reflect is replaced, not pushed (`replacePath`): which pane is focused, including a pane just opened beside (its predecessor stays on screen), and a location the page cannot show. The URL names the focused pane only: a pane that is not focused moves in the layout, without a history entry, and a link restores the focused pane, not the arrangement around it. Not places: selection, a reveal within the zoom, a popover, an expanded row, entering a canvas group, presenting a canvas, scroll. |
+| Decision        | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shell           | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Frontend build  | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Bun's role      | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle.                                                                                                                                                                                                                                                                                                                                                                                 |
+| Reactivity      | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Edit scope v1   | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| MCP Apps        | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Editing surface | **The editor is the main human editing surface.** The outline (`@kb/outline`) and its UI (`@kb/outline-ui`) are where a person creates and edits every core concept: nodes, tags, fields and their types and options, references, queries, views and their settings, layouts, and the switches and settings of extension families. A concept that can be written only through the CLI or MCP, or only as a raw `sys.*` value, is a gap, recorded as a `#gap` node (the editor audit: `docs/research/2026-10-20-editor-audit.md`). The CLI and MCP are equal surfaces for agents: they reach the same actions, and neither is the editor's fallback.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Navigation      | **Every navigation is in the URL.** Going somewhere (opening a node, zooming or unzooming the outline, entering or leaving an ontology scope, switching a page, a perspective, a canvas or a lab scene) goes through the router: the focused pane moves by `navigate`, which pushes a history entry, so back and forward walk it and a reload lands where the page was. No gesture moves the place the focused pane shows by writing a store alone; the page's zoom follows the URL (Panes and layouts: the zoom is a location). Minor state a page chooses to reflect is replaced, not pushed (`replacePath`): which pane is focused, including a pane just opened beside (its predecessor stays on screen), and a location the page cannot show. The URL names the focused pane only: a pane that is not focused moves in the layout, without a history entry, and a link restores the focused pane, not the arrangement around it. Not places: selection, a reveal within the zoom, a popover, an expanded row, entering a canvas group, presenting a canvas, scroll. |
 
 ## Why bun _and_ vite (your question)
 
@@ -44,16 +44,16 @@ Server ownership lives behind the stable facade `packages/app/server/src/index.t
 re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
 implementation modules under `packages/app/server/src/` split by concern:
 
-| Module             | Owns                                                                             |
-| ------------------ | -------------------------------------------------------------------------------- |
-| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown         |
-| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback      |
+| Module             | Owns                                                                              |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown          |
+| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback       |
 | `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
-| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core     |
-| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)       |
-| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
-| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                      |
-| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                         |
+| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core      |
+| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)        |
+| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)  |
+| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                       |
+| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                          |
 
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
@@ -2916,8 +2916,9 @@ study's info card cites them by id.
 - **M5.** A visible reaction on the next frame, full settle in roughly
   300–600ms.
 - **M6.** One timing vocabulary: durations, the ease and spring settle times
-  come from the `motion.css` tokens (`lib/timing.ts` reads them; its fallback
-  mirror is checked against the stylesheet), never retyped per study.
+  come from the layer-1 motion tokens in `design-system.css`, which a
+  design system restates (Themes); `lib/timing.ts` reads them, and its
+  fallback mirror is checked against that sheet. Never retyped per study.
 - **M7.** `prefers-reduced-motion` gives a still composition or a crossfade,
   never a half-animation.
 
@@ -3032,13 +3033,15 @@ cannot pass as tokenized while bypassing the scale.
 A design system is one complete set of layer-1 values, with a light and a
 dark variant. Which systems exist is a plugin point: core contributes its
 default, families contribute the rest, and the page names none of them.
-kb ships three:
+kb ships five; the last two are whole themes (Themes, below):
 
-| id                | from              | character                                                                                                                                                                                                                                                 |
-| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kb` (default)    | core              | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                |
-| `themes.paper`    | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                      |
-| `themes.terminal` | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
+| id                  | from              | character                                                                                                                                                                                                                                                            |
+| ------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kb` (default)      | core              | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                           |
+| `themes.paper`      | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
+| `themes.terminal`   | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
+| `themes.zzz`        | the themes family | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
+| `themes.transistor` | the themes family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Federant titles, Josefin Sans labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                               |
 
 - **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
   beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
@@ -3105,8 +3108,9 @@ kb ships three:
   be chosen.
 - **kb's other systems are a family's.** The `themes` family
   (`@kb/themes`, `@kb/themes-ui`; optional, on by default) declares and
-  contributes Paper and Terminal. Its sheets live under its
-  `src/design-systems/`. Switched off, the page offers the default and
+  contributes Paper, Terminal, ZZZ and Transistor, and the two backdrops
+  the last two pair with. Its sheets live under its `src/design-systems/`,
+  its art under `src/art/`. Switched off, the page offers the default and
   whatever another family contributes.
 - **The choice is core's setting.** Which system paints the page is a
   setting of core's node (`sys.extension.core`), since the page is core's
@@ -3220,6 +3224,84 @@ Nothing else changes: the seed derives its option, and layers 2 and 3, the
 components, the painter, the picker and the command all follow the point
 and the tokens.
 
+### Themes
+
+A theme is a design system that goes past colour: its own faces for titles
+and labels, its own shapes, its own motion, its art, and the page-head
+backdrop it pairs with. There is no second mechanism for it. Everything a
+theme sets is layer 1 or the design system's contribution, so a theme is
+added, chosen, painted and checked exactly as Paper is (Design systems,
+above). What each of kb's themes is after, and where each idea lives, is
+`ART-DIRECTION.md` at the repository root.
+
+- **Layer-1 tokens a theme restates.** Layer 1 gives each the default's
+  value, so a system that wants nothing new restates the default and looks
+  as it did.
+
+  | token                                                                                                                                                                                  | says                                                                                                                                                                                                                                         | read by                                |
+  | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+  | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                 | the display face: page titles, the brand, a view's name                                                                                                                                                                                      | `.kb-display` (`tokens.css`)           |
+  | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                           | the label face: small uppercase section labels                                                                                                                                                                                               | `.kb-label`                            |
+  | `--art-chrome`, `--art-scrim`                                                                                                                                                          | a `background-image` drawn over the chrome (header, sidebar, a view's bar) and over a modal's scrim; `none` by default                                                                                                                       | `.kb-chrome`, `.kb-scrim`              |
+  | `--corner-shape`                                                                                                                                                                       | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                         | `index.css` base                       |
+  | `--chip-skew`                                                                                                                                                                          | the lean of a tag chip                                                                                                                                                                                                                       | `.kb-tag`                              |
+  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play | `motion.css`, `lib/timing.ts`, the art |
+
+- **One gesture vocabulary.** `motion.css` keeps the gestures and their
+  keyframes; a theme only picks among them. A surface entering (a popover,
+  the palette, a toast; `.kb-surface-enter`) plays `--motion-enter` on the
+  spring, and a page's content arriving (`.kb-workspace-reveal`) plays
+  `--motion-reveal`. Shipped: `kb-surface-enter` and `kb-workspace-reveal`
+  (the default's), `kb-enter-sticker` and `kb-reveal-cut` (a slap and a
+  flash), `kb-enter-turn` and `kb-reveal-turn` (a grey frame warming into
+  colour). Every keyframe moves transform, opacity or filter only.
+- **The art slot.** A `DesignSystem` may carry `Art`, a component
+  (`ThemeArtProps`: its `plane`, what the owner is doing as a backdrop is
+  told it, `PageActivity`, and the path). The shell renders `ThemeArt` twice
+  and names no system: the `ground` plane under everything it draws, the
+  `veil` over everything (DockHost included). `ThemeArt` draws the art of
+  the system shown and of no other, in a `contain: strict`,
+  `pointer-events: none`, `aria-hidden` box; a system with no art draws nothing.
+  - The ground is ambient: it sits under opaque surfaces, so it shows only
+    where the chrome lets it, and stays faint (a few percent of ink).
+  - The veil is for passing gestures only, a page change or a structural
+    write, and holds nothing at rest. A gesture keyed on a change never
+    plays on arrival: a boot, its redirects and switching to the system are
+    not events (`useBeat` in the themes family).
+  - Art paints with tokens alone (the chart palette is a theme's art
+    palette), mixing in `oklab` so a colour never swings through another
+    hue against a near-neutral ground.
+- **The pairing.** A `DesignSystem` may name a `backdrop`, a declared
+  backdrop's id. The page head shows it while neither the page's node nor
+  core's setting chooses a backdrop (Page-head backdrops → the choice).
+  Choosing one in Preferences still wins: a pairing is a default, not a
+  lock.
+- **Faces ship with the family, never in git.** A family imports its faces
+  from npm packages under the SIL Open Font License (`@fontsource*`), so the
+  bundle carries them and the repository does not; a face downloads only
+  when a system sets it. No game's own art, logo or font is committed: the
+  art is drawn in SVG and CSS here.
+- **The contract** (`app/ui/src/theme-art.contract.test.tsx`) runs over
+  every contributed design system: the slot draws the shown system's art
+  and only its, in each plane, hidden and inert; a system with art draws a
+  ground and holds nothing in the veil at rest; a pairing names a
+  contributed backdrop, which the head shows while nothing else chooses,
+  and core's choice beats it. The design-system contract and the contrast
+  guard hold a theme's tokens as they hold any system's.
+- **Budgets.** Ambient loops run at periods of `--motion-ambient-period`
+  or more (Lab M4), only on transform and opacity, on a handful of
+  elements; a gesture is one short-lived element. The art does no work per
+  frame in script, and nothing it draws is measured by layout. Under
+  `prefers-reduced-motion` no gesture is drawn (the shell hides the veil,
+  `motion-reduce:hidden`, and the art hides its own in the ground and the
+  heads), and the global rule stops every ambient loop: a cut, never a
+  frame of a flash.
+
+**Adding a theme:** add a design system (above), then any of: restate the
+tokens above in its sheet; import its faces in the family's page plugin;
+contribute `Art` and a `backdrop` with it; write its section in
+`ART-DIRECTION.md`. Nothing in the shell changes.
+
 ### Page-head backdrops
 
 A page head paints an ambient backdrop behind its content. Which backdrops
@@ -3306,8 +3388,9 @@ exist is a plugin point, and the kit names none of them.
   The same fields on a node choose for that node's page. Each setting is read
   from the node shown first, then from core's node (`backdropChoice` in
   `@kb/model`, `usePageBackdrop` in `@kb/ui-sdk`).
-  - Where neither says, the head shows the first contributed backdrop,
-    `subtle`, facing `down`.
+  - Where neither says, the head shows the backdrop the shown design
+    system pairs with (Themes), else the first contributed, `subtle`,
+    facing `down`.
   - A choice whose backdrop nobody contributes (its plugin not loaded, its
     declaration gone) is no choice: it falls through to the next node, as
     an unknown strength does, so a page's stale choice shows core's.

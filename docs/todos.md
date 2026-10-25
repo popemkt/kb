@@ -111,6 +111,9 @@
 - Query builder: the hop limit of is under / is above is shown, not edited, and numbers and dates have no between
 - safe minors and patches + bun audit fix (35 advisories, 15 high: rerun bun audit for the full list); drop root overrides that repeat the catalog's vite/vitest
 - Sidebar agent config (model, executable) as fields on the agent's extension node; folds into the plugin-config step
+- Themes: the user art slot (a local image under a theme's ground, never committed)
+- Themes: Transistor concepts still planned (limiters as opt-in focus handicaps, the Process dissolving a deleted node through square cells)
+- Themes: ZZZ gestures still planned (tab cut and swell, squash on press, result tiles staggering in, canvas cards as a TV wall)
 - Vite+ 1.0 stack: vite-plus 1.0, vitest 5, plugin-react 6, vp migrate (vi.mock in 16 files)
 
 ### done

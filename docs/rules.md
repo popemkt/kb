@@ -377,6 +377,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
+### GAP: a theme cannot bring a graph look of its own
+
+- **expected** — a design system names the graph lens theme it pairs with, as it names its page-head backdrop, and the graph shows it while no perspective chooses one (ZZZ's outlined sticker nodes, Transistor's light trails along edges; ART-DIRECTION.md)
+- **current** — the themes family contributes design systems and backdrops only: GraphThemePoint is the graph family's, a family may not import another family's packages (familyEdgeViolation), and the lens theme defaults to matte with no way to say 'unset'
+- **impact** — under ZZZ and Transistor the graph keeps the default lens look while every other surface changes, so the graph view reads as a different app
+- **closes** — a graph-theme key a design system may name (like DesignSystem.backdrop), resolved by the graph family against its own contributions, with the lens theme's choice made optional so the pairing can apply
+- **node** — `01M5S0HPNDEZ9RSQW4W679VP03`
+
 ### GAP: a trusted repository extension is imported from disk after its digest is read
 
 - **expected** — The server imports exactly the bytes whose digest a person trusted.
@@ -800,6 +808,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
+### GAP: no staged edit to preview, so Turn() cannot be a plan mode
+
+- **expected** — Turn() queues structural edits (moves, retags, deletes) without applying them, draws them as a plan over the outline, and releases them as one transaction (ART-DIRECTION.md → Transistor)
+- **current** — every write applies at once; Turn() is only the page-change gesture (TurnVeil)
+- **impact** — the theme's signature mechanic is decoration rather than a way of working
+- **closes** — a pending-transaction model the outline can draw and a palette command to start and release a turn; the theme then draws the plan
+- **node** — `01M5S0J203QE0ZMB7MGN7GJXD8`
+
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -1090,6 +1106,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two date grammars depending on surface.
 - **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
 - **node** — `01M3KA3AEEFG0E200V4D63G5SN`
+
+### GAP: the command palette draws every command the same way, so a theme cannot draw functions as cards
+
+- **expected** — the shown design system may present palette commands in its own form (Transistor: a function card with name(), a MEM cost and slots; ART-DIRECTION.md → Transistor)
+- **current** — command rows are drawn by the palette alone; a design system reaches them only through tokens
+- **impact** — Transistor's functions concept is not built; the palette looks like every other theme's apart from colour and faces
+- **closes** — a command presentation slot on the palette, contributed with a design system and falling back to the default row
+- **node** — `01M5S0J1FVEGHTYJVY4HRS857S`
 
 ### GAP: the date editor's Enter and Tab skip the value keymap
 
