@@ -244,6 +244,7 @@ export {
   MAIN_OUTLINE_HOST,
   outlineHostOfPane,
   outlineInstanceKey,
+  pageTitleInstanceKey,
   queryResultInstanceKey,
 } from "./lib/instance-key";
 export {

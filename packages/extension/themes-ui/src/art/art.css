@@ -761,8 +761,11 @@
   font-weight: 800;
   color: var(--scrim);
   opacity: 0.45;
+  transition: opacity var(--motion-duration-quick) var(--motion-settle);
 }
 
+/* The lamp blinks on one clock for the life of the head: editing resumes it
+ * where it paused, so going from node to node never restarts the blink. */
 .kb-broadcast-rec::before {
   content: "";
   width: 9px;
@@ -770,11 +773,16 @@
   border-radius: 50%;
   corner-shape: round;
   background: var(--chart-4);
+  animation: kb-broadcast-rec calc(var(--motion-ambient-period) / 12) steps(1, end) infinite;
+  animation-play-state: paused;
 }
 
 [data-editing] .kb-broadcast-rec {
   opacity: 1;
-  animation: kb-broadcast-rec calc(var(--motion-ambient-period) / 12) steps(1, end) infinite;
+}
+
+[data-editing] .kb-broadcast-rec::before {
+  animation-play-state: running;
 }
 
 @keyframes kb-broadcast-rec {

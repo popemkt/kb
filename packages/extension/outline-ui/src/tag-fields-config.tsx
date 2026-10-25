@@ -133,7 +133,7 @@ export function TagFieldsConfigView({
               aria-label="Add a field to this tag"
               className={cn(
                 "w-full bg-transparent text-ui text-foreground",
-                "placeholder:text-foreground/35 outline-none",
+                "placeholder:text-faint-foreground outline-none",
               )}
             />
             {picking && (

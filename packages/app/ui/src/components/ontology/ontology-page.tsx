@@ -273,7 +273,7 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
         aria-label="Ontology name"
         placeholder="Untitled ontology"
         spellCheck={false}
-        className="min-w-0 flex-1 rounded-md bg-transparent px-1 py-0.5 text-title font-medium text-foreground/85 outline-none placeholder:text-foreground/25 hover:bg-foreground/[0.03] focus:bg-foreground/[0.04]"
+        className="min-w-0 flex-1 rounded-md bg-transparent px-1 py-0.5 text-title font-medium text-foreground/85 outline-none placeholder:text-faint-foreground hover:bg-foreground/[0.03] focus:bg-foreground/[0.04]"
         onFocus={() => setEditing(true)}
         onChange={(e) => {
           setDraft(e.target.value);

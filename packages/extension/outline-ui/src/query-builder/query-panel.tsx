@@ -108,7 +108,7 @@ function Tab({
         "rounded-sm border px-2 py-px text-label outline-none",
         "focus-visible:ring-2 focus-visible:ring-primary/60",
         selected
-          ? "border-foreground/10 bg-foreground/[0.05] text-foreground"
+          ? "border-border bg-foreground/[0.05] text-foreground"
           : "border-transparent text-foreground/45 hover:text-foreground/70",
       )}
       onClick={() => onSelect(tab)}

@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import {
   cn,
   isSysPrefixed,
   nodeTagColors,
+  pageTitleInstanceKey,
   type OutlineNode,
   rowText,
   rowTextReadOnlyReason,
@@ -18,6 +19,7 @@ import { projectsRows, type FrameViewKey } from "@kb/views";
 import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
+import { useOutlineStore } from "./outline.store";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
@@ -28,10 +30,21 @@ function EditableTitle({ node }: { node: OutlineNode }) {
   // The same text channel as a row: what it shows and whether it can be
   // written are the row rules (`lib/contextual-ref`), not a second copy.
   const readOnly = rowTextReadOnlyReason(node.id, node, schema) !== null;
-  const [editing, setEditing] = useState(false);
   const text = rowText(node, schema);
-
-  const commit = useCallback(() => setEditing(false), []);
+  // Its edit is the page editor's, as a row's is: activated under its own
+  // instance, so the page (and every backdrop reading `editing()`) knows the
+  // owner is typing, and ended when that instance stops being the active one.
+  const key = pageTitleInstanceKey(node.id);
+  const editing = useOutlineStore((s) => s.activeInstanceKey === key);
+  const startEditing = useCallback(() => {
+    const store = useOutlineStore.getState();
+    store.activateNode(node.id, undefined, key);
+    store.placeCaret(key, "end");
+  }, [node.id, key]);
+  const commit = useCallback(() => {
+    const store = useOutlineStore.getState();
+    if (store.activeInstanceKey === key) store.deactivateNode();
+  }, [key]);
 
   if (readOnly) {
     return (
@@ -49,7 +62,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
     return (
       <NodeContent
         node={node}
-        instanceKey={`title/${node.id}`}
+        instanceKey={key}
         isActive
         tags={[]}
         initialCaret="end"
@@ -74,12 +87,12 @@ function EditableTitle({ node }: { node: OutlineNode }) {
       tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
-        setEditing(true);
+        startEditing();
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          setEditing(true);
+          startEditing();
         }
       }}
       className={cn(

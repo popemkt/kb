@@ -282,7 +282,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         <SidebarToggle {...sidebar} />
         {/* Under an ontology its own header names the scope and switches its views. */}
         {ontologyId === null ? (
-          <span className="kb-display text-ui font-medium text-foreground/50">graph</span>
+          <span className="kb-display text-ui font-medium text-muted-foreground">graph</span>
         ) : null}
         <PerspectivePicker
           perspectives={perspectives}
@@ -312,8 +312,8 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           className={cn(
             "rounded-md px-2 py-0.5 text-label font-medium transition-colors duration-100",
             includeSystemNodes
-              ? "bg-foreground/[0.08] text-foreground/70"
-              : "text-foreground/35 hover:bg-foreground/[0.04] hover:text-foreground/55",
+              ? "bg-foreground/[0.08] text-foreground"
+              : "text-faint-foreground hover:bg-foreground/[0.04] hover:text-muted-foreground",
           )}
           data-elide-toggle="true"
           aria-pressed={includeSystemNodes}
@@ -326,7 +326,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         >
           System nodes
         </button>
-        <span className="text-label text-foreground/30">
+        <span className="text-label text-faint-foreground">
           {lensGraph.dropped > 0
             ? `top ${lensGraph.nodes.length} of ${lensGraph.nodes.length + lensGraph.dropped} nodes by degree`
             : `${lensGraph.nodes.length} nodes`}{" "}

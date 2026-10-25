@@ -98,6 +98,8 @@ export const CLOUDBANK_BACKDROP = themed(
 export const OVC_BACKDROP = themed("themes.ovc", "OVC Terminal", TRANSISTOR_DESIGN_SYSTEM.id);
 /** YoRHa's page head: the Bunker's HUD, bracketed, over a score's staff. */
 export const BUNKER_BACKDROP = themed("themes.bunker", "Bunker", YORHA_DESIGN_SYSTEM.id);
+/** YoRHa's other head: a hacking arena in 3D, its camera turning between views. */
+export const ARENA_BACKDROP = themed("themes.arena", "Arena", YORHA_DESIGN_SYSTEM.id);
 
 export const themesExtension = defineExtension({
   name: "themes",
@@ -123,6 +125,7 @@ export const themesExtension = defineExtension({
         CLOUDBANK_BACKDROP,
         OVC_BACKDROP,
         BUNKER_BACKDROP,
+        ARENA_BACKDROP,
       ],
     },
   ],

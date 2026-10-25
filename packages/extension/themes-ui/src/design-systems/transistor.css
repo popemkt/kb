@@ -15,6 +15,7 @@
   --secondary-foreground: oklch(0.24 0.04 225);
   --muted: oklch(0.935 0.018 85);
   --muted-foreground: oklch(0.47 0.035 220);
+  --faint-foreground: oklch(0.483 0.011 177);
   --accent: oklch(0.92 0.035 195);
   --accent-foreground: oklch(0.22 0.04 225);
   --destructive: oklch(0.48 0.18 22);
@@ -114,6 +115,9 @@
   --scrim-filter: saturate(0.15) brightness(0.92);
   --corner-shape: scoop;
   --chip-skew: 0deg;
+  /* Gold linework by day; the sword's turquoise light at night, on the
+   * selection and along a scroller's seam. */
+  --selection: oklch(0.8 0.13 70);
 
   --motion-settle: cubic-bezier(0.33, 0, 0.15, 1);
   --motion-duration-quick: 260ms;
@@ -142,6 +146,7 @@
   --secondary-foreground: oklch(0.93 0.025 85);
   --muted: oklch(0.245 0.036 218);
   --muted-foreground: oklch(0.74 0.035 200);
+  --faint-foreground: oklch(0.672 0.011 175);
   --accent: oklch(0.3 0.055 205);
   --accent-foreground: oklch(0.95 0.02 85);
   --destructive: oklch(0.7 0.18 22);
@@ -187,6 +192,8 @@
     0 0 48px -14px oklch(0.83 0.12 196 / 0.5);
 
   --label-ink: oklch(0.8 0.13 72);
+  --selection: var(--primary);
+  --scrollbar-thumb: var(--primary);
 
   --art-chrome:
     linear-gradient(

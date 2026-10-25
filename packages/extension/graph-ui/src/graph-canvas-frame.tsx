@@ -89,7 +89,7 @@ export function GraphCanvasFrame({
       {/* GAP [[01M3F6FR67AC4JT3D66G7J0915]]: over a renderer that cannot pan, the open legend covers what sits beneath it. */}
       <GraphLegend nodes={nodes} onFilterChange={onFilterChange} />
       {controls?.expandAll && controls.collapseAll ? (
-        <div className="absolute bottom-3 left-3 z-20 flex gap-1 rounded-lg border border-foreground/10 bg-popover/95 p-1 text-meta leading-4 shadow-raised">
+        <div className="absolute bottom-3 left-3 z-20 flex gap-1 rounded-lg border border-border bg-popover/95 p-1 text-meta leading-4 shadow-raised">
           <button
             type="button"
             className="rounded-xs px-2 py-1 hover:bg-foreground/5"

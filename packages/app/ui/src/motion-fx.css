@@ -14,14 +14,19 @@
 
 /* Press and hover lift: a control sinks while held and comes back on the
  * spring; with hoverLift it rises under the pointer. Both keep the colour
- * transitions a control already has. */
+ * transitions a control already has, on the ease: only the movement rides
+ * the spring, since a colour carried past its end by an overshooting spring
+ * (ZZZ's) flashes brighter or darker than either state. */
 :root:is([data-fx~="press"], [data-fx~="hoverLift"])
   :is(button, [role="button"], .kb-tag):not(:disabled, [aria-disabled="true"]) {
   transition-property:
     color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
     opacity, box-shadow, translate, scale;
   transition-duration: var(--motion-duration-quick);
-  transition-timing-function: var(--motion-spring);
+  transition-timing-function:
+    var(--motion-settle), var(--motion-settle), var(--motion-settle), var(--motion-settle),
+    var(--motion-settle), var(--motion-settle), var(--motion-settle), var(--motion-settle),
+    var(--motion-settle), var(--motion-spring), var(--motion-spring);
 }
 
 :root[data-fx~="hoverLift"]

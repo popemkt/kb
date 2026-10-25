@@ -15,6 +15,7 @@
   --secondary-foreground: oklch(0.165 0.004 286);
   --muted: oklch(0.92 0.014 96);
   --muted-foreground: oklch(0.44 0.01 286);
+  --faint-foreground: oklch(0.473 0.007 95);
   --accent: oklch(0.9 0.06 118);
   --accent-foreground: oklch(0.165 0.004 286);
   --destructive: oklch(0.47 0.18 28.5);
@@ -97,6 +98,8 @@
   --scrim-filter: saturate(1.25);
   --corner-shape: bevel;
   --chip-skew: -12deg;
+  /* A lime highlighter over the words, by day and by night. */
+  --selection: oklch(0.896 0.204 121.5);
 
   --motion-settle: cubic-bezier(0.16, 1, 0.3, 1);
   --motion-spring: linear(
@@ -168,6 +171,7 @@
   --secondary-foreground: oklch(0.96 0.008 99);
   --muted: oklch(0.24 0.006 280);
   --muted-foreground: oklch(0.74 0.01 280);
+  --faint-foreground: oklch(0.676 0.002 92);
   --accent: oklch(0.3 0.04 125);
   --accent-foreground: oklch(0.96 0.008 99);
   --destructive: oklch(0.7 0.2 28.5);

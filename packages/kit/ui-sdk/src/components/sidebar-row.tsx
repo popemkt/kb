@@ -40,8 +40,8 @@ export function SidebarRow({
           ? // GAP [[01M5SNSR9AC5V1NA31QY8DNEX6]] a theme cannot invert the selected row
             "bg-foreground/[0.08] text-foreground/85"
           : muted === true
-            ? "text-foreground/30 hover:bg-foreground/[0.03] hover:text-foreground/50"
-            : "text-foreground/55 hover:bg-foreground/[0.04] hover:text-foreground/75",
+            ? "text-faint-foreground hover:bg-foreground/[0.03] hover:text-muted-foreground"
+            : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
       )}
     >
       {icon !== undefined && icon !== null ? (
@@ -56,7 +56,7 @@ export function SidebarSection({ title, children }: { title?: string; children: 
   return (
     <div className="mb-3">
       {hasText(title) ? (
-        <div className="mb-1 px-2 text-caption font-medium kb-label text-foreground/30">
+        <div className="mb-1 px-2 text-caption font-medium kb-label text-faint-foreground">
           {title}
         </div>
       ) : null}

@@ -45,7 +45,12 @@
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.545 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  /* Secondary text that is still read: a placeholder, a hint, a count, a
+   * field's label, a faded row. Lighter than --muted-foreground, held to
+   * AA (4.5:1) on the background, popover and sidebar by the contrast guard
+   * — the solid ink that replaces a translucent foreground. */
+  --faint-foreground: oklch(0.51 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.54 0.21 27);
@@ -184,6 +189,11 @@
   --scrim-filter: saturate(1);
   --corner-shape: round;
   --chip-skew: 0deg;
+  /* The tint of selected text and of a scroller's thumb; the shell mixes
+   * each with transparency (index.css). The accent and the ink here, so a
+   * system restates them only for a colour of its own. */
+  --selection: var(--primary);
+  --scrollbar-thumb: var(--foreground);
 
   /* Motion personality: the timing vocabulary every gesture picks from
    * (`motion.css`), which script motion reads too (`lib/timing.ts`, so
@@ -226,6 +236,7 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
+  --faint-foreground: oklch(0.664 0 0);
   --accent: oklch(0.371 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);

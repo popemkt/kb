@@ -18,7 +18,7 @@ const MARKS: Readonly<Record<number, string>> = { 2: "!", 3: "?" };
  */
 export function HollowBackdrop({ color, opacity, activity, direction }: BackdropProps) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const surge = useGesture(useBeat(writes, 500));
+  const surge = useGesture(useBeat(writes, 500, activity.editing));
   const lit = WALK[writes % WALK.length];
   return (
     <div

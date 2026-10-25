@@ -185,7 +185,7 @@ function SwitcherMenu({
       ref={panel}
       role="menu"
       aria-label="Show in this pane"
-      className="kb-surface-enter z-50 w-60 overflow-y-auto rounded-lg border border-foreground/10 bg-popover p-1 text-ui text-popover-foreground shadow-overlay"
+      className="kb-surface-enter z-50 w-60 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-ui text-popover-foreground shadow-overlay"
       style={style ?? { position: "fixed", visibility: "hidden" }}
     >
       {sections.map((section) => (

@@ -97,6 +97,10 @@ const BunkerHead = deferred<BackdropProps>(
   () => import("./bunker-backdrop").then((m) => m.BunkerBackdrop),
   "kb-art-frame",
 );
+const ArenaHead = deferred<BackdropProps>(
+  () => import("./arena-backdrop").then((m) => m.ArenaBackdrop),
+  "kb-art-frame",
+);
 
 /** The head ZZZ pairs with. */
 export function BroadcastBackdrop(props: BackdropProps) {
@@ -121,4 +125,9 @@ export function OvcBackdrop(props: BackdropProps) {
 /** The head YoRHa pairs with. */
 export function BunkerBackdrop(props: BackdropProps) {
   return <BunkerHead {...props} />;
+}
+
+/** YoRHa's other head. */
+export function ArenaBackdrop(props: BackdropProps) {
+  return <ArenaHead {...props} />;
 }

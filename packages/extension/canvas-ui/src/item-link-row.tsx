@@ -45,7 +45,7 @@ export function LinkRow({
           aria-label="Link"
           placeholder="https://…, [[node]] or #item"
           aria-invalid={unread}
-          className="h-7 w-full rounded-md border border-foreground/10 bg-background px-2 text-ui text-foreground/85 outline-none focus:border-primary/50 aria-[invalid=true]:border-destructive/60"
+          className="h-7 w-full rounded-md border border-border bg-background px-2 text-ui text-foreground/85 outline-none focus:border-primary/50 aria-[invalid=true]:border-destructive/60"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
@@ -62,7 +62,7 @@ export function LinkRow({
       {pages.length > 0 && (
         <select
           aria-label="Link to a page"
-          className="h-7 rounded-md border border-foreground/10 bg-background px-1.5 text-label text-foreground/70"
+          className="h-7 rounded-md border border-border bg-background px-1.5 text-label text-foreground/70"
           value=""
           onChange={(e) => {
             if (e.target.value !== "") onChange(withLink(item, { node: e.target.value }));

@@ -41,13 +41,14 @@ export function YorhaGround(_: Pick<ThemeArtProps, "activity">) {
 /**
  * The passing gestures: a page change steps a stack of ink bars across the
  * screen, one after another, and the new page is under them; a structural
- * write prints a small report in the top corner, the unit confirming the
- * write. Nothing at rest.
+ * write is the Pod scanning: two square wave fronts sweep out from its
+ * corner across the window, and it prints a small report there, the unit
+ * confirming the write. Nothing at rest.
  */
 export function YorhaVeil({ activity, path }: Pick<ThemeArtProps, "activity" | "path">) {
   const wipe = useGesture(useBeat(path));
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const report = useGesture(useBeat(writes, 700));
+  const report = useGesture(useBeat(writes, 700, activity.editing));
   return (
     <>
       {wipe.key === null ? null : (
@@ -61,6 +62,12 @@ export function YorhaVeil({ activity, path }: Pick<ThemeArtProps, "activity" | "
           {BARS.map((bar) => (
             <span key={bar} className="kb-yorha-bar" style={{ ["--kb-bar" as string]: bar }} />
           ))}
+        </div>
+      )}
+      {report.key === null ? null : (
+        <div key={`scan-${report.key}`} className="kb-yorha-scan-pulse">
+          <span className="kb-yorha-front" />
+          <span className="kb-yorha-front" />
         </div>
       )}
       {report.key === null ? null : (

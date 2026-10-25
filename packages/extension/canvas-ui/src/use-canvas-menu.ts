@@ -20,7 +20,7 @@ import { selectForMenu, selectionEmpty, soleItem, type CanvasSelection } from ".
 
 /** A menu's look: a floating surface over the stage. */
 export const MENU_SURFACE =
-  "kb-surface-enter z-30 w-56 rounded-lg border border-foreground/10 bg-popover p-1 text-ui text-popover-foreground shadow-overlay";
+  "kb-surface-enter z-30 w-56 rounded-lg border border-border bg-popover p-1 text-ui text-popover-foreground shadow-overlay";
 
 /** A menu row's look. */
 export const MENU_ROW = cn(

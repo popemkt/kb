@@ -515,6 +515,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMQYDBWX4EWJPEFRDR05H`
 
+### GAP: Arena runs its own GPU backdrop host beside the shared one
+
+- **expected** — Arena is BackdropParts on the shared mountBackdrop host (backdrops-ui/src/gpu, PR #36): one host for every GPU backdrop
+- **current** — arena-backdrop.tsx mounts its own scene and lifecycle (visibility, reduced motion, quality, disposal)
+- **impact** — two hosts to keep in step: quality, visibility and no-restart fixes land twice
+- **closes** — port arena-scene.ts onto mountBackdrop right after #36 merges and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame() (#36 removes BackdropParts.write), and Arena passes backdrop-continuity.contract.test.tsx
+- **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
+
 ### GAP: BrowserStore IndexedDB persistence
 
 - **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
@@ -1359,7 +1367,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: translucent text (text-foreground/N) is outside the contrast guard
 
 - **expected** — Every text colour the UI paints, translucent ones included, is either held to AA on its composited ground by the contrast guard (tools/kb/packages/app/ui/src/lib/design-systems.test.ts) or declared as decorative (placeholder, disabled, ornament) with the 3:1 non-text floor where it is UI.
-- **current** — The guard measures opaque text only. Translucent text (text-foreground/25 through /90, about 400 sites) is skipped: much of it is faint on purpose, and none of it is classified as body text, UI text or decoration.
+- **current** — Two solid secondary inks now carry the roles: --muted-foreground and --faint-foreground (layer 1 and every system, held to AA on the background, popover, sidebar and their tints by the guard). Placeholders, the palette's and header's hints, the connection word, the sidebar's rows and section titles, a field's label, Preferences' headings, breadcrumbs and the graph and canvas bars' secondary text use them. The rest of the translucent text (text-foreground/20 through /90, about 370 sites in 96 files, 315 of them at /20 to /75) is still skipped by the guard and unclassified.
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`

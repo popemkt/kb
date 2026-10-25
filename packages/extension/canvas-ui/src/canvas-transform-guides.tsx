@@ -67,7 +67,7 @@ export function CanvasTransformGuides({ input, applied, ...camera }: CanvasTrans
       <div
         data-testid="canvas-transform-readout"
         role="status"
-        className="pointer-events-none absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-baseline gap-2 rounded-lg border border-foreground/10 bg-popover/95 px-3 py-1.5 shadow-floating backdrop-blur-sm"
+        className="pointer-events-none absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-baseline gap-2 rounded-lg border border-border bg-popover/95 px-3 py-1.5 shadow-floating backdrop-blur-sm"
       >
         <span className="text-label font-medium text-foreground/80">{readout.verb}</span>
         {readout.held !== null && (

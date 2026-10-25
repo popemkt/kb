@@ -546,7 +546,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
       <div className="kb-chrome flex h-10 shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-3">
         <button
           type="button"
-          className="text-meta text-foreground/40 hover:text-foreground/70"
+          className="text-meta text-muted-foreground hover:text-foreground"
           onClick={() => navigate(CANVAS_LIST_PATH)}
         >
           ← canvases
@@ -564,7 +564,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         />
         <button
           type="button"
-          className="rounded-md border border-foreground/10 px-2 py-1 text-meta text-foreground/60 hover:bg-foreground/5"
+          className="rounded-md border border-border px-2 py-1 text-meta text-muted-foreground hover:bg-foreground/5"
           onClick={() => setPickerOpen(true)}
         >
           Add node

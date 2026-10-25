@@ -73,7 +73,7 @@ function FieldLabel({
           "flex h-6 shrink-0 items-start self-start truncate pl-1 pt-px",
           // Same type scale as node text — only the tint differs (Tana).
           "kb-text",
-          debug ? "text-foreground/25" : "text-foreground/35",
+          debug ? "text-foreground/25" : "text-faint-foreground",
         )}
         style={{ width: `${FIELD_LABEL_WIDTH}px` }}
         title={labelTitle ?? (fieldId !== undefined ? `${label} (${fieldId})` : label)}

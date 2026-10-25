@@ -61,7 +61,7 @@ function ConnectionDot() {
   const who = person ? ` · verified as ${person.name}` : "";
   return (
     <span
-      className="flex items-center gap-1.5 text-label text-foreground/40"
+      className="flex items-center gap-1.5 text-label text-faint-foreground"
       title={`Connection: ${dot.label} · revision ${rev}, ${source}${who}`}
     >
       <span
@@ -146,9 +146,9 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
   return (
     <header className="kb-chrome flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
       <SidebarToggle {...sidebar} />
-      <h1 className="kb-display text-ui font-medium text-foreground/50">kb</h1>
+      <h1 className="kb-display text-ui font-medium text-muted-foreground">kb</h1>
       {status === "loading" ? (
-        <span className="text-label text-foreground/30">loading…</span>
+        <span className="text-label text-faint-foreground">loading…</span>
       ) : null}
       <ConnectionDot />
       <div className="flex-1" />

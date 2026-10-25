@@ -19,7 +19,7 @@ const RAILS: readonly { bottom: number; length: number; period: number; delay: n
  */
 export function CloudbankGround({ activity }: Pick<ThemeArtProps, "activity">) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const trail = useGesture(useBeat(writes, 900));
+  const trail = useGesture(useBeat(writes, 900, activity.editing));
   return (
     <div className="kb-cloudbank-ground" data-editing={activity.editing || undefined}>
       <div className="kb-cloudbank-wash" />

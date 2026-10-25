@@ -11,12 +11,12 @@ const FIRST = 5;
  * sunburst crown), reading in amber terminal type over a violet-blue night
  * and the city's amber lights. The head's colour (its tag's, else the
  * accent) fills the tally, which counts one more segment for each structural
- * write as the screen refreshes; editing brings the screen up and quickens
- * the cursor.
+ * write as the screen refreshes; editing brings the screen up and lights
+ * the cursor in the head's colour.
  */
 export function OvcBackdrop({ color, opacity, activity, direction }: BackdropProps) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const refresh = useGesture(useBeat(writes, 600));
+  const refresh = useGesture(useBeat(writes, 600, activity.editing));
   const tally = FIRST + (writes % (SEGMENTS - FIRST + 1));
   return (
     <div

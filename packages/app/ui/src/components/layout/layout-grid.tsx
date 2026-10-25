@@ -92,7 +92,7 @@ function PaneTab({ api, params }: IDockviewPanelHeaderProps) {
     <div
       className={cn(
         "kb-pane-tab group/tab flex h-full min-w-0 items-center gap-0.5 pl-1.5 pr-1 text-ui",
-        focusedHere ? "text-foreground/80" : "text-foreground/45",
+        focusedHere ? "text-foreground" : "text-muted-foreground",
       )}
       data-pane-tab={api.id}
       data-focused={focusedHere ? "true" : undefined}
