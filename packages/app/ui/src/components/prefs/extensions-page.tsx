@@ -142,7 +142,7 @@ function Report({ report }: { readonly report: PanelReport }) {
 function Section({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
     <section aria-label={label}>
-      <h3 className="pb-1 text-meta uppercase tracking-wide text-foreground/30">{label}</h3>
+      <h3 className="pb-1 text-meta kb-label text-foreground/30">{label}</h3>
       {children}
     </section>
   );

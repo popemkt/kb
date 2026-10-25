@@ -103,7 +103,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
  * box (`h-9`), so they sit level with the first line however many follow.
  */
 const TITLE_CLASS = cn(
-  "kb-text-row min-h-9 min-w-0 flex-1 px-1 py-1",
+  "kb-display kb-text-row min-h-9 min-w-0 flex-1 px-1 py-1",
   "text-title font-semibold leading-[1.4]",
 );
 

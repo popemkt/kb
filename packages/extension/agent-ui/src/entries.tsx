@@ -26,7 +26,7 @@ function Prose({ text, className }: { text: string; className?: string }) {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-caption uppercase tracking-wide text-foreground/35">{label}</span>
+      <span className="text-caption kb-label text-foreground/35">{label}</span>
       <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-caption text-foreground/60">
         {children}
       </pre>

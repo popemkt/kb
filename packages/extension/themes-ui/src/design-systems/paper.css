@@ -84,6 +84,31 @@
   --app-font-serif: ui-serif, "New York", Charter, "Iowan Old Style", Cambria, serif;
   --font-weight-body: 400;
   --font-weight-ui: 500;
+
+  /* Display and label type: the default's, in this system's faces. */
+  --display-style: normal;
+  --display-case: none;
+  --display-tracking: 0em;
+  --display-variation: normal;
+  --label-style: normal;
+  --label-tracking: 0.025em;
+  --label-variation: normal;
+  /* No art; round corners, upright chips. */
+  --art-chrome: none;
+  --art-scrim: none;
+  --corner-shape: round;
+  --chip-skew: 0deg;
+  /* Motion: the default's quiet personality. */
+  --motion-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-duration-quick: 220ms;
+  --motion-duration-reveal: 280ms;
+  --motion-duration-theme: 360ms;
+  --motion-duration-arrive: 900ms;
+  --motion-duration-follow: 480ms;
+  --motion-stagger: 24ms;
+  --motion-ambient-period: 12s;
+  --motion-enter: kb-surface-enter;
+  --motion-reveal: kb-workspace-reveal;
 }
 
 .dark[data-theme="themes.paper"],

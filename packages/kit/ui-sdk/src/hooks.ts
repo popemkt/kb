@@ -32,9 +32,12 @@ import type { Appearance, Prefs, ThemePref } from "./lib/theme";
 import { useNarrowViewport } from "./lib/viewport";
 import { browserHost, type BrowserHost } from "./host";
 import { type FrameViewKey, isFrameViewKey } from "@kb/views";
+import { shownDesignSystem } from "./lib/design-system";
 import {
   BackdropPoint,
   chosenDeclared,
+  DesignSystemPoint,
+  type DesignSystem,
   familyViews,
   useContributions,
   ViewPoint,
@@ -65,21 +68,35 @@ export interface PageBackdropChoice {
 }
 
 /**
+ * The design system painting the page (DESIGN-UI.md → Design tokens →
+ * Design systems): the contributed one core's setting chooses, else the
+ * first contributed, core's default. Null only before core's plugins load.
+ */
+export function useShownDesignSystem(): DesignSystem | null {
+  const systems = useContributions(DesignSystemPoint);
+  const core = useNode(extensionNodeId("core"));
+  return shownDesignSystem(systems, core?.props)?.value ?? null;
+}
+
+/**
  * The backdrop `node`'s page head shows (DESIGN-UI.md → Page-head
  * backdrops): the node's own settings, then core's node's; with no node,
  * core's alone, which is what every page shows unless it says otherwise.
+ * Where neither chooses a backdrop, the one the shown design system pairs
+ * with (Themes), else the first contributed.
  * A page's own settings are `sys.*` fields, which field rows hide, so no
  * gesture writes them yet. GAP [[01M54CEM0Z5SMAS7KABS7QZ67C]]
  */
 export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
   const backdrops = useContributions(BackdropPoint);
   const core = useNode(extensionNodeId("core"));
+  const system = useShownDesignSystem();
   const choice = backdropChoice(
     [node?.props, core?.props],
     backdrops.map(({ value }) => value.key.id),
   );
   return {
-    backdrop: chosenDeclared(backdrops, choice.backdrop),
+    backdrop: chosenDeclared(backdrops, choice.backdrop ?? system?.backdrop ?? null),
     strength: choice.strength,
     direction: choice.direction,
   };

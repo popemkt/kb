@@ -1,20 +1,14 @@
 /* Quiet, finite gestures. The global reduced-motion rule also governs these.
  *
- * The timing vocabulary is these tokens: one ease and the durations every
- * gesture picks from. Script motion reads the same tokens (`lib/timing.ts`), so a duration is changed here and nowhere else. */
-:root {
-  --motion-settle: cubic-bezier(0.22, 1, 0.36, 1);
-  --motion-duration-quick: 220ms;
-  --motion-duration-reveal: 280ms;
-  --motion-duration-theme: 360ms;
-  --motion-duration-arrive: 900ms;
-  /* Script motion: how long a pointer-follow spring takes to settle, the
-   * delay between neighbours in a staggered wave, and the shortest period an
-   * ambient (unprompted) motion may have. */
-  --motion-duration-follow: 480ms;
-  --motion-stagger: 24ms;
-  --motion-ambient-period: 12s;
-}
+ * The timing vocabulary (one ease, the durations every gesture picks from,
+ * and the gestures a design system arrives with) is layer 1's, in
+ * design-system.css, so each design system has its own motion personality.
+ * This file is the shared vocabulary of keyframes a system names there:
+ * `kb-surface-enter` (rise and settle), `kb-enter-sticker` (a tilted pop
+ * with a flash, for a jelly spring), `kb-enter-turn` (a cold, desaturated
+ * frame warming into colour), and for a page `kb-workspace-reveal` (opacity
+ * only), `kb-reveal-cut` (a hard cut with a flash) and `kb-reveal-turn`.
+ * Every page reveal animates opacity or filter only: the editor never moves. */
 
 .kb-workspace-state {
   display: flex;
@@ -119,7 +113,7 @@
 }
 
 .kb-surface-enter {
-  animation: kb-surface-enter var(--motion-duration-quick) var(--motion-settle) both;
+  animation: var(--motion-enter) var(--motion-duration-enter) var(--motion-spring) both;
 }
 
 /* A canvas projection handing the viewport to another: the two crossfade. */
@@ -129,7 +123,7 @@
 
 /* Opacity only: never move the editor, scale its text, or capture fixed chrome. */
 .kb-workspace-reveal {
-  animation: kb-workspace-reveal var(--motion-duration-reveal) ease-out;
+  animation: var(--motion-reveal) var(--motion-duration-reveal) ease-out;
 }
 
 @keyframes kb-workspace-reveal {
@@ -230,6 +224,62 @@ html[data-theme-transition]::view-transition {
   }
   100% {
     transform: translateX(0) rotate(-6deg);
+  }
+}
+
+/* A sticker slapped on: from small and tilted, through the system's spring
+ * (a jelly overshoot, where it has one), with a flash that fades as it lands. */
+@keyframes kb-enter-sticker {
+  from {
+    opacity: 0;
+    scale: 0.86;
+    rotate: -2.5deg;
+    filter: brightness(1.6);
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+    rotate: 0deg;
+    filter: brightness(1);
+  }
+}
+
+/* Turn(): the frame arrives frozen and cold, then the colour runs back in. */
+@keyframes kb-enter-turn {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+    filter: saturate(0) brightness(1.25);
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    filter: none;
+  }
+}
+
+/* A page cut: no fade, a flash that is gone in a breath. */
+@keyframes kb-reveal-cut {
+  from {
+    filter: brightness(1.5) contrast(1.15);
+  }
+  to {
+    filter: none;
+  }
+}
+
+/* A page arriving as Turn() resolves: grey and faint, then full colour. */
+@keyframes kb-reveal-turn {
+  from {
+    opacity: 0.35;
+    filter: saturate(0.2);
+  }
+  to {
+    opacity: 1;
+    filter: none;
   }
 }
 

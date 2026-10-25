@@ -164,7 +164,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     >
       <button
         type="button"
-        className="absolute inset-0 bg-scrim/30 backdrop-blur-[2px]"
+        className="kb-scrim absolute inset-0 bg-scrim/30 backdrop-blur-[2px]"
         aria-label="Dismiss palette"
         onClick={onClose}
       />

@@ -55,7 +55,7 @@ export function SidebarSection({ title, children }: { title?: string; children: 
   return (
     <div className="mb-3">
       {hasText(title) ? (
-        <div className="mb-1 px-2 text-caption font-medium uppercase tracking-wide text-foreground/30">
+        <div className="mb-1 px-2 text-caption font-medium kb-label text-foreground/30">
           {title}
         </div>
       ) : null}
