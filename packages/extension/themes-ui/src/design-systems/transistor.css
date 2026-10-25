@@ -81,15 +81,23 @@
   --font-weight-body: 400;
   --font-weight-ui: 500;
 
-  --app-font-display: "Federant", "Jost Variable", ui-serif, serif;
+  --app-font-display: "Marcellus SC", "Jost Variable", ui-serif, serif;
   --display-style: normal;
   --display-case: none;
-  --display-tracking: 0.015em;
+  --display-tracking: 0.04em;
   --display-variation: normal;
-  --app-font-label: "Josefin Sans Variable", "Jost Variable", ui-sans-serif, sans-serif;
+  --app-font-label: "Share Tech Mono", ui-monospace, monospace;
   --label-style: normal;
-  --label-tracking: 0.24em;
-  --label-variation: "wght" 600;
+  --label-tracking: 0.14em;
+  --label-variation: normal;
+  --label-ink: oklch(0.5 0.11 58);
+  --palette-mark: "Turn()";
+  --palette-bar: repeating-linear-gradient(
+    90deg,
+    var(--primary) 0 calc(12.5% - 2px),
+    transparent 0 12.5%
+  );
+  --palette-bar-width: 72px;
 
   --art-chrome:
     linear-gradient(
@@ -101,7 +109,9 @@
     linear-gradient(180deg, oklch(0.62 0.1 200 / 0.08), oklch(0.62 0.1 200 / 0) 80%);
   --art-scrim:
     linear-gradient(180deg, oklch(0.75 0.12 200 / 0.24), oklch(0.5 0.1 210 / 0.12)),
-    repeating-linear-gradient(0deg, oklch(0.4 0.08 210 / 0.08) 0 1px, transparent 1px 4px);
+    linear-gradient(90deg, oklch(0.55 0.1 200 / 0.16) 1px, transparent 0) 0 0 / 16px 16px,
+    linear-gradient(oklch(0.55 0.1 200 / 0.16) 1px, transparent 0) 0 0 / 16px 16px;
+  --scrim-filter: saturate(0.15) brightness(0.92);
   --corner-shape: scoop;
   --chip-skew: 0deg;
 
@@ -176,6 +186,8 @@
     0 0 0 1px oklch(0.83 0.12 196 / 0.38), 0 24px 70px -18px oklch(0.05 0.02 225 / 0.8),
     0 0 48px -14px oklch(0.83 0.12 196 / 0.5);
 
+  --label-ink: oklch(0.8 0.13 72);
+
   --art-chrome:
     linear-gradient(
       90deg,
@@ -186,5 +198,6 @@
     linear-gradient(180deg, oklch(0.83 0.12 196 / 0.07), oklch(0.83 0.12 196 / 0) 85%);
   --art-scrim:
     linear-gradient(180deg, oklch(0.75 0.12 196 / 0.2), oklch(0.45 0.09 210 / 0.16)),
-    repeating-linear-gradient(0deg, oklch(0.85 0.1 196 / 0.07) 0 1px, transparent 1px 4px);
+    linear-gradient(90deg, oklch(0.85 0.12 196 / 0.12) 1px, transparent 0) 0 0 / 16px 16px,
+    linear-gradient(oklch(0.85 0.12 196 / 0.12) 1px, transparent 0) 0 0 / 16px 16px;
 }

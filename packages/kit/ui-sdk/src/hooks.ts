@@ -7,6 +7,7 @@ import { type DependencyList, useContext, useMemo, useSyncExternalStore } from "
 import type { WireNode } from "@kb/contracts";
 import {
   backdropChoice,
+  designSystemOptionId,
   extensionNodeId,
   type BackdropDirection,
   type BackdropStrength,
@@ -80,10 +81,10 @@ export function useShownDesignSystem(): DesignSystem | null {
 
 /**
  * The backdrop `node`'s page head shows (DESIGN-UI.md → Page-head
- * backdrops): the node's own settings, then core's node's; with no node,
- * core's alone, which is what every page shows unless it says otherwise.
- * Where neither chooses a backdrop, the one the shown design system pairs
- * with (Themes), else the first contributed.
+ * backdrops): each setting from the node's own settings, then core's node's,
+ * then the shown design system's option node, whose choices are the theme's
+ * pairing (DESIGN-UI.md → Themes); with no node, from core's on. Where none
+ * chooses a backdrop, the first contributed.
  * A page's own settings are `sys.*` fields, which field rows hide, so no
  * gesture writes them yet. GAP [[01M54CEM0Z5SMAS7KABS7QZ67C]]
  */
@@ -91,12 +92,13 @@ export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
   const backdrops = useContributions(BackdropPoint);
   const core = useNode(extensionNodeId("core"));
   const system = useShownDesignSystem();
+  const theme = useNode(system === null ? undefined : designSystemOptionId(system.key.id));
   const choice = backdropChoice(
-    [node?.props, core?.props],
+    [node?.props, core?.props, theme?.props],
     backdrops.map(({ value }) => value.key.id),
   );
   return {
-    backdrop: chosenDeclared(backdrops, choice.backdrop ?? system?.backdrop ?? null),
+    backdrop: chosenDeclared(backdrops, choice.backdrop),
     strength: choice.strength,
     direction: choice.direction,
   };

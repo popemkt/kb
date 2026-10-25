@@ -20,6 +20,31 @@ import type { KbNode, NodeId } from "./model.ts";
 export interface SeedOption {
   readonly id: string;
   readonly label: string;
+  /**
+   * Declared things of other kinds its option node chooses, as any node
+   * chooses one: a ref to that thing's option under its kind's field. A
+   * design system's option choosing a backdrop is the backdrop it pairs
+   * with; a backdrop's option choosing a design system is the theme it
+   * belongs to (DESIGN-UI.md → Themes). Data like any choice, so it is
+   * read, and changed, through the store.
+   */
+  readonly chooses?: readonly DeclaredRef[];
+}
+
+/** A declared thing of `kind`, by its declared id. */
+export interface DeclaredRef {
+  readonly kind: DeclaredOptions;
+  readonly id: string;
+}
+
+/** The props an option node holds for the things `option` chooses. */
+export function chosenProps(option: SeedOption): KbNode["props"] {
+  return Object.fromEntries(
+    (option.chooses ?? []).map(({ kind, id }) => [
+      kind.field,
+      [{ t: "ref" as const, v: declaredOptionId(kind, id) }],
+    ]),
+  );
 }
 
 /**

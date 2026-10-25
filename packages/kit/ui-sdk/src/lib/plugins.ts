@@ -347,12 +347,6 @@ export interface DesignSystem {
    * system that is tokens alone.
    */
   readonly Art?: ComponentType<ThemeArtProps>;
-  /**
-   * The backdrop (a declared id) the system pairs with: a page head shows it
-   * where neither the page's node nor core's chooses one, before the first
-   * contributed. None for a system with no pairing.
-   */
-  readonly backdrop?: string;
 }
 
 /** The two planes of a design system's art (`ThemeArtProps.plane`). */
@@ -377,6 +371,14 @@ export interface ThemeArtProps {
   /** The focused pane's path. */
   readonly path: string;
 }
+
+/**
+ * The longest a veil may hold a passing gesture, in ms, whatever becomes of
+ * its animation (a hidden tab, one cancelled or interrupted): a gesture past
+ * it is gone from the page. However fast the pages change, the veil draws
+ * what one change draws, and nothing once this has passed.
+ */
+export const THEME_GESTURE_MAX_MS = 2400;
 
 export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems");
 

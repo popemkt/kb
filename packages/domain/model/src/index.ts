@@ -179,10 +179,12 @@ export {
   designSystemOptionId,
 } from "./design-system.ts";
 export {
+  chosenProps,
   declaredChoice,
   declaredIdOf,
   declaredOptionId,
   type DeclaredOptions,
+  type DeclaredRef,
   type DeclaredOptionSet,
   type SeedOption,
 } from "./declared-option.ts";

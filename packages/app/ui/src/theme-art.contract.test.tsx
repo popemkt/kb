@@ -16,14 +16,18 @@
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import type { WireNode } from "@kb/contracts";
 import {
+  BACKDROP_OPTIONS,
+  DESIGN_SYSTEM_OPTIONS,
   SYSTEM_IDS,
   backdropOptionId,
+  declaredIdOf,
   designSystemOptionId,
   extensionNodeId,
+  firstRef,
   foldSeed,
   type KbNode,
 } from "@kb/model";
@@ -31,6 +35,7 @@ import {
   BackdropPoint,
   DesignSystemPoint,
   PageBackdrop,
+  THEME_GESTURE_MAX_MS,
   ThemeArt,
   currentContributions,
   syncUiPlugins,
@@ -39,6 +44,7 @@ import {
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
+import { BackdropThemeTag } from "@/backdrop-theme-tag";
 import { designSystemsUiPlugin } from "@/design-systems";
 import { useGraphStore } from "@/stores/graph.store";
 import { PAGE_FAMILIES } from "@/test-support/design-systems";
@@ -48,10 +54,29 @@ const AT = "2026-01-01T00:00:00.000Z";
 const CORE = extensionNodeId("core");
 const SEED = foldSeed(BUNDLED_DECLARATIONS, AT).nodes;
 
-/** The seed, with core's node holding `settings`. */
-function graphWith(props: KbNode["props"]): WireNode[] {
-  return SEED.map((node) =>
-    node.id === CORE ? { ...node, props: { ...node.props, ...props } } : node,
+/** The seed, with core's node holding `props`, and any node `others` names holding its own. */
+function graphWith(
+  props: KbNode["props"],
+  others: Readonly<Record<string, KbNode["props"]>> = {},
+): WireNode[] {
+  return SEED.map((node) => {
+    const extra = node.id === CORE ? props : others[node.id];
+    return extra === undefined ? node : { ...node, props: { ...node.props, ...extra } };
+  });
+}
+
+/** The backdrop the seed has `system`'s option choose: the theme's pairing, as data. */
+function pairing(system: string): string | undefined {
+  const option = SEED.find((node) => node.id === designSystemOptionId(system));
+  return declaredIdOf(BACKDROP_OPTIONS, firstRef(SYSTEM_IDS.backdropField)(option?.props ?? {}));
+}
+
+/** The design system the seed has the backdrop `id`'s option choose: the theme it belongs to. */
+function themeOf(id: string): string | undefined {
+  const option = SEED.find((node) => node.id === backdropOptionId(id));
+  return declaredIdOf(
+    DESIGN_SYSTEM_OPTIONS,
+    firstRef(SYSTEM_IDS.designSystemField)(option?.props ?? {}),
   );
 }
 
@@ -120,7 +145,7 @@ describe("every contributed design system's art and pairing", () => {
 
   it("counts systems with art and with a pairing, and one with neither", () => {
     expect(systems().some((system) => system.Art !== undefined)).toBe(true);
-    expect(systems().some((system) => system.backdrop !== undefined)).toBe(true);
+    expect(systems().some((system) => pairing(system.key.id) !== undefined)).toBe(true);
     expect(systems().some((system) => system.Art === undefined)).toBe(true);
   });
 
@@ -150,17 +175,103 @@ describe("every contributed design system's art and pairing", () => {
     }
   });
 
-  it("pairs with a contributed backdrop, which the head shows while nothing else chooses", () => {
-    for (const system of systems().filter(({ backdrop }) => backdrop !== undefined)) {
-      expect(backdropIds(), system.key.id).toContain(system.backdrop);
-      paint(system.key.id);
-      expect(head(), system.key.id).toBe(system.backdrop);
+  it("draws what one page change draws however fast pages change, and nothing once the gesture's time is up", async () => {
+    for (const system of systems()) {
+      const { Art } = system;
+      if (Art === undefined) continue;
+      const veil = (path: string) =>
+        createElement(Art, { plane: "veil", activity: { editing: false, writes: 0 }, path });
+      // Load the art's code first, so the fake clock below drives it alone.
+      const warm = createRoot(document.createElement("div"));
+      await act(async () => warm.render(veil("/warm")));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
+      act(() => warm.unmount());
+
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "Date"] });
+      try {
+        const host = document.createElement("div");
+        const root = createRoot(host);
+        const go = (path: string, ms: number) => {
+          act(() => root.render(veil(path)));
+          act(() => {
+            vi.advanceTimersByTime(ms);
+          });
+        };
+        go("/a", 2000);
+        const rest = host.innerHTML;
+        go("/b", 0);
+        const one = host.querySelectorAll("*").length;
+        expect(one, `${system.key.id}: a page change draws a gesture`).toBeGreaterThan(0);
+        go("/b", THEME_GESTURE_MAX_MS);
+        expect(host.innerHTML, `${system.key.id}: gone in time`).toBe(rest);
+        for (let page = 0; page < 12; page += 1) {
+          go(`/rapid/${page}`, 40);
+          expect(host.querySelectorAll("*").length, `${system.key.id}: one at a time`).toBe(one);
+        }
+        go("/rapid/last", THEME_GESTURE_MAX_MS);
+        expect(host.innerHTML, `${system.key.id}: nothing left after a burst`).toBe(rest);
+        act(() => root.unmount());
+      } finally {
+        vi.useRealTimers();
+      }
     }
   });
 
+  it("pairs with a contributed backdrop of its own, which the head shows while nothing else chooses", () => {
+    for (const system of systems().filter(({ key }) => pairing(key.id) !== undefined)) {
+      const paired = pairing(system.key.id);
+      expect(backdropIds(), system.key.id).toContain(paired);
+      expect(themeOf(paired ?? ""), system.key.id).toBe(system.key.id);
+      paint(system.key.id);
+      expect(head(), system.key.id).toBe(paired);
+    }
+  });
+
+  it("a backdrop that belongs to a theme names a contributed system, and a theme may bring several", () => {
+    const themed = backdropIds().filter((id) => themeOf(id) !== undefined);
+    const shown = new Set(systems().map(({ key }) => key.id));
+    for (const id of themed) expect(shown.has(themeOf(id) ?? ""), id).toBe(true);
+    const counts = new Map<string, number>();
+    for (const id of themed)
+      counts.set(themeOf(id) ?? "", (counts.get(themeOf(id) ?? "") ?? 0) + 1);
+    expect(Math.max(...counts.values())).toBeGreaterThan(1);
+  });
+
+  it("tags a theme's backdrops with the theme in Preferences, and marks the shown theme's pairing", () => {
+    for (const system of systems().filter(({ key }) => pairing(key.id) !== undefined)) {
+      paint(system.key.id);
+      for (const id of backdropIds()) {
+        const host = document.createElement("div");
+        host.innerHTML = renderToStaticMarkup(createElement(BackdropThemeTag, { id }));
+        const tag = host.querySelector<HTMLElement>("[data-backdrop-theme]");
+        expect(tag?.dataset.backdropTheme, id).toBe(themeOf(id));
+        expect(host.textContent.includes("default"), `${system.key.id} ${id}`).toBe(
+          id === pairing(system.key.id),
+        );
+      }
+    }
+  });
+
+  it("the pairing is data: writing the system's option changes what its head shows", () => {
+    const system = systems().find(({ key }) => pairing(key.id) !== undefined);
+    if (system === undefined) throw new Error("no system pairs");
+    const other = backdropIds().find((id) => id !== pairing(system.key.id));
+    if (other === undefined) throw new Error("no second backdrop");
+    useGraphStore.getState().hydrateFromWire(
+      graphWith(settings(system.key.id), {
+        [designSystemOptionId(system.key.id)]: {
+          [SYSTEM_IDS.backdropField]: [{ t: "ref", v: backdropOptionId(other) }],
+        },
+      }),
+      1,
+      "fixtures",
+    );
+    expect(head()).toBe(other);
+  });
+
   it("core's chosen backdrop beats the pairing", () => {
-    for (const system of systems().filter(({ backdrop }) => backdrop !== undefined)) {
-      const other = backdropIds().find((id) => id !== system.backdrop);
+    for (const system of systems().filter(({ key }) => pairing(key.id) !== undefined)) {
+      const other = backdropIds().find((id) => id !== pairing(system.key.id));
       if (other === undefined) throw new Error("no second backdrop to choose");
       paint(system.key.id, other);
       expect(head(), system.key.id).toBe(other);
@@ -168,7 +279,7 @@ describe("every contributed design system's art and pairing", () => {
   });
 
   it("a system with no pairing leaves the head to the first contributed", () => {
-    const plain = systems().find(({ backdrop }) => backdrop === undefined);
+    const plain = systems().find(({ key }) => pairing(key.id) === undefined);
     if (plain === undefined) throw new Error("every system pairs");
     paint(plain.key.id);
     expect(head()).toBe(backdropIds()[0]);

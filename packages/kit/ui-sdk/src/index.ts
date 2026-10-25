@@ -107,6 +107,7 @@ export {
   DesignSystemPoint,
   provideDesignSystem,
   type ThemeArtProps,
+  THEME_GESTURE_MAX_MS,
   type ThemeArtPlane,
   type BackdropPresentation,
   type BackdropProps,

@@ -177,6 +177,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       >
         <div className="flex items-center gap-2 border-b border-foreground/[0.06] px-3 py-2.5">
           <MagnifyingGlassIcon size={16} className="shrink-0 text-foreground/25" />
+          <span
+            aria-hidden="true"
+            className="kb-palette-mark kb-label shrink-0 text-label text-primary"
+          />
           <input
             ref={inputRef}
             type="text"

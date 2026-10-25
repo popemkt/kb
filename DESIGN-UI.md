@@ -3033,7 +3033,7 @@ cannot pass as tokenized while bypassing the scale.
 A design system is one complete set of layer-1 values, with a light and a
 dark variant. Which systems exist is a plugin point: core contributes its
 default, families contribute the rest, and the page names none of them.
-kb ships five; the last two are whole themes (Themes, below):
+kb ships six; the last three are whole themes (Themes, below):
 
 | id                  | from              | character                                                                                                                                                                                                                                                            |
 | ------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -3041,7 +3041,8 @@ kb ships five; the last two are whole themes (Themes, below):
 | `themes.paper`      | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
 | `themes.terminal`   | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
 | `themes.zzz`        | the themes family | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
-| `themes.transistor` | the themes family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Federant titles, Josefin Sans labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                               |
+| `themes.transistor` | the themes family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                       |
+| `themes.yorha`      | the themes family | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night       |
 
 - **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
   beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
@@ -3242,19 +3243,27 @@ above). What each of kb's themes is after, and where each idea lives, is
   | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
   | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                 | the display face: page titles, the brand, a view's name                                                                                                                                                                                      | `.kb-display` (`tokens.css`)           |
   | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                           | the label face: small uppercase section labels                                                                                                                                                                                               | `.kb-label`                            |
+  | `--label-ink`                                                                                                                                                                          | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                 | `.kb-label`                            |
+  | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                               | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                             | `.kb-palette-mark` (`command-palette.tsx`) |
+  | `--scrim-filter`                                                                                                                                                                       | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                          | `.kb-scrim`                            |
   | `--art-chrome`, `--art-scrim`                                                                                                                                                          | a `background-image` drawn over the chrome (header, sidebar, a view's bar) and over a modal's scrim; `none` by default                                                                                                                       | `.kb-chrome`, `.kb-scrim`              |
   | `--corner-shape`                                                                                                                                                                       | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                         | `index.css` base                       |
   | `--chip-skew`                                                                                                                                                                          | the lean of a tag chip                                                                                                                                                                                                                       | `.kb-tag`                              |
-  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play | `motion.css`, `lib/timing.ts`, the art |
+  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play | `motion.css`, `lib/timing.ts`, the art |
 
 - **One gesture vocabulary.** `motion.css` keeps the gestures and their
   keyframes; a theme only picks among them. A surface entering (a popover,
   the palette, a toast; `.kb-surface-enter`) plays `--motion-enter` on the
-  spring, and a page's content arriving (`.kb-workspace-reveal`) plays
-  `--motion-reveal`. Shipped: `kb-surface-enter` and `kb-workspace-reveal`
-  (the default's), `kb-enter-sticker` and `kb-reveal-cut` (a slap and a
-  flash), `kb-enter-turn` and `kb-reveal-turn` (a grey frame warming into
-  colour). Every keyframe moves transform, opacity or filter only.
+  spring, a page's content arriving (`.kb-workspace-reveal`) plays
+  `--motion-reveal`, and a failure arriving (an error toast,
+  `.kb-alert-enter`) plays `--motion-alert`, which is `--motion-enter`
+  unless a system says otherwise. Shipped: `kb-surface-enter` and
+  `kb-workspace-reveal` (the default's), `kb-enter-sticker` and
+  `kb-reveal-cut` (a slap and a flash), `kb-enter-turn` and `kb-reveal-turn`
+  (a grey frame warming into colour), `kb-enter-scan`, `kb-reveal-scan` and
+  `kb-alert-glitch` (a mechanical wipe, and a glitch on failure), and
+  `kb-palette-bar` (a bar filling in steps). Every keyframe moves transform,
+  opacity, filter or a small element's clip only.
 - **The art slot.** A `DesignSystem` may carry `Art`, a component
   (`ThemeArtProps`: its `plane`, what the owner is doing as a backdrop is
   told it, `PageActivity`, and the path). The shell renders `ThemeArt` twice
@@ -3268,14 +3277,32 @@ above). What each of kb's themes is after, and where each idea lives, is
     write, and holds nothing at rest. A gesture keyed on a change never
     plays on arrival: a boot, its redirects and switching to the system are
     not events (`useBeat` in the themes family).
+  - A gesture is gone by `THEME_GESTURE_MAX_MS` (`@kb/ui-sdk`) whatever
+    becomes of its animation: a hidden tab, an animation cancelled or held
+    on a frame, reduced motion turned on midway. However fast the pages
+    change, the veil draws what one change draws, keyed per change, so a
+    new one replaces the last rather than stacking (`useGesture` in the
+    themes family removes it on `animationend` and on a timer, whichever
+    comes first).
   - Art paints with tokens alone (the chart palette is a theme's art
     palette), mixing in `oklab` so a colour never swings through another
     hue against a near-neutral ground.
-- **The pairing.** A `DesignSystem` may name a `backdrop`, a declared
-  backdrop's id. The page head shows it while neither the page's node nor
-  core's setting chooses a backdrop (Page-head backdrops → the choice).
-  Choosing one in Preferences still wins: a pairing is a default, not a
-  lock.
+- **A theme's backdrops, and its pairing, are data.** A declared option may
+  choose other declared options (`SeedOption.chooses`: a kind and an id),
+  and the seed writes each as a ref on the option's node, in the field of
+  that kind (`chosenProps`). So a theme's option node carries the backdrop
+  it pairs with in `sys.f.backdrop`, and each backdrop's option node the
+  theme it belongs to in `sys.f.design-system`; kb's actions read them, and
+  a write changes them. A theme may bring several backdrops, each
+  contributed through `BackdropPoint` as any backdrop is.
+  - The page head resolves the backdrop from the page's node, then core's
+    setting, then the shown theme's option node (`usePageBackdrop`,
+    `backdropChoice`), so an explicit choice in Preferences still wins: a
+    pairing is a default, not a lock.
+  - Preferences tags each backdrop with the swatch of the theme it belongs
+    to, and marks the shown theme's pairing `default` (`BackdropThemeTag`,
+    the backdrop field's option preview, which core contributes and reads
+    from the graph).
 - **Faces ship with the family, never in git.** A family imports its faces
   from npm packages under the SIL Open Font License (`@fontsource*`), so the
   bundle carries them and the repository does not; a face downloads only
@@ -3284,9 +3311,12 @@ above). What each of kb's themes is after, and where each idea lives, is
 - **The contract** (`app/ui/src/theme-art.contract.test.tsx`) runs over
   every contributed design system: the slot draws the shown system's art
   and only its, in each plane, hidden and inert; a system with art draws a
-  ground and holds nothing in the veil at rest; a pairing names a
-  contributed backdrop, which the head shows while nothing else chooses,
-  and core's choice beats it. The design-system contract and the contrast
+  ground and holds nothing in the veil at rest; a burst of page changes
+  draws what one draws, and nothing once `THEME_GESTURE_MAX_MS` has passed;
+  a pairing names a contributed backdrop of the theme's own, which the head
+  shows while nothing else chooses, and core's choice beats it; writing the
+  theme's option node changes the head; Preferences tags each backdrop with
+  its theme. The design-system contract and the contrast
   guard hold a theme's tokens as they hold any system's.
 - **Budgets.** Ambient loops run at periods of `--motion-ambient-period`
   or more (Lab M4), only on transform and opacity, on a handful of
@@ -3295,12 +3325,46 @@ above). What each of kb's themes is after, and where each idea lives, is
   `prefers-reduced-motion` no gesture is drawn (the shell hides the veil,
   `motion-reduce:hidden`, and the art hides its own in the ground and the
   heads), and the global rule stops every ambient loop: a cut, never a
-  frame of a flash.
+  frame of a flash. The art's code loads when first drawn (`deferred`, a
+  frame drawn at once), so it costs the page's eager bundle nothing; a
+  sheet is in it, so `vite.config.ts` drops a sheet's comments, spare
+  whitespace and leading zeros (`compactRawSheets`).
 
 **Adding a theme:** add a design system (above), then any of: restate the
 tokens above in its sheet; import its faces in the family's page plugin;
-contribute `Art` and a `backdrop` with it; write its section in
+contribute `Art` with it; declare its backdrops as choosing it, and it as
+choosing the one it pairs with, and contribute them; write its section in
 `ART-DIRECTION.md`. Nothing in the shell changes.
+
+#### Theming: what is data and what is code
+
+The canonical list of what a theme is made of, and how far each piece is
+reachable through kb's own API (actions, the CLI, MCP) rather than only
+through code. *Data* means a node or prop in the graph, read and written
+by actions; *code* means a file in a family's or the shell's source,
+changed only by a release. Every piece that should be data and is not has
+a `#gap` node, named in the last column.
+
+| piece | where it lives | through kb's API | gap |
+| --- | --- | --- | --- |
+| Which theme the page shows | core's `sys.f.design-system`, a ref to the theme's option node | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Preferences) | — |
+| The catalogue of themes and backdrops (ids, labels) | option nodes the seed derives from declarations (`themes/src/extension.ts`, `foldSeed`) | data, read-only by convention (`sys.*`, written with `--force`) | — |
+| A theme's backdrops and its pairing | `sys.f.design-system` on each backdrop's option node; `sys.f.backdrop` on the theme's (`SeedOption.chooses`) | data: read by actions; a write changes what the head shows | — |
+| The backdrop shown, its strength and direction | `sys.f.backdrop`, `…-strength`, `…-direction` on the page's node or core's | data | — |
+| A backdrop's renderer | a component contributed through `BackdropPoint` under the declared id (`themes-ui/src/art/*-backdrop.tsx`) | code, chosen by data: the entry is data, the art a registered renderer | — (the intended split) |
+| Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `themes-ui/src/design-systems/*.css`, mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
+| The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
+| Theme art: ground and veil | `themes-ui/src/art/*-art.tsx`, `art/*.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
+| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the veil plane of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code: cannot be renamed or turned off through kb | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
+| Faces | `@fontsource*` imports in `themes-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
+| Motion: keyframes and the personality a theme picks | keyframes in `app/ui/src/motion.css`; the choice and timing in the sheets' `--motion-*` | code; the only control is the OS's reduced-motion setting | `01M5SNSQXBAM8P7K25GSM5ASP5` |
+| The selected row's paint | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes) | code, and no token reaches it | `01M5SNSR9AC5V1NA31QY8DNEX6` |
+| Settings a person picks (theme, backdrop, its strength and way) | core's node, in Preferences | data | — |
+
+The direction (Rule 1, one contract): a theme becomes one node, the theme's
+option node, that carries its tokens, its art's renderer ids with their
+parameters, and its motion preset; the UI renders it. Renderers stay code,
+registered by id as backdrops are. The gaps above are the steps.
 
 ### Page-head backdrops
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { THEME_GESTURE_MAX_MS } from "@kb/ui-sdk";
 
 /** How long after the art mounts a change still counts as its arrival. */
 const ARRIVAL_MS = 1500;
@@ -40,4 +41,27 @@ export function useStructuralWrites(writes: number, editing: boolean): number {
   const next = { writes, count: editing ? seen.count : seen.count + 1 };
   setSeen(next);
   return next.count;
+}
+
+/**
+ * The passing gesture `beat` keys: the key of the one drawn now, or null,
+ * and `end`, for the gesture's `onAnimationEnd`. A new beat replaces the
+ * gesture drawn (one at a time, keyed per beat, so it replays). A gesture
+ * is removed when its animation ends, and in any case `ms` after it began:
+ * an animation that never ends (a hidden tab, one cancelled or interrupted,
+ * reduced motion turned on or off midway) cannot leave it on the page.
+ */
+export function useGesture(
+  beat: number,
+  ms: number = THEME_GESTURE_MAX_MS,
+): { readonly key: number | null; readonly end: () => void } {
+  const [ended, setEnded] = useState(0);
+  useEffect(() => {
+    const timer = beat === 0 ? undefined : setTimeout(() => setEnded((e) => Math.max(e, beat)), ms);
+    return () => clearTimeout(timer);
+  }, [beat, ms]);
+  return {
+    key: beat > ended ? beat : null,
+    end: () => setEnded((e) => Math.max(e, beat)),
+  };
 }

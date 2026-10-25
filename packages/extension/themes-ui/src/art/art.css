@@ -170,83 +170,65 @@
   }
 }
 
-/* Turn(): the frozen frame and its timeline bar. */
-.kb-turn {
+/* Jaunt(): the Process whitewashing the frame on a page change. A sheet of
+ * Process white under a cyan cell grid crosses in steps, its edges
+ * dissolving in stepped bands. */
+.kb-jaunt {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  animation: kb-turn calc(var(--motion-duration-reveal) * 1.6) var(--motion-settle) forwards;
+  overflow: hidden;
 }
 
-@keyframes kb-turn {
-  12%,
-  68% {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-.kb-turn-sheet {
+.kb-jaunt-cells {
   position: absolute;
-  inset: 0;
-  background-color: color-mix(in oklab, var(--primary) 5%, transparent);
-  background-image: var(--art-scrim);
+  inset: 0 auto 0 0;
+  width: 150vw;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--primary) 34%, transparent) 1px,
+        transparent 1px
+      )
+      0 0 / 16px 16px,
+    linear-gradient(color-mix(in oklab, var(--primary) 34%, transparent) 1px, transparent 1px) 0 0 /
+      16px 16px,
+    color-mix(in oklab, var(--card) 55%, white);
+  mask-image: linear-gradient(
+    to right,
+    transparent 0 4%,
+    rgb(0 0 0 / 0.3) 4% 9%,
+    rgb(0 0 0 / 0.65) 9% 14%,
+    black 14% 86%,
+    rgb(0 0 0 / 0.65) 86% 91%,
+    rgb(0 0 0 / 0.3) 91% 96%,
+    transparent 96%
+  );
+  opacity: 0.92;
+  translate: -150vw 0;
+  animation: kb-jaunt calc(var(--motion-duration-reveal) * 1.5) steps(14, jump-none) forwards;
 }
 
-.kb-turn-bar {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  translate: -50% 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: min(560px, 82vw);
-  padding: 7px 14px;
-  border: 1px solid color-mix(in oklab, var(--primary) 50%, transparent);
-  border-radius: var(--radius);
-  corner-shape: var(--corner-shape);
-  background: color-mix(in oklab, var(--background) 78%, transparent);
-  box-shadow: var(--elevation-floating);
+.dark .kb-jaunt-cells {
+  background-color: color-mix(in oklab, var(--foreground) 92%, var(--primary));
 }
 
-.kb-turn-label {
+.kb-jaunt-label {
   font-family: var(--app-font-label);
-  font-size: var(--type-label);
+  font-size: var(--type-title);
   letter-spacing: var(--label-tracking);
   font-variation-settings: var(--label-variation);
-  color: var(--primary);
+  color: var(--foreground);
 }
 
-.kb-turn-track {
-  position: relative;
-  flex: 1;
-  height: 7px;
-  overflow: hidden;
-  border-radius: 1px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0 calc(12.5% - 1px),
-      color-mix(in oklab, var(--background) 70%, transparent) calc(12.5% - 1px) 12.5%
-    ),
-    color-mix(in oklab, var(--primary) 18%, transparent);
+.dark .kb-jaunt-label {
+  color: var(--background);
 }
 
-.kb-turn-fill {
-  position: absolute;
-  inset: 0;
-  background: var(--primary);
-  transform-origin: left;
-  scale: 0 1;
-  animation: kb-turn-fill var(--motion-duration-reveal) 60ms var(--motion-settle) forwards;
-}
-
-@keyframes kb-turn-fill {
+@keyframes kb-jaunt {
   to {
-    scale: 1 1;
+    translate: 100vw 0;
   }
 }
 

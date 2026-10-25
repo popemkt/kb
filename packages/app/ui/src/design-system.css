@@ -163,6 +163,15 @@
   --label-style: normal;
   --label-tracking: 0.025em;
   --label-variation: normal;
+  /* The labels' glyph ink: the element's own colour here; a system may
+   * paint every label one ink (Transistor's amber terminal text). */
+  --label-ink: currentcolor;
+  /* A mark the command palette shows before its input, and a bar after it
+   * that fills in steps as the palette opens (Transistor's Turn()): none
+   * here. */
+  --palette-mark: "";
+  --palette-bar: none;
+  --palette-bar-width: 0px;
 
   /* Art and shape (DESIGN-UI.md → Design tokens → Themes): images a system
    * lays over the chrome (header, sidebar, a page's own bar) and over a
@@ -170,6 +179,9 @@
    * tag chip leans. None, round and upright here: the default draws no art. */
   --art-chrome: none;
   --art-scrim: none;
+  /* A backdrop filter a modal's scrim adds to its blur (Turn()'s frozen,
+   * colourless world): the identity here. */
+  --scrim-filter: saturate(1);
   --corner-shape: round;
   --chip-skew: 0deg;
 
@@ -195,6 +207,9 @@
   --motion-ambient-period: 12s;
   --motion-enter: kb-surface-enter;
   --motion-reveal: kb-workspace-reveal;
+  /* A failure's surface (an error toast) enters as any surface does,
+   * unless a system gives failure its own gesture (YoRHa's glitch). */
+  --motion-alert: var(--motion-enter);
 }
 
 .dark,

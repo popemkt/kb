@@ -93,9 +93,14 @@
   --label-style: normal;
   --label-tracking: 0.025em;
   --label-variation: normal;
+  --label-ink: currentcolor;
+  --palette-mark: "";
+  --palette-bar: none;
+  --palette-bar-width: 0px;
   /* No art; round corners, upright chips. */
   --art-chrome: none;
   --art-scrim: none;
+  --scrim-filter: saturate(1);
   --corner-shape: round;
   --chip-skew: 0deg;
   /* Motion: the default's quiet personality. */

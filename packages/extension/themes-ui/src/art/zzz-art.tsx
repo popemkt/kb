@@ -1,5 +1,5 @@
 import type { ThemeArtProps } from "@kb/ui-sdk";
-import { useBeat, useStructuralWrites } from "./beat";
+import { useBeat, useGesture, useStructuralWrites } from "./beat";
 
 /**
  * The sound a structural write makes, drawn instead of played: a comic
@@ -40,24 +40,35 @@ export function StreetGround() {
  * the write drawn as motion. Nothing at rest.
  */
 export function StreetVeil({ activity, path }: Pick<ThemeArtProps, "activity" | "path">) {
-  const wipe = useBeat(path);
+  const wipe = useGesture(useBeat(path));
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const sfx = useBeat(writes, 700);
+  const sfx = useGesture(useBeat(writes, 700));
   return (
     <>
-      {wipe > 0 ? (
-        <div key={wipe} className="kb-zzz-wipe">
-          <div className="kb-zzz-wipe-panel" />
+      {wipe.key === null ? null : (
+        <div key={wipe.key} className="kb-zzz-wipe">
+          <div
+            className="kb-zzz-wipe-panel"
+            onAnimationEnd={(event) => {
+              if (event.target === event.currentTarget) wipe.end();
+            }}
+          />
           <div className="kb-zzz-wipe-strip">
             <span>C H A N G I N G &nbsp; C H A N N E L</span>
           </div>
         </div>
-      ) : null}
-      {sfx > 0 ? (
-        <span key={sfx} className="kb-zzz-sfx">
-          {SFX[sfx % SFX.length]}
+      )}
+      {sfx.key === null ? null : (
+        <span
+          key={sfx.key}
+          className="kb-zzz-sfx"
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget) sfx.end();
+          }}
+        >
+          {SFX[sfx.key % SFX.length]}
         </span>
-      ) : null}
+      )}
     </>
   );
 }

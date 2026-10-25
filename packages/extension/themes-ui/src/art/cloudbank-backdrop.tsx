@@ -1,5 +1,5 @@
 import type { BackdropProps } from "@kb/ui-sdk";
-import { useBeat, useStructuralWrites } from "./beat";
+import { useBeat, useGesture, useStructuralWrites } from "./beat";
 import { SkylineSvg } from "./skyline-svg";
 
 /**
@@ -12,7 +12,7 @@ import { SkylineSvg } from "./skyline-svg";
  */
 export function CloudbankBackdrop({ color, opacity, activity, direction }: BackdropProps) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const trail = useBeat(writes, 900);
+  const trail = useGesture(useBeat(writes, 900));
   return (
     <div
       className="kb-cloudbank-backdrop"
@@ -28,7 +28,15 @@ export function CloudbankBackdrop({ color, opacity, activity, direction }: Backd
       </div>
       <SkylineSvg className="kb-cloudbank-city" />
       <span className="kb-cloudbank-rail kb-cloudbank-rail-head" />
-      {trail > 0 ? <span key={trail} className="kb-cloudbank-trail" /> : null}
+      {trail.key === null ? null : (
+        <span
+          key={trail.key}
+          className="kb-cloudbank-trail"
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget) trail.end();
+          }}
+        />
+      )}
     </div>
   );
 }

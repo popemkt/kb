@@ -1,5 +1,5 @@
 import type { BackdropProps } from "@kb/ui-sdk";
-import { useBeat, useStructuralWrites } from "./beat";
+import { useBeat, useGesture, useStructuralWrites } from "./beat";
 
 /**
  * Broadcast, the page head ZZZ pairs with: a stack of slanted panels (a
@@ -10,7 +10,7 @@ import { useBeat, useStructuralWrites } from "./beat";
  */
 export function BroadcastBackdrop({ color, opacity, activity, direction }: BackdropProps) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const burst = useBeat(writes, 500);
+  const burst = useGesture(useBeat(writes, 500));
   return (
     <div
       className="kb-broadcast"
@@ -27,7 +27,15 @@ export function BroadcastBackdrop({ color, opacity, activity, direction }: Backd
       <div className="kb-broadcast-tv">
         <div className="kb-broadcast-screen">
           <div className="kb-broadcast-bars" />
-          {burst > 0 ? <div key={burst} className="kb-broadcast-static" /> : null}
+          {burst.key === null ? null : (
+            <div
+              key={burst.key}
+              className="kb-broadcast-static"
+              onAnimationEnd={(event) => {
+                if (event.target === event.currentTarget) burst.end();
+              }}
+            />
+          )}
         </div>
         <span className="kb-broadcast-rec">REC</span>
         <span className="kb-broadcast-antenna" />

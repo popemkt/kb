@@ -83,10 +83,10 @@ function Toasts() {
           onClick={() => dismiss(t.id)}
           aria-label={`Dismiss notification: ${t.text}`}
           className={cn(
-            "kb-surface-enter flex items-start gap-2 rounded-md border bg-popover px-3 py-2 text-left text-meta shadow-lifted",
+            "flex items-start gap-2 rounded-md border bg-popover px-3 py-2 text-left text-meta shadow-lifted",
             t.kind === "error"
-              ? "border-destructive/40 text-destructive"
-              : "border-foreground/10 text-popover-foreground",
+              ? "kb-alert-enter border-destructive/40 text-destructive"
+              : "kb-surface-enter border-foreground/10 text-popover-foreground",
           )}
         >
           <span className="min-w-0 flex-1">{t.text}</span>

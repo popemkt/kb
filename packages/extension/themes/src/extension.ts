@@ -25,24 +25,54 @@ import type { Plugin } from "@kb/plugin";
 export const PAPER_DESIGN_SYSTEM: SeedOption = { id: "themes.paper", label: "Paper" };
 /** Dark-first phosphor green, one monospace face throughout. */
 export const TERMINAL_DESIGN_SYSTEM: SeedOption = { id: "themes.terminal", label: "Terminal" };
+/** A backdrop that belongs to the theme `system`: its option chooses the system. */
+function themed(id: string, label: string, system: string): SeedBackdrop {
+  return { id, label, chooses: [{ kind: DESIGN_SYSTEM_OPTIONS, id: system }] };
+}
+
+/**
+ * A theme: a design system whose option chooses the backdrop it pairs with,
+ * so a page head shows it while no page and no setting chooses another
+ * (DESIGN-UI.md → Themes). The pairing is data, as any choice is.
+ */
+function theme(id: string, label: string, pairsWith: string): SeedOption {
+  return { id, label, chooses: [{ kind: BACKDROP_OPTIONS, id: pairsWith }] };
+}
+
 /**
  * After Zenless Zone Zero: stickers, comic panels, slanted wipes, jelly
  * springs and TV static, on a near-black street (ART-DIRECTION.md).
  */
-export const ZZZ_DESIGN_SYSTEM: SeedOption = { id: "themes.zzz", label: "ZZZ" };
+export const ZZZ_DESIGN_SYSTEM = theme("themes.zzz", "ZZZ", "themes.broadcast");
 /**
- * After Transistor: Cloudbank at night in Art Nouveau, and Turn()'s frozen
- * cyan planning frame (ART-DIRECTION.md).
+ * After Transistor: Cloudbank at night in Art Nouveau, Turn()'s frozen
+ * planning frame, functions written as calls (ART-DIRECTION.md).
  */
-export const TRANSISTOR_DESIGN_SYSTEM: SeedOption = {
-  id: "themes.transistor",
-  label: "Transistor",
-};
+export const TRANSISTOR_DESIGN_SYSTEM = theme(
+  "themes.transistor",
+  "Transistor",
+  "themes.cloudbank",
+);
+/**
+ * After NieR:Automata: YoRHa's warm beige paper, khaki ink, square corners,
+ * mechanical motion and a glitch on failure (ART-DIRECTION.md).
+ */
+export const YORHA_DESIGN_SYSTEM = theme("themes.yorha", "YoRHa", "themes.bunker");
 
 /** ZZZ's page head: a broadcast on a stack of slanted panels, with its TV. */
-export const BROADCAST_BACKDROP: SeedBackdrop = { id: "themes.broadcast", label: "Broadcast" };
+export const BROADCAST_BACKDROP = themed("themes.broadcast", "Broadcast", ZZZ_DESIGN_SYSTEM.id);
+/** ZZZ's other head: a Hollow, the rift's ether behind a torn comic panel. */
+export const HOLLOW_BACKDROP = themed("themes.hollow", "Hollow", ZZZ_DESIGN_SYSTEM.id);
 /** Transistor's page head: Cloudbank's skyline under a painted dusk. */
-export const CLOUDBANK_BACKDROP: SeedBackdrop = { id: "themes.cloudbank", label: "Cloudbank" };
+export const CLOUDBANK_BACKDROP = themed(
+  "themes.cloudbank",
+  "Cloudbank",
+  TRANSISTOR_DESIGN_SYSTEM.id,
+);
+/** Transistor's other head: an OVC voting terminal's amber screen. */
+export const OVC_BACKDROP = themed("themes.ovc", "OVC Terminal", TRANSISTOR_DESIGN_SYSTEM.id);
+/** YoRHa's page head: the Bunker's HUD, bracketed, over a score's staff. */
+export const BUNKER_BACKDROP = themed("themes.bunker", "Bunker", YORHA_DESIGN_SYSTEM.id);
 
 export const themesExtension = defineExtension({
   name: "themes",
@@ -57,9 +87,19 @@ export const themesExtension = defineExtension({
         TERMINAL_DESIGN_SYSTEM,
         ZZZ_DESIGN_SYSTEM,
         TRANSISTOR_DESIGN_SYSTEM,
+        YORHA_DESIGN_SYSTEM,
       ],
     },
-    { kind: BACKDROP_OPTIONS, options: [BROADCAST_BACKDROP, CLOUDBANK_BACKDROP] },
+    {
+      kind: BACKDROP_OPTIONS,
+      options: [
+        BROADCAST_BACKDROP,
+        HOLLOW_BACKDROP,
+        CLOUDBANK_BACKDROP,
+        OVC_BACKDROP,
+        BUNKER_BACKDROP,
+      ],
+    },
   ],
 });
 

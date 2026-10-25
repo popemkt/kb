@@ -1,5 +1,5 @@
 import type { ThemeArtProps } from "@kb/ui-sdk";
-import { useBeat, useStructuralWrites } from "./beat";
+import { useBeat, useGesture, useStructuralWrites } from "./beat";
 import { SkylineSvg } from "./skyline-svg";
 
 /** The light rails over the city: height above the ground (vh), length (vw), period (s) and phase. */
@@ -19,7 +19,7 @@ const RAILS: readonly { bottom: number; length: number; period: number; delay: n
  */
 export function CloudbankGround({ activity }: Pick<ThemeArtProps, "activity">) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const trail = useBeat(writes, 900);
+  const trail = useGesture(useBeat(writes, 900));
   return (
     <div className="kb-cloudbank-ground" data-editing={activity.editing || undefined}>
       <div className="kb-cloudbank-wash" />
@@ -37,28 +37,40 @@ export function CloudbankGround({ activity }: Pick<ThemeArtProps, "activity">) {
           }}
         />
       ))}
-      {trail > 0 ? <span key={trail} className="kb-cloudbank-trail" /> : null}
+      {trail.key === null ? null : (
+        <span
+          key={trail.key}
+          className="kb-cloudbank-trail"
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget) trail.end();
+          }}
+        />
+      )}
     </div>
   );
 }
 
 /**
- * Turn(): a page change freezes the frame under the planning screen's
- * translucent cyan sheet while the timeline bar along the top fills, then
- * lets the new page run. Nothing at rest. It is a gesture, not yet a plan
- * mode. GAP [[01M5S0J203QE0ZMB7MGN7GJXD8]] no staged edit to preview
+ * Jaunt(): a page change is the Process whitewashing the frame. A sheet of
+ * Process white under a cyan cell grid crosses the page in steps, its edges
+ * dissolving in bands, named as the game names its functions. Nothing at
+ * rest. Turn() itself is the command palette (`--palette-mark`, the
+ * segmented bar, the desaturating cyan scrim), which freezes the page to
+ * plan; it is not yet a plan mode. GAP [[01M5S0J203QE0ZMB7MGN7GJXD8]] no
+ * staged edit to preview
  */
-export function TurnVeil({ path }: Pick<ThemeArtProps, "path">) {
-  const turn = useBeat(path);
-  if (turn === 0) return null;
+export function JauntVeil({ path }: Pick<ThemeArtProps, "path">) {
+  const jaunt = useGesture(useBeat(path));
+  if (jaunt.key === null) return null;
   return (
-    <div key={turn} className="kb-turn">
-      <div className="kb-turn-sheet" />
-      <div className="kb-turn-bar">
-        <span className="kb-turn-label">Turn()</span>
-        <span className="kb-turn-track">
-          <span className="kb-turn-fill" />
-        </span>
+    <div key={jaunt.key} className="kb-jaunt">
+      <div
+        className="kb-jaunt-cells"
+        onAnimationEnd={(event) => {
+          if (event.target === event.currentTarget) jaunt.end();
+        }}
+      >
+        <span className="kb-jaunt-label">Jaunt()</span>
       </div>
     </div>
   );

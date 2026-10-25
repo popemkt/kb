@@ -90,6 +90,23 @@
     text-transform: uppercase;
     letter-spacing: var(--label-tracking);
     font-variation-settings: var(--label-variation);
+    -webkit-text-fill-color: var(--label-ink);
+  }
+
+  /* The command palette's mark, before its input (`--palette-mark`). */
+  .kb-palette-mark::before {
+    content: var(--palette-mark);
+  }
+
+  .kb-palette-mark::after {
+    content: "";
+    display: inline-block;
+    vertical-align: middle;
+    width: var(--palette-bar-width);
+    height: 0.6em;
+    margin-inline-start: calc(var(--palette-bar-width) / 8);
+    background: var(--palette-bar);
+    animation: kb-palette-bar calc(var(--motion-duration-enter) * 1.4) steps(8) both;
   }
 
   /* Chrome: the header, the sidebar and a page's own bar wear the design
@@ -101,6 +118,8 @@
   /* The dimming layer behind a modal, with the design system's scrim art. */
   .kb-scrim {
     background-image: var(--art-scrim);
+    /* Composed into the scrim's backdrop-blur utility. */
+    --tw-backdrop-saturate: var(--scrim-filter);
   }
 
   /*
