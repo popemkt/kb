@@ -3477,7 +3477,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     settles the jitter; most of each new frame enters, so the stream is not
     smeared.
   - Crisp first: the hole is drawn at 1.5 texels a CSS pixel at full
-    quality and not under 1 until the last step of quality, and a ray's
+    quality and never under 1, however long frames run, and a ray's
     steps are never cut short (the rays that wind round the hole are the
     photon ring). Each frame's rays leave from a new point in their texel,
     so the history antialiases the ring and the filaments' edges; a step

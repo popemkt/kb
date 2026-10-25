@@ -51,15 +51,13 @@ const FULL_TURN = Math.PI * 2;
  */
 const STEP_CAP = 300;
 /**
- * The hole's texels per CSS pixel at `quality`: crisp first. 1.5 at full
- * quality (capped at the screen's own density), and not under 1 until the
- * last step of quality; only then softer, 0.8 at the least.
+ * The hole's texels per CSS pixel at `quality` (0.4–1): crisp first. Never
+ * under one a CSS pixel, however long frames run; 1.5 at full quality,
+ * capped at the screen's own density.
  */
 function holeDensity(quality: number): number {
   const screen = Math.max(1, globalThis.devicePixelRatio || 1);
-  const density =
-    quality >= 0.55 ? 1 + (0.5 * (quality - 0.55)) / 0.45 : 0.8 + (0.2 * (quality - 0.4)) / 0.15;
-  return Math.min(density, screen);
+  return Math.min(1 + (0.5 * Math.max(0, quality - 0.4)) / 0.6, screen);
 }
 
 /**
