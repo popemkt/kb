@@ -7,12 +7,22 @@
  *   own WebGL2 backend where it does not; the same TSL compiles to both.
  *   Antialiased, device pixel ratio clamped to 2 (P3). Soft shadows when the
  *   view asks for them (`shadows`), decided here once.
- * - Colour (L2): a set tone mapping (ACES unless a study compares others) and
- *   sRGB output. Bloom's threshold is `BLOOM_THRESHOLD`, so only HDR values glow.
+ * - Colour (L2): a set tone mapping (ACES unless a study compares others, or
+ *   the shoulder for a scene that must meet the page around it: `tone.ts`)
+ *   and sRGB output. Bloom's threshold is `BLOOM_THRESHOLD`, so only HDR
+ *   values glow.
  * - Post chain: scene → optional ambient occlusion (GTAO, `ao`, decided once
- *   when the stage is built) → bloom → the edges fade to the ground (P1, L3)
- *   → tone mapping and sRGB → dither, a half-step of noise that breaks 8-bit
- *   banding in dark gradients (L4).
+ *   when the stage is built) → bloom → optional lens (`lens`: chromatic
+ *   aberration toward the edges, an anamorphic streak drawn out of the
+ *   bloom, film grain) → the edges fade to the ground (P1, L3), radially
+ *   (`vignette`) or along the frame's own sides (`feather`), as far as the
+ *   scene is present (`setPresence`) → tone mapping and sRGB → dither, a
+ *   half-step of noise that breaks 8-bit banding in dark gradients (L4).
+ * - GPU time (`gpuTiming`): on WebGPU the stage times each frame from its
+ *   submission to the queue finishing it (`gpuMs`), so a scene can hold its
+ *   own cost; on WebGL2 `gpuMs` stays null. Not timestamp queries: on Metal
+ *   they sum passes that overlap, and read 50–75 ms for frames that run at
+ *   54 fps.
  * - Palette (L1): the tokens as uniforms. A theme change eases every view's
  *   colours across at the theme duration (M1), or jumps when nothing may
  *   move (M7).
@@ -57,6 +67,7 @@ import {
   pass,
   rangeFogFactor,
   renderOutput,
+  hash,
   sample,
   screenCoordinate,
   screenUV,
@@ -64,6 +75,7 @@ import {
   uniform,
   unpackRGBToNormal,
   vec2,
+  vec3,
   vec4,
 } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
@@ -71,13 +83,14 @@ import { ao as gtao } from "three/addons/tsl/display/GTAONode.js";
 import { BLOOM_THRESHOLD, type SceneBackend, type SceneHandle, type ScenePalette } from "@kb/scene";
 import { backdropNode, type BackdropOptions } from "./backdrop";
 import { disposeGraph } from "./dispose";
-import { colorUniform, type TslNode } from "./tsl";
+import { shoulder, shoulderGround } from "./tone";
+import { bloomTexture, colorUniform, type TslNode } from "./tsl";
 import { approachRate, approachShare, clampStep, type Timing } from "@kb/ui-sdk";
 
 /** The device pixel ratio a stage never exceeds (P3). */
 const MAX_PIXEL_RATIO = 2;
 
-export type SceneToneMapping = "agx" | "aces" | "none";
+export type SceneToneMapping = "agx" | "aces" | "shoulder" | "none";
 
 /** A picture of a stage's canvas: a PNG, and its size in pixels. */
 interface StagePicture {
@@ -86,9 +99,11 @@ interface StagePicture {
   readonly height: number;
 }
 
+/** three's curve for each kind; the shoulder is the post chain's own (`tone.ts`), so three applies none. */
 const TONE_MAPPINGS: Record<SceneToneMapping, ToneMapping> = {
   agx: AgXToneMapping,
   aces: ACESFilmicToneMapping,
+  shoulder: NoToneMapping,
   none: NoToneMapping,
 };
 
@@ -106,8 +121,20 @@ export interface StageOptions {
   readonly ao?: boolean;
   /** Soft shadow maps (a study whose rig casts shadows). */
   readonly shadows?: boolean;
-  /** How much of the frame's edge fades into the ground, 0–1. */
+  /** How much of the frame's edge fades into the ground, 0–1 (radially; see `feather`). */
   readonly vignette?: number;
+  /**
+   * Fade into the ground along the frame's own sides instead, over these
+   * shares of its width (each side) and height (top, bottom): a frame set
+   * into a page, whose edges must vanish into it.
+   */
+  readonly feather?: { readonly sides: number; readonly top: number; readonly bottom: number };
+  /** The tone curve the stage starts with (ACES by default). */
+  readonly toneMapping?: SceneToneMapping;
+  /** A camera's artefacts, each 0 for none: see the post chain above. */
+  readonly lens?: { readonly aberration: number; readonly streak: number; readonly grain: number };
+  /** Read each frame's GPU time back where the backend can (`gpuMs`). */
+  readonly gpuTiming?: boolean;
 }
 
 /**
@@ -141,6 +168,21 @@ export type PaletteUniforms = ReturnType<typeof paletteUniforms>;
 type PaletteKey = keyof PaletteUniforms;
 const PALETTE_KEYS: readonly PaletteKey[] = ["ground", "edge", "hue", "ink", "accent"];
 
+/** How a frame's edges fade into the ground: 1 at the edge, 0 inside. */
+function edgeFade(options: StageOptions, vignette: TslNode<"float">): TslNode<"float"> {
+  const feather = options.feather;
+  if (feather === undefined) {
+    return smoothstep(0.45, 1.05, length(screenUV.sub(0.5)).mul(Math.SQRT2)).mul(vignette);
+  }
+  const x = screenUV.x;
+  const y = screenUV.y;
+  const across = smoothstep(0, feather.sides, x).mul(smoothstep(0, feather.sides, float(1).sub(x)));
+  const down = smoothstep(0, feather.top, y).mul(smoothstep(0, feather.bottom, float(1).sub(y)));
+  // Squared: the fade starts softly, so no line marks where it begins.
+  const inside = across.mul(down);
+  return float(1).sub(inside.mul(inside));
+}
+
 /** The post chain, and the handles a view turns. */
 function postChain(
   renderer: WebGPURenderer,
@@ -153,6 +195,12 @@ function postChain(
     dither: uniform(1),
     occlusion: uniform(occluded ? 1 : 0),
     vignette: uniform(options.vignette ?? 0.55),
+    /** 1 while the shoulder is the tone curve (`tone.ts`), else 0. */
+    shoulder: uniform(options.toneMapping === "shoulder" ? 1 : 0),
+    /** How present the scene is over its ground, 0–1. */
+    presence: uniform(1),
+    /** Moves the grain each frame. */
+    grainSeed: uniform(0),
   };
   // three r186's GTAO reads its centre depth with `gather()`, which WGSL has
   // no overload for on a multisampled depth texture, so under occlusion the
@@ -175,19 +223,67 @@ function postChain(
     lit = lit.mul(mix(float(1), occlusion, knobs.occlusion));
   }
   const glow = bloom(lit, options.bloom.strength, options.bloom.radius, BLOOM_THRESHOLD);
-  const edge = smoothstep(0.45, 1.05, length(screenUV.sub(0.5)).mul(Math.SQRT2)).mul(
-    knobs.vignette,
-  );
-  const framed = mix(lit.add(glow), vec4(colors.ground, 1), edge);
-  const display = renderOutput(framed);
+  const lens = options.lens ?? { aberration: 0, streak: 0, grain: 0 };
+  let composed: TslNode<"vec3"> = lit.rgb.add(glow.rgb);
+  if (!occluded && (lens.aberration > 0 || lens.streak > 0)) {
+    // Chromatic aberration: red and blue land a little apart, more toward the
+    // edges, and most in the bloom, where the brightest highlights spread.
+    const away = screenUV.sub(0.5);
+    const shift = away.mul(length(away)).mul(lens.aberration);
+    const glowTexture = bloomTexture(glow);
+    const at = (uv: TslNode<"vec2">) => color.sample(uv).rgb.add(glowTexture.sample(uv).rgb);
+    const spread = shift.mul(3);
+    const glowAt = (uv: TslNode<"vec2">) => glowTexture.sample(uv).rgb;
+    const fringe = vec3(
+      glowAt(screenUV.add(spread)).x.sub(glowAt(screenUV).x),
+      0,
+      glowAt(screenUV.sub(spread)).z.sub(glowAt(screenUV).z),
+    );
+    composed = vec3(at(screenUV.add(shift)).x, at(screenUV).y, at(screenUV.sub(shift)).z).add(
+      fringe,
+    );
+    if (lens.streak > 0) {
+      // The anamorphic streak: the bloom drawn out sideways, a little cool.
+      let streak: TslNode<"vec3"> = vec3(0, 0, 0);
+      let weight = 0;
+      for (let i = 1; i <= 8; i++) {
+        const w = Math.exp(-i / 3);
+        const step = vec2(0.006 * i * i * 0.5, 0);
+        streak = streak.add(
+          glowAt(screenUV.add(step))
+            .add(glowAt(screenUV.sub(step)))
+            .mul(w),
+        );
+        weight += 2 * w;
+      }
+      composed = composed.add(streak.mul(lens.streak / weight).mul(vec3(0.92, 0.97, 1.1)));
+    }
+  }
+  // How much of each pixel is the ground: the edges, and all of it as the scene's presence falls.
+  const veil = float(1).sub(float(1).sub(edgeFade(options, knobs.vignette)).mul(knobs.presence));
+  // What a scene paints for the page to show a colour: under the shoulder, its pre-image.
+  const paint = (shown: TslNode<"vec3">) => mix(shown, shoulderGround(shown), knobs.shoulder);
+  const ground = paint(colors.ground);
+  // The shoulder comes before the fade: mixed after it, a sliver of veil over
+  // the ground's pre-image (above 1 on a light page) would wash the frame grey.
+  const toned = mix(composed, shoulder(composed), knobs.shoulder);
+  const framed = mix(toned, colors.ground, veil);
+  const display = renderOutput(vec4(framed, 1));
   // Interleaved gradient noise: a fixed, even half-step pattern per pixel.
   const noise = fract(
     float(52.9829189).mul(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715)))),
   );
+  let shownColor: TslNode<"vec3"> = display.rgb.add(noise.sub(0.5).mul(knobs.dither.div(255)));
+  if (lens.grain > 0) {
+    // Film grain where the scene is, never on the page's ground beyond it.
+    const pixel = screenCoordinate.xy.floor();
+    const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
+    shownColor = shownColor.add(grain.mul(lens.grain).mul(float(1).sub(veil)));
+  }
   const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;
-  post.outputNode = vec4(display.rgb.add(noise.sub(0.5).mul(knobs.dither.div(255))), 1);
-  return { post, glow, occlusionPass, knobs };
+  post.outputNode = vec4(shownColor, 1);
+  return { post, glow, occlusionPass, knobs, ground, paint };
 }
 
 function backendOf(renderer: WebGPURenderer): SceneBackend {
@@ -200,10 +296,16 @@ function pixelRatio(): number {
 }
 
 /** The renderer, its canvas in the host, hidden until the reveal (P2). */
-async function mountRenderer(host: HTMLElement, shadows: boolean): Promise<WebGPURenderer> {
-  const renderer = new WebGPURenderer({ antialias: true, powerPreference: "high-performance" });
+async function mountRenderer(
+  host: HTMLElement,
+  { shadows, options }: StageBuild,
+): Promise<WebGPURenderer> {
+  const renderer = new WebGPURenderer({
+    antialias: true,
+    powerPreference: "high-performance",
+  });
   await renderer.init();
-  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMapping = TONE_MAPPINGS[options.toneMapping ?? "aces"];
   renderer.setPixelRatio(pixelRatio());
   if (shadows) {
     renderer.shadowMap.enabled = true;
@@ -360,16 +462,96 @@ async function pictureOf(
   return { png, width, height };
 }
 
+/**
+ * Each frame's GPU time on WebGPU (`gpuTiming`): from its submission to the
+ * queue finishing it, so it counts what the GPU spent on it and any wait
+ * for the GPU, which is the cost a backdrop must hold. One frame is timed
+ * at a time; the reading is a frame behind.
+ */
+// GAP [[01M5STYVVX474T8WBT4FY341CM]] queue completion, not timestamp queries (unreliable on Metal)
+function gpuTimer(renderer: WebGPURenderer, enabled: boolean) {
+  const { backend } = renderer;
+  const device = "device" in backend ? backend.device : undefined;
+  const queue =
+    enabled && typeof GPUDevice !== "undefined" && device instanceof GPUDevice
+      ? device.queue
+      : undefined;
+  let ms: number | null = null;
+  let timing = false;
+  return {
+    ms: () => ms,
+    read: () => {
+      if (queue === undefined || timing) return;
+      timing = true;
+      const start = performance.now();
+      queue
+        .onSubmittedWorkDone()
+        .then(() => {
+          ms = performance.now() - start;
+          timing = false;
+        })
+        .catch(() => {
+          ms = null;
+          timing = false;
+        });
+    },
+  };
+}
+
+/** The post chain's controls, as the stage hands them to its view. */
+function postControls(
+  renderer: WebGPURenderer,
+  chain: ReturnType<typeof postChain>,
+  invalidate: () => void,
+) {
+  return {
+    bloomStrength: () => chain.glow.strength.value,
+    setBloom: (strength: number) => {
+      chain.glow.strength.value = strength;
+      invalidate();
+    },
+    setToneMapping: (kind: SceneToneMapping) => {
+      renderer.toneMapping = TONE_MAPPINGS[kind];
+      chain.knobs.shoulder.value = kind === "shoulder" ? 1 : 0;
+      chain.post.needsUpdate = true;
+      invalidate();
+    },
+    /** How present the scene is over its ground, 0–1: at 0 the frame is the ground alone. */
+    setPresence: (presence: number) => {
+      chain.knobs.presence.value = Math.min(1, Math.max(0, presence));
+      invalidate();
+    },
+    /**
+     * The ground as the scene must paint it to show the palette's ground:
+     * under the shoulder, its pre-image (`tone.ts`), so a scene that paints
+     * it meets the page around the frame to the level.
+     */
+    ground: chain.ground,
+    /**
+     * What the scene must paint for the page to show `shown`: under the
+     * shoulder its pre-image, otherwise itself. A picture composed in the
+     * page's own terms (a light page's high-key sky, the ground times a
+     * shade) passes through it, so the curve does not wash it to white.
+     */
+    paint: chain.paint,
+  };
+}
+
 async function createStage(host: HTMLElement, options: StageOptions) {
   const shadows = options.shadows === true;
   const occluded = options.ao === true;
   const build: StageBuild = { options, shadows, occluded };
-  const renderer = await mountRenderer(host, shadows);
+  const renderer = await mountRenderer(host, build);
   const scene = new Scene();
   const camera = new PerspectiveCamera(options.fov, 1, options.near ?? 0.1, options.far ?? 400);
   const colors = paletteUniforms();
   const chain = postChain(renderer, scene, camera, build, colors);
-  const loop = frameLoop(renderer, colors, options, () => chain.post.render());
+  const timing = gpuTimer(renderer, options.gpuTiming === true);
+  const loop = frameLoop(renderer, colors, options, () => {
+    if (!loop.reduced()) chain.knobs.grainSeed.value = (chain.knobs.grainSeed.value + 1) % 251;
+    chain.post.render();
+    timing.read();
+  });
   loop.setInitialPalette(options.palette);
   const { invalidate } = loop;
 
@@ -390,16 +572,9 @@ async function createStage(host: HTMLElement, options: StageOptions) {
     setPalette: loop.setPalette,
     /** Something changed: draw, and keep drawing while the frame reports motion. */
     invalidate,
-    bloomStrength: () => chain.glow.strength.value,
-    setBloom: (strength: number) => {
-      chain.glow.strength.value = strength;
-      invalidate();
-    },
-    setToneMapping: (kind: SceneToneMapping) => {
-      renderer.toneMapping = TONE_MAPPINGS[kind];
-      chain.post.needsUpdate = true;
-      invalidate();
-    },
+    ...postControls(renderer, chain, invalidate),
+    /** The last frame's GPU time in ms, or null where the backend cannot tell (`gpuTiming`). */
+    gpuMs: timing.ms,
     /**
      * The ground as a backdrop (`gpu/backdrop`): the focal point lighter, the
      * edges into `edge`, and whatever warmth, haze or rise the view asks for,

@@ -2847,7 +2847,13 @@ one projection of a world point to canvas pixels, decided in view space;
 every label, pick and hover asks it), `pointer` (`PointerField`: where
 the pointer is over a scene, where its ray meets a plane, and which presses
 were taps — every study and the 3D graph read the one field), `stage` (renderer, post chain, tone
-mapping, palette uniforms, frame loop, reveal), `tsl` (the typed TSL seam
+mapping, palette uniforms, frame loop, reveal; optionally a camera's
+artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
+film grain), a feather along the frame's own sides, a presence knob and a
+GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
+shader drawn into a render target of its own size, optionally reading its
+last picture back, which a scene samples as a texture), `tone` (the
+shoulder curve and its pre-image), `tsl` (the typed TSL seam
 and the ease as a shader function), `rig` (lights and finishes),
 `backdrop` (every view's ground, through the stage's `backdrop()`: the
 ground pooled at a focal point and falling to the edge colour, plus the

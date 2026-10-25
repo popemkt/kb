@@ -1243,6 +1243,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
+### GAP: the stage's GPU meter times queue completion, not timestamp queries
+
+- **expected** — gpuMs is each frame's own GPU time, from timestamp queries around its passes, on every backend.
+- **current** — On WebGPU gpuMs is the time from a frame's submission to the queue finishing it (onSubmittedWorkDone), which also counts waiting on other GPU work; on WebGL2 it is null and the GPU backdrops fall back to the frame-interval meter. Timestamp queries were tried: on Apple Metal three's resolved total read 50-75 ms for frames that ran at 54 fps (passes overlap on a tiled GPU), so they could not budget anything.
+- **impact** — A GPU busy with another app's work reads as the backdrop's cost, so its quality steps down when it need not; on WebGL2 quality only falls once frames actually drop.
+- **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
+- **node** — `01M5STYVVX474T8WBT4FY341CM`
+
 ### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
 
 - **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.

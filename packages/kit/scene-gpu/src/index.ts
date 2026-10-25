@@ -10,6 +10,12 @@
 export { disposeGraph } from "./dispose";
 export { PointerField } from "./pointer";
 export { createRig, finishMaterial, matcapMaterial, paletteMatcap, type Finish } from "./rig";
+export {
+  offscreenPass,
+  type OffscreenInputs,
+  type OffscreenPass,
+  type PictureSampler,
+} from "./offscreen";
 export { onFacingPlane, pixelsPerUnit, toScreen, type ScreenPoint } from "./screen";
 export {
   mountScene,
@@ -19,4 +25,5 @@ export {
   type StageOptions,
 } from "./stage";
 export { starfield } from "./starfield";
+export { SHOULDER_KNEE, shoulder, shoulderGround } from "./tone";
 export { NODE_OPS, colorUniform, easeNode, linearFromSrgb, minInt, type TslNode } from "./tsl";
