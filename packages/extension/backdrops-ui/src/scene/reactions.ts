@@ -6,9 +6,16 @@
  *
  * - `calm` rises while a node's text is being edited and falls when the
  *   owner stops: actors settle, slow and ignore the pointer.
- * - `stir` and `ripple` are pulses: a write is a small `stir` (none while
- *   calm, since typing writes), a move to another page a `ripple`, both
- *   decaying by themselves.
+ * - `impulse` is what the owner's writes add to the scene. A write never
+ *   restarts it: each adds energy to the one under way, at most one every
+ *   `IMPULSE_EVERY` (writes between merge into the next), and the energy
+ *   decays by itself. Typing writes on every keystroke, so a keystroke adds
+ *   a little (`TYPING_GAIN`): continuous typing is a gentle sustained
+ *   response that eases away when it stops; a write outside typing adds a
+ *   full one.
+ * - `stir` is the impulse with typing's share taken out (none while calm), so
+ *   a scene that keeps still for typing reads it; `ripple` is a pulse on a
+ *   move to another page.
  * - `pointer` is where the owner's pointer is over the frame (null when it
  *   is not), its `near` easing in and out so the actors do not twitch at the
  *   edge, and `speed` how fast it is moving.
@@ -34,7 +41,9 @@ interface Pulse {
 
 export interface Reactions {
   readonly calm: number;
-  /** A write landed: 0..1, quick up and slow down. */
+  /** The owner's writes, merged: 0..1, quick up and slow down, never restarted. */
+  readonly impulse: number;
+  /** The impulse while not typing: 0..1, nothing while calm. */
   readonly stir: number;
   /** The owner moved to another page: 0..1, slower. */
   readonly ripple: number;
@@ -51,6 +60,14 @@ export interface Reactions {
   readonly sinceNavigate: () => number;
 }
 
+/** The least time between two impulses (s): writes in between merge into the next. */
+export const IMPULSE_EVERY = 0.15;
+/** What one keystroke's write adds, against a full write's 1. */
+const TYPING_GAIN = 0.05;
+/** How fast an impulse rises to its energy (1/s), and how long the energy lasts (s). */
+const IMPULSE_RISE = 18;
+const IMPULSE_FALL = 1.4;
+
 const pulseValue = (pulse: Pulse, now: number): number =>
   clamp01(pulse.gain * envelope(now - pulse.at, pulse.rise, pulse.fall));
 
@@ -58,7 +75,11 @@ export function startReactions(): Reactions {
   let now = 0;
   let calm = 0;
   let editing = false;
-  const stirPulse: Pulse = { at: -1e9, rise: 0.18, fall: 1.1, gain: 1 };
+  // The impulse: energy the writes add, the level that follows it, and what is waiting to land.
+  let energy = 0;
+  let impulse = 0;
+  let pending = 0;
+  let landed = -Infinity;
   const ripplePulse: Pulse = { at: -1e9, rise: 0.35, fall: 2.4, gain: 1 };
   let px = 0;
   let py = 0;
@@ -73,9 +94,12 @@ export function startReactions(): Reactions {
     get calm() {
       return calm;
     },
+    get impulse() {
+      return impulse;
+    },
     get stir() {
-      // A write while the owner is typing does not stir: typing keeps the scene calm.
-      return pulseValue(stirPulse, now) * (1 - calm);
+      // Typing keeps a still scene calm: its share of the impulse is not a stir.
+      return impulse * (1 - calm);
     },
     get ripple() {
       return pulseValue(ripplePulse, now);
@@ -84,7 +108,7 @@ export function startReactions(): Reactions {
       return { x: px, y: py, near, speed };
     },
     write: () => {
-      stirPulse.at = now;
+      pending = Math.max(pending, editing ? TYPING_GAIN : 1);
     },
     navigate: () => {
       ripplePulse.at = now;
@@ -106,6 +130,14 @@ export function startReactions(): Reactions {
     },
     update: (dt) => {
       now += dt;
+      if (pending > 0 && now - landed >= IMPULSE_EVERY) {
+        // Added to the energy under way, saturating: a merge, never a restart.
+        energy += pending * (1 - energy);
+        pending = 0;
+        landed = now;
+      }
+      energy *= Math.exp(-dt / IMPULSE_FALL);
+      impulse = damp(impulse, energy, IMPULSE_RISE, dt);
       calm = damp(calm, editing ? 1 : 0, editing ? 1.4 : 0.55, dt);
       near = damp(near, over ? 1 : 0, over ? 6 : 2.5, dt);
       const moved = Math.hypot(px - lastX, py - lastY);

@@ -3342,6 +3342,10 @@ exist is a plugin point, and the kit names none of them.
   - Choosing a backdrop writes core's setting, and the row and the slot
     then show it.
   - A page's own node chooses for that page over core's.
+- **The continuity contract** (`app/ui/src/backdrop-continuity.contract.test.tsx`)
+  renders the page head with each declared backdrop chosen, types 30 keys
+  into a node and makes an edit: the slot keeps the instance it mounted, and
+  a GPU backdrop's scene mounts once and its clock only moves forward.
 
 #### 2D scenes
 
@@ -3375,6 +3379,13 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
 - **Reactions** are eased signals (`reactions.ts`): the pointer scatters
   fliers locally and they regather; typing calms the scene; a write is a
   small stir (none while typing); a move to another page re-forms the flock.
+- **Input is an impulse, never a restart.** Every write adds energy to one
+  running `impulse`: at most one lands every 150 ms (writes in between merge
+  into the next), it adds to the energy under way rather than starting a
+  pulse again, and it decays by itself. Typing writes on every keystroke, so
+  a keystroke adds a little: continuous typing is a gentle sustained
+  response that eases away when it stops. `stir` is the impulse without
+  typing's share, for a scene that keeps still while the owner types.
 
 Roost is the same kit with another layout:
 
@@ -3441,6 +3452,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   WebGL2 it reads the frame interval. The canvas carries `data-quality` and
   `data-gpu-ms`.
 - **Reduced motion** shows one still frame, of one curated seed.
+- **One scene for the life of the head.** The host mounts a scene once for
+  its head: an edit, a keystroke, a new colour or theme reaches it as a
+  call (`setLook`, `write`, `setEditing`), never as a remount, and its
+  clock (`data-clock`) only moves forward. Writes reach the frame as the
+  reactions' `impulse` and `stir` (see **2D scenes**).
 - **Lens.** The nebula is drawn offscreen (`offscreenPass`) a few times a
   second at a fraction of the frame's pixels, since it changes over minutes;
   the lens equation, the stars, the shadow and the photon ring are per
@@ -3449,8 +3465,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     density and where the star rests.
   - The star follows the pointer on a critically damped spring and circles
     where it rests without one.
-  - Typing barely eases its pull. A write is a supernova beside it, lensed
-    into two images, and a swell of its mass.
+  - Typing barely eases its pull, and each keystroke swells its mass a
+    little. A write is a supernova beside it, lensed into two images, which
+    a further write brightens rather than starts again.
   - A light page shows the plate's negative.
 - **Black hole.** Rays are traced through a Schwarzschild field into a
   volumetric disk, drawn offscreen with history.
@@ -3461,8 +3478,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     smeared.
   - The upscale is sharpened (contrast-adaptive), and the stage adds fine
     grain, so the filaments and the photon ring stay crisp.
-  - The pointer swings the camera slowly. Typing dims the disk. A write
-    sets a hot flare orbiting in it.
+  - The pointer swings the camera slowly. Typing dims the disk a little and
+    each keystroke breathes into it. A write sets a hot flare orbiting in
+    it, which a further write brightens rather than starts again.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
 - **The contract.** `@kb/backdrops-ui` runs the scene contract over both

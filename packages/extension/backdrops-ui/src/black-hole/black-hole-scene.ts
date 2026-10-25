@@ -4,8 +4,10 @@
  * title, a little below the horizon of its own disk.
  *
  * The owner: the pointer tilts and swings the camera, slowly (a camera move,
- * not a cursor, M1); with no pointer the camera rests, breathing. Typing
- * dims the disk a little; a write sets a hot flare orbiting in it.
+ * not a cursor, M1); with no pointer the camera rests, breathing. Writes are
+ * an impulse, never a restart: typing dims the disk a little and each
+ * keystroke breathes into it; a write outside typing sets a hot flare
+ * orbiting in it, which a further write brightens rather than starts again.
  *
  * Cost: the hole is drawn offscreen at a share of the frame's pixels, with a
  * step cap and samples per step, all three lowered as the stage's meter
@@ -37,7 +39,9 @@ const BLEND = 0.7;
 const SHARPEN = 0.6;
 /** The camera's follow (1/s): slow, a dolly rather than a cursor. */
 const FOLLOW = 2.2;
-/** The flare's phase is drawn from this mount's seed and moved by each write. */
+/** Below this the flare is dark, and the next one may start elsewhere on its orbit. */
+const FLARE_REST = 0.03;
+/** The flare's phase is drawn from this mount's seed, anew for each flare. */
 const FULL_TURN = Math.PI * 2;
 
 /**
@@ -104,8 +108,13 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     frame: (dt: number, reactions: Reactions) => {
       elapsed += dt;
       u.time.value += dt;
-      u.flareAge.value += dt;
       u.calm.value = reactions.calm;
+      u.pulse.value = reactions.impulse;
+      // A flare starting from dark is set somewhere new on its orbit; a further write brightens it.
+      if (u.flare.value < FLARE_REST && reactions.stir >= FLARE_REST) {
+        u.flarePhase.value = rng.range(0, FULL_TURN);
+      }
+      u.flare.value = reactions.stir;
       const pointer = reactions.pointer;
       const aim =
         pointer.near > 0.05
@@ -126,10 +135,6 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       u.blend.value = fresh || dt === 0 ? 1 : BLEND;
       hole.render();
       fresh = false;
-    },
-    write: () => {
-      u.flareAge.value = 0;
-      u.flarePhase.value = rng.range(0, FULL_TURN);
     },
     dispose: hole.dispose,
   };

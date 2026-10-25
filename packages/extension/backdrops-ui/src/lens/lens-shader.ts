@@ -62,7 +62,8 @@ export function lensUniforms() {
     einstein: uniform(0.15),
     mass: uniform(1),
     supernova: uniform(new Vector2()),
-    supernovaAge: uniform(99),
+    /** How bright the supernova is, 0–1: the owner's writes, merged (`reactions.stir`). */
+    flash: uniform(0),
     /** The source plane the nebula pass covers: x0, y0, x1, y1. */
     window: uniform(new Vector4(-1, -1, 1, 1)),
     // The seed's choices.
@@ -197,7 +198,7 @@ export function lensFrame(
       .mul(k)
       .add(2)
       .div(k.mul(2).mul(sqrt(k.mul(k).add(4))));
-    const life = smoothstep(0, 0.06, u.supernovaAge).mul(exp(u.supernovaAge.mul(-1.1)));
+    const life = u.flash;
     const toArc = beta.sub(u.supernova);
     light.addAssign(
       glint(q.sub(plus), 0.9)

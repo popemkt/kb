@@ -13,11 +13,16 @@
  *   composition's, as how far the scene rises out of its ground.
  * - **The owner.** The declared pointer, polled each frame, and the activity
  *   (typing, a write, a move to another page) as the 2D scenes' eased
- *   signals (`../scene/reactions`).
+ *   signals (`../scene/reactions`). Input is an impulse into a running
+ *   scene, never a restart: a backdrop reads `reactions.impulse` (every
+ *   write, keystrokes gently, merged and throttled) or `reactions.stir` (the
+ *   same without typing's share) in its frame. A scene is mounted once for
+ *   its head: its clock (`clock`) only moves forward.
  * - **Its cost.** The frame-cost meter (`../scene/meter`) over the GPU's own
  *   time where the backend reports it (`gpuMs`), else over the frame
  *   interval; over budget, quality steps down and the backdrop spends less.
- *   The canvas carries what it measured (`data-gpu-ms`, `data-quality`).
+ *   The canvas carries what it measured (`data-gpu-ms`, `data-quality`) and
+ *   its clock (`data-clock`).
  *
  * This module imports three (through `@kb/scene-gpu`), so only the GPU
  * host's own lazy import reaches it (`gpu-backdrop.tsx`).
@@ -50,10 +55,12 @@ export interface GpuBackdropInit extends GpuLook {
 /** A mounted GPU backdrop, as its React host drives it. */
 export interface GpuBackdropScene extends SceneHandle {
   readonly setLook: (look: GpuLook) => void;
-  /** A write landed (tell `setEditing` first: a write while typing stays calm). */
+  /** A write landed (a keystroke while editing): an impulse, merged into the one under way. */
   readonly write: () => void;
   readonly navigate: () => void;
   readonly setEditing: (editing: boolean) => void;
+  /** Seconds the scene has run since it mounted: it never goes back. */
+  readonly clock: () => number;
 }
 
 export type GpuBackdropMount = (
@@ -98,8 +105,6 @@ export interface BackdropParts {
   /** Lay out for a new size or quality. */
   readonly layout: (layout: BackdropLayout) => void;
   readonly setLook: (look: GpuLook) => void;
-  /** A write landed while the owner was not typing. */
-  readonly write: () => void;
   /** Release what the stage's scene traversal does not reach. */
   readonly dispose: () => void;
 }
@@ -127,7 +132,7 @@ export async function mountBackdrop(
   let width = 0;
   let height = 0;
   let quality = 1;
-  let editing = false;
+  let elapsed = 0;
 
   const { stage, parts, handle } = await mountScene(
     host,
@@ -172,6 +177,9 @@ export async function mountBackdrop(
           if (at === null) reactions.clearPointer();
           else reactions.setPointer(at.x, at.y);
           reactions.update(dt);
+          elapsed += dt;
+          // What a spec reads to see the scene carry on (`clock`), never start over.
+          canvas.dataset.clock = elapsed.toFixed(3);
           backdrop.frame(dt, reactions);
           if (dt > 0) measure(dt);
           return true;
@@ -199,8 +207,6 @@ export async function mountBackdrop(
     setLook,
     write: () => {
       reactions.write();
-      // Typing writes: a write while the owner types stays calm.
-      if (!editing) backdrop.write();
       stage.invalidate();
     },
     navigate: () => {
@@ -208,9 +214,9 @@ export async function mountBackdrop(
       stage.invalidate();
     },
     setEditing: (next) => {
-      editing = next;
       reactions.setEditing(next);
       stage.invalidate();
     },
+    clock: () => elapsed,
   };
 }

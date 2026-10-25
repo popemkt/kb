@@ -7,9 +7,11 @@
  *
  * The owner: the star follows the pointer on a critically damped spring
  * (M1), and with no pointer it circles where it rests; typing calms it,
- * barely (its pull eases by a tenth, so the nebula hardly shifts); a write is
- * a supernova just beside it, lensed into two images, and a swell of the
- * star's mass.
+ * barely (its pull eases by a tenth, so the nebula hardly shifts). Writes are
+ * an impulse, never a restart: each keystroke swells the star's mass a
+ * little, so typing is a gentle sustained pulse; a write outside typing
+ * lights a supernova just beside it, lensed into two images, which a further
+ * write brightens rather than starts again.
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
@@ -58,6 +60,8 @@ const PALETTES: readonly (readonly [number, number, number])[][] = [
 const MARGIN = 0.4;
 /** The star's critically damped spring (ω, rad/s): it follows in about 0.6 s. */
 const FOLLOW = 9;
+/** Below this the supernova is dark, and the next one may light elsewhere (just off the star's line of sight, so both images and the arc show). */
+const FLASH_REST = 0.03;
 /** The nebula is redrawn this often (s): it changes over minutes, so a few times a second is smooth. */
 const NEBULA_EVERY = 0.12;
 
@@ -123,7 +127,6 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     frame: (dt: number, reactions: Reactions) => {
       u.time.value += dt;
       orbit += dt;
-      u.supernovaAge.value += dt;
       const pointer = reactions.pointer;
       const aim =
         pointer.near > 0.05
@@ -140,19 +143,18 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       }
       u.lens.value.set(position.x, position.y);
       u.einstein.value = 0.15 * scale;
-      // Typing calms the star, barely; a write swells it for a moment.
-      u.mass.value =
-        (1 - 0.1 * reactions.calm) * (1 + 0.15 * Math.exp(-Math.max(u.supernovaAge.value, 0) * 2));
+      // Typing calms the star, barely; the owner's writes swell it.
+      u.mass.value = (1 - 0.1 * reactions.calm) * (1 + 0.15 * reactions.impulse);
+      // A supernova lights where the star is when one starts from dark, and is then carried on.
+      if (u.flash.value < FLASH_REST && reactions.stir >= FLASH_REST) {
+        u.supernova.value.set(position.x + 0.03 * scale, position.y + 0.015 * scale);
+      }
+      u.flash.value = reactions.stir;
       sinceNebula += dt;
       if (sinceNebula >= NEBULA_EVERY) {
         nebula.render();
         sinceNebula = 0;
       }
-    },
-    write: () => {
-      // A source just off the line of sight, so both images and the arc show.
-      u.supernova.value.set(position.x + 0.03 * scale, position.y + 0.015 * scale);
-      u.supernovaAge.value = 0;
     },
     dispose: nebula.dispose,
   };

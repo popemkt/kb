@@ -85,7 +85,9 @@ export function blackHoleUniforms() {
     /** A new jitter each frame, and how much of the new frame enters the history. */
     frame: uniform(0),
     blend: uniform(1),
-    flareAge: uniform(99),
+    /** How bright the flare is, 0–1 (`reactions.stir`), and the owner's writes as a whole (`impulse`). */
+    flare: uniform(0),
+    pulse: uniform(0),
     flarePhase: uniform(0),
     calm: uniform(0),
   };
@@ -239,8 +241,7 @@ function throughSlab({
       const toFlare = vec2(c.x, c.z).sub(vec2(cos(angle), sin(angle)).mul(5));
       const flare = vec3(1, 0.85, 0.65)
         .mul(exp(dot(toFlare, toFlare).mul(-1.4)))
-        .mul(exp(u.flareAge.mul(-0.5)))
-        .mul(smoothstep(0, 0.2, u.flareAge))
+        .mul(u.flare)
         .mul(7);
       const emitted = blackbody(heat.mul(g).mul(2.7).add(1.5))
         .mul(pow(heat, 3.5).mul(2.1).add(0.05))
@@ -304,7 +305,8 @@ export function blackHoleFragment(
         .add(u.frame.mul(0.618034)),
     );
     const sigmaScale = mix(8, 3.2, u.dark);
-    const fade = float(1).sub(u.calm.mul(0.35));
+    // Typing dims the disk a little and each keystroke breathes into it; a write flares.
+    const fade = float(1).sub(u.calm.mul(0.35)).add(u.pulse.mul(0.4));
 
     Loop({ start: 0, end: u.steps, type: "int", condition: "<" }, () => {
       const r2 = dot(p, p);
