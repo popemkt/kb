@@ -3447,7 +3447,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 - **Cost.** It runs only while the tab is shown and the frame is in view
   (`watchPlayback`). Each frame's GPU time is metered against 6 ms; while it
   runs over, the backdrop steps its quality down (the offscreen pass's
-  resolution, the hole's ray steps and samples). On WebGPU the meter reads
+  resolution; a ray's steps are never cut, or the photon ring goes first). On WebGPU the meter reads
   the stage's `gpuMs` (queue completion; gap 01M5STYVVX474T8WBT4FY341CM); on
   WebGL2 it reads the frame interval. The canvas carries `data-quality` and
   `data-gpu-ms`.
@@ -3476,8 +3476,14 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - The disk is sampled at a jitter that moves each frame, and the history
     settles the jitter; most of each new frame enters, so the stream is not
     smeared.
-  - The upscale is sharpened (contrast-adaptive), and the stage adds fine
-    grain, so the filaments and the photon ring stay crisp.
+  - Crisp first: the hole is drawn at 1.5 texels a CSS pixel at full
+    quality and not under 1 until the last step of quality, and a ray's
+    steps are never cut short (the rays that wind round the hole are the
+    photon ring). Each frame's rays leave from a new point in their texel,
+    so the history antialiases the ring and the filaments' edges; a step
+    through the slab near the inner edge takes three samples, so the ring's
+    thin crossings are not missed. The upscale is sharpened
+    (contrast-adaptive), and the stage adds fine grain.
   - The pointer swings the camera slowly. Typing dims the disk a little and
     each keystroke breathes into it. A write sets a hot flare orbiting in
     it, which a further write brightens rather than starts again.
