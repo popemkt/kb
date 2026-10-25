@@ -12,6 +12,7 @@ import type { PointerSource } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback.ts";
 import type { Composition, SceneConfig } from "./composition.ts";
 import { clamp } from "./math.ts";
+import { meterOf } from "./meter.ts";
 import type { ScenePalette } from "./palette.ts";
 import { startReactions, type Reactions } from "./reactions.ts";
 
@@ -41,28 +42,6 @@ export interface StageOptions {
 const MAX_DT = 1 / 20;
 const MAX_DPR = 2;
 const MIN_QUALITY = 0.45;
-
-/**
- * The frame-cost meter: a smoothed cost per frame, and a verdict, every half
- * second, on whether it has run over budget long enough to lower detail.
- */
-function meterOf(budgetMs: number) {
-  let spent = 0;
-  let frames = 0;
-  let over = 0;
-  return {
-    /** Record one frame's cost; the smoothed cost when a verdict is due, else null. */
-    record: (ms: number): { spent: number; lower: boolean } | null => {
-      spent = spent === 0 ? ms : spent * 0.94 + ms * 0.06;
-      frames++;
-      if (frames % 30 !== 0) return null;
-      over = spent > budgetMs ? over + 1 : 0;
-      const lower = over >= 3;
-      if (lower) over = 0;
-      return { spent, lower };
-    },
-  };
-}
 
 export function createStage(
   canvas: HTMLCanvasElement,
