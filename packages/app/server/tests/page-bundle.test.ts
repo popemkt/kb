@@ -21,8 +21,12 @@ import { UI_ROOT } from "../src/paths.ts";
 /** DataScript is compiled ClojureScript: its runtime names `cljs.core` throughout, and nothing else of kb's does. */
 const DATASCRIPT = /cljs\.core/;
 
-/** The eager set's raw bytes may not pass this (1.76 MB when it was set, from 2.23 MB with DataScript). */
-const EAGER_BUDGET_BYTES = 1_950_000;
+/**
+ * The eager set's raw bytes may not pass this (1.76 MB when it was set, from
+ * 2.23 MB with DataScript; raised by 10 KB for the motion options' seed
+ * fields and their mode, whose painter and Preferences rows load lazily).
+ */
+const EAGER_BUDGET_BYTES = 1_960_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

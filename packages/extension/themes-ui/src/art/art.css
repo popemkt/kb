@@ -837,8 +837,12 @@
  * motion, so none is drawn, rather than a frame of each before the global
  * rule lands it on its end (Lab M7). The veil is hidden by the shell. */
 @media (prefers-reduced-motion: reduce) {
-  .kb-cloudbank-trail,
-  .kb-broadcast-static {
+  :root:not([data-motion="full"]) :is(.kb-cloudbank-trail, .kb-broadcast-static) {
     display: none;
   }
+}
+
+:root:is([data-motion="reduced"], [data-motion="off"])
+  :is(.kb-cloudbank-trail, .kb-broadcast-static) {
+  display: none;
 }

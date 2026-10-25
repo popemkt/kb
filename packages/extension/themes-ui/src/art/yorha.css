@@ -463,8 +463,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kb-yorha-scan,
-  .kb-bunker-ping {
+  :root:not([data-motion="full"]) :is(.kb-yorha-scan, .kb-bunker-ping) {
     display: none;
   }
+}
+
+:root:is([data-motion="reduced"], [data-motion="off"]) :is(.kb-yorha-scan, .kb-bunker-ping) {
+  display: none;
 }

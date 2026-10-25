@@ -396,7 +396,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: a theme's art and overlays are code, with their words and choices inside
 
 - **expected** — art renderers are registered by id as backdrops are, and what they say and do (the marquee's words, the Jaunt() and channel-change labels, which gesture a page change plays, whether an overlay plays at all) is data on the theme's node
-- **current** — themes-ui/src/art/*.tsx and art/*.css hold the words, the gesture each event plays and their timing; a design system carries one Art component on its contribution
+- **current** — themes-ui/src/art/*.tsx and art/*.css hold the words, the gesture each event plays and their timing; a design system carries one Art component on its contribution. The motion option pageWipe can turn a theme's veil gestures off, nothing more
 - **impact** — the overlays (ZZZ's wipe, Transistor's Jaunt(), YoRHa's scan) cannot be renamed, swapped or turned off through kb, only by editing code
 - **closes** — an art point keyed by renderer id, a design-system option field naming its ground and veil renderers with their params, and a per-gesture switch among the motion options
 - **node** — `01M5SNSQ4Y11AHAHDA43PCV5D6`
@@ -408,14 +408,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — adding or swapping a face is a code change, and kb cannot say which faces a theme uses
 - **closes** — a face point a family contributes (name, weights, files), resolved by name from the tokens field
 - **node** — `01M5SNSQH2HMD784PCD51W46D5`
-
-### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
-
-- **expected** — motion (mode, intensity, style, speed, each effect on or off) is a set of core options, each defaulting to the shown theme's value, settable through kb's actions, with Preferences showing each effective value and where it comes from
-- **current** — motion is the --motion-* tokens a sheet restates and the keyframes in app/ui/src/motion.css; the only control is the OS's reduced-motion setting
-- **impact** — the owner cannot calm a lively theme or liven a calm one without changing its code, and an agent cannot see or set motion
-- **closes** — motion option fields on core and on each design-system option node (the theme as a preset), resolved explicit, then theme, then default, as the backdrop choice is; the shell writes the resolved tokens
-- **node** — `01M5SNSQXBAM8P7K25GSM5ASP5`
 
 ### GAP: a theme's token values are CSS in its family's code, not data in kb
 
@@ -1554,6 +1546,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYK42Y4G74JD62AD00BZS`
+
+### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
+
+- **expected** — motion (mode, intensity, style, speed, each effect on or off) is a set of core options, each defaulting to the shown theme's value, settable through kb's actions, with Preferences showing each effective value and where it comes from
+- **current** — motion is the --motion-* tokens a sheet restates and the keyframes in app/ui/src/motion.css; the only control is the OS's reduced-motion setting
+- **impact** — the owner cannot calm a lively theme or liven a calm one without changing its code, and an agent cannot see or set motion
+- **closes** — motion option fields on core and on each design-system option node (the theme as a preset), resolved explicit, then theme, then default, as the backdrop choice is; the shell writes the resolved tokens
+- **node** — `01M5SNSQXBAM8P7K25GSM5ASP5`
 
 ### GAP: a trusted identity header is believed from any process that reaches kb ui's port, not only from the proxy
 

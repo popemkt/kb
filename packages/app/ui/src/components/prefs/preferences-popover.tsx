@@ -1,23 +1,24 @@
-import { extensionNodeId, SYSTEM_IDS } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
 import {
   type EnumOption,
   EnumSelect,
   POPOVER_VALUE_CLASS,
   PopoverShell,
   PrefFieldRow,
-  type PropValue,
   THEME_GLYPHS,
   type ThemePref,
-  useFieldEditor,
-  useGraphRead,
   usePageBackdrop,
   type WidthPref,
   useDismiss,
 } from "@kb/ui-sdk";
-import { useRef, type ReactNode } from "react";
+import { lazy, Suspense, useRef } from "react";
 import { ArrowsHorizontalIcon, GearSixIcon } from "@phosphor-icons/react";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
+import { useCoreSettings } from "./core-settings";
+
+/** The motion options: loaded when Preferences first opens, not with the page. */
+const MotionRows = lazy(() => import("./motion-rows").then((m) => ({ default: m.MotionRows })));
 
 const THEME_OPTIONS: readonly EnumOption<ThemePref>[] = [
   { value: "system", label: "system" },
@@ -57,7 +58,7 @@ export function PreferencesTrigger() {
 
 /**
  * Preferences: how the page looks, and nothing else. The device's theme and
- * width, and core's design system and backdrop. What the kb composes, and
+ * width, and core's design system, backdrop and motion. What the kb composes, and
  * each family's settings, are the Extensions panel's.
  */
 export function PreferencesPopover() {
@@ -75,6 +76,9 @@ export function PreferencesPopover() {
       <DesignSystemRows />
       <WidthRow />
       <BackdropRows />
+      <Suspense fallback={null}>
+        <MotionRows />
+      </Suspense>
     </PopoverShell>
   );
 }
@@ -106,31 +110,6 @@ function WidthRow() {
         onChange={setWidth}
       />
     </PrefFieldRow>
-  );
-}
-
-const CORE_NODE = extensionNodeId("core");
-const NONE: PropValue[] = [];
-
-/**
- * Core's settings as Preferences draws them: each a field of core's node
- * (`sys.extension.core`), drawn with the page's field editor as any field
- * is drawn, under its label. Null until core's node has arrived.
- */
-function useCoreSettings(): ((fieldId: string, label: string) => ReactNode) | null {
-  const graph = useGraphRead();
-  const Field = useFieldEditor();
-  const core = graph.outline.get(CORE_NODE);
-  if (core === undefined) return null;
-  return (fieldId, label) => (
-    <Field
-      nodeId={CORE_NODE}
-      fieldId={fieldId}
-      label={label}
-      values={core.props[fieldId] ?? NONE}
-      context={graph}
-      depth={-1}
-    />
   );
 }
 

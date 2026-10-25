@@ -3355,9 +3355,10 @@ a `#gap` node, named in the last column.
 | Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `themes-ui/src/design-systems/*.css`, mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
 | The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
 | Theme art: ground and veil | `themes-ui/src/art/*-art.tsx`, `art/*.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the veil plane of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code: cannot be renamed or turned off through kb | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
+| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the veil plane of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
 | Faces | `@fontsource*` imports in `themes-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
-| Motion: keyframes and the personality a theme picks | keyframes in `app/ui/src/motion.css`; the choice and timing in the sheets' `--motion-*` | code; the only control is the OS's reduced-motion setting | `01M5SNSQXBAM8P7K25GSM5ASP5` |
+| Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Preferences shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
+| Motion keyframes and a theme's base timing | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*` | code: the options rescale and swap them, never name new ones | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens) |
 | The selected row's paint | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes) | code, and no token reaches it | `01M5SNSR9AC5V1NA31QY8DNEX6` |
 | Settings a person picks (theme, backdrop, its strength and way) | core's node, in Preferences | data | — |
 
@@ -3365,6 +3366,75 @@ The direction (Rule 1, one contract): a theme becomes one node, the theme's
 option node, that carries its tokens, its art's renderer ids with their
 parameters, and its motion preset; the UI renders it. Renderers stay code,
 registered by id as backdrops are. The gaps above are the steps.
+
+### Motion options
+
+How much the page moves is the person's, as settings of core's node, and
+every option defaults to the shown theme's: a theme is a preset. The value
+in force is core's, else the theme's, else the default, and each says
+which (`motionChoice`, `@kb/model/motion-choice`).
+
+- **The options.** `sys.f.motion.mode` (`system`, `full`, `reduced`,
+  `off`), `sys.f.motion.intensity` (`subtle`, `lively`, `bold`),
+  `sys.f.motion.style` (`clean`, `wobbly`), `sys.f.motion.speed`
+  (`snappy`, `normal`, `relaxed`): option fields of core's node, each
+  option its field's child (`sys.motion-<setting>.<value>`). One checkbox
+  field per effect, `sys.f.motion.fx.<effect>`: `press`, `hoverLift`,
+  `listEnter` (rows arriving), `focusRing`, `toastSpring`, `overlayEnter`
+  (menus and dialogs), `toggles`, `pageEnter`, `pageWipe` (a theme's veil
+  gestures) and `workingGlow`. Unset is "from the theme"; any of them is
+  read and written through kb's actions as any field is.
+- **A theme is a preset.** A design system's option node holds the same
+  fields (`SeedOption.props`, written by `motionPresetProps`): ZZZ is
+  wobbly, lively and snappy with press, hover lift, rows and toggles;
+  Transistor clean, lively and relaxed with rows, focus glow and the
+  working glow; YoRHa clean, subtle and snappy with press, rows and focus
+  glow. The defaults are kb as it moved before there were options: the
+  existing gestures on, the newer micro-interactions off.
+- **The painter** (`stores/motion.store.ts`, loaded once the graph is in)
+  writes `<html data-motion data-fx>` and the amplitudes `--motion-lift`
+  and `--motion-press` (by intensity). A theme's sheet already moves at its
+  preset's speed and on its preset's spring, so following the theme writes
+  no timing; a speed of the person's own rescales the duration tokens by
+  the ratio of the two speeds (`SPEED_FACTOR`, read from the sheet as
+  computed), and a style or intensity of their own swaps `--motion-spring`
+  (`springEasing`, a damped spring sampled into `linear()`; clean is the
+  settle ease).
+- **The effects** are CSS in `app/ui/src/motion-fx.css`, each keyed on
+  `data-fx~="<effect>"`, on transform, opacity or filter only. The mode is
+  `data-motion`: `reduced` and `off` take the global reduced-motion rule
+  whatever the OS says, `full` overrides the OS, `system` asks it; `off`
+  also turns every effect off. Script motion hears it too:
+  `prefersReducedMotion` reads the mode before the media query.
+- **Preferences** draws each option with the page's field editor and, under
+  it, the value in force and its source (`set here`, `from <theme>`,
+  `default`); the effects sit in a fold; a reset clears every motion
+  setting of core's, so the theme's preset applies again.
+- **The contract** (`stores/motion.contract.test.ts`, `model/tests/motion.test.ts`):
+  explicit over theme over default, with sources; following the theme
+  paints no timing; a speed of one's own rescales by the ratio; `off`
+  turns every effect off; every whole theme carries a preset as data.
+
+**Engine: one contract, implemented twice** (decided 2026-10-25). The
+owner's bb-lively plugin (popemkt/mac-backup) has the same options, presets
+and effect ids. Three ways were weighed: (a) a standalone package both
+consume; (b) kb owns the engine and bb-lively consumes it; (c) each product
+implements one written contract. kb takes (c) now:
+
+- kb depends on neither bb nor the dotfiles, and bb-lively styles a host it
+  does not own through selectors it injects (`Targets`), while kb owns its
+  DOM and moves through its own tokens and classes; the shareable half is
+  the domain (names, values, resolution order, spring, speed factors), a
+  few hundred lines.
+- The contract is the option names and values, the effect ids, the
+  resolution order (explicit, theme, default, with sources), `off` and
+  `reduced` semantics, and the speed factors (0.8, 1, 1.25). This section
+  is kb's statement of it; bb-lively's `core/src/domain` is the other.
+- The cost of (c) is drift; the trigger to move to (a) is a third consumer,
+  or the second time the two disagree. (a) then extracts `core/src/domain`
+  (it already imports only `effect`) once its bb tokens and naming are
+  generalised; (b) is rejected because kb's packages are private to its
+  monorepo, and bb-lively would pin a kb release to move.
 
 ### Page-head backdrops
 
