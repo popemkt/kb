@@ -19,6 +19,9 @@
  *   seeds, a store of every backend answers `:node/owner` so, and an id its
  *   seed hands to another declaration answers that one's node, while
  *   opening the store writes nothing;
+ * - its settings (`extension.settings`) are exactly the system fields the
+ *   fold seeds that configure its node, the switch left out, each
+ *   writable on that node by the system-write rule;
  * - its footprint (`extension.footprint`) is its seed's rows, loaded or
  *   not, and, only while its host holds it, exactly what that host's kernel
  *   holds of it, each action in its own `ext.<name>` namespace;
@@ -60,18 +63,21 @@ import {
 } from "@kb/contracts";
 import {
   SYSTEM_IDS,
+  configures,
   ensureSystemSeed,
   extensionNodeId,
   foldSeed,
+  isWritableField,
   present,
+  typeRefsOf,
   viewOptionId,
   type SeedSource,
   type SeedView,
 } from "@kb/model";
-import { familyFootprint } from "@kb/operations";
+import { extensionSettingsEffect, familyFootprint } from "@kb/operations";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
-import { STORE_BACKENDS, bunFileSystemLayer, createStore } from "@kb/runtime";
+import { STORE_BACKENDS, bunFileSystemLayer, createStore, kbRuntimeLayer } from "@kb/runtime";
 import { paramsFromProps } from "@kb/views";
 import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
 
@@ -229,6 +235,42 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
     expect(ownedIn(index, receiver.name)).toContain(moved.id);
     expect(ownedIn(index, declaration.name)).not.toContain(moved.id);
   });
+}
+
+/**
+ * The settings promise: what `extension.settings` lists for the family is
+ * what its fold declares, the system fields that configure its node (or
+ * every extension's node) bar the switch, in id order, each one a field a
+ * person may write on that node.
+ */
+function settingsPromises(declaration: ExtensionDeclaration, host: SwitchingHost): void {
+  test("its settings are the fields its fold declares to configure its node, each writable there", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const own = extensionNodeId(declaration.name);
+          const declared = foldSeed(foldWith(declaration), CONTRACT_AT)
+            .nodes.filter(
+              (node) =>
+                node.id !== SYSTEM_IDS.extensionEnabledField &&
+                typeRefsOf(node).includes(SYSTEM_IDS.field) &&
+                configures(node.id, node, own),
+            )
+            .map((node) => node.id)
+            .toSorted();
+          const ctx = yield* openSession(yield* host.root);
+          const answer = yield* extensionSettingsEffect({ name: declaration.name }).pipe(
+            Effect.provide(kbRuntimeLayer(ctx)),
+          );
+          expect(answer.extensions.map((e) => e.name)).toEqual([declaration.name]);
+          const listed = answer.extensions.flatMap((e) => e.settings);
+          expect(listed.map((s) => s.field)).toEqual(declared);
+          for (const { field } of listed) {
+            expect(isWritableField(own, field, ctx.index.getNode(field))).toBe(true);
+          }
+        }),
+      ),
+    ));
 }
 
 /**
@@ -432,6 +474,7 @@ export function extensionContract(
 
     defaultViewPromises(declaration);
     ownershipPromises(declaration, host);
+    settingsPromises(declaration, host);
     footprintPromises(declaration, entry, host);
     switchPromises(declaration, entry, host);
   });

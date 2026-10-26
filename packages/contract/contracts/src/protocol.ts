@@ -19,7 +19,8 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
  * served read-only from GET /assets/* → .kb/assets/ (W6a).
  */
 
-const PropValueSchema = z.union([
+/** A prop value as the wire carries it. */
+export const PropValueSchema = z.union([
   z.object({ t: z.literal("str"), v: z.string() }),
   z.object({ t: z.literal("num"), v: z.number() }),
   z.object({ t: z.literal("bool"), v: z.boolean() }),

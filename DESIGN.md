@@ -3092,6 +3092,20 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     other nodes, and reads it with `ConfigSlots` (`decodeNodeConfig`), the
     mechanism its switch is read with (`familyOn`). There is no second
     registry of settings: which fields configure the agent is a query.
+  - **The query has one home, and an action answers it.** `settingsOf`
+    (`@kb/model`) reads a node's settings out of the graph: every system
+    field that configures it, in id order, with its type, how many values
+    it takes and its option set, the switch left out (the switch is
+    `extension.switch`'s to write and `extension.list`'s to report).
+    `extension.settings {name?}` answers it for every node under
+    `sys.extensions` that has a setting, core's included, or for the one
+    named, with the values each node holds; `kb ext settings [name]` prints
+    it, and MCP and the agent have it as a tool like any read action. It
+    repeats nothing `extension.list` reports. The page reads the same
+    `settingsOf` over its replica wherever it lists a family's settings.
+    `extensionContract` holds every family to it: what the action lists for
+    a family is exactly the fields its fold declares to configure that
+    family's node, each writable there.
     Core's node has settings too, seeded by core: the page-head backdrop,
     its strength and its direction (DESIGN-UI.md → Page-head backdrops), and
     the design system the page is painted in (DESIGN-UI.md → Design tokens
@@ -3338,6 +3352,8 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     another declaration answers that one with no write;
   - its footprint is its seed's rows, loaded or not, and, only while its
     host holds it, exactly what that host's kernel holds of it;
+  - its settings, as `extension.settings` lists them, are exactly the
+    fields its fold declares to configure its node, each writable there;
   - its own node is in the fold, named by its label and filed under
     `sys.extensions`, and switching it writes the switch on that node and
     nothing else;

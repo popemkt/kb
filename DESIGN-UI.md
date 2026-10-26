@@ -2692,7 +2692,8 @@ is one setting among those it opens.
     so a dropped chunk recovers without a reload and nothing moves while
     it keeps failing.
 - **Settings are fields.** A family's settings are the fields whose
-  `sys.f.configures` names its node (`configures`). They are drawn with the
+  `sys.f.configures` names its node, as `settingsOf` reads them (DESIGN.md
+  → Extension families → configuration). They are drawn with the
   page's field editor, as Preferences draws core's. The switch is the one
   setting the card draws as its own control, because it goes through the
   checked `extension.switch`.

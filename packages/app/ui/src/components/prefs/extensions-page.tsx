@@ -10,7 +10,7 @@
  * listeners are asked in turn, each in that order, and the repository
  * extensions refused.
  */
-import { configures, extensionNodeId, SYSTEM_IDS, typeRefsOf } from "@kb/model";
+import { extensionNodeId, settingsOf } from "@kb/model";
 import {
   type EnumOption,
   EnumSelect,
@@ -239,8 +239,8 @@ function Lines({ lines }: { readonly lines: readonly string[] }) {
 }
 
 /**
- * A family's settings: every field whose `sys.f.configures` names its node
- * (`configures`), but the switch, which the card draws as its own control.
+ * A family's settings, as `settingsOf` reads them for its node (the switch
+ * left out: the card draws it as its own control).
  */
 function Settings({ family }: { readonly family: string }) {
   const graph = useGraphRead();
@@ -248,22 +248,17 @@ function Settings({ family }: { readonly family: string }) {
   const nodeId = extensionNodeId(family);
   const node = graph.outline.get(nodeId);
   if (node === undefined) return null;
-  const fields = [...graph.schema.values()].filter(
-    (candidate) =>
-      candidate.id !== SYSTEM_IDS.extensionEnabledField &&
-      typeRefsOf(candidate).includes(SYSTEM_IDS.field) &&
-      configures(candidate.id, candidate, nodeId),
-  );
-  if (fields.length === 0) return null;
+  const settings = settingsOf(graph.schema.values(), (id) => graph.schema.get(id), nodeId);
+  if (settings.length === 0) return null;
   return (
     <div className="mt-1" aria-label={`${family} settings`}>
-      {fields.map((field) => (
+      {settings.map(({ field, label }) => (
         <Field
-          key={field.id}
+          key={field}
           nodeId={nodeId}
-          fieldId={field.id}
-          label={field.text}
-          values={node.props[field.id] ?? NONE}
+          fieldId={field}
+          label={label}
+          values={node.props[field] ?? NONE}
           context={graph}
           depth={-1}
         />

@@ -47,6 +47,8 @@ export {
   systemWriteRefusal,
   type NodeWrite,
 } from "./system-write.ts";
+export { settingsOf } from "./settings.ts";
+export type { Setting, SettingOption } from "./settings.ts";
 export { parseSecretRef, secretRefLabel } from "./secret-ref.ts";
 export type { SecretRef } from "./secret-ref.ts";
 export type { NodeOf } from "./system-write.ts";
