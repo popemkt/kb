@@ -1,5 +1,4 @@
 /* Quiet, finite gestures. The global reduced-motion rule also governs these.
- * GAP [[01M5SNSQXBAM8P7K25GSM5ASP5]] motion is tokens, not options kb can set
  *
  * The timing vocabulary (one ease, the durations every gesture picks from,
  * and the gestures a design system arrives with) is layer 1's, in
@@ -180,11 +179,26 @@ html[data-theme-transition]::view-transition {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-theme-transition]::view-transition-old(root),
-  html[data-theme-transition]::view-transition-new(root),
-  html[data-theme-transition]::view-transition-group(root) {
+  html[data-theme-transition]:not([data-motion="full"])::view-transition-old(root),
+  html[data-theme-transition]:not([data-motion="full"])::view-transition-new(root),
+  html[data-theme-transition]:not([data-motion="full"])::view-transition-group(root) {
     animation-duration: 0.01ms !important;
   }
+}
+
+html[data-theme-transition]:is(
+    [data-motion="reduced"],
+    [data-motion="off"]
+  )::view-transition-old(root),
+html[data-theme-transition]:is(
+    [data-motion="reduced"],
+    [data-motion="off"]
+  )::view-transition-new(root),
+html[data-theme-transition]:is(
+    [data-motion="reduced"],
+    [data-motion="off"]
+  )::view-transition-group(root) {
+  animation-duration: 0.01ms !important;
 }
 
 @keyframes kb-companion-arrive {

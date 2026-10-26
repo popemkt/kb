@@ -64,7 +64,10 @@ function ConnectionDot() {
       className="flex items-center gap-1.5 text-label text-foreground/40"
       title={`Connection: ${dot.label} · revision ${rev}, ${source}${who}`}
     >
-      <span className={cn("h-2 w-2 rounded-full", dot.className)} />
+      <span
+        className={cn("kb-status-dot h-2 w-2 rounded-full", dot.className)}
+        data-status={wsStatus}
+      />
       {dot.label}
     </span>
   );
@@ -83,7 +86,7 @@ function Toasts() {
           onClick={() => dismiss(t.id)}
           aria-label={`Dismiss notification: ${t.text}`}
           className={cn(
-            "flex items-start gap-2 rounded-md border bg-popover px-3 py-2 text-left text-meta shadow-lifted",
+            "kb-toast flex items-start gap-2 rounded-md border bg-popover px-3 py-2 text-left text-meta shadow-lifted",
             t.kind === "error"
               ? "kb-alert-enter border-destructive/40 text-destructive"
               : "kb-surface-enter border-foreground/10 text-popover-foreground",
@@ -285,8 +288,9 @@ export function App() {
         <DockHost />
       </ViewErrorBoundary>
       {/* Over everything: the art's passing gestures, empty at rest. A gesture
-       * is all motion, so reduced motion draws none: a cut, never a flash. */}
-      <div className="pointer-events-none absolute inset-0 z-40 motion-reduce:hidden">
+       * is all motion, so reduced motion draws none: a cut, never a flash
+       * (`.kb-veil`, which also hears the motion mode and `pageWipe`). */}
+      <div className="kb-veil pointer-events-none absolute inset-0 z-40">
         <ThemeArt plane="veil" />
       </div>
     </div>

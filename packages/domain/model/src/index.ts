@@ -166,6 +166,32 @@ export {
   type BackdropStrength,
 } from "./backdrop.ts";
 export {
+  MOTION_EFFECTS,
+  MOTION_FIELD_IDS,
+  MOTION_INTENSITIES,
+  MOTION_MODES,
+  MOTION_OPTION_SETTINGS,
+  MOTION_SPEEDS,
+  MOTION_STYLES,
+  motionEffectFieldId,
+  motionOptionId,
+  motionPresetProps,
+  type MotionEffect,
+  type MotionIntensity,
+  type MotionMode,
+  type MotionOptionSetting,
+  type MotionPreset,
+  type MotionSettings,
+  type MotionSpeed,
+  type MotionStyle,
+} from "./motion.ts";
+export {
+  MOTION_DEFAULTS,
+  motionChoice,
+  type MotionChoice,
+  type MotionSource,
+} from "./motion-choice.ts";
+export {
   ensureSystemSeed,
   seededCommand,
   seededField,

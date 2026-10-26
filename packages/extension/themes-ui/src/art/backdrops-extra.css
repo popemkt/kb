@@ -688,8 +688,11 @@
 
 /* Reduced motion: no gesture is drawn (art.css's last block says why). */
 @media (prefers-reduced-motion: reduce) {
-  .kb-hollow-surge,
-  .kb-ovc-refresh {
+  :root:not([data-motion="full"]) :is(.kb-hollow-surge, .kb-ovc-refresh) {
     display: none;
   }
+}
+
+:root:is([data-motion="reduced"], [data-motion="off"]) :is(.kb-hollow-surge, .kb-ovc-refresh) {
+  display: none;
 }

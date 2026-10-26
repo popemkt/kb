@@ -16,6 +16,8 @@ import { declarationPlugin, defineExtension } from "@kb/contracts";
 import {
   BACKDROP_OPTIONS,
   DESIGN_SYSTEM_OPTIONS,
+  motionPresetProps,
+  type MotionPreset,
   type SeedBackdrop,
   type SeedOption,
 } from "@kb/model";
@@ -33,17 +35,29 @@ function themed(id: string, label: string, system: string): SeedBackdrop {
 /**
  * A theme: a design system whose option chooses the backdrop it pairs with,
  * so a page head shows it while no page and no setting chooses another
- * (DESIGN-UI.md → Themes). The pairing is data, as any choice is.
+ * (DESIGN-UI.md → Themes), and holds its motion preset, which the page
+ * moves by while core's node sets no motion option (Motion options). Both
+ * are data, as any choice is.
  */
-function theme(id: string, label: string, pairsWith: string): SeedOption {
-  return { id, label, chooses: [{ kind: BACKDROP_OPTIONS, id: pairsWith }] };
+function theme(id: string, label: string, pairsWith: string, motion: MotionPreset): SeedOption {
+  return {
+    id,
+    label,
+    chooses: [{ kind: BACKDROP_OPTIONS, id: pairsWith }],
+    props: motionPresetProps(motion),
+  };
 }
 
 /**
  * After Zenless Zone Zero: stickers, comic panels, slanted wipes, jelly
  * springs and TV static, on a near-black street (ART-DIRECTION.md).
  */
-export const ZZZ_DESIGN_SYSTEM = theme("themes.zzz", "ZZZ", "themes.broadcast");
+export const ZZZ_DESIGN_SYSTEM = theme("themes.zzz", "ZZZ", "themes.broadcast", {
+  intensity: "lively",
+  style: "wobbly",
+  speed: "snappy",
+  effects: { press: true, hoverLift: true, listEnter: true, toggles: true },
+});
 /**
  * After Transistor: Cloudbank at night in Art Nouveau, Turn()'s frozen
  * planning frame, functions written as calls (ART-DIRECTION.md).
@@ -52,12 +66,23 @@ export const TRANSISTOR_DESIGN_SYSTEM = theme(
   "themes.transistor",
   "Transistor",
   "themes.cloudbank",
+  {
+    intensity: "lively",
+    style: "clean",
+    speed: "relaxed",
+    effects: { listEnter: true, focusRing: true, workingGlow: true },
+  },
 );
 /**
  * After NieR:Automata: YoRHa's warm beige paper, khaki ink, square corners,
  * mechanical motion and a glitch on failure (ART-DIRECTION.md).
  */
-export const YORHA_DESIGN_SYSTEM = theme("themes.yorha", "YoRHa", "themes.bunker");
+export const YORHA_DESIGN_SYSTEM = theme("themes.yorha", "YoRHa", "themes.bunker", {
+  intensity: "subtle",
+  style: "clean",
+  speed: "snappy",
+  effects: { press: true, listEnter: true, focusRing: true },
+});
 
 /** ZZZ's page head: a broadcast on a stack of slanted panels, with its TV. */
 export const BROADCAST_BACKDROP = themed("themes.broadcast", "Broadcast", ZZZ_DESIGN_SYSTEM.id);

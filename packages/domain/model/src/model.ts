@@ -273,6 +273,16 @@ export const SYSTEM_IDS = {
    * of core's node.
    */
   designSystemField: "sys.f.design-system",
+  /**
+   * Motion options (`motion.ts`): the mode, intensity, style and speed, each
+   * a ref to one of its field's children, and one checkbox field per effect
+   * (`motionEffectFieldId`). Settings of core's node; a design system's
+   * option node holds the same fields as its preset.
+   */
+  motionModeField: "sys.f.motion.mode",
+  motionIntensityField: "sys.f.motion.intensity",
+  motionStyleField: "sys.f.motion.style",
+  motionSpeedField: "sys.f.motion.speed",
 } as const;
 
 /**

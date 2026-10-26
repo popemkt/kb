@@ -29,6 +29,13 @@ export interface SeedOption {
    * read, and changed, through the store.
    */
   readonly chooses?: readonly DeclaredRef[];
+  /**
+   * Settings the option's node holds as its own, written as any field's
+   * values are: a design system's motion preset (`motionPresetProps`, the
+   * same fields as core's motion settings), which the page uses wherever
+   * core's node sets none (DESIGN-UI.md → Motion options).
+   */
+  readonly props?: KbNode["props"];
 }
 
 /** A declared thing of `kind`, by its declared id. */
