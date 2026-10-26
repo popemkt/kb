@@ -28,7 +28,7 @@ export type PreviewSize = "chip" | "card";
 export interface OptionPreview {
   readonly kind: DeclaredOptions;
   /** The sizes it draws: `chip` always, `card` where the kind is chosen by sight. */
-  readonly sizes: readonly PreviewSize[];
+  readonly sizes: readonly ["chip", ...PreviewSize[]];
   readonly Preview: ComponentType<{ readonly id: string; readonly size: PreviewSize }>;
 }
 

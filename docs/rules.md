@@ -1271,7 +1271,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — The rows the page follows while no server answers come from one list of every family source, each hosted family reported as not hosted.
 - **current** — OWN_EXTENSIONS in packages/app/ui/src/ui-plugins.ts maps BUNDLED_FAMILIES only; leaving out the hosted agent is intent stated only in a comment.
-- **impact** — A new family source is silently missing from the offline page and its Preferences switches.
+- **impact** — A new family source is silently missing from the offline page and its Extensions switches.
 - **closes** — Rows derived from the fold's family list with an explicit not-hosted row for hosted families, and a test.
 - **node** — `01M53M9XA8FN8Q25QJVFF8MBE4`
 
@@ -1375,7 +1375,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: translucent text (text-foreground/N) is outside the contrast guard
 
 - **expected** — Every text colour the UI paints, translucent ones included, is either held to AA on its composited ground by the contrast guard (tools/kb/packages/app/ui/src/lib/design-systems.test.ts) or declared as decorative (placeholder, disabled, ornament) with the 3:1 non-text floor where it is UI.
-- **current** — Two solid secondary inks now carry the roles: --muted-foreground and --faint-foreground (layer 1 and every system, held to AA on the background, popover, sidebar and their tints by the guard). Placeholders, the palette's and header's hints, the connection word, the sidebar's rows and section titles, a field's label, Preferences' headings, breadcrumbs and the graph and canvas bars' secondary text use them. The rest of the translucent text (text-foreground/20 through /90, about 370 sites in 96 files, 315 of them at /20 to /75) is still skipped by the guard and unclassified.
+- **current** — Two solid secondary inks now carry the roles: --muted-foreground and --faint-foreground (layer 1 and every system, held to AA on the background, popover, sidebar and their tints by the guard). Placeholders, the palette's and header's hints, the connection word, the sidebar's rows and section titles, a field's label, the Settings page's headings, breadcrumbs and the graph and canvas bars' secondary text use them. The rest of the translucent text (text-foreground/20 through /90, about 370 sites in 96 files, 315 of them at /20 to /75) is still skipped by the guard and unclassified.
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
@@ -1433,7 +1433,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — A field reads as its value wherever it is drawn, with or without an editor: core draws a read-only value when no family provides the page's field editor (FieldEditorService).
 - **current** — FieldEditorService is the outline's NodeField; without it useFieldEditor answers NO_FIELD_EDITOR, which renders nothing, and core's read view (layout.read) shows a node's text and descendants but none of its fields.
-- **impact** — With the outline switched off, the Extensions panel's settings, Preferences' core settings and the agent dock's settings draw no rows and cannot be edited in the page (the CLI and MCP still write them), and a read node shows no fields or tags.
+- **impact** — With the outline switched off, the Settings page's rows and the agent dock's settings draw no rows and cannot be edited in the page (the CLI and MCP still write them), and a read node shows no fields or tags.
 - **closes** — A core read-only field value (the value views of @kb/outline-ui's value-views moved to the kit), drawn by useFieldEditor's fallback and by the read view.
 - **node** — `01M5MWXM43Y12KDBM4JG7X1VRX`
 

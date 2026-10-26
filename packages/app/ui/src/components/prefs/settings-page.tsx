@@ -1,26 +1,7 @@
 /**
- * The Settings page (DESIGN-UI.md → Settings): every setting this kb has,
- * and the few this device has, on one page.
- *
- * - **This device** first: light, dark or system, and the width, which are
- *   the device's (`kb-prefs`), never the graph's, and say so.
- * - Then one section per extension node under `sys.extensions` that has a
- *   setting, in that list's order (core's first), each listing exactly
- *   what `settingsOf` reads for its node, every one drawn with the page's
- *   field editor. The same reader answers `extension.settings`, so the page
- *   shows what `kb ext settings` lists.
- * - Core's section is grouped (theme, page head, motion, effects) and
- *   notes each motion setting's value in force and where it comes from, as
- *   Preferences did; a core setting no group names is drawn under *other*,
- *   so none is left off the page.
- * - Each other extension's section is its settings as rows, and a way to
- *   the Extensions page, where it is switched: a switch is a load decision,
- *   whose effect that page reports.
- *
- * The theme is chosen from a gallery because the design-system field's
- * kind previews at card size: the field editor lays it out so wherever it
- * is drawn, and this page asks for nothing (DESIGN-UI.md → Field values →
- * option galleries).
+ * The Settings page: this device's choices, then every extension node's
+ * settings as `settingsOf` reads them, each drawn with the page's field
+ * editor. What it shows and why is DESIGN-UI.md → Settings.
  */
 import {
   MOTION_EFFECTS,
@@ -123,6 +104,14 @@ interface InForceValue {
   readonly source: MotionSource;
 }
 
+/** Clear every motion setting core's node holds, one after another, so the theme's preset applies. */
+function resetMotion(props: Readonly<Record<NodeId, readonly unknown[]>>): Promise<void> {
+  return MOTION_FIELDS.filter((field) => (props[field]?.length ?? 0) > 0).reduce<Promise<void>>(
+    (previous, field) => previous.then(() => browserHost().writes.removeProp(CORE, field)),
+    Promise.resolve(),
+  );
+}
+
 /** The value in force for each motion field, and where it comes from. */
 function inForceOf(choice: MotionChoice): ReadonlyMap<NodeId, InForceValue> {
   const options = MOTION_OPTION_SETTINGS.map((setting): [NodeId, InForceValue] => [
@@ -159,8 +148,8 @@ function inForceWords(value: string, source: MotionSource, theme: string): strin
 
 export function SettingsPage() {
   const graph = useGraphRead();
-  const sections = (graph.outline.get(SYSTEM_IDS.extensionsRoot)?.children ?? []).flatMap((id) => {
-    const node = graph.outline.get(id);
+  const sections = (graph.schema.get(SYSTEM_IDS.extensionsRoot)?.children ?? []).flatMap((id) => {
+    const node = graph.schema.get(id);
     if (node === undefined) return [];
     const settings = settingsOf(graph.schema.values(), (other) => graph.schema.get(other), id);
     return settings.length === 0 ? [] : [{ id, label: node.text, settings }];
@@ -274,7 +263,7 @@ function SettingRow({
     nodeId,
     fieldId: field,
     label,
-    values: graph.outline.get(nodeId)?.props[field] ?? NONE,
+    values: graph.schema.get(nodeId)?.props[field] ?? NONE,
     context: graph,
     depth: -1,
   });
@@ -324,7 +313,7 @@ function CoreSection({
 }) {
   const graph = useGraphRead();
   const choice = useMotionStore((s) => s.choice);
-  const core = graph.outline.get(CORE);
+  const core = graph.schema.get(CORE);
   const theme = useShownDesignSystem()?.key.label ?? "the theme";
   const listed = new Set(settings.map((setting) => setting.field));
   const grouped = new Set(CORE_GROUPS.flatMap((group) => group.rows.map((row) => row.field)));
@@ -373,13 +362,7 @@ function CoreSection({
         <button
           type="button"
           className="mt-2 rounded-md px-2 py-1 text-meta text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
-          onClick={() => {
-            for (const field of MOTION_FIELDS) {
-              if ((core?.props[field]?.length ?? 0) > 0) {
-                void browserHost().writes.removeProp(CORE, field);
-              }
-            }
-          }}
+          onClick={() => void resetMotion(core?.props ?? {})}
         >
           Reset motion to {theme}
         </button>

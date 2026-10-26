@@ -244,7 +244,7 @@ function Lines({ lines }: { readonly lines: readonly string[] }) {
 function Settings({ family }: { readonly family: string }) {
   const graph = useGraphRead();
   const nodeId = extensionNodeId(family);
-  if (graph.outline.get(nodeId) === undefined) return null;
+  if (graph.schema.get(nodeId) === undefined) return null;
   const settings = settingsOf(graph.schema.values(), (id) => graph.schema.get(id), nodeId);
   if (settings.length === 0) return null;
   return (
