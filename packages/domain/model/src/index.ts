@@ -64,7 +64,6 @@ export {
 } from "./local-date.ts";
 export type { LocalDate } from "./local-date.ts";
 export {
-  LEGACY_SEED_RENAMES,
   SYSTEM_IDS,
   clockSampler,
   currentIso,
@@ -201,6 +200,7 @@ export {
   systemSeedNodes,
 } from "./seed.ts";
 export { foldSeed, type FoldedSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
+export type { SeedRetirement } from "./seed-retirement.ts";
 export {
   DESIGN_SYSTEM_OPTIONS,
   designSystemChoice,

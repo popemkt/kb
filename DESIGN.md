@@ -537,10 +537,10 @@ type PropValue =
   any field: a field's cardinality and inverse, an agent provider's adapter
   and endpoint, a docs view's template. A prop whose field node the graph
   does not hold has nothing to say it is hidden, so it is drawn, named by
-  its id: a store seeds every bundled family's fields, so this is a family
-  a build leaves out entirely, or a seeded field retired while nodes still
-  hold its values (the seed has no general retirement), whose values then
-  show as what they are. A setting (`sys.f.configures`) is a row on the node
+  its id: a store seeds every bundled family's fields, and the seed moves
+  or drops the values of a field it retires (Extension families → the
+  seed retires what it renames), so this is a family a build leaves out
+  entirely, whose values then show as what they are. A setting (`sys.f.configures`) is a row on the node
   it configures however many other places draw it with the same field
   editor (the Settings page). A table that names no columns
   derives them from its rows' tag templates by the same rule, so a table of
@@ -3145,7 +3145,7 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   with it — the server's (`openKbEffect`), the client's and the page's —
   so References answer alike on both hosts.
 - **The seed is the root's fold, never a loaded registry.**
-  `ensureSystemSeed(nodes, seed)` runs at open, before any registry
+  `ensureSystemSeed(nodes, fold)` runs at open, before any registry
   exists. `openKbEffect` passes it the fold of the root's declarations
   (`rootFamilies(root).declarations`): the bundled ones, which
   `bundledSeed(at)` folds alone (`@kb/bundled`, a `scope:shared` package
@@ -3174,7 +3174,9 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   - its own provenance: the fold (`foldSeed`, `@kb/model`) yields each
     node's **owner**, the declaration whose seed holds its id (its view
     options and its own node included), read as `bundledOwners()`. It is
-    known only there, where every id is already proven to have one.
+    known only there, where every id is already proven to have one;
+  - its **retirement table**: each declaration's `retires` rows, in
+    declaration order (`FoldedSeed.retired`, `bundledFold()`), below.
 
   A repository extension's declaration folds after the bundled ones, so
   the store it lives in carries its node, its switch and its settings as
@@ -3190,6 +3192,41 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   code. The page and the client fold and derive ownership from the bundled
   declarations alone, so a repository extension's seed shows no owner
   there.
+
+- **The seed retires what it renames.** A seeded id is frozen data, so a
+  family that renames or removes one declares a row of the retirement
+  table (`retires: [{from, to?}]`, `SeedRetirement`, `@kb/model`): the id
+  a store may still hold, and the seeded id that replaced it, if any.
+  `ensureSystemSeed` applies the fold's rows before it seeds
+  (`retireSeeded`):
+  - a retired node is deleted. Where its replacement is not in the store
+    yet it is renamed in place, so an edit made on the old id survives
+    (its text included: the seed never rewrites a node's text); where it
+    is, the replacement keeps its own and gains the props and children it
+    lacks;
+  - on every node, a prop keyed by a retired field is keyed by its
+    replacement (the replacement's own value wins where a node holds
+    both), a ref value naming a retired id names its replacement, a child
+    list names the replacement in its place, and a `[[ref]]` in text
+    follows. A renamed field and each of its options are rows of their
+    own, so a value that chose an old option chooses the new one. Where
+    nothing replaced an id, its keys, values and child entries are
+    dropped; a mention in text is left, and shows as missing;
+  - it is idempotent, applying wherever a retired id is present, so a
+    store a build without the rows opened (which re-seeds the old node,
+    as the seed adds what is missing, but chooses nothing with it) and a
+    store merged from a clone that still held the old nodes both converge
+    on the next open, and a migrated store opens as a no-op;
+  - the fold refuses a row it cannot honour, as a bundling defect: an id
+    retired twice, a retired id it still seeds (each open would retire
+    what it then seeds again), or a replacement it does not seed.
+
+  The graph's default perspective, `sys.lens.all-mentions` →
+  `lens.all-mentions`, is the graph family's row. `views.migrate`'s
+  retirements stay that action's own: it rewrites shapes (a frame's view
+  settings into a view node), not ids, and runs when a person asks.
+  `domain/model/tests/seed-retirement.test.ts` holds the table, an older
+  build's open and a merge with an unmigrated clone to it.
 
 - **A family's footprint is read, never stored.** What a family adds is
   two readings of what already exists (`FootprintRow`, `@kb/contracts`:
@@ -3388,11 +3425,11 @@ Today's drift from this contract is marked where it sits:
   GAP [[01M439W857BD9QQTBEQ5X5D06D]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
-- core's two migrations of graph data written before the graph was a
-  family, which name the graph's frozen ids by their spelling
-  (`LEGACY_SEED_RENAMES` for `lens.all-mentions`, and
-  `PERSPECTIVE_RENDERER_FIELD`), held to `GRAPH_IDS` by `@kb/graph`'s seed
-  test: a gap placeholder in the
+- core's migration of graph data written before the graph was a family,
+  which names the graph's frozen id by its spelling
+  (`PERSPECTIVE_RENDERER_FIELD`), held to `GRAPH_IDS` by `@kb/graph`'s seed
+  test (the default perspective's rename is the graph family's own
+  retirement row): a gap placeholder in the
   [projection-families plan](docs/brainstorms/2026-10-16-kb-projection-families/README.md).
 
 ### Canvas documents

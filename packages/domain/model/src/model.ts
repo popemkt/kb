@@ -285,17 +285,6 @@ export const SYSTEM_IDS = {
   motionSpeedField: "sys.f.motion.speed",
 } as const;
 
-/**
- * Seeded ids renamed after stores were seeded with them, old id to new: the
- * graph's default perspective lost its `sys.` prefix so the write guard does
- * not lock it. Ids are frozen data, so the table names both spellings; the
- * new one is the graph family's (`@kb/graph`'s `GRAPH_IDS.lensAllMentions`),
- * which its tests hold to this row.
- */
-export const LEGACY_SEED_RENAMES: Readonly<Record<string, string>> = {
-  "sys.lens.all-mentions": "lens.all-mentions",
-};
-
 /** Any reserved / seeded id under the `sys.` prefix (browse yes, break no). */
 export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");

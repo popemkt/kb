@@ -1331,14 +1331,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
 - **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
 
-### GAP: the system seed cannot retire or rename a seeded node
-
-- **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
-- **current** — ensureSystemSeed only adds: it fills absent nodes, props and template field refs. Its one retirement is LEGACY_LENS_ALL_MENTIONS, special-cased. The view-node migration retires its own seeds (graph-perspective tag, frame view field, lens.renderer options, placement) through the explicit views.migrate action, a second retirement list beside the seed. There is still no general retirement table.
-- **impact** — A store opened elsewhere keeps the retired field nodes as clutter, the graph-perspective tag keeps listing them, and a value a perspective held under the old field is silently ignored (its choice reverts to the default).
-- **closes** — A declared retirement table in @kb/model (old id to replacement, option ids to option ids) that ensureSystemSeed applies before seeding, with the legacy all-mentions migration folded into it and a seed test over it.
-- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
-
 ### GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form
 
 - **expected** — sys.f.view.filter holds a view's narrowing as the printed :where of its conditions (printEdn), the form sys.f.query holds, so any condition the query placement can hold the narrowing can too, and both lift and lower through one IR
@@ -2283,6 +2275,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the system seed cannot retire or rename a seeded node
+
+- **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
+- **current** — ensureSystemSeed only adds: it fills absent nodes, props and template field refs. Its one retirement is LEGACY_LENS_ALL_MENTIONS, special-cased. The view-node migration retires its own seeds (graph-perspective tag, frame view field, lens.renderer options, placement) through the explicit views.migrate action, a second retirement list beside the seed. There is still no general retirement table.
+- **impact** — A store opened elsewhere keeps the retired field nodes as clutter, the graph-perspective tag keeps listing them, and a value a perspective held under the old field is silently ignored (its choice reverts to the default).
+- **closes** — A declared retirement table in @kb/model (old id to replacement, option ids to option ids) that ensureSystemSeed applies before seeding, with the legacy all-mentions migration folded into it and a seed test over it.
+- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
 
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 

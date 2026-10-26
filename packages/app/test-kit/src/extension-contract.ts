@@ -214,7 +214,7 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
   const receiver = foldWith(declaration).find((source) => source !== declaration);
   if (moved === undefined || receiver === undefined) return;
   test("an id its seed hands to another declaration is answered by that one, and opening writes nothing", () => {
-    const before = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
+    const before = foldSeed(foldWith(declaration), CONTRACT_AT);
     const after = foldWith(declaration).map((source) =>
       source === declaration
         ? {
@@ -226,7 +226,7 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
           : source,
     );
     const stored = ensureSystemSeed([], before).nodes;
-    const reopened = ensureSystemSeed(stored, foldSeed(after, CONTRACT_AT).nodes);
+    const reopened = ensureSystemSeed(stored, foldSeed(after, CONTRACT_AT));
     expect({ seeded: reopened.seeded, deletes: reopened.deletes }).toEqual({
       seeded: false,
       deletes: [],

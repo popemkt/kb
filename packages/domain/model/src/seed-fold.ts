@@ -17,6 +17,7 @@ import {
   type SeedOption,
 } from "./declared-option.ts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
+import type { SeedRetirement } from "./seed-retirement.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
 /**
@@ -57,6 +58,13 @@ export interface SeedSource {
    * else. The fold writes it as `sys.views`' `sys.f.view.default`.
    */
   readonly defaultView?: SeedView;
+  /**
+   * The seeded ids it renamed or removed since a store could have been
+   * seeded with them, each with what replaced it, if anything: its rows of
+   * the retirement table (`SeedRetirement`), which opening applies before
+   * it seeds.
+   */
+  readonly retires?: readonly SeedRetirement[];
 }
 
 /**
@@ -212,6 +220,34 @@ function fileUnder(nodes: readonly KbNode[], rootId: string, derived: readonly K
 export interface FoldedSeed {
   readonly nodes: KbNode[];
   readonly owners: ReadonlyMap<NodeId, string>;
+  /** Every source's retirement rows, in source order (`retiredRows`). */
+  readonly retired: readonly SeedRetirement[];
+}
+
+/**
+ * Every source's retirement rows, in source order. An id retired twice, a
+ * retired id the fold still seeds (opening would retire what it then seeds
+ * again), or a replacement the fold does not seed is a bundling defect, so
+ * it throws.
+ */
+function retiredRows(
+  sources: readonly SeedSource[],
+  seeded: ReadonlySet<NodeId>,
+): SeedRetirement[] {
+  const rows = sources.flatMap((source) =>
+    (source.retires ?? []).map((row) => ({ row, by: source.name })),
+  );
+  const retired = new Set<NodeId>();
+  for (const { row, by } of rows) {
+    if (retired.has(row.from)) throw new Error(`${row.from} is retired twice`);
+    retired.add(row.from);
+    if (seeded.has(row.from))
+      throw new Error(`${by} retires ${row.from}, which the seed still holds`);
+    if (row.to !== undefined && !seeded.has(row.to)) {
+      throw new Error(`${by} retires ${row.from} for ${row.to}, which the seed does not hold`);
+    }
+  }
+  return rows.map(({ row }) => row);
 }
 
 /**
@@ -266,6 +302,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   // Read once every id is known to have one owner, so a doubled source is
   // refused for its ids first.
   const defaults = defaultViewProps(sources);
+  const retired = retiredRows(sources, seen);
   return {
     nodes: folded.map((node) =>
       node.id === SYSTEM_IDS.viewsRoot ? { ...node, props: { ...node.props, ...defaults } } : node,
@@ -277,5 +314,6 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
         ),
       ),
     ),
+    retired,
   };
 }
