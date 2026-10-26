@@ -517,6 +517,14 @@
   animation: kb-zzz-wipe-strip calc(var(--motion-duration-reveal) * 2.4) linear forwards;
 }
 
+/* The strip's words on a layer of their own: the strip itself is then a
+ * solid colour, which the compositor draws without rastering, and only the
+ * words' small box is rastered, once. Rastered together, the strip's first
+ * frames on the move cost a dropped frame. */
+.kb-zzz-wipe-strip span {
+  will-change: transform;
+}
+
 @keyframes kb-zzz-wipe {
   0% {
     translate: 100cqw 0;
