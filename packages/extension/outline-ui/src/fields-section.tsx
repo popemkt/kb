@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
 import { cardinalityOf, declaresOptionSet, isWritableField } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
@@ -26,7 +26,16 @@ import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
 import { VALUE_KINDS, valueKindOf } from "./value-kind";
 import { arriveAt, slotAt } from "./value-slot-nav";
-import { OptionGallery } from "./option-gallery";
+
+/**
+ * The gallery loads when a field first draws as one: only a kind whose
+ * preview draws at card size does (the design system), so the page's first
+ * load does not carry it. Until it lands the field shows its picker, which
+ * the gallery is shown open.
+ */
+const OptionGallery = lazy(() =>
+  import("./option-gallery").then((m) => ({ default: m.OptionGallery })),
+);
 
 interface FieldsSectionProps {
   nodeId: string;
@@ -434,6 +443,18 @@ export function NodeField({
     !valueOnly &&
     declaresOptionSet(fieldNode) &&
     cardinalityOf(fieldNode?.props) === "one";
+  const stack = (
+    <FieldValueStack
+      nodeId={nodeId}
+      fieldId={fieldId}
+      fieldType={fieldType}
+      values={values}
+      context={context}
+      readOnly={readOnly}
+      onFollow={follow}
+      instanceKey={instanceKey}
+    />
+  );
   return (
     <FieldRow
       depth={depth}
@@ -446,26 +467,19 @@ export function NodeField({
       onFollow={follow}
     >
       {gallery ? (
-        <OptionGallery
-          nodeId={nodeId}
-          fieldId={fieldId}
-          label={label}
-          values={values}
-          context={context}
-          readOnly={readOnly}
-          card={card}
-        />
+        <Suspense fallback={stack}>
+          <OptionGallery
+            nodeId={nodeId}
+            fieldId={fieldId}
+            label={label}
+            values={values}
+            context={context}
+            readOnly={readOnly}
+            card={card}
+          />
+        </Suspense>
       ) : (
-        <FieldValueStack
-          nodeId={nodeId}
-          fieldId={fieldId}
-          fieldType={fieldType}
-          values={values}
-          context={context}
-          readOnly={readOnly}
-          onFollow={follow}
-          instanceKey={instanceKey}
-        />
+        stack
       )}
     </FieldRow>
   );

@@ -807,7 +807,9 @@ write), so the gallery is the field's picker shown open, not a second
 picker. An option nobody contributes now is offered by its label alone,
 as the picker offers it; choosing it is a choice that paints the default. The field editor decides it from the kind, wherever the
 field is drawn (the Settings page, core's node in the outline), and no
-surface asks for it: there is no layout prop to fork on. A many-valued
+surface asks for it: there is no layout prop to fork on. The gallery
+loads the first time a field draws as one, so the page's first load does
+not carry it; until then the field shows its picker. A many-valued
 field, a field drawn value-only (a table cell) and a kind without a card
 keep the chips and the picker.
 
