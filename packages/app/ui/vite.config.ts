@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite-plus";
+import { defineConfig, type Plugin } from "vite-plus";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -10,6 +10,36 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 // KB_UI_DEV_PORT overrides the Vite listen port. Defaults match the CLI.
 const apiPort = process.env.KB_UI_API_PORT ?? "4321";
 const devPort = Number(process.env.KB_UI_DEV_PORT ?? 5173);
+
+/**
+ * A design system's sheet ships as a string in the page's script (a `?raw`
+ * import the painter mounts), where no CSS minifier reaches it: its comments
+ * and the whitespace no rule needs are dropped here, so the eager budget
+ * pays for its rules alone (DESIGN-UI.md → Delivery). No sheet puts a
+ * `{};`, `: ` or `0.` inside a string, where it would matter; a leading
+ * zero (`0.5`) is dropped too.
+ */
+function compactRawSheets(): Plugin {
+  return {
+    name: "kb:compact-raw-sheets",
+    enforce: "post",
+    transform(code, id) {
+      if (!/\/design-systems\/[^/]+\.css\?raw$/.test(id)) return null;
+      const match = /^export default (".*");?\s*$/s.exec(code);
+      if (match?.[1] === undefined) return null;
+      const sheet: unknown = JSON.parse(match[1]);
+      if (typeof sheet !== "string") return null;
+      const compact = sheet
+        .replaceAll(/\/\*[\s\S]*?\*\//g, "")
+        .replaceAll(/\s+/g, " ")
+        .replaceAll(/ ?([{};]) ?/g, "$1")
+        .replaceAll(/: /g, ":")
+        .replaceAll(/(?<![\w.])0\.(?=\d)/g, ".")
+        .trim();
+      return { code: `export default ${JSON.stringify(compact)};`, map: null };
+    },
+  };
+}
 
 export default defineConfig({
   // Own lint/check block is required: without it, `vp` walks up to
@@ -27,7 +57,7 @@ export default defineConfig({
     // Prefer explicit `--no-fmt` in scripts; keep fmt off by default here too.
     fmt: false,
   },
-  plugins: [tailwindcss(), react()],
+  plugins: [tailwindcss(), react(), compactRawSheets()],
   build: {
     // `/assets/*` is the kb media route (.kb/assets) on the server; keep the
     // bundler's hashed output out of that namespace or index.html 404s. The

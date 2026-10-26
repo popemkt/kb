@@ -185,12 +185,12 @@ function SwitcherMenu({
       ref={panel}
       role="menu"
       aria-label="Show in this pane"
-      className="kb-surface-enter z-50 w-60 overflow-y-auto rounded-lg border border-foreground/10 bg-popover p-1 text-ui text-popover-foreground shadow-overlay"
+      className="kb-surface-enter z-50 w-60 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-ui text-popover-foreground shadow-overlay"
       style={style ?? { position: "fixed", visibility: "hidden" }}
     >
       {sections.map((section) => (
         <div key={section.title} className="py-0.5">
-          <p className="truncate px-2 pb-0.5 pt-1 text-label uppercase tracking-wide text-foreground/35">
+          <p className="truncate px-2 pb-0.5 pt-1 text-label kb-label text-foreground/35">
             {section.title}
           </p>
           {section.choices.map((choice) => (

@@ -78,7 +78,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
     <div className="absolute left-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] flex-col rounded-lg border border-foreground/8 bg-popover/90 shadow-floating backdrop-blur-sm">
       <button
         type="button"
-        className="flex items-center gap-1.5 px-2.5 py-1.5 text-label font-medium text-foreground/60 hover:text-foreground/80"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-label font-medium text-muted-foreground hover:text-foreground"
         onClick={() => setCollapsed((v) => !v)}
         aria-label={collapsed ? "Expand legend" : "Collapse legend"}
       >
@@ -107,7 +107,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
               type="button"
               className={cn(
                 "flex items-center gap-1.5 rounded-xs px-1.5 py-0.5 text-left text-label transition-colors hover:bg-foreground/5",
-                activeFilters.has(b.key) ? "text-foreground/30" : "text-foreground/70",
+                activeFilters.has(b.key) ? "text-faint-foreground" : "text-muted-foreground",
               )}
               aria-pressed={activeFilters.has(b.key)}
               title={activeFilters.has(b.key) ? `Restore ${b.tag}` : `Dim ${b.tag}`}
@@ -118,7 +118,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
                 style={{ backgroundColor: b.color }}
               />
               <span className="truncate max-w-[120px]">{b.tag}</span>
-              <span className="ml-auto text-caption text-foreground/30">{b.nodeIds.length}</span>
+              <span className="ml-auto text-caption text-faint-foreground">{b.nodeIds.length}</span>
             </button>
           ))}
         </div>

@@ -8,29 +8,27 @@
   color-scheme: inherit;
   font-family: var(--app-font);
 
-  /* Ground and ink. */
-  --dv-group-view-background-color: var(--background);
+  /* Ground and ink. A pane has no ground of its own: the page's ground
+   * (and the design system's art drawn on it) shows through every pane, as
+   * it does through a single one; the tab strip is a tint over it. */
+  --dv-group-view-background-color: transparent;
   --dv-tabs-and-actions-container-background-color: color-mix(
     in oklab,
     var(--foreground) 2.5%,
-    var(--background)
+    transparent
   );
-  --dv-activegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
   --dv-inactivegroup-visiblepanel-tab-background-color: color-mix(
     in oklab,
     var(--foreground) 1%,
-    var(--background)
+    transparent
   );
   --dv-activegroup-hiddenpanel-tab-background-color: transparent;
   --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--foreground);
-  --dv-activegroup-hiddenpanel-tab-color: color-mix(in oklab, var(--foreground) 55%, transparent);
-  --dv-inactivegroup-visiblepanel-tab-color: color-mix(
-    in oklab,
-    var(--foreground) 65%,
-    transparent
-  );
-  --dv-inactivegroup-hiddenpanel-tab-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+  --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--faint-foreground);
   --dv-tab-divider-color: transparent;
   --dv-separator-border: color-mix(in oklab, var(--foreground) 7%, transparent);
   --dv-paneview-header-border-color: var(--border);

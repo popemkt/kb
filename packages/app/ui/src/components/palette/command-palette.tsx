@@ -164,31 +164,35 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     >
       <button
         type="button"
-        className="absolute inset-0 bg-scrim/30 backdrop-blur-[2px]"
+        className="kb-scrim absolute inset-0 bg-scrim/30 backdrop-blur-[2px]"
         aria-label="Dismiss palette"
         onClick={onClose}
       />
       <div
         className={cn(
           "kb-surface-enter relative z-10 w-full max-w-[520px] overflow-hidden rounded-xl",
-          "border border-foreground/10 bg-popover shadow-modal",
+          "border border-border bg-popover shadow-modal",
         )}
         onKeyDown={onKeyDown}
       >
         <div className="flex items-center gap-2 border-b border-foreground/[0.06] px-3 py-2.5">
           <MagnifyingGlassIcon size={16} className="shrink-0 text-foreground/25" />
+          <span
+            aria-hidden="true"
+            className="kb-palette-mark kb-label shrink-0 text-label text-primary"
+          />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search and open…"
-            className="kb-text w-full bg-transparent text-foreground/85 outline-none placeholder:text-foreground/25"
+            className="kb-text w-full bg-transparent text-foreground/85 outline-none placeholder:text-faint-foreground"
             aria-autocomplete="list"
             aria-controls="kb-palette-list"
             aria-activedescendant={hits[active] ? `kb-palette-${hits[active].id}` : undefined}
           />
-          <kbd className="hidden rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40 sm:inline">
+          <kbd className="hidden rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-faint-foreground sm:inline">
             esc
           </kbd>
         </div>
@@ -210,20 +214,26 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   type="button"
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-1.5 text-left",
-                    i === active ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]",
+                    // The active row wears the design system's accent: its
+                    // hover and selection tint (ZZZ's lime, Transistor's teal).
+                    i === active && "bg-accent",
                   )}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => void selectHit(hit)}
                 >
-                  {hit.kind === "command" ? (
-                    <TerminalIcon size={14} className="shrink-0 text-primary" />
-                  ) : (
-                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/25" />
-                  )}
+                  {/* One glyph column, so every row's text starts on one line. */}
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {hit.kind === "command" ? (
+                      <TerminalIcon size={14} className="text-primary" />
+                    ) : (
+                      <span className="h-1.5 w-1.5 rounded-full bg-foreground/25" />
+                    )}
+                  </span>
                   <span className="min-w-0 flex-1 truncate text-ui text-foreground/85">
                     {hit.text || "(empty)"}
                   </span>
-                  <span className="shrink-0 font-mono text-caption text-foreground/30">
+                  {/* A shade of the row's own ink, so it holds AA on the active row's accent too. */}
+                  <span className="shrink-0 font-mono text-caption text-foreground/70">
                     {hit.kind === "command" ? "cmd" : hit.id}
                   </span>
                 </button>
@@ -245,9 +255,9 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
       className="flex w-full max-w-xs items-center gap-2 rounded-md bg-foreground/[0.03] px-2.5 py-1 text-left transition-colors duration-100 hover:bg-foreground/[0.06]"
       aria-label="Open search palette"
     >
-      <MagnifyingGlassIcon size={14} className="shrink-0 text-foreground/25" />
-      <span className="flex-1 text-ui text-foreground/25">Search and open…</span>
-      <kbd className="rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40">
+      <MagnifyingGlassIcon size={14} className="shrink-0 text-faint-foreground" />
+      <span className="flex-1 text-ui text-faint-foreground">Search and open…</span>
+      <kbd className="rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-faint-foreground">
         ⌘K
       </kbd>
     </button>

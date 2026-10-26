@@ -68,12 +68,10 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
       </button>
       {open ? (
         <div
-          className="absolute right-0 top-9 z-40 max-h-[calc(100vh-10rem)] w-72 overflow-y-auto rounded-lg border border-foreground/10 bg-popover/95 p-3 shadow-overlay backdrop-blur-sm"
+          className="absolute right-0 top-9 z-40 max-h-[calc(100vh-10rem)] w-72 overflow-y-auto rounded-lg border border-border bg-popover/95 p-3 shadow-overlay backdrop-blur-sm"
           data-testid="graph-settings-panel"
         >
-          <p className="mb-2 text-label font-semibold uppercase tracking-wide text-foreground/40">
-            Settings
-          </p>
+          <p className="mb-2 text-label font-semibold kb-label text-foreground/40">Settings</p>
 
           <GraphMappings perspective={perspective} />
 

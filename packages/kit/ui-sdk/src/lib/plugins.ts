@@ -340,7 +340,54 @@ export function provideBackdrop(
 export interface DesignSystem {
   readonly key: SeedOption;
   readonly stylesheet: string;
+  /**
+   * The system's art: illustration and ambient motion painted once for the
+   * whole workspace while the system paints the page, in two planes (the
+   * shell's one slot, `ThemeArt`, mounted once per plane). None for a
+   * system that is tokens alone.
+   */
+  readonly Art?: ComponentType<ThemeArtProps>;
 }
+
+/**
+ * The three planes of a design system's art (`ThemeArtProps.plane`): the
+ * `ground` under everything, the `veil` over the whole window (a write's
+ * gesture), and a `pane` over each pane (that pane's page change).
+ */
+export type ThemeArtPlane = "ground" | "veil" | "pane";
+
+/**
+ * What the shell tells a design system's art layer: what the owner is doing
+ * (the same signal a backdrop reads) and, for a pane's plane, that pane's
+ * own page, so a page change is answered by a gesture (a wipe, a Jaunt())
+ * in the pane that changed and nowhere else. The layer is
+ * `pointer-events: none` and hidden from assistive technology; it hears no
+ * input of its own.
+ */
+export interface ThemeArtProps {
+  /**
+   * Which plane is drawn: `ground`, under everything the shell draws, where
+   * the art lives; or `veil`, over everything, for a passing gesture only (a
+   * wipe, a frozen frame) — a veil at rest draws nothing, so it never sits
+   * between the owner and their text.
+   */
+  readonly plane: ThemeArtPlane;
+  readonly activity: PageActivity;
+  /**
+   * In the `pane` plane, the path of the pane it lies over: it changes only
+   * when that pane's own page does, never when the focus moves to another
+   * pane. In the other planes, the focused pane's path.
+   */
+  readonly path: string;
+}
+
+/**
+ * The longest a veil may hold a passing gesture, in ms, whatever becomes of
+ * its animation (a hidden tab, one cancelled or interrupted): a gesture past
+ * it is gone from the page. However fast the pages change, the veil draws
+ * what one change draws, and nothing once this has passed.
+ */
+export const THEME_GESTURE_MAX_MS = 2400;
 
 export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems");
 

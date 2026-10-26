@@ -60,7 +60,7 @@ export function DateEditor({ initialText, onCommit, onCancel }: DateEditorProps)
         className={cn(
           "w-full rounded-sm border-none bg-transparent px-1 outline-none",
           KB_TEXT_CLASS,
-          "text-foreground/70 placeholder:text-foreground/25",
+          "text-foreground/70 placeholder:text-faint-foreground",
         )}
         autoFocus
         onChange={(e) => {
@@ -89,7 +89,7 @@ export function DateEditor({ initialText, onCommit, onCancel }: DateEditorProps)
         role="dialog"
         aria-label="Calendar"
         className={cn(
-          "z-30 w-60 overflow-auto rounded-lg border border-foreground/10 bg-popover p-2 shadow-overlay",
+          "z-30 w-60 overflow-auto rounded-lg border border-border bg-popover p-2 shadow-overlay",
           place === undefined && "absolute left-0 top-full mt-1",
         )}
         style={place}

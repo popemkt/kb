@@ -24,7 +24,7 @@ export function RelatedList({ related }: { related: Related }) {
       className="flex flex-col gap-1 border-t border-foreground/[0.06] pt-1.5"
       data-testid="graph-related"
     >
-      <span className="text-caption font-medium uppercase tracking-wide text-foreground/40">
+      <span className="text-caption font-medium kb-label text-foreground/40">
         Related, not connected
       </span>
       {related.suggestions.map((s) => {

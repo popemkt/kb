@@ -966,14 +966,33 @@
       "name": "@kb/themes-ui",
       "version": "0.0.0",
       "dependencies": {
+        "@fontsource-variable/archivo": "catalog:",
+        "@fontsource-variable/josefin-sans": "catalog:",
+        "@fontsource-variable/jost": "catalog:",
+        "@fontsource/barlow": "catalog:",
+        "@fontsource/barlow-condensed": "catalog:",
+        "@fontsource/marcellus-sc": "catalog:",
+        "@fontsource/share-tech-mono": "catalog:",
         "@kb/contracts": "workspace:*",
         "@kb/plugin": "workspace:*",
+        "@kb/scene": "workspace:*",
+        "@kb/scene-gpu": "workspace:*",
         "@kb/themes": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "effect": "catalog:",
+        "react": "catalog:",
+        "three": "catalog:",
       },
       "devDependencies": {
+        "@kb/ui-test-kit": "workspace:*",
         "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@types/three": "catalog:",
+        "happy-dom": "catalog:",
+        "react-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/infrastructure/sandbox-quickjs": {
@@ -1152,8 +1171,15 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.287",
     "@effect/platform-bun": "4.0.0-rc.112",
     "@effect/tsgo": "^0.40.0",
+    "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/josefin-sans": "^5.3.0",
+    "@fontsource-variable/jost": "^5.3.0",
     "@fontsource-variable/outfit": "^5.3.0",
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/marcellus-sc": "^5.3.0",
+    "@fontsource/share-tech-mono": "^5.3.0",
     "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@oxlint/plugins": "1.83.0",
@@ -1406,9 +1432,23 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.28.2", "", { "os": "win32", "cpu": "x64" }, "sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g=="],
 
+    "@fontsource-variable/archivo": ["@fontsource-variable/archivo@5.3.0", "", {}, "sha512-HogK8FJelrD1o7TlZlkIVtHgc20bO5PZRWE7mUeUTdMN055alznQV6/00J00IBeu8FQAH4s3zW9UJNvKExXf+g=="],
+
     "@fontsource-variable/inter": ["@fontsource-variable/inter@5.3.0", "", {}, "sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA=="],
 
+    "@fontsource-variable/josefin-sans": ["@fontsource-variable/josefin-sans@5.3.0", "", {}, "sha512-duVgkuzE/co4iuIfJ7jM2qX0ED3b6qdY+SlSjNMs6zfhz7EE7kJxV0qF65hQCv1kN0A20j4FwsGAYJvfpU+iSg=="],
+
+    "@fontsource-variable/jost": ["@fontsource-variable/jost@5.3.0", "", {}, "sha512-9FS8iBMJnfyPqQOi9dfMjSwYBIWd0kBD3/jl8VvtbIMY2pK+CSp3oAaTLS1V60rDoM7AfyPvuT+IUfJfGeCTKg=="],
+
     "@fontsource-variable/outfit": ["@fontsource-variable/outfit@5.3.0", "", {}, "sha512-fPb5XnYK0k7SbR++HEmm4+ZqDszmLKQ+sPRUr8oQ/KNC0vy6r6hazJFe8iYozv4cqlHbvJ/JECkJWrfDodUMVQ=="],
+
+    "@fontsource/barlow": ["@fontsource/barlow@5.3.0", "", {}, "sha512-tGR0y6QObRtKv71MOth44222+mdNFM/ZWFWDV1VLzNbG4oK9PNRlyJzmkck4vHAi9ibHBXgt4SlY51amFP55CA=="],
+
+    "@fontsource/barlow-condensed": ["@fontsource/barlow-condensed@5.3.0", "", {}, "sha512-RA7MmIx0v3eQ6Gcf74qLVLOwLB0GpPOzx+eU9iG/AmCnSJGcIWYeU8y6CEMGZ210MGwGg5CZhzLkkvyZdTTk1g=="],
+
+    "@fontsource/marcellus-sc": ["@fontsource/marcellus-sc@5.3.0", "", {}, "sha512-i4URFFrg7hgJnp05puIVvDuCmSqRZwKBrY6tx+Z4I6XQs5JTiMbpKMYttU8Oioup/0LxfvrJY0FPFku592hJew=="],
+
+    "@fontsource/share-tech-mono": ["@fontsource/share-tech-mono@5.3.0", "", {}, "sha512-hVEzVCzEid/fBfhggMyvkfDzn9ODrMihxC0EiOeQK3BuQNvdjmith2ERnoDNUkbW8zhufbKNuCgaSoT8LUNpuQ=="],
 
     "@hono/node-server": ["@hono/node-server@2.1.0", "", { "peerDependencies": { "hono": "^4" } }, "sha512-XovyyCCnBzW+zKu+z/zq8hwNs4KOR5rEMAOxo2f40Q5xoOI37IMm6MIg2COOUtUApo0i6850MTBKH2u4QLGIqg=="],
 

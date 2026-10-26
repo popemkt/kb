@@ -55,9 +55,9 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
   return createPortal(
     <div
       ref={sheet}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-background/60 pt-[15vh] backdrop-blur-[1px]"
+      className="kb-scrim fixed inset-0 z-50 flex items-start justify-center bg-background/60 pt-[15vh] backdrop-blur-[1px]"
     >
-      <div className="w-full max-w-md rounded-lg border border-foreground/10 bg-popover shadow-overlay">
+      <div className="w-full max-w-md rounded-lg border border-border bg-popover shadow-overlay">
         <input
           autoFocus
           value={q}
@@ -66,7 +66,7 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
             keys.handleKeyDown(e);
           }}
           placeholder="Add existing node…"
-          className="w-full border-b border-foreground/10 bg-transparent px-3 py-2.5 text-ui outline-none"
+          className="w-full border-b border-border bg-transparent px-3 py-2.5 text-ui outline-none"
         />
         <PickerList
           placement="inline"

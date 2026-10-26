@@ -19,7 +19,7 @@ export function GraphTooltip({
 }) {
   return (
     <div
-      className="pointer-events-none absolute z-40 max-w-72 whitespace-normal break-words rounded-md border border-foreground/10 bg-popover px-3 py-2 text-meta leading-4 text-foreground shadow-floating"
+      className="pointer-events-none absolute z-40 max-w-72 whitespace-normal break-words rounded-md border border-border bg-popover px-3 py-2 text-meta leading-4 text-foreground shadow-floating"
       style={{
         left: `max(8px, min(${x + 12}px, 100% - (${CARD_REACH})))`,
         top: Math.max(8, y - 48),

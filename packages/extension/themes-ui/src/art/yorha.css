@@ -1,0 +1,547 @@
+/*
+ * YoRHa's art (ART-DIRECTION.md → YoRHa): the Bunker's ground, its
+ * gestures and its page head. The ink is `--foreground`, the paper
+ * `--background`, the rust `--chart-2`; transform and opacity move it.
+ */
+
+.kb-yorha-ground {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* The grid: one sheet from the window's top left corner, drawn only where
+ * nothing is read or written. The chrome's `--art-chrome` draws it fixed to
+ * the window; the Bunker head draws it here, placed back to the window's
+ * corner by `useWindowCell` (the head is moved by a transform, so a `fixed`
+ * layer would not hold), so its lines run on from the bars'. The ground,
+ * under the page's text, has none. */
+.kb-bunker-grid {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--foreground) 6%, transparent) 0 1px,
+      transparent 1px 32px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--foreground) 6%, transparent) 0 1px,
+      transparent 1px 32px
+    );
+}
+
+/* The convex monitor: the paper darkens toward its edges. */
+.kb-yorha-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    130% 120% at 50% 45%,
+    transparent 55%,
+    color-mix(in oklab, var(--foreground) 12%, transparent) 100%
+  );
+}
+
+/* A score's staff: five rules along the bottom, a colon at each bar. */
+.kb-yorha-staff,
+.kb-bunker-staff {
+  position: absolute;
+  height: 33px;
+  background: repeating-linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--foreground) 12%, transparent) 0 1px,
+    transparent 1px 8px
+  );
+}
+
+.kb-yorha-staff {
+  left: 6cqw;
+  right: 6cqw;
+  bottom: 7cqh;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--foreground) 18%,
+    var(--foreground) 82%,
+    transparent
+  );
+}
+
+.kb-yorha-colon {
+  position: absolute;
+  top: 8px;
+  width: 4px;
+  height: 17px;
+  background:
+    linear-gradient(var(--foreground), var(--foreground)) 0 0 / 4px 4px no-repeat,
+    linear-gradient(var(--foreground), var(--foreground)) 0 100% / 4px 4px no-repeat;
+  opacity: 0.24;
+}
+
+.kb-yorha-colon:nth-child(1) {
+  left: 22%;
+}
+
+.kb-yorha-colon:nth-child(2) {
+  left: 48%;
+}
+
+.kb-yorha-colon:nth-child(3) {
+  left: 74%;
+}
+
+/* Bracketed corners: the frame a YoRHa panel is read through. */
+.kb-yorha-bracket {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 0 solid color-mix(in oklab, var(--foreground) 40%, transparent);
+}
+
+.kb-yorha-bracket[data-at="tl"] {
+  top: 10px;
+  left: 10px;
+  border-top-width: 2px;
+  border-left-width: 2px;
+}
+
+.kb-yorha-bracket[data-at="tr"] {
+  top: 10px;
+  right: 10px;
+  border-top-width: 2px;
+  border-right-width: 2px;
+}
+
+.kb-yorha-bracket[data-at="bl"] {
+  bottom: 10px;
+  left: 10px;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+}
+
+.kb-yorha-bracket[data-at="br"] {
+  bottom: 10px;
+  right: 10px;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+}
+
+/* One slow scan along the bottom edge: a short bright segment on a 2px
+ * rule, the monitor's sweep kept out from under the text. */
+.kb-yorha-scan {
+  position: absolute;
+  left: 0;
+  bottom: 4px;
+  width: 18cqw;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--foreground) 28%, transparent) 70%,
+    color-mix(in oklab, var(--foreground) 45%, transparent)
+  );
+  animation: kb-yorha-scan calc(var(--motion-ambient-period) * 1.5) linear infinite;
+}
+
+@keyframes kb-yorha-scan {
+  from {
+    translate: -18cqw 0;
+  }
+  to {
+    translate: 100cqw 0;
+  }
+}
+
+/* ── The gestures ──────────────────────────────────────────────────────── */
+
+/* A page change: ink bars step across, one after another, then lift off. */
+.kb-yorha-wipe {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: kb-yorha-hold calc(var(--motion-duration-reveal) * 2.6) linear forwards;
+}
+
+.kb-yorha-bar {
+  flex: 1;
+  background: var(--foreground);
+  border-bottom: 2px solid var(--background);
+  transform-origin: left center;
+  scale: 0 1;
+  animation: kb-yorha-bar calc(var(--motion-duration-reveal) * 1.7) var(--motion-settle) both;
+  animation-delay: calc(var(--kb-bar) * var(--motion-stagger));
+}
+
+.kb-yorha-bar:nth-child(even) {
+  transform-origin: right center;
+}
+
+/* The bar across the middle carries what the unit is doing. */
+.kb-yorha-bar:nth-child(4)::after {
+  content: "■  ACCESSING  : :  NODE RECORD";
+  display: block;
+  padding: 18px 0 0 14cqw;
+  color: var(--background);
+  font-family: var(--app-font-label);
+  font-size: var(--type-label);
+  font-weight: 600;
+  letter-spacing: var(--label-tracking);
+}
+
+@keyframes kb-yorha-hold {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kb-yorha-bar {
+  0% {
+    scale: 0 1;
+    opacity: 0.94;
+  }
+  42%,
+  58% {
+    scale: 1 1;
+    opacity: 0.94;
+  }
+  100% {
+    scale: 1 0;
+    opacity: 0;
+  }
+}
+
+/*
+ * A structural write: the Pod scans. Two wave fronts sweep out from its
+ * corner (where its report prints) to the window's far edges, a hairline
+ * with a faint wake behind it, decelerating and fading: a rectangle's two
+ * far edges, so the sweep covers the window from any corner without a
+ * layer larger than it. The second front follows at half strength.
+ */
+.kb-yorha-scan-pulse {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.kb-yorha-front {
+  position: absolute;
+  top: 56px;
+  right: 24px;
+  width: calc(100cqw - 24px);
+  height: calc(100cqh - 56px);
+  border: 0 solid color-mix(in oklab, var(--foreground) 55%, transparent);
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+  background:
+    linear-gradient(
+        to right,
+        color-mix(in oklab, var(--foreground) 6%, transparent),
+        transparent 7%
+      )
+      left / 100% 100% no-repeat,
+    linear-gradient(to top, color-mix(in oklab, var(--foreground) 6%, transparent), transparent 7%)
+      bottom / 100% 100% no-repeat;
+  transform-origin: top right;
+  scale: 0;
+  opacity: 0;
+  animation: kb-yorha-front calc(var(--motion-duration-arrive) * 1.2) var(--motion-settle) both;
+}
+
+.kb-yorha-front + .kb-yorha-front {
+  border-color: color-mix(in oklab, var(--foreground) 30%, transparent);
+  background: none;
+  animation-delay: calc(var(--motion-stagger) * 5);
+}
+
+@keyframes kb-yorha-front {
+  0% {
+    scale: 0.02;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.7;
+  }
+  100% {
+    scale: 1;
+    opacity: 0;
+  }
+}
+
+/* The unit's report, printed in the Pod's corner. */
+.kb-yorha-report {
+  position: absolute;
+  top: 56px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 210px;
+  padding: 7px 14px 8px 12px;
+  background: color-mix(in oklab, var(--foreground) 92%, transparent);
+  color: var(--background);
+  box-shadow: 4px 4px 0 0 color-mix(in oklab, var(--foreground) 30%, transparent);
+  font-family: var(--app-font-label);
+  font-size: var(--type-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  transform-origin: right center;
+  animation: kb-yorha-report calc(var(--motion-duration-arrive) * 2.4) var(--motion-settle) both;
+}
+
+.kb-yorha-report-line {
+  font-weight: 600;
+}
+
+.kb-yorha-report-sub {
+  font-size: var(--type-micro);
+  opacity: 0.72;
+}
+
+@keyframes kb-yorha-report {
+  0% {
+    opacity: 0;
+    scale: 0 0.08;
+  }
+  10% {
+    opacity: 1;
+    scale: 1 0.08;
+  }
+  18%,
+  84% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  88% {
+    opacity: 0.4;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1 1;
+  }
+}
+
+/* ── The Bunker: the page head YoRHa pairs with ────────────────────────── */
+
+.kb-bunker {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--foreground) 5%, transparent),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, var(--foreground) 70%, transparent);
+}
+
+.kb-bunker .kb-yorha-bracket {
+  width: 18px;
+  height: 18px;
+  border-color: color-mix(in oklab, var(--foreground) 55%, transparent);
+}
+
+.kb-bunker-label {
+  position: absolute;
+  top: 22px;
+  left: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--foreground);
+  font-family: var(--app-font-label);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+}
+
+.kb-bunker-label span:first-child {
+  font-size: var(--type-ui);
+  font-weight: 600;
+}
+
+.kb-bunker-label span:last-child {
+  font-size: var(--type-micro);
+  opacity: 0.66;
+}
+
+.kb-bunker-staff {
+  left: 30px;
+  right: 200px;
+  top: 76px;
+  mask-image: linear-gradient(90deg, var(--foreground) 60%, transparent);
+}
+
+.kb-bunker-staff .kb-yorha-colon:nth-child(1) {
+  left: 0;
+}
+
+.kb-bunker-staff .kb-yorha-colon:nth-child(2) {
+  left: 56%;
+}
+
+.kb-bunker-note {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: var(--foreground);
+  opacity: 0.5;
+}
+
+.kb-bunker-note:nth-child(3) {
+  left: 14%;
+  top: 13px;
+}
+
+.kb-bunker-note:nth-child(4) {
+  left: 31%;
+  top: 5px;
+  background: var(--chart-2);
+  opacity: 0.8;
+}
+
+.kb-bunker-note:nth-child(5) {
+  left: 44%;
+  top: 21px;
+}
+
+.kb-bunker-ruler {
+  position: absolute;
+  left: 30px;
+  right: 200px;
+  top: 122px;
+  height: 8px;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 35%, transparent);
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--foreground) 35%, transparent) 0 1px,
+    transparent 1px 12px
+  );
+  mask-image: linear-gradient(90deg, var(--foreground) 50%, transparent);
+}
+
+.kb-bunker-reticle {
+  position: absolute;
+  top: 18px;
+  right: 46px;
+  width: 116px;
+  height: 116px;
+}
+
+.kb-bunker-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  corner-shape: round;
+  border: 1.5px solid color-mix(in oklab, var(--kb-head) 70%, var(--foreground));
+}
+
+.kb-bunker-ring-ticks {
+  inset: 12px;
+  border: 3px dashed color-mix(in oklab, var(--foreground) 40%, transparent);
+  animation: kb-bunker-track calc(var(--motion-ambient-period) * 3) linear infinite;
+}
+
+/* While a node is edited the ticks take the head's colour; they track
+ * faster through their playback rate (`bunker-backdrop.tsx`), never a new
+ * duration, which would jump the ring. */
+.kb-bunker[data-editing] .kb-bunker-ring-ticks {
+  border-color: color-mix(in oklab, var(--kb-head) 60%, transparent);
+}
+
+.kb-bunker-cross {
+  position: absolute;
+  inset: -10px;
+  background:
+    linear-gradient(
+        90deg,
+        transparent calc(50% - 0.5px),
+        color-mix(in oklab, var(--foreground) 45%, transparent) calc(50% - 0.5px) calc(50% + 0.5px),
+        transparent calc(50% + 0.5px)
+      )
+      0 0 / 100% 100% no-repeat,
+    linear-gradient(
+        0deg,
+        transparent calc(50% - 0.5px),
+        color-mix(in oklab, var(--foreground) 45%, transparent) calc(50% - 0.5px) calc(50% + 0.5px),
+        transparent calc(50% + 0.5px)
+      )
+      0 0 / 100% 100% no-repeat;
+  mask-image: radial-gradient(closest-side, transparent 22%, var(--foreground) 23%);
+}
+
+.kb-bunker-cross::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  top: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  background: var(--chart-2);
+}
+
+@keyframes kb-bunker-track {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.kb-bunker-ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  corner-shape: round;
+  border: 2px solid var(--chart-2);
+  animation: kb-bunker-ping calc(var(--motion-duration-arrive) * 1.2) var(--motion-settle) forwards;
+}
+
+@keyframes kb-bunker-ping {
+  from {
+    opacity: 1;
+    scale: 0.3;
+  }
+  to {
+    opacity: 0;
+    scale: 1.6;
+  }
+}
+
+@container (max-width: 640px) {
+  .kb-bunker-reticle {
+    top: 14px;
+    right: 22px;
+    width: 76px;
+    height: 76px;
+  }
+  .kb-bunker-staff,
+  .kb-bunker-ruler {
+    right: 120px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) :is(.kb-yorha-scan, .kb-yorha-scan-pulse, .kb-bunker-ping) {
+    display: none;
+  }
+}
+
+:root:is([data-motion="reduced"], [data-motion="off"])
+  :is(.kb-yorha-scan, .kb-yorha-scan-pulse, .kb-bunker-ping) {
+  display: none;
+}
+
+/*
+ * Selected text is the game's selection, inverted: beige on a khaki bar.
+ * No layer-1 token says a selection yet, so the theme says it here.
+ */
+[data-theme="themes.yorha"] ::selection {
+  background-color: var(--foreground);
+  color: var(--background);
+}

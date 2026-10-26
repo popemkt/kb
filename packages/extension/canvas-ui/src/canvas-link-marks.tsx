@@ -40,7 +40,7 @@ export const CanvasLinkMarks = memo(function CanvasLinkMarks({
             data-link-mark={item}
             aria-label={says}
             title={`${says} (⌘↵)`}
-            className="pointer-events-auto absolute flex h-5 w-5 -translate-x-full items-center justify-center rounded-md border border-foreground/10 bg-popover text-foreground/60 shadow-floating hover:text-primary"
+            className="pointer-events-auto absolute flex h-5 w-5 -translate-x-full items-center justify-center rounded-md border border-border bg-popover text-foreground/60 shadow-floating hover:text-primary"
             style={{ left: at.x, top: at.y + MARK_DROP }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onFollow(link)}

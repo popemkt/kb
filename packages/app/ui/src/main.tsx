@@ -24,6 +24,9 @@ function preloadInterLatin() {
 preloadInterLatin();
 initPrefs();
 startDesignSystems();
+// The motion painter paints once the graph has arrived, so it loads with
+// it rather than with the page (DESIGN-UI.md → Motion options).
+void import("@/stores/motion.store").then(({ startMotion }) => startMotion());
 initScrollbarManager();
 
 const el = document.getElementById("root");

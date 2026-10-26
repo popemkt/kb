@@ -31,7 +31,7 @@ const LINK_MODES: readonly IconChoice<KbLinkMode>[] = [
 ];
 
 /** A field of the edge panel's: its text, small. */
-const FIELD = "h-6 rounded-md border border-foreground/10 bg-background px-1.5 text-label";
+const FIELD = "h-6 rounded-md border border-border bg-background px-1.5 text-label";
 
 /** `edge` with `key` set to `value`, or without it when `value` is blank. */
 function withText(edge: CanvasEdge, key: "label" | "color", value: string | undefined) {

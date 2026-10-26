@@ -15,20 +15,20 @@ import {
   type Spring,
 } from "./timing";
 
-// The design tokens are still the page's stylesheets, in `@kb/ui`'s src.
-const MOTION_CSS = readFileSync(
-  join(import.meta.dirname, "../../../../app/ui/src/motion.css"),
+// The timing tokens are layer 1's (the default design system), in `@kb/ui`'s src.
+const LAYER1_CSS = readFileSync(
+  join(import.meta.dirname, "../../../../app/ui/src/design-system.css"),
   "utf8",
 );
 
 function token(name: string): string {
-  const match = new RegExp(`${name}:\\s*([^;]+);`).exec(MOTION_CSS);
-  if (match?.[1] === undefined) throw new Error(`${name} missing from motion.css`);
+  const match = new RegExp(`${name}:\\s*([^;]+);`).exec(LAYER1_CSS);
+  if (match?.[1] === undefined) throw new Error(`${name} missing from design-system.css`);
   return match[1];
 }
 
 describe("the timing mirror", () => {
-  it("agrees with motion.css, token for token", () => {
+  it("agrees with the default design system, token for token", () => {
     expect(parseCubicBezier(token("--motion-settle"))).toEqual(TIMING_FALLBACK.settle);
     const seconds = (name: string) => parseCssSeconds(token(name));
     expect(seconds("--motion-duration-quick")).toBe(TIMING_FALLBACK.quick);

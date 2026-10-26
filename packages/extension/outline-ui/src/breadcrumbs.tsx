@@ -54,9 +54,9 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
         type="button"
         className={cn(
           "flex items-center gap-1 rounded-sm px-1.5 py-0.5",
-          "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5",
+          "text-muted-foreground hover:text-foreground hover:bg-foreground/5",
           "transition-colors duration-100",
-          isAtRoot && "text-foreground/70",
+          isAtRoot && "text-foreground",
         )}
         onClick={() => zoomHome()}
         aria-current={isAtRoot ? "page" : undefined}
@@ -73,9 +73,9 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
             title={item.text}
             className={cn(
               "max-w-[12rem] truncate rounded-sm px-1.5 py-0.5",
-              "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5",
+              "text-muted-foreground hover:text-foreground hover:bg-foreground/5",
               "transition-colors duration-100",
-              item.id === rootNodeId && "text-foreground/70 font-medium",
+              item.id === rootNodeId && "text-foreground font-medium",
             )}
             onClick={() => zoomTo(item.id)}
             aria-current={item.id === rootNodeId ? "page" : undefined}

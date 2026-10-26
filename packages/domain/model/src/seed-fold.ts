@@ -10,6 +10,7 @@
  * each folded node came from.
  */
 import {
+  chosenProps,
   declaredOptionId,
   type DeclaredOptions,
   type DeclaredOptionSet,
@@ -127,7 +128,7 @@ function declaredOptionNode(kind: DeclaredOptions, option: SeedOption, at: strin
   return {
     id: declaredOptionId(kind, option.id),
     text: option.label,
-    props: {},
+    props: { ...option.props, ...chosenProps(option) },
     children: [],
     createdAt: at,
     updatedAt: at,

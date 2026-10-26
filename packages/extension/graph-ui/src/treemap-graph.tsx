@@ -73,7 +73,7 @@ export function TreemapGraph({
         {layout.children?.map((group) => (
           <div
             key={group.data.key ?? group.data.label}
-            className="kb-graph-move pointer-events-none absolute overflow-hidden rounded-lg border border-foreground/10 bg-foreground/[0.02]"
+            className="kb-graph-move pointer-events-none absolute overflow-hidden rounded-lg border border-border bg-foreground/[0.02]"
             style={{
               left: group.x0,
               top: group.y0,
@@ -103,7 +103,7 @@ export function TreemapGraph({
               aria-label={node.label}
               aria-pressed={selected}
               title={`${node.label} · ${node.weight}`}
-              className="kb-graph-move absolute overflow-hidden rounded-md border border-foreground/10 p-2 text-left text-foreground hover:border-foreground/40 hover:shadow-raised focus-visible:outline-2 focus-visible:outline-ring"
+              className="kb-graph-move absolute overflow-hidden rounded-md border border-border p-2 text-left text-foreground hover:border-foreground/40 hover:shadow-raised focus-visible:outline-2 focus-visible:outline-ring"
               style={{
                 left: cell.x0,
                 top: cell.y0,

@@ -69,7 +69,7 @@ export function CommentThreadPanel({
       role="dialog"
       aria-label={title}
       data-testid="comment-panel"
-      className="pointer-events-auto absolute z-40 flex max-h-[min(28rem,calc(100%-24px))] flex-col rounded-lg border border-foreground/10 bg-popover shadow-overlay"
+      className="pointer-events-auto absolute z-40 flex max-h-[min(28rem,calc(100%-24px))] flex-col rounded-lg border border-border bg-popover shadow-overlay"
       style={{ left: at.x, top: at.y, width: WIDTH }}
     >
       <header className="flex shrink-0 items-start gap-1 px-2.5 pt-2 pb-1.5">
@@ -148,7 +148,7 @@ function CommentForm({
         placeholder={thread === null ? "Comment…" : "Reply…"}
         rows={2}
         value={draft}
-        className="w-full resize-none rounded-md border border-foreground/10 bg-background px-2 py-1 text-ui outline-none focus:border-primary/50"
+        className="w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-ui outline-none focus:border-primary/50"
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
