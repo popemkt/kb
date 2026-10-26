@@ -57,7 +57,7 @@ export function NumberField({
         step={step}
         min={min}
         aria-label={label}
-        className="h-7 w-full rounded-md border border-foreground/10 bg-background px-2 text-ui text-foreground/85 tabular-nums outline-none focus:border-primary/50"
+        className="h-7 w-full rounded-md border border-border bg-background px-2 text-ui text-foreground/85 tabular-nums outline-none focus:border-primary/50"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}

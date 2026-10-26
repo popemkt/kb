@@ -614,9 +614,9 @@ export function ColorSwatchEditor({
         placeholder="#hex"
         aria-label="Custom color hex"
         className={cn(
-          "ml-1 h-5 w-[5.5rem] rounded-sm border border-foreground/10 bg-transparent px-1",
+          "ml-1 h-5 w-[5.5rem] rounded-sm border border-border bg-transparent px-1",
           "font-mono text-label text-foreground/60 outline-none",
-          "placeholder:text-foreground/25 focus:border-foreground/25",
+          "placeholder:text-faint-foreground focus:border-foreground/25",
         )}
         onChange={(e) => setCustom(e.target.value)}
         onBlur={() => {

@@ -32,7 +32,7 @@ export function WorkspaceState({
     <div className="kb-workspace-state">
       <NodeCompanion />
       <div role={loading ? "status" : undefined} aria-live={loading ? "polite" : undefined}>
-        <p className="text-ui font-medium text-foreground/75">{title}</p>
+        <p className="kb-display text-ui font-medium text-foreground/75">{title}</p>
         {description !== undefined && description !== "" ? (
           <p className="mx-auto mt-1.5 max-w-xs text-meta leading-relaxed text-muted-foreground">
             {description}

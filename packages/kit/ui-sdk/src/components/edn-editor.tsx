@@ -70,7 +70,7 @@ export function EdnEditor({
           // As tall as the text, wrapped lines included, up to a scroll.
           "max-h-96 w-full [field-sizing:content] resize-y rounded-md bg-foreground/[0.03] px-2 py-1",
           "font-mono text-label leading-[1.5] text-foreground/75 outline-none",
-          "placeholder:text-foreground/25 focus:bg-foreground/[0.05]",
+          "placeholder:text-faint-foreground focus:bg-foreground/[0.05]",
           hasText(warning) && "ring-1 ring-warning/40",
         )}
         onFocus={() => {

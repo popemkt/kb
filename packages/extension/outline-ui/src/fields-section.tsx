@@ -339,7 +339,7 @@ function ChipRemoveButton({ onRemove }: { onRemove: () => void }) {
       tabIndex={-1}
       className={cn(
         "absolute -right-1 -top-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center",
-        "rounded-full border border-foreground/10 bg-popover text-foreground/40 hover:text-foreground/70",
+        "rounded-full border border-border bg-popover text-foreground/40 hover:text-foreground/70",
         "opacity-0 transition-opacity group-hover/value:opacity-100 focus-visible:opacity-100",
         "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
       )}

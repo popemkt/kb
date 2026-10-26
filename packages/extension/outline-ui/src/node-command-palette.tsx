@@ -184,7 +184,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       <div
         className={cn(
           "kb-surface-enter fixed z-[100] w-[300px]",
-          "rounded-lg border border-foreground/10",
+          "rounded-lg border border-border",
           "bg-popover shadow-overlay",
           "overflow-hidden",
         )}
@@ -222,7 +222,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
               if (e.key === "Escape") e.stopPropagation();
             }}
             placeholder={picker?.placeholder ?? COMMANDS_PLACEHOLDER}
-            className="flex-1 bg-transparent text-ui text-foreground/85 outline-none placeholder:text-foreground/25"
+            className="flex-1 bg-transparent text-ui text-foreground/85 outline-none placeholder:text-faint-foreground"
           />
         </div>
 

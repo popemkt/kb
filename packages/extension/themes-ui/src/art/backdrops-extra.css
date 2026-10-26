@@ -162,9 +162,35 @@
   width: 14px;
   aspect-ratio: 1;
   clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
-  background: var(--knob);
+  --kb-spark: var(--knob);
+  --kb-spark-delay: 0s;
+}
+
+/* Two flickers per spark, each its own clock: a slow one always, and a
+ * quick one that editing wakes. Waking it resumes it where it paused and
+ * fades it in, so neither ever restarts or jumps (a changed duration would
+ * move a running animation's progress at once). */
+.kb-hollow-spark::before,
+.kb-hollow-spark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--kb-spark);
   opacity: 0;
   animation: kb-hollow-spark var(--motion-ambient-period) steps(1, end) infinite;
+  animation-delay: var(--kb-spark-delay);
+}
+
+.kb-hollow-spark::after {
+  animation-duration: calc(var(--motion-ambient-period) / 3);
+  animation-play-state: paused;
+  filter: opacity(0);
+  transition: filter var(--motion-duration-reveal) var(--motion-settle);
+}
+
+[data-editing] .kb-hollow-spark::after {
+  animation-play-state: running;
+  filter: opacity(1);
 }
 
 .kb-hollow-spark:nth-of-type(1) {
@@ -176,23 +202,23 @@
   top: 112px;
   right: 18%;
   width: 10px;
-  background: var(--chart-5);
-  animation-delay: calc(var(--motion-ambient-period) * -0.3);
+  --kb-spark: var(--chart-5);
+  --kb-spark-delay: calc(var(--motion-ambient-period) * -0.3);
 }
 
 .kb-hollow-spark:nth-of-type(3) {
   top: 54px;
   right: 9%;
   width: 18px;
-  background: var(--chart-1);
-  animation-delay: calc(var(--motion-ambient-period) * -0.55);
+  --kb-spark: var(--chart-1);
+  --kb-spark-delay: calc(var(--motion-ambient-period) * -0.55);
 }
 
 .kb-hollow-spark:nth-of-type(4) {
   top: 100px;
   right: 34%;
   width: 9px;
-  animation-delay: calc(var(--motion-ambient-period) * -0.8);
+  --kb-spark-delay: calc(var(--motion-ambient-period) * -0.8);
 }
 
 @keyframes kb-hollow-spark {
@@ -207,10 +233,6 @@
   11% {
     opacity: 0.3;
   }
-}
-
-[data-editing] .kb-hollow-spark {
-  animation-duration: calc(var(--motion-ambient-period) / 3);
 }
 
 .kb-hollow-tape {
@@ -612,12 +634,15 @@
   height: 1em;
   vertical-align: -0.15em;
   background: var(--kb-amber);
-  animation: kb-ovc-cursor calc(var(--motion-ambient-period) / 6) steps(1, end) infinite;
+  /* One blink rate, editing or not: a changed duration would jump the
+   * running blink. Editing lights it in the head's colour instead. */
+  animation: kb-ovc-cursor calc(var(--motion-ambient-period) / 12) steps(1, end) infinite;
+  transition: background-color var(--motion-duration-quick) var(--motion-settle);
 }
 
 [data-editing] .kb-ovc-cursor {
   background: var(--kb-head);
-  animation-duration: calc(var(--motion-ambient-period) / 12);
+  box-shadow: 0 0 6px var(--kb-head);
 }
 
 @keyframes kb-ovc-cursor {

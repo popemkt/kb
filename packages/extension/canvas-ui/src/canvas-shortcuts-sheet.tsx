@@ -43,7 +43,7 @@ export function CanvasShortcutsSheet({ open, onClose }: { open: boolean; onClose
       role="dialog"
       aria-label="Canvas shortcuts"
       data-testid="canvas-shortcuts"
-      className="kb-surface-enter absolute top-1/2 left-1/2 z-40 max-h-[80%] w-[min(40rem,90%)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-foreground/10 bg-popover p-4 text-ui text-popover-foreground shadow-overlay"
+      className="kb-surface-enter absolute top-1/2 left-1/2 z-40 max-h-[80%] w-[min(40rem,90%)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-popover p-4 text-ui text-popover-foreground shadow-overlay"
     >
       <div className="mb-3 flex items-center justify-between">
         <span className="text-meta font-medium text-foreground/70">Canvas shortcuts</span>

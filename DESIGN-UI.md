@@ -3192,8 +3192,12 @@ kb ships six; the last three are whole themes (Themes, below):
     in a selected row's stacked tints. What a class paints is what Tailwind
     compiles it to, and a colour class that paints no design-system token
     (a palette value such as `text-amber-600`) fails. Content one component
-    mounts into another's element is declared in the guard's `MOUNTS`;
-    translucent text is not yet checked (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
+    mounts into another's element is declared in the guard's `MOUNTS`.
+    Secondary text is solid: `--muted-foreground`, and the lighter
+    `--faint-foreground` (a placeholder, a hint, a count, a field's label, a
+    faded row), both held to AA on the background, popover, sidebar and
+    their tints. Text still set in translucent foreground is not yet checked
+    (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
   - _tag chips_: a tag colour is data, so a chip paints inline styles that
     no class walk sees. The guard evaluates what `tagChipColors` returns
     (`color-mix()` in oklab, `var()` resolved per system and variant) for
@@ -3246,9 +3250,10 @@ above). What each of kb's themes is after, and where each idea lives, is
   | `--label-ink`                                                                                                                                                                          | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                 | `.kb-label`                            |
   | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                               | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                             | `.kb-palette-mark` (`command-palette.tsx`) |
   | `--scrim-filter`                                                                                                                                                                       | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                          | `.kb-scrim`                            |
-  | `--art-chrome`, `--art-scrim`                                                                                                                                                          | a `background-image` drawn over the chrome (header, sidebar, a view's bar) and over a modal's scrim; `none` by default                                                                                                                       | `.kb-chrome`, `.kb-scrim`              |
+  | `--art-chrome`, `--art-scrim`                                                                                                                                                          | `background` layers drawn over the chrome (header, sidebar, a view's bar; each layer may say how it is placed or attached, e.g. `fixed` to the window, and the bar keeps its own colour) and a `background-image` over a modal's scrim; `none` by default                                                                                                                       | `.kb-chrome`, `.kb-scrim`              |
   | `--corner-shape`                                                                                                                                                                       | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                         | `index.css` base                       |
   | `--chip-skew`                                                                                                                                                                          | the lean of a tag chip                                                                                                                                                                                                                       | `.kb-tag`                              |
+  | `--selection`, `--scrollbar-thumb` | the tint of selected text and of a scroller's thumb, each mixed with transparency by the shell; `--primary` and `--foreground` by default (derived, so a system restates them only for a colour of its own: ZZZ's lime highlighter, Transistor's gold by day and sword-light by night) | `::selection` and the scrollbar rules (`index.css`) |
   | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play | `motion.css`, `lib/timing.ts`, the art |
 
 - **One gesture vocabulary.** `motion.css` keeps the gestures and their
@@ -3266,24 +3271,39 @@ above). What each of kb's themes is after, and where each idea lives, is
   opacity, filter or a small element's clip only.
 - **The art slot.** A `DesignSystem` may carry `Art`, a component
   (`ThemeArtProps`: its `plane`, what the owner is doing as a backdrop is
-  told it, `PageActivity`, and the path). The shell renders `ThemeArt` twice
-  and names no system: the `ground` plane under everything it draws, the
-  `veil` over everything (DockHost included). `ThemeArt` draws the art of
-  the system shown and of no other, in a `contain: strict`,
-  `pointer-events: none`, `aria-hidden` box; a system with no art draws nothing.
+  told it, `PageActivity`, and a path). The shell names no system: it
+  renders `ThemeArt` as the `ground` plane under everything it draws, the
+  `veil` over everything (DockHost included), and a `pane` plane over each
+  pane, given that pane's own path. `ThemeArt` draws the art of the system
+  shown and of no other, in a `contain: strict`, `pointer-events: none`,
+  `aria-hidden` box that is a size container (art sizes its gestures in
+  `cqw`/`cqh`, so one fits the pane it plays in); a system with no art draws
+  nothing. Neither its planes nor a page-head backdrop are ever selected as
+  text (`index.css`): a drag across the page takes its words, not the art's.
   - The ground is ambient: it sits under opaque surfaces, so it shows only
     where the chrome lets it, and stays faint (a few percent of ink).
-  - The veil is for passing gestures only, a page change or a structural
-    write, and holds nothing at rest. A gesture keyed on a change never
+  - The veil and the pane planes are for passing gestures only, and hold
+    nothing at rest: a structural write plays on the veil, a page change on
+    the plane of the pane whose page changed and nowhere else. A pane's path
+    is its own, so moving the focus between panes (which rewrites the URL
+    and nothing else) changes no pane's path and plays nothing. A gesture
+    keyed on a change never
     plays on arrival: a boot, its redirects and switching to the system are
-    not events (`useBeat` in the themes family).
+    not events (`useBeat` in the themes family). Typing is not a write: the
+    art leaves alone every write made while a node is edited, and the text's
+    last save, which lands just after the editor closes (`useBeat`'s
+    `hold`, given `editing`).
+  - Nothing restarts. An ambient loop keeps one clock for the life of the
+    page head: editing may resume a paused loop or fade a layer in, never
+    change a running animation's name or duration (which jumps or replays
+    it), and a re-render on a keystroke changes no key or class.
   - A gesture is gone by `THEME_GESTURE_MAX_MS` (`@kb/ui-sdk`) whatever
     becomes of its animation: a hidden tab, an animation cancelled or held
     on a frame, reduced motion turned on midway. However fast the pages
-    change, the veil draws what one change draws, keyed per change, so a
-    new one replaces the last rather than stacking (`useGesture` in the
-    themes family removes it on `animationend` and on a timer, whichever
-    comes first).
+    change, the veil draws what one change draws, one at a time: a change
+    that comes while a gesture plays is merged into it, which carries on
+    rather than replaying from its start (`useGesture` in the themes family
+    removes it on `animationend` and on a timer, whichever comes first).
   - Art paints with tokens alone (the chart palette is a theme's art
     palette), mixing in `oklab` so a colour never swings through another
     hue against a near-neutral ground.
@@ -3355,7 +3375,7 @@ a `#gap` node, named in the last column.
 | Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `themes-ui/src/design-systems/*.css`, mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
 | The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
 | Theme art: ground and veil | `themes-ui/src/art/*-art.tsx`, `art/*.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the veil plane of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
+| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
 | Faces | `@fontsource*` imports in `themes-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
 | Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Preferences shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
 | Motion keyframes and a theme's base timing | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*` | code: the options rescale and swap them, never name new ones | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens) |

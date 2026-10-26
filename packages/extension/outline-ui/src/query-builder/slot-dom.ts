@@ -54,7 +54,7 @@ export function slotClass(tone: SlotTone): string {
     "inline-flex min-h-5 max-w-full items-center gap-1 rounded-sm text-meta",
     "whitespace-nowrap outline-none transition-colors",
     "focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-    tone !== "chips" && "border border-foreground/10 px-1.5",
+    tone !== "chips" && "border border-border px-1.5",
     tone === "operator" && "bg-transparent text-foreground/50 hover:text-foreground/75",
     (tone === "subject" || tone === "value") &&
       "bg-foreground/[0.04] text-foreground/80 hover:bg-foreground/[0.07]",

@@ -64,7 +64,7 @@ function Composer() {
           autoFocus
           aria-label="Message the agent"
           placeholder="Ask the agent…"
-          className="min-h-6 flex-1 resize-none bg-transparent py-0.5 text-ui text-foreground outline-none placeholder:text-foreground/30"
+          className="min-h-6 flex-1 resize-none bg-transparent py-0.5 text-ui text-foreground outline-none placeholder:text-faint-foreground"
           onInput={(e) => {
             setText(e.currentTarget.value);
             fit(e.currentTarget);

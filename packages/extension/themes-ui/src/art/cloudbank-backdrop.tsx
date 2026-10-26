@@ -12,7 +12,7 @@ import { SkylineSvg } from "./skyline-svg";
  */
 export function CloudbankBackdrop({ color, opacity, activity, direction }: BackdropProps) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const trail = useGesture(useBeat(writes, 900));
+  const trail = useGesture(useBeat(writes, 900, activity.editing));
   return (
     <div
       className="kb-cloudbank-backdrop"

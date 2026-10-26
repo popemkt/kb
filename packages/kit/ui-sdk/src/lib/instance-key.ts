@@ -58,6 +58,16 @@ export function outlineInstanceKey(
 const PROJECTION_PREFIX = "ref:";
 const QUERY_RESULT_PREFIX = `${PROJECTION_PREFIX}query:`;
 const CANVAS_PREFIX = `${PROJECTION_PREFIX}canvas:`;
+const TITLE_PREFIX = `${PROJECTION_PREFIX}title:`;
+
+/**
+ * A page's title, edited where the page head draws it: a projected instance,
+ * since the outline's walk of the tree does not draw the page's own node as a
+ * row, so it is activated (and is the page's edit, `editing()`) as a row is.
+ */
+export function pageTitleInstanceKey(nodeId: string): string {
+  return `${TITLE_PREFIX}${nodeId}`;
+}
 
 /**
  * A node shown by canvas card `cardId`, as the projection `projection` (2D

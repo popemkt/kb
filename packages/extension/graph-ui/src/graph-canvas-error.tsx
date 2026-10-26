@@ -78,7 +78,7 @@ export function GraphCanvasError({
           type="button"
           data-testid="graph-canvas-error-retry"
           onClick={onRetry}
-          className="rounded-md border border-foreground/10 bg-foreground/[0.04] px-3 py-1.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/85"
+          className="rounded-md border border-border bg-foreground/[0.04] px-3 py-1.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/85"
         >
           Try again
         </button>

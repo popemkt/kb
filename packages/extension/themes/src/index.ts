@@ -6,6 +6,7 @@
  * `@kb/themes-ui`.
  */
 export {
+  ARENA_BACKDROP,
   BROADCAST_BACKDROP,
   BUNKER_BACKDROP,
   CLOUDBANK_BACKDROP,

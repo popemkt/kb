@@ -10,7 +10,7 @@ import { useBeat, useGesture, useStructuralWrites } from "./beat";
  */
 export function BroadcastBackdrop({ color, opacity, activity, direction }: BackdropProps) {
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const burst = useGesture(useBeat(writes, 500));
+  const burst = useGesture(useBeat(writes, 500, activity.editing));
   return (
     <div
       className="kb-broadcast"

@@ -7,6 +7,7 @@ import {
   type MotionSource,
 } from "@kb/model";
 import { browserHost, useNode, useShownDesignSystem } from "@kb/ui-sdk";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { useMotionStore } from "@/stores/motion.store";
 import { useCoreSettings } from "./core-settings";
 
@@ -66,8 +67,19 @@ export function MotionRows() {
           <InForce value={choice.settings[name]} source={choice.sources[name]} theme={theme} />
         </div>
       ))}
-      <details>
-        <summary className="cursor-pointer py-1 text-meta text-foreground/60">effects</summary>
+      <details className="group">
+        {/* The disclosure's own caret, in the row's glyph column, not the browser's triangle. */}
+        <summary className="flex h-7 cursor-pointer list-none items-center text-meta text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center text-foreground/35">
+            <CaretRightIcon
+              size={11}
+              weight="bold"
+              aria-hidden
+              className="transition-transform group-open:rotate-90"
+            />
+          </span>
+          <span className="pl-1">effects</span>
+        </summary>
         {MOTION_EFFECTS.map((effect) => (
           <div key={effect}>
             {setting(motionEffectFieldId(effect), effect)}

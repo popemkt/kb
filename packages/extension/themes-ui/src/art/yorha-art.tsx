@@ -14,15 +14,16 @@ const REPORTS: readonly string[] = [
 const BARS = [0, 1, 2, 3, 4, 5, 6, 7];
 
 /**
- * The Bunker's ground: a faint grid on warm paper, darkened toward the
- * edges like a convex monitor, a score's staff with its colons along the
- * bottom, bracketed corners framing the viewport and one slow scan line
- * going down it. Nothing here reacts; it is the room the page sits in.
+ * The Bunker's ground: flat warm paper where the page is read and written
+ * (the grid is the chrome's and the head's, never behind text), darkened
+ * toward the edges like a convex monitor, a score's staff with its colons
+ * along the bottom, bracketed corners framing the viewport and one slow
+ * scan running along the bottom edge. Nothing here reacts, and nothing
+ * moves behind the text; it is the room the page sits in.
  */
 export function YorhaGround(_: Pick<ThemeArtProps, "activity">) {
   return (
     <div className="kb-yorha-ground">
-      <div className="kb-yorha-grid" />
       <div className="kb-yorha-vignette" />
       <div className="kb-yorha-staff">
         <span className="kb-yorha-colon" />
@@ -41,13 +42,14 @@ export function YorhaGround(_: Pick<ThemeArtProps, "activity">) {
 /**
  * The passing gestures: a page change steps a stack of ink bars across the
  * screen, one after another, and the new page is under them; a structural
- * write prints a small report in the top corner, the unit confirming the
- * write. Nothing at rest.
+ * write is the Pod scanning: two square wave fronts sweep out from its
+ * corner across the window, and it prints a small report there, the unit
+ * confirming the write. Nothing at rest.
  */
 export function YorhaVeil({ activity, path }: Pick<ThemeArtProps, "activity" | "path">) {
   const wipe = useGesture(useBeat(path));
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const report = useGesture(useBeat(writes, 700));
+  const report = useGesture(useBeat(writes, 700, activity.editing));
   return (
     <>
       {wipe.key === null ? null : (
@@ -61,6 +63,12 @@ export function YorhaVeil({ activity, path }: Pick<ThemeArtProps, "activity" | "
           {BARS.map((bar) => (
             <span key={bar} className="kb-yorha-bar" style={{ ["--kb-bar" as string]: bar }} />
           ))}
+        </div>
+      )}
+      {report.key === null ? null : (
+        <div key={`scan-${report.key}`} className="kb-yorha-scan-pulse">
+          <span className="kb-yorha-front" />
+          <span className="kb-yorha-front" />
         </div>
       )}
       {report.key === null ? null : (

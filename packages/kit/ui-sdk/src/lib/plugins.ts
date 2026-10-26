@@ -349,13 +349,18 @@ export interface DesignSystem {
   readonly Art?: ComponentType<ThemeArtProps>;
 }
 
-/** The two planes of a design system's art (`ThemeArtProps.plane`). */
-export type ThemeArtPlane = "ground" | "veil";
+/**
+ * The three planes of a design system's art (`ThemeArtProps.plane`): the
+ * `ground` under everything, the `veil` over the whole window (a write's
+ * gesture), and a `pane` over each pane (that pane's page change).
+ */
+export type ThemeArtPlane = "ground" | "veil" | "pane";
 
 /**
  * What the shell tells a design system's art layer: what the owner is doing
- * (the same signal a backdrop reads) and where the focused pane is, so a
- * page change can be answered by a gesture (a wipe, a Turn()). The layer is
+ * (the same signal a backdrop reads) and, for a pane's plane, that pane's
+ * own page, so a page change is answered by a gesture (a wipe, a Jaunt())
+ * in the pane that changed and nowhere else. The layer is
  * `pointer-events: none` and hidden from assistive technology; it hears no
  * input of its own.
  */
@@ -368,7 +373,11 @@ export interface ThemeArtProps {
    */
   readonly plane: ThemeArtPlane;
   readonly activity: PageActivity;
-  /** The focused pane's path. */
+  /**
+   * In the `pane` plane, the path of the pane it lies over: it changes only
+   * when that pane's own page does, never when the focus moves to another
+   * pane. In the other planes, the focused pane's path.
+   */
   readonly path: string;
 }
 

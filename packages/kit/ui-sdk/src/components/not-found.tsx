@@ -30,7 +30,7 @@ export function NotFound({
       />
       <button
         type="button"
-        className="rounded-md border border-foreground/10 px-3 py-1.5 text-meta text-foreground transition-colors hover:bg-foreground/5"
+        className="rounded-md border border-border px-3 py-1.5 text-meta text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         onClick={() => navigate(back.path)}
       >
         {back.label}

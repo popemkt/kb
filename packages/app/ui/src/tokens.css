@@ -110,9 +110,13 @@
   }
 
   /* Chrome: the header, the sidebar and a page's own bar wear the design
-   * system's chrome art over their ground. */
+   * system's chrome art over their ground. Its layers are `background`
+   * layers, so a system may also say how one is placed or attached (YoRHa
+   * fixes its grid to the window, continuous with the grid of its ground);
+   * the colour stays the bar's own (`bg-sidebar`, a utility, outranks this
+   * component rule). */
   .kb-chrome {
-    background-image: var(--art-chrome);
+    background: var(--art-chrome);
   }
 
   /* The dimming layer behind a modal, with the design system's scrim art. */

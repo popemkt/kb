@@ -51,7 +51,7 @@ export function PerspectivePicker({
         <div
           role="dialog"
           aria-label="Graph perspectives"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[200px] max-w-xs rounded-lg border border-foreground/10 bg-popover p-1 shadow-overlay"
+          className="absolute left-0 top-full z-40 mt-1 min-w-[200px] max-w-xs rounded-lg border border-border bg-popover p-1 shadow-overlay"
         >
           <h2 className="px-1.5 pb-1 pt-0.5 text-meta kb-label text-foreground/30">Perspectives</h2>
           <div role="listbox" aria-label="Saved perspectives" className="max-h-64 overflow-y-auto">
@@ -76,7 +76,7 @@ export function PerspectivePicker({
           </div>
           {active && renderer ? (
             <form
-              className="mt-1 space-y-2 border-t border-foreground/10 p-1.5"
+              className="mt-1 space-y-2 border-t border-border p-1.5"
               onSubmit={(e) => {
                 e.preventDefault();
                 void (async () => {
@@ -105,7 +105,7 @@ export function PerspectivePicker({
                 aria-label="Perspective name"
                 placeholder="Name this perspective…"
                 value={name}
-                className="w-full rounded-xs border border-foreground/10 bg-transparent px-2 py-1 text-meta leading-4"
+                className="w-full rounded-xs border border-border bg-transparent px-2 py-1 text-meta leading-4"
                 onChange={(e) => setName(e.target.value)}
               />
               <button

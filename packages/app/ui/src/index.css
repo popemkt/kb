@@ -81,6 +81,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
@@ -143,14 +144,47 @@
     font: inherit;
   }
 
-  /* Custom Scrollbar - Auto-hiding */
+  /* Native controls in the design system's colours: a checkbox, a radio, a
+   * range and a progress bar fill with the accent, and in dark a select's
+   * list, a number's spinner and a date picker are drawn dark. The scheme is
+   * the controls' alone, not the page's: an iframe whose embedder's scheme
+   * differs from its own is painted opaque, and a sandboxed script draws
+   * through a transparent frame over its view. */
+  :root {
+    accent-color: var(--primary);
+  }
+  .dark :is(input, select, textarea) {
+    color-scheme: dark;
+  }
+
+  /* Keyboard focus: one solid ring in the design system's ring colour, cut
+   * to its corner shape (the browser's two-tone ring ignored both). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+
+  /* Selected text: a tint of the design system's `--selection`. */
+  ::selection {
+    background-color: color-mix(in oklch, var(--selection) 35%, transparent);
+  }
+
+  /* Decoration is never text: a drag across the page, or select-all, takes
+   * the words on it and not the art's (a marquee, a sticker, a terminal
+   * line) — the theme's planes and the page-head backdrop. */
+  [data-theme-art],
+  [data-header-wash] {
+    user-select: none;
+  }
+
+  /* Custom Scrollbar - Auto-hiding, its thumb a tint of `--scrollbar-thumb`. */
   * {
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
   }
 
   [data-scrolling="true"] {
-    scrollbar-color: color-mix(in oklch, var(--foreground) 15%, transparent) transparent;
+    scrollbar-color: color-mix(in oklch, var(--scrollbar-thumb) 15%, transparent) transparent;
   }
 
   ::-webkit-scrollbar {
@@ -180,11 +214,11 @@
 
   [data-scrolling="true"]::-webkit-scrollbar-thumb,
   [data-scrolling="true"] ::-webkit-scrollbar-thumb {
-    background-color: color-mix(in oklch, var(--foreground) 15%, transparent);
+    background-color: color-mix(in oklch, var(--scrollbar-thumb) 15%, transparent);
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: color-mix(in oklch, var(--foreground) 30%, transparent) !important;
+    background-color: color-mix(in oklch, var(--scrollbar-thumb) 30%, transparent) !important;
   }
 
   /* Outline editor specific styles */

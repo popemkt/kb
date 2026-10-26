@@ -42,7 +42,7 @@ export function StreetGround() {
 export function StreetVeil({ activity, path }: Pick<ThemeArtProps, "activity" | "path">) {
   const wipe = useGesture(useBeat(path));
   const writes = useStructuralWrites(activity.writes, activity.editing);
-  const sfx = useGesture(useBeat(writes, 700));
+  const sfx = useGesture(useBeat(writes, 700, activity.editing));
   return (
     <>
       {wipe.key === null ? null : (

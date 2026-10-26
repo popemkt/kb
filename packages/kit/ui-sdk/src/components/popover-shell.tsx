@@ -3,7 +3,7 @@ import { cn } from "../lib/cn";
 
 /** Shared prefs / filter panel chrome (DESIGN-RESKIN §0). */
 export const POPOVER_VALUE_CLASS =
-  "kb-text min-w-0 flex-1 cursor-pointer appearance-none rounded-sm border-none bg-transparent text-foreground/70 outline-none hover:text-foreground/85";
+  "kb-text min-w-0 flex-1 cursor-pointer appearance-none rounded-sm border-none bg-transparent px-1 text-foreground/70 outline-none hover:text-foreground/85";
 
 export interface PopoverShellProps {
   title: string;
@@ -33,13 +33,13 @@ export function PopoverShell({
       aria-label={ariaLabel ?? title}
       data-testid={testId}
       className={cn(
-        "z-40 w-[320px] rounded-lg border border-foreground/10 bg-popover p-2 shadow-overlay",
+        "z-40 w-[320px] rounded-lg border border-border bg-popover p-2 shadow-overlay",
         className,
       )}
       style={style}
       onClick={onClick}
     >
-      <h2 className="px-1.5 pb-1 pt-0.5 text-meta kb-label text-foreground/30">{title}</h2>
+      <h2 className="px-1.5 pb-1 pt-0.5 text-meta kb-label text-faint-foreground">{title}</h2>
       {children}
     </div>
   );

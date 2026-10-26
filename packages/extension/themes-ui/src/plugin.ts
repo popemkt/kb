@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import {
+  ARENA_BACKDROP,
   BROADCAST_BACKDROP,
   BUNKER_BACKDROP,
   CLOUDBANK_BACKDROP,
@@ -40,6 +41,7 @@ import "./art/art.css";
 import "./art/yorha.css";
 import "./art/backdrops-extra.css";
 import {
+  ArenaBackdrop,
   BroadcastBackdrop,
   BunkerBackdrop,
   CloudbankBackdrop,
@@ -141,6 +143,7 @@ export const themesUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(CLOUDBANK_BACKDROP, cloudbank)),
         ctx.contribute(BackdropPoint, provideBackdrop(OVC_BACKDROP, band(OvcBackdrop))),
         ctx.contribute(BackdropPoint, provideBackdrop(BUNKER_BACKDROP, band(BunkerBackdrop))),
+        ctx.contribute(BackdropPoint, provideBackdrop(ARENA_BACKDROP, band(ArenaBackdrop))),
       ],
       { discard: true },
     ),

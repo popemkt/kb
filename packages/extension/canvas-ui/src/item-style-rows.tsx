@@ -48,7 +48,7 @@ import { NumberField } from "./number-field";
 /** A swatch, ringed when it is the colour painted. */
 const swatch = (on: boolean) =>
   cn(
-    "h-6 w-6 justify-self-center rounded-full border border-foreground/10",
+    "h-6 w-6 justify-self-center rounded-full border border-border",
     on && "ring-2 ring-primary/60 ring-offset-1 ring-offset-popover",
   );
 
