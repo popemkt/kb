@@ -8,14 +8,16 @@
  * contributed: what the page paints while no contributed system is chosen.
  *
  * It also previews the design-system field's options (`OptionPreviewPoint`),
- * whoever contributes them: the field editor draws each with its swatch.
+ * whoever contributes them: the field editor draws each with its swatch;
+ * and the backdrop field's, each tagged with the theme it belongs to.
  */
 import { familyTags } from "@kb/contracts";
 import { Effect } from "effect";
-import { DESIGN_SYSTEM_OPTIONS } from "@kb/model";
+import { BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS } from "@kb/model";
 import { KB_DESIGN_SYSTEM, coreExtension } from "@kb/operations";
 import { definePlugin } from "@kb/plugin";
 import { DesignSystemPoint, OptionPreviewPoint, provideDesignSystem } from "@kb/ui-sdk";
+import { BackdropThemeTag } from "@/backdrop-theme-tag";
 import { DesignSystemSwatch } from "@/design-system-swatch";
 
 export const designSystemsUiPlugin = definePlugin({
@@ -32,6 +34,10 @@ export const designSystemsUiPlugin = definePlugin({
         ctx.contribute(OptionPreviewPoint, {
           id: "design-system",
           value: { kind: DESIGN_SYSTEM_OPTIONS, Preview: DesignSystemSwatch },
+        }),
+        ctx.contribute(OptionPreviewPoint, {
+          id: "backdrop",
+          value: { kind: BACKDROP_OPTIONS, Preview: BackdropThemeTag },
         }),
       ],
       { discard: true },

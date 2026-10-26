@@ -220,7 +220,7 @@ function FamilyTool({
           role="menu"
           aria-label={FAMILY_LOOKS[family].label}
           data-testid={`canvas-${family}-picker`}
-          className="absolute top-0 left-full ml-2 flex flex-col gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
+          className="absolute top-0 left-full ml-2 flex flex-col gap-0.5 rounded-lg border border-border bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
         >
           {TOOL_FAMILIES[family].map((preset) => (
             <button
@@ -268,7 +268,7 @@ export function CanvasToolbar({
 }: CanvasToolbarProps) {
   return (
     <div
-      className="absolute top-1/2 left-2 z-20 flex max-h-[calc(100%-1rem)] -translate-y-1/2 flex-col flex-wrap content-start gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
+      className="absolute top-1/2 left-2 z-20 flex max-h-[calc(100%-1rem)] -translate-y-1/2 flex-col flex-wrap content-start gap-0.5 rounded-lg border border-border bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
       data-testid="canvas-toolbar"
       role="toolbar"
       aria-label="Canvas tools"

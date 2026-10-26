@@ -133,7 +133,7 @@ function PresentBar({
   const step = "rounded-md p-1 text-foreground/60 hover:bg-foreground/5 disabled:opacity-30";
   return (
     <div
-      className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm"
+      className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-border bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm"
       data-testid="canvas-present-bar"
     >
       <button
@@ -205,7 +205,7 @@ function SelectionBar({
   | "onDeleteSelection"
 >) {
   return (
-    <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
+    <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-border bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
       <span className="mr-1 text-label text-foreground/40">{count} selected</span>
       {gizmo !== null && <GizmoSwitches gizmo={gizmo} onGizmoChange={onGizmoChange} />}
       {canGroup && (

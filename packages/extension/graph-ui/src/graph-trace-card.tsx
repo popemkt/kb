@@ -34,7 +34,7 @@ export function GraphTraceCard({
       : `${labelOf(nodes, trace.from)} → ${labelOf(nodes, trace.to)}`;
   return (
     <div
-      className="kb-surface-enter absolute bottom-4 right-4 z-30 flex max-h-[60%] max-w-sm flex-col gap-2 overflow-y-auto rounded-lg border border-foreground/10 bg-popover/95 p-3 shadow-overlay backdrop-blur-sm"
+      className="kb-surface-enter absolute bottom-4 right-4 z-30 flex max-h-[60%] max-w-sm flex-col gap-2 overflow-y-auto rounded-lg border border-border bg-popover/95 p-3 shadow-overlay backdrop-blur-sm"
       data-testid="graph-trace-card"
     >
       <div className="flex items-start justify-between gap-2">

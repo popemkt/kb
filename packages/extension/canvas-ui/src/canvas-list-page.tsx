@@ -34,7 +34,7 @@ export function CanvasListPage() {
         <button
           type="button"
           disabled={busy}
-          className="rounded-md border border-foreground/10 px-3 py-1.5 text-meta text-foreground/70 hover:bg-foreground/5 disabled:opacity-50"
+          className="rounded-md border border-border px-3 py-1.5 text-meta text-foreground/70 hover:bg-foreground/5 disabled:opacity-50"
           onClick={() => void onNew()}
         >
           New canvas

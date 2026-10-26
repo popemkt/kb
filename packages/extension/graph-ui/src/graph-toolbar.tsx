@@ -135,7 +135,7 @@ export function GraphToolbar({
               }
             }}
             placeholder="Search nodes…"
-            className="h-6 w-36 rounded-xs bg-transparent px-1.5 text-meta text-foreground/80 outline-none placeholder:text-foreground/30 focus:ring-1 focus:ring-foreground/15"
+            className="h-6 w-36 rounded-xs bg-transparent px-1.5 text-meta text-foreground/80 outline-none placeholder:text-faint-foreground focus:ring-1 focus:ring-foreground/15"
           />
           <span aria-live="polite" className="text-caption text-foreground/50">
             {
@@ -227,7 +227,7 @@ function ToolbarButton({
         "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
         disabled === true
           ? "cursor-not-allowed text-foreground/20"
-          : "text-foreground/50 hover:bg-foreground/[0.06] hover:text-foreground/80",
+          : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
         active === true && disabled !== true && "bg-foreground/[0.08] text-foreground/80",
       )}
       title={title}

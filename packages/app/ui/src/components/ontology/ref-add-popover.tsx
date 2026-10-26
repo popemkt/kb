@@ -79,7 +79,7 @@ export function RefAddPopover({
       </button>
       {open ? (
         <div
-          className="absolute left-0 top-full z-40 mt-1 w-[260px] rounded-lg border border-foreground/10 bg-popover p-1 shadow-overlay"
+          className="absolute left-0 top-full z-40 mt-1 w-[260px] rounded-lg border border-border bg-popover p-1 shadow-overlay"
           role="dialog"
           aria-label={title}
         >
@@ -88,7 +88,7 @@ export function RefAddPopover({
             value={filter}
             placeholder={title}
             aria-label={title}
-            className="mb-1 w-full rounded-md bg-foreground/[0.04] px-2 py-1 text-meta text-foreground/85 outline-none placeholder:text-foreground/30"
+            className="mb-1 w-full rounded-md bg-foreground/[0.04] px-2 py-1 text-meta text-foreground/85 outline-none placeholder:text-faint-foreground"
             onChange={(e) => setFilter(e.target.value)}
             onKeyDown={(e) => {
               keys.handleKeyDown(e);

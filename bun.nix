@@ -489,13 +489,41 @@
     url = "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.2.tgz";
     hash = "sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g==";
   };
+  "@fontsource-variable/archivo@5.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@fontsource-variable/archivo/-/archivo-5.3.0.tgz";
+    hash = "sha512-HogK8FJelrD1o7TlZlkIVtHgc20bO5PZRWE7mUeUTdMN055alznQV6/00J00IBeu8FQAH4s3zW9UJNvKExXf+g==";
+  };
   "@fontsource-variable/inter@5.3.0" = fetchurl {
     url = "https://registry.npmjs.org/@fontsource-variable/inter/-/inter-5.3.0.tgz";
     hash = "sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==";
   };
+  "@fontsource-variable/josefin-sans@5.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@fontsource-variable/josefin-sans/-/josefin-sans-5.3.0.tgz";
+    hash = "sha512-duVgkuzE/co4iuIfJ7jM2qX0ED3b6qdY+SlSjNMs6zfhz7EE7kJxV0qF65hQCv1kN0A20j4FwsGAYJvfpU+iSg==";
+  };
+  "@fontsource-variable/jost@5.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@fontsource-variable/jost/-/jost-5.3.0.tgz";
+    hash = "sha512-9FS8iBMJnfyPqQOi9dfMjSwYBIWd0kBD3/jl8VvtbIMY2pK+CSp3oAaTLS1V60rDoM7AfyPvuT+IUfJfGeCTKg==";
+  };
   "@fontsource-variable/outfit@5.3.0" = fetchurl {
     url = "https://registry.npmjs.org/@fontsource-variable/outfit/-/outfit-5.3.0.tgz";
     hash = "sha512-fPb5XnYK0k7SbR++HEmm4+ZqDszmLKQ+sPRUr8oQ/KNC0vy6r6hazJFe8iYozv4cqlHbvJ/JECkJWrfDodUMVQ==";
+  };
+  "@fontsource/barlow-condensed@5.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@fontsource/barlow-condensed/-/barlow-condensed-5.3.0.tgz";
+    hash = "sha512-RA7MmIx0v3eQ6Gcf74qLVLOwLB0GpPOzx+eU9iG/AmCnSJGcIWYeU8y6CEMGZ210MGwGg5CZhzLkkvyZdTTk1g==";
+  };
+  "@fontsource/barlow@5.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@fontsource/barlow/-/barlow-5.3.0.tgz";
+    hash = "sha512-tGR0y6QObRtKv71MOth44222+mdNFM/ZWFWDV1VLzNbG4oK9PNRlyJzmkck4vHAi9ibHBXgt4SlY51amFP55CA==";
+  };
+  "@fontsource/marcellus-sc@5.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@fontsource/marcellus-sc/-/marcellus-sc-5.3.0.tgz";
+    hash = "sha512-i4URFFrg7hgJnp05puIVvDuCmSqRZwKBrY6tx+Z4I6XQs5JTiMbpKMYttU8Oioup/0LxfvrJY0FPFku592hJew==";
+  };
+  "@fontsource/share-tech-mono@5.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@fontsource/share-tech-mono/-/share-tech-mono-5.3.0.tgz";
+    hash = "sha512-hVEzVCzEid/fBfhggMyvkfDzn9ODrMihxC0EiOeQK3BuQNvdjmith2ERnoDNUkbW8zhufbKNuCgaSoT8LUNpuQ==";
   };
   "@hono/node-server@2.1.0" = fetchurl {
     url = "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.0.tgz";

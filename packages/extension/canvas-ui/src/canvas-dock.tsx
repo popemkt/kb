@@ -114,7 +114,7 @@ export function DockPanel({
       data-testid={testId}
       style={{ width: DOCK_PANEL_WIDTH }}
       className={cn(
-        "pointer-events-auto flex min-h-0 shrink flex-col rounded-lg border border-foreground/10 bg-popover/95 shadow-floating backdrop-blur-sm",
+        "pointer-events-auto flex min-h-0 shrink flex-col rounded-lg border border-border bg-popover/95 shadow-floating backdrop-blur-sm",
         className,
       )}
     >

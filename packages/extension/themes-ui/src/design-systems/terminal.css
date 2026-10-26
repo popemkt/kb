@@ -22,6 +22,7 @@
   --secondary-foreground: oklch(0.22 0.03 150);
   --muted: oklch(0.955 0.01 150);
   --muted-foreground: oklch(0.46 0.04 150);
+  --faint-foreground: oklch(0.495 0.013 152);
   --accent: oklch(0.93 0.02 150);
   --accent-foreground: oklch(0.2 0.03 150);
   --destructive: oklch(0.52 0.2 27);
@@ -94,6 +95,36 @@
   --app-font-serif: ui-serif, "New York", Charter, Georgia, serif;
   --font-weight-body: 400;
   --font-weight-ui: 500;
+
+  /* Display and label type: the default's, in this system's faces. */
+  --display-style: normal;
+  --display-case: none;
+  --display-tracking: 0em;
+  --display-variation: normal;
+  --label-style: normal;
+  --label-tracking: 0.025em;
+  --label-variation: normal;
+  --label-ink: currentcolor;
+  --palette-mark: "";
+  --palette-bar: none;
+  --palette-bar-width: 0px;
+  /* No art; round corners, upright chips. */
+  --art-chrome: none;
+  --art-scrim: none;
+  --scrim-filter: saturate(1);
+  --corner-shape: round;
+  --chip-skew: 0deg;
+  /* Motion: the default's quiet personality. */
+  --motion-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-duration-quick: 220ms;
+  --motion-duration-reveal: 280ms;
+  --motion-duration-theme: 360ms;
+  --motion-duration-arrive: 900ms;
+  --motion-duration-follow: 480ms;
+  --motion-stagger: 24ms;
+  --motion-ambient-period: 12s;
+  --motion-enter: kb-surface-enter;
+  --motion-reveal: kb-workspace-reveal;
 }
 
 .dark[data-theme="themes.terminal"],
@@ -110,6 +141,7 @@
   --secondary-foreground: oklch(0.9 0.06 150);
   --muted: oklch(0.2 0.016 150);
   --muted-foreground: oklch(0.72 0.07 150);
+  --faint-foreground: oklch(0.631 0.033 150);
   --accent: oklch(0.25 0.03 150);
   --accent-foreground: oklch(0.95 0.06 150);
   --destructive: oklch(0.72 0.18 25);

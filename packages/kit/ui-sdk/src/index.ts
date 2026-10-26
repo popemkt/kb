@@ -38,6 +38,7 @@ export {
   useOpenNode,
   usePageActivity,
   usePageBackdrop,
+  useShownDesignSystem,
   type PageBackdropChoice,
   usePageGraph,
   usePaneScreen,
@@ -105,6 +106,9 @@ export {
   type DesignSystem,
   DesignSystemPoint,
   provideDesignSystem,
+  type ThemeArtProps,
+  THEME_GESTURE_MAX_MS,
+  type ThemeArtPlane,
   type BackdropPresentation,
   type BackdropProps,
   type PageActivity,
@@ -148,6 +152,7 @@ export {
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
 export { PageBackdrop } from "./components/page-backdrop";
+export { ThemeArt } from "./components/theme-art";
 
 // The primitives.
 export { Bullet } from "./components/bullet";
@@ -239,6 +244,7 @@ export {
   MAIN_OUTLINE_HOST,
   outlineHostOfPane,
   outlineInstanceKey,
+  pageTitleInstanceKey,
   queryResultInstanceKey,
 } from "./lib/instance-key";
 export {

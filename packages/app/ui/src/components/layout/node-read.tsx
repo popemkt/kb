@@ -60,7 +60,7 @@ export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
         </p>
       )}
       {rootId === WORKSPACE_ROOT_ID ? null : (
-        <h1 className="text-title font-medium text-foreground/85">
+        <h1 className="kb-display text-title font-medium text-foreground/85">
           <MdView text={textOr(rowText(root, schema), "Untitled")} onFollow={follow} ink={ink} />
         </h1>
       )}

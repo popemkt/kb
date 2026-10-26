@@ -9,10 +9,11 @@
  * keystroke breathes into it; a write outside typing sets a hot flare
  * orbiting in it, which a further write brightens rather than starts again.
  *
- * Cost: the hole is drawn offscreen at a share of the frame's pixels, with a
- * step cap and samples per step, all three lowered as the stage's meter
- * lowers quality; the frames before it fill in what one frame's jittered
- * samples leave out.
+ * Cost: the hole is drawn offscreen, and what the meter trades is its
+ * resolution and nothing else (`holeDensity`). A ray's steps are never cut
+ * short (`STEP_CAP`): the rays that wind round the hole take the most, and
+ * they are the photon ring. One jittered sample a step; the frames before it
+ * fill in what one frame's samples leave out.
  */
 import { max, min, screenUV, vec2 } from "three/tsl";
 import { offscreenPass, type OffscreenPass, type SceneStage } from "@kb/scene-gpu";
@@ -43,6 +44,21 @@ const FOLLOW = 2.2;
 const FLARE_REST = 0.03;
 /** The flare's phase is drawn from this mount's seed, anew for each flare. */
 const FULL_TURN = Math.PI * 2;
+/**
+ * Enough steps for a ray that winds round the photon sphere: fewer, and the
+ * photon ring is the first thing lost. Rays that miss break out long before
+ * it, so the cap costs little.
+ */
+const STEP_CAP = 300;
+/**
+ * The hole's texels per CSS pixel at `quality` (0.4–1): crisp first. Never
+ * under one a CSS pixel, however long frames run; 1.5 at full quality,
+ * capped at the screen's own density.
+ */
+function holeDensity(quality: number): number {
+  const screen = Math.max(1, globalThis.devicePixelRatio || 1);
+  return Math.min(1 + (0.5 * Math.max(0, quality - 0.4)) / 0.6, screen);
+}
 
 /**
  * The hole's picture scaled to the frame and sharpened (after AMD's
@@ -93,11 +109,11 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       height = h;
       u.center.value.set(composition.x, 1 - composition.y);
       u.focal.value = 2.3 * composition.scale;
-      // At full quality one texel a CSS pixel, sharpened; it falls with quality.
-      const share = 0.55 + 0.45 * quality;
-      hole.setSize(w * share, h * share);
-      u.steps.value = Math.round(120 + 100 * quality);
-      u.samples.value = quality > 0.8 || init.reducedMotion ? 2 : 1;
+      const density = holeDensity(quality);
+      hole.setSize(w * density, h * density);
+      u.steps.value = STEP_CAP;
+      // A still frame has no frames before it to settle its samples.
+      u.samples.value = init.reducedMotion ? 3 : 1;
       fresh = true;
     },
     setLook: (look: GpuLook) => {

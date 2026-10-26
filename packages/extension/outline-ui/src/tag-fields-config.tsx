@@ -79,7 +79,7 @@ export function TagFieldsConfigView({
 
   return (
     <div className="mb-4" data-tag-fields-config="true">
-      <h2 className="mb-2 px-1 text-meta uppercase tracking-wide text-foreground/30">
+      <h2 className="mb-2 px-1 text-meta kb-label text-foreground/30">
         Fields
         <span className="ml-1.5 font-normal normal-case tracking-normal">({template.length})</span>
       </h2>
@@ -133,7 +133,7 @@ export function TagFieldsConfigView({
               aria-label="Add a field to this tag"
               className={cn(
                 "w-full bg-transparent text-ui text-foreground",
-                "placeholder:text-foreground/35 outline-none",
+                "placeholder:text-faint-foreground outline-none",
               )}
             />
             {picking && (

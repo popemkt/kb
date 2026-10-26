@@ -20,6 +20,18 @@ import {
   fieldTypeValue,
   type FieldType,
 } from "./field-type.ts";
+import {
+  MOTION_EFFECTS,
+  MOTION_FIELD_IDS,
+  MOTION_INTENSITIES,
+  MOTION_MODES,
+  MOTION_SPEEDS,
+  MOTION_STYLES,
+  motionEffectFieldId,
+  motionOptionId,
+  type MotionOptionSetting,
+  type MotionSettings,
+} from "./motion.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 import {
   VIEW_FAMILY_VALUES,
@@ -488,6 +500,33 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "ref",
     configuresCore,
   );
+  /*
+   * Motion options (DESIGN-UI.md → Motion options): settings of core's
+   * node, each unset by default, so the shown theme's preset (the same
+   * fields on its option node) or the default applies. The four option
+   * settings are option sets, so each is its field's children; each effect
+   * is a checkbox.
+   */
+  const motionSetting = <S extends MotionOptionSetting>(
+    setting: S,
+    values: readonly MotionSettings[S][],
+  ): KbNode[] => {
+    const options = values.map((value) => mk(motionOptionId(setting, value), value));
+    const settingField: KbNode = {
+      ...singleField(MOTION_FIELD_IDS[setting], `motion.${setting}`, "ref", configuresCore),
+      children: options.map((option) => option.id),
+    };
+    return [settingField, ...options];
+  };
+  const motionFields = [
+    ...motionSetting("mode", MOTION_MODES),
+    ...motionSetting("intensity", MOTION_INTENSITIES),
+    ...motionSetting("style", MOTION_STYLES),
+    ...motionSetting("speed", MOTION_SPEEDS),
+    ...MOTION_EFFECTS.map((effect) =>
+      singleField(motionEffectFieldId(effect), `motion.${effect}`, "checkbox", configuresCore),
+    ),
+  ];
 
   return [
     field,
@@ -546,6 +585,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     backdropDirectionField,
     ...directionOptions,
     designSystemField,
+    ...motionFields,
   ];
 }
 

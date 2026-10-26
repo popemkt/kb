@@ -15,11 +15,10 @@
  *   at its inner edge and in the midplane, redder outward and upward,
  *   Doppler-beamed (brighter where it comes toward us) and redshifted near
  *   the hole. A write sets a hot flare orbiting in it.
- * - **Cheap.** It is drawn offscreen (`offscreenPass`) at a fraction of the
- *   frame's pixels with a step cap and a sample count the scene lowers when
- *   frames run long; each frame jitters where along its steps it samples
- *   and blends into the frames before it (`history`), so few samples a
- *   frame converge to a smooth disk.
+ * - **Cheap.** It is drawn offscreen (`offscreenPass`) at a resolution the
+ *   scene lowers when frames run long; each frame jitters where along its
+ *   steps it samples and blends into the frames before it (`history`), so
+ *   one sample a step converges to a smooth disk.
  * - **Dark** pages see it as light on black; **light** pages as an eclipse
  *   by day: a high-key sky, a charcoal shadow, the disk as amber dust lit
  *   from the front, only its hot inner edge burning gold.
@@ -39,12 +38,14 @@ import {
   exp,
   float,
   fract,
+  int,
   length,
   max,
   min,
   mix,
   normalize,
   pow,
+  select,
   sin,
   smoothstep,
   sqrt,
@@ -64,6 +65,9 @@ type V3 = TslNode<"vec3">;
 
 const INNER = 2.6;
 const OUTER = 13;
+/** Within this radius a step through the slab takes at least `RING_SAMPLES` (see `throughSlab`). */
+const RING_RADIUS = 4.5;
+const RING_SAMPLES = 3;
 /** The camera's distance from the hole, in Schwarzschild radii. */
 const DISTANCE = 40;
 /** A hair of roll: authored, not level. */
@@ -217,9 +221,19 @@ function throughSlab({
   dust,
   through,
 }: SlabStep): void {
-  const samples = float(u.samples);
+  // Near the inner edge, where the rays that wind round the hole cross the slab
+  // and draw the photon ring, a step takes at least RING_SAMPLES samples: one
+  // can miss so thin a crossing, and the ring breaks into dashes.
+  const mid = p.add(next).mul(0.5);
+  const each = float(u.samples);
+  const samples = select(
+    length(vec2(mid.x, mid.z)).lessThan(RING_RADIUS),
+    max(each, RING_SAMPLES),
+    each,
+  ).toVar();
+  const count = int(samples);
   const ds = length(next.sub(p)).div(samples);
-  Loop({ start: 0, end: u.samples, type: "int", condition: "<" }, ({ i }) => {
+  Loop({ start: 0, end: count, type: "int", condition: "<" }, ({ i }) => {
     const c = mix(p, next, float(i).add(jitter).div(samples)).toVar();
     const cr = length(vec2(c.x, c.z));
     const gas = density(c, cr).toVar();
@@ -260,6 +274,34 @@ function throughSlab({
   });
 }
 
+/** The camera, on a sphere round the hole, and its ray through this frame's point in the texel at `at`. */
+function cameraRay(u: BlackHoleUniforms, at: TslNode<"vec2">, size: TslNode<"vec2">) {
+  const aspect = size.x.div(size.y);
+  // Each frame's rays leave from a new point inside their texel (an R2 sequence),
+  // so the history antialiases what is finer than a texel: the photon ring and the
+  // filaments' edges, which a fixed grid draws as dashes and moiré.
+  const subpixel = fract(u.frame.mul(vec2(0.7548777, 0.5698403)))
+    .sub(0.5)
+    .div(size);
+  const ray = at.add(subpixel);
+  const flat = vec2(ray.x.sub(u.center.x).mul(aspect), ray.y.sub(u.center.y));
+  const q = vec2(
+    flat.x.mul(Math.cos(ROLL)).sub(flat.y.mul(Math.sin(ROLL))),
+    flat.x.mul(Math.sin(ROLL)).add(flat.y.mul(Math.cos(ROLL))),
+  );
+  // A camera on a sphere round the hole: the pointer tilts and swings it.
+  const eye = vec3(
+    cos(u.inclination).mul(sin(u.azimuth)),
+    sin(u.inclination),
+    cos(u.inclination).mul(cos(u.azimuth)).negate(),
+  ).mul(DISTANCE);
+  const forward = normalize(eye.negate());
+  const right = normalize(cross(vec3(0, 1, 0), forward));
+  const up = cross(forward, right);
+  const v = normalize(forward.mul(u.focal).add(right.mul(q.x)).add(up.mul(q.y))).toVar();
+  return { eye, v };
+}
+
 /**
  * The offscreen pass: one frame of the hole, blended into the history.
  * Night is light over the stage's ground; day is composed in the page's
@@ -273,30 +315,7 @@ export function blackHoleFragment(
   const density = densityFn(u);
   return Fn(() => {
     const at = uv();
-    const aspect = size.x.div(size.y);
-    const flat = vec2(at.x.sub(u.center.x).mul(aspect), at.y.sub(u.center.y));
-    const q = vec2(
-      flat.x.mul(Math.cos(ROLL)).sub(flat.y.mul(Math.sin(ROLL))),
-      flat.x.mul(Math.sin(ROLL)).add(flat.y.mul(Math.cos(ROLL))),
-    );
-    // A camera on a sphere round the hole: the pointer tilts and swings it.
-    const eye = vec3(
-      cos(u.inclination).mul(sin(u.azimuth)),
-      sin(u.inclination),
-      cos(u.inclination).mul(cos(u.azimuth)).negate(),
-    ).mul(DISTANCE);
-    const forward = normalize(eye.negate());
-    const right = normalize(cross(vec3(0, 1, 0), forward));
-    const up = cross(forward, right);
-    const v = normalize(forward.mul(u.focal).add(right.mul(q.x)).add(up.mul(q.y))).toVar();
-    const p = vec3(eye).toVar();
-    const angular = cross(p, v);
-    const h2 = dot(angular, angular);
-    const light = vec3(0, 0, 0).toVar();
-    const dust = vec3(0, 0, 0).toVar();
-    const through = float(1).toVar();
-    const swallowed = float(0).toVar();
-    const nearest = float(99).toVar();
+    const { eye, v } = cameraRay(u, at, size);
     // Interleaved gradient noise, moved each frame: where in each step this frame samples.
     const pixel = at.mul(size).floor();
     const jitter = fract(
@@ -304,6 +323,19 @@ export function blackHoleFragment(
         .mul(52.9829189)
         .add(u.frame.mul(0.618034)),
     );
+    // The march starts a jittered part of a step along: the steps of a ray that winds
+    // round the hole land somewhere new each frame, and the history draws the photon
+    // ring whole instead of in dashes. Space is flat out here, so the ray is unbent.
+    const p = vec3(eye)
+      .add(v.mul(jitter.mul(1.2)))
+      .toVar();
+    const angular = cross(p, v);
+    const h2 = dot(angular, angular);
+    const light = vec3(0, 0, 0).toVar();
+    const dust = vec3(0, 0, 0).toVar();
+    const through = float(1).toVar();
+    const swallowed = float(0).toVar();
+    const nearest = float(99).toVar();
     const sigmaScale = mix(8, 3.2, u.dark);
     // Typing dims the disk a little and each keystroke breathes into it; a write flares.
     const fade = float(1).sub(u.calm.mul(0.35)).add(u.pulse.mul(0.4));

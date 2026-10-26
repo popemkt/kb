@@ -64,9 +64,66 @@
     font-weight: var(--tag-weight);
   }
 
-  /* Box metrics belong with the type token, not re-stated per component. */
+  /* Box metrics belong with the type token, not re-stated per component.
+   * A design system may lean the chip (`--chip-skew`): a sticker, a tab. */
   .kb-tag {
     height: var(--tag-h);
+    transform: skewX(var(--chip-skew));
+  }
+
+  /* Display type: a page's title and the brand. The face, slant, case,
+   * tracking and variable axes are the design system's; the size and the
+   * weight stay with the element (`text-title font-semibold`). */
+  .kb-display {
+    font-family: var(--app-font-display);
+    font-style: var(--display-style);
+    text-transform: var(--display-case);
+    letter-spacing: var(--display-tracking);
+    font-variation-settings: var(--display-variation);
+  }
+
+  /* A section label: small capitals over a group (References, Pinned, a
+   * picker's heading). The size, weight and ink stay with the element. */
+  .kb-label {
+    font-family: var(--app-font-label);
+    font-style: var(--label-style);
+    text-transform: uppercase;
+    letter-spacing: var(--label-tracking);
+    font-variation-settings: var(--label-variation);
+    -webkit-text-fill-color: var(--label-ink);
+  }
+
+  /* The command palette's mark, before its input (`--palette-mark`). */
+  .kb-palette-mark::before {
+    content: var(--palette-mark);
+  }
+
+  .kb-palette-mark::after {
+    content: "";
+    display: inline-block;
+    vertical-align: middle;
+    width: var(--palette-bar-width);
+    height: 0.6em;
+    margin-inline-start: calc(var(--palette-bar-width) / 8);
+    background: var(--palette-bar);
+    animation: kb-palette-bar calc(var(--motion-duration-enter) * 1.4) steps(8) both;
+  }
+
+  /* Chrome: the header, the sidebar and a page's own bar wear the design
+   * system's chrome art over their ground. Its layers are `background`
+   * layers, so a system may also say how one is placed or attached (YoRHa
+   * fixes its grid to the window, continuous with the grid of its ground);
+   * the colour stays the bar's own (`bg-sidebar`, a utility, outranks this
+   * component rule). */
+  .kb-chrome {
+    background: var(--art-chrome);
+  }
+
+  /* The dimming layer behind a modal, with the design system's scrim art. */
+  .kb-scrim {
+    background-image: var(--art-scrim);
+    /* Composed into the scrim's backdrop-blur utility. */
+    --tw-backdrop-saturate: var(--scrim-filter);
   }
 
   /*

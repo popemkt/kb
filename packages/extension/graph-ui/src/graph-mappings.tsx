@@ -59,7 +59,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
   const optionsFor = useMemo(() => sourceOptionsByField(nodes), [nodes]);
   const channels = useRenderer(perspective.renderer)?.renderer.channels ?? [];
   return (
-    <div className="mb-3 space-y-3 border-b border-foreground/10 pb-3">
+    <div className="mb-3 space-y-3 border-b border-border pb-3">
       <p className="text-label text-foreground/45">
         Map the same graph through different relationships and fields.
       </p>
@@ -109,7 +109,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
                   ? "Area by"
                   : config.label
               }
-              className="mt-1 block w-full rounded-xs border border-foreground/10 bg-popover px-1.5 py-1 text-meta leading-4 text-foreground"
+              className="mt-1 block w-full rounded-xs border border-border bg-popover px-1.5 py-1 text-meta leading-4 text-foreground"
               value={current}
               onChange={(e) =>
                 void setLensProp(perspective.id, config.field, sourceValue(e.target.value))
@@ -134,7 +134,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           aria-label="Node query"
           defaultValue={perspective.query}
           placeholder="All nodes"
-          className="mt-1 block w-full rounded-xs border border-foreground/10 bg-transparent p-1.5 font-mono text-label text-foreground"
+          className="mt-1 block w-full rounded-xs border border-border bg-transparent p-1.5 font-mono text-label text-foreground"
           onBlur={(e) => {
             if (e.target.value !== perspective.query)
               void setLensProp(perspective.id, SYSTEM_IDS.lensQueryField, {
@@ -152,7 +152,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           aria-label="Node limit"
           min={1}
           defaultValue={perspective.maxNodes}
-          className="w-20 rounded-xs border border-foreground/10 bg-transparent px-1.5 py-1 text-meta leading-4 text-foreground"
+          className="w-20 rounded-xs border border-border bg-transparent px-1.5 py-1 text-meta leading-4 text-foreground"
           onBlur={(e) => {
             const v = Number(e.target.value);
             if (Number.isFinite(v) && v >= 1 && v !== perspective.maxNodes)

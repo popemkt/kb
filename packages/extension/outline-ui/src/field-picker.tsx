@@ -24,7 +24,7 @@ import { notePick, recentPicks } from "./picker-recency";
 const inputClass = cn(
   "w-full flex-1 rounded-sm border-none bg-transparent px-1 outline-none",
   KB_TEXT_CLASS,
-  "text-foreground/70 placeholder:text-foreground/25",
+  "text-foreground/70 placeholder:text-faint-foreground",
 );
 
 /**
