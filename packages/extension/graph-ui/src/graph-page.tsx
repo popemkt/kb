@@ -278,11 +278,11 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
+      <header className="kb-chrome flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
         <SidebarToggle {...sidebar} />
         {/* Under an ontology its own header names the scope and switches its views. */}
         {ontologyId === null ? (
-          <span className="text-ui font-medium text-foreground/50">graph</span>
+          <span className="kb-display text-ui font-medium text-foreground/50">graph</span>
         ) : null}
         <PerspectivePicker
           perspectives={perspectives}

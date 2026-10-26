@@ -148,6 +148,68 @@
   --app-font-serif: ui-serif, "New York", Charter, Cambria, serif;
   --font-weight-body: 400;
   --font-weight-ui: 500;
+  /* Display type: titles and the brand (`.kb-display`). Its face follows
+   * the UI face unless a system restates it; the variation settings move a
+   * variable face's own axes (weight, width), so a title keeps whatever
+   * weight its element sets and a system may still make it black. */
+  --app-font-display: var(--app-font);
+  --display-style: normal;
+  --display-case: none;
+  --display-tracking: 0em;
+  --display-variation: normal;
+  /* Section labels (`.kb-label`): always capitals; the face, tracking,
+   * slant and axes are the system's. */
+  --app-font-label: var(--app-font);
+  --label-style: normal;
+  --label-tracking: 0.025em;
+  --label-variation: normal;
+  /* The labels' glyph ink: the element's own colour here; a system may
+   * paint every label one ink (Transistor's amber terminal text). */
+  --label-ink: currentcolor;
+  /* A mark the command palette shows before its input, and a bar after it
+   * that fills in steps as the palette opens (Transistor's Turn()): none
+   * here. */
+  --palette-mark: "";
+  --palette-bar: none;
+  --palette-bar-width: 0px;
+
+  /* Art and shape (DESIGN-UI.md → Design tokens → Themes): images a system
+   * lays over the chrome (header, sidebar, a page's own bar) and over a
+   * modal's scrim, the corner every rounded box is cut to, and how far a
+   * tag chip leans. None, round and upright here: the default draws no art. */
+  --art-chrome: none;
+  --art-scrim: none;
+  /* A backdrop filter a modal's scrim adds to its blur (Turn()'s frozen,
+   * colourless world): the identity here. */
+  --scrim-filter: saturate(1);
+  --corner-shape: round;
+  --chip-skew: 0deg;
+
+  /* Motion personality: the timing vocabulary every gesture picks from
+   * (`motion.css`), which script motion reads too (`lib/timing.ts`, so
+   * `--motion-settle` stays a cubic-bezier), and the gestures a system
+   * arrives with: the keyframes a floating surface enters by
+   * (`--motion-enter`, on `--motion-spring` over `--motion-duration-enter`)
+   * and a page is revealed by (`--motion-reveal`). The keyframes are
+   * motion.css's shared vocabulary; a system names one, never defines it. */
+  --motion-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-spring: var(--motion-settle);
+  --motion-duration-quick: 220ms;
+  --motion-duration-enter: var(--motion-duration-quick);
+  --motion-duration-reveal: 280ms;
+  --motion-duration-theme: 360ms;
+  --motion-duration-arrive: 900ms;
+  /* Script motion: how long a pointer-follow spring takes to settle, the
+   * delay between neighbours in a staggered wave, and the shortest period an
+   * ambient (unprompted) motion may have. */
+  --motion-duration-follow: 480ms;
+  --motion-stagger: 24ms;
+  --motion-ambient-period: 12s;
+  --motion-enter: kb-surface-enter;
+  --motion-reveal: kb-workspace-reveal;
+  /* A failure's surface (an error toast) enters as any surface does,
+   * unless a system gives failure its own gesture (YoRHa's glitch). */
+  --motion-alert: var(--motion-enter);
 }
 
 .dark,

@@ -315,7 +315,7 @@ function DefinitionRow({
     <div className={cn("flex gap-3", align === "center" ? "items-center" : "items-start")}>
       <span
         className={cn(
-          "w-16 shrink-0 text-label uppercase tracking-wide text-foreground/30",
+          "w-16 shrink-0 text-label kb-label text-foreground/30",
           align === "start" && "pt-1",
         )}
       >
@@ -366,7 +366,7 @@ function Chip({
 
 function SectionTitle({ children, count }: { children: React.ReactNode; count: number }) {
   return (
-    <h2 className="mb-1 flex items-center gap-1.5 px-1.5 text-label font-medium uppercase tracking-wide text-foreground/30">
+    <h2 className="mb-1 flex items-center gap-1.5 px-1.5 text-label font-medium kb-label text-foreground/30">
       {children}
       <span className="font-normal normal-case tracking-normal text-foreground/25">{count}</span>
     </h2>

@@ -6,8 +6,16 @@
  * `@kb/themes-ui`.
  */
 export {
+  BROADCAST_BACKDROP,
+  BUNKER_BACKDROP,
+  CLOUDBANK_BACKDROP,
+  HOLLOW_BACKDROP,
+  OVC_BACKDROP,
   PAPER_DESIGN_SYSTEM,
   TERMINAL_DESIGN_SYSTEM,
+  TRANSISTOR_DESIGN_SYSTEM,
+  YORHA_DESIGN_SYSTEM,
+  ZZZ_DESIGN_SYSTEM,
   themesExtension,
   themesPlugin,
 } from "./extension.ts";

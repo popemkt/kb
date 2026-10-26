@@ -190,7 +190,7 @@ function SwitcherMenu({
     >
       {sections.map((section) => (
         <div key={section.title} className="py-0.5">
-          <p className="truncate px-2 pb-0.5 pt-1 text-label uppercase tracking-wide text-foreground/35">
+          <p className="truncate px-2 pb-0.5 pt-1 text-label kb-label text-foreground/35">
             {section.title}
           </p>
           {section.choices.map((choice) => (

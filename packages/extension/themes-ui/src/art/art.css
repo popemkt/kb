@@ -1,0 +1,844 @@
+/*
+ * The themes family's art (ART-DIRECTION.md; DESIGN-UI.md → Design tokens →
+ * Themes): what Transistor's and ZZZ's art layers and page-head backdrops
+ * draw. Every colour is a token of the design system painting the page (its
+ * chart palette is each theme's art palette), so the art follows light and
+ * dark. Everything that moves animates transform, opacity or filter on a
+ * small or short-lived element; an ambient loop's period is at least the
+ * system's `--motion-ambient-period`. Under reduced motion the global rule
+ * stops every loop, and no gesture is drawn (the last block below; the
+ * shell hides the veil).
+ */
+
+/* The box a deferred piece of art is drawn in while its code loads. */
+.kb-art-frame {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── Transistor: Cloudbank ─────────────────────────────────────────────── */
+
+.kb-cloudbank-ground {
+  position: absolute;
+  inset: 0;
+}
+
+.kb-cloudbank-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      120% 55% at 50% 108%,
+      color-mix(in oklab, var(--chart-3) 22%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      70% 40% at 88% 104%,
+      color-mix(in oklab, var(--chart-5) 14%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      70% 60% at 6% -4%,
+      color-mix(in oklab, var(--chart-1) 12%, transparent),
+      transparent 70%
+    );
+}
+
+/* Mucha's halo: concentric gilt rings, faint, in the top corner. */
+.kb-cloudbank-halo {
+  position: absolute;
+  top: -18vw;
+  right: -14vw;
+  width: 52vw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  corner-shape: round;
+  background: repeating-radial-gradient(
+    circle,
+    transparent 0 38px,
+    color-mix(in oklab, var(--chart-5) 13%, transparent) 38px 39.5px
+  );
+  mask-image: radial-gradient(closest-side, var(--foreground) 30%, transparent);
+}
+
+.kb-cloudbank-city {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 19vh;
+  min-height: 110px;
+}
+
+.kb-cloudbank-ground .kb-cloudbank-city {
+  opacity: 0.7;
+}
+
+.kb-cloudbank-far {
+  fill: color-mix(in oklab, var(--chart-1) 12%, var(--background));
+}
+
+.kb-cloudbank-near {
+  fill: color-mix(in oklab, var(--foreground) 9%, var(--background));
+}
+
+.dark .kb-cloudbank-near {
+  fill: color-mix(in oklab, var(--scrim) 65%, var(--background));
+}
+
+.kb-cloudbank-windows rect {
+  fill: var(--chart-5);
+  opacity: 0.45;
+  transition: opacity var(--motion-duration-reveal) var(--motion-settle);
+}
+
+[data-editing] .kb-cloudbank-windows rect {
+  opacity: 0.85;
+}
+
+.kb-cloudbank-windows .kb-cloudbank-twinkle {
+  animation: kb-cloudbank-twinkle calc(var(--motion-ambient-period) * 1.4) ease-in-out infinite;
+}
+
+@keyframes kb-cloudbank-twinkle {
+  0%,
+  70%,
+  100% {
+    opacity: 0.45;
+  }
+  80% {
+    opacity: 0.08;
+  }
+  90% {
+    opacity: 0.9;
+  }
+}
+
+/* A light rail: a short streak gliding through the city, forever. */
+.kb-cloudbank-rail {
+  position: absolute;
+  left: 0;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--primary) 55%, transparent) 75%,
+    var(--primary)
+  );
+  opacity: 0.5;
+  translate: -45vw 0;
+  animation: kb-cloudbank-rail 24s linear infinite;
+}
+
+@keyframes kb-cloudbank-rail {
+  to {
+    translate: 110vw 0;
+  }
+}
+
+/* A function executing: one bright trail across the roofs, once. */
+.kb-cloudbank-trail {
+  position: absolute;
+  left: 0;
+  bottom: 13vh;
+  width: 42vw;
+  height: 2.5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--chart-3) 70%, transparent) 60%,
+    var(--primary)
+  );
+  box-shadow: 0 0 14px 1px color-mix(in oklab, var(--primary) 55%, transparent);
+  opacity: 0;
+  translate: -45vw 0;
+  animation: kb-cloudbank-trail var(--motion-duration-arrive) var(--motion-settle) forwards;
+}
+
+@keyframes kb-cloudbank-trail {
+  10% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    translate: 105vw 0;
+  }
+}
+
+/* Jaunt(): the Process whitewashing the frame on a page change. A sheet of
+ * Process white under a cyan cell grid crosses in steps, its edges
+ * dissolving in stepped bands. */
+.kb-jaunt {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.kb-jaunt-cells {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 150vw;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--primary) 34%, transparent) 1px,
+        transparent 1px
+      )
+      0 0 / 16px 16px,
+    linear-gradient(color-mix(in oklab, var(--primary) 34%, transparent) 1px, transparent 1px) 0 0 /
+      16px 16px,
+    color-mix(in oklab, var(--card) 55%, white);
+  mask-image: linear-gradient(
+    to right,
+    transparent 0 4%,
+    rgb(0 0 0 / 0.3) 4% 9%,
+    rgb(0 0 0 / 0.65) 9% 14%,
+    black 14% 86%,
+    rgb(0 0 0 / 0.65) 86% 91%,
+    rgb(0 0 0 / 0.3) 91% 96%,
+    transparent 96%
+  );
+  opacity: 0.92;
+  translate: -150vw 0;
+  animation: kb-jaunt calc(var(--motion-duration-reveal) * 1.5) steps(14, jump-none) forwards;
+}
+
+.dark .kb-jaunt-cells {
+  background-color: color-mix(in oklab, var(--foreground) 92%, var(--primary));
+}
+
+.kb-jaunt-label {
+  font-family: var(--app-font-label);
+  font-size: var(--type-title);
+  letter-spacing: var(--label-tracking);
+  font-variation-settings: var(--label-variation);
+  color: var(--foreground);
+}
+
+.dark .kb-jaunt-label {
+  color: var(--background);
+}
+
+@keyframes kb-jaunt {
+  to {
+    translate: 100vw 0;
+  }
+}
+
+/* The Cloudbank page head. */
+.kb-header-backdrop[data-backdrop="themes.cloudbank"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    var(--foreground) 12%,
+    var(--foreground) 88%,
+    transparent
+  );
+}
+
+.kb-cloudbank-backdrop {
+  position: absolute;
+  inset: 0;
+  mask-image: linear-gradient(to bottom, var(--foreground) 62%, transparent);
+}
+
+.kb-cloudbank-backdrop .kb-cloudbank-city {
+  height: 58%;
+  min-height: 0;
+}
+
+.kb-cloudbank-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      38% 34% at 24% 58%,
+      color-mix(in oklab, var(--chart-4) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      30% 40% at 78% 30%,
+      color-mix(in oklab, var(--chart-1) 20%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--chart-1) 16%, var(--background)) 0%,
+      color-mix(in oklab, var(--chart-3) 26%, var(--background)) 58%,
+      color-mix(in oklab, var(--chart-5) 34%, var(--background)) 80%,
+      var(--background) 100%
+    );
+}
+
+.kb-cloudbank-sun {
+  position: absolute;
+  left: 64%;
+  top: 60%;
+  width: 0;
+  height: 0;
+}
+
+.kb-cloudbank-sun::before {
+  content: "";
+  position: absolute;
+  left: -46px;
+  top: -46px;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--chart-5) 85%, var(--foreground)) 0%,
+    color-mix(in oklab, var(--chart-5) 50%, transparent) 45%,
+    transparent 70%
+  );
+}
+
+.kb-cloudbank-sun span {
+  position: absolute;
+  border-radius: 50%;
+  corner-shape: round;
+  border: 1.5px dashed color-mix(in oklab, var(--kb-head) 45%, transparent);
+  animation: kb-cloudbank-halo-turn calc(var(--motion-ambient-period) * 5) linear infinite;
+}
+
+.kb-cloudbank-sun span:nth-child(1) {
+  inset: -62px;
+}
+
+.kb-cloudbank-sun span:nth-child(2) {
+  inset: -86px;
+  border-style: solid;
+  border-width: 1px;
+  animation-direction: reverse;
+}
+
+.kb-cloudbank-sun span:nth-child(3) {
+  inset: -116px;
+  border-style: dotted;
+  border-width: 2px;
+}
+
+@keyframes kb-cloudbank-halo-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.kb-cloudbank-rail-head {
+  bottom: 30%;
+  width: 30%;
+}
+
+.kb-cloudbank-backdrop .kb-cloudbank-trail {
+  bottom: 34%;
+  width: 40%;
+}
+
+/* ── ZZZ: the street ───────────────────────────────────────────────────── */
+
+.kb-zzz-ground {
+  position: absolute;
+  inset: 0;
+}
+
+/* Halftone: a dot screen, faded toward the page by a radial mask. */
+.kb-zzz-dots {
+  position: absolute;
+  width: 48vw;
+  aspect-ratio: 1;
+  opacity: 0.16;
+  mask-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9'%3E%3Ccircle cx='4.5' cy='4.5' r='2.1'/%3E%3C/svg%3E"),
+    radial-gradient(closest-side, var(--foreground) 15%, transparent);
+  mask-size:
+    9px 9px,
+    100% 100%;
+  mask-repeat: repeat, no-repeat;
+  mask-composite: intersect;
+}
+
+.kb-zzz-dots-top {
+  top: -16vw;
+  right: -12vw;
+  background: var(--chart-1);
+}
+
+.kb-zzz-dots-bottom {
+  bottom: -20vw;
+  left: -16vw;
+  background: var(--chart-2);
+}
+
+/* A comic page's gutters, cutting the ground into panels. */
+.kb-zzz-gutters {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      103deg,
+      transparent calc(76% - 3px),
+      color-mix(in oklab, var(--foreground) 6%, transparent) calc(76% - 3px) calc(76% + 3px),
+      transparent calc(76% + 3px)
+    ),
+    linear-gradient(
+      -4deg,
+      transparent calc(22% - 2px),
+      color-mix(in oklab, var(--foreground) 5%, transparent) calc(22% - 2px) calc(22% + 2px),
+      transparent calc(22% + 2px)
+    );
+}
+
+/* The hazard band along the bottom, slanted, its marquee crawling by. */
+.kb-zzz-band {
+  position: absolute;
+  left: -10vw;
+  right: -10vw;
+  bottom: 6vh;
+  height: 40px;
+  rotate: -3deg;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--chart-2) 8%, transparent);
+}
+
+.kb-zzz-band-stripes {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+        -50deg,
+        color-mix(in oklab, var(--chart-2) 20%, transparent) 0 10px,
+        transparent 10px 20px
+      )
+      top / 100% 5px no-repeat,
+    repeating-linear-gradient(
+        -50deg,
+        color-mix(in oklab, var(--chart-2) 20%, transparent) 0 10px,
+        transparent 10px 20px
+      )
+      bottom / 100% 5px no-repeat;
+}
+
+.kb-zzz-marquee {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: flex;
+  white-space: nowrap;
+  translate: 0 -50%;
+  font-family: var(--app-font-label);
+  font-style: var(--label-style);
+  font-variation-settings: var(--label-variation);
+  font-size: var(--type-label);
+  letter-spacing: var(--label-tracking);
+  color: color-mix(in oklab, var(--foreground) 17%, transparent);
+  animation: kb-zzz-marquee calc(var(--motion-ambient-period) * 6) linear infinite;
+}
+
+.kb-zzz-marquee span {
+  padding-right: 2em;
+}
+
+@keyframes kb-zzz-marquee {
+  to {
+    translate: -50% -50%;
+  }
+}
+
+/* The wipe: a strip leads, the dotted slanted panel sweeps across. */
+.kb-zzz-wipe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.kb-zzz-wipe-panel {
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 72vw;
+  background:
+    radial-gradient(
+        circle,
+        color-mix(in oklab, var(--scrim) 22%, transparent) 1.3px,
+        transparent 1.8px
+      )
+      0 0 / 8px 8px,
+    color-mix(in oklab, var(--chart-1) 72%, var(--background));
+  border-inline: 6px solid var(--scrim);
+  transform: skewX(-16deg);
+  translate: 135vw 0;
+  animation: kb-zzz-wipe calc(var(--motion-duration-reveal) * 2.4) linear forwards;
+}
+
+.kb-zzz-wipe-strip {
+  position: absolute;
+  top: 20%;
+  left: 0;
+  width: 100%;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding-left: 12vw;
+  background: var(--scrim);
+  color: var(--knob);
+  font-family: var(--app-font-label);
+  font-style: var(--label-style);
+  font-variation-settings: var(--label-variation);
+  font-size: var(--type-label);
+  letter-spacing: 0.1em;
+  translate: 100vw 0;
+  animation: kb-zzz-wipe-strip calc(var(--motion-duration-reveal) * 2.4) linear forwards;
+}
+
+@keyframes kb-zzz-wipe {
+  0% {
+    translate: 135vw 0;
+  }
+  36%,
+  58% {
+    translate: 14vw 0;
+  }
+  100% {
+    translate: -120vw 0;
+  }
+}
+
+@keyframes kb-zzz-wipe-strip {
+  0% {
+    translate: 100vw 0;
+  }
+  22%,
+  62% {
+    translate: 0 0;
+  }
+  100% {
+    translate: -100vw 0;
+  }
+}
+
+/* A sound effect, slapped on as a sticker and peeled off. */
+.kb-zzz-sfx {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  padding: 4px 16px 6px;
+  border: 3px solid var(--scrim);
+  border-radius: 10px;
+  corner-shape: bevel;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 6px 6px 0 0 var(--scrim);
+  font-family: var(--app-font-display);
+  font-style: italic;
+  font-variation-settings:
+    "wght" 900,
+    "wdth" 78;
+  font-size: 30px;
+  line-height: 1;
+  rotate: -7deg;
+  animation: kb-zzz-sfx calc(var(--motion-duration-enter) * 2.4) var(--motion-spring) forwards;
+}
+
+@keyframes kb-zzz-sfx {
+  0% {
+    opacity: 0;
+    scale: 0.4;
+    rotate: -22deg;
+  }
+  18% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    scale: 1;
+    rotate: -7deg;
+  }
+  100% {
+    opacity: 0;
+    scale: 1;
+    rotate: -7deg;
+  }
+}
+
+/* ── ZZZ: the Broadcast page head ──────────────────────────────────────── */
+
+.kb-broadcast {
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+}
+
+.kb-broadcast-slab {
+  position: absolute;
+  top: 26px;
+  right: 7%;
+  width: 54%;
+  height: 112px;
+  border: 3px solid var(--scrim);
+  background:
+    radial-gradient(
+        circle,
+        color-mix(in oklab, var(--scrim) 28%, transparent) 1.2px,
+        transparent 1.7px
+      )
+      0 0 / 7px 7px,
+    var(--chart-1);
+  box-shadow: 7px 7px 0 0 var(--scrim);
+  transform: skewX(-16deg);
+}
+
+.kb-broadcast-slab-back {
+  top: 12px;
+  right: 3%;
+  width: 30%;
+  height: 70px;
+  background:
+    repeating-linear-gradient(
+      -50deg,
+      color-mix(in oklab, var(--scrim) 85%, transparent) 0 9px,
+      transparent 9px 18px
+    ),
+    var(--chart-2);
+  z-index: -1;
+}
+
+.kb-broadcast-strip {
+  position: absolute;
+  left: 2%;
+  right: 4%;
+  top: 104px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding-left: 30%;
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--scrim);
+  color: var(--knob);
+  font-family: var(--app-font-label);
+  font-style: var(--label-style);
+  font-variation-settings: var(--label-variation);
+  font-size: var(--type-label);
+  rotate: -1.5deg;
+}
+
+.kb-broadcast-tab {
+  position: absolute;
+  top: 6px;
+  right: 40%;
+  padding: 2px 12px;
+  border: 2px solid var(--scrim);
+  background: var(--chart-2);
+  color: var(--scrim);
+  font-family: var(--app-font-display);
+  font-style: italic;
+  font-variation-settings:
+    "wght" 900,
+    "wdth" 90;
+  font-size: var(--type-ui);
+  transform: skewX(-16deg);
+}
+
+.kb-broadcast-tv {
+  position: absolute;
+  left: 7%;
+  top: 22px;
+  width: 172px;
+  height: 124px;
+  padding: 11px 30px 11px 11px;
+  border: 3px solid var(--scrim);
+  border-radius: 22px;
+  corner-shape: round;
+  background: color-mix(in oklab, var(--foreground) 14%, var(--card));
+  box-shadow: 6px 6px 0 0 var(--scrim);
+  rotate: -3deg;
+}
+
+.kb-broadcast-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 2px solid var(--scrim);
+  border-radius: 16px / 20px;
+  corner-shape: round;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in oklab, var(--scrim) 30%, transparent) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      ellipse at 40% 35%,
+      color-mix(in oklab, var(--kb-head) 70%, var(--knob)) 0%,
+      var(--kb-head) 45%,
+      color-mix(in oklab, var(--kb-head) 40%, var(--scrim)) 100%
+    );
+}
+
+.kb-broadcast-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--knob);
+  opacity: 0;
+  animation: kb-broadcast-flicker var(--motion-ambient-period) steps(1, end) infinite;
+}
+
+@keyframes kb-broadcast-flicker {
+  0%,
+  93%,
+  95%,
+  100% {
+    opacity: 0;
+  }
+  94% {
+    opacity: 0.35;
+  }
+}
+
+/* Colour bars along the bottom of the screen: the test card, drawn here. */
+.kb-broadcast-bars {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22%;
+  background: linear-gradient(
+    90deg,
+    var(--chart-1) 0 20%,
+    var(--chart-2) 20% 40%,
+    var(--chart-5) 40% 60%,
+    var(--chart-3) 60% 80%,
+    var(--chart-4) 80% 100%
+  );
+  opacity: 0.85;
+}
+
+.kb-broadcast-static {
+  position: absolute;
+  inset: -20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -0.25'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0;
+  animation: kb-broadcast-static calc(var(--motion-duration-enter) * 1.4) steps(6, end) forwards;
+}
+
+@keyframes kb-broadcast-static {
+  0% {
+    opacity: 0.95;
+    translate: 0 0;
+  }
+  50% {
+    opacity: 0.8;
+    translate: -14px 9px;
+  }
+  100% {
+    opacity: 0;
+    translate: 7px -12px;
+  }
+}
+
+.kb-broadcast-rec {
+  position: absolute;
+  right: 6px;
+  top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--app-font-label);
+  font-size: var(--type-micro);
+  font-weight: 800;
+  color: var(--scrim);
+  opacity: 0.45;
+}
+
+.kb-broadcast-rec::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--chart-4);
+}
+
+[data-editing] .kb-broadcast-rec {
+  opacity: 1;
+  animation: kb-broadcast-rec calc(var(--motion-ambient-period) / 12) steps(1, end) infinite;
+}
+
+@keyframes kb-broadcast-rec {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Rabbit-ear antennas. */
+.kb-broadcast-antenna::before,
+.kb-broadcast-antenna::after {
+  content: "";
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  width: 3px;
+  height: 34px;
+  border-radius: 2px;
+  background: var(--scrim);
+  transform-origin: bottom;
+}
+
+.kb-broadcast-antenna::before {
+  rotate: -28deg;
+}
+
+.kb-broadcast-antenna::after {
+  rotate: 22deg;
+}
+
+/* A narrow head (bb's side panel, a phone): the set shrinks, so the TV
+ * stays above the breadcrumb and the title. */
+@container (max-width: 640px) {
+  .kb-broadcast-tv {
+    top: 12px;
+    width: 116px;
+    height: 84px;
+    padding: 7px 20px 7px 7px;
+    border-radius: 16px;
+    box-shadow: 4px 4px 0 0 var(--scrim);
+  }
+  .kb-broadcast-slab {
+    top: 18px;
+    height: 72px;
+  }
+  .kb-broadcast-slab-back {
+    top: 8px;
+    height: 48px;
+  }
+  .kb-broadcast-strip {
+    top: 70px;
+    height: 24px;
+  }
+  .kb-broadcast-tab {
+    top: 2px;
+  }
+}
+
+/* Reduced motion: the gestures drawn in the ground and the heads are all
+ * motion, so none is drawn, rather than a frame of each before the global
+ * rule lands it on its end (Lab M7). The veil is hidden by the shell. */
+@media (prefers-reduced-motion: reduce) {
+  .kb-cloudbank-trail,
+  .kb-broadcast-static {
+    display: none;
+  }
+}

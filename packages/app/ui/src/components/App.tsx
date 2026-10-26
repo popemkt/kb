@@ -3,6 +3,7 @@ import {
   cn,
   hasText,
   SidebarToggle,
+  ThemeArt,
   useRoute,
   ViewErrorBoundary,
   WorkspaceBoundary,
@@ -82,10 +83,10 @@ function Toasts() {
           onClick={() => dismiss(t.id)}
           aria-label={`Dismiss notification: ${t.text}`}
           className={cn(
-            "kb-surface-enter flex items-start gap-2 rounded-md border bg-popover px-3 py-2 text-left text-meta shadow-lifted",
+            "flex items-start gap-2 rounded-md border bg-popover px-3 py-2 text-left text-meta shadow-lifted",
             t.kind === "error"
-              ? "border-destructive/40 text-destructive"
-              : "border-foreground/10 text-popover-foreground",
+              ? "kb-alert-enter border-destructive/40 text-destructive"
+              : "kb-surface-enter border-foreground/10 text-popover-foreground",
           )}
         >
           <span className="min-w-0 flex-1">{t.text}</span>
@@ -140,9 +141,9 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
   const sidebar = useSidebarToggle();
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
+    <header className="kb-chrome flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
       <SidebarToggle {...sidebar} />
-      <h1 className="text-ui font-medium text-foreground/50">kb</h1>
+      <h1 className="kb-display text-ui font-medium text-foreground/50">kb</h1>
       {status === "loading" ? (
         <span className="text-label text-foreground/30">loading…</span>
       ) : null}
@@ -253,7 +254,11 @@ export function App() {
   }, [setGlobalPaletteOpen]);
 
   return (
-    <div className="relative flex h-full min-h-0 overflow-hidden">
+    <div className="relative isolate flex h-full min-h-0 overflow-hidden">
+      {/* Under everything the shell draws: the design system's art (Themes). */}
+      <div className="absolute inset-0 -z-10">
+        <ThemeArt plane="ground" />
+      </div>
       <SkipLink />
       <ViewErrorBoundary title="Sidebar crashed" resetKey="sidebar">
         <Sidebar />
@@ -279,6 +284,11 @@ export function App() {
       <ViewErrorBoundary title="Dock crashed" resetKey="dock">
         <DockHost />
       </ViewErrorBoundary>
+      {/* Over everything: the art's passing gestures, empty at rest. A gesture
+       * is all motion, so reduced motion draws none: a cut, never a flash. */}
+      <div className="pointer-events-none absolute inset-0 z-40 motion-reduce:hidden">
+        <ThemeArt plane="veil" />
+      </div>
     </div>
   );
 }

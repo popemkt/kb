@@ -1,6 +1,6 @@
 /**
  * The timing vocabulary of script motion (Lab principles M1, M2, M6): the
- * durations and ease in `motion.css`, read once from the tokens, and the two
+ * durations and ease of the design system (layer 1), read once from the tokens, and the two
  * ways anything moves toward a target — a critically damped spring, or a
  * frame-rate-independent exponential approach. No scene or renderer types a
  * duration. (Whether motion may run at all is `motion.ts`'s question.)
@@ -31,7 +31,7 @@ export interface Timing {
 
 /**
  * What `readTiming` answers when no stylesheet is loaded (a unit test, a
- * detached document). It is the one TS mirror of `motion.css`, and
+ * detached document). It is the one TS mirror of the default's values (`design-system.css`), and
  * `timing.test.ts` fails if the two ever disagree.
  */
 export const TIMING_FALLBACK: Timing = {

@@ -49,7 +49,7 @@ export function Sidebar() {
         aria-hidden={!open}
         inert={!open}
         className={cn(
-          "flex h-full shrink-0 flex-col overflow-hidden border-r border-foreground/[0.06] bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out",
+          "kb-chrome flex h-full shrink-0 flex-col overflow-hidden border-r border-foreground/[0.06] bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out",
           "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:shadow-overlay",
           open ? "w-[220px]" : "w-0 border-r-0",
         )}

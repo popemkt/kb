@@ -66,9 +66,7 @@ export function SpecEditor({
       data-chart-editor="true"
     >
       <div className="flex items-center gap-2 px-3 pt-2 pb-1.5">
-        <p className="text-label font-medium uppercase tracking-wide text-foreground/45">
-          Vega-Lite spec
-        </p>
+        <p className="text-label font-medium kb-label text-foreground/45">Vega-Lite spec</p>
         {columns.length > 0 ? (
           <p className="min-w-0 truncate text-label text-muted-foreground">
             Fields:{" "}

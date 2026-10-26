@@ -377,6 +377,54 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
+### GAP: a theme cannot bring a graph look of its own
+
+- **expected** — a design system names the graph lens theme it pairs with, as it names its page-head backdrop, and the graph shows it while no perspective chooses one (ZZZ's outlined sticker nodes, Transistor's light trails along edges; ART-DIRECTION.md)
+- **current** — the themes family contributes design systems and backdrops only: GraphThemePoint is the graph family's, a family may not import another family's packages (familyEdgeViolation), and the lens theme defaults to matte with no way to say 'unset'
+- **impact** — under ZZZ and Transistor the graph keeps the default lens look while every other surface changes, so the graph view reads as a different app
+- **closes** — a graph-theme choice a design system's option node may make, as it chooses its page-head backdrop (a ref in SeedOption.chooses), resolved by the graph family against its own contributions, with the lens theme's choice made optional so the pairing can apply
+- **node** — `01M5S0HPNDEZ9RSQW4W679VP03`
+
+### GAP: a theme cannot invert the selected row
+
+- **expected** — a theme can paint the selected sidebar and picker row as its own bar (YoRHa's dark ink with beige text and a square marker)
+- **current** — kit/ui-sdk/src/components/sidebar-row.tsx draws the selected row as bg-foreground/[0.08]; --accent cannot carry it, since the date editor and the picker list put text-foreground on it
+- **impact** — YoRHa's signature selection, and Transistor's Function() loadout along the sidebar edge, have no seam
+- **closes** — --selected-row and --selected-row-ink layer-1 tokens (held by the contrast guard) read by the sidebar and picker rows, and a sidebar-gutter mark token
+- **node** — `01M5SNSR9AC5V1NA31QY8DNEX6`
+
+### GAP: a theme's art and overlays are code, with their words and choices inside
+
+- **expected** — art renderers are registered by id as backdrops are, and what they say and do (the marquee's words, the Jaunt() and channel-change labels, which gesture a page change plays, whether an overlay plays at all) is data on the theme's node
+- **current** — themes-ui/src/art/*.tsx and art/*.css hold the words, the gesture each event plays and their timing; a design system carries one Art component on its contribution
+- **impact** — the overlays (ZZZ's wipe, Transistor's Jaunt(), YoRHa's scan) cannot be renamed, swapped or turned off through kb, only by editing code
+- **closes** — an art point keyed by renderer id, a design-system option field naming its ground and veil renderers with their params, and a per-gesture switch among the motion options
+- **node** — `01M5SNSQ4Y11AHAHDA43PCV5D6`
+
+### GAP: a theme's faces are imported by its family's code, not declared
+
+- **expected** — a design system names its faces as declared assets; kb's API lists them, and a token names a face by its declared name
+- **current** — themes-ui/src/plugin.ts imports each @fontsource stylesheet; the @font-face rules ship with the family and a face downloads when CSS first uses it
+- **impact** — adding or swapping a face is a code change, and kb cannot say which faces a theme uses
+- **closes** — a face point a family contributes (name, weights, files), resolved by name from the tokens field
+- **node** — `01M5SNSQH2HMD784PCD51W46D5`
+
+### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
+
+- **expected** — motion (mode, intensity, style, speed, each effect on or off) is a set of core options, each defaulting to the shown theme's value, settable through kb's actions, with Preferences showing each effective value and where it comes from
+- **current** — motion is the --motion-* tokens a sheet restates and the keyframes in app/ui/src/motion.css; the only control is the OS's reduced-motion setting
+- **impact** — the owner cannot calm a lively theme or liven a calm one without changing its code, and an agent cannot see or set motion
+- **closes** — motion option fields on core and on each design-system option node (the theme as a preset), resolved explicit, then theme, then default, as the backdrop choice is; the shell writes the resolved tokens
+- **node** — `01M5SNSQXBAM8P7K25GSM5ASP5`
+
+### GAP: a theme's token values are CSS in its family's code, not data in kb
+
+- **expected** — a design system's token values (colours, faces, shapes, motion, marks) are props of its option node, read and written through kb's actions like any field; the sheet the page mounts is written from them, and the completeness and contrast contracts run over the node
+- **current** — the values are CSS in themes-ui/src/design-systems/*.css, a ?raw string the painter mounts; kb's API sees which system is chosen, its label and its pairing, never what it paints
+- **impact** — neither the owner nor an agent can read or adjust a theme (a colour, a face, the palette mark) through kb; a variant is a code change and a release
+- **closes** — a tokens field on design-system option nodes (layer-1 token to value, typed per token kind), a painter that writes the sheet from the node, the contracts reading the node; today's sheets become the seed's values
+- **node** — `01M5SNSPSGYCF6AKWVXQS2GJQJ`
+
 ### GAP: a trusted repository extension is imported from disk after its digest is read
 
 - **expected** — The server imports exactly the bytes whose digest a person trusted.
@@ -800,6 +848,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
+### GAP: no staged edit to preview, so Turn() cannot be a plan mode
+
+- **expected** — Turn() queues structural edits (moves, retags, deletes) without applying them, draws them as a plan over the outline, and releases them as one transaction (ART-DIRECTION.md → Transistor)
+- **current** — every write applies at once; Turn() is only the page-change gesture (TurnVeil)
+- **impact** — the theme's signature mechanic is decoration rather than a way of working
+- **closes** — a pending-transaction model the outline can draw and a palette command to start and release a turn; the theme then draws the plan
+- **node** — `01M5S0J203QE0ZMB7MGN7GJXD8`
+
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -1090,6 +1146,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two date grammars depending on surface.
 - **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
 - **node** — `01M3KA3AEEFG0E200V4D63G5SN`
+
+### GAP: the command palette draws every command the same way, so a theme cannot draw functions as cards
+
+- **expected** — the shown design system may present palette commands in its own form (Transistor: a function card with name(), a MEM cost and slots; ART-DIRECTION.md → Transistor)
+- **current** — command rows are drawn by the palette alone; a design system reaches them only through tokens
+- **impact** — Transistor's functions concept is not built; the palette looks like every other theme's apart from colour and faces
+- **closes** — a command presentation slot on the palette, contributed with a design system and falling back to the default row
+- **node** — `01M5S0J1FVEGHTYJVY4HRS857S`
 
 ### GAP: the date editor's Enter and Tab skip the value keymap
 
