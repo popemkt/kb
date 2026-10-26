@@ -259,10 +259,15 @@ describe("the Extensions panel (acceptance)", () => {
     });
     await settle();
     expect(dom.location.pathname).toBe("/settings");
-    const section = present(
-      container.querySelector('[data-settings-section="sys.extension.graph"]'),
-      "graph's section in Settings",
-    );
+    // The page's body loads behind lazy(): wait, inside act, until it has landed.
+    const graphSection = () =>
+      container.querySelector('[data-settings-section="sys.extension.graph"]');
+    for (let tries = 0; tries < 100 && graphSection() === null; tries += 1) {
+      await act(async () => {
+        await new Promise((done) => setTimeout(done, 10));
+      });
+    }
+    const section = present(graphSection(), "graph's section in Settings");
     expect(section.textContent).toContain("suggest relations");
   });
 

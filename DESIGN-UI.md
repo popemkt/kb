@@ -800,10 +800,12 @@ contributes now.
 **Option galleries.** A one-valued option field whose kind previews at
 `card` size is laid out as a gallery (`OptionGallery`, outline-ui): every
 option at once, each a card of its preview under its label, the chosen one
-checked and marked _in use_, in a radiogroup. Choosing a card is the
-field's own write (`writes.updateProp`, replacing the value), the one its
-picker makes, so the gallery is the field's picker shown open, not a
-second picker. The field editor decides it from the kind, wherever the
+checked and marked _in use_, in a radiogroup whose arrow keys move the
+choice. Choosing a card is what picking that option in the field's picker
+is (noted among the field's recent picks, then the one-valued field's
+write), so the gallery is the field's picker shown open, not a second
+picker. An option nobody contributes now is offered by its label alone,
+as the picker offers it; choosing it is a choice that paints the default. The field editor decides it from the kind, wherever the
 field is drawn (the Settings page, core's node in the outline), and no
 surface asks for it: there is no layout prop to fork on. A many-valued
 field, a field drawn value-only (a table cell) and a kind without a card
@@ -2733,7 +2735,8 @@ and drew core's settings only.
   device's (`kb-prefs`), never the graph's, and the section says so. They
   stay device preferences for the reasons under Design systems.
 - **Then one section per extension node** under `sys.extensions` that has
-  a setting, in that list's order, each listing exactly what `settingsOf`
+  a setting, in that list's order, read from the whole graph (the schema,
+  never a scoped projection), each listing exactly what `settingsOf`
   reads for its node, each drawn with the page's field editor under its
   label (`[data-setting]` in `[data-settings-section]`). The same reader
   answers `extension.settings`, so the page shows what `kb ext settings`
@@ -2760,7 +2763,8 @@ and drew core's settings only.
   the bundled seed, the rows the page draws are exactly the settings
   `settingsOf` reads for every extension node, each in its own section,
   each one field row; the device's rows write `kb-prefs` and nothing in
-  the graph. The design-system and backdrop contracts choose through the
+  the graph; the motion notes, the page-head _unset here_ note, the
+  _other_ group and the motion reset each have a case. The design-system and backdrop contracts choose through the
   page, the design system by a card of its gallery.
 - The page's body loads when it is first opened, not with the shell.
 

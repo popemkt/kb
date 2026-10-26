@@ -380,8 +380,10 @@ describe("every contributed page-head backdrop", () => {
       return group;
     };
 
-    it("draws core's three settings as field rows", () => {
+    it("draws core's three settings as field rows, the backdrop's as chips, not a gallery", () => {
       expect(rows().querySelectorAll("[data-field-row]")).toHaveLength(3);
+      // A backdrop previews at chip size only, so its field keeps the chips and the picker.
+      expect(rows().querySelector("[data-option-gallery]")).toBeNull();
     });
 
     it("is chosen by writing core's setting, which the row and the slot then show", async () => {

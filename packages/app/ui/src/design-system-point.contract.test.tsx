@@ -31,6 +31,7 @@ import {
   designSystemOptionId,
   extensionNodeId,
   foldSeed,
+  present,
   type KbNode,
   type SeedOption,
 } from "@kb/model";
@@ -327,12 +328,19 @@ describe("every contributed design system", () => {
     let container: HTMLElement;
     let root: Root;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       choosing();
       container = document.createElement("div");
       document.body.appendChild(container);
       root = createRoot(container);
       act(() => root.render(createElement(SettingsPage)));
+      // A card loads behind lazy(): wait, inside act, until every card has landed.
+      const landed = () => container.querySelectorAll("[data-option-card]").length > 0;
+      for (let tries = 0; tries < 100 && !landed(); tries += 1) {
+        await act(async () => {
+          await new Promise((done) => setTimeout(done, 10));
+        });
+      }
     });
     afterAll(() => {
       act(() => root.unmount());
@@ -373,6 +381,21 @@ describe("every contributed design system", () => {
       expect(html().getAttribute("data-theme")).toBe(PLAIN_KEY.id);
       expect(card(PLAIN_KEY.id).getAttribute("aria-checked")).toBe("true");
       expect(card(PLAIN_KEY.id).textContent).toContain(PLAIN_KEY.label);
+    });
+
+    it("moves the choice with the arrow keys, as a radiogroup does", async () => {
+      const gallery = present(section().querySelector<HTMLElement>("[role='radiogroup']"), "it");
+      const checked = () =>
+        gallery.querySelector("[aria-checked='true']")?.getAttribute("data-option");
+      const before = checked();
+      await act(async () => {
+        gallery.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      const core = useGraphStore.getState().index?.getNode(CORE);
+      const now = core?.props[SYSTEM_IDS.designSystemField]?.[0];
+      expect(now?.v).not.toBe(before);
+      expect(checked()).toBe(now?.v);
     });
 
     it("previews each contributed system's option with its live swatch, and none for one nobody contributes", () => {

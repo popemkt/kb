@@ -3102,10 +3102,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     named, with the values each node holds; `kb ext settings [name]` prints
     it, and MCP and the agent have it as a tool like any read action. It
     repeats nothing `extension.list` reports. The page reads the same
-    `settingsOf` over its replica wherever it lists a family's settings:
-    the Settings page draws every one it reads, a section per extension
-    node, and its contract holds the page to the reader (DESIGN-UI.md →
-    Settings). `extensionContract` holds every family to it: what the action lists for
+    `settingsOf` over its replica wherever it lists a family's settings
+    (DESIGN-UI.md → Settings). `extensionContract` holds every family to it: what the action lists for
     a family is exactly the fields its fold declares to configure that
     family's node, each writable there.
     Core's node has settings too, seeded by core: the page-head backdrop,
