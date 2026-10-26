@@ -1,0 +1,223 @@
+<!doctype html>
+<!--
+  IA mock for docs/research/2026-10-27-kb-settings-and-theme-plugins.md.
+  A static picture of the proposed Settings view, not code that ships. The theme
+  cards are painted by kb's real design-system sheets (linked below), so each
+  sample is the system's own tokens, as the page's live swatches are. Faces
+  fall back where the bundle's @fontsource faces are not loaded.
+  Rendered to 2026-10-27-settings-ia-mock.png.
+-->
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>kb — Settings (IA mock)</title>
+    <link rel="stylesheet" href="../../../packages/app/ui/src/design-system.css" />
+    <link rel="stylesheet" href="../../../packages/extension/themes-ui/src/design-systems/paper.css" />
+    <link rel="stylesheet" href="../../../packages/extension/themes-ui/src/design-systems/terminal.css" />
+    <link rel="stylesheet" href="../../../packages/extension/themes-ui/src/design-systems/zzz.css" />
+    <link rel="stylesheet" href="../../../packages/extension/themes-ui/src/design-systems/transistor.css" />
+    <link rel="stylesheet" href="../../../packages/extension/themes-ui/src/design-systems/yorha.css" />
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 13px/1.45 "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+        background: var(--background);
+        color: var(--foreground);
+      }
+      .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+      .side { background: var(--sidebar, var(--card)); border-right: 1px solid var(--border); padding: 10px 8px; }
+      .side .srow { display: flex; gap: 8px; align-items: center; padding: 5px 10px; border-radius: 6px; color: var(--muted-foreground); }
+      .side .srow.on { background: color-mix(in oklab, var(--foreground) 8%, transparent); color: var(--foreground); }
+      .side .sec { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint-foreground); padding: 14px 10px 4px; }
+      .head { height: 44px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 0 16px; color: var(--muted-foreground); }
+      .head .search { margin-left: auto; width: 300px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; }
+      .gear { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; background: color-mix(in oklab, var(--primary) 18%, transparent); color: var(--foreground); }
+      .page { display: grid; grid-template-columns: 180px minmax(0, 760px); gap: 40px; padding: 28px 40px 60px; }
+      .rail { position: sticky; top: 20px; align-self: start; font-size: 12px; }
+      .rail a { display: block; color: var(--muted-foreground); text-decoration: none; padding: 3px 0 3px 10px; border-left: 1px solid var(--border); }
+      .rail a.on { color: var(--foreground); border-left: 2px solid var(--primary); }
+      .rail a.sub { padding-left: 22px; font-size: 11px; }
+      .rail .grp { margin-top: 14px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint-foreground); padding-left: 10px; }
+      h1 { font-size: 20px; font-weight: 600; margin: 0; }
+      .lede { color: var(--muted-foreground); max-width: 620px; margin: 4px 0 26px; }
+      code { font: 11.5px ui-monospace, Menlo, monospace; color: var(--muted-foreground); }
+      h2 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint-foreground); margin: 34px 0 8px; display: flex; gap: 10px; align-items: baseline; }
+      h2 .owner { letter-spacing: 0; text-transform: none; font-size: 11px; }
+      h3 { font-size: 13px; font-weight: 600; margin: 18px 0 6px; display: flex; align-items: center; gap: 8px; }
+      .badge { font-size: 10.5px; font-weight: 500; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; color: var(--muted-foreground); }
+      .row { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; align-items: center; min-height: 32px; border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent); }
+      .row .k { color: var(--muted-foreground); }
+      .src { font-size: 11px; color: var(--faint-foreground); }
+      .src b { font-weight: 500; color: var(--muted-foreground); }
+      .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+      .seg span { padding: 3px 12px; color: var(--muted-foreground); }
+      .seg span.on { background: color-mix(in oklab, var(--foreground) 10%, transparent); color: var(--foreground); }
+      .chip { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 5px; background: color-mix(in oklab, var(--primary) 22%, transparent); color: var(--foreground); }
+      .empty { color: var(--faint-foreground); font-style: italic; }
+      .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+      .card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); }
+      .card.in-use { outline: 2px solid var(--primary); outline-offset: 2px; }
+      .meta { padding: 9px 11px 10px; display: grid; gap: 2px; }
+      .meta .name { font-weight: 600; display: flex; justify-content: space-between; }
+      .meta .name small { font-weight: 500; font-size: 10.5px; color: var(--primary); }
+      .meta .by, .meta .pairs { font-size: 11px; color: var(--muted-foreground); }
+      /* The sample: painted by the system's own sheet through data-theme. */
+      .sample { height: 112px; display: grid; grid-template-columns: 54px 1fr; background: var(--background); color: var(--foreground); font-family: var(--app-font, inherit); border-bottom: 1px solid var(--border); }
+      .sample .sb { background: var(--sidebar, var(--card)); border-right: 1px solid var(--border); padding: 8px 6px; display: grid; gap: 5px; align-content: start; }
+      .sample .sb i { display: block; height: 5px; border-radius: 2px; background: color-mix(in oklab, var(--foreground) 22%, transparent); }
+      .sample .sb i.sel { background: color-mix(in oklab, var(--foreground) 55%, transparent); }
+      .sample .main { padding: 9px 11px; display: grid; gap: 5px; align-content: start; }
+      .sample .t { font-family: var(--app-font-display, inherit); font-style: var(--display-style, normal); text-transform: var(--display-case, none); letter-spacing: var(--display-tracking, 0); font-size: 15px; font-weight: 700; }
+      .sample .l { font-family: var(--app-font-label, inherit); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted-foreground); }
+      .sample .ln { font-size: 10.5px; display: flex; gap: 6px; align-items: center; }
+      .sample .ln::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--muted-foreground); }
+      .sample .btn { justify-self: start; margin-top: 2px; font-size: 9.5px; padding: 2px 8px; border-radius: var(--radius); background: var(--primary); color: var(--primary-foreground); }
+      .fx { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 24px; }
+      .fx label { display: flex; gap: 8px; align-items: center; min-height: 26px; border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent); }
+      .fx label .src { margin-left: auto; }
+      .box { width: 12px; height: 12px; border: 1px solid var(--muted-foreground); border-radius: 3px; display: inline-grid; place-items: center; font-size: 9px; }
+      .box.on { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+      .ext { border-bottom: 1px solid var(--border); padding: 10px 0; }
+      .ext .top { display: flex; align-items: center; gap: 8px; }
+      .ext .top .fam { font: 11px ui-monospace, Menlo, monospace; color: var(--faint-foreground); }
+      .ext .top .sp { flex: 1; }
+      .ext .more { font-size: 11px; color: var(--muted-foreground); }
+      .switch { width: 28px; height: 16px; border-radius: 999px; background: var(--primary); position: relative; }
+      .switch::after { content: ""; position: absolute; right: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--primary-foreground); }
+      .switch.off { background: color-mix(in oklab, var(--foreground) 18%, transparent); }
+      .switch.off::after { left: 2px; right: auto; }
+      .ext .row { grid-template-columns: 150px 1fr auto; margin-left: 0; }
+      .note { margin-top: 30px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted-foreground); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="side">
+        <div class="srow">Home</div>
+        <div class="srow">Graph</div>
+        <div class="srow">Ontologies</div>
+        <div class="srow">Canvases</div>
+        <div class="sec">Pinned</div>
+        <div class="srow">Approval policies</div>
+        <div class="sec">Locations</div>
+        <div class="srow">home</div>
+        <div class="srow">.dotfiles</div>
+        <div class="sec">&nbsp;</div>
+        <div class="srow">Extensions</div>
+        <div class="srow on">Settings</div>
+      </aside>
+      <main>
+        <div class="head">KB · live <span class="search">Search and open… ⌘K</span><span class="gear">⚙</span></div>
+        <div class="page">
+          <nav class="rail">
+            <div class="grp">Appearance</div>
+            <a class="on" href="#">This device</a>
+            <a href="#">Theme</a>
+            <a href="#">Page head</a>
+            <a href="#">Motion</a>
+            <div class="grp">Extensions</div>
+            <a href="#">Themes</a>
+            <a href="#">Backdrops</a>
+            <a href="#">Graph</a>
+            <a href="#">Agent</a>
+            <a href="#">Code</a>
+            <a href="#">Lab <span class="src">off</span></a>
+          </nav>
+          <div>
+            <h1>Settings</h1>
+            <p class="lede">
+              Every choice this kb makes, and the few this device makes. Each kb setting is a field on
+              the node it configures, so <code>kb ext settings</code>, MCP and the agent read the same
+              list, and a choice made here paints every tab.
+            </p>
+
+            <h2>Appearance <span class="owner">core · <code>sys.extension.core</code></span></h2>
+            <h3>This device <span class="badge">this browser only</span></h3>
+            <div class="row"><span class="k">light / dark</span><span><span class="seg"><span>light</span><span>dark</span><span class="on">system</span></span></span><span class="src">follows the OS</span></div>
+            <div class="row"><span class="k">width</span><span><span class="seg"><span class="on">centered</span><span>full</span></span></span><span></span></div>
+
+            <h3>Theme <span class="badge">this kb</span></h3>
+            <div class="gallery">
+              <div class="card">
+                <div class="sample" data-theme="kb"><div class="sb"><i class="sel"></i><i></i><i></i><i></i></div><div class="main"><span class="l">Pinned</span><span class="t">Home</span><span class="ln">A thought</span><span class="ln">A question</span><span class="btn">Open</span></div></div>
+                <div class="meta"><span class="name">kb</span><span class="by">core · the default</span><span class="pairs">no backdrop · default motion</span></div>
+              </div>
+              <div class="card">
+                <div class="sample" data-theme="themes.paper"><div class="sb"><i class="sel"></i><i></i><i></i><i></i></div><div class="main"><span class="l">Pinned</span><span class="t">Home</span><span class="ln">A thought</span><span class="ln">A question</span><span class="btn">Open</span></div></div>
+                <div class="meta"><span class="name">Paper</span><span class="by">Themes plugin</span><span class="pairs">no backdrop · default motion</span></div>
+              </div>
+              <div class="card">
+                <div class="sample" data-theme="themes.terminal"><div class="sb"><i class="sel"></i><i></i><i></i><i></i></div><div class="main"><span class="l">Pinned</span><span class="t">Home</span><span class="ln">A thought</span><span class="ln">A question</span><span class="btn">Open</span></div></div>
+                <div class="meta"><span class="name">Terminal</span><span class="by">Themes plugin</span><span class="pairs">no backdrop · default motion</span></div>
+              </div>
+              <div class="card">
+                <div class="sample" data-theme="themes.zzz"><div class="sb"><i class="sel"></i><i></i><i></i><i></i></div><div class="main"><span class="l">Pinned</span><span class="t">Home</span><span class="ln">A thought</span><span class="ln">A question</span><span class="btn">Open</span></div></div>
+                <div class="meta"><span class="name">ZZZ</span><span class="by">ZZZ plugin · art, 2 backdrops</span><span class="pairs">Broadcast · lively, wobbly, snappy</span></div>
+              </div>
+              <div class="card">
+                <div class="sample" data-theme="themes.transistor"><div class="sb"><i class="sel"></i><i></i><i></i><i></i></div><div class="main"><span class="l">Pinned</span><span class="t">Home</span><span class="ln">A thought</span><span class="ln">A question</span><span class="btn">Open</span></div></div>
+                <div class="meta"><span class="name">Transistor</span><span class="by">Transistor plugin · art, 2 backdrops</span><span class="pairs">Cloudbank · lively, clean, relaxed</span></div>
+              </div>
+              <div class="card in-use">
+                <div class="sample" data-theme="themes.yorha"><div class="sb"><i class="sel"></i><i></i><i></i><i></i></div><div class="main"><span class="l">Pinned</span><span class="t">Home</span><span class="ln">A thought</span><span class="ln">A question</span><span class="btn">Open</span></div></div>
+                <div class="meta"><span class="name">YoRHa <small>in use</small></span><span class="by">YoRHa plugin · art, 2 backdrops</span><span class="pairs">Bunker · subtle, clean, snappy</span></div>
+              </div>
+            </div>
+
+            <h3>Page head</h3>
+            <div class="row"><span class="k">backdrop</span><span><span class="chip">Black hole</span></span><span class="src">set here · <b>YoRHa pairs Bunker</b></span></div>
+            <div class="row"><span class="k">strength</span><span class="empty">subtle</span><span class="src">default</span></div>
+
+            <h2>Motion <span class="owner">core · each unset value follows the theme</span></h2>
+            <div class="row"><span class="k">mode</span><span class="empty">system</span><span class="src">default</span></div>
+            <div class="row"><span class="k">intensity</span><span class="empty">subtle</span><span class="src">from <b>YoRHa</b></span></div>
+            <div class="row"><span class="k">style</span><span class="empty">clean</span><span class="src">from <b>YoRHa</b></span></div>
+            <div class="row"><span class="k">speed</span><span><span class="chip">relaxed</span></span><span class="src">set here</span></div>
+            <h3>Effects</h3>
+            <div class="fx">
+              <label><span class="box on">✓</span>press<span class="src">from YoRHa</span></label>
+              <label><span class="box"></span>hover lift<span class="src">from YoRHa</span></label>
+              <label><span class="box on">✓</span>rows arriving<span class="src">from YoRHa</span></label>
+              <label><span class="box on">✓</span>focus ring<span class="src">from YoRHa</span></label>
+              <label><span class="box"></span>toast spring<span class="src">default</span></label>
+              <label><span class="box on">✓</span>menus and dialogs<span class="src">default</span></label>
+              <label><span class="box"></span>toggles<span class="src">default</span></label>
+              <label><span class="box on">✓</span>page enter<span class="src">default</span></label>
+              <label><span class="box on">✓</span>theme gestures<span class="src">set here</span></label>
+              <label><span class="box"></span>working glow<span class="src">default</span></label>
+            </div>
+            <p class="src" style="margin-top: 8px">Reset motion to YoRHa</p>
+
+            <h2>Extensions <span class="owner">each one's switch and the fields that configure it</span></h2>
+            <div class="ext">
+              <div class="top"><b>Themes</b><span class="fam">themes</span><span class="sp"></span><span class="more">Paper, Terminal · report →</span><span class="switch"></span></div>
+            </div>
+            <div class="ext">
+              <div class="top"><b>ZZZ</b><span class="fam">zzz</span><span class="sp"></span><span class="more">1 theme, 2 backdrops · report →</span><span class="switch"></span></div>
+            </div>
+            <div class="ext">
+              <div class="top"><b>Backdrops</b><span class="fam">backdrops</span><span class="sp"></span><span class="more">8 backdrops · report →</span><span class="switch"></span></div>
+            </div>
+            <div class="ext">
+              <div class="top"><b>Graph</b><span class="fam">graph</span><span class="sp"></span><span class="more">report →</span><span class="switch"></span></div>
+              <div class="row"><span class="k">suggest relations</span><span><span class="box on">✓</span></span><span></span></div>
+            </div>
+            <div class="ext">
+              <div class="top"><b>Agent</b><span class="fam">agent</span><span class="sp"></span><span class="more">report →</span><span class="switch"></span></div>
+              <div class="row"><span class="k">provider</span><span><span class="chip">Claude Code</span></span><span></span></div>
+            </div>
+            <div class="ext">
+              <div class="top"><b>Lab</b><span class="fam">lab</span><span class="sp"></span><span class="more">off: contributes nothing · report →</span><span class="switch off"></span></div>
+            </div>
+            <div class="note">
+              The Extensions page stays the report of what this kb composes (contributions, trust,
+              failures, the listeners asked in turn); each extension's switch and settings are drawn
+              here, once.
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
