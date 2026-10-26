@@ -63,13 +63,12 @@ import {
 } from "@kb/contracts";
 import {
   SYSTEM_IDS,
-  configures,
   ensureSystemSeed,
   extensionNodeId,
   foldSeed,
   isWritableField,
   present,
-  typeRefsOf,
+  settingsOf,
   viewOptionId,
   type SeedSource,
   type SeedView,
@@ -239,32 +238,30 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
 
 /**
  * The settings promise: what `extension.settings` lists for the family is
- * what its fold declares, the system fields that configure its node (or
- * every extension's node) bar the switch, in id order, each one a field a
- * person may write on that node.
+ * what `settingsOf` reads of its fold for its node (the one reader, so the
+ * action and every page agree), each setting whole (its label, type,
+ * cardinality and options); the switch is never among them; and each one is
+ * a field a person may write on that node.
  */
 function settingsPromises(declaration: ExtensionDeclaration, host: SwitchingHost): void {
-  test("its settings are the fields its fold declares to configure its node, each writable there", () =>
+  test("its settings are what the reader reads of its fold for its node, each writable there", () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const own = extensionNodeId(declaration.name);
-          const declared = foldSeed(foldWith(declaration), CONTRACT_AT)
-            .nodes.filter(
-              (node) =>
-                node.id !== SYSTEM_IDS.extensionEnabledField &&
-                typeRefsOf(node).includes(SYSTEM_IDS.field) &&
-                configures(node.id, node, own),
-            )
-            .map((node) => node.id)
-            .toSorted();
+          const folded = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
+          const byId = new Map(folded.map((node) => [node.id, node]));
+          const declared = settingsOf(folded, (id) => byId.get(id), own);
           const ctx = yield* openSession(yield* host.root);
           const answer = yield* extensionSettingsEffect({ name: declaration.name }).pipe(
             Effect.provide(kbRuntimeLayer(ctx)),
           );
           expect(answer.extensions.map((e) => e.name)).toEqual([declaration.name]);
           const listed = answer.extensions.flatMap((e) => e.settings);
-          expect(listed.map((s) => s.field)).toEqual(declared);
+          expect(listed.map(({ values: _values, ...setting }) => setting)).toEqual(
+            declared.map((setting) => ({ ...setting, options: [...setting.options] })),
+          );
+          expect(listed.map((s) => s.field)).not.toContain(SYSTEM_IDS.extensionEnabledField);
           for (const { field } of listed) {
             expect(isWritableField(own, field, ctx.index.getNode(field))).toBe(true);
           }
