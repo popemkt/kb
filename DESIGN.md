@@ -542,7 +542,7 @@ type PropValue =
   hold its values (the seed has no general retirement), whose values then
   show as what they are. A setting (`sys.f.configures`) is a row on the node
   it configures however many other places draw it with the same field
-  editor (the Extensions panel, Preferences). A table that names no columns
+  editor (the Settings page). A table that names no columns
   derives them from its rows' tag templates by the same rule, so a table of
   field nodes or of agent providers shows their settings as columns.
   Whether a drawn row may be written is the system-write rule's
@@ -3102,8 +3102,10 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     named, with the values each node holds; `kb ext settings [name]` prints
     it, and MCP and the agent have it as a tool like any read action. It
     repeats nothing `extension.list` reports. The page reads the same
-    `settingsOf` over its replica wherever it lists a family's settings.
-    `extensionContract` holds every family to it: what the action lists for
+    `settingsOf` over its replica wherever it lists a family's settings:
+    the Settings page draws every one it reads, a section per extension
+    node, and its contract holds the page to the reader (DESIGN-UI.md →
+    Settings). `extensionContract` holds every family to it: what the action lists for
     a family is exactly the fields its fold declares to configure that
     family's node, each writable there.
     Core's node has settings too, seeded by core: the page-head backdrop,

@@ -117,7 +117,6 @@ describe("palette command routing (characterization)", () => {
     useGraphStore.getState().hydrateFromWire(seedGraph(), fixtureGraph.rev, "fixtures");
     useUiStore.setState({
       toasts: [],
-      prefsOpen: false,
       globalPaletteOpen: false,
       viewSettingsFrameId: null,
     });
@@ -205,9 +204,9 @@ describe("palette command routing (characterization)", () => {
     expect(window.location.pathname).toBe("/extensions");
   });
 
-  it("preferences opens the prefs dialog", async () => {
+  it("settings opens the Settings page", async () => {
     await run(SYSTEM_IDS.cmdPreferences);
-    expect(useUiStore.getState().prefsOpen).toBe(true);
+    expect(window.location.pathname).toBe("/settings");
   });
 
   it("toggle-theme steps light → dark → system → light", async () => {

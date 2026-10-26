@@ -64,6 +64,7 @@ import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { extensionsUiPlugin } from "@/components/prefs/extensions-plugin";
+import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import * as uiSdk from "@kb/ui-sdk";
 import { logWarn, syncUiPlugins } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
@@ -84,6 +85,7 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   designSystemsUiPlugin,
   ontologyUiPlugin,
   extensionsUiPlugin,
+  settingsUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,

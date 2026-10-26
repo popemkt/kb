@@ -21,6 +21,7 @@ import {
   NodeView,
   OntologyListView,
   OntologyScopeView,
+  SettingsView,
 } from "@kb/views";
 
 /**
@@ -42,6 +43,7 @@ export const coreExtension = defineExtension({
     viewDef(LayoutView),
     viewDef(NodeView),
     viewDef(ExtensionsView),
+    viewDef(SettingsView),
     viewDef(HomeView),
     viewDef(NodeReadView),
   ],

@@ -64,6 +64,7 @@ import {
   type NodeCommandListing,
   nodePath,
   ontologyPath,
+  SETTINGS_PATH,
   type OutlineCommandApi,
   shownDesignSystem,
   SYSTEM_IDS,
@@ -211,7 +212,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
       ctx.outline.leaveScope();
     },
   },
-  { id: SYSTEM_IDS.cmdPreferences, scope: "global", run: (ctx) => ctx.ui.setPrefsOpen(true) },
+  { id: SYSTEM_IDS.cmdPreferences, scope: "global", run: () => navigate(SETTINGS_PATH) },
   { id: SYSTEM_IDS.cmdExtensions, scope: "global", run: () => navigate(EXTENSIONS_PATH) },
   {
     id: SYSTEM_IDS.cmdToggleTheme,

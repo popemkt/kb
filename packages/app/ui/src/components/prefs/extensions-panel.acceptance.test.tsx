@@ -2,8 +2,8 @@
  * The Extensions panel, driven through the real App: the sidebar opens it
  * (⌘K's command is `run-command`'s), it draws what `extension.list` and `extension.footprint`
  * answer with the page's own kernel joined in, a family's switch asks the
- * server through `extension.switch`, and a family's settings are the fields
- * of its node, drawn with the page's field editor.
+ * server through `extension.switch`, and a family's settings, the fields of
+ * its node, are named, with the way to the Settings page that draws them.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -245,15 +245,25 @@ describe("the Extensions panel (acceptance)", () => {
     ]);
   });
 
-  it("draws a family's settings: the fields of its node", async () => {
+  it("names a family's settings, the fields of its node, and leads to Settings", async () => {
     await openFromSidebar();
     const settings = present(
       card("graph").querySelector('[aria-label="graph settings"]'),
       "graph's settings",
     );
     expect(settings.textContent).toContain("suggest relations");
-    // The switch is the card's own control, never a setting row.
+    // The switch is the card's own control, never a setting.
     expect(settings.textContent).not.toContain("enabled");
+    await act(async () => {
+      present(settings.querySelector("button"), "the way to Settings").click();
+    });
+    await settle();
+    expect(dom.location.pathname).toBe("/settings");
+    const section = present(
+      container.querySelector('[data-settings-section="sys.extension.graph"]'),
+      "graph's section in Settings",
+    );
+    expect(section.textContent).toContain("suggest relations");
   });
 
   it("says why when the server cannot give the report, and asks again on request", async () => {

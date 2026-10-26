@@ -238,12 +238,6 @@ export function useTheme(): ThemePref {
   return usePrefs((prefs) => prefs.theme);
 }
 
-/** Whether Preferences is open, and how to open or close it. */
-export function usePrefsOpen(): readonly [boolean, (open: boolean) => void] {
-  const open = useHostValue((host) => host.prefsOpen());
-  return [open, (next) => browserHost().setPrefsOpen(next)];
-}
-
 /** The left rail's state and gesture, for the `SidebarToggle` primitive. */
 export function useSidebarToggle(): {
   readonly open: boolean;

@@ -4,11 +4,10 @@
  * joined in (`useExtensionReport`). Each one shows its switch, or that it
  * is required; whether kb's build carries it or a person trusted it, and at
  * which digest; its tags; what it contributed to each point, on the server
- * and in the page; what it injects and provides; its settings, which are
- * the fields of its node, drawn with the page's field editor as any field
- * is; and why any of its plugins failed. Above them are the points whose
- * listeners are asked in turn, each in that order, and the repository
- * extensions refused.
+ * and in the page; what it injects and provides; which settings it has,
+ * the fields of its node, which the Settings page draws; and why any of its
+ * plugins failed. Above them are the points whose listeners are asked in
+ * turn, each in that order, and the repository extensions refused.
  */
 import { extensionNodeId, settingsOf } from "@kb/model";
 import {
@@ -18,9 +17,9 @@ import {
   navigate,
   paramsOf,
   POPOVER_VALUE_CLASS,
+  SETTINGS_PATH,
   SidebarRow,
   SidebarSection,
-  useFieldEditor,
   useGraphRead,
 } from "@kb/ui-sdk";
 import { ExtensionsView } from "@kb/views";
@@ -39,8 +38,6 @@ const SWITCH_OPTIONS: readonly EnumOption<"off" | "on">[] = [
   { value: "off", label: "off" },
   { value: "on", label: "on" },
 ];
-
-const NONE: never[] = [];
 
 /** The sidebar's way in. */
 export function ExtensionsSection({ route }: { readonly route: MatchedRoute | null }) {
@@ -63,7 +60,7 @@ export function ExtensionsPage() {
       <h2 className="text-ui font-medium text-foreground/80">Extensions</h2>
       <p className="mt-0.5 mb-4 max-w-md text-meta text-foreground/40">
         What this kb composes: each extension&apos;s switch, trust, contributions and settings, and
-        the listeners asked in turn.
+        the listeners asked in turn. Its settings are chosen in Settings.
       </p>
       {report === null ? (
         <p className="text-ui text-foreground/40">Reading the extensions…</p>
@@ -239,30 +236,27 @@ function Lines({ lines }: { readonly lines: readonly string[] }) {
 }
 
 /**
- * A family's settings, as `settingsOf` reads them for its node (the switch
- * left out: the card draws it as its own control).
+ * Where a family's settings are: how many `settingsOf` reads for its node
+ * (the switch left out: the card draws it as its own control), and the way
+ * to the Settings page, which draws them. The panel reports what a family
+ * is and contributes; choosing among its settings is the Settings page's.
  */
 function Settings({ family }: { readonly family: string }) {
   const graph = useGraphRead();
-  const Field = useFieldEditor();
   const nodeId = extensionNodeId(family);
-  const node = graph.outline.get(nodeId);
-  if (node === undefined) return null;
+  if (graph.outline.get(nodeId) === undefined) return null;
   const settings = settingsOf(graph.schema.values(), (id) => graph.schema.get(id), nodeId);
   if (settings.length === 0) return null;
   return (
-    <div className="mt-1" aria-label={`${family} settings`}>
-      {settings.map(({ field, label }) => (
-        <Field
-          key={field}
-          nodeId={nodeId}
-          fieldId={field}
-          label={label}
-          values={node.props[field] ?? NONE}
-          context={graph}
-          depth={-1}
-        />
-      ))}
-    </div>
+    <p className="mt-1 text-meta text-muted-foreground" aria-label={`${family} settings`}>
+      {settings.map(({ label }) => label).join(", ")} ·{" "}
+      <button
+        type="button"
+        className="text-foreground underline-offset-2 hover:underline"
+        onClick={() => navigate(SETTINGS_PATH)}
+      >
+        in Settings
+      </button>
+    </p>
   );
 }

@@ -12,7 +12,7 @@
  * node, so this is the checked verb over a write `node.update` could make
  * too: it refuses a family that is unknown or not optional, and commits
  * through the same system-write rule (`persistEffect`) as every write.
- * The page's Preferences row calls it, and so may the CLI. It changes which
+ * The Extensions page's switch calls it, and so may the CLI. It changes which
  * code the server loads, which is what a governing policy would decide
  * about; none ships for now (DESIGN.md → Action registry → Current stance).
  */

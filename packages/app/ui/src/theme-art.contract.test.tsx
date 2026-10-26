@@ -303,7 +303,7 @@ describe("every contributed design system's art and pairing", () => {
     }
   });
 
-  it("tags a theme's backdrops with the theme in Preferences, and marks the shown theme's pairing", () => {
+  it("tags a theme's backdrops with the theme in Settings, and marks the shown theme's pairing", () => {
     for (const system of systems().filter(({ key }) => pairing(key.id) !== undefined)) {
       paint(system.key.id);
       for (const id of backdropIds()) {

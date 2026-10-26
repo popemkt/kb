@@ -3,53 +3,40 @@
 // The design-system switch in a real engine. What each contributed system's
 // sheet sets is held to its contract by
 // `ui/src/design-system-point.contract.test.tsx`, which reads the CSS as data;
-// what only a browser can show is that choosing a system in the
-// preferences paints the whole page with it. Preferences draws core's
-// design-system field with the page's field editor, and its picker leads
-// each option with that system's live swatch (`data-option-preview`, which
-// carries `data-theme`, so the cascade that paints it is that system's
-// sheet). So for every system the picker offers, in light and in dark, the
-// root's computed `--background` and `--primary` must equal the ones the
-// chosen value's own swatch resolves, and no two systems may paint the root
-// alike.
+// what only a browser can show is that choosing a system on the Settings
+// page paints the whole page with it. The page draws core's design-system
+// field with the page's field editor, which lays it out as a gallery: a
+// card per option, each holding that system's live sample
+// (`data-option-preview`, which carries `data-theme`, so the cascade that
+// paints it is that system's sheet). So for every system the gallery offers,
+// in light and in dark, the root's computed `--background` and `--primary`
+// must equal the ones the chosen card's sample resolves, and no two systems
+// may paint the root alike.
 import type { Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
 const TOKENS = ["--background", "--primary"] as const;
+const GALLERY = '[data-option-gallery="sys.f.design-system"]';
 
-/** Preferences' design-system setting, the popover opened when it is not. */
-async function designSetting(page: Page) {
-  const setting = page.locator('section[aria-label="design"]');
-  if (!(await setting.isVisible())) {
-    await page.getByRole("button", { name: "Preferences", exact: true }).click();
-  }
-  await expect(setting).toBeVisible();
-  return setting;
+/** The design-system field's gallery on the Settings page: its cards. */
+async function cards(page: Page) {
+  const gallery = page.locator(GALLERY);
+  await expect(gallery).toBeVisible();
+  const found = gallery.locator('[role="radio"]:has([data-option-preview])');
+  await expect(found.first()).toBeVisible();
+  return found;
 }
 
-/**
- * The field's picker, opened by a click on its value beside the chip (the
- * chip itself follows to the option's page): its rows.
- */
-async function openPicker(page: Page) {
-  const setting = await designSetting(page);
-  await setting
-    .locator("[data-value-slot]")
-    .first()
-    .click({ position: { x: 2, y: 2 } });
-  const rows = page.locator('[role="option"]:has([data-option-preview])');
-  await expect(rows.first()).toBeVisible();
-  return rows;
-}
-
-/** The tokens as the root computes them, and as the chosen value's swatch computes them. */
+/** The tokens as the root computes them, and as the chosen card's sample computes them. */
 async function paint(page: Page) {
   return page.evaluate(
-    ({ tokens }) => {
+    ({ tokens, gallery }) => {
       const read = (el: Element) =>
         tokens.map((token) => getComputedStyle(el).getPropertyValue(token).trim());
-      const swatch = document.querySelector('section[aria-label="design"] [data-option-preview]');
-      if (swatch === null) throw new Error("the chosen system shows no swatch");
+      const swatch = document.querySelector(
+        `${gallery} [aria-checked="true"] [data-option-preview]`,
+      );
+      if (swatch === null) throw new Error("the chosen system shows no sample");
       return {
         theme: document.documentElement.getAttribute("data-theme"),
         swatchOf: swatch.getAttribute("data-option-preview"),
@@ -57,29 +44,28 @@ async function paint(page: Page) {
         swatch: read(swatch),
       };
     },
-    { tokens: [...TOKENS] },
+    { tokens: [...TOKENS], gallery: GALLERY },
   );
 }
 
 for (const scheme of ["light", "dark"] as const) {
   test(`every design system paints the page it is chosen for (${scheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
-    await page.goto("/");
+    await page.goto("/settings");
     const ids = await (
-      await openPicker(page)
+      await cards(page)
     ).evaluateAll((rows) =>
       rows.map(
         (row) =>
           row.querySelector("[data-option-preview]")?.getAttribute("data-option-preview") ?? "",
       ),
     );
-    await page.keyboard.press("Escape");
     expect(ids.length).toBeGreaterThan(1);
 
     const painted = new Map<string, string>();
     for (const id of ids) {
       await (
-        await openPicker(page)
+        await cards(page)
       )
         .filter({ has: page.locator(`[data-option-preview="${id}"]`) })
         .click();

@@ -13,7 +13,7 @@ interface PerspectivePickerProps {
 }
 
 /**
- * Floating popover list — same anatomy as PreferencesPopover
+ * Floating popover list — same anatomy as the shell's other popovers
  * (DESIGN-RESKIN §0 pattern economy: border/popover/shadow/11–12px type).
  */
 export function PerspectivePicker({
