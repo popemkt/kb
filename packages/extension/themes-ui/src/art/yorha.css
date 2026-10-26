@@ -10,12 +10,13 @@
   overflow: hidden;
 }
 
-/* The grid: one sheet from the window's top left corner. The ground fills
- * the window, and the chrome's `--art-chrome` draws the same cell fixed to
- * the window, so a bar's lines run on from the page's. The page head draws
- * no grid of its own: it is translucent, the ground's shows through, and a
- * grid of its own could not line up (the head is moved by a transform). */
-.kb-yorha-grid {
+/* The grid: one sheet from the window's top left corner, drawn only where
+ * nothing is read or written. The chrome's `--art-chrome` draws it fixed to
+ * the window; the Bunker head draws it here, placed back to the window's
+ * corner by `useWindowCell` (the head is moved by a transform, so a `fixed`
+ * layer would not hold), so its lines run on from the bars'. The ground,
+ * under the page's text, has none. */
+.kb-bunker-grid {
   position: absolute;
   inset: 0;
   background:
@@ -126,28 +127,29 @@
   border-right-width: 2px;
 }
 
-/* One slow scan line going down the monitor. */
+/* One slow scan along the bottom edge: a short bright segment on a 2px
+ * rule, the monitor's sweep kept out from under the text. */
 .kb-yorha-scan {
   position: absolute;
   left: 0;
-  top: 0;
-  width: 100%;
-  height: 48px;
+  bottom: 4px;
+  width: 18cqw;
+  height: 2px;
   background: linear-gradient(
-    180deg,
+    90deg,
     transparent,
-    color-mix(in oklab, var(--foreground) 2%, transparent) 80%,
-    color-mix(in oklab, var(--foreground) 6%, transparent) 100%
+    color-mix(in oklab, var(--foreground) 28%, transparent) 70%,
+    color-mix(in oklab, var(--foreground) 45%, transparent)
   );
   animation: kb-yorha-scan calc(var(--motion-ambient-period) * 1.5) linear infinite;
 }
 
 @keyframes kb-yorha-scan {
   from {
-    translate: 0 -100px;
+    translate: -18cqw 0;
   }
   to {
-    translate: 0 100cqh;
+    translate: 100cqw 0;
   }
 }
 

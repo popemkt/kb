@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { THEME_GESTURE_MAX_MS, type BackdropProps } from "@kb/ui-sdk";
 import { useBeat, useGesture, useStructuralWrites } from "./beat";
 
@@ -8,8 +8,39 @@ const EDITING_RATE = 6;
 const TRACK_PERIOD = "calc(var(--motion-ambient-period) * 3)";
 
 /**
+ * Places `ref`'s background back to the window's top left corner, so a grid
+ * it draws has the same origin as the chrome's (`--art-chrome`, `fixed`):
+ * the head scrolls with the page and is moved by a transform, where a
+ * `fixed` layer does not hold. Measured once a frame at most, on scroll and
+ * resize; it writes only the element's background position.
+ */
+function useWindowCell(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null || typeof window === "undefined") return undefined;
+    let frame = 0;
+    const place = () => {
+      frame = 0;
+      const { left, top } = element.getBoundingClientRect();
+      element.style.backgroundPosition = `${-left}px ${-top}px`;
+    };
+    const queue = () => {
+      if (frame === 0) frame = requestAnimationFrame(place);
+    };
+    place();
+    window.addEventListener("scroll", queue, { capture: true, passive: true });
+    window.addEventListener("resize", queue, { passive: true });
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", queue, { capture: true });
+      window.removeEventListener("resize", queue);
+    };
+  }, [ref]);
+}
+
+/**
  * The Bunker, the page head YoRHa pairs with: an operator's HUD on the
- * beige paper. A bracketed frame, a score's staff with its colons running
+ * beige paper, ruled with the chrome's grid. A bracketed frame, a score's staff with its colons running
  * under a small report label, a ruler of ticks, and a reticle whose ring
  * wears the head's colour (its tag's, else the accent). While a node is
  * being edited the reticle tracks faster; a structural write pings it.
@@ -25,6 +56,8 @@ export function BunkerBackdrop({ color, opacity, activity, direction }: Backdrop
   const writes = useStructuralWrites(activity.writes, activity.editing);
   const ping = useGesture(useBeat(writes, THEME_GESTURE_MAX_MS, activity.editing));
   const ticks = useRef<HTMLSpanElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
+  useWindowCell(grid);
   useEffect(() => {
     const element = ticks.current;
     // A DOM without Web Animations (a test's) has nothing to speed up.
@@ -41,6 +74,7 @@ export function BunkerBackdrop({ color, opacity, activity, direction }: Backdrop
       data-direction={direction}
       data-editing={activity.editing || undefined}
     >
+      <div ref={grid} className="kb-bunker-grid" />
       <span className="kb-yorha-bracket" data-at="tl" />
       <span className="kb-yorha-bracket" data-at="tr" />
       <span className="kb-yorha-bracket" data-at="bl" />

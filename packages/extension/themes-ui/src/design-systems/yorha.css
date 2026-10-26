@@ -96,9 +96,9 @@
   --palette-bar: none;
   --palette-bar-width: 0px;
 
-  /* The ground's grid (art/yorha.css · .kb-yorha-grid), fixed to the
-   * window so a bar's lines run on from the page's, over the sidebar's
-   * paper: the chrome is one darker band of the same ruled sheet. */
+  /* A 32px grid fixed to the window's corner, over the sidebar's paper:
+   * the chrome is one darker ruled band, and the Bunker head carries the
+   * same cell (art/yorha.css · .kb-bunker-grid). The page itself is flat. */
   --art-chrome:
     repeating-linear-gradient(90deg, oklch(0.3 0.014 90 / 0.06) 0 1px, transparent 1px 32px) fixed,
     repeating-linear-gradient(180deg, oklch(0.3 0.014 90 / 0.06) 0 1px, transparent 1px 32px) fixed,

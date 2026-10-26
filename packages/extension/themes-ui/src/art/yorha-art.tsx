@@ -14,15 +14,16 @@ const REPORTS: readonly string[] = [
 const BARS = [0, 1, 2, 3, 4, 5, 6, 7];
 
 /**
- * The Bunker's ground: a faint grid on warm paper, darkened toward the
- * edges like a convex monitor, a score's staff with its colons along the
- * bottom, bracketed corners framing the viewport and one slow scan line
- * going down it. Nothing here reacts; it is the room the page sits in.
+ * The Bunker's ground: flat warm paper where the page is read and written
+ * (the grid is the chrome's and the head's, never behind text), darkened
+ * toward the edges like a convex monitor, a score's staff with its colons
+ * along the bottom, bracketed corners framing the viewport and one slow
+ * scan running along the bottom edge. Nothing here reacts, and nothing
+ * moves behind the text; it is the room the page sits in.
  */
 export function YorhaGround(_: Pick<ThemeArtProps, "activity">) {
   return (
     <div className="kb-yorha-ground">
-      <div className="kb-yorha-grid" />
       <div className="kb-yorha-vignette" />
       <div className="kb-yorha-staff">
         <span className="kb-yorha-colon" />
