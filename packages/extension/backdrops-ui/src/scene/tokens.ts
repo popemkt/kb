@@ -4,6 +4,7 @@
  * (`Appearance.key`), as every canvas renderer does.
  */
 import { readTokenColor, type Appearance } from "@kb/ui-sdk";
+import type { ScenePalette as StagePalette } from "@kb/scene";
 import { paletteOf, parseRgb, type Rgb, type ScenePalette, type SceneTokens } from "./palette.ts";
 
 const FALLBACK: Rgb = { r: 128, g: 128, b: 128 };
@@ -64,4 +65,23 @@ export function readPalette(appearance: Appearance, color: string): ScenePalette
     sun: tokenRgb("--header-sun"),
   };
   return paletteOf(tokens, resolveColor(color), appearance.dark);
+}
+
+const rgbString = ({ r, g, b }: Rgb) => `rgb(${r}, ${g}, ${b})`;
+
+/**
+ * The page as a GPU scene's palette (`@kb/scene`'s roles): its ground is the
+ * page's background as painted, to the level and edge to edge, so the frame
+ * meets the page; its hue is the head's `color`.
+ */
+export function readStagePalette(color: string): StagePalette {
+  const ground = rgbString(tokenRgb("--background"));
+  const primary = tokenRgb("--primary");
+  return {
+    ground,
+    edge: ground,
+    hue: rgbString(resolveColor(color) ?? primary),
+    ink: rgbString(tokenRgb("--foreground")),
+    accent: rgbString(primary),
+  };
 }

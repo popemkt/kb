@@ -15,7 +15,8 @@ import {
   uniformArray,
   vec3,
 } from "three/tsl";
-import { Color, type Node, type UniformNode } from "three/webgpu";
+import { Color, type Node, type TextureNode, type UniformNode } from "three/webgpu";
+import type BloomNode from "three/addons/tsl/display/BloomNode.js";
 import { easeAt, type CubicBezier } from "@kb/ui-sdk";
 import type { ShadeOps } from "@kb/scene";
 
@@ -55,6 +56,25 @@ export function linearFromSrgb(color: TslNode<"vec3">): TslNode<"vec3"> {
 export function minInt(a: TslNode<"int">, b: number): TslNode<"int"> {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- min's typings are float-only; on an int it is an int (see above)
   return (a as unknown as TslNode<"float">).min(b) as unknown as TslNode<"int">;
+}
+
+/**
+ * The bloom's output as a texture, to sample away from the pixel (a streak,
+ * a fringe). three builds it as `getTextureNode()`; `@types/three` declares
+ * that method as `getTexture()`, which the node does not have. This is the
+ * one place that bridges the two.
+ */
+export function bloomTexture(glow: BloomNode): TextureNode {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the typings name the method getTexture; three builds getTextureNode (see above)
+  return (glow as unknown as { getTextureNode: () => TextureNode }).getTextureNode();
+}
+
+/**
+ * A texture node read at `at`, as the vec4 it is: `@types/three` returns
+ * `TextureNode<unknown>` from `sample()`, which has no `.rgb` to read.
+ */
+export function sampleTexture(source: TextureNode, at: Node<"vec2">): Node<"vec4"> {
+  return source.sample(at);
 }
 
 /** How finely the ease is sampled for the GPU. */

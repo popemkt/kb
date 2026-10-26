@@ -90,3 +90,13 @@
   height: 100%;
   display: block;
 }
+
+/*
+ * The GPU scenes (Lens, Black hole) draw on a canvas the stage makes inside
+ * this host; the stage feathers its edges into the page's ground itself
+ * (`gpu/gpu-scene.ts`), where its dither and grain carry the fade.
+ */
+.kb-gpu-backdrop {
+  position: absolute;
+  inset: 0;
+}

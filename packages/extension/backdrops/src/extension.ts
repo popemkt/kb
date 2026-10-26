@@ -24,6 +24,15 @@ export const SKY_BACKDROP: SeedBackdrop = { id: "backdrops.sky", label: "Sky" };
 /** A house with bats hanging under its eaves: asleep by day, stirring and flying at night. */
 export const ROOST_BACKDROP: SeedBackdrop = { id: "backdrops.roost", label: "Roost" };
 
+/** A dark star drifting through a seeded nebula and bending its light; a write is a lensed supernova. */
+export const LENS_BACKDROP: SeedBackdrop = { id: "backdrops.lens", label: "Lens" };
+
+/** Gargantua: a black hole whose thick gas disk streams round it, its far side bent over the shadow. */
+export const BLACK_HOLE_BACKDROP: SeedBackdrop = {
+  id: "backdrops.black-hole",
+  label: "Black hole",
+};
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
@@ -32,7 +41,14 @@ export const backdropsExtension = defineExtension({
   declaredOptions: [
     {
       kind: BACKDROP_OPTIONS,
-      options: [UNICORN_BACKDROP, GRADIENT_BACKDROP, SKY_BACKDROP, ROOST_BACKDROP],
+      options: [
+        UNICORN_BACKDROP,
+        GRADIENT_BACKDROP,
+        SKY_BACKDROP,
+        ROOST_BACKDROP,
+        LENS_BACKDROP,
+        BLACK_HOLE_BACKDROP,
+      ],
     },
   ],
 });

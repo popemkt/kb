@@ -55,6 +55,20 @@ class FakeRenderer {
     return Promise.resolve();
   }
   compute() {}
+  /** The target an offscreen pass draws into (`@kb/scene-gpu`'s `offscreenPass`). */
+  target: unknown = null;
+  getRenderTarget() {
+    return this.target;
+  }
+  setRenderTarget(target: unknown) {
+    this.target = target;
+  }
+  /** Draws outside the post chain: an offscreen pass's quad, counted. */
+  offscreen = 0;
+  render() {
+    if (gpu.failRender) throw new Error("shader compile failed");
+    this.offscreen++;
+  }
   dispose() {
     gpu.live.delete(this);
   }

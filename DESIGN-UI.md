@@ -2847,7 +2847,13 @@ one projection of a world point to canvas pixels, decided in view space;
 every label, pick and hover asks it), `pointer` (`PointerField`: where
 the pointer is over a scene, where its ray meets a plane, and which presses
 were taps — every study and the 3D graph read the one field), `stage` (renderer, post chain, tone
-mapping, palette uniforms, frame loop, reveal), `tsl` (the typed TSL seam
+mapping, palette uniforms, frame loop, reveal; optionally a camera's
+artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
+film grain), a feather along the frame's own sides, a presence knob and a
+GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
+shader drawn into a render target of its own size, optionally reading its
+last picture back, which a scene samples as a texture), `tone` (the
+shoulder curve and its pre-image), `tsl` (the typed TSL seam
 and the ease as a shader function), `rig` (lights and finishes),
 `backdrop` (every view's ground, through the stage's `backdrop()`: the
 ground pooled at a focal point and falling to the edge colour, plus the
@@ -2878,7 +2884,7 @@ one `SceneHandle`, and each is built through the stage's `mountScene`, which
 answers the handle from the stage. What the handle promises belongs to the
 handle, and one contract suite (`@kb/ui`'s `scene-contract.test.ts`) proves it over
 every registered scene — each study in `LAB_STUDIES`, the 3D graph and the
-3D canvas:
+3D canvas, and `@kb/backdrops-ui` runs it over the GPU backdrops:
 disposing leaves no live renderer, loop or canvas; a hidden scene draws
 nothing; under reduced motion no animation loop runs, and a change draws one
 still frame (M7); the device pixel ratio never exceeds 2 (P3); a scene whose
@@ -3525,7 +3531,11 @@ exist is a plugin point, and the kit names none of them.
     it reads from the page's appearance (see **2D scenes** below);
   - `backdrops.roost` is a house with a long overhang and bats hanging under
     its eave, with the sun or moon behind them: asleep by day, stirring and
-    flying at night.
+    flying at night;
+  - `backdrops.lens` is a dark star drifting through a nebula and bending its
+    light, a new nebula each load (see **GPU scenes** below);
+  - `backdrops.black-hole` is Gargantua: a black hole whose thick gas disk
+    streams round it, lensed over and under its shadow.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -3569,6 +3579,10 @@ exist is a plugin point, and the kit names none of them.
   - Choosing a backdrop writes core's setting, and the row and the slot
     then show it.
   - A page's own node chooses for that page over core's.
+- **The continuity contract** (`app/ui/src/backdrop-continuity.contract.test.tsx`)
+  renders the page head with each declared backdrop chosen, types 30 keys
+  into a node and makes an edit: the slot keeps the instance it mounted, and
+  a GPU backdrop's scene mounts once and its clock only moves forward.
 
 #### 2D scenes
 
@@ -3602,6 +3616,13 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
 - **Reactions** are eased signals (`reactions.ts`): the pointer scatters
   fliers locally and they regather; typing calms the scene; a write is a
   small stir (none while typing); a move to another page re-forms the flock.
+- **Input is an impulse, never a restart.** Every write adds energy to one
+  running `impulse`: at most one lands every 150 ms (writes in between merge
+  into the next), it adds to the energy under way rather than starting a
+  pulse again, and it decays by itself. Typing writes on every keystroke, so
+  a keystroke adds a little: continuous typing is a gentle sustained
+  response that eases away when it stops. `stir` is the impulse without
+  typing's share, for a scene that keeps still while the owner types.
 
 Roost is the same kit with another layout:
 
@@ -3631,6 +3652,82 @@ canvas ground transparent on the page. It has no pointer targets,
 pauses for reduced motion, background tabs and offscreen headers, and is released
 when the header unmounts or the choice changes. Failed loading or unavailable
 WebGL leaves the wash it paints over. Rendering needs no external requests.
+
+#### GPU scenes
+
+Lens and Black hole are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
+
+- **Two lazy boundaries.** The plugin's eager module holds only the
+  contribution and a `lazy()` host (`gpu/gpu-backdrop.tsx`), which imports
+  each scene with `import()`: three never reaches the first-load bundle
+  (`UI_LAZY_ONLY`). Until a scene is ready, and on a machine that cannot
+  start one, the head shows the wash.
+- **One mount** (`gpu/gpu-scene.ts`'s `mountBackdrop`) gives every GPU
+  backdrop the same stage and the same promises; a backdrop is its shader
+  and its `BackdropParts`.
+  - The stage curves with the shoulder (`tone.ts`: identity below a knee, a
+    soft roll-off above), so a dark page's ground is the page's to the level.
+    The frame's sides, top and bottom feather into that ground.
+  - A dark page's scene is light over the stage's ground. A light page's
+    picture is composed in the page's own terms (the ground times a shade)
+    and painted through the curve (`stage.paint`, `Grounds`), or the curve
+    would wash it to white.
+  - The frame is opaque, so a theme's ground art would show a rectangle
+    (gap 01M5STYVFCKQ7TZ8XBSGSRHRH9).
+- **Framing by width** (`framing.ts`). Each backdrop has a panel
+  composition and a wide one: where its subject sits, its scale and how
+  present it is. A side panel's width (480px and below) takes the first, a
+  frame 900px wide the second, and the widths between ease from one to the
+  other. In a panel the subject is smaller, set high and right, away from
+  the title and the list, and quieter.
+- **Cost.** It runs only while the tab is shown and the frame is in view
+  (`watchPlayback`). Each frame's GPU time is metered against 6 ms; while it
+  runs over, the backdrop steps its quality down (the offscreen pass's
+  resolution; a ray's steps are never cut, or the photon ring goes first). On WebGPU the meter reads
+  the stage's `gpuMs` (queue completion; gap 01M5STYVVX474T8WBT4FY341CM); on
+  WebGL2 it reads the frame interval. The canvas carries `data-quality` and
+  `data-gpu-ms`.
+- **Reduced motion** shows one still frame, of one curated seed.
+- **One scene for the life of the head.** The host mounts a scene once for
+  its head: an edit, a keystroke, a new colour or theme reaches it as a
+  call (`setLook`, `write`, `setEditing`), never as a remount, and its
+  clock (`data-clock`) only moves forward. Writes reach the frame as the
+  reactions' `impulse` and `stir` (see **2D scenes**).
+- **Lens.** The nebula is drawn offscreen (`offscreenPass`) a few times a
+  second at a fraction of the frame's pixels, since it changes over minutes;
+  the lens equation, the stars, the shadow and the photon ring are per
+  pixel.
+  - Each load seeds its own nebula: a palette, its structure, its star
+    density and where the star rests.
+  - The star follows the pointer on a critically damped spring and circles
+    where it rests without one.
+  - Typing barely eases its pull, and each keystroke swells its mass a
+    little. A write is a supernova beside it, lensed into two images, which
+    a further write brightens rather than starts again.
+  - A light page shows the plate's negative.
+- **Black hole.** Rays are traced through a Schwarzschild field into a
+  volumetric disk, drawn offscreen with history.
+  - The gas streams on Keplerian shear. Two copies of its pattern, half a
+    period apart, crossfade, so the shear never winds it into rings.
+  - The disk is sampled at a jitter that moves each frame, and the history
+    settles the jitter; most of each new frame enters, so the stream is not
+    smeared.
+  - Crisp first: the hole is drawn at 1.5 texels a CSS pixel at full
+    quality and never under 1, however long frames run, and a ray's
+    steps are never cut short (the rays that wind round the hole are the
+    photon ring). Each frame's rays leave from a new point in their texel,
+    so the history antialiases the ring and the filaments' edges; a step
+    through the slab near the inner edge takes three samples, so the ring's
+    thin crossings are not missed. The upscale is sharpened
+    (contrast-adaptive), and the stage adds fine grain.
+  - The pointer swings the camera slowly. Typing dims the disk a little and
+    each keystroke breathes into it. A write sets a hot flare orbiting in
+    it, which a further write brightens rather than starts again.
+  - A light page is an eclipse by day: a charcoal shadow, the disk's dust
+    lit amber.
+- **The contract.** `@kb/backdrops-ui` runs the scene contract over both
+  scenes, each on a dark page and a light one.
 
 ### Type scale
 

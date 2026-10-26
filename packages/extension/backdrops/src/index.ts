@@ -5,7 +5,9 @@
  * ambience, so they live in the browser half, `@kb/backdrops-ui`.
  */
 export {
+  BLACK_HOLE_BACKDROP,
   GRADIENT_BACKDROP,
+  LENS_BACKDROP,
   ROOST_BACKDROP,
   SKY_BACKDROP,
   UNICORN_BACKDROP,

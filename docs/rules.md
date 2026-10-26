@@ -726,6 +726,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
 - **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
 
+### GAP: GPU backdrops paint an opaque frame over the page's flat ground
+
+- **expected** — The scene stage has an alpha mode: a backdrop's canvas is transparent where its scene is absent (the feather, the veil), so the page's own ground, flat or a theme's ground art, shows through around it.
+- **current** — The stage's canvas is opaque. Its edges fade to the palette's ground (--background) and the frame meets a flat page exactly, through the shoulder's pre-image (stage.paint), but over a theme whose ground is art the frame shows as a rectangle of flat colour.
+- **impact** — A theme with ground art (kb#34) cannot show the Lens or Black hole backdrop without a visible frame.
+- **closes** — An alpha StageOptions mode in @kb/scene-gpu: premultiplied output whose alpha is the scene's presence (1 - veil), the ground no longer mixed in, and the GPU backdrops built on it.
+- **node** — `01M5STYVFCKQ7TZ8XBSGSRHRH9`
+
 ### GAP: graph link labels are 2D only
 
 - **expected** — Force3dView declares edgeLabels and draws label billboards.
@@ -1306,6 +1314,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
+
+### GAP: the stage's GPU meter times queue completion, not timestamp queries
+
+- **expected** — gpuMs is each frame's own GPU time, from timestamp queries around its passes, on every backend.
+- **current** — On WebGPU gpuMs is the time from a frame's submission to the queue finishing it (onSubmittedWorkDone), which also counts waiting on other GPU work; on WebGL2 it is null and the GPU backdrops fall back to the frame-interval meter. Timestamp queries were tried: on Apple Metal three's resolved total read 50-75 ms for frames that ran at 54 fps (passes overlap on a tiled GPU), so they could not budget anything.
+- **impact** — A GPU busy with another app's work reads as the backdrop's cost, so its quality steps down when it need not; on WebGL2 quality only falls once frames actually drop.
+- **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
+- **node** — `01M5STYVVX474T8WBT4FY341CM`
 
 ### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
 

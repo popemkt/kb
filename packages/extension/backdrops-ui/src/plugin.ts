@@ -1,7 +1,9 @@
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import {
+  BLACK_HOLE_BACKDROP,
   GRADIENT_BACKDROP,
+  LENS_BACKDROP,
   ROOST_BACKDROP,
   SKY_BACKDROP,
   UNICORN_BACKDROP,
@@ -11,6 +13,7 @@ import {
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
 import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
+import { BlackHoleBackdrop, LensBackdrop } from "./gpu/backdrops";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
 import { GradientBackdrop } from "./tint-backdrop";
@@ -70,6 +73,27 @@ const roost: Omit<Backdrop, "key"> = {
 };
 
 /**
+ * The GPU scenes' frame: as tall as the sky's, and opaque on the page's own
+ * ground, feathered by the stage into it (`gpu/gpu-scene.ts`). They have no
+ * direction. Their presence starts higher than a canvas scene's: the scene's
+ * own ground is the page, so a lower presence only greys its light.
+ */
+const gpuFrame: Omit<Backdrop, "key" | "Component">["presentation"] = {
+  space: 120,
+  directions: [],
+  height: 360,
+  maxWidth: 1040,
+  offset: -10,
+  opacity: { subtle: 0.7, soft: 0.85, vivid: 1 },
+};
+
+/** A dark star drifting through a nebula, bending its light. */
+const lens: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: LensBackdrop };
+
+/** Gargantua, its gas disk streaming round it. */
+const blackHole: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: BlackHoleBackdrop };
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), with the family's shared plugin as a child.
@@ -85,6 +109,8 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_BACKDROP, gradient)),
         ctx.contribute(BackdropPoint, provideBackdrop(SKY_BACKDROP, sky)),
         ctx.contribute(BackdropPoint, provideBackdrop(ROOST_BACKDROP, roost)),
+        ctx.contribute(BackdropPoint, provideBackdrop(LENS_BACKDROP, lens)),
+        ctx.contribute(BackdropPoint, provideBackdrop(BLACK_HOLE_BACKDROP, blackHole)),
       ],
       { discard: true },
     ),
