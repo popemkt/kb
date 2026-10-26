@@ -363,7 +363,7 @@ describe("every contributed page-head backdrop", () => {
     let container: HTMLElement;
     let root: Root;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       useGraphStore.getState().hydrateFromWire(graphWith({}), 1, "fixtures");
       useUiStore.getState().setPrefsOpen(true);
       container = document.createElement("div");
@@ -372,6 +372,12 @@ describe("every contributed page-head backdrop", () => {
       act(() =>
         root.render(createElement(PreferencesPopover, { switches: [], onSwitch: () => {} })),
       );
+      // Preferences loads its motion rows behind lazy(): let them land inside act. Landing
+      // after the file's last test, React's warning outlives the worker and fails the run.
+      await act(async () => {
+        await import("@/components/prefs/motion-rows");
+        await new Promise((done) => setTimeout(done, 0));
+      });
     });
     afterAll(() => {
       act(() => root.unmount());
