@@ -110,7 +110,16 @@ export interface BackdropParts {
 }
 
 /** The stage a backdrop asks for beyond the kit's shared frame. */
-export type BackdropStageOptions = Pick<StageOptions, "bloom" | "lens">;
+/**
+ * A backdrop's stage: its bloom and lens, and how its frame fades into the
+ * page: a painted, high-key scene fades as a CSS mask would (`fadeSpace`),
+ * and one whose subject reaches low in the frame (a sea under its horizon)
+ * may fade later than the frame's own (`FRAME_FEATHER`).
+ */
+export type BackdropStageOptions = Pick<StageOptions, "bloom" | "lens" | "fadeSpace" | "feather">;
+
+/** How the frame's sides, top and bottom fade into the page's ground (shares of the frame). */
+const FRAME_FEATHER = { sides: 0.12, top: 0.08, bottom: 0.5 } as const;
 
 /** GPU time a backdrop may take per frame (ms): a third of a 60 Hz frame, the rest is the page's. */
 const GPU_BUDGET_MS = 6;
@@ -144,7 +153,7 @@ export async function mountBackdrop(
       reducedMotion: init.reducedMotion,
       toneMapping: "shoulder",
       // GAP [[01M5STYVFCKQ7TZ8XBSGSRHRH9]] an opaque frame feathered to the flat ground, no alpha mode
-      feather: { sides: 0.12, top: 0.08, bottom: 0.5 },
+      feather: options.feather ?? FRAME_FEATHER,
       gpuTiming: true,
     },
     (on) => {

@@ -27,3 +27,13 @@ export function LensBackdrop(props: BackdropProps) {
 export function BlackHoleBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="blackHole" backdrop={props} />;
 }
+
+/** The cel-shaded sea under anime clouds (`toon-sea/`). */
+export function ToonSeaBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="toonSea" backdrop={props} />;
+}
+
+/** Layered silk on a stage before a faint cosmos (`silk/`). */
+export function SilkBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="silk" backdrop={props} />;
+}

@@ -3535,7 +3535,12 @@ exist is a plugin point, and the kit names none of them.
   - `backdrops.lens` is a dark star drifting through a nebula and bending its
     light, a new nebula each load (see **GPU scenes** below);
   - `backdrops.black-hole` is Gargantua: a black hole whose thick gas disk
-    streams round it, lensed over and under its shadow.
+    streams round it, lensed over and under its shadow;
+  - `backdrops.toon-sea` is an open sea under anime-game cumulus,
+    cel-shaded: a day sea, and at night a moonlit indigo with
+    bioluminescent wakes;
+  - `backdrops.silk` is silk ribbons in three depths, lit on a stage that
+    opens onto a faint cosmos.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -3655,7 +3660,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens and Black hole are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea and Silk are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -3726,8 +3731,64 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     it, which a further write brightens rather than starts again.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
-- **The contract.** `@kb/backdrops-ui` runs the scene contract over both
-  scenes, each on a dark page and a light one.
+- **Toon sea.** An open sea under anime-game cumulus, cel-shaded: a day
+  sea, and at night a moonlit indigo with bioluminescent wakes.
+  - The sky (gradient, sun or moon with its halo and rays, cirrus, a far
+    bank, and hero clouds built as a body under a crown of puffs, their
+    outlines from a signed distance) is drawn offscreen at a share of the
+    frame's pixels a few times a second; the sea is per pixel below the
+    horizon only, reading the sky for its reflection.
+  - The sea is a plane in perspective with peaked waves filtered by each
+    pixel's footprint, stepped body bands, a toon Fresnel, foam on crests,
+    anime wave lines, and a banded glitter path of star glints.
+  - Under the head's text the shared scrim (`gpu/text-scrim.ts`: a soft
+    block just behind the title and the meta row, sized in CSS pixels, so
+    the rest of the picture keeps its colour) keeps them readable, and the
+    glitter stays out from under it.
+  - The pointer resting over the water spreads ripple rings. Typing calms
+    the swell. Three splash rings with bursts of glints take turns on one
+    running clock, and the reactions' `impulse` scales them: the owner's
+    activity lifts them, a quiet page leaves them still, and nothing starts
+    one again.
+- **Silk.** Silk ribbons in three depths on a stage that opens onto a faint
+  cosmos, drawn offscreen at a share of the frame's pixels; the cosmos's
+  slow fields (gas, a galactic band and its dust lane) in a pass of their
+  own, a few times a second.
+  - Each ribbon is solved analytically per pixel: a twisted strip whose
+    across-coordinate and normal each pixel finds exactly, so there are no
+    meshes and the one edge is filtered, widened per layer for depth of
+    field. BG ribbons are soft in the haze, the MG hero (a double-faced
+    satin and a sheer organza) is in focus, and two large defocused FG
+    edges frame the right-hand corners, clear of the title. The layers
+    slide at their own parallax rates, and the focus breathes now and then.
+  - Silk's material: anisotropic GGX, thin-film interference (Belcour and
+    Barla), transmission for the sheer one, a woven warp only in focus.
+  - A key spot, a cool back gel, and a strip light that sweeps across,
+    reaching each layer in turn and shadowed by every nearer ribbon; the
+    hero casts a coloured shadow and a caustic on the backdrop.
+  - The pointer is a breath of wind that lifts and flips the ribbons and
+    stirs the dust (summed on the CPU into a strip the shader reads). Typing
+    slows everything and rests the sweep. A shimmer runs along every
+    ribbon without end, as bright as the reactions' `impulse`, and `stir`
+    quickens the ribbons' twist.
+  - The same scrim sits under the head's text, the cosmos keeps clear of
+    it, and in a panel the ribbons rise above the title.
+  - A light page is the paper itself, with a pastel breath of gas.
+- **Painted scenes keep their colour.** Toon sea and Silk were drawn as
+  high-key pictures, and the page must show them as drawn:
+  - a strength barely veils them (`sceneFrame`: 0.95, 0.98, 1), since a
+    veil toward a light page is a wash;
+  - they fade into the page in display values (`fadeSpace: "display"`), as
+    a CSS mask over the page would: halfway to white in linear light reads
+    nearly white;
+  - a dark page grades them by ACES above the ground (`gpu/dark-grade.ts`),
+    the contrast they were drawn under, while the ground meets the page to
+    the level.
+- **The head's rows paint above the frame.** The frame is absolute and
+  reaches below the title, so every row of the head is positioned, the
+  fields row too, or it paints under the scene.
+- **The contract.** `@kb/backdrops-ui` runs the scene contract over every
+  GPU scene, each on a dark page and a light one.
 
 ### Type scale
 

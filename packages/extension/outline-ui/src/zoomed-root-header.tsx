@@ -188,7 +188,12 @@ export function ZoomedRootHeader({
         )}
       </div>
 
-      <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
+      {/* Positioned, as the title and tag rows are: the page-head backdrop's
+          frame is absolute and reaches down here, and an unpositioned row
+          paints under it (its field labels vanished behind the scene). */}
+      <div className="relative">
+        <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
+      </div>
     </div>
   );
 }

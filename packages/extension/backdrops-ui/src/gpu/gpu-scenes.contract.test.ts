@@ -1,9 +1,9 @@
 /**
  * The scene contract (`sceneContract`, `@kb/ui-test-kit`) over the GPU
- * backdrops' scenes, Lens and Black hole, each on a dark page and a light
- * one: both draw an offscreen pass every frame (the nebula, the hole), so
- * the stand-in renderer counts those too, and a hidden scene must still
- * draw nothing.
+ * backdrops' scenes, Lens, Black hole, Toon sea and Silk, each on a dark
+ * page and a light one: each draws an offscreen pass (the nebula, the hole,
+ * the sky, the silk), so the stand-in renderer counts those too, and a
+ * hidden scene must still draw nothing.
  */
 import { vi } from "vitest";
 import type { ScenePalette } from "@kb/scene";
@@ -40,6 +40,8 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
 const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
   lens: () => import("../lens/lens-scene").then((m) => m.mountLens),
   "black hole": () => import("../black-hole/black-hole-scene").then((m) => m.mountBlackHole),
+  "toon sea": () => import("../toon-sea/toon-sea-scene").then((m) => m.mountToonSea),
+  silk: () => import("../silk/silk-scene").then((m) => m.mountSilk),
 };
 
 sceneContract(

@@ -5,7 +5,9 @@ import {
   GRADIENT_BACKDROP,
   LENS_BACKDROP,
   ROOST_BACKDROP,
+  SILK_BACKDROP,
   SKY_BACKDROP,
+  TOON_SEA_BACKDROP,
   UNICORN_BACKDROP,
   backdropsExtension,
   backdropsPlugin,
@@ -13,7 +15,7 @@ import {
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
 import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
-import { BlackHoleBackdrop, LensBackdrop } from "./gpu/backdrops";
+import { BlackHoleBackdrop, LensBackdrop, SilkBackdrop, ToonSeaBackdrop } from "./gpu/backdrops";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
 import { GradientBackdrop } from "./tint-backdrop";
@@ -94,6 +96,22 @@ const lens: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: LensBac
 const blackHole: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: BlackHoleBackdrop };
 
 /**
+ * A whole painted scene's frame: a strength barely veils it, since a veil
+ * over a high-key picture is a wash that takes its colour (the scene keeps
+ * its own quiet: its scrim under the text, its framing by width).
+ */
+const sceneFrame: Omit<Backdrop, "key" | "Component">["presentation"] = {
+  ...gpuFrame,
+  opacity: { subtle: 0.95, soft: 0.98, vivid: 1 },
+};
+
+/** A cel-shaded sea under anime-game clouds. */
+const toonSea: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: ToonSeaBackdrop };
+
+/** Silk ribbons in three depths on a stage before a faint cosmos. */
+const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkBackdrop };
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), with the family's shared plugin as a child.
@@ -111,6 +129,8 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(ROOST_BACKDROP, roost)),
         ctx.contribute(BackdropPoint, provideBackdrop(LENS_BACKDROP, lens)),
         ctx.contribute(BackdropPoint, provideBackdrop(BLACK_HOLE_BACKDROP, blackHole)),
+        ctx.contribute(BackdropPoint, provideBackdrop(TOON_SEA_BACKDROP, toonSea)),
+        ctx.contribute(BackdropPoint, provideBackdrop(SILK_BACKDROP, silk)),
       ],
       { discard: true },
     ),

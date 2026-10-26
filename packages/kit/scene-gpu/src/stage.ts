@@ -129,6 +129,13 @@ export interface StageOptions {
    * into a page, whose edges must vanish into it.
    */
   readonly feather?: { readonly sides: number; readonly top: number; readonly bottom: number };
+  /**
+   * Where the edges and the presence fade into the ground: in linear light
+   * (the default), or in display values, as a CSS mask over the page blends.
+   * A light page shows the difference: halfway to white in linear light
+   * reads nearly white, so a high-key picture's fade washes it out.
+   */
+  readonly fadeSpace?: "linear" | "display";
   /** The tone curve the stage starts with (ACES by default). */
   readonly toneMapping?: SceneToneMapping;
   /** A camera's artefacts, each 0 for none: see the post chain above. */
@@ -267,8 +274,13 @@ function postChain(
   // The shoulder comes before the fade: mixed after it, a sliver of veil over
   // the ground's pre-image (above 1 on a light page) would wash the frame grey.
   const toned = mix(composed, shoulder(composed), knobs.shoulder);
-  const framed = mix(toned, colors.ground, veil);
-  const display = renderOutput(vec4(framed, 1));
+  const display =
+    options.fadeSpace === "display"
+      ? vec4(
+          mix(renderOutput(vec4(toned, 1)).rgb, renderOutput(vec4(colors.ground, 1)).rgb, veil),
+          1,
+        )
+      : renderOutput(vec4(mix(toned, colors.ground, veil), 1));
   // Interleaved gradient noise: a fixed, even half-step pattern per pixel.
   const noise = fract(
     float(52.9829189).mul(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715)))),
