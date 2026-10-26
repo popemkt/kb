@@ -205,7 +205,7 @@ describe("palette command routing (characterization)", () => {
   });
 
   it("settings opens the Settings page", async () => {
-    await run(SYSTEM_IDS.cmdPreferences);
+    await run(SYSTEM_IDS.cmdSettings);
     expect(window.location.pathname).toBe("/settings");
   });
 

@@ -334,6 +334,17 @@ export interface ExtensionDeclaration {
    * backdrop): each named by the id its page contribution answers to.
    */
   readonly declaredOptions?: readonly DeclaredOptionSet[];
+  /**
+   * The seeded ids it renamed or removed (DESIGN.md → Extension families →
+   * the seed retires what it renames), which opening applies before it seeds.
+   */
+  readonly retires?: readonly SeedRetirement[];
+}
+
+/** One row of the seed's retirement table: `from` is retired; `to`, when given, replaced it. */
+export interface SeedRetirement {
+  readonly from: NodeId;
+  readonly to?: NodeId;
 }
 
 /** One kind of declared option: the field whose children its options are, and their ids' prefix. */

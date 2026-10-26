@@ -234,7 +234,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdGoQuery, "Saved queries"),
     cmd(SYSTEM_IDS.cmdNewQuery, "New query node"),
     // W8a shell commands: device prefs popover + quick toggles
-    cmd(SYSTEM_IDS.cmdPreferences, "Settings"),
+    cmd(SYSTEM_IDS.cmdSettings, "Settings"),
     cmd(SYSTEM_IDS.cmdExtensions, "Extensions"),
     cmd(SYSTEM_IDS.cmdToggleTheme, "Toggle theme"),
     cmd(SYSTEM_IDS.cmdSwitchDesignSystem, "Switch design system"),
@@ -612,6 +612,8 @@ export function ensureSystemSeed(
 
   const seedById = new Map<string, KbNode>();
   const seedTemplateTags = new Map<string, KbNode>();
+  // GAP [[01M5WSTXZ18DWSKY1V30GJ5HVE]] — a node the store holds keeps its
+  // text: a label the seed has since changed does not reach it.
   for (const node of seed) {
     seedById.set(node.id, node);
     if (TEMPLATE_TAGS.includes(node.id)) seedTemplateTags.set(node.id, node);

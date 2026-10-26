@@ -48,8 +48,8 @@
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.location.open","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Open location…","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.new-ontology","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"New ontology","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.new-query","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"New query node","updatedAt":"2026-01-01T00:00:00.000Z"}
-{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.preferences","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Settings","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.save-workspace","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Save workspace","updatedAt":"2026-01-01T00:00:00.000Z"}
+{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.settings","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Settings","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.switch-design-system","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Switch design system","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.toggle-theme","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Toggle theme","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.toggle-width","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Toggle width","updatedAt":"2026-01-01T00:00:00.000Z"}

@@ -3174,7 +3174,9 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     options and its own node included), read as `bundledOwners()`. It is
     known only there, where every id is already proven to have one;
   - its **retirement table**: each declaration's `retires` rows, in
-    declaration order (`FoldedSeed.retired`, `bundledFold()`), below.
+    declaration order (`FoldedSeed.retired`), below. Opening a store
+    applies the rows of the fold it seeds from, its repository
+    extensions' declarations included.
 
   A repository extension's declaration folds after the bundled ones, so
   the store it lives in carries its node, its switch and its settings as
@@ -3220,9 +3222,16 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     what it then seeds again), or a replacement it does not seed.
 
   The graph's default perspective, `sys.lens.all-mentions` →
-  `lens.all-mentions`, is the graph family's row. `views.migrate`'s
-  retirements stay that action's own: it rewrites shapes (a frame's view
-  settings into a view node), not ids, and runs when a person asks.
+  `lens.all-mentions`, is the graph family's row, and ⌘K's
+  `sys.cmd.preferences` → `sys.cmd.settings` is core's. A row retires only
+  a reserved `sys.` id: a store's other ids are its owner's, so the fold
+  refuses a row that could delete a node a person made under the same id.
+  Two retired fields one replacement took over pool their values under it.
+  `views.migrate` still deletes seeded ids of its own (`#graph-perspective`,
+  `lens.view-mode`, the old renderer options, the withdrawn placement
+  field): it reads their values into the view nodes that replace them
+  first, so retiring them on open would drop those values before it ran.
+  That second list is a gap until the table can wait on a migration.
   `domain/model/tests/seed-retirement.test.ts` holds the table, an older
   build's open and a merge with an unmigrated clone to it.
 

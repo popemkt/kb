@@ -16,7 +16,14 @@ import {
   type DeclaredOptionSet,
   type SeedOption,
 } from "./declared-option.ts";
-import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
+import {
+  SYSTEM_IDS,
+  extensionNodeId,
+  isSysPrefixed,
+  type KbNode,
+  type NodeId,
+  nowIso,
+} from "./model.ts";
 import type { SeedRetirement } from "./seed-retirement.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
@@ -225,10 +232,12 @@ export interface FoldedSeed {
 }
 
 /**
- * Every source's retirement rows, in source order. An id retired twice, a
- * retired id the fold still seeds (opening would retire what it then seeds
- * again), or a replacement the fold does not seed is a bundling defect, so
- * it throws.
+ * Every source's retirement rows, in source order. A retired id outside
+ * the reserved `sys.` prefix (a store's other ids are its owner's, so a
+ * row could delete a node a person made under the same id), an id retired
+ * twice, a retired id the fold still seeds (opening would retire what it
+ * then seeds again), or a replacement the fold does not seed is a bundling
+ * defect, so it throws.
  */
 function retiredRows(
   sources: readonly SeedSource[],
@@ -239,6 +248,9 @@ function retiredRows(
   );
   const retired = new Set<NodeId>();
   for (const { row, by } of rows) {
+    if (!isSysPrefixed(row.from)) {
+      throw new Error(`${by} retires ${row.from}, which is not a reserved sys. id`);
+    }
     if (retired.has(row.from)) throw new Error(`${row.from} is retired twice`);
     retired.add(row.from);
     if (seeded.has(row.from))

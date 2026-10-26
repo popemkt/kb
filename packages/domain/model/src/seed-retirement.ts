@@ -45,11 +45,18 @@ function remapValues(values: readonly PropValue[], to: Replacements): readonly P
   return out;
 }
 
+/** `values` followed by those of `more` it does not hold yet, compared whole. */
+function unionValues(values: readonly PropValue[], more: readonly PropValue[]): PropValue[] {
+  const held = new Set(values.map((value) => JSON.stringify(value)));
+  return [...values, ...more.filter((value) => !held.has(JSON.stringify(value)))];
+}
+
 /**
  * `props` with each key a retired field moved to its replacement's key
  * (where the node holds none under it already: the replacement's own value
- * wins) or dropped, and each ref value remapped. The same object when
- * nothing changes.
+ * wins) or dropped, and each ref value remapped. Two retired fields one
+ * replacement took over pool their values under it, once each. The same
+ * object when nothing changes.
  */
 function remapProps(props: KbNode["props"], to: Replacements): KbNode["props"] {
   let changed = false;
@@ -60,7 +67,8 @@ function remapProps(props: KbNode["props"], to: Replacements): KbNode["props"] {
     if (key !== field || remapped !== values) changed = true;
     if (key === null || key === undefined) continue;
     if (key !== field && key in props) continue;
-    out[key] = [...remapped];
+    const pooled = out[key];
+    out[key] = pooled === undefined ? [...remapped] : unionValues(pooled, remapped);
   }
   return changed ? out : props;
 }

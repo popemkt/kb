@@ -351,6 +351,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
 - **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
+### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
+
+- **expected** — A label the seed changes (a command, field or option renamed for people) reaches every store on its next open, unless the owner edited that text.
+- **current** — ensureSystemSeed adds missing nodes and fills absent prop keys but never rewrites an existing node's text, and the retirement table renames a node in place with its text. ⌘K's Preferences command, now sys.cmd.settings and seeded as Settings, still reads Preferences in a store seeded before.
+- **impact** — Older stores show stale labels for renamed system nodes; the Settings page is reached from ⌘K under its old name.
+- **closes** — The seed records the text it last wrote on a seeded node, so opening can tell an untouched label from an owner's edit and update only the former.
+- **node** — `01M5WSTXZ18DWSKY1V30GJ5HVE`
+
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
 - **expected** — every stage antialiases its scene pass, occlusion or not
@@ -1421,6 +1429,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
 
+### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
+
+- **expected** — Every seeded id a build retires is a row of the seed's retirement table, the views.migrate ones included: a row can name the migration that must read its values first, and opening retires it only once that migration has run.
+- **current** — ensureSystemSeed applies the seed's retirement table (SeedRetirement rows each family declares, folded by foldSeed) before it seeds; the graph's sys.lens.all-mentions and core's sys.cmd.preferences are rows. views.migrate still deletes seeded ids of its own (the #graph-perspective tag, lens.view-mode, the old lens.renderer options, the withdrawn placement field) through RETIRED in view-migration.ts, after reading their values into view nodes; moving them into the table would drop those values on open, before the migration reads them.
+- **impact** — Two places say which seeded ids are gone. Until views.migrate runs, a store keeps those old nodes, and opening reports them as legacy shapes rather than retiring them.
+- **closes** — The retirement table can hold a row until a named migration has run, and view-migration.ts's RETIRED becomes rows of it.
+- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
+
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
 - **expected** — Every render spec runs on every lane that gates, so the Embers study, and the WebGPU backend of the scene kit, are proven in CI as well as locally.
@@ -2275,14 +2291,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
-
-### GAP: the system seed cannot retire or rename a seeded node
-
-- **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
-- **current** — ensureSystemSeed only adds: it fills absent nodes, props and template field refs. Its one retirement is LEGACY_LENS_ALL_MENTIONS, special-cased. The view-node migration retires its own seeds (graph-perspective tag, frame view field, lens.renderer options, placement) through the explicit views.migrate action, a second retirement list beside the seed. There is still no general retirement table.
-- **impact** — A store opened elsewhere keeps the retired field nodes as clutter, the graph-perspective tag keeps listing them, and a value a perspective held under the old field is silently ignored (its choice reverts to the default).
-- **closes** — A declared retirement table in @kb/model (old id to replacement, option ids to option ids) that ensureSystemSeed applies before seeding, with the legacy all-mentions migration folded into it and a seed test over it.
-- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
 
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 

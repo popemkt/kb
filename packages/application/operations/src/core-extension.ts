@@ -11,7 +11,7 @@
  * a node opens in where the default view type is not loaded (`NodeReadView`).
  */
 import { CORE_CONTEXT_REFERENCES, defineExtension, viewDef } from "@kb/contracts";
-import { DESIGN_SYSTEM_OPTIONS, systemSeedNodes, type SeedOption } from "@kb/model";
+import { DESIGN_SYSTEM_OPTIONS, SYSTEM_IDS, systemSeedNodes, type SeedOption } from "@kb/model";
 import {
   DocsMarkdownView,
   ExtensionsView,
@@ -48,5 +48,7 @@ export const coreExtension = defineExtension({
     viewDef(NodeReadView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
+  // ⌘K's Preferences became Settings with the page that replaced the popover.
+  retires: [{ from: "sys.cmd.preferences", to: SYSTEM_IDS.cmdSettings }],
   context: CORE_CONTEXT_REFERENCES,
 });

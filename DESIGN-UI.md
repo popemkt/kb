@@ -2726,7 +2726,7 @@ there.
 The Settings page (`/settings`, `SettingsView`) is every choice the kb
 makes, and the few this device makes. The header's gear
 (`SettingsTrigger`, `@kb/ui-sdk`; the graph's and the lab's headers render
-the same one) and ⌘K's Settings (`sys.cmd.preferences`) open it in the
+the same one) and ⌘K's Settings (`sys.cmd.settings`) open it in the
 focused pane. It replaced the Preferences popover, which overflowed a
 short window, showed a setting's stored value beside the value in force,
 and drew core's settings only.

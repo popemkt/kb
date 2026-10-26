@@ -33,10 +33,10 @@ const BEFORE: SeedSource = {
   name: "probe",
   label: "Probe",
   seed: () => [
-    field("probe.f.look", "look", ["probe.look.dim", "probe.look.bright"]),
-    node("probe.look.dim", "dim"),
-    node("probe.look.bright", "bright"),
-    node("probe.note", "a note"),
+    field("sys.probe.f.look", "look", ["sys.probe.look.dim", "sys.probe.look.bright"]),
+    node("sys.probe.look.dim", "dim"),
+    node("sys.probe.look.bright", "bright"),
+    node("sys.probe.note", "a note"),
   ],
 };
 
@@ -45,24 +45,24 @@ const AFTER: SeedSource = {
   name: "probe",
   label: "Probe",
   seed: () => [
-    field("probe.f.tone", "tone", ["probe.tone.dim", "probe.tone.bright"]),
-    node("probe.tone.dim", "dim"),
-    node("probe.tone.bright", "bright"),
+    field("sys.probe.f.tone", "tone", ["sys.probe.tone.dim", "sys.probe.tone.bright"]),
+    node("sys.probe.tone.dim", "dim"),
+    node("sys.probe.tone.bright", "bright"),
   ],
   retires: [
-    { from: "probe.f.look", to: "probe.f.tone" },
-    { from: "probe.look.dim", to: "probe.tone.dim" },
-    { from: "probe.look.bright", to: "probe.tone.bright" },
-    { from: "probe.note" },
+    { from: "sys.probe.f.look", to: "sys.probe.f.tone" },
+    { from: "sys.probe.look.dim", to: "sys.probe.tone.dim" },
+    { from: "sys.probe.look.bright", to: "sys.probe.tone.bright" },
+    { from: "sys.probe.note" },
   ],
 };
 
 const fold = (probe: SeedSource) => foldSeed([...BUNDLED_DECLARATIONS, probe], AT);
 
 /** A node of the owner's that chooses through the old field and mentions an old option. */
-const USER = node("n.user", "see [[probe.look.bright]] and [[probe.note]]", {
-  props: { "probe.f.look": [{ t: "ref", v: "probe.look.bright" }] },
-  children: ["probe.note"],
+const USER = node("n.user", "see [[sys.probe.look.bright]] and [[sys.probe.note]]", {
+  props: { "sys.probe.f.look": [{ t: "ref", v: "sys.probe.look.bright" }] },
+  children: ["sys.probe.note"],
 });
 
 /** A store opened with the probe as it was, the owner's node in it. */
@@ -84,16 +84,18 @@ function named(nodes: readonly KbNode[]): Set<NodeId> {
   return ids;
 }
 
-const OLD = ["probe.f.look", "probe.look.dim", "probe.look.bright", "probe.note"];
+const OLD = ["sys.probe.f.look", "sys.probe.look.dim", "sys.probe.look.bright", "sys.probe.note"];
 
 describe("the seed's retirement table", () => {
   test("renames a retired node in place where its replacement is not there yet, keeping its edits", () => {
     const edited = seededBefore().map((n) =>
-      n.id === "probe.look.bright" ? { ...n, text: "bright (mine)" } : n,
+      n.id === "sys.probe.look.bright" ? { ...n, text: "bright (mine)" } : n,
     );
     const opened = ensureSystemSeed(edited, fold(AFTER));
     const nodes = byId(opened.nodes);
-    expect(present(nodes.get("probe.tone.bright"), "the replacement").text).toBe("bright (mine)");
+    expect(present(nodes.get("sys.probe.tone.bright"), "the replacement").text).toBe(
+      "bright (mine)",
+    );
     expect(opened.deletes.toSorted()).toEqual(OLD.toSorted());
     expect(opened.seeded).toBe(true);
   });
@@ -101,10 +103,10 @@ describe("the seed's retirement table", () => {
   test("drops a retired node for a replacement already there, which keeps its own and gains what it lacks", () => {
     const stored = [
       ...seededBefore(),
-      node("probe.tone.dim", "dim (new)", { props: { "x.f.a": [{ t: "str", v: "new" }] } }),
+      node("sys.probe.tone.dim", "dim (new)", { props: { "x.f.a": [{ t: "str", v: "new" }] } }),
     ].map(
       (n): KbNode =>
-        n.id === "probe.look.dim"
+        n.id === "sys.probe.look.dim"
           ? {
               ...n,
               props: { "x.f.a": [{ t: "str", v: "old" }], "x.f.b": [{ t: "str", v: "old" }] },
@@ -113,7 +115,7 @@ describe("the seed's retirement table", () => {
           : n,
     );
     const kept = present(
-      byId(ensureSystemSeed(stored, fold(AFTER)).nodes).get("probe.tone.dim"),
+      byId(ensureSystemSeed(stored, fold(AFTER)).nodes).get("sys.probe.tone.dim"),
       "the replacement",
     );
     expect(kept.text).toBe("dim (new)");
@@ -125,17 +127,17 @@ describe("the seed's retirement table", () => {
   test("moves what names a retired id to its replacement: the prop key, the value, the field's options, a mention", () => {
     const nodes = byId(ensureSystemSeed(seededBefore(), fold(AFTER)).nodes);
     const user = present(nodes.get("n.user"), "the owner's node");
-    expect(user.props).toEqual({ "probe.f.tone": [{ t: "ref", v: "probe.tone.bright" }] });
-    expect(user.text).toBe("see [[probe.tone.bright]] and [[probe.note]]");
-    expect(present(nodes.get("probe.f.tone"), "the field").children).toEqual([
-      "probe.tone.dim",
-      "probe.tone.bright",
+    expect(user.props).toEqual({ "sys.probe.f.tone": [{ t: "ref", v: "sys.probe.tone.bright" }] });
+    expect(user.text).toBe("see [[sys.probe.tone.bright]] and [[sys.probe.note]]");
+    expect(present(nodes.get("sys.probe.f.tone"), "the field").children).toEqual([
+      "sys.probe.tone.dim",
+      "sys.probe.tone.bright",
     ]);
   });
 
   test("drops an id nothing replaced everywhere but a mention, which shows as missing", () => {
     const opened = ensureSystemSeed(seededBefore(), fold(AFTER)).nodes;
-    expect(byId(opened).has("probe.note")).toBe(false);
+    expect(byId(opened).has("sys.probe.note")).toBe(false);
     expect(present(byId(opened).get("n.user"), "the owner's node").children).toEqual([]);
     for (const old of OLD) expect(named(opened).has(old), old).toBe(false);
   });
@@ -144,16 +146,16 @@ describe("the seed's retirement table", () => {
     const both = {
       ...USER,
       props: {
-        "probe.f.look": [{ t: "ref" as const, v: "probe.look.dim" }],
-        "probe.f.tone": [
-          { t: "ref" as const, v: "probe.tone.bright" },
-          { t: "ref" as const, v: "probe.look.bright" },
+        "sys.probe.f.look": [{ t: "ref" as const, v: "sys.probe.look.dim" }],
+        "sys.probe.f.tone": [
+          { t: "ref" as const, v: "sys.probe.tone.bright" },
+          { t: "ref" as const, v: "sys.probe.look.bright" },
         ],
       },
     };
     const stored = ensureSystemSeed([both], fold(BEFORE)).nodes;
     const user = present(byId(ensureSystemSeed(stored, fold(AFTER)).nodes).get("n.user"), "it");
-    expect(user.props).toEqual({ "probe.f.tone": [{ t: "ref", v: "probe.tone.bright" }] });
+    expect(user.props).toEqual({ "sys.probe.f.tone": [{ t: "ref", v: "sys.probe.tone.bright" }] });
   });
 
   test("is a no-op once applied", () => {
@@ -169,7 +171,7 @@ describe("the seed's retirement table", () => {
     const migrated = ensureSystemSeed(seededBefore(), fold(AFTER)).nodes;
     const older = ensureSystemSeed(migrated, fold(BEFORE)).nodes;
     // The old nodes are back, and nothing chooses them: the owner's choice is untouched.
-    expect(byId(older).has("probe.f.look")).toBe(true);
+    expect(byId(older).has("sys.probe.f.look")).toBe(true);
     expect(byId(older).get("n.user")?.props).toEqual(byId(migrated).get("n.user")?.props);
     const newer = ensureSystemSeed(older, fold(AFTER));
     for (const old of OLD) expect(named(newer.nodes).has(old), old).toBe(false);
@@ -183,7 +185,7 @@ describe("the seed's retirement table", () => {
     // The other clone, unmigrated, chooses the other option through the old field.
     const theirs = base.map((n) =>
       n.id === "n.user"
-        ? { ...n, props: { "probe.f.look": [{ t: "ref" as const, v: "probe.look.dim" }] } }
+        ? { ...n, props: { "sys.probe.f.look": [{ t: "ref" as const, v: "sys.probe.look.dim" }] } }
         : n,
     );
     const merged = mergeNodeSets(base, ours, theirs).nodes;
@@ -194,14 +196,54 @@ describe("the seed's retirement table", () => {
 
   test("refuses a row the fold cannot honour", () => {
     const retiring = (rows: SeedSource["retires"]) => () => fold({ ...AFTER, retires: rows });
-    expect(retiring([{ from: "probe.f.tone" }])).toThrow(
-      "probe retires probe.f.tone, which the seed still holds",
+    expect(retiring([{ from: "sys.probe.f.tone" }])).toThrow(
+      "probe retires sys.probe.f.tone, which the seed still holds",
     );
-    expect(retiring([{ from: "probe.f.look", to: "probe.f.gone" }])).toThrow(
-      "probe retires probe.f.look for probe.f.gone, which the seed does not hold",
+    expect(retiring([{ from: "sys.probe.f.look", to: "sys.probe.f.gone" }])).toThrow(
+      "probe retires sys.probe.f.look for sys.probe.f.gone, which the seed does not hold",
     );
-    expect(retiring([{ from: "probe.note" }, { from: "probe.note" }])).toThrow(
-      "probe.note is retired twice",
+    expect(retiring([{ from: "sys.probe.note" }, { from: "sys.probe.note" }])).toThrow(
+      "sys.probe.note is retired twice",
     );
+    // A store's other ids are its owner's: a row may not delete a node a person made under one.
+    expect(retiring([{ from: "n.user" }])).toThrow(
+      "probe retires n.user, which is not a reserved sys. id",
+    );
+  });
+
+  test("pools the values of two retired fields one replacement took over, once each", () => {
+    const TWO: SeedSource = {
+      ...BEFORE,
+      seed: (at) => [...(BEFORE.seed?.(at) ?? []), field("sys.probe.f.shade", "shade", [])],
+    };
+    const ONE: SeedSource = {
+      ...AFTER,
+      retires: [...(AFTER.retires ?? []), { from: "sys.probe.f.shade", to: "sys.probe.f.tone" }],
+    };
+    const both = {
+      ...USER,
+      props: {
+        "sys.probe.f.look": [{ t: "ref" as const, v: "sys.probe.look.dim" }],
+        "sys.probe.f.shade": [
+          { t: "ref" as const, v: "sys.probe.look.bright" },
+          { t: "ref" as const, v: "sys.probe.look.dim" },
+        ],
+      },
+    };
+    const stored = ensureSystemSeed([both], foldSeed([...BUNDLED_DECLARATIONS, TWO], AT)).nodes;
+    const opened = ensureSystemSeed(stored, foldSeed([...BUNDLED_DECLARATIONS, ONE], AT)).nodes;
+    expect(present(byId(opened).get("n.user"), "the owner's node").props).toEqual({
+      "sys.probe.f.tone": [
+        { t: "ref", v: "sys.probe.tone.dim" },
+        { t: "ref", v: "sys.probe.tone.bright" },
+      ],
+    });
+  });
+
+  test("moves a labelled mention to the replacement and keeps its label", () => {
+    const labelled = { ...USER, text: "pick [[sys.probe.look.dim|the dim one]]" };
+    const stored = ensureSystemSeed([labelled], fold(BEFORE)).nodes;
+    const user = present(byId(ensureSystemSeed(stored, fold(AFTER)).nodes).get("n.user"), "it");
+    expect(user.text).toBe("pick [[sys.probe.tone.dim|the dim one]]");
   });
 });
