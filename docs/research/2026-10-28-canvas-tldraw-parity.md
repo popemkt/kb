@@ -148,7 +148,7 @@ Each tldraw-offline member an agent reaches is listed with kb's answer.
 | `api.getScreenshot` | `ui.capture` of an open tab; `export svg` of any canvas | have (no png: GAP `01M54EPF1QB5MKA6WRK9DF2X1Y`) |
 | `api.getScriptStatus`, `GET /scripts` | `ext.code.script.list` (grant, trust); no last outcome | gap, slice F |
 | `POST /docs/create` | `node.add` tagged `canvas`, or `diagram` | have |
-| `helpers.createShapeIfMissing(s)` (stable ids, idempotent) | `place` mints ids; `tx.apply` takes the whole document | **gap, slice B** (`edit` with caller ids) |
+| `helpers.createShapeIfMissing(s)` (stable ids, idempotent) | `place` with `make.id` takes a caller's id but refuses one already there (not idempotent); `tx.apply` takes the whole document | **partial** (an idempotent create is not built) |
 | `editor.updateShapes` (words, colour, style, url, lock, size) | only `tx.apply` (whole document) | **gap, slice B** |
 | `editor.deleteShapes` | only `tx.apply` | **gap, slice B** |
 | `helpers.translateShapes(ids, dx, dy)` | `place … at` one item at a time | **gap, slice B** (`edit` moves by `dx, dy`) |
@@ -225,9 +225,9 @@ So:
   store-level sidecar for large props that decision 6 already names. A
   canvas-only file format is not the fix.
 - **Writes become patch-shaped at the API.** A new verb, `ext.canvas.edit`,
-  takes item and edge operations by id: create with a caller's id
-  (idempotent, as `createShapeIfMissing` is), update fields, move by a delta,
-  move to another page, and delete. It is a pure function over the document
+  takes item and edge operations by id: update fields, move by a delta,
+  move to another page, and delete. (Creating with a caller's id stays
+  `place` with `make.id`; see Results.) It is a pure function over the document
   (`editCanvas`, `@kb/canvas`) like every other verb, committed by
   `commitCanvasEffect`. It reads the document as the call starts, not as the
   caller last saw it, so two agents editing different items of one board no longer
@@ -412,5 +412,58 @@ volume. D is the deepest UI change and is independent of the others.
 
 ## 8. Results
 
-This section is filled in as the slices land: the PRs, the test evidence and
-the scale numbers.
+What landed overnight on 2026-10-28, one PR per slice, each stacked on the one before:
+
+| Slice | PR | What it does |
+|---|---|---|
+| A | #53 | `describe → pages` (the board's page graph, with referrers); `boardPages`; pressing a locked item that leads somewhere follows its link (`controlLead`) |
+| B | #55 | `ext.canvas.edit {update, move, delete, toPage}` by id, in order, as one write; `nudgeItems` is shared with the keyboard |
+| C | #56 | `ext.canvas.import` of `.tldraw` and `.tldr`, one way; pure lowering `tldrawBoard` |
+| E | #57 | `ext.canvas.run`: engine `flowPlan` and `runFlow`; constant, script and model performers; outputs in an `output` field |
+| F | #58 | Scale suite at D7's targets, and the fixes it needed |
+| D | — | Not started (see below) |
+
+**Tests** (each suite run alone):
+- `@kb/canvas` package: 311 pass. That includes `tldraw.test.ts` (7) and `flow.test.ts` (7).
+- Runtime:
+  - `canvas-verbs`: drill-down across pages;
+  - `canvas-edit`: 3 pass;
+  - `canvas-import`: 4 pass. It builds a `.tldraw` zip holding a sync `db.sqlite` in the test.
+  - `canvas-run`: 2 pass. A real trusted sandboxed script doubles its input.
+  - `canvas-scale`: 7 pass.
+- `canvas-ui` vitest: 826 pass (slice B).
+
+**The owner's `outstanding.tldraw`** imports in 167 ms:
+- 5 pages, 221 items, 192 record nodes, 23 fields;
+- nothing reported;
+- `describe.pages` shows Overview → Gaps / Research and both back-links;
+- pressing the Gaps drill card in the browser opens the Gaps page.
+
+Screenshots are in `.kb/assets/kb-canvas/2026-10-27/` (not committed).
+
+**Scale (D7)** on shared-server, at 40 pages, 2,000 items, 1,000 records and 200 pictures:
+
+| Operation | Before | After | Budget |
+|---|---:|---:|---:|
+| Import (40 pages, 1,020 records) | 632 ms | 428 ms | 5,000 |
+| Commit the whole page | 220 | 193 | 2,000 |
+| Parse / stringify | 9 / 3 | 8 / 2 | 150 |
+| `describe` the page | 877 | 85–128 | 600 |
+| `lint` the page | 50 | 49 | 600 |
+| `edit` one item | 187 | 178 | 1,500 |
+| Reopen the store | 147 | 132 | 1,500 |
+
+**Changes to the plan:**
+- **D2.** `edit` does not create items. Creating with a caller's id is `place` with `make.id`, which refuses an id that already exists. It is therefore not idempotent the way `createShapeIfMissing` is.
+- **D6, the model performer.** `ext.agent.complete` cannot be registered yet. The agent family is hosted by `kb ui` only, and hosted plugins contribute no registry actions: GAP `01M53F2M2S6J3WW0Z0KR136J6A`, which now names it. Until then, a run fails instruction components by name and skips everything downstream of them. The engine is tested with a stub model performer.
+- **D6, outputs on cards.** The card shows its node's text, not its `output` field. The output can be read in the outline and through datalog.
+
+**Left, and why:**
+- **Slice D** (script overlays take presses, gap `01M54DFMDJFYRDM8ZZXQB749PQ`): the deepest UI change, and it is independent of the others.
+- **`ext.agent.complete`**: waits on hosted actions (the gap above).
+- **Last outcome in `script.list`**: from slice F; not done.
+- **Import fidelity:**
+  - Text height is estimated, so some imported text items are clipped.
+  - Rotation is not kept.
+  - Image shapes are not imported.
+- **Showing `output` on a card**: not done.
