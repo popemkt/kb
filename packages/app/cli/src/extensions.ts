@@ -3,7 +3,8 @@
  * `extension.list`'s report (each one on or off with its tags, what it
  * injects from whom and provides, the ordered points' listeners and the
  * modules refused) with the actions each registered and how much it
- * contributes, `footprint` prints what one adds (`extension.footprint`), and `sdk`
+ * contributes, `footprint` prints what one adds (`extension.footprint`),
+ * `settings` prints what each one's node can be set to (`extension.settings`), and `sdk`
  * prints or writes the ambient types a repository extension compiles
  * against.
  */
@@ -12,10 +13,12 @@ import { Effect } from "effect";
 import { z } from "zod";
 import {
   ExtensionReportSchema,
+  ExtensionSettingsSchema,
   FootprintRowSchema,
   onWire,
   type ExtensionReport,
   type ExtensionReportRow,
+  type ExtensionSettings,
   type FootprintRow,
   type KbContext,
 } from "@kb/contracts";
@@ -53,6 +56,37 @@ function footprintLines(output: unknown): readonly string[] {
     `${first.family}${first.enabled ? "" : " (off)"}: ${rows.length} contributed`,
     ...rows.map((row) => `  ${row.source.padEnd(8)} ${row.kind.padEnd(14)} ${row.id}`),
   ];
+}
+
+/** A value as `kb set` takes it back: a ref by its id, anything else as itself. */
+function valueText(
+  value: ExtensionSettings["extensions"][number]["settings"][number]["values"][number],
+): string {
+  return String(value.v);
+}
+
+/**
+ * `extension.settings`' answer as lines: each extension's node, then each
+ * setting with its field id (what `kb set` writes), its type and how many
+ * values it takes, what it holds now, and its options where it has them.
+ */
+function settingsLines(output: unknown): readonly string[] {
+  const parsed = ExtensionSettingsSchema.safeParse(output);
+  if (!parsed.success)
+    return [`extension.settings answered in another shape: ${parsed.error.message}`];
+  const { extensions } = parsed.data;
+  if (extensions.length === 0) return ["no settings"];
+  return extensions.flatMap(({ name, node, settings }) => [
+    `${name} (${node})${settings.length === 0 ? ": no settings" : ""}`,
+    ...settings.flatMap(({ field, label, type, cardinality, values, options }) => [
+      `  ${label}  ${field}  ${type}${cardinality === "one" ? "" : ", many"}  = ${
+        values.length === 0 ? "(unset)" : values.map(valueText).join(", ")
+      }`,
+      ...(options.length === 0
+        ? []
+        : [`    options: ${options.map(({ id, label: text }) => `${text} (${id})`).join(", ")}`]),
+    ]),
+  ]);
 }
 
 /** `extension.list`'s report, as the action answers it; empty when it answers otherwise. */
@@ -107,6 +141,27 @@ function listLines(
   lines.push(...pointLines(points));
   for (const f of failures) lines.push(`! ${f.file}: ${f.error} (skipped)`);
   return lines;
+}
+
+/** `kb ext settings [name]`: `extension.settings`' answer, printed. */
+function settingsCommand(ext: Command): void {
+  ext
+    .command("settings")
+    .description(
+      "What each extension's node can be set to: its settings (the fields that configure it), their values and options; write one with `kb set sys.extension.<name> <field> <value>`",
+    )
+    .argument("[name]", "extension name, as `kb ext list` prints it, or core")
+    .action(
+      kbAction((ctx, globals, [name]: [string | undefined]) =>
+        invokeReceiptEffect(
+          ctx,
+          onWire(ACTION_INVOKE_WIRE, {
+            id: "extension.settings",
+            input: name === undefined ? {} : { name },
+          }),
+        ).pipe(Effect.map((receipt) => report(receipt, globals, settingsLines))),
+      ),
+    );
 }
 
 export function extensionCommands(program: Command): void {
@@ -185,6 +240,7 @@ export function extensionCommands(program: Command): void {
         ),
       ),
     );
+  settingsCommand(ext);
   ext
     .command("sdk")
     .description(

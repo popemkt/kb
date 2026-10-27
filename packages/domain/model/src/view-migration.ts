@@ -74,6 +74,14 @@ const RETIRED_PLACEMENT = [
   "sys.view-placement.float",
 ];
 
+/*
+ * GAP [[01M3FK1PM9P96SNCSHXF0CJZRA]] — a second list of seeded ids that
+ * opening does not retire: these are deleted only by `views.migrate`, which
+ * first reads their values into the view nodes that replace them. Moving
+ * them into the seed's retirement table would drop those values on open,
+ * before the migration reads them; they join it once the table can wait on
+ * a migration.
+ */
 const RETIRED: ReadonlySet<NodeId> = new Set([
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,

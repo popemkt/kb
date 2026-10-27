@@ -95,7 +95,7 @@ describe("built-in routes", () => {
       "canvas.section",
       "outline.pinned",
       "locations.section",
-      "extensions.section",
+      "settings.section",
     ]);
   });
 
@@ -144,6 +144,9 @@ describe("the families the page loads", () => {
       "locations",
       "backdrops",
       "themes",
+      "zzz",
+      "transistor",
+      "yorha",
       "agent",
     ]);
   });
@@ -161,6 +164,9 @@ describe("the families the page loads", () => {
       "locations",
       "backdrops",
       "themes",
+      "zzz",
+      "transistor",
+      "yorha",
     ]);
   });
 
@@ -185,6 +191,9 @@ describe("the families the page loads", () => {
       "locations",
       "backdrops",
       "themes",
+      "zzz",
+      "transistor",
+      "yorha",
     ]);
   });
 
@@ -242,6 +251,9 @@ describe("an optional family switched off on the server", () => {
       "locations",
       "backdrops",
       "themes",
+      "zzz",
+      "transistor",
+      "yorha",
       "agent",
     ]);
   });

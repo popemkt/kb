@@ -280,8 +280,7 @@ deleted, props keyed by it moved, ref values to it remapped), with
 `LEGACY_SEED_RENAMES` folded into it and a seed test over it. A
 declaration may contribute rows (a family that renames its own options),
 so the fold carries them as it carries seeds. `views.migrate`'s retired set
-stays its own explicit action, since it rewrites shapes, not ids; the
-table names it. Closes `01M3FK1PM9P96SNCSHXF0CJZRA`.
+stays its own explicit action, so the gap narrows rather than closes (§9).
 
 **Phase 3b — one family per whole theme (A).** `@kb/zzz(-ui)`,
 `@kb/transistor(-ui)`, `@kb/yorha(-ui)`; the art helpers (`useBeat`,
@@ -377,7 +376,10 @@ no site to it.
 9. **The `Preferences` command's label.** The command keeps its id
    (`sys.cmd.preferences`); the seed labels it *Settings*. A store seeded
    before keeps the text it has (the seed never rewrites a system node's
-   text), and the command opens the page either way.
+   text), and the command opens the page either way. (As built, the id
+   moved to `sys.cmd.settings` through the retirement table, and the
+   table retires the old label too, so an unedited store reads
+   *Settings*: section 9.)
 10. **Per-page backdrops?** Out of scope; gap `01M54CEM0Z5SMAS7KABS7QZ67C`
     stays open. The page's own field rows are where it closes.
 
@@ -403,5 +405,43 @@ read-only), taken.
 
 ## 9. Built tonight
 
-What was built, reviewed and left for the owner to try is recorded at the
-end of this file once the phases land.
+Phases 1, 2 and 3a, as stacked PRs against main, none merged:
+
+| PR | phase | what |
+| --- | --- | --- |
+| #41 | — | this document |
+| #42 | 1 | `settingsOf`, `extension.settings`, `kb ext settings`; the Extensions page reads it |
+| #43 | 2 | the Settings page (`/settings`), the option gallery, the design-system card; the popover deleted |
+| #44 | 3a | the seed's retirement table; `LEGACY_SEED_RENAMES` folded in; ⌘K's `sys.cmd.preferences` → `sys.cmd.settings` |
+
+Sol judged the document before building (agreed, round 3) and the batch
+after (agree with changes). What its batch review changed:
+
+- the extension contract holds `extension.settings` to the reader setting
+  by setting, not by count;
+- the gallery writes through the editor's own pick (one write, the old
+  value replaced), with arrow keys over its cards; an uncontributed option
+  shows by its label alone; the design-system card loads lazily, which
+  keeps the eager bundle in budget;
+- the Settings and Extensions pages read extension nodes from the whole
+  graph, not the outline projection an ontology scope narrows;
+- the motion notes say what is in force and where it comes from, and
+  reset clears every motion field core's node holds;
+- the retirement table refuses a row whose `from` is not a reserved `sys.`
+  id, and pools the values of two retired fields one replacement took;
+- gap `01M3FK1PM9P96SNCSHXF0CJZRA` stays open: `views.migrate` still
+  deletes seeded ids of its own, after reading their values into view
+  nodes, so moving them into the table would drop those values on open.
+
+Left for later: phase 3b (one family per theme) and phase 4 (the theme's
+node carries the theme); reset as one undoable write; excluding the switch
+from settings by its id rather than by field.
+
+A seeded node's label the seed changes was kept by an existing store (⌘K
+read *Preferences* under its new id; gap `01M5WSTXZ18DWSKY1V30GJ5HVE`).
+The retirement table now retires labels too: a row names the text the seed
+wrote before, and a node that still reads it takes the new one, while an
+owner's edit stays (DESIGN.md → the seed retires what it renames).
+
+The trial ran the top of the stack against a copy of the owner's store on
+shared-server, at https://adhoc-popemkt.taild98079.ts.net/settings.

@@ -199,6 +199,7 @@ describe("FieldPicker", () => {
           id: "status",
           value: {
             kind: { field: "f.status", prefix: "opt." },
+            sizes: ["chip"],
             Preview: ({ id }) => createElement("i", { "data-preview": id }),
           },
         }),

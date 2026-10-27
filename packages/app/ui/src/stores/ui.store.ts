@@ -38,8 +38,6 @@ interface UiState {
    */
   person: Person | null | undefined;
   toasts: Toast[];
-  /** Preferences popover (DESIGN-RESKIN §1.7) — header button + palette. */
-  prefsOpen: boolean;
   /**
    * The sidebar floating over a narrow viewport. Transient, like a popover:
    * the docked sidebar's open state is a device preference (`sidebarOpen`),
@@ -58,7 +56,6 @@ interface UiState {
 
   setWsStatus: (status: WsStatus) => void;
   setPerson: (person: Person | null) => void;
-  setPrefsOpen: (open: boolean) => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
   setNodePaletteOpen: (open: boolean) => void;
@@ -74,7 +71,6 @@ export const useUiStore = create<UiState>((set) => ({
   wsStatus: "idle",
   person: undefined,
   toasts: [],
-  prefsOpen: false,
   sidebarOverlayOpen: false,
   globalPaletteOpen: false,
   nodePaletteOpen: false,
@@ -85,7 +81,6 @@ export const useUiStore = create<UiState>((set) => ({
   setWsStatus: (wsStatus) =>
     set(wsStatus === "open" ? { wsStatus } : { wsStatus, person: undefined }),
   setPerson: (person) => set({ person }),
-  setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
   setSidebarOverlayOpen: (sidebarOverlayOpen) => set({ sidebarOverlayOpen }),
   setGlobalPaletteOpen: (globalPaletteOpen) =>
     set((s) => ({

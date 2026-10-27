@@ -59,8 +59,6 @@ export interface BrowserHost extends NodeTextPort {
   readonly appearance: () => Appearance;
   /** The device-level preferences now. */
   readonly prefs: () => Prefs;
-  readonly prefsOpen: () => boolean;
-  readonly setPrefsOpen: (open: boolean) => void;
   /** Whether the left rail is open, at a narrow or a wide viewport. */
   readonly sidebarOpen: (narrow: boolean) => boolean;
   /** Toggle the left rail from its button, drawn with the rail `open`; focus returns to it. */

@@ -210,6 +210,9 @@ describe("kb ext list", () => {
       "locations",
       "outline",
       "themes",
+      "transistor",
+      "yorha",
+      "zzz",
     ]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);
   });
@@ -294,6 +297,56 @@ describe("kb ext footprint", () => {
     expect(listed.out).toContain(`canvas (bundled) — contributes ${rows.length}`);
 
     const unknown = await runCli(["--root", root, "ext", "footprint", "nope"]);
+    expect(unknown.code).toBe(1);
+    expect(unknown.out).toContain("no extension named nope");
+  });
+});
+
+describe("kb ext settings", () => {
+  test("lists each extension's settings with their values, and a write shows in the next listing", async () => {
+    const root = await tempRoot();
+    const all = await runCli(["--root", root, "--json", "ext", "settings"]);
+    expect(all.code).toBe(0);
+    const extensions = (
+      JSON.parse(all.out) as {
+        output: {
+          extensions: {
+            name: string;
+            settings: { field: string; values: unknown[]; options: { label: string }[] }[];
+          }[];
+        };
+      }
+    ).output.extensions;
+    const core = extensions.find((e) => e.name === "core");
+    const strength = core?.settings.find((s) => s.field === "sys.f.backdrop.strength");
+    expect(strength?.values).toEqual([]);
+    expect(strength?.options.map((o) => o.label)).toEqual(["subtle", "soft", "vivid"]);
+    // The switch is extension.switch's, never listed as a setting.
+    expect(extensions.flatMap((e) => e.settings.map((s) => s.field))).not.toContain(
+      "sys.f.extension.enabled",
+    );
+    expect(extensions.find((e) => e.name === "graph")?.settings.map((s) => s.field)).toContain(
+      "sys.f.graph.suggest-relations",
+    );
+
+    const set = await runCli([
+      "--root",
+      root,
+      "set",
+      "sys.extension.core",
+      "sys.f.backdrop.strength",
+      "sys.backdrop-strength.vivid",
+    ]);
+    expect(set.code).toBe(0);
+    const human = await runCli(["--root", root, "ext", "settings", "core"]);
+    expect(human.code).toBe(0);
+    expect(human.out).toContain("core (sys.extension.core)");
+    expect(human.out).toMatch(
+      /sys\.f\.backdrop\.strength {2}ref {2}= sys\.backdrop-strength\.vivid/,
+    );
+    expect(human.out).toContain("options: subtle (sys.backdrop-strength.subtle)");
+
+    const unknown = await runCli(["--root", root, "ext", "settings", "nope"]);
     expect(unknown.code).toBe(1);
     expect(unknown.out).toContain("no extension named nope");
   });

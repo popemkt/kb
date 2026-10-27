@@ -19,6 +19,9 @@
  *   seeds, a store of every backend answers `:node/owner` so, and an id its
  *   seed hands to another declaration answers that one's node, while
  *   opening the store writes nothing;
+ * - its settings (`extension.settings`) are exactly the system fields the
+ *   fold seeds that configure its node, the switch left out, each
+ *   writable on that node by the system-write rule;
  * - its footprint (`extension.footprint`) is its seed's rows, loaded or
  *   not, and, only while its host holds it, exactly what that host's kernel
  *   holds of it, each action in its own `ext.<name>` namespace;
@@ -63,15 +66,17 @@ import {
   ensureSystemSeed,
   extensionNodeId,
   foldSeed,
+  isWritableField,
   present,
+  settingsOf,
   viewOptionId,
   type SeedSource,
   type SeedView,
 } from "@kb/model";
-import { familyFootprint } from "@kb/operations";
+import { extensionSettingsEffect, familyFootprint } from "@kb/operations";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
-import { STORE_BACKENDS, bunFileSystemLayer, createStore } from "@kb/runtime";
+import { STORE_BACKENDS, bunFileSystemLayer, createStore, kbRuntimeLayer } from "@kb/runtime";
 import { paramsFromProps } from "@kb/views";
 import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
 
@@ -208,7 +213,7 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
   const receiver = foldWith(declaration).find((source) => source !== declaration);
   if (moved === undefined || receiver === undefined) return;
   test("an id its seed hands to another declaration is answered by that one, and opening writes nothing", () => {
-    const before = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
+    const before = foldSeed(foldWith(declaration), CONTRACT_AT);
     const after = foldWith(declaration).map((source) =>
       source === declaration
         ? {
@@ -220,7 +225,7 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
           : source,
     );
     const stored = ensureSystemSeed([], before).nodes;
-    const reopened = ensureSystemSeed(stored, foldSeed(after, CONTRACT_AT).nodes);
+    const reopened = ensureSystemSeed(stored, foldSeed(after, CONTRACT_AT));
     expect({ seeded: reopened.seeded, deletes: reopened.deletes }).toEqual({
       seeded: false,
       deletes: [],
@@ -229,6 +234,40 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
     expect(ownedIn(index, receiver.name)).toContain(moved.id);
     expect(ownedIn(index, declaration.name)).not.toContain(moved.id);
   });
+}
+
+/**
+ * The settings promise: what `extension.settings` lists for the family is
+ * what `settingsOf` reads of its fold for its node (the one reader, so the
+ * action and every page agree), each setting whole (its label, type,
+ * cardinality and options); the switch is never among them; and each one is
+ * a field a person may write on that node.
+ */
+function settingsPromises(declaration: ExtensionDeclaration, host: SwitchingHost): void {
+  test("its settings are what the reader reads of its fold for its node, each writable there", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const own = extensionNodeId(declaration.name);
+          const folded = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
+          const byId = new Map(folded.map((node) => [node.id, node]));
+          const declared = settingsOf(folded, (id) => byId.get(id), own);
+          const ctx = yield* openSession(yield* host.root);
+          const answer = yield* extensionSettingsEffect({ name: declaration.name }).pipe(
+            Effect.provide(kbRuntimeLayer(ctx)),
+          );
+          expect(answer.extensions.map((e) => e.name)).toEqual([declaration.name]);
+          const listed = answer.extensions.flatMap((e) => e.settings);
+          expect(listed.map(({ values: _values, ...setting }) => setting)).toEqual(
+            declared.map((setting) => ({ ...setting, options: [...setting.options] })),
+          );
+          expect(listed.map((s) => s.field)).not.toContain(SYSTEM_IDS.extensionEnabledField);
+          for (const { field } of listed) {
+            expect(isWritableField(own, field, ctx.index.getNode(field))).toBe(true);
+          }
+        }),
+      ),
+    ));
 }
 
 /**
@@ -432,6 +471,7 @@ export function extensionContract(
 
     defaultViewPromises(declaration);
     ownershipPromises(declaration, host);
+    settingsPromises(declaration, host);
     footprintPromises(declaration, entry, host);
     switchPromises(declaration, entry, host);
   });
