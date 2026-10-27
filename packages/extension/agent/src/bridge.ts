@@ -24,8 +24,8 @@ import {
   type AgentEvent,
   type AgentRequest,
 } from "./protocol.ts";
-import { chooseProvider, type Chosen } from "./selection.ts";
-import type { AgentAdapter, AgentOutput } from "./runtime.ts";
+import { chooseProvider, type Backends, type Chosen, type Reads } from "./selection.ts";
+import type { AgentAdapter, AgentOutput, AgentRuntime } from "./runtime.ts";
 
 /**
  * The bridge: the agent plugin the `kb ui` server hosts. It owns the
@@ -81,19 +81,13 @@ function messageOf(cause: Cause.Cause<unknown>): string {
   return typeof error === "string" ? error : String(error);
 }
 
-/** What the bridge runs its turns with: the host's adapters, and where keys are read. */
-interface Backends {
-  readonly adapters: ReadonlyMap<string, AgentAdapter>;
-  readonly secrets: SecretSource;
-  /** A runtime per provider as written, built on first use, so a resume handle keeps its meaning. */
-  readonly runtimes: Map<string, Chosen["runtime"]>;
-}
-
 class Bridge {
   /** Least recently spoken-in first: speaking re-inserts, so Map order is the eviction order. */
   private readonly conversations = new Map<string, Conversation>();
   private readonly host: UiHostService;
   private readonly backends: Backends;
+  /** A runtime per provider as written, built on first use, so a resume handle keeps its meaning. */
+  private readonly runtimes = new Map<string, AgentRuntime>();
   /** The plugin's scope: every turn runs in it, so unloading the plugin stops them. */
   private readonly scope: Scope.Scope;
 
@@ -195,21 +189,32 @@ class Bridge {
     );
   }
 
+  /** The runtime of `chosen`: the one built for it before, so its resume handles keep their meaning. */
+  private runtimeOf(chosen: Chosen): AgentRuntime {
+    const held = this.runtimes.get(chosen.key);
+    if (held !== undefined) return held;
+    const built = chosen.build();
+    this.runtimes.set(chosen.key, built);
+    return built;
+  }
+
   private turn(peer: ChannelPeer, conversation: Conversation, text: string) {
     const { host, backends } = this;
     const call = (byId: ReadonlyMap<string, ManifestEntry>) => (action: string, input: unknown) =>
       this.call(peer, conversation, byId.get(action), action, input);
     const tell = (notice: string) =>
       send(peer, { type: "notice", conversation: conversation.id, text: notice });
+    const runtimeOf = (chosen: Chosen) => this.runtimeOf(chosen);
     return Effect.gen(function* () {
       // The selection is read per turn: a provider chosen mid-conversation runs the next one.
-      const chosen = yield* chooseProvider(host, backends);
+      const chosen = yield* chooseProvider(agentReads(host), backends);
       yield* Effect.forEach(chosen.warnings, tell, { discard: true });
-      const { runtime } = chosen;
+      const runtime = runtimeOf(chosen);
       if (conversation.provider !== chosen.key) {
         // A resume handle means something only to the provider that minted it.
         if (conversation.resume !== undefined) {
-          yield* tell(`${chosen.label} runs this conversation now, so it starts afresh.`);
+          const label = chosen.label ?? runtime.name;
+          yield* tell(`${label} runs this conversation now, so it starts afresh.`);
         }
         conversation.resume = undefined;
         conversation.provider = chosen.key;
@@ -327,12 +332,16 @@ export function agentPlugin(options: {
         const backends: Backends = {
           adapters: new Map(options.adapters.map((adapter) => [adapter.id, adapter])),
           secrets: options.secrets,
-          runtimes: new Map(),
         };
         const bridge = new Bridge(host, backends, yield* Effect.scope);
         yield* ctx.contribute(ChannelPoint, { id: AGENT_CHANNEL_ID, value: bridge.channel });
       }),
   });
+}
+
+/** How the bridge reads kb for a turn: as the agent, on its wire. */
+function agentReads(host: UiHostService): Reads {
+  return (request) => host.invoke(onWire(AGENT_WIRE, request));
 }
 
 /** The tab session a call `peer` asked for is made in: the tab its connection publishes as. */

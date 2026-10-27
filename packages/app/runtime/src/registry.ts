@@ -69,7 +69,7 @@ interface RegistryExtension {
   templates: readonly RegisteredTemplate[];
 }
 
-export interface Registry {
+export interface Registry extends ActionTable {
   /** The kernel every action and template was loaded into. */
   kernel: Kernel;
   /** The guards and interceptors its plugins contribute, which every call through it goes through. */
@@ -78,13 +78,10 @@ export interface Registry {
   references: ContextReferences;
   /** When its kernel is released: once it is replaced, and the calls that hold it have settled. */
   lifetime: RegistryLifetime;
-  actions: readonly RegisteredAction[];
-  byId: ReadonlyMap<string, RegisteredAction>;
   /** Render templates by namespaced id and by alias; fed to the TemplateRegistry service. */
   templates: ReadonlyMap<string, TemplateFn>;
   extensions: readonly RegistryExtension[];
   failures: readonly ExtensionFailure[];
-  manifestEntries: readonly ManifestEntry[];
   /** The views the loaded plugins contributed to `ViewKeyPoint`: what the `ViewCatalog` service holds. */
   views: ViewCatalogOf<ViewDef<unknown>>;
   /**
@@ -207,6 +204,36 @@ function registeredTemplate(contribution: Contribution<TemplateFn>): RegisteredT
   };
 }
 
+/** What a call reaches by id: each action under its id and its aliases, and their listing. */
+interface ActionTable {
+  readonly actions: readonly RegisteredAction[];
+  readonly byId: ReadonlyMap<string, RegisteredAction>;
+  readonly manifestEntries: readonly ManifestEntry[];
+}
+
+/** The table `contributions` make, their context references read from `references`. */
+function actionTable(
+  contributions: readonly Contribution<ActionContribution>[],
+  references: ContextReferences,
+): ActionTable {
+  const actions = contributions.map(registeredAction);
+  const byId = new Map<string, RegisteredAction>();
+  for (const action of actions) {
+    byId.set(action.def.id, action);
+    for (const alias of action.aliases) byId.set(alias, action);
+  }
+  const modeOf = (id: string) => byId.get(id)?.def.mode;
+  const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
+    actionToManifestEntry(action.def, modeOf, references),
+    ...action.aliases.map((alias) => ({
+      ...actionToManifestEntry(action.def, modeOf, references),
+      id: alias,
+      aliasOf: action.def.id,
+    })),
+  ]);
+  return { actions, byId, manifestEntries };
+}
+
 /**
  * The rules every registered action keeps, as the error the first one that
  * breaks them is refused with:
@@ -324,12 +351,11 @@ const buildRegistry = Effect.fnUntraced(function* (
     writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
   }
 
-  const actions = kernel.contributions(ActionPoint).map(registeredAction);
-  const byId = new Map<string, RegisteredAction>();
-  for (const action of actions) {
-    byId.set(action.def.id, action);
-    for (const alias of action.aliases) byId.set(alias, action);
-  }
+  const references = referencesOf(kernel);
+  const { actions, byId, manifestEntries } = actionTable(
+    kernel.contributions(ActionPoint),
+    references,
+  );
   const templateEntries = kernel.contributions(TemplatePoint).map(registeredTemplate);
   const templates = new Map<string, TemplateFn>();
   for (const template of templateEntries) {
@@ -345,17 +371,6 @@ const buildRegistry = Effect.fnUntraced(function* (
       actions: actions.filter((action) => action.source === `ext:${name}`),
       templates: templateEntries.filter((template) => template.source === `ext:${name}`),
     }));
-
-  const modeOf = (id: string) => byId.get(id)?.def.mode;
-  const references = referencesOf(kernel);
-  const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
-    actionToManifestEntry(action.def, modeOf, references),
-    ...action.aliases.map((alias) => ({
-      ...actionToManifestEntry(action.def, modeOf, references),
-      id: alias,
-      aliasOf: action.def.id,
-    })),
-  ]);
 
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 

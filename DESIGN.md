@@ -4233,7 +4233,8 @@ The sidebar agent lives outside core, in packages that core never imports
     default: `claude-agent-sdk` with nothing written, which is kb's agent as
     it always ran.
   - The selection is read per call, at the start of each turn
-    (`chooseProvider`), so nothing re-applies when it changes. The bridge
+    (`chooseProvider`, which reads kb as whoever runs the provider: the
+    bridge as the agent), so nothing re-applies when it changes. The bridge
     builds one runtime per provider as written and keeps it, so a `resume`
     handle keeps its meaning. When the provider a conversation ran on
     changes, its selection or any of its settings, the next turn starts
@@ -4359,8 +4360,9 @@ The sidebar agent lives outside core, in packages that core never imports
   names the nodes that screen mentions (the open view's subject, the
   focus and the selection, at most 12, through `node.get`) and hands the
   result to the runtime as JSON. A runtime sends it as a `<screen>` block
-  before the text (`userTurnText`). A sender that is not a tab sends no
-  screen.
+  before the text (`userTurnText`). A sender that is not a tab sends a
+  screen that says so, since the system prompt promises one; a message
+  that carries no screen at all is sent as its text alone.
 - **The tools are the registry**: what `kb.manifest` lists to the agent,
   filtered by `listedOn(AGENT_WIRE)` (`listingOf`), read at each turn. The
   agent's wire carries approval, because a call that needs approval reaches

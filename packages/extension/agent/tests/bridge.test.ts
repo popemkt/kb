@@ -213,12 +213,14 @@ describe("the agent bridge", () => {
     expect(h.runtime.turns[1]?.resume).toBe("scripted-1");
   });
 
-  test("a sender that is no tab sends no screen", async () => {
+  test("a sender that is no tab sends a screen that says so", async () => {
     const h = open(() => []);
     const peer = new Peer("c1", null);
     await peer.say(h.channel, { type: "send", conversation: "k1", text: "hi" });
     await peer.turnEnd();
-    expect(h.runtime.turns[0]?.message.screen).toBeNull();
+    expect(h.runtime.turns[0]?.message.screen).toBe(
+      "No kb tab sent this message, so there is no screen.",
+    );
   });
 
   test("a call that needs no approval runs at once through the host", async () => {
