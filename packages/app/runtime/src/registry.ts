@@ -43,7 +43,7 @@ import {
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { GOVERNANCE_FAMILY, governanceMode } from "./deployment.ts";
-import { resetRootFamilies, rootFamilies } from "./families.ts";
+import { resetRootFamilies, rootFamilies, vouchedFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
@@ -432,6 +432,24 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   current.set(rootKey, { key, registry: built });
   if (replaced !== undefined) yield* (yield* replaced.registry).lifetime.retire;
   return yield* built;
+});
+
+/**
+ * Admission: every failure `root`'s families meet when each of its
+ * repository extensions is vouched for and every family is on, composed
+ * as `registryFor` composes them (`vouchedFamilies`, then the kernel load
+ * with its clash and handler checks), so an extension a gate admits is one
+ * the runtime loads. Empty when all of them load. The registry it builds
+ * is retired before it answers, so nothing it loaded stays.
+ */
+export const admitExtensions = Effect.fn("kb.admitExtensions")(function* (
+  root: string,
+): Effect.fn.Return<readonly ExtensionFailure[], never, FileSystem> {
+  const { families, failures } = yield* vouchedFamilies(root);
+  const required = governanceMode() === "required" ? [GOVERNANCE_FAMILY] : [];
+  const registry = yield* buildRegistry(families, families, failures, required);
+  yield* registry.lifetime.retire;
+  return registry.failures;
 });
 
 /** The registry a session runs in: its root's, as its own store switches the families. */

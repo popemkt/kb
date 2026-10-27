@@ -1024,15 +1024,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
-### GAP: repository extensions have no fail-closed admission
-
-- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
-- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
-- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
-- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
-- **rule** — Admission gate
-- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
-
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -1996,6 +1987,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
+
+### GAP: repository extensions have no fail-closed admission
+
+- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
+- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
+- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
+- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
+- **rule** — Admission gate
+- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
 
 ### GAP: resolveTableColumns resolves table columns in one 21-branch function
 

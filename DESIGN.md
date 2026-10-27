@@ -2820,6 +2820,17 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   the points. A module that fails to import, or a plugin that clashes, is
   reported and skipped as a unit — extension errors never crash core.
   `kb ext list` shows what loaded (and what didn't).
+- Skipping is the runtime's answer, not a gate's. **Admission**
+  (`admitExtensions`, `kb ext validate`) composes a root's families as
+  `registryFor` does, with every repository extension vouched for by the
+  caller (its trust record is neither read nor written) and every family
+  on, and answers every failure: a module that does not bundle, import or
+  decode, a declaration that does not fold, a plugin that clashes, an
+  action that breaks a rule every action keeps. `kb ext validate` exits
+  non-zero on any, so `verify` (`check:ext`), and through it the
+  pre-commit hook and CI, refuses a repository extension that would
+  silently disappear. It runs the extensions' code, so it belongs where
+  the checkout's own tests run, never on a root someone else wrote.
 - Templates are handed to the render backbone through the `TemplateRegistry`
   service, provided once by `kbRuntimeLayer`. Core registers **no** template
   of its own: `renderViewEffect` resolves `view.spec.template` against the

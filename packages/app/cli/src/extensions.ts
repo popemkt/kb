@@ -5,7 +5,8 @@
  * modules refused) with the actions each registered and how much it
  * contributes, `footprint` prints what one adds (`extension.footprint`), and `sdk`
  * prints or writes the ambient types a repository extension compiles
- * against.
+ * against. `validate` is admission (`admitExtensions`): it fails while any
+ * of the root's extensions would be skipped, so a gate can refuse one.
  */
 import type { Command } from "commander";
 import { Effect } from "effect";
@@ -22,8 +23,22 @@ import {
 import { ensureDomainError } from "@kb/model";
 import type { RegisteredAction } from "@kb/operations";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
-import { invokeReceiptEffect, resolveRootEffect, sessionRegistry, writeOut } from "@kb/runtime";
-import { ACTION_INVOKE_WIRE, EXIT_OK, cliAction, kbAction, report } from "./command.ts";
+import {
+  admitExtensions,
+  invokeReceiptEffect,
+  resolveRootEffect,
+  sessionRegistry,
+  writeOut,
+} from "@kb/runtime";
+import {
+  ACTION_INVOKE_WIRE,
+  EXIT_FAILED,
+  EXIT_OK,
+  cliAction,
+  kbAction,
+  report,
+  type GlobalOpts,
+} from "./command.ts";
 import { formatMode } from "./format.ts";
 
 const FootprintOutput = z.object({ rows: z.array(FootprintRowSchema) });
@@ -109,6 +124,26 @@ function listLines(
   return lines;
 }
 
+/** `kb ext validate`: admission's failures (`admitExtensions`), and a failing exit while there are any. */
+const validate = (globals: GlobalOpts) =>
+  Effect.gen(function* () {
+    const root = yield* resolveRootEffect({ root: globals.root });
+    const failures = yield* admitExtensions(root);
+    const ok = failures.length === 0;
+    writeOut(
+      globals.json === true
+        ? JSON.stringify({
+            status: ok ? "succeeded" : "failed",
+            id: "ext.validate",
+            output: { failures },
+          })
+        : ok
+          ? "kb extensions: all admitted"
+          : failures.map(({ file, error }) => `! ${file}: ${error}`).join("\n"),
+    );
+    return ok ? EXIT_OK : EXIT_FAILED;
+  });
+
 export function extensionCommands(program: Command): void {
   const ext = program.command("ext").description("Extension operations");
   ext
@@ -185,6 +220,12 @@ export function extensionCommands(program: Command): void {
         ),
       ),
     );
+  ext
+    .command("validate")
+    .description(
+      "Admit every extension as a gate: load each .kb/extensions module as if trusted, every family on, and fail on any that would be skipped. It runs the root's extension code, so run it only where you would run the checkout's tests; it trusts nothing on this machine",
+    )
+    .action(cliAction(validate));
   ext
     .command("sdk")
     .description(

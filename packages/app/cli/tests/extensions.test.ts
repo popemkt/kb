@@ -7,7 +7,11 @@ import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } f
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { kbManifestDef } from "@kb/operations";
 import { main } from "../src/cli.ts";
-import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
+import {
+  extensionModule,
+  writeExtension as writeUntrustedExtension,
+  writeTrustedExtension,
+} from "@kb/test-kit";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve
 // "zod" through the workspace's node_modules.
@@ -296,5 +300,32 @@ describe("kb ext footprint", () => {
     const unknown = await runCli(["--root", root, "ext", "footprint", "nope"]);
     expect(unknown.code).toBe(1);
     expect(unknown.out).toContain("no extension named nope");
+  });
+});
+
+describe("kb ext validate", () => {
+  test("admits a root whose extensions all load, trusted or not", async () => {
+    const root = await tempRoot();
+    await writeUntrustedExtension(root, "hello.ts", HELLO_EXT);
+    const human = await runCli(["--root", root, "ext", "validate"]);
+    expect(human).toEqual({ code: 0, out: "kb extensions: all admitted\n" });
+  });
+
+  test("fails on a module that would be skipped, naming it", async () => {
+    const root = await tempRoot();
+    await writeUntrustedExtension(root, "hello.ts", HELLO_EXT);
+    await writeUntrustedExtension(root, "broken.ts", 'throw new Error("boom");\n');
+    const human = await runCli(["--root", root, "ext", "validate"]);
+    expect(human.code).toBe(1);
+    expect(human.out).toContain("! broken.ts: ");
+    expect(human.out).not.toContain("hello.ts");
+    const json = await runCli(["--root", root, "--json", "ext", "validate"]);
+    expect(json.code).toBe(1);
+    const parsed = JSON.parse(json.out) as {
+      status: string;
+      output: { failures: { file: string }[] };
+    };
+    expect(parsed.status).toBe("failed");
+    expect(parsed.output.failures.map(({ file }) => file)).toEqual(["broken.ts"]);
   });
 });
