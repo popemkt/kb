@@ -11,17 +11,28 @@
  * chooses its replacement, and a prop keyed by an old field is keyed by its
  * replacement.
  *
- * The table is idempotent: it applies wherever a retired id is present and
- * does nothing where none is, so a store a build without the row re-seeded
- * (the old node back, nothing choosing it) is retired again on the next
- * open, and a store retired once is left alone after.
+ * A row may also retire a label: the text the seed wrote on `from` before
+ * it changed it (`text`). Where the node, under `to`, still reads that text,
+ * nobody edited it, so it takes the text the seed writes now; where it reads
+ * anything else, that is the owner's edit and stays. A label changed under
+ * the same id is a row whose `to` is its `from`.
+ *
+ * The table is idempotent: it applies wherever a retired id or label is
+ * present and does nothing where none is, so a store a build without the
+ * row re-seeded (the old node back, nothing choosing it) is retired again
+ * on the next open, and a store retired once is left alone after.
  */
 import type { KbNode, NodeId, PropValue } from "./model.ts";
 
-/** One row: `from` is retired; `to`, when given, is the seeded id that replaced it. */
+/**
+ * One row: `from` is retired; `to`, when given, is the seeded id that
+ * replaced it (`from` itself where only the label changed); `text`, when
+ * given, is the label the seed wrote on `from` before.
+ */
 export interface SeedRetirement {
   readonly from: NodeId;
   readonly to?: NodeId;
+  readonly text?: string;
 }
 
 /** What each retired id becomes: its replacement, or null where nothing replaced it. */
@@ -112,17 +123,21 @@ function remapText(text: string, to: Replacements): string {
  *   `[[ref]]` in text follows too. Where nothing replaced an id, its key,
  *   values and child entries are dropped (a mention in text is left, and
  *   shows as missing).
+ * - a replacement that still reads a retired label takes the text the seed
+ *   writes on it now (`seededText`).
  *
  * Returns the ids deleted and whether anything changed.
  */
 export function retireSeeded(
   byId: Map<NodeId, KbNode>,
   rows: readonly SeedRetirement[],
+  seededText: (id: NodeId) => string | undefined,
 ): { readonly deletes: NodeId[]; readonly changed: boolean } {
-  const to: Replacements = new Map(rows.map(({ from, to: next }) => [from, next ?? null]));
+  const renames = rows.filter(({ from, to }) => from !== to);
+  const to: Replacements = new Map(renames.map(({ from, to: next }) => [from, next ?? null]));
   const deletes: NodeId[] = [];
   let changed = false;
-  for (const { from, to: next } of rows) {
+  for (const { from, to: next } of renames) {
     const old = byId.get(from);
     if (old === undefined) continue;
     byId.delete(from);
@@ -146,6 +161,14 @@ export function retireSeeded(
     const text = remapText(node.text, to);
     if (props === node.props && children === node.children && text === node.text) continue;
     byId.set(id, { ...node, props, children: [...children], text });
+    changed = true;
+  }
+  for (const { to: next, text: was } of rows) {
+    if (next === undefined || was === undefined) continue;
+    const node = byId.get(next);
+    const now = seededText(next);
+    if (node === undefined || now === undefined || node.text !== was) continue;
+    byId.set(next, { ...node, text: now });
     changed = true;
   }
   return { deletes, changed };

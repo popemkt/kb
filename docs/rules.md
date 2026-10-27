@@ -351,14 +351,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
 - **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
-### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
-
-- **expected** — A label the seed changes (a command, field or option renamed for people) reaches every store on its next open, unless the owner edited that text.
-- **current** — ensureSystemSeed adds missing nodes and fills absent prop keys but never rewrites an existing node's text, and the retirement table renames a node in place with its text. ⌘K's Preferences command, now sys.cmd.settings and seeded as Settings, still reads Preferences in a store seeded before.
-- **impact** — Older stores show stale labels for renamed system nodes; the Settings page is reached from ⌘K under its old name.
-- **closes** — The seed records the text it last wrote on a seeded node, so opening can tell an untouched label from an owner's edit and update only the former.
-- **node** — `01M5WSTXZ18DWSKY1V30GJ5HVE`
-
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
 - **expected** — every stage antialiases its scene pass, occlusion or not
@@ -1569,6 +1561,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
+
+- **expected** — A label the seed changes (a command, field or option renamed for people) reaches every store on its next open, unless the owner edited that text.
+- **current** — ensureSystemSeed adds missing nodes and fills absent prop keys but never rewrites an existing node's text, and the retirement table renames a node in place with its text. ⌘K's Preferences command, now sys.cmd.settings and seeded as Settings, still reads Preferences in a store seeded before.
+- **impact** — Older stores show stale labels for renamed system nodes; the Settings page is reached from ⌘K under its old name.
+- **closes** — The retirement table retires labels: a row names the text the seed wrote before (text), and opening gives a node that still reads it the text the seed writes now, leaving an owner-edited text alone. Core retires Preferences for Settings.
+- **node** — `01M5WSTXZ18DWSKY1V30GJ5HVE`
 
 ### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
 

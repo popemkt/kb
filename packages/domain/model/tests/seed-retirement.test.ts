@@ -6,6 +6,7 @@
  * `[[ref]]` follows; an id nothing replaced is dropped everywhere; it is
  * idempotent, so a build without the rows re-seeding the old node and a
  * merge with a clone that still holds it both converge on the next open;
+ * a label the seed changed reaches a node nobody edited, renamed or not;
  * and a row the fold cannot honour is a bundling defect.
  */
 import { describe, expect, test } from "bun:test";
@@ -245,5 +246,89 @@ describe("the seed's retirement table", () => {
     const stored = ensureSystemSeed([labelled], fold(BEFORE)).nodes;
     const user = present(byId(ensureSystemSeed(stored, fold(AFTER)).nodes).get("n.user"), "it");
     expect(user.text).toBe("pick [[sys.probe.tone.dim|the dim one]]");
+  });
+
+  test("refuses a label row the fold cannot honour", () => {
+    const retiring = (rows: SeedSource["retires"]) => () => fold({ ...AFTER, retires: rows });
+    expect(retiring([{ from: "sys.probe.note", text: "a note" }])).toThrow(
+      "probe retires the label of sys.probe.note, which nothing replaced",
+    );
+    expect(retiring([{ from: "sys.probe.f.tone", to: "sys.probe.f.tone" }])).toThrow(
+      "probe retires sys.probe.f.tone for itself",
+    );
+    expect(retiring([{ from: "sys.probe.f.tone", to: "sys.probe.f.tone", text: "tone" }])).toThrow(
+      'probe retires the label "tone", which the seed still writes on sys.probe.f.tone',
+    );
+  });
+});
+
+/** Two commands as a store was first seeded with them. */
+const LABELS_BEFORE: SeedSource = {
+  name: "probe",
+  label: "Probe",
+  seed: () => [node("sys.probe.cmd.prefs", "Preferences"), node("sys.probe.cmd.go", "Go")],
+};
+
+/** After: one renamed with its label, the other relabelled under the same id. */
+const LABELS_AFTER: SeedSource = {
+  name: "probe",
+  label: "Probe",
+  seed: () => [node("sys.probe.cmd.settings", "Settings"), node("sys.probe.cmd.go", "Go to")],
+  retires: [
+    { from: "sys.probe.cmd.prefs", to: "sys.probe.cmd.settings", text: "Preferences" },
+    { from: "sys.probe.cmd.go", to: "sys.probe.cmd.go", text: "Go" },
+  ],
+};
+
+const texts = (nodes: readonly KbNode[]) => {
+  const all = byId(nodes);
+  return {
+    settings: all.get("sys.probe.cmd.settings")?.text,
+    go: all.get("sys.probe.cmd.go")?.text,
+  };
+};
+
+describe("a label the seed retires", () => {
+  const before = (): KbNode[] => ensureSystemSeed([], fold(LABELS_BEFORE)).nodes;
+
+  test("reaches a node nobody edited, under its new id or its own", () => {
+    const opened = ensureSystemSeed(before(), fold(LABELS_AFTER));
+    expect(texts(opened.nodes)).toEqual({ settings: "Settings", go: "Go to" });
+    expect(opened.seeded).toBe(true);
+  });
+
+  test("leaves a label the owner edited", () => {
+    const edited = before().map((n) =>
+      n.id === "sys.probe.cmd.prefs"
+        ? { ...n, text: "My prefs" }
+        : n.id === "sys.probe.cmd.go"
+          ? { ...n, text: "Jump" }
+          : n,
+    );
+    expect(texts(ensureSystemSeed(edited, fold(LABELS_AFTER)).nodes)).toEqual({
+      settings: "My prefs",
+      go: "Jump",
+    });
+  });
+
+  test("is a no-op once applied, and an older build's open converges on the next newer one", () => {
+    const once = ensureSystemSeed(before(), fold(LABELS_AFTER)).nodes;
+    expect(ensureSystemSeed(once, fold(LABELS_AFTER)).seeded).toBe(false);
+    const older = ensureSystemSeed(once, fold(LABELS_BEFORE)).nodes;
+    const newer = ensureSystemSeed(older, fold(LABELS_AFTER)).nodes;
+    expect(byId(newer).has("sys.probe.cmd.prefs")).toBe(false);
+    expect(texts(newer)).toEqual({ settings: "Settings", go: "Go to" });
+  });
+
+  test("core's: a store seeded with ⌘K's Preferences reads Settings", () => {
+    const core = foldSeed(BUNDLED_DECLARATIONS, AT);
+    const seeded = ensureSystemSeed([], core).nodes.map((n) =>
+      n.id === SYSTEM_IDS.cmdSettings
+        ? { ...n, id: "sys.cmd.preferences", text: "Preferences" }
+        : n,
+    );
+    const opened = byId(ensureSystemSeed(seeded, core).nodes);
+    expect(opened.has("sys.cmd.preferences")).toBe(false);
+    expect(opened.get(SYSTEM_IDS.cmdSettings)?.text).toBe("Settings");
   });
 });

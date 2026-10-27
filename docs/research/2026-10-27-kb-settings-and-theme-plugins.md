@@ -376,7 +376,10 @@ no site to it.
 9. **The `Preferences` command's label.** The command keeps its id
    (`sys.cmd.preferences`); the seed labels it *Settings*. A store seeded
    before keeps the text it has (the seed never rewrites a system node's
-   text), and the command opens the page either way.
+   text), and the command opens the page either way. (As built, the id
+   moved to `sys.cmd.settings` through the retirement table, and the
+   table retires the old label too, so an unedited store reads
+   *Settings*: section 9.)
 10. **Per-page backdrops?** Out of scope; gap `01M54CEM0Z5SMAS7KABS7QZ67C`
     stays open. The page's own field rows are where it closes.
 
@@ -432,9 +435,13 @@ after (agree with changes). What its batch review changed:
 
 Left for later: phase 3b (one family per theme) and phase 4 (the theme's
 node carries the theme); reset as one undoable write; excluding the switch
-from settings by its id rather than by field; and a seeded node's label
-the seed changes, which an existing store keeps (⌘K still reads
-*Preferences* there, under its new id), recorded as a gap.
+from settings by its id rather than by field.
+
+A seeded node's label the seed changes was kept by an existing store (⌘K
+read *Preferences* under its new id; gap `01M5WSTXZ18DWSKY1V30GJ5HVE`).
+The retirement table now retires labels too: a row names the text the seed
+wrote before, and a node that still reads it takes the new one, while an
+owner's edit stays (DESIGN.md → the seed retires what it renames).
 
 The trial ran the top of the stack against a copy of the owner's store on
 shared-server, at https://adhoc-popemkt.taild98079.ts.net/settings.

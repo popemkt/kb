@@ -605,15 +605,17 @@ export function ensureSystemSeed(
 } {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const seed = fold.nodes;
+  const seededText = new Map(seed.map((node) => [node.id, node.text]));
 
-  // Retire BEFORE seeding defaults, so an edit on an old id is kept.
-  const { deletes, changed: retired } = retireSeeded(byId, fold.retired);
+  // Retire BEFORE seeding defaults, so an edit on an old id is kept, and an
+  // unedited label the seed has since changed takes the new one.
+  const { deletes, changed: retired } = retireSeeded(byId, fold.retired, (id) =>
+    seededText.get(id),
+  );
   let seeded = retired;
 
   const seedById = new Map<string, KbNode>();
   const seedTemplateTags = new Map<string, KbNode>();
-  // GAP [[01M5WSTXZ18DWSKY1V30GJ5HVE]] — a node the store holds keeps its
-  // text: a label the seed has since changed does not reach it.
   for (const node of seed) {
     seedById.set(node.id, node);
     if (TEMPLATE_TAGS.includes(node.id)) seedTemplateTags.set(node.id, node);

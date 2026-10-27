@@ -49,6 +49,6 @@ export const coreExtension = defineExtension({
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
   // ⌘K's Preferences became Settings with the page that replaced the popover.
-  retires: [{ from: "sys.cmd.preferences", to: SYSTEM_IDS.cmdSettings }],
+  retires: [{ from: "sys.cmd.preferences", to: SYSTEM_IDS.cmdSettings, text: "Preferences" }],
   context: CORE_CONTEXT_REFERENCES,
 });

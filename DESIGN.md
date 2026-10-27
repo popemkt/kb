@@ -3195,13 +3195,14 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
 
 - **The seed retires what it renames.** A seeded id is frozen data, so a
   family that renames or removes one declares a row of the retirement
-  table (`retires: [{from, to?}]`, `SeedRetirement`, `@kb/model`): the id
-  a store may still hold, and the seeded id that replaced it, if any.
+  table (`retires: [{from, to?, text?}]`, `SeedRetirement`, `@kb/model`):
+  the id a store may still hold, the seeded id that replaced it, if any,
+  and, where the seed changed the label too, the text it wrote before.
   `ensureSystemSeed` applies the fold's rows before it seeds
   (`retireSeeded`):
   - a retired node is deleted. Where its replacement is not in the store
     yet it is renamed in place, so an edit made on the old id survives
-    (its text included: the seed never rewrites a node's text); where it
+    (its text included); where it
     is, the replacement keeps its own and gains the props and children it
     lacks;
   - on every node, a prop keyed by a retired field is keyed by its
@@ -3212,6 +3213,12 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     own, so a value that chose an old option chooses the new one. Where
     nothing replaced an id, its keys, values and child entries are
     dropped; a mention in text is left, and shows as missing;
+  - a retired label is the one text the seed rewrites: where the node,
+    under its replacement (its own id, for a label changed in place: a row
+    whose `to` is its `from`), still reads the label the row names, nobody
+    edited it, so it takes the text the seed writes now; any other text is
+    the owner's and stays. So a command, field or option renamed for people
+    reaches every store on its next open;
   - it is idempotent, applying wherever a retired id is present, so a
     store a build without the rows opened (which re-seeds the old node,
     as the seed adds what is missing, but chooses nothing with it) and a
@@ -3219,11 +3226,14 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     on the next open, and a migrated store opens as a no-op;
   - the fold refuses a row it cannot honour, as a bundling defect: an id
     retired twice, a retired id it still seeds (each open would retire
-    what it then seeds again), or a replacement it does not seed.
+    what it then seeds again), a replacement it does not seed, a label
+    with no replacement to carry it or one it still writes there, or a
+    row that renames nothing and retires no label.
 
   The graph's default perspective, `sys.lens.all-mentions` →
   `lens.all-mentions`, is the graph family's row, and ⌘K's
-  `sys.cmd.preferences` → `sys.cmd.settings` is core's. A row retires only
+  `sys.cmd.preferences` → `sys.cmd.settings`, its label *Preferences*
+  retired for *Settings*, is core's. A row retires only
   a reserved `sys.` id: a store's other ids are its owner's, so the fold
   refuses a row that could delete a node a person made under the same id.
   Two retired fields one replacement took over pool their values under it.

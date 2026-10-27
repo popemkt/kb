@@ -67,9 +67,9 @@ export interface SeedSource {
   readonly defaultView?: SeedView;
   /**
    * The seeded ids it renamed or removed since a store could have been
-   * seeded with them, each with what replaced it, if anything: its rows of
-   * the retirement table (`SeedRetirement`), which opening applies before
-   * it seeds.
+   * seeded with them, each with what replaced it, if anything, and the
+   * labels it changed: its rows of the retirement table (`SeedRetirement`),
+   * which opening applies before it seeds.
    */
   readonly retires?: readonly SeedRetirement[];
 }
@@ -236,12 +236,14 @@ export interface FoldedSeed {
  * the reserved `sys.` prefix (a store's other ids are its owner's, so a
  * row could delete a node a person made under the same id), an id retired
  * twice, a retired id the fold still seeds (opening would retire what it
- * then seeds again), or a replacement the fold does not seed is a bundling
- * defect, so it throws.
+ * then seeds again), a replacement the fold does not seed, a label row
+ * with no replacement to carry it or a label the seed still writes there,
+ * or a row that renames nothing and retires no label is a bundling defect,
+ * so it throws.
  */
 function retiredRows(
   sources: readonly SeedSource[],
-  seeded: ReadonlySet<NodeId>,
+  seeded: ReadonlyMap<NodeId, string>,
 ): SeedRetirement[] {
   const rows = sources.flatMap((source) =>
     (source.retires ?? []).map((row) => ({ row, by: source.name })),
@@ -251,12 +253,25 @@ function retiredRows(
     if (!isSysPrefixed(row.from)) {
       throw new Error(`${by} retires ${row.from}, which is not a reserved sys. id`);
     }
-    if (retired.has(row.from)) throw new Error(`${row.from} is retired twice`);
-    retired.add(row.from);
-    if (seeded.has(row.from))
-      throw new Error(`${by} retires ${row.from}, which the seed still holds`);
+    if (row.to === row.from) {
+      if (row.text === undefined) throw new Error(`${by} retires ${row.from} for itself`);
+    } else {
+      if (retired.has(row.from)) throw new Error(`${row.from} is retired twice`);
+      retired.add(row.from);
+      if (seeded.has(row.from))
+        throw new Error(`${by} retires ${row.from}, which the seed still holds`);
+    }
     if (row.to !== undefined && !seeded.has(row.to)) {
       throw new Error(`${by} retires ${row.from} for ${row.to}, which the seed does not hold`);
+    }
+    if (row.text === undefined) continue;
+    if (row.to === undefined) {
+      throw new Error(`${by} retires the label of ${row.from}, which nothing replaced`);
+    }
+    if (seeded.get(row.to) === row.text) {
+      throw new Error(
+        `${by} retires the label "${row.text}", which the seed still writes on ${row.to}`,
+      );
     }
   }
   return rows.map(({ row }) => row);
@@ -306,10 +321,10 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     SYSTEM_IDS.extensionsRoot,
     parts.map((part) => part.own),
   );
-  const seen = new Set<string>();
+  const seen = new Map<NodeId, string>();
   for (const node of folded) {
     if (seen.has(node.id)) throw new Error(`seed id ${node.id} is declared twice`);
-    seen.add(node.id);
+    seen.set(node.id, node.text);
   }
   // Read once every id is known to have one owner, so a doubled source is
   // refused for its ids first.
