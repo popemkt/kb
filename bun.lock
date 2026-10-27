@@ -1014,9 +1014,11 @@
         "@kb/transistor": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "effect": "catalog:",
+        "react": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+        "@types/react": "catalog:",
         "happy-dom": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
@@ -1086,9 +1088,11 @@
         "@kb/ui-sdk": "workspace:*",
         "@kb/zzz": "workspace:*",
         "effect": "catalog:",
+        "react": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+        "@types/react": "catalog:",
       },
     },
     "packages/infrastructure/sandbox-quickjs": {

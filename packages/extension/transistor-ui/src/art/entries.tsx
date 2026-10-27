@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { BackdropProps, ThemeArtProps } from "@kb/ui-sdk";
 import { deferred } from "@kb/theme-art";
 
@@ -23,7 +24,7 @@ const OvcHead = deferred<BackdropProps>(
 );
 
 /** Transistor's art (DESIGN-UI.md → Themes): Cloudbank under the page, Jaunt() over a pane. */
-export function TransistorArt({ plane, activity, path }: ThemeArtProps) {
+export function TransistorArt({ plane, activity, path }: ThemeArtProps): ReactElement | null {
   switch (plane) {
     case "ground":
       return <CloudbankGround activity={activity} />;
@@ -37,11 +38,11 @@ export function TransistorArt({ plane, activity, path }: ThemeArtProps) {
 }
 
 /** The head Transistor pairs with. */
-export function CloudbankBackdrop(props: BackdropProps) {
+export function CloudbankBackdrop(props: BackdropProps): ReactElement | null {
   return <CloudbankHead {...props} />;
 }
 
 /** Transistor's other head. */
-export function OvcBackdrop(props: BackdropProps) {
+export function OvcBackdrop(props: BackdropProps): ReactElement | null {
   return <OvcHead {...props} />;
 }

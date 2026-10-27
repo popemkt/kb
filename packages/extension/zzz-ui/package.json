@@ -16,10 +16,12 @@
     "@kb/theme-art": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@kb/zzz": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "react": "catalog:"
   },
   "devDependencies": {
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:"
   },
   "nx": {
     "tags": [

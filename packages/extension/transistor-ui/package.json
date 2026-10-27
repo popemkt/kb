@@ -20,10 +20,12 @@
     "@kb/theme-art": "workspace:*",
     "@kb/transistor": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "react": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
+    "@types/react": "catalog:",
     "happy-dom": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

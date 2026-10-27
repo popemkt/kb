@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { BackdropProps, ThemeArtProps } from "@kb/ui-sdk";
 import { NOWHERE, STILL, deferred } from "@kb/theme-art";
 
@@ -20,7 +21,7 @@ const HollowHead = deferred<BackdropProps>(
 );
 
 /** ZZZ's art (DESIGN-UI.md → Themes): the street under the page, its gestures over it. */
-export function ZzzArt({ plane, activity, path }: ThemeArtProps) {
+export function ZzzArt({ plane, activity, path }: ThemeArtProps): ReactElement | null {
   switch (plane) {
     case "ground":
       return <StreetGround />;
@@ -34,11 +35,11 @@ export function ZzzArt({ plane, activity, path }: ThemeArtProps) {
 }
 
 /** The head ZZZ pairs with. */
-export function BroadcastBackdrop(props: BackdropProps) {
+export function BroadcastBackdrop(props: BackdropProps): ReactElement | null {
   return <BroadcastHead {...props} />;
 }
 
 /** ZZZ's other head. */
-export function HollowBackdrop(props: BackdropProps) {
+export function HollowBackdrop(props: BackdropProps): ReactElement | null {
   return <HollowHead {...props} />;
 }
