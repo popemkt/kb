@@ -37,8 +37,12 @@ describe("kinds, roles and options", () => {
       "approval-policy",
       "canvas",
       "comment",
+      "facet",
+      "image source",
       "ontology",
       "script",
+      "style",
+      "visual",
     ]);
   });
 

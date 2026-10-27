@@ -107,7 +107,8 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
       [GALLERY_IDS.promptField, GALLERY_IDS.negativeField, GALLERY_IDS.mediaField],
       at,
     ),
-    seededTag(GALLERY_IDS.facetTag, "facet", [], at),
+    // A facet's own media is its cover: an image that shows what the facet sorts by.
+    seededTag(GALLERY_IDS.facetTag, "facet", [GALLERY_IDS.mediaField], at),
     seededTag(
       GALLERY_IDS.sourceTag,
       "image source",
