@@ -2976,6 +2976,55 @@ fallback (each study on WebGL2 without WebGPU, or saying why it cannot
 start, in the render suite) — are tests; the lazy three chunk is the
 harness's fence above. Everything else here is prose, and its rule says so.
 
+### The gallery
+
+The gallery (`@kb/gallery-ui`, `/gallery`) is a library of visual
+references, a structured Pinterest of one's own: styles, shots, camera
+angles and motions, lenses, lighting, palettes, artists, each a node, and
+the images that show them. It is optional and off by default. The model and
+the reasons are the research record,
+[docs/research/2026-10-28-visual-reference-gallery.md](docs/research/2026-10-28-visual-reference-gallery.md).
+
+- **Everything in it is a node.** A visual is a node tagged `#visual` whose
+  `media` field embeds its image (`![…](assets/…)`, so it renders as node
+  text does) and whose `styles` field refers to the styles it shows. A style
+  is a node tagged `#style`; its facet is the nearest ancestor tagged
+  `#facet`, a reading of structure, not a field, so moving a style re-files
+  it everywhere. A style's `prompt` and `negative` are templates; one with
+  no template composes as its name. An online source is a node tagged
+  `#image source`, with a `search url` (`{query}` stands for the query)
+  and a `source kind`. The family seeds the tags, the fields and six
+  sources; the page offers a starter (twelve facets, 127 styles, and
+  an empty `Library` that becomes where saves go, the gallery's `save into`
+  setting).
+- **The page reads its replica, never the store.** `libraryOf`,
+  `filterVisuals` and `facetCounts` (`@kb/gallery`) are pure over the node
+  set, so a facet click is a pass over memory: about 70 ms at fifty thousand
+  visuals where the same counts as datalog take 750 ms (research record §7).
+- **Facets filter by OR within a facet, AND across**, and count
+  disjunctively: a style's count is over the visuals every *other* facet's
+  choice lets through, so choosing within a facet never zeroes its siblings.
+- **The grid is a virtualised masonry.** Tiles go, in order, into the
+  shortest column, at the aspect the visual records (`width`, `height`;
+  square when it records none). Only the tiles within one viewport of the
+  window, either way, are elements; the window's tiles are found per column
+  by binary search, so a scroll frame costs what it shows, not the library.
+- **The selection is also the composer's.** The chosen styles, in facet
+  order, wrap the subject by A1111's rule (`{prompt}` in a template is
+  replaced; a template without it is appended) for one model family; a
+  family that reads no negative prompt gets none. The composition is tidied
+  as a person pastes it: an empty subject leaves no dangling comma, and a
+  part several styles add is kept once. A visual's "Use its styles" makes
+  its styles the selection.
+- **Online sources keep their terms.** A link source (Pinterest, Are.na,
+  Unsplash, Lexica) is its search page opened in a new tab; kb never calls
+  it. An API source (Civitai, Openverse) is searched through
+  `ext.gallery.search` (`@kb/gallery-net`), PG only, and a result is kept
+  through `ext.gallery.save`, which downloads it only from hosts the source's
+  adapter names, over https, through at most two redirects, and then writes
+  only through core's `asset.upload` and `node.add`, with the result's page,
+  creator and licence on the visual.
+
 ### Locations
 
 The locations family's browser half (`@kb/locations-ui`; the model is

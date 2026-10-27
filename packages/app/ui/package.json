@@ -37,6 +37,8 @@
     "@kb/collections-ui": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
+    "@kb/gallery": "workspace:*",
+    "@kb/gallery-ui": "workspace:*",
     "@kb/governance": "workspace:*",
     "@kb/graph": "workspace:*",
     "@kb/graph-ui": "workspace:*",

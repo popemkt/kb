@@ -45,6 +45,7 @@ import {
   type ExtensionRow,
 } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
+import { galleryExtension } from "@kb/gallery";
 import { governanceExtension, governancePlugin } from "@kb/governance";
 import { graphExtension } from "@kb/graph";
 import { graphUiPlugin } from "@kb/graph-ui";
@@ -144,7 +145,7 @@ export interface BrowserExtension {
  * it. Whether the page loads one is the server's report, never this table.
  * How it is fetched is: a family on by default (the outline, collections,
  * graph, canvas, code, chart, locations, backdrops, themes) loads
- * from the main bundle, and one off by default (the lab) or hosted only by
+ * from the main bundle, and one off by default (the lab, the gallery) or hosted only by
  * `kb ui` (the agent) is its own chunk, fetched when it is first on. A family with no
  * browser half is listed too, as `null`, so a bundled family is never left
  * out by omission: the resolver's test holds every bundled family to an entry.
@@ -165,6 +166,9 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   [locationsExtension.name]: { load: () => Promise.resolve(locationsUiPlugin) },
   [backdropsExtension.name]: { load: () => Promise.resolve(backdropsUiPlugin) },
   [themesExtension.name]: { load: () => Promise.resolve(themesUiPlugin) },
+  [galleryExtension.name]: {
+    load: () => import("@kb/gallery-ui").then(({ galleryUiPlugin }) => galleryUiPlugin),
+  },
   [agentExtension.name]: { load: loadAgentEntry },
 };
 

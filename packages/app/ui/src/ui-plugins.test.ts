@@ -144,6 +144,7 @@ describe("the families the page loads", () => {
       "locations",
       "backdrops",
       "themes",
+      "gallery",
       "agent",
     ]);
   });
@@ -161,6 +162,7 @@ describe("the families the page loads", () => {
       "locations",
       "backdrops",
       "themes",
+      "gallery",
     ]);
   });
 
@@ -185,6 +187,7 @@ describe("the families the page loads", () => {
       "locations",
       "backdrops",
       "themes",
+      "gallery",
     ]);
   });
 
@@ -242,6 +245,7 @@ describe("an optional family switched off on the server", () => {
       "locations",
       "backdrops",
       "themes",
+      "gallery",
       "agent",
     ]);
   });

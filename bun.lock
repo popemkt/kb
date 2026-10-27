@@ -39,6 +39,7 @@
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
+        "@kb/gallery": "workspace:*",
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
@@ -133,6 +134,7 @@
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
+        "@kb/gallery-net": "workspace:*",
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
@@ -228,6 +230,8 @@
         "@kb/collections-ui": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
+        "@kb/gallery": "workspace:*",
+        "@kb/gallery-ui": "workspace:*",
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/graph-ui": "workspace:*",
@@ -752,6 +756,58 @@
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/gallery": {
+      "name": "@kb/gallery",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/bundled": "workspace:*",
+        "@types/bun": "catalog:",
+        "effect": "catalog:",
+        "fast-check": "catalog:",
+      },
+    },
+    "packages/extension/gallery-net": {
+      "name": "@kb/gallery-net",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/gallery": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/gallery-ui": {
+      "name": "@kb/gallery-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/gallery": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@kb/views": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/extension/governance": {
@@ -1551,6 +1607,12 @@
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
+
+    "@kb/gallery": ["@kb/gallery@workspace:packages/extension/gallery"],
+
+    "@kb/gallery-net": ["@kb/gallery-net@workspace:packages/extension/gallery-net"],
+
+    "@kb/gallery-ui": ["@kb/gallery-ui@workspace:packages/extension/gallery-ui"],
 
     "@kb/governance": ["@kb/governance@workspace:packages/extension/governance"],
 
