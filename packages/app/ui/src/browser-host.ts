@@ -9,6 +9,7 @@ import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
+import { servesAction, subscribeManifest } from "@/lib/manifest";
 import { proposeView } from "@/lib/propose-view";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
@@ -33,7 +34,8 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /**
  * The stores the host's reads answer from, beside the page itself (its graph,
- * projection and editor, `subscribePage`).
+ * projection and editor, `subscribePage`) and the server's manifest
+ * (`subscribeManifest`).
  */
 const SOURCES = [usePrefsStore, useDesignSystemStore, useUiStore, useDebugFieldsStore] as const;
 
@@ -44,6 +46,7 @@ const host: BrowserHost = {
   subscribe: (listener) => {
     const unsubscribes = [
       subscribePage(listener),
+      subscribeManifest(listener),
       ...SOURCES.map((store) => store.subscribe(listener)),
     ];
     return () => {
@@ -91,6 +94,7 @@ const host: BrowserHost = {
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   writes: mutations,
   invoke,
+  serves: servesAction,
   screen: paneScreenPort,
   proposeView,
   sandbox: { hostFrame: hostSandboxFrame, invokeAsScript, isTrusted, setTrusted },

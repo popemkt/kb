@@ -103,6 +103,12 @@ export interface BrowserHost extends NodeTextPort {
   readonly writes: PageWrites;
   /** Make one call through the browser's one invoke path and answer its receipt. */
   readonly invoke: (id: string, input: unknown) => Promise<ActionReceipt>;
+  /**
+   * Whether the server serves the action `id`: its `kb.manifest` lists it.
+   * False while no server has answered (an offline page), so a half offers
+   * a call the server would refuse only once the server says it is there.
+   */
+  readonly serves: (id: string) => boolean;
   /** Where a view reports what it shows for its pane (`usePaneScreen`). */
   readonly screen: PaneScreenPort;
   /** Make a view node through `view.propose`, the one check of a proposed view. */

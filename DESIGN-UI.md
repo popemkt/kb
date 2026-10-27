@@ -2753,7 +2753,10 @@ the shell.
     reaches what it would otherwise take from the shell's stores, actions
     and lib: the live graph, the page's one write path (`writes`, the kit's
     `PageWrites`, which `actions/mutations` implements), appearance,
-    navigation, panes, the invoke path and the sandbox host. It is a
+    navigation, panes, the invoke path, whether the server serves an
+    action (`serves`, what its `kb.manifest` lists; false offline, so a
+    half offers a call only once the server says it is there) and the
+    sandbox host. It is a
     subscribe, reads and gestures, never hooks: a hook selected from a
     service at run time is one React cannot check. The sdk's own hooks
     (`useNode`, `useAppearance`, `useFollow`, …) are built over it once,

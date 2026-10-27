@@ -229,6 +229,11 @@ export function useAppearance(): Appearance {
   return useHostValue((host) => host.appearance());
 }
 
+/** Whether the server serves the action `id` (`BrowserHost.serves`), re-read when its manifest is. */
+export function useServes(id: string): boolean {
+  return useHostValue((host) => host.serves(id));
+}
+
 /** What `select` answers of the device-level preferences, re-read when they change. */
 export function usePrefs<T>(select: (prefs: Prefs) => T): T {
   return useHostValue((host) => select(host.prefs()));

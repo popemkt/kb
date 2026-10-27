@@ -236,6 +236,8 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     navigatePane: () => {},
     writes: INERT_WRITES,
     invoke: (id) => noCall(id),
+    // No server answers this host, so it serves nothing.
+    serves: () => false,
     screen: {
       report: (pane, owner, report, carryOut) => held.set(pane, { pane, owner, report, carryOut }),
       release: (pane, owner) => {

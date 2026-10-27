@@ -1,15 +1,16 @@
 /**
  * What the server says it loaded: its `kb.manifest`, read once a server
  * answers and again whenever the page asks (DESIGN.md → Extension families).
- * The page follows it twice: its view catalog is the server's
- * (`lib/view-catalog.ts`), and its extensions are the ones the server
- * reports (`ui-plugins.ts`).
+ * The page follows it three times: its view catalog is the server's
+ * (`lib/view-catalog.ts`), its extensions are the ones the server reports
+ * (`ui-plugins.ts`), and a half asks whether the server serves an action
+ * through the page's host (`BrowserHost.serves`, {@link servesAction}).
  *
  * Until a server answers — an offline page on its fixtures, or before the
  * manifest arrives — there is no manifest, and each reader falls back to the
  * page being its own server.
  */
-import type { ExtensionRow } from "@kb/contracts";
+import { listedOn, PAGE_WIRE, type ExtensionRow } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import type { ViewCatalogEntry } from "@kb/views";
 import { postAction } from "@/api/action";
@@ -19,6 +20,8 @@ import { logWarn } from "@kb/ui-sdk";
 export interface ServedManifest {
   readonly views: readonly ViewCatalogEntry[];
   readonly extensions: readonly ExtensionRow[];
+  /** The ids of the actions it lists to the page: those a page's call is not denied (`listedOn`). */
+  readonly actions: ReadonlySet<string>;
 }
 
 let served: ServedManifest | null = null;
@@ -29,6 +32,10 @@ export function servedManifest(): ServedManifest | null {
   return served;
 }
 
+/** Whether the server's manifest lists the action `id`; false while no server has answered. */
+export function servesAction(id: string): boolean {
+  return served?.actions.has(id) ?? false;
+}
 /** Called whenever the server's manifest is read again. */
 export function subscribeManifest(listener: () => void): () => void {
   listeners.add(listener);
@@ -65,7 +72,9 @@ export async function readManifest(): Promise<ManifestRead> {
   if (!manifest.success) {
     return { problem: `kb.manifest answered in another shape: ${manifest.error.message}` };
   }
-  return { manifest: { views: manifest.data.views, extensions: manifest.data.extensions } };
+  const { views, extensions } = manifest.data;
+  const listed = manifest.data.actions.filter(({ decision }) => listedOn(PAGE_WIRE, decision));
+  return { manifest: { views, extensions, actions: new Set(listed.map(({ id }) => id)) } };
 }
 
 /**
