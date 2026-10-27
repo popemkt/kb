@@ -20,6 +20,7 @@ function holdsNothingThatRuns(out: string): void {
   expect(out).not.toMatch(/href="(?!#|data:image\/(png|jpeg|gif|webp);base64,)/i);
   expect(out).not.toMatch(/url\(\s*['"]?(?!#)/i);
   expect(out).not.toMatch(/@import/i);
+  expect(out).not.toMatch(/\\75|\\69/i);
 }
 
 describe("sanitizeSvg", () => {
@@ -78,6 +79,32 @@ describe("sanitizeSvg", () => {
     );
   });
 
+  test("empties CSS that reaches out however it is spelled: escaped, or split across tokens", () => {
+    // A CSS escape is read before the filter looks: `\75` is `u`, `\69` is `i`.
+    expect(sanitizeSvg(svg('<rect style="fill:\\75 rl(https://x/p)"/>'))).toBe(svg("<rect/>"));
+    expect(sanitizeSvg(svg("<rect fill='\\75 rl(https://x/p)'/>"))).toBe(svg("<rect/>"));
+    expect(sanitizeSvg(svg("<style>.a{fill:\\75 rl(https://x/p)}</style>"))).toBe(
+      svg("<style></style>"),
+    );
+    expect(sanitizeSvg(svg('<style>@\\69mport "https://x";</style>'))).toBe(svg("<style></style>"));
+    // A style element's CSS is all of its text, however the markup cuts it.
+    expect(sanitizeSvg(svg('<style>@im<![CDATA[port "https://x";]]></style>'))).toBe(
+      svg("<style></style>"),
+    );
+    expect(sanitizeSvg(svg('<style>@im<!-- -->port "https://x";</style>'))).toBe(
+      svg("<style></style>"),
+    );
+    // An unclosed url() still fetches, and image-set() fetches a bare string.
+    expect(sanitizeSvg(svg("<style>.a{fill:url(https://x/p</style>"))).toBe(svg("<style></style>"));
+    expect(sanitizeSvg(svg('<style>.a{background:image-set("https://x/p" 1x)}</style>'))).toBe(
+      svg("<style></style>"),
+    );
+    // CSS that stays home is kept whole, escapes and all.
+    expect(sanitizeSvg(svg("<style>.a{fill:url(#g)}.b\\:c{}</style>"))).toBe(
+      svg("<style>.a{fill:url(#g)}.b\\:c{}</style>"),
+    );
+  });
+
   test("unwraps a link: its drawing stays, the link goes", () => {
     expect(sanitizeSvg(svg('<a href="javascript:alert(1)"><circle r="2"/></a>'))).toBe(
       svg('<circle r="2"/>'),
@@ -114,6 +141,10 @@ describe("sanitizeSvg", () => {
       '<text x="1">&lt;script&gt;</text>',
       "</g>",
       "<g>",
+      "<style>@im",
+      'port "https://x";</style>',
+      "<!-- -->",
+      '<rect style="fill:\\75 rl(https://x)"/>',
     );
     fc.assert(
       fc.property(fc.array(parts, { maxLength: 12 }), (inner) => {

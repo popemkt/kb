@@ -1323,14 +1323,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
 
-### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
-
-- **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.
-- **current** — svg-sanitize.ts safeCss runs per text token and tokenize never decodes CSS escapes, so fill:\75 rl(…), @\69mport, CDATA-split and comment-split @import survive.
-- **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
-- **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
-- **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
-
 ### GAP: the system seed cannot retire or rename a seeded node
 
 - **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
@@ -2283,6 +2275,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
+
+- **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.
+- **current** — svg-sanitize.ts safeCss runs per text token and tokenize never decodes CSS escapes, so fill:\75 rl(…), @\69mport, CDATA-split and comment-split @import survive.
+- **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
+- **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
+- **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
 
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 

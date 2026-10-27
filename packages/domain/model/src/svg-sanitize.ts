@@ -8,8 +8,9 @@
  * survives only with a plain name, no `on…` handler, and a value that leads
  * nowhere outside the document: a reference is `#fragment` (an `image` may
  * hold a raster `data:` picture), and CSS may name no `url()` but a fragment,
- * no `@import` and no `expression()` (a style element whose CSS does is
- * kept empty). Comments, processing instructions and
+ * no `image-set()`, no `@import` and no `expression()`, read after its escapes
+ * and, for a style element, over all its text at once (a style element whose
+ * CSS does is kept empty). Comments, processing instructions and
  * DOCTYPEs (and the entities they declare) go. Markup that does not read as
  * XML tags is refused whole. The asset is then served as an image, never
  * inlined into a page, so this is the second wall, not the only one.
@@ -100,14 +101,37 @@ const escapeText = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const escapeValue = (value: string) => escapeText(value).replaceAll('"', "&quot;");
 
-/** Whether CSS text reaches nothing outside the document and runs nothing. */
+/** CSS text with its escapes read as CSS reads them: `\\75` is `u`, `\\@` is `@`, an escaped newline is nothing. */
+function decodeCss(css: string): string {
+  return css.replace(
+    /\\(?:([0-9a-f]{1,6})[ \t\n\f]?|\r\n|([\s\S])|$)/gi,
+    (_, hex?: string, char?: string) => {
+      if (hex !== undefined) {
+        const code = Number.parseInt(hex, 16);
+        return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "\uFFFD";
+      }
+      return char === undefined || /[\n\f\r]/.test(char) ? "" : char;
+    },
+  );
+}
+
+/** Whether CSS, read as written, names something outside the document or something that runs. */
+function reachesOut(css: string): boolean {
+  if (/@import|expression\s*\(|javascript:|behavior\s*:|-moz-binding|image-set\s*\(/i.test(css))
+    return true;
+  // Unclosed, `url(` still fetches to the end of the CSS, so only what follows the paren counts.
+  for (const match of css.matchAll(/url\s*\(\s*['"]?(.?)/gi)) if (match[1] !== "#") return true;
+  return false;
+}
+
+/**
+ * Whether CSS text reaches nothing outside the document and runs nothing,
+ * however it is spelled: escapes are read first, and it is judged both with
+ * its comments and without them, so neither reading hides a fetch.
+ */
 function safeCss(css: string): boolean {
-  const plain = css.replace(/\\/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  if (/@import|expression\s*\(|javascript:|behavior\s*:|-moz-binding/i.test(plain)) return false;
-  for (const match of plain.matchAll(/url\s*\(\s*(['"]?)([^'")]*)\1\s*\)/gi)) {
-    if (!(match[2] ?? "").trim().startsWith("#")) return false;
-  }
-  return true;
+  const read = decodeCss(css);
+  return !reachesOut(read) && !reachesOut(read.replace(/\/\*[\s\S]*?(?:\*\/|$)/g, ""));
 }
 
 /** Whether a value reads as a scheme that runs or reaches out, however it is spelled. */
@@ -127,8 +151,8 @@ function keptValue(element: string, name: string, value: string): string | null 
     if (target.startsWith("#")) return target;
     return element === "image" && RASTER_DATA.test(target) ? target : null;
   }
-  if (lower === "style" || value.includes("url(")) return safeCss(value) ? value : null;
-  return value;
+  // Every value is CSS to some reader (presentation attributes are), so every value is judged as CSS.
+  return safeCss(value) ? value : null;
 }
 
 interface Token {
@@ -242,6 +266,11 @@ class SvgWriter {
   private readonly open: Array<{ readonly lower: string; readonly name: string }> = [];
   /** How deep inside a dropped element the reader is; 0 outside one. */
   private dropping = 0;
+  /**
+   * The text of the style element open now, kept until it closes: its CSS
+   * is all of that text, however comments or CDATA cut it, so it is judged whole.
+   */
+  private css: string[] = [];
   started = false;
   done = false;
 
@@ -258,8 +287,8 @@ class SvgWriter {
 
   private text(text: string): void {
     if (!this.started || this.dropping > 0) return;
-    // CSS kb cannot vouch for is left out: its style element stays, empty.
-    if (!this.inStyle() || safeCss(text)) this.out.push(escapeText(text));
+    if (this.inStyle()) this.css.push(text);
+    else this.out.push(escapeText(text));
   }
 
   private skip(token: Token): void {
@@ -291,7 +320,18 @@ class SvgWriter {
   }
 
   closeTo(index: number): void {
-    while (this.open.length > index) this.out.push(`</${this.open.pop()?.name ?? ""}>`);
+    while (this.open.length > index) {
+      const entry = this.open.pop();
+      if (entry?.lower === "style") this.endStyle();
+      this.out.push(`</${entry?.name ?? ""}>`);
+    }
+  }
+
+  /** CSS kb cannot vouch for is left out: its style element stays, empty. */
+  private endStyle(): void {
+    const css = this.css.join("");
+    this.css = [];
+    if (safeCss(css)) this.out.push(escapeText(css));
   }
 }
 
