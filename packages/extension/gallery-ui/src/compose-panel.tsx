@@ -98,7 +98,7 @@ export function ComposePanel({
                 key={style.id}
                 type="button"
                 title="Remove from the prompt"
-                className="rounded-md bg-primary/10 px-1.5 py-0.5 text-label text-primary hover:bg-primary/20"
+                className="rounded-md bg-primary/10 px-1.5 py-0.5 text-label text-primary hover:line-through"
                 onClick={() => onRemove(style.id)}
               >
                 {style.text} ×
