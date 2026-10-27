@@ -417,14 +417,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a tokens field on design-system option nodes (layer-1 token to value, typed per token kind), a painter that writes the sheet from the node, the contracts reading the node; today's sheets become the seed's values
 - **node** — `01M5SNSPSGYCF6AKWVXQS2GJQJ`
 
-### GAP: a trusted repository extension is imported from disk after its digest is read
-
-- **expected** — The server imports exactly the bytes whose digest a person trusted.
-- **current** — discoverExtensions reads each .kb/extensions/*.ts, digests it and checks CodeTrust, then import()s the file by path, so a write between the read and the import runs code nobody trusted.
-- **impact** — Only someone who can already write the root's .kb/extensions can exploit it, and the window is small; it does not reopen the agent-chosen-root hole (that code is untrusted, so it never loads).
-- **closes** — Importing the verified source itself (a private copy written from the digested bytes, or a loader hook that serves those bytes).
-- **node** — `01M541EP41BTAVD8TJXZGNNPRW`
-
 ### GAP: a view host is placement-only, and Placement is only page
 
 - **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
@@ -1586,6 +1578,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a host shared with other users or untrusted local programs, any of them can claim to be the person: approve calls and drive the agent. Sound only where every local process is the owner's anyway (the approval floor already treats those as the owner)
 - **closes** — kb ui --listen unix:<path> (Bun.serve unix) with the socket mode 0600 and the proxy pointed at it, or a shared secret the proxy adds, with the header trusted only alongside it
 - **node** — `01M5BVQHJEDC4ZK7BX7RZWDVF8`
+
+### GAP: a trusted repository extension is imported from disk after its digest is read
+
+- **expected** — The server imports exactly the bytes whose digest a person trusted.
+- **current** — discoverExtensions reads each .kb/extensions/*.ts, digests it and checks CodeTrust, then import()s the file by path, so a write between the read and the import runs code nobody trusted.
+- **impact** — Only someone who can already write the root's .kb/extensions can exploit it, and the window is small; it does not reopen the agent-chosen-root hole (that code is untrusted, so it never loads).
+- **closes** — Importing the verified source itself (a private copy written from the digested bytes, or a loader hook that serves those bytes).
+- **node** — `01M541EP41BTAVD8TJXZGNNPRW`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 
