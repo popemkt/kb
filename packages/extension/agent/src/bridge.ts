@@ -15,6 +15,7 @@ import {
   familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
+import { agentActionsPlugin } from "./complete.ts";
 import { agentExtension } from "./extension.ts";
 import { AGENT_SYSTEM_PROMPT, screenContext } from "./prompt.ts";
 import {
@@ -315,8 +316,9 @@ function turnEnd(conversation: string, exit: Exit.Exit<unknown, unknown>): Agent
  * `kb ui` server that provides {@link UiHost}. Each turn runs on the
  * provider the agent's node selects (`sys.f.agent.provider`), read at the
  * start of the turn, or on the default adapter where none is selected; a
- * key it refers to is read through `secrets`. Anywhere else it waits,
- * pending, and does nothing.
+ * key it refers to is read through `secrets`. Its child contributes the
+ * family's actions (`ext.agent.complete`) over the same adapters and keys.
+ * Anywhere else it waits, pending, and does nothing.
  */
 export function agentPlugin(options: {
   readonly adapters: readonly AgentAdapter[];
@@ -335,6 +337,8 @@ export function agentPlugin(options: {
         };
         const bridge = new Bridge(host, backends, yield* Effect.scope);
         yield* ctx.contribute(ChannelPoint, { id: AGENT_CHANNEL_ID, value: bridge.channel });
+        // Its actions run on the same adapters and keys, where the server reaches them.
+        yield* ctx.plugin(agentActionsPlugin(backends));
       }),
   });
 }

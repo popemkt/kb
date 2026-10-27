@@ -4209,7 +4209,7 @@ The sidebar agent lives outside core, in packages that core never imports
 
 | Package            | Layer, scope       | Holds                                                                                                                                                                                                    |
 | ------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@kb/agent`        | extension, shared  | the runtime port, the adapter port, the provider nodes and the selection, the channel's protocol, the bridge plugin, the prompt, the transcript the sidebar draws, the step loop, and a scripted runtime |
+| `@kb/agent`        | extension, shared  | the runtime port, the adapter port, the provider nodes and the selection, the channel's protocol, the bridge plugin, the completion action, the prompt, the transcript the sidebar draws, the step loop, and a scripted runtime |
 | `@kb/agent-claude` | extension, backend | the `claude-agent-sdk` adapter, over the Claude Agent SDK                                                                                                                                                |
 | `@kb/agent-openai` | extension, shared  | the `openai-chat` adapter, a step over Chat Completions                                                                                                                                                  |
 
@@ -4417,6 +4417,47 @@ The sidebar agent lives outside core, in packages that core never imports
   packages only for `kb ui`. The server reports the agent in
   `kb.manifest.extensions`, and the page offers the agent's dock only
   while it is reported on ([Extension families](#extension-families)).
+- **The completion is kb's one way to ask a model for text.**
+  `ext.agent.complete {system?, message} → {text, truncated, provider}`
+  (`complete.ts`) is contributed by the bridge's child plugin
+  (`agent/actions`, in `ext.agent`), so it is a hosted action
+  ([Plugin channels](#plugin-channels) → hosted actions): every surface of
+  a `kb ui` hosting the agent lists and invokes it, and a family's action
+  reaches it through `CoreInvoke`. A process that hosts no agent has none,
+  and a caller that finds none fails by name. A family that needs a model
+  calls it by id and holds no model client of its own (it may not import
+  the agent family anyway: the family fence).
+  - It is one turn of the provider the agent's node selects, chosen by the
+    one chooser (`chooseProvider`) with the same trust, read through
+    `CoreInvoke` as the caller reads: a provider whose binding nobody
+    trusted here fails the call naming its digest, before anything runs.
+    The turn carries the caller's system prompt (a plain answerer's,
+    `COMPLETION_SYSTEM`, when it names none), the message as its text
+    alone (no screen), no tools and no `resume`, on a runtime built for
+    the call, so nothing of it outlives the call.
+  - Its mode is a read that reaches outside the root (`outsideRoot`): it
+    changes nothing in kb, and it sends what it is given to the provider's
+    endpoint, or starts the provider's process.
+    A guard may ask about it like any action; none that ships does.
+  - Every call is bounded (`COMPLETION_LIMITS`): a system prompt of at
+    most 20 000 characters and a message of at most 100 000, refused as
+    `invalid_input` past them before anything runs; the reply kept to
+    32 000 characters, where the turn is stopped and `truncated` set; and
+    the whole reply within 180 s. A provider's failure is the call's
+    `internal` failure, with its message.
+  - **The grant: no code's to call.** It declares no node it acts on
+    (`targets`), so the grant refuses it to sandboxed code whatever the
+    grant names (`grantRefusal`, [Grants](#grants-and-the-script-actor)),
+    and a call an action makes while a script's call runs is the script's
+    (`callWithin`), so code cannot reach the model through another action
+    either: a canvas run a script starts performs no model step. Trusting
+    a script changes its engine, not this. Letting code spend the person's
+    model would be a grant of its own (what it may send, and how often),
+    designed with its first need. A repository extension, once trusted, is
+    owner code and calls it as owner code calls any action; an untrusted
+    one never loads.
+  - `agent-complete.test.ts` (`@kb/cli`) holds all of it over `kb ui`,
+    with a scripted provider.
 - **The `claude-agent-sdk` adapter** (`claudeAdapter`, `@kb/agent-claude`) runs Claude Code
   through the Claude Agent SDK.
   - With nothing written on its provider, it runs under the login the
@@ -4651,8 +4692,9 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
   every one is the subject or under it, whatever the grant reads: a canvas
   verb acts on its `canvasId`, `tx.apply` on its canvas and its
   `propTargetId`, `node.update` on its node and the parent it moves it to.
-  An action that declares none (`promote`, which makes a node at the root)
-  is no code's to call. The host stamps each call with its run's grant and
+  An action that declares none (`promote`, which makes a node at the root;
+  `ext.agent.complete`, which spends the person's model) is no code's to
+  call. The host stamps each call with its run's grant and
   subject (`ActionInvocation.script`, by `answerToolCall`, never the
   guest), and the invoke core decides it (`scriptRefusal` in
   `@kb/operations`, asking `grantRefusal` with `callTargets`): one place,
