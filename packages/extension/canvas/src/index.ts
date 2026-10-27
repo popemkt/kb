@@ -331,3 +331,4 @@ export type {
   KbLinkMode,
 } from "./doc.ts";
 export { CANVAS_OPEN, CANVAS_SELECTION } from "./context.ts";
+export { nudgeItems, requireItems } from "./edit.ts";
