@@ -2,12 +2,17 @@ import type { FootprintRow } from "@kb/contracts";
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } from "@kb/runtime";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { kbManifestDef } from "@kb/operations";
 import { main } from "../src/cli.ts";
-import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
+import {
+  extensionModule,
+  writeExtension as writeUntrustedExtension,
+  writeTrustedExtension,
+} from "@kb/test-kit";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve
 // "zod" through the workspace's node_modules.
@@ -296,5 +301,83 @@ describe("kb ext footprint", () => {
     const unknown = await runCli(["--root", root, "ext", "footprint", "nope"]);
     expect(unknown.code).toBe(1);
     expect(unknown.out).toContain("no extension named nope");
+  });
+});
+
+/** `kb ext validate` as it is run: from inside the checkout it admits. */
+async function validateIn(
+  root: string,
+  ...flags: string[]
+): Promise<{ code: number; out: string }> {
+  const was = process.cwd();
+  process.chdir(root);
+  try {
+    return await runCli([...flags, "ext", "validate"]);
+  } finally {
+    process.chdir(was);
+  }
+}
+
+describe("kb ext validate", () => {
+  test("admits a root whose extensions all load, trusted or not", async () => {
+    const root = await tempRoot();
+    await mkdir(join(root, ".kb"), { recursive: true });
+    await writeUntrustedExtension(root, "hello.ts", HELLO_EXT);
+    expect(await validateIn(root)).toEqual({ code: 0, out: "kb extensions: all admitted\n" });
+  });
+
+  test("fails on a module that would be skipped, naming it, and prints each failure once", async () => {
+    const root = await tempRoot();
+    await writeUntrustedExtension(root, "hello.ts", HELLO_EXT);
+    await writeUntrustedExtension(root, "broken.ts", 'throw new Error("boom");\n');
+    const errors: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk: unknown) => {
+      errors.push(String(chunk));
+      return true;
+    };
+    try {
+      const human = await validateIn(root);
+      expect(human.code).toBe(1);
+      expect(human.out).toContain("broken.ts");
+      expect(human.out).not.toContain("hello.ts");
+    } finally {
+      process.stderr.write = write;
+    }
+    expect(errors.join("")).not.toContain("broken.ts");
+    const json = await validateIn(root, "--json");
+    expect(json.code).toBe(1);
+    const parsed = JSON.parse(json.out) as {
+      status: string;
+      id: string;
+      details: { failures: { file: string }[] };
+    };
+    expect(parsed).toMatchObject({ status: "failed", id: "ext.validate" });
+    expect(parsed.details.failures.map(({ file }) => file)).toEqual(["broken.ts"]);
+  });
+
+  test("a file kb would never discover fails the gate", async () => {
+    const root = await tempRoot();
+    await writeUntrustedExtension(root, "hello.tsx", HELLO_EXT);
+    const human = await validateIn(root);
+    expect(human.code).toBe(1);
+    expect(human.out).toContain("hello.tsx");
+  });
+
+  test("refuses a root --root names that it is not run inside, and runs none of its code", async () => {
+    const root = await tempRoot();
+    const mark = join(root, "ran");
+    await writeUntrustedExtension(
+      root,
+      "marks.ts",
+      `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(mark)}, "ran");\n${extensionModule("marks")}`,
+    );
+    const refused = await runCli(["--root", root, "--json", "ext", "validate"]);
+    expect(refused.code).toBe(1);
+    expect(JSON.parse(refused.out)).toMatchObject({ status: "failed", code: "forbidden" });
+    expect(existsSync(mark)).toBe(false);
+    // From inside it, the same root is admitted, and its code runs.
+    expect((await validateIn(root, "--root", root)).code).toBe(0);
+    expect(existsSync(mark)).toBe(true);
   });
 });

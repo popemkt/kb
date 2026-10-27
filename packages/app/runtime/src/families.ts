@@ -23,7 +23,12 @@ import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { codeTrustLayer } from "@kb/workspace-fs";
 import { deploys, governanceMode } from "./deployment.ts";
-import { importClosures, readClosures, trustedOf } from "./extension-loader.ts";
+import {
+  importClosures,
+  readClosures,
+  trustedOf,
+  type ClosedExtension,
+} from "./extension-loader.ts";
 
 export interface RootFamilies {
   readonly families: readonly LoadedExtension[];
@@ -119,26 +124,50 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   const key = [governanceMode(), root, ...trusted.map(({ closure }) => closure.digest)].join("\0");
   let composed = familiesCache.get(key);
   if (composed === undefined) {
-    composed = yield* Effect.cached(
-      importClosures(trusted).pipe(
-        Effect.map((imported) => {
-          const { extensions, failures } = admitted(imported.extensions);
-          const bundled = deployed();
-          return {
-            families: [...bundled.families, ...extensions],
-            declarations: [
-              ...bundled.declarations,
-              ...extensions.map(({ declaration }) => declaration),
-            ],
-            failures: [...imported.failures, ...failures],
-          };
-        }),
-      ),
-    );
+    composed = yield* Effect.cached(composedOf(trusted));
     familiesCache.set(key, composed);
   }
   const families = yield* composed;
   return { ...families, failures: [...read.failures, ...untrusted, ...families.failures] };
+});
+
+/**
+ * The families `closures` compose beside the deployed bundled ones: each
+ * imported (which runs its module code), decoded and folded (`admitted`).
+ * What `rootFamilies` composes from the closures a person trusted, and
+ * `vouchedFamilies` from all of them.
+ */
+const composedOf = (closures: readonly ClosedExtension[]): Effect.Effect<RootFamilies> =>
+  importClosures(closures).pipe(
+    Effect.map((imported) => {
+      const { extensions, failures } = admitted(imported.extensions);
+      const bundled = deployed();
+      return {
+        families: [...bundled.families, ...extensions],
+        declarations: [
+          ...bundled.declarations,
+          ...extensions.map(({ declaration }) => declaration),
+        ],
+        failures: [...imported.failures, ...failures],
+      };
+    }),
+  );
+
+/**
+ * The families `root` composes when every closure it holds is vouched for
+ * by the caller rather than by the root's trust record: what admission
+ * (`admitExtensions`) checks. Read fresh and cached nowhere, so a gate
+ * sees the files as they are; the trust record is neither read nor
+ * written. It imports, so runs, every extension the root holds: only a
+ * caller that would run the checkout's own code (its tests, its hooks)
+ * may ask for it.
+ */
+export const vouchedFamilies = Effect.fn("kb.vouchedFamilies")(function* (
+  root: string,
+): Effect.fn.Return<RootFamilies, never, FileSystem> {
+  const read = yield* readClosures(root);
+  const families = yield* composedOf(read.closures);
+  return { ...families, failures: [...read.failures, ...families.failures] };
 });
 
 /**

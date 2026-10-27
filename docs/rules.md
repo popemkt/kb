@@ -466,6 +466,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
 
+### GAP: admission bundles an extension's page half but never imports or decodes it
+
+- **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
+- **current** — admitExtensions bundles both halves (a page half that does not resolve or compile is refused) but imports and decodes only the server half; the page half is first imported and decoded in the browser, where a failure warns and skips.
+- **impact** — A page half that bundles but throws on import or exports a malformed page surface passes verify and silently disappears from the page.
+- **closes** — Decode the page half's exports with the page surface's decoder in admission, in a DOM-less evaluation the page SDK supports, or run admission's page half in the UI test runner.
+- **node** — `01M5ZC6V2ZAVDG9972PADX58S0`
+
 ### GAP: agent conversations live in the bridge's memory, not as nodes
 
 - **expected** — a sidebar conversation is a thread node whose messages are nodes, so it survives restarts, can be resumed, searched and linked like anything else
@@ -1015,15 +1023,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A repo cannot add a view without editing kb itself.
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
-
-### GAP: repository extensions have no fail-closed admission
-
-- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
-- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
-- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
-- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
-- **rule** — Admission gate
-- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
 
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
@@ -1988,6 +1987,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
+
+### GAP: repository extensions have no fail-closed admission
+
+- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
+- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
+- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
+- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
+- **rule** — Admission gate
+- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
 
 ### GAP: resolveTableColumns resolves table columns in one 21-branch function
 
