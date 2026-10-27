@@ -169,7 +169,7 @@ export {
   withLine,
 } from "./paths.ts";
 export type { CanvasLinePatch, CanvasMark } from "./paths.ts";
-export { isLinkNode, isLinkUrl, itemLead, linkCard, withLink } from "./links.ts";
+export { controlLead, isLinkNode, isLinkUrl, itemLead, linkCard, withLink } from "./links.ts";
 export { inClip, itemClips } from "./clip.ts";
 export type { CanvasClip, CanvasFloorPoint } from "./clip.ts";
 export type { CanvasItemLink, CanvasLinkCard, CanvasLinkNode } from "./links.ts";
@@ -206,7 +206,8 @@ export type {
 } from "./describe.ts";
 export { CANVAS_LINT_RULES, lintCanvas, lintDiff } from "./lint.ts";
 export { canvasReferences } from "./references.ts";
-export { boardOf, canvasPages, nextPageName } from "./pages.ts";
+export { boardOf, boardPages, canvasPages, nextPageName } from "./pages.ts";
+export type { BoardPage, PageLink } from "./pages.ts";
 export {
   commentWrite,
   isCommentNode,

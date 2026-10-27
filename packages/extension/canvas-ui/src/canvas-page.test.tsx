@@ -56,6 +56,14 @@ const canvasNode: OutlineNode = {
   createdAt: "2026-09-05T00:00:00.000Z",
   updatedAt: "2026-09-05T00:00:00.000Z",
 };
+/** The test canvas holding `doc`. */
+const holding = (doc: CanvasDoc): OutlineNode => ({
+  ...canvasNode,
+  props: {
+    ...canvasNode.props,
+    [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(doc) }],
+  },
+});
 
 function dispatchPointer(
   target: EventTarget,
@@ -336,14 +344,7 @@ describe("CanvasPage pointer interactions", () => {
       ],
       edges: [],
     };
-    const node: OutlineNode = {
-      ...canvasNode,
-      props: {
-        ...canvasNode.props,
-        [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
-      },
-    };
-    host.setNodes([node]);
+    host.setNodes([holding(framed)]);
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);
     });
@@ -405,14 +406,7 @@ describe("CanvasPage pointer interactions", () => {
       ],
       edges: [],
     };
-    const node: OutlineNode = {
-      ...canvasNode,
-      props: {
-        ...canvasNode.props,
-        [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
-      },
-    };
-    host.setNodes([node]);
+    host.setNodes([holding(framed)]);
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);
     });
@@ -454,14 +448,7 @@ describe("CanvasPage pointer interactions", () => {
       nodes: [{ id: "f", type: "group", label: "Ideas", x: 0, y: 0, width: 600, height: 400 }],
       edges: [],
     };
-    const node: OutlineNode = {
-      ...canvasNode,
-      props: {
-        ...canvasNode.props,
-        [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
-      },
-    };
-    host.setNodes([node]);
+    host.setNodes([holding(framed)]);
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);
     });
@@ -788,22 +775,16 @@ describe("CanvasPage pointer interactions", () => {
     });
   });
 
-  it("a linked item wears a link mark that says where it leads, and a click follows it", async () => {
-    const linked: CanvasDoc = {
+  /** The canvas page over `initialDoc` with `a` changed by `patch`, laid out 800 wide and high, while `check` runs. */
+  async function withItemA(
+    patch: Partial<CanvasDoc["nodes"][number]>,
+    check: () => void,
+  ): Promise<void> {
+    const doc = {
       ...initialDoc,
-      nodes: initialDoc.nodes.map((item) =>
-        item.id === "a" ? { ...item, link: { item: "b" } } : item,
-      ),
+      nodes: initialDoc.nodes.map((item) => (item.id === "a" ? { ...item, ...patch } : item)),
     };
-    host.setNodes([
-      {
-        ...canvasNode,
-        props: {
-          ...canvasNode.props,
-          [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(linked) }],
-        },
-      },
-    ]);
+    host.setNodes([holding(doc)]);
     const sides = ["clientWidth", "clientHeight"] as const;
     const held = sides.map((side) =>
       Object.getOwnPropertyDescriptor(dom.HTMLElement.prototype, side),
@@ -815,11 +796,7 @@ describe("CanvasPage pointer interactions", () => {
       await act(async () => {
         root.render(<CanvasPage canvasId="canvas" />);
       });
-      const marks = [...container.querySelectorAll<HTMLButtonElement>("[data-link-mark]")];
-      expect(marks.map((mark) => mark.dataset.linkMark)).toEqual(["a"]);
-      expect(marks[0]?.getAttribute("aria-label")).toBe("Shows b on this canvas");
-      act(() => marks[0]?.click());
-      expect(container.querySelector('[data-card-id="b"] [data-resize]')).not.toBeNull();
+      check();
     } finally {
       sides.forEach((side, i) => {
         const was = held[i];
@@ -827,8 +804,36 @@ describe("CanvasPage pointer interactions", () => {
         else Object.defineProperty(dom.HTMLElement.prototype, side, was);
       });
     }
+  }
+  const shownB = () => container.querySelector('[data-card-id="b"] [data-resize]');
+  it("a linked item wears a link mark that says where it leads, and a click follows it", async () => {
+    await withItemA({ link: { item: "b" } }, () => {
+      const marks = [...container.querySelectorAll<HTMLButtonElement>("[data-link-mark]")];
+      expect(marks.map((mark) => mark.dataset.linkMark)).toEqual(["a"]);
+      expect(marks[0]?.getAttribute("aria-label")).toBe("Shows b on this canvas");
+      act(() => marks[0]?.click());
+      expect(shownB()).not.toBeNull();
+    });
   });
-
+  it("a press on a locked item that leads somewhere follows it, and a modifier selects it", async () => {
+    await withItemA({ locked: true, link: { item: "b" } }, () => {
+      const cardA = present(
+        container.querySelector('[data-card-id="a"] .group\\/card'),
+        "the control",
+      );
+      const press = (init: PointerEventInit) => {
+        dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60, ...init });
+        dispatchPointer(cardA, "pointerup", { button: 0, clientX: 60, clientY: 60, ...init });
+      };
+      // A modified press selects the control, as it selects any item, and leads nowhere.
+      press({ shiftKey: true });
+      expect(shownB()).toBeNull();
+      // A plain press follows it: b is shown and selected, and nothing is written.
+      press({});
+      expect(shownB()).not.toBeNull();
+      expect(persistCanvasDoc).not.toHaveBeenCalled();
+    });
+  });
   it("a modal grab follows the pointer, and a press confirms or cancels it, reaching nothing", async () => {
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);
