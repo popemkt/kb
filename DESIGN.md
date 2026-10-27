@@ -3761,6 +3761,42 @@ store records can use it.
   black and white are kb's own ink and ground. `isLocked` is `locked`; a
   `url`, or a lone link in the words, is the item's link.
 - It takes no targets: a script cannot read files, so cannot call it.
+#### Run
+`ext.canvas.run {canvasId, from?, rounds?}` runs a canvas as a computer,
+tldraw computer's model built from kb's parts (research
+`docs/research/2026-10-28-canvas-tldraw-parity.md`, D6).
+- **Components and wires.** Every item that stands for a node and is an
+  end of an edge between two such items is a component; each such edge
+  carries the output of the one it leaves into the one it enters. `from`
+  narrows a run to one component and what its outputs reach.
+- **The engine is pure** (`@kb/canvas` `flow.ts`). `flowPlan` orders the
+  components upstream first, ties in document order. `runFlow` hands each
+  one, through a performer it is given, its inputs' latest outputs in edge
+  order (an input not yet made this run reads its node's stored output). A
+  component after one that failed or was skipped is skipped, naming it, as
+  the workflow kit's `STOP_EXECUTION`. A flow whose outputs loop back runs
+  `rounds` rounds (default 1, at most `MAX_FLOW_ROUNDS`, 8), so a loop
+  ends and spends a bounded amount; an acyclic one runs once.
+- **The node says how it performs**, each performer the family that owns
+  the work, called through the invoke core as `describe` calls the code
+  family:
+  - a node that names scripts (`sys.f.scripts`, as `ext.code.script.list`
+    lists them) runs them through `ext.code.script.run`, its node the
+    subject: the run first writes its inputs to its `input` field, and its
+    output is what they leave in its `output` field;
+  - one with no inputs is a constant, its output its words;
+  - any other is an instruction, its node's text, which the agent family
+    performs on its inputs with one tool-less turn of the selected
+    provider (`ext.agent.complete`). That action waits on hosted actions:
+    GAP [[01M53F2M2S6J3WW0Z0KR136J6A]]. Until then an instruction fails,
+    naming it, and what follows it is skipped.
+- **Outputs are fields.** Each output is written to its node's `output`
+  field (made at the first run, text) as its step ends, one write each, so
+  every step shows on the card, reads in datalog and undoes like any edit.
+  The answer is the order, the rounds, the steps performed and each
+  component's last outcome.
+- It takes no targets: a script cannot start a run, which runs scripts and
+  spends a model.
 #### Diagram
 
 `ext.canvas.diagram {query | mermaid, flow?, name?, parent?}` draws a new
@@ -4357,10 +4393,11 @@ The sidebar agent lives outside core, in packages that core never imports
     value. Choosing writes the field through the page's one write path, and
     the next turn reads it. With no field editor provided (the outline
     switched off) the strip draws nothing, and the default still runs.
-  - Not built: `ext.agent.models` (a provider's model ids, as suggestions
+  - Not built: `ext.agent.complete` (one tool-less turn, the canvas
+    run's model performer), `ext.agent.models` (a provider's model ids, as suggestions
     for `model`) and `ext.agent.check` (whether a provider can run: its
-    binary, its endpoint, its credential's reference). They are read
-    actions of a family that only `kb ui` hosts, and the server routes no
+    binary, its endpoint, its credential's reference). They are actions
+    of a family that only `kb ui` hosts, and the server routes no
     action to a hosted plugin: GAP [[01M53F2M2S6J3WW0Z0KR136J6A]].
 - **One contract, every adapter.** `agentRuntimeContract` (`@kb/agent`)
   states what the port promises once, and each adapter's tests run it with
