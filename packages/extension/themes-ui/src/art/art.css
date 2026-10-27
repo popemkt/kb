@@ -453,7 +453,12 @@
   }
 }
 
-/* The wipe: a strip leads, the dotted slanted panel sweeps across. */
+/* The wipe: a strip leads, the dotted slanted panel sweeps across, holds
+ * centred over the pane, and sweeps off it. Only `translate` moves, on a
+ * layer of its own; the slant is drawn (a mask), never a transform, so no
+ * rule here declares `transform` beside `translate`, which the build's CSS
+ * minifier would fold into one `transform` that the animation lands on top
+ * of (the panel then held off the pane and was cut off mid-sweep). */
 .kb-zzz-wipe {
   position: absolute;
   inset: 0;
@@ -461,11 +466,13 @@
 }
 
 .kb-zzz-wipe-panel {
+  /* Half the band's width measured across its slant: 72cqw wide, 16deg off upright. */
+  --kb-zzz-band: 34.6cqw;
   position: absolute;
-  top: -10%;
-  bottom: -10%;
+  inset-block: 0;
   left: 0;
-  width: 72cqw;
+  /* The band, and the run of its slant over the pane's height (tan 16deg). */
+  width: calc(72cqw + 29cqh);
   background:
     radial-gradient(
         circle,
@@ -473,10 +480,20 @@
         transparent 1.8px
       )
       0 0 / 8px 8px,
-    color-mix(in oklab, var(--chart-1) 72%, var(--background));
-  border-inline: 6px solid var(--scrim);
-  transform: skewX(-16deg);
-  translate: 135cqw 0;
+    linear-gradient(
+      106deg,
+      var(--scrim) calc(50% - var(--kb-zzz-band) + 6px),
+      color-mix(in oklab, var(--chart-1) 72%, var(--background)) 0
+        calc(50% + var(--kb-zzz-band) - 6px),
+      var(--scrim) 0
+    );
+  mask-image: linear-gradient(
+    106deg,
+    transparent calc(50% - var(--kb-zzz-band)),
+    black 0 calc(50% + var(--kb-zzz-band)),
+    transparent 0
+  );
+  translate: 100cqw 0;
   animation: kb-zzz-wipe calc(var(--motion-duration-reveal) * 2.4) linear forwards;
 }
 
@@ -500,16 +517,24 @@
   animation: kb-zzz-wipe-strip calc(var(--motion-duration-reveal) * 2.4) linear forwards;
 }
 
+/* The strip's words on a layer of their own: the strip itself is then a
+ * solid colour, which the compositor draws without rastering, and only the
+ * words' small box is rastered, once. Rastered together, the strip's first
+ * frames on the move cost a dropped frame. */
+.kb-zzz-wipe-strip span {
+  will-change: transform;
+}
+
 @keyframes kb-zzz-wipe {
   0% {
-    translate: 135cqw 0;
+    translate: 100cqw 0;
   }
   36%,
   58% {
-    translate: 14cqw 0;
+    translate: calc(50cqw - 50%) 0;
   }
   100% {
-    translate: -120cqw 0;
+    translate: -100% 0;
   }
 }
 
