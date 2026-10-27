@@ -360,8 +360,9 @@ function textBox(shape: TlRecord, words: string): { width: number; height: numbe
 }
 
 interface Lowering {
-  readonly shapes: readonly TlRecord[];
   readonly byId: ReadonlyMap<string, TlRecord>;
+  /** Each parent's shapes, by its id: a page's or a shape's. */
+  readonly children: ReadonlyMap<string, readonly TlRecord[]>;
   readonly ids: TldrawIds;
   readonly reported: string[];
   readonly records: TldrawRecordNode[];
@@ -493,7 +494,7 @@ function itemOf(shape: TlRecord, placing: Placing, low: Lowering): CanvasNode | 
 
 /** The shapes under `parentId`, in paint order: each, then what it holds. */
 function lowerChildren(parentId: string, placing: Placing, low: Lowering, out: CanvasNode[]): void {
-  const children = low.shapes.filter((s) => s.parentId === parentId).toSorted(byIndex);
+  const children = (low.children.get(parentId) ?? []).toSorted(byIndex);
   for (const shape of children) {
     const at = { x: placing.at.x + num(shape.x), y: placing.at.y + num(shape.y) };
     if (shape.type === "arrow") continue;
@@ -530,20 +531,19 @@ function pageOf(shape: TlRecord, byId: ReadonlyMap<string, TlRecord>): string {
   return up;
 }
 
-/** The arrows on `page` as edges where both ends are bound to items, lines where not. */
+/** `arrows`, one page's, as edges where both ends are bound to items (by `bindings`, each arrow's), lines where not. */
 function lowerArrows(
-  page: string,
-  bindings: readonly TlRecord[],
+  arrows: readonly TlRecord[],
+  bindings: ReadonlyMap<string, readonly TlRecord[]>,
   items: ReadonlyMap<string, CanvasNode>,
   low: Lowering,
 ): { edges: CanvasEdge[]; lines: CanvasNode[] } {
   const edges: CanvasEdge[] = [];
   const lines: CanvasNode[] = [];
-  const arrows = low.shapes.filter((s) => s.type === "arrow" && pageOf(s, low.byId) === page);
   for (const arrow of arrows.toSorted(byIndex)) {
     const props = arrow.props ?? {};
     const ends = (terminal: string) =>
-      bindings.find((b) => b.fromId === arrow.id && b.props?.terminal === terminal);
+      bindings.get(arrow.id)?.find((b) => b.props?.terminal === terminal);
     const [start, end] = [ends("start"), ends("end")];
     const from = items.get(itemIdOf(start?.toId ?? ""));
     const to = items.get(itemIdOf(end?.toId ?? ""));
@@ -616,14 +616,19 @@ export function tldrawBoard(raw: readonly unknown[], ids: TldrawIds): TldrawBoar
   const records = raw.flatMap((r) => asRecord(r) ?? []);
   const shapes = records.filter((r) => r.typeName === "shape");
   const bindings = records.filter((r) => r.typeName === "binding" && r.type === "arrow");
+  const bindingsOf = Map.groupBy(bindings, (b) => b.fromId ?? "");
   const low: Lowering = {
-    shapes,
     byId: new Map(shapes.map((s) => [s.id, s])),
+    children: Map.groupBy(shapes, (s) => s.parentId ?? ""),
     ids,
     reported: [],
     records: [],
     skipped: new Map(),
   };
+  const arrowsOn = Map.groupBy(
+    shapes.filter((s) => s.type === "arrow"),
+    (s) => pageOf(s, low.byId),
+  );
   const pages = records
     .filter((r) => r.typeName === "page")
     .toSorted(byIndex)
@@ -631,7 +636,7 @@ export function tldrawBoard(raw: readonly unknown[], ids: TldrawIds): TldrawBoar
       const nodes: CanvasNode[] = [];
       lowerChildren(page.id, { at: { x: 0, y: 0 }, frame: undefined, page: page.id }, low, nodes);
       const items = new Map(nodes.map((item) => [item.id, item]));
-      const { edges, lines } = lowerArrows(page.id, bindings, items, low);
+      const { edges, lines } = lowerArrows(arrowsOn.get(page.id) ?? [], bindingsOf, items, low);
       return { key: page.id, name: page.name ?? "", doc: { nodes: [...nodes, ...lines], edges } };
     });
   for (const [kind, count] of low.skipped) {

@@ -198,6 +198,60 @@ const NEAR = 100;
 /** How many near neighbours an item in focus is described with, nearest first. */
 const MAX_NEAR = 4;
 
+/** The side of a square of the grid near neighbours are looked up in, canvas units. */
+const CELL = 400;
+/** An item covering more squares than this is a candidate everywhere, so no item fills the grid. */
+const MAX_CELLS = 256;
+/**
+ * Who may be near an item: every item whose bounds come within {@link NEAR}
+ * of its bounds across the floor, found through a grid of squares rather
+ * than by measuring every pair, in `placed` order. A near item is within
+ * `NEAR` along every axis, so this holds all of them, and measuring only
+ * these answers what measuring every item would.
+ */
+function nearCandidates(
+  placed: readonly CanvasNode[],
+  bounds: ReadonlyMap<string, CanvasBounds>,
+): (own: CanvasBounds) => CanvasNode[] {
+  const span = (b: CanvasBounds, pad: number) => ({
+    x0: Math.floor((b.min.x - pad) / CELL),
+    x1: Math.floor((b.max.x + pad) / CELL),
+    y0: Math.floor((b.min.y - pad) / CELL),
+    y1: Math.floor((b.max.y + pad) / CELL),
+  });
+  const grid = new Map<string, number[]>();
+  const everywhere: number[] = [];
+  placed.forEach((item, i) => {
+    const b = bounds.get(item.id);
+    if (b === undefined) return;
+    const { x0, x1, y0, y1 } = span(b, 0);
+    const cells = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (!Number.isFinite(cells) || cells > MAX_CELLS) {
+      everywhere.push(i);
+      return;
+    }
+    for (let x = x0; x <= x1; x += 1) {
+      for (let y = y0; y <= y1; y += 1) {
+        const key = `${String(x)},${String(y)}`;
+        const held = grid.get(key);
+        if (held === undefined) grid.set(key, [i]);
+        else held.push(i);
+      }
+    }
+  });
+  return (own) => {
+    const found = new Set(everywhere);
+    const { x0, x1, y0, y1 } = span(own, NEAR);
+    const cells = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (!Number.isFinite(cells) || cells > MAX_CELLS) return [...placed];
+    for (let x = x0; x <= x1; x += 1) {
+      for (let y = y0; y <= y1; y += 1) {
+        for (const i of grid.get(`${String(x)},${String(y)}`) ?? []) found.add(i);
+      }
+    }
+    return [...found].toSorted((a, b) => a - b).flatMap((i) => placed[i] ?? []);
+  };
+}
 /** Each item in focus with its nearest neighbours, by a side and a gap; each pair once. */
 function nearRelations(
   items: readonly CanvasNode[],
@@ -205,13 +259,14 @@ function nearRelations(
 ): DescribedRelation[] {
   const placed = items.filter((item) => !isGroupNode(item));
   const bounds = new Map(placed.map((item) => [item.id, itemBounds(item)]));
+  const candidates = nearCandidates(placed, bounds);
   const seen = new Set<string>();
   const out: DescribedRelation[] = [];
   for (const item of placed) {
     if (!focus.has(item.id)) continue;
     const own = bounds.get(item.id);
     if (own === undefined) continue;
-    const near = placed
+    const near = candidates(own)
       .flatMap((other) => {
         const of = bounds.get(other.id);
         if (other.id === item.id || of === undefined) return [];
@@ -313,7 +368,8 @@ function edgeLook(edge: CanvasEdge) {
 /** What rests on what, what is in which frame, and what is linked: every item's, every edge's. */
 function placedRelations(doc: CanvasDoc): DescribedRelation[] {
   const membership = canvasMembership(doc.nodes);
-  const solids = doc.nodes.filter((node) => !isGroupNode(node));
+  // Only what has depth can be stood on (`restingOn`); a flat board has no solid to search.
+  const solids = doc.nodes.filter((node) => !isGroupNode(node) && canvasDepth(node) > 0);
   const relations: DescribedRelation[] = [];
   for (const node of doc.nodes) {
     const frame = membership.parentOf(node.id);

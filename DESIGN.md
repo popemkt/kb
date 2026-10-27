@@ -3797,6 +3797,18 @@ tldraw computer's model built from kb's parts (research
   component's last outcome.
 - It takes no targets: a script cannot start a run, which runs scripts and
   spends a model.
+#### Scale
+A canvas is built for 10x the owner's tldraw board (research D7): one
+board of 40 pages, 2,000 items on a page, 1,000 record cards whose nodes
+carry 10 fields, 200 pictures. `canvas-scale.test.ts` (`@kb/runtime`)
+builds that board by `ext.canvas.import` and times import, a whole-page
+commit, parse and stringify, `describe` (with the board's page graph),
+`lint`, an `edit` and reopening the store, each against a budget four to
+ten times what it measures; `bun run bench` prints the table. Whatever
+reads every item against every other item goes through an index instead:
+`describe`'s near neighbours through a grid of squares, the stood-on
+search only over items with depth, and the import's children, arrows and
+bindings by their owner.
 #### Diagram
 
 `ext.canvas.diagram {query | mermaid, flow?, name?, parent?}` draws a new
