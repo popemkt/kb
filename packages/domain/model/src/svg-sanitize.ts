@@ -101,10 +101,10 @@ const escapeText = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const escapeValue = (value: string) => escapeText(value).replaceAll('"', "&quot;");
 
-/** CSS text with its escapes read as CSS reads them: `\\75` is `u`, `\\@` is `@`, an escaped newline is nothing. */
+/** CSS text with its escapes read as CSS reads them: `\\75` is `u` (one whitespace after it, a CRLF counting as one, ends it), `\\@` is `@`, an escaped newline is nothing. */
 function decodeCss(css: string): string {
   return css.replace(
-    /\\(?:([0-9a-f]{1,6})[ \t\n\f]?|\r\n|([\s\S])|$)/gi,
+    /\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\n\r\f])?|\r\n|([\s\S])|$)/gi,
     (_, hex?: string, char?: string) => {
       if (hex !== undefined) {
         const code = Number.parseInt(hex, 16);

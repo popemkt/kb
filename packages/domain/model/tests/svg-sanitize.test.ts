@@ -22,12 +22,25 @@ function holdsNothingThatRuns(out: string): void {
   expect(out).not.toMatch(/@import/i);
 }
 
-/** `css` with each character `escape` picks written as a CSS hex escape; the vectors are ASCII, so a character is one unit. */
-const escaped = (css: string, escape: readonly boolean[]) =>
+/** What may end a CSS hex escape: any one whitespace, a CRLF counted as one. */
+const TERMINATORS = [" ", "\t", "\n", "\r", "\f", "\r\n"] as const;
+
+/**
+ * `css` with each character `escape` picks written as a CSS hex escape,
+ * each ended by the terminator `ends` picks; the vectors are ASCII, so a
+ * character is one unit.
+ */
+const escaped = (
+  css: string,
+  escape: readonly boolean[],
+  ends: readonly (typeof TERMINATORS)[number][],
+) =>
   css
     .split("")
     .map((char, at) =>
-      escape[at % escape.length] === true ? `\\${char.codePointAt(0)?.toString(16)} ` : char,
+      escape[at % escape.length] === true
+        ? `\\${char.codePointAt(0)?.toString(16)}${ends[at % ends.length] ?? " "}`
+        : char,
     )
     .join("");
 
@@ -113,6 +126,15 @@ describe("sanitizeSvg", () => {
     );
   });
 
+  test("a carriage return ends a CSS escape, alone or before a line feed", () => {
+    expect(sanitizeSvg(svg('<rect style="fill:\\75&#13;rl(https://x/p)"/>'))).toBe(svg("<rect/>"));
+    for (const end of ["&#13;", "\r", "\r\n"]) {
+      expect(sanitizeSvg(svg(`<style>.a{fill:\\75${end}rl(https://x/p)}</style>`))).toBe(
+        svg("<style></style>"),
+      );
+    }
+  });
+
   test("empties CSS that fetches a bare string through image() or src()", () => {
     expect(sanitizeSvg(svg('<style>.a{background:image("https://x/a.png")}</style>'))).toBe(
       svg("<style></style>"),
@@ -164,10 +186,15 @@ describe("sanitizeSvg", () => {
       fc.property(
         fc.constantFrom(...fetches),
         fc.array(fc.boolean(), { minLength: 1, maxLength: 16 }),
-        (css, escape) => {
-          const written = escaped(css, escape);
+        fc.array(fc.constantFrom(...TERMINATORS), { minLength: 1, maxLength: 8 }),
+        (css, escape, ends) => {
+          const written = escaped(css, escape, ends);
           expect(sanitizeSvg(svg(`<style>${written}</style>`))).toBe(svg("<style></style>"));
-          const attr = written.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+          // In an attribute, whitespace is written as a character reference, as XML keeps it.
+          const attr = written
+            .replaceAll("&", "&amp;")
+            .replaceAll('"', "&quot;")
+            .replaceAll(/[\t\n\r\f]/g, (ws) => `&#${ws.codePointAt(0)};`);
           expect(sanitizeSvg(svg(`<rect style="${attr}"/>`))).toBe(svg("<rect/>"));
         },
       ),
