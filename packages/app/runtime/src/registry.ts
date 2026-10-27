@@ -463,26 +463,37 @@ export const admitExtensions = Effect.fn("kb.admitExtensions")(function* (
         yield* registry.lifetime.retire;
         return registry.failures;
       }),
-    (exit) =>
+    (held) =>
       Effect.sync(() => {
-        process.exit = exit;
+        process.exit = held.exit;
+        process.reallyExit = held.reallyExit;
       }),
   );
 });
 
 /**
- * While admission runs code nobody trusted, `process.exit` throws instead
- * of ending the process, so a module that calls it at import fails its own
- * load rather than ending the gate with the exit code it chose. Answers the
- * `process.exit` it replaced.
+ * While admission runs code nobody trusted, `process.exit` and
+ * `process.reallyExit` (`PROCESS_EXITS`) throw instead of ending the
+ * process, so a module that calls either at import fails its own load
+ * rather than ending the gate with the exit code it chose. Answers the
+ * calls it replaced.
  */
 const refuseExit = Effect.sync(() => {
-  const exit = process.exit.bind(process);
-  process.exit = (code?: number | string | null) => {
-    throw new Error(`called process.exit(${String(code ?? "")}) while it was admitted`);
-  };
-  return exit;
+  const held = { exit: process.exit.bind(process), reallyExit: process.reallyExit.bind(process) };
+  for (const name of PROCESS_EXITS) {
+    process[name] = (code?: number | string | null) => {
+      throw new Error(`called process.${name}(${String(code ?? "")}) while it was admitted`);
+    };
+  }
+  return held;
 });
+
+/**
+ * The calls that end the process at once, each refused while admission
+ * runs (`refuseExit`): `exit`, and Bun's `reallyExit`, which `exit` itself
+ * ends in and which a module can call past it.
+ */
+const PROCESS_EXITS = ["exit", "reallyExit"] as const;
 
 /** The families a registry refuses to run without: governance, where the deployment requires it (`deploys`). */
 function requiredFamilies(): readonly string[] {

@@ -55,11 +55,14 @@ export interface ClosedExtension {
   readonly closure: DigestedClosure;
 }
 
+/** A declaration file, of any module flavour: `.d.ts`, `.d.mts`, `.d.cts`. */
+const DECLARATION = /\.d\.[cm]?ts$/;
+
 /** A server entry: `<name>.ts`, neither a declaration file nor a page entry. */
 function isServerEntry(file: string): boolean {
   return (
     file.endsWith(".ts") &&
-    !file.endsWith(".d.ts") &&
+    !DECLARATION.test(file) &&
     !PAGE_ENTRIES.some((suffix) => file.endsWith(suffix))
   );
 }
@@ -81,7 +84,7 @@ const CODE_FILE = /\.(?:[cm]?[jt]sx?)$/;
  */
 function strayCode(file: string): boolean {
   return (
-    CODE_FILE.test(file) && !file.endsWith(".d.ts") && !isServerEntry(file) && pageOf(file) === null
+    CODE_FILE.test(file) && !DECLARATION.test(file) && !isServerEntry(file) && pageOf(file) === null
   );
 }
 

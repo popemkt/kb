@@ -123,7 +123,9 @@ describe("admitting a root's repository extensions", () => {
       await writeExtension(root, file, extensionModule("hello"));
     }
     // Declarations, notes and helper directories are not code kb would run as an entry.
-    await writeExtension(root, "types.d.ts", "export {};\n");
+    for (const file of ["types.d.ts", "types.d.mts", "types.d.cts"]) {
+      await writeExtension(root, file, "export {};\n");
+    }
     await writeExtension(root, "README.md", "notes\n");
     await writeExtension(root, "lib/helper.ts", "export const helped = true;\n");
     expect((await refused()).toSorted()).toEqual([
@@ -158,6 +160,10 @@ describe("admitting a root's repository extensions", () => {
 
   test("a module that ends the process as it loads fails its own load, and the gate runs on", async () => {
     await writeExtension(root, "quits.ts", `process.exit(0);\n${extensionModule("quits")}`);
-    expect(await refused()).toEqual(["quits.ts"]);
+    await writeExtension(root, "really.ts", `process.reallyExit(0);\n${extensionModule("really")}`);
+    expect((await refused()).toSorted()).toEqual(["quits.ts", "really.ts"]);
+    // Admission gives the process its own exits back.
+    expect(process.exit.toString()).not.toContain("while it was admitted");
+    expect(process.reallyExit.toString()).not.toContain("while it was admitted");
   });
 });
