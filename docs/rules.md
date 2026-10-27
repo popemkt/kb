@@ -417,14 +417,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a tokens field on design-system option nodes (layer-1 token to value, typed per token kind), a painter that writes the sheet from the node, the contracts reading the node; today's sheets become the seed's values
 - **node** — `01M5SNSPSGYCF6AKWVXQS2GJQJ`
 
-### GAP: a trusted repository extension is imported from disk after its digest is read
-
-- **expected** — The server imports exactly the bytes whose digest a person trusted.
-- **current** — discoverExtensions reads each .kb/extensions/*.ts, digests it and checks CodeTrust, then import()s the file by path, so a write between the read and the import runs code nobody trusted.
-- **impact** — Only someone who can already write the root's .kb/extensions can exploit it, and the window is small; it does not reopen the agent-chosen-root hole (that code is untrusted, so it never loads).
-- **closes** — Importing the verified source itself (a private copy written from the digested bytes, or a loader hook that serves those bytes).
-- **node** — `01M541EP41BTAVD8TJXZGNNPRW`
-
 ### GAP: a view host is placement-only, and Placement is only page
 
 - **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
@@ -473,6 +465,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Pass the wire snapshot in and return the planned effect out, letting the store apply it — the seam the optimistic path already almost has. Lands with the outline-store split.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
+
+### GAP: admission bundles an extension's page half but never imports or decodes it
+
+- **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
+- **current** — admitExtensions bundles both halves (a page half that does not resolve or compile is refused) but imports and decodes only the server half; the page half is first imported and decoded in the browser, where a failure warns and skips.
+- **impact** — A page half that bundles but throws on import or exports a malformed page surface passes verify and silently disappears from the page.
+- **closes** — Decode the page half's exports with the page surface's decoder in admission, in a DOM-less evaluation the page SDK supports, or run admission's page half in the UI test runner.
+- **node** — `01M5ZC6V2ZAVDG9972PADX58S0`
 
 ### GAP: agent conversations live in the bridge's memory, not as nodes
 
@@ -1016,15 +1016,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
-### GAP: repository extensions have no fail-closed admission
-
-- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
-- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
-- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
-- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
-- **rule** — Admission gate
-- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
-
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -1315,14 +1306,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
 
-### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
-
-- **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.
-- **current** — svg-sanitize.ts safeCss runs per text token and tokenize never decodes CSS escapes, so fill:\75 rl(…), @\69mport, CDATA-split and comment-split @import survive.
-- **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
-- **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
-- **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
-
 ### GAP: the system seed cannot retire or rename a seeded node
 
 - **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
@@ -1578,6 +1561,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a host shared with other users or untrusted local programs, any of them can claim to be the person: approve calls and drive the agent. Sound only where every local process is the owner's anyway (the approval floor already treats those as the owner)
 - **closes** — kb ui --listen unix:<path> (Bun.serve unix) with the socket mode 0600 and the proxy pointed at it, or a shared secret the proxy adds, with the header trusted only alongside it
 - **node** — `01M5BVQHJEDC4ZK7BX7RZWDVF8`
+
+### GAP: a trusted repository extension is imported from disk after its digest is read
+
+- **expected** — The server imports exactly the bytes whose digest a person trusted.
+- **current** — discoverExtensions reads each .kb/extensions/*.ts, digests it and checks CodeTrust, then import()s the file by path, so a write between the read and the import runs code nobody trusted.
+- **impact** — Only someone who can already write the root's .kb/extensions can exploit it, and the window is small; it does not reopen the agent-chosen-root hole (that code is untrusted, so it never loads).
+- **closes** — Importing the verified source itself (a private copy written from the digested bytes, or a loader hook that serves those bytes).
+- **node** — `01M541EP41BTAVD8TJXZGNNPRW`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 
@@ -1997,6 +1988,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
 
+### GAP: repository extensions have no fail-closed admission
+
+- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
+- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
+- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
+- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
+- **rule** — Admission gate
+- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
+
 ### GAP: resolveTableColumns resolves table columns in one 21-branch function
 
 - **expected** — Column resolution splits into explicit columns, tag-derived columns and the merge between them, each named.
@@ -2283,6 +2283,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
+
+- **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.
+- **current** — svg-sanitize.ts safeCss runs per text token and tokenize never decodes CSS escapes, so fill:\75 rl(…), @\69mport, CDATA-split and comment-split @import survive.
+- **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
+- **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
+- **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
 
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 
