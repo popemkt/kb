@@ -3,26 +3,68 @@
  * A1111 rule (`composePrompt`), for one model family. The chosen styles are
  * the facet selection itself, so what the grid shows is what the prompt
  * asks for.
+ *
+ * Where the server serves the agent's completion (`ext.agent.complete`),
+ * Enhance has the person's model rewrite the composed prompt for the family
+ * (`enhancePrompt`). The rewrite is an editable prompt of its own, kept
+ * while the composition it was made from stands.
  */
-import { useState } from "react";
-import { COMPOSE_TARGETS, composePrompt, type ComposeTarget, type StyleEntry } from "@kb/gallery";
-import { cn } from "@kb/ui-sdk";
+import { type ReactNode, useState } from "react";
+import {
+  COMPOSE_TARGETS,
+  composePrompt,
+  ENHANCE_ACTION,
+  type ComposeTarget,
+  type StyleEntry,
+} from "@kb/gallery";
+import { cn, useServes } from "@kb/ui-sdk";
 import { copyText } from "./copy";
+import { enhancePrompt } from "./gallery-api";
 
-function Output({ label, text }: { readonly label: string; readonly text: string }) {
+const LINK =
+  "text-label text-foreground/55 hover:text-foreground/85 disabled:opacity-40 disabled:hover:text-foreground/55";
+
+function Head({
+  label,
+  text,
+  children,
+}: {
+  readonly label: string;
+  readonly text: string;
+  readonly children?: ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className="text-label text-foreground/45">{label}</span>
+    <div className="flex items-center justify-between">
+      <span className="text-label text-foreground/45">{label}</span>
+      <div className="flex items-center gap-3">
+        {children}
         <button
           type="button"
           disabled={text === ""}
-          className="text-label text-foreground/55 hover:text-foreground/85 disabled:opacity-40"
+          className={LINK}
           onClick={() => copyText(text, label)}
         >
           Copy
         </button>
       </div>
+    </div>
+  );
+}
+
+function Output({
+  label,
+  text,
+  children,
+}: {
+  readonly label: string;
+  readonly text: string;
+  readonly children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Head label={label} text={text}>
+        {children}
+      </Head>
       <p
         data-gallery-output={label}
         className="min-h-12 rounded-md border border-border bg-foreground/[0.03] px-2 py-1.5 text-meta break-words whitespace-pre-wrap text-foreground/80 select-text"
@@ -36,6 +78,13 @@ function Output({ label, text }: { readonly label: string; readonly text: string
 const FIELD =
   "w-full rounded-md border border-border bg-transparent px-2 py-1 text-meta text-foreground/85";
 
+/** A rewrite of one composition: the prompt and family it was made from, and its text as edited. */
+interface Enhanced {
+  readonly from: string;
+  readonly target: ComposeTarget;
+  readonly text: string;
+}
+
 export function ComposePanel({
   styles,
   onRemove,
@@ -46,8 +95,24 @@ export function ComposePanel({
   const [subject, setSubject] = useState("");
   const [negative, setNegative] = useState("");
   const [target, setTarget] = useState<ComposeTarget>("sd");
+  const [enhanced, setEnhanced] = useState<Enhanced | null>(null);
+  const [enhancing, setEnhancing] = useState(false);
+  const canEnhance = useServes(ENHANCE_ACTION);
   const reads = COMPOSE_TARGETS.find((t) => t.id === target)?.negatives ?? true;
   const composed = composePrompt(subject, negative, styles, target);
+  // A rewrite stands for the composition it was made from, and goes with it.
+  const rewrite =
+    enhanced !== null && enhanced.from === composed.positive && enhanced.target === target
+      ? enhanced
+      : null;
+  const enhance = () => {
+    const from = composed.positive;
+    setEnhancing(true);
+    void enhancePrompt(from, target).then((text) => {
+      if (text !== null) setEnhanced({ from, target, text });
+      setEnhancing(false);
+    });
+  };
   return (
     <div data-testid="gallery-compose" className="flex flex-col gap-3 p-3">
       <label className="flex flex-col gap-1">
@@ -107,7 +172,33 @@ export function ComposePanel({
           </div>
         )}
       </div>
-      <Output label="Prompt" text={composed.positive} />
+      <Output label="Prompt" text={composed.positive}>
+        {canEnhance && (
+          <button
+            type="button"
+            data-testid="gallery-enhance"
+            disabled={composed.positive === "" || enhancing}
+            title="Have your agent's model rewrite the prompt for this model family"
+            className={LINK}
+            onClick={enhance}
+          >
+            {enhancing ? "Enhancing…" : "Enhance"}
+          </button>
+        )}
+      </Output>
+      {rewrite !== null && (
+        <div className="flex flex-col gap-1">
+          <Head label="Enhanced prompt" text={rewrite.text} />
+          <textarea
+            data-gallery-output="Enhanced prompt"
+            aria-label="Enhanced prompt"
+            rows={5}
+            value={rewrite.text}
+            className={FIELD}
+            onChange={(e) => setEnhanced({ ...rewrite, text: e.target.value })}
+          />
+        </div>
+      )}
       {reads && <Output label="Negative prompt" text={composed.negative} />}
     </div>
   );

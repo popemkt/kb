@@ -3019,6 +3019,16 @@ the reasons are the research record,
   as a person pastes it: an empty subject leaves no dangling comma, and a
   part several styles add is kept once. A visual's "Use its styles" makes
   its styles the selection.
+- **Enhance asks the person's model, by id.** While the server serves the
+  agent's completion (`BrowserHost.serves("ext.agent.complete")`, so never
+  offline or with the agent off), the composed prompt has an Enhance. It
+  sends the prompt as the message and a system prompt for the family
+  (`enhanceInput`, `@kb/gallery`: an instruction-LLM's role, how that
+  family reads a prompt, whether it reads a negative, and the rewrite
+  alone as the answer), and shows the reply as an editable prompt of its
+  own, with its Copy, while the composition it was made from stands. The
+  gallery holds no model client and imports nothing of the agent family;
+  a failed completion is a toast, with its reason.
 - **Online sources keep their terms.** A link source (Pinterest, Are.na,
   Unsplash, Lexica) is its search page opened in a new tab; kb never calls
   it. An API source (Civitai, Openverse) is searched through

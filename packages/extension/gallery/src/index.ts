@@ -2,7 +2,8 @@
  * The gallery family's shared package (DESIGN.md → Extension families;
  * docs/research/2026-10-28-visual-reference-gallery.md): its ids, seed,
  * declaration and view key, the action schemas, and the pure readings both
- * hosts share: the library and its facets, prompt composition, the starter.
+ * hosts share: the library and its facets, prompt composition and the
+ * enhancer's request, the starter.
  */
 export { GALLERY_IDS, GALLERY_SOURCE_IDS } from "./ids.ts";
 export { galleryExtension, galleryPlugin } from "./extension.ts";
@@ -23,6 +24,7 @@ export {
   type Composition,
   type StyleTemplate,
 } from "./compose.ts";
+export { ENHANCE_ACTION, EnhancedSchema, enhanceInput, enhancerSystem } from "./enhance.ts";
 export {
   UNFILED,
   aspectOf,
