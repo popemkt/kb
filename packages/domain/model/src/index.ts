@@ -201,6 +201,7 @@ export {
 } from "./seed.ts";
 export { foldSeed, type FoldedSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
 export type { SeedRetirement } from "./seed-retirement.ts";
+export { themeBackdrop, themeSystem } from "./theme.ts";
 export {
   DESIGN_SYSTEM_OPTIONS,
   designSystemChoice,
@@ -211,6 +212,7 @@ export {
   declaredChoice,
   declaredIdOf,
   declaredOptionId,
+  retiredOption,
   type DeclaredOptions,
   type DeclaredRef,
   type DeclaredOptionSet,

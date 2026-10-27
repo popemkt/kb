@@ -9,6 +9,7 @@
  */
 import { firstRef } from "./node-config.ts";
 import type { KbNode, NodeId } from "./model.ts";
+import type { SeedRetirement } from "./seed-retirement.ts";
 
 /**
  * A declared thing as its declaration names it: its id, `<family>.<local
@@ -73,6 +74,16 @@ export interface DeclaredOptionSet {
 /** The option node that names the declared thing `id` among `kind`'s options. */
 export function declaredOptionId(kind: DeclaredOptions, id: string): NodeId {
   return `${kind.prefix}${id}`;
+}
+
+/**
+ * The retirement row of a declared option of `kind` renamed from the
+ * declared id `from` to `to` (DESIGN.md → Extension families → the seed
+ * retires what it renames): a value that chose the old option chooses the
+ * new one when a store is opened.
+ */
+export function retiredOption(kind: DeclaredOptions, from: string, to: string): SeedRetirement {
+  return { from: declaredOptionId(kind, from), to: declaredOptionId(kind, to) };
 }
 
 /** The declared id the option node `optionId` names among `kind`'s; none for any other id. */

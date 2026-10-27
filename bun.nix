@@ -680,8 +680,11 @@
   "@kb/store-jsonl" = copyPathToStore ./packages/infrastructure/store-jsonl;
   "@kb/store-sqlite" = copyPathToStore ./packages/infrastructure/store-sqlite;
   "@kb/test-kit" = copyPathToStore ./packages/app/test-kit;
+  "@kb/theme-art" = copyPathToStore ./packages/kit/theme-art;
   "@kb/themes" = copyPathToStore ./packages/extension/themes;
   "@kb/themes-ui" = copyPathToStore ./packages/extension/themes-ui;
+  "@kb/transistor" = copyPathToStore ./packages/extension/transistor;
+  "@kb/transistor-ui" = copyPathToStore ./packages/extension/transistor-ui;
   "@kb/tx-log" = copyPathToStore ./packages/infrastructure/tx-log;
   "@kb/ui" = copyPathToStore ./packages/app/ui;
   "@kb/ui-sdk" = copyPathToStore ./packages/kit/ui-sdk;
@@ -689,6 +692,10 @@
   "@kb/views" = copyPathToStore ./packages/domain/views;
   "@kb/webmcp" = copyPathToStore ./packages/app/webmcp;
   "@kb/workspace-fs" = copyPathToStore ./packages/infrastructure/workspace-fs;
+  "@kb/yorha" = copyPathToStore ./packages/extension/yorha;
+  "@kb/yorha-ui" = copyPathToStore ./packages/extension/yorha-ui;
+  "@kb/zzz" = copyPathToStore ./packages/extension/zzz;
+  "@kb/zzz-ui" = copyPathToStore ./packages/extension/zzz-ui;
   "@modelcontextprotocol/sdk@1.30.0" = fetchurl {
     url = "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.30.0.tgz";
     hash = "sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==";

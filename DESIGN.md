@@ -2979,7 +2979,8 @@ and it adds no field an extension author must fill in.
   - `ui`: every browser half, beside its family's tag, and the shell's;
   - one tag per optional family for the rest (`outline`, `collections`, `graph`,
     `canvas`, `lab`, `code`, `chart`, `locations`, `backdrops`, `themes`,
-    `agent`).
+    `agent`), except that the families of the whole themes (`zzz`,
+    `transistor`, `yorha`) carry `themes` too: the tag says what they are.
 
   `docs` and `check` are `core`: they are required, so every composition
   has them, and the core-only run holds them to standing on core alone.
@@ -3233,7 +3234,9 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   The graph's default perspective, `sys.lens.all-mentions` →
   `lens.all-mentions`, is the graph family's row, and ⌘K's
   `sys.cmd.preferences` → `sys.cmd.settings`, its label *Preferences*
-  retired for *Settings*, is core's. A row retires only
+  retired for *Settings*, is core's; each whole theme's family retires the
+  `themes.*` options it took over (`retiredOption`, `@kb/model`: a
+  declared option renamed, one row; DESIGN-UI.md → Design systems). A row retires only
   a reserved `sys.` id: a store's other ids are its owner's, so the fold
   refuses a row that could delete a node a person made under the same id.
   Two retired fields one replacement took over pool their values under it.

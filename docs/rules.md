@@ -518,9 +518,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: Arena runs its own GPU backdrop host beside the shared one
 
 - **expected** — Arena is BackdropParts on the shared mountBackdrop host (backdrops-ui/src/gpu, PR #36): one host for every GPU backdrop
-- **current** — arena-backdrop.tsx mounts its own scene and lifecycle (visibility, reduced motion, quality, disposal)
+- **current** — yorha-ui/src/art/arena-backdrop.tsx mounts its own scene and lifecycle (visibility, reduced motion, quality, disposal); the shared host (mountBackdrop, GpuBackdrop with its reactions, meter, playback and tint) is the backdrops family's, backdrops-ui/src/gpu, which the YoRHa family may not import
 - **impact** — two hosts to keep in step: quality, visibility and no-restart fixes land twice
-- **closes** — port arena-scene.ts onto mountBackdrop right after #36 merges and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame() (#36 removes BackdropParts.write), and Arena passes backdrop-continuity.contract.test.tsx
+- **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
 ### GAP: BrowserStore IndexedDB persistence

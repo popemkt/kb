@@ -1,0 +1,678 @@
+/*
+ * Transistor's art (ART-DIRECTION.md → Transistor; DESIGN-UI.md → Design tokens →
+ * Themes): Cloudbank under the page, Jaunt() over a pane, and the Cloudbank and OVC Terminal page heads. Every colour is a token of the design system painting the
+ * page (its chart palette is the theme's art palette), so the art follows
+ * light and dark. Everything that moves animates transform, opacity or
+ * filter on a small or short-lived element; an ambient loop's period is at
+ * least the system's `--motion-ambient-period`. Under reduced motion the
+ * global rule stops every loop, and no gesture is drawn (the last block
+ * below; the shell hides the veil).
+ */
+
+/* ── Transistor: Cloudbank ─────────────────────────────────────────────── */
+
+.kb-cloudbank-ground {
+  position: absolute;
+  inset: 0;
+}
+
+.kb-cloudbank-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      120% 55% at 50% 108%,
+      color-mix(in oklab, var(--chart-3) 22%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      70% 40% at 88% 104%,
+      color-mix(in oklab, var(--chart-5) 14%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      70% 60% at 6% -4%,
+      color-mix(in oklab, var(--chart-1) 12%, transparent),
+      transparent 70%
+    );
+}
+
+/* Mucha's halo: concentric gilt rings, faint, in the top corner. */
+.kb-cloudbank-halo {
+  position: absolute;
+  top: -18cqw;
+  right: -14cqw;
+  width: 52cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  corner-shape: round;
+  background: repeating-radial-gradient(
+    circle,
+    transparent 0 38px,
+    color-mix(in oklab, var(--chart-5) 13%, transparent) 38px 39.5px
+  );
+  mask-image: radial-gradient(closest-side, var(--foreground) 30%, transparent);
+}
+
+.kb-cloudbank-city {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 19cqh;
+  min-height: 110px;
+}
+
+.kb-cloudbank-ground .kb-cloudbank-city {
+  opacity: 0.7;
+}
+
+.kb-cloudbank-far {
+  fill: color-mix(in oklab, var(--chart-1) 12%, var(--background));
+}
+
+.kb-cloudbank-near {
+  fill: color-mix(in oklab, var(--foreground) 9%, var(--background));
+}
+
+.dark .kb-cloudbank-near {
+  fill: color-mix(in oklab, var(--scrim) 65%, var(--background));
+}
+
+.kb-cloudbank-windows rect {
+  fill: var(--chart-5);
+  opacity: 0.45;
+  transition: opacity var(--motion-duration-reveal) var(--motion-settle);
+}
+
+[data-editing] .kb-cloudbank-windows rect {
+  opacity: 0.85;
+}
+
+.kb-cloudbank-windows .kb-cloudbank-twinkle {
+  animation: kb-cloudbank-twinkle calc(var(--motion-ambient-period) * 1.4) ease-in-out infinite;
+}
+
+@keyframes kb-cloudbank-twinkle {
+  0%,
+  70%,
+  100% {
+    opacity: 0.45;
+  }
+  80% {
+    opacity: 0.08;
+  }
+  90% {
+    opacity: 0.9;
+  }
+}
+
+/* A light rail: a short streak gliding through the city, forever. */
+.kb-cloudbank-rail {
+  position: absolute;
+  left: 0;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--primary) 55%, transparent) 75%,
+    var(--primary)
+  );
+  opacity: 0.5;
+  translate: -45cqw 0;
+  animation: kb-cloudbank-rail 24s linear infinite;
+}
+
+@keyframes kb-cloudbank-rail {
+  to {
+    translate: 110cqw 0;
+  }
+}
+
+/* A function executing: one bright trail across the roofs, once. */
+.kb-cloudbank-trail {
+  position: absolute;
+  left: 0;
+  bottom: 13cqh;
+  width: 42cqw;
+  height: 2.5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--chart-3) 70%, transparent) 60%,
+    var(--primary)
+  );
+  box-shadow: 0 0 14px 1px color-mix(in oklab, var(--primary) 55%, transparent);
+  opacity: 0;
+  translate: -45cqw 0;
+  animation: kb-cloudbank-trail var(--motion-duration-arrive) var(--motion-settle) forwards;
+}
+
+@keyframes kb-cloudbank-trail {
+  10% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    translate: 105cqw 0;
+  }
+}
+
+/* Jaunt(): the Process whitewashing the frame on a page change. A sheet of
+ * Process white under a cyan cell grid crosses in steps, its edges
+ * dissolving in stepped bands. */
+.kb-jaunt {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.kb-jaunt-cells {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 150cqw;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--primary) 34%, transparent) 1px,
+        transparent 1px
+      )
+      0 0 / 16px 16px,
+    linear-gradient(color-mix(in oklab, var(--primary) 34%, transparent) 1px, transparent 1px) 0 0 /
+      16px 16px,
+    color-mix(in oklab, var(--card) 55%, white);
+  mask-image: linear-gradient(
+    to right,
+    transparent 0 4%,
+    rgb(0 0 0 / 0.3) 4% 9%,
+    rgb(0 0 0 / 0.65) 9% 14%,
+    black 14% 86%,
+    rgb(0 0 0 / 0.65) 86% 91%,
+    rgb(0 0 0 / 0.3) 91% 96%,
+    transparent 96%
+  );
+  opacity: 0.92;
+  translate: -150cqw 0;
+  animation: kb-jaunt calc(var(--motion-duration-reveal) * 1.5) steps(14, jump-none) forwards;
+}
+
+.dark .kb-jaunt-cells {
+  background-color: color-mix(in oklab, var(--foreground) 92%, var(--primary));
+}
+
+.kb-jaunt-label {
+  font-family: var(--app-font-label);
+  font-size: var(--type-title);
+  letter-spacing: var(--label-tracking);
+  font-variation-settings: var(--label-variation);
+  color: var(--foreground);
+}
+
+.dark .kb-jaunt-label {
+  color: var(--background);
+}
+
+@keyframes kb-jaunt {
+  to {
+    translate: 100cqw 0;
+  }
+}
+
+/* The Cloudbank page head. */
+.kb-header-backdrop[data-backdrop="transistor.cloudbank"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    var(--foreground) 12%,
+    var(--foreground) 88%,
+    transparent
+  );
+}
+
+.kb-cloudbank-backdrop {
+  position: absolute;
+  inset: 0;
+  mask-image: linear-gradient(to bottom, var(--foreground) 62%, transparent);
+}
+
+.kb-cloudbank-backdrop .kb-cloudbank-city {
+  height: 58%;
+  min-height: 0;
+}
+
+.kb-cloudbank-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      38% 34% at 24% 58%,
+      color-mix(in oklab, var(--chart-4) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      30% 40% at 78% 30%,
+      color-mix(in oklab, var(--chart-1) 20%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--chart-1) 16%, var(--background)) 0%,
+      color-mix(in oklab, var(--chart-3) 26%, var(--background)) 58%,
+      color-mix(in oklab, var(--chart-5) 34%, var(--background)) 80%,
+      var(--background) 100%
+    );
+}
+
+.kb-cloudbank-sun {
+  position: absolute;
+  left: 64%;
+  top: 60%;
+  width: 0;
+  height: 0;
+}
+
+.kb-cloudbank-sun::before {
+  content: "";
+  position: absolute;
+  left: -46px;
+  top: -46px;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--chart-5) 85%, var(--foreground)) 0%,
+    color-mix(in oklab, var(--chart-5) 50%, transparent) 45%,
+    transparent 70%
+  );
+}
+
+.kb-cloudbank-sun span {
+  position: absolute;
+  border-radius: 50%;
+  corner-shape: round;
+  border: 1.5px dashed color-mix(in oklab, var(--kb-head) 45%, transparent);
+  animation: kb-cloudbank-halo-turn calc(var(--motion-ambient-period) * 5) linear infinite;
+}
+
+.kb-cloudbank-sun span:nth-child(1) {
+  inset: -62px;
+}
+
+.kb-cloudbank-sun span:nth-child(2) {
+  inset: -86px;
+  border-style: solid;
+  border-width: 1px;
+  animation-direction: reverse;
+}
+
+.kb-cloudbank-sun span:nth-child(3) {
+  inset: -116px;
+  border-style: dotted;
+  border-width: 2px;
+}
+
+@keyframes kb-cloudbank-halo-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.kb-cloudbank-rail-head {
+  bottom: 30%;
+  width: 30%;
+}
+
+.kb-cloudbank-backdrop .kb-cloudbank-trail {
+  bottom: 34%;
+  width: 40%;
+}
+
+/* ── Transistor: OVC Terminal ──────────────────────────────────────────── */
+
+.kb-ovc {
+  /* The night: the hue between the sword's teal and Cloudbank's magenta,
+   * violet-blue. */
+  --kb-night: color-mix(in oklch, var(--chart-1), var(--chart-3));
+  --kb-amber: var(--chart-5);
+  /* The night fades out at the band's foot and at both its ends; the
+   * terminal stands in front of it, whole. */
+  --kb-ovc-fade:
+    linear-gradient(to bottom, var(--foreground) 60%, transparent),
+    linear-gradient(
+      to right,
+      transparent,
+      var(--foreground) 14%,
+      var(--foreground) 86%,
+      transparent
+    );
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+}
+
+.kb-ovc-night {
+  position: absolute;
+  inset: 0;
+  mask-image: var(--kb-ovc-fade);
+  mask-composite: intersect;
+  background:
+    radial-gradient(
+      40% 60% at 22% 100%,
+      color-mix(in oklab, var(--chart-4) 18%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--kb-night) 30%, var(--background)) 0%,
+      color-mix(in oklab, var(--kb-night) 12%, var(--background)) 100%
+    );
+}
+
+/* The city's lights: three tilings of amber points at unrelated pitches,
+ * so they scatter, thickening toward the horizon. */
+.kb-ovc-lights {
+  position: absolute;
+  inset: 52% 0 0;
+  background:
+    radial-gradient(circle, var(--kb-amber) 1px, transparent 1.6px) 0 0 / 31px 19px,
+    radial-gradient(
+        circle,
+        color-mix(in oklab, var(--kb-amber) 70%, var(--knob)) 1.2px,
+        transparent 1.8px
+      )
+      11px 7px / 47px 23px,
+    radial-gradient(
+        circle,
+        color-mix(in oklab, var(--chart-4) 80%, var(--kb-amber)) 1px,
+        transparent 1.5px
+      )
+      23px 3px / 71px 13px,
+    radial-gradient(
+      60% 120% at 30% 100%,
+      color-mix(in oklab, var(--kb-amber) 22%, transparent),
+      transparent 70%
+    );
+  mask-image: var(--kb-ovc-fade);
+  mask-composite: intersect;
+  opacity: 0.8;
+  animation: kb-ovc-lights var(--motion-ambient-period) ease-in-out infinite alternate;
+}
+
+@keyframes kb-ovc-lights {
+  to {
+    opacity: 0.55;
+  }
+}
+
+/* The terminal: a dark screen in a gold Deco frame with notched corners. */
+.kb-ovc-terminal {
+  position: absolute;
+  top: 36px;
+  right: 8%;
+  width: min(48%, 470px);
+  height: 116px;
+  padding: 6px;
+  border: 2px solid var(--kb-amber);
+  border-radius: 14px;
+  corner-shape: notch;
+  background: color-mix(in oklab, var(--kb-night) 14%, var(--scrim));
+  box-shadow:
+    0 0 0 4px color-mix(in oklab, var(--scrim) 80%, transparent),
+    0 10px 28px -8px color-mix(in oklab, var(--kb-amber) 45%, transparent);
+}
+
+/* The inner gold rule. */
+.kb-ovc-terminal::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid color-mix(in oklab, var(--kb-amber) 55%, transparent);
+  border-radius: 10px;
+  corner-shape: notch;
+  pointer-events: none;
+}
+
+/* A sunburst crown on the frame's top edge, between two gold rules. */
+.kb-ovc-crown {
+  position: absolute;
+  left: 50%;
+  top: -20px;
+  width: 64px;
+  height: 32px;
+  translate: -50% 0;
+  border: 2px solid var(--kb-amber);
+  border-bottom: 0;
+  border-radius: 32px 32px 0 0;
+  corner-shape: round;
+  background:
+    radial-gradient(
+      circle at 50% 100%,
+      var(--kb-head) 0 7px,
+      var(--scrim) 7.5px 10px,
+      transparent 10.5px
+    ),
+    repeating-conic-gradient(
+      from -90deg at 50% 100%,
+      var(--kb-amber) 0deg 5deg,
+      transparent 5deg 15deg
+    ),
+    var(--scrim);
+}
+
+.kb-ovc-crown::before,
+.kb-ovc-crown::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  width: 90px;
+  height: 8px;
+  border-block: 1px solid var(--kb-amber);
+}
+
+.kb-ovc-crown::before {
+  right: calc(100% + 6px);
+}
+
+.kb-ovc-crown::after {
+  left: calc(100% + 6px);
+}
+
+.kb-ovc-screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  padding: 7px 14px;
+  border-radius: 8px;
+  corner-shape: notch;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in oklab, var(--kb-amber) 6%, transparent) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      120% 90% at 30% 20%,
+      color-mix(in oklab, var(--kb-amber) 10%, transparent),
+      transparent 70%
+    );
+  color: var(--kb-amber);
+  font-family: var(--app-font-label);
+  font-size: var(--type-label);
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 6px color-mix(in oklab, var(--kb-amber) 55%, transparent);
+  filter: brightness(0.92);
+  transition: filter var(--motion-duration-enter);
+}
+
+[data-editing] .kb-ovc-screen {
+  filter: brightness(1.15);
+}
+
+.kb-ovc-screen > p {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.kb-ovc-title {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid color-mix(in oklab, var(--kb-amber) 45%, transparent);
+  letter-spacing: 0.18em;
+}
+
+.kb-ovc-lamp::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--kb-head);
+  box-shadow: 0 0 6px var(--kb-head);
+}
+
+.kb-ovc-dim {
+  opacity: 0.6;
+}
+
+.kb-ovc-tally {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The tally: ten segments, the counted ones in the head's colour. */
+.kb-ovc-bar {
+  position: relative;
+  flex: 0 1 180px;
+  height: 10px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--kb-amber) 25%, transparent) 0 calc(10% - 3px),
+    transparent calc(10% - 3px) 10%
+  );
+}
+
+.kb-ovc-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--kb-head) 0 calc(10% - 3px),
+    transparent calc(10% - 3px) 10%
+  );
+  clip-path: inset(0 calc((1 - var(--kb-tally)) * 100%) 0 0);
+  filter: drop-shadow(0 0 4px var(--kb-head));
+}
+
+.kb-ovc-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  vertical-align: -0.15em;
+  background: var(--kb-amber);
+  /* One blink rate, editing or not: a changed duration would jump the
+   * running blink. Editing lights it in the head's colour instead. */
+  animation: kb-ovc-cursor calc(var(--motion-ambient-period) / 12) steps(1, end) infinite;
+  transition: background-color var(--motion-duration-quick) var(--motion-settle);
+}
+
+[data-editing] .kb-ovc-cursor {
+  background: var(--kb-head);
+  box-shadow: 0 0 6px var(--kb-head);
+}
+
+@keyframes kb-ovc-cursor {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* A structural write: the screen redraws, a bright line passing down it. */
+.kb-ovc-refresh {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 30%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in oklab, var(--kb-amber) 35%, transparent) 80%,
+    color-mix(in oklab, var(--knob) 70%, var(--kb-amber))
+  );
+  opacity: 0;
+  animation: kb-ovc-refresh calc(var(--motion-duration-enter) * 2) steps(8, end) forwards;
+}
+
+@keyframes kb-ovc-refresh {
+  0% {
+    opacity: 1;
+    translate: 0 -100%;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 340%;
+  }
+}
+
+/* A narrow head: the terminal takes the width and its lines tighten, so it
+ * stays above the breadcrumb and the title. */
+@container (max-width: 640px) {
+  .kb-ovc-terminal {
+    top: 26px;
+    right: 4%;
+    width: 72%;
+    height: 82px;
+    padding: 4px;
+  }
+  .kb-ovc-crown {
+    top: -15px;
+    width: 46px;
+    height: 23px;
+  }
+  .kb-ovc-crown::before,
+  .kb-ovc-crown::after {
+    width: 40px;
+  }
+  .kb-ovc-screen {
+    padding: 4px 10px;
+    font-size: var(--type-micro);
+    line-height: 1.35;
+  }
+  .kb-ovc-dim {
+    display: none;
+  }
+}
+
+/* Reduced motion: the gestures drawn in the ground and the heads are all
+ * motion, so none is drawn, rather than a frame of each before the global
+ * rule lands it on its end (Lab M7). The veil is hidden by the shell. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) :is(.kb-cloudbank-trail, .kb-ovc-refresh) {
+    display: none;
+  }
+}
+
+:root:is([data-motion="reduced"], [data-motion="off"]) :is(.kb-cloudbank-trail, .kb-ovc-refresh) {
+  display: none;
+}

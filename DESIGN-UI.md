@@ -3128,9 +3128,9 @@ kb ships six; the last three are whole themes (Themes, below):
 | `kb` (default)      | core              | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                           |
 | `themes.paper`      | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
 | `themes.terminal`   | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
-| `themes.zzz`        | the themes family | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
-| `themes.transistor` | the themes family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                       |
-| `themes.yorha`      | the themes family | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night       |
+| `zzz.theme`         | the ZZZ family    | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
+| `transistor.theme`  | the Transistor family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                       |
+| `yorha.theme`       | the YoRHa family  | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night       |
 
 - **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
   beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
@@ -3195,12 +3195,39 @@ kb ships six; the last three are whole themes (Themes, below):
   Core declares its default (`KB_DESIGN_SYSTEM`, `@kb/operations`). A
   contribution whose key no declaration lists has no option, so it cannot
   be chosen.
-- **kb's other systems are a family's.** The `themes` family
+- **kb's other systems are families'.** The `themes` family
   (`@kb/themes`, `@kb/themes-ui`; optional, on by default) declares and
-  contributes Paper, Terminal, ZZZ and Transistor, and the two backdrops
-  the last two pair with. Its sheets live under its `src/design-systems/`,
-  its art under `src/art/`. Switched off, the page offers the default and
-  whatever another family contributes.
+  contributes Paper and Terminal, sheets under its `src/design-systems/`.
+  A whole theme (Themes, below) is a family of its own, one per theme:
+  `zzz` (`@kb/zzz`, `@kb/zzz-ui`), `transistor` and `yorha`, each optional
+  and on by default. Each declares its system, `<family>.theme`, and the
+  page heads it brings under their local names (`zzz.broadcast`,
+  `yorha.arena`), with `themeSystem` and `themeBackdrop` (`@kb/model`), so
+  every theme's options have one shape; its browser half holds its sheet
+  (`src/<family>.css`), its faces and its art (`src/art/`), drawn with the
+  art kit `@kb/theme-art` (`useBeat`, `useGesture`, `deferred`, `band`),
+  which knows no theme. Switched off, a family takes its systems and heads
+  and nothing else; the page offers the default and whatever another
+  family contributes.
+  - **The themes were one family's once.** ZZZ, Transistor and YoRHa were
+    the themes family's, under `themes.*` ids. Each theme family retires
+    its old ids (`retires`, `retiredOption`; DESIGN.md → Extension
+    families → the seed retires what it renames), so a store whose core
+    node chose `themes.yorha` chooses `yorha.theme` on open, and a page
+    head that chose `themes.arena` chooses `yorha.arena`.
+  - **Version skew.** `.kb/nodes.jsonl` is committed and hosts pin
+    different releases. An older build re-seeds the old option nodes (the
+    seed adds what is missing) but writes no choice: core's choice names an
+    option it does not declare, so it shows the default, as any choice
+    nobody contributes does. The next newer open retires the re-seeded
+    nodes again, and a store merged with a clone that still holds them
+    converges the same way. Alternating builds on one committed store churn
+    the file (the old nodes added, then retired); that is the cost of never
+    rewriting a choice, and it ends when every host runs a build with the
+    rows. `bundled/tests/theme-families.test.ts` holds all three cases; the
+    theme-family contract (`app/ui/src/theme-family.contract.test.ts`)
+    holds every theme family, and a test one, to its rows, its pairing and
+    switching off alone.
 - **The choice is core's setting.** Which system paints the page is a
   setting of core's node (`sys.extension.core`), since the page is core's
   and names no system. Core seeds the field, `sys.f.design-system`: it
@@ -3378,7 +3405,7 @@ above). What each of kb's themes is after, and where each idea lives, is
     and nothing else) changes no pane's path and plays nothing. A gesture
     keyed on a change never
     plays on arrival: a boot, its redirects and switching to the system are
-    not events (`useBeat` in the themes family). Typing is not a write: the
+    not events (`useBeat`, `@kb/theme-art`). Typing is not a write: the
     art leaves alone every write made while a node is edited, and the text's
     last save, which lands just after the editor closes (`useBeat`'s
     `hold`, given `editing`).
@@ -3391,7 +3418,7 @@ above). What each of kb's themes is after, and where each idea lives, is
     on a frame, reduced motion turned on midway. However fast the pages
     change, the veil draws what one change draws, one at a time: a change
     that comes while a gesture plays is merged into it, which carries on
-    rather than replaying from its start (`useGesture` in the themes family
+    rather than replaying from its start (`useGesture` in `@kb/theme-art`
     removes it on `animationend` and on a timer, whichever comes first).
   - Art paints with tokens alone (the chart palette is a theme's art
     palette), mixing in `oklab` so a colour never swings through another
@@ -3457,15 +3484,15 @@ a `#gap` node, named in the last column.
 | piece | where it lives | through kb's API | gap |
 | --- | --- | --- | --- |
 | Which theme the page shows | core's `sys.f.design-system`, a ref to the theme's option node | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Settings) | — |
-| The catalogue of themes and backdrops (ids, labels) | option nodes the seed derives from declarations (`themes/src/extension.ts`, `foldSeed`) | data, read-only by convention (`sys.*`, written with `--force`) | — |
+| The catalogue of themes and backdrops (ids, labels) | option nodes the seed derives from declarations (`<family>/src/extension.ts`, `foldSeed`) | data, read-only by convention (`sys.*`, written with `--force`) | — |
 | A theme's backdrops and its pairing | `sys.f.design-system` on each backdrop's option node; `sys.f.backdrop` on the theme's (`SeedOption.chooses`) | data: read by actions; a write changes what the head shows | — |
 | The backdrop shown, its strength and direction | `sys.f.backdrop`, `…-strength`, `…-direction` on the page's node or core's | data | — |
-| A backdrop's renderer | a component contributed through `BackdropPoint` under the declared id (`themes-ui/src/art/*-backdrop.tsx`) | code, chosen by data: the entry is data, the art a registered renderer | — (the intended split) |
-| Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `themes-ui/src/design-systems/*.css`, mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
+| A backdrop's renderer | a component contributed through `BackdropPoint` under the declared id (`<family>-ui/src/art/*-backdrop.tsx`) | code, chosen by data: the entry is data, the art a registered renderer | — (the intended split) |
+| Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `<family>-ui/src/<family>.css` (Paper's and Terminal's `themes-ui/src/design-systems/*.css`), mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
 | The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
-| Theme art: ground and veil | `themes-ui/src/art/*-art.tsx`, `art/*.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
+| Theme art: ground and veil | `<family>-ui/src/art/*-art.tsx`, `art/art.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
 | Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Faces | `@fontsource*` imports in `themes-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
+| Faces | `@fontsource*` imports in each `<family>-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
 | Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Settings shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
 | Motion keyframes and a theme's base timing | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*` | code: the options rescale and swap them, never name new ones | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens) |
 | The selected row's paint | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes) | code, and no token reaches it | `01M5SNSR9AC5V1NA31QY8DNEX6` |

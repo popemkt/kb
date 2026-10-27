@@ -32,6 +32,9 @@ import { extensionNodeId, foldSeed, type FoldedSeed, type KbNode, type NodeId } 
 import { coreExtension } from "@kb/operations";
 import { outlineExtension } from "@kb/outline";
 import { themesExtension } from "@kb/themes";
+import { transistorExtension } from "@kb/transistor";
+import { yorhaExtension } from "@kb/yorha";
+import { zzzExtension } from "@kb/zzz";
 import { derivedWith, type DerivedRef } from "@kb/query";
 
 /**
@@ -53,6 +56,9 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   locationsExtension,
   backdropsExtension,
   themesExtension,
+  zzzExtension,
+  transistorExtension,
+  yorhaExtension,
 ];
 
 /**
