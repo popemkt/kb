@@ -654,6 +654,9 @@
   "@kb/ext-check" = copyPathToStore ./packages/extension/ext-check;
   "@kb/ext-docs" = copyPathToStore ./packages/extension/ext-docs;
   "@kb/ext-sdk" = copyPathToStore ./packages/contract/ext-sdk;
+  "@kb/gallery" = copyPathToStore ./packages/extension/gallery;
+  "@kb/gallery-net" = copyPathToStore ./packages/extension/gallery-net;
+  "@kb/gallery-ui" = copyPathToStore ./packages/extension/gallery-ui;
   "@kb/governance" = copyPathToStore ./packages/extension/governance;
   "@kb/graph" = copyPathToStore ./packages/extension/graph;
   "@kb/graph-ui" = copyPathToStore ./packages/extension/graph-ui;

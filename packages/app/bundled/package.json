@@ -20,6 +20,7 @@
     "@kb/collections": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
+    "@kb/gallery": "workspace:*",
     "@kb/governance": "workspace:*",
     "@kb/graph": "workspace:*",
     "@kb/lab": "workspace:*",

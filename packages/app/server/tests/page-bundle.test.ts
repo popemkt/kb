@@ -25,8 +25,10 @@ const DATASCRIPT = /cljs\.core/;
  * The eager set's raw bytes may not pass this (1.76 MB when it was set, from
  * 2.23 MB with DataScript; raised by 10 KB for the motion options' seed
  * fields and their mode, whose painter loads lazily, as the Settings page does).
+ * And by 10 KB for the gallery family's declaration (its seed: four tags,
+ * their fields and six image sources), whose page and readings load lazily.
  */
-const EAGER_BUDGET_BYTES = 1_960_000;
+const EAGER_BUDGET_BYTES = 1_970_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

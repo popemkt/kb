@@ -147,6 +147,7 @@ describe("the families the page loads", () => {
       "zzz",
       "transistor",
       "yorha",
+      "gallery",
       "agent",
     ]);
   });
@@ -167,6 +168,7 @@ describe("the families the page loads", () => {
       "zzz",
       "transistor",
       "yorha",
+      "gallery",
     ]);
   });
 
@@ -194,6 +196,7 @@ describe("the families the page loads", () => {
       "zzz",
       "transistor",
       "yorha",
+      "gallery",
     ]);
   });
 
@@ -254,6 +257,7 @@ describe("an optional family switched off on the server", () => {
       "zzz",
       "transistor",
       "yorha",
+      "gallery",
       "agent",
     ]);
   });
