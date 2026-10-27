@@ -4184,6 +4184,20 @@ A plugin can hold its own conversation with the connections of `kb ui`
 - **No new endpoint.** Every frame rides a `/ws` socket that the request
   guard already admitted, so a channel is as reachable as the screen is,
   and no more.
+- **A hosted family's actions are its host's.** What a plugin the server
+  hosts contributes to `ActionPoint` is reached beside the registry's
+  actions. The server's kernel is the `host` entry of the runtime's
+  `FamilyKernels`, and every call the server runs reaches the registry's
+  actions and then those (`reachableActions`, `@kb/runtime`): a call over
+  any of its wires (`serverInvoke`), and a call an action makes while it
+  runs (`CoreInvoke`, which runs in the same host's runtime). `kb.manifest`
+  lists them from the same table, so the page, HTTP and the agent's tools
+  list and invoke them like any other, and the guards decide them like any
+  other. A process that hosts nothing (the CLI, `kb mcp`) reaches none, as
+  it lists no hosted family. A hosted action keeps every rule a registry
+  action keeps: an id or alias the registry holds stays the registry's, and
+  one that breaks a batch's or a context's rule is left out, each said on
+  stderr. `hosted-actions.test.ts` (`@kb/server`) holds it.
 - In the browser, `KbWsClient.listen` and `sendChannel` carry a channel. A
   frame sent while the socket is down is dropped rather than replayed,
   because the plugin forgets a connection that closes.
@@ -4295,9 +4309,9 @@ The sidebar agent lives outside core, in packages that core never imports
     switched off) the strip draws nothing, and the default still runs.
   - Not built: `ext.agent.models` (a provider's model ids, as suggestions
     for `model`) and `ext.agent.check` (whether a provider can run: its
-    binary, its endpoint, its credential's reference). They are read
-    actions of a family that only `kb ui` hosts, and the server routes no
-    action to a hosted plugin: GAP [[01M53F2M2S6J3WW0Z0KR136J6A]].
+    binary, its endpoint, its credential's reference), read actions of the
+    hosted family ([Plugin channels](#plugin-channels) → hosted actions):
+    GAP [[01M5ZF97R8ZK857GS29QGVD3EN]].
 - **One contract, every adapter.** `agentRuntimeContract` (`@kb/agent`)
   states what the port promises once, and each adapter's tests run it with
   a model double behind the adapter's own wire, so no network and no login

@@ -7,6 +7,7 @@ import {
   ExtensionCatalog,
   ExtensionFailures,
   FamilyKernels,
+  type FamilyKernel,
   type HostedFamilies,
   type ActionHandlerEnv,
   kbCtxLayer,
@@ -29,7 +30,13 @@ import {
   savedQueriesLayer,
 } from "@kb/workspace-fs";
 import { callWithin, graphWritesLayer } from "@kb/operations";
-import { invokeReceiptEffect, receiptFromError, sessionRegistry } from "./registry.ts";
+import {
+  invokeReceiptEffect,
+  reachableActions,
+  receiptFromError,
+  sessionRegistry,
+  type Registry,
+} from "./registry.ts";
 import { kbRootsLayer } from "./roots.ts";
 import { remoteScreensLayer } from "./screens.ts";
 
@@ -57,8 +64,9 @@ import { remoteScreensLayer } from "./screens.ts";
  * `hosted` is what the host composes beside the registry (the `kb ui`
  * server's agent): the extension catalog reports its rows, read at each
  * call, after the registry's families, and its kernel is one of the
- * `FamilyKernels` beside the registry's. A process that hosts nothing
- * reports none.
+ * `FamilyKernels` beside the registry's, so the actions it contributes are
+ * listed and reached with the registry's (`reachableActions`). A process
+ * that hosts nothing reports none.
  */
 export function kbRuntimeLayer(
   ctx: KbContext,
@@ -90,20 +98,14 @@ export function kbRuntimeLayer(
       ),
     ),
     Layer.effect(ExtensionFailures, registry.pipe(Effect.map(({ failures }) => failures))),
-    Layer.effect(
-      FamilyKernels,
-      registry.pipe(
-        Effect.map(({ kernel }) => [
-          { source: "registry" as const, kernel },
-          ...(hosted === undefined ? [] : [{ source: "host" as const, kernel: hosted.kernel }]),
-        ]),
-      ),
-    ),
+    Layer.effect(FamilyKernels, registry.pipe(Effect.map((held) => familyKernels(held, hosted)))),
     Layer.succeed(UntrustedEngine, quickjsEngine),
-    Layer.succeed(CoreInvoke, coreInvoke(ctx)),
+    Layer.succeed(CoreInvoke, coreInvoke(ctx, screens, hosted)),
     Layer.effect(
       ActionCatalog,
-      registry.pipe(Effect.map(({ manifestEntries }) => manifestEntries)),
+      registry.pipe(
+        Effect.map((held) => reachableActions(held, familyKernels(held, hosted)).manifestEntries),
+      ),
     ),
     // The session's guards and interceptors: a commit made under this layer
     // is put to them whoever planned it.
@@ -114,12 +116,26 @@ export function kbRuntimeLayer(
   );
 }
 
+/** The kernels a host holds families in: the registry's, then the one it hosts beside it, if any. */
+function familyKernels(registry: Registry, hosted: HostedFamilies | undefined): FamilyKernel[] {
+  return [
+    { source: "registry", kernel: registry.kernel },
+    ...(hosted === undefined ? [] : [{ source: "host" as const, kernel: hosted.kernel }]),
+  ];
+}
+
 /**
  * The invoke core on this root, for code it is already running
  * (`CoreInvoke`): within `read`, a call to an action that writes is refused
- * before the core; any other call runs through it, decided like every call.
+ * before the core; any other call runs through it, decided like every call,
+ * in the same host's runtime (its tabs' screens and what it hosts), so a
+ * call an action makes reaches what a call from outside does.
  */
-function coreInvoke(ctx: KbContext): CoreInvoker {
+function coreInvoke(
+  ctx: KbContext,
+  screens: Layer.Layer<Screens>,
+  hosted: HostedFamilies | undefined,
+): CoreInvoker {
   return (request, scope) =>
     Effect.gen(function* () {
       const invocation = callWithin(yield* CurrentCall, request);
@@ -131,7 +147,8 @@ function coreInvoke(ctx: KbContext): CoreInvoker {
         );
       }
       const registry = yield* sessionRegistry(ctx);
-      const mode = registry.byId.get(invocation.id)?.def.mode;
+      const reached = reachableActions(registry, familyKernels(registry, hosted));
+      const mode = reached.byId.get(invocation.id)?.def.mode;
       if (scope === "read" && mode !== undefined && mode.kind !== "read") {
         return failed(
           invocation.id,
@@ -139,7 +156,9 @@ function coreInvoke(ctx: KbContext): CoreInvoker {
           `${invocation.id} is a write, and a call made while reading may only read`,
         );
       }
-      return yield* invokeReceiptEffect(ctx, invocation).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+      return yield* invokeReceiptEffect(ctx, invocation).pipe(
+        Effect.provide(kbRuntimeLayer(ctx, screens, hosted)),
+      );
     }).pipe(
       Effect.provide(bunFileSystemLayer),
       Effect.catchCause((cause) =>
