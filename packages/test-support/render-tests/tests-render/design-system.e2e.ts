@@ -3,8 +3,8 @@
 // The design-system switch in a real engine. What each contributed system's
 // sheet sets is held to its contract by
 // `ui/src/design-system-point.contract.test.tsx`, which reads the CSS as data;
-// what only a browser can show is that choosing a system on the Settings
-// page paints the whole page with it. The page draws core's design-system
+// what only a browser can show is that choosing a system in Settings →
+// Appearance paints the whole page with it. The part draws core's design-system
 // field with the page's field editor, which lays it out as a gallery: a
 // card per option, each holding that system's live sample
 // (`data-option-preview`, which carries `data-theme`, so the cascade that
@@ -18,7 +18,7 @@ import { expect, test } from "./harness-test.ts";
 const TOKENS = ["--background", "--primary"] as const;
 const GALLERY = '[data-option-gallery="sys.f.design-system"]';
 
-/** The design-system field's gallery on the Settings page: its cards. */
+/** The design-system field's gallery in Settings → Appearance: its cards. */
 async function cards(page: Page) {
   const gallery = page.locator(GALLERY);
   await expect(gallery).toBeVisible();
@@ -51,7 +51,7 @@ async function paint(page: Page) {
 for (const scheme of ["light", "dark"] as const) {
   test(`every design system paints the page it is chosen for (${scheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
-    await page.goto("/settings");
+    await page.goto("/settings/appearance");
     const ids = await (
       await cards(page)
     ).evaluateAll((rows) =>

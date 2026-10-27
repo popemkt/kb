@@ -28,7 +28,7 @@ test.beforeEach(async ({ page }) => {
   page.on("pageerror", (error) => errors.push(error.message));
   // The lab is an optional extension: switch it on the way a user does, in
   // Settings' Extensions, and wait for the server to report it loaded.
-  await page.goto("/extensions");
+  await page.goto("/settings/extensions");
   const lab = page.getByTestId("extension-lab");
   await lab.getByTestId("switch-lab").selectOption("on");
   await expect(lab.getByText("off: contributes nothing", { exact: true })).toHaveCount(0);
