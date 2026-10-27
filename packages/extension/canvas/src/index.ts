@@ -333,3 +333,11 @@ export type {
 export { CANVAS_OPEN, CANVAS_SELECTION } from "./context.ts";
 export { editCanvas, landItems, nudgeItems, patchItem, requireItems, takeItems } from "./edit.ts";
 export type { CanvasEdit, CanvasItemPatch, CanvasTaken } from "./edit.ts";
+export { tldrawBoard, tldrawKeys, tldrawText } from "./tldraw.ts";
+export type {
+  TldrawBoard,
+  TldrawIds,
+  TldrawPage,
+  TldrawRecordNode,
+  TldrawValue,
+} from "./tldraw.ts";
