@@ -5,6 +5,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  controlLead,
   isLinkNode,
   itemLead,
   linkCard,
@@ -51,5 +52,18 @@ describe("a link item", () => {
     expect(itemLead({ id: "t", type: "text", text: "t", x: 0, y: 0, width: 9, height: 9 })).toBe(
       undefined,
     );
+  });
+  test("is a control when it is locked: a press on it follows it", () => {
+    const badge = { id: "t", type: "text", text: "↘", x: 0, y: 0, width: 9, height: 9 };
+    expect(controlLead({ ...badge, locked: true, link: { node: "p", item: "i" } })).toEqual({
+      node: "p",
+      item: "i",
+    });
+    expect(controlLead(link("https://kb.test/a", { locked: true }))).toEqual({
+      url: "https://kb.test/a",
+    });
+    // Unlocked, a press selects and moves it; locked with nowhere to go, it is only held.
+    expect(controlLead({ ...badge, link: { node: "p" } })).toBeUndefined();
+    expect(controlLead({ ...badge, locked: true })).toBeUndefined();
   });
 });

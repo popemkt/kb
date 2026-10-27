@@ -328,6 +328,65 @@ describe("links on items", () => {
   });
 });
 
+describe("a drill-down across a board's pages", () => {
+  test("describe answers the page graph: each page's ways out, and the pages that lead in", async () => {
+    const ctx = await canvasKb();
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Overview / Gaps", id: "n.gaps", tags: ["canvas"], parent: "n.canvas" },
+    });
+    // A drill badge on the board, locked as a control, and a back badge on the page.
+    output(
+      await invoke(
+        ctx,
+        verb("place", {
+          items: [
+            {
+              make: { id: "drill", text: "↘", link: { node: "n.gaps", item: "back" } },
+              at: { x: 0, y: 0 },
+            },
+          ],
+        }),
+      ),
+    );
+    const before = output(await invoke(ctx, verb("describe", {})));
+    expect(before.pages).toEqual([
+      {
+        id: "n.canvas",
+        name: "Board",
+        links: [{ item: "drill", to: "n.gaps", focus: "back" }],
+        from: [],
+      },
+      { id: "n.gaps", name: "Overview / Gaps", links: [], from: ["n.canvas"] },
+    ]);
+    output(
+      await invoke(ctx, {
+        id: "ext.canvas.place",
+        input: {
+          canvasId: "n.gaps",
+          items: [
+            {
+              make: { id: "back", text: "‹ Overview", link: { node: "n.canvas" } },
+              at: { x: 0, y: 0 },
+            },
+          ],
+        },
+      }),
+    );
+    const after = output(
+      await invoke(ctx, { id: "ext.canvas.describe", input: { canvasId: "n.gaps" } }),
+    );
+    // Every page that drills in now has its back badge: the convention is a read of pages.
+    const pages = after.pages as { id: string; links: { to: string }[]; from: string[] }[];
+    for (const page of pages) {
+      for (const referrer of page.from) {
+        expect(page.links.map((link) => link.to)).toContain(referrer);
+      }
+    }
+    expect(after.lints).toEqual([]);
+  });
+});
+
 describe("ext.canvas.describe and lint", () => {
   test("a canvas told in words: kinds, words, boxes, relations; no tab, so every item in full", async () => {
     const ctx = await canvasKb([

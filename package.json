@@ -95,7 +95,7 @@
     "test:render": "bun run --filter @kb/render-tests test:render",
     "test:dst": "bun packages/app/test-kit/tests/run-many.ts 25",
     "test:mutation": "bun harness/src/mutation.ts",
-    "bench": "KB_BENCH=1 bun test packages/infrastructure/store-jsonl/tests/benchmark.test.ts packages/app/runtime/tests/interception.benchmark.test.ts packages/domain/query/tests/read-set.benchmark.test.ts",
+    "bench": "KB_BENCH=1 bun test packages/infrastructure/store-jsonl/tests/benchmark.test.ts packages/app/runtime/tests/interception.benchmark.test.ts packages/app/runtime/tests/canvas-scale.test.ts packages/domain/query/tests/read-set.benchmark.test.ts",
     "lint": "oxlint --config .oxlintrc.json --type-aware --report-unused-disable-directives-severity=error packages harness vite.config.ts",
     "fmt": "vp fmt packages harness",
     "fmt:check": "vp fmt packages harness --check",

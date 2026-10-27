@@ -216,6 +216,36 @@ export const readableQueryEffect = Effect.fn("ext.canvas.readableQuery")(
   },
 );
 
+/** What a canvas write needs: the kb it reads and the store it commits to. */
+export type CanvasWriteEnv = KbCtx | KbStore | FileSystem;
+
+/**
+ * The `#canvas` node `host` holding the document `docStr`, stamped `at`:
+ * the prop replaced, not appended, since a canvas holds one current
+ * document. How every canvas write writes a document.
+ */
+function holding(host: KbNode, docStr: string, at: string): KbNode {
+  const canvas = cloneNode(host);
+  canvas.props[CANVAS_IDS.canvasField] = [{ t: "str", v: docStr }];
+  canvas.updatedAt = at;
+  return canvas;
+}
+
+/**
+ * The `#canvas` node `canvasId` as it is to be stored holding `doc`, for a
+ * write that changes a second canvas beside its own (its `also`): refused
+ * when the node is not a canvas a write may take.
+ */
+export const canvasWithDocEffect = Effect.fn("ext.canvas.withDoc")(function* (
+  canvasId: string,
+  doc: CanvasDoc,
+): Effect.fn.Return<(at: string) => KbNode, CanvasFail, KbCtx> {
+  const ctx = yield* KbCtx;
+  const host = yield* canvasStep(() => assertCanvasHost(ctx, canvasId));
+  const docStr = stringifyCanvasDoc(doc);
+  return (at: string) => holding(host, docStr, at);
+});
+
 /** What one canvas write commits: the document, and the other nodes the same act changes. */
 export interface CanvasWrite {
   readonly canvasId: string;
@@ -249,10 +279,7 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
   // One stamp per transaction, from the Clock the store's replay overrides.
   const at = yield* currentIso;
   const host = yield* canvasStep(() => assertCanvasHost(ctx, write.canvasId));
-  const canvas = cloneNode(host);
-  // Replace (not append) the canvas JSON prop — single current document.
-  canvas.props[CANVAS_IDS.canvasField] = [{ t: "str", v: docStr }];
-  canvas.updatedAt = at;
+  const canvas = holding(host, docStr, at);
   const also = yield* canvasStep(() => write.also?.(at) ?? []);
   // Each document is linted in the kb it stands in: the one before the write, and the one it leaves.
   const before = lintCanvas(
