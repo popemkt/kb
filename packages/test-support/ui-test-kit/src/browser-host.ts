@@ -64,6 +64,7 @@ const PREFS: Prefs = {
   theme: "light",
   width: "centered",
   sidebarOpen: true,
+  settingsFolds: {},
 };
 /** The graph state this host stands at: home, unscoped, with no replica of its own. */
 const AT_HOME: PageGraphState = {

@@ -199,9 +199,9 @@ describe("palette command routing (characterization)", () => {
     expect(window.location.pathname).toBe("/");
   });
 
-  it("extensions opens the Extensions panel", async () => {
+  it("Settings: Extensions opens Settings' Extensions part", async () => {
     await run(SYSTEM_IDS.cmdExtensions);
-    expect(window.location.pathname).toBe("/extensions");
+    expect(window.location.pathname).toBe("/settings/extensions");
   });
 
   it("settings opens the Settings page", async () => {

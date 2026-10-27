@@ -2647,7 +2647,7 @@ There is one mechanism, not a second path beside the core plugins:
   resolver has. Until a server answers, the page reads the bundled list as
   a server over a store with no switch written, so each family is as it is
   by default and no agent is reported.
-- The Extensions panel ([Extensions panel](#extensions-panel)) has one
+- Settings' Extensions part ([Settings](#settings)) has one
   on/off switch per optional extension the server reports, showing what it
   reports. Choosing calls
   `extension.switch` and reads the manifest again; the switch shows the
@@ -2657,8 +2657,8 @@ There is one mechanism, not a second path beside the core plugins:
 - **The `enabledPlugins` preference is gone.** It used to keep the lab and
   the agent on per device, in `localStorage["kb-prefs"]`; a stale key is
   ignored on read and dropped on the next write. A browser that had the
-  lab on sees it off until it is switched on for the kb, from the
-  Extensions panel or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
+  lab on sees it off until it is switched on for the kb, from Settings'
+  Extensions or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
   The agent needs nothing: it is on by default, and switched like the rest.
 - **Until a server answers, the workspace waits.** A page served by `kb ui`
   opens its workspace only once the manifest has landed and the plugins it
@@ -2677,97 +2677,111 @@ There is one mechanism, not a second path beside the core plugins:
   views are listed by the server's entries and open as "cannot be shown
   here". An entry the server does not report is never loaded.
 
-### Extensions panel
-
-The Extensions panel (`/extensions`, `ExtensionsView`) is where a person
-sees and changes what the kb composes. The sidebar's Extensions row and
-⌘K's Extensions command open it. What the extensions' settings are set
-to is the [Settings](#settings) page's; the panel names them and leads
-there.
-
-- **It draws one report.** The server's half is `extension.list`, which is
-  also what `kb ext list` prints, and `extension.footprint`
-  ([DESIGN → Plugin organisation](DESIGN.md#plugin-organisation--tags-and-derived-dependencies)).
-  The page's own kernel is joined in through the same readers
-  (`organisationOf`, `orderedPoints`, `pageFootprint`). The panel computes
-  nothing a CLI caller could not read (`lib/extension-report.ts`). When
-  either action fails, or the server cannot be asked, the panel says why in
-  place of the report and offers to ask again. It never draws a half it
-  could not read as an empty one.
-- **Per extension**, it shows:
-  - its switch when it is optional, which calls `extension.switch` and then
-    shows what the server reports; otherwise `required`;
-  - its trust: part of kb's build, composed by `kb ui`, or trusted at a
-    digest from a repository path;
-  - its tags;
-  - what it contributed to each point, server and page side by side, and
-    how many nodes it seeds;
-  - what it injects and from whom, and what it provides;
-  - which settings it has, by label, and the way to Settings;
-  - why a plugin of it failed, on the server or in the page. A page half
-    the page could not import counts, because `loadEntry` loads it as a
-    plugin of the family's name that fails with why. A failure is tried
-    again at the next convergence, and the same failure is the same value,
-    so a dropped chunk recovers without a reload and nothing moves while
-    it keeps failing.
-- **Settings are fields.** A family's settings are the fields whose
-  `sys.f.configures` names its node, as `settingsOf` reads them (DESIGN.md
-  → Extension families → configuration). The card names them and links to
-  the Settings page, which draws them; the panel reports what a family is,
-  and choosing among its settings is not reporting. The switch is the one
-  setting the card draws as its own control, because it goes through the
-  checked `extension.switch` and its effect is what this panel reports.
-- **Above the extensions**, the panel lists:
-  - the points whose listeners are asked in turn (identity providers,
-    interceptors, guards), per kernel and in that order;
-  - the repository extensions refused, where an untrusted one names its
-    digest.
-
 ### Settings
 
-The Settings page (`/settings`, `SettingsView`) is every choice the kb
-makes, and the few this device makes. The header's gear
-(`SettingsTrigger`, `@kb/ui-sdk`; the graph's and the lab's headers render
-the same one) and ⌘K's Settings (`sys.cmd.settings`) open it in the
-focused pane. It replaced the Preferences popover, which overflowed a
-short window, showed a setting's stored value beside the value in force,
-and drew core's settings only.
+The Settings page is every choice the kb makes, the few this device makes,
+and each extension's switch. The header's gear (`SettingsTrigger`,
+`@kb/ui-sdk`; the graph's and the lab's headers render the same one), the
+sidebar's Settings row and ⌘K's *Settings* (`sys.cmd.settings`) open it in
+the focused pane; ⌘K's *Settings: Extensions* (`sys.cmd.extensions`) opens
+its Extensions part. It replaced the Preferences popover, which overflowed
+a short window and drew core's settings only, and the Extensions page,
+which drew each switch apart from the settings. The record of why is
+`docs/research/2026-10-27-settings-parts.md`.
 
-- **This device first.** Light, dark or system, and the width: the
-  device's (`kb-prefs`), never the graph's, and the section says so. They
-  stay device preferences for the reasons under Design systems.
-- **Then one section per extension node** under `sys.extensions` that has
-  a setting, in that list's order, read from the whole graph (the schema,
-  never a scoped projection), each listing exactly what `settingsOf`
-  reads for its node, each drawn with the page's field editor under its
-  label (`[data-setting]` in `[data-settings-section]`). The same reader
-  answers `extension.settings`, so the page shows what `kb ext settings`
-  lists, and a setting a family adds is on the page with nothing to update.
-- **Core's section is grouped** — theme, page head, motion, effects — as
-  the page's arrangement of core's node. Each motion setting notes the
-  value in force and where it comes from (set here, the shown theme's
-  preset, the default), and a page-head setting core's node leaves unset
-  notes what the head shows instead; an unset row says _unset here_ first,
-  since its field shows nothing stored (an unset checkbox reads as off)
-  while a value applies. _Reset motion to <theme>_ clears every motion
-  setting of core's. Effects are labelled in words (`hoverLift` is _hover
-  lift_). A core setting no group names is drawn under _other_,
-  so none is left off. The backdrop's direction is drawn whatever the
-  backdrop, because the page draws every setting it lists, and notes when
-  the shown backdrop faces no way.
-- **The theme is a gallery** because its kind previews at card size
-  ([Field values → option galleries](#field-values-one-slot-grammar)); the
-  page asks for nothing.
-- **Another extension's section** is its settings and the way to the
-  Extensions panel, where it is switched: the switch is a load decision,
-  whose effect that panel reports, so it stays there.
-- **The contract** (`components/prefs/settings-page.test.tsx`): over
-  the bundled seed, the rows the page draws are exactly the settings
-  `settingsOf` reads for every extension node, each in its own section,
-  each one field row; the device's rows write `kb-prefs` and nothing in
-  the graph; the motion notes, the page-head _unset here_ note, the
-  _other_ group and the motion reset each have a case. The design-system and backdrop contracts choose through the
-  page, the design system by a card of its gallery.
+- **Four parts, each a path.** `SettingsView`'s one param is the part
+  (`SETTINGS_PARTS`, `@kb/views`): *General* at `/settings`, *Appearance*,
+  *Extensions* and *Advanced* at `/settings/<part>`
+  (`lib/settings-parts.ts`). A rail names the parts (a row above the page
+  in a narrow window), and the part is the path, so a part is linked to
+  and history moves between parts. The paths the page had before lead to
+  their part, `/extensions` to Extensions and `/preferences` to
+  Appearance, and the page then replaces the path with the part's own.
+  The Extensions view key is retired for Settings' in the seed's table,
+  so a view node that named it opens Settings.
+- **A part is a list of sections, each a fold.** A section's heading is a
+  button (`aria-expanded`), so Enter or Space toggles it and a screen
+  reader says whether it is open. Which sections a person opened or closed
+  is this device's (`kb-prefs`' `settingsFolds`, by section id), kept as a
+  difference from how each opens by default, so a reload keeps it.
+- **The filter** reads across every part. With text in it, the page shows
+  each part's sections whose title, or any of whose rows, match, under
+  the part's name, each open whatever was remembered: a section whose
+  title matches whole, any other with only its matching rows. Escape
+  clears it.
+- **General** holds this device's width and sidebar (`kb-prefs`, never
+  the graph, and the section says so), then any setting of core's that
+  Appearance does not group, under *Other settings*, so none is left off.
+- **Appearance** holds light, dark or system (this device's, for the
+  reasons under Design systems), then core's settings in the page's
+  arrangement of core's node: *Theme*, *Page head*, *Motion*, *Effects*.
+  Each motion setting notes the value in force and where it comes from
+  (set here, the shown theme's preset, the default), and a page-head
+  setting core's node leaves unset notes what the head shows instead; an
+  unset row says _unset here_ first, since its field shows nothing stored
+  (an unset checkbox reads as off) while a value applies. _Reset motion to
+  <theme>_ clears every motion setting of core's. Effects are labelled in
+  words (`hoverLift` is _hover lift_) and drawn as a grid. The backdrop's
+  direction is drawn whatever the backdrop, and notes when the shown
+  backdrop faces no way. The theme is a gallery because its kind previews
+  at card size ([Field values → option galleries](#field-values-one-slot-grammar));
+  the page asks for nothing.
+- **Extensions** holds one section per extension node under
+  `sys.extensions`, in that list's order, read from the whole graph (the
+  schema, never a scoped projection), then any the server reports with
+  no node. Its heading carries the extension's switch when it is
+  optional, which calls `extension.switch` and then shows what the server
+  reports (never the choice), with _off: contributes nothing_ beside it;
+  otherwise _required_. The switch is a load decision: switched off, the
+  extension's actions, views and MCP tools leave, which the part's lede
+  says. Under the heading are its settings, exactly what `settingsOf`
+  reads for its node, each drawn with the page's field editor; core's
+  section says its settings are in Appearance and General instead. Then
+  why any of its plugins failed, on the server or in the page, and a fold,
+  _What it composes_, closed by default:
+  - its trust: part of kb's build, composed by `kb ui`, or trusted at a
+    digest from a repository path, and its tags;
+  - what it contributed to each point, server and page side by side, and
+    how many nodes it seeds;
+  - what it injects and from whom, and what it provides.
+- **Advanced** holds the points whose listeners are asked in turn
+  (identity providers, interceptors, guards), per kernel and in that
+  order; the repository extensions refused, where an untrusted one names
+  its digest; and how the CLI reaches the same settings.
+- **One report.** The server's half is `extension.list`, which is also
+  what `kb ext list` prints, and `extension.footprint`
+  ([DESIGN → Plugin organisation](DESIGN.md#plugin-organisation--tags-and-derived-dependencies)).
+  The page's own kernel is joined in through the same readers
+  (`organisationOf`, `orderedPoints`, `pageFootprint`), so the page
+  computes nothing a CLI caller could not read (`lib/extension-report.ts`).
+  When either action fails, or the server cannot be asked, Extensions and
+  Advanced say why and offer to ask again; an extension's settings stay,
+  read from the graph, and its switch and what it composes are not drawn,
+  never a half it could not read as an empty one. A failure is tried
+  again at the next convergence, and the same failure is the same value,
+  so a dropped chunk recovers without a reload and nothing moves while it
+  keeps failing. A page half the page could not import counts as a
+  failure, because `loadEntry` loads it as a plugin of the family's name
+  that fails with why.
+- **Settings are fields.** A family's settings are the fields whose
+  `sys.f.configures` names its node, as `settingsOf` reads them (DESIGN.md
+  → Extension families → configuration). The same reader answers
+  `extension.settings`, so the page shows what `kb ext settings` lists,
+  and a setting a family adds is on the page with nothing to update. The
+  switch is the one setting drawn as its own control, because it goes
+  through the checked `extension.switch`.
+- **The contracts.** `components/prefs/settings-page.test.tsx`: over the
+  bundled seed, the rows the page draws across its parts are exactly the
+  settings `settingsOf` reads for every extension node, each once and for
+  that node (`[data-setting]` with `[data-setting-of]`), each one field
+  row; the device's rows write `kb-prefs` and nothing in the graph; the
+  motion notes, the page-head _unset here_ note, General's _Other
+  settings_, the motion reset, a fold remembered on this device, the
+  filter and the former paths each have a case.
+  `components/prefs/settings-extensions.acceptance.test.tsx` drives the
+  Extensions and Advanced parts through the real App. The design-system
+  and backdrop contracts choose through Appearance, the design system by
+  a card of its gallery.
 - The page's body loads when it is first opened, not with the shell.
 
 ### Extension UI halves
@@ -2785,7 +2799,7 @@ the shell.
   - `syncUiPlugins` converges the page kernel on the core plugins, plus the
     browser entry of every family `kb.manifest.extensions` reports as
     enabled that the resolver has.
-  - The Extensions panel's switch for an optional family writes the
+  - Settings' switch for an optional family writes the
     server-side setting, and the page follows the manifest. A page served without a
     family therefore never offers that family's UI.
 - **One `load` shape for every source.** A bundled family's `load` is a

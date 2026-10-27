@@ -2949,8 +2949,8 @@ and it adds no field an extension author must fill in.
   injects and from whom (`nobody yet` while it is missing), what it
   provides and why a plugin of it failed, over every kernel the host holds
   families in (`organisationOf`, `@kb/contracts`). It is the one report:
-  `kb ext list` prints it, MCP serves it, and the page's Extensions panel
-  draws it (DESIGN-UI.md → Extensions panel).
+  `kb ext list` prints it, MCP serves it, and the page's Settings draws it
+  (DESIGN-UI.md → Settings).
 - **The direction rule is a harness check over kb's own compositions, not
   a load-time rule.** `TAG_ALLOWS` in `harness/src/constraints.ts` has the
   shape of `LAYER_ALLOWS`, over plugin tags: `core` depends only on `core`,
@@ -3075,7 +3075,7 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     report, so switching the agent takes effect live and switching it back
     restores it. There is no flag: `kb ui` always hands the agent over,
     and the store says whether it is hosted. A family the host composes is
-    switched where that host runs (the page's Extensions panel, or a call to
+    switched where that host runs (the page's Settings, or a call to
     the `kb ui` server); a process that composes no agent does not list it.
   - **The data stays.** Switching a family writes only its switch node: its
     nodes and its seed are untouched, and a view of it opens as

@@ -16,8 +16,8 @@ import { useUiStore } from "@/stores/ui.store";
 import { transitionTheme } from "@/lib/theme-transition";
 
 /**
- * Device-level preferences (DESIGN-RESKIN §1.7): theme / width and the
- * sidebar.
+ * Device-level preferences (DESIGN-RESKIN §1.7): theme / width, the
+ * sidebar, and which Settings sections are open.
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
@@ -50,6 +50,7 @@ export const DEFAULT_PREFS: Prefs = {
   theme: "system",
   width: "centered",
   sidebarOpen: true,
+  settingsFolds: {},
 };
 
 /**
@@ -60,6 +61,7 @@ const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
+  settingsFolds: z.record(z.string(), z.boolean()).catch(DEFAULT_PREFS.settingsFolds).optional(),
 });
 
 /** The persisted preferences out of anything that carries them (the store state). */
@@ -68,6 +70,7 @@ function prefsOf(source: Prefs): Prefs {
     theme: source.theme,
     width: source.width,
     sidebarOpen: source.sidebarOpen,
+    settingsFolds: source.settingsFolds,
   };
 }
 
@@ -87,6 +90,7 @@ export function loadPrefs(
     return {
       ...parsed.data,
       sidebarOpen: parsed.data.sidebarOpen ?? defaultSidebarOpen(viewportWidth),
+      settingsFolds: parsed.data.settingsFolds ?? DEFAULT_PREFS.settingsFolds,
     };
   } catch {
     return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
@@ -142,6 +146,8 @@ interface PrefsState extends Prefs {
   setWidth: (width: WidthPref) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  /** Remember Settings section `id` open or closed on this device. */
+  setSettingsFold: (id: string, open: boolean) => void;
 }
 
 export const usePrefsStore = create<PrefsState>((set, get) => {
@@ -164,6 +170,8 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     setWidth: (width) => commit({ width }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
+    setSettingsFold: (id, open) =>
+      commit({ settingsFolds: { ...get().settingsFolds, [id]: open } }),
   };
 });
 

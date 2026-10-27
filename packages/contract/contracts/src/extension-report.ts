@@ -1,7 +1,7 @@
 /**
  * The extension report (`extension.list`; DESIGN.md → Plugin organisation):
  * every extension a host composes, as `kb ext list` prints it and the
- * page's Extensions panel draws it. Each row is the catalog's row
+ * page's Settings draws it. Each row is the catalog's row
  * ({@link ExtensionRowSchema}) with how its plugins sit among the others in
  * every kernel the host holds families in: their tags, each service they
  * inject and who provides it, what they provide, and why any of them

@@ -367,7 +367,7 @@ describe("every contributed page-head backdrop", () => {
       container = document.createElement("div");
       document.body.appendChild(container);
       root = createRoot(container);
-      act(() => root.render(createElement(SettingsPage)));
+      act(() => root.render(createElement(SettingsPage, { part: "appearance" })));
     });
     afterAll(() => {
       act(() => root.unmount());
@@ -375,7 +375,7 @@ describe("every contributed page-head backdrop", () => {
     });
 
     const rows = () => {
-      const group = container.querySelector('[role="group"][aria-label="page head"]');
+      const group = container.querySelector('[data-settings-section="page-head"]');
       if (group === null) throw new Error("Settings draws no backdrop settings");
       return group;
     };

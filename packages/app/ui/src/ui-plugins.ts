@@ -63,7 +63,6 @@ import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
-import { extensionsUiPlugin } from "@/components/prefs/extensions-plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import * as uiSdk from "@kb/ui-sdk";
 import { logWarn, syncUiPlugins } from "@kb/ui-sdk";
@@ -84,7 +83,6 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   browserHostUiPlugin,
   designSystemsUiPlugin,
   ontologyUiPlugin,
-  extensionsUiPlugin,
   settingsUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,
@@ -254,7 +252,7 @@ const unloadables = new Map<string, Plugin>();
  * A family's browser entry the page could not have: a plugin of the
  * family's name whose `apply` fails with why, so the kernel holds the
  * failure as it holds any plugin's, and every reader of the kernel (the
- * Extensions panel's `organisationOf`, its log) sees it.
+ * Settings' Extensions part's `organisationOf`, its log) sees it.
  */
 function unloadable(key: string, name: string, why: string): Plugin {
   const known = unloadables.get(`${key}\0${why}`);

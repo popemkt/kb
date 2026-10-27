@@ -14,7 +14,6 @@ import { CORE_CONTEXT_REFERENCES, defineExtension, viewDef } from "@kb/contracts
 import { DESIGN_SYSTEM_OPTIONS, SYSTEM_IDS, systemSeedNodes, type SeedOption } from "@kb/model";
 import {
   DocsMarkdownView,
-  ExtensionsView,
   HomeView,
   LayoutView,
   NodeReadView,
@@ -42,13 +41,17 @@ export const coreExtension = defineExtension({
     viewDef(DocsMarkdownView),
     viewDef(LayoutView),
     viewDef(NodeView),
-    viewDef(ExtensionsView),
     viewDef(SettingsView),
     viewDef(HomeView),
     viewDef(NodeReadView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
-  // ⌘K's Preferences became Settings with the page that replaced the popover.
-  retires: [{ from: "sys.cmd.preferences", to: SYSTEM_IDS.cmdSettings, text: "Preferences" }],
+  retires: [
+    // ⌘K's Preferences became Settings with the page that replaced the popover.
+    { from: "sys.cmd.preferences", to: SYSTEM_IDS.cmdSettings, text: "Preferences" },
+    // The Extensions page became Settings' Extensions part, and its command followed.
+    { from: "sys.view.extensions.list", to: SettingsView.option },
+    { from: SYSTEM_IDS.cmdExtensions, to: SYSTEM_IDS.cmdExtensions, text: "Extensions" },
+  ],
   context: CORE_CONTEXT_REFERENCES,
 });

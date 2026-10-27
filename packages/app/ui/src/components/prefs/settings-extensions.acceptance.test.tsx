@@ -1,9 +1,12 @@
 /**
- * The Extensions panel, driven through the real App: the sidebar opens it
- * (⌘K's command is `run-command`'s), it draws what `extension.list` and `extension.footprint`
- * answer with the page's own kernel joined in, a family's switch asks the
- * server through `extension.switch`, and a family's settings, the fields of
- * its node, are named, with the way to the Settings page that draws them.
+ * Settings' Extensions and Advanced parts, driven through the real App: the
+ * sidebar opens Settings and its rail the part (⌘K's command is
+ * `run-command`'s), the part draws what `extension.list` and
+ * `extension.footprint` answer with the page's own kernel joined in, each
+ * family in its own section with its switch, which asks the server through
+ * `extension.switch`, its settings, the fields of its node, and a fold of
+ * what it composes; Advanced lists the listeners asked in turn and the
+ * extensions refused; the page's former path leads to the part.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -90,7 +93,16 @@ async function settle(): Promise<void> {
   });
 }
 
-describe("the Extensions panel (acceptance)", () => {
+/** Wait, inside act, until `found` holds: the page's body loads behind lazy(). */
+async function until(found: () => boolean): Promise<void> {
+  for (let tries = 0; tries < 100 && !found(); tries += 1) {
+    await act(async () => {
+      await new Promise((done) => setTimeout(done, 10));
+    });
+  }
+}
+
+describe("Settings' Extensions (acceptance)", () => {
   let dom: Window;
   let container: HTMLDivElement;
   let root: Root;
@@ -165,18 +177,40 @@ describe("the Extensions panel (acceptance)", () => {
     container.remove();
   });
 
-  const page = () => container.querySelector('[data-testid="extensions-page"]');
+  const page = () => container.querySelector('[data-settings-part="extensions"]');
   const card = (name: string) =>
-    present(container.querySelector(`[data-testid="extension-${name}"]`), `${name} card`);
+    present(container.querySelector(`[data-testid="extension-${name}"]`), `${name} section`);
 
-  async function openFromSidebar(): Promise<void> {
-    const row = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Extensions",
-    );
+  const buttonNamed = (text: string) =>
+    [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === text);
+
+  /** Open Settings from the sidebar, then `part` from its rail. */
+  async function openFromSidebar(part: "Extensions" | "Advanced" = "Extensions"): Promise<void> {
     await act(async () => {
-      present(row, "the sidebar's Extensions row").click();
+      present(buttonNamed("Settings"), "the sidebar's Settings row").click();
+    });
+    await until(() => container.querySelector("[data-settings-part-link]") !== null);
+    await act(async () => {
+      present(
+        container.querySelector<HTMLButtonElement>(
+          `[data-settings-part-link="${part.toLowerCase()}"]`,
+        ),
+        `the rail's ${part}`,
+      ).click();
     });
     await settle();
+  }
+
+  /** Open a family's fold of what it composes, unless this device remembers it open. */
+  async function openComposes(name: string): Promise<void> {
+    const fold = present(
+      card(name).querySelector<HTMLButtonElement>(
+        `[data-settings-fold="sys.extension.${name}:composes"]`,
+      ),
+      `${name}'s What it composes`,
+    );
+    if (fold.getAttribute("aria-expanded") === "true") return;
+    await act(async () => fold.click());
   }
 
   it("opens from the sidebar and draws each extension as the server reports it", async () => {
@@ -192,6 +226,10 @@ describe("the Extensions panel (acceptance)", () => {
     );
     expect(graphSwitch.value).toBe("on");
 
+    // What it composes is folded until opened.
+    expect(card("graph").textContent).not.toContain("part of kb's build");
+    await openComposes("graph");
+    await openComposes("hello");
     // Trust: kb's build, or the digest a person trusted it at.
     expect(card("graph").textContent).toContain("part of kb's build");
     expect(card("hello").textContent).toContain(`trusted at ${DIGEST}`);
@@ -207,8 +245,8 @@ describe("the Extensions panel (acceptance)", () => {
     );
   });
 
-  it("lists the listeners asked in turn, in order, and the extensions refused", async () => {
-    await openFromSidebar();
+  it("lists the listeners asked in turn, in order, and the extensions refused, in Advanced", async () => {
+    await openFromSidebar("Advanced");
     const identity = present(
       container.querySelector('[data-testid="point-host-identity.providers"]'),
       "the host's identity providers",
@@ -245,30 +283,23 @@ describe("the Extensions panel (acceptance)", () => {
     ]);
   });
 
-  it("names a family's settings, the fields of its node, and leads to Settings", async () => {
+  it("draws a family's settings, the fields of its node, in its section, the switch apart", async () => {
     await openFromSidebar();
-    const settings = present(
-      card("graph").querySelector('[aria-label="graph settings"]'),
-      "graph's settings",
-    );
-    expect(settings.textContent).toContain("suggest relations");
-    // The switch is the card's own control, never a setting.
-    expect(settings.textContent).not.toContain("enabled");
+    const rows = [...card("graph").querySelectorAll("[data-setting]")];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(card("graph").textContent).toContain("suggest relations");
+    // The switch is the section's own control, never a setting.
+    expect(rows.map((row) => row.textContent).join(" ")).not.toContain("enabled");
+  });
+
+  it("leads its former path to the Extensions part", async () => {
     await act(async () => {
-      present(settings.querySelector("button"), "the way to Settings").click();
+      dom.history.pushState({}, "", "/extensions");
+      dom.dispatchEvent(new dom.PopStateEvent("popstate"));
     });
-    await settle();
-    expect(dom.location.pathname).toBe("/settings");
-    // The page's body loads behind lazy(): wait, inside act, until it has landed.
-    const graphSection = () =>
-      container.querySelector('[data-settings-section="sys.extension.graph"]');
-    for (let tries = 0; tries < 100 && graphSection() === null; tries += 1) {
-      await act(async () => {
-        await new Promise((done) => setTimeout(done, 10));
-      });
-    }
-    const section = present(graphSection(), "graph's section in Settings");
-    expect(section.textContent).toContain("suggest relations");
+    await until(() => page() !== null);
+    expect(page()).not.toBeNull();
+    expect(dom.location.pathname).toBe("/settings/extensions");
   });
 
   it("says why when the server cannot give the report, and asks again on request", async () => {
@@ -285,6 +316,7 @@ describe("the Extensions panel (acceptance)", () => {
       present(again, "the panel's Ask again").click();
     });
     await settle();
+    await openComposes("graph");
     expect(card("graph").textContent).toContain("part of kb's build");
   });
 
@@ -294,6 +326,8 @@ describe("the Extensions panel (acceptance)", () => {
     expect(page()?.querySelector('[role="alert"]')?.textContent).toBe(
       "extension.footprint is not granted",
     );
-    expect(container.querySelector('[data-testid="extension-graph"]')).toBeNull();
+    // Its settings stay, read from the graph; its switch and what it composes do not.
+    expect(card("graph").querySelector('[data-testid="switch-graph"]')).toBeNull();
+    expect(card("graph").querySelector('[data-settings-fold$=":composes"]')).toBeNull();
   });
 });

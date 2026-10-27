@@ -171,7 +171,7 @@ export const extensionListDef = {
  * `extension.list`: the catalog's rows, each with how its plugins sit in
  * every kernel this host holds families in (`organisationOf`), the ordered
  * points of those kernels, and the modules discovery refused. `kb ext list`
- * prints it and the page's Extensions panel draws it.
+ * prints it and the page's Settings draws it.
  */
 export const extensionListEffect = Effect.fn("extension.list")(function* (): Effect.fn.Return<
   z.infer<typeof extensionListDef.outputSchema>,

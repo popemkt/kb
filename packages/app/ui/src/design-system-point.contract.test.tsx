@@ -333,7 +333,7 @@ describe("every contributed design system", () => {
       container = document.createElement("div");
       document.body.appendChild(container);
       root = createRoot(container);
-      act(() => root.render(createElement(SettingsPage)));
+      act(() => root.render(createElement(SettingsPage, { part: "appearance" })));
       // A card loads behind lazy(): wait, inside act, until every card has landed.
       const landed = () => container.querySelectorAll("[data-option-card]").length > 0;
       for (let tries = 0; tries < 100 && !landed(); tries += 1) {
