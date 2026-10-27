@@ -783,14 +783,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
 
-### GAP: itemLead trusts item.link without checking its scheme
-
-- **expected** — The rule that a canvas item's link is http(s) or a kb ref holds where it is relied on: withLink or itemLead validates it.
-- **current** — links.ts itemLead returns item.link unchecked; withLink and presets store any CanvasItemLink. Only the ext-canvas LinkSchema (isLinkUrl) and the doc re-parse on read check it.
-- **impact** — Not reachable now; a new writer that skips the schema could make a javascript: link clickable.
-- **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
-- **node** — `01M55AE092VNPBQKGGZZHZZY9W`
-
 ### GAP: kb mutation skips saving its baseline when the merge step fails
 
 - **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
@@ -1828,6 +1820,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Resolve relative and subpath specifiers to package ownership, govern .js, .jsx, .mts, and .cts, and add red tests for every bypass.
 - **rule** — Module boundaries
 - **node** — `01M1PJV94AJP2SAQT50KNKNHA2`
+
+### GAP: itemLead trusts item.link without checking its scheme
+
+- **expected** — The rule that a canvas item's link is http(s) or a kb ref holds where it is relied on: withLink or itemLead validates it.
+- **current** — links.ts itemLead returns item.link unchecked; withLink and presets store any CanvasItemLink. Only the ext-canvas LinkSchema (isLinkUrl) and the doc re-parse on read check it.
+- **impact** — Not reachable now; a new writer that skips the schema could make a javascript: link clickable.
+- **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
+- **node** — `01M55AE092VNPBQKGGZZHZZY9W`
 
 ### GAP: KbContext carries two persistence interfaces
 

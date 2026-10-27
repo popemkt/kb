@@ -9,8 +9,10 @@ import {
   itemLead,
   linkCard,
   parseCanvasDoc,
+  withLink,
   stringifyCanvasDoc,
   type CanvasLinkNode,
+  type CanvasNode,
 } from "../src/index.ts";
 
 const link = (url: string, more: Partial<CanvasLinkNode> = {}): CanvasLinkNode => ({
@@ -51,5 +53,25 @@ describe("a link item", () => {
     expect(itemLead({ id: "t", type: "text", text: "t", x: 0, y: 0, width: 9, height: 9 })).toBe(
       undefined,
     );
+  });
+
+  test("an item's own link leads only where a link may: a script, data or empty id never", () => {
+    const text: CanvasNode = { id: "t", type: "text", text: "t", x: 0, y: 0, width: 9, height: 9 };
+    for (const bad of [
+      { url: "javascript:alert(1)" },
+      { url: "data:text/html,<script>alert(1)</script>" },
+      { url: "not a url" },
+      { node: "" },
+      { url: "https://kb.test/a", node: "n1" },
+    ]) {
+      // A writer that skipped the schema: the item holds the link as it was handed over.
+      expect(itemLead({ ...text, link: bad as never })).toBeUndefined();
+      expect(withLink(text, bad as never).link).toBeUndefined();
+    }
+    expect(itemLead({ ...text, link: { url: "https://kb.test/a" } })).toEqual({
+      url: "https://kb.test/a",
+    });
+    expect(withLink(text, { url: "mailto:a@kb.test" }).link).toEqual({ url: "mailto:a@kb.test" });
+    expect(withLink(text, { node: "n1", item: "i" }).link).toEqual({ node: "n1", item: "i" });
   });
 });

@@ -48,13 +48,16 @@ export function parseItemLink(raw: unknown): CanvasItemLink | undefined {
 }
 
 /**
- * `node` leading where `link` says, or nowhere when it is undefined. A link
- * set here supersedes one this version could not read.
+ * `node` leading where `link` says, or nowhere when it is undefined or is no
+ * link `parseItemLink` reads (a `javascript:` address leads nowhere, however
+ * a writer came by it). A link set here supersedes one this version could
+ * not read.
  */
 export function withLink<N extends CanvasNode>(node: N, link: CanvasItemLink | undefined): N {
   const next = { ...node };
-  if (link === undefined) delete next.link;
-  else next.link = link;
+  const checked = parseItemLink(link);
+  if (checked === undefined) delete next.link;
+  else next.link = checked;
   return dropExtra(next, "link");
 }
 
@@ -75,10 +78,12 @@ export function isLinkNode(n: CanvasNode): n is CanvasLinkNode {
 /**
  * Where `item` leads when it is followed: its own link, or a link item's
  * page. A link item's address and any item's link are one answer, read
- * here, so following, linting and the inspector never ask which.
+ * here, so following, linting and the inspector never ask which. Both are
+ * read through the one check (`parseItemLink`, `isLinkUrl`), so what is
+ * followed is a link whatever wrote the item.
  */
 export function itemLead(item: CanvasNode): CanvasItemLink | undefined {
-  if (item.link !== undefined) return item.link;
+  if (item.link !== undefined) return parseItemLink(item.link);
   return isLinkNode(item) && isLinkUrl(item.url) ? { url: item.url } : undefined;
 }
 
