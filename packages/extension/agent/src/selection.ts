@@ -3,9 +3,9 @@ import { z } from "zod";
 import {
   SecretError,
   WireNodeSchema,
-  onWire,
+  type ActionReceipt,
+  type ActionRequest,
   type SecretSource,
-  type UiHostService,
 } from "@kb/contracts";
 import {
   canonicalJson,
@@ -17,7 +17,6 @@ import {
   type NodeId,
 } from "@kb/model";
 import { providerDigest, type ProviderBinding } from "@kb/sandbox";
-import { AGENT_WIRE } from "./protocol.ts";
 import { agentExtension } from "./extension.ts";
 import {
   AGENT_ADAPTERS,
@@ -43,14 +42,28 @@ import { AgentRuntimeError, type AgentAdapter, type AgentRuntime } from "./runti
  * on this machine, by its digest (`providerDigest`), in the one trust code
  * is trusted in: a provider node is data, and a root someone else wrote can
  * carry one. Its adapter then resolves that one key and no other.
+ *
+ * Whoever runs the provider reads through its own way of calling kb
+ * (`Reads`): the sidebar's bridge as the agent, a completion as its caller.
  */
 
-/** The provider chosen for a turn: the runtime to run it on, and how to name it. */
+/** How the chooser calls kb's reads (`node.get`, `sandbox.trusted`): as whoever runs the provider. */
+export type Reads = (request: ActionRequest) => Effect.Effect<ActionReceipt>;
+
+/** What runs a chosen provider: the host's adapters, and where its keys are read. */
+export interface Backends {
+  readonly adapters: ReadonlyMap<string, AgentAdapter>;
+  readonly secrets: SecretSource;
+}
+
+/** The provider chosen for a call: how to build its runtime, and how to name it. */
 export interface Chosen {
   /** Who minted a resume handle: the provider node and its settings as written, or the default. */
   readonly key: string;
-  readonly label: string;
-  readonly runtime: AgentRuntime;
+  /** The provider node's name; null for the default, which its runtime names. */
+  readonly label: string | null;
+  /** A runtime of the provider as written, bound to its one key. */
+  readonly build: () => AgentRuntime;
   /** Settings that did not read, each read as its default instead. */
   readonly warnings: readonly string[];
 }
@@ -60,10 +73,8 @@ const NodeReadSchema = z.object({
 });
 
 /** A node as `node.get` answers it, or undefined when the store holds none by that id. */
-const readNode = Effect.fn("kb.agent.readNode")(function* (host: UiHostService, id: NodeId) {
-  const receipt = yield* host.invoke(
-    onWire(AGENT_WIRE, { id: "node.get", input: { id, depth: 0 } }),
-  );
+const readNode = Effect.fn("kb.agent.readNode")(function* (reads: Reads, id: NodeId) {
+  const receipt = yield* reads({ id: "node.get", input: { id, depth: 0 } });
   if (receipt.status === "failed") {
     if (receipt.code === "not_found") return undefined;
     return yield* new AgentRuntimeError({ message: `reading ${id} failed: ${receipt.message}` });
@@ -103,15 +114,13 @@ function bindingText(
  * included.
  */
 const requireTrusted = Effect.fn("kb.agent.requireTrusted")(function* (
-  host: UiHostService,
+  reads: Reads,
   binding: ProviderBinding,
   login: readonly string[],
   name: string,
 ): Effect.fn.Return<void, AgentRuntimeError> {
   const digest = yield* providerDigest(binding);
-  const receipt = yield* host.invoke(
-    onWire(AGENT_WIRE, { id: "sandbox.trusted", input: { digests: [digest] } }),
-  );
+  const receipt = yield* reads({ id: "sandbox.trusted", input: { digests: [digest] } });
   const read = receipt.status === "succeeded" ? TrustedSchema.safeParse(receipt.output) : null;
   const trusted = read?.success === true && read.data.trusted.includes(digest);
   return yield* trusted
@@ -145,15 +154,11 @@ const ADAPTER_LABELS: ReadonlyMap<string, string> = new Map(
 );
 
 export const chooseProvider = Effect.fn("kb.agent.chooseProvider")(function* (
-  host: UiHostService,
-  backends: {
-    readonly adapters: ReadonlyMap<string, AgentAdapter>;
-    readonly secrets: SecretSource;
-    readonly runtimes: Map<string, AgentRuntime>;
-  },
+  reads: Reads,
+  backends: Backends,
 ): Effect.fn.Return<Chosen, AgentRuntimeError> {
   const warnings: string[] = [];
-  const agent = yield* readNode(host, extensionNodeId(agentExtension.name));
+  const agent = yield* readNode(reads, extensionNodeId(agentExtension.name));
   const selected = decodeNodeConfig(SELECTION_SLOTS, agent?.props, (warning) =>
     warnings.push(`The agent's provider setting did not read: ${warning}`),
   )("provider");
@@ -161,7 +166,7 @@ export const chooseProvider = Effect.fn("kb.agent.chooseProvider")(function* (
   let key = "default";
   let label: string | undefined;
   if (selected !== null) {
-    const provider = yield* readNode(host, selected);
+    const provider = yield* readNode(reads, selected);
     if (provider === undefined) {
       return yield* new AgentRuntimeError({
         message: `The selected provider ${selected} is not in this kb; choose another, or clear the selection.`,
@@ -195,12 +200,8 @@ export const chooseProvider = Effect.fn("kb.agent.chooseProvider")(function* (
   }
   const binding = bindingOf(config);
   if (binding !== null) {
-    yield* requireTrusted(host, binding, adapter.login(config), label ?? "The provider");
+    yield* requireTrusted(reads, binding, adapter.login(config), label ?? "The provider");
   }
-  let runtime = backends.runtimes.get(key);
-  if (runtime === undefined) {
-    runtime = adapter.runtime(config, boundTo(config.credential, backends.secrets));
-    backends.runtimes.set(key, runtime);
-  }
-  return { key, label: label ?? runtime.name, runtime, warnings };
+  const secrets = boundTo(config.credential, backends.secrets);
+  return { key, label: label ?? null, build: () => adapter.runtime(config, secrets), warnings };
 });

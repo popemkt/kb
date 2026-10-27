@@ -388,6 +388,88 @@ prompt and one generated image. Then measure, on shared-server:
    end to end;
 6. asset serving: originals against derived thumbnails, cold and warm.
 
+### Measured (2026-10-28)
+
+All on shared-server: 16 cores, 30 GB RAM, Linux, with another agent's
+test runs alongside, so the numbers are indicative rather than lab-grade.
+Each store is a scratch SQLite store seeded by a bench script that is not
+committed. Each visual has 3–6 style refs over 600 styles in 10 facets, a
+source URL, a prompt and a generated 480-px-wide WebP of about 50 KB
+(2.5 GB of assets at 50k). Browser timings are headless Chromium at
+1440×900 against `kb ui` with the gallery switched on (#59). Columns are
+10k / 25k / 50k visuals.
+
+**Store and index (server side).**
+
+| what | 10k | 25k | 50k |
+|---|---|---|---|
+| SQLite load | 160 ms | 334 ms | 617 ms |
+| datom build | 616 ms | 1.39 s | 2.76 s |
+| full `openKbEffect` | 705 ms | 1.76 s | 3.29 s |
+| store commit of one node | 143 ms | 333 ms | 614 ms |
+| one visual saved (`node.add` over HTTP), median | 335 ms | 873 ms | 1.68 s |
+| process RSS after open | 794 MB | 1.5 GB | 2.2 GB |
+| SQLite file | 20 MB | 50 MB | 99 MB |
+
+**Queries.** Datalog over the index against the gallery's JS readings over
+the node set (`libraryOf`, `filterVisuals`, `facetCounts`):
+
+| what | 10k | 25k | 50k |
+|---|---|---|---|
+| datalog: every visual | 29 ms | 76 ms | 145 ms |
+| datalog: a two-style filter | 9 ms | 22 ms | 48 ms |
+| datalog: facet counts | 120 ms | 373 ms | 748 ms |
+| JS: facet index and counts | 14 ms | 38 ms | 70 ms |
+| JS: a two-style filter | 4 ms | 11 ms | 23 ms |
+
+**Server and page.**
+
+| what | 10k | 25k | 50k |
+|---|---|---|---|
+| `kb ui` ready | 1.5 s | 2.3 s | 4.0 s |
+| `GET /api/graph` (brotli; recomputed per request) | 415 ms | 961 ms | 1.87 s |
+| its body, raw / brotli | 9.1 / 0.49 MB | 22 / 1.2 MB | 44 / 2.4 MB |
+| page: navigation to first tile | 1.9 s | 3.1 s | 4.3 s |
+| page: a facet click, to the grid redrawn | 53 ms | 72 ms | 92 ms |
+| page: text filter | 47 ms | 67 ms | 83 ms |
+| page: JS heap | 68 MB | 114 MB | 181 MB |
+| scroll, 240 frames of 900 px: p50 / p95 per frame | 16.6 / 18.6 ms | 16.7 / 18.6 ms | 16.7 / 18.9 ms |
+| frames over 50 ms / the longest frame | 2 / 77 ms | 1 / 86 ms | 5 / 512 ms |
+| tiles in the DOM, at most | 34 | 34 | 32 |
+
+The asset route (400 images, 16 at a time) answered in 19–20 ms at p50 and
+42–45 ms at p95 at every size: it does not grow with the store.
+
+**What the numbers say.**
+
+- **Browsing copes at 50k.** The virtualised grid holds the DOM at a
+  viewport's worth of tiles and scrolls at the display's rate. Facet and
+  text filtering stay under 100 ms because they are JS over the replica.
+  Datalog facet counts are ten times slower, which is why the page does not
+  use them.
+- **Opening and saving grow with the store.** Both are core costs, not the
+  gallery's:
+  - the page waits on `/api/graph`, which is rebuilt, validated and
+    compressed on every request;
+  - a save pays an O(N) commit: rank settling reads every row, and the
+    integrity check copies every node.
+- **Thumbnails were not needed at this size.** These images are 480 px and
+  50 KB. Real saves are 1024-px Civitai images or full-size photos, so
+  candidate 1 still matters for real libraries. It is just not visible in
+  this bench.
+
+**Order of the follow-ups, by what they buy:**
+
+1. The O(N) commit (candidate 5). It is felt by every write in every
+   large kb, about 1.7 s a save at 50k.
+2. A `/api/graph` body kept per store revision. It costs nothing until the
+   graph changes, and serves reloads and second tabs from memory, saving
+   about 1.9 s at 50k.
+3. Derived thumbnails (candidate 1), once real libraries hold
+   full-size images.
+4. The whole-graph page (candidate 6). It is the floor under the 4.3 s
+   first tile, and is the existing gap.
+
 ### Candidate optimisations, each its own PR with before and after numbers
 
 1. **Derived thumbnails at the asset route** (likely needed). `GET
