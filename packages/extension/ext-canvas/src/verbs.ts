@@ -59,6 +59,7 @@ import {
   CANVAS_SELECTION,
 } from "@kb/canvas";
 import { COMMENT_VERB } from "./comment.ts";
+import { EDIT_VERB } from "./edit.ts";
 import { LintDiffSchema, LintSchema } from "./lints.ts";
 import {
   AnchorSchema,
@@ -859,6 +860,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     effect: canvasUngroupEffect,
   },
   COMMENT_VERB,
+  EDIT_VERB,
   {
     id: "promote",
     title: "Promote to node",
