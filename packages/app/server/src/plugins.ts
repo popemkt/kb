@@ -26,9 +26,11 @@ import type { ChannelDirectory } from "./session.ts";
  * kernel, into which it provides {@link UiHost} and then loads the
  * extensions its caller names, each while its store has it on. It names none
  * itself, so nothing here imports a plugin; what the plugins contribute to
- * {@link ChannelPoint} is what the socket hub routes `channel` frames to, and
- * each extension it was handed is reported beside the registry's
- * ({@link HostedExtensions}).
+ * {@link ChannelPoint} is what the socket hub routes `channel` frames to,
+ * what they contribute to `ActionPoint` is listed and invoked beside the
+ * registry's actions (the kernel is the runtime's host `FamilyKernels`,
+ * `reachableActions` in `@kb/runtime`), and each extension it was handed is
+ * reported beside the registry's ({@link HostedExtensions}).
  */
 
 /** The channels `kernel` holds, read at each frame. */
@@ -81,7 +83,6 @@ function uiHost(ctx: KbContext, screens: ScreenHub, hosted: HostedFamilies): UiH
  * core. The kernel moves only when the switches do, so a plugin that failed
  * is tried again when it is switched, not at every report.
  */
-// GAP [[01M53F2M2S6J3WW0Z0KR136J6A]] hosted plugins contribute channels, not registry actions
 export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
   kernel: Kernel,
   extensions: readonly ExtensionEntry[],

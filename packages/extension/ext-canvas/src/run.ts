@@ -192,7 +192,7 @@ function performer(field: string) {
       const answer = completedSchema.safeParse(asked.status === "succeeded" ? asked.output : null);
       made =
         failure !== null
-          ? fail(`no model performed it: ${failure} (GAP [[01M53F2M2S6J3WW0Z0KR136J6A]])`)
+          ? fail(`no model performed it: ${failure}`)
           : answer.success
             ? { ok: true, output: answer.data.text, by: "model" }
             : fail(`${MODEL_ACTION} answered no text`);

@@ -54,28 +54,35 @@ const namesOf = Effect.fn("kb.agent.screenNames")(function* (
   return names;
 });
 
+/** The screen a message carries when no kb tab sent it, as the system prompt promises one. */
+const NO_TAB_SCREEN = "No kb tab sent this message, so there is no screen.";
+
 /**
  * The screen of the tab `tab`, rendered for the model: `ui.screen` narrowed
- * to that tab, with the text of the nodes it mentions. Null when the sender
- * is no tab, or its tab has gone.
+ * to that tab, with the text of the nodes it mentions. When the sender is no
+ * tab, or its tab has gone, it says so, so every message of the sidebar's
+ * carries a screen, as its system prompt says.
  */
 export const screenContext = Effect.fn("kb.agent.screenContext")(function* (
   host: UiHostService,
   tab: string | null,
 ) {
-  if (tab === null) return null;
+  if (tab === null) return NO_TAB_SCREEN;
   const receipt = yield* host.invoke(
     onWire(AGENT_WIRE, { id: "ui.screen", input: { session: tab } }),
   );
-  if (receipt.status !== "succeeded") return null;
+  if (receipt.status !== "succeeded") return NO_TAB_SCREEN;
   const screen = ScreenListSchema.safeParse(receipt.output).data?.tabs[0];
-  if (screen === undefined) return null;
+  if (screen === undefined) return NO_TAB_SCREEN;
   const names = yield* namesOf(host, mentioned(screen));
   return JSON.stringify({ ...screen, names }, null, 2);
 });
 
-/** The one user message a runtime sends for `message`: the screen block, then what the person wrote. */
+/**
+ * The one user message a runtime sends for `message`: its screen as a
+ * `<screen>` block, then the text; the text alone when it carries no screen.
+ */
 export function userTurnText(message: AgentMessage): string {
-  const screen = message.screen ?? "No kb tab sent this message, so there is no screen.";
-  return `<screen>\n${screen}\n</screen>\n\n${message.text}`;
+  if (message.screen === null) return message.text;
+  return `<screen>\n${message.screen}\n</screen>\n\n${message.text}`;
 }
