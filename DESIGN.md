@@ -3787,16 +3787,25 @@ tldraw computer's model built from kb's parts (research
   - one with no inputs is a constant, its output its words;
   - any other is an instruction, its node's text, which the agent family
     performs on its inputs with one tool-less turn of the selected
-    provider (`ext.agent.complete`). That action waits on hosted actions:
-    GAP [[01M53F2M2S6J3WW0Z0KR136J6A]]. Until then an instruction fails,
-    naming it, and what follows it is skipped.
+    provider ([`ext.agent.complete`](#agent-packages), where `kb ui`
+    hosts the agent). The instruction is the system prompt, after a
+    preamble that says it is one component of a run and answers with its
+    output alone; its inputs, in edge order and set apart by a line of
+    three dashes, are the message; the reply is its output. The
+    completion's bounds are the step's: an instruction or inputs past
+    them fail it, naming why. Where no agent is hosted (`kb` CLI,
+    `kb mcp`, a `kb ui` with the agent off) an instruction fails, naming
+    the action, and what follows it is skipped.
 - **Outputs are fields.** Each output is written to its node's `output`
   field (made at the first run, text) as its step ends, one write each, so
   every step shows on the card, reads in datalog and undoes like any edit.
   The answer is the order, the rounds, the steps performed and each
   component's last outcome.
 - It takes no targets: a script cannot start a run, which runs scripts and
-  spends a model.
+  spends a model. A script a run performs cannot ask the model either: the
+  completion takes no targets, so its grant refuses it whatever it names.
+  `canvas-run-model.test.ts` (`@kb/cli`) holds both over `kb ui`, with a
+  scripted provider.
 #### Scale
 A canvas is built for 10x the owner's tldraw board (research D7): one
 board of 40 pages, 2,000 items on a page, 1,000 record cards whose nodes
