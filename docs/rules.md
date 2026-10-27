@@ -474,6 +474,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
 
+### GAP: admission bundles an extension's page half but never imports or decodes it
+
+- **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
+- **current** — admitExtensions bundles both halves (a page half that does not resolve or compile is refused) but imports and decodes only the server half; the page half is first imported and decoded in the browser, where a failure warns and skips.
+- **impact** — A page half that bundles but throws on import or exports a malformed page surface passes verify and silently disappears from the page.
+- **closes** — Decode the page half's exports with the page surface's decoder in admission, in a DOM-less evaluation the page SDK supports, or run admission's page half in the UI test runner.
+- **node** — `01M5ZC6V2ZAVDG9972PADX58S0`
+
 ### GAP: agent conversations live in the bridge's memory, not as nodes
 
 - **expected** — a sidebar conversation is a thread node whose messages are nodes, so it survives restarts, can be resumed, searched and linked like anything else

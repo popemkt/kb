@@ -2824,13 +2824,19 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   (`admitExtensions`, `kb ext validate`) composes a root's families as
   `registryFor` does, with every repository extension vouched for by the
   caller (its trust record is neither read nor written) and every family
-  on, and answers every failure: a module that does not bundle, import or
-  decode, a declaration that does not fold, a plugin that clashes, an
-  action that breaks a rule every action keeps. `kb ext validate` exits
-  non-zero on any, so `verify` (`check:ext`), and through it the
-  pre-commit hook and CI, refuses a repository extension that would
-  silently disappear. It runs the extensions' code, so it belongs where
-  the checkout's own tests run, never on a root someone else wrote.
+  on, and answers every failure: an extensions directory it cannot read,
+  code there that is no entry discovery would run (`hello.tsx`,
+  `hello.page.js`), a half that does not bundle, a server half that does
+  not import or decode, a declaration that does not fold, a plugin that
+  clashes, an action that breaks a rule every action keeps, a module that
+  calls `process.exit` as it loads. A page half is bundled, not imported
+  or decoded: that happens only in the page (GAP
+  [[01M5ZC6V2ZAVDG9972PADX58S0]]). `kb ext validate` exits non-zero on
+  any, so `verify` (`check:ext`), and through it the pre-commit hook and
+  CI, refuses a repository extension that would silently disappear. It
+  runs the extensions' code without trust, so it admits only the root it
+  is run inside, never one `--root` names elsewhere: it belongs where the
+  checkout's own tests run.
 - Templates are handed to the render backbone through the `TemplateRegistry`
   service, provided once by `kbRuntimeLayer`. Core registers **no** template
   of its own: `renderViewEffect` resolves `view.spec.template` against the

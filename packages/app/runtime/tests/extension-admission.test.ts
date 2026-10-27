@@ -8,7 +8,7 @@
  * vouches for nothing on this machine: the root's trust record is untouched.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -111,5 +111,53 @@ describe("admitting a root's repository extensions", () => {
       }),
     );
     expect(await refused()).toContain("off.ts");
+  });
+
+  test("a file named so it can never be an extension is a failure that names it", async () => {
+    await writeExtension(root, "-bad.ts", extensionModule("bad"));
+    expect(await refused()).toEqual(["-bad.ts"]);
+  });
+
+  test("code that is no entry kb discovers is a failure, not a file nobody runs", async () => {
+    for (const file of ["hello.tsx", "hello.js", "hello.mts", "hello.page.js"]) {
+      await writeExtension(root, file, extensionModule("hello"));
+    }
+    // Declarations, notes and helper directories are not code kb would run as an entry.
+    await writeExtension(root, "types.d.ts", "export {};\n");
+    await writeExtension(root, "README.md", "notes\n");
+    await writeExtension(root, "lib/helper.ts", "export const helped = true;\n");
+    expect((await refused()).toSorted()).toEqual([
+      "hello.js",
+      "hello.mts",
+      "hello.page.js",
+      "hello.tsx",
+    ]);
+  });
+
+  test("a page half that does not bundle is a failure", async () => {
+    await writeExtension(root, "paged.ts", extensionModule("paged"));
+    await writeExtension(
+      root,
+      "paged.page.tsx",
+      'import { gone } from "./nowhere.ts";\nexport default gone;\n',
+    );
+    expect(await refused()).toEqual(["paged.ts"]);
+  });
+
+  test("an extensions directory that cannot be read is a failure, never a root with none", async () => {
+    if (process.getuid?.() === 0) return; // root reads a directory whatever its mode says
+    await writeExtension(root, "fine.ts", extensionModule("fine"));
+    const dir = join(root, ".kb", "extensions");
+    await chmod(dir, 0o000);
+    try {
+      expect((await admit()).map(({ file }) => file)).toEqual([".kb/extensions"]);
+    } finally {
+      await chmod(dir, 0o755);
+    }
+  });
+
+  test("a module that ends the process as it loads fails its own load, and the gate runs on", async () => {
+    await writeExtension(root, "quits.ts", `process.exit(0);\n${extensionModule("quits")}`);
+    expect(await refused()).toEqual(["quits.ts"]);
   });
 });
