@@ -20,8 +20,16 @@ function holdsNothingThatRuns(out: string): void {
   expect(out).not.toMatch(/href="(?!#|data:image\/(png|jpeg|gif|webp);base64,)/i);
   expect(out).not.toMatch(/url\(\s*['"]?(?!#)/i);
   expect(out).not.toMatch(/@import/i);
-  expect(out).not.toMatch(/\\75|\\69/i);
 }
+
+/** `css` with each character `escape` picks written as a CSS hex escape; the vectors are ASCII, so a character is one unit. */
+const escaped = (css: string, escape: readonly boolean[]) =>
+  css
+    .split("")
+    .map((char, at) =>
+      escape[at % escape.length] === true ? `\\${char.codePointAt(0)?.toString(16)} ` : char,
+    )
+    .join("");
 
 describe("sanitizeSvg", () => {
   test("keeps a drawing as it was", () => {
@@ -105,6 +113,67 @@ describe("sanitizeSvg", () => {
     );
   });
 
+  test("empties CSS that fetches a bare string through image() or src()", () => {
+    expect(sanitizeSvg(svg('<style>.a{background:image("https://x/a.png")}</style>'))).toBe(
+      svg("<style></style>"),
+    );
+    expect(sanitizeSvg(svg('<style>.a{background:src("https://x/a.png")}</style>'))).toBe(
+      svg("<style></style>"),
+    );
+    expect(sanitizeSvg(svg(`<rect style='background:image("https://x/a.png")'/>`))).toBe(
+      svg("<rect/>"),
+    );
+    expect(sanitizeSvg(svg(`<rect style='background:src("https://x/a.png")'/>`))).toBe(
+      svg("<rect/>"),
+    );
+  });
+
+  test("judges a reference by its local name, whatever prefix spells it, and drops xml:base", () => {
+    const xlink = ' xmlns:x="http://www.w3.org/1999/xlink"';
+    expect(
+      sanitizeSvg(
+        svg(
+          '<image x:href="https://attacker.example/t.png"/><use x:href="https://attacker.example/u.svg#a"/>' +
+            '<use x:href="#a"/>',
+          xlink,
+        ),
+      ),
+    ).toBe(svg('<image/><use/><use x:href="#a"/>', xlink));
+    expect(sanitizeSvg(svg("<rect/>", ' xml:base="https://attacker.example/"'))).toBe(
+      svg("<rect/>"),
+    );
+  });
+
+  test("a style element holds CSS alone: an element inside it goes with all it holds", () => {
+    expect(sanitizeSvg(svg('<style><rect>@import "https://x/a";</rect></style>'))).toBe(
+      svg("<style></style>"),
+    );
+    expect(sanitizeSvg(svg("<style>.a{fill:red}<g/></style>"))).toBe(
+      svg("<style>.a{fill:red}</style>"),
+    );
+  });
+
+  test("however a fetch is spelled in CSS escapes, the CSS that holds it is not kept", () => {
+    const fetches = [
+      '@import "https://x/a";',
+      ".a{fill:url(https://x/p)}",
+      '.a{background:image("https://x/a.png")}',
+      '.a{background:image-set("https://x/a.png" 1x)}',
+    ];
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...fetches),
+        fc.array(fc.boolean(), { minLength: 1, maxLength: 16 }),
+        (css, escape) => {
+          const written = escaped(css, escape);
+          expect(sanitizeSvg(svg(`<style>${written}</style>`))).toBe(svg("<style></style>"));
+          const attr = written.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+          expect(sanitizeSvg(svg(`<rect style="${attr}"/>`))).toBe(svg("<rect/>"));
+        },
+      ),
+    );
+  });
+
   test("unwraps a link: its drawing stays, the link goes", () => {
     expect(sanitizeSvg(svg('<a href="javascript:alert(1)"><circle r="2"/></a>'))).toBe(
       svg('<circle r="2"/>'),
@@ -145,6 +214,9 @@ describe("sanitizeSvg", () => {
       'port "https://x";</style>',
       "<!-- -->",
       '<rect style="fill:\\75 rl(https://x)"/>',
+      '<image x:href="https://attacker.example/t.png"/>',
+      '<use x:href="https://attacker.example/u.svg#a"/>',
+      '<style><rect>@import "https://x/a";</rect></style>',
     );
     fc.assert(
       fc.property(fc.array(parts, { maxLength: 12 }), (inner) => {

@@ -5,12 +5,12 @@
  * document is read token by token and written again from what it read, so
  * nothing passes through as it came. An element kb does not list is dropped
  * with all it holds; `a` alone is unwrapped, its drawing kept. An attribute
- * survives only with a plain name, no `on…` handler, and a value that leads
- * nowhere outside the document: a reference is `#fragment` (an `image` may
+ * survives only with a plain name, no `on…` handler, no `xml:base`, and a value that leads
+ * nowhere outside the document: a reference (`href` under any prefix) is `#fragment` (an `image` may
  * hold a raster `data:` picture), and CSS may name no `url()` but a fragment,
- * no `image-set()`, no `@import` and no `expression()`, read after its escapes
+ * no `image()`, `image-set()` or `src()`, no `@import` and no `expression()`, read after its escapes
  * and, for a style element, over all its text at once (a style element whose
- * CSS does is kept empty). Comments, processing instructions and
+ * CSS does is kept empty; an element inside a style element is dropped). Comments, processing instructions and
  * DOCTYPEs (and the entities they declare) go. Markup that does not read as
  * XML tags is refused whole. The asset is then served as an image, never
  * inlined into a page, so this is the second wall, not the only one.
@@ -117,7 +117,12 @@ function decodeCss(css: string): string {
 
 /** Whether CSS, read as written, names something outside the document or something that runs. */
 function reachesOut(css: string): boolean {
-  if (/@import|expression\s*\(|javascript:|behavior\s*:|-moz-binding|image-set\s*\(/i.test(css))
+  // `image()`, `image-set()` and `src()` fetch a bare string, with no `url(` to see.
+  if (
+    /@import|expression\s*\(|javascript:|behavior\s*:|-moz-binding|(?:image(?:-set)?|src)\s*\(/i.test(
+      css,
+    )
+  )
     return true;
   // Unclosed, `url(` still fetches to the end of the CSS, so only what follows the paren counts.
   for (const match of css.matchAll(/url\s*\(\s*['"]?(.?)/gi)) if (match[1] !== "#") return true;
@@ -145,8 +150,10 @@ function runsScript(value: string): boolean {
 function keptValue(element: string, name: string, value: string): string | null {
   const lower = name.toLowerCase();
   if (lower.startsWith("on") || !NAME.test(name)) return null;
-  if (runsScript(value)) return null;
-  if (lower === "href" || lower === "xlink:href") {
+  // A base would turn every relative reference into one out of the document.
+  if (lower === "xml:base" || runsScript(value)) return null;
+  // A reference is judged by its local name: any prefix may be bound to XLink's namespace.
+  if (lower.split(":").at(-1) === "href") {
     const target = value.trim();
     if (target.startsWith("#")) return target;
     return element === "image" && RASTER_DATA.test(target) ? target : null;
@@ -298,6 +305,11 @@ class SvgWriter {
 
   private opening(token: Token): void {
     const element = token.name.toLowerCase();
+    // A style element holds CSS alone: an element inside it goes with all it holds.
+    if (this.inStyle()) {
+      if (!token.selfClosing) this.dropping = 1;
+      return;
+    }
     if (!this.started && element !== "svg") return;
     this.started = true;
     if (UNWRAPPED.has(element)) return;
