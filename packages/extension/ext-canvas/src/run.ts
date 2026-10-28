@@ -10,7 +10,11 @@
  *   its output is what they left in its `output`;
  * - a component with no inputs is a constant: its output is its words;
  * - any other is an instruction, its node's text, performed by the agent
- *   family's model (`ext.agent.complete`) on its inputs.
+ *   family's model (`ext.agent.complete`) on its inputs: the instruction
+ *   is the system prompt, the inputs the message. A run is a person's or
+ *   the agent's, never code's (the verb takes no targets), and a script a
+ *   run performs cannot ask the model either: the completion takes no
+ *   targets, so the grant refuses it to code.
  *
  * Each output is written to its node's `output` field as the step ends, one
  * write each, so every step shows, reads and undoes like any edit.
@@ -36,6 +40,19 @@ const OUTPUT_FIELD = "output";
 const INPUT_FIELD = "input";
 /** The model performer: one tool-less turn of the agent family's selected provider. */
 const MODEL_ACTION = "ext.agent.complete";
+/** What the model is told it is, before the instruction it performs. */
+const CANVAS_PERFORMER =
+  "You are one component of a canvas that runs as a computer. Perform the instruction below " +
+  "on the inputs in the message, which are the outputs of the components wired into this one, " +
+  "in order, separated by a line of three dashes. Reply with the result alone, no preamble: " +
+  "it becomes this component's output.";
+/** How one input is set apart from the next in the message. */
+const INPUT_SEPARATOR = "\n\n---\n\n";
+/** An instruction's completion: the instruction in the system prompt, its inputs as the message. */
+const instructionTurn = (instruction: string, inputs: readonly string[]) => ({
+  system: `${CANVAS_PERFORMER}\n\nInstruction: ${instruction}`,
+  message: inputs.join(INPUT_SEPARATOR) || "(the inputs are empty)",
+});
 const SCRIPT_LIST = "ext.code.script.list";
 const SCRIPT_RUN = "ext.code.script.run";
 
@@ -184,7 +201,10 @@ function performer(field: string) {
       const asked = yield* invoke(
         {
           id: MODEL_ACTION,
-          input: { instruction: node.text, inputs: step.inputs.map((i) => i.text) },
+          input: instructionTurn(
+            node.text,
+            step.inputs.map((i) => i.text),
+          ),
         },
         "write",
       );
@@ -247,7 +267,8 @@ export const RUN_VERB: ExtensionAction = {
     "an edge to another is a component, and each edge carries the output of the one it leaves to the one " +
     "it enters. Upstream runs first (ties in document order). A component whose node names scripts runs " +
     "them, its inputs written to its input field first and its output what they leave in its output field; one with no inputs is a constant (its words); " +
-    "any other is an instruction (its node's text) a model performs on its inputs. Each output is written " +
+    "any other is an instruction (its node's text) the agent's selected model performs on its inputs " +
+    "(ext.agent.complete; where no agent is hosted, it fails by name). Each output is written " +
     "to its node's output field as it is made. A component after one that failed is skipped. A flow that " +
     "loops runs `rounds` rounds, at most 8.",
   mode: { kind: "write" },

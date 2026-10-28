@@ -78,7 +78,9 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/code": "workspace:*",
         "@kb/plugin": "workspace:*",
+        "@kb/sandbox": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@kb/webmcp": "workspace:*",
         "@kb/workspace-fs": "workspace:*",
