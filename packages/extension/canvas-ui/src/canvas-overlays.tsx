@@ -1,5 +1,15 @@
+import type { ReactNode } from "react";
 import type { CanvasNode, CanvasProjectionKind } from "@kb/canvas";
-import { CaretLeftIcon, CaretRightIcon, XIcon } from "@phosphor-icons/react";
+import {
+  ArrowLineDownIcon,
+  ArrowLineUpIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  FrameCornersIcon,
+  SelectionSlashIcon,
+  TrashIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import type { PresentAct } from "./canvas-keymap";
 import { frameName } from "./canvas-frame-name";
 import { CanvasToolbar } from "./canvas-toolbar";
@@ -9,6 +19,7 @@ import { selectionEmpty } from "./canvas-selection";
 import type { CanvasTool, ToolState } from "./canvas-tool";
 import { GIZMO_MODES, type GizmoChoice } from "./canvas-gizmo";
 import { cn } from "@kb/ui-sdk";
+import { bottomBarClass } from "./canvas-stage-layout";
 
 /** Where present mode stands: the frame shown, by its place among how many. */
 interface PresentingAt {
@@ -18,6 +29,8 @@ interface PresentingAt {
 }
 
 interface CanvasOverlaysProps {
+  /** The stage is compact (`compactStage`): the tools along the bottom, the bars above them, marks for words. */
+  compact: boolean;
   /** A modal transform is under way: its readout stands where the selection toolbar does. */
   transforming: boolean;
   /** The group entered, whose members a press reaches one by one; null at the canvas. */
@@ -123,9 +136,11 @@ function ScopeChip({ scope, onLeave }: { scope: CanvasNode; onLeave: () => void 
 
 /** Present mode's bar: back and forward through the frames (the arrows and Space do too), and out. */
 function PresentBar({
+  compact,
   presenting,
   onPresent,
 }: {
+  compact: boolean;
   presenting: PresentingAt;
   onPresent: (act: PresentAct) => void;
 }) {
@@ -133,7 +148,10 @@ function PresentBar({
   const step = "rounded-md p-1 text-foreground/60 hover:bg-foreground/5 disabled:opacity-30";
   return (
     <div
-      className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-border bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm"
+      className={cn(
+        "absolute left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-border bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm",
+        bottomBarClass(compact),
+      )}
       data-testid="canvas-present-bar"
     >
       <button
@@ -171,15 +189,51 @@ function PresentBar({
   );
 }
 
-/** One of the selection toolbar's plain buttons. */
-const barButton = "rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5";
+/** One of the selection toolbar's plain buttons: its words, or on a compact stage its mark, a finger's size. */
+const barButton = (compact: boolean, tone = "text-foreground/60 hover:bg-foreground/5") =>
+  cn(
+    "flex items-center justify-center rounded-md text-label",
+    compact ? "h-9 min-w-9 px-2" : "px-1.5 py-1",
+    tone,
+  );
+
+/** One command of the selection toolbar: its name, which a compact stage shows as a mark, named for a screen reader. */
+function BarCommand({
+  compact,
+  label,
+  mark,
+  title,
+  tone,
+  onClick,
+}: {
+  compact: boolean;
+  label: string;
+  mark: ReactNode;
+  title: string;
+  tone?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={compact ? label : undefined}
+      className={barButton(compact, tone)}
+      onClick={onClick}
+    >
+      {compact ? mark : label}
+    </button>
+  );
+}
 
 /**
  * The floating selection toolbar: in 3D the gizmo's switches, then group
  * or ungroup, reorder, delete. What it looks like is the docked style
- * panel's (`CanvasStylePanel`).
+ * panel's (`CanvasStylePanel`). On a compact stage it stands above the
+ * tools and says each command with its mark.
  */
 function SelectionBar({
+  compact,
   count,
   canGroup,
   canUngroup,
@@ -195,6 +249,7 @@ function SelectionBar({
   canGroup: boolean;
 } & Pick<
   CanvasOverlaysProps,
+  | "compact"
   | "canUngroup"
   | "gizmo"
   | "onGizmoChange"
@@ -205,54 +260,64 @@ function SelectionBar({
   | "onDeleteSelection"
 >) {
   return (
-    <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-border bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
-      <span className="mr-1 text-label text-foreground/40">{count} selected</span>
+    <div
+      className={cn(
+        "absolute left-1/2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1 rounded-lg whitespace-nowrap border border-border bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm",
+        bottomBarClass(compact),
+      )}
+      data-testid="canvas-selection-bar"
+    >
+      <span className="mr-1 text-label text-foreground/40">
+        {compact ? count : `${count} selected`}
+      </span>
       {gizmo !== null && <GizmoSwitches gizmo={gizmo} onGizmoChange={onGizmoChange} />}
       {canGroup && (
-        <button
-          type="button"
+        <BarCommand
+          compact={compact}
+          label="Group"
+          mark={<FrameCornersIcon size={18} />}
           title="Group into a frame (⌘G)"
-          className={barButton}
           onClick={onGroup}
-        >
-          Group
-        </button>
+        />
       )}
       {canUngroup && (
-        <button type="button" title="Ungroup (⌘⇧G)" className={barButton} onClick={onUngroup}>
-          Ungroup
-        </button>
+        <BarCommand
+          compact={compact}
+          label="Ungroup"
+          mark={<SelectionSlashIcon size={18} />}
+          title="Ungroup (⌘⇧G)"
+          onClick={onUngroup}
+        />
       )}
-      <button
-        type="button"
+      <BarCommand
+        compact={compact}
+        label="↑ Front"
+        mark={<ArrowLineUpIcon size={18} />}
         title="Bring to front"
-        className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
         onClick={onBringToFront}
-      >
-        ↑ Front
-      </button>
-      <button
-        type="button"
+      />
+      <BarCommand
+        compact={compact}
+        label="↓ Back"
+        mark={<ArrowLineDownIcon size={18} />}
         title="Send to back"
-        className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
         onClick={onSendToBack}
-      >
-        ↓ Back
-      </button>
+      />
       <div className="mx-1 h-4 w-px bg-foreground/10" />
-      <button
-        type="button"
+      <BarCommand
+        compact={compact}
+        label="Delete"
+        mark={<TrashIcon size={18} />}
         title="Delete selected (Del)"
-        className="rounded-md px-1.5 py-1 text-label text-destructive hover:bg-destructive/10"
+        tone="text-destructive hover:bg-destructive/10"
         onClick={onDeleteSelection}
-      >
-        Delete
-      </button>
+      />
     </div>
   );
 }
 
 export function CanvasOverlays({
+  compact,
   transforming,
   scope,
   onLeaveScope,
@@ -279,6 +344,7 @@ export function CanvasOverlays({
   return (
     <>
       <CanvasToolbar
+        compact={compact}
         projection={projection}
         onProjectionChange={onProjectionChange}
         toolState={toolState}
@@ -289,11 +355,12 @@ export function CanvasOverlays({
       {scope !== null && <ScopeChip scope={scope} onLeave={onLeaveScope} />}
 
       {presenting !== null && !transforming && (
-        <PresentBar presenting={presenting} onPresent={onPresent} />
+        <PresentBar compact={compact} presenting={presenting} onPresent={onPresent} />
       )}
 
       {presenting === null && !transforming && !selectionEmpty(selection) && (
         <SelectionBar
+          compact={compact}
           count={selection.nodeIds.size + selection.edgeIds.size}
           canGroup={selection.nodeIds.size > 0}
           canUngroup={canUngroup}

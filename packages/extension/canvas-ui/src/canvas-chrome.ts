@@ -8,6 +8,7 @@
  * (DESIGN-UI.md → Scripts).
  */
 
+// GAP [[01M60SY0BW16HC6R117DCAPDHB]] — one size for every pointer: a finger's is a mouse's.
 /** A port's button, centred on the middle of each of a card's sides. */
 export const PORT_SIZE = 24;
 

@@ -27,10 +27,8 @@ import {
 } from "@kb/canvas";
 import {
   browserHost,
-  Bullet,
   cn,
   navigate,
-  NodeRow,
   NotFound,
   useAppearance,
   useAnswered,
@@ -49,7 +47,8 @@ import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { CanvasDock } from "./canvas-dock";
-import { DOCK_COMPACT_WIDTH } from "./canvas-dock-size";
+import { compactStage } from "./canvas-stage-layout";
+import { useStageSize } from "./use-stage-size";
 import { CanvasStylePanel } from "./canvas-style-panel";
 import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
@@ -71,6 +70,7 @@ import { useCanvasSelection } from "./use-canvas-selection";
 import { createCanvasNode } from "./canvas-api";
 import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
+import { CanvasHeader } from "./canvas-header";
 import { linkStep } from "./canvas-links";
 import { cardIdAt, classifyCardPointer } from "./card-pointer";
 import {
@@ -264,6 +264,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   ).value;
 
   const stageRef = useRef<HTMLDivElement>(null);
+  /** The page, which Full screen puts in full screen: its header and pages with the stage. */
   const projection = useCanvasProjection({
     camera,
     pan,
@@ -358,6 +359,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   }, [dispatchPointer]);
 
   const viewport = projection.viewportOf(viewportControls);
+  /** The stage stands its chrome compact on a phone, either way up, or in a side panel. */
+  const compact = compactStage(useStageSize(stageRef));
   useCanvasTouch({ stage: stageRef, controls: viewport, pressedBy });
   const drawing = useCanvasCapture(projection.holdScene);
   useCanvasScreen({
@@ -549,40 +552,22 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   };
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="kb-chrome flex h-10 shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-3">
-        <button
-          type="button"
-          className="text-meta text-muted-foreground hover:text-foreground"
-          onClick={() => navigate(CANVAS_LIST_PATH)}
-        >
-          ← canvases
-        </button>
-        <NodeRow
-          depth={0}
-          nodeId={canvasId}
-          bullet={<Bullet node={canvasNode} onClick={() => {}} />}
-          content={
-            <span className="kb-display truncate text-ui text-foreground/70">
-              {canvasNode.text}
-            </span>
-          }
-          className="min-w-0 flex-1"
-        />
-        <button
-          type="button"
-          className="rounded-md border border-border px-2 py-1 text-meta text-muted-foreground hover:bg-foreground/5"
-          onClick={() => setPickerOpen(true)}
-        >
-          Add node
-        </button>
-        <CanvasZoomMenu zoom={zoom} selection={selection} byId={byId} onIntent={applyIntent} />
-      </div>
-
-      <CanvasPageStrip
-        pages={pages}
-        current={canvasId}
-        onOpen={openPage}
-        onNew={() => void newPage()}
+      <CanvasHeader
+        compact={compact}
+        canvasNode={canvasNode}
+        pages={
+          <CanvasPageStrip
+            compact={compact}
+            pages={pages}
+            current={canvasId}
+            onOpen={openPage}
+            onNew={() => void newPage()}
+          />
+        }
+        onAddNode={() => setPickerOpen(true)}
+        zoom={
+          <CanvasZoomMenu zoom={zoom} selection={selection} byId={byId} onIntent={applyIntent} />
+        }
       />
 
       <div
@@ -734,12 +719,13 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onChange={(item) => schedulePersist(upsertCanvasNode(docRef.current, item))}
         />
         <CanvasDock
-          compact={stageSize.width < DOCK_COMPACT_WIDTH}
+          compact={compact}
           head={
             <>
               <CommentsToggle comments={comments} />
               <CanvasViewWidget
                 {...shownCamera}
+                compact={compact}
                 projection={projection.target}
                 selectionEmpty={selectionEmpty(selection)}
                 frames={frames}
@@ -775,6 +761,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         </CanvasDock>
         {modalDrag?.kind === "transform" && modalDrag.input !== null && (
           <CanvasTransformGuides
+            compact={compact}
             input={modalDrag.input}
             applied={modalDrag.applied}
             {...shownCamera}
@@ -810,6 +797,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         />
         <CanvasLaserLayer stage={stageRef} on={presenting !== null} />
         <CanvasOverlays
+          compact={compact}
           transforming={modal}
           scope={scope === null ? null : (byId.get(scope) ?? null)}
           onLeaveScope={leave}

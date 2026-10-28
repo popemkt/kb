@@ -217,3 +217,137 @@ test.describe("fingers on the 2D canvas", () => {
     await expect(menu.getByRole("menuitem", { name: /Delete/ })).toBeVisible();
   });
 });
+
+/** A pinch from 100 px apart to 200, about `at`. */
+async function pinchOut(fingers: Fingers, at: Finger): Promise<void> {
+  const from = [
+    { x: at.x - 50, y: at.y },
+    { x: at.x + 50, y: at.y },
+  ];
+  await fingers.touch(...from);
+  await fingers.slide(from, [
+    { x: at.x - 100, y: at.y },
+    { x: at.x + 100, y: at.y },
+  ]);
+  await fingers.lift();
+}
+
+test.describe("fingers on the 3D canvas", () => {
+  test.use({ viewport: PIXEL, ...PHONE });
+
+  test("a pinch zooms the scene as it does the top view, and the pose comes to rest", async ({
+    page,
+    request,
+  }) => {
+    await openCanvas(page, request);
+    await page.getByRole("button", { name: "More tools" }).click();
+    await page
+      .getByTestId("canvas-tool-sheet")
+      .getByRole("button", { name: "3D projection" })
+      .click();
+    await expect(page.getByTestId("canvas-3d")).toBeVisible();
+    // The handover flies out to its pose; the header reads its zoom once it has arrived.
+    await page.waitForTimeout(2000);
+    const before = await zoomOf(page);
+    const fingers = await Fingers.on(page);
+    await pinchOut(fingers, { x: PIXEL.width / 2, y: PIXEL.height / 2 });
+    await expect.poll(async () => (await zoomOf(page)) / before).toBeGreaterThan(1.5);
+  });
+});
+
+/** The phones the compact stage is proved on, each held as it is named. */
+const PHONES = [
+  { name: "a Pixel 7 upright", viewport: PIXEL },
+  { name: "a Pixel 7 on its side", viewport: { width: PIXEL.height, height: PIXEL.width } },
+  { name: "an iPhone 14 upright", viewport: { width: 390, height: 844 } },
+] as const;
+
+for (const phone of PHONES) {
+  test.describe(`the compact stage on ${phone.name}`, () => {
+    test.use({ viewport: phone.viewport, ...PHONE });
+
+    test("the tools stand in one row along the bottom, a finger's size, and nothing covers a card's middle", async ({
+      page,
+      request,
+    }, testInfo) => {
+      await openCanvas(page, request);
+      const strip = page.getByTestId("canvas-toolbar");
+      await expect(strip).toHaveAttribute("data-compact", "");
+      const box = present(await strip.boundingBox(), "the strip's box");
+      // One row, along the bottom, inside the screen.
+      expect(box.height).toBeLessThan(64);
+      expect(phone.viewport.height - (box.y + box.height)).toBeLessThan(24);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(phone.viewport.width);
+      for (const button of await strip.getByRole("button").all()) {
+        const hit = present(await button.boundingBox(), "a tool's box");
+        expect(Math.min(hit.width, hit.height)).toBeGreaterThanOrEqual(40);
+      }
+      // The gizmo folds away, and Add node is the kb node tool's.
+      await expect(page.getByTestId("canvas-view-widget").locator("svg")).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Add node" })).toHaveCount(0);
+      // Every card whose middle the stage shows is pressed there, not the chrome over it.
+      const stage = present(
+        await page.locator("[data-canvas-viewport]").boundingBox(),
+        "the stage's box",
+      );
+      for (const id of ["note", "reference", "idea"]) {
+        const at = centre(await boxOf(page, id));
+        if (at.y > stage.y + stage.height || at.x > stage.x + stage.width) continue;
+        const under = await page.evaluate(
+          ({ x, y }) =>
+            document
+              .elementFromPoint(x, y)
+              ?.closest("[data-card-id]")
+              ?.getAttribute("data-card-id"),
+          at,
+        );
+        expect(under, `${id}'s middle is the card's`).toBe(id);
+      }
+      await page.screenshot({ path: testInfo.outputPath("compact.png") });
+    });
+  });
+}
+
+test.describe("the compact stage's chrome", () => {
+  test.use({ viewport: PIXEL, ...PHONE });
+
+  test("More holds the rest of the tools and the projections, and puts itself away on a pick", async ({
+    page,
+    request,
+  }) => {
+    await openCanvas(page, request);
+    const more = page.getByRole("button", { name: "More tools" });
+    const sheet = page.getByTestId("canvas-tool-sheet");
+    await more.tap();
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('[data-projection="3d"]')).toBeVisible();
+    for (const tool of ["comment", "image", "kb-node", "box", "wall"]) {
+      await expect(sheet.locator(`[data-tool="${tool}"]`)).toBeVisible();
+    }
+    await sheet.locator('[data-tool="highlight"]').tap();
+    await expect(sheet).toHaveCount(0);
+    await more.tap();
+    await expect(sheet.locator('[data-tool="highlight"]')).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("the selection toolbar stands above the tools and says its commands with marks", async ({
+    page,
+    request,
+  }) => {
+    await openCanvas(page, request);
+    await cardOf(page, "idea").tap();
+    const bar = page.getByTestId("canvas-selection-bar");
+    await expect(bar).toBeVisible();
+    const barBox = present(await bar.boundingBox(), "the bar's box");
+    const strip = present(
+      await page.getByTestId("canvas-toolbar").boundingBox(),
+      "the strip's box",
+    );
+    expect(barBox.y + barBox.height).toBeLessThanOrEqual(strip.y);
+    expect(barBox.x).toBeGreaterThanOrEqual(0);
+    expect(barBox.x + barBox.width).toBeLessThanOrEqual(PIXEL.width);
+    await bar.getByRole("button", { name: "Delete" }).tap();
+    await expect(cardOf(page, "idea")).toHaveCount(0);
+  });
+});

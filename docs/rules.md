@@ -571,6 +571,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — moveDraft runs the drag's snapper (the one transform/resize use) over the draft's box
 - **node** — `01M5QP28SNK7S9B95ZXD0KWCKR`
 
+### GAP: canvas handles and ports keep their mouse size under a finger
+
+- **expected** — The resize and rotate handles and the edge ports reach a coarse pointer's 40px (tldraw's), from the one statement of their size (canvas-chrome.ts), which the scripts' press mask reads too
+- **current** — PORT_SIZE 24, CORNER_HANDLE_SIZE 16 and ROTATE_HANDLE 24x36 are the same for every pointer; on a phone a handle is hard to hit and a press beside it moves the card
+- **impact** — Resizing, rotating and connecting on a phone take several tries; the compact stage (DESIGN-UI.md → The compact stage) leaves them as they are
+- **closes** — canvas-chrome.ts states the sizes by pointer kind (PointerKind, @kb/ui-sdk) and every reader — the chrome, the press mask, chromeReach — takes the kind the stage was last pressed by
+- **node** — `01M60SY0BW16HC6R117DCAPDHB`
+
 ### GAP: canvas PNG export has no rasteriser
 
 - **expected** — ext.canvas.export {format: png} rasterises the canvas's SVG on the server.

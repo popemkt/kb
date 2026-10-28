@@ -1384,9 +1384,28 @@ manipulation feel professional rather than merely functional.
   finger is down. Chrome over the stage takes its taps as any button does,
   and words being typed (`isTyping`: the focused entry) keep the browser's
   touch.
-- **The tool strip** stands down the stage's left edge, inside the stage:
+- **The compact stage** (`compactStage`, `canvas-stage-layout.ts`; the
+  design note `docs/research/2026-10-28-canvas-mobile.md`): a stage
+  narrower than 720px (a phone upright, a side panel) or shorter than 480px
+  (a phone on its side) stands its chrome compact, and every piece of
+  chrome reads that one answer. The tools stand in one row along the
+  bottom, clear of the safe area, the rest behind More; the dock's panels
+  stand folded; the view widget folds its axis gizmo away and keeps the
+  view's name, which opens the view menu; the selection toolbar, present
+  mode's bar and a modal transform's readout stand above the tools
+  (`bottomBarClass`), the selection toolbar's commands as marks named for a
+  screen reader; and the header holds the board's pages in the node's
+  place, the way back as a mark, Add node left to the kb node tool.
+- **The tool strip** is drawn from one table (`STRIP`,
+  `canvas-tool-looks.tsx`): every tool that stands alone and every family,
+  in order, each marked `more` when a compact stage keeps it behind More.
+  On a wide stage it stands down the stage's left edge, inside the stage:
   where the stage is too short for one column of tools it wraps into a
-  second rather than running over the page strip above it.
+  second rather than running over the page strip above it. On a compact
+  stage it is one row of 40px buttons (tldraw's), the first tools of the
+  table and More, a sheet (`canvas-tool-sheet.tsx`) with every tool behind
+  it, each family's tools by themselves, and the 2D/3D toggle; a family's
+  picker opens above the row as a grid of marks.
 - **Sticky tools.** `canvas-ui/src/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
@@ -1565,9 +1584,9 @@ manipulation feel professional rather than merely functional.
   and the comments list. A panel there is never anchored to what it is
   about, so it never opens over the selection it edits; it is as tall as
   its rows, scrolls inside itself once the column is full (which ends above
-  the selection toolbar), and folds to its title. On a narrow stage — a
-  side panel's, under `DOCK_COMPACT_WIDTH` — every panel stands folded to
-  its title until opened, as tldraw's style panel waits behind a button on
+  the selection toolbar), and folds to its title. On a compact stage
+  (`compactStage`, above) every panel stands folded to its title until
+  opened, as tldraw's style panel waits behind a button on
   a small screen. A pick in it keeps the keyboard where it was, so the
   canvas's shortcuts still reach it. What the dock remembers — the fold a
   person chose for a panel, which holds however the stage is sized (one

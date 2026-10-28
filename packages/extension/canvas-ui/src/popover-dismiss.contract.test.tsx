@@ -21,6 +21,7 @@ import { CanvasContextMenu } from "./canvas-context-menu";
 import { EMPTY_SELECTION } from "./canvas-selection";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasToolbar } from "./canvas-toolbar";
+import { CanvasToolSheet } from "./canvas-tool-sheet";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { CanvasZoomMenu } from "./canvas-zoom-menu";
 import { NodePicker } from "./node-picker";
@@ -51,6 +52,7 @@ function ViewWidget() {
       menuOpen={menuOpen}
       onMenuOpenChange={setMenuOpen}
       onIntent={noop}
+      compact={false}
     />
   );
 }
@@ -79,6 +81,7 @@ dismissContract({
     renderPopover(
       host,
       <CanvasToolbar
+        compact={false}
         projection="3d"
         onProjectionChange={noop}
         toolState={{ tool: "select" }}
@@ -87,6 +90,19 @@ dismissContract({
       />,
       find('[data-testid="canvas-solid-picker"]'),
       trigger('[data-tool="box"]'),
+    ),
+  "packages/extension/canvas-ui/src/canvas-tool-sheet.tsx": (host) =>
+    renderPopover(
+      host,
+      <CanvasToolSheet
+        projection="2d"
+        onProjectionChange={noop}
+        toolState={{ tool: "select" }}
+        onToolChange={noop}
+        onToolDoubleClick={noop}
+      />,
+      find('[data-testid="canvas-tool-sheet"]'),
+      trigger('button[aria-label="More tools"]'),
     ),
   "packages/extension/canvas-ui/src/canvas-view-widget.tsx": (host) =>
     renderPopover(

@@ -3,7 +3,8 @@
  * gizmo heading the dock (`CanvasDock`), computed from the camera's frame
  * (`screenAxes`), so it needs no second scene, and under it the name of the
  * view, which opens the view menu. In 2D it shows the top view, which is what
- * 2D is.
+ * 2D is. On a compact stage (`compactStage`) the gizmo folds away, and the
+ * name, which opens the same menu, stands alone.
  *
  * Clicking an axis end looks from that side (Blender's convention: the +X end
  * is the right view). The menu lists the view commands (`CANVAS_VIEW_COMMANDS`,
@@ -38,6 +39,8 @@ export interface CanvasViewWidgetProps extends ShownCameraProps {
   readonly menuOpen: boolean;
   readonly onMenuOpenChange: (open: boolean) => void;
   readonly onIntent: (intent: CanvasIntent) => void;
+  /** The stage is compact (`compactStage`): the gizmo folds away and the view's name stands alone. */
+  readonly compact: boolean;
 }
 
 type Axis = "x" | "y" | "z";
@@ -307,6 +310,7 @@ export function CanvasViewWidget({
   menuOpen,
   onMenuOpenChange,
   onIntent,
+  compact,
   ...camera
 }: CanvasViewWidgetProps) {
   const { view } = useShownCamera(camera);
@@ -314,7 +318,9 @@ export function CanvasViewWidget({
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <div className="flex flex-col items-end gap-1" data-testid="canvas-view-widget">
-      <AxisGizmo view={view} onLook={(preset) => onIntent({ type: "look", preset })} />
+      {!compact && (
+        <AxisGizmo view={view} onLook={(preset) => onIntent({ type: "look", preset })} />
+      )}
       <div className="relative">
         <button
           ref={trigger}

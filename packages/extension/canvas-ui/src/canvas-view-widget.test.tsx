@@ -64,6 +64,7 @@ function mount(
       menuOpen: open,
       onMenuOpenChange: setOpen,
       onIntent,
+      compact: false,
     });
   }
   act(() => root.render(createElement(Host)));
