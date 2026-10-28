@@ -24,7 +24,7 @@ const DATASCRIPT = /cljs\.core/;
 /**
  * The eager set's raw bytes may not pass this (1.76 MB when it was set, from
  * 2.23 MB with DataScript; raised by 10 KB for the motion options' seed
- * fields and their mode, whose painter and Preferences rows load lazily).
+ * fields and their mode, whose painter loads lazily, as the Settings page does).
  */
 const EAGER_BUDGET_BYTES = 1_960_000;
 

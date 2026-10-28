@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   cn,
   hasText,
+  SettingsTrigger,
   SidebarToggle,
   ThemeArt,
   useRoute,
@@ -13,7 +14,6 @@ import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
 import { DockHost, DockToggles } from "@/docks";
 import { Overlays } from "@/overlays";
-import { PreferencesPopover, PreferencesTrigger } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
@@ -130,7 +130,6 @@ function SharedChrome() {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   return (
     <>
-      <PreferencesPopover />
       <Overlays />
       <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />
@@ -138,7 +137,7 @@ function SharedChrome() {
   );
 }
 
-/** The workspace header: the sidebar toggle, connection, palette, docks and preferences. */
+/** The workspace header: the sidebar toggle, connection, palette, docks and settings. */
 function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const sidebar = useSidebarToggle();
@@ -154,7 +153,7 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
       <div className="flex-1" />
       <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
       <DockToggles />
-      <PreferencesTrigger />
+      <SettingsTrigger />
     </header>
   );
 }

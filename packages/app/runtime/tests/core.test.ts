@@ -17,7 +17,7 @@ import { bunFileSystemLayer } from "../src/platform.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
-import { bundledSeed } from "@kb/bundled";
+import { bundledFold, bundledSeed } from "@kb/bundled";
 import { GOVERNANCE_IDS } from "@kb/governance";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */
@@ -132,7 +132,7 @@ describe("system seed", () => {
     const bytes2 = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     expect(bytes2).toBe(bytes1);
 
-    const again = ensureSystemSeed(ctx2.nodes, bundledSeed());
+    const again = ensureSystemSeed(ctx2.nodes, bundledFold());
     expect(again.seeded).toBe(false);
   });
 
@@ -163,7 +163,7 @@ describe("system seed", () => {
       return n;
     });
 
-    const result = ensureSystemSeed(stored, bundledSeed());
+    const result = ensureSystemSeed(stored, bundledFold());
     expect(result.seeded).toBe(true);
     const byId = new Map(result.nodes.map((n) => [n.id, n]));
 

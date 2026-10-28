@@ -50,4 +50,10 @@ export interface Prefs {
    */
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
+  /**
+   * Each Settings section a person opened or closed, by its id, when that
+   * differs from how the section opens by default (DESIGN-UI.md →
+   * Settings): this device's, as the page is read here.
+   */
+  settingsFolds: Readonly<Record<string, boolean>>;
 }

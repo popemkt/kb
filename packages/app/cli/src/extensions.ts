@@ -3,27 +3,46 @@
  * `extension.list`'s report (each one on or off with its tags, what it
  * injects from whom and provides, the ordered points' listeners and the
  * modules refused) with the actions each registered and how much it
- * contributes, `footprint` prints what one adds (`extension.footprint`), and `sdk`
+ * contributes, `footprint` prints what one adds (`extension.footprint`),
+ * `settings` prints what each one's node can be set to (`extension.settings`), and `sdk`
  * prints or writes the ambient types a repository extension compiles
- * against.
+ * against. `validate` is admission (`admitExtensions`): it fails while any
+ * of the root's extensions would be skipped, so a gate can refuse one.
  */
 import type { Command } from "commander";
 import { Effect } from "effect";
 import { z } from "zod";
 import {
+  type ActionReceipt,
   ExtensionReportSchema,
+  ExtensionSettingsSchema,
   FootprintRowSchema,
   onWire,
   type ExtensionReport,
   type ExtensionReportRow,
+  type ExtensionSettings,
   type FootprintRow,
   type KbContext,
 } from "@kb/contracts";
 import { ensureDomainError } from "@kb/model";
 import type { RegisteredAction } from "@kb/operations";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
-import { invokeReceiptEffect, resolveRootEffect, sessionRegistry, writeOut } from "@kb/runtime";
-import { ACTION_INVOKE_WIRE, EXIT_OK, cliAction, kbAction, report } from "./command.ts";
+import { canonicalRoot } from "@kb/workspace-fs";
+import {
+  admitExtensions,
+  invokeReceiptEffect,
+  resolveRootEffect,
+  sessionRegistry,
+  writeOut,
+} from "@kb/runtime";
+import {
+  ACTION_INVOKE_WIRE,
+  EXIT_OK,
+  cliAction,
+  kbAction,
+  report,
+  type GlobalOpts,
+} from "./command.ts";
 import { formatMode } from "./format.ts";
 
 const FootprintOutput = z.object({ rows: z.array(FootprintRowSchema) });
@@ -53,6 +72,37 @@ function footprintLines(output: unknown): readonly string[] {
     `${first.family}${first.enabled ? "" : " (off)"}: ${rows.length} contributed`,
     ...rows.map((row) => `  ${row.source.padEnd(8)} ${row.kind.padEnd(14)} ${row.id}`),
   ];
+}
+
+/** A value as `kb set` takes it back: a ref by its id, anything else as itself. */
+function valueText(
+  value: ExtensionSettings["extensions"][number]["settings"][number]["values"][number],
+): string {
+  return String(value.v);
+}
+
+/**
+ * `extension.settings`' answer as lines: each extension's node, then each
+ * setting with its field id (what `kb set` writes), its type and how many
+ * values it takes, what it holds now, and its options where it has them.
+ */
+function settingsLines(output: unknown): readonly string[] {
+  const parsed = ExtensionSettingsSchema.safeParse(output);
+  if (!parsed.success)
+    return [`extension.settings answered in another shape: ${parsed.error.message}`];
+  const { extensions } = parsed.data;
+  if (extensions.length === 0) return ["no settings"];
+  return extensions.flatMap(({ name, node, settings }) => [
+    `${name} (${node})${settings.length === 0 ? ": no settings" : ""}`,
+    ...settings.flatMap(({ field, label, type, cardinality, values, options }) => [
+      `  ${label}  ${field}  ${type}${cardinality === "one" ? "" : ", many"}  = ${
+        values.length === 0 ? "(unset)" : values.map(valueText).join(", ")
+      }`,
+      ...(options.length === 0
+        ? []
+        : [`    options: ${options.map(({ id, label: text }) => `${text} (${id})`).join(", ")}`]),
+    ]),
+  ]);
 }
 
 /** `extension.list`'s report, as the action answers it; empty when it answers otherwise. */
@@ -108,6 +158,69 @@ function listLines(
   for (const f of failures) lines.push(`! ${f.file}: ${f.error} (skipped)`);
   return lines;
 }
+
+/** `kb ext settings [name]`: `extension.settings`' answer, printed. */
+function settingsCommand(ext: Command): void {
+  ext
+    .command("settings")
+    .description(
+      "What each extension's node can be set to: its settings (the fields that configure it), their values and options; write one with `kb set sys.extension.<name> <field> <value>`",
+    )
+    .argument("[name]", "extension name, as `kb ext list` prints it, or core")
+    .action(
+      kbAction((ctx, globals, [name]: [string | undefined]) =>
+        invokeReceiptEffect(
+          ctx,
+          onWire(ACTION_INVOKE_WIRE, {
+            id: "extension.settings",
+            input: name === undefined ? {} : { name },
+          }),
+        ).pipe(Effect.map((receipt) => report(receipt, globals, settingsLines))),
+      ),
+    );
+}
+
+/** The id `kb ext validate`'s receipts carry. */
+const VALIDATE = "ext.validate";
+
+/**
+ * Whether `root` is the root the command runs inside (the one `kb` finds
+ * from the working directory): admission runs a root's extensions without
+ * trust, so it admits only the checkout it is run from, never one `--root`
+ * names elsewhere.
+ */
+const isWorkingRoot = Effect.fn("kb.ext.isWorkingRoot")(function* (root: string) {
+  const here = yield* resolveRootEffect({}).pipe(Effect.orElseSucceed(() => null));
+  if (here === null) return false;
+  return (yield* canonicalRoot(here)) === (yield* canonicalRoot(root));
+});
+
+/** `kb ext validate`: admission (`admitExtensions`) as a receipt, failed while any extension would be skipped. */
+const validate = (globals: GlobalOpts) =>
+  Effect.gen(function* () {
+    const root = yield* resolveRootEffect({ root: globals.root });
+    if (!(yield* isWorkingRoot(root))) {
+      const refused: ActionReceipt = {
+        status: "failed",
+        id: VALIDATE,
+        code: "forbidden",
+        message: `kb ext validate runs ${root}'s extensions without trust, so it admits only the root it is run from: run it inside that checkout`,
+      };
+      return report(refused, globals, () => []);
+    }
+    const failures = yield* admitExtensions(root);
+    const receipt: ActionReceipt =
+      failures.length === 0
+        ? { status: "succeeded", id: VALIDATE, output: { failures } }
+        : {
+            status: "failed",
+            id: VALIDATE,
+            code: "invalid_input",
+            message: `${failures.length} repository extension failure(s); each would be skipped: ${failures.map(({ file }) => file).join(", ")}`,
+            details: { failures },
+          };
+    return report(receipt, globals, () => ["kb extensions: all admitted"]);
+  });
 
 export function extensionCommands(program: Command): void {
   const ext = program.command("ext").description("Extension operations");
@@ -185,6 +298,13 @@ export function extensionCommands(program: Command): void {
         ),
       ),
     );
+  settingsCommand(ext);
+  ext
+    .command("validate")
+    .description(
+      "Admit every extension as a gate: load each .kb/extensions module as if trusted, every family on, and fail on any that would be skipped. It runs the extension code of the root it is run inside (never one --root names elsewhere), so run it where you would run the checkout's tests; it trusts nothing on this machine",
+    )
+    .action(cliAction(validate));
   ext
     .command("sdk")
     .description(

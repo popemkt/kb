@@ -13,7 +13,7 @@ import type { WireNode } from "@kb/contracts";
 import { Effect } from "effect";
 import { savedQueryNodes } from "../src/saved-queries.ts";
 import { startUi, type UiServerHandle } from "../src/server.ts";
-import { bundledSeed } from "@kb/bundled";
+import { bundledFold, bundledSeed } from "@kb/bundled";
 
 const run = Effect.runPromise;
 
@@ -43,9 +43,9 @@ describe("W4 seed: query fields", () => {
   });
 
   test("ensureSystemSeed is idempotent over the W4 nodes", () => {
-    const first = ensureSystemSeed([], bundledSeed());
+    const first = ensureSystemSeed([], bundledFold());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes, bundledSeed());
+    const again = ensureSystemSeed(first.nodes, bundledFold());
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
   });

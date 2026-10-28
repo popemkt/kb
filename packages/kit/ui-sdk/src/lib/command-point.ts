@@ -40,7 +40,6 @@ interface PrefsCommandApi {
 }
 
 interface UiCommandApi {
-  setPrefsOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
   setViewSettingsFrameId: (id: string | null) => void;
 }

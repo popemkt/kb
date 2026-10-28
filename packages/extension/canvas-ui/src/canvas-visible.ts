@@ -2,6 +2,7 @@ import {
   canvasTop,
   edgeReach,
   edgeRoute,
+  itemLead,
   pinnedItems,
   routeMidpoint,
   routePoints,
@@ -130,13 +131,21 @@ export interface LinkMark {
  * (`itemScreenRects`); none for an item none of which is in front of the eye.
  */
 export function linkMarks(doc: CanvasDoc, view: CanvasView, size: ViewSize): LinkMark[] {
-  const linked = doc.nodes.filter((item) => item.link !== undefined);
-  const rects = itemScreenRects(linked, view, size);
-  return linked.flatMap(({ id, link }) => {
-    const rect = rects.get(id);
-    return rect === undefined || link === undefined
+  // An item's own link, as following reads it (`itemLead`): one that does not read wears no mark.
+  const linked = doc.nodes.flatMap((item) => {
+    const link = item.link === undefined ? undefined : itemLead(item);
+    return link === undefined ? [] : [{ item, link }];
+  });
+  const rects = itemScreenRects(
+    linked.map(({ item }) => item),
+    view,
+    size,
+  );
+  return linked.flatMap(({ item, link }) => {
+    const rect = rects.get(item.id);
+    return rect === undefined
       ? []
-      : [{ item: id, link, at: { x: rect.right, y: rect.bottom } }];
+      : [{ item: item.id, link, at: { x: rect.right, y: rect.bottom } }];
   });
 }
 

@@ -35,12 +35,23 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { themesUiPlugin } from "@kb/themes-ui";
+import { transistorUiPlugin } from "@kb/transistor-ui";
+import { yorhaUiPlugin } from "@kb/yorha-ui";
+import { zzzUiPlugin } from "@kb/zzz-ui";
 import { designSystemsUiPlugin } from "@/design-systems";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
 beforeAll(() =>
-  syncPagePlugins([designSystemsUiPlugin, themesUiPlugin, outlineUiPlugin, collectionsUiPlugin]),
+  syncPagePlugins([
+    designSystemsUiPlugin,
+    themesUiPlugin,
+    zzzUiPlugin,
+    transistorUiPlugin,
+    yorhaUiPlugin,
+    outlineUiPlugin,
+    collectionsUiPlugin,
+  ]),
 );
 afterAll(() => syncUiPlugins([]));
 
@@ -117,7 +128,6 @@ describe("palette command routing (characterization)", () => {
     useGraphStore.getState().hydrateFromWire(seedGraph(), fixtureGraph.rev, "fixtures");
     useUiStore.setState({
       toasts: [],
-      prefsOpen: false,
       globalPaletteOpen: false,
       viewSettingsFrameId: null,
     });
@@ -200,14 +210,14 @@ describe("palette command routing (characterization)", () => {
     expect(window.location.pathname).toBe("/");
   });
 
-  it("extensions opens the Extensions panel", async () => {
+  it("Settings: Extensions opens Settings' Extensions part", async () => {
     await run(SYSTEM_IDS.cmdExtensions);
-    expect(window.location.pathname).toBe("/extensions");
+    expect(window.location.pathname).toBe("/settings/extensions");
   });
 
-  it("preferences opens the prefs dialog", async () => {
-    await run(SYSTEM_IDS.cmdPreferences);
-    expect(useUiStore.getState().prefsOpen).toBe(true);
+  it("settings opens the Settings page", async () => {
+    await run(SYSTEM_IDS.cmdSettings);
+    expect(window.location.pathname).toBe("/settings");
   });
 
   it("toggle-theme steps light → dark → system → light", async () => {
@@ -228,13 +238,13 @@ describe("palette command routing (characterization)", () => {
       { t: "ref", v: designSystemOptionId("themes.terminal") },
     ]);
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
-    expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("themes.zzz") }]);
+    expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("zzz.theme") }]);
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
     expect(chosenDesignSystem()).toEqual([
-      { t: "ref", v: designSystemOptionId("themes.transistor") },
+      { t: "ref", v: designSystemOptionId("transistor.theme") },
     ]);
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
-    expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("themes.yorha") }]);
+    expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("yorha.theme") }]);
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
     expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("kb") }]);
   });

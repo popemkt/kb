@@ -2,10 +2,10 @@
  * The page-head backdrop contract (DESIGN-UI.md → Page-head backdrops):
  * every backdrop contributed to `BackdropPoint`, the page's families' and a
  * plugin's own, is declared, so the seed holds its option under
- * `sys.f.backdrop`, the one list Preferences picks from; it is shown by the
+ * `sys.f.backdrop`, the one list Settings picks from; it is shown by the
  * one slot (`PageBackdrop`) for every strength and direction core's
  * settings choose, framed by its own presentation; choosing it in
- * Preferences writes core's setting, and the slot then shows it. A page's
+ * Settings writes core's setting, and the slot then shows it. A page's
  * own node chooses for that page over core's.
  *
  * A backdrop no declaration lists, or one the slot passes over, or one only
@@ -53,12 +53,11 @@ import {
   type PageEditor,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { PreferencesPopover } from "@/components/prefs/preferences-popover";
+import { SettingsPage } from "@/components/prefs/settings-page";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
 import { providePageEditor } from "@/stores/page-editor";
-import { useUiStore } from "@/stores/ui.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";
 
@@ -359,40 +358,32 @@ describe("every contributed page-head backdrop", () => {
     });
   });
 
-  describe("in Preferences", () => {
+  describe("in Settings", () => {
     let container: HTMLElement;
     let root: Root;
 
-    beforeAll(async () => {
+    beforeAll(() => {
       useGraphStore.getState().hydrateFromWire(graphWith({}), 1, "fixtures");
-      useUiStore.getState().setPrefsOpen(true);
       container = document.createElement("div");
       document.body.appendChild(container);
       root = createRoot(container);
-      act(() =>
-        root.render(createElement(PreferencesPopover, { switches: [], onSwitch: () => {} })),
-      );
-      // Preferences loads its motion rows behind lazy(): let them land inside act. Landing
-      // after the file's last test, React's warning outlives the worker and fails the run.
-      await act(async () => {
-        await import("@/components/prefs/motion-rows");
-        await new Promise((done) => setTimeout(done, 0));
-      });
+      act(() => root.render(createElement(SettingsPage, { part: "appearance" })));
     });
     afterAll(() => {
       act(() => root.unmount());
       container.remove();
-      useUiStore.getState().setPrefsOpen(false);
     });
 
     const rows = () => {
-      const section = container.querySelector('[aria-label="backdrop"]');
-      if (section === null) throw new Error("Preferences draws no backdrop settings");
-      return section;
+      const group = container.querySelector('[data-settings-section="page-head"]');
+      if (group === null) throw new Error("Settings draws no backdrop settings");
+      return group;
     };
 
-    it("draws core's three settings as field rows", () => {
+    it("draws core's three settings as field rows, the backdrop's as chips, not a gallery", () => {
       expect(rows().querySelectorAll("[data-field-row]")).toHaveLength(3);
+      // A backdrop previews at chip size only, so its field keeps the chips and the picker.
+      expect(rows().querySelector("[data-option-gallery]")).toBeNull();
     });
 
     it("is chosen by writing core's setting, which the row and the slot then show", async () => {
