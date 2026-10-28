@@ -65,6 +65,7 @@ import {
   Bounds,
   CanvasIdSchema,
   ColorSchema,
+  BoardPageSchema,
   CommentThreadSchema,
   DescribedItemSchema,
   LinkSchema,
@@ -159,6 +160,12 @@ const describeOutput = z.object({
     }),
   ),
   lints: z.array(LintSchema).readonly(),
+  pages: z
+    .array(BoardPageSchema)
+    .readonly()
+    .describe(
+      "the board's pages in order, each with the ways its items lead to other pages and the pages that lead to it",
+    ),
   camera: z.record(z.string(), z.unknown()).optional(),
   screen: ScreenSchema.nullable(),
   scripts: z
@@ -251,6 +258,7 @@ const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
     relations: [...told.relations],
     peripheral: told.peripheral.map((cluster) => ({ ...cluster })),
     lints: told.lints,
+    pages: told.pages,
     ...(told.camera === undefined ? {} : { camera: { ...told.camera } }),
     screen,
     ...(scripts === null ? {} : { scripts }),
@@ -773,7 +781,9 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "not its kind's defaults, and how items stand: on, in a frame, linked, " +
       "and near by a side in plain words (left, right, north, south, above, below — the canvas's own " +
       "axes). Items in focus are in full, the rest on screen blurred, what is off screen counted per " +
-      "frame; with no focus and no open tab every item is in full. Also its lints and camera.",
+      "frame; with no focus and no open tab every item is in full. Also its lints, its camera, and its " +
+      "board's pages: each page with the ways its items lead to other pages (a drill-down) and the " +
+      "pages that lead to it. A locked item that leads somewhere is a control a press follows.",
     mode: { kind: "read" },
     targets: ON_ITS_CANVAS,
     context: ON_THE_OPEN_CANVAS,

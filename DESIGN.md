@@ -3516,7 +3516,15 @@ board's pages as a strip (`canvas-page-strip.tsx`): a tab opens a page,
 nudge), and "New page" adds an empty canvas under the board. What leads
 from one page to another is an item's `link`, so a drill-down is a card
 linked to a page, and a way back is a card linked back: usage, not a
-widget. The inspector's link row offers the board's other pages as picks.
+widget. A locked item that leads somewhere is a control, which a press
+follows (`controlLead`, DESIGN-UI.md → Canvas → Item links), so a badge
+needs no script. The inspector's link row offers the board's other pages as
+picks. A board's page graph is read, not drawn: `boardPages` gives each
+page with the ways its items lead to other pages (the item, the page, the
+item shown there) and the pages that lead to it, which `describe` answers
+as `pages` and `unreachable-page` walks. A convention over it — a back
+badge for every page that drills in — is checked by whoever keeps the
+convention, against `pages`; kb lints no one's convention.
 
 An item's or an edge's JSON Canvas `color` is one of the palette's
 (`CANVAS_PALETTE`): the format's presets `1`–`6` (red, orange, yellow,
@@ -3753,7 +3761,8 @@ transaction, one step of an open canvas's history.
   focus (the `focus` asked for, else the open tab's selection, else what it
   shows) in full, the rest on screen blurred to what and where, and what is
   off screen counted per frame. With no tab showing the canvas, every item
-  is in full. It also gives the lints, the camera and the tab's screen.
+  is in full. It also gives the lints, the board's page graph (`pages`),
+  the camera and the tab's screen.
 
 #### Export
 
