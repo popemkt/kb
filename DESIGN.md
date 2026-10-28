@@ -3817,6 +3817,47 @@ a file is the caller's.
   dependency (GAP 01M54EPF1QB5MKA6WRK9DF2X1Y); rasterise the SVG, or use
   `ui.capture` on an open tab.
 
+#### Import
+`ext.canvas.import {path, name?, parent?}` brings a tldraw board into kb,
+one way: nothing of tldraw's format is kept, and there is no export back
+(research `docs/research/2026-10-28-canvas-tldraw-parity.md`, D4). The file
+is a `.tldraw` archive (a ZIP holding tldraw-sync's `db.sqlite`, whose
+`documents` table keeps each record's JSON) or a `.tldr` file (JSON whose
+`records` they are); reading it is `ext-canvas`'s `tldraw-file.ts`, and the
+lowering is `@kb/canvas`'s pure `tldrawBoard`, so any source of tldraw's
+store records can use it.
+- The first page by tldraw's page order is the board, filed under `parent`;
+  the others are its pages. Everything is one transaction, and the answer
+  names each page, the record nodes and fields it made, its lints (each
+  once), and `reported`: what kb drew differently or not at all.
+- A `frame` is a frame; a tldraw `group` is no item, its members standing
+  where they stand; coordinates relative to a parent become the canvas's.
+  A `geo` is a shape (forms kb lacks drawn as a rect, and reported), a
+  `text` a text item with no outline or ground, a `note` a text card, and an
+  arrow bound at both ends an edge (anchors, heads, label and bend kept);
+  one that is not is a line, and reported. Other shapes are counted in
+  `reported`.
+- A shape carrying `meta` beyond `drill` is a record (D1): it becomes a node
+  under its page whose text is the shape's rich text as markdown and whose
+  props are its meta keys, and it is drawn as a card showing that node (a
+  frame keeps its frame and stands for the node through `nodeId`). A key
+  is written in the field of that name when there is exactly one, it is
+  the person's (no `sys.*` field: a record's key never writes kb's schema)
+  and its type holds every value the board gives it. Otherwise the board
+  takes its own field, named for the key and the board (`pri (Overview)`,
+  then numbered), joined by the same rule, so a board imported again
+  writes in the fields it made, and a family's field of a common name
+  (`source`) never refuses a board. A field kb has none of is made, typed
+  `number` or `checkbox` when every value is one and `text` otherwise; the
+  answer names each key's field.
+- `meta.drill {to, focus?}`, the owner's drill-down convention, is the
+  item's link to that page and item; a locked badge with one is a control
+  (Item links), so the drill-down works as it did in tldraw, and `describe`
+  answers it in `pages`.
+- Colours, fill, dash, size, font and alignment map to kb's nearest looks;
+  black and white are kb's own ink and ground. `isLocked` is `locked`; a
+  `url`, or a lone link in the words, is the item's link.
+- It takes no targets: a script cannot read files, so cannot call it.
 #### Diagram
 
 `ext.canvas.diagram {query | mermaid, flow?, name?, parent?}` draws a new
