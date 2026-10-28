@@ -14,7 +14,11 @@ import type { AdapterId, ProviderConfig } from "./provider.ts";
 /** What the person wrote, and what their tab showed when they sent it. */
 export interface AgentMessage {
   readonly text: string;
-  /** The sender tab's screen, rendered for the model (`prompt.ts`); null when the sender is no tab. */
+  /**
+   * The screen the message is sent from, rendered for the model
+   * (`prompt.ts`), which a runtime sends before the text; null for a message
+   * that carries none, which is its text alone.
+   */
   readonly screen: string | null;
 }
 

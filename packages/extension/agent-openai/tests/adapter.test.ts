@@ -121,7 +121,7 @@ describe("the openai-chat adapter's wire", () => {
       stream: true,
       messages: [
         { role: "system", content: "You are kb's agent." },
-        // The message as every runtime sends it, its screen block first (`userTurnText`).
+        // The message as every runtime sends it, its screen block, if any, first (`userTurnText`).
         { role: "user", content: userTurnText({ text: "hi", screen: null }) },
       ],
       tools: [

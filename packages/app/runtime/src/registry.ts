@@ -7,6 +7,7 @@ import {
   CurrentInterception,
   contextReferencesOf,
   contextRefusal,
+  FamilyKernels,
   TemplatePoint,
   ViewKeyPoint,
   declarationPlugin,
@@ -23,6 +24,7 @@ import {
   type ContextReferences,
   type ExtensionFailure,
   type ExtensionRow,
+  type FamilyKernel,
   type Interception,
   type KbContext,
   type LoadedExtension,
@@ -69,22 +71,21 @@ interface RegistryExtension {
   templates: readonly RegisteredTemplate[];
 }
 
-export interface Registry {
+export interface Registry extends ActionTable {
   /** The kernel every action and template was loaded into. */
   kernel: Kernel;
+  /** The action contributions its table was made from, each keeping every rule an action keeps. */
+  contributions: readonly Contribution<ActionContribution>[];
   /** The guards and interceptors its plugins contribute, which every call through it goes through. */
   interception: Interception;
   /** The context references its plugins contribute, which fill a call made in a tab session. */
   references: ContextReferences;
   /** When its kernel is released: once it is replaced, and the calls that hold it have settled. */
   lifetime: RegistryLifetime;
-  actions: readonly RegisteredAction[];
-  byId: ReadonlyMap<string, RegisteredAction>;
   /** Render templates by namespaced id and by alias; fed to the TemplateRegistry service. */
   templates: ReadonlyMap<string, TemplateFn>;
   extensions: readonly RegistryExtension[];
   failures: readonly ExtensionFailure[];
-  manifestEntries: readonly ManifestEntry[];
   /** The views the loaded plugins contributed to `ViewKeyPoint`: what the `ViewCatalog` service holds. */
   views: ViewCatalogOf<ViewDef<unknown>>;
   /**
@@ -207,6 +208,36 @@ function registeredTemplate(contribution: Contribution<TemplateFn>): RegisteredT
   };
 }
 
+/** What a call reaches by id: each action under its id and its aliases, and their listing. */
+interface ActionTable {
+  readonly actions: readonly RegisteredAction[];
+  readonly byId: ReadonlyMap<string, RegisteredAction>;
+  readonly manifestEntries: readonly ManifestEntry[];
+}
+
+/** The table `contributions` make, their context references read from `references`. */
+function actionTable(
+  contributions: readonly Contribution<ActionContribution>[],
+  references: ContextReferences,
+): ActionTable {
+  const actions = contributions.map(registeredAction);
+  const byId = new Map<string, RegisteredAction>();
+  for (const action of actions) {
+    byId.set(action.def.id, action);
+    for (const alias of action.aliases) byId.set(alias, action);
+  }
+  const modeOf = (id: string) => byId.get(id)?.def.mode;
+  const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
+    actionToManifestEntry(action.def, modeOf, references),
+    ...action.aliases.map((alias) => ({
+      ...actionToManifestEntry(action.def, modeOf, references),
+      id: alias,
+      aliasOf: action.def.id,
+    })),
+  ]);
+  return { actions, byId, manifestEntries };
+}
+
 /**
  * The rules every registered action keeps, as the error the first one that
  * breaks them is refused with:
@@ -246,6 +277,75 @@ function brokenAction(
     if (refused !== null) return { contribution, error: refused };
   }
   return null;
+}
+
+/** A hosted action left out of what a call reaches: the reason, said once per registry. */
+function leftOut(contribution: Contribution<ActionContribution>, error: string): void {
+  writeErr(`kb: hosted action ${contribution.id}: ${error} (left out)`);
+}
+
+/**
+ * The hosted contributions every rule an action keeps admits beside the
+ * registry's: an id or alias the registry holds is the registry's, and one
+ * that breaks a batch's or a context's rule (`brokenAction`) is left out,
+ * as a registry family's is unloaded. Each one left out is said.
+ */
+function admitted(
+  registry: Registry,
+  hosted: readonly Contribution<ActionContribution>[],
+): readonly Contribution<ActionContribution>[] {
+  let admit = hosted.filter((contribution) => {
+    const held = [contribution.id, ...contribution.aliases].find((id) => registry.byId.has(id));
+    if (held !== undefined) leftOut(contribution, `${held} is the registry's`);
+    return held === undefined;
+  });
+  for (;;) {
+    const broken = brokenAction([...registry.contributions, ...admit], registry.references);
+    // The registry's own already keep every rule, so what breaks one is hosted.
+    if (broken === null || !admit.includes(broken.contribution)) return admit;
+    leftOut(broken.contribution, broken.error);
+    const out = broken.contribution;
+    admit = admit.filter((contribution) => contribution !== out);
+  }
+}
+
+/** The table each registry reaches with the hosted actions it was last read with. */
+const reached = new WeakMap<
+  Registry,
+  { readonly hosted: readonly ActionContribution[]; readonly table: ActionTable }
+>();
+
+/**
+ * The actions a call on this host reaches: the registry's, then those of
+ * each kernel the host composes families in beside it (`kernels`, the
+ * host's `FamilyKernels`: the `kb ui` server's hosted agent), listed and
+ * invoked like any other (DESIGN.md → Plugin channels → hosted actions).
+ * A host that composes nothing reaches the registry's alone. The table is
+ * made again only when what the host kernels contribute changes.
+ */
+export function reachableActions(
+  registry: Registry,
+  kernels: readonly FamilyKernel[],
+): ActionTable {
+  const hosted = kernels.flatMap(({ source, kernel }) =>
+    source === "host" ? kernel.contributions(ActionPoint) : [],
+  );
+  if (hosted.length === 0) return registry;
+  const values = hosted.map(({ value }) => value);
+  const known = reached.get(registry);
+  if (
+    known !== undefined &&
+    known.hosted.length === values.length &&
+    known.hosted.every((value, at) => value === values[at])
+  ) {
+    return known.table;
+  }
+  const table = actionTable(
+    [...registry.contributions, ...admitted(registry, hosted)],
+    registry.references,
+  );
+  reached.set(registry, { hosted: values, table });
+  return table;
 }
 
 /**
@@ -320,12 +420,9 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   yield* unloadBrokenActions(kernel, { core: corePlugin.name, sources, failures });
 
-  const actions = kernel.contributions(ActionPoint).map(registeredAction);
-  const byId = new Map<string, RegisteredAction>();
-  for (const action of actions) {
-    byId.set(action.def.id, action);
-    for (const alias of action.aliases) byId.set(alias, action);
-  }
+  const references = referencesOf(kernel);
+  const contributions = kernel.contributions(ActionPoint);
+  const { actions, byId, manifestEntries } = actionTable(contributions, references);
   const templateEntries = kernel.contributions(TemplatePoint).map(registeredTemplate);
   const templates = new Map<string, TemplateFn>();
   for (const template of templateEntries) {
@@ -342,17 +439,6 @@ const buildRegistry = Effect.fnUntraced(function* (
       templates: templateEntries.filter((template) => template.source === `ext:${name}`),
     }));
 
-  const modeOf = (id: string) => byId.get(id)?.def.mode;
-  const references = referencesOf(kernel);
-  const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
-    actionToManifestEntry(action.def, modeOf, references),
-    ...action.aliases.map((alias) => ({
-      ...actionToManifestEntry(action.def, modeOf, references),
-      id: alias,
-      aliasOf: action.def.id,
-    })),
-  ]);
-
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 
   const rows: ExtensionRow[] = families.map(({ declaration, source, digest, page }) =>
@@ -367,6 +453,7 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   return {
     kernel,
+    contributions,
     interception: interceptionFrom(kernel, { required }),
     references,
     lifetime: registryLifetime(kernel),
@@ -537,16 +624,26 @@ export const manifest = Effect.fn("kb.manifest")(function* (
   return (yield* registryFor(root ?? null)).manifestEntries;
 });
 
-/** True when the registered action dispatches through an Effect handler. */
+/**
+ * The actions a call reaches through `registry` on this host: its own, and
+ * the hosted ones of the host's `FamilyKernels` (`reachableActions`).
+ */
+const reachedBy = Effect.fnUntraced(function* (registry: Registry) {
+  return reachableActions(registry, yield* FamilyKernels).byId;
+});
+
 /**
  * Invoke over the discovered registry. The invoke core lives in
- * `@kb/operations` (`invokeWith`); this binds it to the session's registry.
+ * `@kb/operations` (`invokeWith`); this binds it to the session's registry
+ * and what its host composes beside it.
  */
 export const invokeEffect = Effect.fn("kb.invoke")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, ActionHandlerEnv> {
-  return yield* withSessionRegistry(ctx, (registry) => invokeWith(registry.byId, ctx, invocation));
+  return yield* withSessionRegistry(ctx, (registry) =>
+    Effect.flatMap(reachedBy(registry), (byId) => invokeWith(byId, ctx, invocation)),
+  );
 });
 
 export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
@@ -554,7 +651,7 @@ export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
   invocation: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
   return yield* withSessionRegistry(ctx, (registry) =>
-    invokeReceiptWith(registry.byId, ctx, invocation),
+    Effect.flatMap(reachedBy(registry), (byId) => invokeReceiptWith(byId, ctx, invocation)),
   );
 });
 

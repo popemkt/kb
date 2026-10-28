@@ -21,7 +21,6 @@ import {
   DecidedEntrySchema,
   ManifestEntrySchema,
   NO_SECRETS,
-  extensionRow,
   listedOn,
   onWire,
   type ActionRequest,
@@ -224,7 +223,7 @@ const serve: ServeUi = async (root, kind) => {
   );
   return {
     at: handle.at,
-    hosted: [extensionRow(agentExtension, "host", true)],
+    hosted: handle.hosted,
     stop: async () => {
       await Effect.runPromise(handle.stop);
       if (dir !== null) await rm(dir, { recursive: true, force: true });

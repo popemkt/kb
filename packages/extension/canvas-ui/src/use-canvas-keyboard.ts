@@ -6,19 +6,15 @@ import {
   GRID_STEP,
   CanvasRelationError,
   arrangeItems,
-  carriedBy,
   carriedPart,
   flipItems,
   groupItems,
-  moveBy,
+  nudgeItems,
   orderItems,
   withFlag,
   itemLead,
   pasteItems,
-  selectionPivot,
-  settleMembership,
   stringifyCanvasDoc,
-  transformCarried,
   ungroupItems,
 } from "@kb/canvas";
 import {
@@ -227,15 +223,8 @@ function escapeCanvas(context: CanvasKeyboardContext) {
  * frame that holds it there.
  */
 function nudgeSelection(context: CanvasKeyboardContext, dx: number, dy: number) {
-  const doc = context.docRef.current;
-  const carried = carriedBy(doc.nodes, context.selRef.current.nodeIds);
-  const t = moveBy(selectionPivot(carried.items), { x: dx, y: dy, z: 0 });
-  const moved = transformCarried(doc, carried, t);
   context.schedulePersist(
-    settleMembership(
-      moved,
-      carried.items.map((item) => item.id),
-    ),
+    nudgeItems(context.docRef.current, context.selRef.current.nodeIds, { x: dx, y: dy, z: 0 }),
   );
 }
 

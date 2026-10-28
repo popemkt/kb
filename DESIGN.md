@@ -3732,6 +3732,26 @@ transaction, one step of an open canvas's history.
   card's words (no parent, node first: D6), and the card shows it.
   **`comment`** starts a thread on an item or at a point, or replies to
   one ([Comments](#comments)).
+- **`edit`** changes items in place by id, as tldraw's `updateShapes`,
+  `deleteShapes`, `translateShapes` and `moveShapesToPage` do, so an
+  agent or a script never sends a whole document to change one card
+  (`@kb/canvas` `edit.ts`). An `update` sets an item's words (a text
+  card's text, a shape's or frame's label; a card's words are its node's,
+  and are refused), colour, looks, link, lock, node or size, each by the
+  writer the inspector uses, `null` taking a value away (`patchItem`); a
+  `move` is the nudge, by a delta, its groups' members carried and what it
+  lets go of settled by the drop rule (`nudgeItems`, the one the arrow
+  keys make); a `delete` takes items as Delete does, with their members
+  and the edges that meet them, and edges by id (`deleteItems`); a
+  `toPage` takes items to another canvas where they stand, with their
+  members and the edges among them, an edge to one left behind going with
+  them (`takeItems`, `landItems`, which refuses an id the page holds).
+  Edits are made in order against the stored document and written as one
+  canvas write, with the other page beside it in the same transaction. A
+  move, a delete, a move to a page and a resize refuse a locked item
+  (`requireItems`, the one refusal every verb that takes items makes);
+  its words, looks, link and node stay editable, as the inspector's are.
+  Making an item is `place`'s, which takes the new item's id.
   `place` (moving), `arrange`, `group` and `ungroup` refuse an item that is
   `locked`, naming it; `promote` takes a locked card, since it changes what
   the card shows and not where it stands; `describe` reports it
@@ -3797,6 +3817,95 @@ a file is the caller's.
   dependency (GAP 01M54EPF1QB5MKA6WRK9DF2X1Y); rasterise the SVG, or use
   `ui.capture` on an open tab.
 
+#### Import
+`ext.canvas.import {path, name?, parent?}` brings a tldraw board into kb,
+one way: nothing of tldraw's format is kept, and there is no export back
+(research `docs/research/2026-10-28-canvas-tldraw-parity.md`, D4). The file
+is a `.tldraw` archive (a ZIP holding tldraw-sync's `db.sqlite`, whose
+`documents` table keeps each record's JSON) or a `.tldr` file (JSON whose
+`records` they are); reading it is `ext-canvas`'s `tldraw-file.ts`, and the
+lowering is `@kb/canvas`'s pure `tldrawBoard`, so any source of tldraw's
+store records can use it.
+- The first page by tldraw's page order is the board, filed under `parent`;
+  the others are its pages. Everything is one transaction, and the answer
+  names each page, the record nodes and fields it made, its lints (each
+  once), and `reported`: what kb drew differently or not at all.
+- A `frame` is a frame; a tldraw `group` is no item, its members standing
+  where they stand; coordinates relative to a parent become the canvas's.
+  A `geo` is a shape (forms kb lacks drawn as a rect, and reported), a
+  `text` a text item with no outline or ground, a `note` a text card, and an
+  arrow bound at both ends an edge (anchors, heads, label and bend kept);
+  one that is not is a line, and reported. Other shapes are counted in
+  `reported`.
+- A shape carrying `meta` beyond `drill` is a record (D1): it becomes a node
+  under its page whose text is the shape's rich text as markdown and whose
+  props are its meta keys, and it is drawn as a card showing that node (a
+  frame keeps its frame and stands for the node through `nodeId`). A key
+  is written in the field of that name when there is exactly one, it is
+  the person's (no `sys.*` field: a record's key never writes kb's schema)
+  and its type holds every value the board gives it. Otherwise the board
+  takes its own field, named for the key and the board (`pri (Overview)`,
+  then numbered), joined by the same rule, so a board imported again
+  writes in the fields it made, and a family's field of a common name
+  (`source`) never refuses a board. A field kb has none of is made, typed
+  `number` or `checkbox` when every value is one and `text` otherwise; the
+  answer names each key's field.
+- `meta.drill {to, focus?}`, the owner's drill-down convention, is the
+  item's link to that page and item; a locked badge with one is a control
+  (Item links), so the drill-down works as it did in tldraw, and `describe`
+  answers it in `pages`.
+- Colours, fill, dash, size, font and alignment map to kb's nearest looks;
+  black and white are kb's own ink and ground. `isLocked` is `locked`; a
+  `url`, or a lone link in the words, is the item's link.
+- It takes no targets: a script cannot read files, so cannot call it.
+#### Run
+`ext.canvas.run {canvasId, from?, rounds?}` runs a canvas as a computer,
+tldraw computer's model built from kb's parts (research
+`docs/research/2026-10-28-canvas-tldraw-parity.md`, D6).
+- **Components and wires.** Every item that stands for a node and is an
+  end of an edge between two such items is a component; each such edge
+  carries the output of the one it leaves into the one it enters. `from`
+  narrows a run to one component and what its outputs reach.
+- **The engine is pure** (`@kb/canvas` `flow.ts`). `flowPlan` orders the
+  components upstream first, ties in document order. `runFlow` hands each
+  one, through a performer it is given, its inputs' latest outputs in edge
+  order (an input not yet made this run reads its node's stored output). A
+  component after one that failed or was skipped is skipped, naming it, as
+  the workflow kit's `STOP_EXECUTION`. A flow whose outputs loop back runs
+  `rounds` rounds (default 1, at most `MAX_FLOW_ROUNDS`, 8), so a loop
+  ends and spends a bounded amount; an acyclic one runs once.
+- **The node says how it performs**, each performer the family that owns
+  the work, called through the invoke core as `describe` calls the code
+  family:
+  - a node that names scripts (`sys.f.scripts`, as `ext.code.script.list`
+    lists them) runs them through `ext.code.script.run`, its node the
+    subject: the run first writes its inputs to its `input` field, and its
+    output is what they leave in its `output` field;
+  - one with no inputs is a constant, its output its words;
+  - any other is an instruction, its node's text, which the agent family
+    performs on its inputs with one tool-less turn of the selected
+    provider ([`ext.agent.complete`](#agent-packages), where `kb ui`
+    hosts the agent). An instruction no model performs fails, saying why,
+    and what follows it is skipped.
+- **Outputs are fields.** Each output is written to its node's `output`
+  field (made at the first run, text) as its step ends, one write each, so
+  every step shows on the card, reads in datalog and undoes like any edit.
+  The answer is the order, the rounds, the steps performed and each
+  component's last outcome.
+- It takes no targets: a script cannot start a run, which runs scripts and
+  spends a model.
+#### Scale
+A canvas is built for 10x the owner's tldraw board (research D7): one
+board of 40 pages, 2,000 items on a page, 1,000 record cards whose nodes
+carry 10 fields, 200 pictures. `canvas-scale.test.ts` (`@kb/runtime`)
+builds that board by `ext.canvas.import` and times import, a whole-page
+commit, parse and stringify, `describe` (with the board's page graph),
+`lint`, an `edit` and reopening the store, each against a budget four to
+ten times what it measures; `bun run bench` prints the table. Whatever
+reads every item against every other item goes through an index instead:
+`describe`'s near neighbours through a grid of squares, the stood-on
+search only over items with depth, and the import's children, arrows and
+bindings by their owner.
 #### Diagram
 
 `ext.canvas.diagram {query | mermaid, flow?, name?, parent?}` draws a new
@@ -4285,6 +4394,20 @@ A plugin can hold its own conversation with the connections of `kb ui`
 - **No new endpoint.** Every frame rides a `/ws` socket that the request
   guard already admitted, so a channel is as reachable as the screen is,
   and no more.
+- **A hosted family's actions are its host's.** What a plugin the server
+  hosts contributes to `ActionPoint` is reached beside the registry's
+  actions. The server's kernel is the `host` entry of the runtime's
+  `FamilyKernels`, and every call the server runs reaches the registry's
+  actions and then those (`reachableActions`, `@kb/runtime`): a call over
+  any of its wires (`serverInvoke`), and a call an action makes while it
+  runs (`CoreInvoke`, which runs in the same host's runtime). `kb.manifest`
+  lists them from the same table, so the page, HTTP and the agent's tools
+  list and invoke them like any other, and the guards decide them like any
+  other. A process that hosts nothing (the CLI, `kb mcp`) reaches none, as
+  it lists no hosted family. A hosted action keeps every rule a registry
+  action keeps: an id or alias the registry holds stays the registry's, and
+  one that breaks a batch's or a context's rule is left out, each said on
+  stderr. `hosted-actions.test.ts` (`@kb/server`) holds it.
 - In the browser, `KbWsClient.listen` and `sendChannel` carry a channel. A
   frame sent while the socket is down is dropped rather than replayed,
   because the plugin forgets a connection that closes.
@@ -4296,7 +4419,7 @@ The sidebar agent lives outside core, in packages that core never imports
 
 | Package            | Layer, scope       | Holds                                                                                                                                                                                                    |
 | ------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@kb/agent`        | extension, shared  | the runtime port, the adapter port, the provider nodes and the selection, the channel's protocol, the bridge plugin, the prompt, the transcript the sidebar draws, the step loop, and a scripted runtime |
+| `@kb/agent`        | extension, shared  | the runtime port, the adapter port, the provider nodes and the selection, the channel's protocol, the bridge plugin, the completion action, the prompt, the transcript the sidebar draws, the step loop, and a scripted runtime |
 | `@kb/agent-claude` | extension, backend | the `claude-agent-sdk` adapter, over the Claude Agent SDK                                                                                                                                                |
 | `@kb/agent-openai` | extension, shared  | the `openai-chat` adapter, a step over Chat Completions                                                                                                                                                  |
 
@@ -4334,7 +4457,8 @@ The sidebar agent lives outside core, in packages that core never imports
     default: `claude-agent-sdk` with nothing written, which is kb's agent as
     it always ran.
   - The selection is read per call, at the start of each turn
-    (`chooseProvider`), so nothing re-applies when it changes. The bridge
+    (`chooseProvider`, which reads kb as whoever runs the provider: the
+    bridge as the agent), so nothing re-applies when it changes. The bridge
     builds one runtime per provider as written and keeps it, so a `resume`
     handle keeps its meaning. When the provider a conversation ran on
     changes, its selection or any of its settings, the next turn starts
@@ -4395,9 +4519,9 @@ The sidebar agent lives outside core, in packages that core never imports
     switched off) the strip draws nothing, and the default still runs.
   - Not built: `ext.agent.models` (a provider's model ids, as suggestions
     for `model`) and `ext.agent.check` (whether a provider can run: its
-    binary, its endpoint, its credential's reference). They are read
-    actions of a family that only `kb ui` hosts, and the server routes no
-    action to a hosted plugin: GAP [[01M53F2M2S6J3WW0Z0KR136J6A]].
+    binary, its endpoint, its credential's reference), read actions of the
+    hosted family ([Plugin channels](#plugin-channels) → hosted actions):
+    GAP [[01M5ZF97R8ZK857GS29QGVD3EN]].
 - **One contract, every adapter.** `agentRuntimeContract` (`@kb/agent`)
   states what the port promises once, and each adapter's tests run it with
   a model double behind the adapter's own wire, so no network and no login
@@ -4460,8 +4584,9 @@ The sidebar agent lives outside core, in packages that core never imports
   names the nodes that screen mentions (the open view's subject, the
   focus and the selection, at most 12, through `node.get`) and hands the
   result to the runtime as JSON. A runtime sends it as a `<screen>` block
-  before the text (`userTurnText`). A sender that is not a tab sends no
-  screen.
+  before the text (`userTurnText`). A sender that is not a tab sends a
+  screen that says so, since the system prompt promises one; a message
+  that carries no screen at all is sent as its text alone.
 - **The tools are the registry**: what `kb.manifest` lists to the agent,
   filtered by `listedOn(AGENT_WIRE)` (`listingOf`), read at each turn. The
   agent's wire carries approval, because a call that needs approval reaches
@@ -4502,6 +4627,47 @@ The sidebar agent lives outside core, in packages that core never imports
   packages only for `kb ui`. The server reports the agent in
   `kb.manifest.extensions`, and the page offers the agent's dock only
   while it is reported on ([Extension families](#extension-families)).
+- **The completion is kb's one way to ask a model for text.**
+  `ext.agent.complete {system?, message} → {text, truncated, provider}`
+  (`complete.ts`) is contributed by the bridge's child plugin
+  (`agent/actions`, in `ext.agent`), so it is a hosted action
+  ([Plugin channels](#plugin-channels) → hosted actions): every surface of
+  a `kb ui` hosting the agent lists and invokes it, and a family's action
+  reaches it through `CoreInvoke`. A process that hosts no agent has none,
+  and a caller that finds none fails by name. A family that needs a model
+  calls it by id and holds no model client of its own (it may not import
+  the agent family anyway: the family fence).
+  - It is one turn of the provider the agent's node selects, chosen by the
+    one chooser (`chooseProvider`) with the same trust, read through
+    `CoreInvoke` as the caller reads: a provider whose binding nobody
+    trusted here fails the call naming its digest, before anything runs.
+    The turn carries the caller's system prompt (a plain answerer's,
+    `COMPLETION_SYSTEM`, when it names none), the message as its text
+    alone (no screen), no tools and no `resume`, on a runtime built for
+    the call, so nothing of it outlives the call.
+  - Its mode is a read that reaches outside the root (`outsideRoot`): it
+    changes nothing in kb, and it sends what it is given to the provider's
+    endpoint, or starts the provider's process.
+    A guard may ask about it like any action; none that ships does.
+  - Every call is bounded (`COMPLETION_LIMITS`): a system prompt of at
+    most 20 000 characters and a message of at most 100 000, refused as
+    `invalid_input` past them before anything runs; the reply kept to
+    32 000 characters, where the turn is stopped and `truncated` set; and
+    the whole reply within 180 s. A provider's failure is the call's
+    `internal` failure, with its message.
+  - **The grant: no code's to call.** It declares no node it acts on
+    (`targets`), so the grant refuses it to sandboxed code whatever the
+    grant names (`grantRefusal`, [Grants](#grants-and-the-script-actor)),
+    and a call an action makes while a script's call runs is the script's
+    (`callWithin`), so code cannot reach the model through another action
+    either: a canvas run a script starts performs no model step. Trusting
+    a script changes its engine, not this. Letting code spend the person's
+    model would be a grant of its own (what it may send, and how often),
+    designed with its first need. A repository extension, once trusted, is
+    owner code and calls it as owner code calls any action; an untrusted
+    one never loads.
+  - `agent-complete.test.ts` (`@kb/cli`) holds all of it over `kb ui`,
+    with a scripted provider.
 - **The `claude-agent-sdk` adapter** (`claudeAdapter`, `@kb/agent-claude`) runs Claude Code
   through the Claude Agent SDK.
   - With nothing written on its provider, it runs under the login the
@@ -4736,8 +4902,9 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
   every one is the subject or under it, whatever the grant reads: a canvas
   verb acts on its `canvasId`, `tx.apply` on its canvas and its
   `propTargetId`, `node.update` on its node and the parent it moves it to.
-  An action that declares none (`promote`, which makes a node at the root)
-  is no code's to call. The host stamps each call with its run's grant and
+  An action that declares none (`promote`, which makes a node at the root;
+  `ext.agent.complete`, which spends the person's model) is no code's to
+  call. The host stamps each call with its run's grant and
   subject (`ActionInvocation.script`, by `answerToolCall`, never the
   guest), and the invoke core decides it (`scriptRefusal` in
   `@kb/operations`, asking `grantRefusal` with `callTargets`): one place,
