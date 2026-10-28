@@ -13,9 +13,11 @@ export type CardPointerIntent = "chrome" | "edit" | "drag";
 const CHROME_SELECTOR = "[data-port],[data-resize]";
 
 /**
- * `innerEditor` is the CSS selector for this card kind's editor — the outline
- * row, the textarea, the label input — or `undefined` for a card that has
- * none. It is the only thing that differs between card kinds.
+ * `innerEditor` is the CSS selector for this card kind's editor while it is
+ * open — the outline row, the textarea, the label input — or `undefined`
+ * for a card that has none or whose editor is closed: a closed editor takes
+ * no press, so a press on the words carries the card as one on its edge
+ * does. It is the only thing that differs between card kinds.
  */
 export function classifyCardPointer(
   target: unknown,

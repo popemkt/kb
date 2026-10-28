@@ -216,6 +216,65 @@ test.describe("fingers on the 2D canvas", () => {
     await expect(page.locator('[data-card-id="note"][data-selected]')).toHaveCount(1);
     await expect(menu.getByRole("menuitem", { name: /Delete/ })).toBeVisible();
   });
+
+  test("a finger carries a card by its words; a second tap, or a double tap, opens them", async ({
+    page,
+    request,
+  }) => {
+    await openCanvas(page, request);
+    const fingers = await Fingers.on(page);
+    /** Whether `id`'s words are open for typing: the focus is in its editor. */
+    const typingIn = (id: string) =>
+      page.evaluate((card) => {
+        const at = document.activeElement;
+        const editor =
+          at instanceof HTMLTextAreaElement ||
+          at instanceof HTMLInputElement ||
+          (at as HTMLElement | null)?.isContentEditable;
+        return editor === true && at?.closest(`[data-card-id="${card}"]`) !== null;
+      }, id);
+    const tap = async (at: Finger) => {
+      await fingers.touch(at);
+      await fingers.lift();
+    };
+    const empty = { x: 360, y: 620 };
+    // The text card's words fill it, as a shape's label does; the kb card's are its node's text.
+    const words = {
+      note: async () => centre(await boxOf(page, "note")),
+      idea: async () => centre(await boxOf(page, "idea")),
+      reference: async () =>
+        centre(
+          present(
+            await page.locator('[data-card-id="reference"] .node-content').boundingBox(),
+            "the kb card's text",
+          ),
+        ),
+    };
+    for (const [id, wordsOf] of Object.entries(words)) {
+      await tap(empty);
+      const box = await boxOf(page, id);
+      const from = await wordsOf();
+      await fingers.touch(from);
+      await fingers.slide([from], [{ x: from.x + 50, y: from.y + 30 }], 6);
+      await fingers.lift();
+      await expect.poll(async () => (await boxOf(page, id)).x).toBeCloseTo(box.x + 50, -1);
+      await expect(page.locator(`[data-card-id="${id}"][data-selected]`)).toHaveCount(1);
+      expect(await typingIn(id)).toBe(false);
+
+      // Selected, a tap opens its words.
+      await tap(await wordsOf());
+      await expect.poll(() => typingIn(id)).toBe(true);
+
+      // From nothing selected, a double tap: the first selects, the second opens.
+      await tap(empty);
+      await expect.poll(() => typingIn(id)).toBe(false);
+      const again = await wordsOf();
+      await tap(again);
+      expect(await typingIn(id)).toBe(false);
+      await tap(again);
+      await expect.poll(() => typingIn(id)).toBe(true);
+    }
+  });
 });
 
 /** A pinch from 100 px apart to 200, about `at`. */

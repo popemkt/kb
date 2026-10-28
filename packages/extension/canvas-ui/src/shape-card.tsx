@@ -163,7 +163,9 @@ export function ShapeCard({
     <div
       className="group/card pointer-events-none absolute"
       style={box}
-      onPointerDown={(e) => pressCardBody(e, "input", onSelect, onMoveStart)}
+      onPointerDown={(e) =>
+        pressCardBody(e, editor.open ? "input" : undefined, onSelect, onMoveStart)
+      }
       onDoubleClick={(e) => {
         e.stopPropagation();
         onSelect();

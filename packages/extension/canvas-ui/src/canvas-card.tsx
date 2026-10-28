@@ -1,5 +1,6 @@
 import { pressCardBody } from "./card-pointer";
 import {
+  asElement,
   asInstance,
   browserHost,
   Bullet,
@@ -7,6 +8,7 @@ import {
   cn,
   NodeRow,
   NodeTextHost,
+  routePointerClick,
   useIsActive,
   useNode,
   useNodeTextBinding,
@@ -29,16 +31,11 @@ interface KbCardProps extends FaceLayout {
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
-/** Canvas text editing excludes structural outline operations. */
-function handleCanvasNodeKeyDown(
-  event: React.KeyboardEvent<HTMLDivElement>,
-  nodeId: string,
-  instanceKey: string,
-) {
+/** Canvas text editing excludes structural outline operations; Enter leaves the text (its blur does). */
+function handleCanvasNodeKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     asInstance(event.target, HTMLElement)?.blur();
-    browserHost().selectNode(nodeId, instanceKey);
     return;
   }
   if (
@@ -122,11 +119,22 @@ export function KbNodeCard({
         paint.chrome?.fill !== "none" && "shadow-raised",
       )}
       style={{ ...box, ...inkStyle(paint.ink.words) }}
-      onPointerDown={(e) => pressCardBody(e, ".node-content", onSelect, onMoveStart)}
+      onPointerDown={(e) =>
+        pressCardBody(e, isActive ? ".node-content" : undefined, onSelect, onMoveStart)
+      }
+      onClickCapture={(e) => {
+        // Closed, a click in the text follows what it points at and opens nothing: the page opens it (`opens`).
+        if (isActive || (asElement(e.target)?.closest(".node-content") ?? null) === null) return;
+        if (!routePointerClick(e, binding.onFollow)) e.stopPropagation();
+      }}
     >
       <ItemOutline item={card} paint={paint} selected={selected} />
       <NodeRow
-        className="relative h-full overflow-auto rounded-xl bg-transparent px-3 py-3"
+        // A scroller starts its own touch-action: closed, a finger on it carries the card, as on the stage.
+        className={cn(
+          "relative h-full overflow-auto rounded-xl bg-transparent px-3 py-3",
+          !isActive && "touch-none",
+        )}
         depth={0}
         nodeId={card.nodeId}
         instanceKey={instanceKey}
@@ -164,7 +172,9 @@ export function KbNodeCard({
             onRemoveTag={(tagId) => {
               void browserHost().writes.removeTag(card.nodeId, tagId);
             }}
-            onKeyDown={(event) => handleCanvasNodeKeyDown(event, card.nodeId, instanceKey)}
+            onKeyDown={handleCanvasNodeKeyDown}
+            // Its text closes as a text card's does, when it loses the focus: a press elsewhere, Enter.
+            onBlur={() => browserHost().selectNode(card.nodeId, instanceKey)}
           />
         }
       />
@@ -202,7 +212,11 @@ function edited(card: CanvasTextNode, field: HTMLTextAreaElement): CanvasTextNod
   return withBox(next, { x: card.x, y: card.y, width: card.width, height: card.height + over });
 }
 
-/** A text card: its editor is its textarea, open while it has focus; it grows to fit its words. */
+/**
+ * A text card: its editor is its textarea, open while it has focus; it grows
+ * to fit its words. Closed, the words take no press, so a press anywhere on
+ * the card carries it, and the page opens it (`opens`, a double-click, ↵).
+ */
 export function TextCard({
   card,
   box,
@@ -234,7 +248,9 @@ export function TextCard({
         paint.chrome?.fill !== "none" && "shadow-raised",
       )}
       style={{ ...box, ...wordsStyle(paint.words, true) }}
-      onPointerDown={(e) => pressCardBody(e, "textarea", onSelect, onMoveStart)}
+      onPointerDown={(e) =>
+        pressCardBody(e, editing ? "textarea" : undefined, onSelect, onMoveStart)
+      }
     >
       <ItemOutline item={card} paint={paint} selected={selected} />
       <textarea
@@ -242,6 +258,7 @@ export function TextCard({
         data-words
         className={cn(
           "relative w-full resize-none bg-transparent outline-none",
+          !editing && "pointer-events-none",
           top ? "h-full" : "max-h-full [field-sizing:content]",
         )}
         style={{ ...wordsStyle(paint.words), ...inkStyle(paint.ink.words) }}

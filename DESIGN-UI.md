@@ -1383,7 +1383,9 @@ manipulation feel professional rather than merely functional.
   click's does, and the browser's own long-press menu is swallowed while a
   finger is down. Chrome over the stage takes its taps as any button does,
   and words being typed (`isTyping`: the focused entry) keep the browser's
-  touch.
+  touch. A finger carries an item by its words, and a tap on the one item
+  selected opens them (Editing a face, below); a scroller inside a closed
+  card is `touch-action: none` too, since a scroller starts its own.
 - **The compact stage** (`compactStage`, `canvas-stage-layout.ts`; the
   design note `docs/research/2026-10-28-canvas-mobile.md`): a stage
   narrower than 720px (a phone upright, a side panel) or shorter than 480px
@@ -1934,6 +1936,15 @@ the view node switches every page showing the canvas through it.
   projection that is showing edits it: the 2D canvas in place, as it always
   did (a shape's label opens on a double-click, a text card's textarea
   while it has focus, a card's node text while the node is active there).
+  A closed editor takes no press: a press anywhere on an item selects and
+  carries it, by its words as by its edge, so a finger moves a note as a
+  mouse does. A click on the one item selected opens its editor, as
+  tldraw's second click on a selected shape does (`opens` on the pointer
+  reducer's transform, read against the selection before the press), so a
+  double-click or a double tap opens it from nothing selected; a press that
+  goes past the slop carries instead. Closed, a card's node text still
+  follows a reference clicked in it. An open editor closes when it loses
+  the focus.
   The node a card shows is a projected instance, one per projection
   (`canvasInstanceKey`), which the outline activates as it does a query's
   rows, so only the projection showing edits it.
