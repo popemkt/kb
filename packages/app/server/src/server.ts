@@ -109,6 +109,11 @@ export interface UiServerHandle {
   at: UiListener;
   /** Where the page is: the TCP listener's address, or the proxy's public origin. */
   url: string;
+  /**
+   * What it hosts beside the registry: its families' report rows and the
+   * kernel it holds them in, which its runtime reaches their actions through.
+   */
+  hosted: HostedFamilies;
   /** Close the scope that owns the listener and the ingest lanes. */
   stop: Effect.Effect<void>;
 }
@@ -455,6 +460,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   return {
     at,
     url,
+    hosted,
     stop: Scope.close(lifetime, Exit.void),
   };
 }, Effect.provide(bunFileSystemLayer));

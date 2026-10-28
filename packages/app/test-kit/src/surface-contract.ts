@@ -8,7 +8,7 @@
  * must add nothing and drop nothing. It lists the same ids with the same
  * declared modes, and for the same call it returns the same receipt as the
  * invoke core of the composition it reaches (a `kb ui` also reports the
- * extensions it hosts). A guarantee kept by one surface and broken by another is
+ * extensions it hosts, and reaches their actions). A guarantee kept by one surface and broken by another is
  * exactly what this suite catches, so it is not a per-adapter test.
  *
  * Every property runs against a fresh scratch root. That root holds one
@@ -27,9 +27,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { makeKernel } from "@kb/plugin";
 import { z } from "zod";
 import {
+  ActionPoint,
   DecidedEntrySchema,
   listedOn,
   onWire,
@@ -37,7 +37,7 @@ import {
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
-  type ExtensionRow,
+  type HostedFamilies,
   type SurfaceWire,
   type UiListener,
 } from "@kb/contracts";
@@ -98,8 +98,8 @@ export interface ActionSurface {
 export interface LiveUi {
   /** Where it listens: a TCP port, or a Unix socket and its proxy's origin. */
   readonly at: UiListener;
-  /** The extensions it hosts beside the registry's, as its `kb.manifest` reports them. */
-  readonly hosted: readonly ExtensionRow[];
+  /** What it hosts beside the registry: its extensions' rows and the kernel its actions are in. */
+  readonly hosted: HostedFamilies;
   stop(): Promise<void>;
 }
 
@@ -327,15 +327,11 @@ function overSurfaces(
             Effect.scoped(
               Effect.gen(function* () {
                 const surface = yield* openSurface(open, root, ui);
-                const hosted = surface.host === "ui" ? ui.hosted : [];
+                // The composition the surface reaches: the registry, and on a kb ui what it hosts.
+                const hosted = surface.host === "ui" ? ui.hosted : undefined;
                 const core = (invocation: ActionRequest) =>
                   invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
-                    Effect.provide(
-                      kbRuntimeLayer(ctx, undefined, {
-                        rows: Effect.succeed(hosted),
-                        kernel: makeKernel(),
-                      }),
-                    ),
+                    Effect.provide(kbRuntimeLayer(ctx, undefined, hosted)),
                   );
                 const via = (invocation: ActionRequest) =>
                   Effect.promise(() => surface.invoke(invocation));
@@ -362,22 +358,26 @@ function asMadeOn(surface: ActionSurface, call: ActionRequest): ActionRequest {
 
 const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
   [
-    "every surface lists the registry's action ids with their declared modes, " +
+    "every surface lists the action ids of what it reaches (the registry's, and on a kb ui " +
+      "what it hosts) with their declared modes, " +
       "leaving out only what is denied to its actor or asks where its wire cannot approve",
     (set) =>
-      overSurfaces(set, ({ name, surface, root, core }) =>
+      overSurfaces(set, ({ name, surface, root, ui, core }) =>
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
-          // What the guards decide about this surface's caller, as the invoke core lists it.
+          // What the invoke core reaches for this surface's caller, and what the guards decide.
           const decided = yield* core({ id: "kb.manifest", input: {} });
           const { actions } = DecidedManifestSchema.parse(
             decided.status === "succeeded" ? decided.output : null,
           );
-          const decisionOf = new Map(actions.map((entry) => [entry.id, entry.decision]));
-          const callable = registry.filter((entry) =>
-            listedOn(surface.wire, decisionOf.get(entry.id) ?? "deny"),
-          );
+          // The registry's actions, then on a kb ui those it hosts, and nothing else.
+          const hosted =
+            surface.host === "ui"
+              ? ui.hosted.kernel.contributions(ActionPoint).map(({ id }) => id)
+              : [];
+          expect(actions.map(({ id }) => id)).toEqual([...registry.map(({ id }) => id), ...hosted]);
+          const callable = actions.filter((entry) => listedOn(surface.wire, entry.decision));
           const listed = yield* Effect.promise(() => surface.list());
           // While nothing asks, an action that declares approval is listed even on a wire
           // that cannot carry it, and such a wire need not say it does (WebMCP's hints

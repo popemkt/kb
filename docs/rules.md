@@ -204,14 +204,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
 - **node** — `01M43H3T8XEMTNBARC024PZD2W`
 
-### GAP: a family that only kb ui hosts contributes no registry actions
-
-- **expected** — a hosted family contributes registry actions where its host runs, listed and invoked like any other
-- **current** — a hosted plugin contributes channels only, so the agent family has no actions (ext.agent.models, ext.agent.check and ext.agent.complete are not built), and ext.canvas.run fails every instruction component by naming the missing ext.agent.complete
-- **impact** — no model suggestions for a provider and no provider check, so a provider that cannot run says so only when a turn fails; a canvas run (the tldraw-computer flow) performs constants and scripts but no model instruction
-- **closes** — hosted actions in composeHosted and serverInvoke, with a contract property over kb ui, then the three actions (complete: one tool-less turn of the selected provider, tested with scriptedRuntime)
-- **node** — `01M53F2M2S6J3WW0Z0KR136J6A`
-
 ### GAP: a flat item turned face-down shows its face mirrored in 2D
 
 - **expected** — 2D shows a face-down flat card's blank back, as 3D does
@@ -1097,6 +1089,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Hold the kernel as the session's live registry instead of a derived snapshot: the watcher calls kernel.unload/load, and byId/manifest read the points on demand.
 - **node** — `01M39F3N7TS10VJ881RNC0Z4X3`
 
+### GAP: the agent family offers no model suggestions and no provider check
+
+- **expected** — ext.agent.models lists a provider's model ids as suggestions for its model field, and ext.agent.check says whether a provider can run (its binary, its endpoint, its credential's reference): read actions of the hosted agent family
+- **current** — neither is built; a hosted family's actions are reached beside the registry's (reachableActions), so each is a plain addition to the agent's actions
+- **impact** — a provider that cannot run says so only when a turn fails, and a model id is typed with no suggestion
+- **closes** — the two read actions beside the agent's other actions, each answered by every adapter, with a property over kb ui
+- **node** — `01M5ZF97R8ZK857GS29QGVD3EN`
+
 ### GAP: the backdrop pointer source goes stale under a sibling overlay
 
 - **expected** — A page head's backdrop knows the pointer wherever it lies over the backdrop's box, whatever is drawn on top.
@@ -1487,6 +1487,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39X7NQV187BDQVGH81997M5`
+
+### GAP: a family that only kb ui hosts contributes no registry actions
+
+- **expected** — a hosted family contributes registry actions where its host runs, listed and invoked like any other
+- **current** — closed: what a plugin kb ui hosts contributes to ActionPoint is reached beside the registry's actions through the host's FamilyKernels (reachableActions, @kb/runtime): listed by kb.manifest, invoked through serverInvoke and through CoreInvoke, decided by the same guards; hosted-actions.test.ts holds it over kb ui. The two agent read actions it named moved to 01M5ZF97R8ZK857GS29QGVD3EN
+- **impact** — no model suggestions for a provider and no provider check, so a provider that cannot run says so only when a turn fails
+- **closes** — hosted actions in composeHosted and serverInvoke, with a contract property over kb ui, then the two actions
+- **node** — `01M53F2M2S6J3WW0Z0KR136J6A`
 
 ### GAP: a frame stood up as a wall does not hold items on its face
 
