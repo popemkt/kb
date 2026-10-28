@@ -1,7 +1,7 @@
 /**
  * Which design system paints the page, read and written as core's setting
  * (DESIGN-UI.md → Design tokens → Design systems): the one reading of the
- * choice the shell's painter, Preferences and the switch command share, and
+ * choice the shell's painter, the Settings page and the switch command share, and
  * the one write that makes it.
  */
 import {
@@ -36,7 +36,7 @@ export function shownDesignSystem(
 /**
  * Choose the design system `id` for the page: core's setting, written as any
  * field is. The palette's switch command steps through the systems with it;
- * Preferences draws the field with the page's field editor.
+ * the Settings page draws the field with the page's field editor.
  */
 export function chooseDesignSystem(writes: PageWrites, id: string): Promise<void> {
   return writes.updateProp(CORE, SYSTEM_IDS.designSystemField, {

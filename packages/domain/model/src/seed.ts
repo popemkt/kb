@@ -4,14 +4,7 @@ import {
   BACKDROP_STRENGTHS,
   BACKDROP_STRENGTH_OPTION_IDS,
 } from "./backdrop.ts";
-import {
-  LEGACY_SEED_RENAMES,
-  SYSTEM_IDS,
-  extensionNodeId,
-  type KbNode,
-  type NodeId,
-  nowIso,
-} from "./model.ts";
+import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
@@ -33,6 +26,8 @@ import {
   type MotionSettings,
 } from "./motion.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
+import type { FoldedSeed } from "./seed-fold.ts";
+import { retireSeeded } from "./seed-retirement.ts";
 import {
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
@@ -239,8 +234,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdGoQuery, "Saved queries"),
     cmd(SYSTEM_IDS.cmdNewQuery, "New query node"),
     // W8a shell commands: device prefs popover + quick toggles
-    cmd(SYSTEM_IDS.cmdPreferences, "Preferences"),
-    cmd(SYSTEM_IDS.cmdExtensions, "Extensions"),
+    cmd(SYSTEM_IDS.cmdSettings, "Settings"),
+    cmd(SYSTEM_IDS.cmdExtensions, "Settings: Extensions"),
     cmd(SYSTEM_IDS.cmdToggleTheme, "Toggle theme"),
     cmd(SYSTEM_IDS.cmdSwitchDesignSystem, "Switch design system"),
     cmd(SYSTEM_IDS.cmdToggleWidth, "Toggle width"),
@@ -593,14 +588,15 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
  * Merge `seed` (the fold of the bundled declarations, {@link foldSeed}) into
  * existing nodes without overwriting user edits to sys.* text/props.
  *
- * Also migrates the seeded ids renamed since ({@link LEGACY_SEED_RENAMES}),
- * such as the graph's default perspective `sys.lens.all-mentions` →
- * `lens.all-mentions` (user-editable). If both exist, drop the legacy id;
- * if only legacy exists, rename in place preserving text/props.
+ * First it applies the fold's retirement table ({@link retireSeeded}), so a
+ * seeded id renamed since, such as the graph's default perspective
+ * `sys.lens.all-mentions` → `lens.all-mentions`, is renamed in place (an
+ * edit on the old id kept) or dropped for the replacement already there,
+ * and every prop, value and child naming it follows.
  */
 export function ensureSystemSeed(
   nodes: KbNode[],
-  seed: readonly KbNode[],
+  fold: Pick<FoldedSeed, "nodes" | "retired">,
 ): {
   nodes: KbNode[];
   seeded: boolean;
@@ -608,20 +604,15 @@ export function ensureSystemSeed(
   deletes: string[];
 } {
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  let seeded = false;
-  const deletes: string[] = [];
+  const seed = fold.nodes;
+  const seededText = new Map(seed.map((node) => [node.id, node.text]));
 
-  // Migrate legacy BEFORE seeding defaults so edits on the old id are kept.
-  // The seed has no general retirement: a renamed seeded node lingers in a
-  // store opened elsewhere. GAP [[01M3FK1PM9P96SNCSHXF0CJZRA]]
-  for (const [legacyId, id] of Object.entries(LEGACY_SEED_RENAMES)) {
-    const legacy = byId.get(legacyId);
-    if (legacy === undefined) continue;
-    if (!byId.has(id)) byId.set(id, { ...legacy, id });
-    byId.delete(legacyId);
-    deletes.push(legacyId);
-    seeded = true;
-  }
+  // Retire BEFORE seeding defaults, so an edit on an old id is kept, and an
+  // unedited label the seed has since changed takes the new one.
+  const { deletes, changed: retired } = retireSeeded(byId, fold.retired, (id) =>
+    seededText.get(id),
+  );
+  let seeded = retired;
 
   const seedById = new Map<string, KbNode>();
   const seedTemplateTags = new Map<string, KbNode>();

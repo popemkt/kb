@@ -1,0 +1,140 @@
+<!doctype html>
+<!--
+  IA mock for docs/research/2026-10-27-settings-parts.md: a static picture of
+  Settings in parts, not code that ships. Painted by kb's layer-1 sheet.
+  Left: the Extensions part, one section open; right: Appearance with the
+  filter empty and Effects folded. Rendered to 2026-10-27-settings-parts-mock.png.
+-->
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>kb — Settings in parts (IA mock)</title>
+    <link rel="stylesheet" href="../../../packages/app/ui/src/design-system.css" />
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 13px/1.45 "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif; background: var(--background); color: var(--foreground); }
+      .two { display: grid; grid-template-columns: 1fr 1fr; }
+      .two > div { border-right: 1px solid var(--border); }
+      .head { height: 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 0 16px; color: var(--muted-foreground); }
+      .head .gear { margin-left: auto; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: color-mix(in oklab, var(--primary) 18%, transparent); color: var(--foreground); }
+      .page { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 28px; padding: 22px 26px 40px; }
+      .rail { align-self: start; display: grid; gap: 2px; }
+      .rail a { color: var(--muted-foreground); text-decoration: none; padding: 5px 10px; border-radius: 6px; }
+      .rail a.on { background: color-mix(in oklab, var(--foreground) 8%, transparent); color: var(--foreground); }
+      .rail .hint { margin-top: 12px; font-size: 11px; color: var(--faint-foreground); padding: 0 10px; }
+      h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+      .lede { color: var(--muted-foreground); margin: 0 0 12px; font-size: 12px; }
+      .filter { border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px; color: var(--faint-foreground); margin-bottom: 14px; }
+      .sec { border-top: 1px solid var(--border); }
+      .sh { display: flex; align-items: center; gap: 8px; padding: 9px 0; }
+      .sh .chev { width: 12px; color: var(--muted-foreground); }
+      .sh b { font-weight: 600; }
+      .sh .cap { font-size: 11px; color: var(--faint-foreground); }
+      .sh .sp { flex: 1; }
+      .sh .fam { font: 11px ui-monospace, Menlo, monospace; color: var(--faint-foreground); }
+      .body { padding: 0 0 10px 20px; }
+      .row { display: grid; grid-template-columns: 130px 1fr auto; gap: 10px; align-items: center; min-height: 28px; border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent); }
+      .row .k { color: var(--muted-foreground); }
+      .src { font-size: 11px; color: var(--faint-foreground); }
+      .chip { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 5px; background: color-mix(in oklab, var(--primary) 22%, transparent); }
+      .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+      .seg span { padding: 2px 10px; color: var(--muted-foreground); }
+      .seg span.on { background: color-mix(in oklab, var(--foreground) 10%, transparent); color: var(--foreground); }
+      .switch { width: 28px; height: 16px; border-radius: 999px; background: var(--primary); position: relative; flex: none; }
+      .switch::after { content: ""; position: absolute; right: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--primary-foreground); }
+      .switch.off { background: color-mix(in oklab, var(--foreground) 18%, transparent); }
+      .switch.off::after { left: 2px; right: auto; }
+      .req { font-size: 11px; color: var(--faint-foreground); }
+      .sub { margin-top: 6px; }
+      .sub .sh { padding: 5px 0; font-size: 12px; }
+      .dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: 11.5px; color: var(--muted-foreground); padding-left: 20px; }
+      .dl dt { font-family: ui-monospace, Menlo, monospace; color: var(--faint-foreground); }
+      .note { font-size: 11px; color: var(--faint-foreground); padding: 4px 0; }
+      .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px 0 6px; }
+      .card { border: 1px solid var(--border); border-radius: 8px; height: 54px; padding: 6px 8px; font-size: 11px; color: var(--muted-foreground); }
+      .card.in { outline: 2px solid var(--primary); outline-offset: 1px; color: var(--foreground); }
+      .focus { outline: 2px solid var(--ring, var(--primary)); outline-offset: 2px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="two">
+      <div>
+        <div class="head">KB · live <span class="gear">⚙</span></div>
+        <div class="page">
+          <nav class="rail" aria-label="Settings parts">
+            <a href="#">General</a>
+            <a href="#">Appearance</a>
+            <a class="on" href="#">Extensions</a>
+            <a href="#">Advanced</a>
+            <div class="hint">⌘K · Settings: Extensions</div>
+          </nav>
+          <div>
+            <h1>Extensions</h1>
+            <p class="lede">Each extension's switch and its settings. Off, its actions, views and MCP tools leave.</p>
+            <div class="filter">Filter settings…</div>
+            <div class="sec"><div class="sh"><span class="chev">▸</span><b>Core</b><span class="fam">core</span><span class="sp"></span><span class="req">required · its settings are in Appearance</span></div></div>
+            <div class="sec">
+              <div class="sh"><span class="chev">▾</span><b class="focus">Graph</b><span class="fam">graph</span><span class="sp"></span><span class="switch"></span></div>
+              <div class="body">
+                <div class="row"><span class="k">suggest relations</span><span>✓</span><span></span></div>
+                <div class="sub">
+                  <div class="sh"><span class="chev">▾</span>What it composes</div>
+                  <dl class="dl">
+                    <dt>trust</dt><dd>part of kb's build · tags: graph</dd>
+                    <dt>ui.views</dt><dd>graph.page (page), graph.force2d (page)</dd>
+                    <dt>actions</dt><dd>graph.edges, graph.trace, graph.suggest (server)</dd>
+                    <dt>seed</dt><dd>14 nodes</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="sec">
+              <div class="sh"><span class="chev">▾</span><b>Agent</b><span class="fam">agent</span><span class="sp"></span><span class="switch"></span></div>
+              <div class="body"><div class="row"><span class="k">provider</span><span><span class="chip">Claude Code</span></span><span></span></div>
+                <div class="sub"><div class="sh"><span class="chev">▸</span>What it composes</div></div></div>
+            </div>
+            <div class="sec"><div class="sh"><span class="chev">▸</span><b>Themes</b><span class="fam">themes</span><span class="sp"></span><span class="switch"></span></div></div>
+            <div class="sec"><div class="sh"><span class="chev">▸</span><b>Backdrops</b><span class="fam">backdrops</span><span class="sp"></span><span class="switch"></span></div></div>
+            <div class="sec"><div class="sh"><span class="chev">▸</span><b>Lab</b><span class="fam">lab</span><span class="sp"></span><span class="cap">off: contributes nothing</span><span class="switch off"></span></div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="head">KB · live <span class="gear">⚙</span></div>
+        <div class="page">
+          <nav class="rail" aria-label="Settings parts">
+            <a href="#">General</a>
+            <a class="on" href="#">Appearance</a>
+            <a href="#">Extensions</a>
+            <a href="#">Advanced</a>
+          </nav>
+          <div>
+            <h1>Appearance</h1>
+            <p class="lede">How every page of this kb looks and moves, and this device's light or dark.</p>
+            <div class="filter">Filter settings…</div>
+            <div class="sec">
+              <div class="sh"><span class="chev">▾</span><b>Light and dark</b><span class="cap">this browser only</span></div>
+              <div class="body"><div class="row"><span class="k">light / dark</span><span><span class="seg"><span>light</span><span>dark</span><span class="on">system</span></span></span><span></span></div></div>
+            </div>
+            <div class="sec">
+              <div class="sh"><span class="chev">▾</span><b>Theme</b><span class="cap">this kb</span></div>
+              <div class="body"><div class="gallery"><div class="card">kb</div><div class="card">Paper</div><div class="card">Terminal</div><div class="card">ZZZ</div><div class="card">Transistor</div><div class="card in">YoRHa · in use</div></div></div>
+            </div>
+            <div class="sec">
+              <div class="sh"><span class="chev">▾</span><b>Page head</b></div>
+              <div class="body"><div class="row"><span class="k">backdrop</span><span><span class="chip">Black hole</span></span><span class="src">set here</span></div>
+                <div class="row"><span class="k">strength</span><span></span><span class="src">unset here · subtle in force</span></div></div>
+            </div>
+            <div class="sec">
+              <div class="sh"><span class="chev">▾</span><b>Motion</b><span class="cap">each unset value follows the theme</span></div>
+              <div class="body"><div class="row"><span class="k">intensity</span><span></span><span class="src">unset here · subtle from YoRHa</span></div>
+                <div class="row"><span class="k">speed</span><span><span class="chip">relaxed</span></span><span class="src">set here</span></div>
+                <div class="note">Reset motion to YoRHa</div></div>
+            </div>
+            <div class="sec"><div class="sh"><span class="chev">▸</span><b>Effects</b><span class="cap">10 · folded, remembered on this device</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

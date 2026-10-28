@@ -458,6 +458,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
 
+### GAP: admission bundles an extension's page half but never imports or decodes it
+
+- **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
+- **current** — admitExtensions bundles both halves (a page half that does not resolve or compile is refused) but imports and decodes only the server half; the page half is first imported and decoded in the browser, where a failure warns and skips.
+- **impact** — A page half that bundles but throws on import or exports a malformed page surface passes verify and silently disappears from the page.
+- **closes** — Decode the page half's exports with the page surface's decoder in admission, in a DOM-less evaluation the page SDK supports, or run admission's page half in the UI test runner.
+- **node** — `01M5ZC6V2ZAVDG9972PADX58S0`
+
 ### GAP: agent conversations live in the bridge's memory, not as nodes
 
 - **expected** — a sidebar conversation is a thread node whose messages are nodes, so it survives restarts, can be resumed, searched and linked like anything else
@@ -502,9 +510,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: Arena runs its own GPU backdrop host beside the shared one
 
 - **expected** — Arena is BackdropParts on the shared mountBackdrop host (backdrops-ui/src/gpu, PR #36): one host for every GPU backdrop
-- **current** — arena-backdrop.tsx mounts its own scene and lifecycle (visibility, reduced motion, quality, disposal)
+- **current** — yorha-ui/src/art/arena-backdrop.tsx mounts its own scene and lifecycle (visibility, reduced motion, quality, disposal); the shared host (mountBackdrop, GpuBackdrop with its reactions, meter, playback and tint) is the backdrops family's, backdrops-ui/src/gpu, which the YoRHa family may not import
 - **impact** — two hosts to keep in step: quality, visibility and no-restart fixes land twice
-- **closes** — port arena-scene.ts onto mountBackdrop right after #36 merges and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame() (#36 removes BackdropParts.write), and Arena passes backdrop-continuity.contract.test.tsx
+- **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
 ### GAP: BrowserStore IndexedDB persistence
@@ -767,14 +775,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
 
-### GAP: itemLead trusts item.link without checking its scheme
-
-- **expected** — The rule that a canvas item's link is http(s) or a kb ref holds where it is relied on: withLink or itemLead validates it.
-- **current** — links.ts itemLead returns item.link unchecked; withLink and presets store any CanvasItemLink. Only the ext-canvas LinkSchema (isLinkUrl) and the doc re-parse on read check it.
-- **impact** — Not reachable now; a new writer that skips the schema could make a javascript: link clickable.
-- **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
-- **node** — `01M55AE092VNPBQKGGZZHZZY9W`
-
 ### GAP: kb mutation skips saving its baseline when the merge step fails
 
 - **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
@@ -1007,15 +1007,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A repo cannot add a view without editing kb itself.
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
-
-### GAP: repository extensions have no fail-closed admission
-
-- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
-- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
-- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
-- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
-- **rule** — Admission gate
-- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
 
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
@@ -1263,7 +1254,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — The rows the page follows while no server answers come from one list of every family source, each hosted family reported as not hosted.
 - **current** — OWN_EXTENSIONS in packages/app/ui/src/ui-plugins.ts maps BUNDLED_FAMILIES only; leaving out the hosted agent is intent stated only in a comment.
-- **impact** — A new family source is silently missing from the offline page and its Preferences switches.
+- **impact** — A new family source is silently missing from the offline page and its Extensions switches.
 - **closes** — Rows derived from the fold's family list with an explicit not-hosted row for hosted families, and a test.
 - **node** — `01M53M9XA8FN8Q25QJVFF8MBE4`
 
@@ -1315,22 +1306,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
 
-### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
-
-- **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.
-- **current** — svg-sanitize.ts safeCss runs per text token and tokenize never decodes CSS escapes, so fill:\75 rl(…), @\69mport, CDATA-split and comment-split @import survive.
-- **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
-- **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
-- **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
-
-### GAP: the system seed cannot retire or rename a seeded node
-
-- **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
-- **current** — ensureSystemSeed only adds: it fills absent nodes, props and template field refs. Its one retirement is LEGACY_LENS_ALL_MENTIONS, special-cased. The view-node migration retires its own seeds (graph-perspective tag, frame view field, lens.renderer options, placement) through the explicit views.migrate action, a second retirement list beside the seed. There is still no general retirement table.
-- **impact** — A store opened elsewhere keeps the retired field nodes as clutter, the graph-perspective tag keeps listing them, and a value a perspective held under the old field is silently ignored (its choice reverts to the default).
-- **closes** — A declared retirement table in @kb/model (old id to replacement, option ids to option ids) that ensureSystemSeed applies before seeding, with the legacy all-mentions migration folded into it and a seed test over it.
-- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
-
 ### GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form
 
 - **expected** — sys.f.view.filter holds a view's narrowing as the printed :where of its conditions (printEdn), the form sys.f.query holds, so any condition the query placement can hold the narrowing can too, and both lift and lower through one IR
@@ -1375,7 +1350,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: translucent text (text-foreground/N) is outside the contrast guard
 
 - **expected** — Every text colour the UI paints, translucent ones included, is either held to AA on its composited ground by the contrast guard (tools/kb/packages/app/ui/src/lib/design-systems.test.ts) or declared as decorative (placeholder, disabled, ornament) with the 3:1 non-text floor where it is UI.
-- **current** — Two solid secondary inks now carry the roles: --muted-foreground and --faint-foreground (layer 1 and every system, held to AA on the background, popover, sidebar and their tints by the guard). Placeholders, the palette's and header's hints, the connection word, the sidebar's rows and section titles, a field's label, Preferences' headings, breadcrumbs and the graph and canvas bars' secondary text use them. The rest of the translucent text (text-foreground/20 through /90, about 370 sites in 96 files, 315 of them at /20 to /75) is still skipped by the guard and unclassified.
+- **current** — Two solid secondary inks now carry the roles: --muted-foreground and --faint-foreground (layer 1 and every system, held to AA on the background, popover, sidebar and their tints by the guard). Placeholders, the palette's and header's hints, the connection word, the sidebar's rows and section titles, a field's label, the Settings page's headings, breadcrumbs and the graph and canvas bars' secondary text use them. The rest of the translucent text (text-foreground/20 through /90, about 370 sites in 96 files, 315 of them at /20 to /75) is still skipped by the guard and unclassified.
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
@@ -1421,6 +1396,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
 
+### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
+
+- **expected** — Every seeded id a build retires is a row of the seed's retirement table, the views.migrate ones included: a row can name the migration that must read its values first, and opening retires it only once that migration has run.
+- **current** — ensureSystemSeed applies the seed's retirement table (SeedRetirement rows each family declares, folded by foldSeed) before it seeds; the graph's sys.lens.all-mentions and core's sys.cmd.preferences are rows. views.migrate still deletes seeded ids of its own (the #graph-perspective tag, lens.view-mode, the old lens.renderer options, the withdrawn placement field) through RETIRED in view-migration.ts, after reading their values into view nodes; moving them into the table would drop those values on open, before the migration reads them.
+- **impact** — Two places say which seeded ids are gone. Until views.migrate runs, a store keeps those old nodes, and opening reports them as legacy shapes rather than retiring them.
+- **closes** — The retirement table can hold a row until a named migration has run, and view-migration.ts's RETIRED becomes rows of it.
+- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
+
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
 - **expected** — Every render spec runs on every lane that gates, so the Embers study, and the WebGPU backend of the scene kit, are proven in CI as well as locally.
@@ -1433,7 +1416,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — A field reads as its value wherever it is drawn, with or without an editor: core draws a read-only value when no family provides the page's field editor (FieldEditorService).
 - **current** — FieldEditorService is the outline's NodeField; without it useFieldEditor answers NO_FIELD_EDITOR, which renders nothing, and core's read view (layout.read) shows a node's text and descendants but none of its fields.
-- **impact** — With the outline switched off, the Extensions panel's settings, Preferences' core settings and the agent dock's settings draw no rows and cannot be edited in the page (the CLI and MCP still write them), and a read node shows no fields or tags.
+- **impact** — With the outline switched off, the Settings page's rows and the agent dock's settings draw no rows and cannot be edited in the page (the CLI and MCP still write them), and a read node shows no fields or tags.
 - **closes** — A core read-only field value (the value views of @kb/outline-ui's value-views moved to the kit), drawn by useFieldEditor's fallback and by the read view.
 - **node** — `01M5MWXM43Y12KDBM4JG7X1VRX`
 
@@ -1561,6 +1544,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
+
+- **expected** — A label the seed changes (a command, field or option renamed for people) reaches every store on its next open, unless the owner edited that text.
+- **current** — ensureSystemSeed adds missing nodes and fills absent prop keys but never rewrites an existing node's text, and the retirement table renames a node in place with its text. ⌘K's Preferences command, now sys.cmd.settings and seeded as Settings, still reads Preferences in a store seeded before.
+- **impact** — Older stores show stale labels for renamed system nodes; the Settings page is reached from ⌘K under its old name.
+- **closes** — The retirement table retires labels: a row names the text the seed wrote before (text), and opening gives a node that still reads it the text the seed writes now, leaving an owner-edited text alone. Core retires Preferences for Settings.
+- **node** — `01M5WSTXZ18DWSKY1V30GJ5HVE`
 
 ### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
 
@@ -1846,6 +1837,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Module boundaries
 - **node** — `01M1PJV94AJP2SAQT50KNKNHA2`
 
+### GAP: itemLead trusts item.link without checking its scheme
+
+- **expected** — The rule that a canvas item's link is http(s) or a kb ref holds where it is relied on: withLink or itemLead validates it.
+- **current** — links.ts itemLead returns item.link unchecked; withLink and presets store any CanvasItemLink. Only the ext-canvas LinkSchema (isLinkUrl) and the doc re-parse on read check it.
+- **impact** — Not reachable now; a new writer that skips the schema could make a javascript: link clickable.
+- **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
+- **node** — `01M55AE092VNPBQKGGZZHZZY9W`
+
 ### GAP: KbContext carries two persistence interfaces
 
 - **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
@@ -2004,6 +2003,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
+
+### GAP: repository extensions have no fail-closed admission
+
+- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
+- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
+- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
+- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
+- **rule** — Admission gate
+- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
 
 ### GAP: resolveTableColumns resolves table columns in one 21-branch function
 
@@ -2291,6 +2299,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
+
+- **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.
+- **current** — svg-sanitize.ts safeCss runs per text token and tokenize never decodes CSS escapes, so fill:\75 rl(…), @\69mport, CDATA-split and comment-split @import survive.
+- **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
+- **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
+- **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
 
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 

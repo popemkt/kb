@@ -36,9 +36,12 @@
     "@kb/store-jsonl": "workspace:*",
     "@kb/store-sqlite": "workspace:*",
     "@kb/themes": "workspace:*",
+    "@kb/transistor": "workspace:*",
     "@kb/tx-log": "workspace:*",
     "@kb/views": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
+    "@kb/yorha": "workspace:*",
+    "@kb/zzz": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

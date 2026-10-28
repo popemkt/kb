@@ -20,6 +20,7 @@ import {
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { GRAPH_ACTIONS } from "./actions.ts";
+import { GRAPH_IDS } from "./ids.ts";
 import { graphSeedNodes } from "./seed.ts";
 import {
   BULLET_THEME,
@@ -55,6 +56,9 @@ export const graphExtension = defineExtension({
     viewDef(TreemapView),
     viewDef(NeighbourhoodView),
   ],
+  // The default perspective lost its `sys.` prefix, so the write guard
+  // does not lock it.
+  retires: [{ from: "sys.lens.all-mentions", to: GRAPH_IDS.lensAllMentions }],
   declaredOptions: [
     {
       kind: GRAPH_THEME_OPTIONS,

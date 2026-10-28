@@ -45,7 +45,7 @@ import {
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { GOVERNANCE_FAMILY, governanceMode } from "./deployment.ts";
-import { resetRootFamilies, rootFamilies } from "./families.ts";
+import { resetRootFamilies, rootFamilies, vouchedFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
@@ -420,10 +420,6 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   yield* unloadBrokenActions(kernel, { core: corePlugin.name, sources, failures });
 
-  for (const failure of failures) {
-    writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
-  }
-
   const references = referencesOf(kernel);
   const contributions = kernel.contributions(ActionPoint);
   const { actions, byId, manifestEntries } = actionTable(contributions, references);
@@ -510,8 +506,17 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   // `Effect.cached` is what makes the entry a build-once value rather than a
   // recipe: concurrent callers share the one in-flight build.
   // The deployment, not the store, decides whether governance is composed (`deploys`).
-  const required = governanceMode() === "required" ? [GOVERNANCE_FAMILY] : [];
-  const built = yield* Effect.cached(buildRegistry(families, on, failures, required));
+  const built = yield* Effect.cached(
+    buildRegistry(families, on, failures, requiredFamilies()).pipe(
+      Effect.tap((registry) =>
+        Effect.sync(() => {
+          for (const failure of registry.failures) {
+            writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
+          }
+        }),
+      ),
+    ),
+  );
   // Another caller may have composed this key while the build was set up.
   const replaced = current.get(rootKey);
   if (replaced?.key === key) return yield* replaced.registry;
@@ -520,6 +525,67 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   if (replaced !== undefined) yield* (yield* replaced.registry).lifetime.retire;
   return yield* built;
 });
+
+/**
+ * Admission: every failure `root`'s families meet when each of its
+ * repository extensions is vouched for and every family is on, composed
+ * as `registryFor` composes them (`vouchedFamilies`, then the kernel load
+ * with its clash and handler checks), so an extension a gate admits is one
+ * the runtime loads. Empty when all of them load; it prints nothing, the
+ * caller reports. The registry it builds is retired before it answers, so
+ * nothing it loaded stays.
+ */
+// GAP [[01M5ZC6V2ZAVDG9972PADX58S0]] Admission bundles a page half but imports and
+// decodes only the server half; a page half that bundles yet fails in the page
+// still passes the gate (DESIGN.md → Core boundary & extensions).
+export const admitExtensions = Effect.fn("kb.admitExtensions")(function* (
+  root: string,
+): Effect.fn.Return<readonly ExtensionFailure[], never, FileSystem> {
+  return yield* Effect.acquireUseRelease(
+    refuseExit,
+    () =>
+      Effect.gen(function* () {
+        const { families, failures } = yield* vouchedFamilies(root);
+        const registry = yield* buildRegistry(families, families, failures, requiredFamilies());
+        yield* registry.lifetime.retire;
+        return registry.failures;
+      }),
+    (held) =>
+      Effect.sync(() => {
+        process.exit = held.exit;
+        process.reallyExit = held.reallyExit;
+      }),
+  );
+});
+
+/**
+ * While admission runs code nobody trusted, `process.exit` and
+ * `process.reallyExit` (`PROCESS_EXITS`) throw instead of ending the
+ * process, so a module that calls either at import fails its own load
+ * rather than ending the gate with the exit code it chose. Answers the
+ * calls it replaced.
+ */
+const refuseExit = Effect.sync(() => {
+  const held = { exit: process.exit.bind(process), reallyExit: process.reallyExit.bind(process) };
+  for (const name of PROCESS_EXITS) {
+    process[name] = (code?: number | string | null) => {
+      throw new Error(`called process.${name}(${String(code ?? "")}) while it was admitted`);
+    };
+  }
+  return held;
+});
+
+/**
+ * The calls that end the process at once, each refused while admission
+ * runs (`refuseExit`): `exit`, and Bun's `reallyExit`, which `exit` itself
+ * ends in and which a module can call past it.
+ */
+const PROCESS_EXITS = ["exit", "reallyExit"] as const;
+
+/** The families a registry refuses to run without: governance, where the deployment requires it (`deploys`). */
+function requiredFamilies(): readonly string[] {
+  return governanceMode() === "required" ? [GOVERNANCE_FAMILY] : [];
+}
 
 /** The registry a session runs in: its root's, as its own store switches the families. */
 export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, FileSystem> {

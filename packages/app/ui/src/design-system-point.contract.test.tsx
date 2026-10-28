@@ -10,9 +10,9 @@
  * and sets no shared and no unknown token; every layer-1 token resolves for
  * it in light and in dark, and every colour among them parses; the painter
  * adds its sheet after every sheet on the page; choosing it is writing
- * core's setting, which Preferences draws with the page's field editor, each
- * option previewed by its system's live swatch, and the page is then painted
- * in it; a choice nobody contributes, or a system whose plugin unloads,
+ * core's setting, which the Settings page draws with the page's field
+ * editor as a gallery, each option a card painted by its system's own sheet,
+ * and the page is then painted in it; a choice nobody contributes, or a system whose plugin unloads,
  * paints the default.
  *
  * A system with a missing token, a block under another id, a shared token
@@ -31,6 +31,7 @@ import {
   designSystemOptionId,
   extensionNodeId,
   foldSeed,
+  present,
   type KbNode,
   type SeedOption,
 } from "@kb/model";
@@ -46,9 +47,8 @@ import {
   type DesignSystem,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { PreferencesPopover } from "@/components/prefs/preferences-popover";
+import { SettingsPage } from "@/components/prefs/settings-page";
 import { designSystemsUiPlugin } from "@/design-systems";
 import {
   baseSelector,
@@ -62,7 +62,6 @@ import {
   startDesignSystems,
 } from "@/stores/design-system.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useUiStore } from "@/stores/ui.store";
 import { PAGE_FAMILIES, sheetsOf } from "@/test-support/design-systems";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
@@ -325,46 +324,78 @@ describe("every contributed design system", () => {
     });
   });
 
-  describe("in Preferences", () => {
+  describe("in Settings", () => {
     let container: HTMLElement;
     let root: Root;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       choosing();
-      useUiStore.getState().setPrefsOpen(true);
       container = document.createElement("div");
       document.body.appendChild(container);
       root = createRoot(container);
-      act(() =>
-        root.render(createElement(PreferencesPopover, { switches: [], onSwitch: () => {} })),
-      );
+      act(() => root.render(createElement(SettingsPage, { part: "appearance" })));
+      // A card loads behind lazy(): wait, inside act, until every card has landed.
+      const landed = () => container.querySelectorAll("[data-option-card]").length > 0;
+      for (let tries = 0; tries < 100 && !landed(); tries += 1) {
+        await act(async () => {
+          await new Promise((done) => setTimeout(done, 10));
+        });
+      }
     });
     afterAll(() => {
       act(() => root.unmount());
       container.remove();
-      useUiStore.getState().setPrefsOpen(false);
     });
 
     const section = () => {
-      const found = container.querySelector('[aria-label="design"]');
-      if (found === null) throw new Error("Preferences draws no design-system setting");
+      const found = container.querySelector(`[data-setting="${SYSTEM_IDS.designSystemField}"]`);
+      if (found === null) throw new Error("Settings draws no design-system setting");
       return found;
     };
+    const card = (id: string) => {
+      const found = section().querySelector(
+        `[role="radio"][data-option="${designSystemOptionId(id)}"]`,
+      );
+      if (found === null) throw new Error(`the gallery draws no card for ${id}`);
+      return found as HTMLElement;
+    };
 
-    it("draws core's setting as a field row", () => {
+    it("draws core's setting as one field row, laid out as a gallery with a card per contributed system", () => {
       expect(section().querySelectorAll("[data-field-row]")).toHaveLength(1);
+      expect(section().querySelector("[data-option-gallery]")).not.toBeNull();
+      for (const { key } of contributed()) {
+        expect(
+          card(key.id).querySelector("[data-option-preview]")?.getAttribute("data-theme"),
+        ).toBe(key.id);
+      }
     });
 
-    it("is chosen by writing core's setting, which the page, the row and its swatch then show", async () => {
+    it("is chosen by a card, which writes core's setting, and the page and the gallery then show it", async () => {
       const ref = { t: "ref" as const, v: designSystemOptionId(PLAIN_KEY.id) };
-      await act(() => mutations.updateProp(CORE, SYSTEM_IDS.designSystemField, ref));
+      await act(async () => {
+        card(PLAIN_KEY.id).click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
       const core = useGraphStore.getState().index?.getNode(CORE);
       expect(core?.props[SYSTEM_IDS.designSystemField]).toEqual([ref]);
       expect(html().getAttribute("data-theme")).toBe(PLAIN_KEY.id);
-      expect(section().textContent).toContain(PLAIN_KEY.label);
-      expect(section().querySelector("[data-option-preview]")?.getAttribute("data-theme")).toBe(
-        PLAIN_KEY.id,
-      );
+      expect(card(PLAIN_KEY.id).getAttribute("aria-checked")).toBe("true");
+      expect(card(PLAIN_KEY.id).textContent).toContain(PLAIN_KEY.label);
+    });
+
+    it("moves the choice with the arrow keys, as a radiogroup does", async () => {
+      const gallery = present(section().querySelector<HTMLElement>("[role='radiogroup']"), "it");
+      const checked = () =>
+        gallery.querySelector("[aria-checked='true']")?.getAttribute("data-option");
+      const before = checked();
+      await act(async () => {
+        gallery.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      const core = useGraphStore.getState().index?.getNode(CORE);
+      const now = core?.props[SYSTEM_IDS.designSystemField]?.[0];
+      expect(now?.v).not.toBe(before);
+      expect(checked()).toBe(now?.v);
     });
 
     it("previews each contributed system's option with its live swatch, and none for one nobody contributes", () => {

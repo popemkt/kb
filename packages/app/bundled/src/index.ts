@@ -28,10 +28,13 @@ import { governanceExtension } from "@kb/governance";
 import { graphExtension } from "@kb/graph";
 import { labExtension } from "@kb/lab";
 import { locationsExtension } from "@kb/locations";
-import { extensionNodeId, foldSeed, type KbNode, type NodeId } from "@kb/model";
+import { extensionNodeId, foldSeed, type FoldedSeed, type KbNode, type NodeId } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 import { outlineExtension } from "@kb/outline";
 import { themesExtension } from "@kb/themes";
+import { transistorExtension } from "@kb/transistor";
+import { yorhaExtension } from "@kb/yorha";
+import { zzzExtension } from "@kb/zzz";
 import { derivedWith, type DerivedRef } from "@kb/query";
 
 /**
@@ -53,6 +56,9 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   locationsExtension,
   backdropsExtension,
   themesExtension,
+  zzzExtension,
+  transistorExtension,
+  yorhaExtension,
 ];
 
 /**
@@ -78,6 +84,14 @@ export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [
  */
 export function bundledSeed(at?: string): KbNode[] {
   return foldSeed(BUNDLED_DECLARATIONS, at).nodes;
+}
+
+/**
+ * That fold whole, as opening a store reads it: the seed nodes and the
+ * retirement rows applied before them (`ensureSystemSeed`).
+ */
+export function bundledFold(at?: string): FoldedSeed {
+  return foldSeed(BUNDLED_DECLARATIONS, at);
 }
 
 /**

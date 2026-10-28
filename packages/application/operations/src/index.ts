@@ -58,7 +58,12 @@ export {
   parsePropArg,
 } from "./map.ts";
 export type { DeclaredTypes, PlannedAction } from "./map.ts";
-export { extensionFootprintDef, extensionSwitchDef, familyFootprint } from "./extensions.ts";
+export {
+  extensionFootprintDef,
+  extensionSettingsEffect,
+  extensionSwitchDef,
+  familyFootprint,
+} from "./extensions.ts";
 export { kbManifestDef } from "./manifest.ts";
 export { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
 export {

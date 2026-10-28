@@ -64,6 +64,7 @@ const PREFS: Prefs = {
   theme: "light",
   width: "centered",
   sidebarOpen: true,
+  settingsFolds: {},
 };
 /** The graph state this host stands at: home, unscoped, with no replica of its own. */
 const AT_HOME: PageGraphState = {
@@ -211,8 +212,6 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     wireNodes: () => NO_WIRE,
     appearance: () => LIGHT,
     prefs: () => PREFS,
-    prefsOpen: () => false,
-    setPrefsOpen: () => {},
     sidebarOpen: () => true,
     toggleSidebar: () => {},
     refInk: () => refInkOf(schemaNow()),

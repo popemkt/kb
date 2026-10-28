@@ -7,37 +7,17 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vp test"
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@fontsource-variable/archivo": "catalog:",
-    "@fontsource-variable/josefin-sans": "catalog:",
-    "@fontsource-variable/jost": "catalog:",
-    "@fontsource/barlow": "catalog:",
-    "@fontsource/barlow-condensed": "catalog:",
-    "@fontsource/marcellus-sc": "catalog:",
-    "@fontsource/share-tech-mono": "catalog:",
     "@kb/contracts": "workspace:*",
     "@kb/plugin": "workspace:*",
-    "@kb/scene": "workspace:*",
-    "@kb/scene-gpu": "workspace:*",
     "@kb/themes": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
-    "effect": "catalog:",
-    "react": "catalog:",
-    "three": "catalog:"
+    "effect": "catalog:"
   },
   "devDependencies": {
-    "@kb/ui-test-kit": "workspace:*",
-    "@types/bun": "catalog:",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "@types/three": "catalog:",
-    "happy-dom": "catalog:",
-    "react-dom": "catalog:",
-    "vite-plus": "catalog:",
-    "vitest": "catalog:"
+    "@types/bun": "catalog:"
   },
   "nx": {
     "tags": [
