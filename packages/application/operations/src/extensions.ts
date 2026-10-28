@@ -1,7 +1,8 @@
 /**
  * The extensions as actions: `extension.switch`, the checked write of a
  * family's switch, `extension.footprint`, the read of what a family adds,
- * and `extension.list`, the report of every extension the host composes.
+ * `extension.list`, the report of every extension the host composes, and
+ * `extension.settings`, the settings each extension's node has.
  *
  * `extension.switch`: turn an optional family on or off for this store
  * (DESIGN.md → Extension families → optional is a server-side load
@@ -11,7 +12,7 @@
  * node, so this is the checked verb over a write `node.update` could make
  * too: it refuses a family that is unknown or not optional, and commits
  * through the same system-write rule (`persistEffect`) as every write.
- * The page's Preferences row calls it, and so may the CLI. It changes which
+ * The Extensions page's switch calls it, and so may the CLI. It changes which
  * code the server loads, which is what a governing policy would decide
  * about; none ships for now (DESIGN.md → Action registry → Current stance).
  */
@@ -21,6 +22,7 @@ import {
   ExtensionCatalog,
   ExtensionFailures,
   ExtensionReportSchema,
+  ExtensionSettingsSchema,
   FamilyKernels,
   FootprintRowSchema,
   KbCtx,
@@ -40,6 +42,7 @@ import {
   domainError,
   extensionNameOf,
   extensionNodeId,
+  settingsOf,
   typeRefsOf,
   type DomainError,
 } from "@kb/model";
@@ -168,7 +171,7 @@ export const extensionListDef = {
  * `extension.list`: the catalog's rows, each with how its plugins sit in
  * every kernel this host holds families in (`organisationOf`), the ordered
  * points of those kernels, and the modules discovery refused. `kb ext list`
- * prints it and the page's Extensions panel draws it.
+ * prints it and the page's Settings draws it.
  */
 export const extensionListEffect = Effect.fn("extension.list")(function* (): Effect.fn.Return<
   z.infer<typeof extensionListDef.outputSchema>,
@@ -184,4 +187,55 @@ export const extensionListEffect = Effect.fn("extension.list")(function* (): Eff
     points: orderedPoints(kernels),
     failures: [...(yield* ExtensionFailures)],
   };
+});
+
+export const extensionSettingsDef = {
+  id: "extension.settings",
+  title: "An extension's settings",
+  description:
+    "The settings of every extension's node, core's included, or of the one named: each a field that configures that node (sys.f.configures), with its type, whether it takes one value, its options where it is an option set, and the values the node holds now. Write one with node.update on the extension's node (kb set sys.extension.<name> <field> <value>); the on/off switch is extension.switch's and is not listed",
+  mode: { kind: "read" } as const,
+  inputSchema: z.object({ name: z.string().min(1).optional() }),
+  outputSchema: ExtensionSettingsSchema,
+} satisfies ActionDefinition;
+
+/**
+ * `extension.settings`: for every node under `sys.extensions` (the list
+ * `extension.footprint` walks, core's included) that has a setting, or for
+ * the one named whatever it has, the settings `settingsOf` reads for it,
+ * each with the values the node holds. The page's Settings and Extensions
+ * pages read the same `settingsOf` over their replica.
+ */
+export const extensionSettingsEffect = Effect.fn("extension.settings")(function* (
+  input: z.infer<typeof extensionSettingsDef.inputSchema>,
+): Effect.fn.Return<
+  z.infer<typeof extensionSettingsDef.outputSchema>,
+  DomainError,
+  KbIndexService
+> {
+  const index = yield* KbIndexService;
+  const nodeIds = index.getNode(SYSTEM_IDS.extensionsRoot)?.children ?? [];
+  const named =
+    input.name === undefined ? nodeIds : nodeIds.filter((id) => extensionNameOf(id) === input.name);
+  if (input.name !== undefined && named.length === 0) {
+    return yield* domainError("not_found", `no extension named ${input.name}`, {
+      name: input.name,
+    });
+  }
+  const nodes = [...index.allNodes()];
+  const nodeOf = (id: string) => index.getNode(id);
+  const extensions = named.flatMap((nodeId) => {
+    const name = extensionNameOf(nodeId);
+    const node = index.getNode(nodeId);
+    if (name === undefined || node === undefined) return [];
+    const settings = settingsOf(nodes, nodeOf, nodeId).map((setting) => ({
+      ...setting,
+      options: [...setting.options],
+      values: [...(node.props[setting.field] ?? [])],
+    }));
+    return input.name === undefined && settings.length === 0
+      ? []
+      : [{ name, label: node.text, node: nodeId, settings }];
+  });
+  return { extensions };
 });

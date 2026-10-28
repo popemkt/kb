@@ -64,8 +64,6 @@ const host: BrowserHost = {
   wireNodes: () => useGraphStore.getState().wireNodes,
   appearance: () => appearanceIn(useDesignSystemStore.getState().painted, usePrefsStore.getState()),
   prefs: () => usePrefsStore.getState(),
-  prefsOpen: () => useUiStore.getState().prefsOpen,
-  setPrefsOpen: (open) => useUiStore.getState().setPrefsOpen(open),
   sidebarOpen: sidebarOpenIn,
   toggleSidebar: toggleSidebarFrom,
   refInk: () => refInkIn(useGraphStore.getState()),

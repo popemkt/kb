@@ -132,7 +132,7 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain("data-mismatch-warning");
   });
 
-  it("FieldRow is reused by Preferences via PrefFieldRow depth −1 anatomy", () => {
+  it("FieldRow is reused by Settings via PrefFieldRow depth −1 anatomy", () => {
     const outlineHtml = renderToStaticMarkup(
       createElement(FieldRow, {
         depth: 0,
@@ -151,7 +151,7 @@ describe("shared outline components (W8b)", () => {
     );
     expect(outlineHtml).toContain('data-field-row="true"');
     expect(outlineHtml).toContain("status");
-    // One indent step for an outline field, none for a popover field — the
+    // One indent step for an outline field, none for a settings row — the
     // indent is space before the row, so the row's own box is undecorated at
     // its left edge either way.
     expect(outlineHtml).toMatch(/margin-left:\s*calc\(1 \* var\(--kb-indent\)\)/);

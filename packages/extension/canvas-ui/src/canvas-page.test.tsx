@@ -775,14 +775,14 @@ describe("CanvasPage pointer interactions", () => {
     });
   });
 
-  /** The canvas page over `initialDoc` with `a` changed by `patch`, laid out 800 wide and high, while `check` runs. */
-  async function withItemA(
-    patch: Partial<CanvasDoc["nodes"][number]>,
+  /** The canvas page over `initialDoc` with each item changed by its `patches` entry, laid out 800 wide and high, while `check` runs. */
+  async function withItems(
+    patches: Record<string, Partial<CanvasDoc["nodes"][number]>>,
     check: () => void,
   ): Promise<void> {
     const doc = {
       ...initialDoc,
-      nodes: initialDoc.nodes.map((item) => (item.id === "a" ? { ...item, ...patch } : item)),
+      nodes: initialDoc.nodes.map((item) => ({ ...item, ...patches[item.id] })),
     };
     host.setNodes([holding(doc)]);
     const sides = ["clientWidth", "clientHeight"] as const;
@@ -807,7 +807,8 @@ describe("CanvasPage pointer interactions", () => {
   }
   const shownB = () => container.querySelector('[data-card-id="b"] [data-resize]');
   it("a linked item wears a link mark that says where it leads, and a click follows it", async () => {
-    await withItemA({ link: { item: "b" } }, () => {
+    // b's link is an address no link may lead to: it wears no mark to follow.
+    await withItems({ a: { link: { item: "b" } }, b: { link: { url: "javascript:x" } } }, () => {
       const marks = [...container.querySelectorAll<HTMLButtonElement>("[data-link-mark]")];
       expect(marks.map((mark) => mark.dataset.linkMark)).toEqual(["a"]);
       expect(marks[0]?.getAttribute("aria-label")).toBe("Shows b on this canvas");
@@ -816,7 +817,7 @@ describe("CanvasPage pointer interactions", () => {
     });
   });
   it("a press on a locked item that leads somewhere follows it, and a modifier selects it", async () => {
-    await withItemA({ locked: true, link: { item: "b" } }, () => {
+    await withItems({ a: { locked: true, link: { item: "b" } } }, () => {
       const cardA = present(
         container.querySelector('[data-card-id="a"] .group\\/card'),
         "the control",

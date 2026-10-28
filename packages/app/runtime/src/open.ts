@@ -15,6 +15,7 @@ import {
   migrateFieldTypeValues,
   legacyViewShapes,
   type DomainError,
+  type FoldedSeed,
   type KbNode,
   type StoreTx,
 } from "@kb/model";
@@ -72,7 +73,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const store = yield* selectStore(root);
   const { declarations } = yield* rootFamilies(root);
   const loaded = yield* store.loadEffect;
-  const seed = foldSeed(declarations, yield* currentIso).nodes;
+  const seed = foldSeed(declarations, yield* currentIso);
   const ctx = yield* sessionOver(root, store, loaded, derivedOf(declarations));
   if (migrationOf(loaded, seed) !== null) {
     yield* persistOwnWrite(ctx, (nodes) => Effect.succeed(migrationOf(nodes, seed)));
@@ -86,7 +87,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
  * additions and retirements, and field-type and legacy date values
  * rewritten, as the nodes that change; null when nothing does.
  */
-function migrationOf(nodes: readonly KbNode[], seed: readonly KbNode[]): StoreTx | null {
+function migrationOf(nodes: readonly KbNode[], seed: FoldedSeed): StoreTx | null {
   const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed([...nodes], seed);
   const typed = migrateFieldTypeValues(seeded);
   const dated = migrateDateValues(typed.nodes);

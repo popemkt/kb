@@ -1,5 +1,6 @@
 /**
- * What the Extensions panel draws (DESIGN-UI.md → Extensions panel): the
+ * What Settings' Extensions and Advanced parts draw (DESIGN-UI.md →
+ * Settings → Extensions): the
  * server's report (`extension.list`) and footprint (`extension.footprint`),
  * joined with the page's own kernel through the same readers the server
  * uses (`organisationOf`, `orderedPoints`, `pageFootprint`). The server's
@@ -27,9 +28,6 @@ import {
 import { z } from "zod";
 import { loadManifest, subscribeManifest } from "@/lib/manifest";
 import { invoke } from "@/session/runtime";
-
-/** Where the panel is: the path its route matches and every way in navigates to. */
-export const EXTENSIONS_PATH = "/extensions";
 
 const FootprintOutput = z.object({ rows: z.array(FootprintRowSchema) });
 

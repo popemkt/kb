@@ -1,0 +1,922 @@
+/*
+ * ZZZ's art (ART-DIRECTION.md → ZZZ; DESIGN-UI.md → Design tokens →
+ * Themes): the street under the page, its gestures, and the Broadcast and Hollow page heads. Every colour is a token of the design system painting the
+ * page (its chart palette is the theme's art palette), so the art follows
+ * light and dark. Everything that moves animates transform, opacity or
+ * filter on a small or short-lived element; an ambient loop's period is at
+ * least the system's `--motion-ambient-period`. Under reduced motion the
+ * global rule stops every loop, and no gesture is drawn (the last block
+ * below; the shell hides the veil).
+ */
+
+/* ── ZZZ: the street ───────────────────────────────────────────────────── */
+
+.kb-zzz-ground {
+  position: absolute;
+  inset: 0;
+}
+
+/* Halftone: a dot screen, faded toward the page by a radial mask. */
+.kb-zzz-dots {
+  position: absolute;
+  width: 48cqw;
+  aspect-ratio: 1;
+  opacity: 0.16;
+  mask-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9'%3E%3Ccircle cx='4.5' cy='4.5' r='2.1'/%3E%3C/svg%3E"),
+    radial-gradient(closest-side, var(--foreground) 15%, transparent);
+  mask-size:
+    9px 9px,
+    100% 100%;
+  mask-repeat: repeat, no-repeat;
+  mask-composite: intersect;
+}
+
+.kb-zzz-dots-top {
+  top: -16cqw;
+  right: -12cqw;
+  background: var(--chart-1);
+}
+
+.kb-zzz-dots-bottom {
+  bottom: -20cqw;
+  left: -16cqw;
+  background: var(--chart-2);
+}
+
+/* A comic page's gutters, cutting the ground into panels. */
+.kb-zzz-gutters {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      103deg,
+      transparent calc(76% - 3px),
+      color-mix(in oklab, var(--foreground) 6%, transparent) calc(76% - 3px) calc(76% + 3px),
+      transparent calc(76% + 3px)
+    ),
+    linear-gradient(
+      -4deg,
+      transparent calc(22% - 2px),
+      color-mix(in oklab, var(--foreground) 5%, transparent) calc(22% - 2px) calc(22% + 2px),
+      transparent calc(22% + 2px)
+    );
+}
+
+/* The hazard band along the bottom, slanted, its marquee crawling by. */
+.kb-zzz-band {
+  position: absolute;
+  left: -10cqw;
+  right: -10cqw;
+  bottom: 6cqh;
+  height: 40px;
+  rotate: -3deg;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--chart-2) 8%, transparent);
+}
+
+.kb-zzz-band-stripes {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+        -50deg,
+        color-mix(in oklab, var(--chart-2) 20%, transparent) 0 10px,
+        transparent 10px 20px
+      )
+      top / 100% 5px no-repeat,
+    repeating-linear-gradient(
+        -50deg,
+        color-mix(in oklab, var(--chart-2) 20%, transparent) 0 10px,
+        transparent 10px 20px
+      )
+      bottom / 100% 5px no-repeat;
+}
+
+.kb-zzz-marquee {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: flex;
+  white-space: nowrap;
+  translate: 0 -50%;
+  font-family: var(--app-font-label);
+  font-style: var(--label-style);
+  font-variation-settings: var(--label-variation);
+  font-size: var(--type-label);
+  letter-spacing: var(--label-tracking);
+  color: color-mix(in oklab, var(--foreground) 17%, transparent);
+  animation: kb-zzz-marquee calc(var(--motion-ambient-period) * 6) linear infinite;
+}
+
+.kb-zzz-marquee span {
+  padding-right: 2em;
+}
+
+@keyframes kb-zzz-marquee {
+  to {
+    translate: -50% -50%;
+  }
+}
+
+/* The wipe: a strip leads, the dotted slanted panel sweeps across, holds
+ * centred over the pane, and sweeps off it. Only `translate` moves, on a
+ * layer of its own; the slant is drawn (a mask), never a transform, so no
+ * rule here declares `transform` beside `translate`, which the build's CSS
+ * minifier would fold into one `transform` that the animation lands on top
+ * of (the panel then held off the pane and was cut off mid-sweep). */
+.kb-zzz-wipe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.kb-zzz-wipe-panel {
+  /* Half the band's width measured across its slant: 72cqw wide, 16deg off upright. */
+  --kb-zzz-band: 34.6cqw;
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  /* The band, and the run of its slant over the pane's height (tan 16deg). */
+  width: calc(72cqw + 29cqh);
+  background:
+    radial-gradient(
+        circle,
+        color-mix(in oklab, var(--scrim) 22%, transparent) 1.3px,
+        transparent 1.8px
+      )
+      0 0 / 8px 8px,
+    linear-gradient(
+      106deg,
+      var(--scrim) calc(50% - var(--kb-zzz-band) + 6px),
+      color-mix(in oklab, var(--chart-1) 72%, var(--background)) 0
+        calc(50% + var(--kb-zzz-band) - 6px),
+      var(--scrim) 0
+    );
+  mask-image: linear-gradient(
+    106deg,
+    transparent calc(50% - var(--kb-zzz-band)),
+    black 0 calc(50% + var(--kb-zzz-band)),
+    transparent 0
+  );
+  translate: 100cqw 0;
+  animation: kb-zzz-wipe calc(var(--motion-duration-reveal) * 2.4) linear forwards;
+}
+
+.kb-zzz-wipe-strip {
+  position: absolute;
+  top: 20%;
+  left: 0;
+  width: 100%;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding-left: 12cqw;
+  background: var(--scrim);
+  color: var(--knob);
+  font-family: var(--app-font-label);
+  font-style: var(--label-style);
+  font-variation-settings: var(--label-variation);
+  font-size: var(--type-label);
+  letter-spacing: 0.1em;
+  translate: 100cqw 0;
+  animation: kb-zzz-wipe-strip calc(var(--motion-duration-reveal) * 2.4) linear forwards;
+}
+
+/* The strip's words on a layer of their own: the strip itself is then a
+ * solid colour, which the compositor draws without rastering, and only the
+ * words' small box is rastered, once. Rastered together, the strip's first
+ * frames on the move cost a dropped frame. */
+.kb-zzz-wipe-strip span {
+  will-change: transform;
+}
+
+@keyframes kb-zzz-wipe {
+  0% {
+    translate: 100cqw 0;
+  }
+  36%,
+  58% {
+    translate: calc(50cqw - 50%) 0;
+  }
+  100% {
+    translate: -100% 0;
+  }
+}
+
+@keyframes kb-zzz-wipe-strip {
+  0% {
+    translate: 100cqw 0;
+  }
+  22%,
+  62% {
+    translate: 0 0;
+  }
+  100% {
+    translate: -100cqw 0;
+  }
+}
+
+/* A sound effect, slapped on as a sticker and peeled off. */
+.kb-zzz-sfx {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  padding: 4px 16px 6px;
+  border: 3px solid var(--scrim);
+  border-radius: 10px;
+  corner-shape: bevel;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 6px 6px 0 0 var(--scrim);
+  font-family: var(--app-font-display);
+  font-style: italic;
+  font-variation-settings:
+    "wght" 900,
+    "wdth" 78;
+  font-size: 30px;
+  line-height: 1;
+  rotate: -7deg;
+  animation: kb-zzz-sfx calc(var(--motion-duration-enter) * 2.4) var(--motion-spring) forwards;
+}
+
+@keyframes kb-zzz-sfx {
+  0% {
+    opacity: 0;
+    scale: 0.4;
+    rotate: -22deg;
+  }
+  18% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    scale: 1;
+    rotate: -7deg;
+  }
+  100% {
+    opacity: 0;
+    scale: 1;
+    rotate: -7deg;
+  }
+}
+
+/* ── ZZZ: the Broadcast page head ──────────────────────────────────────── */
+
+.kb-broadcast {
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+}
+
+.kb-broadcast-slab {
+  position: absolute;
+  top: 26px;
+  right: 7%;
+  width: 54%;
+  height: 112px;
+  border: 3px solid var(--scrim);
+  background:
+    radial-gradient(
+        circle,
+        color-mix(in oklab, var(--scrim) 28%, transparent) 1.2px,
+        transparent 1.7px
+      )
+      0 0 / 7px 7px,
+    var(--chart-1);
+  box-shadow: 7px 7px 0 0 var(--scrim);
+  transform: skewX(-16deg);
+}
+
+.kb-broadcast-slab-back {
+  top: 12px;
+  right: 3%;
+  width: 30%;
+  height: 70px;
+  background:
+    repeating-linear-gradient(
+      -50deg,
+      color-mix(in oklab, var(--scrim) 85%, transparent) 0 9px,
+      transparent 9px 18px
+    ),
+    var(--chart-2);
+  z-index: -1;
+}
+
+.kb-broadcast-strip {
+  position: absolute;
+  left: 2%;
+  right: 4%;
+  top: 104px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding-left: 30%;
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--scrim);
+  color: var(--knob);
+  font-family: var(--app-font-label);
+  font-style: var(--label-style);
+  font-variation-settings: var(--label-variation);
+  font-size: var(--type-label);
+  rotate: -1.5deg;
+}
+
+.kb-broadcast-tab {
+  position: absolute;
+  top: 6px;
+  right: 40%;
+  padding: 2px 12px;
+  border: 2px solid var(--scrim);
+  background: var(--chart-2);
+  color: var(--scrim);
+  font-family: var(--app-font-display);
+  font-style: italic;
+  font-variation-settings:
+    "wght" 900,
+    "wdth" 90;
+  font-size: var(--type-ui);
+  transform: skewX(-16deg);
+}
+
+.kb-broadcast-tv {
+  position: absolute;
+  left: 7%;
+  top: 22px;
+  width: 172px;
+  height: 124px;
+  padding: 11px 30px 11px 11px;
+  border: 3px solid var(--scrim);
+  border-radius: 22px;
+  corner-shape: round;
+  background: color-mix(in oklab, var(--foreground) 14%, var(--card));
+  box-shadow: 6px 6px 0 0 var(--scrim);
+  rotate: -3deg;
+}
+
+.kb-broadcast-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 2px solid var(--scrim);
+  border-radius: 16px / 20px;
+  corner-shape: round;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in oklab, var(--scrim) 30%, transparent) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      ellipse at 40% 35%,
+      color-mix(in oklab, var(--kb-head) 70%, var(--knob)) 0%,
+      var(--kb-head) 45%,
+      color-mix(in oklab, var(--kb-head) 40%, var(--scrim)) 100%
+    );
+}
+
+.kb-broadcast-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--knob);
+  opacity: 0;
+  animation: kb-broadcast-flicker var(--motion-ambient-period) steps(1, end) infinite;
+}
+
+@keyframes kb-broadcast-flicker {
+  0%,
+  93%,
+  95%,
+  100% {
+    opacity: 0;
+  }
+  94% {
+    opacity: 0.35;
+  }
+}
+
+/* Colour bars along the bottom of the screen: the test card, drawn here. */
+.kb-broadcast-bars {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22%;
+  background: linear-gradient(
+    90deg,
+    var(--chart-1) 0 20%,
+    var(--chart-2) 20% 40%,
+    var(--chart-5) 40% 60%,
+    var(--chart-3) 60% 80%,
+    var(--chart-4) 80% 100%
+  );
+  opacity: 0.85;
+}
+
+.kb-broadcast-static {
+  position: absolute;
+  inset: -20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -0.25'/%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0;
+  animation: kb-broadcast-static calc(var(--motion-duration-enter) * 1.4) steps(6, end) forwards;
+}
+
+@keyframes kb-broadcast-static {
+  0% {
+    opacity: 0.95;
+    translate: 0 0;
+  }
+  50% {
+    opacity: 0.8;
+    translate: -14px 9px;
+  }
+  100% {
+    opacity: 0;
+    translate: 7px -12px;
+  }
+}
+
+.kb-broadcast-rec {
+  position: absolute;
+  right: 6px;
+  top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--app-font-label);
+  font-size: var(--type-micro);
+  font-weight: 800;
+  color: var(--scrim);
+  opacity: 0.45;
+  transition: opacity var(--motion-duration-quick) var(--motion-settle);
+}
+
+/* The lamp blinks on one clock for the life of the head: editing resumes it
+ * where it paused, so going from node to node never restarts the blink. */
+.kb-broadcast-rec::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--chart-4);
+  animation: kb-broadcast-rec calc(var(--motion-ambient-period) / 12) steps(1, end) infinite;
+  animation-play-state: paused;
+}
+
+[data-editing] .kb-broadcast-rec {
+  opacity: 1;
+}
+
+[data-editing] .kb-broadcast-rec::before {
+  animation-play-state: running;
+}
+
+@keyframes kb-broadcast-rec {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Rabbit-ear antennas. */
+.kb-broadcast-antenna::before,
+.kb-broadcast-antenna::after {
+  content: "";
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  width: 3px;
+  height: 34px;
+  border-radius: 2px;
+  background: var(--scrim);
+  transform-origin: bottom;
+}
+
+.kb-broadcast-antenna::before {
+  rotate: -28deg;
+}
+
+.kb-broadcast-antenna::after {
+  rotate: 22deg;
+}
+
+/* A narrow head (bb's side panel, a phone): the set shrinks, so the TV
+ * stays above the breadcrumb and the title. */
+@container (max-width: 640px) {
+  .kb-broadcast-tv {
+    top: 12px;
+    width: 116px;
+    height: 84px;
+    padding: 7px 20px 7px 7px;
+    border-radius: 16px;
+    box-shadow: 4px 4px 0 0 var(--scrim);
+  }
+  .kb-broadcast-slab {
+    top: 18px;
+    height: 72px;
+  }
+  .kb-broadcast-slab-back {
+    top: 8px;
+    height: 48px;
+  }
+  .kb-broadcast-strip {
+    top: 70px;
+    height: 24px;
+  }
+  .kb-broadcast-tab {
+    top: 2px;
+  }
+}
+
+/* ── ZZZ: Hollow ───────────────────────────────────────────────────────── */
+
+.kb-hollow {
+  /* The ether: the hue between event red and reveal cyan, the long way
+   * round through violet. */
+  --kb-ether: color-mix(in oklch, var(--chart-4), var(--chart-5));
+  --kb-hollow-tear: polygon(
+    9% 0,
+    100% 0,
+    100% 100%,
+    3% 100%,
+    6% 86%,
+    1% 72%,
+    7% 60%,
+    2% 46%,
+    8% 33%,
+    3% 20%,
+    10% 9%
+  );
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+}
+
+/* The panel's hard offset shadow follows its torn outline. */
+.kb-hollow-panel {
+  position: absolute;
+  top: 28px;
+  right: 5%;
+  width: 56%;
+  height: 112px;
+  filter: drop-shadow(7px 7px 0 var(--scrim));
+}
+
+.kb-hollow-cut {
+  position: absolute;
+  inset: 0;
+  clip-path: var(--kb-hollow-tear);
+  /* A die-cut rim, light on a dark page and dark on a light one. */
+  background: color-mix(in oklab, var(--foreground) 88%, var(--kb-ether));
+}
+
+.kb-hollow-ether {
+  position: absolute;
+  inset: 5px;
+  overflow: hidden;
+  clip-path: var(--kb-hollow-tear);
+  background: color-mix(in oklab, var(--kb-ether) 30%, var(--scrim));
+}
+
+/* The vortex: arms of ether and of the head's colour, turning slowly round
+ * the eye, darkened toward the panel's edge. */
+.kb-hollow-swirl {
+  position: absolute;
+  left: 62%;
+  top: 50%;
+  width: 130%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      transparent 0 6%,
+      color-mix(in oklab, var(--scrim) 35%, transparent) 26%,
+      color-mix(in oklab, var(--scrim) 88%, transparent) 52%
+    ),
+    repeating-radial-gradient(
+      circle,
+      transparent 0 9px,
+      color-mix(in oklab, var(--kb-ether) 35%, transparent) 9px 11px
+    ),
+    repeating-conic-gradient(
+      from 0deg,
+      color-mix(in oklab, var(--kb-ether) 75%, var(--scrim)) 0deg 16deg,
+      color-mix(in oklab, var(--kb-head) 60%, var(--kb-ether)) 22deg 26deg,
+      color-mix(in oklab, var(--kb-ether) 40%, var(--scrim)) 34deg 60deg
+    );
+  animation: kb-hollow-swirl calc(var(--motion-ambient-period) * 3) linear infinite;
+}
+
+@keyframes kb-hollow-swirl {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.kb-hollow-eye {
+  position: absolute;
+  left: 62%;
+  top: 50%;
+  width: 92px;
+  aspect-ratio: 1.5;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    var(--knob) 0 14%,
+    color-mix(in oklab, var(--kb-head) 70%, var(--knob)) 30%,
+    color-mix(in oklab, var(--kb-head) 55%, transparent) 58%,
+    transparent
+  );
+  filter: brightness(0.9);
+  transition: filter var(--motion-duration-enter);
+}
+
+[data-editing] .kb-hollow-eye {
+  filter: brightness(1.2);
+}
+
+/* Halftone over the ether, thinning toward the eye. */
+.kb-hollow-dots {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--knob) 30%, transparent) 1.1px,
+      transparent 1.6px
+    )
+    0 0 / 7px 7px;
+  mask-image: radial-gradient(circle at 62% 50%, transparent 14%, var(--scrim) 62%);
+}
+
+/* A structural write: a ring of light thrown out of the rift. */
+.kb-hollow-surge {
+  position: absolute;
+  left: 62%;
+  top: 50%;
+  width: 80px;
+  aspect-ratio: 1;
+  margin: -40px 0 0 -40px;
+  border: 4px solid var(--knob);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--kb-head);
+  opacity: 0;
+  animation: kb-hollow-surge calc(var(--motion-duration-enter) * 1.6) var(--motion-spring) forwards;
+}
+
+@keyframes kb-hollow-surge {
+  0% {
+    opacity: 1;
+    scale: 0.2;
+  }
+  100% {
+    opacity: 0;
+    scale: 4;
+  }
+}
+
+/* Sparks round the eye: four-point stars that flick on and off. */
+.kb-hollow-spark {
+  position: absolute;
+  width: 14px;
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  --kb-spark: var(--knob);
+  --kb-spark-delay: 0s;
+}
+
+/* Two flickers per spark, each its own clock: a slow one always, and a
+ * quick one that editing wakes. Waking it resumes it where it paused and
+ * fades it in, so neither ever restarts or jumps (a changed duration would
+ * move a running animation's progress at once). */
+.kb-hollow-spark::before,
+.kb-hollow-spark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--kb-spark);
+  opacity: 0;
+  animation: kb-hollow-spark var(--motion-ambient-period) steps(1, end) infinite;
+  animation-delay: var(--kb-spark-delay);
+}
+
+.kb-hollow-spark::after {
+  animation-duration: calc(var(--motion-ambient-period) / 3);
+  animation-play-state: paused;
+  filter: opacity(0);
+  transition: filter var(--motion-duration-reveal) var(--motion-settle);
+}
+
+[data-editing] .kb-hollow-spark::after {
+  animation-play-state: running;
+  filter: opacity(1);
+}
+
+.kb-hollow-spark:nth-of-type(1) {
+  top: 40px;
+  right: 30%;
+}
+
+.kb-hollow-spark:nth-of-type(2) {
+  top: 112px;
+  right: 18%;
+  width: 10px;
+  --kb-spark: var(--chart-5);
+  --kb-spark-delay: calc(var(--motion-ambient-period) * -0.3);
+}
+
+.kb-hollow-spark:nth-of-type(3) {
+  top: 54px;
+  right: 9%;
+  width: 18px;
+  --kb-spark: var(--chart-1);
+  --kb-spark-delay: calc(var(--motion-ambient-period) * -0.55);
+}
+
+.kb-hollow-spark:nth-of-type(4) {
+  top: 100px;
+  right: 34%;
+  width: 9px;
+  --kb-spark-delay: calc(var(--motion-ambient-period) * -0.8);
+}
+
+@keyframes kb-hollow-spark {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  8%,
+  14% {
+    opacity: 0.9;
+  }
+  11% {
+    opacity: 0.3;
+  }
+}
+
+.kb-hollow-tape {
+  position: absolute;
+  left: 38%;
+  right: 1%;
+  top: 132px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
+  border-block: 3px solid var(--scrim);
+  background: repeating-linear-gradient(-45deg, var(--chart-2) 0 12px, var(--scrim) 12px 24px);
+  rotate: 2deg;
+}
+
+.kb-hollow-tape > span {
+  padding: 0 10px;
+  background: var(--chart-2);
+  color: var(--scrim);
+  font-family: var(--app-font-label);
+  font-style: var(--label-style);
+  font-variation-settings: var(--label-variation);
+  font-size: var(--type-micro);
+  font-weight: 800;
+}
+
+.kb-hollow-tab {
+  position: absolute;
+  top: 14px;
+  left: 42%;
+  padding: 2px 12px;
+  border: 2px solid var(--scrim);
+  background: var(--chart-3);
+  color: var(--scrim);
+  box-shadow: 4px 4px 0 0 var(--scrim);
+  font-family: var(--app-font-display);
+  font-style: italic;
+  font-variation-settings:
+    "wght" 900,
+    "wdth" 90;
+  font-size: var(--type-ui);
+  white-space: nowrap;
+  transform: skewX(-16deg) rotate(-3deg);
+}
+
+/* The grid of screens a Hollow is explored through. */
+.kb-hollow-tiles {
+  position: absolute;
+  left: 6%;
+  top: 44px;
+  display: grid;
+  grid-template-columns: repeat(3, 54px);
+  grid-auto-rows: 40px;
+  gap: 7px;
+  rotate: -3deg;
+  filter: drop-shadow(5px 5px 0 var(--scrim));
+}
+
+.kb-hollow-tile {
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--scrim);
+  border-radius: 9px;
+  corner-shape: round;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in oklab, var(--scrim) 30%, transparent) 0 1px,
+      transparent 1px 3px
+    ),
+    color-mix(in oklab, var(--kb-ether) 22%, var(--scrim));
+  color: var(--chart-3);
+  font-family: var(--app-font-display);
+  font-style: italic;
+  font-variation-settings:
+    "wght" 900,
+    "wdth" 90;
+  font-size: var(--type-ui);
+  line-height: 1;
+}
+
+.kb-hollow-tile:nth-child(4) {
+  color: var(--chart-5);
+}
+
+.kb-hollow-tile[data-lit] {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in oklab, var(--scrim) 30%, transparent) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      ellipse at 40% 35%,
+      color-mix(in oklab, var(--kb-head) 70%, var(--knob)),
+      var(--kb-head) 55%,
+      color-mix(in oklab, var(--kb-head) 45%, var(--scrim))
+    );
+}
+
+/* A narrow head (bb's side panel, a phone): everything shrinks and rises,
+ * so the art stays above the breadcrumb and the title. */
+@container (max-width: 640px) {
+  .kb-hollow-panel {
+    top: 22px;
+    right: 3%;
+    width: 60%;
+    height: 74px;
+    filter: drop-shadow(4px 4px 0 var(--scrim));
+  }
+  .kb-hollow-eye {
+    width: 64px;
+  }
+  .kb-hollow-tape {
+    left: 34%;
+    top: 86px;
+    height: 18px;
+  }
+  .kb-hollow-tab {
+    top: 10px;
+    left: 40%;
+    padding: 1px 8px;
+    font-size: var(--type-label);
+  }
+  .kb-hollow-tiles {
+    left: 4%;
+    top: 30px;
+    grid-template-columns: repeat(3, 32px);
+    grid-auto-rows: 24px;
+    gap: 5px;
+    filter: drop-shadow(3px 3px 0 var(--scrim));
+  }
+  .kb-hollow-tile {
+    border-width: 2px;
+    border-radius: 6px;
+    font-size: var(--type-label);
+  }
+  .kb-hollow-spark:nth-of-type(1),
+  .kb-hollow-spark:nth-of-type(3) {
+    top: 30px;
+  }
+  .kb-hollow-spark:nth-of-type(2),
+  .kb-hollow-spark:nth-of-type(4) {
+    top: 76px;
+  }
+}
+
+/* Reduced motion: the gestures drawn in the ground and the heads are all
+ * motion, so none is drawn, rather than a frame of each before the global
+ * rule lands it on its end (Lab M7). The veil is hidden by the shell. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) :is(.kb-broadcast-static, .kb-hollow-surge) {
+    display: none;
+  }
+}
+
+:root:is([data-motion="reduced"], [data-motion="off"]) :is(.kb-broadcast-static, .kb-hollow-surge) {
+  display: none;
+}

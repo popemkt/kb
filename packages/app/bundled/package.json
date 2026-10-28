@@ -28,7 +28,10 @@
     "@kb/operations": "workspace:*",
     "@kb/outline": "workspace:*",
     "@kb/query": "workspace:*",
-    "@kb/themes": "workspace:*"
+    "@kb/themes": "workspace:*",
+    "@kb/transistor": "workspace:*",
+    "@kb/yorha": "workspace:*",
+    "@kb/zzz": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"
