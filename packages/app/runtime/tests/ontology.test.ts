@@ -29,7 +29,7 @@ import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
-import { bundledSeed } from "@kb/bundled";
+import { bundledFold, bundledSeed } from "@kb/bundled";
 
 // ── fixtures ───────────────────────────────────────────────────────────────
 
@@ -615,9 +615,9 @@ describe("ontology seed", () => {
   });
 
   test("ensureSystemSeed is idempotent and backfills the tag template", () => {
-    const first = ensureSystemSeed([], bundledSeed());
+    const first = ensureSystemSeed([], bundledFold());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes, bundledSeed());
+    const again = ensureSystemSeed(first.nodes, bundledFold());
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
 
@@ -628,7 +628,7 @@ describe("ontology seed", () => {
         ? { ...n, text: "my-ontology", props: { ...n.props, [SYSTEM_IDS.fieldsField]: [] } }
         : n,
     );
-    const healed = ensureSystemSeed(stale, bundledSeed());
+    const healed = ensureSystemSeed(stale, bundledFold());
     expect(healed.seeded).toBe(true);
     const tag = present(
       healed.nodes.find((n) => n.id === SYSTEM_IDS.ontologyTag),

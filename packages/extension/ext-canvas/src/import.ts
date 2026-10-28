@@ -3,7 +3,7 @@
  * board brought into kb one way, lowered to kb's own features by
  * `@kb/canvas`'s `tldrawBoard`, and written as one transaction — the board
  * and its pages as `#canvas` nodes, each record card's node under its
- * page, and the fields its meta keys name that kb does not have yet.
+ * page, and the fields its meta keys need that kb does not have yet.
  */
 import { isAbsolute, join } from "node:path";
 import { Effect } from "effect";
@@ -12,13 +12,11 @@ import { z } from "zod";
 import { KbCtx, type ExtensionAction } from "@kb/contracts";
 import {
   IndexedNodes,
-  ResolveError,
   SYSTEM_IDS,
   currentIso,
   freshId,
   isSysPrefixed,
   present,
-  resolveFieldIn,
   FIELD_TYPE_OPTION_IDS,
   conformsToType,
   fieldTypeOf,
@@ -62,9 +60,17 @@ const importOutput = z.object({
   ),
   records: z.number().describe("the nodes made for cards that carried a record (meta)"),
   fields: z
-    .array(z.object({ name: z.string(), id: z.string(), made: z.boolean(), type: z.string() }))
+    .array(
+      z.object({
+        name: z.string(),
+        field: z.string(),
+        id: z.string(),
+        made: z.boolean(),
+        type: z.string(),
+      }),
+    )
     .describe(
-      "the fields the records are written in, their type, and whether the import made each (typed by its values)",
+      "each meta key (name) with the field its values are written in: the field's name (the key's, or the key and the board's when kb's field of that name could not take them), its type, and whether the import made it (typed by its values)",
     ),
   reported: z.array(z.string()).describe("what kb drew differently, or not at all"),
   lints: z.array(LintSchema.extend({ page: z.string() })),
@@ -84,22 +90,37 @@ function propValue(value: TldrawValue, type: FieldType): PropValue {
   return { t: "str", v: String(value) };
 }
 
+/** The name a board's own field for `key` takes on its `n`th try: the key, then the key and the board, then numbered. */
+function fieldName(key: string, board: string, n: number): string {
+  if (n === 0) return key;
+  return n === 1 ? `${key} (${board})` : `${key} (${board}) ${n}`;
+}
+
 /**
- * The field `name` resolves to, or null when kb has none of that name and
- * the import is to make it. A name that is kb's own (a `sys.*` field, or
- * one of the names the system's fields answer to) is refused: a record's
- * key is the person's, and must not write kb's schema.
+ * The field a meta key's `values` are written in, by name: the one field
+ * of that name when it is the person's (no `sys.*` field, which is kb's
+ * schema) and its type holds every value. Otherwise — kb's own field, two
+ * of that name, or one of another type — the board takes its own, named
+ * for the key and the board (`fieldName`), joined by the same rule, so a
+ * board imported again writes in the fields it made the first time. `id`
+ * is null when no field has the name, and the import makes it.
  */
-function fieldFor(graph: IndexedNodes, name: string): NodeId | null {
-  try {
-    const id = resolveFieldIn(graph, name);
-    if (isSysPrefixed(id)) {
-      throw new CanvasTxError(`the meta key "${name}" names kb's own field ${id}; rename it first`);
+function fieldFor(
+  graph: IndexedNodes,
+  key: string,
+  board: string,
+  values: readonly TldrawValue[],
+): { name: string; id: NodeId | null } {
+  for (let n = 0; ; n += 1) {
+    const name = fieldName(key, board, n);
+    const named = graph.typedNamed(SYSTEM_IDS.field, name);
+    const [only] = named;
+    if (only === undefined) return { name, id: null };
+    if (named.length > 1 || isSysPrefixed(only.id)) continue;
+    const type = fieldTypeOf(only.props);
+    if (values.every((raw) => conformsToType(type, propValue(raw, type)))) {
+      return { name, id: only.id };
     }
-    return id;
-  } catch (err) {
-    if (err instanceof ResolveError && err.code === "not_found") return null;
-    throw err;
   }
 }
 
@@ -148,7 +169,7 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
     for (const w of planNodeAdd(graph, node, id, when).written) written.add(w);
   };
   const canvasId = idOf(present(keys.pages[0], "a board has a page"));
-  const fields = new Map<string, { id: NodeId; made: boolean; type: FieldType }>();
+  const fields = new Map<string, { field: string; id: NodeId; made: boolean; type: FieldType }>();
   yield* canvasStep(() => {
     board.pages.forEach((page, i) => {
       const isBoard = i === 0;
@@ -171,10 +192,12 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
   for (const { name, values } of board.records.flatMap((r) => r.fields)) {
     valuesByName.set(name, [...(valuesByName.get(name) ?? []), ...values]);
   }
+  const boardName = input.name ?? present(board.pages[0], "a board has a page").name;
   for (const [name, values] of valuesByName) {
-    const found = yield* canvasStep(() => fieldFor(graph, name));
-    if (found !== null) {
-      fields.set(name, { id: found, made: false, type: fieldTypeOf(graph.get(found)?.props) });
+    const found = fieldFor(graph, name, boardName, values);
+    if (found.id !== null) {
+      const type = fieldTypeOf(graph.get(found.id)?.props);
+      fields.set(name, { field: found.name, id: found.id, made: false, type });
       continue;
     }
     const id = yield* freshId;
@@ -182,7 +205,7 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
     yield* canvasStep(() =>
       add(
         {
-          text: name,
+          text: found.name,
           props: [
             { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } },
             {
@@ -195,21 +218,13 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
         at,
       ),
     );
-    fields.set(name, { id, made: true, type });
+    fields.set(name, { field: found.name, id, made: true, type });
   }
   yield* canvasStep(() => {
     for (const record of board.records) {
       const props: PropEntry[] = record.fields.flatMap(({ name, values }) => {
         const field = present(fields.get(name), name);
-        return values.map((raw) => {
-          const value = propValue(raw, field.type);
-          if (!conformsToType(field.type, value)) {
-            throw new CanvasTxError(
-              `${record.key}: the meta key "${name}" holds ${JSON.stringify(raw)}, which its field ${field.id} (${field.type}) cannot`,
-            );
-          }
-          return { field: field.id, value };
-        });
+        return values.map((raw) => ({ field: field.id, value: propValue(raw, field.type) }));
       });
       add({ text: record.text, props, parent: idOf(record.page) }, idOf(record.key), at);
     }
@@ -228,7 +243,7 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
       edges: page.doc.edges.length,
     })),
     records: board.records.length,
-    fields: [...fields].map(([name, { id, made, type }]) => ({ name, id, made, type })),
+    fields: [...fields].map(([name, field]) => ({ name, ...field })),
     reported: [...board.reported],
     lints: boardLints(
       board.pages.map((page) => ({ id: idOf(page.key), doc: page.doc })),

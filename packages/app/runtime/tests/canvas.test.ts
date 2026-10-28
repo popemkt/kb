@@ -26,7 +26,7 @@ import { openKb } from "../src/session.ts";
 import { ensureSystemSeed, fieldTypeValue, present, SYSTEM_IDS } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
-import { bundledSeed } from "@kb/bundled";
+import { bundledFold, bundledSeed } from "@kb/bundled";
 
 let roots: string[] = [];
 
@@ -90,9 +90,9 @@ describe("C1 seed: canvas tag + field", () => {
   });
 
   test("ensureSystemSeed is idempotent over canvas nodes", () => {
-    const first = ensureSystemSeed([], bundledSeed());
+    const first = ensureSystemSeed([], bundledFold());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes, bundledSeed());
+    const again = ensureSystemSeed(first.nodes, bundledFold());
     expect(again.seeded).toBe(false);
   });
 });

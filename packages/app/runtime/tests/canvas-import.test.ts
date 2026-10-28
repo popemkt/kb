@@ -3,7 +3,7 @@
  * or a `.tldraw` archive holding tldraw-sync's `db.sqlite`, written as one
  * transaction: the board and its pages as `#canvas` nodes, each record
  * card's node under its page with its meta keys as fields (made when kb
- * has none of the name), and a drill as a link between pages. The pure
+ * has none of the name it can write in), and a drill as a link between pages. The pure
  * lowering is `@kb/canvas`'s `tldraw.test.ts`.
  */
 import { Database } from "bun:sqlite";
@@ -178,7 +178,7 @@ function output(receipt: ActionReceipt): Record<string, unknown> {
 interface Imported {
   canvasId: string;
   pages: { id: string; name: string; items: number; edges: number }[];
-  fields: { name: string; id: string; made: boolean; type: string }[];
+  fields: { name: string; field: string; id: string; made: boolean; type: string }[];
 }
 
 describe("ext.canvas.import", () => {
@@ -280,8 +280,9 @@ describe("ext.canvas.import", () => {
     expect(ctx.nodes.length).toBe(before);
   });
 
-  test("a value its existing field cannot hold is refused, naming the record and the field", async () => {
+  test("a meta key kb's field of that name cannot take is the board's own field, joined on a second import", async () => {
     const { ctx, root } = await freshKb();
+    // pri: one field, of a type "H" is not. kind: two fields of that name. type: kb's own.
     await invoke(ctx, { id: "field.define", input: { name: "pri", id: "f.pri" } });
     await invoke(ctx, {
       id: "node.update",
@@ -290,18 +291,30 @@ describe("ext.canvas.import", () => {
         setProps: [{ field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("number") }],
       },
     });
-    await writeFile(join(root, "b.tldr"), JSON.stringify({ records: RECORDS }));
-    const refused = await invoke(ctx, { id: "ext.canvas.import", input: { path: "b.tldr" } });
-    expect(refused.status === "failed" ? refused.message : "").toMatch(
-      /shape:item: the meta key "pri" holds "H", which its field f.pri \(number\) cannot/,
-    );
-  });
+    await invoke(ctx, { id: "field.define", input: { name: "kind", id: "f.kind1" } });
+    await invoke(ctx, { id: "field.define", input: { name: "kind", id: "f.kind2" } });
+    const meta = { kind: "item", pri: "H", type: "x", open: true };
+    const keyed = RECORDS.map((r) => (r.id === "shape:item" ? { ...r, meta } : r));
+    await writeFile(join(root, "b.tldr"), JSON.stringify({ records: keyed }));
+    const imported = async () =>
+      (
+        output(
+          await invoke(ctx, { id: "ext.canvas.import", input: { path: "b.tldr" } }),
+        ) as unknown as Imported
+      ).fields;
 
-  test("a meta key that names kb's own field is refused", async () => {
-    const { ctx, root } = await freshKb();
-    const owned = RECORDS.map((r) => (r.id === "shape:item" ? { ...r, meta: { type: "x" } } : r));
-    await writeFile(join(root, "b.tldr"), JSON.stringify({ records: owned }));
-    const refused = await invoke(ctx, { id: "ext.canvas.import", input: { path: "b.tldr" } });
-    expect(refused.status === "failed" ? refused.message : "").toMatch(/kb's own field/);
+    const first = await imported();
+    expect(first.map((f) => [f.name, f.field, f.made])).toEqual([
+      ["kind", "kind (Overview)", true],
+      ["pri", "pri (Overview)", true],
+      ["type", "type (Overview)", true],
+      ["open", "open", true],
+    ]);
+    expect(first.map((f) => f.id)).not.toContain("f.pri");
+    // Imported again, the board writes in the fields it made, and makes none.
+    const second = await imported();
+    expect(second.map((f) => [f.field, f.id, f.made])).toEqual(
+      first.map((f) => [f.field, f.id, false]),
+    );
   });
 });

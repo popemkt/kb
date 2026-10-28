@@ -87,6 +87,13 @@ describe("loadPrefs", () => {
       theme: "dark",
       width: "full",
       sidebarOpen: false,
+      settingsFolds: {},
+    });
+    expect(
+      prefs.loadPrefs('{"settingsFolds":{"motion":false,"effects":"no"}}', 1280).settingsFolds,
+    ).toEqual({});
+    expect(prefs.loadPrefs('{"settingsFolds":{"motion":false}}', 1280).settingsFolds).toEqual({
+      motion: false,
     });
     expect(prefs.loadPrefs('{"theme":"neon","width":"wide"}', 1280)).toEqual({
       ...prefs.DEFAULT_PREFS,
@@ -157,11 +164,13 @@ describe("usePrefsStore", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
     prefs.usePrefsStore.getState().setWidth("full");
     prefs.usePrefsStore.getState().setSidebarOpen(false);
+    prefs.usePrefsStore.getState().setSettingsFold("motion", false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
     expect(JSON.parse(present(raw, "raw json"))).toEqual({
       theme: "dark",
       width: "full",
       sidebarOpen: false,
+      settingsFolds: { motion: false },
     });
   });
 

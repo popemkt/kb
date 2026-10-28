@@ -14,7 +14,7 @@ import { present } from "../src/present.ts";
 import fc from "fast-check";
 import type { KbNode, PropValue } from "../src/model.ts";
 import { TEMPLATE_TAGS, ensureSystemSeed } from "../src/seed.ts";
-import { bundledSeed } from "@kb/bundled";
+import { bundledFold, bundledSeed } from "@kb/bundled";
 
 const AT = "2026-08-24T00:00:00.000Z";
 const EXCLUDED = new Set<string>(TEMPLATE_TAGS);
@@ -25,7 +25,7 @@ const CANDIDATE_IDS = bundledSeed(AT)
 describe("seed idempotence properties (fast-check)", () => {
   test("ensureSystemSeed over the pristine seed is a no-op", () => {
     const seed = bundledSeed(AT);
-    const result = ensureSystemSeed(seed, bundledSeed());
+    const result = ensureSystemSeed(seed, bundledFold());
     expect(result.seeded).toBe(false);
     expect(result.deletes).toEqual([]);
     expect(result.nodes).toEqual(seed);
@@ -57,7 +57,7 @@ describe("seed idempotence properties (fast-check)", () => {
             return { ...node, props: nextProps };
           });
 
-          const result = ensureSystemSeed(existingNodes, bundledSeed());
+          const result = ensureSystemSeed(existingNodes, bundledFold());
           const resultById = new Map(result.nodes.map((n) => [n.id, n]));
 
           for (const id of selectedIds) {
@@ -78,7 +78,7 @@ describe("seed idempotence properties (fast-check)", () => {
             }
           }
 
-          const second = ensureSystemSeed(result.nodes, bundledSeed());
+          const second = ensureSystemSeed(result.nodes, bundledFold());
           expect(second.seeded).toBe(false);
           expect(second.nodes).toEqual(result.nodes);
         },

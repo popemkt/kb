@@ -1,0 +1,39 @@
+{
+  "name": "@kb/transistor-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@fontsource-variable/josefin-sans": "catalog:",
+    "@fontsource-variable/jost": "catalog:",
+    "@fontsource/marcellus-sc": "catalog:",
+    "@fontsource/share-tech-mono": "catalog:",
+    "@kb/contracts": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/theme-art": "workspace:*",
+    "@kb/transistor": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
+    "effect": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "happy-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser",
+      "family:transistor"
+    ]
+  }
+}

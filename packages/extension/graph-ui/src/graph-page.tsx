@@ -10,14 +10,12 @@ import {
   navigate,
   OntologyPicker,
   ontologyPath,
+  SettingsTrigger,
   SidebarToggle,
-  ThemeIcon,
   useAppearance,
   useAnswered,
   usePageGraph,
-  usePrefsOpen,
   useSidebarToggle,
-  useTheme,
   useWireNodes,
   ViewSlot,
   WorkspaceState,
@@ -68,10 +66,8 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const wireNodes = useWireNodes();
   const { zoomTo } = browserHost();
   const ontologyMembers = usePageGraph((s) => s.ontologyMembers);
-  const theme = useTheme();
   const appearance = useAppearance();
   const sidebar = useSidebarToggle();
-  const [prefsOpen, setPrefsOpen] = usePrefsOpen();
 
   const [includeSystemNodes, setIncludeSystemNodes] = useState(() => {
     try {
@@ -350,16 +346,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           </span>
         )}
         <div className="flex-1" />
-        <button
-          type="button"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
-          aria-label="Preferences"
-          title="Preferences"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setPrefsOpen(!prefsOpen)}
-        >
-          <ThemeIcon theme={theme} size={15} />
-        </button>
+        <SettingsTrigger />
       </header>
       <div className="relative min-h-0 flex-1 kb-workspace-reveal">
         {!listed.settled && !active ? null : !active ? (

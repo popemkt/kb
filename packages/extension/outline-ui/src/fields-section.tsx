@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from "react";
-import { cardinalityOf, isWritableField } from "@kb/model";
+import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
+import { cardinalityOf, declaresOptionSet, isWritableField } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
@@ -18,6 +18,7 @@ import {
   useDebugFields,
   useFollow,
   useGraphRead,
+  useOptionPreview,
 } from "@kb/ui-sdk";
 import { outlineSource, useOutlineStore } from "./outline.store";
 import { fieldGlyphOf } from "./value-views";
@@ -25,6 +26,16 @@ import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
 import { VALUE_KINDS, valueKindOf } from "./value-kind";
 import { arriveAt, slotAt } from "./value-slot-nav";
+
+/**
+ * The gallery loads when a field first draws as one: only a kind whose
+ * preview draws at card size does (the design system), so the page's first
+ * load does not carry it. Until it lands the field shows its picker, which
+ * the gallery is shown open.
+ */
+const OptionGallery = lazy(() =>
+  import("./option-gallery").then((m) => ({ default: m.OptionGallery })),
+);
 
 interface FieldsSectionProps {
   nodeId: string;
@@ -422,6 +433,28 @@ export function NodeField({
 }: NodeFieldProps) {
   const follow = useFollow();
   const fieldType = resolveFieldTypeById(fieldId, context.schema);
+  const fieldNode = context.schema.get(fieldId);
+  const readOnly = !isWritableField(nodeId, fieldId, fieldNode);
+  // An option field whose kind previews at card size is chosen by sight: its
+  // options laid out at once (DESIGN-UI.md → Field values → option galleries).
+  const card = useOptionPreview(fieldId, "card");
+  const gallery =
+    card !== null &&
+    !valueOnly &&
+    declaresOptionSet(fieldNode) &&
+    cardinalityOf(fieldNode?.props) === "one";
+  const stack = (
+    <FieldValueStack
+      nodeId={nodeId}
+      fieldId={fieldId}
+      fieldType={fieldType}
+      values={values}
+      context={context}
+      readOnly={readOnly}
+      onFollow={follow}
+      instanceKey={instanceKey}
+    />
+  );
   return (
     <FieldRow
       depth={depth}
@@ -433,16 +466,21 @@ export function NodeField({
       mismatch={values.some((v) => isValueMismatch(fieldType, v))}
       onFollow={follow}
     >
-      <FieldValueStack
-        nodeId={nodeId}
-        fieldId={fieldId}
-        fieldType={fieldType}
-        values={values}
-        context={context}
-        readOnly={!isWritableField(nodeId, fieldId, context.schema.get(fieldId))}
-        onFollow={follow}
-        instanceKey={instanceKey}
-      />
+      {gallery ? (
+        <Suspense fallback={stack}>
+          <OptionGallery
+            nodeId={nodeId}
+            fieldId={fieldId}
+            label={label}
+            values={values}
+            context={context}
+            readOnly={readOnly}
+            card={card}
+          />
+        </Suspense>
+      ) : (
+        stack
+      )}
     </FieldRow>
   );
 }
