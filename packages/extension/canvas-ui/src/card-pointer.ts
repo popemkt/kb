@@ -28,6 +28,21 @@ export function classifyCardPointer(
   return "drag";
 }
 
+/**
+ * A press on a card's body, which every card kind with words makes alike:
+ * its chrome's own, its open editor's (the card is selected and the editor
+ * keeps the press), or else the card's, which it selects and carries.
+ */
+export function pressCardBody<
+  E extends { readonly target: EventTarget | null; stopPropagation(): void },
+>(e: E, openEditor: string | undefined, onSelect: () => void, onMoveStart: (e: E) => void): void {
+  const intent = classifyCardPointer(e.target, openEditor);
+  if (intent === "chrome") return;
+  if (intent === "drag") e.stopPropagation();
+  onSelect();
+  if (intent === "drag") onMoveStart(e);
+}
+
 /** The id of the item a DOM event landed on, in the 2D stage. */
 export function cardIdAt(target: EventTarget | null): string | undefined {
   return asElement(target)?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId;

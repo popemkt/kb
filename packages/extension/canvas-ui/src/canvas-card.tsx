@@ -1,4 +1,4 @@
-import { classifyCardPointer } from "./card-pointer";
+import { pressCardBody } from "./card-pointer";
 import {
   asInstance,
   browserHost,
@@ -122,17 +122,7 @@ export function KbNodeCard({
         paint.chrome?.fill !== "none" && "shadow-raised",
       )}
       style={{ ...box, ...inkStyle(paint.ink.words) }}
-      onPointerDown={(e) => {
-        const intent = classifyCardPointer(e.target, ".node-content");
-        if (intent === "chrome") return;
-        if (intent === "edit") {
-          onSelect();
-          return;
-        }
-        e.stopPropagation();
-        onSelect();
-        onMoveStart(e);
-      }}
+      onPointerDown={(e) => pressCardBody(e, ".node-content", onSelect, onMoveStart)}
     >
       <ItemOutline item={card} paint={paint} selected={selected} />
       <NodeRow
@@ -244,17 +234,7 @@ export function TextCard({
         paint.chrome?.fill !== "none" && "shadow-raised",
       )}
       style={{ ...box, ...wordsStyle(paint.words, true) }}
-      onPointerDown={(e) => {
-        const intent = classifyCardPointer(e.target, "textarea");
-        if (intent === "chrome") return;
-        if (intent === "edit") {
-          onSelect();
-          return;
-        }
-        e.stopPropagation();
-        onSelect();
-        onMoveStart(e);
-      }}
+      onPointerDown={(e) => pressCardBody(e, "textarea", onSelect, onMoveStart)}
     >
       <ItemOutline item={card} paint={paint} selected={selected} />
       <textarea

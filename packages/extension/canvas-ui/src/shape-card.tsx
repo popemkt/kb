@@ -6,7 +6,7 @@ import {
   type CanvasVolume,
   itemPaint,
 } from "@kb/canvas";
-import { classifyCardPointer } from "./card-pointer";
+import { pressCardBody } from "./card-pointer";
 import type { FaceLayout } from "./canvas-face";
 import { hasText, textOr } from "@kb/ui-sdk";
 import { ItemOutline } from "./canvas-item-outline";
@@ -163,17 +163,7 @@ export function ShapeCard({
     <div
       className="group/card pointer-events-none absolute"
       style={box}
-      onPointerDown={(e) => {
-        const intent = classifyCardPointer(e.target, "input");
-        if (intent === "chrome") return;
-        if (intent === "edit") {
-          onSelect();
-          return;
-        }
-        e.stopPropagation();
-        onSelect();
-        onMoveStart(e);
-      }}
+      onPointerDown={(e) => pressCardBody(e, "input", onSelect, onMoveStart)}
       onDoubleClick={(e) => {
         e.stopPropagation();
         onSelect();
