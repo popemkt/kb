@@ -454,7 +454,7 @@ export const subscribeUiKernel = uiKernel.subscribe;
 
 /**
  * The page kernel as the kernel the page holds families in: what the
- * Extensions panel reads the page's half of a family's organisation and
+ * Settings' Extensions part reads the page's half of a family's organisation and
  * ordered points from, beside the server's (`extension.list`).
  */
 export const PAGE_FAMILY_KERNEL: FamilyKernel = { source: "page", kernel: uiKernel };
@@ -463,7 +463,7 @@ export const PAGE_FAMILY_KERNEL: FamilyKernel = { source: "page", kernel: uiKern
  * A family's footprint on the page (DESIGN.md → Extension families →
  * footprint): what its browser entry, children included, contributed to
  * `kernel`, the page's own by default, as rows from `page`. The server's
- * rows come from `extension.footprint`; the Extensions panel joins the two.
+ * rows come from `extension.footprint`; Settings joins the two.
  */
 export function pageFootprint(family: string, kernel: Kernel = uiKernel): readonly FootprintRow[] {
   return runtimeFootprint(family, { source: "page", kernel });

@@ -1,0 +1,5 @@
+/* The box a deferred piece of art is drawn in while its code loads (`ART_FRAME`). */
+.kb-art-frame {
+  position: absolute;
+  inset: 0;
+}

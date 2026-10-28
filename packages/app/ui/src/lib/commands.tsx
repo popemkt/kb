@@ -64,6 +64,7 @@ import {
   type NodeCommandListing,
   nodePath,
   ontologyPath,
+  SETTINGS_PATH,
   type OutlineCommandApi,
   shownDesignSystem,
   SYSTEM_IDS,
@@ -72,7 +73,7 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
-import { EXTENSIONS_PATH } from "@/lib/extension-report";
+import { settingsPath } from "@/lib/settings-parts";
 import {
   LayoutView,
   layoutPanes,
@@ -211,8 +212,12 @@ const GLOBAL_COMMANDS: readonly Command[] = [
       ctx.outline.leaveScope();
     },
   },
-  { id: SYSTEM_IDS.cmdPreferences, scope: "global", run: (ctx) => ctx.ui.setPrefsOpen(true) },
-  { id: SYSTEM_IDS.cmdExtensions, scope: "global", run: () => navigate(EXTENSIONS_PATH) },
+  { id: SYSTEM_IDS.cmdSettings, scope: "global", run: () => navigate(SETTINGS_PATH) },
+  {
+    id: SYSTEM_IDS.cmdExtensions,
+    scope: "global",
+    run: () => navigate(settingsPath("extensions")),
+  },
   {
     id: SYSTEM_IDS.cmdToggleTheme,
     scope: "global",

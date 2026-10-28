@@ -1,0 +1,190 @@
+/* YoRHa (ART-DIRECTION.md → YoRHa; DESIGN-UI.md → Themes). Layer 1 only;
+ * every colour is kb's own oklch, near the source's anchors. */
+
+[data-theme="yorha.theme"] {
+  --background: oklch(0.86 0.03 95);
+  --foreground: oklch(0.3 0.014 90);
+  --card: oklch(0.885 0.026 95);
+  --card-foreground: oklch(0.3 0.014 90);
+  --popover: oklch(0.9 0.024 95);
+  --popover-foreground: oklch(0.3 0.014 90);
+  --primary: oklch(0.33 0.014 90);
+  --header-sun: oklch(0.52 0.12 38);
+  --primary-foreground: oklch(0.89 0.028 95);
+  --secondary: oklch(0.81 0.03 93);
+  --secondary-foreground: oklch(0.29 0.014 90);
+  --muted: oklch(0.835 0.028 93);
+  --muted-foreground: oklch(0.38 0.016 88);
+  --faint-foreground: oklch(0.41 0.024 94);
+  --accent: oklch(0.79 0.03 92);
+  --accent-foreground: oklch(0.28 0.014 90);
+  --destructive: oklch(0.42 0.12 38);
+  --border: oklch(0.54 0.022 90);
+  --input: oklch(0.5 0.022 90);
+  --ring: oklch(0.33 0.014 90);
+  --chart-1: oklch(0.42 0.016 90);
+  --chart-2: oklch(0.52 0.12 38);
+  --chart-3: oklch(0.58 0.045 105);
+  --chart-4: oklch(0.5 0.06 70);
+  --chart-5: oklch(0.68 0.05 88);
+  --axis-x: oklch(0.47 0.12 35);
+  --axis-y: oklch(0.44 0.08 140);
+  --axis-z: oklch(0.44 0.07 235);
+  --radius: 0px;
+  --border-width: 1px;
+  --density: 1.02;
+  --sidebar: oklch(0.835 0.03 94);
+  --sidebar-foreground: oklch(0.29 0.014 90);
+  --sidebar-primary: oklch(0.33 0.014 90);
+  --sidebar-primary-foreground: oklch(0.89 0.028 95);
+  --sidebar-accent: oklch(0.33 0.014 90);
+  --sidebar-accent-foreground: oklch(0.89 0.028 95);
+  --sidebar-border: oklch(0.53 0.022 90);
+  --sidebar-ring: oklch(0.33 0.014 90);
+  --warning: oklch(0.4 0.085 70);
+  --tag-ink-mix: 84%;
+  --success: oklch(0.42 0.08 140);
+  --info: oklch(0.42 0.06 230);
+  --scrim: oklch(0.25 0.012 90);
+  --knob: oklch(0.9 0.024 95);
+  --lab-ground: oklch(0.84 0.03 95);
+  --lab-edge: oklch(0.54 0.022 90);
+  --lab-hue: oklch(0.52 0.12 38);
+  --lab-ink: oklch(0.3 0.012 90);
+  --graph-edge: oklch(0.33 0.014 90 / 0.5);
+
+  --type-micro: 9.5px;
+  --type-caption: 10.5px;
+  --type-label: 11.5px;
+  --type-tag: 12px;
+  --type-meta: 12.5px;
+  --type-ui: 13.5px;
+  --type-note: 14.5px;
+  --type-body: 15px;
+  --type-lead: 17px;
+  --type-heading: 20px;
+  --type-title: 26px;
+
+  --elevation-edge: 0 0 0 1px oklch(0.33 0.014 90 / 0.22);
+  --elevation-raised: 0 0 0 1px oklch(0.33 0.014 90 / 0.3), 2px 2px 0 0 oklch(0.33 0.014 90 / 0.18);
+  --elevation-lifted: 0 0 0 1px oklch(0.33 0.014 90 / 0.34), 3px 3px 0 0 oklch(0.33 0.014 90 / 0.2);
+  --elevation-floating:
+    0 0 0 1px oklch(0.33 0.014 90 / 0.38), 5px 5px 0 0 oklch(0.33 0.014 90 / 0.22);
+  --elevation-overlay:
+    0 0 0 1px oklch(0.33 0.014 90 / 0.42), 6px 6px 0 0 oklch(0.33 0.014 90 / 0.24);
+  --elevation-modal: 0 0 0 1px oklch(0.33 0.014 90 / 0.5), 8px 8px 0 0 oklch(0.33 0.014 90 / 0.28);
+
+  --app-font: "Barlow", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --app-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --app-font-graph: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+  --app-font-serif: ui-serif, "New York", Charter, Cambria, serif;
+  --font-weight-body: 400;
+  --font-weight-ui: 500;
+
+  --app-font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+  --display-style: normal;
+  --display-case: uppercase;
+  --display-tracking: 0.1em;
+  --display-variation: normal;
+  --app-font-label: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+  --label-style: normal;
+  --label-tracking: 0.16em;
+  --label-variation: normal;
+  --label-ink: oklch(0.38 0.016 88);
+  --palette-mark: "■";
+  --palette-bar: none;
+  --palette-bar-width: 0px;
+
+  /* A 32px grid fixed to the window's corner, over the sidebar's paper:
+   * the chrome is one darker ruled band, and the Bunker head carries the
+   * same cell (art/yorha.css · .kb-bunker-grid). The page itself is flat. */
+  --art-chrome:
+    repeating-linear-gradient(90deg, oklch(0.3 0.014 90 / 0.06) 0 1px, transparent 1px 32px) fixed,
+    repeating-linear-gradient(180deg, oklch(0.3 0.014 90 / 0.06) 0 1px, transparent 1px 32px) fixed,
+    linear-gradient(oklch(0.835 0.03 94), oklch(0.835 0.03 94));
+  --art-scrim:
+    linear-gradient(oklch(0.8 0.03 95 / 0.35), oklch(0.8 0.03 95 / 0.35)),
+    repeating-linear-gradient(0deg, oklch(0.25 0.012 90 / 0.16) 0 1px, transparent 1px 3px);
+  --scrim-filter: saturate(0.3) sepia(0.35);
+  --corner-shape: square;
+  --chip-skew: 0deg;
+
+  --motion-settle: cubic-bezier(0.3, 0.05, 0.2, 1);
+  --motion-duration-quick: 120ms;
+  --motion-duration-enter: 240ms;
+  --motion-duration-reveal: 280ms;
+  --motion-duration-theme: 360ms;
+  --motion-duration-arrive: 700ms;
+  --motion-duration-follow: 320ms;
+  --motion-stagger: 28ms;
+  --motion-ambient-period: 14s;
+  --motion-enter: kb-enter-scan;
+  --motion-reveal: kb-reveal-scan;
+  --motion-alert: kb-alert-glitch;
+}
+
+.dark[data-theme="yorha.theme"],
+.dark [data-theme="yorha.theme"] {
+  --background: oklch(0.215 0.008 90);
+  --foreground: oklch(0.86 0.03 95);
+  --card: oklch(0.24 0.009 90);
+  --card-foreground: oklch(0.86 0.03 95);
+  --popover: oklch(0.255 0.01 90);
+  --popover-foreground: oklch(0.86 0.03 95);
+  --primary: oklch(0.86 0.03 95);
+  --primary-foreground: oklch(0.215 0.008 90);
+  --secondary: oklch(0.29 0.011 90);
+  --secondary-foreground: oklch(0.86 0.03 95);
+  --muted: oklch(0.26 0.01 90);
+  --muted-foreground: oklch(0.72 0.024 92);
+  --faint-foreground: oklch(0.689 0.018 94);
+  --accent: oklch(0.33 0.012 90);
+  --accent-foreground: oklch(0.88 0.03 95);
+  --destructive: oklch(0.7 0.13 40);
+  --border: oklch(0.86 0.03 95 / 26%);
+  --input: oklch(0.86 0.03 95 / 32%);
+  --ring: oklch(0.72 0.024 92);
+  --chart-1: oklch(0.8 0.03 95);
+  --chart-2: oklch(0.66 0.13 40);
+  --chart-3: oklch(0.7 0.05 105);
+  --chart-4: oklch(0.66 0.06 70);
+  --chart-5: oklch(0.58 0.03 88);
+  --axis-x: oklch(0.72 0.12 40);
+  --axis-y: oklch(0.76 0.08 140);
+  --axis-z: oklch(0.74 0.07 230);
+  --sidebar: oklch(0.19 0.007 90);
+  --sidebar-foreground: oklch(0.84 0.03 95);
+  --sidebar-primary: oklch(0.86 0.03 95);
+  --sidebar-primary-foreground: oklch(0.215 0.008 90);
+  --sidebar-accent: oklch(0.82 0.03 95);
+  --sidebar-accent-foreground: oklch(0.22 0.008 90);
+  --sidebar-border: oklch(0.86 0.03 95 / 24%);
+  --sidebar-ring: oklch(0.72 0.024 92);
+  --warning: oklch(0.8 0.1 75);
+  --tag-ink-mix: 30%;
+  --success: oklch(0.76 0.09 140);
+  --info: oklch(0.76 0.07 230);
+  --lab-ground: oklch(0.25 0.009 90);
+  --lab-edge: oklch(0.16 0.006 90);
+  --lab-hue: oklch(0.66 0.13 40);
+  --lab-ink: oklch(0.86 0.03 95);
+  --graph-edge: oklch(0.86 0.03 95 / 0.32);
+
+  --elevation-edge: 0 0 0 1px oklch(0.86 0.03 95 / 0.14);
+  --elevation-raised: 0 0 0 1px oklch(0.86 0.03 95 / 0.2), 2px 2px 0 0 oklch(0.1 0.005 90 / 0.5);
+  --elevation-lifted: 0 0 0 1px oklch(0.86 0.03 95 / 0.24), 3px 3px 0 0 oklch(0.1 0.005 90 / 0.55);
+  --elevation-floating: 0 0 0 1px oklch(0.86 0.03 95 / 0.28), 5px 5px 0 0 oklch(0.1 0.005 90 / 0.6);
+  --elevation-overlay: 0 0 0 1px oklch(0.86 0.03 95 / 0.32), 6px 6px 0 0 oklch(0.1 0.005 90 / 0.65);
+  --elevation-modal: 0 0 0 1px oklch(0.86 0.03 95 / 0.4), 8px 8px 0 0 oklch(0.1 0.005 90 / 0.7);
+
+  --label-ink: oklch(0.74 0.024 92);
+
+  --art-chrome:
+    repeating-linear-gradient(90deg, oklch(0.86 0.03 95 / 0.05) 0 1px, transparent 1px 32px) fixed,
+    repeating-linear-gradient(180deg, oklch(0.86 0.03 95 / 0.05) 0 1px, transparent 1px 32px) fixed,
+    linear-gradient(oklch(0.19 0.007 90), oklch(0.19 0.007 90));
+  --art-scrim:
+    linear-gradient(oklch(0.18 0.008 90 / 0.4), oklch(0.18 0.008 90 / 0.4)),
+    repeating-linear-gradient(0deg, oklch(0.86 0.03 95 / 0.07) 0 1px, transparent 1px 3px);
+}

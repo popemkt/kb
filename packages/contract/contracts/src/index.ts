@@ -85,6 +85,8 @@ export {
   organisationOf,
 } from "./extension-report.ts";
 export type { ExtensionReport, ExtensionReportRow, OrderedPoint } from "./extension-report.ts";
+export { ExtensionSettingsSchema } from "./extension-settings.ts";
+export type { ExtensionSettings } from "./extension-settings.ts";
 export type { NodeLookup } from "./extension-switch.ts";
 export { ViewCatalog, ViewKeyPoint, viewDef } from "./view-catalog.ts";
 export type { ViewDef, ViewText } from "./view-catalog.ts";

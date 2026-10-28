@@ -19,7 +19,7 @@ import { openKb } from "../src/session.ts";
 import { ensureSystemSeed, fieldTypeOf, present, SYSTEM_IDS, type KbNode } from "@kb/model";
 import { backlinksQuery, DatascriptIndex, derivedWith } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
-import { bundledSeed } from "@kb/bundled";
+import { bundledFold, bundledSeed } from "@kb/bundled";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -64,13 +64,13 @@ describe("seed: the ref.target field, and no #ref tag", () => {
   });
 
   test("ensureSystemSeed stays idempotent and heals a store missing the field", () => {
-    const first = ensureSystemSeed([], bundledSeed());
+    const first = ensureSystemSeed([], bundledFold());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes, bundledSeed());
+    const again = ensureSystemSeed(first.nodes, bundledFold());
     expect(again.seeded).toBe(false);
 
     const stale = first.nodes.filter((n) => n.id !== SYSTEM_IDS.refTargetField);
-    const healed = ensureSystemSeed(stale, bundledSeed());
+    const healed = ensureSystemSeed(stale, bundledFold());
     expect(healed.seeded).toBe(true);
     const field = present(
       healed.nodes.find((n) => n.id === SYSTEM_IDS.refTargetField),
