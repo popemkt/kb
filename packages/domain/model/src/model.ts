@@ -108,7 +108,7 @@ export const SYSTEM_IDS = {
   cmdGoQuery: "sys.cmd.go-query",
   cmdNewQuery: "sys.cmd.new-query",
   /** Device prefs + shell commands (DESIGN-RESKIN §1.7 W8a). */
-  cmdPreferences: "sys.cmd.preferences",
+  cmdSettings: "sys.cmd.settings",
   cmdExtensions: "sys.cmd.extensions",
   cmdToggleTheme: "sys.cmd.toggle-theme",
   cmdSwitchDesignSystem: "sys.cmd.switch-design-system",
@@ -284,17 +284,6 @@ export const SYSTEM_IDS = {
   motionStyleField: "sys.f.motion.style",
   motionSpeedField: "sys.f.motion.speed",
 } as const;
-
-/**
- * Seeded ids renamed after stores were seeded with them, old id to new: the
- * graph's default perspective lost its `sys.` prefix so the write guard does
- * not lock it. Ids are frozen data, so the table names both spellings; the
- * new one is the graph family's (`@kb/graph`'s `GRAPH_IDS.lensAllMentions`),
- * which its tests hold to this row.
- */
-export const LEGACY_SEED_RENAMES: Readonly<Record<string, string>> = {
-  "sys.lens.all-mentions": "lens.all-mentions",
-};
 
 /** Any reserved / seeded id under the `sys.` prefix (browse yes, break no). */
 export function isSysPrefixed(id: string): boolean {

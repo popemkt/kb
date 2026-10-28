@@ -43,12 +43,10 @@ export {
   usePageGraph,
   usePaneScreen,
   usePrefs,
-  usePrefsOpen,
   useQueryRows,
   useRefInk,
   useSchema,
   useSidebarToggle,
-  useTheme,
   useWireNodes,
 } from "./hooks";
 export {
@@ -178,6 +176,7 @@ export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
 export { OntologyPicker } from "./components/ontology-picker";
 export { type SidebarNavItem, SidebarRow, SidebarSection } from "./components/sidebar-row";
 export { SidebarToggle } from "./components/sidebar-toggle";
+export { SETTINGS_PATH, SettingsTrigger } from "./components/settings-trigger";
 export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
 export { ThemeIcon } from "./components/theme-icon";
 export { useAnchoredPosition } from "./components/use-anchored-position";
@@ -494,7 +493,12 @@ export {
 } from "./lib/theme";
 export { THEME_GLYPHS } from "./lib/theme-glyphs";
 export { chooseDesignSystem, shownDesignSystem } from "./lib/design-system";
-export { OptionPreviewPoint, useOptionPreview, type OptionPreview } from "./lib/option-preview";
+export {
+  OptionPreviewPoint,
+  useOptionPreview,
+  type OptionPreview,
+  type PreviewSize,
+} from "./lib/option-preview";
 export {
   approach,
   approachRate,

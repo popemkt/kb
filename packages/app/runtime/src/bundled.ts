@@ -27,6 +27,9 @@ import { labPlugin } from "@kb/lab";
 import { locationsPlugin } from "@kb/locations-fs";
 import { outlinePlugin } from "@kb/outline";
 import { themesPlugin } from "@kb/themes";
+import { transistorPlugin } from "@kb/transistor";
+import { yorhaPlugin } from "@kb/yorha";
+import { zzzPlugin } from "@kb/zzz";
 
 /**
  * Each declaration paired with the entry of the same name, in the
@@ -68,4 +71,7 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   locationsPlugin,
   backdropsPlugin(),
   themesPlugin(),
+  zzzPlugin(),
+  transistorPlugin(),
+  yorhaPlugin(),
 ]);

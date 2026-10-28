@@ -3,7 +3,7 @@
  * extension's UI exactly when the server's `kb.manifest` reports the
  * extension loaded. Off by default, the server does not load it, so `/lab`
  * is not found like any unmatched path and the sidebar has no Lab row.
- * Switched on from the Extensions panel, its switch asks the server
+ * Switched on from Settings' Extensions, its switch asks the server
  * (`extension.switch`), the server loads the lab and reports it, and the row
  * and `/lab` appear; switched off again, both leave live — no reload — and
  * `/lab` is not found. Nothing is kept in the browser's preferences. A switch written
@@ -222,20 +222,23 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     container.remove();
   });
 
+  // The sidebar's row, not Settings' fold of the lab's section.
   const labRow = () =>
-    [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "Lab");
+    [...container.querySelectorAll("button:not([data-settings-fold])")].find(
+      (b) => b.textContent.trim() === "Lab",
+    );
   const study = () => container.querySelector("[data-lab-study]");
   const notFound = () => container.querySelector('[data-not-found="Page"]');
   const labSwitch = () =>
     container.querySelector<HTMLSelectElement>('[data-testid="switch-lab"]') ?? null;
 
-  /** Open the Extensions panel and wait for the lab's switch. */
+  /** Open Settings' Extensions, by the path it had before, and wait for the lab's switch. */
   async function openPanel(): Promise<void> {
     await act(async () => navigate("/extensions"));
     await until(() => labSwitch() !== null);
   }
 
-  /** Choose `value` on the lab's switch in the Extensions panel. */
+  /** Choose `value` on the lab's switch in Settings' Extensions. */
   async function choose(value: "on" | "off"): Promise<void> {
     await openPanel();
     const select = labSwitch();
@@ -314,7 +317,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(labRow()).toBeUndefined();
   });
 
-  it("switched on from the Extensions panel, the server loads it and the page follows; switched off, both leave live", async () => {
+  it("switched on from Settings' Extensions, the server loads it and the page follows; switched off, both leave live", async () => {
     await boot();
     const { mounted, disposed } = scene;
     await choose("on");

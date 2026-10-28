@@ -8,7 +8,7 @@
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { DeclaredOptionSet, KbNode, NodeId } from "@kb/model";
+import type { DeclaredOptionSet, KbNode, NodeId, SeedRetirement } from "@kb/model";
 import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -71,6 +71,13 @@ export interface ExtensionDeclaration {
    * its kind's field, so choosing one is writing that field.
    */
   readonly declaredOptions?: readonly DeclaredOptionSet[];
+  /**
+   * The seeded ids the family renamed or removed since a store could have
+   * been seeded with them, each with its replacement if any: its rows of
+   * the seed's retirement table (DESIGN.md → Extension families → the seed
+   * retires what it renames), which opening applies before it seeds.
+   */
+  readonly retires?: readonly SeedRetirement[];
   /**
    * The family's fields whose values carry references beyond `[[id]]`
    * tokens and ref values, each with how to read them: the reference
