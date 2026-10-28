@@ -103,6 +103,7 @@
     "harness": "bun test harness",
     "harness:snapshot": "bun harness/src/snapshot.ts",
     "check:audit": "bun packages/app/cli/src/main.ts check audit",
+    "check:ext": "bun packages/app/cli/src/main.ts ext validate",
     "check:gaps": "git ls-files -z -- '*.ts' '*.tsx' '*.css' '*.yml' 'bin/*' '.githooks/*' ':!harness' ':!docs' | bun packages/app/cli/src/main.ts check gaps --files-from -",
     "affected": "nx affected -t typecheck,test --base=main",
     "gen:ext-sdk": "bun packages/contract/ext-sdk/scripts/generate.ts && vp fmt packages/contract/ext-sdk/src/sdk-dts.text.ts",
@@ -110,7 +111,7 @@
     "release": "sh bin/release",
     "release:bundle": "sh bin/release-bundle",
     "release:smoke": "sh bin/release-smoke",
-    "verify": "bun run typecheck && bun run lint && bun run fmt:check && bun run harness && bun run check:audit && bun run check:gaps"
+    "verify": "bun run typecheck && bun run lint && bun run fmt:check && bun run harness && bun run check:audit && bun run check:ext && bun run check:gaps"
   },
   "devDependencies": {
     "@effect/tsgo": "catalog:",

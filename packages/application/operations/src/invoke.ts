@@ -73,6 +73,8 @@ import {
   extensionFootprintEffect,
   extensionListDef,
   extensionListEffect,
+  extensionSettingsDef,
+  extensionSettingsEffect,
   extensionSwitchDef,
   extensionSwitchEffect,
 } from "./extensions.ts";
@@ -156,6 +158,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(extensionSwitchDef, extensionSwitchEffect),
   coreNative(extensionFootprintDef, extensionFootprintEffect),
   coreNative(extensionListDef, extensionListEffect),
+  coreNative(extensionSettingsDef, extensionSettingsEffect),
   coreNative(viewsMigrateDef, viewsMigrateEffect),
   coreNative(uiScreenDef, uiScreenEffect),
   coreNative(uiNavigateDef, uiNavigateEffect),

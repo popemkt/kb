@@ -6,7 +6,7 @@
  *
  * The painter is the one owner of `<html data-theme>` and of the design
  * systems' sheets on the page. It adds every contributed system's sheet,
- * since Preferences' swatches are live samples of each, after every sheet
+ * since each option's swatch and card are live samples of it, after every sheet
  * already on the page, so a system's blocks beat layer 1's; it drops the
  * sheet of a system nobody contributes any more; and it crossfades a change
  * of system like a change of theme, whoever writes the setting.

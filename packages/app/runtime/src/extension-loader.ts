@@ -10,6 +10,7 @@ import {
   type ExtensionFailure,
   type LoadedExtension,
 } from "@kb/contracts";
+import { isNotFound } from "@kb/workspace-fs";
 import { serverEntriesFor } from "./bundled.ts";
 import { extensionClosure, type DigestedClosure } from "./extension-closure.ts";
 
@@ -54,11 +55,14 @@ export interface ClosedExtension {
   readonly closure: DigestedClosure;
 }
 
+/** A declaration file, of any module flavour: `.d.ts`, `.d.mts`, `.d.cts`. */
+const DECLARATION = /\.d\.[cm]?ts$/;
+
 /** A server entry: `<name>.ts`, neither a declaration file nor a page entry. */
 function isServerEntry(file: string): boolean {
   return (
     file.endsWith(".ts") &&
-    !file.endsWith(".d.ts") &&
+    !DECLARATION.test(file) &&
     !PAGE_ENTRIES.some((suffix) => file.endsWith(suffix))
   );
 }
@@ -68,6 +72,41 @@ function pageOf(file: string): string | null {
   const suffix = PAGE_ENTRIES.find((entry) => file.endsWith(entry));
   return suffix === undefined ? null : file.slice(0, -suffix.length);
 }
+
+/** A file a module loader would read as code: script or TypeScript of any flavour. */
+const CODE_FILE = /\.(?:[cm]?[jt]sx?)$/;
+
+/**
+ * Whether `file` is code in the extensions directory that is no entry kb
+ * discovers (`hello.tsx`, `hello.js`, `hello.page.js`): it would never run,
+ * so it is a failure rather than a file nobody looked at. Declarations and
+ * anything that is not code (a README, a directory of helpers) are not.
+ */
+function strayCode(file: string): boolean {
+  return (
+    CODE_FILE.test(file) && !DECLARATION.test(file) && !isServerEntry(file) && pageOf(file) === null
+  );
+}
+
+/**
+ * The entries of the extensions directory `dir`: null when there is none,
+ * and why it cannot be read otherwise, so a directory kb cannot list is a
+ * failure, never a root with no extensions.
+ */
+const entriesOf = Effect.fn("kb.extensionEntries")(function* (
+  dir: string,
+): Effect.fn.Return<readonly string[] | null, string, FileSystem> {
+  const fs = yield* FileSystem;
+  return yield* fs
+    .readDirectory(dir)
+    .pipe(
+      Effect.catch((error) =>
+        isNotFound(error)
+          ? Effect.succeed(null)
+          : Effect.fail(`.kb/extensions cannot be read: ${error.message}`),
+      ),
+    );
+});
 
 /** Import `code`, a server half, from its own bytes. Fails with the import's message. */
 const importClosure = Effect.fn("kb.importClosure")(function* (
@@ -109,6 +148,13 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
     const name = pageOf(file);
     if (name !== null && !servers.includes(`${name}.ts`)) {
       failures.push({ file, error: `a page entry of ${name}, which has no ${name}.ts` });
+    }
+    if (strayCode(file)) {
+      failures.push({
+        file,
+        error:
+          "not an extension entry, so it never runs: an extension is <name>.ts, with its page half <name>.page.tsx or <name>.page.ts",
+      });
     }
   }
   return result;
@@ -152,9 +198,8 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
   root: string,
   file: string,
 ): Effect.fn.Return<DigestedClosure, string, FileSystem> {
-  const fs = yield* FileSystem;
   const dir = extensionsDir(root);
-  const entries = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => []));
+  const entries = (yield* entriesOf(dir)) ?? [];
   const name = file.slice(0, -".ts".length);
   const failures: ExtensionFailure[] = [];
   const own = entries.filter((entry) => entry === file || pageOf(entry) === name);
@@ -176,12 +221,14 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
   never,
   FileSystem
 > {
-  const fs = yield* FileSystem;
   const dir = extensionsDir(root);
-  const entries = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => null));
-  if (entries === null) return { closures: [], failures: [] };
+  const entries = yield* entriesOf(dir).pipe(Effect.result);
+  if (Result.isFailure(entries)) {
+    return { closures: [], failures: [{ file: ".kb/extensions", error: entries.failure }] };
+  }
+  if (entries.success === null) return { closures: [], failures: [] };
   const failures: ExtensionFailure[] = [];
-  return { closures: yield* closed(dir, entries, failures), failures };
+  return { closures: yield* closed(dir, entries.success, failures), failures };
 });
 
 /**

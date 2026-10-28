@@ -1,7 +1,7 @@
 /**
  * The shell's popovers, each run through the dismiss contract
  * (`dismissContract`, DESIGN-UI.md → Cross-surface polish → Popovers dismiss
- * one way): Preferences, the add-a-ref picker and the pane switcher; and
+ * one way): the add-a-ref picker and the pane switcher; and
  * those the shell hosts for its kits and families, which need its stores
  * to open: the ontology picker and the outline's frame filter.
  */
@@ -12,7 +12,6 @@ import { dismissContract, renderPopover } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { PaneSwitcher } from "@/components/layout/pane-switcher";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
-import { PreferencesPopover, PreferencesTrigger } from "@/components/prefs/preferences-popover";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -21,24 +20,6 @@ const find = (selector: string) => () => document.querySelector(selector);
 const trigger = (selector: string) => () => document.querySelector<HTMLElement>(selector);
 
 dismissContract({
-  "packages/app/ui/src/components/prefs/preferences-popover.tsx": (host) => {
-    const shown = renderPopover(
-      host,
-      <>
-        <PreferencesTrigger />
-        <PreferencesPopover />
-      </>,
-      find('[role="dialog"][aria-label="Preferences"]'),
-      trigger('button[data-preferences-trigger="true"]'),
-    );
-    return {
-      ...shown,
-      unmount: () => {
-        useUiStore.getState().setPrefsOpen(false);
-        shown.unmount();
-      },
-    };
-  },
   "packages/app/ui/src/components/ontology/ref-add-popover.tsx": (host) =>
     renderPopover(
       host,
