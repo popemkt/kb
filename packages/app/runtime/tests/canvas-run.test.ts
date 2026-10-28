@@ -5,7 +5,9 @@
  * it on its inputs, and an instruction asks the agent family's model,
  * which no host here serves, so it fails by name and what follows it is
  * skipped. Every output is its node's `output` field. The engine's own
- * cases, with a stub model, are `@kb/canvas`'s `flow.test.ts`.
+ * cases, with a stub model, are `@kb/canvas`'s `flow.test.ts`; an
+ * instruction a scripted provider performs, over `kb ui`, is
+ * `canvas-run-model.test.ts` (`@kb/cli`).
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
