@@ -38,15 +38,17 @@ import {
   type TransformKey,
   type TransformMode,
 } from "./canvas-transform-input";
-import { pastSlop } from "@kb/ui-sdk";
+import { pastSlop, type PointerKind } from "@kb/ui-sdk";
 import {
   EMPTY_SELECTION,
   addNodes,
   marqueeSelect,
   pickAllIn,
+  soleItem,
   type CanvasScope,
   type CanvasSelection,
 } from "./canvas-selection";
+import { hasEditor } from "./canvas-face-overlay";
 
 export interface Point {
   x: number;
@@ -93,6 +95,13 @@ type Drag =
       input: TransformInput | null;
       /** Where the press went down on screen, until the pointer has gone past the slop. */
       slop: Point | null;
+      /**
+       * The item a click opens: the one selected before the press, pressed
+       * again where it has an editor (`hasEditor`), as tldraw's second click
+       * on a selected shape types into it. A press that goes past the slop
+       * carries instead; null for every other transform.
+       */
+      opens: string | null;
       /** The transform the preview last showed, which the release (or a confirm) writes. */
       applied: CanvasTransform | null;
       /**
@@ -204,6 +213,8 @@ export interface PointerContext {
   byId: ReadonlyMap<string, CanvasNode>;
   view: CanvasView;
   size: ViewSize;
+  /** The kind of pointer making the gesture: how far its press may wander and still be a click (`pastSlop`). */
+  pointer: PointerKind;
 }
 
 export interface PointerResult {
@@ -273,6 +284,8 @@ interface TransformStart {
   readonly screen: Point;
   /** Begun from the keyboard rather than by a press. */
   readonly modal: boolean;
+  /** The item the press, if it stays a click, opens (`opens`). */
+  readonly opens?: string | null;
 }
 
 /**
@@ -312,6 +325,7 @@ function startTransform(
       ground,
       input,
       slop: modal ? null : screen,
+      opens: start.opens ?? null,
       applied: null,
       modal,
       at: screen,
@@ -329,7 +343,10 @@ function startPress(
 ): PointerResult {
   const pressed = ctx.byId.get(press.id);
   if (pressed === undefined) return result(state);
-  const start = { ...how, screen: press.screen, modal: false };
+  // Read against the selection before the press: the press's own selecting is not yet in it.
+  const opens =
+    soleItem(ctx.selection, ctx.byId) === pressed && hasEditor(pressed) ? press.id : null;
+  const start = { ...how, screen: press.screen, modal: false, opens };
   return startTransform(state, carriedIds(press.id, ctx.selection), start, ctx, pressed);
 }
 
@@ -430,7 +447,7 @@ function moveTransform(
 ): PointerResult {
   const { input, slop } = drag;
   if (input === null) return result(state);
-  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y)) {
+  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y, ctx.pointer)) {
     return result(state);
   }
   return readInput(state, { ...drag, at: event.screen, free: event.free ?? false }, ctx);
@@ -544,7 +561,7 @@ function moveDraft(
   ctx: PointerContext,
 ): PointerResult {
   const { slop } = drag;
-  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y)) {
+  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y, ctx.pointer)) {
     return result(state);
   }
   const item = draftItem(
@@ -591,7 +608,8 @@ function reduceMove(
     });
   }
   if (drag.kind === "marquee-pending") {
-    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
+    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY, ctx.pointer))
+      return result(state);
     const world = floorAt(ctx, event.screen);
     return result({
       ...state,
@@ -639,7 +657,8 @@ function reduceMove(
   }
   if (drag.kind === "transform") return moveTransform(state, drag, event, ctx);
   if (drag.kind === "resize-pending") {
-    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
+    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY, ctx.pointer))
+      return result(state);
     const active = {
       kind: "resize" as const,
       id: drag.id,
@@ -691,7 +710,7 @@ function finishEdge(
  * The release of a transform: a pointer-made one read once more where the
  * pointer let go (where it cannot be read, as the preview last had it),
  * then written as one history step; a press that never went past the slop
- * writes nothing. A modal transform holds no button, so a release is not
+ * writes nothing, and opens what it `opens`. A modal transform holds no button, so a release is not
  * its end.
  */
 function endTransform(
@@ -701,7 +720,10 @@ function endTransform(
   ctx: PointerContext,
 ): PointerResult {
   if (drag.modal) return result(state);
-  if (drag.slop !== null) return commitTransform(state, drag, null, ctx);
+  if (drag.slop !== null) {
+    const clicked = commitTransform(state, drag, null, ctx);
+    return drag.opens === null ? clicked : { ...clicked, edit: drag.opens };
+  }
   const last = readInput(state, { ...drag, at: event.screen, free: event.free ?? false }, ctx);
   const final = last.state.drag?.kind === "transform" ? last.state.drag.applied : drag.applied;
   return commitTransform(state, drag, final, ctx);
@@ -761,6 +783,7 @@ function reduceTransform(
           ground,
           input: null,
           slop: null,
+          opens: null,
           applied: null,
           modal: false,
           at,

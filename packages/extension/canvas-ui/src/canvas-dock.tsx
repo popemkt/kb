@@ -19,6 +19,7 @@ import {
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@kb/ui-sdk";
 import { DOCK_PANEL_WIDTH } from "./canvas-dock-size";
+import { dockBottomClass } from "./canvas-stage-layout";
 
 /**
  * What the dock remembers while it is up, by name: which panels are folded
@@ -28,7 +29,7 @@ import { DOCK_PANEL_WIDTH } from "./canvas-dock-size";
 const DockFlags = createContext<{
   readonly on: ReadonlySet<string>;
   readonly set: (flag: string, on: boolean) => void;
-  /** The stage is narrow (`DOCK_COMPACT_WIDTH`): a panel stands folded until opened. */
+  /** The stage is compact (`compactStage`): a panel stands folded until opened. */
   readonly compact: boolean;
 }>({ on: new Set(), set: () => {}, compact: false });
 
@@ -44,7 +45,7 @@ export function CanvasDock({
   children,
 }: {
   readonly head: ReactNode;
-  /** The stage is narrow: each panel stands folded to its title until it is opened. */
+  /** The stage is compact (`compactStage`): each panel stands folded to its title until it is opened. */
   readonly compact: boolean;
   readonly children: ReactNode;
 }) {
@@ -66,7 +67,10 @@ export function CanvasDock({
   return (
     <DockFlags.Provider value={flags}>
       <div
-        className="pointer-events-none absolute top-3 right-3 bottom-16 z-30 flex flex-col items-end gap-2"
+        className={cn(
+          "pointer-events-none absolute top-3 right-3 z-30 flex flex-col items-end gap-2",
+          dockBottomClass(compact),
+        )}
         data-testid="canvas-dock"
       >
         <div className="pointer-events-auto flex items-start gap-2">{head}</div>

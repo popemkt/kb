@@ -252,12 +252,15 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full max-w-xs items-center gap-2 rounded-md bg-foreground/[0.03] px-2.5 py-1 text-left transition-colors duration-100 hover:bg-foreground/[0.06]"
+      className="flex w-full min-w-0 max-w-xs items-center gap-2 rounded-md bg-foreground/[0.03] px-2.5 py-1 text-left transition-colors duration-100 hover:bg-foreground/[0.06]"
       aria-label="Open search palette"
     >
       <MagnifyingGlassIcon size={14} className="shrink-0 text-faint-foreground" />
-      <span className="flex-1 text-ui text-faint-foreground">Search and open…</span>
-      <kbd className="rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-faint-foreground">
+      <span className="min-w-0 flex-1 truncate text-ui text-faint-foreground">
+        Search and open…
+      </span>
+      {/* A touch screen has no ⌘K to press. */}
+      <kbd className="rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-faint-foreground pointer-coarse:hidden">
         ⌘K
       </kbd>
     </button>

@@ -18,7 +18,7 @@ import {
   type CanvasPresetKind,
   type CanvasSide,
 } from "@kb/canvas";
-import { pastSlop } from "@kb/ui-sdk";
+import { pastSlop, type PointerKind } from "@kb/ui-sdk";
 import { hitTest, type CanvasView, type ViewSize } from "./canvas-camera";
 import { selectEdge, selectNode, type CanvasSelection } from "./canvas-selection";
 import { draftItem } from "./canvas-tool";
@@ -34,6 +34,8 @@ interface DrawSurface {
   readonly byId: ReadonlyMap<string, CanvasNode>;
   readonly view: CanvasView;
   readonly size: ViewSize;
+  /** The kind of pointer drawing: its slop. */
+  readonly pointer: PointerKind;
 }
 
 /**
@@ -148,7 +150,9 @@ export function draftDrawn(
 ): Drawn | null {
   const doc = without(surface.doc, drag.id);
   const { slop } = drag;
-  const clicked = slop !== null && !pastSlop(release.screen.x - slop.x, release.screen.y - slop.y);
+  const clicked =
+    slop !== null &&
+    !pastSlop(release.screen.x - slop.x, release.screen.y - slop.y, surface.pointer);
   if (clicked && drag.on !== null) return null;
   const { to } = release;
   const from = drag.on === null ? undefined : surface.byId.get(drag.on);

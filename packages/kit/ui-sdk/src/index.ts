@@ -397,6 +397,7 @@ export {
   asElement,
   asInstance,
   isTextEntry,
+  isTyping,
   isTextNode,
   SIDEBAR_REGION_SELECTOR,
   sidebarRegionProps,
@@ -455,7 +456,7 @@ export {
   type PickerRow,
   pickerRows,
 } from "./lib/picker";
-export { pastSlop, POINTER_SLOP } from "./lib/pointer-slop";
+export { pastSlop, pointerKind, POINTER_SLOPS, type PointerKind } from "./lib/pointer-slop";
 export {
   getPath,
   navigate,

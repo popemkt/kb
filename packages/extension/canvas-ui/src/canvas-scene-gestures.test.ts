@@ -57,6 +57,7 @@ function press(local: { x: number; y: number }, extra: Partial<ScenePress> = {})
     metaKey: false,
     ctrlKey: false,
     altKey: false,
+    pointer: "mouse",
     ...extra,
   };
 }

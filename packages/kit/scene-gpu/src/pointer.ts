@@ -5,12 +5,12 @@
  * with the pointer — the lab's studies and the 3D graph — reads this one
  * field, which allocates nothing per event or per frame.
  *
- * A tap is a primary-button press released within the pointer slop
+ * A tap is a primary-button press released within its pointer's slop
  * (`lib/pointer-slop`) of where it went down: a drag that orbits or pans is
  * not a tap.
  */
 import { Vector3, type PerspectiveCamera } from "three/webgpu";
-import { pastSlop } from "@kb/ui-sdk";
+import { pastSlop, pointerKind } from "@kb/ui-sdk";
 import { onFacingPlane } from "./screen";
 
 export interface PointerFieldEvents {
@@ -67,7 +67,7 @@ export class PointerField {
     const was = this.pressed;
     this.pressed = false;
     if (!was || !this.place(event)) return;
-    if (!pastSlop(this.x - this.pressX, this.y - this.pressY)) {
+    if (!pastSlop(this.x - this.pressX, this.y - this.pressY, pointerKind(event.pointerType))) {
       this.events.onTap?.(this.x, this.y);
     }
   };

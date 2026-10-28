@@ -16,11 +16,15 @@ import {
 } from "./canvas-transform-input";
 import { AXIS_INK } from "./canvas-gizmo";
 import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
+import { bottomBarClass } from "./canvas-stage-layout";
+import { cn } from "@kb/ui-sdk";
 
 export interface CanvasTransformGuidesProps extends ShownCameraProps {
   /** The modal transform under way, and the transform its preview shows. */
   readonly input: TransformInput;
   readonly applied: CanvasTransform | null;
+  /** The stage is compact: the readout stands above the tools, where the selection toolbar does. */
+  readonly compact: boolean;
 }
 
 /** How far a guide reaches each way from the pivot on screen, CSS pixels: past any viewport. */
@@ -44,7 +48,12 @@ function guideLine(view: CanvasView, size: ViewSize, input: TransformInput, guid
   return { x1: a.x - ux * REACH, y1: a.y - uy * REACH, x2: a.x + ux * REACH, y2: a.y + uy * REACH };
 }
 
-export function CanvasTransformGuides({ input, applied, ...camera }: CanvasTransformGuidesProps) {
+export function CanvasTransformGuides({
+  input,
+  applied,
+  compact,
+  ...camera
+}: CanvasTransformGuidesProps) {
   const { view, size } = useShownCamera(camera);
   const readout = transformReadout(input, applied, view);
   return (
@@ -67,7 +76,10 @@ export function CanvasTransformGuides({ input, applied, ...camera }: CanvasTrans
       <div
         data-testid="canvas-transform-readout"
         role="status"
-        className="pointer-events-none absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-baseline gap-2 rounded-lg border border-border bg-popover/95 px-3 py-1.5 shadow-floating backdrop-blur-sm"
+        className={cn(
+          "pointer-events-none absolute left-1/2 z-30 flex -translate-x-1/2 items-baseline gap-2 rounded-lg border border-border bg-popover/95 px-3 py-1.5 shadow-floating backdrop-blur-sm",
+          bottomBarClass(compact),
+        )}
       >
         <span className="text-label font-medium text-foreground/80">{readout.verb}</span>
         {readout.held !== null && (

@@ -28,10 +28,8 @@ import {
 } from "@kb/canvas";
 import {
   browserHost,
-  Bullet,
   cn,
   navigate,
-  NodeRow,
   NotFound,
   useAppearance,
   useAnswered,
@@ -41,6 +39,7 @@ import {
   useSchema,
   ViewScripts,
   createViewLayout,
+  type PointerKind,
   createViewEvents,
 } from "@kb/ui-sdk";
 import { useCanvasProjection } from "./use-canvas-projection";
@@ -49,7 +48,8 @@ import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { CanvasDock } from "./canvas-dock";
-import { DOCK_COMPACT_WIDTH } from "./canvas-dock-size";
+import { compactStage } from "./canvas-stage-layout";
+import { useStageSize } from "./use-stage-size";
 import { CanvasStylePanel } from "./canvas-style-panel";
 import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
@@ -63,6 +63,8 @@ import { edgeFields } from "./canvas-edge-link";
 import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
+import { useCanvasTouch } from "./use-canvas-touch";
+import { toggleFullscreen } from "./canvas-fullscreen";
 import { useCanvasScreen } from "./use-canvas-screen";
 import { CanvasScriptLayout } from "./canvas-script-layout";
 import { useCanvasCapture } from "./canvas-capture";
@@ -70,6 +72,7 @@ import { togglesSelection, useCanvasSelection } from "./use-canvas-selection";
 import { createCanvasNode } from "./canvas-api";
 import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
+import { CanvasHeader } from "./canvas-header";
 import { linkStep } from "./canvas-links";
 import { cardIdAt, classifyCardPointer } from "./card-pointer";
 import {
@@ -244,6 +247,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
 
   /** Where the pointer last was over either projection: where a modal transform begins. */
   const lastPointer = useRef<Point | null>(null);
+  /** What made the last press on the stage (`useCanvasTouch`): how far it may wander and still be a click. */
+  const pressedBy = useRef<PointerKind>("mouse");
   const dispatchPointer = useCallback(
     (event: CanvasPointerEvent): PointerResult => {
       if ("screen" in event) lastPointer.current = event.screen;
@@ -254,6 +259,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         scope,
         byId,
         ...cameraRef.current(),
+        pointer: pressedBy.current,
       });
       applyPointerResult(next);
       return next;
@@ -270,6 +276,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   ).value;
 
   const stageRef = useRef<HTMLDivElement>(null);
+  /** The page, which Full screen puts in full screen: its header and pages with the stage. */
+  const pageRef = useRef<HTMLDivElement>(null);
   const projection = useCanvasProjection({
     camera,
     pan,
@@ -364,6 +372,9 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   }, [dispatchPointer]);
 
   const viewport = projection.viewportOf(viewportControls);
+  /** The stage stands its chrome compact on a phone, either way up, or in a side panel. */
+  const compact = compactStage(useStageSize(stageRef));
+  useCanvasTouch({ stage: stageRef, controls: viewport, pressedBy });
   const drawing = useCanvasCapture(projection.holdScene);
   useCanvasScreen({
     canvasId,
@@ -520,6 +531,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     edit: openEditor,
     follow,
     turnPage,
+    fullscreen: () => void toggleFullscreen(pageRef.current),
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -553,41 +565,23 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     height: stageSize.height,
   };
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="kb-chrome flex h-10 shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-3">
-        <button
-          type="button"
-          className="text-meta text-muted-foreground hover:text-foreground"
-          onClick={() => navigate(CANVAS_LIST_PATH)}
-        >
-          ← canvases
-        </button>
-        <NodeRow
-          depth={0}
-          nodeId={canvasId}
-          bullet={<Bullet node={canvasNode} onClick={() => {}} />}
-          content={
-            <span className="kb-display truncate text-ui text-foreground/70">
-              {canvasNode.text}
-            </span>
-          }
-          className="min-w-0 flex-1"
-        />
-        <button
-          type="button"
-          className="rounded-md border border-border px-2 py-1 text-meta text-muted-foreground hover:bg-foreground/5"
-          onClick={() => setPickerOpen(true)}
-        >
-          Add node
-        </button>
-        <CanvasZoomMenu zoom={zoom} selection={selection} byId={byId} onIntent={applyIntent} />
-      </div>
-
-      <CanvasPageStrip
-        pages={pages}
-        current={canvasId}
-        onOpen={openPage}
-        onNew={() => void newPage()}
+    <div ref={pageRef} className="flex h-full min-h-0 flex-col bg-background">
+      <CanvasHeader
+        compact={compact}
+        canvasNode={canvasNode}
+        pages={
+          <CanvasPageStrip
+            compact={compact}
+            pages={pages}
+            current={canvasId}
+            onOpen={openPage}
+            onNew={() => void newPage()}
+          />
+        }
+        onAddNode={() => setPickerOpen(true)}
+        zoom={
+          <CanvasZoomMenu zoom={zoom} selection={selection} byId={byId} onIntent={applyIntent} />
+        }
       />
 
       <div
@@ -597,8 +591,9 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         onDrop={pictures.onDrop}
       >
         <div
+          data-canvas-surface
           className={cn(
-            "kb-projection-layer relative flex min-h-0 flex-1",
+            "kb-projection-layer relative flex min-h-0 flex-1 touch-none",
             in3d && "pointer-events-none opacity-0",
           )}
           aria-hidden={in3d}
@@ -682,8 +677,9 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         </div>
         {projection.mounted3d && (
           <div
+            data-canvas-surface
             className={cn(
-              "kb-projection-layer absolute inset-0",
+              "kb-projection-layer absolute inset-0 touch-none",
               !in3d && "pointer-events-none opacity-0",
             )}
           >
@@ -737,12 +733,13 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           onChange={(item) => schedulePersist(upsertCanvasNode(docRef.current, item))}
         />
         <CanvasDock
-          compact={stageSize.width < DOCK_COMPACT_WIDTH}
+          compact={compact}
           head={
             <>
               <CommentsToggle comments={comments} />
               <CanvasViewWidget
                 {...shownCamera}
+                compact={compact}
                 projection={projection.target}
                 selectionEmpty={selectionEmpty(selection)}
                 frames={frames}
@@ -778,6 +775,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         </CanvasDock>
         {modalDrag?.kind === "transform" && modalDrag.input !== null && (
           <CanvasTransformGuides
+            compact={compact}
             input={modalDrag.input}
             applied={modalDrag.applied}
             {...shownCamera}
@@ -813,6 +811,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         />
         <CanvasLaserLayer stage={stageRef} on={presenting !== null} />
         <CanvasOverlays
+          compact={compact}
           transforming={modal}
           scope={scope === null ? null : (byId.get(scope) ?? null)}
           onLeaveScope={leave}

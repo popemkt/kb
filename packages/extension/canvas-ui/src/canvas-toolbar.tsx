@@ -1,37 +1,5 @@
-import { useRef, useState, type ReactNode, type Ref } from "react";
-import {
-  ArrowUpRightIcon,
-  ArrowFatDownIcon,
-  ArrowFatLeftIcon,
-  ArrowFatRightIcon,
-  ArrowFatUpIcon,
-  CaretRightIcon,
-  ChatCircleIcon,
-  CheckSquareIcon,
-  CloudIcon,
-  CircleIcon,
-  CubeIcon,
-  CursorIcon,
-  CylinderIcon,
-  DiamondIcon,
-  FrameCornersIcon,
-  HandIcon,
-  HexagonIcon,
-  HighlighterIcon,
-  PencilSimpleIcon,
-  ImageIcon,
-  LineSegmentIcon,
-  PlusIcon,
-  RowsIcon,
-  SphereIcon,
-  SquareIcon,
-  SquareHalfIcon,
-  StarIcon,
-  TagIcon,
-  TextTIcon,
-  TriangleIcon,
-  WallIcon,
-} from "@phosphor-icons/react";
+import { useRef, useState } from "react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import type { CanvasProjectionKind } from "@kb/canvas";
 import {
   TOOL_FAMILIES,
@@ -42,130 +10,20 @@ import {
   type ToolState,
 } from "./canvas-tool";
 import { cn, useDismiss } from "@kb/ui-sdk";
-import { CANVAS_PROJECTIONS } from "./canvas-projections";
+import { STRIP_BOTTOM } from "./canvas-stage-layout";
+import { CanvasToolSheet } from "./canvas-tool-sheet";
 import { shortcutHint } from "./canvas-keymap";
+import { ProjectionToggle, ToolButton } from "./canvas-tool-buttons";
+import { STRIP, TOOL_LOOKS, type StripEntry } from "./canvas-tool-looks";
 
-/**
- * Every tool's name and mark: tsc asks for one per preset, so a new preset
- * cannot go unnamed. Its key is the shortcut table's (`shortcutHint`).
- */
-const TOOL_LOOKS: {
-  readonly [T in CanvasTool]: { readonly label: string; readonly icon: ReactNode };
-} = {
-  select: { label: "Select", icon: <CursorIcon size={16} /> },
-  hand: { label: "Hand: a press pans", icon: <HandIcon size={16} /> },
-  comment: { label: "Comment: on an item, or at a point", icon: <ChatCircleIcon size={16} /> },
-  text: { label: "Text", icon: <TextTIcon size={16} /> },
-  label: { label: "Label: faces you in 3D", icon: <TagIcon size={16} /> },
-  rect: { label: "Rectangle", icon: <SquareIcon size={16} /> },
-  ellipse: { label: "Ellipse", icon: <CircleIcon size={16} /> },
-  diamond: { label: "Diamond", icon: <DiamondIcon size={16} /> },
-  draw: { label: "Draw", icon: <PencilSimpleIcon size={16} /> },
-  highlight: { label: "Highlight", icon: <HighlighterIcon size={16} /> },
-  triangle: { label: "Triangle", icon: <TriangleIcon size={16} /> },
-  hexagon: { label: "Hexagon", icon: <HexagonIcon size={16} /> },
-  star: { label: "Star", icon: <StarIcon size={16} /> },
-  cloud: { label: "Cloud", icon: <CloudIcon size={16} /> },
-  "arrow-left": { label: "Arrow left", icon: <ArrowFatLeftIcon size={16} /> },
-  "arrow-right": { label: "Arrow right", icon: <ArrowFatRightIcon size={16} /> },
-  "arrow-up": { label: "Arrow up", icon: <ArrowFatUpIcon size={16} /> },
-  "arrow-down": { label: "Arrow down", icon: <ArrowFatDownIcon size={16} /> },
-  "check-box": { label: "Check box", icon: <CheckSquareIcon size={16} /> },
-  line: { label: "Line", icon: <LineSegmentIcon size={16} /> },
-  arrow: { label: "Arrow", icon: <ArrowUpRightIcon size={16} /> },
-  group: { label: "Group / Frame", icon: <FrameCornersIcon size={16} /> },
-  "kb-node": { label: "Add kb node", icon: <PlusIcon size={16} /> },
-  image: { label: "Image (or paste or drop one)", icon: <ImageIcon size={16} /> },
-  box: { label: "Box", icon: <CubeIcon size={16} /> },
-  pillar: { label: "Pillar", icon: <CylinderIcon size={16} /> },
-  sphere: { label: "Sphere", icon: <SphereIcon size={16} /> },
-  cone: { label: "Cone", icon: <TriangleIcon size={16} /> },
-  slab: { label: "Shelf", icon: <RowsIcon size={16} /> },
-  wall: { label: "Wall", icon: <WallIcon size={16} /> },
-};
-
-/** The tools that stand alone, in the strip's order; the shapes and the solids each sit behind one button after them. */
-const FLAT_TOOLS: readonly CanvasTool[] = [
-  "select",
-  "hand",
-  "text",
-  "label",
-  "draw",
-  "highlight",
-  "line",
-  "arrow",
-  "group",
-  "kb-node",
-  "image",
-  "comment",
-];
-
-/** Each projection's mark on the toggle. */
-const PROJECTION_ICONS: Record<CanvasProjectionKind, ReactNode> = {
-  "2d": <SquareHalfIcon size={16} />,
-  "3d": <CubeIcon size={16} />,
-};
-
-interface CanvasToolbarProps {
+export interface CanvasToolbarProps {
+  /** The stage is compact (`compactStage`): one row along the bottom, the rest behind More. */
+  compact: boolean;
   projection: CanvasProjectionKind;
   onProjectionChange: (projection: CanvasProjectionKind) => void;
   toolState: ToolState;
   onToolChange: (tool: CanvasTool) => void;
   onToolDoubleClick: (tool: CanvasTool) => void;
-}
-
-const BUTTON = cn(
-  "relative flex h-8 w-8 items-center justify-center rounded-md text-foreground/55 transition-colors",
-  "hover:bg-foreground/5 hover:text-foreground/80",
-);
-
-/** A tool's name, with the key that picks it when it has one. */
-function toolLabel(tool: CanvasTool): string {
-  const hint = shortcutHint({ type: "tool", tool });
-  return hint === "" ? TOOL_LOOKS[tool].label : `${TOOL_LOOKS[tool].label} (${hint})`;
-}
-
-function ToolButton({
-  ref,
-  tool,
-  active,
-  sticky,
-  onClick,
-  onDoubleClick,
-  children,
-}: {
-  ref?: Ref<HTMLButtonElement>;
-  tool: CanvasTool;
-  active: boolean;
-  sticky: boolean;
-  onClick: () => void;
-  onDoubleClick: () => void;
-  children?: ReactNode;
-}) {
-  const { icon } = TOOL_LOOKS[tool];
-  const label = toolLabel(tool);
-  return (
-    <button
-      ref={ref}
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active}
-      data-tool={tool}
-      className={cn(BUTTON, active && "bg-foreground/8 text-foreground/90")}
-      onClick={onClick}
-      onDoubleClick={(e) => {
-        e.preventDefault();
-        onDoubleClick();
-      }}
-    >
-      {icon}
-      {active && sticky && (
-        <span className="absolute right-0.5 bottom-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
-      )}
-      {children}
-    </button>
-  );
 }
 
 /** What each family's picker is called. */
@@ -181,11 +39,12 @@ const FAMILY_LOOKS: { readonly [F in CanvasToolFamily]: { readonly label: string
  * and wall — as tldraw's geo tool does.
  */
 function FamilyTool({
+  compact,
   family,
   toolState,
   onToolChange,
   onToolDoubleClick,
-}: Pick<CanvasToolbarProps, "toolState" | "onToolChange" | "onToolDoubleClick"> & {
+}: Pick<CanvasToolbarProps, "compact" | "toolState" | "onToolChange" | "onToolDoubleClick"> & {
   readonly family: CanvasToolFamily;
 }) {
   const [open, setOpen] = useState(false);
@@ -200,6 +59,7 @@ function FamilyTool({
     <div ref={ref} className="relative">
       <ToolButton
         ref={triggerRef}
+        compact={compact}
         tool={last}
         active={active}
         sticky={toolState.sticky === true}
@@ -220,7 +80,13 @@ function FamilyTool({
           role="menu"
           aria-label={FAMILY_LOOKS[family].label}
           data-testid={`canvas-${family}-picker`}
-          className="absolute top-0 left-full ml-2 flex flex-col gap-0.5 rounded-lg border border-border bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
+          className={cn(
+            "absolute rounded-lg border border-border bg-popover/95 p-1 shadow-floating backdrop-blur-sm",
+            // Beside the column; above the row, its tools as marks a finger reaches, four across.
+            compact
+              ? "bottom-full left-1/2 mb-2 grid w-max -translate-x-1/2 grid-cols-4 gap-0.5"
+              : "top-0 left-full ml-2 flex flex-col gap-0.5",
+          )}
         >
           {TOOL_FAMILIES[family].map((preset) => (
             <button
@@ -228,10 +94,12 @@ function FamilyTool({
               type="button"
               role="menuitemradio"
               aria-checked={preset === last}
+              aria-label={TOOL_LOOKS[preset].label}
               data-tool={preset}
               className={cn(
-                "flex h-8 items-center gap-2 rounded-md pr-3 pl-2 text-ui text-foreground/65 transition-colors",
+                "flex items-center gap-2 rounded-md text-ui text-foreground/65 transition-colors",
                 "hover:bg-foreground/5 hover:text-foreground/90",
+                compact ? "h-10 w-10 justify-center" : "h-8 pr-3 pl-2",
                 preset === last && "bg-foreground/8 text-foreground/90",
               )}
               onClick={() => {
@@ -240,10 +108,10 @@ function FamilyTool({
               }}
             >
               {TOOL_LOOKS[preset].icon}
-              {TOOL_LOOKS[preset].label}
+              {!compact && TOOL_LOOKS[preset].label}
             </button>
           ))}
-          {hint !== "" && (
+          {hint !== "" && !compact && (
             <div className="px-2 pt-1 pb-0.5 text-label text-foreground/35">
               {hint} picks the last one
             </div>
@@ -254,64 +122,62 @@ function FamilyTool({
   );
 }
 
+/** One entry of the strip: a tool's button, or a family's. */
+function StripButton({
+  entry,
+  ...props
+}: Pick<CanvasToolbarProps, "compact" | "toolState" | "onToolChange" | "onToolDoubleClick"> & {
+  readonly entry: StripEntry;
+}) {
+  const { compact, toolState, onToolChange, onToolDoubleClick } = props;
+  if ("family" in entry) return <FamilyTool family={entry.family} {...props} />;
+  const { tool } = entry;
+  return (
+    <ToolButton
+      compact={compact}
+      tool={tool}
+      active={toolState.tool === tool}
+      sticky={toolState.sticky === true}
+      onClick={() => onToolChange(tool)}
+      onDoubleClick={() => onToolDoubleClick(tool)}
+    />
+  );
+}
+
 /**
- * The strip of tools down the stage's left edge. It stands within the
- * stage: where the stage is too short for one column (a side panel's), it
- * wraps into a second rather than running over the page strip above.
+ * The strip of tools. On a wide stage it stands down the stage's left
+ * edge, within the stage: where the stage is too short for one column (a
+ * side panel's), it wraps into a second rather than running over the page
+ * strip above. On a compact stage it is one row along the bottom, clear of
+ * the safe area, holding the strip's first tools and More, which opens the
+ * rest and the projection toggle (`CanvasToolSheet`).
  */
-export function CanvasToolbar({
-  projection,
-  onProjectionChange,
-  toolState,
-  onToolChange,
-  onToolDoubleClick,
-}: CanvasToolbarProps) {
+export function CanvasToolbar(props: CanvasToolbarProps) {
+  const { compact } = props;
+  const shown = compact ? STRIP.filter((entry) => entry.more !== true) : STRIP;
   return (
     <div
-      className="absolute top-1/2 left-2 z-20 flex max-h-[calc(100%-1rem)] -translate-y-1/2 flex-col flex-wrap content-start gap-0.5 rounded-lg border border-border bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
+      className={cn(
+        "absolute z-20 flex gap-0.5 rounded-lg border border-border bg-popover/95 p-1 shadow-floating backdrop-blur-sm",
+        compact
+          ? cn(STRIP_BOTTOM, "left-1/2 -translate-x-1/2 flex-row")
+          : "top-1/2 left-2 max-h-[calc(100%-1rem)] -translate-y-1/2 flex-col flex-wrap content-start",
+      )}
       data-testid="canvas-toolbar"
+      data-compact={compact ? "" : undefined}
       role="toolbar"
       aria-label="Canvas tools"
     >
-      {FLAT_TOOLS.map((tool) => (
-        <ToolButton
-          key={tool}
-          tool={tool}
-          active={toolState.tool === tool}
-          sticky={toolState.sticky === true}
-          onClick={() => onToolChange(tool)}
-          onDoubleClick={() => onToolDoubleClick(tool)}
-        />
+      {shown.map((entry) => (
+        <StripButton key={"tool" in entry ? entry.tool : entry.family} entry={entry} {...props} />
       ))}
-      <FamilyTool
-        family="shape"
-        toolState={toolState}
-        onToolChange={onToolChange}
-        onToolDoubleClick={onToolDoubleClick}
+      <div
+        className={
+          compact ? "mx-0.5 my-1.5 w-px bg-foreground/10" : "mx-1.5 my-1 h-px bg-foreground/10"
+        }
+        role="separator"
       />
-      <FamilyTool
-        family="solid"
-        toolState={toolState}
-        onToolChange={onToolChange}
-        onToolDoubleClick={onToolDoubleClick}
-      />
-      <div className="mx-1.5 my-1 h-px bg-foreground/10" role="separator" />
-      <div role="group" aria-label="Projection" className="flex flex-col gap-0.5">
-        {CANVAS_PROJECTIONS.map((p) => (
-          <button
-            key={p.kind}
-            type="button"
-            title={`${p.label}: ${p.title}`}
-            aria-label={`${p.label} projection`}
-            aria-pressed={projection === p.kind}
-            data-projection={p.kind}
-            className={cn(BUTTON, projection === p.kind && "bg-primary/12 text-primary")}
-            onClick={() => onProjectionChange(p.kind)}
-          >
-            {PROJECTION_ICONS[p.kind]}
-          </button>
-        ))}
-      </div>
+      {compact ? <CanvasToolSheet {...props} /> : <ProjectionToggle {...props} />}
     </div>
   );
 }

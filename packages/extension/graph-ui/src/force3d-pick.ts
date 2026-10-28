@@ -18,6 +18,7 @@
 import type { PerspectiveCamera } from "three/webgpu";
 import type { NodeDrag } from "./graph-drag";
 import { pixelsPerUnit, PointerField, toScreen, type ScreenPoint } from "@kb/scene-gpu";
+import { pointerKind } from "@kb/ui-sdk";
 
 /** The smallest reach a node has under the pointer, CSS px, and the slack past its disc. */
 const MIN_REACH = 6;
@@ -130,7 +131,7 @@ export class GraphPick {
     const { x, y } = this.local(event);
     const id = this.field.idOf(this.at(x, y));
     if (id === undefined) return;
-    this.drag.down(id, x, y);
+    this.drag.down(id, x, y, pointerKind(event.pointerType));
     // The drag keeps the pointer when it leaves the canvas.
     this.canvas.setPointerCapture(event.pointerId);
   };

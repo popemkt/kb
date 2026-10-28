@@ -1,10 +1,12 @@
 import {
+  pointerKind,
   asInstance,
   graphLabelFont,
   prefersReducedMotion,
   readTiming,
   readTokenColor,
   type Appearance,
+  type PointerKind,
 } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
 import {
@@ -107,6 +109,14 @@ const edgeProgram = (style: LensLinkStyle): keyof typeof EDGE_PROGRAMS =>
   LINK_STYLES[style].curved ? "curved" : "straight";
 
 /** Drawn nodes at least this big (CSS px radius) keep labels off themselves. */
+/** What made a press sigma reports: its captors hear mouse and touch events, a pointer's kind when it is one. */
+const pointerOf = (original: MouseEvent | TouchEvent): PointerKind =>
+  "pointerType" in original
+    ? pointerKind(String(original.pointerType))
+    : "touches" in original
+      ? "touch"
+      : "mouse";
+
 const MIN_BLOCKING_RADIUS = 3;
 /** Above this many nodes, label density thins with the square root of the count. */
 const LABEL_CROWD = 400;
@@ -336,7 +346,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     sigma.on("downNode", ({ node, event }) => {
       event.preventSigmaDefault();
       suppressClick = false;
-      drag.down(node, event.x, event.y);
+      drag.down(node, event.x, event.y, pointerOf(event.original));
     });
     const move = (e: MouseEvent) => {
       const rect = el.getBoundingClientRect();

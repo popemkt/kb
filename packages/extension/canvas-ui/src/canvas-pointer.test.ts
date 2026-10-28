@@ -48,6 +48,7 @@ function context(
     byId: new Map(stateDoc.nodes.map((node) => [node.id, node])),
     view,
     size,
+    pointer: "mouse",
   };
 }
 

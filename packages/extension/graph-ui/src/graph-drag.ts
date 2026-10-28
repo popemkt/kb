@@ -2,8 +2,8 @@
  * Dragging a node in a graph view: one gesture, whatever draws the graph.
  *
  * A press on a node suspends whatever else the pointer drives (the 2D
- * camera's pan, the 3D orbit); once the press has travelled past the pointer
- * slop it is a drag: the layout grabs the node and holds it under the
+ * camera's pan, the 3D orbit); once the press has travelled past its
+ * pointer's slop it is a drag: the layout grabs the node and holds it under the
  * pointer, move by move, until the release drops it. A press that never
  * passed the slop is a click, and stays one.
  *
@@ -14,7 +14,7 @@
  * node. Where the pointer puts the node is the renderer's (`DragSurface`):
  * the 2D camera's inverse, or the plane through the node facing the 3D eye.
  */
-import { pastSlop } from "@kb/ui-sdk";
+import { pastSlop, type PointerKind } from "@kb/ui-sdk";
 
 /** Where a held node stands, in the layout's own coordinates (2D leaves `z` out). */
 export interface LayoutPoint {
@@ -54,6 +54,7 @@ interface Press {
   readonly id: string;
   readonly x: number;
   readonly y: number;
+  readonly pointer: PointerKind;
   follow: ((x: number, y: number) => LayoutPoint | null) | null;
 }
 
@@ -78,10 +79,10 @@ export class NodeDrag {
     return this.press?.follow ? this.press.id : null;
   }
 
-  /** A press on node `id` at viewport (x, y). */
-  down(id: string, x: number, y: number): void {
+  /** A press on node `id` at viewport (x, y), by a `pointer`. */
+  down(id: string, x: number, y: number, pointer: PointerKind): void {
     this.up();
-    this.press = { id, x, y, follow: null };
+    this.press = { id, x, y, pointer, follow: null };
     this.surface.suspend();
   }
 
@@ -90,7 +91,7 @@ export class NodeDrag {
     const press = this.press;
     if (press === null) return false;
     if (press.follow === null) {
-      if (!pastSlop(x - press.x, y - press.y)) return false;
+      if (!pastSlop(x - press.x, y - press.y, press.pointer)) return false;
       press.follow = this.surface.grip(press.id, press.x, press.y);
       if (press.follow === null) return false;
       this.layout().grab(press.id);

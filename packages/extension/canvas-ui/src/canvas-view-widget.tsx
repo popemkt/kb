@@ -3,7 +3,8 @@
  * gizmo heading the dock (`CanvasDock`), computed from the camera's frame
  * (`screenAxes`), so it needs no second scene, and under it the name of the
  * view, which opens the view menu. In 2D it shows the top view, which is what
- * 2D is.
+ * 2D is. On a compact stage (`compactStage`) the gizmo folds away, and the
+ * name, which opens the same menu, stands alone.
  *
  * Clicking an axis end looks from that side (Blender's convention: the +X end
  * is the right view). The menu lists the view commands (`CANVAS_VIEW_COMMANDS`,
@@ -25,6 +26,7 @@ import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from 
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
+import { fullscreenAvailable, inFullscreen } from "./canvas-fullscreen";
 import { MenuHint, MenuSeparator } from "./canvas-menu";
 import { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./use-canvas-menu";
 import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
@@ -38,6 +40,8 @@ export interface CanvasViewWidgetProps extends ShownCameraProps {
   readonly menuOpen: boolean;
   readonly onMenuOpenChange: (open: boolean) => void;
   readonly onIntent: (intent: CanvasIntent) => void;
+  /** The stage is compact (`compactStage`): the gizmo folds away and the view's name stands alone. */
+  readonly compact: boolean;
 }
 
 type Axis = "x" | "y" | "z";
@@ -180,6 +184,7 @@ function checkedOf(
   if (intent.type === "look") return (in3d ? presetOf(view) : "top") === intent.preset;
   if (intent.type === "toggleLens") return lensOf(view) === "orthographic";
   if (intent.type === "projection") return projection === intent.kind;
+  if (intent.type === "fullscreen") return inFullscreen();
   return null;
 }
 
@@ -222,11 +227,12 @@ function ViewMenu({
         const checked = checkedOf(command, view, in3d, projection);
         const disabled =
           (intent.type === "frame" && intent.scope === "selection" && selectionEmpty) ||
-          (intent.type === "present" && frames.length === 0);
+          (intent.type === "present" && frames.length === 0) ||
+          (intent.type === "fullscreen" && !fullscreenAvailable());
         const role =
           checked === null
             ? "menuitem"
-            : intent.type === "toggleLens"
+            : intent.type === "toggleLens" || intent.type === "fullscreen"
               ? "menuitemcheckbox"
               : "menuitemradio";
         return (
@@ -307,6 +313,7 @@ export function CanvasViewWidget({
   menuOpen,
   onMenuOpenChange,
   onIntent,
+  compact,
   ...camera
 }: CanvasViewWidgetProps) {
   const { view } = useShownCamera(camera);
@@ -314,7 +321,9 @@ export function CanvasViewWidget({
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <div className="flex flex-col items-end gap-1" data-testid="canvas-view-widget">
-      <AxisGizmo view={view} onLook={(preset) => onIntent({ type: "look", preset })} />
+      {!compact && (
+        <AxisGizmo view={view} onLook={(preset) => onIntent({ type: "look", preset })} />
+      )}
       <div className="relative">
         <button
           ref={trigger}

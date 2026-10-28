@@ -30,6 +30,7 @@ import {
   hitTest,
   panOfView,
   viewOfPan,
+  zoomViewAt,
   type CanvasHitItem,
   type FlatViewportControls,
 } from "./canvas-camera";
@@ -134,6 +135,13 @@ function useToolControls({
   return { setTool, setToolSticky };
 }
 
+/** The 2D viewport's size, CSS pixels. */
+const viewportSize = () =>
+  document.querySelector("[data-canvas-viewport]")?.getBoundingClientRect() ?? {
+    width: 1,
+    height: 1,
+  };
+
 function useViewportControls({
   docRef,
   dispatchPointer,
@@ -177,47 +185,46 @@ function useViewportControls({
   );
 
   /**
-   * The zoom the last wheel event left, ahead of the render that shows it:
-   * a trackpad sends wheel events faster than frames, and each one starts
-   * from where the one before left the camera, never from the last render's.
+   * The zoom the last hand left, ahead of the render that shows it: a
+   * trackpad sends wheel events, and fingers moves, faster than frames, and
+   * each one starts from where the one before left the camera, never from
+   * the last render's. The pan is the reducer's, which holds it at once.
    */
   const zoomNow = useRef(zoom);
   useLayoutEffect(() => {
     zoomNow.current = zoom;
   }, [zoom]);
-  const onWheel = (e: WheelEvent, element: HTMLElement) => {
-    const from = pointerRef.current.pan;
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const was = zoomNow.current;
-      const newZoom = clampZoom(was * wheelZoomFactor(e));
-      zoomNow.current = newZoom;
-      // Cursor-centered zoom
-      const rect = element.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      const worldX = (px - from.x) / was;
-      const worldY = (py - from.y) / was;
-      dispatchPointer({
-        type: "pan/set",
-        pan: {
-          x: px - worldX * newZoom,
-          y: py - worldY * newZoom,
-        },
-      });
-      setZoom(newZoom);
-      return;
-    }
-    dispatchPointer({
-      type: "pan/set",
-      pan: { x: from.x - e.deltaX, y: from.y - e.deltaY },
-    });
-  };
-  /** The top-view camera's answers to the keymap; a key zooms with the pan held, as it always has. */
+  /** The top-view camera's answers to the keymap and a hand; a key zooms with the pan held, as it always has. */
   const viewportControls: FlatViewportControls = {
     zoomBy: (factor) => setZoom((current) => clampZoom(current * factor)),
     zoomTo: (next) => setZoom(clampZoom(next)),
+    panBy: (dx, dy) => {
+      const from = pointerRef.current.pan;
+      dispatchPointer({ type: "pan/set", pan: { x: from.x + dx, y: from.y + dy } });
+    },
+    zoomAt: (factor, at) => {
+      const size = viewportSize();
+      const was = viewOfPan(pointerRef.current.pan, zoomNow.current, size);
+      const next = panOfView(zoomViewAt(was, size, factor, at), size);
+      zoomNow.current = next.zoom;
+      dispatchPointer({ type: "pan/set", pan: next.pan });
+      setZoom(next.zoom);
+    },
+    // The top view's pan and zoom are the page's alone: nothing to save.
+    settle: () => {},
     frame,
+  };
+  const onWheel = (e: WheelEvent, element: HTMLElement) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const rect = element.getBoundingClientRect();
+      viewportControls.zoomAt(wheelZoomFactor(e), {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+      return;
+    }
+    viewportControls.panBy(-e.deltaX, -e.deltaY);
   };
   return { cardAt, onWheel, screenToWorld, viewportControls };
 }

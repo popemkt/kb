@@ -141,12 +141,15 @@ export class CanvasCameraRig {
   }
 
   /**
-   * What the keymap and the view widget ask of this camera: zoom about the
-   * middle of the viewport, or fly to frame some items, to a preset, or
-   * through the other lens.
+   * What the keymap, the view widget and a hand ask of this camera: move at
+   * once under the hand, zoom about the middle of the viewport, or fly to
+   * frame some items, to a preset, or through the other lens.
    */
   controls(size: () => ViewSize, settled: () => void): CanvasViewportControls {
     return {
+      panBy: (dx, dy) => this.panBy(dx, dy),
+      zoomAt: (factor, at) => this.zoomAt(factor, at, size()),
+      settle: settled,
       zoomBy: (factor) => {
         const s = size();
         this.zoomAt(factor, middle(s), s);

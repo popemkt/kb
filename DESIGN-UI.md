@@ -1322,9 +1322,11 @@ manipulation feel professional rather than merely functional.
   (`adoptStored`). How the canvas is looked at is its view node's camera,
   not the document's (DESIGN.md → Canvas documents → Camera), so no step
   ever holds it.
-- **Direct-manipulation invariants.** A 4px pointer slop (`POINTER_SLOP` in
-  `lib/pointer-slop.ts`, the one slop the scene kit's taps and a graph node's
-  drag use too) kills hair-trigger moves, pointer capture on card drags and resize handles survives a fast drag,
+- **Direct-manipulation invariants.** A pointer slop by the kind of pointer
+  that pressed (`POINTER_SLOPS` in `lib/pointer-slop.ts`: 4px for a mouse or
+  a pen, 8px for a finger, Android's touch slop; the one table the scene
+  kit's taps and a graph node's drag read too, each by its press's
+  `pointerType`) kills hair-trigger moves and keeps a finger's tap a tap, pointer capture on card drags and resize handles survives a fast drag,
   four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio) and
   resize a turned card along its own sides, tldraw's rotate handle on a
   stem above a selected card turns the selection about its centre
@@ -1362,9 +1364,56 @@ manipulation feel professional rather than merely functional.
   from the camera the one before left, not from the last frame drawn.
   Both stages hear the wheel themselves, not passively, so the zoom is the
   canvas's alone and the page around it (bb's) does not zoom too.
-- **The tool strip** stands down the stage's left edge, inside the stage:
+- **Touch** (`canvas-touch.ts`, `use-canvas-touch.ts`; the design note
+  `docs/research/2026-10-28-canvas-mobile.md`), as tldraw's, Excalidraw's
+  and Miro's on a phone. Both projection layers are `touch-action: none`,
+  and one recognizer hears every touch over either of them before the
+  projection or React does (on the window, in the capture phase), so both
+  projections take fingers alike. One finger is a press, exactly as a
+  mouse's: the armed tool's, a marquee or a carry with select, an orbit on
+  empty canvas in 3D. A second finger makes it a camera gesture: the first
+  finger's press is cancelled as the browser cancels a touch it takes for
+  itself (a `pointercancel` to its target, which either projection already
+  undoes), and until the last finger lifts their midpoint's travel pans
+  and their spread zooms about it, through the showing camera's
+  `CanvasViewportControls` (`panBy`, `zoomAt`, and `settle` at the lift,
+  where 3D saves its pose); one finger left pans. A finger held still
+  `LONG_PRESS_MS` (500 ms) is a long press: its press is cancelled and a
+  `contextmenu` is sent where it is, so the context menu opens as a right
+  click's does, and the browser's own long-press menu is swallowed while a
+  finger is down. Chrome over the stage takes its taps as any button does,
+  and words being typed (`isTyping`: the focused entry) keep the browser's
+  touch. A finger carries an item by its words, and a tap on the one item
+  selected opens them (Editing a face, below); a scroller inside a closed
+  card is `touch-action: none` too, since a scroller starts its own.
+- **The compact stage** (`compactStage`, `canvas-stage-layout.ts`; the
+  design note `docs/research/2026-10-28-canvas-mobile.md`): a stage
+  narrower than 720px (a phone upright, a side panel) or shorter than 480px
+  (a phone on its side) stands its chrome compact, and every piece of
+  chrome reads that one answer. The tools stand in one row along the
+  bottom, clear of the safe area, the rest behind More; the dock's panels
+  stand folded; the view widget folds its axis gizmo away and keeps the
+  view's name, which opens the view menu; the selection toolbar, present
+  mode's bar and a modal transform's readout stand above the tools
+  (`bottomBarClass`), the selection toolbar's commands as marks named for a
+  screen reader; and the header holds the board's pages in the node's
+  place, the way back as a mark, Add node left to the kb node tool. The
+  view menu's **Full screen** (a view command with no key,
+  `canvas-fullscreen.ts`) puts the canvas page in full screen and then asks
+  for landscape (`screen.orientation.lock`), which only full screen allows
+  and only some platforms grant (Android's Chrome; not iOS, not a desktop):
+  a refusal leaves the canvas upright, which it works in. Where the browser
+  has no full screen (an iPhone's) the row is disabled.
+- **The tool strip** is drawn from one table (`STRIP`,
+  `canvas-tool-looks.tsx`): every tool that stands alone and every family,
+  in order, each marked `more` when a compact stage keeps it behind More.
+  On a wide stage it stands down the stage's left edge, inside the stage:
   where the stage is too short for one column of tools it wraps into a
-  second rather than running over the page strip above it.
+  second rather than running over the page strip above it. On a compact
+  stage it is one row of 40px buttons (tldraw's), the first tools of the
+  table and More, a sheet (`canvas-tool-sheet.tsx`) with every tool behind
+  it, each family's tools by themselves, and the 2D/3D toggle; a family's
+  picker opens above the row as a grid of marks.
 - **Sticky tools.** `canvas-ui/src/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
@@ -1543,9 +1592,9 @@ manipulation feel professional rather than merely functional.
   and the comments list. A panel there is never anchored to what it is
   about, so it never opens over the selection it edits; it is as tall as
   its rows, scrolls inside itself once the column is full (which ends above
-  the selection toolbar), and folds to its title. On a narrow stage — a
-  side panel's, under `DOCK_COMPACT_WIDTH` — every panel stands folded to
-  its title until opened, as tldraw's style panel waits behind a button on
+  the selection toolbar), and folds to its title. On a compact stage
+  (`compactStage`, above) every panel stands folded to its title until
+  opened, as tldraw's style panel waits behind a button on
   a small screen. A pick in it keeps the keyboard where it was, so the
   canvas's shortcuts still reach it. What the dock remembers — the fold a
   person chose for a panel, which holds however the stage is sized (one
@@ -1893,6 +1942,15 @@ the view node switches every page showing the canvas through it.
   projection that is showing edits it: the 2D canvas in place, as it always
   did (a shape's label opens on a double-click, a text card's textarea
   while it has focus, a card's node text while the node is active there).
+  A closed editor takes no press: a press anywhere on an item selects and
+  carries it, by its words as by its edge, so a finger moves a note as a
+  mouse does. A click on the one item selected opens its editor, as
+  tldraw's second click on a selected shape does (`opens` on the pointer
+  reducer's transform, read against the selection before the press), so a
+  double-click or a double tap opens it from nothing selected; a press that
+  goes past the slop carries instead. Closed, a card's node text still
+  follows a reference clicked in it. An open editor closes when it loses
+  the focus.
   The node a card shows is a projected instance, one per projection
   (`canvasInstanceKey`), which the outline activates as it does a query's
   rows, so only the projection showing edits it.

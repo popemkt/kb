@@ -114,14 +114,22 @@ export function wheelZoomFactor(event: {
 }
 
 /**
- * What a projection's camera does when a key or a button asks: zoom by a
- * step, zoom to a level, frame some items, look from a preset, or swap its
- * lens. The keymap and the view widget drive whichever projection is
- * showing through this, never its pan, zoom or orbit directly.
+ * What a projection's camera does when a key, a button or a hand asks: zoom
+ * by a step, zoom to a level, frame some items, look from a preset, or swap
+ * its lens; or move at once under a hand — two fingers, the wheel. The
+ * keymap, the view widget and the touch gestures (`canvas-touch.ts`) drive
+ * whichever projection is showing through this, never its pan, zoom or
+ * orbit directly.
  */
 export interface CanvasViewportControls {
   zoomBy(factor: number): void;
   zoomTo(zoom: number): void;
+  /** Move the view at once so the canvas follows a hand (dx, dy) CSS px across the screen. */
+  panBy(dx: number, dy: number): void;
+  /** Zoom by `factor` at once about `at`, a viewport point, which stays where it is ({@link zoomViewAt}). */
+  zoomAt(factor: number, at: CanvasPoint): void;
+  /** The hand that moved the view let go: the view is at rest (the 3D one saves its pose). */
+  settle(): void;
   /** Frame `items` ({@link fitView}); nothing to frame leaves the camera be. */
   frame(items: readonly CanvasHitItem[]): void;
   /**

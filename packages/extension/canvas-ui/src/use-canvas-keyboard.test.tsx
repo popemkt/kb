@@ -193,6 +193,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
   let zoom = 1;
   const context = {
     cancelPointer: () => log.push("cancelPointer"),
+    fullscreen: () => log.push("fullscreen"),
     dispatchPointer: (event: { type: string }) => log.push(`pointer=${event.type}`),
     pointerAt: () => ({ x: 10, y: 20 }),
     pastePictures: (files: Iterable<File>) => {
@@ -232,6 +233,9 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
       log.push(`tool=${toolState.tool}`);
     },
     viewport: {
+      panBy: () => {},
+      zoomAt: () => {},
+      settle: () => {},
       zoomBy: (factor: number) => {
         zoom *= factor;
         log.push(`zoom=${Math.round(zoom * 1000) / 1000}`);
