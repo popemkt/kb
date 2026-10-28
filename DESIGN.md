@@ -3841,10 +3841,15 @@ store records can use it.
   under its page whose text is the shape's rich text as markdown and whose
   props are its meta keys, and it is drawn as a card showing that node (a
   frame keeps its frame and stands for the node through `nodeId`). A key
-  resolves to the field of that name; one kb has none of is made, typed
-  `number` or `checkbox` when every value is one and `text` otherwise. A
-  key naming a `sys.*` field, or a value its field cannot hold, refuses the
-  whole import.
+  is written in the field of that name when there is exactly one, it is
+  the person's (no `sys.*` field: a record's key never writes kb's schema)
+  and its type holds every value the board gives it. Otherwise the board
+  takes its own field, named for the key and the board (`pri (Overview)`,
+  then numbered), joined by the same rule, so a board imported again
+  writes in the fields it made, and a family's field of a common name
+  (`source`) never refuses a board. A field kb has none of is made, typed
+  `number` or `checkbox` when every value is one and `text` otherwise; the
+  answer names each key's field.
 - `meta.drill {to, focus?}`, the owner's drill-down convention, is the
   item's link to that page and item; a locked badge with one is a control
   (Item links), so the drill-down works as it did in tldraw, and `describe`
