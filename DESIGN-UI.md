@@ -1667,6 +1667,12 @@ manipulation feel professional rather than merely functional.
   as the shown projection draws it, in either projection
   (`canvas-link-marks.tsx`), as tldraw's shape link button does. It says
   where the link leads (`leadsTo`), and a click follows it as ⌘↵ does.
+  A locked item that leads somewhere is a control (`controlLead`): a
+  plain press on it follows it, in either projection, as tldraw's locked
+  controls do with a board script; ⇧, ⌘ or Ctrl selects it as any press
+  with a modifier selects (`togglesSelection`), so it can still be
+  inspected and unlocked. The scripts hear the press first
+  (`canvas.item.click`).
 
 #### Projections
 

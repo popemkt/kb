@@ -20,6 +20,7 @@ import {
   nextPageName,
   canvasPages,
   canvasWorld,
+  controlLead,
   editItem,
   upsertCanvasEdge,
   upsertCanvasNode,
@@ -67,7 +68,7 @@ import { toggleFullscreen } from "./canvas-fullscreen";
 import { useCanvasScreen } from "./use-canvas-screen";
 import { CanvasScriptLayout } from "./canvas-script-layout";
 import { useCanvasCapture } from "./canvas-capture";
-import { useCanvasSelection } from "./use-canvas-selection";
+import { togglesSelection, useCanvasSelection } from "./use-canvas-selection";
 import { createCanvasNode } from "./canvas-api";
 import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
@@ -204,14 +205,24 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   /** The events the canvas tells its scripts (`CANVAS_EVENTS`), on one channel for its life. */
   const [scriptEvents] = useState(createViewEvents);
   const [scriptLayout] = useState(createViewLayout);
-  /** An item pressed, in either projection: the scripts hear it, then the press does what it does. */
-  const pressCard: typeof onCardPointerDown = (card, ...rest) => {
+  /**
+   * An item pressed, in either projection: the scripts hear it, then the
+   * press does what it does. A control (`controlLead`: locked, and leading
+   * somewhere) is followed, unless a modifier asks to select it; anything
+   * else is selected and moved.
+   */
+  const pressCard: typeof onCardPointerDown = (card, press, startMove) => {
     scriptEvents.emit({
       type: CANVAS_EVENTS.itemClick,
       target: card.id,
       value: { canvas: canvasId },
     });
-    onCardPointerDown(card, ...rest);
+    const lead = controlLead(card);
+    if (lead !== undefined && !togglesSelection(press)) {
+      follow(lead);
+      return;
+    }
+    onCardPointerDown(card, press, startMove);
   };
 
   /** Opens an item's editor once the page has its face editing (`openEditor`, below). */

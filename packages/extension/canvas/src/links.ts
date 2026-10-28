@@ -87,6 +87,17 @@ export function itemLead(item: CanvasNode): CanvasItemLink | undefined {
   return isLinkNode(item) && isLinkUrl(item.url) ? { url: item.url } : undefined;
 }
 
+/**
+ * Where a press on `item` leads, when it is a control: a locked item that
+ * leads somewhere (`itemLead`). It cannot be taken anywhere, so a press on
+ * it has no other meaning, and following is what it does — tldraw's locked
+ * control with no handler. Undefined for any other item, which a press
+ * selects and moves, and which is followed through its link mark.
+ */
+export function controlLead(item: CanvasNode): CanvasItemLink | undefined {
+  return item.locked === true ? itemLead(item) : undefined;
+}
+
 /** What a link card says of its page: a title, and the host it is on. */
 export interface CanvasLinkCard {
   readonly title: string;

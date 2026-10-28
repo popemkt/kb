@@ -33,6 +33,7 @@ import {
 import { isLinkNode, itemLead, linkCard, type CanvasItemLink } from "./links.ts";
 import { headOf, routeBends } from "./edges.ts";
 import { lintCanvas, type CanvasLint } from "./lint.ts";
+import { boardPages, type BoardPage } from "./pages.ts";
 import type { CanvasWorld } from "./world.ts";
 import { ancestorsOf, canvasMembership } from "./membership.ts";
 import { directionFrom, itemBounds, type CanvasDirection } from "./relations.ts";
@@ -172,6 +173,12 @@ export interface CanvasDescription {
   readonly relations: readonly DescribedRelation[];
   readonly peripheral: readonly DescribedCluster[];
   readonly lints: readonly CanvasLint[];
+  /**
+   * The page graph of the board the canvas is a page of (`boardPages`):
+   * each page, the ways its items lead to other pages, and the pages that
+   * lead to it — what a drill-down's badges and back badges are checked by.
+   */
+  readonly pages: readonly BoardPage[];
   readonly camera?: CanvasCamera;
 }
 
@@ -352,6 +359,7 @@ export function describeCanvas(doc: CanvasDoc, options: DescribeOptions): Canvas
     relations: [...placed.filter(touches), ...near],
     peripheral,
     lints: lintCanvas(options.canvasId, doc, options.world),
+    pages: boardPages(options.world, options.canvasId),
     ...cameraOf(options.world.cameraOf(options.canvasId)),
   };
 }
