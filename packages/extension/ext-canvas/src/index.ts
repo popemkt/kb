@@ -16,6 +16,7 @@ import { canvasCameraMigrate } from "./camera-migrate.ts";
 import { canvasDiagram } from "./diagram.ts";
 import { canvasExport } from "./export.ts";
 import { IMPORT_VERB } from "./import.ts";
+import { RUN_VERB } from "./run.ts";
 import { LintDiffSchema } from "./lints.ts";
 import { CANVAS_VERBS } from "./verbs.ts";
 import {
@@ -121,6 +122,7 @@ const actions: ExtensionAction[] = [
   ...CANVAS_VERBS,
   canvasExport,
   IMPORT_VERB,
+  RUN_VERB,
   canvasDiagram,
   canvasCameraMigrate,
 ];
