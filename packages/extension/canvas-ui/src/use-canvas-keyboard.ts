@@ -59,6 +59,8 @@ import { intentApplies } from "./use-canvas-menu";
  */
 interface CanvasKeyboardContext {
   cancelPointer: () => void;
+  /** The canvas page in full screen, or out of it (`toggleFullscreen`). */
+  fullscreen: () => void;
   /** The pointer reducer, which owns a modal transform as it owns any other transform drag. */
   dispatchPointer: (event: CanvasPointerEvent) => void;
   /** Where the pointer last was over the canvas, as a viewport point: where a modal transform begins. */
@@ -353,6 +355,7 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
   look: (context, intent) => context.viewport.look(intent.preset),
   toggleLens: (context) => context.viewport.toggleLens(),
   projection: (context, intent) => context.chooseProjection(intent.kind),
+  fullscreen: (context) => context.fullscreen(),
   viewMenu: (context) => context.openViewMenu(),
   shortcuts: (context) => context.openShortcuts(),
   transform: (context, intent) => applyTransformAct(context, intent.act),

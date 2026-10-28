@@ -26,6 +26,7 @@ import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from 
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
+import { fullscreenAvailable, inFullscreen } from "./canvas-fullscreen";
 import { MenuHint, MenuSeparator } from "./canvas-menu";
 import { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./use-canvas-menu";
 import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
@@ -183,6 +184,7 @@ function checkedOf(
   if (intent.type === "look") return (in3d ? presetOf(view) : "top") === intent.preset;
   if (intent.type === "toggleLens") return lensOf(view) === "orthographic";
   if (intent.type === "projection") return projection === intent.kind;
+  if (intent.type === "fullscreen") return inFullscreen();
   return null;
 }
 
@@ -225,11 +227,12 @@ function ViewMenu({
         const checked = checkedOf(command, view, in3d, projection);
         const disabled =
           (intent.type === "frame" && intent.scope === "selection" && selectionEmpty) ||
-          (intent.type === "present" && frames.length === 0);
+          (intent.type === "present" && frames.length === 0) ||
+          (intent.type === "fullscreen" && !fullscreenAvailable());
         const role =
           checked === null
             ? "menuitem"
-            : intent.type === "toggleLens"
+            : intent.type === "toggleLens" || intent.type === "fullscreen"
               ? "menuitemcheckbox"
               : "menuitemradio";
         return (

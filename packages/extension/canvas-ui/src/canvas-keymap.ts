@@ -52,6 +52,8 @@ export type CanvasIntent =
   | { type: "look"; preset: CanvasViewPresetName }
   | { type: "toggleLens" }
   | { type: "projection"; kind: CanvasProjectionKind }
+  /** The canvas page in full screen, landscape where the platform lets it (`toggleFullscreen`); or out again. */
+  | { type: "fullscreen" }
   | { type: "viewMenu" }
   /** The sheet that lists every shortcut. */
   | { type: "shortcuts" }
@@ -96,7 +98,7 @@ export type TransformAct =
 /** What the camera can be asked to do: the view commands. */
 type CanvasViewIntent = Extract<
   CanvasIntent,
-  { type: "frame" | "look" | "toggleLens" | "projection" | "present" }
+  { type: "frame" | "look" | "toggleLens" | "projection" | "present" | "fullscreen" }
 >;
 
 /**
@@ -271,7 +273,8 @@ const look = (preset: CanvasViewPresetName, chords: readonly CanvasChord[]) =>
 /**
  * The view commands, in the view menu's order: Blender's numpad views (⌃ for
  * the opposite side; there is no view from under the floor), the lens, the
- * projections, and framing (⇧1 and ⇧2 are tldraw's, numpad `.` Blender's).
+ * projections, framing (⇧1 and ⇧2 are tldraw's, numpad `.` Blender's),
+ * presenting, and full screen.
  */
 export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
   look("top", [{ code: "Numpad7" }]),
@@ -299,6 +302,7 @@ export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
     { needsSelection: "swallow", menus: { selection: [5, 0], zoom: [1, 1] } },
   ),
   view("Present frames", { type: "present", act: "start" }, []),
+  view("Full screen", { type: "fullscreen" }, []),
 ];
 
 /** A tool's shortcut: a key, or a chord where the key alone would claim another. G is not one: it grabs (plan decision 9). */

@@ -63,6 +63,7 @@ import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 import { useCanvasTouch } from "./use-canvas-touch";
+import { toggleFullscreen } from "./canvas-fullscreen";
 import { useCanvasScreen } from "./use-canvas-screen";
 import { CanvasScriptLayout } from "./canvas-script-layout";
 import { useCanvasCapture } from "./canvas-capture";
@@ -265,6 +266,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
 
   const stageRef = useRef<HTMLDivElement>(null);
   /** The page, which Full screen puts in full screen: its header and pages with the stage. */
+  const pageRef = useRef<HTMLDivElement>(null);
   const projection = useCanvasProjection({
     camera,
     pan,
@@ -518,6 +520,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     edit: openEditor,
     follow,
     turnPage,
+    fullscreen: () => void toggleFullscreen(pageRef.current),
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -551,7 +554,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     height: stageSize.height,
   };
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={pageRef} className="flex h-full min-h-0 flex-col bg-background">
       <CanvasHeader
         compact={compact}
         canvasNode={canvasNode}

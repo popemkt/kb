@@ -350,4 +350,15 @@ test.describe("the compact stage's chrome", () => {
     await bar.getByRole("button", { name: "Delete" }).tap();
     await expect(cardOf(page, "idea")).toHaveCount(0);
   });
+
+  test("the view menu offers full screen where the browser has it", async ({ page, request }) => {
+    await openCanvas(page, request);
+    await page.getByTestId("canvas-view-widget").getByRole("button").tap();
+    const row = page.getByTestId("canvas-view-menu").getByRole("menuitemcheckbox", {
+      name: "Full screen",
+    });
+    await expect(row).toBeVisible();
+    await row.tap();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
+  });
 });

@@ -1395,7 +1395,13 @@ manipulation feel professional rather than merely functional.
   mode's bar and a modal transform's readout stand above the tools
   (`bottomBarClass`), the selection toolbar's commands as marks named for a
   screen reader; and the header holds the board's pages in the node's
-  place, the way back as a mark, Add node left to the kb node tool.
+  place, the way back as a mark, Add node left to the kb node tool. The
+  view menu's **Full screen** (a view command with no key,
+  `canvas-fullscreen.ts`) puts the canvas page in full screen and then asks
+  for landscape (`screen.orientation.lock`), which only full screen allows
+  and only some platforms grant (Android's Chrome; not iOS, not a desktop):
+  a refusal leaves the canvas upright, which it works in. Where the browser
+  has no full screen (an iPhone's) the row is disabled.
 - **The tool strip** is drawn from one table (`STRIP`,
   `canvas-tool-looks.tsx`): every tool that stands alone and every family,
   in order, each marked `more` when a compact stage keeps it behind More.

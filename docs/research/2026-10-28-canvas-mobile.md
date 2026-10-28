@@ -100,8 +100,8 @@ allows it.
 4. **Fullscreen, and landscape where allowed.** The view menu gets a "Full screen" row (a
    command in the shortcut table, with no key). It puts the canvas page in fullscreen and
    then asks for landscape (`screen.orientation.lock`). A refusal is ignored, so the canvas
-   stays usable upright. The row appears only where `document.fullscreenEnabled`, so it is
-   absent on iPhone.
+   stays usable upright. The row is disabled where `document.fullscreenEnabled` is false, as on
+   an iPhone.
 5. **Out of scope, recorded as gaps:**
    - Coarse-pointer hit areas for the resize and rotate handles and the ports. Their size is
      one statement (`canvas-chrome.ts`) that the scripts' press mask also reads, so enlarging
