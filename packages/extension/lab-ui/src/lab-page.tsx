@@ -11,14 +11,12 @@ import {
   cn,
   navigate,
   readTiming,
+  SettingsTrigger,
   SidebarToggle,
-  ThemeIcon,
   useAppearance,
-  usePrefsOpen,
   useReducedMotion,
   useContributions,
   useSidebarToggle,
-  useTheme,
   WorkspaceState,
 } from "@kb/ui-sdk";
 import { initialValues, type LabControlValue, type LabHover, type LabStudy } from "./kit/contract";
@@ -56,8 +54,6 @@ function StudySwitch({ scene }: { scene: LabSceneId }) {
 
 function LabHeader({ scene, backend }: { scene: LabSceneId; backend: SceneBackend | null }) {
   const sidebar = useSidebarToggle();
-  const theme = useTheme();
-  const [prefsOpen, setPrefsOpen] = usePrefsOpen();
   return (
     <header className="relative z-10 flex h-11 shrink-0 items-center gap-3 px-4">
       <SidebarToggle {...sidebar} />
@@ -65,16 +61,7 @@ function LabHeader({ scene, backend }: { scene: LabSceneId; backend: SceneBacken
       <StudySwitch scene={scene} />
       {backend === null ? null : <span className="text-label text-foreground/35">{backend}</span>}
       <div className="flex-1" />
-      <button
-        type="button"
-        className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
-        aria-label="Preferences"
-        title="Preferences"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => setPrefsOpen(!prefsOpen)}
-      >
-        <ThemeIcon theme={theme} size={15} />
-      </button>
+      <SettingsTrigger />
     </header>
   );
 }
@@ -106,7 +93,7 @@ function OfferedStudy({ scene, onBackend }: StudyProps) {
     return (
       <WorkspaceState
         title={`${LAB_STUDIES[scene].label} draws the graph`}
-        description="It waits while the graph is off: switch the graph on in Preferences."
+        description="It waits while the graph is off: switch the graph on in Extensions."
       />
     );
   const { study } = offered.value;

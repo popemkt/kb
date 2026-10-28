@@ -47,6 +47,8 @@ export {
   systemWriteRefusal,
   type NodeWrite,
 } from "./system-write.ts";
+export { settingsOf } from "./settings.ts";
+export type { Setting, SettingOption } from "./settings.ts";
 export { parseSecretRef, secretRefLabel } from "./secret-ref.ts";
 export type { SecretRef } from "./secret-ref.ts";
 export type { NodeOf } from "./system-write.ts";
@@ -62,7 +64,6 @@ export {
 } from "./local-date.ts";
 export type { LocalDate } from "./local-date.ts";
 export {
-  LEGACY_SEED_RENAMES,
   SYSTEM_IDS,
   clockSampler,
   currentIso,
@@ -199,6 +200,8 @@ export {
   systemSeedNodes,
 } from "./seed.ts";
 export { foldSeed, type FoldedSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
+export type { SeedRetirement } from "./seed-retirement.ts";
+export { themeBackdrop, themeSystem } from "./theme.ts";
 export {
   DESIGN_SYSTEM_OPTIONS,
   designSystemChoice,
@@ -209,6 +212,7 @@ export {
   declaredChoice,
   declaredIdOf,
   declaredOptionId,
+  retiredOption,
   type DeclaredOptions,
   type DeclaredRef,
   type DeclaredOptionSet,

@@ -25,8 +25,9 @@ Every theme has the same two parts.
 **B. kb translation.** A table with one row per concept:
 - **Concept**: the UI idea.
 - **From**: the cue in part A it comes from.
-- **Lives in**: file · token, component or class. Paths are under `packages/`; `themes-ui/` is
-  `packages/extension/themes-ui/src/`, and `app/ui/` is `packages/app/ui/src/`.
+- **Lives in**: file · token, component or class. Paths are under `packages/`; a theme's
+  `<family>-ui/` is `packages/extension/<family>-ui/src/`, the browser half of the family that brings it
+  (`zzz-ui/`, `transistor-ui/`, `yorha-ui/`), and `app/ui/` is `packages/app/ui/src/`.
 - **Status**: `shipped`, `planned` (designed here, not built), or `gap` (needs something kb does not
   offer yet; a `#gap` node in `.kb/nodes.jsonl` says what).
 
@@ -63,13 +64,13 @@ committed. The faces are free ones under the SIL Open Font License, installed fr
 - **Anchors**: near-black `#0e0e10`, lime `#c8f031`, pressed-yellow `#f7da00`, event orange `#ff8a1f`,
   reveal cyan `#3fd4ff`.
 
-**B. kb translation.** Design system `themes.zzz` (label *ZZZ*). It brings two page-head backdrops,
-`themes.broadcast` (its pairing) and `themes.hollow`; both are declared in `themes/src/extension.ts` as
+**B. kb translation.** Design system `zzz.theme` (label *ZZZ*). It brings two page-head backdrops,
+`zzz.broadcast` (its pairing) and `zzz.hollow`; both are declared in `zzz/src/extension.ts` as
 belonging to it, and it as choosing Broadcast (`SeedOption.chooses`).
 
 | Concept | From | Lives in | Status |
 |---|---|---|---|
-| Near-black street: lime for selected, yellow for pressed, orange and red for events, cyan for a reveal | Art | `themes-ui/design-systems/zzz.css` · dark block `--background` `--primary` `--warning` `--destructive` `--info` `--chart-1..5` | shipped |
+| Near-black street: lime for selected, yellow for pressed, orange and red for events, cyan for a reveal | Art | `zzz-ui/zzz.css` · dark block `--background` `--primary` `--warning` `--destructive` `--info` `--chart-1..5` | shipped |
 | The same voice on newsprint (light) | Art | `zzz.css` · base block: off-white ground, black ink, a darker lime that reads on it, black sticker shadows | shipped |
 | Stickers: hard offset shadows and thick outlines | Art | `zzz.css` · `--elevation-*` (no blur), `--border-width: 2px`; in dark, what floats highest throws a yellow or lime slab, since black vanishes on black | shipped |
 | Selected words under a lime highlighter, by day and by night | Art (lime for selected) | `zzz.css` · `--selection`; `app/ui/index.css` · `::selection` | shipped |
@@ -80,16 +81,16 @@ belonging to it, and it as choosing Broadcast (`SeedOption.chooses`).
 | Fast attack, multi-bounce settle | Motion | `zzz.css` · `--motion-spring` (a `linear()` jelly spring: dotfiles research 2026-10-24, wobbly × lively), `--motion-duration-quick: 140ms` | shipped |
 | Tile pop with a flash (a popover, the palette, a toast arriving) | UI | `app/ui/motion.css` · `kb-enter-sticker` (scale, a small twist, a brightness flash); `zzz.css` · `--motion-enter` | shipped |
 | Exits are cuts: a page arrives as a hard cut with a flash | Motion | `motion.css` · `kb-reveal-cut`; `zzz.css` · `--motion-reveal`, `--motion-duration-reveal: 180ms` | shipped |
-| Slanted, dotted wipe panel on a page change, a "changing channel" strip leading it | UI | `themes-ui/art/zzz-art.tsx` · `StreetVeil` (pane plane); `art/art.css` · `.kb-zzz-wipe` `.kb-zzz-wipe-strip` | shipped |
+| Slanted, dotted wipe panel on a page change, a "changing channel" strip leading it | UI | `zzz-ui/art/zzz-art.tsx` · `StreetVeil` (pane plane); `art/art.css` · `.kb-zzz-wipe` `.kb-zzz-wipe-strip` | shipped |
 | A comic page under everything: halftone fields bleeding in from two corners, panel gutters | World (interactive comic) | `zzz-art.tsx` · `StreetGround` (ground plane); `.kb-zzz-dots` `.kb-zzz-gutters` | shipped |
 | A slanted hazard band with a crawling marquee (kb's own words) | Sound → motion (idle loops belong to marquees) | `zzz-art.tsx` · `MARQUEE`; `.kb-zzz-band` `.kb-zzz-marquee`, period ≥ `--motion-ambient-period` | shipped |
 | The snap lands on the click: a structural write slaps a sound-effect sticker | Sound → motion | `zzz-art.tsx` · `SFX`, `.kb-zzz-sfx`; `art/beat.ts` · `useStructuralWrites` (typing is not a write here), `useBeat` (a burst is one sticker) | shipped |
-| CRT broadcast in the page head: slabs, a TV with colour bars, ON AIR tab, a REC lamp that blinks while editing, a static burst on a write | World (CRT and VHS) | `themes-ui/art/broadcast-backdrop.tsx` (`themes.broadcast`, the pairing) | shipped |
-| A Hollow in the page head: a comic panel torn open on a turning ether, the head colour at its eye, halftone, a ZONE 06 sticker, caution tape, sparks, a wall of screens whose lit tile steps on each write | World (the Hollows, interactive comic) | `themes-ui/art/hollow-backdrop.tsx` (`themes.hollow`); `art/backdrops-extra.css` · `.kb-hollow-*` | shipped |
+| CRT broadcast in the page head: slabs, a TV with colour bars, ON AIR tab, a REC lamp that blinks while editing, a static burst on a write | World (CRT and VHS) | `zzz-ui/art/broadcast-backdrop.tsx` (`zzz.broadcast`, the pairing) | shipped |
+| A Hollow in the page head: a comic panel torn open on a turning ether, the head colour at its eye, halftone, a ZONE 06 sticker, caution tape, sparks, a wall of screens whose lit tile steps on each write | World (the Hollows, interactive comic) | `zzz-ui/art/hollow-backdrop.tsx` (`zzz.hollow`); `art/art.css` · `.kb-hollow-*` | shipped |
 | A channel number before the palette's input; a saturated scrim | UI (channel strips) | `zzz.css` · `--palette-mark: "CH 06 ▸"`, `--scrim-filter` | shipped |
 | A lime-striped, dotted scrim under a modal | Art | `zzz.css` · `--art-scrim`; `.kb-scrim` on the command palette and the canvas node picker | shipped |
 | Tab pills that cut to the new tab, then swell once | UI | the pane switcher and segmented controls (`app/ui/components/layout/pane-switcher.tsx`): a selected-indicator gesture keyed on `--motion-spring` | planned |
-| Squash on press, jelly on release; a lift under the pointer | Motion (the wobble is squash and overlap) | the motion preset (DESIGN-UI.md → Motion options) · `themes/extension.ts` `ZZZ_DESIGN_SYSTEM`: wobbly, lively, snappy, `press` and `hoverLift` on; `app/ui/motion-fx.css` | shipped |
+| Squash on press, jelly on release; a lift under the pointer | Motion (the wobble is squash and overlap) | the motion preset (DESIGN-UI.md → Motion options) · `zzz/src/extension.ts` `ZZZ_DESIGN_SYSTEM`: wobbly, lively, snappy, `press` and `hoverLift` on; `app/ui/motion-fx.css` | shipped |
 | Result tiles that pop in one per frame | UI | the preset's `listEnter`: each node block rises in on the spring, a `--motion-stagger` apart (`sibling-index()`); `motion-fx.css` | shipped |
 | A switch that pops when it flips | UI | the preset's `toggles`; `motion-fx.css` `kb-toggle-pop` | shipped |
 | Canvas cards as a wall of TVs (bezels; static between channels while a card loads) | World (CRT) | `canvas-ui` card face (`canvas-card-layer.tsx`) reading a per-system card frame token | planned |
@@ -137,14 +138,14 @@ The planned rows are tracked as todo `01M5S0J2YYS7KMTJEZ78AKNQMD`.
   - Red's orange-red `#e8503a`, Cloudbank magenta `#d94f8a`;
   - Process white `#f2efe6`.
 
-**B. kb translation.** Design system `themes.transistor` (label *Transistor*). It brings two page-head
-backdrops, `themes.cloudbank` (its pairing) and `themes.ovc`. The first-glance cues match bb-lively's
+**B. kb translation.** Design system `transistor.theme` (label *Transistor*). It brings two page-head
+backdrops, `transistor.cloudbank` (its pairing) and `transistor.ovc`. The first-glance cues match bb-lively's
 Cloudbank preset: the Turn() bar, the Process wash named `Jaunt()`, functions in amber terminal capitals,
 the sword's teal light on the seams.
 
 | Concept | From | Lives in | Status |
 |---|---|---|---|
-| Night palette: turquoise sword-light as the accent, magenta and Red's orange-red for events, gold for highlights | Art | `themes-ui/design-systems/transistor.css` · dark block `--primary` `--chart-1..5` `--destructive` `--warning` | shipped |
+| Night palette: turquoise sword-light as the accent, magenta and Red's orange-red for events, gold for highlights | Art | `transistor-ui/transistor.css` · dark block `--primary` `--chart-1..5` `--destructive` `--warning` | shipped |
 | The night is teal-blue, not violet | Art (muted night palette) | `transistor.css` · `--background` `--card` `--sidebar`: a teal night keeps cyan and ivory at AA on every ground; the violet-magenta dusk lives in the art (the ground's wash, the head's sky) | shipped |
 | Cloudbank by day (light) | Art | `transistor.css` · base block: warm ivory, deep teal ink, a teal accent | shipped |
 | Art Nouveau lettering for titles: thin flared small capitals | Art | `transistor.css` · `--app-font-display` Marcellus SC, `--display-tracking: 0.04em`; `.kb-display` | shipped |
@@ -155,7 +156,7 @@ the sword's teal light on the seams.
 | Ornamental frames | Art (Art Nouveau composition) | `transistor.css` · `--corner-shape: scoop` | shipped |
 | The sword's light instead of a cast shadow | Art (turquoise sword-light) | `transistor.css` · `--elevation-*`: a cyan hairline and glow | shipped |
 | Painterly wash and a gilt hairline over the chrome | Art (gold linework) | `transistor.css` · `--art-chrome`; `.kb-chrome` | shipped |
-| Cloudbank's skyline under the page: far and near towers, domes, onion bulbs, spires, ringed towers, arched bridges, lit windows | Art (arched and domed towers) | `themes-ui/art/skyline.ts` (seeded, deterministic, every crown inside the drawing), `art/skyline-svg.tsx`; `art/transistor-art.tsx` · `CloudbankGround`; `.kb-cloudbank-city` | shipped |
+| Cloudbank's skyline under the page: far and near towers, domes, onion bulbs, spires, ringed towers, arched bridges, lit windows | Art (arched and domed towers) | `transistor-ui/art/skyline.ts` (seeded, deterministic, every crown inside the drawing), `art/skyline-svg.tsx`; `art/transistor-art.tsx` · `CloudbankGround`; `.kb-cloudbank-city` | shipped |
 | Light rails gliding through the city | World (Cloudbank) | `transistor-art.tsx` · `RAILS`; `.kb-cloudbank-rail` (transform only, periods ≥ 16s) | shipped |
 | A function executing: one bright trail across the city on a structural write | Motion (sharp, instant execution) | `transistor-art.tsx` · `useStructuralWrites`, `useBeat`; `.kb-cloudbank-trail` | shipped |
 | **Turn() is the command palette**: opening it freezes the world (the page behind turns colourless under a cyan grid), and the palette is named `Turn()` with its eight-segment bar filling one by one | UI (Turn()), Sound (EQ muffle) | `transistor.css` · `--palette-mark: "Turn()"`, `--palette-bar` (eight cyan segments), `--palette-bar-width`, `--scrim-filter` (`saturate(0.15)`), `--art-scrim` (16px cyan grid); `app/ui/tokens.css` `.kb-palette-mark`, `.kb-scrim`; `motion.css` `kb-palette-bar` (`steps(8)`) | shipped |
@@ -164,8 +165,8 @@ the sword's teal light on the seams.
 | The muffled score as a freeze cue: a surface arrives grey and the colour runs back in | Sound → motion (EQ muffle) | `app/ui/motion.css` · `kb-enter-turn`, `kb-reveal-turn`; `transistor.css` · `--motion-enter` `--motion-reveal` | shipped |
 | Plan slowly, then act at once | Motion | `transistor.css` · `--motion-settle` with no overshoot, long `--motion-duration-*` | shipped |
 | The sword hums while working; a function lights as it is chosen | Sound (Red's hum), UI | the motion preset · `TRANSISTOR_DESIGN_SYSTEM`: clean, lively, relaxed, `workingGlow`, `focusRing` and `listEnter` on; `motion-fx.css` | shipped |
-| A painted dusk in the page head: a sun with its rings, the skyline, a rail; the windows brighten while the owner edits | Art, Sound (Red's held hum) | `themes-ui/art/cloudbank-backdrop.tsx` (`themes.cloudbank`, the pairing, `data-editing`) | shipped |
-| An OVC voting terminal in the page head: a gold Deco frame with notched corners and a sunburst crown, amber terminal lines in kb's words, a ten-segment tally in the head colour that counts writes, a blinking cursor, amber city lights on a violet night | UI (menus as a terminal in an Art Nouveau frame), World (citizens vote) | `themes-ui/art/ovc-backdrop.tsx` (`themes.ovc`); `art/backdrops-extra.css` · `.kb-ovc-*` | shipped |
+| A painted dusk in the page head: a sun with its rings, the skyline, a rail; the windows brighten while the owner edits | Art, Sound (Red's held hum) | `transistor-ui/art/cloudbank-backdrop.tsx` (`transistor.cloudbank`, the pairing, `data-editing`) | shipped |
+| An OVC voting terminal in the page head: a gold Deco frame with notched corners and a sunburst crown, amber terminal lines in kb's words, a ten-segment tally in the head colour that counts writes, a blinking cursor, amber city lights on a violet night | UI (menus as a terminal in an Art Nouveau frame), World (citizens vote) | `transistor-ui/art/ovc-backdrop.tsx` (`transistor.ovc`); `art/art.css` · `.kb-ovc-*` | shipped |
 | **Turn() as a plan mode**: queue structural edits (moves, retags, deletes) without applying them, see them drawn as a plan over the outline, then execute them as one transaction | UI (Turn(): the bar drains as actions queue; release runs them at once) | a staged-transaction preview: the outline drawing a pending transaction, and a palette command to start and release a turn. Gap `01M5S0J203QE0ZMB7MGN7GJXD8` | gap |
 | **Functions as cards** in the command palette: `name()`, a MEM cost, slots | UI (functions) | the palette's command rows drawn as function cards by the shown system; needs a command presentation slot on the palette. Gap `01M5S0J1FVEGHTYJVY4HRS857S` | gap |
 | **Limiters**: optional handicaps the owner opts into (a focus limiter hides everything but the zoomed subtree) | UI (Limiters at Access Points) | a perspective setting on a page, chosen like a backdrop | planned |
@@ -199,12 +200,12 @@ request for "a nice, warm beige".
 - **Sound → motion**: Pod chatter and menu blips are short and digital.
 - **Anchors**: beige `#cfc8ae`–`#dad4bb`, khaki ink `#4e4b42` ~, rust `#8e3b26` ~.
 
-**B. kb translation.** Design system `themes.yorha` (label *YoRHa*), light-first. It brings the page-head
-backdrops `themes.bunker`, its pairing, and `themes.arena`.
+**B. kb translation.** Design system `yorha.theme` (label *YoRHa*), light-first. It brings the page-head
+backdrops `yorha.bunker`, its pairing, and `yorha.arena`.
 
 | Concept | From | Lives in | Status |
 |---|---|---|---|
-| Warm beige paper, khaki ink, rust for destruction; a khaki night. Ink, muted ink and hairlines held to AA on the paper (text 4.5:1, borders 3:1), the canvas axes in the theme's own inks | Art | `themes-ui/design-systems/yorha.css` · base block `--background` `--foreground` `--muted-foreground` `--primary` `--destructive` `--border` `--input` `--sidebar-border` `--axis-*`; dark block | shipped |
+| Warm beige paper, khaki ink, rust for destruction; a khaki night. Ink, muted ink and hairlines held to AA on the paper (text 4.5:1, borders 3:1), the canvas axes in the theme's own inks | Art | `yorha-ui/yorha.css` · base block `--background` `--foreground` `--muted-foreground` `--primary` `--destructive` `--border` `--input` `--sidebar-border` `--axis-*`; dark block | shipped |
 | Square corners | UI | `yorha.css` · `--radius: 0`, `--corner-shape: square` | shipped |
 | Flat ink offset blocks instead of shadows | Art | `yorha.css` · `--elevation-*`: a 1px ink ring and a short hard offset, no blur | shipped |
 | Condensed, letter-spaced capitals for titles and labels, every label in one solid muted ink | UI | `yorha.css` · `--app-font` Barlow, `--app-font-display` and `--app-font-label` Barlow Condensed, `--display-case: uppercase`, `--label-tracking: 0.16em`, `--label-ink`; `.kb-display`, `.kb-label` | shipped |
@@ -213,12 +214,12 @@ backdrops `themes.bunker`, its pairing, and `themes.arena`.
 | Precise and mechanical, soft rather than bouncy ("a little moist") | Motion | `yorha.css` · `--motion-settle` (a soft cubic-bezier, no overshoot), short durations; `--motion-enter: kb-enter-scan`, `--motion-reveal: kb-reveal-scan` (`app/ui/motion.css`) | shipped |
 | Menu blips: a press that clicks in, rows that file in | Sound → motion (menu blips), Motion | the motion preset · `YORHA_DESIGN_SYSTEM`: clean, subtle, snappy, `press`, `listEnter` and `focusRing` on; `motion-fx.css` | shipped |
 | Glitch and slice on damage: a failure arrives glitching | Motion (damage) | `yorha.css` · `--motion-alert: kb-alert-glitch`; `motion.css` `kb-alert-glitch`; `.kb-alert-enter` on error toasts (`App.tsx`) | shipped |
-| The ground: flat paper where the page is read and written (no grid behind text), edge darkening like a convex monitor, staff lines with colons, bracketed corners, one slow scan running along the bottom edge (nothing moves behind the text) | Art (edge darkening, musical scores, scan lines), UI (bracketed corners) | `themes-ui/art/yorha-art.tsx` · `YorhaGround`; `art/yorha.css` · `.kb-yorha-vignette` `-staff` `-colon` `-bracket` `-scan` | shipped |
+| The ground: flat paper where the page is read and written (no grid behind text), edge darkening like a convex monitor, staff lines with colons, bracketed corners, one slow scan running along the bottom edge (nothing moves behind the text) | Art (edge darkening, musical scores, scan lines), UI (bracketed corners) | `yorha-ui/art/yorha-art.tsx` · `YorhaGround`; `art/art.css` · `.kb-yorha-vignette` `-staff` `-colon` `-bracket` `-scan` | shipped |
 | A page change is a scan-bar wipe: ink bars stepping across, `■ ACCESSING : : NODE RECORD` | Motion (linear slides and steps, scan lines) | `yorha-art.tsx` · `YorhaVeil` (pane plane, `useGesture`); `.kb-yorha-wipe` `.kb-yorha-bar` | shipped |
 | The Pod's scan: a structural write sends two square wave fronts out from the Pod's corner across the window, a hairline with a faint wake, decelerating and fading (about 0.9 s), and the Pod reports there (`■ NODE WRITTEN`, in kb's words). Typing is not a write here | Sound → motion (Pod chatter, menu blips), Motion (scan lines) | `yorha-art.tsx` · `YorhaVeil`, `REPORTS`; `.kb-yorha-scan-pulse` `.kb-yorha-front` `.kb-yorha-report` | shipped |
-| The Bunker's HUD in the page head: brackets, an `■ ARCHIVE` label, staff and ruler, a reticle in the head colour that turns faster while editing (its playback rate, so an edit never restarts or jumps it) and pings on a write; the ground's grid shows through it | UI (bracketed corners), Art (scores) | `themes-ui/art/bunker-backdrop.tsx` (`themes.bunker`, the pairing); `art/yorha.css` · `.kb-bunker-*` | shipped |
-| The hacking arena in the page head: a white ship with its Pod trailing it, three low-poly machines loosing slow orange orbs (a pellet breaks them) and purple ones (it does not), the camera holding a view for tens of seconds, then easing between top-down, side-scrolling and a tilted 3D view; the pointer draws the orbs in, a write nudges the Pod into a spiral (merged, at most one per 0.16 s, decaying, never a restart); low contrast, a still frame under reduced motion | Art (hacking mini-game, bullet hell, shifting perspective) | `themes-ui/art/arena-backdrop.tsx` (`themes.arena`), `arena-scene.ts` (the scene kit, lazy), `arena-sim.ts` (the pure sim); its own mount is gap `01M5SYY397F5NPN3CHWGCSPQSY` until it moves onto the shared GPU backdrop host | shipped |
+| The Bunker's HUD in the page head: brackets, an `■ ARCHIVE` label, staff and ruler, a reticle in the head colour that turns faster while editing (its playback rate, so an edit never restarts or jumps it) and pings on a write; the ground's grid shows through it | UI (bracketed corners), Art (scores) | `yorha-ui/art/bunker-backdrop.tsx` (`yorha.bunker`, the pairing); `art/art.css` · `.kb-bunker-*` | shipped |
+| The hacking arena in the page head: a white ship with its Pod trailing it, three low-poly machines loosing slow orange orbs (a pellet breaks them) and purple ones (it does not), the camera holding a view for tens of seconds, then easing between top-down, side-scrolling and a tilted 3D view; the pointer draws the orbs in, a write nudges the Pod into a spiral (merged, at most one per 0.16 s, decaying, never a restart); low contrast, a still frame under reduced motion | Art (hacking mini-game, bullet hell, shifting perspective) | `yorha-ui/art/arena-backdrop.tsx` (`yorha.arena`), `arena-scene.ts` (the scene kit, lazy), `arena-sim.ts` (the pure sim); its own mount is gap `01M5SYY397F5NPN3CHWGCSPQSY` until it moves onto the shared GPU backdrop host | shipped |
 | Inverted selection (dark bar, beige text) with a small square marker | UI | the selected sidebar and picker row take no token: gap `01M5SNSR9AC5V1NA31QY8DNEX6` | gap |
-| Selected text inverted the same way | UI (inverted selection) | `art/yorha.css` · `::selection` under `[data-theme="themes.yorha"]` (no layer-1 token says a selection yet) | shipped |
+| Selected text inverted the same way | UI (inverted selection) | `art/art.css` · `::selection` under `[data-theme="yorha.theme"]` (no layer-1 token says a selection yet) | shipped |
 | A self-destruct that breaks the UI itself | UI (self-destruct) | a gesture on deleting a page: its rows slice apart and fall in steps | planned |
 | The game's own art, logo or font | — | never committed (public repo); only through the user art slot | — |

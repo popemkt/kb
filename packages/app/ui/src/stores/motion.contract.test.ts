@@ -45,7 +45,7 @@ const ref = (value: string) => [{ t: "ref" as const, v: value }];
 
 describe("motionPaint", () => {
   it("following the theme changes none of its sheet's timing", () => {
-    const { properties, attributes } = motionPaint(motionChoice({}, presetOf("themes.zzz")), base);
+    const { properties, attributes } = motionPaint(motionChoice({}, presetOf("zzz.theme")), base);
     expect(Object.keys(properties).toSorted()).toEqual(["--motion-lift", "--motion-press"]);
     expect(attributes["data-fx"].split(" ")).toContain("press");
   });
@@ -55,7 +55,7 @@ describe("motionPaint", () => {
       [MOTION_FIELD_IDS.speed]: ref(motionOptionId("speed", "relaxed")),
       [MOTION_FIELD_IDS.style]: ref(motionOptionId("style", "clean")),
     };
-    const { properties } = motionPaint(motionChoice(core, presetOf("themes.zzz")), base);
+    const { properties } = motionPaint(motionChoice(core, presetOf("zzz.theme")), base);
     // ZZZ is snappy (0.8): relaxed (1.25) is 1.5625 times its timing.
     expect(properties["--motion-duration-quick"]).toBe("219ms");
     expect(properties["--motion-duration-reveal"]).toBe("313ms");
@@ -71,7 +71,7 @@ describe("motionPaint", () => {
 
   it("off turns every effect off and says so", () => {
     const core = { [MOTION_FIELD_IDS.mode]: ref(motionOptionId("mode", "off")) };
-    const { attributes } = motionPaint(motionChoice(core, presetOf("themes.zzz")), base);
+    const { attributes } = motionPaint(motionChoice(core, presetOf("zzz.theme")), base);
     expect(attributes).toEqual({ "data-motion": "off", "data-fx": "" });
   });
 });
@@ -98,7 +98,7 @@ describe("every whole theme moves by a preset of its own", () => {
 
   it("the painter paints it on <html>, and core's setting over it", () => {
     useGraphStore.getState().hydrateFromWire(SEED, 1, "fixtures");
-    useDesignSystemStore.setState({ painted: "themes.zzz" });
+    useDesignSystemStore.setState({ painted: "zzz.theme" });
     const stop = startMotion();
     const root = document.documentElement;
     expect(root.getAttribute("data-motion")).toBe("system");

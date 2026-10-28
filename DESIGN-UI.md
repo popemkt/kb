@@ -782,14 +782,36 @@ which holds one value by its type (`cardinalityOf`) — offers no add.
 **Option previews.** An option of a declared kind (DESIGN.md → Extension
 families → Declared options) may be drawn with a live sample of what it
 names: `OptionPreviewPoint` (`ui.option-previews`, `@kb/ui-sdk`) holds one
-preview per kind (`{kind, Preview}`), and the field editor, for a field it
-draws, asks the point by the field (`useOptionPreview`), hands `Preview`
-the option's declared id, and draws what it returns before the option's
-chip at rest and before its row in the picker (`PickerList`'s `leadOf`, the
-one lead slot a row has, a glyph's included). The editor names no kind:
-core's design-system plugin previews a design system with its swatch, and
-a backdrop or a graph theme would fill the same slot. A preview draws
-nothing for a thing nobody contributes now.
+preview per kind (`{kind, sizes, Preview}`), and the field editor, for a
+field it draws, asks the point by the field and a size
+(`useOptionPreview(field, size)`), hands `Preview` the option's declared id
+and the size, and draws what it returns. Every preview draws `chip`, the
+small sample before the option's chip at rest and before its row in the
+picker (`PickerList`'s `leadOf`, the one lead slot a row has, a glyph's
+included). A kind whose options are best chosen by sight also draws
+`card`, a sample large enough to choose by. The editor names no kind:
+core's design-system plugin previews a design system with its swatch and,
+at card size, a small page its sheet paints with what the theme brings
+under it (its extension, the backdrop it pairs, its motion preset); the
+backdrops tag theirs with their theme at chip size, and a graph theme
+would fill the same slot. A preview draws nothing for a thing nobody
+contributes now.
+
+**Option galleries.** A one-valued option field whose kind previews at
+`card` size is laid out as a gallery (`OptionGallery`, outline-ui): every
+option at once, each a card of its preview under its label, the chosen one
+checked and marked _in use_, in a radiogroup whose arrow keys move the
+choice. Choosing a card is what picking that option in the field's picker
+is (noted among the field's recent picks, then the one-valued field's
+write), so the gallery is the field's picker shown open, not a second
+picker. An option nobody contributes now is offered by its label alone,
+as the picker offers it; choosing it is a choice that paints the default. The field editor decides it from the kind, wherever the
+field is drawn (the Settings page, core's node in the outline), and no
+surface asks for it: there is no layout prop to fork on. The gallery
+loads the first time a field draws as one, so the page's first load does
+not carry it; until then the field shows its picker. A many-valued
+field, a field drawn value-only (a table cell) and a kind without a card
+keep the chips and the picker.
 
 Input a kind cannot read is never dropped: the slot keeps it, marked with the
 reason, and the next edit starts from it.
@@ -1972,7 +1994,7 @@ The rules that hold everywhere, so no surface re-invents them:
 - **Popovers dismiss one way.** Every popover, menu and picker that floats
   over the page — the canvas's comment thread, solid picker,
   view menu, shortcuts sheet and node picker; the graph's settings and
-  perspective picker; the outline's frame filter; Preferences, the
+  perspective picker; the outline's frame filter; the
   ontology picker, the add-a-ref picker and the pane switcher — dismisses
   through `@kb/ui-sdk`'s `useDismiss`, never a listener of its own. The
   open popovers are a stack, the last opened on top. Escape dismisses the
@@ -1990,8 +2012,7 @@ The rules that hold everywhere, so no surface re-invents them:
   one nothing toggles (an inspector, a sheet a key opens). The trigger is
   the popover's own, so a press on it dismisses nothing and its click
   closes an open popover exactly once, rather than the press closing it and
-  the click opening it again. A trigger lives with its popover
-  (Preferences' is `PreferencesTrigger`, which the header renders). Both are heard on the window in the capture phase, so no
+  the click opening it again. A trigger lives with its popover. Both are heard on the window in the capture phase, so no
   handler under a press or a key keeps them from it. One contract holds it over every popover:
   `@kb/ui-test-kit`'s `dismissContract`, which each package runs over the
   popovers it renders, keyed by each one's file, every mount saying its
@@ -2626,7 +2647,7 @@ There is one mechanism, not a second path beside the core plugins:
   resolver has. Until a server answers, the page reads the bundled list as
   a server over a store with no switch written, so each family is as it is
   by default and no agent is reported.
-- The Extensions panel ([Extensions panel](#extensions-panel)) has one
+- Settings' Extensions part ([Settings](#settings)) has one
   on/off switch per optional extension the server reports, showing what it
   reports. Choosing calls
   `extension.switch` and reads the manifest again; the switch shows the
@@ -2636,8 +2657,8 @@ There is one mechanism, not a second path beside the core plugins:
 - **The `enabledPlugins` preference is gone.** It used to keep the lab and
   the agent on per device, in `localStorage["kb-prefs"]`; a stale key is
   ignored on read and dropped on the next write. A browser that had the
-  lab on sees it off until it is switched on for the kb, from the
-  Extensions panel or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
+  lab on sees it off until it is switched on for the kb, from Settings'
+  Extensions or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
   The agent needs nothing: it is on by default, and switched like the rest.
 - **Until a server answers, the workspace waits.** A page served by `kb ui`
   opens its workspace only once the manifest has landed and the plugins it
@@ -2656,51 +2677,112 @@ There is one mechanism, not a second path beside the core plugins:
   views are listed by the server's entries and open as "cannot be shown
   here". An entry the server does not report is never loaded.
 
-### Extensions panel
+### Settings
 
-The Extensions panel (`/extensions`, `ExtensionsView`) is where a person
-sees and changes what the kb composes. The sidebar's Extensions row and
-⌘K's Extensions command open it.
-Preferences (the header's gear, and ⌘K's Preferences) is the page's
-appearance and nothing else: theme, width, design system and backdrop.
-Its trigger wears a neutral gear, not the theme's glyph, because the theme
-is one setting among those it opens.
+The Settings page is every choice the kb makes, the few this device makes,
+and each extension's switch. The header's gear (`SettingsTrigger`,
+`@kb/ui-sdk`; the graph's and the lab's headers render the same one), the
+sidebar's Settings row and ⌘K's *Settings* (`sys.cmd.settings`) open it in
+the focused pane; ⌘K's *Settings: Extensions* (`sys.cmd.extensions`) opens
+its Extensions part. It replaced the Preferences popover, which overflowed
+a short window and drew core's settings only, and the Extensions page,
+which drew each switch apart from the settings. The record of why is
+`docs/research/2026-10-27-settings-parts.md`.
 
-- **It draws one report.** The server's half is `extension.list`, which is
-  also what `kb ext list` prints, and `extension.footprint`
-  ([DESIGN → Plugin organisation](DESIGN.md#plugin-organisation--tags-and-derived-dependencies)).
-  The page's own kernel is joined in through the same readers
-  (`organisationOf`, `orderedPoints`, `pageFootprint`). The panel computes
-  nothing a CLI caller could not read (`lib/extension-report.ts`). When
-  either action fails, or the server cannot be asked, the panel says why in
-  place of the report and offers to ask again. It never draws a half it
-  could not read as an empty one.
-- **Per extension**, it shows:
-  - its switch when it is optional, which calls `extension.switch` and then
-    shows what the server reports; otherwise `required`;
+- **Four parts, each a path.** `SettingsView`'s one param is the part
+  (`SETTINGS_PARTS`, `@kb/views`): *General* at `/settings`, *Appearance*,
+  *Extensions* and *Advanced* at `/settings/<part>`
+  (`lib/settings-parts.ts`). A rail names the parts (a row above the page
+  in a narrow window), and the part is the path, so a part is linked to
+  and history moves between parts. The paths the page had before lead to
+  their part, `/extensions` to Extensions and `/preferences` to
+  Appearance, and the page then replaces the path with the part's own.
+  The Extensions view key is retired for Settings' in the seed's table,
+  so a view node that named it opens Settings.
+- **A part is a list of sections, each a fold.** A section's heading is a
+  button (`aria-expanded`), so Enter or Space toggles it and a screen
+  reader says whether it is open. Which sections a person opened or closed
+  is this device's (`kb-prefs`' `settingsFolds`, by section id), kept as a
+  difference from how each opens by default, so a reload keeps it.
+- **The filter** reads across every part. With text in it, the page shows
+  each part's sections whose title, or any of whose rows, match, under
+  the part's name, each open whatever was remembered: a section whose
+  title matches whole, any other with only its matching rows. Escape
+  clears it.
+- **General** holds this device's width and sidebar (`kb-prefs`, never
+  the graph, and the section says so), then any setting of core's that
+  Appearance does not group, under *Other settings*, so none is left off.
+- **Appearance** holds light, dark or system (this device's, for the
+  reasons under Design systems), then core's settings in the page's
+  arrangement of core's node: *Theme*, *Page head*, *Motion*, *Effects*.
+  Each motion setting notes the value in force and where it comes from
+  (set here, the shown theme's preset, the default), and a page-head
+  setting core's node leaves unset notes what the head shows instead; an
+  unset row says _unset here_ first, since its field shows nothing stored
+  (an unset checkbox reads as off) while a value applies. _Reset motion to
+  <theme>_ clears every motion setting of core's. Effects are labelled in
+  words (`hoverLift` is _hover lift_) and drawn as a grid. The backdrop's
+  direction is drawn whatever the backdrop, and notes when the shown
+  backdrop faces no way. The theme is a gallery because its kind previews
+  at card size ([Field values → option galleries](#field-values-one-slot-grammar));
+  the page asks for nothing.
+- **Extensions** holds one section per extension node under
+  `sys.extensions`, in that list's order, read from the whole graph (the
+  schema, never a scoped projection), then any the server reports with
+  no node. Its heading carries the extension's switch when it is
+  optional, which calls `extension.switch` and then shows what the server
+  reports (never the choice), with _off: contributes nothing_ beside it;
+  otherwise _required_. The switch is a load decision: switched off, the
+  extension's actions, views and MCP tools leave, which the part's lede
+  says. Under the heading are its settings, exactly what `settingsOf`
+  reads for its node, each drawn with the page's field editor; core's
+  section says its settings are in Appearance and General instead. Then
+  why any of its plugins failed, on the server or in the page, and a fold,
+  _What it composes_, closed by default:
   - its trust: part of kb's build, composed by `kb ui`, or trusted at a
-    digest from a repository path;
-  - its tags;
+    digest from a repository path, and its tags;
   - what it contributed to each point, server and page side by side, and
     how many nodes it seeds;
-  - what it injects and from whom, and what it provides;
-  - its settings;
-  - why a plugin of it failed, on the server or in the page. A page half
-    the page could not import counts, because `loadEntry` loads it as a
-    plugin of the family's name that fails with why. A failure is tried
-    again at the next convergence, and the same failure is the same value,
-    so a dropped chunk recovers without a reload and nothing moves while
-    it keeps failing.
+  - what it injects and from whom, and what it provides.
+- **Advanced** holds the points whose listeners are asked in turn
+  (identity providers, interceptors, guards), per kernel and in that
+  order; the repository extensions refused, where an untrusted one names
+  its digest; and how the CLI reaches the same settings.
+- **One report.** The server's half is `extension.list`, which is also
+  what `kb ext list` prints, and `extension.footprint`
+  ([DESIGN → Plugin organisation](DESIGN.md#plugin-organisation--tags-and-derived-dependencies)).
+  The page's own kernel is joined in through the same readers
+  (`organisationOf`, `orderedPoints`, `pageFootprint`), so the page
+  computes nothing a CLI caller could not read (`lib/extension-report.ts`).
+  When either action fails, or the server cannot be asked, Extensions and
+  Advanced say why and offer to ask again; an extension's settings stay,
+  read from the graph, and its switch and what it composes are not drawn,
+  never a half it could not read as an empty one. A failure is tried
+  again at the next convergence, and the same failure is the same value,
+  so a dropped chunk recovers without a reload and nothing moves while it
+  keeps failing. A page half the page could not import counts as a
+  failure, because `loadEntry` loads it as a plugin of the family's name
+  that fails with why.
 - **Settings are fields.** A family's settings are the fields whose
-  `sys.f.configures` names its node (`configures`). They are drawn with the
-  page's field editor, as Preferences draws core's. The switch is the one
-  setting the card draws as its own control, because it goes through the
-  checked `extension.switch`.
-- **Above the extensions**, the panel lists:
-  - the points whose listeners are asked in turn (identity providers,
-    interceptors, guards), per kernel and in that order;
-  - the repository extensions refused, where an untrusted one names its
-    digest.
+  `sys.f.configures` names its node, as `settingsOf` reads them (DESIGN.md
+  → Extension families → configuration). The same reader answers
+  `extension.settings`, so the page shows what `kb ext settings` lists,
+  and a setting a family adds is on the page with nothing to update. The
+  switch is the one setting drawn as its own control, because it goes
+  through the checked `extension.switch`.
+- **The contracts.** `components/prefs/settings-page.test.tsx`: over the
+  bundled seed, the rows the page draws across its parts are exactly the
+  settings `settingsOf` reads for every extension node, each once and for
+  that node (`[data-setting]` with `[data-setting-of]`), each one field
+  row; the device's rows write `kb-prefs` and nothing in the graph; the
+  motion notes, the page-head _unset here_ note, General's _Other
+  settings_, the motion reset, a fold remembered on this device, the
+  filter and the former paths each have a case.
+  `components/prefs/settings-extensions.acceptance.test.tsx` drives the
+  Extensions and Advanced parts through the real App. The design-system
+  and backdrop contracts choose through Appearance, the design system by
+  a card of its gallery.
+- The page's body loads when it is first opened, not with the shell.
 
 ### Extension UI halves
 
@@ -2717,7 +2799,7 @@ the shell.
   - `syncUiPlugins` converges the page kernel on the core plugins, plus the
     browser entry of every family `kb.manifest.extensions` reports as
     enabled that the resolver has.
-  - The Extensions panel's switch for an optional family writes the
+  - Settings' switch for an optional family writes the
     server-side setting, and the page follows the manifest. A page served without a
     family therefore never offers that family's UI.
 - **One `load` shape for every source.** A bundled family's `load` is a
@@ -3046,9 +3128,9 @@ kb ships six; the last three are whole themes (Themes, below):
 | `kb` (default)      | core              | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                           |
 | `themes.paper`      | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
 | `themes.terminal`   | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
-| `themes.zzz`        | the themes family | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
-| `themes.transistor` | the themes family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                       |
-| `themes.yorha`      | the themes family | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night       |
+| `zzz.theme`         | the ZZZ family    | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
+| `transistor.theme`  | the Transistor family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                       |
+| `yorha.theme`       | the YoRHa family  | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night       |
 
 - **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
   beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
@@ -3113,12 +3195,39 @@ kb ships six; the last three are whole themes (Themes, below):
   Core declares its default (`KB_DESIGN_SYSTEM`, `@kb/operations`). A
   contribution whose key no declaration lists has no option, so it cannot
   be chosen.
-- **kb's other systems are a family's.** The `themes` family
+- **kb's other systems are families'.** The `themes` family
   (`@kb/themes`, `@kb/themes-ui`; optional, on by default) declares and
-  contributes Paper, Terminal, ZZZ and Transistor, and the two backdrops
-  the last two pair with. Its sheets live under its `src/design-systems/`,
-  its art under `src/art/`. Switched off, the page offers the default and
-  whatever another family contributes.
+  contributes Paper and Terminal, sheets under its `src/design-systems/`.
+  A whole theme (Themes, below) is a family of its own, one per theme:
+  `zzz` (`@kb/zzz`, `@kb/zzz-ui`), `transistor` and `yorha`, each optional
+  and on by default. Each declares its system, `<family>.theme`, and the
+  page heads it brings under their local names (`zzz.broadcast`,
+  `yorha.arena`), with `themeSystem` and `themeBackdrop` (`@kb/model`), so
+  every theme's options have one shape; its browser half holds its sheet
+  (`src/<family>.css`), its faces and its art (`src/art/`), drawn with the
+  art kit `@kb/theme-art` (`useBeat`, `useGesture`, `deferred`, `band`),
+  which knows no theme. Switched off, a family takes its systems and heads
+  and nothing else; the page offers the default and whatever another
+  family contributes.
+  - **The themes were one family's once.** ZZZ, Transistor and YoRHa were
+    the themes family's, under `themes.*` ids. Each theme family retires
+    its old ids (`retires`, `retiredOption`; DESIGN.md → Extension
+    families → the seed retires what it renames), so a store whose core
+    node chose `themes.yorha` chooses `yorha.theme` on open, and a page
+    head that chose `themes.arena` chooses `yorha.arena`.
+  - **Version skew.** `.kb/nodes.jsonl` is committed and hosts pin
+    different releases. An older build re-seeds the old option nodes (the
+    seed adds what is missing) but writes no choice: core's choice names an
+    option it does not declare, so it shows the default, as any choice
+    nobody contributes does. The next newer open retires the re-seeded
+    nodes again, and a store merged with a clone that still holds them
+    converges the same way. Alternating builds on one committed store churn
+    the file (the old nodes added, then retired); that is the cost of never
+    rewriting a choice, and it ends when every host runs a build with the
+    rows. `bundled/tests/theme-families.test.ts` holds all three cases; the
+    theme-family contract (`app/ui/src/theme-family.contract.test.ts`)
+    holds every theme family, and a test one, to its rows, its pairing and
+    switching off alone.
 - **The choice is core's setting.** Which system paints the page is a
   setting of core's node (`sys.extension.core`), since the page is core's
   and names no system. Core seeds the field, `sys.f.design-system`: it
@@ -3147,13 +3256,14 @@ kb ships six; the last three are whole themes (Themes, below):
     is ignored on read and dropped on the next write. A device that held
     `paper` or `terminal` holds no option of the field, so it shows the
     default until the setting is written.
-- **The field is drawn as any field is.** Preferences → design draws core's
+- **The field is drawn as any field is.** The Settings page draws core's
   design-system field with the page's field editor, as it draws the
-  backdrop's, and core's node shows the same field row. Each option is
-  previewed by its system's live swatch (Option previews: core's
-  design-system plugin contributes the preview): a sample carrying
-  `data-theme`, so its own sheet paints its ground, ink, accent, face,
-  radius and border, at rest and in the field's picker. The palette's
+  backdrop's, and core's node shows the same field row. Its kind previews
+  at card size, so the editor lays it out as a gallery (Option galleries):
+  each card a small page carrying `data-theme`, so the system's own sheet
+  paints its ground, ink, accent, faces, radius and border, with what the
+  theme brings under it. At chip size the preview is a swatch, at rest and
+  in the picker wherever the field is drawn value-only. The palette's
   _Switch design system_ command (`sys.cmd.switch-design-system`) steps the
   setting through the contributed systems from the one shown, and wraps
   (`chooseDesignSystem`).
@@ -3175,7 +3285,7 @@ kb ships six; the last three are whole themes (Themes, below):
   - Every layer-1 token resolves for it in light and in dark, and every
     colour among them parses.
   - The painter adds its sheet after the page's own; choosing it, by core's
-    setting or in Preferences, paints the page in it and names it in the
+    setting or on the Settings page, paints the page in it and names it in the
     appearance; a stale choice, or its plugin unloading, paints the default.
   - A rejecting case for each check holds the checks to failing: a missing
     token, a block under another id, a shared or unknown token, a colour
@@ -3295,7 +3405,7 @@ above). What each of kb's themes is after, and where each idea lives, is
     and nothing else) changes no pane's path and plays nothing. A gesture
     keyed on a change never
     plays on arrival: a boot, its redirects and switching to the system are
-    not events (`useBeat` in the themes family). Typing is not a write: the
+    not events (`useBeat`, `@kb/theme-art`). Typing is not a write: the
     art leaves alone every write made while a node is edited, and the text's
     last save, which lands just after the editor closes (`useBeat`'s
     `hold`, given `editing`).
@@ -3308,7 +3418,7 @@ above). What each of kb's themes is after, and where each idea lives, is
     on a frame, reduced motion turned on midway. However fast the pages
     change, the veil draws what one change draws, one at a time: a change
     that comes while a gesture plays is merged into it, which carries on
-    rather than replaying from its start (`useGesture` in the themes family
+    rather than replaying from its start (`useGesture` in `@kb/theme-art`
     removes it on `animationend` and on a timer, whichever comes first).
   - Art paints with tokens alone (the chart palette is a theme's art
     palette), mixing in `oklab` so a colour never swings through another
@@ -3323,9 +3433,9 @@ above). What each of kb's themes is after, and where each idea lives, is
   contributed through `BackdropPoint` as any backdrop is.
   - The page head resolves the backdrop from the page's node, then core's
     setting, then the shown theme's option node (`usePageBackdrop`,
-    `backdropChoice`), so an explicit choice in Preferences still wins: a
+    `backdropChoice`), so an explicit choice in Settings still wins: a
     pairing is a default, not a lock.
-  - Preferences tags each backdrop with the swatch of the theme it belongs
+  - The backdrop field tags each backdrop with the swatch of the theme it belongs
     to, and marks the shown theme's pairing `default` (`BackdropThemeTag`,
     the backdrop field's option preview, which core contributes and reads
     from the graph).
@@ -3341,7 +3451,7 @@ above). What each of kb's themes is after, and where each idea lives, is
   draws what one draws, and nothing once `THEME_GESTURE_MAX_MS` has passed;
   a pairing names a contributed backdrop of the theme's own, which the head
   shows while nothing else chooses, and core's choice beats it; writing the
-  theme's option node changes the head; Preferences tags each backdrop with
+  theme's option node changes the head; the backdrop field tags each backdrop with
   its theme. The design-system contract and the contrast
   guard hold a theme's tokens as they hold any system's.
 - **Budgets.** Ambient loops run at periods of `--motion-ambient-period`
@@ -3373,20 +3483,20 @@ a `#gap` node, named in the last column.
 
 | piece | where it lives | through kb's API | gap |
 | --- | --- | --- | --- |
-| Which theme the page shows | core's `sys.f.design-system`, a ref to the theme's option node | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Preferences) | — |
-| The catalogue of themes and backdrops (ids, labels) | option nodes the seed derives from declarations (`themes/src/extension.ts`, `foldSeed`) | data, read-only by convention (`sys.*`, written with `--force`) | — |
+| Which theme the page shows | core's `sys.f.design-system`, a ref to the theme's option node | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Settings) | — |
+| The catalogue of themes and backdrops (ids, labels) | option nodes the seed derives from declarations (`<family>/src/extension.ts`, `foldSeed`) | data, read-only by convention (`sys.*`, written with `--force`) | — |
 | A theme's backdrops and its pairing | `sys.f.design-system` on each backdrop's option node; `sys.f.backdrop` on the theme's (`SeedOption.chooses`) | data: read by actions; a write changes what the head shows | — |
 | The backdrop shown, its strength and direction | `sys.f.backdrop`, `…-strength`, `…-direction` on the page's node or core's | data | — |
-| A backdrop's renderer | a component contributed through `BackdropPoint` under the declared id (`themes-ui/src/art/*-backdrop.tsx`) | code, chosen by data: the entry is data, the art a registered renderer | — (the intended split) |
-| Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `themes-ui/src/design-systems/*.css`, mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
+| A backdrop's renderer | a component contributed through `BackdropPoint` under the declared id (`<family>-ui/src/art/*-backdrop.tsx`) | code, chosen by data: the entry is data, the art a registered renderer | — (the intended split) |
+| Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `<family>-ui/src/<family>.css` (Paper's and Terminal's `themes-ui/src/design-systems/*.css`), mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
 | The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
-| Theme art: ground and veil | `themes-ui/src/art/*-art.tsx`, `art/*.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
+| Theme art: ground and veil | `<family>-ui/src/art/*-art.tsx`, `art/art.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
 | Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Faces | `@fontsource*` imports in `themes-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
-| Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Preferences shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
+| Faces | `@fontsource*` imports in each `<family>-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
+| Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Settings shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
 | Motion keyframes and a theme's base timing | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*` | code: the options rescale and swap them, never name new ones | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens) |
 | The selected row's paint | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes) | code, and no token reaches it | `01M5SNSR9AC5V1NA31QY8DNEX6` |
-| Settings a person picks (theme, backdrop, its strength and way) | core's node, in Preferences | data | — |
+| Settings a person picks (theme, backdrop, its strength and way) | core's node, in Settings | data | — |
 
 The direction (Rule 1, one contract): a theme becomes one node, the theme's
 option node, that carries its tokens, its art's renderer ids with their
@@ -3432,10 +3542,11 @@ which (`motionChoice`, `@kb/model/motion-choice`).
   whatever the OS says, `full` overrides the OS, `system` asks it; `off`
   also turns every effect off. Script motion hears it too:
   `prefersReducedMotion` reads the mode before the media query.
-- **Preferences** draws each option with the page's field editor and, under
+- **Settings** draws each option with the page's field editor and, under
   it, the value in force and its source (`set here`, `from <theme>`,
-  `default`); the effects sit in a fold; a reset clears every motion
-  setting of core's, so the theme's preset applies again.
+  `by default`, the last two after `unset here`); the effects sit in their own group, two to a row; a reset
+  clears every motion setting of core's, so the theme's preset applies
+  again.
 - **The contract** (`stores/motion.contract.test.ts`, `model/tests/motion.test.ts`):
   explicit over theme over default, with sources; following the theme
   paints no timing; a speed of one's own rescales by the ratio; `off`
@@ -3569,10 +3680,11 @@ exist is a plugin point, and the kit names none of them.
     `backdropStrength`, `backdropDirection`). A stale key is ignored on read
     and dropped on the next write.
 
-- **One picker.** Preferences draws core's three settings with the page's
+- **One picker.** Settings draws core's three settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
-  are the one list of backdrops. It draws direction only when the shown
-  backdrop has directions.
+  are the one list of backdrops. It draws direction whatever the backdrop,
+  as it draws every setting it lists, and says so under it when the shown
+  backdrop faces no way.
 - **The contract** (`app/ui/src/backdrop-point.contract.test.tsx`) runs over
   every contributed backdrop: the page's families' backdrops and one from a
   test plugin.

@@ -32,6 +32,12 @@ import { locationsExtension } from "@kb/locations";
 import { checkExtension } from "@kb/check";
 import { themesExtension } from "@kb/themes";
 import { themesUiPlugin } from "@kb/themes-ui";
+import { transistorExtension } from "@kb/transistor";
+import { transistorUiPlugin } from "@kb/transistor-ui";
+import { yorhaExtension } from "@kb/yorha";
+import { yorhaUiPlugin } from "@kb/yorha-ui";
+import { zzzExtension } from "@kb/zzz";
+import { zzzUiPlugin } from "@kb/zzz-ui";
 import { codeExtension } from "@kb/code";
 import { collectionsExtension } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
@@ -63,7 +69,7 @@ import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
-import { extensionsUiPlugin } from "@/components/prefs/extensions-plugin";
+import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import * as uiSdk from "@kb/ui-sdk";
 import { logWarn, syncUiPlugins } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
@@ -83,7 +89,7 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   browserHostUiPlugin,
   designSystemsUiPlugin,
   ontologyUiPlugin,
-  extensionsUiPlugin,
+  settingsUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,
@@ -143,7 +149,8 @@ export interface BrowserExtension {
  * The browser entry of each family, keyed by the name its declaration gives
  * it. Whether the page loads one is the server's report, never this table.
  * How it is fetched is: a family on by default (the outline, collections,
- * graph, canvas, code, chart, locations, backdrops, themes) loads
+ * graph, canvas, code, chart, locations, backdrops, themes and each
+ * whole theme: ZZZ, Transistor, YoRHa) loads
  * from the main bundle, and one off by default (the lab) or hosted only by
  * `kb ui` (the agent) is its own chunk, fetched when it is first on. A family with no
  * browser half is listed too, as `null`, so a bundled family is never left
@@ -165,6 +172,9 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   [locationsExtension.name]: { load: () => Promise.resolve(locationsUiPlugin) },
   [backdropsExtension.name]: { load: () => Promise.resolve(backdropsUiPlugin) },
   [themesExtension.name]: { load: () => Promise.resolve(themesUiPlugin) },
+  [zzzExtension.name]: { load: () => Promise.resolve(zzzUiPlugin) },
+  [transistorExtension.name]: { load: () => Promise.resolve(transistorUiPlugin) },
+  [yorhaExtension.name]: { load: () => Promise.resolve(yorhaUiPlugin) },
   [agentExtension.name]: { load: loadAgentEntry },
 };
 
@@ -252,7 +262,7 @@ const unloadables = new Map<string, Plugin>();
  * A family's browser entry the page could not have: a plugin of the
  * family's name whose `apply` fails with why, so the kernel holds the
  * failure as it holds any plugin's, and every reader of the kernel (the
- * Extensions panel's `organisationOf`, its log) sees it.
+ * Settings' Extensions part's `organisationOf`, its log) sees it.
  */
 function unloadable(key: string, name: string, why: string): Plugin {
   const known = unloadables.get(`${key}\0${why}`);

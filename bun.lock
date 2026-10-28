@@ -48,6 +48,9 @@
         "@kb/outline": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/themes": "workspace:*",
+        "@kb/transistor": "workspace:*",
+        "@kb/yorha": "workspace:*",
+        "@kb/zzz": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -147,9 +150,12 @@
         "@kb/store-jsonl": "workspace:*",
         "@kb/store-sqlite": "workspace:*",
         "@kb/themes": "workspace:*",
+        "@kb/transistor": "workspace:*",
         "@kb/tx-log": "workspace:*",
         "@kb/views": "workspace:*",
         "@kb/workspace-fs": "workspace:*",
+        "@kb/yorha": "workspace:*",
+        "@kb/zzz": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -247,10 +253,16 @@
         "@kb/scene": "workspace:*",
         "@kb/themes": "workspace:*",
         "@kb/themes-ui": "workspace:*",
+        "@kb/transistor": "workspace:*",
+        "@kb/transistor-ui": "workspace:*",
         "@kb/tx-log": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "@kb/views": "workspace:*",
         "@kb/webmcp": "workspace:*",
+        "@kb/yorha": "workspace:*",
+        "@kb/yorha-ui": "workspace:*",
+        "@kb/zzz": "workspace:*",
+        "@kb/zzz-ui": "workspace:*",
         "@phosphor-icons/react": "catalog:",
         "@tailwindcss/vite": "catalog:",
         "dockview-react": "catalog:",
@@ -966,19 +978,77 @@
       "name": "@kb/themes-ui",
       "version": "0.0.0",
       "dependencies": {
-        "@fontsource-variable/archivo": "catalog:",
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/themes": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/transistor": {
+      "name": "@kb/transistor",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/transistor-ui": {
+      "name": "@kb/transistor-ui",
+      "version": "0.0.0",
+      "dependencies": {
         "@fontsource-variable/josefin-sans": "catalog:",
         "@fontsource-variable/jost": "catalog:",
-        "@fontsource/barlow": "catalog:",
-        "@fontsource/barlow-condensed": "catalog:",
         "@fontsource/marcellus-sc": "catalog:",
         "@fontsource/share-tech-mono": "catalog:",
         "@kb/contracts": "workspace:*",
         "@kb/plugin": "workspace:*",
+        "@kb/theme-art": "workspace:*",
+        "@kb/transistor": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "effect": "catalog:",
+        "react": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
+    "packages/extension/yorha": {
+      "name": "@kb/yorha",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/yorha-ui": {
+      "name": "@kb/yorha-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@fontsource/barlow": "catalog:",
+        "@fontsource/barlow-condensed": "catalog:",
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "@kb/scene": "workspace:*",
         "@kb/scene-gpu": "workspace:*",
-        "@kb/themes": "workspace:*",
+        "@kb/theme-art": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
+        "@kb/yorha": "workspace:*",
         "effect": "catalog:",
         "react": "catalog:",
         "three": "catalog:",
@@ -993,6 +1063,36 @@
         "react-dom": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
+      },
+    },
+    "packages/extension/zzz": {
+      "name": "@kb/zzz",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/zzz-ui": {
+      "name": "@kb/zzz-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@fontsource-variable/archivo": "catalog:",
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/theme-art": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@kb/zzz": "workspace:*",
+        "effect": "catalog:",
+        "react": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
       },
     },
     "packages/infrastructure/sandbox-quickjs": {
@@ -1098,6 +1198,17 @@
         "@types/three": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
+      },
+    },
+    "packages/kit/theme-art": {
+      "name": "@kb/theme-art",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/ui-sdk": "workspace:*",
+        "react": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
       },
     },
     "packages/kit/ui-sdk": {
@@ -1604,9 +1715,15 @@
 
     "@kb/test-kit": ["@kb/test-kit@workspace:packages/app/test-kit"],
 
+    "@kb/theme-art": ["@kb/theme-art@workspace:packages/kit/theme-art"],
+
     "@kb/themes": ["@kb/themes@workspace:packages/extension/themes"],
 
     "@kb/themes-ui": ["@kb/themes-ui@workspace:packages/extension/themes-ui"],
+
+    "@kb/transistor": ["@kb/transistor@workspace:packages/extension/transistor"],
+
+    "@kb/transistor-ui": ["@kb/transistor-ui@workspace:packages/extension/transistor-ui"],
 
     "@kb/tx-log": ["@kb/tx-log@workspace:packages/infrastructure/tx-log"],
 
@@ -1621,6 +1738,14 @@
     "@kb/webmcp": ["@kb/webmcp@workspace:packages/app/webmcp"],
 
     "@kb/workspace-fs": ["@kb/workspace-fs@workspace:packages/infrastructure/workspace-fs"],
+
+    "@kb/yorha": ["@kb/yorha@workspace:packages/extension/yorha"],
+
+    "@kb/yorha-ui": ["@kb/yorha-ui@workspace:packages/extension/yorha-ui"],
+
+    "@kb/zzz": ["@kb/zzz@workspace:packages/extension/zzz"],
+
+    "@kb/zzz-ui": ["@kb/zzz-ui@workspace:packages/extension/zzz-ui"],
 
     "@modelcontextprotocol/sdk": ["@modelcontextprotocol/sdk@1.30.0", "", { "dependencies": { "@hono/node-server": "^1.19.9 || ^2.0.5", "ajv": "^8.17.1", "ajv-formats": "^3.0.1", "content-type": "^1.0.5", "cors": "^2.8.5", "cross-spawn": "^7.0.5", "eventsource": "^3.0.2", "eventsource-parser": "^3.0.0", "express": "^5.2.1", "express-rate-limit": "^8.2.1", "hono": "^4.11.4", "jose": "^6.1.3", "json-schema-typed": "^8.0.2", "pkce-challenge": "^5.0.0", "raw-body": "^3.0.0", "zod": "^3.25 || ^4.0", "zod-to-json-schema": "^3.25.1" }, "peerDependencies": { "@cfworker/json-schema": "^4.1.1" }, "optionalPeers": ["@cfworker/json-schema"] }, "sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA=="],
 
