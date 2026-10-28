@@ -38,7 +38,6 @@ import {
   connectItems,
   describeCanvas,
   flipItems,
-  freeItems,
   groupItems,
   isGroupNode,
   itemBounds,
@@ -49,6 +48,7 @@ import {
   placeItem,
   promotableText,
   promoteItem,
+  requireItems,
   ungroupItems,
   type CanvasDoc,
   type CanvasLayerValue,
@@ -59,6 +59,7 @@ import {
   CANVAS_SELECTION,
 } from "@kb/canvas";
 import { COMMENT_VERB } from "./comment.ts";
+import { EDIT_VERB } from "./edit.ts";
 import { LintDiffSchema, LintSchema } from "./lints.ts";
 import {
   AnchorSchema,
@@ -117,22 +118,6 @@ function placedOf(doc: CanvasDoc, ids: readonly string[]): z.infer<typeof Placed
       },
     ];
   });
-}
-
-/** The ids of `ids` that are not items of `doc`, refused in one message. */
-/** The items a verb changes: each on this canvas, and free to take (`freeItems`). */
-function requireItems(doc: CanvasDoc, ids: readonly string[]): void {
-  const missing = ids.filter((id) => !doc.nodes.some((node) => node.id === id));
-  if (missing.length > 0) {
-    throw new CanvasRelationError(`no item ${missing.join(", ")} on this canvas`);
-  }
-  const free = freeItems(doc.nodes, ids);
-  const locked = ids.filter((id) => !free.has(id));
-  if (locked.length > 0) {
-    throw new CanvasRelationError(
-      `${locked.join(", ")} is locked; unlock it (locked: false, through tx.apply) to change it`,
-    );
-  }
 }
 
 // ── describe ────────────────────────────────────────────────────────────
@@ -875,6 +860,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     effect: canvasUngroupEffect,
   },
   COMMENT_VERB,
+  EDIT_VERB,
   {
     id: "promote",
     title: "Promote to node",

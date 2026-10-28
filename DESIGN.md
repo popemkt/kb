@@ -3732,6 +3732,26 @@ transaction, one step of an open canvas's history.
   card's words (no parent, node first: D6), and the card shows it.
   **`comment`** starts a thread on an item or at a point, or replies to
   one ([Comments](#comments)).
+- **`edit`** changes items in place by id, as tldraw's `updateShapes`,
+  `deleteShapes`, `translateShapes` and `moveShapesToPage` do, so an
+  agent or a script never sends a whole document to change one card
+  (`@kb/canvas` `edit.ts`). An `update` sets an item's words (a text
+  card's text, a shape's or frame's label; a card's words are its node's,
+  and are refused), colour, looks, link, lock, node or size, each by the
+  writer the inspector uses, `null` taking a value away (`patchItem`); a
+  `move` is the nudge, by a delta, its groups' members carried and what it
+  lets go of settled by the drop rule (`nudgeItems`, the one the arrow
+  keys make); a `delete` takes items as Delete does, with their members
+  and the edges that meet them, and edges by id (`deleteItems`); a
+  `toPage` takes items to another canvas where they stand, with their
+  members and the edges among them, an edge to one left behind going with
+  them (`takeItems`, `landItems`, which refuses an id the page holds).
+  Edits are made in order against the stored document and written as one
+  canvas write, with the other page beside it in the same transaction. A
+  move, a delete, a move to a page and a resize refuse a locked item
+  (`requireItems`, the one refusal every verb that takes items makes);
+  its words, looks, link and node stay editable, as the inspector's are.
+  Making an item is `place`'s, which takes the new item's id.
   `place` (moving), `arrange`, `group` and `ungroup` refuse an item that is
   `locked`, naming it; `promote` takes a locked card, since it changes what
   the card shows and not where it stands; `describe` reports it
