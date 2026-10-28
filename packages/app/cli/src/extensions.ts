@@ -6,12 +6,14 @@
  * contributes, `footprint` prints what one adds (`extension.footprint`),
  * `settings` prints what each one's node can be set to (`extension.settings`), and `sdk`
  * prints or writes the ambient types a repository extension compiles
- * against.
+ * against. `validate` is admission (`admitExtensions`): it fails while any
+ * of the root's extensions would be skipped, so a gate can refuse one.
  */
 import type { Command } from "commander";
 import { Effect } from "effect";
 import { z } from "zod";
 import {
+  type ActionReceipt,
   ExtensionReportSchema,
   ExtensionSettingsSchema,
   FootprintRowSchema,
@@ -25,8 +27,22 @@ import {
 import { ensureDomainError } from "@kb/model";
 import type { RegisteredAction } from "@kb/operations";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
-import { invokeReceiptEffect, resolveRootEffect, sessionRegistry, writeOut } from "@kb/runtime";
-import { ACTION_INVOKE_WIRE, EXIT_OK, cliAction, kbAction, report } from "./command.ts";
+import { canonicalRoot } from "@kb/workspace-fs";
+import {
+  admitExtensions,
+  invokeReceiptEffect,
+  resolveRootEffect,
+  sessionRegistry,
+  writeOut,
+} from "@kb/runtime";
+import {
+  ACTION_INVOKE_WIRE,
+  EXIT_OK,
+  cliAction,
+  kbAction,
+  report,
+  type GlobalOpts,
+} from "./command.ts";
 import { formatMode } from "./format.ts";
 
 const FootprintOutput = z.object({ rows: z.array(FootprintRowSchema) });
@@ -164,6 +180,48 @@ function settingsCommand(ext: Command): void {
     );
 }
 
+/** The id `kb ext validate`'s receipts carry. */
+const VALIDATE = "ext.validate";
+
+/**
+ * Whether `root` is the root the command runs inside (the one `kb` finds
+ * from the working directory): admission runs a root's extensions without
+ * trust, so it admits only the checkout it is run from, never one `--root`
+ * names elsewhere.
+ */
+const isWorkingRoot = Effect.fn("kb.ext.isWorkingRoot")(function* (root: string) {
+  const here = yield* resolveRootEffect({}).pipe(Effect.orElseSucceed(() => null));
+  if (here === null) return false;
+  return (yield* canonicalRoot(here)) === (yield* canonicalRoot(root));
+});
+
+/** `kb ext validate`: admission (`admitExtensions`) as a receipt, failed while any extension would be skipped. */
+const validate = (globals: GlobalOpts) =>
+  Effect.gen(function* () {
+    const root = yield* resolveRootEffect({ root: globals.root });
+    if (!(yield* isWorkingRoot(root))) {
+      const refused: ActionReceipt = {
+        status: "failed",
+        id: VALIDATE,
+        code: "forbidden",
+        message: `kb ext validate runs ${root}'s extensions without trust, so it admits only the root it is run from: run it inside that checkout`,
+      };
+      return report(refused, globals, () => []);
+    }
+    const failures = yield* admitExtensions(root);
+    const receipt: ActionReceipt =
+      failures.length === 0
+        ? { status: "succeeded", id: VALIDATE, output: { failures } }
+        : {
+            status: "failed",
+            id: VALIDATE,
+            code: "invalid_input",
+            message: `${failures.length} repository extension failure(s); each would be skipped: ${failures.map(({ file }) => file).join(", ")}`,
+            details: { failures },
+          };
+    return report(receipt, globals, () => ["kb extensions: all admitted"]);
+  });
+
 export function extensionCommands(program: Command): void {
   const ext = program.command("ext").description("Extension operations");
   ext
@@ -241,6 +299,12 @@ export function extensionCommands(program: Command): void {
       ),
     );
   settingsCommand(ext);
+  ext
+    .command("validate")
+    .description(
+      "Admit every extension as a gate: load each .kb/extensions module as if trusted, every family on, and fail on any that would be skipped. It runs the extension code of the root it is run inside (never one --root names elsewhere), so run it where you would run the checkout's tests; it trusts nothing on this machine",
+    )
+    .action(cliAction(validate));
   ext
     .command("sdk")
     .description(

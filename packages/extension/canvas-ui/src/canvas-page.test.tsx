@@ -3,7 +3,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
-import { CANVAS_IDS, CanvasView, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import {
+  CANVAS_IDS,
+  CanvasView,
+  stringifyCanvasDoc,
+  type CanvasDoc,
+  type CanvasItemLink,
+} from "@kb/canvas";
 import { definePlugin } from "@kb/plugin";
 import {
   ScriptHostService,
@@ -789,11 +795,11 @@ describe("CanvasPage pointer interactions", () => {
   });
 
   it("a linked item wears a link mark that says where it leads, and a click follows it", async () => {
+    // b's link is an address no link may lead to: it wears no mark to follow.
+    const links: Record<string, CanvasItemLink> = { a: { item: "b" }, b: { url: "javascript:x" } };
     const linked: CanvasDoc = {
       ...initialDoc,
-      nodes: initialDoc.nodes.map((item) =>
-        item.id === "a" ? { ...item, link: { item: "b" } } : item,
-      ),
+      nodes: initialDoc.nodes.map((item) => ({ ...item, link: links[item.id] })),
     };
     host.setNodes([
       {

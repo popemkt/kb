@@ -586,7 +586,10 @@ describe("canvas projection contract", () => {
       const linked = {
         ...doc,
         nodes: doc.nodes.map((item) =>
-          item.id === "raised" ? { ...item, link: { url: "https://kb.test/" } } : item,
+          item.id === "raised"
+            ? { ...item, link: { url: "https://kb.test/" } }
+            : // A link no writer may store, handed over anyway: it wears no mark.
+              { ...item, link: { url: "javascript:alert(1)" } },
         ),
       };
       const marks = linkMarks(linked, view, size);

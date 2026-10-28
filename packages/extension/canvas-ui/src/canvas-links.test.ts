@@ -25,6 +25,23 @@ describe("following a link", () => {
     });
   });
 
+  test("an address a link may not lead to is opened nowhere, however the link reached the page", () => {
+    for (const url of [
+      "javascript:alert(1)",
+      "JavaScript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "vbscript:x",
+      "file:///etc/passwd",
+      "not a url",
+    ]) {
+      expect(linkStep({ url }, "n.here", world)).toBeNull();
+    }
+    expect(linkStep({ url: "mailto:a@kb.test" }, "n.here", world)).toEqual({
+      kind: "web",
+      url: "mailto:a@kb.test",
+    });
+  });
+
   test("a canvas is opened as a page, at the item named", () => {
     expect(linkStep({ node: "n.page" }, "n.here", world)).toEqual({
       kind: "path",
