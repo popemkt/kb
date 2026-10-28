@@ -23,6 +23,7 @@ function context(stateDoc: CanvasDoc): PointerContext {
     byId: new Map(stateDoc.nodes.map((node) => [node.id, node])),
     view: top,
     size,
+    pointer: "mouse",
   };
 }
 

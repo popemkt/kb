@@ -1322,9 +1322,11 @@ manipulation feel professional rather than merely functional.
   (`adoptStored`). How the canvas is looked at is its view node's camera,
   not the document's (DESIGN.md → Canvas documents → Camera), so no step
   ever holds it.
-- **Direct-manipulation invariants.** A 4px pointer slop (`POINTER_SLOP` in
-  `lib/pointer-slop.ts`, the one slop the scene kit's taps and a graph node's
-  drag use too) kills hair-trigger moves, pointer capture on card drags and resize handles survives a fast drag,
+- **Direct-manipulation invariants.** A pointer slop by the kind of pointer
+  that pressed (`POINTER_SLOPS` in `lib/pointer-slop.ts`: 4px for a mouse or
+  a pen, 8px for a finger, Android's touch slop; the one table the scene
+  kit's taps and a graph node's drag read too, each by its press's
+  `pointerType`) kills hair-trigger moves and keeps a finger's tap a tap, pointer capture on card drags and resize handles survives a fast drag,
   four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio) and
   resize a turned card along its own sides, tldraw's rotate handle on a
   stem above a selected card turns the selection about its centre
@@ -1362,6 +1364,26 @@ manipulation feel professional rather than merely functional.
   from the camera the one before left, not from the last frame drawn.
   Both stages hear the wheel themselves, not passively, so the zoom is the
   canvas's alone and the page around it (bb's) does not zoom too.
+- **Touch** (`canvas-touch.ts`, `use-canvas-touch.ts`; the design note
+  `docs/research/2026-10-28-canvas-mobile.md`), as tldraw's, Excalidraw's
+  and Miro's on a phone. Both projection layers are `touch-action: none`,
+  and one recognizer hears every touch over either of them before the
+  projection or React does (on the window, in the capture phase), so both
+  projections take fingers alike. One finger is a press, exactly as a
+  mouse's: the armed tool's, a marquee or a carry with select, an orbit on
+  empty canvas in 3D. A second finger makes it a camera gesture: the first
+  finger's press is cancelled as the browser cancels a touch it takes for
+  itself (a `pointercancel` to its target, which either projection already
+  undoes), and until the last finger lifts their midpoint's travel pans
+  and their spread zooms about it, through the showing camera's
+  `CanvasViewportControls` (`panBy`, `zoomAt`, and `settle` at the lift,
+  where 3D saves its pose); one finger left pans. A finger held still
+  `LONG_PRESS_MS` (500 ms) is a long press: its press is cancelled and a
+  `contextmenu` is sent where it is, so the context menu opens as a right
+  click's does, and the browser's own long-press menu is swallowed while a
+  finger is down. Chrome over the stage takes its taps as any button does,
+  and words being typed (`isTyping`: the focused entry) keep the browser's
+  touch.
 - **The tool strip** stands down the stage's left edge, inside the stage:
   where the stage is too short for one column of tools it wraps into a
   second rather than running over the page strip above it.

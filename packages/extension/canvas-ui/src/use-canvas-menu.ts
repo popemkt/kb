@@ -6,7 +6,7 @@
  * `useDismiss`'s, as every popover's; the pieces drawn are `canvas-menu.tsx`.
  */
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
-import { cn, isTextEntry } from "@kb/ui-sdk";
+import { cn, isTyping } from "@kb/ui-sdk";
 import { cardIdAt, edgeIdAt } from "./card-pointer";
 import { isGroupNode, itemLead, type CanvasNode } from "@kb/canvas";
 import {
@@ -74,7 +74,7 @@ export function useCanvasContextMenu(
   const [at, setAt] = useState<Spot | null>(null);
   const open = (e: MouseEvent<HTMLElement>) => {
     // Words being typed keep the browser's menu: spelling, paste, look up.
-    if (e.defaultPrevented || isTextEntry(e.target)) return;
+    if (e.defaultPrevented || isTyping(e.target)) return;
     e.preventDefault();
     setSelection(selectForMenu(selection, { node: cardIdAt(e.target), edge: edgeIdAt(e.target) }));
     const box = e.currentTarget.getBoundingClientRect();

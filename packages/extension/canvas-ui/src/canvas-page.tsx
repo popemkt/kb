@@ -40,6 +40,7 @@ import {
   useSchema,
   ViewScripts,
   createViewLayout,
+  type PointerKind,
   createViewEvents,
 } from "@kb/ui-sdk";
 import { useCanvasProjection } from "./use-canvas-projection";
@@ -62,6 +63,7 @@ import { edgeFields } from "./canvas-edge-link";
 import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
+import { useCanvasTouch } from "./use-canvas-touch";
 import { useCanvasScreen } from "./use-canvas-screen";
 import { CanvasScriptLayout } from "./canvas-script-layout";
 import { useCanvasCapture } from "./canvas-capture";
@@ -233,6 +235,8 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
 
   /** Where the pointer last was over either projection: where a modal transform begins. */
   const lastPointer = useRef<Point | null>(null);
+  /** What made the last press on the stage (`useCanvasTouch`): how far it may wander and still be a click. */
+  const pressedBy = useRef<PointerKind>("mouse");
   const dispatchPointer = useCallback(
     (event: CanvasPointerEvent): PointerResult => {
       if ("screen" in event) lastPointer.current = event.screen;
@@ -243,6 +247,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         scope,
         byId,
         ...cameraRef.current(),
+        pointer: pressedBy.current,
       });
       applyPointerResult(next);
       return next;
@@ -353,6 +358,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
   }, [dispatchPointer]);
 
   const viewport = projection.viewportOf(viewportControls);
+  useCanvasTouch({ stage: stageRef, controls: viewport, pressedBy });
   const drawing = useCanvasCapture(projection.holdScene);
   useCanvasScreen({
     canvasId,
@@ -586,8 +592,9 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         onDrop={pictures.onDrop}
       >
         <div
+          data-canvas-surface
           className={cn(
-            "kb-projection-layer relative flex min-h-0 flex-1",
+            "kb-projection-layer relative flex min-h-0 flex-1 touch-none",
             in3d && "pointer-events-none opacity-0",
           )}
           aria-hidden={in3d}
@@ -671,8 +678,9 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
         </div>
         {projection.mounted3d && (
           <div
+            data-canvas-surface
             className={cn(
-              "kb-projection-layer absolute inset-0",
+              "kb-projection-layer absolute inset-0 touch-none",
               !in3d && "pointer-events-none opacity-0",
             )}
           >

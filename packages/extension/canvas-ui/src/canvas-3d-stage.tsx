@@ -15,7 +15,13 @@ import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import type { CanvasSelection } from "./canvas-selection";
 import { NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
-import { readTiming, useReducedMotion, type Appearance, type OutlineNode } from "@kb/ui-sdk";
+import {
+  pointerKind,
+  readTiming,
+  useReducedMotion,
+  type Appearance,
+  type OutlineNode,
+} from "@kb/ui-sdk";
 import { attachScene, readScenePalette } from "@kb/scene";
 import { readCardLook } from "./canvas-card-face";
 import { mountCanvasScene, type CanvasScene } from "./canvas-scene";
@@ -98,6 +104,7 @@ function pressOf(el: HTMLElement, event: MouseEvent): ScenePress {
     metaKey: event.metaKey,
     ctrlKey: event.ctrlKey,
     altKey: event.altKey,
+    pointer: "pointerType" in event ? pointerKind(String(event.pointerType)) : "mouse",
   };
 }
 

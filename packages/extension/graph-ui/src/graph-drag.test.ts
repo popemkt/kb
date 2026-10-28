@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { NodeDrag, type DragLayout, type DragSurface, type LayoutPoint } from "./graph-drag";
-import { POINTER_SLOP } from "@kb/ui-sdk";
+import { POINTER_SLOPS } from "@kb/ui-sdk";
+
+const POINTER_SLOP = POINTER_SLOPS.mouse;
 
 function rig() {
   const calls: string[] = [];
@@ -28,7 +30,7 @@ function rig() {
 describe("NodeDrag", () => {
   it("a press that stays within the slop is a click: the layout never grabs", () => {
     const { calls, drag } = rig();
-    drag.down("a", 0, 0);
+    drag.down("a", 0, 0, "mouse");
     expect(drag.move(POINTER_SLOP, 0)).toBe(false);
     expect(drag.pressed).toBe("a");
     expect(drag.dragging).toBeNull();
@@ -38,7 +40,7 @@ describe("NodeDrag", () => {
 
   it("past the slop it grips at the press, grabs, holds each move and drops on release", () => {
     const { calls, held, drag } = rig();
-    drag.down("a", 5, 5);
+    drag.down("a", 5, 5, "mouse");
     expect(drag.move(5 + POINTER_SLOP + 1, 5)).toBe(true);
     expect(drag.dragging).toBe("a");
     drag.move(30, 25);
@@ -59,11 +61,18 @@ describe("NodeDrag", () => {
     ]);
   });
 
+  it("a finger's press wanders further and is still a click", () => {
+    const { drag } = rig();
+    drag.down("a", 0, 0, "touch");
+    expect(drag.move(POINTER_SLOPS.touch, 0)).toBe(false);
+    expect(drag.move(POINTER_SLOPS.touch + 1, 0)).toBe(true);
+  });
+
   it("a new press ends the one before it", () => {
     const { calls, drag } = rig();
-    drag.down("a", 0, 0);
+    drag.down("a", 0, 0, "mouse");
     drag.move(20, 0);
-    drag.down("b", 0, 0);
+    drag.down("b", 0, 0, "mouse");
     expect(drag.pressed).toBe("b");
     expect(calls).toContain("drop a");
     expect(drag.up()).toBe(false);

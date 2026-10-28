@@ -69,3 +69,13 @@ export function isTextEntry(target: unknown): boolean {
   if (el === undefined) return false;
   return el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable;
 }
+
+/**
+ * True when a pointer landed in the text entry that has the focus: words
+ * being typed, whose own gestures (the caret, a selection, the browser's
+ * menu) are the browser's. A pointer may land in an entry nothing is typed
+ * into yet (a canvas text card's), which is a surface like any other.
+ */
+export function isTyping(target: unknown): boolean {
+  return isTextEntry(target) && target === document.activeElement;
+}

@@ -38,7 +38,7 @@ import {
   type TransformKey,
   type TransformMode,
 } from "./canvas-transform-input";
-import { pastSlop } from "@kb/ui-sdk";
+import { pastSlop, type PointerKind } from "@kb/ui-sdk";
 import {
   EMPTY_SELECTION,
   addNodes,
@@ -204,6 +204,8 @@ export interface PointerContext {
   byId: ReadonlyMap<string, CanvasNode>;
   view: CanvasView;
   size: ViewSize;
+  /** The kind of pointer making the gesture: how far its press may wander and still be a click (`pastSlop`). */
+  pointer: PointerKind;
 }
 
 export interface PointerResult {
@@ -430,7 +432,7 @@ function moveTransform(
 ): PointerResult {
   const { input, slop } = drag;
   if (input === null) return result(state);
-  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y)) {
+  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y, ctx.pointer)) {
     return result(state);
   }
   return readInput(state, { ...drag, at: event.screen, free: event.free ?? false }, ctx);
@@ -544,7 +546,7 @@ function moveDraft(
   ctx: PointerContext,
 ): PointerResult {
   const { slop } = drag;
-  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y)) {
+  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y, ctx.pointer)) {
     return result(state);
   }
   const item = draftItem(
@@ -591,7 +593,8 @@ function reduceMove(
     });
   }
   if (drag.kind === "marquee-pending") {
-    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
+    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY, ctx.pointer))
+      return result(state);
     const world = floorAt(ctx, event.screen);
     return result({
       ...state,
@@ -639,7 +642,8 @@ function reduceMove(
   }
   if (drag.kind === "transform") return moveTransform(state, drag, event, ctx);
   if (drag.kind === "resize-pending") {
-    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
+    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY, ctx.pointer))
+      return result(state);
     const active = {
       kind: "resize" as const,
       id: drag.id,

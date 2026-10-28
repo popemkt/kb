@@ -28,7 +28,7 @@ import { ALONG_Z } from "./canvas-transform-input";
 import type { SceneGizmo } from "./canvas-gizmo";
 import type { ToolSpot } from "./canvas-tool";
 import type { CanvasSelection } from "./canvas-selection";
-import { pastSlop } from "@kb/ui-sdk";
+import { pastSlop, type PointerKind } from "@kb/ui-sdk";
 
 /** A press: where it is in the viewport and on screen, its button and its modifiers. */
 export interface ScenePress {
@@ -40,6 +40,8 @@ export interface ScenePress {
   readonly metaKey: boolean;
   readonly ctrlKey: boolean;
   readonly altKey: boolean;
+  /** What pressed: how far it may wander and still be a tap. */
+  readonly pointer: PointerKind;
 }
 
 export interface SceneGestureHost {
@@ -195,7 +197,7 @@ export class SceneGestures {
       );
       return;
     }
-    const tap = !pastSlop(press.clientX - g.startX, press.clientY - g.startY);
+    const tap = !pastSlop(press.clientX - g.startX, press.clientY - g.startY, press.pointer);
     // A tap moved no camera: on empty canvas it means the tool or the selection.
     if (tap) {
       if (g.kind === "orbit" && !cancelled) {
