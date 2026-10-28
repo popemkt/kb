@@ -49,24 +49,70 @@ export function nextPageName(taken: readonly string[]): string {
   return `Page ${String(n)}`;
 }
 
-/** The pages each page's items lead to (`link`), in its document. */
-function linkedPages(doc: CanvasDoc, pages: ReadonlySet<NodeId>): NodeId[] {
+/** One way from a page to a page of its board: the item followed, and the item shown where it leads. */
+export interface PageLink {
+  /** The item on the page that leads there (`itemLead`). */
+  readonly item: string;
+  /** The page it leads to. */
+  readonly to: NodeId;
+  /** The item on that page shown and selected as it opens, when the link names one. */
+  readonly focus?: string;
+}
+
+/** The ways `doc`'s items lead to the pages in `pages` (`link`), in document order. */
+function pageLinks(doc: CanvasDoc, pages: ReadonlySet<NodeId>): PageLink[] {
   return doc.nodes.flatMap((item) => {
     const lead = itemLead(item);
-    return lead !== undefined && "node" in lead && pages.has(lead.node) ? [lead.node] : [];
+    if (lead === undefined || !("node" in lead) || !pages.has(lead.node)) return [];
+    return [
+      { item: item.id, to: lead.node, ...(lead.item === undefined ? {} : { focus: lead.item }) },
+    ];
   });
+}
+
+const docIn = (world: CanvasWorld, page: NodeId): CanvasDoc =>
+  world.docOf(page) ?? { nodes: [], edges: [] };
+
+/**
+ * A page of a board as its page graph has it: its name, the ways its items
+ * lead to the board's other pages, and the pages whose items lead to it —
+ * a drill-down's badges and the back badges a page owes, read, not drawn.
+ */
+export interface BoardPage {
+  readonly id: NodeId;
+  /** Its node's text. */
+  readonly name: string;
+  /** The ways its items lead to other pages of the board, in document order. */
+  readonly links: readonly PageLink[];
+  /** The other pages whose items lead to it, in page order. */
+  readonly from: readonly NodeId[];
+}
+
+/** The page graph of the board `id` is a page of: each page, in page order (`canvasPages`). */
+export function boardPages(world: CanvasWorld, id: NodeId): BoardPage[] {
+  const pages = canvasPages(world, id);
+  const all = new Set(pages);
+  const links = new Map(
+    pages.map((page) => [page, pageLinks(docIn(world, page), all).filter((l) => l.to !== page)]),
+  );
+  return pages.map((page) => ({
+    id: page,
+    name: world.textOf(page) ?? "",
+    links: links.get(page) ?? [],
+    from: pages.filter((other) => links.get(other)?.some((link) => link.to === page) === true),
+  }));
 }
 
 /** The pages of `id`'s board that no chain of links leads to from the board. */
 export function unreachablePages(world: CanvasWorld, id: NodeId): NodeId[] {
-  const pages = canvasPages(world, id);
-  const all = new Set(pages);
+  const pages = boardPages(world, id);
+  const byId = new Map(pages.map((page) => [page.id, page]));
   const reached = new Set<NodeId>();
   const walk = (page: NodeId) => {
     if (reached.has(page)) return;
     reached.add(page);
-    for (const next of linkedPages(world.docOf(page) ?? { nodes: [], edges: [] }, all)) walk(next);
+    for (const link of byId.get(page)?.links ?? []) walk(link.to);
   };
-  walk(pages[0] ?? id);
-  return pages.filter((page) => !reached.has(page));
+  walk(pages[0]?.id ?? id);
+  return pages.flatMap((page) => (reached.has(page.id) ? [] : [page.id]));
 }

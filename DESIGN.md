@@ -3516,7 +3516,15 @@ board's pages as a strip (`canvas-page-strip.tsx`): a tab opens a page,
 nudge), and "New page" adds an empty canvas under the board. What leads
 from one page to another is an item's `link`, so a drill-down is a card
 linked to a page, and a way back is a card linked back: usage, not a
-widget. The inspector's link row offers the board's other pages as picks.
+widget. A locked item that leads somewhere is a control, which a press
+follows (`controlLead`, DESIGN-UI.md → Canvas → Item links), so a badge
+needs no script. The inspector's link row offers the board's other pages as
+picks. A board's page graph is read, not drawn: `boardPages` gives each
+page with the ways its items lead to other pages (the item, the page, the
+item shown there) and the pages that lead to it, which `describe` answers
+as `pages` and `unreachable-page` walks. A convention over it — a back
+badge for every page that drills in — is checked by whoever keeps the
+convention, against `pages`; kb lints no one's convention.
 
 An item's or an edge's JSON Canvas `color` is one of the palette's
 (`CANVAS_PALETTE`): the format's presets `1`–`6` (red, orange, yellow,
@@ -3724,6 +3732,26 @@ transaction, one step of an open canvas's history.
   card's words (no parent, node first: D6), and the card shows it.
   **`comment`** starts a thread on an item or at a point, or replies to
   one ([Comments](#comments)).
+- **`edit`** changes items in place by id, as tldraw's `updateShapes`,
+  `deleteShapes`, `translateShapes` and `moveShapesToPage` do, so an
+  agent or a script never sends a whole document to change one card
+  (`@kb/canvas` `edit.ts`). An `update` sets an item's words (a text
+  card's text, a shape's or frame's label; a card's words are its node's,
+  and are refused), colour, looks, link, lock, node or size, each by the
+  writer the inspector uses, `null` taking a value away (`patchItem`); a
+  `move` is the nudge, by a delta, its groups' members carried and what it
+  lets go of settled by the drop rule (`nudgeItems`, the one the arrow
+  keys make); a `delete` takes items as Delete does, with their members
+  and the edges that meet them, and edges by id (`deleteItems`); a
+  `toPage` takes items to another canvas where they stand, with their
+  members and the edges among them, an edge to one left behind going with
+  them (`takeItems`, `landItems`, which refuses an id the page holds).
+  Edits are made in order against the stored document and written as one
+  canvas write, with the other page beside it in the same transaction. A
+  move, a delete, a move to a page and a resize refuse a locked item
+  (`requireItems`, the one refusal every verb that takes items makes);
+  its words, looks, link and node stay editable, as the inspector's are.
+  Making an item is `place`'s, which takes the new item's id.
   `place` (moving), `arrange`, `group` and `ungroup` refuse an item that is
   `locked`, naming it; `promote` takes a locked card, since it changes what
   the card shows and not where it stands; `describe` reports it
@@ -3753,7 +3781,8 @@ transaction, one step of an open canvas's history.
   focus (the `focus` asked for, else the open tab's selection, else what it
   shows) in full, the rest on screen blurred to what and where, and what is
   off screen counted per frame. With no tab showing the canvas, every item
-  is in full. It also gives the lints, the camera and the tab's screen.
+  is in full. It also gives the lints, the board's page graph (`pages`),
+  the camera and the tab's screen.
 
 #### Export
 
@@ -3788,6 +3817,95 @@ a file is the caller's.
   dependency (GAP 01M54EPF1QB5MKA6WRK9DF2X1Y); rasterise the SVG, or use
   `ui.capture` on an open tab.
 
+#### Import
+`ext.canvas.import {path, name?, parent?}` brings a tldraw board into kb,
+one way: nothing of tldraw's format is kept, and there is no export back
+(research `docs/research/2026-10-28-canvas-tldraw-parity.md`, D4). The file
+is a `.tldraw` archive (a ZIP holding tldraw-sync's `db.sqlite`, whose
+`documents` table keeps each record's JSON) or a `.tldr` file (JSON whose
+`records` they are); reading it is `ext-canvas`'s `tldraw-file.ts`, and the
+lowering is `@kb/canvas`'s pure `tldrawBoard`, so any source of tldraw's
+store records can use it.
+- The first page by tldraw's page order is the board, filed under `parent`;
+  the others are its pages. Everything is one transaction, and the answer
+  names each page, the record nodes and fields it made, its lints (each
+  once), and `reported`: what kb drew differently or not at all.
+- A `frame` is a frame; a tldraw `group` is no item, its members standing
+  where they stand; coordinates relative to a parent become the canvas's.
+  A `geo` is a shape (forms kb lacks drawn as a rect, and reported), a
+  `text` a text item with no outline or ground, a `note` a text card, and an
+  arrow bound at both ends an edge (anchors, heads, label and bend kept);
+  one that is not is a line, and reported. Other shapes are counted in
+  `reported`.
+- A shape carrying `meta` beyond `drill` is a record (D1): it becomes a node
+  under its page whose text is the shape's rich text as markdown and whose
+  props are its meta keys, and it is drawn as a card showing that node (a
+  frame keeps its frame and stands for the node through `nodeId`). A key
+  is written in the field of that name when there is exactly one, it is
+  the person's (no `sys.*` field: a record's key never writes kb's schema)
+  and its type holds every value the board gives it. Otherwise the board
+  takes its own field, named for the key and the board (`pri (Overview)`,
+  then numbered), joined by the same rule, so a board imported again
+  writes in the fields it made, and a family's field of a common name
+  (`source`) never refuses a board. A field kb has none of is made, typed
+  `number` or `checkbox` when every value is one and `text` otherwise; the
+  answer names each key's field.
+- `meta.drill {to, focus?}`, the owner's drill-down convention, is the
+  item's link to that page and item; a locked badge with one is a control
+  (Item links), so the drill-down works as it did in tldraw, and `describe`
+  answers it in `pages`.
+- Colours, fill, dash, size, font and alignment map to kb's nearest looks;
+  black and white are kb's own ink and ground. `isLocked` is `locked`; a
+  `url`, or a lone link in the words, is the item's link.
+- It takes no targets: a script cannot read files, so cannot call it.
+#### Run
+`ext.canvas.run {canvasId, from?, rounds?}` runs a canvas as a computer,
+tldraw computer's model built from kb's parts (research
+`docs/research/2026-10-28-canvas-tldraw-parity.md`, D6).
+- **Components and wires.** Every item that stands for a node and is an
+  end of an edge between two such items is a component; each such edge
+  carries the output of the one it leaves into the one it enters. `from`
+  narrows a run to one component and what its outputs reach.
+- **The engine is pure** (`@kb/canvas` `flow.ts`). `flowPlan` orders the
+  components upstream first, ties in document order. `runFlow` hands each
+  one, through a performer it is given, its inputs' latest outputs in edge
+  order (an input not yet made this run reads its node's stored output). A
+  component after one that failed or was skipped is skipped, naming it, as
+  the workflow kit's `STOP_EXECUTION`. A flow whose outputs loop back runs
+  `rounds` rounds (default 1, at most `MAX_FLOW_ROUNDS`, 8), so a loop
+  ends and spends a bounded amount; an acyclic one runs once.
+- **The node says how it performs**, each performer the family that owns
+  the work, called through the invoke core as `describe` calls the code
+  family:
+  - a node that names scripts (`sys.f.scripts`, as `ext.code.script.list`
+    lists them) runs them through `ext.code.script.run`, its node the
+    subject: the run first writes its inputs to its `input` field, and its
+    output is what they leave in its `output` field;
+  - one with no inputs is a constant, its output its words;
+  - any other is an instruction, its node's text, which the agent family
+    performs on its inputs with one tool-less turn of the selected
+    provider ([`ext.agent.complete`](#agent-packages), where `kb ui`
+    hosts the agent). An instruction no model performs fails, saying why,
+    and what follows it is skipped.
+- **Outputs are fields.** Each output is written to its node's `output`
+  field (made at the first run, text) as its step ends, one write each, so
+  every step shows on the card, reads in datalog and undoes like any edit.
+  The answer is the order, the rounds, the steps performed and each
+  component's last outcome.
+- It takes no targets: a script cannot start a run, which runs scripts and
+  spends a model.
+#### Scale
+A canvas is built for 10x the owner's tldraw board (research D7): one
+board of 40 pages, 2,000 items on a page, 1,000 record cards whose nodes
+carry 10 fields, 200 pictures. `canvas-scale.test.ts` (`@kb/runtime`)
+builds that board by `ext.canvas.import` and times import, a whole-page
+commit, parse and stringify, `describe` (with the board's page graph),
+`lint`, an `edit` and reopening the store, each against a budget four to
+ten times what it measures; `bun run bench` prints the table. Whatever
+reads every item against every other item goes through an index instead:
+`describe`'s near neighbours through a grid of squares, the stood-on
+search only over items with depth, and the import's children, arrows and
+bindings by their owner.
 #### Diagram
 
 `ext.canvas.diagram {query | mermaid, flow?, name?, parent?}` draws a new

@@ -157,6 +157,26 @@ export const DescribedItemSchema = z.object({
     .describe("a line's points, whether it closes and the heads it wears, as make.line takes them"),
 });
 
+/** A page of the canvas's board, as `describe` gives its page graph (`boardPages`). */
+export const BoardPageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  links: z
+    .array(
+      z.object({
+        item: z.string(),
+        to: z.string(),
+        focus: z.string().optional().describe("the item shown and selected on that page"),
+      }),
+    )
+    .readonly()
+    .describe("the ways its items lead to other pages of the board (their link), in order"),
+  from: z
+    .array(z.string())
+    .readonly()
+    .describe("the other pages whose items lead to it, in page order"),
+});
+
 export const RelationSchema = z.union([
   z.object({ kind: z.enum(["on", "in"]), from: z.string(), to: z.string() }),
   z.object({

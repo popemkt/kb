@@ -7,6 +7,7 @@ import { SYSTEM_IDS, type KbNode } from "@kb/model";
 import {
   CANVAS_IDS,
   boardOf,
+  boardPages,
   canvasPages,
   canvasWorld,
   lintCanvas,
@@ -77,6 +78,22 @@ describe("pages", () => {
     expect(unreachable("p2")).toEqual([]);
   });
 
+  test("its page graph says where each page's items lead and which pages lead to it", () => {
+    expect(boardPages(world, "p1")).toEqual([
+      { id: "b", name: "Page b", links: [{ item: "b.0", to: "p1" }], from: ["p11"] },
+      {
+        id: "p1",
+        name: "Page p1",
+        links: [{ item: "p1.0", to: "p11", focus: "x" }],
+        from: ["b"],
+      },
+      { id: "p11", name: "Page p11", links: [{ item: "p11.0", to: "b" }], from: ["p1"] },
+      { id: "p3", name: "Page p3", links: [], from: [] },
+    ]);
+    // A page leading to itself is no way to another page, and no referrer of its own.
+    const looped = canvasWorld([canvas({ id: "s", children: [], links: [{ node: "s" }] })]);
+    expect(boardPages(looped, "s")).toEqual([{ id: "s", name: "Page s", links: [], from: [] }]);
+  });
   test("a new page takes the next name no page has", () => {
     expect(nextPageName(["Board"])).toBe("Page 2");
     expect(nextPageName(["Board", "Page 3"])).toBe("Page 4");

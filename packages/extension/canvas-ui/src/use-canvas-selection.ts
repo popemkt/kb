@@ -15,6 +15,10 @@ import {
 
 /** The modifiers a card press carries; a DOM pointer event is one. */
 type CardPress = Pick<PointerEvent, "shiftKey" | "metaKey" | "ctrlKey">;
+/** Whether a press adds to the selection or takes from it (⇧, ⌘ or Ctrl), rather than acting on what it lands on. */
+export function togglesSelection(press: CardPress): boolean {
+  return press.shiftKey || press.metaKey || press.ctrlKey;
+}
 
 /** The moves in and out of groups, read against the scope: `select` sets a selection. */
 function scopeMoves(
@@ -92,7 +96,7 @@ export function useCanvasSelection(
     setScope(picked.scope);
     const item = byId.get(picked.id) ?? card;
     const isSelected = selection.nodeIds.has(item.id);
-    if (press.shiftKey || press.metaKey || press.ctrlKey) {
+    if (togglesSelection(press)) {
       setSelection(toggleNode(selection, item.id));
       return;
     }
@@ -104,7 +108,7 @@ export function useCanvasSelection(
 
   const onEdgeClick = (edge: CanvasEdge, event: React.MouseEvent) => {
     event.stopPropagation();
-    if (event.shiftKey || event.metaKey || event.ctrlKey) {
+    if (togglesSelection(event)) {
       setSelection(toggleEdge(selection, edge.id));
     } else {
       setSelection(selectEdge(edge.id));
