@@ -232,6 +232,9 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
       log.push(`tool=${toolState.tool}`);
     },
     viewport: {
+      panBy: () => {},
+      zoomAt: () => {},
+      settle: () => {},
       zoomBy: (factor: number) => {
         zoom *= factor;
         log.push(`zoom=${Math.round(zoom * 1000) / 1000}`);
