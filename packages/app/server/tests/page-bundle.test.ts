@@ -29,9 +29,10 @@ const DATASCRIPT = /cljs\.core/;
  * preview and the SDK's BackdropFrame and HoldStill, whose card loads lazily;
  * raised by 1 KB for the page's counted events, the host's read of them and
  * the backdrops' one bridge that tells them to a scene, every scene's own
- * code loading lazily).
+ * code loading lazily; raised by 1 KB for a backdrop's art setting: the
+ * model's art field and choice, `assetUrl`, and its row in Settings).
  */
-const EAGER_BUDGET_BYTES = 1_964_000;
+const EAGER_BUDGET_BYTES = 1_965_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
