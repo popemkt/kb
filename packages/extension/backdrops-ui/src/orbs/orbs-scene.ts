@@ -63,16 +63,13 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   return {
     // In a panel the orbs are smaller, so they stay inside its narrow frame; wide, the great orb right of the title.
-    panel: { x: 0.52, y: 0.5, scale: 0.52, presence: 0.85 },
-    wide: { x: 0.5, y: 0.5, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, composition }: BackdropLayout) => {
+    panel: { x: 0.02, y: 0.5, scale: 0.52, presence: 0.85 },
+    wide: { x: 0, y: 0.5, scale: 1, presence: 1 },
+    layout: (layout: BackdropLayout) => {
+      const { width: w, height: h, anchor } = layout;
       width = w;
       height = h;
-      frame = {
-        x: (composition.x - 0.5) * (w / h),
-        y: 0.5 - composition.y,
-        scale: composition.scale,
-      };
+      frame = { x: anchor.x, y: anchor.y, scale: anchor.scale };
       if (!settled) {
         lamp.x = frame.x + LAMP_REST.x * frame.scale;
         lamp.y = frame.y + LAMP_REST.y * frame.scale;
@@ -80,7 +77,8 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       }
       // The field fills the frame: a glow about its middle, a little high, the size of the frame.
       u.fill.set(glowAbout(w / h, FILL.centre, { x: (w / h) * 0.5, y: FILL.height }, FILL.solid));
-      scrim.layout(w, h);
+      scrim.layout(layout);
+      return frame;
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

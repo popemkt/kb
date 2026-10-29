@@ -130,9 +130,13 @@ const floatingGeometry: Omit<Backdrop, "key"> = {
   Component: FloatingGeometryBackdrop,
 };
 
-/** Two great orbs in front of a deep blue field: a painted scene, its own field and all. */
+/**
+ * Two great orbs in front of a deep blue field: a painted scene, its own
+ * field and all, spanning the scroll region so the field reaches the
+ * window's sides, the orbs placed from the content.
+ */
 const gradientOrbs: Omit<Backdrop, "key"> = {
-  presentation: sceneFrame,
+  presentation: { ...sceneFrame, span: { reach: "region" } },
   Component: GradientOrbsBackdrop,
 };
 

@@ -4184,13 +4184,16 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     periwinkle and apricot ink, and the web behind in fainter ink over the
     wash, its panes fainter still. The text scrim keeps the field quiet under the head's text in
     both, never the piece.
-- **Gradient orbs.** Large soft orbs on a deep blue field, after the
-  owner's reference: a great orb low and right, one high at the left, a
-  small one up to the right and a faint one in shadow between them, each
-  whole in the frame, since an orb is cut by nothing but its own soft
-  edge. Each load varies that composition a little from its seed
-  (`orbs.ts`).
-  degrees (`orbs.ts`, **Variation**).
+- **Gradient orbs.** Two great orbs floating in front of a deep blue field,
+  after the owner's reference: a great orb right of centre, as tall as the
+  frame, lit on its upper right; a second, three quarters its size, high at
+  the left, lit on its lower right and cut only by the frame's top; and a
+  dim one far behind between them, part of the field. Each load varies
+  that composition a little and turns the whole hue a few degrees
+  (`orbs.ts`, **Variation**). Its frame spans the scroll region
+  (**A frame that spans the region**): the field reaches the window's
+  sides, and the orbs are placed from the content, so they hold their
+  place and size whatever the width.
   - One pass, no offscreen picture: each orb is a circle's distance field
     shaded as a sphere and laid over the ones behind it. One key, high
     toward the side its lit limb faces, lights it (where the composition
