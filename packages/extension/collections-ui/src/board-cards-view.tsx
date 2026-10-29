@@ -145,7 +145,7 @@ export function BoardCardsView({
   );
 
   const breakout = view.key === CollectionBoardView && widthPref === "centered";
-  const breakoutRef = useBreakoutShift<HTMLDivElement>(
+  const breakoutRef = useBreakoutShift(
     breakout && groupFieldId !== null && (frameNode !== undefined || rowIds !== undefined),
   );
 

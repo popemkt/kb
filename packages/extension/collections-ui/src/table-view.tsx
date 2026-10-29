@@ -154,7 +154,7 @@ export function TableView({
   );
 
   const breakoutCentered = widthPref === "centered";
-  const breakoutRef = useBreakoutShift<HTMLDivElement>(
+  const breakoutRef = useBreakoutShift(
     breakoutCentered && (frameNode !== undefined || rowIds !== undefined),
   );
 
