@@ -48,7 +48,7 @@ const GLOW_NEAR = 0.15;
 /** The disk's radius at full scale (frame heights). */
 const RADIUS = 0.235;
 /** How far the medallion swings on its chain (rad) and how often (s). */
-const SWING = { angle: 0.05, period: 7.5 } as const;
+const SWING = { angle: 0.08, period: 7.5 } as const;
 /** How far the smoke and embers spread about the disk before they have dissolved (radii). */
 const REACH = { x: 3.4, y: 2.2 } as const;
 /** How much of the reach the smoke fills whole: a subject in the open, so little. */

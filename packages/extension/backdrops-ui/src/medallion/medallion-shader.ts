@@ -79,7 +79,7 @@ const UNDERGLOW = vec3(0.06, 0.017, 0.004);
 const SMOULDER = vec3(0.9, 0.3, 0.07);
 const EMBER = vec3(1.0, 0.36, 0.07);
 /** The light page's inks: the wash, sepia, polished steel and rust. */
-const WASH = vec3(0.44, 0.46, 0.5);
+const WASH = vec3(0.66, 0.58, 0.5);
 const SEPIA = vec3(0.36, 0.2, 0.1);
 const POLISHED = vec3(0.1, 0.11, 0.135);
 const RUST = vec3(0.8, 0.36, 0.16);
@@ -357,7 +357,7 @@ export function medallionFrame(
 
     // Light: the same scene as an engraving in faint ink on the paper: the disk is its relief's
     // lines and a breath of steel, with no fill and no shadow.
-    const paper = mix(vec3(1, 1, 1), WASH, dense.mul(0.6))
+    const paper = mix(vec3(1, 1, 1), WASH, dense.mul(0.3))
       .mul(mix(vec3(1, 1, 1), SEPIA, runes.mul(0.7).min(1)))
       .mul(mix(vec3(1, 1, 1), RUST, sparks.mul(0.5).min(1)));
     const engraved = smoothstep(0.4, 2.5, relief).mul(0.32).add(groove.mul(0.22)).min(0.45);
