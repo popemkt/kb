@@ -2,16 +2,21 @@
  * The wolf medallion's shader (T1): one pass over the frame, reading the
  * relief baked once (`relief.ts`).
  *
- * - **Smoke.** Two folds of noise rising slowly through the field, one
- *   warping the other, lit faintly from below by the embers.
+ * - **Smoke.** Rising streaks in two layers, each one fold of noise
+ *   warping another and drawn out upward, lit by the embers from below and
+ *   brightest in a halo behind the disk.
  * - **The circle.** Two fine rings, broken into arcs, and the five glyphs between them
  *   (`medallion.ts`), each stroke a segment's distance, turning slowly. They
- *   smoulder like the embers, and flare a little when the medallion does.
- * - **The medallion** is worn steel over its baked relief: its slope a
- *   texel across, a metal's Fresnel over its surroundings reflected, a
- *   brushed anisotropic highlight running across the lathe's rings, grime
- *   and patina in its cavities, edges rubbed bright, scratches and casting
- *   pits. Where the relief glows (the eyes) a faint light flares (`glow`)
+ *   smoulder like the embers, each glyph breathing on its own slow clock,
+ *   flare a little when the medallion does, and keep clear of the head's
+ *   text.
+ * - **The medallion** is worn steel over its baked relief: its slope taken
+ *   over the pixel's own footprint (so a fine grain in the source never
+ *   sparkles), a metal's Fresnel over its surroundings reflected, a brushed
+ *   anisotropic highlight running across the lathe's rings, a hot rim from
+ *   the smoke's side, a glint sweeping slowly round its bevels, grime and
+ *   patina deep in its cavities, edges rubbed bright, scratches and casting
+ *   pits, and a darker contact where the chain meets the bail. Where the relief glows (the eyes) a faint light flares (`glow`)
  *   in the colour of what happened (`tint`), with a halo round it.
  * - **The chain**: links up from the bail past the frame's top, face on and
  *   edge on by turns, round wire.
@@ -83,7 +88,7 @@ const POLISH_F0 = vec3(0.8, 0.8, 0.78);
 const PATINA = vec3(0.06, 0.042, 0.03);
 const KEY = vec3(0.72, 0.8, 0.95);
 const WARM = vec3(1.0, 0.42, 0.14);
-const SKY = vec3(0.12, 0.14, 0.18);
+const SKY = vec3(0.07, 0.08, 0.1);
 const FLOOR = vec3(0.05, 0.025, 0.012);
 const CHAIN = vec3(0.4, 0.4, 0.42);
 /** The chain's links (medallion units): how far apart, half their length and width, and the wire's radius. */
@@ -100,9 +105,13 @@ const WASH = vec3(0.66, 0.58, 0.5);
 const SEPIA = vec3(0.36, 0.2, 0.1);
 const RUST = vec3(0.8, 0.36, 0.16);
 /** The steel on a light page: polished where it is lit, dark steel in shade, patina in its recesses. */
-const DAY_LIT = vec3(0.9, 0.91, 0.93);
-const DAY_SHADE = vec3(0.26, 0.27, 0.3);
-const DAY_PATINA = vec3(0.5, 0.42, 0.34);
+const DAY_LIT = vec3(0.92, 0.93, 0.95);
+const DAY_SHADE = vec3(0.14, 0.145, 0.16);
+const DAY_INK = vec3(0.16, 0.12, 0.09);
+/** The smoke where the embers and the light behind the disk catch it. */
+const EMBERLIT = vec3(0.17, 0.07, 0.022);
+/** The way the hot rim light comes from: below and right, where the smoke and embers are. */
+const RIM_SIDE = vec2(0.35, -0.94);
 
 /** The key light and the warm light from below, as directions toward them. */
 const KEY_DIR = new Vector3(-0.55, 0.65, 0.6).normalize();
@@ -141,17 +150,26 @@ const turned = (q: V2, angle: F | number): V2 => {
   return vec2(q.x.mul(c).sub(q.y.mul(s)), q.x.mul(s).add(q.y.mul(c)));
 };
 
-/** The nearest glyph stroke from `q` (medallion units, the circle unturned). */
-function glyphs(q: V2): F {
-  let d: F = float(1e3);
+/**
+ * The glyphs' smoulder at `q` (medallion units, the circle unturned): each
+ * stroke, and a glow round it, as bright as its glyph is at `time`, each
+ * breathing on a slow clock of its own, never in step.
+ */
+function glyphs(q: V2, time: F): F {
+  let lit: F = float(0);
   GLYPHS.forEach((glyph, i) => {
     // Each glyph stands on the circle, its top outward; the first at the top.
     const at = TAU / 4 + (i * TAU) / GLYPHS.length;
     const centre = vec2(Math.cos(at) * CIRCLE.glyphs, Math.sin(at) * CIRCLE.glyphs);
     const local = turned(q.sub(centre), TAU / 4 - at).div(CIRCLE.glyph);
-    d = min(d, nearest(local, glyph.strokes).mul(CIRCLE.glyph));
+    const d = nearest(local, glyph.strokes).mul(CIRCLE.glyph);
+    const breath = sin(time.mul(0.35 + 0.13 * i).add(i * 2.1))
+      .mul(0.4)
+      .add(0.45 + 0.12 * ((i * 3) % 5) * 0.5);
+    const stroke = smoothstep(0.016, 0.004, d).add(exp(d.mul(d).mul(-500)).mul(0.45));
+    lit = lit.max(stroke.mul(breath));
   });
-  return d;
+  return lit;
 }
 
 /** Sparks rising on a grid of `cells` per frame height at `speed`: their light at `p`. */
@@ -176,13 +194,22 @@ function embers(p: V2, time: F, cells: number, speed: number, seed: number): F {
     .mul(flicker);
 }
 
-/** The smoke's density at `p`: one fold of noise warping another, rising. */
-function smoke(p: V2, time: F): F {
+/** The far layer of smoke at `p`: one slow fold, larger, rising at `rise`. */
+function farSmoke(p: V2, time: F, rise: number): F {
+  return smoothstep(0.45, 0.85, fbm4(p.mul(vec2(1.6, 0.7)).add(vec2(3.7, time.mul(-rise)))));
+}
+
+/**
+ * The near layer of smoke's density at `p`: one fold of noise warping
+ * another, drawn out upward into streaks, rising at `rise`.
+ */
+function smoke(p: V2, time: F, rise: number): F {
   const st = p.mul(2);
-  const slow = fbm4(st.mul(1.4).add(vec2(time.mul(0.016), time.mul(-0.065))));
-  return smoothstep(0.35, 0.85, fbm4(st.mul(2.3).add(vec2(slow.mul(1.5), time.mul(-0.11))))).mul(
-    slow.mul(0.4).add(0.6),
+  const slow = fbm4(st.mul(vec2(1.2, 0.7)).add(vec2(time.mul(0.016), time.mul(-0.6 * rise))));
+  const streaks = fbm4(
+    st.mul(vec2(3.4, 1.2)).add(vec2(slow.mul(1.8), time.mul(-rise).add(slow.mul(0.8)))),
   );
+  return smoothstep(0.42, 0.88, streaks).mul(slow.mul(0.6).add(0.4));
 }
 
 /** Small lines scored across the steel at `q` (medallion units): one layer of a cell's random scratch each. */
@@ -201,9 +228,12 @@ function scratches(q: V2, cells: number, seed: number): F {
     .mul(smoothstep(length_, length_.sub(0.08), along));
 }
 
+/** How many cells across a medallion unit the pits are scattered on. */
+const PIT_CELLS = 70;
+
 /** Casting pits at `q`: rare small hollows where the metal did not fill the mould. */
 function pits(q: V2): F {
-  const at = q.mul(70);
+  const at = q.mul(PIT_CELLS);
   const cell = floor(at);
   const own = hash(cell.add(13.1));
   const centre = hash2(cell).mul(0.6).add(0.2);
@@ -217,22 +247,28 @@ function pits(q: V2): F {
  * anisotropic highlight, grime and patina in the recesses, edges rubbed
  * bright, scratches and casting pits.
  */
-function steelAt(relief: BakedRelief, q: V2) {
-  const at = toBaked(q);
-  const t = relief.texel;
+function steelAt(relief: BakedRelief, q: V2, time: F) {
+  const at = toBaked(q).toVar();
+  // The slope over the pixel's footprint, never finer than a texel: a grain finer than the pixel
+  // is averaged away, not sampled into a sparkle.
+  const t = max(max(fwidth(at.x), fwidth(at.y)).mul(1.2), float(relief.texel)).toVar();
   const maps = relief.maps(at).toVar();
   const dx = relief.maps(at.add(vec2(t, 0))).x.sub(relief.maps(at.sub(vec2(t, 0))).x);
   const dy = relief.maps(at.add(vec2(0, t))).x.sub(relief.maps(at.sub(vec2(0, t))).x);
-  const slope = clamp(vec2(dx, dy).div(t * 4 * EXTENT), -3, 3).toVar();
+  const slope = clamp(vec2(dx, dy).div(t.mul(4 * EXTENT)), -3, 3).toVar();
   const cavity = maps.y;
   const silhouette = maps.w;
   // Scratches and pits are tiny grooves: each tips the normal and catches or loses the light.
+  // Each fades out as it grows finer than the pixel, so it never sparkles as a grain.
+  const px = fwidth(q.x).max(fwidth(q.y));
+  const resolved = (cells: number): F => smoothstep(0.4, 0.15, px.mul(cells));
   const scored = scratches(q, 9, 0)
-    .add(scratches(q, 17, 41).mul(0.5))
+    .mul(resolved(9))
+    .add(scratches(q, 17, 41).mul(0.5).mul(resolved(17)))
     .min(1)
     .mul(0.6)
     .toVar();
-  const pitted = pits(q).toVar();
+  const pitted = pits(q).mul(resolved(PIT_CELLS)).toVar();
   const normal = normalize(vec3(slope.mul(-0.6), float(1).add(pitted.mul(0.6)))).toVar();
   const view = vec3(0, 0, 1);
   // Grime and patina gather where the relief is lower than round it; the edges are rubbed bright.
@@ -260,9 +296,20 @@ function steelAt(relief: BakedRelief, q: V2) {
   const rough = grime.mul(0.25).add(1);
   const key = vec3(KEY_DIR.x, KEY_DIR.y, KEY_DIR.z);
   const warm = vec3(WARM_DIR.x, WARM_DIR.y, WARM_DIR.z);
-  const highlight = KEY.mul(lobe(key, 0.14, 0.5).mul(rough.reciprocal()).mul(1.6))
+  // A glint sweeps slowly round the bevels: a low light circling the disk.
+  const orbit = time.mul(0.42);
+  const glint = normalize(vec3(cos(orbit), sin(orbit), float(0.32)));
+  // The smoke's side lights the bevels that face it: a hot, narrow rim.
+  const tilt = float(1).sub(normal.z);
+  const facingSmoke = max(dot(normalize(normal.xy.add(1e-5)), RIM_SIDE), 0);
+  // Only the edge on that side, facing out of the disk.
+  const onSide = smoothstep(0.1, 0.7, dot(normalize(q.add(1e-5)), RIM_SIDE));
+  const rim = smoothstep(0.15, 0.6, tilt).mul(facingSmoke.pow(3)).mul(onSide);
+  const highlight = KEY.mul(lobe(key, 0.14, 0.5).mul(rough.reciprocal()).mul(2.6))
     .add(WARM.mul(lobe(warm, 0.12, 0.4).mul(0.35)))
-    .mul(float(1).sub(grime.mul(0.7)));
+    .add(KEY.mul(lobe(glint, 0.08, 0.35).mul(worn.mul(0.8).add(0.5)).mul(1.4)))
+    .add(WARM.mul(rim.mul(1.4)))
+    .mul(float(1).sub(grime.mul(0.85)));
   // Its surroundings, reflected: a dim warm floor lit by the embers, a cool sky, a soft window up left.
   const ray = normal.mul(normal.z.mul(2)).sub(view);
   const sky = mix(FLOOR, SKY, smoothstep(-0.5, 0.7, ray.y));
@@ -271,13 +318,28 @@ function steelAt(relief: BakedRelief, q: V2) {
       .pow(2)
       .mul(-10),
   ).mul(0.9);
-  const surroundings = sky.add(KEY.mul(window));
-  const occluded = float(1).sub(grime.mul(0.8));
+  const surroundings = sky.add(KEY.mul(window.mul(0.8)));
+  const occluded = float(1).sub(grime.mul(0.94));
   const lit = fresnel
     .mul(surroundings.mul(occluded).add(highlight))
     .add(KEY.mul(scored.mul(lobe(key, 0.5, 0.5).mul(0.5).add(0.03))).mul(occluded))
     .toVar();
   return { silhouette, glow: maps.z, cavity, slope, lit, normal };
+}
+
+/**
+ * The medallion's silhouette at `q` (medallion units, swung), softened over
+ * `spread`: how much of a ring of `taps` round `q` is the medallion. Its
+ * halo, the light along its edge and its shadow are this, so they follow
+ * its own shape, a sigil's or an image's.
+ */
+function softSilhouette(relief: BakedRelief, q: V2, spread: number, taps: number): F {
+  let sum: F = relief.maps(toBaked(q)).w;
+  for (let k = 0; k < taps; k++) {
+    const a = ((k + 0.5) / taps) * TAU;
+    sum = sum.add(relief.maps(toBaked(q.add(vec2(Math.cos(a), Math.sin(a)).mul(spread)))).w);
+  }
+  return sum.div(taps + 1);
 }
 
 /**
@@ -322,16 +384,18 @@ export function medallionFrame(
     const aspect = screenSize.x.div(screenSize.y);
     const p = vec2(screenUV.x.sub(0.5).mul(aspect), float(0.5).sub(screenUV.y)).toVar();
     const low = smoothstep(0.15, 1, screenUV.y);
-    const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y)));
+    const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y))).toVar();
 
     const left = dissolve(u.reach, p, u.time.mul(0.01)).toVar();
-    const dense = smoke(p, u.time).mul(left).toVar();
+    // Two layers of smoke: a far one, slower and larger, and a near one in streaks.
+    const far = farSmoke(p, u.time, 0.06);
+    const dense = smoke(p, u.time, 0.11).add(far.mul(0.55)).mul(left).toVar();
 
     // The medallion's own space: radius 1, y up.
     const q = p.sub(u.centre).div(u.radius).toVar();
     const r = length(q).toVar();
 
-    // The circle: two rings broken into arcs, and the glyphs, turning.
+    // The circle: two rings broken into arcs, and the glyphs, turning, each breathing; off the text.
     const spun = turned(q, u.turn.negate()).toVar();
     const angle = atan(spun.y, spun.x).div(TAU).add(0.5);
     const arcs = (n: number, phase: number, gap: number) => {
@@ -341,58 +405,77 @@ export function medallionFrame(
     const ring = smoothstep(0.008, 0.002, abs(r.sub(CIRCLE.inner)))
       .mul(arcs(5, 0.05, 0.86))
       .add(smoothstep(0.008, 0.002, abs(r.sub(CIRCLE.outer))).mul(arcs(8, 0.3, 0.9)));
-    const glyph = glyphs(spun);
-    const runes = smoothstep(0.016, 0.004, glyph)
-      .add(exp(glyph.mul(glyph).mul(-900)).mul(0.35))
-      .add(ring.mul(0.45))
+    const along = sin(angle.mul(TAU * 3).add(u.time.mul(0.25)))
+      .mul(0.3)
+      .add(0.55);
+    const runes = glyphs(spun, u.time)
+      .add(ring.mul(along).mul(0.5))
+      .mul(float(1).sub(quiet))
       .toVar();
 
     // It swings from a pivot above, so the medallion and its chain move as one pendulum.
     const pivot = vec2(0, u.pivot);
     const swung = turned(q.sub(u.lean).sub(pivot), u.sway).add(pivot).toVar();
-    const { silhouette, glow, cavity, lit } = steelAt(relief, swung);
+    const { silhouette, glow, cavity, lit } = steelAt(relief, swung, u.time);
     const chain = chainAt(swung, u.bail);
+    // Where the chain meets the bail, each shades the other.
+    const bailAt = swung.sub(vec2(0, u.bail));
+    const contact = float(1).sub(exp(dot(bailAt, bailAt).mul(-180)).mul(0.6));
     // The eyes' light: a core where the relief glows, a halo past it, and the medallion's halo.
     const core = smoothstep(0.35, 0.9, glow);
     const halo = glow.mul(0.6);
-    const aura = exp(max(r.sub(1), 0).mul(-9)).mul(float(1).sub(silhouette));
+    // Its halo and the light along its edge follow its own silhouette, softened.
+    const open = float(1).sub(silhouette);
+    const near = softSilhouette(relief, swung, 0.1, 6).mul(open).toVar();
+    const aura = near.mul(1.6).min(1);
+    const behind = softSilhouette(relief, swung, 0.4, 4).mul(open).mul(1.4).min(1);
+    // A hot line of the light behind it along its edge (where most of its near ring is the
+    // medallion), on the smoke's side.
+    const smokeSide = smoothstep(-0.3, 0.9, dot(q.div(r.max(1e-3)), RIM_SIDE));
+    const edgeLight = smoothstep(0.2, 0.5, near).mul(smokeSide.mul(0.8).add(0.2));
     const flare = u.glow.sub(0.2).max(0).div(0.8);
     const sparks = embers(p, u.time, 9, 0.08, 0)
       .add(embers(p, u.time, 15, 0.12, 31).mul(0.6))
       .mul(low.mul(0.8).add(0.2))
       .mul(left);
-    // Its shadow, a little below and right: its own silhouette, on the smoke (never on the page's own ground).
-    const cast = relief
-      .maps(toBaked(swung.sub(vec2(0.06, -0.08))))
-      .w.mul(float(1).sub(silhouette))
-      .mul(0.8);
+    // Its shadow, a little below and right: its own silhouette, softened, on the smoke (never on
+    // the page's own ground).
+    const cast = softSilhouette(relief, swung.sub(vec2(0.07, -0.1)), 0.1, 6)
+      .mul(open)
+      .mul(0.85);
 
-    // Dark: light over the page's ground, which nothing darkens: smoke, the circle smouldering,
-    // the chain, the steel, embers in front, all quieter under the head's text.
-    const smoky = SMOKE.mul(dense.mul(1.4))
-      .add(UNDERGLOW.mul(low.mul(dense.mul(0.6).add(0.5)).mul(left)))
-      .mul(float(1).sub(cast.mul(0.5)))
-      .add(SMOULDER.mul(runes.mul(flare.mul(0.5).add(0.32))))
+    // Dark: light over the page's ground, which nothing darkens: smoke lit from below by the
+    // embers and from behind the disk, the circle smouldering, the chain, the steel, embers in
+    // front, all quieter under the head's text.
+    const smokeLight = low.mul(0.7).add(behind.mul(1.8)).add(0.25);
+    const smoky = SMOKE.mul(dense.mul(1.3))
+      .add(EMBERLIT.mul(dense.mul(smokeLight)))
+      .add(UNDERGLOW.mul(low.mul(dense.mul(0.6).add(0.4)).mul(left)))
+      .mul(float(1).sub(cast.mul(0.7)))
+      .add(SMOULDER.mul(runes.mul(flare.mul(0.5).add(0.4))))
       .add(u.tint.mul(aura.mul(flare).mul(0.22)))
-      .add(BACKLIGHT.mul(aura.mul(dense.mul(0.6).add(0.4))));
-    const chained = mix(smoky, chain.light.sub(ground).max(smoky), chain.cover);
-    const steel = lit.add(u.tint.mul(core.mul(u.glow).mul(5).add(halo.mul(u.glow).mul(0.6))));
+      .add(BACKLIGHT.mul(aura.mul(dense.mul(0.6).add(0.4))))
+      .add(WARM.mul(edgeLight.mul(dense.add(0.3)).mul(0.22)));
+    const chained = mix(smoky, chain.light.mul(contact).sub(ground).max(smoky), chain.cover);
+    const steel = lit
+      .mul(contact)
+      .add(u.tint.mul(core.mul(u.glow).mul(5).add(halo.mul(u.glow).mul(0.6))));
     const art = mix(chained, steel.sub(ground), silhouette).add(EMBER.mul(sparks.mul(2.2)));
     const night = ground.add(art.mul(float(1).sub(quiet.mul(0.4))));
 
-    // Light: the same steel on the paper, toned for it: its light as polished silver, its shade
-    // as dark steel, patina in its recesses, a faint shadow under it; the smoke a warm wash, the
-    // circle in sepia, the embers rust.
+    // Light: the same steel on the paper as an engraving: its light polished silver, its shade
+    // dark steel, ink in its recesses, a soft shadow under it; the smoke a warm wash, the circle
+    // in sepia, the embers rust.
     const toned = (light: V3) =>
-      mix(DAY_SHADE, DAY_LIT, smoothstep(0.02, 0.42, dot(light, vec3(0.2126, 0.7152, 0.0722))));
-    const paper = mix(vec3(1, 1, 1), WASH, dense.mul(0.3))
+      mix(DAY_SHADE, DAY_LIT, smoothstep(0.03, 0.55, dot(light, vec3(0.2126, 0.7152, 0.0722))));
+    const paper = mix(vec3(1, 1, 1), WASH, dense.mul(0.2))
       .mul(mix(vec3(1, 1, 1), SEPIA, runes.mul(0.7).min(1)))
       .mul(mix(vec3(1, 1, 1), RUST, sparks.mul(0.5).min(1)))
-      .mul(float(1).sub(cast.mul(0.2)));
-    const chainOnPaper = mix(paper, toned(chain.light), chain.cover);
-    const metal = toned(lit).mul(
-      mix(vec3(1, 1, 1), DAY_PATINA, smoothstep(0.05, 0.5, cavity).mul(0.55)),
-    );
+      .mul(float(1).sub(cast.mul(0.22)));
+    const chainOnPaper = mix(paper, toned(chain.light).mul(contact), chain.cover);
+    const metal = toned(lit)
+      .mul(contact)
+      .mul(mix(vec3(1, 1, 1), DAY_INK, smoothstep(0.04, 0.4, cavity).mul(0.8)));
     const inked = mix(chainOnPaper, metal, silhouette);
     const glowing = mix(
       inked,
