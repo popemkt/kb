@@ -1,9 +1,15 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 
 /**
+ * The class that breaks an element out of the shell's column to span the
+ * scroll region's visible width (`100cqw` of the region), pulled back by the
+ * shift `useBreakoutShift` measures; `index.css` states the rule.
+ */
+export const BREAKOUT_CLASS = "kb-breakout";
+
+/**
  * A centered table or board breaks out of the shell's column to span the
- * scroll region's visible width (`.table-view-breakout`, `100cqw` of the
- * region). CSS cannot know how far the element sits right of the region's
+ * scroll region's visible width (`BREAKOUT_CLASS`). CSS cannot know how far the element sits right of the region's
  * content edge: an indented outline child's parent is not centered on the
  * region, so `left: 50%` landed it off to the side and the page scrolled
  * sideways. Measure that offset and publish it as `--breakout-shift`; the

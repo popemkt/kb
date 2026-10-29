@@ -33,6 +33,7 @@ import {
   usePageGraph,
   usePane,
   usePrefs,
+  BREAKOUT_CLASS,
   useBreakoutShift,
 } from "@kb/ui-sdk";
 import { localIdOf, type ParamsOf } from "@kb/views";
@@ -191,7 +192,7 @@ export function BoardCardsView({
       className={cn(
         "board-cards-view my-2",
         view.key === CollectionBoardView && "overflow-x-auto",
-        breakout && "table-view-breakout",
+        breakout && [BREAKOUT_CLASS, "px-4"],
       )}
       data-board-cards-view="true"
       data-view-mode={mode}

@@ -32,7 +32,7 @@ const broadcast: Omit<Backdrop, "key"> = {
     space: 160,
     directions: [],
     height: 168,
-    maxWidth: 1040,
+    span: { reach: "content", maxWidth: 1040 },
     offset: -6,
     opacity: { subtle: 0.72, soft: 0.86, vivid: 1 },
   },

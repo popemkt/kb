@@ -259,19 +259,18 @@
   }
 
   /*
-   * W7: table breaks out of the centered max-w-3xl shell to the scroll region's
+   * W7: a breakout leaves the centered max-w-3xl shell for the scroll region's
    * visible width, not the viewport's: with the sidebar open, a viewport-wide
-   * table ran under it. Only the table region — not the whole page (RED4 /
-   * DESIGN views). `--breakout-shift` is how far the element sits right of the
-   * region's content edge (an indented child's parent is off-centre); it is
-   * measured by `useBreakoutShift` (`@kb/ui-sdk`) since CSS cannot know it.
+   * table ran under it. Only the element that breaks out (a table, a board) —
+   * not the whole page (RED4 / DESIGN views). `--breakout-shift` is how far the
+   * element sits right of the region's content edge (an indented child's parent
+   * is off-centre); it is measured by `useBreakoutShift` (`@kb/ui-sdk`), which
+   * names this class (`BREAKOUT_CLASS`), since CSS cannot know it.
    */
-  .table-view-breakout {
+  .kb-breakout {
     width: 100cqw;
     max-width: 100cqw;
     margin-left: calc(-1 * var(--breakout-shift, 0px));
-    padding-left: 1rem;
-    padding-right: 1rem;
     box-sizing: border-box;
   }
 }

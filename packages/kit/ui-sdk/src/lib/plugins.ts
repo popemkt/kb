@@ -256,15 +256,24 @@ export interface Overlay {
 export const OverlayPoint = Point<Overlay>()("ui.overlays");
 
 /**
+ * How far across the page a backdrop's frame reaches: centred under the
+ * head's content, and at most `maxWidth` wide.
+ */
+interface BackdropSpan {
+  readonly reach: "content";
+  readonly maxWidth: number;
+}
+
+/**
  * How a page head frames a backdrop: the breathing room it reserves above
- * the head's content, its frame's height, bounded width and vertical offset,
- * the directions it can face (none, when it has no direction), and how
- * opaque it is at each strength.
+ * the head's content, its frame's height, span and vertical offset, the
+ * directions it can face (none, when it has no direction), and how opaque
+ * it is at each strength.
  */
 export interface BackdropPresentation {
   readonly space: number;
   readonly height: number;
-  readonly maxWidth: number;
+  readonly span: BackdropSpan;
   readonly offset: number;
   readonly directions: readonly BackdropDirection[];
   readonly opacity: Readonly<Record<BackdropStrength, number>>;

@@ -3662,9 +3662,11 @@ exist is a plugin point, and the kit names none of them.
     under the key's local id, so the contribution answers to the declared
     id, as a view answers to its key.
   - The presentation is how a head frames it: the breathing room it
-    reserves above the title (`space`), its frame's `height`, bounded
-    `maxWidth` and vertical `offset`, the `directions` it can face (none for
-    one with no direction), and its `opacity` at each strength.
+    reserves above the title (`space`), its frame's `height`, `span` and
+    vertical `offset`, the `directions` it can face (none for one with no
+    direction), and its `opacity` at each strength. The span is how far
+    across the page the frame reaches: centred under the head's content and
+    at most `maxWidth` wide (`reach: "content"`).
   - The component receives what the head knows (`BackdropProps`): its
     colour (the shown node's tag colour, else the accent), the node it shows
     if any, the strength, the direction, the opacity at that strength, what

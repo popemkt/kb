@@ -109,7 +109,7 @@ const plainPlugin = definePlugin({
               space: 40,
               directions: BACKDROP_DIRECTIONS,
               height: 120,
-              maxWidth: 600,
+              span: { reach: "content", maxWidth: 600 },
               offset: 0,
               opacity: PLAIN_OPACITY,
             },
@@ -224,7 +224,7 @@ describe("every contributed page-head backdrop", () => {
           );
           expect(frame?.dataset.direction).toBe(direction);
           expect(frame?.style.height).toBe(`${value.presentation.height}px`);
-          expect(frame?.style.maxWidth).toBe(`${value.presentation.maxWidth}px`);
+          expect(frame?.style.maxWidth).toBe(`${value.presentation.span.maxWidth}px`);
         }
       }
     }

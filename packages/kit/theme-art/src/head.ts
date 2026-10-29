@@ -11,7 +11,7 @@ export function band(Component: Backdrop["Component"]): Omit<Backdrop, "key"> {
       space: 160,
       directions: [],
       height: 180,
-      maxWidth: 1080,
+      span: { reach: "content", maxWidth: 1080 },
       offset: -10,
       opacity: { subtle: 0.72, soft: 0.86, vivid: 1 },
     },

@@ -72,7 +72,7 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
           left: "50%",
           width: "100%",
           transform: "translateX(-50%)",
-          maxWidth: presentation.maxWidth,
+          maxWidth: presentation.span.maxWidth,
           top: presentation.offset,
         }}
         color={color}
