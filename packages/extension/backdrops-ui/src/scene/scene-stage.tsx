@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAppearance, useReducedMotion, type BackdropProps } from "@kb/ui-sdk";
 import type { CompositionFactory } from "./composition";
 import { useBackdropSeed } from "./seed";
 import { readPalette } from "./tokens";
+import { useTellOwner } from "./owner";
 import { createStage, type Look, type Stage } from "./stage";
 
 /** One frame's scene is allowed about this much of the main thread. */
@@ -29,8 +30,7 @@ export function SceneStage({
   const seed = useBackdropSeed(reducedMotion);
   const { color, direction, strength, opacity, activity, node, pointer } = backdrop;
   const nodeId = node?.id;
-  const { writes, editing } = activity;
-  const seen = useRef({ writes, nodeId });
+  const { editing } = activity;
   // What a stage made later starts from: the page as it is now.
   const latest = useRef({ look: null as Look | null, editing });
   useEffect(() => {
@@ -66,14 +66,8 @@ export function SceneStage({
     });
   }, [appearance, color, direction, strength, opacity]);
 
-  useEffect(() => {
-    const reactions = stage.current?.reactions;
-    if (reactions === undefined) return;
-    if (writes !== seen.current.writes) reactions.write();
-    if (nodeId !== seen.current.nodeId) reactions.navigate();
-    seen.current = { writes, nodeId };
-    reactions.setEditing(editing);
-  }, [writes, editing, nodeId]);
+  const hears = useCallback(() => stage.current?.reactions ?? null, []);
+  useTellOwner(hears, activity, nodeId);
 
   return <canvas ref={canvas} className="kb-scene-canvas" data-scene-state="loading" />;
 }

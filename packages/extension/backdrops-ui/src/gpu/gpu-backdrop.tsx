@@ -11,7 +11,7 @@
  * three (`UI_LAZY_ONLY`): the plugin imports it with `lazy()`, and it
  * imports each scene, which is three's, with `import()`.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { attachScene } from "@kb/scene";
 import {
   logWarn,
@@ -23,6 +23,7 @@ import {
 import { watchPlayback } from "../playback";
 import { useBackdropSeed } from "../scene/seed";
 import { readStagePalette } from "../scene/tokens";
+import { useTellOwner } from "../scene/owner";
 import { TintBackdrop } from "../tint-backdrop";
 import type { ContentBox } from "./framing";
 import type { GpuBackdropInit, GpuBackdropMount, GpuBackdropScene, GpuLook } from "./gpu-scene";
@@ -112,8 +113,7 @@ export default function GpuBackdrop({
   const [state, setState] = useState<SceneState>("loading");
   const { color, direction, opacity, activity, node, pointer } = backdrop;
   const nodeId = node?.id;
-  const { writes, editing } = activity;
-  const seen = useRef({ writes, nodeId });
+  const { editing } = activity;
   // A load mounts its scene once: a change of look, motion or editing reaches
   // the scene it mounted, and never mounts another (only another backdrop does).
   const latest = useRef<Latest>({ look: null, editing, reducedMotion, seed });
@@ -190,13 +190,9 @@ export default function GpuBackdrop({
 
   useEffect(() => {
     latest.current.editing = editing;
-    const scene = mounted.current;
-    if (scene === null) return;
-    scene.setEditing(editing);
-    if (writes !== seen.current.writes) scene.write();
-    if (nodeId !== seen.current.nodeId) scene.navigate();
-    seen.current = { writes, nodeId };
-  }, [writes, editing, nodeId]);
+  }, [editing]);
+  const hears = useCallback(() => mounted.current, []);
+  useTellOwner(hears, activity, nodeId);
 
   return (
     <>
