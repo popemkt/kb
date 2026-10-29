@@ -12,7 +12,7 @@
  * the smoke; writes turn the circle a little faster for a while. At rest it
  * swings a little on its chain (`SWING`), the smoke rises and the embers
  * climb. Near it, smoke and embers dissolve within a reach about it; far
- * from it, plumes of smoke, sparks and glyph haze cross the scroll region,
+ * from it, banks of smoke, sparks and glyph haze cross the scroll region,
  * each fading whole where it stands (`FIELD`).
  */
 import type { SceneStage } from "@kb/scene-gpu";
@@ -54,12 +54,12 @@ const GLOW_NEAR = 0.15;
 const RADIUS = 0.27;
 /** How far the medallion swings on its chain (rad) and how often (s). */
 const SWING = { angle: 0.08, period: 7.5 } as const;
-/** How far the smoke and embers spread about the disk before they have dissolved (radii). */
-const REACH = { x: 3.4, y: 2.2 } as const;
+/** How far the smoke and embers spread about the disk before they have dissolved (radii): close about it, so they hug the subject. */
+const REACH = { x: 2.7, y: 2.1 } as const;
 /** How much of the reach the smoke fills whole: a subject in the open, so little, and it tapers out. */
-const SOLID = 0.2;
+const SOLID = 0.26;
 /**
- * Where the far layers (plumes of smoke, sparks, glyph haze) thin out
+ * Where the far layers (banks of smoke, sparks, glyph haze) thin out
  * across the frame: over its outer heights at either side, and low in it.
  */
 const FIELD: FieldReach = { sides: 0.9, low: [-0.4, 0.02] };

@@ -4308,20 +4308,24 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   kb's own evocation of one Sign by its nature, in a few straight strokes:
   a force pushed out, a flame, a ward, a shield, a mind turned. Each glyph
   smoulders on a slow clock of its own, never in step, and the circle keeps
-  clear of the head's text. Smoke curls round it and embers climb, and a
-  focal glow stands low at its left, toward the title: embers out of sight
-  lighting the smoke from below, round and gone by its own reach. Its frame
+  clear of the head's text and fades before it reaches the rows' tags low
+  at its right. Smoke curls close round it and embers climb, and a warm
+  back light stands behind it, glowing in the air and the smoke about it,
+  so all its warmth is the medallion's own, never a stain beside it. Its frame
   spans the scroll region (**A frame that spans the region**), and the
   medallion is placed from the content. The near smoke keeps to a round
   glow about the disk (`glowAbout`), little of it whole, and dissolves at
   its ragged rim (`gpu/dissolve.ts`), so it tapers out by its own folds,
   never a box or a side of the frame. The far layers cross the whole frame
-  (`farField`): the far smoke in plumes one to a cell in heights, each
-  rising from a narrow foot, spreading, leaning and swaying as it climbs and
-  thinning to nothing at its top, never a column;
+  (`farField`): the far smoke in soft banks one to a cell in heights, each
+  a broad, low puff wider than tall, drifting and swelling on its own
+  clock and torn by the far smoke's folds, which are drawn out across
+  rather than up, so nothing stands as a column or a streak (rising
+  plumes from a narrow foot, and a far fold drawn upward, read as faint
+  vertical streaks across a wide frame);
   sparks, fewer than about the disk; and glyph haze, faint out-of-focus
   glyphs one to a cell, rising a little and breathing, clear of the
-  medallion's circle. Each plume, spark and glyph fades whole where it
+  medallion's circle. Each bank, spark and glyph fades whole where it
   stands, toward the frame's sides, its bottom and the text.
   - **The relief is baked once** (`medallion/relief.ts`), into three
     passes run only when its source changes: the source as height, where
@@ -4345,9 +4349,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     round the centre, so the highlight stretches across it. The key falls
     across the face from its upper left, a gradient, so the relic is lit
     rather than printed, and a bevel facing it square takes a pin-hot
-    highlight. A glint circles its bevels, a broad sheen sweeps across it
-    every 9 seconds, and the bevels on the smoke's side catch a hot, narrow
-    rim from below. The cavity puts grime and a
+    highlight. A glint circles its bevels, a broad, bright specular sheen
+    sweeps across the face every 9 seconds, and the bevels on the smoke's
+    side catch a hot, narrow rim from below. The cavity puts grime and a
     brown-black patina deep in the recesses and occludes them; convex edges
     are rubbed bright; fine scratches score it and catch the key; casting
     pits are rare small hollows. Scratches and pits fade out where they
@@ -4358,15 +4362,21 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     frame (every 7.5 s), so the key glides over the bevels.
   - Glyphs and rings are strokes' distances, the rings broken into arcs;
     the smoke is two layers, a far slow fold and a near one curled by a
-    slow fold of its own into eddies and wisps, lit by the embers from
-    below, by the focal glow and brightest behind the disk; the embers are sparks on a
+    slow fold of its own into eddies and wisps, thickest close about the
+    medallion, lit by the embers from below and by the back light behind
+    it, brightest just past its silhouette; the embers are sparks on a
     grid's cells, mostly specks and a few large and bright.
   - **It stands in front of its field.** The field stays a local glow of
     smoke and embers; the medallion over it is whole, never cut by the
-    smoke's dissolve. A warm back light on the smoke round it, broader on
-    the smoke's side, that light wrapping a thin warmth onto its own edge
-    there (a back light, never a line drawn round it), its shadow cast on
-    the smoke,
+    smoke's dissolve. Dark steel on a near-black ground needs light behind
+    it: a warm back light glows in the air behind the medallion, round it
+    and a little toward the smoke's side, kept within the near smoke's
+    reach so it is gone before the frame's bottom; it hugs the silhouette
+    just past its edge all round, the shadow side too, broader on the
+    smoke's side; and it grazes the medallion's own edge as a thin rim of
+    light all round (an image's lower jaw parts from the ground), wrapping
+    further in on the smoke's side (a back light, never a line drawn round
+    it); its shadow cast on the smoke,
     a darker contact where the chain meets the bail, and parallax (it leans
     a little toward the pointer while the circle and smoke behind it stay)
     set it in front. Its halo, edge light and shadow are its own
@@ -4384,13 +4394,17 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - The pointer near the disk wakes its eyes a little; typing slows the
     smoke; writes (`stir`) turn the circle faster for a while.
   - A light page is the same scene on paper, the medallion a real object
-    on the page: light polished steel, its light exposed for the day on a
-    gentle curve, so its face is bright steel, its engraving dark and its
-    bevels and glints brightest, never a dark disc; the soft window's
-    reflection partly held back, or it is a fog over the steel; a thin warm
-    rim on the smoke's side and a warm glint sweeping its bevels; the chain
-    plain iron; and a soft contact shadow on the paper just below and right
-    (the one it casts on the smoke), with a fainter, wider one past it. The
+    on the page: polished darker steel, its light exposed for the day on a
+    curve that keeps its darks, so its engraving lies in deep shadow and
+    its bevels and glints are brightest, never a flat grey disc; the soft
+    window's reflection partly held back, or it is a fog over the steel;
+    the smoke's rim laying gold in its bevels as on a dark page, a thin
+    warm rim on the smoke's side and a warm glint sweeping its bevels; its
+    edge darkening where it turns away and its silhouette taken from its
+    solid part, so no pale fringe rings it, an image's spikes included; the
+    chain plain iron; and a soft contact shadow on the paper just below and
+    right (the one it casts on the smoke), with a wider, softer one past it,
+    so it rests on the page. The
     lens draws no aberration on this backdrop, so no colour fringes an
     edge. It fades into the page in display values
     (`fadeSpace: "display"`), so a strength's veil leaves the steel its

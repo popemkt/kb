@@ -211,7 +211,7 @@ export const GLYPHS: readonly Glyph[] = [
 ];
 
 /** The circle the glyphs stand on, and its two fine rings (medallion units). */
-export const CIRCLE = { glyphs: 1.45, inner: 1.26, outer: 1.64, glyph: 0.15 } as const;
+export const CIRCLE = { glyphs: 1.4, inner: 1.22, outer: 1.56, glyph: 0.15 } as const;
 /** One turn of the circle (s). */
 export const TURN_SECONDS = 120;
 
