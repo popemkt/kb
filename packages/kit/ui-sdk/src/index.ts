@@ -150,6 +150,7 @@ export {
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
 export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
+export { HoldStill } from "./components/hold-still";
 export { ThemeArt } from "./components/theme-art";
 
 // The primitives.
@@ -437,7 +438,7 @@ export {
   setCaretSerializedOffset,
 } from "./lib/md-edit";
 export { assetSrcUrl, KB_TEXT_CLASS } from "./lib/md-inline";
-export { prefersReducedMotion, useReducedMotion } from "./lib/motion";
+export { HeldStill, prefersReducedMotion, useReducedMotion } from "./lib/motion";
 export { MAIN_PANE, PaneContext, usePane } from "./lib/pane";
 export {
   type PaneReport,

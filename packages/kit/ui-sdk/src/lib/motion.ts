@@ -7,8 +7,14 @@
  * CSS motion is flattened by the global rule in `index.css`; this is the same
  * question asked from script, for motion CSS cannot see — camera tweens, the
  * theme View Transition, a WebGL scene's animation loop.
+ *
+ * A subtree may hold still whatever the mode (`HeldStill`, drawn by
+ * `HoldStill`): a sample drawn to be chosen by, such as a backdrop's option
+ * card, is a still, as everything is under reduced motion. Its element says
+ * so to CSS with the same `data-motion`, which the global rule reads on any
+ * element, not only `<html>`.
  */
-import { useSyncExternalStore } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 
 const QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -48,7 +54,15 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
-/** `prefersReducedMotion`, re-read when the user changes the setting. */
+/** Whether the subtree holds still whatever the motion mode (`HoldStill`). */
+export const HeldStill = createContext(false);
+
+/**
+ * `prefersReducedMotion`, re-read when the user changes the setting; always
+ * true inside a subtree that holds still.
+ */
 export function useReducedMotion(): boolean {
-  return useSyncExternalStore(subscribe, prefersReducedMotion, () => false);
+  const held = useContext(HeldStill);
+  const reduced = useSyncExternalStore(subscribe, prefersReducedMotion, () => false);
+  return held || reduced;
 }

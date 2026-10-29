@@ -291,9 +291,11 @@
   }
 }
 
-:root:is([data-motion="reduced"], [data-motion="off"]) *,
-:root:is([data-motion="reduced"], [data-motion="off"]) *::before,
-:root:is([data-motion="reduced"], [data-motion="off"]) *::after {
+/* The mode on `<html>`, or a subtree that holds still whatever it is
+ * (`HoldStill`, `@kb/ui-sdk`: an option card's sample). */
+:is([data-motion="reduced"], [data-motion="off"]) *,
+:is([data-motion="reduced"], [data-motion="off"]) *::before,
+:is([data-motion="reduced"], [data-motion="off"]) *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   scroll-behavior: auto !important;

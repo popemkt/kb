@@ -792,9 +792,14 @@ included). A kind whose options are best chosen by sight also draws
 `card`, a sample large enough to choose by. The editor names no kind:
 core's design-system plugin previews a design system with its swatch and,
 at card size, a small page its sheet paints with what the theme brings
-under it (its extension, the backdrop it pairs, its motion preset); the
-backdrops tag theirs with their theme at chip size, and a graph theme
-would fill the same slot. A preview draws nothing for a thing nobody
+under it (its extension, the backdrop it pairs, its motion preset); and
+a backdrop with its theme's swatch at chip size and, at card size, the
+backdrop itself (`BackdropCard`): its own renderer in the frame the head
+draws (`BackdropFrame`), laid out at a side panel's width and scaled into
+the card, at the strength and direction in force, hearing no owner, and
+held still (`HoldStill`, Motion options), mounted once the card is on
+screen, so a gallery costs what it shows. A graph theme would fill the
+same slot. A preview draws nothing for a thing nobody
 contributes now.
 
 **Option galleries.** A one-valued option field whose kind previews at
@@ -2787,8 +2792,9 @@ which drew each switch apart from the settings. The record of why is
   <theme>_ clears every motion setting of core's. Effects are labelled in
   words (`hoverLift` is _hover lift_) and drawn as a grid. The backdrop's
   direction is drawn whatever the backdrop, and notes when the shown
-  backdrop faces no way. The theme is a gallery because its kind previews
-  at card size ([Field values → option galleries](#field-values-one-slot-grammar));
+  backdrop faces no way. The theme and the backdrop are galleries because
+  their kinds preview at card size
+  ([Field values → option galleries](#field-values-one-slot-grammar));
   the page asks for nothing.
 - **Extensions** holds one section per extension node under
   `sys.extensions`, in that list's order, read from the whole graph (the
@@ -2844,8 +2850,8 @@ which drew each switch apart from the settings. The record of why is
   filter and the former paths each have a case.
   `components/prefs/settings-extensions.acceptance.test.tsx` drives the
   Extensions and Advanced parts through the real App. The design-system
-  and backdrop contracts choose through Appearance, the design system by
-  a card of its gallery.
+  and backdrop contracts choose through Appearance, each by a card of its
+  gallery.
 - The page's body loads when it is first opened, not with the shell.
 
 ### Extension UI halves
@@ -3606,6 +3612,11 @@ which (`motionChoice`, `@kb/model/motion-choice`).
   whatever the OS says, `full` overrides the OS, `system` asks it; `off`
   also turns every effect off. Script motion hears it too:
   `prefersReducedMotion` reads the mode before the media query.
+- **A subtree may hold still** whatever the mode (`HoldStill`, `@kb/ui-sdk`):
+  `useReducedMotion` answers true inside it, and its element carries
+  `data-motion="reduced"`, which the global rule reads on any element, so
+  CSS motion stops there too. A sample drawn to be chosen by (a backdrop's
+  option card) is a still, as everything is under reduced motion.
 - **Settings** draws each option with the page's field editor and, under
   it, the value in force and its source (`set here`, `from <theme>`,
   `by default`, the last two after `unset here`); the effects sit in their own group, two to a row; a reset
@@ -3748,7 +3759,8 @@ exist is a plugin point, and the kit names none of them.
 
 - **One picker.** Settings draws core's three settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
-  are the one list of backdrops. It draws direction whatever the backdrop,
+  are the one list of backdrops, laid out as a gallery of cards, each the
+  backdrop drawn still (Option previews). It draws direction whatever the backdrop,
   as it draws every setting it lists, and says so under it when the shown
   backdrop faces no way.
 - **The contract** (`app/ui/src/backdrop-point.contract.test.tsx`) runs over
@@ -3759,8 +3771,9 @@ exist is a plugin point, and the kit names none of them.
     field.
   - The slot shows each backdrop, framed by its presentation, at every
     strength and direction.
-  - Choosing a backdrop writes core's setting, and the row and the slot
-    then show it.
+  - Settings draws each backdrop as a card of the gallery, by its own
+    renderer, still, at core's strength, hearing no owner; choosing a card
+    writes core's setting, and the row and the slot then show it.
   - A page's own node chooses for that page over core's.
 - **The continuity contract** (`app/ui/src/backdrop-continuity.contract.test.tsx`)
   renders the page head with each declared backdrop chosen, types 30 keys
