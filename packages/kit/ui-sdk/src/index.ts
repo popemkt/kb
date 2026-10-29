@@ -149,7 +149,7 @@ export {
 } from "./lib/view-key";
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
-export { PageBackdrop } from "./components/page-backdrop";
+export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
 export { ThemeArt } from "./components/theme-art";
 
 // The primitives.

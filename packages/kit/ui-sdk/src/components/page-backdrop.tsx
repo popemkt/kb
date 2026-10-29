@@ -1,6 +1,47 @@
+import type { CSSProperties, Ref } from "react";
 import { usePageActivity, usePageBackdrop } from "../hooks";
+import type { Backdrop, BackdropProps } from "../lib/plugins";
 import { usePointerOver } from "../lib/pointer-over";
 import type { OutlineNode } from "../lib/types";
+
+/**
+ * A backdrop's frame: the box its component draws in, as tall as its
+ * presentation says, clipped, inert and hidden, carrying which backdrop it
+ * is and which way it faces. Where the frame stands is its host's
+ * (`placement`): a page head centres it under the head, a card scales it
+ * into the card.
+ */
+export function BackdropFrame({
+  id,
+  backdrop: { presentation, Component },
+  placement,
+  frameRef,
+  ...props
+}: BackdropProps & {
+  readonly id: string;
+  readonly backdrop: Backdrop;
+  readonly placement: CSSProperties;
+  readonly frameRef?: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div
+      ref={frameRef}
+      className="kb-header-backdrop pointer-events-none"
+      data-backdrop={id}
+      data-direction={props.direction}
+      style={{
+        position: "absolute",
+        overflow: "hidden",
+        height: presentation.height,
+        ...placement,
+      }}
+      aria-hidden="true"
+      data-header-wash="true"
+    >
+      <Component {...props} />
+    </div>
+  );
+}
 
 /**
  * The one page-head slot (DESIGN-UI.md → Page-head backdrops): the chosen
@@ -16,42 +57,32 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
   const activity = usePageActivity();
   const [pointer, attachFrame] = usePointerOver();
   if (chosen === null) return null;
-  const { presentation, Component } = chosen.value;
-  const opacity = presentation.opacity[strength];
+  const { presentation } = chosen.value;
   return (
     <div
       className="kb-header-backdrop-space relative pointer-events-none"
       style={{ height: `min(${presentation.space}px, 24vw)` }}
       aria-hidden="true"
     >
-      <div
-        ref={attachFrame}
-        className="kb-header-backdrop pointer-events-none"
-        data-backdrop={chosen.id}
-        data-direction={direction}
-        style={{
-          position: "absolute",
+      <BackdropFrame
+        id={chosen.id}
+        backdrop={chosen.value}
+        frameRef={attachFrame}
+        placement={{
           left: "50%",
           width: "100%",
           transform: "translateX(-50%)",
-          overflow: "hidden",
-          height: presentation.height,
           maxWidth: presentation.maxWidth,
           top: presentation.offset,
         }}
-        aria-hidden="true"
-        data-header-wash="true"
-      >
-        <Component
-          color={color}
-          node={node}
-          strength={strength}
-          direction={direction}
-          opacity={opacity}
-          activity={activity}
-          pointer={pointer}
-        />
-      </div>
+        color={color}
+        node={node}
+        strength={strength}
+        direction={direction}
+        opacity={presentation.opacity[strength]}
+        activity={activity}
+        pointer={pointer}
+      />
     </div>
   );
 }
