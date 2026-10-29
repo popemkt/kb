@@ -15,6 +15,9 @@
  * - **Along its length** a strand comes and goes (`gap`), so it fades out by
  *   its own shape, and a packet of light runs along it now and then
  *   (`pulse`): the exposure's light still travelling.
+ * - **Toward the head's rows** each strand dies out at a height of its own
+ *   (`low`), so the bundle thins strand by strand down the frame and its
+ *   bottom is never one line.
  *
  * Pure, so the layout and the curve are tested without a GPU.
  */
@@ -22,8 +25,8 @@ import type { Rng } from "../scene/rng";
 import { TAU } from "../scene/math";
 
 /** How many strands the shader reads: near hairlines, mid strands and far sheens. */
-export const STRANDS = 22;
-const NEAR = 9;
+export const STRANDS = 25;
+const NEAR = 12;
 const MID = 9;
 
 /** The bundle's way across: falling to the right, and the S it bends in about the knot (hero units). */
@@ -50,6 +53,12 @@ export interface Strand {
   /** Where it comes and goes along its length: frequency and phase; and its pulse's phase. */
   readonly gap: readonly [number, number];
   readonly pulse: number;
+  /**
+   * The height (frame units from the frame's middle, y up) under which it
+   * has died out: near strands low, so the knot's bundle is whole; the
+   * others anywhere down the frame, so they thin out one by one.
+   */
+  readonly low: number;
 }
 
 /**
@@ -72,15 +81,17 @@ export function layoutTrails(rng: Rng): readonly Strand[] {
   for (let i = 0; i < STRANDS; i++) {
     if (i < NEAR) {
       const side = (i / (NEAR - 1)) * 2 - 1;
+      // Packed close at the knot, finer the closer to the bundle's middle: the reference's dense core.
       strands.push({
-        offset: side * 0.035 + rng.range(-0.01, 0.01),
-        fan: side * rng.range(0.18, 0.42),
+        offset: side * 0.03 + rng.range(-0.008, 0.008),
+        fan: side * rng.range(0.16, 0.42),
         warm: i % 4 === 1 ? rng.range(0.85, 1) : rng.range(0, 0.25),
         depth: rng.range(0, 0.12),
-        width: rng.range(0.55, 1.1),
+        width: rng.range(0.45, 0.9) * (0.75 + 0.25 * Math.abs(side)),
         light: rng.range(0.45, 0.85),
         wave: sway(0.025),
         ...along(),
+        low: rng.range(-0.44, -0.26),
       });
     } else if (i < NEAR + MID) {
       const side = rng.chance(0.5) ? 1 : -1;
@@ -93,6 +104,7 @@ export function layoutTrails(rng: Rng): readonly Strand[] {
         light: rng.range(0.3, 0.55),
         wave: sway(0.04),
         ...along(),
+        low: rng.range(-0.4, 0.04),
       });
     } else {
       const side = i % 2 === 0 ? 1 : -1;
@@ -105,6 +117,7 @@ export function layoutTrails(rng: Rng): readonly Strand[] {
         light: rng.range(0.12, 0.22),
         wave: sway(0.05),
         ...along(),
+        low: rng.range(-0.32, -0.02),
       });
     }
   }

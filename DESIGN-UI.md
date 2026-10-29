@@ -4416,8 +4416,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 - **Light trails.** Long-exposure light streaking across the head from the
   upper left down to the right in a gentle S, after the owner's reference
   tile 09: hairline strands, crisp cyan and blue with a few gold, gathering
-  in a white-hot knot right of the title and fanning out away from it, over
-  a deep, nearly black navy field (`light-trails/`). Each load varies the strands a little
+  in a white-hot knot right of the title, finer and denser there, and
+  fanning out away from it, in the navy glow of its own light
+  (`light-trails/`). In a panel or on a phone the knot rests high and
+  right, above the title's row. Each load varies the strands a little
   and turns the hue a few degrees (**Variation**).
   - One pass, no offscreen picture. Every strand is a curve in the hero's
     units, heights from the knot at its scale (`trails.ts`), so a wider
@@ -4430,16 +4432,29 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     the mid strands stay fine and only the farthest widen, dimmer and bluer,
     into the field's broad sheens: one kind of thing at every depth. A few
     sparks, warm white, drift with the flow near the bundle.
-  - **It fades by its own shapes.** A strand comes and goes along its
-    length, never at the knot; the field runs past the frame's sides and
-    dissolves at its top and bottom by its own ragged reach
-    (`gpu/dissolve.ts`), so no side of the frame is a fade.
+  - **The knot** is a sharp cyan-white core in a tight bloom, with a long
+    hairline lens streak along the bundle and a softer, shorter one under
+    it, as a lens draws a bright point; its wide bloom is a gaussian, gone
+    well short of the frame's bottom.
+  - **It fades by its own shapes.** The dark field is no slab: it is the
+    bundle's own glow, navy about its path and round the knot, in slow
+    smoke, with the far sheens; toward the head's rows it thins by its
+    smoke's ragged edge, gone before the frame's bottom. A strand comes and
+    goes along its length, never at the knot, and dies out down the frame
+    at a height of its own (`trails.ts`, `low`), so the bundle thins strand
+    by strand and its bottom is never one line; under the head's text it
+    all but goes, so the title and the first rows stand clear. The strands
+    run to the frame's top, under the app's bar, and past its sides, so no
+    side of the frame is a fade and no gap opens under the header.
   - The owner: where the pointer rests the trails burn brighter, as a
     longer exposure would, and the knot leans toward it on a slow spring;
     typing slows the light; writes brighten the packets of light that run
     along the strands. Under reduced motion it is one still frame.
-  - A light page is the same strands as ink on the page's paper: cobalt and
-    amber hairlines over a pale periwinkle wash, the knot a warm bloom.
+  - A light page is the same strands as ink on the page's paper: deep
+    cobalt and amber hairlines, inked strongly enough to hold on white and
+    on a phone, over a pale periwinkle wash along the bundle; the knot a
+    point of bare paper in a cyan bloom and streak, so the core still
+    reads.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it
