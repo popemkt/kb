@@ -13,16 +13,16 @@
  *   gone at its rim whatever the noise does. How much of it is whole
  *   (`solid`) is the scene's: a subject in the open keeps little of it, art
  *   that fills the frame as its picture does keeps most.
- * - `keptAt` (CPU): how much of a whole thing at a point is kept, 1 well
- *   inside the reach and 0 at its rim, for what fades as a whole (a shard,
- *   an orb) rather than pixel by pixel.
+ * - `fillingReach` (CPU): the reach of art that fills the frame as its
+ *   picture fills the picture. The frame's top lies under the app's bar, so
+ *   the reach runs on past it and the art is cut there; it clears the sides
+ *   and the bottom, which the page shows, as every reach does.
  * - `dissolve` (GPU): per pixel, 1 inside, easing to 0 at a rim the noise
  *   eats into, so the edge is ragged and slow, never a line.
  */
 import { Fn, abs, clamp, float, pow, smoothstep as fade, uniform, vec2 } from "three/tsl";
 import { Vector2 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
-import { smoothstep } from "../scene/math";
 import { fbm4 } from "./noise";
 
 type F = TslNode<"float">;
@@ -43,10 +43,6 @@ const MARGIN = 0.04;
 const ERODE = 0.3;
 /** The reach's exponent: 2 an ellipse, higher squarer; 3 fills a frame's corners and is still round. */
 const ROUND = 3;
-
-/** How far out in the reach `(x, y)` lies: 1 at its rim. */
-const across = (x: number, y: number): number =>
-  Math.pow(Math.pow(Math.abs(x), ROUND) + Math.pow(Math.abs(y), ROUND), 1 / ROUND);
 
 /** One axis of a reach: radius `wanted` about `centre`, in a frame `half` either side of 0. */
 function fit(centre: number, wanted: number, half: number): readonly [number, number] {
@@ -72,14 +68,15 @@ export function reachWithin(
   return { x, y, rx, ry, solid };
 }
 
-/** How much of a thing at `(x, y)` is kept: whole well inside the reach's solid share, gone past its rim. */
-export const keptAt = (reach: Reach, x: number, y: number): number =>
-  1 -
-  smoothstep(
-    reach.solid + (1 - reach.solid) * 0.4,
-    1.1,
-    across((x - reach.x) / reach.rx, (y - reach.y) / reach.ry),
-  );
+/**
+ * The reach of art that fills a frame `aspect` wide and 1 high: all of it
+ * but the margin at its sides and bottom, and open at the top, its centre
+ * on the frame's top edge so the rim the page sees is its lower half.
+ */
+export function fillingReach(aspect: number, solid: number): Reach {
+  const [x, rx] = fit(0, aspect / 2, aspect / 2);
+  return { x, y: 0.5, rx, ry: 1 - MARGIN, solid };
+}
 
 /** A scene's reach as its shader reads it. */
 export function dissolveUniforms() {

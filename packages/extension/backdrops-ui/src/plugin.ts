@@ -118,7 +118,7 @@ const toonSea: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: To
 /** Silk ribbons in three depths on a stage before a faint cosmos. */
 const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkBackdrop };
 
-/** Glass shards in the dark, amber light through them. */
+/** A web of glass facets on deep navy, gold light where they meet. */
 const floatingGeometry: Omit<Backdrop, "key"> = {
   presentation: gpuFrame,
   Component: FloatingGeometryBackdrop,

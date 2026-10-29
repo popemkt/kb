@@ -1,29 +1,27 @@
 /**
- * The Floating geometry backdrop: low-poly glass shards drifting slowly in
- * the dark, warm amber light coming through them (shaders:
- * `floating-geometry-shader.ts`; the shards: `shards.ts`). Each mount lays
- * out its own shards from its seed, fanned round a few knots where their
- * tips meet; they sway and drift on clocks of their own and never turn all
- * the way round, so the composition holds.
+ * The Floating geometry backdrop: one web of low-poly glass facets tiling a
+ * deep navy field, gold light gathering where facets meet (shaders:
+ * `floating-geometry-shader.ts`; the web: `web.ts`). Each mount lays out its
+ * own web from its seed, two sheets of facets one over the other; they
+ * slide a little and their vertices fold on clocks of their own, so the
+ * composition holds.
  *
  * The glass fills the frame as the reference's fills its picture, and
- * dissolves by its own shapes: a face far out in the frame's reach fades
- * whole, and the rest is eaten at the reach's ragged rim.
- * Each load varies where the main knot sits, how large the glass is and a
- * few degrees of the light's hue (`variation`).
+ * dissolves by its own shapes at the reach's ragged rim. Each load varies
+ * where the main knot sits, how large the glass is and a few degrees of the
+ * light's hue (`variation`).
  *
  * The light: three lamps behind three knots, and a band of light that
- * sweeps across the glass every `SWEEP_PERIOD` seconds, so edge after edge
+ * sweeps across the glass every `SWEEP_PERIOD` seconds, so seam after seam
  * glints as it passes.
  *
- * The owner: the lamp behind the glass follows the pointer on a soft
- * spring, so the light moves through the facets under it, and with no
- * pointer it wanders near the main knot; the eye leans with the pointer too,
- * so the near shards slide against the far ones. Typing slows the drift and
- * rests the sweep.
- * Writes are an impulse, never a restart: they swell the lamp, and a write
- * outside typing (`stir`) or a move to another page (`ripple`) leans every
- * shard a little further on its own swing, which eases back.
+ * The owner: the main lamp follows the pointer on a soft spring, so the
+ * light moves through the facets under it, and with no pointer it wanders
+ * near the main knot; the eye leans with the pointer too, so the near sheet
+ * slides against the far one. Typing slows the drift and rests the sweep.
+ * Writes are an impulse, never a restart: they swell the lamps, and a write
+ * outside typing (`stir`) or a move to another page (`ripple`) folds the
+ * glass a little further, which eases back.
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
@@ -37,7 +35,7 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { keptAt, reachWithin, type Reach } from "../gpu/dissolve";
+import { fillingReach } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import {
   glassFragment,
@@ -45,10 +43,12 @@ import {
   glassUniforms,
   type GlassUniforms,
 } from "./floating-geometry-shader";
-import { layoutShards, projectShards, type ProjectedFace } from "./shards";
+import { layoutWeb, placeSheets } from "./web";
 
 /** The lamp's spring (ω, rad/s): it follows the pointer in about two seconds, as light through glass would drift. */
 const FOLLOW = 2.4;
+/** The most texels the glass is drawn at per CSS pixel: past this a seam is no crisper, only dearer. */
+const TEXELS = 1.5;
 /** How far the lamp wanders from its rest with no pointer (shares of the composition's scale), and how slowly (rad/s). */
 const WANDER = 0.16;
 const WANDER_RATE = 0.2;
@@ -56,36 +56,10 @@ const WANDER_RATE = 0.2;
 const SWEEP_PERIOD = 11;
 /** The way the sweep travels: from the upper left down to the right. */
 const SWEEP_DIR = { x: 0.894, y: -0.447 };
-/** How much of the frame's reach the glass fills whole before it dissolves. */
-const SOLID = 0.62;
+/** How much of the frame's reach the field fills whole before it dissolves: under half, so it fades over a long way. */
+const SOLID = 0.42;
 /** Each lamp's strength: the main one, then the two behind the next knots. */
 const LAMP_STRENGTH = [1, 0.75, 0.55] as const;
-/** How far past its corners anything of a face shows (frame units): its edges' halo and its tip's flare. */
-const BOX_MARGIN = 0.12;
-
-/** The faces as the shader reads them: corners, light, edges, how much of each is kept, and its box. */
-function writeFaces(u: GlassUniforms, faces: readonly ProjectedFace[], reach: Reach) {
-  faces.forEach((face, i) => {
-    u.face.corners[i * 2]?.set(face.a[0], face.a[1], face.b[0], face.b[1]);
-    u.face.corners[i * 2 + 1]?.set(face.c[0], face.c[1], face.depth, face.lit);
-    // A face far out in the reach fades as a whole, so the glass dissolves shard by shard.
-    const mid = [(face.a[0] + face.b[0] + face.c[0]) / 3, (face.a[1] + face.b[1] + face.c[1]) / 3];
-    const kept = keptAt(reach, mid[0] ?? 0, mid[1] ?? 0);
-    u.face.edges[i]?.set(face.edges[0], face.edges[1], face.edges[2], kept);
-    const xs = [face.a[0], face.b[0], face.c[0]];
-    const ys = [face.a[1], face.b[1], face.c[1]];
-    // A face that is gone, or a spare, has an empty box: no pixel spends anything on it.
-    if (kept <= 0 || Math.min(...xs) === Math.max(...xs)) u.face.boxes[i]?.set(1, 1, -1, -1);
-    else
-      u.face.boxes[i]?.set(
-        Math.min(...xs) - BOX_MARGIN,
-        Math.min(...ys) - BOX_MARGIN,
-        Math.max(...xs) + BOX_MARGIN,
-        Math.max(...ys) + BOX_MARGIN,
-      );
-  });
-}
-
 /** The main lamp where it is, and the others at their knots, each breathing a little on a clock of its own. */
 function writeLamps(
   u: GlassUniforms,
@@ -108,7 +82,7 @@ function writeLamps(
 
 function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
-  const { pieces, knots } = layoutShards(vary.stream("shards"));
+  const { sheets, knots } = layoutWeb(vary.stream("web"));
   /** Where the main knot sits off the composition's, and how large the glass is (shares of the scale). */
   const shift = { x: vary.range("knot.x", -0.12, 0.12), y: vary.range("knot.y", -0.06, 0.06) };
   const size = vary.range("size", 0.92, 1.1);
@@ -125,27 +99,28 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   let width = 1;
   let height = 1;
   let hub = { x: 0, y: 0, scale: 1 };
-  let reach: Reach = { x: 0, y: 0, rx: 1, ry: 1, solid: SOLID };
   const lamp = { x: 0, y: 0 };
   const velocity = { x: 0, y: 0 };
   let settled = false;
   let time = vary.range("clock", 0, 60);
   let wander = vary.phase("wander");
-  let swirl = 0;
+  let fold = 0;
   // A still rests with the sweep through the main knot; a running scene starts it off the glass.
   let sweepClock = init.reducedMotion ? SWEEP_PERIOD * 0.55 : 0;
   const lean = { x: 0, y: 0 };
   let span = 1;
 
-  const project = () => {
-    const faces = projectShards(
-      pieces,
-      time,
-      { ...hub, lean: [lean.x, lean.y] },
-      [lamp.x, lamp.y],
-      swirl,
+  const place = () => {
+    const placed = placeSheets(sheets, time, { ...hub, lean: [lean.x, lean.y] });
+    placed.forEach((sheet, n) => {
+      u.sheet[n * 2]?.set(sheet.x, sheet.y, sheet.cell, sheet.angle);
+      u.sheet[n * 2 + 1]?.set(sheet.seed, sheet.crumple * (1 + fold), sheet.depth, 0);
+    });
+    // The piece lives on the near sheet: its knots slide with it, so its facets never change.
+    const [dx, dy] = placed[0]?.slid ?? [0, 0];
+    knots.forEach(([x, y, reach], k) =>
+      u.knot[k]?.set(hub.x + x * hub.scale + dx, hub.y + y * hub.scale + dy, reach, 0),
     );
-    writeFaces(u, faces, reach);
   };
 
   return {
@@ -163,26 +138,25 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
         scale,
       };
       u.scale.value = scale;
-      u.hub.value.set(hub.x, hub.y);
       if (!settled) {
         lamp.x = hub.x + rest.x * hub.scale;
         lamp.y = hub.y + rest.y * hub.scale;
         settled = true;
       }
-      // The whole frame, a little high, so the glass thins out toward the page below.
-      reach = reachWithin(aspect, { x: 0, y: 0.04 }, { x: aspect / 2, y: 0.5 }, SOLID);
-      u.reach.set(reach);
+      // The field fills the frame: cut under the app's bar, dissolving at its sides and bottom.
+      u.reach.set(fillingReach(aspect, SOLID));
       u.window.value.set(-aspect / 2, -0.5, aspect / 2, 0.5);
       span = Math.abs(SWEEP_DIR.x) * aspect + Math.abs(SWEEP_DIR.y);
-      // Crisp glass: a texel a device pixel at full quality, fewer as quality steps down.
-      const texel = stage.renderer.getPixelRatio() * (0.5 + 0.5 * quality);
+      // Crisp glass: a texel a device pixel at full quality, at most `TEXELS` a CSS pixel, fewer
+      // as quality steps down.
+      const texel = Math.min(stage.renderer.getPixelRatio(), TEXELS) * (0.5 + 0.5 * quality);
       glass.setSize(w * texel, h * texel);
       u.pixel.value = 1 / (h * texel);
       scrim.layout(w, h);
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
-      stage.setBloom(look.dark ? 0.65 : 0);
+      stage.setBloom(look.dark ? 0.4 : 0);
     },
     frame: (dt: number, reactions: Reactions) => {
       // Typing slows the drift; the clock only runs forward.
@@ -215,12 +189,12 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       sweepClock += dt * (1 - 0.9 * reactions.calm);
       // Across the whole frame and a little past either side, so it enters and leaves unseen.
       u.sweep.value = ((sweepClock / SWEEP_PERIOD) % 1) * (span + 0.8) - (span + 0.8) / 2;
-      // A write swells the lamp; a write outside typing, or a new page, leans the shards, and they ease back.
-      swirl += (0.5 * reactions.stir + 0.35 * reactions.ripple - swirl) * Math.min(1, dt * 1.5);
+      // A write swells the lamps; a write outside typing, or a new page, folds the glass, and it eases back.
+      fold += (0.5 * reactions.stir + 0.35 * reactions.ripple - fold) * Math.min(1, dt * 1.5);
       u.heat.value = 1 + 0.55 * reactions.impulse;
       u.time.value = time;
       writeLamps(u, lamp, others, hub, wander);
-      project();
+      place();
       glass.render();
     },
     dispose: glass.dispose,
@@ -235,7 +209,7 @@ export function mountFloatingGeometry(
     host,
     init,
     {
-      bloom: { strength: 0.65, radius: 0.7 },
+      bloom: { strength: 0.4, radius: 0.5 },
       // The glass dissolves within its own reach; the frame's feather is only the last guard.
       feather: { sides: 0.03, top: 0.02, bottom: 0.03 },
       lens: { aberration: 0.006, streak: 0, grain: 0.015 },

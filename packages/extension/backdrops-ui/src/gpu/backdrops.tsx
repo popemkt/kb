@@ -38,7 +38,7 @@ export function SilkBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="silk" backdrop={props} />;
 }
 
-/** Glass shards drifting in the dark, amber light through them (`floating-geometry/`). */
+/** A web of glass facets on deep navy, gold light where they meet (`floating-geometry/`). */
 export function FloatingGeometryBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="floatingGeometry" backdrop={props} />;
 }
