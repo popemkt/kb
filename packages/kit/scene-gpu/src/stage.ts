@@ -126,7 +126,8 @@ export interface StageOptions {
   /**
    * Fade into the ground along the frame's own sides instead, over these
    * shares of its width (each side) and height (top, bottom): a frame set
-   * into a page, whose edges must vanish into it.
+   * into a page, whose edges must vanish into it. A 0 leaves that edge
+   * unfaded: a frame whose sides are the page region's own.
    */
   readonly feather?: { readonly sides: number; readonly top: number; readonly bottom: number };
   /**
@@ -175,6 +176,14 @@ export type PaletteUniforms = ReturnType<typeof paletteUniforms>;
 type PaletteKey = keyof PaletteUniforms;
 const PALETTE_KEYS: readonly PaletteKey[] = ["ground", "edge", "hue", "ink", "accent"];
 
+/**
+ * How far in from one edge of the frame `from` is (0 at it), faded over
+ * `share`: a side with no feather (0) is not faded at all, since a
+ * smoothstep over no span is undefined.
+ */
+const side = (share: number, from: TslNode<"float">): TslNode<"float"> =>
+  share > 0 ? smoothstep(0, share, from) : float(1);
+
 /** How a frame's edges fade into the ground: 1 at the edge, 0 inside. */
 function edgeFade(options: StageOptions, vignette: TslNode<"float">): TslNode<"float"> {
   const feather = options.feather;
@@ -183,8 +192,8 @@ function edgeFade(options: StageOptions, vignette: TslNode<"float">): TslNode<"f
   }
   const x = screenUV.x;
   const y = screenUV.y;
-  const across = smoothstep(0, feather.sides, x).mul(smoothstep(0, feather.sides, float(1).sub(x)));
-  const down = smoothstep(0, feather.top, y).mul(smoothstep(0, feather.bottom, float(1).sub(y)));
+  const across = side(feather.sides, x).mul(side(feather.sides, float(1).sub(x)));
+  const down = side(feather.top, y).mul(side(feather.bottom, float(1).sub(y)));
   // Squared: the fade starts softly, so no line marks where it begins.
   const inside = across.mul(down);
   return float(1).sub(inside.mul(inside));
