@@ -11,6 +11,7 @@ import {
   SKY_BACKDROP,
   TOON_SEA_BACKDROP,
   UNICORN_BACKDROP,
+  WOLF_MEDALLION_BACKDROP,
   backdropsExtension,
   backdropsPlugin,
 } from "@kb/backdrops";
@@ -24,6 +25,7 @@ import {
   LensBackdrop,
   SilkBackdrop,
   ToonSeaBackdrop,
+  WolfMedallionBackdrop,
 } from "./gpu/backdrops";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
@@ -140,6 +142,12 @@ const gradientOrbs: Omit<Backdrop, "key"> = {
   Component: GradientOrbsBackdrop,
 };
 
+/** kb's steel wolf medallion over smoke and embers, sensing the page. */
+const wolfMedallion: Omit<Backdrop, "key"> = {
+  presentation: gpuFrame,
+  Component: WolfMedallionBackdrop,
+};
+
 /**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
@@ -165,6 +173,7 @@ export const backdropsUiPlugin = definePlugin({
           provideBackdrop(FLOATING_GEOMETRY_BACKDROP, floatingGeometry),
         ),
         ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_ORBS_BACKDROP, gradientOrbs)),
+        ctx.contribute(BackdropPoint, provideBackdrop(WOLF_MEDALLION_BACKDROP, wolfMedallion)),
       ],
       { discard: true },
     ),

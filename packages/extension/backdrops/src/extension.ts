@@ -51,6 +51,12 @@ export const GRADIENT_ORBS_BACKDROP: SeedBackdrop = {
   label: "Gradient orbs",
 };
 
+/** kb's own steel wolf medallion over smoke and embers, a circle of five glyphs turning behind it; it trembles when something happens. */
+export const WOLF_MEDALLION_BACKDROP: SeedBackdrop = {
+  id: "backdrops.wolf-medallion",
+  label: "Wolf medallion",
+};
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
@@ -70,6 +76,7 @@ export const backdropsExtension = defineExtension({
         SILK_BACKDROP,
         FLOATING_GEOMETRY_BACKDROP,
         GRADIENT_ORBS_BACKDROP,
+        WOLF_MEDALLION_BACKDROP,
       ],
     },
   ],

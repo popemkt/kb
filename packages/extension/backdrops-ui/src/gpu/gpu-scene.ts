@@ -32,7 +32,7 @@ import type { SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, type SceneStage, type StageOptions, type TslNode } from "@kb/scene-gpu";
 import type { PointerSource, Timing } from "@kb/ui-sdk";
 import { meterOf } from "../scene/meter";
-import { startReactions, type Reactions } from "../scene/reactions";
+import { startReactions, type PageEventKind, type Reactions } from "../scene/reactions";
 import { anchorIn, framingAt, type Anchor, type Composition, type ContentBox } from "./framing";
 
 /** What the page says about how a backdrop paints. */
@@ -60,6 +60,8 @@ export interface GpuBackdropScene extends SceneHandle {
   /** A write landed (a keystroke while editing): an impulse, merged into the one under way. */
   readonly write: () => void;
   readonly navigate: () => void;
+  /** Something happened on the page (`Reactions.notice`). */
+  readonly notice: (kind: PageEventKind) => void;
   readonly setEditing: (editing: boolean) => void;
   /** The head's content moved across the frame (the content width changed): the hero follows it. */
   readonly setContent: (content: ContentBox) => void;
@@ -242,6 +244,10 @@ export async function mountBackdrop(
     },
     navigate: () => {
       reactions.navigate();
+      stage.invalidate();
+    },
+    notice: (kind) => {
+      reactions.notice(kind);
       stage.invalidate();
     },
     setEditing: (next) => {

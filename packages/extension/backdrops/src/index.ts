@@ -15,6 +15,7 @@ export {
   SKY_BACKDROP,
   TOON_SEA_BACKDROP,
   UNICORN_BACKDROP,
+  WOLF_MEDALLION_BACKDROP,
   backdropsExtension,
   backdropsPlugin,
 } from "./extension.ts";

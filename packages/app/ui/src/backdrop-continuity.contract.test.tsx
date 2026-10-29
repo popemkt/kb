@@ -6,7 +6,7 @@
  *
  * - the slot keeps the one instance it mounted, for every backdrop: its
  *   element is never replaced;
- * - a GPU backdrop (Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs) mounts its scene exactly once, and the
+ * - a GPU backdrop (Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion) mounts its scene exactly once, and the
  *   scene's clock only moves forward.
  *
  * Three's renderer is the stand-in (`FAKE_WEBGPU`), so the scenes are real
@@ -63,6 +63,7 @@ const GPU_BACKDROPS = new Set([
   "backdrops.silk",
   "backdrops.floating-geometry",
   "backdrops.gradient-orbs",
+  "backdrops.wolf-medallion",
 ]);
 
 /** The browser entries of the families on in a store with no switch written, as the page loads them. */

@@ -26,9 +26,12 @@ const DATASCRIPT = /cljs\.core/;
  * 2.23 MB with DataScript; raised by 10 KB for the motion options' seed
  * fields and their mode, whose painter loads lazily, as the Settings page does;
  * raised by 3 KB for the backdrop gallery's eager half, core's backdrop
- * preview and the SDK's BackdropFrame and HoldStill, whose card loads lazily).
+ * preview and the SDK's BackdropFrame and HoldStill, whose card loads lazily;
+ * raised by 1 KB for the page's counted events, the host's read of them and
+ * the backdrops' one bridge that tells them to a scene, every scene's own
+ * code loading lazily).
  */
-const EAGER_BUDGET_BYTES = 1_963_000;
+const EAGER_BUDGET_BYTES = 1_964_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

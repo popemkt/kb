@@ -3,14 +3,17 @@
  * (`reactions.ts`): the page's activity (`PageActivity`) and the page shown.
  * The 2D stage and the GPU stage are hosted alike, so both tell it here: a
  * count that moved is one event, a page change is a navigation, and editing
- * is a state.
+ * is a state; each of the page's events that moved is noticed.
  */
 import { useEffect, useRef } from "react";
 import type { PageActivity } from "@kb/ui-sdk";
-import type { Reactions } from "./reactions";
+import type { PageEventKind, Reactions } from "./reactions";
+
+/** The page's events, in the order a host notices them when several move at once. */
+const EVENTS: readonly PageEventKind[] = ["arrivals", "errors", "turns"];
 
 /** What hears the owner: a stage's reactions, or a scene that hands them on. */
-export type Hears = Pick<Reactions, "write" | "navigate" | "setEditing">;
+export type Hears = Pick<Reactions, "write" | "navigate" | "notice" | "setEditing">;
 
 /** The owner as last told: the activity, and the node the page shows. */
 export interface Told {
@@ -22,6 +25,7 @@ export interface Told {
 export function tellOwner(hears: Hears, seen: Told, now: Told): Told {
   if (now.activity.writes !== seen.activity.writes) hears.write();
   if (now.nodeId !== seen.nodeId) hears.navigate();
+  for (const kind of EVENTS) if (now.activity[kind] !== seen.activity[kind]) hears.notice(kind);
   hears.setEditing(now.activity.editing);
   return now;
 }

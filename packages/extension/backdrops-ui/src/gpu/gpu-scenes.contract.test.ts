@@ -1,6 +1,6 @@
 /**
  * The scene contract (`sceneContract`, `@kb/ui-test-kit`) over the GPU
- * backdrops' scenes, Lens, Black hole, Toon sea, Silk, Floating geometry and Gradient orbs, each on a dark
+ * backdrops' scenes, Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs and Wolf medallion, each on a dark
  * page and a light one: each draws an offscreen pass (the nebula, the hole,
  * the sky, the silk), so the stand-in renderer counts those too, and a
  * hidden scene must still draw nothing.
@@ -46,6 +46,7 @@ const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
   "floating geometry": () =>
     import("../floating-geometry/floating-geometry-scene").then((m) => m.mountFloatingGeometry),
   "gradient orbs": () => import("../orbs/orbs-scene").then((m) => m.mountGradientOrbs),
+  "wolf medallion": () => import("../medallion/medallion-scene").then((m) => m.mountWolfMedallion),
 };
 
 sceneContract(

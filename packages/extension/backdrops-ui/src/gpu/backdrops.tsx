@@ -47,3 +47,8 @@ export function FloatingGeometryBackdrop(props: BackdropProps) {
 export function GradientOrbsBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="gradientOrbs" backdrop={props} />;
 }
+
+/** kb's steel wolf medallion over smoke and embers, trembling when something happens (`medallion/`). */
+export function WolfMedallionBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="wolfMedallion" backdrop={props} />;
+}

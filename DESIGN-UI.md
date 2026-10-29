@@ -3744,7 +3744,10 @@ exist is a plugin point, and the kit names none of them.
   - `backdrops.floating-geometry` is a web of low-poly glass facets on a
     deep navy field, gold light gathering where they meet;
   - `backdrops.gradient-orbs` is two great orbs floating in front of a
-    deep blue field, lit from the upper right in violet, pink and cream.
+    deep blue field, lit from the upper right in violet, pink and cream;
+  - `backdrops.wolf-medallion` is kb's own steel wolf medallion over smoke
+    and rising embers, a faint circle of five glyphs turning behind it; it
+    trembles when something happens on the page.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -3856,6 +3859,14 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
   a keystroke adds a little: continuous typing is a gentle sustained
   response that eases away when it stops. `stir` is the impulse without
   typing's share, for a scene that keeps still while the owner types.
+- **What happens is noticed.** A page event that moved (`PageEvents`: a
+  change from elsewhere, an error, a turn the agent finished) is a
+  `notice`: a short `startle` pulse, and `noticed`, the kind last noticed
+  and how many have been, for a scene that answers each kind its own way
+  or holds what it noticed while it cannot move. Both stages' hosts tell
+  the owner to their reactions through one bridge (`scene/owner.ts`): a
+  count that moved is one event, a page change a navigation, editing a
+  state.
 
 Roost is the same kit with another layout:
 
@@ -3888,7 +3899,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens, Black hole, Toon sea, Silk, Floating geometry and Gradient orbs are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs and Wolf medallion are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -4264,6 +4275,30 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     lilac on it. On paper an orb's limb is softer than on a dark page and
     its shadowed limb pales toward the wash, as haze would take it, so a
     pastel orb never sits on the white as a cut-out.
+- **Wolf medallion.** kb's own sigil, never another work's emblem: a round
+  steel disk with a raised, notched rim, and on it a front-facing wolf mask
+  cut in straight planes (pointed ears, a ruff in two steps, a long closed
+  muzzle), gabled down its middle, its eyes engraved slits (`medallion.ts`).
+  Behind it a faint circle of five glyphs turns once in four minutes, each
+  kb's own evocation of one Sign by its nature, in a few straight strokes:
+  a force pushed out, a flame, a ward, a shield, a mind turned. Smoke rises
+  through the field and embers climb it.
+  - One pass, no offscreen picture: the disk is a height field (disk, rim,
+    mask, engraving) whose slope is read from the screen's derivatives and
+    lit as dark steel: a cool key from the upper left, the embers' warmth
+    from below. Glyphs and rings are strokes' distances; the smoke is two
+    folds of noise, one warping the other; the embers are sparks on a
+    grid's cells, each kept inside its cell.
+  - **It senses the page.** On a `notice` the medallion trembles for under
+    a second and its eyes flare in that event's colour (silver for a change
+    from elsewhere, red for an error, gold for a finished agent turn), with
+    a halo round the disk, and settles back to its faint amber. Under
+    reduced motion it never moves: the eyes light, still, and go dark again
+    a few seconds later, two still frames the scene asks the stage for.
+  - The pointer near the disk wakes its eyes a little; typing slows the
+    smoke; writes (`stir`) turn the circle faster for a while.
+  - A light page is the same scene inked on the paper: a smoke wash, sepia
+    glyphs, a polished steel disk casting a soft shadow, rust specks.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it
