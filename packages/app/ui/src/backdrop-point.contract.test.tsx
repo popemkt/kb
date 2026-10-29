@@ -15,6 +15,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { Effect } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
@@ -224,9 +225,23 @@ describe("every contributed page-head backdrop", () => {
           expect(frame?.dataset.direction).toBe(direction);
           expect(frame?.style.height).toBe(`${value.presentation.height}px`);
           expect(frame?.style.maxWidth).toBe(`${value.presentation.maxWidth}px`);
-          expect(frame?.childElementCount).toBeGreaterThan(0);
         }
       }
+    }
+  });
+
+  it("draws in its frame once it has loaded, a lazy backdrop too", async () => {
+    // A lazy backdrop shows nothing until its module has loaded (a placeholder would be
+    // a second appearance), so its frame is read from a render that waits for it.
+    for (const { value } of backdrops()) {
+      useGraphStore
+        .getState()
+        .hydrateFromWire(graphWith(settingsOf(value.key.id, "soft", "down")), 1, "fixtures");
+      const { prelude } = await prerender(createElement(PageBackdrop, { color: "red" }));
+      const host = document.createElement("div");
+      host.innerHTML = await new Response(prelude).text();
+      const frame = host.querySelector<HTMLElement>(".kb-header-backdrop");
+      expect(frame?.childElementCount, value.key.id).toBeGreaterThan(0);
     }
   });
 
