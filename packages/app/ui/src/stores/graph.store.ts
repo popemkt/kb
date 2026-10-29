@@ -40,6 +40,7 @@ import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
 import { pageClock, replicaOver } from "@/session/engine";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
+import { useUiStore } from "@/stores/ui.store";
 
 /** Who listens for an answer arriving, whichever replica's answers it is. */
 const answerListeners = new Set<() => void>();
@@ -261,6 +262,7 @@ function hydrateFromWire(wireNodes: WireNode[], rev: number, source: "api" | "fi
     onLocalCommit: syncFromIndex,
     applyServerTx: (tx, txRev) => applyTx(tx.upserts, tx.deletes, { rev: txRev }),
     installServerSnapshot: (nodes, snapshotRev) => refreshFromWire(nodes, snapshotRev),
+    arrived: () => useUiStore.getState().noteEvent("arrivals"),
   });
   moveTo("load", {
     wireNodes,

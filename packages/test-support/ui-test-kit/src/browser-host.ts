@@ -23,6 +23,7 @@ import {
   type PaneCarryOut,
   type PaneReport,
   type Prefs,
+  QUIET_ACTIVITY,
   refInkOf,
   type SchemaIndex,
   schemaOfGraph,
@@ -188,6 +189,8 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     isActive: (nodeId, instanceKey) =>
       active?.nodeId === nodeId && active.instanceKey === instanceKey,
     editing: () => active !== null,
+    // A stand-in page has had nothing happen on it.
+    events: () => QUIET_ACTIVITY,
     // A stand-in selects nothing and has no rows to open or close.
     isSelected: () => false,
     toggleCollapse: () => {},

@@ -110,6 +110,7 @@ export {
   type BackdropPresentation,
   type BackdropProps,
   type PageActivity,
+  type PageEvents,
   QUIET_ACTIVITY,
   type Dock,
   DockPoint,

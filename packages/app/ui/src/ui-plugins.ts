@@ -130,6 +130,7 @@ const AGENT_PORTS: AgentPorts = {
   // what the server made of the call, never the optimistic first answer.
   invoke: async (invocation) => (await invokeSettled(invocation)).settled,
   newConversation: () => ulid(),
+  finished: () => useUiStore.getState().noteEvent("turns"),
 };
 
 /** The agent's browser entry, bound to the page's ports once, the first time it loads. */

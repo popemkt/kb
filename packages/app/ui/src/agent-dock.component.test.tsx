@@ -20,6 +20,8 @@ interface Stand {
   readonly ports: AgentPorts;
   readonly sent: AgentRequest[];
   readonly invoked: ActionRequest[];
+  /** How many turns the chat told the page the agent finished. */
+  readonly finished: () => number;
   /** Say `event` on the channel, as the bridge would. */
   hear: (event: AgentEvent) => void;
   /** The tab's connection moves: closes, opens, or is told whose it is. */
@@ -31,9 +33,11 @@ function stand(answer: (invocation: ActionRequest) => ActionReceipt): Stand {
   const invoked: ActionRequest[] = [];
   let sink: ((data: unknown) => void) | null = null;
   let socket: ((standing: Standing) => void) | null = null;
+  let finished = 0;
   return {
     sent,
     invoked,
+    finished: () => finished,
     hear: (event) => act(() => sink?.(event)),
     socket: (standing) => act(() => socket?.(standing)),
     ports: {
@@ -51,6 +55,7 @@ function stand(answer: (invocation: ActionRequest) => ActionReceipt): Stand {
         return Promise.resolve(answer(invocation));
       },
       newConversation: () => "k1",
+      finished: () => void finished++,
     },
   };
 }
@@ -112,6 +117,17 @@ describe("the agent dock", () => {
     expect(container.textContent).toContain("It is a node.");
     s.hear({ type: "turn-end", conversation: "k1", outcome: "done" });
     expect(button("Stop the agent")).toBeUndefined();
+  });
+
+  it("tells the page of a turn the agent finished with its answer, and of no turn stopped or failed", async () => {
+    const s = stand(() => succeeded("x", {}));
+    open(s);
+    for (const outcome of ["cancelled", "failed", "done"] as const) {
+      await type("again");
+      act(() => button("Send")?.click());
+      s.hear({ type: "turn-end", conversation: "k1", outcome });
+    }
+    expect(s.finished()).toBe(1);
   });
 
   it("approving makes the call with approval, and its receipt goes back to the agent", async () => {

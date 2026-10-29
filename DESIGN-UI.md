@@ -3675,12 +3675,21 @@ exist is a plugin point, and the kit names none of them.
     the owner is doing (`activity`) and where the pointer is (`pointer`).
   - **Activity is a declared input, not a listener.** `PageActivity` is
     whether a node's text is being edited (`editing`, the host's read of the
-    page editor) and how many writes the graph has taken (`writes`, the
-    index's generation), both read through `BrowserHost`, so the slot hands
-    every backdrop the same signal (`usePageActivity`). A backdrop that
-    reacts to the owner compares `writes` with the count it last saw and
-    reads `editing` as a state; navigation is the `node` it is handed
-    changing. It adds no document listener for app events.
+    page editor), how many writes the graph has taken (`writes`, the
+    index's generation), and what has happened on the page (`PageEvents`,
+    the host's `events`): how many changes made elsewhere it has been shown
+    (`arrivals`: a frame from the server that changed what the page shows,
+    none of it this page's own held write; the replica says so,
+    `ReplicaView.arrived`), how many errors the owner has been told of
+    (`errors`: every one passes the toast list), and how many turns the
+    sidebar's agent finished with its answer (`turns`: the agent's UI half
+    says so through its ports, `AgentPorts.finished`). All of it is read
+    through `BrowserHost`, so the slot hands every backdrop the same signal
+    (`usePageActivity`). A backdrop that reacts to the owner compares a
+    count with the one it last saw and reads `editing` as a state;
+    navigation is the `node` it is handed changing. It adds no document
+    listener for app events. Art drawn where no owner acts (a backdrop's
+    card, the veil on a pane's plane) is handed `QUIET_ACTIVITY`.
   - **The pointer is declared too.** The frame is `pointer-events: none`, so
     it hears no pointer; the slot owns the one passive listener, on the
     smallest ancestor whose box covers the frame (`usePointerOver`). Every

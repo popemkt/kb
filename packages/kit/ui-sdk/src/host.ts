@@ -20,7 +20,7 @@ import type { RefInk } from "./lib/md-edit";
 import type { PageGraphPort } from "./lib/page-graph";
 import type { PageWrites } from "./lib/page-writes";
 import type { PaneScreenPort } from "./lib/pane-screen";
-import { currentService } from "./lib/plugins";
+import { currentService, type PageEvents } from "./lib/plugins";
 import type { Appearance, Prefs } from "./lib/theme";
 import type { OutlineNode } from "./lib/types";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
@@ -50,6 +50,8 @@ export interface BrowserHost extends NodeTextPort {
   readonly isActive: (nodeId: string, instanceKey: string) => boolean;
   /** Whether any node's text is being edited, in any instance. */
   readonly editing: () => boolean;
+  /** What has happened on the page so far, counted (`PageEvents`); a new object only when a count moves. */
+  readonly events: () => PageEvents;
   /** Whether a node is selected in this instance (`instanceKey`). */
   readonly isSelected: (nodeId: string, instanceKey: string) => boolean;
   /** Open or close a row: the page's editor's expansion (`PageEditorState.toggleCollapse`). */

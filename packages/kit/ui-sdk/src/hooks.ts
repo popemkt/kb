@@ -134,7 +134,8 @@ export function useEditing(): boolean {
 export function usePageActivity(): PageActivity {
   const editing = useEditing();
   const writes = useGeneration();
-  return useMemo(() => ({ editing, writes }), [editing, writes]);
+  const events = useHostValue((host) => host.events());
+  return useMemo(() => ({ ...events, editing, writes }), [events, editing, writes]);
 }
 
 /** Whether a node is being edited in this instance. */

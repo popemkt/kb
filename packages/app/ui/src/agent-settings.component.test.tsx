@@ -74,6 +74,7 @@ describe("the agent's settings in its dock", () => {
       connection: () => () => undefined,
       invoke: () => Promise.reject(new Error("no calls")),
       newConversation: () => "k1",
+      finished: () => undefined,
     });
     container = document.createElement("div");
     document.body.appendChild(container);

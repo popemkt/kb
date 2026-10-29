@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { syncUiPlugins, type BackdropProps, type PageActivity } from "@kb/ui-sdk";
+import { QUIET_ACTIVITY, syncUiPlugins, type BackdropProps, type PageActivity } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import type { ArenaScene } from "./arena-scene";
 
@@ -71,7 +71,7 @@ describe("the Arena's head", () => {
     const root = createRoot(host);
     let writes = 0;
     act(() => {
-      root.render(<ArenaBackdrop {...props({ editing: false, writes })} />);
+      root.render(<ArenaBackdrop {...props({ ...QUIET_ACTIVITY, editing: false, writes })} />);
     });
     await settle();
     expect(told.mounts).toBe(1);
@@ -80,12 +80,12 @@ describe("the Arena's head", () => {
     for (let key = 0; key < 30; key++) {
       writes += 1;
       act(() => {
-        root.render(<ArenaBackdrop {...props({ editing: true, writes })} />);
+        root.render(<ArenaBackdrop {...props({ ...QUIET_ACTIVITY, editing: true, writes })} />);
       });
     }
     writes += 1;
     act(() => {
-      root.render(<ArenaBackdrop {...props({ editing: false, writes })} />);
+      root.render(<ArenaBackdrop {...props({ ...QUIET_ACTIVITY, editing: false, writes })} />);
     });
     await settle();
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TOAST_LIMIT, withToast, type Toast } from "./ui.store";
+import { TOAST_LIMIT, useUiStore, withToast, type Toast } from "./ui.store";
 
 function push(toasts: readonly Toast[], id: number, text: string, kind: Toast["kind"] = "error") {
   return withToast(toasts, { id, kind, text });
@@ -26,5 +26,23 @@ describe("toast list (closing audit P2-5)", () => {
     for (let i = 1; i <= TOAST_LIMIT + 2; i++) toasts = push(toasts, i, `message ${i}`);
     expect(TOAST_LIMIT).toBe(3);
     expect(toasts.map((t) => t.id)).toEqual([3, 4, 5]);
+  });
+});
+
+describe("what has happened on the page, counted", () => {
+  it("counts every error the owner is told of, no info, and each change from elsewhere and finished turn", () => {
+    const store = useUiStore.getState();
+    const before = useUiStore.getState().events;
+    store.pushToast("error", "the write failed");
+    store.pushToast("error", "the write failed");
+    store.pushToast("info", "saved");
+    store.noteEvent("arrivals");
+    store.noteEvent("turns");
+    store.noteEvent("turns");
+    expect(useUiStore.getState().events).toEqual({
+      arrivals: before.arrivals + 1,
+      errors: before.errors + 2,
+      turns: before.turns + 2,
+    });
   });
 });
