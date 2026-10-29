@@ -39,6 +39,12 @@ export const TOON_SEA_BACKDROP: SeedBackdrop = { id: "backdrops.toon-sea", label
 /** Layered silk ribbons on a stage before a faint cosmos; the owner's activity runs a shimmer along them. */
 export const SILK_BACKDROP: SeedBackdrop = { id: "backdrops.silk", label: "Silk" };
 
+/** Low-poly glass shards drifting in the dark, warm amber light coming through them. */
+export const FLOATING_GEOMETRY_BACKDROP: SeedBackdrop = {
+  id: "backdrops.floating-geometry",
+  label: "Floating geometry",
+};
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
@@ -56,6 +62,7 @@ export const backdropsExtension = defineExtension({
         BLACK_HOLE_BACKDROP,
         TOON_SEA_BACKDROP,
         SILK_BACKDROP,
+        FLOATING_GEOMETRY_BACKDROP,
       ],
     },
   ],

@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import {
   BLACK_HOLE_BACKDROP,
+  FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
   LENS_BACKDROP,
   ROOST_BACKDROP,
@@ -15,7 +16,13 @@ import {
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
 import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
-import { BlackHoleBackdrop, LensBackdrop, SilkBackdrop, ToonSeaBackdrop } from "./gpu/backdrops";
+import {
+  BlackHoleBackdrop,
+  FloatingGeometryBackdrop,
+  LensBackdrop,
+  SilkBackdrop,
+  ToonSeaBackdrop,
+} from "./gpu/backdrops";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
 import { GradientBackdrop } from "./tint-backdrop";
@@ -111,6 +118,12 @@ const toonSea: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: To
 /** Silk ribbons in three depths on a stage before a faint cosmos. */
 const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkBackdrop };
 
+/** Glass shards in the dark, amber light through them. */
+const floatingGeometry: Omit<Backdrop, "key"> = {
+  presentation: gpuFrame,
+  Component: FloatingGeometryBackdrop,
+};
+
 /**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
@@ -131,6 +144,10 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(BLACK_HOLE_BACKDROP, blackHole)),
         ctx.contribute(BackdropPoint, provideBackdrop(TOON_SEA_BACKDROP, toonSea)),
         ctx.contribute(BackdropPoint, provideBackdrop(SILK_BACKDROP, silk)),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(FLOATING_GEOMETRY_BACKDROP, floatingGeometry),
+        ),
       ],
       { discard: true },
     ),

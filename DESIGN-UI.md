@@ -3715,7 +3715,9 @@ exist is a plugin point, and the kit names none of them.
     cel-shaded: a day sea, and at night a moonlit indigo with
     bioluminescent wakes;
   - `backdrops.silk` is silk ribbons in three depths, lit on a stage that
-    opens onto a faint cosmos.
+    opens onto a faint cosmos;
+  - `backdrops.floating-geometry` is low-poly glass shards drifting in the
+    dark, warm amber light coming through them.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -3836,7 +3838,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens, Black hole, Toon sea and Silk are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea, Silk and Floating geometry are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -3950,6 +3952,34 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - The same scrim sits under the head's text, the cosmos keeps clear of
     it, and in a panel the ribbons rise above the title.
   - A light page is the paper itself, with a pastel breath of gas.
+- **Floating geometry.** Low-poly glass shards on a dark field, amber light
+  coming through them (the owner's reference: soft gold-lit glass triangles
+  drifting slowly). Each load lays out its own shards (`shards.ts`), one or
+  two faces each (a fold), fanned round four knots where their tips nearly
+  meet, so light gathers where edges converge.
+  - Each piece sways about an axis of its own and drifts a little, on its
+    own clocks, and never turns all the way round, so the composition the
+    seed laid out holds. The CPU projects every face each frame (16 at
+    most), and the glass is drawn offscreen at about a texel a CSS pixel:
+    it is soft, and the far shards softer and dimmer, as if out of focus.
+  - Per pixel, each face is solved from its corners: how far inside it the
+    pixel is and how far from each edge. A face is faintly steel where the
+    light misses it; light comes through it brightest just inside its
+    edges, and through its body as it turns to face the lamp. Edges are
+    fine lines that burn gold near a lamp and fade to steel away from it;
+    knots near the lamp flare, the frame's only HDR, for the bloom. A navy
+    haze gathers round the glass and is gone before the frame's edge.
+  - Two lamps sit behind the glass: the main one follows the pointer on a
+    soft spring (about two seconds), so the light moves through the facets
+    under it, and wanders slowly near the main knot without one; a dimmer
+    one keeps to another knot. Typing slows the drift. Writes swell the
+    lamp (`impulse`), and a write outside typing (`stir`) or a new page
+    (`ripple`) leans every shard a little further on its own swing, which
+    eases back.
+  - A light page is the glass as a print: each face takes a little of the
+    paper, edges are bronze lines that turn gilt toward the lamp, and the
+    lamp warms the paper round it. The text scrim keeps the glass quiet
+    under the head's text in both.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn:
   - a strength barely veils them (`sceneFrame`: 0.95, 0.98, 1), since a

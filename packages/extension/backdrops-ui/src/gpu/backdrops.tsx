@@ -37,3 +37,8 @@ export function ToonSeaBackdrop(props: BackdropProps) {
 export function SilkBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="silk" backdrop={props} />;
 }
+
+/** Glass shards drifting in the dark, amber light through them (`floating-geometry/`). */
+export function FloatingGeometryBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="floatingGeometry" backdrop={props} />;
+}

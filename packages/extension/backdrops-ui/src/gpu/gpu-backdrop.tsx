@@ -31,6 +31,8 @@ const SCENES = {
   blackHole: () => import("../black-hole/black-hole-scene").then((m) => m.mountBlackHole),
   toonSea: () => import("../toon-sea/toon-sea-scene").then((m) => m.mountToonSea),
   silk: () => import("../silk/silk-scene").then((m) => m.mountSilk),
+  floatingGeometry: () =>
+    import("../floating-geometry/floating-geometry-scene").then((m) => m.mountFloatingGeometry),
 } satisfies Record<string, () => Promise<GpuBackdropMount>>;
 
 export type GpuSceneId = keyof typeof SCENES;
