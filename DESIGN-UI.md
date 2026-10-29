@@ -4200,10 +4200,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     hot spot, no bands; a crisp limb, antialiased over a pixel or two.
   - **Two layers.** The field is deep blue air, royal toward the top and
     the lamp, lit by the orbs' glows, with the far orb far out of focus in
-    it. Its extent is those glows: each orb's own round reach
-    (`glowAbout`), and the field is their union, dissolving softly at its
-    ragged rim (`gpu/dissolve.ts`), so its edge is round shapes, never the
-    frame's. The two great orbs are never faded, and stay inside the
+    it. It fills the frame: its extent is a glow the frame's size about
+    its middle and each orb's own round reach (`glowAbout`), their union,
+    dissolving softly at its ragged rim (`gpu/dissolve.ts`), so its edge
+    is round shapes, never the frame's. The two great orbs are never faded, and stay inside the
     frame's sides and bottom wherever they drift.
   - **In front of the field**: a back light along each limb, cool in
     shadow and warm where lit; a deep bloom off the lit limb, thin and

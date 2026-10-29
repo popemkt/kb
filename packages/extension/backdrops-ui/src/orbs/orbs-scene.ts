@@ -38,6 +38,8 @@ const LAMP_HEIGHT = 0.8;
 /** How far and how slowly it wanders there (frame units, rad/s). */
 const WANDER = 0.14;
 const WANDER_RATE = 0.12;
+/** The field's own glow: centred a little above the frame's middle, as tall as `height`, whole out to `solid` of it. */
+const FILL = { centre: { x: 0, y: 0.15 }, height: 0.65, solid: 0.35 } as const;
 /** The hue leans and returns this often (s). */
 const HUE_PERIOD = 48;
 
@@ -76,6 +78,8 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         lamp.y = frame.y + LAMP_REST.y * frame.scale;
         settled = true;
       }
+      // The field fills the frame: a glow about its middle, a little high, the size of the frame.
+      u.fill.set(glowAbout(w / h, FILL.centre, { x: (w / h) * 0.5, y: FILL.height }, FILL.solid));
       scrim.layout(w, h);
     },
     setLook: (look: GpuLook) => {

@@ -7,10 +7,10 @@
  *
  * - **Two layers.** The field is the background: deep blue air lit by the
  *   orbs' glows, a dim orb far behind blurred into it, and the shadows the
- *   orbs cast on it. Its extent is those glows: each orb's own reach about
- *   it (`../gpu/dissolve`, `glowAbout`), round, as large as the frame has
- *   room for, eaten by noise at its rim, and the field is their
- *   union, so it dissolves by its own round shapes, never by a band along a
+ *   orbs cast on it. It fills the frame: its extent is a glow the frame's
+ *   size about its middle and each orb's own reach about it
+ *   (`../gpu/dissolve`, `glowAbout`), round, as large as the frame has
+ *   room for, eaten by noise at its rim, and the field is their union, so it dissolves by its own round shapes, never by a band along a
  *   side of the frame. The orbs lie above it, whole and in focus: nothing
  *   fades them, and the composition keeps them inside the frame
  *   (`orbs.ts`).
@@ -118,6 +118,8 @@ export function orbUniforms() {
     time: uniform(0),
     /** Each orb's glow, the field's reach round it. */
     reaches: Array.from({ length: ORBS }, () => dissolveUniforms()),
+    /** The field's own reach: the frame, so the deep blue is full-bleed whatever the orbs' glows leave. */
+    fill: dissolveUniforms(),
   };
 }
 export type OrbUniforms = ReturnType<typeof orbUniforms>;
@@ -244,9 +246,9 @@ export function orbFrame(
     // shadows the nearer orbs cast on it, away from the lamp and wider than they are.
     const rise = smoothstep(-0.7, 0.55, p.y.add(p.x.mul(0.2)));
     let shade: F = float(1);
-    // How much of the field there is: the union of the orbs' glows, each dissolving by its own
-    // round reach, its rim ragged.
-    let none: F = float(1);
+    // How much of the field there is: the frame's own glow and the orbs' glows, their union, each
+    // dissolving by its own round reach, its rim ragged.
+    let none: F = dissolve(u.fill, p, u.time.mul(0.01)).oneMinus();
     for (let i = 0; i < ORBS; i++) {
       const orb = u.orbs.element(i);
       const fallen = p.sub(orb.xy.sub(u.lits.element(i).xy.mul(orb.z.mul(SHADOW_FALL))));
