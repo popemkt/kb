@@ -78,6 +78,7 @@ function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       const share = Math.min(window.devicePixelRatio || 1, 2) * 0.67 * (0.6 + 0.4 * quality);
       sky.setSize(w * share, h * share);
       sinceSky = Infinity;
+      return anchor;
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

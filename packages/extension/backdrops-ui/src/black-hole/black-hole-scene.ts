@@ -118,6 +118,7 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       // A still frame has no frames before it to settle its samples.
       u.samples.value = init.reducedMotion ? 3 : 1;
       fresh = true;
+      return anchor;
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

@@ -1,6 +1,8 @@
-import type { CSSProperties, Ref } from "react";
+import { useCallback, type CSSProperties, type Ref } from "react";
 import { usePageActivity, usePageBackdrop } from "../hooks";
-import type { Backdrop, BackdropProps } from "../lib/plugins";
+import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
+import { cn } from "../lib/cn";
+import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/plugins";
 import { usePointerOver } from "../lib/pointer-over";
 import type { OutlineNode } from "../lib/types";
 
@@ -8,25 +10,28 @@ import type { OutlineNode } from "../lib/types";
  * A backdrop's frame: the box its component draws in, as tall as its
  * presentation says, clipped, inert and hidden, carrying which backdrop it
  * is and which way it faces. Where the frame stands is its host's
- * (`placement`): a page head centres it under the head, a card scales it
- * into the card.
+ * (`placement`, and a class that places it): a page head centres it under
+ * the head or spans the scroll region with it, a card scales it into the
+ * card.
  */
 export function BackdropFrame({
   id,
   backdrop: { presentation, Component },
   placement,
+  className,
   frameRef,
   ...props
 }: BackdropProps & {
   readonly id: string;
   readonly backdrop: Backdrop;
   readonly placement: CSSProperties;
+  readonly className?: string;
   readonly frameRef?: Ref<HTMLDivElement>;
 }) {
   return (
     <div
       ref={frameRef}
-      className="kb-header-backdrop pointer-events-none"
+      className={cn("kb-header-backdrop pointer-events-none", className)}
       data-backdrop={id}
       data-direction={props.direction}
       style={{
@@ -43,6 +48,24 @@ export function BackdropFrame({
   );
 }
 
+/** Where a page head stands its frame: by its span, at its offset. */
+function placementOf({ span, offset }: BackdropPresentation): {
+  readonly placement: CSSProperties;
+  readonly className?: string;
+} {
+  if (span.reach === "region")
+    return { placement: { left: 0, top: offset }, className: BREAKOUT_CLASS };
+  return {
+    placement: {
+      left: "50%",
+      width: "100%",
+      transform: "translateX(-50%)",
+      maxWidth: span.maxWidth,
+      top: offset,
+    },
+  };
+}
+
 /**
  * The one page-head slot (DESIGN-UI.md → Page-head backdrops): the chosen
  * backdrop, framed by its presentation, painted behind the head's content.
@@ -56,6 +79,19 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
   const { backdrop: chosen, strength, direction } = usePageBackdrop(node);
   const activity = usePageActivity();
   const [pointer, attachFrame] = usePointerOver();
+  const spansRegion = chosen?.value.presentation.span.reach === "region";
+  const shift = useBreakoutShift(spansRegion);
+  const frameRef = useCallback(
+    (frame: HTMLDivElement | null) => {
+      shift(frame);
+      const detach = attachFrame(frame);
+      return () => {
+        shift(null);
+        detach?.();
+      };
+    },
+    [attachFrame, shift],
+  );
   if (chosen === null) return null;
   const { presentation } = chosen.value;
   return (
@@ -67,14 +103,8 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
       <BackdropFrame
         id={chosen.id}
         backdrop={chosen.value}
-        frameRef={attachFrame}
-        placement={{
-          left: "50%",
-          width: "100%",
-          transform: "translateX(-50%)",
-          maxWidth: presentation.span.maxWidth,
-          top: presentation.offset,
-        }}
+        frameRef={frameRef}
+        {...placementOf(presentation)}
         color={color}
         node={node}
         strength={strength}

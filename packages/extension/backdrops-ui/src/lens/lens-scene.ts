@@ -119,6 +119,7 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       const texel = 0.3 + 0.25 * quality;
       nebula.setSize((w + 2 * MARGIN * h) * texel, (h + 2 * MARGIN * h) * texel);
       sinceNebula = Infinity;
+      return { x: home.x, y: home.y, scale };
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

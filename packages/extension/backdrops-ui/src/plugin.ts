@@ -118,9 +118,13 @@ const toonSea: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: To
 /** Silk ribbons in three depths on a stage before a faint cosmos. */
 const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkBackdrop };
 
-/** A web of glass facets on deep navy, gold light where they meet. */
+/**
+ * A web of glass facets on deep navy, gold light where they meet. Its field
+ * spans the scroll region: a wider window adds field at the sides, and the
+ * glass, placed from the content, keeps its place and size.
+ */
 const floatingGeometry: Omit<Backdrop, "key"> = {
-  presentation: gpuFrame,
+  presentation: { ...gpuFrame, span: { reach: "region" } },
   Component: FloatingGeometryBackdrop,
 };
 

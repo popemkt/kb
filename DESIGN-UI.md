@@ -3666,7 +3666,9 @@ exist is a plugin point, and the kit names none of them.
     vertical `offset`, the `directions` it can face (none for one with no
     direction), and its `opacity` at each strength. The span is how far
     across the page the frame reaches: centred under the head's content and
-    at most `maxWidth` wide (`reach: "content"`).
+    at most `maxWidth` wide (`reach: "content"`), or across the whole
+    scroll region behind it (`reach: "region"`), so a wider window or the
+    full content width adds field at its sides.
   - The component receives what the head knows (`BackdropProps`): its
     colour (the shown node's tag colour, else the accent), the node it shows
     if any, the strength, the direction, the opacity at that strength, what
@@ -3950,7 +3952,24 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   frame 480px wide and below (a side panel, a phone) takes the first, one
   900px wide the second, and the widths between ease from one to the
   other. In a panel the hero is smaller, set high and right, away from the
-  title and the list, and quieter.
+  title and the list, and quieter. A scene's layout returns where it drew
+  its hero (an `Anchor`, moved or made smaller only where the frame obliged,
+  so it stays whole; null for a field with no one hero, as Silk is), and
+  the canvas carries it as `data-hero`: heights right of the content's
+  centre, heights up from the frame's middle, and its scale.
+- **A frame that spans the region.** A backdrop whose field should reach
+  past the content (Floating geometry) has the span `reach: "region"`: its
+  frame is a breakout (`BREAKOUT_CLASS`, `useBreakoutShift`), as wide as the
+  scroll region whatever the content width, and the hero is still placed
+  from the content (`ContentBox`), so both content widths at one window
+  width draw the same hero, and a wider window adds field at the sides.
+  `backdrop-width.e2e.ts` proves it under reduced motion (one piece per
+  load): through both content widths and windows from 1280 to 2560px
+  wide, resized while it runs, the reported hero holds within a rounding,
+  the frame spans the region without scrolling the page sideways, the
+  canvas is never replaced and no frame is blank; on a phone it is drawn
+  in its panel composition. Below a frame about 1000px wide the glass is
+  slid in and made smaller to stay whole.
 - **Cost.** It runs only while the tab is shown and the frame is in view
   (`watchPlayback`). Each frame's GPU time is metered against 6 ms; while it
   runs over, the backdrop steps its quality down (the offscreen pass's

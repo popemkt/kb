@@ -257,12 +257,13 @@ export const OverlayPoint = Point<Overlay>()("ui.overlays");
 
 /**
  * How far across the page a backdrop's frame reaches: centred under the
- * head's content, and at most `maxWidth` wide.
+ * head's content and at most `maxWidth` wide, or across the whole scroll
+ * region behind it (`BREAKOUT_CLASS`), whatever the content's width, so a
+ * wider window or the full content width adds field at its sides.
  */
-interface BackdropSpan {
-  readonly reach: "content";
-  readonly maxWidth: number;
-}
+type BackdropSpan =
+  | { readonly reach: "content"; readonly maxWidth: number }
+  | { readonly reach: "region" };
 
 /**
  * How a page head frames a backdrop: the breathing room it reserves above

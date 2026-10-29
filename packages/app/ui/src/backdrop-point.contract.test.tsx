@@ -44,6 +44,7 @@ import {
 } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
+  BREAKOUT_CLASS,
   BackdropPoint,
   EMPTY_EDITOR,
   PageBackdrop,
@@ -224,7 +225,16 @@ describe("every contributed page-head backdrop", () => {
           );
           expect(frame?.dataset.direction).toBe(direction);
           expect(frame?.style.height).toBe(`${value.presentation.height}px`);
-          expect(frame?.style.maxWidth).toBe(`${value.presentation.span.maxWidth}px`);
+          const { span } = value.presentation;
+          // Bounded under the content, or across the scroll region as a breakout.
+          expect({
+            maxWidth: frame?.style.maxWidth,
+            breakout: frame?.classList.contains(BREAKOUT_CLASS),
+          }).toEqual(
+            span.reach === "content"
+              ? { maxWidth: `${span.maxWidth}px`, breakout: false }
+              : { maxWidth: "", breakout: true },
+          );
         }
       }
     }

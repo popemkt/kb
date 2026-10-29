@@ -109,8 +109,12 @@ export interface BackdropParts {
   readonly wide: Composition;
   /** Advance by `dt` seconds (0 under reduced motion) and draw what it draws offscreen. */
   readonly frame: (dt: number, reactions: Reactions) => void;
-  /** Lay out for a new size or quality. */
-  readonly layout: (layout: BackdropLayout) => void;
+  /**
+   * Lay out for a new size or quality, and say where the hero was drawn, in
+   * frame units (`Anchor`): from its anchor, and moved or made smaller only
+   * where the frame obliged. Null for a field with no one hero.
+   */
+  readonly layout: (layout: BackdropLayout) => Anchor | null;
   readonly setLook: (look: GpuLook) => void;
   /** Release what the stage's scene traversal does not reach. */
   readonly dispose: () => void;
@@ -175,8 +179,16 @@ export async function mountBackdrop(
         const composition = framingAt(width, backdrop.panel, backdrop.wide);
         on.setPresence(look.presence * composition.presence);
         const anchor = anchorIn(composition, { width, height }, content);
-        backdrop.layout({ width, height, quality, anchor, content });
+        const hero = backdrop.layout({ width, height, quality, anchor, content });
         canvas.dataset.quality = quality.toFixed(2);
+        // What a spec reads to see the hero hold its place and size whatever the width: heights
+        // right of the content's centre, heights up from the frame's middle, and its scale.
+        const centre = (content.left + content.width / 2 - width / 2) / height;
+        if (hero === null) delete canvas.dataset.hero;
+        else
+          canvas.dataset.hero = [hero.x - centre, hero.y, hero.scale]
+            .map((v) => v.toFixed(3))
+            .join(" ");
       };
       const measure = (dt: number) => {
         const gpu = on.gpuMs();

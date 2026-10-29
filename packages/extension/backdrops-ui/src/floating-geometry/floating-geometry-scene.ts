@@ -191,6 +191,7 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       glass.setSize(w * texel, h * texel);
       u.pixel.value = 1 / (h * texel);
       scrim.layout(layout);
+      return hub;
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

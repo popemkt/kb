@@ -446,6 +446,8 @@ function silk(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         (height + 2 * COSMOS_MARGIN * height) * texel,
       );
       sinceCosmos = Infinity;
+      // The silk is a field: its ribbons cross the whole frame, with no one hero.
+      return null;
     },
     setLook: (look: GpuLook) => {
       applyLook(look);
