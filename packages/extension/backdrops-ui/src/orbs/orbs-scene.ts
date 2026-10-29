@@ -25,7 +25,7 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { glowAbout } from "../gpu/dissolve";
+import { farField, glowAbout, type FieldReach } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import { orbFrame, orbUniforms } from "./orbs-shader";
 import { layoutOrbs, litToward, placeOrbs } from "./orbs";
@@ -38,17 +38,21 @@ const LAMP_HEIGHT = 0.8;
 /** How far and how slowly it wanders there (frame units, rad/s). */
 const WANDER = 0.14;
 const WANDER_RATE = 0.12;
-/** The field's own glow: centred a little above the frame's middle, as tall as `height`, whole out to `solid` of it. */
-const FILL = { centre: { x: 0, y: 0.15 }, height: 0.65, solid: 0.35 } as const;
+/**
+ * Where the far orbs thin out: never toward the sides, so the field is
+ * full-bleed across the scroll region, and low in the frame, under the
+ * head's rows.
+ */
+const FIELD: FieldReach = { sides: 0, low: [-0.45, 0.05] };
 /** The hue leans and returns this often (s). */
 const HUE_PERIOD = 48;
 
 function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
   const orbs = layoutOrbs(vary.stream("orbs"));
-  const u = orbUniforms();
-  u.turn.value.set(...hueTurn(vary.range("hue", -0.1, 0.1)));
   const scrim = textScrim();
+  const u = orbUniforms(farField(scrim, FIELD));
+  u.turn.value.set(...hueTurn(vary.range("hue", -0.1, 0.1)));
   stage.scene.backgroundNode = orbFrame(u, scrim, groundsOf(stage));
 
   let width = 1;
@@ -75,8 +79,7 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         lamp.y = frame.y + LAMP_REST.y * frame.scale;
         settled = true;
       }
-      // The field fills the frame: a glow about its middle, a little high, the size of the frame.
-      u.fill.set(glowAbout(w / h, FILL.centre, { x: (w / h) * 0.5, y: FILL.height }, FILL.solid));
+      u.field.layout(w / h);
       scrim.layout(layout);
       return frame;
     },
@@ -137,10 +140,11 @@ export function mountGradientOrbs(
     {
       bloom: { strength: 0.3, radius: 0.8 },
       lens: { aberration: 0, streak: 0, grain: 0.012 },
-      // A painted scene: it fades into the page as a CSS mask would. It dissolves within its own
-      // reach; the frame's feather is only the last guard.
+      // A painted scene: it fades into the page as a CSS mask would. Its field is full-bleed to
+      // the scroll region's sides, which are the frame's, and dissolves low by its own round
+      // glows; the top and bottom feather is only the last guard.
       fadeSpace: "display",
-      feather: { sides: 0.03, top: 0.03, bottom: 0.03 },
+      feather: { sides: 0, top: 0.03, bottom: 0.03 },
     },
     gradientOrbs,
   );

@@ -2,18 +2,22 @@
  * Gradient orbs' shader (T1): two great spheres floating in front of a deep
  * blue field, after the owner's reference. One pass per pixel and no
  * offscreen picture: three circles' distance fields, each shaded as a
- * sphere and laid over the ones behind it, so it is among the lightest of
- * the GPU backdrops.
+ * sphere and laid over the ones behind it, over far orbs seeded a few to a
+ * pixel's neighbourhood, so it is among the lightest of the GPU backdrops.
  *
  * - **Two layers.** The field is the background: deep blue air lit by the
- *   orbs' glows, a dim orb far behind blurred into it, and the shadows the
- *   orbs cast on it. It fills the frame: its extent is a glow the frame's
- *   size about its middle and each orb's own reach about it
- *   (`../gpu/dissolve`, `glowAbout`), round, as large as the frame has
- *   room for, eaten by noise at its rim, and the field is their union, so it dissolves by its own round shapes, never by a band along a
- *   side of the frame. The orbs lie above it, whole and in focus: nothing
- *   fades them, and the composition keeps them inside the frame
- *   (`orbs.ts`).
+ *   orbs' glows, far orbs out of focus in it, and the shadows the great
+ *   orbs cast on it. It is full-bleed across the scroll region: two layers
+ *   of far orbs are seeded one to a cell in heights (`farOrbsAt`), so a
+ *   wider frame adds more, some cells showing a soft disc and every one
+ *   lighting the field about it with a glow wider than tall, shrunk until
+ *   it clears the frame's bottom; the field is their union and the great
+ *   orbs' own glows (`glowAbout`), so its lower edge is their round glows,
+ *   never a band or an ellipse. Each far orb fades whole by where it stands
+ *   (`farField`), and the field's light falls away from the great orbs in
+ *   heights. The great orbs lie above it, whole and in focus: nothing fades
+ *   them, not even the text scrim, and the composition keeps them inside
+ *   the frame (`orbs.ts`).
  * - **An orb** is its circle's signed distance. Inside it, the offset from
  *   the centre against the radius is a sphere's profile, which gives a
  *   normal; one key, high toward the side its lit limb faces (`lits`, the
@@ -38,18 +42,23 @@
  */
 import {
   Fn,
+  abs,
+  cos,
   dot,
   exp,
-  fwidth,
   float,
+  floor,
+  fwidth,
   length,
   max,
   mix,
   normalize,
   screenSize,
   screenUV,
+  sin,
   smoothstep,
   sqrt,
+  step,
   uniform,
   uniformArray,
   vec2,
@@ -57,9 +66,10 @@ import {
 } from "three/tsl";
 import { Matrix3, Vector3, Vector4 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
-import { dissolve, dissolveUniforms } from "../gpu/dissolve";
+import { dissolve, dissolveUniforms, type FarField } from "../gpu/dissolve";
 import type { Grounds } from "../gpu/gpu-scene";
 import type { textScrim } from "../gpu/text-scrim";
+import { hash, hash2 } from "../gpu/noise";
 import { ORBS } from "./orbs";
 
 type F = TslNode<"float">;
@@ -95,7 +105,7 @@ const WASH = vec3(0.88, 0.9, 1.0);
 const STOPS = [0.0, 0.42, 0.86, 1.08] as const;
 
 /** Everything the CPU sets. Per orb: `orbs[i]` x y r light (frame units), `lits[i].xy` the way its lit limb faces, and `depths[i]`. */
-export function orbUniforms() {
+export function orbUniforms(field: FarField) {
   const placed = Array.from({ length: ORBS }, () => new Vector4());
   const lit = Array.from({ length: ORBS }, () => new Vector4());
   const depth = Array.from({ length: ORBS }, () => 0);
@@ -118,8 +128,8 @@ export function orbUniforms() {
     time: uniform(0),
     /** Each orb's glow, the field's reach round it. */
     reaches: Array.from({ length: ORBS }, () => dissolveUniforms()),
-    /** The field's own reach: the frame, so the deep blue is full-bleed whatever the orbs' glows leave. */
-    fill: dissolveUniforms(),
+    /** Where the far orbs stand across the frame, each fading whole. */
+    field,
   };
 }
 export type OrbUniforms = ReturnType<typeof orbUniforms>;
@@ -139,10 +149,11 @@ interface Leaned {
   readonly cream: V3;
 }
 
-/** What has been painted behind an orb: the dark picture and the light one. */
+/** What has been painted behind an orb: the dark picture and the light one, and how much of it is a near orb. */
 interface Behind {
   readonly night: V3;
   readonly day: V3;
+  readonly held: F;
 }
 
 /** What an orb's shading reads of the pixel: where it is, how much of the field is there, and the hue. */
@@ -221,7 +232,122 @@ function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behi
     pastel,
     shown,
   );
-  return { night, day };
+  return { night, day, held: below.held.max(shown.mul(near)) };
+}
+
+/**
+ * One layer of far orbs, seeded one to a cell across the frame (frame
+ * units, so a wider frame adds more of the same): how wide a cell is, the
+ * orbs' radii and the heights their centres rest between, how far past its
+ * limb each one's glow lights the field (radii), how many cells show an
+ * orb at all (every cell's glow lights the field), how lit and how present
+ * one is against a near orb, how out of focus, and the layer's own seed.
+ */
+interface FarLayer {
+  readonly cell: number;
+  readonly radius: readonly [number, number];
+  readonly rise: readonly [number, number];
+  readonly halo: number;
+  readonly shows: number;
+  readonly light: number;
+  readonly presence: number;
+  readonly blur: number;
+  readonly seed: number;
+}
+
+/** Large orbs far out of focus behind the great ones, and a few small far ones behind those. */
+const FAR_LAYERS: readonly FarLayer[] = [
+  {
+    cell: 1.05,
+    radius: [0.2, 0.42],
+    rise: [0.02, 0.42],
+    halo: 2.6,
+    shows: 0.6,
+    light: 0.55,
+    presence: 0.7,
+    blur: 0.75,
+    seed: 3.1,
+  },
+  {
+    cell: 0.5,
+    radius: [0.03, 0.07],
+    rise: [-0.1, 0.44],
+    halo: 0,
+    shows: 0.3,
+    light: 0.5,
+    presence: 0.45,
+    blur: 0.55,
+    seed: 17.7,
+  },
+];
+/** How many cells either side of a pixel's a far orb's glow may reach it from. */
+const FAR_SPAN = 2;
+/** How much wider than tall a far orb's glow is. */
+const SPREAD = 1.8;
+/** How far above the frame's bottom every far glow is gone (frame units). */
+const FAR_CLEAR = 0.1;
+/** How fast the field's light falls away from the great orbs, across (frame units): a wider frame adds a dimmer field. */
+const FIELD_FALL = 2.6;
+
+/** What the far orbs leave at a pixel: how much of the field their glows light, and their discs over it. */
+interface FarOrbs {
+  readonly glow: F;
+  readonly cover: F;
+  readonly night: V3;
+  readonly day: V3;
+}
+
+/**
+ * The far orbs at `p`: each a soft disc, out of focus and half lost in the
+ * haze, lit toward the lamp; each lights the field about it by its own
+ * round glow, shrunk until it clears the frame's bottom, and their union
+ * is the field, so it is full-bleed across the frame and its lower edge is
+ * their round glows. Each fades whole by where it stands (`farField`).
+ */
+function farOrbsAt(u: OrbUniforms, p: V2, hue: Leaned): FarOrbs {
+  const none = float(1).toVar();
+  const cover = float(0).toVar();
+  const night = vec3(0, 0, 0).toVar();
+  const day = vec3(1, 1, 1).toVar();
+  for (const layer of FAR_LAYERS) {
+    const home = floor(p.x.div(layer.cell));
+    for (let k = -FAR_SPAN; k <= FAR_SPAN; k++) {
+      const cell = home.add(k);
+      const at = hash2(vec2(cell, layer.seed));
+      const size = hash(vec2(cell.add(5.3), layer.seed));
+      const own = hash(vec2(cell.add(11.9), layer.seed));
+      const sway = u.time.mul(0.05).add(own.mul(6.283));
+      const centre = vec2(
+        cell.add(at.x.mul(0.7).add(0.15)).mul(layer.cell).add(sin(sway).mul(0.02)),
+        mix(float(layer.rise[0]), float(layer.rise[1]), at.y).add(cos(sway.mul(0.8)).mul(0.015)),
+      );
+      const r = mix(float(layer.radius[0]), float(layer.radius[1]), size.mul(size));
+      const standing = u.field.standing(centre, own).toVar();
+      const off = p.sub(centre);
+      const d = length(off);
+      // Its glow spreads wider than it is tall, as light in a haze does, so the glows of
+      // neighbouring cells run together across the frame.
+      const halo = mix(float(0.35), float(1), hash(vec2(cell.add(31.4), layer.seed)));
+      const reach = r.mul(halo.mul(layer.halo).add(1)).min(centre.y.add(0.5 - FAR_CLEAR));
+      const spread = length(off.div(vec2(SPREAD, 1)));
+      none.mulAssign(float(1).sub(smoothstep(reach, r.mul(0.3), spread).mul(standing)));
+      // The disc, out of focus, lit on the side toward the lamp.
+      const q = off.div(r);
+      const normal = vec3(q, sqrt(max(float(1).sub(dot(q, q)), 0)));
+      const key = normalize(vec3(normalize(u.lamp.xy.sub(centre).add(1e-5)), u.lamp.z));
+      const light = dot(normal, key).mul(0.5).add(0.5).pow(1.5).mul(layer.light);
+      const shows = step(hash(vec2(cell.add(23.1), layer.seed)), layer.shows);
+      const shown = smoothstep(r, r.mul(1 - layer.blur), d)
+        .mul(standing)
+        .mul(shows.mul(layer.presence));
+      const deep = mix(ramp([BLUE, hue.violet, hue.pink, hue.cream], light), FIELD.mul(1.3), 0.5);
+      const pastel = mix(ramp([LILAC, PERIWINKLE, BLUSH, CREAM_INK], light), WASH, 0.55);
+      night.assign(mix(night, deep, shown));
+      day.assign(mix(day, pastel, shown));
+      cover.assign(cover.add(shown.mul(cover.oneMinus())));
+    }
+  }
+  return { glow: none.oneMinus(), cover, night, day };
 }
 
 /** The frame, for `scene.backgroundNode`. */
@@ -235,7 +361,7 @@ export function orbFrame(
     const p = vec2(screenUV.x.sub(0.5).mul(aspect), float(0.5).sub(screenUV.y)).toVar();
     const lampAt = p.sub(u.lamp.xy);
     const near = exp(dot(lampAt, lampAt).mul(-4));
-    const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y)));
+    const under = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y)));
     const hue: Leaned = {
       violet: mix(VIOLET, INDIGO, u.hue),
       pink: mix(PINK, MAGENTA, u.hue),
@@ -244,11 +370,12 @@ export function orbFrame(
 
     // The field, the background layer: deep blue air, royal toward the top and the lamp, and the
     // shadows the nearer orbs cast on it, away from the lamp and wider than they are.
-    const rise = smoothstep(-0.7, 0.55, p.y.add(p.x.mul(0.2)));
+    const rise = smoothstep(-0.7, 0.55, p.y.add(p.x.sub(u.lamp.x).mul(0.2).clamp(-0.25, 0.25)));
     let shade: F = float(1);
-    // How much of the field there is: the frame's own glow and the orbs' glows, their union, each
-    // dissolving by its own round reach, its rim ragged.
-    let none: F = dissolve(u.fill, p, u.time.mul(0.01)).oneMinus();
+    // How much of the field there is: the far orbs' glows and the great orbs', their union, each
+    // dissolving by its own round reach.
+    const far = farOrbsAt(u, p, hue);
+    let none: F = far.glow.oneMinus();
     for (let i = 0; i < ORBS; i++) {
       const orb = u.orbs.element(i);
       const fallen = p.sub(orb.xy.sub(u.lits.element(i).xy.mul(orb.z.mul(SHADOW_FALL))));
@@ -262,18 +389,32 @@ export function orbFrame(
       if (reach !== undefined) none = none.mul(dissolve(reach, p, u.time.mul(0.01)).oneMinus());
     }
     const left = none.oneMinus().toVar();
-    const field: V3 = mix(FIELD_DEEP, FIELD, rise)
+    // The great orbs light the field: it dims away from them across the frame, never to nothing.
+    const lit = exp(
+      abs(p.x.sub(u.orbs.element(0).x))
+        .div(FIELD_FALL)
+        .negate(),
+    )
+      .mul(0.45)
+      .add(0.55);
+    const field: V3 = mix(FIELD_DEEP, FIELD, rise.mul(lit))
       .mul(shade)
       .add(mix(hue.violet, hue.pink, 0.6).mul(near.mul(0.05)));
     const wash: V3 = mix(
-      mix(WASH, vec3(1, 1, 1), rise.oneMinus().mul(0.35).add(0.15)),
+      mix(WASH, vec3(1, 1, 1), rise.oneMinus().mul(0.35).add(lit.oneMinus().mul(0.3))),
       LILAC.mul(0.92),
       shade.oneMinus().mul(0.45),
     );
     // Back to front: the last orb is the farthest, and belongs to the field.
-    let behind: Behind = { night: field.mul(left), day: mix(vec3(1, 1, 1), wash, left) };
+    let behind: Behind = {
+      night: mix(field.mul(left), far.night, far.cover),
+      day: mix(mix(vec3(1, 1, 1), wash, left), far.day, far.cover),
+      held: float(0),
+    };
     const pixel = { p, left, hue };
     for (let i = ORBS - 1; i >= 0; i--) behind = orbOver(u, i, pixel, behind);
+    // The scrim quiets the field under the text, never a great orb in front of it.
+    const quiet = under.mul(behind.held.oneMinus());
 
     const shownDark = ground.add(
       u.turn

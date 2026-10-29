@@ -4191,9 +4191,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   dim one far behind between them, part of the field. Each load varies
   that composition a little and turns the whole hue a few degrees
   (`orbs.ts`, **Variation**). Its frame spans the scroll region
-  (**A frame that spans the region**): the field reaches the window's
-  sides, and the orbs are placed from the content, so they hold their
-  place and size whatever the width.
+  (**A frame that spans the region**): the field is full-bleed to the
+  region's sides at every width, a phone's too, and the orbs are placed
+  from the content, so they hold their place and size whatever the width.
   - One pass, no offscreen picture: each orb is a circle's distance field
     shaded as a sphere and laid over the ones behind it. One key, high
     toward the side its lit limb faces, lights it (where the composition
@@ -4203,11 +4203,18 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     hot spot, no bands; a crisp limb, antialiased over a pixel or two.
   - **Two layers.** The field is deep blue air, royal toward the top and
     the lamp, lit by the orbs' glows, with the far orb far out of focus in
-    it. It fills the frame: its extent is a glow the frame's size about
-    its middle and each orb's own round reach (`glowAbout`), their union,
-    dissolving softly at its ragged rim (`gpu/dissolve.ts`), so its edge
-    is round shapes, never the frame's. The two great orbs are never faded, and stay inside the
-    frame's sides and bottom wherever they drift.
+    it. Behind the great orbs, two layers of far orbs are seeded one to a
+    cell in heights: large ones far out of focus and a few small ones,
+    some cells showing a soft, dim disc lit toward the lamp, each fading
+    whole by where it stands (`farField`). Every cell's orb lights the
+    field about it with a glow wider than tall, shrunk until it clears the
+    frame's bottom, and the field is the union of those glows and the great
+    orbs' own (`glowAbout`): full-bleed across the frame, its lower edge
+    their round glows, never a band, an ellipse or a side feather (the
+    frame has none). Its light falls away from the great orbs in heights,
+    so a wider frame adds a dimmer field. The two great orbs are never
+    faded, the text scrim included, and stay inside the frame's sides and
+    bottom wherever they drift.
   - **In front of the field**: a back light along each limb, cool in
     shadow and warm where lit; a deep bloom off the lit limb, thin and
     bright at the limb and long and soft out into the field, dissolving
@@ -4226,7 +4233,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     their glow, and they ease back.
   - A light page paints the pastel pair on the paper: lilac and periwinkle
     shadow, blush and cream toward the lamp, each in a lilac glow of its own
-    over a periwinkle wash, their shadows lilac on it.
+    over a periwinkle wash that is the field's light version, full-bleed
+    and paling away from the orbs, the far orbs pastel in it, their shadows
+    lilac on it.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it
