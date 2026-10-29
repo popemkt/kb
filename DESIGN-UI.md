@@ -3890,7 +3890,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   and its `BackdropParts`.
   - The stage curves with the shoulder (`tone.ts`: identity below a knee, a
     soft roll-off above), so a dark page's ground is the page's to the level.
-    The frame's sides, top and bottom feather into that ground.
+    The frame's sides, top and bottom feather into that ground; a feather of
+    0 leaves that edge unfaded, for a frame whose sides are the scroll
+    region's own.
   - A dark page's scene is light over the stage's ground. A light page's
     picture is composed in the page's own terms (the ground times a shade)
     and painted through the curve (`stage.paint`, `Grounds`), or the curve
@@ -3912,12 +3914,22 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     field fades by its own round shape, never by a band along the side.
     Every pixel of a field dissolves by the ragged rim (`dissolve`). A scene
     that does so asks the stage for only a thin feather, as a last guard.
+  - **A far layer across the region** (`farField`). A frame that spans the
+    scroll region carries its far layers (distant shards, far orbs, plumes of
+    smoke, sparks, glyph haze) across its whole width, seeded one to a cell
+    in heights, so a wider frame adds more of the same. A far shape is never
+    cut by a reach: it fades whole by where its centre stands, toward the
+    frame's sides as far as the scene asks (not at all for a full-bleed
+    field), toward its bottom and under the head's text, each a little sooner
+    or later by its own draw, so the layer thins out shape by shape and no
+    line marks where.
   - **Objects stand in front of their field.** Where a scene has objects
     (orbs, glass, a medallion), only the field behind them dissolves; the
     objects are whole and in focus, kept inside the frame by their
     composition or cut only by its top. What sets them in front is the
     scene's: a back light on their edges, a shadow they cast on the field,
-    parallax against it, and the farther ones hazier.
+    parallax against it, and the farther ones hazier. The text scrim quiets
+    the field under the head's text, never an object.
 - **One load, one reveal.** A load mounts a backdrop's scene once and
   shows it once: one GPU context, configured at the frame's own size, a
   first frame already laid out and in the page's look, then one fade-in.
@@ -4062,9 +4074,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 - **Floating geometry.** A crumpled piece of low-poly glass floating in
   front of deep navy air, gold light gathering where its facets meet (the
   owner's reference: crumpled, gold-lit glass). Each load lays out its own
-  glass (`web.ts`): two sheets of facets, each a lattice of jittered
+  glass (`web.ts`): three sheets of facets, each a lattice of jittered
   triangles solved per pixel, so shared corners and seams are one, never
-  pieces apart. Each load also moves the main knot a little, sizes the
+  pieces apart. Its frame spans the scroll region (**A frame that spans the
+  region**): the piece is placed from the content, and the field behind it
+  reaches the region's sides. Each load also moves the main knot a little, sizes the
   glass within a tenth, and turns the light's hue a few degrees
   (**Variation**).
   - **Two layers.** The near sheet is the piece: the facets whose three
@@ -4075,12 +4089,20 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     places it right of the title and fits it whole inside the frame's sides
     and bottom (`fitPiece`, from the reach of its knots, how far a corner
     strays and how far the sheet slides), sliding it in before it shrinks
-    it. The far sheet, larger facets turned against it, is part of the
-    field: every facet, its seams soft, a few of its planes catching the
-    light, all half lost in the haze, so dim panes cross the whole frame.
-    The field is navy air lit by the lamps and the piece: brightest about
-    the piece and falling away from it by its own light, in slow smoke; its
-    reach is a round glow about the piece (`glowAbout`).
+    it. Behind it, a middle and a far sheet, larger facets turned against
+    it, are part of the field: every facet, out of focus (each pane's edges
+    soft, the farther the softer), barely warmed by the lamps, a few of its
+    planes catching the light, in broad slow pools of light across the
+    frame with the web nearly dark between them, all half lost in the haze.
+    Each pane, seam and corner of theirs fades whole by where it stands
+    (`farField`), a seam or corner by itself so the facets either side of
+    it agree, thinning out toward the frame's sides, low under the head's
+    rows and under the title. The field is navy air lit by the lamps and the
+    piece, brightest about the piece and falling away from it by its own
+    light within a round glow about it (`glowAbout`), over a haze that
+    crosses the whole frame, dimmer away from the piece in heights, lit by
+    the pools, its lower edge its smoke's folds. The frame has no side
+    feather: the haze meets the region's own sides.
   - **In front of the field**: the piece hides some of the air behind it;
     its outline is lit from behind, cool, warming where light runs along
     it; it casts a soft shadow on the field below it; and the near sheet
@@ -4104,10 +4126,13 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     sways a little; each sheet slides slowly about its rest, and the
     piece's knots slide with it, so its facets never change. The glass is
     drawn offscreen at up to 1.5 texels a CSS pixel, fewer as quality
-    steps down; a pixel spends nothing on a sheet it cannot see.
+    steps down; the field (the sheets behind it, the air and the haze) is a
+    pass of its own at half a texel a CSS pixel, so it is cheap however wide
+    the frame, and as out of focus as a far layer; a pixel spends nothing on
+    the piece where it cannot be.
   - A band of light sweeps across every 11 seconds (typing rests it), so
-    seam after seam of the piece glints; a still rests with it through the
-    main knot.
+    seam after seam of the piece glints, the sheets behind barely; a still
+    rests with it through the main knot.
   - The main lamp follows the pointer on a soft spring (about two
     seconds) and wanders a little about its corner without one; the other
     two breathe on their own clocks. Typing slows the drift. Writes swell
@@ -4117,8 +4142,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     wash for the air, each facet a pale frost, deeper as it turns from the
     key and peach where light passes it, its seams fine periwinkle ink
     turning apricot where light runs along them, the hot point an apricot
-    bloom, and the piece's lilac shadow. The text scrim keeps the glass
-    quiet under the head's text in both.
+    bloom, and the piece's lilac shadow; the web behind in fainter ink over
+    the wash. The text scrim keeps the field quiet under the head's text in
+    both, never the piece.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn:
   - a strength barely veils them (`sceneFrame`: 0.95, 0.98, 1), since a

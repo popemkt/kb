@@ -2,13 +2,15 @@
  * The Floating geometry backdrop: one web of low-poly glass facets tiling a
  * deep navy field, gold light gathering where facets meet (shaders:
  * `floating-geometry-shader.ts`; the web: `web.ts`). Each mount lays out its
- * own web from its seed, two sheets of facets one over the other; they
+ * own web from its seed, three sheets of facets one over another; they
  * slide a little and their vertices fold on clocks of their own, so the
  * composition holds.
  *
  * The piece hangs right of the title, whole inside the frame's sides and
- * bottom (`fitPiece`), the hazed web and the lit air behind it dissolving
- * by their own round reach. Each load varies where the main knot sits, how
+ * bottom (`fitPiece`). Behind it the hazed web and the air span the scroll
+ * region: the lit air dissolves by its own round reach about the piece,
+ * and the web and its haze cross the whole frame, thinning out facet by
+ * facet toward its sides and bottom and under the text (`FIELD`). Each load varies where the main knot sits, how
  * large the glass is and a few degrees of the light's hue (`variation`).
  *
  * The light: three lamps behind three knots, and a band of light that
@@ -35,12 +37,13 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { glowAbout } from "../gpu/dissolve";
+import { farField, glowAbout, type FieldReach } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import {
-  glassFragment,
+  fieldFragment,
   glassFrame,
   glassUniforms,
+  pieceFragment,
   type GlassUniforms,
 } from "./floating-geometry-shader";
 import { fitPiece, layoutWeb, pieceBounds, placeSheets, type PieceBounds } from "./web";
@@ -50,6 +53,13 @@ import type { Anchor } from "../gpu/framing";
 const FOLLOW = 2.4;
 /** The most texels the glass is drawn at per CSS pixel: past this a seam is no crisper, only dearer. */
 const TEXELS = 1.5;
+/** The texels the field is drawn at per CSS pixel: a far layer, out of focus, so a few are enough. */
+const FIELD_TEXELS = 0.5;
+/**
+ * Where the far web's facets thin out: over the outer heights of the frame
+ * at either side, and low in it, under the head's rows.
+ */
+const FIELD: FieldReach = { sides: 0.9, low: [-0.34, 0.18] };
 /** How far the lamp wanders from its rest with no pointer (shares of the composition's scale), and how slowly (rad/s). */
 const WANDER = 0.09;
 const WANDER_RATE = 0.2;
@@ -66,9 +76,14 @@ const AIR = { x: 0.5, y: 0.55, grow: 0.8 } as const;
 const SOLID = 0.08;
 /** Each lamp's strength: the main one, the one hot point, then two quieter ones behind the next knots. */
 const LAMP_STRENGTH = [1, 0.26, 0.18] as const;
-/** The frame's side and bottom feather (shares of its width and height); the piece keeps inside it. */
-const FEATHER = { sides: 0.03, top: 0.02, bottom: 0.03 } as const;
-/** How far inside the feather the piece's facets keep (frame units). */
+/**
+ * The frame's feather (shares of its width and height): none at the sides,
+ * which are the scroll region's own (the haze is full-bleed and the far web
+ * thins out by its facets), a guard at the top and bottom.
+ */
+const FEATHER = { sides: 0, top: 0.02, bottom: 0.03 } as const;
+/** How far inside the frame's sides and bottom the piece's facets keep: a share of its width, and room (frame units). */
+const SIDE_SHARE = 0.03;
 const EDGE_ROOM = 0.04;
 /** The main lamp where it is, and the others at their knots, each breathing a little on a clock of its own. */
 function writeLamps(
@@ -106,7 +121,7 @@ function hubFor(
       scale: wanted,
     },
     aspect,
-    { sides: FEATHER.sides * aspect + EDGE_ROOM, bottom: FEATHER.bottom + EDGE_ROOM },
+    { sides: SIDE_SHARE * aspect + EDGE_ROOM, bottom: FEATHER.bottom + EDGE_ROOM },
   );
 }
 
@@ -119,6 +134,41 @@ const airAbout = (aspect: number, hub: { x: number; y: number; scale: number }) 
     SOLID,
   );
 
+/**
+ * The glass's two offscreen passes, the field behind and the piece in
+ * front, composed in the frame: sized for the frame and its quality, drawn
+ * each frame, the field first.
+ */
+function glassPasses(stage: SceneStage, u: GlassUniforms, scrim: ReturnType<typeof textScrim>) {
+  const field = offscreenPass(stage.renderer, () => fieldFragment(u), { history: false });
+  const glass = offscreenPass(stage.renderer, () => pieceFragment(u), { history: false });
+  stage.scene.backgroundNode = glassFrame(
+    u,
+    { field: field.picture, piece: glass.picture },
+    scrim,
+    groundsOf(stage),
+  );
+  return {
+    setSize: (w: number, h: number, quality: number) => {
+      // Crisp glass: a texel a device pixel at full quality, at most `TEXELS` a CSS pixel, fewer
+      // as quality steps down. The field is out of focus, so a few texels do.
+      const texel = Math.min(stage.renderer.getPixelRatio(), TEXELS) * (0.5 + 0.5 * quality);
+      glass.setSize(w * texel, h * texel);
+      u.pixel.value = 1 / (h * texel);
+      field.setSize(w * FIELD_TEXELS, h * FIELD_TEXELS);
+      u.fieldPixel.value = 1 / (h * FIELD_TEXELS);
+    },
+    render: () => {
+      field.render();
+      glass.render();
+    },
+    dispose: () => {
+      field.dispose();
+      glass.dispose();
+    },
+  };
+}
+
 function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
   const web = layoutWeb(vary.stream("web"));
@@ -127,11 +177,10 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   /** Where the main knot sits off the composition's, and how large the glass is (shares of the scale). */
   const shift = { x: vary.range("knot.x", -0.12, 0.12), y: vary.range("knot.y", -0.06, 0.06) };
   const size = vary.range("size", 0.92, 1.1);
-  const u = glassUniforms();
-  u.hue.value.set(...hueTurn(vary.range("hue", -0.06, 0.06)));
   const scrim = textScrim();
-  const glass = offscreenPass(stage.renderer, () => glassFragment(u), { history: false });
-  stage.scene.backgroundNode = glassFrame(u, glass.picture, scrim, groundsOf(stage));
+  const u = glassUniforms(farField(scrim, FIELD));
+  u.hue.value.set(...hueTurn(vary.range("hue", -0.06, 0.06)));
+  const passes = glassPasses(stage, u, scrim);
   /** Where the lamp rests against the main knot, on the corner there (shares of the scale). */
   const rest = { x: vary.range("lamp.x", -0.02, 0.02), y: vary.range("lamp.y", -0.02, 0.02) };
   /** The other lamps, behind the next two knots. */
@@ -184,12 +233,9 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       }
       u.reach.set(airAbout(aspect, hub));
       u.window.value.set(-aspect / 2, -0.5, aspect / 2, 0.5);
+      u.field.layout(aspect);
       span = Math.abs(SWEEP_DIR.x) * aspect + Math.abs(SWEEP_DIR.y);
-      // Crisp glass: a texel a device pixel at full quality, at most `TEXELS` a CSS pixel, fewer
-      // as quality steps down.
-      const texel = Math.min(stage.renderer.getPixelRatio(), TEXELS) * (0.5 + 0.5 * quality);
-      glass.setSize(w * texel, h * texel);
-      u.pixel.value = 1 / (h * texel);
+      passes.setSize(w, h, quality);
       scrim.layout(layout);
       return hub;
     },
@@ -234,9 +280,9 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       u.time.value = time;
       writeLamps(u, lamp, others, hub, wander);
       place();
-      glass.render();
+      passes.render();
     },
-    dispose: glass.dispose,
+    dispose: passes.dispose,
   };
 }
 

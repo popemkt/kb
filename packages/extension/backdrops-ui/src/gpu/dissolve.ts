@@ -21,11 +21,20 @@
  *   Its top may run on past the frame's, which lies under the app's bar.
  * - `dissolve` (GPU): per pixel, 1 inside, easing to 0 at a rim the noise
  *   eats into, so the edge is ragged and slow, never a line.
+ * - `farField` (GPU): the far layer of a frame that spans the scroll region
+ *   (distant shards, far orbs, plumes of smoke, sparks), whose shapes are
+ *   seeded by where they stand, in heights, so a wider frame adds more of
+ *   the same. A far shape is never cut by a reach: it fades whole by where
+ *   its centre stands (`standing`), toward the frame's sides as far as the
+ *   scene asks (none for a field that is full-bleed), toward its bottom and
+ *   under the head's text, each a little sooner or later by its own draw,
+ *   so the field thins out shape by shape and nothing marks a line.
  */
 import { Fn, abs, clamp, float, pow, smoothstep as fade, uniform, vec2 } from "three/tsl";
 import { Vector2 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
 import { fbm4 } from "./noise";
+import type { textScrim } from "./text-scrim";
 
 type F = TslNode<"float">;
 type V2 = TslNode<"vec2">;
@@ -145,3 +154,50 @@ const dissolveFn = Fn(([q, drift, solid, round]: readonly [V2, F, F, F]) => {
 /** How much of the art is left at `p` (frame units): 1 inside the reach, 0 at its eroded rim. */
 export const dissolve = (u: DissolveUniforms, p: V2, drift: F): F =>
   dissolveFn(p.sub(u.centre).div(u.radius), drift, u.solid, u.round);
+
+/**
+ * Where a far layer's shapes thin out (frame units): over how much of the
+ * frame's width in from each side (0, none: the field is full-bleed, and
+ * the region's own edge is its edge), and between which heights, from the
+ * frame's middle, a shape's centre fades toward the bottom.
+ */
+export interface FieldReach {
+  readonly sides: number;
+  readonly low: readonly [number, number];
+}
+
+/** How far a shape's own draw moves where it fades: shares of the span it fades over. */
+const STAGGER = 0.6;
+/** How much of a shape is left under the head's text. */
+const UNDER_TEXT = 0.2;
+
+/** A far layer across the frame: lay it out from the frame's aspect, read where each shape stands. */
+export function farField(scrim: ReturnType<typeof textScrim>, reach: FieldReach) {
+  /** Half the frame's width (frame units). */
+  const half = uniform(1);
+  return {
+    layout: (aspect: number) => {
+      half.value = aspect / 2;
+    },
+    /**
+     * How much of a shape centred at `centre` (frame units) is shown, 0–1,
+     * with `own` its draw (0–1): whole in the open, fading as its centre
+     * nears a side (where the scene asks), the bottom, or the text.
+     */
+    standing: (centre: V2, own: F): F => {
+      const shift = own.sub(0.5).mul(STAGGER);
+      const down = fade(
+        reach.low[0],
+        reach.low[1],
+        centre.y.add(shift.mul(reach.low[1] - reach.low[0])),
+      );
+      const across =
+        reach.sides > 0
+          ? fade(0, reach.sides, half.sub(abs(centre.x)).add(shift.mul(reach.sides)))
+          : float(1);
+      const at = vec2(centre.x.div(half.mul(2)).add(0.5), centre.y.add(0.5));
+      return down.mul(across).mul(float(1).sub(scrim.under(at).mul(1 - UNDER_TEXT)));
+    },
+  };
+}
+export type FarField = ReturnType<typeof farField>;

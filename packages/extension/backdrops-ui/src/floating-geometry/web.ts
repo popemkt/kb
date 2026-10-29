@@ -1,9 +1,10 @@
 /**
- * Floating geometry's glass, as the CPU holds it: two sheets of low-poly
+ * Floating geometry's glass, as the CPU holds it: three sheets of low-poly
  * facets, each a lattice of jittered triangles that the shader solves per
  * pixel (`floating-geometry-shader.ts`). The near sheet is the glass piece
  * floating above the field: only its facets round the knots, each whole;
- * the far one is the web behind it, every facet, part of the field. What is
+ * the two behind it are the web, every facet, part of the field, the
+ * farther one larger and hazier, so the field has depth. What is
  * the seed's is here: each sheet's cell (how large its facets are), its
  * turn, where it lies, how crumpled it is and how far back, and the knots
  * where the glass gathers and the light with it, behind which the lamps
@@ -21,7 +22,7 @@ import type { Rng } from "../scene/rng";
 import { TAU } from "../scene/math";
 
 /** How many sheets the shader reads. */
-export const SHEETS = 2;
+export const SHEETS = 3;
 /** How far a vertex strays from its lattice point (across the jitter's whole span), and how far it sways, shares of a cell. */
 export const JITTER = 0.45;
 export const SWAY = 0.04;
@@ -58,8 +59,8 @@ export interface WebLayout {
 }
 
 /**
- * The seed's glass: a near sheet of large facets and a far one of larger
- * facets turned against it; the main knot at the origin (the composition
+ * The seed's glass: a near sheet of large facets, and behind it a middle
+ * one and a far one of larger facets, each turned against the others; the main knot at the origin (the composition
  * places it), where the light gathers, low in the piece, and two above it,
  * at the right and the left, where the piece runs off the frame's top: one
  * mass hanging into the frame to its hot point, as a title screen sets its
@@ -78,14 +79,16 @@ export function layoutWeb(rng: Rng): WebLayout {
     period: rng.range(30, 50),
     phase: rng.range(0, TAU),
   });
-  return {
-    sheets: [sheet(rng.range(0.24, 0.28), 0), sheet(rng.range(0.5, 0.6), 1)],
-    knots: [
-      [0, 0, rng.range(0.36, 0.4)],
-      [rng.range(0.36, 0.44), rng.range(0.3, 0.38), rng.range(0.4, 0.44)],
-      [rng.range(-0.4, -0.32), rng.range(0.24, 0.32), rng.range(0.32, 0.36)],
-    ],
-  };
+  const near = sheet(rng.range(0.24, 0.28), 0);
+  const far = sheet(rng.range(0.5, 0.6), 1);
+  const knots: WebLayout["knots"] = [
+    [0, 0, rng.range(0.36, 0.4)],
+    [rng.range(0.36, 0.44), rng.range(0.3, 0.38), rng.range(0.4, 0.44)],
+    [rng.range(-0.4, -0.32), rng.range(0.24, 0.32), rng.range(0.32, 0.36)],
+  ];
+  // The middle sheet is drawn last, so a seed's piece and far web are what they were without it.
+  const middle = sheet(rng.range(0.34, 0.4), 0.5);
+  return { sheets: [near, middle, far], knots };
 }
 
 /**

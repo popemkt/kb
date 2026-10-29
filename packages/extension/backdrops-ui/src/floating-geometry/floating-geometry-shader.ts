@@ -3,15 +3,16 @@
  * front of deep navy air and a hazed web of glass behind it, gold light
  * gathering where facets meet.
  *
- * - **The web** is two sheets (`web.ts`), each a lattice of jittered
+ * - **The web** is three sheets (`web.ts`), each a lattice of jittered
  *   triangles solved per pixel: the pixel's cell and its neighbours' are
  *   tried, and the triangle that holds it is the facet it sees, with its
  *   three corners and how far it lies from each edge. Every vertex folds in
  *   depth on a clock of its own (`vertex`), so each facet has a normal and
  *   tilts into and out of the light. Shared corners and edges are solved the
  *   same from either side, so the web is seamless, one sheet, never pieces.
- *   The far sheet's facets are larger, turned against the near one's, and
- *   hazed, so the two overlap and their seams cross.
+ *   The sheets behind the piece have larger facets, turned against the
+ *   near one's, hazed, softer the farther and barely warmed by the lamps,
+ *   so they overlap and their seams cross.
  * - **The light** stands behind the glass: three lamps (`lamps`), the main
  *   one on a corner at the main knot, the others quiet. A corner's heat is
  *   the lamps near it, squared, so one point burns: a warm-white core in a
@@ -23,18 +24,25 @@
  *   slate glass lit by its turn to the key, so the crumple reads.
  * - **A band of light sweeps across** (`sweep`): the piece's seams glint
  *   as it passes, gold on a dark page and apricot on a light one.
- * - **The field** is navy air lit by the lamps and the piece, falling away
- *   from them by its own light; the piece hides some of it and casts a
- *   shadow on it, and the far sheet is hazed into it. It dissolves by its
- *   reach about the piece (`../gpu/dissolve`); the piece never fades.
+ * - **The field** is its own pass (`fieldFragment`), drawn at a share of
+ *   the frame's pixels, so it is cheap however wide the frame and as out of
+ *   focus as a far layer: navy air lit by the lamps and the piece, falling
+ *   away from them by its own light within its reach about the piece; a
+ *   haze across the whole frame, dimmer away from the piece in heights, its
+ *   lower edge its smoke's folds; and the two sheets behind, every facet,
+ *   in broad slow pools of light (`poolAt`). Each of their panes, seams and
+ *   corners fades whole by where it stands (`farField`), so the web thins
+ *   out shape by shape toward the frame's sides, its bottom and the text.
+ *   The piece (`pieceFragment`) is the other pass, in front: it hides some
+ *   of the field and casts a shadow on it, and never fades.
  * - **Dark** pages show the light over the navy field on the page's own
  *   ground. **Light** pages show the glass as an engraving on the paper: a
  *   periwinkle wash, each facet a pale frost deeper as it turns from the
  *   key and peach where light passes it, its seams fine periwinkle ink
  *   turning apricot where light runs, the hot point an apricot bloom. It is
  *   composed in the page's own terms (`Grounds`).
- * - **The frame** reads the glass and keeps it quiet under the head's text
- *   (`textScrim`).
+ * - **The frame** lays the piece over the field and keeps the field quiet
+ *   under the head's text (`textScrim`), never the piece.
  */
 import {
   Fn,
@@ -64,9 +72,9 @@ import {
   vec4,
 } from "three/tsl";
 import { Matrix3, Vector4 } from "three/webgpu";
-import type { TslNode } from "@kb/scene-gpu";
+import type { PictureSampler, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
-import { dissolve, dissolveUniforms } from "../gpu/dissolve";
+import { dissolve, dissolveUniforms, type FarField } from "../gpu/dissolve";
 import { gnoise, hash, hash2 } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { TAU } from "../scene/math";
@@ -90,6 +98,8 @@ const NAVY_DEEP = vec3(0.003, 0.006, 0.024);
 const LAMPS = 3;
 /** How far a lamp's heat reaches a vertex, frame units at full scale. */
 const HEAT_REACH = 0.15;
+/** How much less of the lamps' heat a sheet behind the piece takes, by its depth (then squared, so the middle one takes a third). */
+const LAMPS_BEHIND = 0.85;
 /** How far behind the glass the lamps stand (frame units), so a facet's tilt decides how much of them it passes. */
 const LAMP_DEPTH = 0.35;
 /** Where the glass piece ends: how far inside it a facet's cell must rest (`pieceAt`). */
@@ -111,6 +121,17 @@ const WASH = vec3(0.935, 0.945, 0.99);
 const HAZE = vec3(0.5, 0.6, 0.9);
 /** How far light runs along a crease from a hot corner before it dies out, frame units at full scale. */
 const FLOW = 0.13;
+/**
+ * The haze across the frame: how fast it dims away from the piece (shares
+ * of the scale), its level against the lit air's, between which heights
+ * its lower edge folds away, and how much of the paper's wash it is.
+ */
+const HAZE_FALL = 2.2;
+const HAZE_LEVEL = 0.35;
+const HAZE_LOW = [-0.38, 0.28] as const;
+const HAZE_PAPER = 0.35;
+/** How broad the patches of light in the far web are: one about every 1/`POOL` heights. */
+const POOL = 0.6;
 /** The key's way, up at the right and toward the eye: a facet facing it is the lighter slate. */
 const KEY = vec3(0.45, 0.5, 0.74);
 
@@ -125,7 +146,7 @@ const vectors = (n: number) => Array.from({ length: n }, () => new Vector4());
  * x y, its cell and its turn (frame units, radians); `sheets[2n+1]` its
  * seed, fold and depth. Per lamp: x y (frame units) and strength.
  */
-export function glassUniforms() {
+export function glassUniforms(field: FarField) {
   /** The per-sheet values the CPU writes; the array below reads these very objects. */
   const sheet = vectors(SHEETS * 2);
   const lamp = vectors(LAMPS);
@@ -150,10 +171,13 @@ export function glassUniforms() {
     scale: uniform(1),
     /** The frame the glass pass covers: x0, y0, x1, y1. */
     window: uniform(new Vector4(-1, -0.5, 1, 0.5)),
-    /** One texel of the glass pass, frame units: the width a seam is drawn over. */
+    /** One texel of the glass pass and of the field's, frame units: the width a seam is drawn over. */
     pixel: uniform(0.001),
-    /** The reach the art dissolves within. */
+    fieldPixel: uniform(0.004),
+    /** The reach the air the lamps light about the piece dissolves within. */
     reach: dissolveUniforms(),
+    /** Where the far web's facets stand across the frame, each fading whole. */
+    field,
   };
 }
 export type GlassUniforms = ReturnType<typeof glassUniforms>;
@@ -293,9 +317,10 @@ interface Sums {
   readonly cover: F;
 }
 
-/** What a sheet's shading reads of the pixel: where it is, the lamps' warmth there, the sweep, and how much of the field is left. */
+/** What a sheet's shading reads of the pixel: where it is, its pass's texel, the lamps' warmth there, the sweep, and how much of the lit air is left. */
 interface Pixel {
   readonly p: V2;
+  readonly texel: F;
   readonly warmth: F;
   readonly band: F;
   readonly left: F;
@@ -330,13 +355,9 @@ function pieceAt(u: GlassUniforms, x: V2): F {
   return most;
 }
 
-/**
- * Whether sheet `n` can show at `p`: the far one wherever the field is left,
- * the piece within a facet of its knots' reach.
- */
-function sheetReaches(u: GlassUniforms, n: number, p: V2, left: F): TslNode<"bool"> {
-  const geo = u.sheets.element(n * 2);
-  const far = u.sheets.element(n * 2 + 1).z;
+/** Whether the piece (the near sheet) can show at `p`: within a facet of its knots' reach. */
+function pieceReaches(u: GlassUniforms, p: V2): TslNode<"bool"> {
+  const geo = u.sheets.element(0);
   let room: F = float(-1);
   for (let k = 0; k < LAMPS; k++) {
     const knot = u.knots.element(k);
@@ -347,7 +368,7 @@ function sheetReaches(u: GlassUniforms, n: number, p: V2, left: F): TslNode<"boo
         .sub(length(p.sub(knot.xy))),
     );
   }
-  return far.greaterThan(0.5).and(left.greaterThan(0.002)).or(room.greaterThan(0));
+  return room.greaterThan(0);
 }
 
 /** A facet as its shading reads it: its corners' heat, which side of the piece it and its neighbours are on, and how it is turned. */
@@ -363,8 +384,16 @@ interface Lit {
   readonly facing: F;
   readonly key: F;
   readonly seed: F;
-  /** 0 the near sheet, 1 the far one. */
+  /** 0 the near sheet (the piece), to 1 the farthest. */
   readonly far: F;
+  /**
+   * How much of a part of it (its pane, a seam, a corner) centred at `at`,
+   * on lattice points summing to `key`, is shown: all of the piece; on a
+   * sheet behind it, as much as that part's own standing in the field
+   * (`farField`) and the light pooled there. A seam or a corner is judged
+   * by itself, so the facets either side of it agree.
+   */
+  readonly seen: (at: V2, key: V2) => F;
 }
 
 /** How far along the edge from `a` to `b` the point nearest `p` lies (0–1), and the edge's length. */
@@ -382,10 +411,12 @@ const alongEdge = (p: V2, a: V2, b: V2): readonly [F, F] => {
  * from behind, cool, gold near a lamp. The far sheet's seams are soft and
  * dim, lost in the haze.
  */
-function seamsOf(u: GlassUniforms, lit: Lit, { p, band }: Pixel): V3 {
+function seamsOf(u: GlassUniforms, lit: Lit, { p, band, texel }: Pixel): readonly [V3, F] {
   const { facet, heat, present, beyond, seed, far } = lit;
-  const near = far.oneMinus();
-  const width = u.pixel.mul(1.1).add(far.mul(u.scale).mul(0.008));
+  const inkWidth = texel.mul(1.3).add(far.mul(u.scale).mul(0.008));
+  // The sweep glints the piece's seams; a sheet behind it barely catches it.
+  const near = far.oneMinus().pow(3);
+  const width = texel.mul(1.1).add(far.mul(u.scale).mul(0.008));
   const spillWidth = u.scale.mul(mix(float(0.016), float(0.03), far));
   const fall = u.scale.mul(FLOW);
   const ends: readonly (readonly [V3, V3, V2, V2, F, F])[] = [
@@ -395,6 +426,7 @@ function seamsOf(u: GlassUniforms, lit: Lit, { p, band }: Pixel): V3 {
   ];
   const dists = [facet.edges.x, facet.edges.y, facet.edges.z] as const;
   let sum: V3 = vec3(0, 0, 0);
+  let ink: F = float(0);
   ends.forEach(([a, b, ka, kb, ha, hb], i) => {
     const dist = dists[i] ?? facet.edges.x;
     const other = beyond[i] ?? present;
@@ -417,9 +449,11 @@ function seamsOf(u: GlassUniforms, lit: Lit, { p, band }: Pixel): V3 {
       .mul(outer)
       .mul(backlit);
     const faint = STEEL.mul(line.mul(mix(float(0.02), float(0.025), far)));
-    sum = sum.add(burn.add(rim).add(faint).mul(present.max(other)));
+    const shown = present.max(other).mul(lit.seen(a.xy.add(b.xy).mul(0.5), ka.add(kb)));
+    sum = sum.add(burn.add(rim).add(faint).mul(shown));
+    ink = ink.max(exp(dist.div(inkWidth).pow(2).negate()).mul(shown));
   });
-  return sum;
+  return [sum, ink];
 }
 
 /**
@@ -430,7 +464,7 @@ function seamsOf(u: GlassUniforms, lit: Lit, { p, band }: Pixel): V3 {
  * faces the key and toward the lamp's side of the facet, so each plane
  * reads by its turn and the piece by its crumple.
  */
-function faceOf(u: GlassUniforms, lit: Lit, { p }: Pixel): readonly [V3, F] {
+function faceOf(u: GlassUniforms, lit: Lit, { p, texel }: Pixel): readonly [V3, F, F] {
   const { facet, heat, present, facing, key } = lit;
   const spread = u.scale.mul(0.12);
   const hug = u.scale.mul(0.03);
@@ -452,28 +486,35 @@ function faceOf(u: GlassUniforms, lit: Lit, { p }: Pixel): readonly [V3, F] {
     0.6,
     dot(p.sub(mid.xy), normalize(main.sub(mid.xy).add(1e-5))).div(u.scale.mul(0.12)),
   );
-  // The far sheet: only some of its planes catch the light, faint panes across the field.
+  // A sheet behind: only some of its planes catch the light, faint panes across the field, each
+  // out of focus, so its edges are soft (and never a low-resolution pass's stair-steps).
   const caught = smoothstep(0.55, 0.95, hash(facet.ia.add(facet.ib).add(facet.ic).add(lit.seed)));
-  const shows = mix(present, caught.mul(0.7).add(0.15), lit.far);
+  const inside = min(min(facet.edges.x, facet.edges.y), facet.edges.z);
+  const blur = lit.far.mul(u.scale).mul(0.03).add(texel.mul(1.5));
+  const pane = smoothstep(0, blur, inside).mul(caught.mul(0.9).add(0.12));
+  const seen = lit.seen(mid.xy, facet.ia.add(facet.ib).add(facet.ic)).toVar();
+  const shows = mix(present, pane, step(1e-3, lit.far)).mul(seen);
   const body = PANE.mul(
     key
-      .mul(mix(float(0.075), float(0.16), lit.far))
+      .mul(mix(float(0.075), float(0.2), lit.far))
       .mul(sheen.mul(0.9).add(0.25))
       .add(0.006),
   );
-  return [body.add(mix(AMBER, GOLD, passed.min(1)).mul(passed.mul(1.4))).mul(shows), passed];
+  return [body.add(mix(AMBER, GOLD, passed.min(1)).mul(passed.mul(1.4))).mul(shows), passed, seen];
 }
 
 /** A hot corner's core: warm white in a long amber glow; drawn by every facet that meets there, the piece's or not, so it is never cut. */
 function coresOf(u: GlassUniforms, lit: Lit, p: V2): V3 {
   const { facet, heat, corners } = lit;
-  const points: readonly (readonly [V3, F, F])[] = [
-    [facet.a, heat[0], corners[0]],
-    [facet.b, heat[1], corners[1]],
-    [facet.c, heat[2], corners[2]],
+  const points: readonly (readonly [V3, V2, F, F])[] = [
+    [facet.a, facet.ia, heat[0], corners[0]],
+    [facet.b, facet.ib, heat[1], corners[1]],
+    [facet.c, facet.ic, heat[2], corners[2]],
   ];
+  // Only the piece burns: a sheet behind it glows faintly at most.
+  const burning = lit.far.oneMinus().pow(2);
   let sum: V3 = vec3(0, 0, 0);
-  for (const [corner, h, ours] of points) {
+  for (const [corner, k, h, ours] of points) {
     const dist = length(p.sub(corner.xy));
     const tight = exp(dist.div(u.scale.mul(0.01)).pow(2).negate());
     const glow = exp(dist.div(u.scale.mul(0.045)).negate());
@@ -486,7 +527,7 @@ function coresOf(u: GlassUniforms, lit: Lit, p: V2): V3 {
       WHITE_HOT.mul(tight.mul(7).mul(burns))
         .add(AMBER.mul(glow.mul(1.2).mul(burns)))
         .add(AMBER.mul(halo.mul(0.14).mul(burns)))
-        .mul(ours),
+        .mul(ours.mul(burning).mul(lit.seen(corner.xy, k))),
     );
   }
   return sum;
@@ -534,7 +575,9 @@ function litFacet(u: GlassUniforms, n: number, p: V2): Lit {
   // Which facets are the piece's: each whole, every corner's lattice point within reach, so none
   // is cut and none comes and goes as the glass sways. A neighbour across an edge is judged the
   // same, by its own third corner.
-  const rim = float(PIECE).mul(far.oneMinus());
+  // Only the near sheet is cut to the piece; a sheet behind it is every facet.
+  const rim = float(PIECE).mul(step(far, 0));
+  const behind = far.mul(-LAMPS_BEHIND).add(1).pow(2);
   const inPiece = (idx: V2): F => step(rim, pieceAt(u, frameOf(idx)));
   const at = [inPiece(ia).toVar(), inPiece(ib).toVar(), inPiece(ic).toVar()] as const;
   const [pa, pb, pc] = at;
@@ -549,7 +592,12 @@ function litFacet(u: GlassUniforms, n: number, p: V2): Lit {
   }
   return {
     facet,
-    heat: [heatAt(u, a.xy).toVar(), heatAt(u, b.xy).toVar(), heatAt(u, c.xy).toVar()],
+    // A sheet behind the piece is beyond the lamps' reach: it barely warms, so only the piece burns.
+    heat: [
+      heatAt(u, a.xy).mul(behind).toVar(),
+      heatAt(u, b.xy).mul(behind).toVar(),
+      heatAt(u, c.xy).mul(behind).toVar(),
+    ],
     present: pa.mul(pb).mul(pc).toVar(),
     beyond: [
       pa.mul(pb).mul(across(ia, ib, ic)),
@@ -561,6 +609,12 @@ function litFacet(u: GlassUniforms, n: number, p: V2): Lit {
     key: dot(normal, KEY).abs().pow(3).toVar(),
     seed,
     far,
+    seen: (centre: V2, key: V2) =>
+      mix(
+        float(1),
+        u.field.standing(centre, hash(key.add(seed.mul(1.37)))).mul(poolAt(u, centre)),
+        step(1e-3, far),
+      ),
   };
 }
 
@@ -572,41 +626,54 @@ function litFacet(u: GlassUniforms, n: number, p: V2): Lit {
  */
 function shadeSheet(u: GlassUniforms, n: number, pixel: Pixel, { light, paper, cover }: Sums) {
   const lit = litFacet(u, n, pixel.p);
-  const { far, present, beyond, key } = lit;
-  // The far sheet belongs to the field and dissolves with it; the piece never fades.
-  const shown = mix(float(1), pixel.left, far);
-  const seams = seamsOf(u, lit, pixel);
-  const [face, passed] = faceOf(u, lit, pixel);
+  const { far, present, key } = lit;
+  // A sheet behind the piece belongs to the field: each of its panes, seams and corners fades
+  // whole by where it stands (`Lit.seen`), so the field thins out shape by shape; the piece never
+  // fades.
+  const [seams, ink] = seamsOf(u, lit, pixel);
+  const [face, passed, shown] = faceOf(u, lit, pixel);
   const cores = coresOf(u, lit, pixel.p);
   const own = face.add(seams).add(cores).mul(u.heat);
   // Haze: the far sheet's light is half lost in the navy air, and greyer.
   const hazed = mix(own, HAZE.mul(dot(own, vec3(0.3, 0.5, 0.2))), far.mul(0.55)).mul(
     far.mul(0.6).oneMinus(),
   );
-  light.addAssign(hazed.mul(shown));
-  cover.assign(cover.max(present.mul(far.oneMinus())));
+  light.addAssign(hazed);
+  cover.assign(cover.max(present.mul(step(far, 0))));
   // A light page, an engraving in the paper's terms: a facet a pale frost, deeper as it turns
   // from the key, peach where light passes it; its seams fine periwinkle ink, apricot where light
   // runs along them; the hot corner an apricot bloom.
-  const weight = shown.mul(far.mul(0.6).oneMinus());
+  const depth = far.mul(0.6).oneMinus();
+  const weight = shown.mul(depth);
   const hotSeam = luminance(seams).mul(1.5).min(1);
   const frost = mix(FROST, PEACH, passed.mul(1.5).min(1));
   paper.mulAssign(
     mix(vec3(1, 1, 1), frost, key.oneMinus().mul(0.55).add(0.3).mul(present).mul(weight)),
   );
-  const width = u.pixel.mul(1.3).add(far.mul(u.scale).mul(0.008));
-  const seamLine = exp(
-    min(min(lit.facet.edges.x, lit.facet.edges.y), lit.facet.edges.z).div(width).pow(2).negate(),
-  );
-  const edged = present.max(beyond[0].max(beyond[1]).max(beyond[2]));
   paper.mulAssign(
     mix(
       vec3(1, 1, 1),
       mix(PERIWINKLE, APRICOT, hotSeam),
-      seamLine.mul(hotSeam.mul(0.5).add(0.45)).mul(edged).mul(weight),
+      ink.mul(hotSeam.mul(0.5).add(0.45)).mul(depth),
     ),
   );
   paper.mulAssign(mix(vec3(1, 1, 1), APRICOT, luminance(cores).mul(2.5).min(0.7)));
+}
+
+/**
+ * Where light pools in the web behind the piece: broad slow patches across
+ * the frame (heights, so a wider frame has more of them), and always about
+ * the piece; between them the web falls nearly dark, so the field has light
+ * and depth rather than an even pattern.
+ */
+function poolAt(u: GlassUniforms, at: V2): F {
+  const patch = smoothstep(0.4, 0.72, gnoise(at.mul(POOL).add(vec2(u.time.mul(0.006), 3.1))));
+  const about = exp(
+    length(at.sub(u.knots.element(0).xy))
+      .div(u.scale.mul(0.9))
+      .negate(),
+  );
+  return patch.max(about).mul(0.88).add(0.12);
 }
 
 const luminance = (c: V3): F => dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -614,10 +681,14 @@ const luminance = (c: V3): F => dot(c, vec3(0.2126, 0.7152, 0.0722));
 /**
  * The field behind the glass: navy air, lit by the lamps and by the piece
  * they shine through, so it is brightest about the piece and falls away
- * from it by its own light, in slow smoke; deeper low; the piece's shadow
- * on it. Its dissolve (`left`) is only the far guard.
+ * from it by its own light (`left`, its reach), in slow smoke; the piece's
+ * shadow on it. Behind that, across the whole frame, the haze the far web
+ * hangs in: dimmer the farther it is from the piece, in heights, so a
+ * wider frame adds dimmer haze at its sides, and its lower edge the
+ * smoke's own folds. The air (dark) and how much of the paper's wash there
+ * is (light), and the shadow.
  */
-function fieldOf(u: GlassUniforms, p: V2, warmth: F): readonly [V3, F] {
+function fieldOf(u: GlassUniforms, { p, warmth, left }: Pixel): readonly [V3, F, F] {
   const drift = vec2(u.time.mul(0.006), u.time.mul(-0.004));
   const smoke = gnoise(p.mul(1.3).add(drift));
   const mist = gnoise(p.mul(3.1).sub(drift.mul(1.7)));
@@ -638,67 +709,107 @@ function fieldOf(u: GlassUniforms, p: V2, warmth: F): readonly [V3, F] {
   const lit = exp(reach.div(0.75).negate())
     .mul(0.75)
     .add(glass.mul(0.35))
-    .mul(smoke.mul(0.8).add(0.6));
-  const field = mix(NAVY_DEEP, NAVY, smoothstep(-0.6, 0.45, p.y))
-    .mul(lit.mul(1.6))
-    .add(HAZE.mul(smoothstep(0.25, 0.8, smoke.mul(mist).mul(2)).mul(lit).mul(0.012)))
-    .add(AMBER.mul(air.mul(air).mul(0.14).add(warmth.mul(0.012)).mul(u.heat)))
+    .mul(smoke.mul(0.8).add(0.6))
+    .mul(left);
+  const haze = exp(reach.div(HAZE_FALL).negate())
+    .mul(0.8)
+    .add(0.2)
+    .mul(smoothstep(HAZE_LOW[0], HAZE_LOW[1], p.y.add(smoke.sub(0.5).mul(1.1))))
+    .mul(mist.mul(0.5).add(0.75))
+    // The light pooled in the web lights the haze round it too.
+    .mul(poolAt(u, p).mul(0.9).add(0.45))
+    .toVar();
+  const navy = mix(NAVY_DEEP, NAVY, smoothstep(-0.6, 0.45, p.y));
+  const field = navy
+    .mul(lit.mul(1.6).add(haze.mul(HAZE_LEVEL)))
+    .add(
+      HAZE.mul(
+        smoothstep(0.25, 0.8, smoke.mul(mist).mul(2))
+          .mul(lit.add(haze.mul(0.3)))
+          .mul(0.012),
+      ),
+    )
+    .add(AMBER.mul(air.mul(air).mul(0.14).add(warmth.mul(0.012)).mul(u.heat).mul(left)))
     .mul(float(1).sub(cast));
-  return [field, cast];
+  return [field, left.max(haze.mul(HAZE_PAPER)), cast];
 }
 
-/** The glass pass: the light through the glass (dark), or what it leaves of the paper (light). */
-export function glassFragment(u: GlassUniforms): TslNode<"vec4"> {
+/** The pixel a pass shades, at its UV: where it is, the lamps' warmth there, the sweep and the lit air's reach. */
+function pixelAt(u: GlassUniforms, texel: F): Pixel {
+  const at = uv();
+  const p = vec2(mix(u.window.x, u.window.z, at.x), mix(u.window.y, u.window.w, at.y)).toVar();
+  const reach = u.scale.mul(u.scale);
+  // The lamps' warmth in the air round them.
+  const warmth = float(0).toVar();
+  for (let k = 0; k < LAMPS; k++) {
+    const lamp = u.lamps.element(k);
+    const to = p.sub(lamp.xy);
+    warmth.addAssign(exp(dot(to, to).div(reach).mul(-6)).mul(lamp.z));
+  }
+  warmth.assign(warmth.min(1));
+  // The sweeping band: every seam it crosses glints.
+  const across = dot(p, SWEEP).sub(u.sweep).div(BAND);
+  const band = exp(across.mul(across).negate()).toVar();
+  // The lit air dissolves into the page softly over a long reach, its rim ragged.
+  const left = dissolve(u.reach, p, u.time.mul(0.004)).toVar();
+  return { p, texel, warmth, band, left };
+}
+
+/** Where light piles up at a hot corner, roll it off softly, keeping its hue, so the core is warm white rather than clipped. */
+const rolled = (light: V3): V3 => light.div(luminance(light).mul(0.22).add(1));
+
+/**
+ * The field's pass, the background layer: the far web over the air across
+ * the whole frame, every facet of it fading whole by where it stands,
+ * drawn at a share of the frame's pixels, so it is cheap however wide the
+ * frame and as out of focus as a far layer is. Its light (dark), or the
+ * paper it leaves (light).
+ */
+export function fieldFragment(u: GlassUniforms): TslNode<"vec4"> {
   return Fn(() => {
-    const at = uv();
-    const p = vec2(mix(u.window.x, u.window.z, at.x), mix(u.window.y, u.window.w, at.y)).toVar();
-    const reach = u.scale.mul(u.scale);
-    // The lamps' warmth in the air round them.
-    const warmth = float(0).toVar();
-    for (let k = 0; k < LAMPS; k++) {
-      const lamp = u.lamps.element(k);
-      const to = p.sub(lamp.xy);
-      warmth.addAssign(exp(dot(to, to).div(reach).mul(-6)).mul(lamp.z));
-    }
-    warmth.assign(warmth.min(1));
-    // The sweeping band: every seam it crosses glints.
-    const across = dot(p, SWEEP).sub(u.sweep).div(BAND);
-    const band = exp(across.mul(across).negate()).toVar();
-    // Only the field dissolves into the page, softly over a long reach, its rim ragged.
-    const left = dissolve(u.reach, p, u.time.mul(0.004)).toVar();
+    const pixel = pixelAt(u, u.fieldPixel);
     const light = vec3(0, 0, 0).toVar();
     const paper = vec3(1, 1, 1).toVar();
     const cover = float(0).toVar();
-    // Back to front: the far web in the field, where the field is, then the piece above it, near
-    // its knots; a pixel spends nothing on a sheet it cannot see.
-    const pixel = { p, warmth, band, left };
-    for (let n = SHEETS - 1; n >= 0; n--) {
-      If(sheetReaches(u, n, p, left), () => shadeSheet(u, n, pixel, { light, paper, cover }));
-    }
-    // The piece stands in front of the field: it hides some of the air behind it.
-    const [air, cast] = fieldOf(u, p, warmth);
-    const field = air.mul(cover.mul(0.45).oneMinus()).mul(left);
-    // Where light piles up at a hot corner, roll it off softly, keeping its hue, so the core
-    // is warm white rather than clipped.
-    const lit = u.hue.mul(field.add(light.div(luminance(light).mul(0.22).add(1))));
+    for (let n = SHEETS - 1; n >= 1; n--) shadeSheet(u, n, pixel, { light, paper, cover });
+    const [air, wash, cast] = fieldOf(u, pixel);
+    const lit = u.hue.mul(air.add(rolled(light)));
     const print = mix(
       vec3(1, 1, 1),
-      mix(WASH, SUNLIT, warmth.mul(0.5).mul(u.heat.min(1.6))).mul(
+      mix(WASH, SUNLIT, pixel.warmth.mul(0.5).mul(u.heat.min(1.6))).mul(
         mix(vec3(1, 1, 1), LILAC_SHADE, cast),
       ),
-      left,
+      wash,
     ).mul(paper);
     return vec4(mix(print, lit, u.dark), 1);
   })();
 }
 
 /**
- * The frame, for `scene.backgroundNode`: the glass (`glass`, the offscreen
- * picture) over the page's ground, quieter under the head's text.
+ * The glass's pass, the piece above the field: its light (dark) or what it
+ * leaves of the paper (light), and how much of the field it hides.
+ */
+export function pieceFragment(u: GlassUniforms): TslNode<"vec4"> {
+  return Fn(() => {
+    const pixel = pixelAt(u, u.pixel);
+    const light = vec3(0, 0, 0).toVar();
+    const paper = vec3(1, 1, 1).toVar();
+    const cover = float(0).toVar();
+    // A pixel spends nothing on the piece where it cannot be.
+    If(pieceReaches(u, pixel.p), () => shadeSheet(u, 0, pixel, { light, paper, cover }));
+    return vec4(mix(paper, u.hue.mul(rolled(light)), u.dark), cover);
+  })();
+}
+
+/**
+ * The frame, for `scene.backgroundNode`: the piece (`piece`) in front of
+ * the field (`field`), each an offscreen picture, over the page's ground,
+ * the field quieter under the head's text, the piece never. The piece hides
+ * some of the air behind it.
  */
 export function glassFrame(
   u: GlassUniforms,
-  glass: (at: V2) => TslNode<"vec4">,
+  { field, piece }: { readonly field: PictureSampler; readonly piece: PictureSampler },
   scrim: ReturnType<typeof textScrim>,
   { ground, page, paint }: Grounds,
 ): V3 {
@@ -706,10 +817,17 @@ export function glassFrame(
     const aspect = screenSize.x.div(screenSize.y);
     const q = vec2(screenUV.x.sub(0.5).mul(aspect), float(0.5).sub(screenUV.y));
     const span = vec2(u.window.z.sub(u.window.x), u.window.w.sub(u.window.y));
-    const seen = glass(q.sub(vec2(u.window.x, u.window.y)).div(span)).rgb.toVar();
-    const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y))).mul(0.35);
+    const at = q.sub(vec2(u.window.x, u.window.y)).div(span);
+    const behind = field(at).rgb;
+    const glass = piece(at).toVar();
+    // The scrim quiets the field under the text, never the piece in front of it.
+    const quiet = scrim
+      .under(vec2(screenUV.x, float(1).sub(screenUV.y)))
+      .mul(glass.a.oneMinus())
+      .mul(0.35);
+    const seen = behind.mul(glass.a.mul(0.45).oneMinus()).add(glass.rgb);
     const lit = ground.add(seen.mul(float(1).sub(quiet)));
-    const print = paint(page.mul(mix(seen, vec3(1, 1, 1), quiet)));
+    const print = paint(page.mul(mix(behind.mul(glass.rgb), vec3(1, 1, 1), quiet)));
     return mix(print, lit, u.dark);
   })();
 }
