@@ -422,13 +422,14 @@ function silk(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   return {
     // The hero crosses the frame high, over and right of the title; a panel keeps it, quieter.
-    panel: { x: 0.6, y: 0.2, scale: 1, presence: 1 },
-    wide: { x: 0.6, y: 0.2, scale: 1, presence: 1 },
-    layout: ({ width, height, quality }: BackdropLayout) => {
+    panel: { x: 0.12, y: 0.2, scale: 1, presence: 1 },
+    wide: { x: 0.2, y: 0.2, scale: 1, presence: 1 },
+    layout: (layout: BackdropLayout) => {
+      const { width, height, quality } = layout;
       frameSize.width = width;
       frameSize.height = height;
       u.aspect.value = width / height;
-      u.scrim.layout(width, height);
+      u.scrim.layout(layout);
       // In a narrow frame the text crosses it: the ribbons rise to keep above the title.
       u.lift.value =
         PANEL_LIFT *

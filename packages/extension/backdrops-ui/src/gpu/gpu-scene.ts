@@ -33,7 +33,7 @@ import { mountScene, type SceneStage, type StageOptions, type TslNode } from "@k
 import type { PointerSource, Timing } from "@kb/ui-sdk";
 import { meterOf } from "../scene/meter";
 import { startReactions, type Reactions } from "../scene/reactions";
-import { framingAt, type Composition } from "./framing";
+import { anchorIn, framingAt, type Anchor, type Composition, type ContentBox } from "./framing";
 
 /** What the page says about how a backdrop paints. */
 export interface GpuLook {
@@ -50,6 +50,8 @@ export interface GpuBackdropInit extends GpuLook {
   /** This mount's seed; a still (reduced motion) is always the same curated one. */
   readonly seed: number;
   readonly pointer: PointerSource;
+  /** Where the head's content lies across the frame as it mounts. */
+  readonly content: ContentBox;
 }
 
 /** A mounted GPU backdrop, as its React host drives it. */
@@ -59,6 +61,8 @@ export interface GpuBackdropScene extends SceneHandle {
   readonly write: () => void;
   readonly navigate: () => void;
   readonly setEditing: (editing: boolean) => void;
+  /** The head's content moved across the frame (the content width changed): the hero follows it. */
+  readonly setContent: (content: ContentBox) => void;
   /** Seconds the scene has run since it mounted: it never goes back. */
   readonly clock: () => number;
 }
@@ -93,7 +97,10 @@ export interface BackdropLayout {
   readonly height: number;
   /** 1 at full detail, down to `MIN_QUALITY` while frames run over budget. */
   readonly quality: number;
-  readonly composition: Composition;
+  /** Where the hero stands, from the composition for this width and the content (`framing.ts`). */
+  readonly anchor: Anchor;
+  /** Where the head's content lies, CSS pixels from the frame's left: its text is there. */
+  readonly content: ContentBox;
 }
 
 export interface BackdropParts {
@@ -140,6 +147,7 @@ export async function mountBackdrop(
   let look: GpuLook = init;
   let width = 0;
   let height = 0;
+  let content = init.content;
   let quality = 1;
   let elapsed = 0;
 
@@ -166,7 +174,8 @@ export async function mountBackdrop(
         if (width < 2 || height < 2) return;
         const composition = framingAt(width, backdrop.panel, backdrop.wide);
         on.setPresence(look.presence * composition.presence);
-        backdrop.layout({ width, height, quality, composition });
+        const anchor = anchorIn(composition, { width, height }, content);
+        backdrop.layout({ width, height, quality, anchor, content });
         canvas.dataset.quality = quality.toFixed(2);
       };
       const measure = (dt: number) => {
@@ -225,6 +234,11 @@ export async function mountBackdrop(
     },
     setEditing: (next) => {
       reactions.setEditing(next);
+      stage.invalidate();
+    },
+    setContent: (next) => {
+      content = next;
+      relayout();
       stage.invalidate();
     },
     clock: () => elapsed,

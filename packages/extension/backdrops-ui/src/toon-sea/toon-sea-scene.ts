@@ -61,15 +61,17 @@ function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   return {
     // The sun (the moon) stands high and right; in a panel a little lower in its corner.
-    panel: { x: 0.72, y: 0.17, scale: 0.85, presence: 1 },
-    wide: { x: 0.74, y: 0.15, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
+    panel: { x: 0.26, y: 0.17, scale: 0.85, presence: 1 },
+    wide: { x: 0.48, y: 0.15, scale: 1, presence: 1 },
+    layout: (layout: BackdropLayout) => {
+      const { width: w, height: h, quality, anchor } = layout;
       width = w;
       height = h;
       u.aspect.value = w / h;
       u.size.value.set(w, h);
-      u.sun.value.set(composition.x, 1 - composition.y);
-      u.scrim.layout(w, h);
+      // The shader reads the sun as shares of the frame, y up.
+      u.sun.value.set(0.5 + anchor.x / (w / h), 0.5 + anchor.y);
+      u.scrim.layout(layout);
       u.detail.value = quality;
       // The sky is soft: at full quality two texels for three device pixels (the stage's ratio,
       // at most 2), so the clouds' outlines stay clean when it is scaled up.

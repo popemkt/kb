@@ -24,7 +24,8 @@ import { watchPlayback } from "../playback";
 import { useBackdropSeed } from "../scene/seed";
 import { readStagePalette } from "../scene/tokens";
 import { TintBackdrop } from "../tint-backdrop";
-import type { GpuBackdropMount, GpuBackdropScene, GpuLook } from "./gpu-scene";
+import type { ContentBox } from "./framing";
+import type { GpuBackdropInit, GpuBackdropMount, GpuBackdropScene, GpuLook } from "./gpu-scene";
 
 /** Each GPU backdrop's scene, behind the second lazy boundary. */
 const SCENES = {
@@ -38,7 +39,62 @@ const SCENES = {
 
 export type GpuSceneId = keyof typeof SCENES;
 
+/**
+ * Where the head's content lies across the backdrop's frame (`BackdropFrame`,
+ * `data-backdrop`), in the frame's own CSS pixels: the part of the frame its
+ * holder covers. A frame bounded to the content is all content; one that
+ * spans the scroll region holds the content somewhere inside it.
+ */
+function contentOf(el: HTMLElement): ContentBox {
+  const frame = el.closest<HTMLElement>("[data-backdrop]");
+  const holder = frame?.parentElement;
+  if (!frame || !holder || frame.offsetWidth === 0) return { left: 0, width: el.clientWidth };
+  const box = frame.getBoundingClientRect();
+  const held = holder.getBoundingClientRect();
+  // A card scales its frame: rectangles are in the page's pixels, the scene in the frame's.
+  const scale = box.width / frame.offsetWidth;
+  const left = Math.max(0, (held.left - box.left) / scale);
+  const right = Math.min(frame.offsetWidth, (held.right - box.left) / scale);
+  return right > left ? { left, width: right - left } : { left: 0, width: frame.offsetWidth };
+}
+
+/** Tell `onChange` whenever the content moves across the frame: either one resizes. */
+function watchContent(el: HTMLElement, onChange: (content: ContentBox) => void): () => void {
+  const frame = el.closest<HTMLElement>("[data-backdrop]");
+  const holder = frame?.parentElement;
+  if (!frame || !holder) return () => undefined;
+  let last = contentOf(el);
+  const observer = new ResizeObserver(() => {
+    const next = contentOf(el);
+    if (next.left === last.left && next.width === last.width) return;
+    last = next;
+    onChange(next);
+  });
+  observer.observe(frame);
+  observer.observe(holder);
+  return () => observer.disconnect();
+}
+
 type SceneState = "loading" | "ready" | "unavailable";
+
+/** What a scene mounted later starts from: the page as it is now. */
+interface Latest {
+  look: GpuLook | null;
+  editing: boolean;
+  reducedMotion: boolean;
+  seed: number;
+}
+
+/** The init a scene mounted now in `el` starts from. */
+function initNow(
+  el: HTMLElement,
+  look: GpuLook,
+  latest: Latest,
+  pointer: BackdropProps["pointer"],
+): GpuBackdropInit {
+  const { reducedMotion, seed } = latest;
+  return { ...look, reducedMotion, seed, timing: readTiming(), pointer, content: contentOf(el) };
+}
 
 export default function GpuBackdrop({
   scene: id,
@@ -57,15 +113,9 @@ export default function GpuBackdrop({
   const nodeId = node?.id;
   const { writes, editing } = activity;
   const seen = useRef({ writes, nodeId });
-  // What a scene mounted later starts from: the page as it is now. A load
-  // mounts its scene once: a change of look, motion or editing reaches the
-  // scene it mounted, and never mounts another (only another backdrop does).
-  const latest = useRef<{
-    look: GpuLook | null;
-    editing: boolean;
-    reducedMotion: boolean;
-    seed: number;
-  }>({ look: null, editing, reducedMotion, seed });
+  // A load mounts its scene once: a change of look, motion or editing reaches
+  // the scene it mounted, and never mounts another (only another backdrop does).
+  const latest = useRef<Latest>({ look: null, editing, reducedMotion, seed });
   useEffect(() => {
     const look: GpuLook = {
       palette: readStagePalette(color),
@@ -92,14 +142,9 @@ export default function GpuBackdrop({
       apply();
     });
     const pending = SCENES[id]().then((mount) =>
-      mount(el, {
-        ...look,
-        reducedMotion: latest.current.reducedMotion,
-        timing: readTiming(),
-        seed: latest.current.seed,
-        pointer,
-      }),
+      mount(el, initNow(el, look, latest.current, pointer)),
     );
+    const unwatch = watchContent(el, (content) => scene?.setContent(content));
     const detach = attachScene(
       el,
       pending.then((made): GpuBackdropScene => {
@@ -129,6 +174,7 @@ export default function GpuBackdrop({
     );
     return () => {
       watch.dispose();
+      unwatch();
       detach();
       mounted.current = null;
     };

@@ -44,7 +44,7 @@ import {
   type GlassUniforms,
 } from "./floating-geometry-shader";
 import { fitPiece, layoutWeb, pieceBounds, placeSheets, type PieceBounds } from "./web";
-import type { Composition } from "../gpu/framing";
+import type { Anchor } from "../gpu/framing";
 
 /** The lamp's spring (ω, rad/s): it follows the pointer in about two seconds, as light through glass would drift. */
 const FOLLOW = 2.4;
@@ -94,15 +94,15 @@ function writeLamps(
 function hubFor(
   bounds: PieceBounds,
   load: { readonly shift: { readonly x: number; readonly y: number }; readonly size: number },
-  composition: Composition,
+  anchor: Anchor,
   aspect: number,
 ) {
-  const wanted = composition.scale * load.size;
+  const wanted = anchor.scale * load.size;
   return fitPiece(
     bounds,
     {
-      x: (composition.x - 0.5) * aspect + load.shift.x * wanted,
-      y: 0.5 - composition.y + load.shift.y * wanted,
+      x: anchor.x + load.shift.x * wanted,
+      y: anchor.y + load.shift.y * wanted,
       scale: wanted,
     },
     aspect,
@@ -167,14 +167,15 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   return {
     // In a panel the piece sits high above the title, smaller and quieter; wide, right of the title,
     // running off the frame's top.
-    panel: { x: 0.55, y: 0.14, scale: 0.6, presence: 0.75 },
-    wide: { x: 0.7, y: 0.4, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
+    panel: { x: 0.06, y: 0.14, scale: 0.6, presence: 0.75 },
+    wide: { x: 0.4, y: 0.4, scale: 1, presence: 1 },
+    layout: (layout: BackdropLayout) => {
+      const { width: w, height: h, quality, anchor } = layout;
       width = w;
       height = h;
       const aspect = w / h;
       // The piece is whole: slid in, and smaller only if it must be, to clear the sides and bottom.
-      hub = hubFor(bounds, { shift, size }, composition, aspect);
+      hub = hubFor(bounds, { shift, size }, anchor, aspect);
       u.scale.value = hub.scale;
       if (!settled) {
         lamp.x = hub.x + rest.x * hub.scale;
@@ -189,7 +190,7 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       const texel = Math.min(stage.renderer.getPixelRatio(), TEXELS) * (0.5 + 0.5 * quality);
       glass.setSize(w * texel, h * texel);
       u.pixel.value = 1 / (h * texel);
-      scrim.layout(w, h);
+      scrim.layout(layout);
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

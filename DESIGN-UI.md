@@ -3935,12 +3935,20 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   backdrop in a fresh tab and holds each load to this: one adapter, one
   canvas never replaced, no context at 300×150, no wash, ready once, faded
   in once.
-- **Framing by width** (`framing.ts`). Each backdrop has a panel
-  composition and a wide one: where its subject sits, its scale and how
-  present it is. A side panel's width (480px and below) takes the first, a
-  frame 900px wide the second, and the widths between ease from one to the
-  other. In a panel the subject is smaller, set high and right, away from
-  the title and the list, and quieter.
+- **Framing by width** (`framing.ts`). The head keeps one height
+  whatever its width, so a hero is composed from the height and an anchor,
+  never from the width: its size is a share of the height, and its place
+  is so many heights right of the centre of the head's content, the column
+  the title stands in (`anchorIn`). A wider frame adds field at the sides;
+  the hero stays where it was, as large as it was. The host measures where
+  the content lies across the frame (`ContentBox`, the part of the frame
+  its holder covers) and tells the scene when it moves (`setContent`); the
+  text scrim is laid out from it too. Each backdrop has a panel composition
+  and a wide one: where its hero sits, its scale and how present it is. A
+  frame 480px wide and below (a side panel, a phone) takes the first, one
+  900px wide the second, and the widths between ease from one to the
+  other. In a panel the hero is smaller, set high and right, away from the
+  title and the list, and quieter.
 - **Cost.** It runs only while the tab is shown and the frame is in view
   (`watchPlayback`). Each frame's GPU time is metered against 6 ms; while it
   runs over, the backdrop steps its quality down (the offscreen pass's
@@ -3997,7 +4005,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     pixel's footprint, stepped body bands, a toon Fresnel, foam on crests,
     anime wave lines, and a banded glitter path of star glints.
   - Under the head's text the shared scrim (`gpu/text-scrim.ts`: a soft
-    block just behind the title and the meta row, sized in CSS pixels, so
+    block just behind the title and the meta row, sized in CSS pixels from
+    the content's left (`ContentBox`), so
     the rest of the picture keeps its colour) keeps them readable, and the
     glitter stays out from under it.
   - The pointer resting over the water spreads ripple rings. Typing calms

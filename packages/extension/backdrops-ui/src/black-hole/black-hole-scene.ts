@@ -104,13 +104,14 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   let elapsed = 0;
 
   return {
-    panel: { x: 0.68, y: 0.3, scale: 0.62, presence: 0.72 },
-    wide: { x: 0.63, y: 0.38, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
+    panel: { x: 0.21, y: 0.3, scale: 0.62, presence: 0.72 },
+    wide: { x: 0.26, y: 0.38, scale: 1, presence: 1 },
+    layout: ({ width: w, height: h, quality, anchor }: BackdropLayout) => {
       width = w;
       height = h;
-      u.center.value.set(composition.x, 1 - composition.y);
-      u.focal.value = 2.3 * composition.scale;
+      // The shader reads the hole's centre as shares of the frame, y up.
+      u.center.value.set(0.5 + anchor.x / (w / h), 0.5 + anchor.y);
+      u.focal.value = 2.3 * anchor.scale;
       const density = holeDensity(quality);
       hole.setSize(w * density, h * density);
       u.steps.value = STEP_CAP;

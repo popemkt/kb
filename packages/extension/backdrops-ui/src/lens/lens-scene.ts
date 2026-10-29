@@ -98,15 +98,15 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   return {
     // In a panel the star rests high and right, small and quiet; wide, right of the title.
-    panel: { x: 0.74, y: 0.22, scale: 0.7, presence: 0.55 },
-    wide: { x: 0.66, y: 0.36, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
+    panel: { x: 0.28, y: 0.22, scale: 0.7, presence: 0.55 },
+    wide: { x: 0.32, y: 0.36, scale: 1, presence: 1 },
+    layout: ({ width: w, height: h, quality, anchor }: BackdropLayout) => {
       width = w;
       height = h;
-      scale = composition.scale;
+      scale = anchor.scale;
       const aspect = w / h;
-      home.x = (composition.x - 0.5) * aspect + rest.x * 0.12 * scale;
-      home.y = 0.5 - composition.y + rest.y * 0.1 * scale;
+      home.x = anchor.x + rest.x * 0.12 * scale;
+      home.y = anchor.y + rest.y * 0.1 * scale;
       u.cloud.value.set(home.x + 0.1 * scale, home.y - 0.05 * scale);
       if (!settled) {
         position.x = home.x;

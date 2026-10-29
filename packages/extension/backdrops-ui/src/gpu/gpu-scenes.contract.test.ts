@@ -35,6 +35,7 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
   timing: TIMING_FALLBACK,
   seed: 7,
   pointer: { now: () => null },
+  content: { left: 0, width: 720 },
 });
 
 const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
