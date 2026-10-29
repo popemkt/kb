@@ -60,12 +60,12 @@ type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 
 /** The dark palette (linear): cyan, cobalt, gold, a white-hot core and the navy field. */
-const CYAN = vec3(0.3, 0.68, 1.15);
-const COBALT = vec3(0.05, 0.2, 0.95);
-const GOLD = vec3(1.3, 0.8, 0.3);
+const CYAN = vec3(0.14, 0.62, 1.25);
+const COBALT = vec3(0.02, 0.12, 0.8);
+const GOLD = vec3(1.25, 0.62, 0.12);
 const HOT = vec3(1.2, 1.12, 1.0);
-const FIELD = vec3(0.006, 0.022, 0.1);
-const FIELD_DEEP = vec3(0.001, 0.004, 0.022);
+const FIELD = vec3(0.002, 0.01, 0.045);
+const FIELD_DEEP = vec3(0.0004, 0.0015, 0.009);
 /** The light palette (shares of the paper): cobalt and amber ink, and the field's wash. */
 const INK_COOL = vec3(0.16, 0.32, 0.78);
 const INK_WARM = vec3(0.8, 0.48, 0.16);
@@ -73,10 +73,10 @@ const INK_FAR = vec3(0.7, 0.78, 0.98);
 const WASH = vec3(0.92, 0.94, 1.0);
 /** How much wider (against a near one) a strand is at depth 1, and how much of its light is left. */
 const FAR_WIDE = 20;
-const FAR_DIM = 0.8;
+const FAR_DIM = 0.86;
 /** A spark's cell along and across the flow (frame units), and how many cells hold one. */
 const SPARK_CELL = 0.045;
-const SPARK_CHANCE = 0.1;
+const SPARK_CHANCE = 0.05;
 
 /** Everything the CPU sets. Per strand: `shape` offset fan warm depth, `look` width light amp freq, `run` wave gapFreq gapPhase pulse. */
 export function trailUniforms() {
@@ -154,10 +154,11 @@ function strands(u: TrailUniforms, p: V2, h: V2, quiet: F): Exposure {
     const d = abs(h.y.sub(y))
       .div(sqrt(slope.mul(slope).add(1)))
       .mul(s);
-    const core = look.x.mul(u.pixel).mul(depth.mul(depth).mul(FAR_WIDE).add(1));
+    // Focus falls off late: the near and mid strands stay hairlines, only the far ones spread.
+    const core = look.x.mul(u.pixel).mul(depth.pow(3).mul(FAR_WIDE).add(1));
     const sharp = exp(d.div(core).pow(2).negate());
     // A near strand's short glow; a far one is all softness already, so it has none.
-    const glow = exp(d.div(core.mul(6)).negate()).mul(depth.oneMinus().mul(0.2));
+    const glow = exp(d.div(core.mul(5)).negate()).mul(depth.oneMinus().mul(0.1));
     // It comes and goes along its length, but never at the knot; a packet runs along it.
     const gap = max(
       smoothstep(-0.4, 0.7, sin(run.y.mul(h.x).add(run.z).add(u.time.mul(0.02)))),
@@ -234,7 +235,7 @@ export function trailFrame(
 
     const night = field
       .add(exposure.light)
-      .add(CYAN.mul(spark))
+      .add(mix(CYAN, GOLD, 0.45).mul(spark))
       .add(HOT.mul(flare))
       .mul(left)
       .mul(float(1).sub(quiet.mul(0.2)));

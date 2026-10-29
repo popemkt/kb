@@ -4415,9 +4415,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     ghost.
 - **Light trails.** Long-exposure light streaking across the head from the
   upper left down to the right in a gentle S, after the owner's reference
-  tile 09: hairline strands, cyan and blue with a few gold, gathering in a
-  white-hot knot right of the title and fanning out away from it, over a
-  deep navy field (`light-trails/`). Each load varies the strands a little
+  tile 09: hairline strands, crisp cyan and blue with a few gold, gathering
+  in a white-hot knot right of the title and fanning out away from it, over
+  a deep, nearly black navy field (`light-trails/`). Each load varies the strands a little
   and turns the hue a few degrees (**Variation**).
   - One pass, no offscreen picture. Every strand is a curve in the hero's
     units, heights from the knot at its scale (`trails.ts`), so a wider
@@ -4426,9 +4426,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     (**A frame that spans the region**), and the canvas reports the knot
     (`data-hero`).
   - **Depth is focus.** A near strand is a hairline a pixel or two wide
-    with a short glow; the farther it is, the wider, dimmer and bluer, and
-    the farthest are the field's broad sheens: one kind of thing at every
-    depth. Sparks drift with the flow, thick near the bundle.
+    with a faint short glow; focus falls off late (as the cube of depth), so
+    the mid strands stay fine and only the farthest widen, dimmer and bluer,
+    into the field's broad sheens: one kind of thing at every depth. A few
+    sparks, warm white, drift with the flow near the bundle.
   - **It fades by its own shapes.** A strand comes and goes along its
     length, never at the knot; the field runs past the frame's sides and
     dissolves at its top and bottom by its own ragged reach
