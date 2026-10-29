@@ -69,8 +69,8 @@ const AMBER = vec3(1.0, 0.5, 0.16);
 const GOLD = vec3(1.0, 0.68, 0.34);
 const STEEL = vec3(0.14, 0.24, 0.66);
 /** A light page's inks: periwinkle edges warming to peach at the lamp, frost panes cool or peach, the lamp's warmth. */
-const GRAPHITE = vec3(0.5, 0.56, 0.9);
-const SIENNA = vec3(0.98, 0.56, 0.36);
+const PERIWINKLE = vec3(0.5, 0.56, 0.9);
+const APRICOT = vec3(0.98, 0.56, 0.36);
 const FROST = vec3(0.84, 0.87, 0.99);
 const PEACH = vec3(1.0, 0.82, 0.68);
 const SUNLIT = vec3(1.0, 0.9, 0.78);
@@ -205,8 +205,12 @@ function shadeFace(
     .mul(fill)
     .add(mix(STEEL.mul(0.18), AMBER, pour.mul(1.5).min(1)).mul(rim.mul(lit.mul(0.6).add(0.3))))
     .add(STEEL.mul(rim.mul(fresnel).mul(0.22)));
+  // An edge burns brightest near its tip and fades along its length.
+  const along = exp(length(pa).div(u.scale.mul(0.35)).negate())
+    .mul(0.75)
+    .add(0.25);
   const edges = mix(STEEL.mul(0.35), GOLD, warmth.mul(warmth).add(pour).add(band).min(1)).mul(
-    line.mul(lit.mul(0.4).add(0.6)).mul(band.mul(1.6).add(1)),
+    line.mul(along).mul(lit.mul(0.4).add(0.6)).mul(band.mul(1.6).add(1)),
   );
   // The tips meet in knots; a knot near a lamp flares, a point with a tight halo.
   const toTip = dot(pa, pa);
@@ -219,10 +223,12 @@ function shadeFace(
   panes.addAssign(fill.mul(near));
   light.addAssign(facet.add(edges).mul(near).add(GOLD.mul(knot)).mul(u.heat));
   // A light page: a pane is a pale frost, peach toward the lamp; its edges periwinkle, warming to peach.
-  const ink = mix(GRAPHITE, SIENNA, warmth.add(band).min(1));
+  const ink = mix(PERIWINKLE, APRICOT, warmth.add(band).min(1));
   const pane = mix(FROST, PEACH, warmth.mul(lit.mul(0.5).add(0.5)).add(pour).min(1));
-  paper.mulAssign(mix(vec3(1, 1, 1), pane, fill.mul(near).mul(0.55).add(rim.mul(0.35))));
-  paper.mulAssign(mix(vec3(1, 1, 1), ink, min(line.mul(near).mul(band.mul(0.5).add(0.8)), 0.8)));
+  paper.mulAssign(mix(vec3(1, 1, 1), pane, fill.mul(near).mul(0.5).add(rim.mul(0.3))));
+  paper.mulAssign(
+    mix(vec3(1, 1, 1), ink, min(line.mul(along.add(1)).mul(near).mul(band.mul(0.3).add(0.5)), 0.6)),
+  );
 }
 
 /** The glass pass: the light through the shards (dark), or what they leave of the paper (light). */
