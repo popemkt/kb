@@ -28,7 +28,7 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { farField, reachWithin, type FieldReach } from "../gpu/dissolve";
+import { farField, glowAbout, type FieldReach } from "../gpu/dissolve";
 import { variation } from "../scene/seed";
 import { textScrim } from "../gpu/text-scrim";
 import { TURN_SECONDS, tremble } from "./medallion";
@@ -56,8 +56,8 @@ const RADIUS = 0.27;
 const SWING = { angle: 0.08, period: 7.5 } as const;
 /** How far the smoke and embers spread about the disk before they have dissolved (radii). */
 const REACH = { x: 3.4, y: 2.2 } as const;
-/** How much of the reach the smoke fills whole: a subject in the open, so little. */
-const SOLID = 0.4;
+/** How much of the reach the smoke fills whole: a subject in the open, so little, and it tapers out. */
+const SOLID = 0.2;
 /**
  * Where the far layers (plumes of smoke, sparks, glyph haze) thin out
  * across the frame: over its outer heights at either side, and low in it.
@@ -151,7 +151,7 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       u.centre.value.set(rest.x, rest.y);
       // It hangs from above the frame's top, so the chain runs out of the frame.
       u.pivot.value = (0.5 - rest.y) / radius + PIVOT_ABOVE;
-      u.reach.set(reachWithin(w / h, rest, { x: REACH.x * radius, y: REACH.y * radius }, SOLID));
+      u.reach.set(glowAbout(w / h, rest, { x: REACH.x * radius, y: REACH.y * radius }, SOLID));
       u.field.layout(w / h);
       scrim.layout(layout);
       return { ...rest, scale: anchor.scale };
@@ -226,7 +226,8 @@ export function mountWolfMedallion(
     init,
     {
       bloom: { strength: 0.35, radius: 0.5 },
-      lens: { aberration: 0.003, streak: 0, grain: 0.018 },
+      // No aberration: steel is a sharp object, and a lens's fringe reads as a coloured edge on it.
+      lens: { aberration: 0, streak: 0, grain: 0.018 },
       // It fades into the page as a CSS mask would, so on a light page a strength's veil leaves the
       // steel its darks rather than greying it in linear light.
       fadeSpace: "display",

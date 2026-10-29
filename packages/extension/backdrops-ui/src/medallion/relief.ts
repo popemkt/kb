@@ -13,11 +13,14 @@
  *   It is square, its round body 0.4 of its width about its centre, so it
  *   covers the same `EXTENT` as the sigil.
  *
- * Two passes, each run only when the source changes: the source, as height,
- * glow and silhouette; then the material's maps, height, cavity (how far a
- * point lies below the relief round it, where grime and patina collect),
- * glow and silhouette. The frame takes the relief's slope from the baked
- * height a texel across.
+ * Three passes, each run only when the source changes: the source, as
+ * height, glow and silhouette; its edge cleaned (`EDGE`): the silhouette
+ * eroded past any matte its edge carries, and the height run on flat past
+ * the silhouette's cut, the highest round each point there, so the frame's
+ * slope never finds a cliff at the cut to light as an outline; then the
+ * material's maps, height, cavity (how far a point lies below the relief
+ * round it, where grime and patina collect), glow and silhouette. The frame
+ * takes the relief's slope from the baked height a texel across.
  */
 import {
   Fn,
@@ -198,6 +201,13 @@ function emptyArt(): Texture {
   return empty;
 }
 
+/**
+ * The edge's cleaning: the rings (texels) the height is run on over past
+ * the cut, as far as the frame's slope reaches at the smallest the
+ * medallion is drawn; and the alpha the silhouette is eroded between, so a
+ * matted or soft edge is cut clean inside it.
+ */
+const EDGE = { rings: [2, 4, 7], from: 0.35, to: 0.9 } as const;
 /** The cavity's two reaches (texels): grime in fine engraving, and in the broad recesses. */
 const NEAR = 3;
 const FAR = 14;
@@ -226,19 +236,38 @@ export function bakedRelief(renderer: WebGPURenderer) {
       })(),
     { history: false },
   );
-  const material = offscreenPass(
+  const edge = offscreenPass(
     renderer,
     () =>
       Fn(() => {
         const at = uv();
         const here = source.picture(at);
+        let ring: F = here.x;
+        for (const reach of EDGE.rings) {
+          for (let k = 0; k < TAPS; k++) {
+            const a = (k / TAPS) * TAU;
+            const off = vec2(Math.cos(a), Math.sin(a)).mul(reach * texel);
+            ring = max(ring, source.picture(at.add(off)).x);
+          }
+        }
+        const whole = smoothstep(0.97, 1, here.w);
+        return vec4(mix(ring, here.x, whole), here.y, 0, smoothstep(EDGE.from, EDGE.to, here.w));
+      })(),
+    { history: false },
+  );
+  const material = offscreenPass(
+    renderer,
+    () =>
+      Fn(() => {
+        const at = uv();
+        const here = edge.picture(at);
         // How far below the relief round it a point lies: near for engraving, far for recesses.
         const round = (reach: number): F => {
           let sum: F = float(0);
           for (let k = 0; k < TAPS; k++) {
             const a = (k / TAPS) * TAU;
             const off = vec2(Math.cos(a), Math.sin(a)).mul(reach * texel);
-            sum = sum.add(source.picture(at.add(off)).x);
+            sum = sum.add(edge.picture(at.add(off)).x);
           }
           return sum.div(TAPS);
         };
@@ -252,9 +281,11 @@ export function bakedRelief(renderer: WebGPURenderer) {
     { history: false },
   );
   source.setSize(SIDE, SIDE);
+  edge.setSize(SIDE, SIDE);
   material.setSize(SIDE, SIDE);
   const bake = () => {
     source.render();
+    edge.render();
     material.render();
   };
   return {
@@ -274,6 +305,7 @@ export function bakedRelief(renderer: WebGPURenderer) {
     bake,
     dispose: () => {
       source.dispose();
+      edge.dispose();
       material.dispose();
     },
   };
