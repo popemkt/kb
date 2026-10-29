@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useAppearance, useReducedMotion, type BackdropProps } from "@kb/ui-sdk";
 import type { CompositionFactory } from "./composition";
+import { useBackdropSeed } from "./seed";
 import { readPalette } from "./tokens";
 import { createStage, type Look, type Stage } from "./stage";
 
 /** One frame's scene is allowed about this much of the main thread. */
 const BUDGET_MS = 2;
-/** A still composition is curated, so reduced motion always shows the same one. */
-const STILL_SEED = 7;
 
 /**
  * Hosts a composition (`composition.ts`) on a canvas that fills its frame:
@@ -27,7 +26,7 @@ export function SceneStage({
   const stage = useRef<Stage | null>(null);
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
-  const [seed] = useState(() => Math.floor(Math.random() * 2 ** 31));
+  const seed = useBackdropSeed(reducedMotion);
   const { color, direction, strength, opacity, activity, node, pointer } = backdrop;
   const nodeId = node?.id;
   const { writes, editing } = activity;
@@ -44,7 +43,7 @@ export function SceneStage({
   useEffect(() => {
     const element = canvas.current;
     if (element === null) return undefined;
-    const made = createStage(element, factory(reducedMotion ? STILL_SEED : seed), {
+    const made = createStage(element, factory(seed), {
       reducedMotion,
       pointer,
       budgetMs: BUDGET_MS,

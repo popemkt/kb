@@ -21,6 +21,7 @@ import {
   type BackdropProps,
 } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback";
+import { useBackdropSeed } from "../scene/seed";
 import { readStagePalette } from "../scene/tokens";
 import { TintBackdrop } from "../tint-backdrop";
 import type { GpuBackdropMount, GpuBackdropScene, GpuLook } from "./gpu-scene";
@@ -37,9 +38,6 @@ const SCENES = {
 
 export type GpuSceneId = keyof typeof SCENES;
 
-/** A still is curated: reduced motion always shows the same composition. */
-const STILL_SEED = 7;
-
 type SceneState = "loading" | "ready" | "unavailable";
 
 export default function GpuBackdrop({
@@ -53,7 +51,7 @@ export default function GpuBackdrop({
   const mounted = useRef<GpuBackdropScene | null>(null);
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
-  const [seed] = useState(() => Math.floor(Math.random() * 2 ** 31));
+  const seed = useBackdropSeed(reducedMotion);
   const [state, setState] = useState<SceneState>("loading");
   const { color, direction, opacity, activity, node, pointer } = backdrop;
   const nodeId = node?.id;
@@ -91,7 +89,7 @@ export default function GpuBackdrop({
         ...look,
         reducedMotion,
         timing: readTiming(),
-        seed: reducedMotion ? STILL_SEED : seed,
+        seed,
         pointer,
       }),
     );
