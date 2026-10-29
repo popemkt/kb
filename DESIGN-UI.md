@@ -3983,8 +3983,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     (`setReducedMotion`), and the seed is the mount's;
   - the renderer takes its host's size before its context is configured, so
     no frame is drawn at the canvas's default 300×150 (`mountRenderer`);
-  - `mountScene` lays the view out at its host's size before it reveals it,
-    and `mountBackdrop` gives the scene its look before that frame;
+  - `mountScene` lays the view out at its host's size, waits for what it
+    needs before its first frame (`SceneParts.ready`: the medallion's art,
+    so the sigil never shows before the image), then reveals;
+    `mountBackdrop` gives the scene its look before that frame;
   - a resize redraws in the same task (`redraw`), so a cleared canvas is
     never shown;
   - the head's wash is the fallback of a machine that cannot start the
@@ -4333,6 +4335,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - Glyphs and rings are strokes' distances, the rings broken into arcs;
     the smoke is two folds of noise, one warping the other; the embers are
     sparks on a grid's cells, mostly specks and a few large and bright.
+  - **It stands in front of its field.** The field stays a local glow of
+    smoke and embers; the medallion over it is whole, never cut by the
+    smoke's dissolve. A warm back light on the smoke round it, its shadow
+    cast on the smoke, and parallax (it leans a little toward the pointer
+    while the circle and smoke behind it stay) set it in front.
   - Light over the page's ground, never under it: the text scrim and the
     disk's shadow quiet the art, never the ground itself.
   - **It senses the page.** On a `notice` the medallion trembles for under
@@ -4343,10 +4350,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     a few seconds later, two still frames the scene asks the stage for.
   - The pointer near the disk wakes its eyes a little; typing slows the
     smoke; writes (`stir`) turn the circle faster for a while.
-  - A light page is the same scene as an engraving in faint ink on the
-    paper: a smoke wash, sepia glyphs, the medallion as its relief's lines
-    and its recesses with no fill and no shadow, the chain a fine line,
-    rust specks.
+  - A light page is the same scene on paper: the same steel and chain,
+    toned for it (polished silver where the key lights it, dark steel in
+    shade, patina in the recesses) with a faint shadow under it, a smoke
+    wash, sepia glyphs and rust specks. An engraving in faint ink was tried
+    first and all but vanished on white.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it

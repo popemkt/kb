@@ -25,9 +25,10 @@
  *   never a side of the frame.
  * - **Dark** pages are light over the page's ground, which nothing darkens:
  *   the text scrim and the disk's shadow quiet the art, never the ground.
- *   **Light** pages are the same scene as an engraving in faint ink on the
- *   paper (`Grounds`): wash smoke, sepia glyphs, the disk as its relief's
- *   lines with no fill and no shadow, rust specks for embers.
+ *   **Light** pages are the same scene on paper (`Grounds`): the same steel
+ *   and chain toned for it (polished silver where lit, dark steel in shade,
+ *   patina in the recesses) with a faint shadow under it, wash smoke, sepia
+ *   glyphs and rust specks for embers.
  */
 import {
   Fn,
@@ -90,13 +91,18 @@ const LINK = { pitch: 0.17, length: 0.11, width: 0.07, wire: 0.022 } as const;
 /** The smoke, the light under it, the glyphs' smoulder and the embers. */
 const SMOKE = vec3(0.03, 0.036, 0.04);
 const UNDERGLOW = vec3(0.06, 0.017, 0.004);
+/** A warm light behind the medallion, on the smoke round it: what sets it in front of its field. */
+const BACKLIGHT = vec3(0.09, 0.045, 0.02);
 const SMOULDER = vec3(0.9, 0.3, 0.07);
 const EMBER = vec3(1.0, 0.36, 0.07);
-/** The light page's inks: the wash, sepia, polished steel and rust. */
+/** The light page's inks: the wash, sepia and rust. */
 const WASH = vec3(0.66, 0.58, 0.5);
 const SEPIA = vec3(0.36, 0.2, 0.1);
-const POLISHED = vec3(0.1, 0.11, 0.135);
 const RUST = vec3(0.8, 0.36, 0.16);
+/** The steel on a light page: polished where it is lit, dark steel in shade, patina in its recesses. */
+const DAY_LIT = vec3(0.9, 0.91, 0.93);
+const DAY_SHADE = vec3(0.26, 0.27, 0.3);
+const DAY_PATINA = vec3(0.5, 0.42, 0.34);
 
 /** The key light and the warm light from below, as directions toward them. */
 const KEY_DIR = new Vector3(-0.55, 0.65, 0.6).normalize();
@@ -113,6 +119,8 @@ export function medallionUniforms() {
     /** How far the circle has turned (rad), and how far the medallion has swung on its chain. */
     turn: uniform(0),
     sway: uniform(0),
+    /** How far the medallion leans toward the viewer's pointer (medallion units): the circle and smoke behind it do not, so it reads as in front. */
+    lean: uniform(new Vector2(0, 0)),
     /** Where it swings from (medallion units, above it, past the frame's top), and where the chain leaves its bail. */
     pivot: uniform(2.2),
     bail: uniform(1.12),
@@ -341,8 +349,8 @@ export function medallionFrame(
 
     // It swings from a pivot above, so the medallion and its chain move as one pendulum.
     const pivot = vec2(0, u.pivot);
-    const swung = turned(q.sub(pivot), u.sway).add(pivot).toVar();
-    const { silhouette, glow, cavity, slope, lit } = steelAt(relief, swung);
+    const swung = turned(q.sub(u.lean).sub(pivot), u.sway).add(pivot).toVar();
+    const { silhouette, glow, cavity, lit } = steelAt(relief, swung);
     const chain = chainAt(swung, u.bail);
     // The eyes' light: a core where the relief glows, a halo past it, and the medallion's halo.
     const core = smoothstep(0.35, 0.9, glow);
@@ -365,24 +373,27 @@ export function medallionFrame(
       .add(UNDERGLOW.mul(low.mul(dense.mul(0.6).add(0.5)).mul(left)))
       .mul(float(1).sub(cast.mul(0.5)))
       .add(SMOULDER.mul(runes.mul(flare.mul(0.5).add(0.32))))
-      .add(u.tint.mul(aura.mul(flare).mul(0.22)));
+      .add(u.tint.mul(aura.mul(flare).mul(0.22)))
+      .add(BACKLIGHT.mul(aura.mul(dense.mul(0.6).add(0.4))));
     const chained = mix(smoky, chain.light.sub(ground).max(smoky), chain.cover);
     const steel = lit.add(u.tint.mul(core.mul(u.glow).mul(5).add(halo.mul(u.glow).mul(0.6))));
     const art = mix(chained, steel.sub(ground), silhouette).add(EMBER.mul(sparks.mul(2.2)));
     const night = ground.add(art.mul(float(1).sub(quiet.mul(0.4))));
 
-    // Light: the same scene as an engraving in faint ink on the paper: the medallion is its
-    // relief's lines and its recesses, with no fill and no shadow; the chain a fine line.
+    // Light: the same steel on the paper, toned for it: its light as polished silver, its shade
+    // as dark steel, patina in its recesses, a faint shadow under it; the smoke a warm wash, the
+    // circle in sepia, the embers rust.
+    const toned = (light: V3) =>
+      mix(DAY_SHADE, DAY_LIT, smoothstep(0.02, 0.42, dot(light, vec3(0.2126, 0.7152, 0.0722))));
     const paper = mix(vec3(1, 1, 1), WASH, dense.mul(0.3))
       .mul(mix(vec3(1, 1, 1), SEPIA, runes.mul(0.7).min(1)))
       .mul(mix(vec3(1, 1, 1), RUST, sparks.mul(0.5).min(1)))
-      .mul(mix(vec3(1, 1, 1), POLISHED, chain.cover.mul(0.35)));
-    const engraved = smoothstep(0.4, 2.5, length(slope))
-      .mul(0.32)
-      .add(smoothstep(0.05, 0.4, cavity).mul(0.25))
-      .min(0.45);
-    const etched = mix(vec3(1, 1, 1), POLISHED, engraved);
-    const inked = mix(paper, etched, silhouette);
+      .mul(float(1).sub(cast.mul(0.2)));
+    const chainOnPaper = mix(paper, toned(chain.light), chain.cover);
+    const metal = toned(lit).mul(
+      mix(vec3(1, 1, 1), DAY_PATINA, smoothstep(0.05, 0.5, cavity).mul(0.55)),
+    );
+    const inked = mix(chainOnPaper, metal, silhouette);
     const glowing = mix(
       inked,
       u.tint,

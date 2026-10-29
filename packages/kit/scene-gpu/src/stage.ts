@@ -698,12 +698,14 @@ export interface SceneParts {
   readonly setReducedMotion?: (reduced: boolean) => void;
   /** Release what the stage's scene traversal does not reach (listeners, workers, textures). */
   readonly dispose?: () => void;
+  /** What the view needs before its first frame is shown (an image it draws); the reveal waits for it. */
+  readonly ready?: Promise<unknown>;
 }
 
 /**
- * Build a view on a new stage, lay it out at its host's size and reveal it:
- * one first frame, at its size, faded in once. If the build or the reveal
- * fails, the view's parts and the stage are given back before the error goes
+ * Build a view on a new stage, lay it out at its host's size, wait for what
+ * it needs (`ready`) and reveal it: one first frame, at its size, faded in
+ * once. If the build or the reveal fails, the view's parts and the stage are given back before the error goes
  * on: nobody will ever hold a handle to them, so every failed open would
  * otherwise leak a GPU context. The handle is the stage's, extended by the
  * parts.
@@ -721,6 +723,7 @@ export async function mountScene<P extends SceneParts>(
     if (stage.size(host.clientWidth, host.clientHeight)) {
       parts.resize?.(host.clientWidth, host.clientHeight);
     }
+    await parts.ready;
     stage.reveal();
   } catch (error) {
     parts?.dispose?.();

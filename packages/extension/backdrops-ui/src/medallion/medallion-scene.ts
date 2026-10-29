@@ -31,7 +31,7 @@ import { variation } from "../scene/seed";
 import { textScrim } from "../gpu/text-scrim";
 import { TURN_SECONDS, tremble } from "./medallion";
 import { medallionFrame, medallionUniforms } from "./medallion-shader";
-import { SIGIL_BAIL, bakedRelief, loadReliefArt, type ReliefArt } from "./relief";
+import { SIGIL_BAIL, bakedRelief, loadReliefArt, type BakedRelief, type ReliefArt } from "./relief";
 
 type Rgb = readonly [number, number, number];
 
@@ -49,52 +49,72 @@ export const FLARES: Readonly<Record<PageEventKind, Rgb>> = {
 const GLOW_REST = 0.2;
 const GLOW_NEAR = 0.15;
 /** The disk's radius at full scale (frame heights). */
-const RADIUS = 0.235;
+const RADIUS = 0.27;
 /** How far the medallion swings on its chain (rad) and how often (s). */
 const SWING = { angle: 0.08, period: 7.5 } as const;
 /** How far the smoke and embers spread about the disk before they have dissolved (radii). */
 const REACH = { x: 3.4, y: 2.2 } as const;
 /** How much of the reach the smoke fills whole: a subject in the open, so little. */
 const SOLID = 0.4;
+/** How far it leans toward the pointer, per frame height the pointer is away (medallion units). */
+const LEAN = 0.05;
 /** How far above the frame's top it hangs from (medallion units). */
 const PIVOT_ABOVE = 0.4;
 /** Under reduced motion: how long the eyes stay lit, still (ms). */
 const HELD_MS = 3500;
+
+/**
+ * The art a relief is baked from: kb's sigil (null), or an image the art
+ * setting names. `shown` hears where the art's top lies (the chain's bail).
+ */
+function reliefArt(relief: BakedRelief, shown: (bail: number) => void) {
+  let art: string | null = null;
+  let image: ReliefArt | null = null;
+  const show = (next: ReliefArt | null) => {
+    image?.texture.dispose();
+    image = next;
+    relief.setArt(next);
+    shown(next === null ? SIGIL_BAIL.y + SIGIL_BAIL.radius : next.top);
+  };
+  show(null);
+  return {
+    /** Settles once the art asked for is shown (or has failed, leaving the sigil). */
+    choose: async (url: string | null): Promise<void> => {
+      if (url === art) return;
+      art = url;
+      if (url === null) {
+        show(null);
+        return;
+      }
+      try {
+        const loaded = await loadReliefArt(url);
+        if (art === url) show(loaded);
+        else loaded.texture.dispose();
+      } catch (error: unknown) {
+        // Art that will not load leaves the sigil: a backdrop never fails a page.
+        logWarn("backdrop art", error);
+        if (art === url) show(null);
+      }
+    },
+    /** An image still loading is dropped when it lands. */
+    dispose: () => {
+      art = null;
+      image?.texture.dispose();
+    },
+  };
+}
 
 function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
   const u = medallionUniforms();
   const scrim = textScrim();
   const relief = bakedRelief(stage.renderer);
-  // The art the relief is baked from: kb's sigil (null), or an image the art setting names.
-  let art: string | null = null;
-  let shown: ReliefArt | null = null;
-  const showArt = (image: ReliefArt | null) => {
-    shown?.texture.dispose();
-    shown = image;
-    relief.setArt(image);
-    u.bail.value = image === null ? SIGIL_BAIL.y + SIGIL_BAIL.radius : image.top;
+  const chosen = reliefArt(relief, (bail) => {
+    u.bail.value = bail;
     stage.invalidate();
-  };
-  const chooseArt = (url: string | null) => {
-    if (url === art) return;
-    art = url;
-    if (url === null) {
-      showArt(null);
-      return;
-    }
-    loadReliefArt(url)
-      .then((image) => {
-        if (art === url) showArt(image);
-        else image.texture.dispose();
-      })
-      .catch((error: unknown) => {
-        // Art that will not load leaves the sigil: a backdrop never fails a page.
-        logWarn("backdrop art", error);
-        if (art === url) showArt(null);
-      });
-  };
-  showArt(null);
+  });
+  // The first frame shown is already the art asked for: never the sigil, then the image.
+  const ready = chosen.choose(init.art);
   stage.scene.backgroundNode = medallionFrame(u, relief, scrim, groundsOf(stage));
 
   let width = 1;
@@ -126,8 +146,9 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       u.reach.set(reachWithin(w / h, rest, { x: REACH.x * radius, y: REACH.y * radius }, SOLID));
       scrim.layout(w, h);
     },
+    ready,
     setLook: (look: GpuLook) => {
-      chooseArt(look.art);
+      void chosen.choose(look.art);
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.35 : 0);
     },
@@ -156,6 +177,15 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
         (height / 2 - pointer.y) / height - rest.y,
       );
       const near = pointer.near * Math.exp(-((off / (radius * 3)) ** 2));
+      // It leans a little toward the pointer, over a field that stays: parallax, so it stands in front.
+      const toward = still ? 0 : pointer.near * LEAN;
+      const step = Math.min(1, dt * 4);
+      u.lean.value.set(
+        u.lean.value.x +
+          (((pointer.x - width / 2) / height - rest.x) * toward - u.lean.value.x) * step,
+        u.lean.value.y +
+          (((height / 2 - pointer.y) / height - rest.y) * toward - u.lean.value.y) * step,
+      );
       u.glow.value = GLOW_REST + GLOW_NEAR * near + (1 - GLOW_REST) * flare;
       const flash = kind === null ? REST : FLARES[kind];
       u.tint.value.set(
@@ -171,8 +201,7 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
     },
     dispose: () => {
       clearTimeout(wake);
-      art = null;
-      shown?.texture.dispose();
+      chosen.dispose();
       relief.dispose();
     },
   };

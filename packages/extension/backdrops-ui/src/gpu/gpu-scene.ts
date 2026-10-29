@@ -122,6 +122,8 @@ export interface BackdropParts {
   readonly setLook: (look: GpuLook) => void;
   /** Release what the stage's scene traversal does not reach. */
   readonly dispose: () => void;
+  /** What it needs before its first frame is shown (`SceneParts.ready`). */
+  readonly ready?: Promise<unknown>;
 }
 
 /** The stage a backdrop asks for beyond the kit's shared frame. */
@@ -226,6 +228,7 @@ export async function mountBackdrop(
           relayout();
         },
         dispose: backdrop.dispose,
+        ready: backdrop.ready,
       };
     },
   );
