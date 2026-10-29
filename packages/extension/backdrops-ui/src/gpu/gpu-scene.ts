@@ -145,6 +145,22 @@ const INTERVAL_BUDGET_MS = 1000 / 48;
 const MIN_QUALITY = 0.4;
 const QUALITY_STEP = 0.15;
 
+/**
+ * What a spec reads to see the hero hold its place and size whatever the
+ * width (`data-hero`): heights right of the content's centre, heights up
+ * from the frame's middle, and its scale.
+ */
+function reportHero(
+  canvas: HTMLCanvasElement,
+  hero: Anchor | null,
+  { width, height, content }: Pick<BackdropLayout, "width" | "height" | "content">,
+) {
+  const centre = (content.left + content.width / 2 - width / 2) / height;
+  if (hero === null) delete canvas.dataset.hero;
+  else
+    canvas.dataset.hero = [hero.x - centre, hero.y, hero.scale].map((v) => v.toFixed(3)).join(" ");
+}
+
 export async function mountBackdrop(
   host: HTMLElement,
   init: GpuBackdropInit,
@@ -187,14 +203,7 @@ export async function mountBackdrop(
         const anchor = anchorIn(composition, { width, height }, content);
         const hero = backdrop.layout({ width, height, quality, anchor, content });
         canvas.dataset.quality = quality.toFixed(2);
-        // What a spec reads to see the hero hold its place and size whatever the width: heights
-        // right of the content's centre, heights up from the frame's middle, and its scale.
-        const centre = (content.left + content.width / 2 - width / 2) / height;
-        if (hero === null) delete canvas.dataset.hero;
-        else
-          canvas.dataset.hero = [hero.x - centre, hero.y, hero.scale]
-            .map((v) => v.toFixed(3))
-            .join(" ");
+        reportHero(canvas, hero, { width, height, content });
       };
       const measure = (dt: number) => {
         const gpu = on.gpuMs();

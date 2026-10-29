@@ -132,19 +132,21 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
 
   return {
     // In a panel the medallion stands high and right, smaller; wide, right of the title.
-    panel: { x: 0.68, y: 0.4, scale: 0.68, presence: 0.9 },
-    wide: { x: 0.68, y: 0.47, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, composition }: BackdropLayout) => {
+    panel: { x: 0.24, y: 0.4, scale: 0.68, presence: 0.9 },
+    wide: { x: 0.5, y: 0.47, scale: 1, presence: 1 },
+    layout: (layout: BackdropLayout) => {
+      const { width: w, height: h, anchor } = layout;
       width = w;
       height = h;
-      rest = { x: (composition.x - 0.5) * (w / h), y: 0.5 - composition.y };
-      radius = RADIUS * composition.scale;
+      rest = { x: anchor.x, y: anchor.y };
+      radius = RADIUS * anchor.scale;
       u.radius.value = radius;
       u.centre.value.set(rest.x, rest.y);
       // It hangs from above the frame's top, so the chain runs out of the frame.
       u.pivot.value = (0.5 - rest.y) / radius + PIVOT_ABOVE;
       u.reach.set(reachWithin(w / h, rest, { x: REACH.x * radius, y: REACH.y * radius }, SOLID));
-      scrim.layout(w, h);
+      scrim.layout(layout);
+      return { ...rest, scale: anchor.scale };
     },
     ready,
     setLook: (look: GpuLook) => {

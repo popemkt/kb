@@ -142,9 +142,12 @@ const gradientOrbs: Omit<Backdrop, "key"> = {
   Component: GradientOrbsBackdrop,
 };
 
-/** kb's steel wolf medallion over smoke and embers, sensing the page. */
+/**
+ * kb's steel wolf medallion over smoke and embers, sensing the page: the
+ * smoke spans the scroll region, the medallion placed from the content.
+ */
 const wolfMedallion: Omit<Backdrop, "key"> = {
-  presentation: gpuFrame,
+  presentation: { ...gpuFrame, span: { reach: "region" } },
   Component: WolfMedallionBackdrop,
 };
 

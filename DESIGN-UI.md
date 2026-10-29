@@ -4308,7 +4308,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   a force pushed out, a flame, a ward, a shield, a mind turned. Each glyph
   smoulders on a slow clock of its own, never in step, and the circle keeps
   clear of the head's text. Smoke rises round it in streaks and embers
-  climb. Smoke and
+  climb. Its frame spans the scroll region (**A frame that spans the
+  region**), and the medallion is placed from the content. Smoke and
   embers keep to a reach about the disk and dissolve at its ragged rim
   (`gpu/dissolve.ts`): the smoke's own folds are its edge, never a side of
   the frame.
