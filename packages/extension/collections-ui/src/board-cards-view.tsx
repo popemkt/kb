@@ -1,4 +1,3 @@
-import { useBreakoutShift } from "./use-breakout";
 import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
@@ -34,6 +33,7 @@ import {
   usePageGraph,
   usePane,
   usePrefs,
+  useBreakoutShift,
 } from "@kb/ui-sdk";
 import { localIdOf, type ParamsOf } from "@kb/views";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";

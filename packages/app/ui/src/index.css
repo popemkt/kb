@@ -264,7 +264,7 @@
    * table ran under it. Only the table region — not the whole page (RED4 /
    * DESIGN views). `--breakout-shift` is how far the element sits right of the
    * region's content edge (an indented child's parent is off-centre); it is
-   * measured in `use-breakout.ts` since CSS cannot know it.
+   * measured by `useBreakoutShift` (`@kb/ui-sdk`) since CSS cannot know it.
    */
   .table-view-breakout {
     width: 100cqw;

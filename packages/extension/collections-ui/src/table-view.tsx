@@ -1,4 +1,3 @@
-import { useBreakoutShift } from "./use-breakout";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
@@ -32,6 +31,7 @@ import {
   useIsSelected,
   usePane,
   usePrefs,
+  useBreakoutShift,
 } from "@kb/ui-sdk";
 import type { ParamsOf, SortSpec } from "@kb/views";
 import { CollectionTableView } from "@kb/collections";
