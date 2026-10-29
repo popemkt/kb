@@ -4017,7 +4017,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   the canvas carries it as `data-hero`: heights right of the content's
   centre, heights up from the frame's middle, and its scale.
 - **A frame that spans the region.** A backdrop whose field should reach
-  past the content (Floating geometry) has the span `reach: "region"`: its
+  past the content (Floating geometry, Gradient orbs, Wolf medallion) has
+  the span `reach: "region"`: its
   frame is a breakout (`BREAKOUT_CLASS`, `useBreakoutShift`), as wide as the
   scroll region whatever the content width, and the hero is still placed
   from the content (`ContentBox`), so both content widths at one window
@@ -4309,10 +4310,15 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   smoulders on a slow clock of its own, never in step, and the circle keeps
   clear of the head's text. Smoke rises round it in streaks and embers
   climb. Its frame spans the scroll region (**A frame that spans the
-  region**), and the medallion is placed from the content. Smoke and
-  embers keep to a reach about the disk and dissolve at its ragged rim
+  region**), and the medallion is placed from the content. The near smoke
+  keeps to a reach about the disk and dissolves at its ragged rim
   (`gpu/dissolve.ts`): the smoke's own folds are its edge, never a side of
-  the frame.
+  the frame. The far layers cross the whole frame (`farField`): the far
+  smoke in plumes one to a cell in heights, its lower edge its own folds;
+  sparks, fewer than about the disk; and glyph haze, faint out-of-focus
+  glyphs one to a cell, rising a little and breathing, clear of the
+  medallion's circle. Each plume, spark and glyph fades whole where it
+  stands, toward the frame's sides, its bottom and the text.
   - **The relief is baked once** (`medallion/relief.ts`), into two
     passes run only when its source changes: the source as height, where
     it glows and its silhouette; then the material's maps, height, cavity
@@ -4355,7 +4361,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     silhouette softened, so they follow its shape, a sigil's or an
     image's.
   - Light over the page's ground, never under it: the text scrim and the
-    disk's shadow quiet the art, never the ground itself.
+    disk's shadow quiet the field, never the ground itself, and never the
+    medallion or its chain.
   - **It senses the page.** On a `notice` the medallion trembles for under
     a second and its eyes flare in that event's colour (silver for a change
     from elsewhere, red for an error, gold for a finished agent turn), with
@@ -4364,11 +4371,19 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     a few seconds later, two still frames the scene asks the stage for.
   - The pointer near the disk wakes its eyes a little; typing slows the
     smoke; writes (`stir`) turn the circle faster for a while.
-  - A light page is the same scene on paper, as an engraving: the same
-    steel and chain, toned for it (polished silver where the key lights
-    it, dark steel in shade, ink in the recesses) with a soft shadow under
-    it, a smoke wash, sepia glyphs and rust specks. An engraving in faint
-    ink was tried first and all but vanished on white.
+  - A light page is the same scene on paper, the medallion a real object
+    on the page: polished, darker steel, its light exposed for the day on a
+    steep curve, so its face is dark, its engraving black and only its
+    bevels and glints bright; the soft window's reflection held back, or it
+    is a fog over the steel; a warm glint sweeping its bevels; the chain
+    plain iron; and a soft shadow it casts on the paper below and right,
+    darkest at its own edge. It fades into the page in display values
+    (`fadeSpace: "display"`), so a strength's veil leaves the steel its
+    darks. The same holds for kb's sigil and for an image the art setting
+    names. Then a smoke wash, sepia glyphs and rust specks. An engraving in
+    faint ink was tried first and all but vanished on white; a steel toned
+    between a light and a shade by its luminance read as a grey pewter
+    ghost.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it

@@ -11,7 +11,9 @@
  * still frames). The pointer near it wakes its eyes a little; typing slows
  * the smoke; writes turn the circle a little faster for a while. At rest it
  * swings a little on its chain (`SWING`), the smoke rises and the embers
- * climb, and smoke and embers dissolve within a reach about it.
+ * climb. Near it, smoke and embers dissolve within a reach about it; far
+ * from it, plumes of smoke, sparks and glyph haze cross the scroll region,
+ * each fading whole where it stands (`FIELD`).
  */
 import type { SceneStage } from "@kb/scene-gpu";
 import { logWarn } from "@kb/ui-sdk";
@@ -26,7 +28,7 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { reachWithin } from "../gpu/dissolve";
+import { farField, reachWithin, type FieldReach } from "../gpu/dissolve";
 import { variation } from "../scene/seed";
 import { textScrim } from "../gpu/text-scrim";
 import { TURN_SECONDS, tremble } from "./medallion";
@@ -56,6 +58,11 @@ const SWING = { angle: 0.08, period: 7.5 } as const;
 const REACH = { x: 3.4, y: 2.2 } as const;
 /** How much of the reach the smoke fills whole: a subject in the open, so little. */
 const SOLID = 0.4;
+/**
+ * Where the far layers (plumes of smoke, sparks, glyph haze) thin out
+ * across the frame: over its outer heights at either side, and low in it.
+ */
+const FIELD: FieldReach = { sides: 0.9, low: [-0.4, 0.02] };
 /** How far it leans toward the pointer, per frame height the pointer is away (medallion units). */
 const LEAN = 0.05;
 /** How far above the frame's top it hangs from (medallion units). */
@@ -106,8 +113,8 @@ function reliefArt(relief: BakedRelief, shown: (bail: number) => void) {
 
 function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
-  const u = medallionUniforms();
   const scrim = textScrim();
+  const u = medallionUniforms(farField(scrim, FIELD));
   const relief = bakedRelief(stage.renderer);
   const chosen = reliefArt(relief, (bail) => {
     u.bail.value = bail;
@@ -145,6 +152,7 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       // It hangs from above the frame's top, so the chain runs out of the frame.
       u.pivot.value = (0.5 - rest.y) / radius + PIVOT_ABOVE;
       u.reach.set(reachWithin(w / h, rest, { x: REACH.x * radius, y: REACH.y * radius }, SOLID));
+      u.field.layout(w / h);
       scrim.layout(layout);
       return { ...rest, scale: anchor.scale };
     },
@@ -219,7 +227,10 @@ export function mountWolfMedallion(
     {
       bloom: { strength: 0.35, radius: 0.5 },
       lens: { aberration: 0.003, streak: 0, grain: 0.018 },
-      // Smoke and embers dissolve within their own reach; the frame's feather is only the last guard.
+      // It fades into the page as a CSS mask would, so on a light page a strength's veil leaves the
+      // steel its darks rather than greying it in linear light.
+      fadeSpace: "display",
+      // Smoke and embers dissolve by their own shapes; the frame's feather is only the last guard.
       feather: { sides: 0.03, top: 0.03, bottom: 0.03 },
     },
     wolfMedallion,
