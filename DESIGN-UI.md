@@ -4185,10 +4185,13 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     wash, its panes fainter still. The text scrim keeps the field quiet under the head's text in
     both, never the piece.
 - **Gradient orbs.** Two great orbs floating in front of a deep blue field,
-  after the owner's reference: a great orb right of centre, as tall as the
-  frame, lit on its upper right; a second, three quarters its size, high at
-  the left, lit on its lower right and cut only by the frame's top; and a
-  dim one far behind between them, part of the field. Each load varies
+  after the owner's reference: a great orb right of the title, half again
+  as wide as the frame is tall, cut by the frame's top and lit on its
+  right; a second, two thirds its size, high at the left above the title,
+  only its lower cap showing under the frame's top, lit on its lower right;
+  and a dim one far behind between them, part of the field. In a panel or
+  on a phone, where the title and the first rows cross the whole frame,
+  they stand smaller and high, off the text. Each load varies
   that composition a little and turns the whole hue a few degrees
   (`orbs.ts`, **Variation**). Its frame spans the scroll region
   (**A frame that spans the region**): the field is full-bleed to the
@@ -4200,25 +4203,27 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     turns it, the lamp leaning it, `litToward`), wrapped, so the light
     falls off smoothly across the whole face: deep blue in shadow through
     periwinkle and rose to a cream crescent on the lit side. No gloss, no
-    hot spot, no bands; a crisp limb, antialiased over a pixel or two.
+    hot spot, no bands; a limb softened as a lens's depth of field softens a
+    large near shape, a little for the great orb, more the farther.
   - **Two layers.** The field is deep blue air, royal toward the top and
     the lamp, lit by the orbs' glows, with the far orb far out of focus in
-    it. Behind the great orbs, two layers of far orbs are seeded one to a
-    cell in heights: large ones far out of focus and a few small ones,
-    some cells showing a soft, dim disc lit toward the lamp, each fading
-    whole by where it stands (`farField`). Every cell's orb lights the
+    it. Behind the great orbs, far orbs are seeded one to a broad cell in
+    heights, few and large and far out of focus (no speckle of small ones),
+    under half the cells showing a soft, dim disc lit toward the lamp, each
+    fading whole by where it stands (`farField`). Every cell's orb lights the
     field about it with a glow wider than tall, shrunk until it clears the
     frame's bottom, and the field is the union of those glows and the great
     orbs' own (`glowAbout`): full-bleed across the frame, its lower edge
-    their round glows, never a band, an ellipse or a side feather (the
-    frame has none). Its light falls away from the great orbs in heights,
-    so a wider frame adds a dimmer field. The two great orbs are never
-    faded, the text scrim included, and stay inside the frame's sides and
-    bottom wherever they drift.
-  - **In front of the field**: a back light along each limb, cool in
-    shadow and warm where lit; a deep bloom off the lit limb, thin and
-    bright at the limb and long and soft out into the field, dissolving
-    with it; a soft shadow each casts on the field away from the lamp,
+    their round glows, wide and gone well above the frame's bottom, so it
+    falls away as a few long curves, never a band, a scallop, an ellipse or
+    a side feather (the frame has none). Its light falls away from the great
+    orbs in heights, so a wider frame adds a dimmer field. The two great
+    orbs are never faded, the text scrim included, and stay clear of the
+    frame's bottom wherever they drift; only its top cuts them.
+  - **In front of the field**: Fresnel on the lit side only, the face
+    brightening toward its limb where the light wraps it, the shadowed limb
+    left dark, so no line outlines an orb; a deep bloom off the lit limb,
+    broad and soft out into the field, never a ring, dissolving with it; a soft shadow each casts on the field away from the lamp,
     wider than itself, and a darker contact close round each near orb where
     it crosses what is behind it; the second orb a little hazier and bluer
     than the first, the far one far out of focus; and parallax, the near

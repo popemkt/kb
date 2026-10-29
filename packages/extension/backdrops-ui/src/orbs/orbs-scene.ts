@@ -33,7 +33,7 @@ import { layoutOrbs, litToward, placeOrbs } from "./orbs";
 /** The lamp's spring (ω, rad/s): slow, so the light swings round the orbs rather than snapping. */
 const FOLLOW = 1.6;
 /** Where the lamp rests with no pointer: high at the right, beyond the great orb (frame units from the composition), and its height, high enough that its light falls off across each orb's whole face. */
-const LAMP_REST = { x: 0.9, y: 0.38 } as const;
+const LAMP_REST = { x: 1.5, y: 0.5 } as const;
 const LAMP_HEIGHT = 0.8;
 /** How far and how slowly it wanders there (frame units, rad/s). */
 const WANDER = 0.14;
@@ -66,8 +66,9 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const lean = { x: 0, y: 0 };
 
   return {
-    // In a panel the orbs are smaller, so they stay inside its narrow frame; wide, the great orb right of the title.
-    panel: { x: 0.02, y: 0.5, scale: 0.52, presence: 0.85 },
+    // In a panel the orbs are smaller and high, off the title and the first rows, which cross
+    // the whole frame; wide, the great orb right of the title.
+    panel: { x: 0.1, y: 0.12, scale: 0.5, presence: 0.85 },
     wide: { x: 0, y: 0.5, scale: 1, presence: 1 },
     layout: (layout: BackdropLayout) => {
       const { width: w, height: h, anchor } = layout;

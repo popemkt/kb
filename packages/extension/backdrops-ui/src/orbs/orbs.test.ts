@@ -44,21 +44,24 @@ describe("placeOrbs", () => {
     }
   });
 
-  it("keeps the two great orbs whole above the field: inside a 2:1 frame's sides and bottom, the eye leaning as far as it may", () => {
+  it("keeps the two great orbs above the field, cut by the top: clear of the frame's bottom however the eye leans, and at rest inside a desktop frame's sides", () => {
     for (let seed = 1; seed < 60; seed++) {
       const all = layoutOrbs(seededRng(seed));
+      for (const orb of placeOrbs(all, 0, CENTRE, 0).slice(0, 2)) {
+        // A desktop frame (1280 wide) is about 2.9 heights across, the content at its centre.
+        expect(Math.abs(orb.x) + orb.r).toBeLessThan(1.45);
+      }
       for (let t = 0; t < 120; t += 2.3) {
         for (const lean of [-1, 1]) {
           const at = { ...CENTRE, lean: [lean, lean * 0.5] as const };
           const [great, second] = placeOrbs(all, t, at, 1);
           if (great === undefined || second === undefined) throw new Error("an orb went missing");
           for (const orb of [great, second]) {
-            expect(Math.abs(orb.x) + orb.r).toBeLessThan(0.97);
-            expect(orb.y - orb.r).toBeGreaterThan(-0.5);
+            expect(orb.y - orb.r).toBeGreaterThan(-0.45);
+            expect(orb.y + orb.r).toBeGreaterThan(0.5);
           }
-          // The great one about the frame's height; the second cut only by the frame's top.
-          expect(great.r * 2).toBeGreaterThan(0.85);
-          expect(second.y + second.r).toBeGreaterThan(0.5);
+          // The great one half again as wide as the frame is tall.
+          expect(great.r * 2).toBeGreaterThan(1.35);
         }
       }
     }

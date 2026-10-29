@@ -39,13 +39,13 @@ export interface Orb {
 
 /**
  * The reference composition (the owner's picture), as objects floating in
- * the frame: a great orb right of centre, as tall as the frame, lit on
- * its upper right; a second, two thirds its size, high at the left, lit on
- * its lower right and cut only by the frame's top, which lies under the
- * app's bar; and a dim one in shadow far behind, between them. Both great
- * ones stay inside the frame's sides and bottom wherever they drift, so
- * nothing but the bar ever cuts them. The seed varies each a little, and
- * where each faces.
+ * the frame: a great orb right of the title, half again as wide as the
+ * frame is tall, cut by the frame's top and lit on its right; a second,
+ * two thirds its size, high at the left above the title, only its lower
+ * cap showing under the frame's top, lit on its lower right; and a dim one
+ * in shadow far behind, between them. Both great ones stay clear of the
+ * frame's bottom wherever they drift, so only the top (under the app's
+ * bar) ever cuts them. The seed varies each a little, and where each faces.
  */
 export function layoutOrbs(rng: Rng): readonly Orb[] {
   const jitter = (v: number, by: number) => v + rng.range(-by, by);
@@ -56,19 +56,19 @@ export function layoutOrbs(rng: Rng): readonly Orb[] {
   });
   return [
     {
-      x: jitter(0.24, 0.03),
-      y: jitter(0.065, 0.01),
-      r: jitter(0.45, 0.01),
+      x: jitter(0.62, 0.03),
+      y: jitter(0.41, 0.015),
+      r: jitter(0.72, 0.015),
       light: 1,
-      facing: jitter(Math.PI / 4, 0.12),
+      facing: jitter(Math.PI / 7, 0.1),
       depth: 0,
-      halo: 0.5,
+      halo: 0.55,
       ...drift(0.03),
     },
     {
-      x: jitter(-0.44, 0.03),
-      y: jitter(0.46, 0.02),
-      r: jitter(0.33, 0.012),
+      x: jitter(-0.84, 0.04),
+      y: jitter(0.76, 0.02),
+      r: jitter(0.5, 0.015),
       light: 0.85,
       facing: jitter(-Math.PI / 3, 0.12),
       depth: 0.4,
@@ -76,9 +76,9 @@ export function layoutOrbs(rng: Rng): readonly Orb[] {
       ...drift(0.035),
     },
     {
-      x: jitter(-0.02, 0.05),
-      y: jitter(0.16, 0.03),
-      r: jitter(0.42, 0.02),
+      x: jitter(-0.12, 0.05),
+      y: jitter(0.24, 0.03),
+      r: jitter(0.5, 0.02),
       light: 0.25,
       facing: jitter(0, 0.3),
       depth: 1,

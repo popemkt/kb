@@ -7,27 +7,26 @@
  *
  * - **Two layers.** The field is the background: deep blue air lit by the
  *   orbs' glows, far orbs out of focus in it, and the shadows the great
- *   orbs cast on it. It is full-bleed across the scroll region: two layers
- *   of far orbs are seeded one to a cell in heights (`farOrbsAt`), so a
+ *   orbs cast on it. It is full-bleed across the scroll region: a few large
+ *   far orbs are seeded one to a broad cell in heights (`farOrbsAt`), so a
  *   wider frame adds more, some cells showing a soft disc and every one
  *   lighting the field about it with a glow wider than tall, shrunk until
  *   it clears the frame's bottom; the field is their union and the great
  *   orbs' own glows (`glowAbout`), so its lower edge is their round glows,
  *   never a band or an ellipse. Each far orb fades whole by where it stands
  *   (`farField`), and the field's light falls away from the great orbs in
- *   heights. The great orbs lie above it, whole and in focus: nothing fades
- *   them, not even the text scrim, and the composition keeps them inside
- *   the frame (`orbs.ts`).
+ *   heights. The great orbs lie above it: nothing fades them, not even the
+ *   text scrim, and only the frame's top cuts them (`orbs.ts`).
  * - **An orb** is its circle's signed distance. Inside it, the offset from
  *   the centre against the radius is a sphere's profile, which gives a
  *   normal; one key, high toward the side its lit limb faces (`lits`, the
  *   lamp leaning it), lights it, wrapped (half Lambert), so the light falls
  *   off smoothly across the whole face: deep blue in shadow through
  *   periwinkle and rose to cream on the lit side. No gloss, no hot spot, no
- *   bands; a crisp limb, antialiased over a pixel or two.
- * - **What lifts an orb off the field**: a back light along its limb, cool
- *   on the shadow side and warm on the lit one; a deep bloom off the lit
- *   limb into the field; a soft shadow it casts on the field, away from the
+ *   bands; a limb softened as depth of field softens a large near shape.
+ * - **What lifts an orb off the field**: Fresnel on its lit side only, the
+ *   face brightening toward the limb there, never a line round it; a broad
+ *   bloom off the lit limb into the field; a soft shadow it casts on the field, away from the
  *   lamp and wider than itself, and a darker contact where it crosses what
  *   is behind it; and depth: a farther orb is hazier and bluer, the
  *   farthest is far out of focus and belongs to the field, and each slides
@@ -85,13 +84,12 @@ const CREAM = vec3(1.15, 0.8, 0.62);
 const INDIGO = vec3(0.07, 0.05, 0.42);
 const MAGENTA = vec3(0.8, 0.22, 0.48);
 const AMBER = vec3(1.15, 0.64, 0.48);
-/** How out of focus the farthest orb is at its limb (shares of its radius); a near one is crisp. */
+/** How out of focus an orb is at its limb (shares of its radius): the nearest a little, the farthest far. */
+const NEAR_SOFT = 0.012;
 const FAR_SOFT = 0.9;
 /** How far an orb's shadow falls from it, away from the lamp, and how wide its penumbra is (shares of its radius). */
 const SHADOW_FALL = 0.14;
 const SHADOW_SOFT = 0.35;
-/** The back light along a limb where it is in shadow: a cool blue. */
-const RIM = vec3(0.32, 0.4, 1.0);
 /** The dark field: royal blue high and toward the lamp, deep navy low. */
 const FIELD = vec3(0.014, 0.04, 0.3);
 const FIELD_DEEP = vec3(0.003, 0.01, 0.1);
@@ -184,20 +182,25 @@ function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behi
   const key = normalize(vec3(toward, u.lamp.z));
   const light = dot(normal, key).mul(0.5).add(0.5).pow(1.5).mul(orb.w).toVar();
   const limb = max(dot(out, toward), 0).toVar();
-  // A crisp limb, antialiased over a pixel or two; the farthest orb far out of focus.
+  // A soft limb, as a lens's depth of field leaves a large near shape: softer the farther, and
+  // the farthest far out of focus.
   const soft = fwidth(edge)
     .mul(1.2)
-    .add(orb.z.mul(depth.pow(4).mul(FAR_SOFT)));
+    .add(orb.z.mul(mix(float(NEAR_SOFT), float(FAR_SOFT), depth.pow(3))));
   const cover = smoothstep(soft, soft.negate(), edge).toVar();
   const outside = max(edge, 0);
-  // The back light: a thin line along the limb, cool in shadow and warm where lit.
-  const back = facing.oneMinus().pow(4).mul(near);
-  const backColour = mix(RIM, hue.cream, smoothstep(0.1, 0.8, limb));
-  // A deep bloom off the lit limb, in its own light: thin and bright at the limb, long and soft out.
-  const bloom = exp(outside.div(orb.z.mul(-0.05)))
-    .mul(0.35)
-    .add(exp(outside.div(orb.z.mul(-0.4))).mul(0.12))
-    .mul(limb.mul(0.8).add(0.2))
+  // Fresnel on the lit side only: the face brightens toward its limb where the light wraps it,
+  // and the shadowed limb stays dark, so no line outlines it.
+  const back = facing
+    .oneMinus()
+    .pow(2.5)
+    .mul(smoothstep(0.05, 0.75, limb))
+    .mul(near);
+  const backColour = mix(hue.pink, hue.cream, limb);
+  // A deep bloom off the lit limb into the field, in its own light: broad and soft, never a ring.
+  const bloom = exp(outside.div(orb.z.mul(-0.3)))
+    .mul(0.16)
+    .mul(limb.mul(limb).mul(0.9).add(0.1))
     .mul(orb.w)
     .mul(u.glow)
     .mul(float(1).sub(cover))
@@ -212,7 +215,7 @@ function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behi
   );
   // Atmosphere: the farther, the hazier and bluer, toward the field behind it.
   const sphere = mix(
-    ramp([BLUE, hue.violet, hue.pink, hue.cream], light).add(backColour.mul(back.mul(0.45))),
+    ramp([BLUE, hue.violet, hue.pink, hue.cream], light).add(backColour.mul(back.mul(0.4))),
     FIELD.mul(1.3),
     depth.mul(0.55),
   )
@@ -255,37 +258,26 @@ interface FarLayer {
   readonly seed: number;
 }
 
-/** Large orbs far out of focus behind the great ones, and a few small far ones behind those. */
+/** Large orbs far out of focus behind the great ones, few: one to a broad cell, under half of them shown. */
 const FAR_LAYERS: readonly FarLayer[] = [
   {
-    cell: 1.05,
-    radius: [0.2, 0.42],
-    rise: [0.02, 0.42],
-    halo: 2.6,
-    shows: 0.6,
-    light: 0.55,
-    presence: 0.7,
-    blur: 0.75,
+    cell: 1.5,
+    radius: [0.3, 0.55],
+    rise: [0.12, 0.46],
+    halo: 2.2,
+    shows: 0.45,
+    light: 0.6,
+    presence: 0.75,
+    blur: 0.85,
     seed: 3.1,
-  },
-  {
-    cell: 0.5,
-    radius: [0.03, 0.07],
-    rise: [-0.1, 0.44],
-    halo: 0,
-    shows: 0.3,
-    light: 0.5,
-    presence: 0.45,
-    blur: 0.55,
-    seed: 17.7,
   },
 ];
 /** How many cells either side of a pixel's a far orb's glow may reach it from. */
 const FAR_SPAN = 2;
 /** How much wider than tall a far orb's glow is. */
-const SPREAD = 1.8;
+const SPREAD = 2.6;
 /** How far above the frame's bottom every far glow is gone (frame units). */
-const FAR_CLEAR = 0.1;
+const FAR_CLEAR = 0.28;
 /** How fast the field's light falls away from the great orbs, across (frame units): a wider frame adds a dimmer field. */
 const FIELD_FALL = 2.6;
 
