@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { seededRng } from "../scene/rng";
-import { ORBS, layoutOrbs, placeOrbs } from "./orbs";
+import { ORBS, layoutOrbs, litToward, placeOrbs } from "./orbs";
 
-const AT = { x: 0.4, y: 0.05, scale: 1 };
+const AT = { x: 0.4, y: 0.05, scale: 1, lean: [0, 0] } as const;
+const CENTRE = { x: 0, y: 0, scale: 1, lean: [0, 0] } as const;
 
 describe("layoutOrbs", () => {
   it("is the seed's, and lays out exactly the orbs the shader reads", () => {
@@ -43,15 +44,32 @@ describe("placeOrbs", () => {
     }
   });
 
-  it("keeps every orb whole inside a frame centred on it: only its own edge ever cuts it", () => {
+  it("keeps the two great orbs whole above the field: inside a 2:1 frame's sides and bottom, the eye leaning as far as it may", () => {
     for (let seed = 1; seed < 60; seed++) {
       const all = layoutOrbs(seededRng(seed));
       for (let t = 0; t < 120; t += 2.3) {
-        for (const placed of placeOrbs(all, t, { x: 0, y: 0, scale: 1 }, 0)) {
-          expect(Math.abs(placed.y) + placed.r).toBeLessThan(0.5);
+        for (const lean of [-1, 1]) {
+          const at = { ...CENTRE, lean: [lean, lean * 0.5] as const };
+          const [great, second] = placeOrbs(all, t, at, 1);
+          if (great === undefined || second === undefined) throw new Error("an orb went missing");
+          for (const orb of [great, second]) {
+            expect(Math.abs(orb.x) + orb.r).toBeLessThan(0.97);
+            expect(orb.y - orb.r).toBeGreaterThan(-0.5);
+          }
+          // The great one about the frame's height; the second cut only by the frame's top.
+          expect(great.r * 2).toBeGreaterThan(0.85);
+          expect(second.y + second.r).toBeGreaterThan(0.5);
         }
       }
     }
+  });
+
+  it("slides the near orb further than the far one as the eye leans (parallax)", () => {
+    const rest = placeOrbs(orbs, 0, CENTRE, 0);
+    const leant = placeOrbs(orbs, 0, { ...CENTRE, lean: [0.5, 0] }, 0);
+    const shift = (i: number) => (leant[i]?.x ?? 0) - (rest[i]?.x ?? 0);
+    expect(shift(0)).toBeLessThan(0);
+    expect(Math.abs(shift(0))).toBeGreaterThan(Math.abs(shift(ORBS - 1)));
   });
 
   it("scales the whole about the composition, and swells it with the owner's writes", () => {
@@ -61,5 +79,27 @@ describe("placeOrbs", () => {
     expect(still?.r).toBeCloseTo((orbs[0]?.r ?? 0) * 0.5, 1);
     expect(swollen?.r).toBeGreaterThan(still?.r ?? 0);
     expect(swollen?.x).toBe(still?.x);
+  });
+});
+
+describe("litToward", () => {
+  const [great, second] = placeOrbs(layoutOrbs(seededRng(5)), 0, CENTRE, 0);
+  if (great === undefined || second === undefined) throw new Error("an orb went missing");
+
+  it("lights the great orb on its upper right and the second on its lower right, as the reference does", () => {
+    const lamp = { x: 0.9, y: 0.38 };
+    const [gx, gy] = litToward(great, lamp);
+    const [sx, sy] = litToward(second, lamp);
+    expect(Math.hypot(gx, gy)).toBeCloseTo(1, 9);
+    expect(gx).toBeGreaterThan(0);
+    expect(gy).toBeGreaterThan(0);
+    expect(sx).toBeGreaterThan(0);
+    expect(sy).toBeLessThan(0);
+  });
+
+  it("swings an orb's lit side toward the lamp as it moves", () => {
+    const [, low] = litToward(great, { x: great.x + 1, y: great.y - 0.5 });
+    const [, high] = litToward(great, { x: great.x + 1, y: great.y + 0.5 });
+    expect(high).toBeGreaterThan(low);
   });
 });

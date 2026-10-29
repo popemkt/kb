@@ -43,7 +43,7 @@ export function FloatingGeometryBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="floatingGeometry" backdrop={props} />;
 }
 
-/** Soft orbs glowing on a deep field, melting together where they meet (`orbs/`). */
+/** Two great orbs floating in front of a deep blue field (`orbs/`). */
 export function GradientOrbsBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="gradientOrbs" backdrop={props} />;
 }

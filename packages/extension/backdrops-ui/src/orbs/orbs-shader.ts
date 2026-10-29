@@ -1,34 +1,40 @@
 /**
- * Gradient orbs' shader (T1): huge soft glowing spheres filling a deep blue
- * field, as the reference's fill its picture. One pass per pixel and no
+ * Gradient orbs' shader (T1): two great spheres floating in front of a deep
+ * blue field, after the owner's reference. One pass per pixel and no
  * offscreen picture: three circles' distance fields, each shaded as a
  * sphere and laid over the ones behind it, so it is among the lightest of
  * the GPU backdrops.
  *
+ * - **Two layers.** The field is the background: deep blue air lit by the
+ *   orbs' glows, a dim orb far behind blurred into it, and the shadows the
+ *   orbs cast on it. Its extent is those glows: each orb's own reach about
+ *   it (`../gpu/dissolve`, `glowAbout`), round, as large as the frame has
+ *   room for, eaten by noise at its rim, and the field is their
+ *   union, so it dissolves by its own round shapes, never by a band along a
+ *   side of the frame. The orbs lie above it, whole and in focus: nothing
+ *   fades them, and the composition keeps them inside the frame
+ *   (`orbs.ts`).
  * - **An orb** is its circle's signed distance. Inside it, the offset from
  *   the centre against the radius is a sphere's profile, which gives a
- *   normal; one grazing key from the upper right, which the lamp leans,
- *   lights it. Its light runs one long, smooth ramp from the shadow's blue
- *   through violet and pink to a cream highlight on the lit limb: a broad
- *   gradient, never bands, and no gloss.
- * - **Very soft.** An orb's edge melts into the field, least where the key
- *   catches its limb; its glow spills past the lit limb and adds over
- *   whatever lies behind. Orbs are laid back to front (`orbs[0]`, the great
- *   orb, in front); one farther back is a little out of focus.
- * - **They blend by their glow.** The field is the orbs' own halo, deep
- *   blue and wide, so it fills the frame between them; where two halos
- *   overlap, as the orbs drift nearer, the field between them lifts toward
- *   violet, and dims again as they part. No shape joins them.
- * - **The hue drifts**: the ramp's violet, pink and cream lean toward
+ *   normal; one key, high toward the side its lit limb faces (`lits`, the
+ *   lamp leaning it), lights it, wrapped (half Lambert), so the light falls
+ *   off smoothly across the whole face: deep blue in shadow through
+ *   periwinkle and rose to cream on the lit side. No gloss, no hot spot, no
+ *   bands; a crisp limb, antialiased over a pixel or two.
+ * - **What lifts an orb off the field**: a back light along its limb, cool
+ *   on the shadow side and warm on the lit one; a deep bloom off the lit
+ *   limb into the field; a soft shadow it casts on the field, away from the
+ *   lamp and wider than itself, and a darker contact where it crosses what
+ *   is behind it; and depth: a farther orb is hazier and bluer, the
+ *   farthest is far out of focus and belongs to the field, and each slides
+ *   against the eye by its depth (`placeOrbs`).
+ * - **The hue drifts**: the ramp's periwinkle, rose and cream lean toward
  *   indigo, magenta and amber and back on a slow clock (`hue`), and each
  *   load turns the whole a few degrees (`turn`, `hueTurn`).
- * - **It dissolves by its own shape** (`../gpu/dissolve`): the orbs lie
- *   whole in the frame, and the field dissolves at the ragged rim of a
- *   reach that fills it, never at a side of the frame.
  * - **Dark** pages paint the reference's palette over the deep blue field,
  *   warming toward the lamp. **Light** pages paint its pair: pastel cream,
- *   blush and lilac on a periwinkle wash of the page's own paper
- *   (`Grounds`).
+ *   blush and lilac orbs over a periwinkle wash of the page's own paper,
+ *   each in a lilac glow, their shadows lilac on it (`Grounds`).
  */
 import {
   Fn,
@@ -52,46 +58,54 @@ import {
 import { Matrix3, Vector3, Vector4 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
 import { dissolve, dissolveUniforms } from "../gpu/dissolve";
-import { fbm4 } from "../gpu/noise";
 import type { Grounds } from "../gpu/gpu-scene";
 import type { textScrim } from "../gpu/text-scrim";
 import { ORBS } from "./orbs";
 
 type F = TslNode<"float">;
+type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 
-/** The dark ramp (linear), shadow to highlight: the reference's blue, violet, pink and cream. */
-const BLUE = vec3(0.05, 0.09, 0.62);
-const VIOLET = vec3(0.3, 0.12, 0.74);
-const PINK = vec3(0.9, 0.32, 0.4);
-const CREAM = vec3(1.25, 0.9, 0.72);
+/** The dark ramp (linear), shadow to highlight: the reference's deep blue, periwinkle, rose and cream. */
+const BLUE = vec3(0.012, 0.03, 0.3);
+const VIOLET = vec3(0.1, 0.12, 0.62);
+const PINK = vec3(0.92, 0.4, 0.44);
+const CREAM = vec3(1.15, 0.8, 0.62);
 /** Where the hue leans to and back: indigo, magenta, amber. */
-const INDIGO = vec3(0.14, 0.12, 0.82);
-const MAGENTA = vec3(0.78, 0.18, 0.6);
-const AMBER = vec3(1.1, 0.68, 0.38);
-/** The key light's direction: from the upper right, grazing, so the lit side is a crescent on the limb; the lamp only leans it. */
-const KEY = vec3(0.74, 0.58, 0.3);
-/** How much more an orb farther back is out of focus, per place behind the front one (frame units). */
-const DEFOCUS = 0.02;
-/** The dark field: a deep blue, darker between the orbs, warming toward the lamp. */
-const FIELD = vec3(0.008, 0.022, 0.2);
-const FIELD_DEEP = vec3(0.004, 0.009, 0.075);
-const FIELD_LIT = vec3(0.07, 0.06, 0.32);
+const INDIGO = vec3(0.07, 0.05, 0.42);
+const MAGENTA = vec3(0.8, 0.22, 0.48);
+const AMBER = vec3(1.15, 0.64, 0.48);
+/** How out of focus the farthest orb is at its limb (shares of its radius); a near one is crisp. */
+const FAR_SOFT = 0.9;
+/** How far an orb's shadow falls from it, away from the lamp, and how wide its penumbra is (shares of its radius). */
+const SHADOW_FALL = 0.14;
+const SHADOW_SOFT = 0.35;
+/** The back light along a limb where it is in shadow: a cool blue. */
+const RIM = vec3(0.32, 0.4, 1.0);
+/** The dark field: royal blue high and toward the lamp, deep navy low. */
+const FIELD = vec3(0.014, 0.04, 0.3);
+const FIELD_DEEP = vec3(0.003, 0.01, 0.1);
 /** The light pair (shares of the paper): lilac shadow, periwinkle, blush and a cream highlight. */
 const LILAC = vec3(0.6, 0.6, 0.95);
 const PERIWINKLE = vec3(0.72, 0.66, 0.98);
 const BLUSH = vec3(0.99, 0.74, 0.82);
 const CREAM_INK = vec3(1.0, 0.9, 0.8);
 const WASH = vec3(0.88, 0.9, 1.0);
-/** Where the ramp's stops sit, over an orb's light (-1 to 1): wide apart, so it is one gradient. */
-const STOPS = [-0.7, -0.05, 0.62, 1.05] as const;
+/** Where the ramp's stops sit, over an orb's wrapped light (0 to 1): wide apart, so it is one gradient. */
+const STOPS = [0.0, 0.42, 0.86, 1.08] as const;
 
-/** Everything the CPU sets. Per orb: `orbs[i]` x y r light (frame units). */
+/** Everything the CPU sets. Per orb: `orbs[i]` x y r light (frame units), `lits[i].xy` the way its lit limb faces, and `depths[i]`. */
 export function orbUniforms() {
   const placed = Array.from({ length: ORBS }, () => new Vector4());
+  const lit = Array.from({ length: ORBS }, () => new Vector4());
+  const depth = Array.from({ length: ORBS }, () => 0);
   return {
     placed,
+    lit,
+    depth,
     orbs: uniformArray<"vec4">(placed, "vec4"),
+    lits: uniformArray<"vec4">(lit, "vec4"),
+    depths: uniformArray<"float">(depth, "float"),
     dark: uniform(1),
     /** The lamp, frame units, and its height over the frame. */
     lamp: uniform(new Vector3(0.4, 0.2, 0.35)),
@@ -102,8 +116,8 @@ export function orbUniforms() {
     /** This load's few degrees of hue: the picture turned about grey (`hueTurn`). */
     turn: uniform(new Matrix3()),
     time: uniform(0),
-    /** The reach the orbs dissolve within. */
-    reach: dissolveUniforms(),
+    /** Each orb's glow, the field's reach round it. */
+    reaches: Array.from({ length: ORBS }, () => dissolveUniforms()),
   };
 }
 export type OrbUniforms = ReturnType<typeof orbUniforms>;
@@ -116,6 +130,98 @@ const ramp = ([a, b, c, d]: readonly [V3, V3, V3, V3], t: F): V3 =>
     smoothstep(STOPS[2], STOPS[3], t),
   );
 
+/** The palette the hue has leaned to: periwinkle, rose and cream. */
+interface Leaned {
+  readonly violet: V3;
+  readonly pink: V3;
+  readonly cream: V3;
+}
+
+/** What has been painted behind an orb: the dark picture and the light one. */
+interface Behind {
+  readonly night: V3;
+  readonly day: V3;
+}
+
+/** What an orb's shading reads of the pixel: where it is, how much of the field is there, and the hue. */
+interface Pixel {
+  readonly p: V2;
+  readonly left: F;
+  readonly hue: Leaned;
+}
+
+/**
+ * Orb `i` over what is behind it (`below`). `left` is how much of the
+ * field there is at the pixel: the farthest orb belongs to it and
+ * dissolves with it; a near one never fades.
+ */
+function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behind): Behind {
+  const orb = u.orbs.element(i);
+  const depth = u.depths.element(i);
+  const near = depth.oneMinus();
+  const off = p.sub(orb.xy);
+  const edge = length(off).sub(orb.z);
+  const out = normalize(off.add(1e-5));
+  // The sphere: its normal, lit by one key high toward the side its lit limb faces, wrapped, so
+  // the light falls off smoothly across the whole face to a cream crescent, never a band.
+  const q = off.div(orb.z);
+  const facing = sqrt(max(float(1).sub(dot(q, q)), 0));
+  const normal = vec3(q, facing);
+  const toward = u.lits.element(i).xy;
+  const key = normalize(vec3(toward, u.lamp.z));
+  const light = dot(normal, key).mul(0.5).add(0.5).pow(1.5).mul(orb.w).toVar();
+  const limb = max(dot(out, toward), 0).toVar();
+  // A crisp limb, antialiased over a pixel or two; the farthest orb far out of focus.
+  const soft = fwidth(edge)
+    .mul(1.2)
+    .add(orb.z.mul(depth.pow(4).mul(FAR_SOFT)));
+  const cover = smoothstep(soft, soft.negate(), edge).toVar();
+  const outside = max(edge, 0);
+  // The back light: a thin line along the limb, cool in shadow and warm where lit.
+  const back = facing.oneMinus().pow(4).mul(near);
+  const backColour = mix(RIM, hue.cream, smoothstep(0.1, 0.8, limb));
+  // A deep bloom off the lit limb, in its own light: thin and bright at the limb, long and soft out.
+  const bloom = exp(outside.div(orb.z.mul(-0.05)))
+    .mul(0.35)
+    .add(exp(outside.div(orb.z.mul(-0.4))).mul(0.12))
+    .mul(limb.mul(0.8).add(0.2))
+    .mul(orb.w)
+    .mul(u.glow)
+    .mul(float(1).sub(cover))
+    .mul(near)
+    // It lights the field, and dissolves with it.
+    .mul(left);
+  // Where it crosses what is behind it, the near orb darkens it: contact, close to its limb.
+  const contact = float(1).sub(
+    exp(outside.div(orb.z.mul(-0.1)))
+      .mul(0.5)
+      .mul(near),
+  );
+  // Atmosphere: the farther, the hazier and bluer, toward the field behind it.
+  const sphere = mix(
+    ramp([BLUE, hue.violet, hue.pink, hue.cream], light).add(backColour.mul(back.mul(0.45))),
+    FIELD.mul(1.3),
+    depth.mul(0.55),
+  )
+    .mul(u.glow.mul(0.15).add(0.85))
+    .mul(mix(0.45, 1, orb.w));
+  const shown = cover.mul(mix(float(1), left, depth));
+  const glowColour = mix(hue.violet, mix(hue.pink, hue.cream, limb), limb);
+  const night = mix(below.night.mul(contact), sphere, shown).add(glowColour.mul(bloom));
+  const pastel = mix(
+    ramp([LILAC, PERIWINKLE, BLUSH, CREAM_INK], light).add(back.mul(0.08)),
+    WASH,
+    depth.mul(0.55),
+  ).min(1);
+  // On paper the bloom is a lilac glow round it, so its limb sits in its own light, not on white.
+  const day = mix(
+    mix(below.day, below.day.mul(mix(LILAC, BLUSH, limb)), bloom.mul(1.4).min(0.6)),
+    pastel,
+    shown,
+  );
+  return { night, day };
+}
+
 /** The frame, for `scene.backgroundNode`. */
 export function orbFrame(
   u: OrbUniforms,
@@ -126,89 +232,55 @@ export function orbFrame(
     const aspect = screenSize.x.div(screenSize.y);
     const p = vec2(screenUV.x.sub(0.5).mul(aspect), float(0.5).sub(screenUV.y)).toVar();
     const lampAt = p.sub(u.lamp.xy);
-    const near = exp(dot(lampAt, lampAt).mul(-0.8));
+    const near = exp(dot(lampAt, lampAt).mul(-4));
     const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y)));
+    const hue: Leaned = {
+      violet: mix(VIOLET, INDIGO, u.hue),
+      pink: mix(PINK, MAGENTA, u.hue),
+      cream: mix(CREAM, AMBER, u.hue),
+    };
 
-    const left = dissolve(u.reach, p, u.time.mul(0.01));
-    const violet = mix(VIOLET, INDIGO, u.hue);
-    const pink = mix(PINK, MAGENTA, u.hue);
-    const cream = mix(CREAM, AMBER, u.hue);
-    // The field is the orbs' own halo, wide and deep blue, so it has their shapes and fills the
-    // frame between them; where two halos overlap the field lifts toward violet.
-    let halo: F = float(0);
-    let most: F = float(0);
+    // The field, the background layer: deep blue air, royal toward the top and the lamp, and the
+    // shadows the nearer orbs cast on it, away from the lamp and wider than they are.
+    const rise = smoothstep(-0.7, 0.55, p.y.add(p.x.mul(0.2)));
+    let shade: F = float(1);
+    // How much of the field there is: the union of the orbs' glows, each dissolving by its own
+    // round reach, its rim ragged.
+    let none: F = float(1);
     for (let i = 0; i < ORBS; i++) {
       const orb = u.orbs.element(i);
-      const edge = length(p.sub(orb.xy)).sub(orb.z);
-      const h = exp(max(edge, 0).div(orb.z.mul(0.7).add(0.04)).negate());
-      halo = halo.add(h);
-      most = most.max(h);
-    }
-    // The deep field fills the whole reach; the orbs' halos lift it to royal blue round them.
-    const field = smoothstep(0, 1, halo.min(1));
-    const between = halo.sub(most).min(1);
-    // Clouds in the field, slowly drifting, so its edge is theirs, never a shape of its own.
-    const clouds = fbm4(p.mul(2.4).add(vec2(u.time.mul(0.012), u.time.mul(-0.008))))
-      .mul(1.5)
-      .add(0.15);
-    let night: V3 = mix(FIELD_DEEP, mix(FIELD, FIELD_LIT, near), field)
-      .mul(clouds)
-      .add(violet.mul(between.mul(0.07)))
-      // Toward the reach's rim the field thins where its clouds thin, so its edge is theirs.
-      .mul(smoothstep(0.15, 0.9, left.mul(clouds)));
-    let day: V3 = mix(
-      WASH,
-      vec3(1, 1, 1),
-      screenUV.y.oneMinus().mul(0.4).add(float(1).sub(field).mul(0.5)),
-    );
-    day = mix(day, day.mul(PERIWINKLE), between.mul(0.25));
-    // Back to front: the last orb is farthest.
-    for (let i = ORBS - 1; i >= 0; i--) {
-      const orb = u.orbs.element(i);
-      const off = p.sub(orb.xy);
-      const edge = length(off).sub(orb.z);
-      const out = normalize(off.add(1e-5));
-      // The sphere: its normal, lit by one key from the upper right that the lamp leans, so every
-      // orb carries the same broad gradient, concentric to its lit limb, never a hot spot.
-      const q = off.div(orb.z);
-      const normal = vec3(q, sqrt(max(float(1).sub(dot(q, q)), 0)));
-      const toLamp = normalize(u.lamp.sub(vec3(orb.xy, 0)));
-      const key = normalize(KEY.add(toLamp.mul(0.35)));
-      const light = dot(normal, key).mul(orb.w).toVar();
-      const limb = max(dot(out, normalize(key.xy)), 0).toVar();
-      // Soft all round, least where the key catches the limb; one farther back is out of focus.
-      const aa = fwidth(edge);
-      const soft = mix(orb.z.mul(0.09), aa.add(orb.z.mul(0.012)), smoothstep(0, 0.6, light)).add(
-        DEFOCUS * i,
+      const fallen = p.sub(orb.xy.sub(u.lits.element(i).xy.mul(orb.z.mul(SHADOW_FALL))));
+      const cast = smoothstep(
+        orb.z.mul(1 + SHADOW_SOFT),
+        orb.z.mul(1 - SHADOW_SOFT * 0.5),
+        length(fallen),
       );
-      const cover = smoothstep(soft, soft.negate(), edge).toVar();
-      const spill = exp(max(edge, 0).div(orb.z.mul(-0.3)))
-        .mul(limb.mul(0.8).add(0.2))
-        .mul(orb.w)
-        .mul(u.glow)
-        .mul(float(1).sub(cover));
-
-      const sphere = ramp([BLUE, violet, pink, cream], light)
-        .mul(u.glow.mul(0.15).add(0.85))
-        .mul(mix(0.35, 1, orb.w));
-      // The glow off the lit limb is the limb's own warm light, so its soft edge never mixes grey.
-      const glowColour = mix(violet, mix(pink, cream, smoothstep(0.4, 0.9, limb)), limb);
-      night = mix(night, sphere, cover).add(glowColour.mul(spill.mul(0.35)));
-      const pastel = ramp([LILAC, PERIWINKLE, BLUSH, CREAM_INK], light).min(1);
-      day = mix(mix(day, pastel, cover), day.mul(BLUSH), spill.mul(0.35));
+      shade = shade.mul(float(1).sub(cast.mul(u.depths.element(i).oneMinus().mul(0.6))));
+      const reach = u.reaches[i];
+      if (reach !== undefined) none = none.mul(dissolve(reach, p, u.time.mul(0.01)).oneMinus());
     }
+    const left = none.oneMinus().toVar();
+    const field: V3 = mix(FIELD_DEEP, FIELD, rise)
+      .mul(shade)
+      .add(mix(hue.violet, hue.pink, 0.6).mul(near.mul(0.05)));
+    const wash: V3 = mix(
+      mix(WASH, vec3(1, 1, 1), rise.oneMinus().mul(0.35).add(0.15)),
+      LILAC.mul(0.92),
+      shade.oneMinus().mul(0.45),
+    );
+    // Back to front: the last orb is the farthest, and belongs to the field.
+    let behind: Behind = { night: field.mul(left), day: mix(vec3(1, 1, 1), wash, left) };
+    const pixel = { p, left, hue };
+    for (let i = ORBS - 1; i >= 0; i--) behind = orbOver(u, i, pixel, behind);
 
     const shownDark = ground.add(
       u.turn
-        .mul(night)
+        .mul(behind.night)
         .max(0)
-        .mul(left)
         .mul(float(1).sub(quiet.mul(0.15))),
     );
     const shownLight = paint(
-      page.mul(
-        mix(vec3(1, 1, 1), mix(u.turn.mul(day).min(1), vec3(1, 1, 1), quiet.mul(0.2)), left),
-      ),
+      page.mul(mix(u.turn.mul(behind.day).min(1), vec3(1, 1, 1), quiet.mul(0.2))),
     );
     return mix(shownLight, shownDark, u.dark);
   })();

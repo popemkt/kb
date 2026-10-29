@@ -1,17 +1,17 @@
 /**
- * The Gradient orbs backdrop: two huge soft glowing spheres drifting slowly
- * in a deep blue field that fills the frame, their soft edges and glows
- * blending (shader: `orbs-shader.ts`; the orbs: `orbs.ts`). Each load
- * varies the reference composition a little and turns its hue a few
- * degrees (`variation`).
+ * The Gradient orbs backdrop: two great glowing spheres floating slowly in
+ * front of a deep blue field, the light of their glows (shader: `orbs-shader.ts`;
+ * the orbs: `orbs.ts`). Each load varies the reference composition a little
+ * and turns its hue a few degrees (`variation`).
  *
  * The owner: the lamp that lights the orbs follows the pointer on a slow
- * spring, so they turn their lit faces toward it, and wanders off the
- * between the orbs without one. The orbs drift nearer and part, the field
- * between them lifting toward violet as their glows overlap, and the hue leans and
- * returns on a slow clock (`HUE_PERIOD`). Typing slows the drift. Writes are an
- * impulse, never a restart: the orbs breathe out a little and their glow
- * lifts with it, and ease back.
+ * spring, so they turn their lit faces toward it, and wanders at the upper
+ * right without one. The eye leans with the pointer too, and idly without
+ * one, so the near orb slides against the far ones and the field. The orbs
+ * drift nearer and part, and the hue leans and returns on a slow clock
+ * (`HUE_PERIOD`). Typing slows the drift. Writes are an impulse, never a
+ * restart: the orbs breathe out a little and their glow lifts with it, and
+ * ease back.
  */
 import type { SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
@@ -25,23 +25,21 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { reachWithin } from "../gpu/dissolve";
+import { glowAbout } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import { orbFrame, orbUniforms } from "./orbs-shader";
-import { layoutOrbs, placeOrbs } from "./orbs";
+import { layoutOrbs, litToward, placeOrbs } from "./orbs";
 
 /** The lamp's spring (ω, rad/s): slow, so the light swings round the orbs rather than snapping. */
 const FOLLOW = 1.6;
-/** Where the lamp rests with no pointer: between the orbs, right of centre (frame units from the composition), and its height, low so it rakes their limbs. */
-const LAMP_REST = { x: 0.58, y: 0.2 } as const;
-const LAMP_HEIGHT = 0.28;
+/** Where the lamp rests with no pointer: high at the right, beyond the great orb (frame units from the composition), and its height, high enough that its light falls off across each orb's whole face. */
+const LAMP_REST = { x: 0.9, y: 0.38 } as const;
+const LAMP_HEIGHT = 0.8;
 /** How far and how slowly it wanders there (frame units, rad/s). */
 const WANDER = 0.14;
 const WANDER_RATE = 0.12;
 /** The hue leans and returns this often (s). */
 const HUE_PERIOD = 48;
-/** How much of the frame's reach the field fills whole before it dissolves. */
-const SOLID = 0.85;
 
 function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
@@ -59,11 +57,12 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   let settled = false;
   let time = vary.range("clock", 0, 120);
   let wander = vary.phase("wander");
+  const lean = { x: 0, y: 0 };
 
   return {
-    // In a panel the orbs gather high and right, smaller; wide, the great orb right of the title.
-    panel: { x: 0.64, y: 0.5, scale: 0.7, presence: 0.85 },
-    wide: { x: 0.6, y: 0.5, scale: 1, presence: 1 },
+    // In a panel the orbs are smaller, so they stay inside its narrow frame; wide, the great orb right of the title.
+    panel: { x: 0.52, y: 0.5, scale: 0.52, presence: 0.85 },
+    wide: { x: 0.5, y: 0.5, scale: 1, presence: 1 },
     layout: ({ width: w, height: h, composition }: BackdropLayout) => {
       width = w;
       height = h;
@@ -77,8 +76,6 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         lamp.y = frame.y + LAMP_REST.y * frame.scale;
         settled = true;
       }
-      // The field fills the frame, a little high, so it thins out toward the page below.
-      u.reach.set(reachWithin(w / h, { x: 0, y: 0.04 }, { x: w / h / 2, y: 0.5 }, SOLID));
       scrim.layout(w, h);
     },
     setLook: (look: GpuLook) => {
@@ -108,8 +105,20 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       u.glow.value = 1 + 0.6 * reactions.impulse;
       u.time.value = time;
       u.hue.value = 0.5 - 0.5 * Math.cos((Math.PI * 2 * time) / HUE_PERIOD);
-      placeOrbs(orbs, time, frame, reactions.impulse).forEach((orb, i) =>
-        u.placed[i]?.set(orb.x, orb.y, orb.r, orb.light),
+      // The eye leans toward the pointer, and drifts a little of its own accord without one.
+      const ease = 1 - Math.exp(-dt * 2);
+      const idle = { x: 0.3 * Math.sin(wander * 0.7), y: 0.15 * Math.cos(wander * 0.5) };
+      lean.x += ((over.x - frame.x) * pointer.near + idle.x * (1 - pointer.near) - lean.x) * ease;
+      lean.y += ((over.y - frame.y) * pointer.near + idle.y * (1 - pointer.near) - lean.y) * ease;
+      placeOrbs(orbs, time, { ...frame, lean: [lean.x, lean.y] }, reactions.impulse).forEach(
+        (orb, i) => {
+          u.placed[i]?.set(orb.x, orb.y, orb.r, orb.light);
+          u.lit[i]?.set(...litToward(orb, lamp), 0, 0);
+          u.depth[i] = orb.depth;
+          // The field is the orbs' glows: each round its orb, as far as the frame has room.
+          const reach = orb.r + orb.halo;
+          u.reaches[i]?.set(glowAbout(width / height, orb, { x: reach, y: reach }, orb.r / reach));
+        },
       );
     },
     dispose: () => undefined,

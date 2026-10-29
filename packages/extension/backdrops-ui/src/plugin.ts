@@ -130,7 +130,7 @@ const floatingGeometry: Omit<Backdrop, "key"> = {
   Component: FloatingGeometryBackdrop,
 };
 
-/** Soft orbs glowing on a deep field, melting together: a painted scene, its own field and all. */
+/** Two great orbs in front of a deep blue field: a painted scene, its own field and all. */
 const gradientOrbs: Omit<Backdrop, "key"> = {
   presentation: sceneFrame,
   Component: GradientOrbsBackdrop,

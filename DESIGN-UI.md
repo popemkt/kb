@@ -3734,8 +3734,8 @@ exist is a plugin point, and the kit names none of them.
     opens onto a faint cosmos;
   - `backdrops.floating-geometry` is a web of low-poly glass facets on a
     deep navy field, gold light gathering where they meet;
-  - `backdrops.gradient-orbs` is large soft orbs glowing on a deep blue
-    field, lit from between them in violet, rose and peach.
+  - `backdrops.gradient-orbs` is two great orbs floating in front of a
+    deep blue field, lit from the upper right in violet, pink and cream.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -4192,31 +4192,38 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   (`orbs.ts`).
   degrees (`orbs.ts`, **Variation**).
   - One pass, no offscreen picture: each orb is a circle's distance field
-    shaded as a sphere and laid over the ones behind it. One key light
-    from the upper right, grazing, lights every orb (the lamp only leans
-    it), so each carries the same gradient: one long smooth ramp from blue
-    in its shadow through violet and pink to a cream crescent on the lit
-    limb. No gloss, no hot spot, no bands.
-  - Very soft: an orb's edge melts into the field, least where the key
-    catches its limb; one farther back is more out of focus. Its glow
-    spills past the lit limb in the limb's own warm light, so the soft
-    edge never mixes to grey.
-  - The orbs blend by their glow. The field is their halo, wide and deep
-    blue, clouded and slowly drifting; where two halos overlap, as the
-    orbs drift nearer, the field between them lifts toward violet, and
-    dims as they part. No shape joins them.
-  - The field fills its reach, the whole frame, whole out to most of it
-    (`gpu/dissolve.ts`); toward the rim it thins where its own clouds
-    thin, so its edge is theirs, never a side of the frame.
+    shaded as a sphere and laid over the ones behind it. One key, high
+    toward the side its lit limb faces, lights it (where the composition
+    turns it, the lamp leaning it, `litToward`), wrapped, so the light
+    falls off smoothly across the whole face: deep blue in shadow through
+    periwinkle and rose to a cream crescent on the lit side. No gloss, no
+    hot spot, no bands; a crisp limb, antialiased over a pixel or two.
+  - **Two layers.** The field is deep blue air, royal toward the top and
+    the lamp, lit by the orbs' glows, with the far orb far out of focus in
+    it. Its extent is those glows: each orb's own round reach
+    (`glowAbout`), and the field is their union, dissolving softly at its
+    ragged rim (`gpu/dissolve.ts`), so its edge is round shapes, never the
+    frame's. The two great orbs are never faded, and stay inside the
+    frame's sides and bottom wherever they drift.
+  - **In front of the field**: a back light along each limb, cool in
+    shadow and warm where lit; a deep bloom off the lit limb, thin and
+    bright at the limb and long and soft out into the field, dissolving
+    with it; a soft shadow each casts on the field away from the lamp,
+    wider than itself, and a darker contact close round each near orb where
+    it crosses what is behind it; the second orb a little hazier and bluer
+    than the first, the far one far out of focus; and parallax, the near
+    orb sliding further than the far one as the eye leans with the pointer
+    (idly without one).
   - Each orb drifts about its rest on paths of its own (twenty to forty
-    seconds round), and breathes; the hue leans from violet, pink and
+    seconds round), and breathes; the hue leans from periwinkle, rose and
     cream toward indigo, magenta and amber and back over 48 seconds. The
     lamp follows the pointer on a slow spring, so the orbs turn their lit
-    sides toward it, and wanders between them without one. Typing slows
-    the drift; writes (`impulse`) swell the orbs a little and lift their
-    glow, and they ease back.
+    sides toward it, and wanders at the upper right without one. Typing
+    slows the drift; writes (`impulse`) swell the orbs a little and lift
+    their glow, and they ease back.
   - A light page paints the pastel pair on the paper: lilac and periwinkle
-    shadow, blush and cream toward the lamp, on a periwinkle wash.
+    shadow, blush and cream toward the lamp, each in a lilac glow of its own
+    over a periwinkle wash, their shadows lilac on it.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it

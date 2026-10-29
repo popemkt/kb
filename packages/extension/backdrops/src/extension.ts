@@ -45,7 +45,7 @@ export const FLOATING_GEOMETRY_BACKDROP: SeedBackdrop = {
   label: "Floating geometry",
 };
 
-/** Large soft orbs glowing on a deep field, melting together where they drift close. */
+/** Two great orbs floating in front of a deep blue field, lit violet, pink and cream. */
 export const GRADIENT_ORBS_BACKDROP: SeedBackdrop = {
   id: "backdrops.gradient-orbs",
   label: "Gradient orbs",
