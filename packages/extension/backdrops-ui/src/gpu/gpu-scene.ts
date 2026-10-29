@@ -158,6 +158,8 @@ export async function mountBackdrop(
     },
     (on) => {
       const backdrop = build(on, init);
+      // Its first frame is already the page's look.
+      backdrop.setLook(init);
       const canvas = on.renderer.domElement;
       canvas.dataset.backend = on.backend;
       const relayout = () => {
@@ -209,7 +211,6 @@ export async function mountBackdrop(
     backdrop.setLook(next);
     relayout();
   };
-  setLook(init);
 
   return {
     ...handle,

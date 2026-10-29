@@ -319,9 +319,11 @@ async function mountRenderer(
     antialias: true,
     powerPreference: "high-performance",
   });
+  // Sized before its context is: the first frame is drawn at the host's size, never the canvas's default.
+  renderer.setPixelRatio(pixelRatio());
+  renderer.setSize(Math.max(1, host.clientWidth), Math.max(1, host.clientHeight), false);
   await renderer.init();
   renderer.toneMapping = TONE_MAPPINGS[options.toneMapping ?? "aces"];
-  renderer.setPixelRatio(pixelRatio());
   if (shadows) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFShadowMap;
@@ -420,6 +422,11 @@ function frameLoop(
   return {
     draw,
     invalidate,
+    /** Draw now, in this task, when the view is shown: a resized canvas is cleared, and must never be shown so. */
+    redraw: () => {
+      if (visible) draw(performance.now());
+      else invalidate();
+    },
     /**
      * A frame drawn from now: one is asked for, and `after` runs in the same
      * task, right after it is drawn — before it is shown, while the canvas
@@ -640,7 +647,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
         renderer.setSize(width, height, false);
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        invalidate();
+        loop.redraw();
       },
       setRunning: loop.setVisible,
       setReducedMotion: loop.setReducedMotion,
@@ -671,7 +678,8 @@ export interface SceneParts {
 }
 
 /**
- * Build a view on a new stage and reveal it. If the build or the reveal
+ * Build a view on a new stage, lay it out at its host's size and reveal it:
+ * one first frame, at its size, faded in once. If the build or the reveal
  * fails, the view's parts and the stage are given back before the error goes
  * on: nobody will ever hold a handle to them, so every failed open would
  * otherwise leak a GPU context. The handle is the stage's, extended by the
@@ -687,6 +695,12 @@ export async function mountScene<P extends SceneParts>(
   try {
     parts = build(stage);
     stage.setFrame(parts.frame);
+    const width = host.clientWidth;
+    const height = host.clientHeight;
+    if (width > 0 && height > 0) {
+      stage.handle.resize(width, height);
+      parts.resize?.(width, height);
+    }
     stage.reveal();
   } catch (error) {
     parts?.dispose?.();

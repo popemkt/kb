@@ -3905,6 +3905,25 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     (`keptAt`); every pixel, field and haze too, by the ragged rim
     (`dissolve`). A scene that does so asks the stage for only a thin
     feather, as a last guard.
+- **One load, one reveal.** A load mounts a backdrop's scene once and
+  shows it once: one GPU context, configured at the frame's own size, a
+  first frame already laid out and in the page's look, then one fade-in.
+  What a flicker on load is made of, and where each is closed:
+  - the host (`gpu/gpu-backdrop.tsx`) mounts again only for another
+    backdrop: reduced motion reaches the scene it mounted
+    (`setReducedMotion`), and the seed is the mount's;
+  - the renderer takes its host's size before its context is configured, so
+    no frame is drawn at the canvas's default 300×150 (`mountRenderer`);
+  - `mountScene` lays the view out at its host's size before it reveals it,
+    and `mountBackdrop` gives the scene its look before that frame;
+  - a resize redraws in the same task (`redraw`), so a cleared canvas is
+    never shown;
+  - the tint stays under the opaque canvas while it fades in, so there is
+    no gap between them.
+
+  `render-tests/tests-render/backdrop-load.e2e.ts` loads every GPU
+  backdrop in a fresh tab and holds each load to this: one adapter, one
+  canvas never replaced, no context at 300×150, ready once, faded in once.
 - **Framing by width** (`framing.ts`). Each backdrop has a panel
   composition and a wide one: where its subject sits, its scale and how
   present it is. A side panel's width (480px and below) takes the first, a

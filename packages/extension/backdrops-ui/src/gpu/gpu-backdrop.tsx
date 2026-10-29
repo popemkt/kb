@@ -57,8 +57,15 @@ export default function GpuBackdrop({
   const nodeId = node?.id;
   const { writes, editing } = activity;
   const seen = useRef({ writes, nodeId });
-  // What a scene mounted later starts from: the page as it is now.
-  const latest = useRef<{ look: GpuLook | null; editing: boolean }>({ look: null, editing });
+  // What a scene mounted later starts from: the page as it is now. A load
+  // mounts its scene once: a change of look, motion or editing reaches the
+  // scene it mounted, and never mounts another (only another backdrop does).
+  const latest = useRef<{
+    look: GpuLook | null;
+    editing: boolean;
+    reducedMotion: boolean;
+    seed: number;
+  }>({ look: null, editing, reducedMotion, seed });
   useEffect(() => {
     const look: GpuLook = {
       palette: readStagePalette(color),
@@ -87,9 +94,9 @@ export default function GpuBackdrop({
     const pending = SCENES[id]().then((mount) =>
       mount(el, {
         ...look,
-        reducedMotion,
+        reducedMotion: latest.current.reducedMotion,
         timing: readTiming(),
-        seed,
+        seed: latest.current.seed,
         pointer,
       }),
     );
@@ -110,6 +117,7 @@ export default function GpuBackdrop({
           mounted.current = made;
           // The page may have changed while the scene loaded.
           if (latest.current.look !== null) made.setLook(latest.current.look);
+          made.setReducedMotion(latest.current.reducedMotion);
           made.setEditing(latest.current.editing);
           setState("ready");
         },
@@ -124,7 +132,14 @@ export default function GpuBackdrop({
       detach();
       mounted.current = null;
     };
-  }, [id, reducedMotion, seed, pointer]);
+  }, [id, pointer]);
+
+  useEffect(() => {
+    // The seed is the next mount's; the scene already mounted keeps its own.
+    latest.current.seed = seed;
+    latest.current.reducedMotion = reducedMotion;
+    mounted.current?.setReducedMotion(reducedMotion);
+  }, [reducedMotion, seed]);
 
   useEffect(() => {
     latest.current.editing = editing;
@@ -138,7 +153,8 @@ export default function GpuBackdrop({
 
   return (
     <>
-      {state === "ready" ? null : <TintBackdrop color={color} opacity={opacity} />}
+      {/* The tint stays under the opaque canvas, which fades in over it: never a gap between them. */}
+      <TintBackdrop color={color} opacity={opacity} />
       <div ref={host} className="kb-gpu-backdrop" data-scene-state={state} />
     </>
   );
