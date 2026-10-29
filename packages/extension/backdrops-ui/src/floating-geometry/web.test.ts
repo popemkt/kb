@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { seededRng } from "../scene/rng";
-import { SHEETS, layoutWeb, placeSheets } from "./web";
+import { SHEETS, fitPiece, layoutWeb, pieceBounds, placeSheets } from "./web";
 
 const AT = { x: 0.4, y: 0.05, scale: 1, lean: [0, 0] } as const;
 
@@ -19,18 +19,62 @@ describe("layoutWeb", () => {
     for (let seed = 1; seed < 50; seed++) {
       const [near, far] = layoutWeb(seededRng(seed)).sheets;
       if (near === undefined || far === undefined) throw new Error("a sheet went missing");
-      // A facet is a large share of the frame's height: three or fewer across it.
-      expect(near.cell).toBeGreaterThan(0.25);
+      // A facet is a large share of the frame's height: four or fewer across it.
+      expect(near.cell).toBeGreaterThan(0.23);
       expect(far.cell).toBeGreaterThan(near.cell);
       expect(near.depth).toBeLessThan(far.depth);
     }
   });
 
-  it("gathers the light in knots spread across a frame twice as wide as it is high", () => {
+  it("hangs the piece from above its hot point: the main knot lowest, the others spread above it", () => {
     for (let seed = 1; seed < 50; seed++) {
-      const xs = layoutWeb(seededRng(seed)).knots.map(([x]) => x);
-      expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.7);
+      const { knots } = layoutWeb(seededRng(seed));
+      const xs = knots.map(([x]) => x);
+      expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.55);
+      for (const [, y] of knots.slice(1)) expect(y).toBeGreaterThan(0);
     }
+  });
+
+  it("puts a corner of the near sheet on the main knot, so the light gathers on one", () => {
+    for (let seed = 1; seed < 50; seed++) {
+      expect(layoutWeb(seededRng(seed)).sheets[0]?.offset.map(Math.abs)).toEqual([0, 0]);
+    }
+  });
+});
+
+describe("fitPiece", () => {
+  const margin = { sides: 0.1, bottom: 0.07 };
+
+  it("leaves a piece where the composition puts it when the frame has room", () => {
+    const bounds = { left: -0.4, right: 0.4, bottom: -0.3 };
+    expect(fitPiece(bounds, { x: 0.2, y: 0.1, scale: 1 }, 2, margin)).toEqual({
+      x: 0.2,
+      y: 0.1,
+      scale: 1,
+    });
+  });
+
+  it("keeps every facet inside the sides and the bottom, sliding before it shrinks", () => {
+    for (let seed = 1; seed < 50; seed++) {
+      const bounds = pieceBounds(layoutWeb(seededRng(seed)));
+      for (const aspect of [0.95, 1.4, 2, 3]) {
+        for (const x of [-aspect / 2, 0, aspect / 2]) {
+          const hub = fitPiece(bounds, { x, y: -0.4, scale: 1 }, aspect, margin);
+          expect(hub.x + bounds.right * hub.scale).toBeLessThanOrEqual(aspect / 2 - 0.1 + 1e-9);
+          expect(hub.x + bounds.left * hub.scale).toBeGreaterThanOrEqual(-aspect / 2 + 0.1 - 1e-9);
+          expect(hub.y + bounds.bottom * hub.scale).toBeGreaterThanOrEqual(-0.5 + 0.07 - 1e-9);
+          expect(hub.scale).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+    // Room enough across, so it slides rather than shrinks.
+    const wide = fitPiece(
+      { left: -0.4, right: 0.4, bottom: -0.3 },
+      { x: 1.2, y: 0, scale: 1 },
+      3,
+      margin,
+    );
+    expect(wide.scale).toBe(1);
   });
 });
 

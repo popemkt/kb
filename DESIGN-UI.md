@@ -3900,11 +3900,14 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     keeps its corners) slid inward until it clears every side, whose rim
     noise eats into (only ever inward, so nothing is left past it). How much
     of it is whole is the scene's: a subject in the open keeps little, a
-    field that fills the frame keeps more. A field that fills the frame
-    (`fillingReach`) runs on past its top, which lies under the app's bar,
-    and dissolves at its sides and bottom. Every pixel of a field dissolves
-    by the ragged rim (`dissolve`). A scene that does so asks the stage for
-    only a thin feather, as a last guard.
+    field that fills the frame keeps more. A field lit by its subject (the
+    air round a glass piece, the glow round an orb) is a round glow about
+    that subject (`glowAbout`): it stays on the subject and shrinks as a
+    whole until it clears the frame's sides and bottom (its top may run on
+    under the app's bar), so however near a side the subject stands the
+    field fades by its own round shape, never by a band along the side.
+    Every pixel of a field dissolves by the ragged rim (`dissolve`). A scene
+    that does so asks the stage for only a thin feather, as a last guard.
   - **Objects stand in front of their field.** Where a scene has objects
     (orbs, glass, a medallion), only the field behind them dissolves; the
     objects are whole and in focus, kept inside the frame by their
@@ -4027,49 +4030,65 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     it, and in a panel the ribbons rise above the title.
   - A light page is the paper itself, with a pastel breath of gas.
 - **Floating geometry.** A crumpled piece of low-poly glass floating in
-  front of a deep navy field, gold light gathering where its facets meet
-  (the owner's reference: crumpled, gold-lit glass). Each load lays out its
-  own glass (`web.ts`): two sheets of facets, each a lattice of jittered
+  front of deep navy air, gold light gathering where its facets meet (the
+  owner's reference: crumpled, gold-lit glass). Each load lays out its own
+  glass (`web.ts`): two sheets of facets, each a lattice of jittered
   triangles solved per pixel, so shared corners and seams are one, never
   pieces apart. Each load also moves the main knot a little, sizes the
   glass within a tenth, and turns the light's hue a few degrees
   (**Variation**).
-  - **Two layers.** The near sheet is the piece: only its facets whose
-    cells rest within reach of three knots (the main one and one high at
-    either side), each facet whole, so the piece's edge is its own seams.
-    It never fades, and its composition keeps it inside the frame's sides.
-    The far sheet, larger facets turned against it, is part of the field:
-    every facet, faint, its seams out of focus, dissolving with the field.
-    The field is navy smoke, deeper low, that fills the frame and dissolves
-    softly over a long reach at its ragged rim (`gpu/dissolve.ts`).
-  - **In front of the field**: the piece's outer seams are lit from behind,
-    a cool line, gold near a lamp; it casts a soft shadow on the field
-    below it; and the near sheet slides further than the far one and the
-    field as the eye leans (parallax).
-  - **The light**: three lamps stand behind the knots. A vertex near a lamp
-    is hot: a warm-white core in an amber glow, its light pouring into the
-    facets that meet there, a gradient from amber to gold across each,
-    brightest in a facet that faces the lamp (transmission). Seams are fine
-    strokes that burn gold between hot corners and stay faint steel away
-    from them; a facet far from every lamp is slate-blue glass. Where light
-    piles up it rolls off softly, keeping its hue.
+  - **Two layers.** The near sheet is the piece: the facets whose three
+    corners' lattice points lie within reach of three knots, the main one,
+    where the light gathers, low in the piece, and one above it at either
+    side, where the piece runs off the frame's top. Each facet is whole, so
+    the piece's edge is its own seams. It never fades: the composition
+    places it right of the title and fits it whole inside the frame's sides
+    and bottom (`fitPiece`, from the reach of its knots, how far a corner
+    strays and how far the sheet slides), sliding it in before it shrinks
+    it. The far sheet, larger facets turned against it, is part of the
+    field: every facet, its seams soft, a few of its planes catching the
+    light, all half lost in the haze, so dim panes cross the whole frame.
+    The field is navy air lit by the lamps and the piece: brightest about
+    the piece and falling away from it by its own light, in slow smoke; its
+    reach is a round glow about the piece (`glowAbout`).
+  - **In front of the field**: the piece hides some of the air behind it;
+    its outline is lit from behind, cool, warming where light runs along
+    it; it casts a soft shadow on the field below it; and the near sheet
+    slides further than the far one and the field as the eye leans
+    (parallax).
+  - **The light**: three lamps stand behind the knots, the main one bright
+    and the other two quiet; a corner's heat is the lamps near it, squared,
+    so one hot point burns and the rest barely warm. The near sheet has a
+    corner on the main knot and the main lamp rests on it: a warm-white core
+    with a long soft amber bloom. Light runs along a crease from a hot
+    corner and dies out within a fifth of the piece, a fine stroke turning
+    white-hot where it is hottest with a soft spill into both facets (the
+    caustic where they fold), each crease as sharp as its own hash; most
+    seams fall to a hair of steel. A hot corner pours a fan of light into
+    each facet that meets there, hugging the seams that leave it, as much as
+    the facet passes of the lamp behind (transmission). Each facet's body is
+    dark slate glass, lighter as it faces the key and toward the lamp's side
+    of the facet, so every plane reads by its turn. Where light piles up it
+    rolls off softly, keeping its hue.
   - Every vertex folds in depth on a clock of its own (9 to 17 s) and
     sways a little; each sheet slides slowly about its rest, and the
     piece's knots slide with it, so its facets never change. The glass is
     drawn offscreen at up to 1.5 texels a CSS pixel, fewer as quality
     steps down; a pixel spends nothing on a sheet it cannot see.
   - A band of light sweeps across every 11 seconds (typing rests it), so
-    seam after seam glints; a still rests with it through the main knot.
+    seam after seam of the piece glints; a still rests with it through the
+    main knot.
   - The main lamp follows the pointer on a soft spring (about two
-    seconds) and wanders near the main knot without one; the other two
-    breathe on their own clocks. Typing slows the drift. Writes swell the
-    lamps (`impulse`), and a write outside typing (`stir`) or a new page
-    (`ripple`) folds the glass a little further, which eases back.
-  - A light page is the glass as the other backdrops show one, a soft wash
-    of ink on the paper: each facet a pale frost, peach toward a hot
-    corner, its seams fine periwinkle lines warming to apricot, the lamps'
-    warmth and the piece's lilac shadow on the paper. The text scrim keeps
-    the glass quiet under the head's text in both.
+    seconds) and wanders a little about its corner without one; the other
+    two breathe on their own clocks. Typing slows the drift. Writes swell
+    the lamps (`impulse`), and a write outside typing (`stir`) or a new
+    page (`ripple`) folds the glass a little further, which eases back.
+  - A light page is the glass as an engraving on the paper: a periwinkle
+    wash for the air, each facet a pale frost, deeper as it turns from the
+    key and peach where light passes it, its seams fine periwinkle ink
+    turning apricot where light runs along them, the hot point an apricot
+    bloom, and the piece's lilac shadow. The text scrim keeps the glass
+    quiet under the head's text in both.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn:
   - a strength barely veils them (`sceneFrame`: 0.95, 0.98, 1), since a

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillingReach, reachWithin } from "./dissolve";
+import { glowAbout, reachWithin } from "./dissolve";
 
 describe("reachWithin", () => {
   it("keeps the reach asked for where the frame has room", () => {
@@ -9,6 +9,7 @@ describe("reachWithin", () => {
       rx: 0.8,
       ry: 0.3,
       solid: 0.4,
+      round: 3,
     });
   });
 
@@ -30,16 +31,26 @@ describe("reachWithin", () => {
   });
 });
 
-describe("fillingReach", () => {
-  it("clears the sides and the bottom the page shows, and runs on past the top under the bar", () => {
+describe("glowAbout", () => {
+  it("keeps the glow asked for, about its subject, where the frame has room", () => {
+    expect(glowAbout(3, { x: 0.2, y: 0.1 }, { x: 0.6, y: 0.4 }, 0.2)).toMatchObject({
+      x: 0.2,
+      y: 0.1,
+      rx: 0.6,
+      ry: 0.4,
+    });
+  });
+
+  it("stays on its subject and shrinks as a whole, round, to clear the sides and bottom", () => {
     for (const aspect of [0.9, 2, 3.2]) {
-      const reach = fillingReach(aspect, 0.7);
-      expect(reach.x + reach.rx).toBeLessThan(aspect / 2);
-      expect(reach.x - reach.rx).toBeGreaterThan(-aspect / 2);
-      expect(reach.y - reach.ry).toBeGreaterThan(-0.5);
-      expect(reach.y + reach.ry).toBeGreaterThan(1);
-      // Its sides reach nearly to the frame's: the field fills it, not an oval in it.
-      expect(reach.rx).toBeGreaterThan(aspect / 2 - 0.05);
+      for (const x of [-aspect * 0.3, 0, aspect * 0.35]) {
+        const reach = glowAbout(aspect, { x, y: -0.1 }, { x: 1.2, y: 0.8 }, 0.2);
+        expect([reach.x, reach.y]).toEqual([x, -0.1]);
+        expect(reach.rx / reach.ry).toBeCloseTo(1.5, 9);
+        expect(reach.x + reach.rx).toBeLessThan(aspect / 2);
+        expect(reach.x - reach.rx).toBeGreaterThan(-aspect / 2);
+        expect(reach.y - reach.ry).toBeGreaterThan(-0.5);
+      }
     }
   });
 });

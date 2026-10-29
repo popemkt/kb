@@ -22,6 +22,9 @@ import { TAU } from "../scene/math";
 
 /** How many sheets the shader reads. */
 export const SHEETS = 2;
+/** How far a vertex strays from its lattice point (across the jitter's whole span), and how far it sways, shares of a cell. */
+export const JITTER = 0.45;
+export const SWAY = 0.04;
 
 /** One sheet of the web, at full scale. */
 export interface Sheet {
@@ -29,7 +32,7 @@ export interface Sheet {
   readonly cell: number;
   /** How its lattice is turned (radians). */
   readonly angle: number;
-  /** Where its lattice's origin rests, frame units from the main knot. */
+  /** Where its lattice's origin rests, frame units from the main knot: the near sheet's on it. */
   readonly offset: readonly [number, number];
   /** Which lattice it is: the shader hashes its vertices by this. */
   readonly seed: number;
@@ -55,32 +58,80 @@ export interface WebLayout {
 }
 
 /**
- * The seed's glass: a near sheet of large facets and a far one of smaller
+ * The seed's glass: a near sheet of large facets and a far one of larger
  * facets turned against it; the main knot at the origin (the composition
- * places it), reaching furthest, one high at the left and one high at the
- * right, as the reference's light gathers in three places across its
- * picture.
+ * places it), where the light gathers, low in the piece, and two above it,
+ * at the right and the left, where the piece runs off the frame's top: one
+ * mass hanging into the frame to its hot point, as a title screen sets its
+ * hero opposite its words.
  */
 export function layoutWeb(rng: Rng): WebLayout {
+  // The near sheet has a corner at the main knot, so the light gathers on one; the far one lies anywhere.
   const sheet = (cell: number, depth: number): Sheet => ({
     cell,
     angle: rng.range(-0.5, 0.5),
-    offset: [rng.range(-0.5, 0.5) * cell, rng.range(-0.5, 0.5) * cell],
+    offset: [rng.range(-0.5, 0.5) * cell * depth, rng.range(-0.5, 0.5) * cell * depth],
     seed: rng.range(10, 900),
-    crumple: rng.range(0.5, 0.75),
+    crumple: rng.range(0.55, 0.8),
     depth,
     drift: rng.range(0.02, 0.04) * (1 - 0.5 * depth),
     period: rng.range(30, 50),
     phase: rng.range(0, TAU),
   });
   return {
-    sheets: [sheet(rng.range(0.3, 0.36), 0), sheet(rng.range(0.42, 0.5), 1)],
+    sheets: [sheet(rng.range(0.24, 0.28), 0), sheet(rng.range(0.5, 0.6), 1)],
     knots: [
-      [0, 0, rng.range(0.3, 0.34)],
-      [rng.range(-0.62, -0.5), rng.range(0.12, 0.2), rng.range(0.2, 0.24)],
-      [rng.range(0.22, 0.32), rng.range(0.18, 0.26), rng.range(0.16, 0.2)],
+      [0, 0, rng.range(0.36, 0.4)],
+      [rng.range(0.36, 0.44), rng.range(0.3, 0.38), rng.range(0.4, 0.44)],
+      [rng.range(-0.4, -0.32), rng.range(0.24, 0.32), rng.range(0.32, 0.36)],
     ],
   };
+}
+
+/**
+ * How far the piece stands past its knots' reach: a facet is the piece's
+ * when its corners' lattice points lie within reach, and a corner strays
+ * from its point by the jitter and the sway (shares of a cell); the near
+ * sheet's slide and the eye's lean move it a little more (frame units).
+ */
+const OVERHANG = (JITTER / 2) * Math.SQRT2 + SWAY;
+const SLIDE_ROOM = 0.08;
+
+/** Where the piece can reach about its main knot at full scale: frame units, left and bottom negative. */
+export interface PieceBounds {
+  readonly left: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+export function pieceBounds({ sheets, knots }: WebLayout): PieceBounds {
+  const over = OVERHANG * (sheets[0]?.cell ?? 0) + SLIDE_ROOM;
+  const along = (pick: (k: readonly [number, number, number]) => number) => knots.map(pick);
+  return {
+    left: Math.min(...along(([x, , r]) => x - r)) - over,
+    right: Math.max(...along(([x, , r]) => x + r)) + over,
+    bottom: Math.min(...along(([, y, r]) => y - r)) - over,
+  };
+}
+
+/**
+ * Where the main knot stands and how large the piece is in a frame `aspect`
+ * wide and 1 high (origin at its centre, y up): at `at` and `scale`, slid in
+ * and then shrunk only as far as keeps every facet inside the frame's sides
+ * and bottom by their margins (frame units). Its top may run off the
+ * frame's, which lies under the app's bar.
+ */
+export function fitPiece(
+  bounds: PieceBounds,
+  at: { readonly x: number; readonly y: number; readonly scale: number },
+  aspect: number,
+  margin: { readonly sides: number; readonly bottom: number },
+): { readonly x: number; readonly y: number; readonly scale: number } {
+  const half = Math.max(0.05, aspect / 2 - margin.sides);
+  const scale = Math.min(at.scale, (2 * half) / (bounds.right - bounds.left));
+  const x = Math.min(half - bounds.right * scale, Math.max(-half - bounds.left * scale, at.x));
+  const y = Math.max(at.y, -0.5 + margin.bottom - bounds.bottom * scale);
+  return { x, y, scale };
 }
 
 /** Where the composition puts the main knot, how large the whole is, and how far the eye has moved off it. */
