@@ -53,9 +53,9 @@ export function layoutOrbs(rng: Rng): readonly Orb[] {
       ...drift(0.08),
     },
     {
-      x: jitter(-0.5, 0.05),
-      y: jitter(0.12, 0.04),
-      r: jitter(0.24, 0.02),
+      x: jitter(-0.48, 0.05),
+      y: jitter(0.14, 0.04),
+      r: jitter(0.19, 0.02),
       light: 0.95,
       ...drift(0.1),
     },

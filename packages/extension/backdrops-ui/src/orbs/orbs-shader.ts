@@ -30,6 +30,7 @@ import {
   Fn,
   dot,
   exp,
+  fwidth,
   float,
   length,
   max,
@@ -59,11 +60,15 @@ type V3 = TslNode<"vec3">;
 const DEEP = vec3(0.05, 0.08, 0.56);
 const VIOLET = vec3(0.2, 0.1, 0.72);
 const ROSE = vec3(0.74, 0.21, 0.42);
-const PEACH = vec3(1.0, 0.8, 0.66);
+const PEACH = vec3(1.0, 0.86, 0.72);
 /** Where the hue leans to and back: indigo, magenta, amber. */
 const INDIGO = vec3(0.1, 0.12, 0.8);
 const MAGENTA = vec3(0.7, 0.14, 0.62);
 const AMBER = vec3(1.0, 0.66, 0.44);
+/** The key light's direction: from the upper right, grazing, so the lit side is a crescent on the limb; the lamp only leans it. */
+const KEY = vec3(0.74, 0.58, 0.24);
+/** How much more an orb farther back is out of focus, per place behind the front one (frame units). */
+const DEFOCUS = 0.012;
 /** How far apart two orbs' edges may be for a neck to form between them (frame units). */
 const NECK = 0.09;
 /** The cool rim round an orb's far limb. */
@@ -78,7 +83,7 @@ const BLUSH = vec3(0.98, 0.68, 0.8);
 const CREAM = vec3(1.0, 0.88, 0.78);
 const WASH = vec3(0.9, 0.91, 1.0);
 /** Where the ramps' stops start, over an orb's light (-1 to 1). */
-const STOPS = [-0.1, 0.3, 0.62, 0.92] as const;
+const STOPS = [-0.3, 0.2, 0.62, 1.05] as const;
 
 /** Everything the CPU sets. Per orb: `orbs[i]` x y r light (frame units). */
 export function orbUniforms() {
@@ -138,7 +143,7 @@ export function orbFrame(
       const h = max(float(NECK).sub(joined.sub(edge).abs()), 0).div(NECK);
       joined = joined.min(edge).sub(h.mul(h).mul(NECK * 0.25));
       nearest = nearest.min(edge);
-      halo = halo.add(exp(max(edge, 0).div(orb.z.mul(0.3).add(0.025)).negate()));
+      halo = halo.add(exp(max(edge, 0).div(orb.z.mul(0.16).add(0.015)).negate()));
     }
     const field = smoothstep(0, 1, halo.min(1));
     let night: V3 = mix(FIELD, FIELD_LIT, near).mul(field);
@@ -152,19 +157,19 @@ export function orbFrame(
       const off = p.sub(orb.xy);
       const edge = length(off).sub(orb.z);
       const out = normalize(off.add(1e-5));
-      // The sphere: its normal, lit from the lamp as its centre sees it (a broad, even
-      // gradient across the whole orb, never a hot spot where the lamp passes close).
+      // The sphere: its normal, lit by one key from the upper right that the lamp leans, so every
+      // orb carries the same broad gradient, bands concentric to its lit limb, never a hot spot.
       const q = off.div(orb.z);
       const normal = vec3(q, sqrt(max(float(1).sub(dot(q, q)), 0)));
-      const toLamp = u.lamp.sub(vec3(orb.xy, 0));
-      const falloff = float(1).div(dot(toLamp, toLamp).mul(0.8).add(1));
-      const light = dot(normal, normalize(toLamp))
-        .mul(falloff.mul(0.5).add(0.5))
-        .mul(orb.w)
-        .toVar();
-      const limb = max(dot(out, normalize(toLamp.xy)), 0).toVar();
+      const toLamp = normalize(u.lamp.sub(vec3(orb.xy, 0)));
+      const key = normalize(KEY.add(toLamp.mul(0.35)));
+      const light = dot(normal, key).mul(orb.w).toVar();
+      const limb = max(dot(out, normalize(key.xy)), 0).toVar();
       const rim = pow(float(1).sub(normal.z), 2).mul(limb).mul(orb.w);
-      const soft = mix(0.035, 0.01, smoothstep(0, 0.5, light));
+      // Crisp where the key catches the limb (a pixel's antialiasing), melting on the shadow
+      // side; an orb farther back is a little out of focus.
+      const aa = fwidth(edge);
+      const soft = mix(float(0.035), aa, smoothstep(0, 0.5, light)).add(DEFOCUS * i);
       const cover = smoothstep(soft, soft.negate(), edge).toVar();
       const spill = exp(max(edge, 0).div(-0.1))
         .mul(limb.mul(0.75).add(0.25))
@@ -174,7 +179,9 @@ export function orbFrame(
 
       const sphere = ramp([DEEP, violet, rose, peach], light)
         .add(peach.mul(rim.mul(0.6)))
-        .add(LILAC_RIM.mul(pow(float(1).sub(normal.z), 3).mul(float(1).sub(limb)).mul(0.35)))
+        .add(LILAC_RIM.mul(pow(float(1).sub(normal.z), 3).mul(float(1).sub(limb)).mul(0.08)))
+        // The highlight runs past white into the curve's shoulder, so it reads cream, not grey.
+        .mul(smoothstep(0.8, 1, light).mul(0.5).add(1))
         .mul(u.glow.mul(0.15).add(0.85))
         .mul(mix(0.4, 1, orb.w));
       night = mix(night, sphere, cover).add(mix(violet, rose, limb).mul(spill.mul(0.28)));

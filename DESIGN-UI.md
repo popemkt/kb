@@ -4191,14 +4191,15 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   edge. Each load varies that composition a little from its seed
   (`orbs.ts`).
   - One pass, no offscreen picture: each orb is a circle's distance field
-    shaded as a sphere and laid over the ones behind it. A lamp in front of
-    the frame, between the orbs, lights each from where its centre sees it,
-    so every orb carries one broad gradient (deep blue in its shadow,
-    through violet and rose to peach on the side toward the lamp), with a
-    warm rim on that limb and a cool one round the far limb, never a hot
-    spot.
+    shaded as a sphere and laid over the ones behind it. One key light
+    from the upper right, grazing, lights every orb (the lamp only leans
+    it), so each carries the same gradient in bands concentric to its lit
+    limb: deep blue in its shadow, through violet and rose to a cream
+    crescent on the limb, which runs into the curve's shoulder so it reads
+    cream rather than grey. Never a hot spot.
   - Smooth blending is in the edges and the glow: an orb's edge is crisp
-    where the lamp catches it and melts into the field on its shadow side,
+    where the key catches it (a pixel's antialiasing) and melts into the
+    field on its shadow side, an orb farther back a little out of focus,
     and its glow spills past the lit limb over whatever lies behind it, so
     orbs that drift across each other blend rather than cut. As two drift
     near, a neck of glow grows between them (their distances' smooth
