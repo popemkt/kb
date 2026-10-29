@@ -137,7 +137,7 @@ export function TreemapGraph({
         })}
         {(layout.value ?? 0) <= 0 ? (
           <p className="absolute inset-0 flex items-center justify-center text-note leading-5 text-foreground/50">
-            No positive values to map. Choose Uniform or another area source in Graph settings.
+            No positive values to map. Choose Uniform or another area source in Graph options.
           </p>
         ) : null}
       </div>

@@ -2744,15 +2744,24 @@ There is one mechanism, not a second path beside the core plugins:
 ### Settings
 
 The Settings page is every choice the kb makes, the few this device makes,
-and each extension's switch. The header's gear (`SettingsTrigger`,
-`@kb/ui-sdk`; the graph's and the lab's headers render the same one), the
-sidebar's Settings row and ⌘K's *Settings* (`sys.cmd.settings`) open it in
-the focused pane; ⌘K's *Settings: Extensions* (`sys.cmd.extensions`) opens
-its Extensions part. It replaced the Preferences popover, which overflowed
-a short window and drew core's settings only, and the Extensions page,
-which drew each switch apart from the settings. The record of why is
+and each extension's switch. The header's gear and ⌘K's *Settings*
+(`sys.cmd.settings`) open it in the focused pane; ⌘K's *Settings:
+Extensions* (`sys.cmd.extensions`) opens its Extensions part. It replaced
+the Preferences popover, which overflowed a short window and drew core's
+settings only, and the Extensions page, which drew each switch apart from
+the settings. The record of why is
 `docs/research/2026-10-27-settings-parts.md`.
 
+- **One way in.** Every page shows exactly one way to Settings, the gear in
+  its header's corner (`SettingsTrigger`, `@kb/ui-sdk`): the shell's header
+  renders it, and a page that takes the header's place (the graph's, the
+  lab's) renders the same one in its own header's corner. The sidebar has
+  no Settings row. The gear is Settings' alone: an extension's settings
+  are fields of its node, drawn in its section of Extensions, never behind
+  an icon of its own, and a view's own options (a graph's layout and lens,
+  an outline frame's view and filters) stay in the view and wear
+  `ViewOptionsGlyph` (sliders). `eslint/no-restricted-imports` in
+  `.oxlintrc.json` refuses the gear icons anywhere but `SettingsTrigger`.
 - **Four parts, each a path.** `SettingsView`'s one param is the part
   (`SETTINGS_PARTS`, `@kb/views`): *General* at `/settings`, *Appearance*,
   *Extensions* and *Advanced* at `/settings/<part>`
