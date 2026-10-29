@@ -390,6 +390,9 @@ function frameLoop(
   /** Who waits for the next frame to be drawn. */
   const waiting: (() => void)[] = [];
   function draw(now: number): void {
+    // This is the frame a pending request asked for: it is not drawn twice.
+    cancelAnimationFrame(pending);
+    pending = 0;
     const dt = reduced || last < 0 ? 0 : clampStep((now - last) / 1000);
     last = now;
     elapsed += dt;
@@ -559,6 +562,18 @@ function postControls(
   };
 }
 
+/** Sizes the canvas and the view to the host's (CSS pixels); false for a host with no size. */
+function sizer(renderer: WebGPURenderer, camera: PerspectiveCamera) {
+  return (width: number, height: number): boolean => {
+    if (width <= 0 || height <= 0) return false;
+    renderer.setPixelRatio(pixelRatio());
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    return true;
+  };
+}
+
 async function createStage(host: HTMLElement, options: StageOptions) {
   const shadows = options.shadows === true;
   const occluded = options.ao === true;
@@ -576,6 +591,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
   });
   loop.setInitialPalette(options.palette);
   const { invalidate } = loop;
+  const size = sizer(renderer, camera);
 
   return {
     scene,
@@ -638,16 +654,14 @@ async function createStage(host: HTMLElement, options: StageOptions) {
         renderer.domElement.style.opacity = "1";
       });
     },
+    size,
+    /** Draw now, in this task, when the view is shown (`frameLoop`'s `redraw`). */
+    redraw: loop.redraw,
     /** The scene host's handle, answered by the stage (`@/scene/host`). */
     handle: {
       backend: backendOf(renderer),
       resize: (width: number, height: number) => {
-        if (width <= 0 || height <= 0) return;
-        renderer.setPixelRatio(pixelRatio());
-        renderer.setSize(width, height, false);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        loop.redraw();
+        if (size(width, height)) loop.redraw();
       },
       setRunning: loop.setVisible,
       setReducedMotion: loop.setReducedMotion,
@@ -695,11 +709,8 @@ export async function mountScene<P extends SceneParts>(
   try {
     parts = build(stage);
     stage.setFrame(parts.frame);
-    const width = host.clientWidth;
-    const height = host.clientHeight;
-    if (width > 0 && height > 0) {
-      stage.handle.resize(width, height);
-      parts.resize?.(width, height);
+    if (stage.size(host.clientWidth, host.clientHeight)) {
+      parts.resize?.(host.clientWidth, host.clientHeight);
     }
     stage.reveal();
   } catch (error) {
@@ -714,9 +725,11 @@ export async function mountScene<P extends SceneParts>(
     parts: built,
     handle: {
       backend: base.backend,
+      // The view is laid out at its new size before the frame that shows it.
       resize: (width, height) => {
-        base.resize(width, height);
+        if (!stage.size(width, height)) return;
         built.resize?.(width, height);
+        stage.redraw();
       },
       setRunning: base.setRunning,
       setReducedMotion: (reduced) => {
