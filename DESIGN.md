@@ -2845,10 +2845,20 @@ where, how rows become markdown, repo-specific output of any kind — lives in
 - `@kb/ext-docs` / `@kb/ext-canvas` / `@kb/ext-check` export their plugin
   (`docsPlugin`, …) and are Effect-native bundled examples (`effect` handlers using `KbCtx` / `FileSystem` /
   `KbStore` Layers). Docs owns `ext.docs.materialize` / `ext.docs.check` and
-  the templates `ext.docs.todos` / `ext.docs.rules`, with the bare ids
-  `docs.materialize`, `docs.check`, `todos` and `rules` as aliases. Core keeps
-  only the render mechanism the extension calls into
-  (`packages/application/operations/src/docs/`).
+  the templates `ext.docs.todos` / `ext.docs.rules` / `ext.docs.document`,
+  with the bare ids `docs.materialize`, `docs.check`, `todos`, `rules` and
+  `document` as aliases. Core keeps only the render mechanism the extension
+  calls into (`packages/application/operations/src/docs/`).
+  - What the templates read of the graph (tags, the nodes a tag types, a
+    field's value as text, a node's fields as a list) is said once, in
+    `ext-docs/src/nodes.ts`.
+  - `document` is the general one: a node and its children read as a
+    document. The node is the title; a child nothing types is a paragraph;
+    a tagged child is a section headed by its text, listing its tags'
+    fields in each tag's order, then its own children. A checklist or
+    framework kept as nodes renders through it with no template of its own,
+    so `docs/backdrops.md` (the backdrop framework, DESIGN-UI.md →
+    Page-head backdrops) is the `backdrops` docs view over its root node.
 - The canvas document format is extension-owned (`@kb/canvas`,
   `packages/extension/canvas`) even though it is shared between the backend
   plugin and the browser. It does not belong to the core node model.

@@ -8,7 +8,7 @@ import { renderText, type TemplateContext } from "@kb/contracts";
  */
 
 /** The nodes a node is typed by (`sys.f.type`): its tags, or `sys.tag` for a tag. */
-function typeRefIds(node: KbNode): NodeId[] {
+export function typeRefIds(node: KbNode): NodeId[] {
   return (node.props["sys.f.type"] ?? []).filter((pv) => pv.t === "ref").map((pv) => pv.v);
 }
 
