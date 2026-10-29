@@ -32,6 +32,13 @@ Every page-head backdrop is built and judged against these criteria, in this ord
 - **target** — the reviewer agrees on both before detail work starts
 - **applies** — every backdrop drawn from a reference
 
+## Width-agnostic composition
+
+- **asks** — “the box always scale right, since we have 2 content mode. Make sure they're built in a way thats frame size agnostic, or idk, at least width agnostic. Since 2 content width mode should maintain same height”
+- **judged** — The head keeps one height at every width, so a backdrop is composed from the height and anchors, never the width: the hero's size comes from the height, its place from an anchor on the content, and the far layers (field, distant shapes, haze) tile or extend procedurally. Both content widths at one window width, a phone, an ultra-wide window (2560px and up) and a resize strip while it runs: a change of width adds or removes field at the sides and never rescales or reshuffles the hero, with no jump, no re-layout pop and no blank frame. A backdrop whose field reaches past the content spans the scroll region (`reach: "region"`); backdrop-width.e2e.ts reads the hero the canvas reports (`data-hero`) and fails when it moves or grows between widths.
+- **target** — the hero's box holds within a rounding, in heights, across both content widths and windows from 1280 to 2560px; the e2e check passes
+- **applies** — every backdrop
+
 ## Blends into a light page
 
 - **asks** — blending in light mode like the other backdrops
