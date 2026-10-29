@@ -60,11 +60,11 @@ type V3 = TslNode<"vec3">;
 const DEEP = vec3(0.05, 0.08, 0.56);
 const VIOLET = vec3(0.2, 0.1, 0.72);
 const ROSE = vec3(0.74, 0.21, 0.42);
-const PEACH = vec3(1.0, 0.86, 0.72);
+const PEACH = vec3(1.35, 0.95, 0.66);
 /** Where the hue leans to and back: indigo, magenta, amber. */
 const INDIGO = vec3(0.1, 0.12, 0.8);
 const MAGENTA = vec3(0.7, 0.14, 0.62);
-const AMBER = vec3(1.0, 0.66, 0.44);
+const AMBER = vec3(1.35, 0.85, 0.5);
 /** The key light's direction: from the upper right, grazing, so the lit side is a crescent on the limb; the lamp only leans it. */
 const KEY = vec3(0.74, 0.58, 0.24);
 /** How much more an orb farther back is out of focus, per place behind the front one (frame units). */
@@ -178,10 +178,10 @@ export function orbFrame(
         .mul(float(1).sub(cover));
 
       const sphere = ramp([DEEP, violet, rose, peach], light)
-        .add(peach.mul(rim.mul(0.6)))
+        .add(peach.mul(rim.mul(0.22)))
         .add(LILAC_RIM.mul(pow(float(1).sub(normal.z), 3).mul(float(1).sub(limb)).mul(0.08)))
-        // The highlight runs past white into the curve's shoulder, so it reads cream, not grey.
-        .mul(smoothstep(0.8, 1, light).mul(0.5).add(1))
+        // The highlight lifts a little into the curve's shoulder: cream, never pushed so far it greys.
+        .mul(smoothstep(0.8, 1, light).mul(0.2).add(1))
         .mul(u.glow.mul(0.15).add(0.85))
         .mul(mix(0.4, 1, orb.w));
       night = mix(night, sphere, cover).add(mix(violet, rose, limb).mul(spill.mul(0.28)));
