@@ -52,3 +52,8 @@ export function GradientOrbsBackdrop(props: BackdropProps) {
 export function WolfMedallionBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="wolfMedallion" backdrop={props} />;
 }
+
+/** Long-exposure light streaking across a deep navy field (`light-trails/`). */
+export function LightTrailsBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="lightTrails" backdrop={props} />;
+}

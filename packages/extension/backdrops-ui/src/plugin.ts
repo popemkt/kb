@@ -5,6 +5,7 @@ import {
   FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
   GRADIENT_ORBS_BACKDROP,
+  LIGHT_TRAILS_BACKDROP,
   LENS_BACKDROP,
   ROOST_BACKDROP,
   SILK_BACKDROP,
@@ -23,6 +24,7 @@ import {
   FloatingGeometryBackdrop,
   GradientOrbsBackdrop,
   LensBackdrop,
+  LightTrailsBackdrop,
   SilkBackdrop,
   ToonSeaBackdrop,
   WolfMedallionBackdrop,
@@ -152,6 +154,15 @@ const wolfMedallion: Omit<Backdrop, "key"> = {
 };
 
 /**
+ * Long-exposure light streaking across a deep navy field: its field spans
+ * the scroll region, the knot of light placed from the content.
+ */
+const lightTrails: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  Component: LightTrailsBackdrop,
+};
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), with the family's shared plugin as a child.
@@ -177,6 +188,7 @@ export const backdropsUiPlugin = definePlugin({
         ),
         ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_ORBS_BACKDROP, gradientOrbs)),
         ctx.contribute(BackdropPoint, provideBackdrop(WOLF_MEDALLION_BACKDROP, wolfMedallion)),
+        ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
       ],
       { discard: true },
     ),

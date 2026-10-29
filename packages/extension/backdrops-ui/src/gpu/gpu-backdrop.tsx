@@ -38,6 +38,7 @@ const SCENES = {
     import("../floating-geometry/floating-geometry-scene").then((m) => m.mountFloatingGeometry),
   gradientOrbs: () => import("../orbs/orbs-scene").then((m) => m.mountGradientOrbs),
   wolfMedallion: () => import("../medallion/medallion-scene").then((m) => m.mountWolfMedallion),
+  lightTrails: () => import("../light-trails/light-trails-scene").then((m) => m.mountLightTrails),
 } satisfies Record<string, () => Promise<GpuBackdropMount>>;
 
 export type GpuSceneId = keyof typeof SCENES;

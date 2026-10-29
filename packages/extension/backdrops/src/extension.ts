@@ -57,6 +57,12 @@ export const WOLF_MEDALLION_BACKDROP: SeedBackdrop = {
   label: "Wolf medallion",
 };
 
+/** Long-exposure light streaking across a deep navy field, gathering in a white-hot knot. */
+export const LIGHT_TRAILS_BACKDROP: SeedBackdrop = {
+  id: "backdrops.light-trails",
+  label: "Light trails",
+};
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
@@ -77,6 +83,7 @@ export const backdropsExtension = defineExtension({
         FLOATING_GEOMETRY_BACKDROP,
         GRADIENT_ORBS_BACKDROP,
         WOLF_MEDALLION_BACKDROP,
+        LIGHT_TRAILS_BACKDROP,
       ],
     },
   ],
