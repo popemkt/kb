@@ -12,9 +12,13 @@ const BackdropCard = lazy(() => import("./backdrop-card"));
  */
 export function BackdropPreview({ id, size }: { readonly id: string; readonly size: PreviewSize }) {
   if (size === "chip") return <BackdropThemeTag id={id} />;
+  // The tag is drawn here, not in the card's chunk, so no module straddles the lazy boundary.
   return (
-    <Suspense fallback={null}>
-      <BackdropCard id={id} />
-    </Suspense>
+    <span className="flex flex-col gap-1.5">
+      <Suspense fallback={<span className="block h-24 rounded-md border border-border" />}>
+        <BackdropCard id={id} />
+      </Suspense>
+      <BackdropThemeTag id={id} />
+    </span>
   );
 }

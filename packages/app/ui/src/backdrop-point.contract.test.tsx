@@ -385,7 +385,12 @@ describe("every contributed page-head backdrop", () => {
       root = createRoot(container);
       act(() => root.render(createElement(SettingsPage, { part: "appearance" })));
       // The gallery and its cards load behind lazy(): wait, inside act, until the cards have landed.
-      await settle(() => container.querySelectorAll("[data-option-card]").length > 0);
+      await settle(
+        () =>
+          container.querySelectorAll(
+            `[data-setting="${SYSTEM_IDS.backdropField}"] [data-option-card]`,
+          ).length > 0,
+      );
     });
     afterAll(() => {
       act(() => root.unmount());
