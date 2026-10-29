@@ -1,20 +1,21 @@
 /**
- * The Gradient orbs backdrop: soft glowing spheres drifting slowly on a
- * deep field, their soft edges and glows blending (shader:
- * `orbs-shader.ts`; the orbs: `orbs.ts`). Each mount varies the reference
- * composition a little from its seed.
+ * The Gradient orbs backdrop: two huge soft glowing spheres drifting slowly
+ * in a deep blue field that fills the frame, their soft edges and glows
+ * blending (shader: `orbs-shader.ts`; the orbs: `orbs.ts`). Each load
+ * varies the reference composition a little and turns its hue a few
+ * degrees (`variation`).
  *
  * The owner: the lamp that lights the orbs follows the pointer on a slow
  * spring, so they turn their lit faces toward it, and wanders off the
- * between the orbs without one. The orbs drift across each other and part,
- * a neck of glow forming between two as they near, and the hue leans and
+ * between the orbs without one. The orbs drift nearer and part, the field
+ * between them lifting toward violet as their glows overlap, and the hue leans and
  * returns on a slow clock (`HUE_PERIOD`). Typing slows the drift. Writes are an
  * impulse, never a restart: the orbs breathe out a little and their glow
  * lifts with it, and ease back.
  */
 import type { SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { hueTurn, variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -39,13 +40,14 @@ const WANDER = 0.14;
 const WANDER_RATE = 0.12;
 /** The hue leans and returns this often (s). */
 const HUE_PERIOD = 48;
-/** How far the orbs may spread about the composition before they have dissolved (shares of the scale). */
-const REACH = { x: 1.5, y: 0.75 };
+/** How much of the frame's reach the field fills whole before it dissolves. */
+const SOLID = 0.85;
 
 function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
-  const orbs = layoutOrbs(rng);
+  const vary = variation(init.seed);
+  const orbs = layoutOrbs(vary.stream("orbs"));
   const u = orbUniforms();
+  u.turn.value.set(...hueTurn(vary.range("hue", -0.1, 0.1)));
   const scrim = textScrim();
   stage.scene.backgroundNode = orbFrame(u, scrim, groundsOf(stage));
 
@@ -55,12 +57,12 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const lamp = { x: 0, y: 0 };
   const velocity = { x: 0, y: 0 };
   let settled = false;
-  let time = rng.range(0, 120);
-  let wander = rng.range(0, Math.PI * 2);
+  let time = vary.range("clock", 0, 120);
+  let wander = vary.phase("wander");
 
   return {
     // In a panel the orbs gather high and right, smaller; wide, the great orb right of the title.
-    panel: { x: 0.68, y: 0.42, scale: 0.6, presence: 0.85 },
+    panel: { x: 0.64, y: 0.5, scale: 0.7, presence: 0.85 },
     wide: { x: 0.6, y: 0.5, scale: 1, presence: 1 },
     layout: ({ width: w, height: h, composition }: BackdropLayout) => {
       width = w;
@@ -75,14 +77,13 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         lamp.y = frame.y + LAMP_REST.y * frame.scale;
         settled = true;
       }
-      u.reach.set(
-        reachWithin(w / h, frame, { x: REACH.x * frame.scale, y: REACH.y * frame.scale }),
-      );
+      // The field fills the frame, a little high, so it thins out toward the page below.
+      u.reach.set(reachWithin(w / h, { x: 0, y: 0.04 }, { x: w / h / 2, y: 0.5 }, SOLID));
       scrim.layout(w, h);
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
-      stage.setBloom(look.dark ? 0.25 : 0);
+      stage.setBloom(look.dark ? 0.3 : 0);
     },
     frame: (dt: number, reactions: Reactions) => {
       time += dt * (1 - 0.6 * reactions.calm);
@@ -123,7 +124,7 @@ export function mountGradientOrbs(
     host,
     init,
     {
-      bloom: { strength: 0.25, radius: 0.7 },
+      bloom: { strength: 0.3, radius: 0.8 },
       lens: { aberration: 0, streak: 0, grain: 0.012 },
       // A painted scene: it fades into the page as a CSS mask would. It dissolves within its own
       // reach; the frame's feather is only the last guard.

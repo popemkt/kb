@@ -4190,30 +4190,31 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   whole in the frame, since an orb is cut by nothing but its own soft
   edge. Each load varies that composition a little from its seed
   (`orbs.ts`).
+  degrees (`orbs.ts`, **Variation**).
   - One pass, no offscreen picture: each orb is a circle's distance field
     shaded as a sphere and laid over the ones behind it. One key light
     from the upper right, grazing, lights every orb (the lamp only leans
-    it), so each carries the same gradient in bands concentric to its lit
-    limb: deep blue in its shadow, through violet and rose to a cream
-    crescent on the limb, which runs into the curve's shoulder so it reads
-    cream rather than grey. Never a hot spot.
-  - Smooth blending is in the edges and the glow: an orb's edge is crisp
-    where the key catches it (a pixel's antialiasing) and melts into the
-    field on its shadow side, an orb farther back a little out of focus,
-    and its glow spills past the lit limb over whatever lies behind it, so
-    orbs that drift across each other blend rather than cut. As two drift
-    near, a neck of glow grows between them (their distances' smooth
-    minimum) and thins as they part.
-  - The deep blue field is the orbs' own halo, so it has their shapes; it
-    and the orbs dissolve at the ragged rim of their reach
-    (`gpu/dissolve.ts`), never at a side of the frame.
+    it), so each carries the same gradient: one long smooth ramp from blue
+    in its shadow through violet and pink to a cream crescent on the lit
+    limb. No gloss, no hot spot, no bands.
+  - Very soft: an orb's edge melts into the field, least where the key
+    catches its limb; one farther back is more out of focus. Its glow
+    spills past the lit limb in the limb's own warm light, so the soft
+    edge never mixes to grey.
+  - The orbs blend by their glow. The field is their halo, wide and deep
+    blue, clouded and slowly drifting; where two halos overlap, as the
+    orbs drift nearer, the field between them lifts toward violet, and
+    dims as they part. No shape joins them.
+  - The field fills its reach, the whole frame, whole out to most of it
+    (`gpu/dissolve.ts`); toward the rim it thins where its own clouds
+    thin, so its edge is theirs, never a side of the frame.
   - Each orb drifts about its rest on paths of its own (twenty to forty
-    seconds round), far enough to cross another and part, and breathes;
-    the hue leans from violet, rose and peach toward indigo, magenta and
-    amber and back over 48 seconds. The lamp follows the pointer on a slow spring, so
-    the orbs turn their lit sides toward it, and wanders between them
-    without one. Typing slows the drift; writes (`impulse`) swell the orbs
-    a little and lift their glow, and they ease back.
+    seconds round), and breathes; the hue leans from violet, pink and
+    cream toward indigo, magenta and amber and back over 48 seconds. The
+    lamp follows the pointer on a slow spring, so the orbs turn their lit
+    sides toward it, and wanders between them without one. Typing slows
+    the drift; writes (`impulse`) swell the orbs a little and lift their
+    glow, and they ease back.
   - A light page paints the pastel pair on the paper: lilac and periwinkle
     shadow, blush and cream toward the lamp, on a periwinkle wash.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as

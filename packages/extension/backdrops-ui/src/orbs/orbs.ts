@@ -1,11 +1,11 @@
 /**
- * Gradient orbs, as the CPU holds them: a few large soft spheres in the
- * frame, each resting where the composition puts it and drifting about
- * that rest on Lissajous paths of its own (twenty to forty seconds round),
- * far enough that orbs drift across each other and part, its radius
- * breathing. One of them sits in the light's shadow. The first is nearest: the
- * shader lays them back to front, their soft edges and glows blending
- * (`orbs-shader.ts`).
+ * Gradient orbs, as the CPU holds them: two huge soft spheres filling the
+ * frame, as the reference's fill its picture, and a small dim one far
+ * behind them, each resting where the composition puts it and drifting
+ * about that rest on Lissajous paths of its own (twenty to forty seconds
+ * round), so the two great ones drift nearer and part, their radii
+ * breathing. The first is nearest: the shader lays them back to front,
+ * their soft edges and glows blending (`orbs-shader.ts`).
  *
  * Pure, so the layout and the drift are tested without a GPU.
  */
@@ -13,7 +13,7 @@ import type { Rng } from "../scene/rng";
 import { TAU } from "../scene/math";
 
 /** How many orbs the shader reads. */
-export const ORBS = 4;
+export const ORBS = 3;
 
 /** One orb: where it rests (shares of the composition's reach), its size, how lit it is, and how it drifts. */
 export interface Orb {
@@ -33,9 +33,9 @@ export interface Orb {
 /**
  * The reference composition (the owner's picture), set whole into the
  * frame, since an orb is never cut by anything but its own soft edge: a
- * great orb low and to the right; one high at the left; a dim one in
- * shadow between them; and a small bright one up to the right whose glow
- * warms the great one. The seed varies each a little.
+ * great orb right of centre, lit on its upper right limb; a second, two
+ * thirds its size, high at the left, lit on its lower right; and a small
+ * one in shadow far behind, between them. The seed varies each a little.
  */
 export function layoutOrbs(rng: Rng): readonly Orb[] {
   const jitter = (v: number, by: number) => v + rng.range(-by, by);
@@ -46,32 +46,25 @@ export function layoutOrbs(rng: Rng): readonly Orb[] {
   });
   return [
     {
-      x: jitter(0.2, 0.04),
-      y: jitter(-0.06, 0.03),
-      r: jitter(0.3, 0.015),
+      x: jitter(0.28, 0.05),
+      y: jitter(-0.03, 0.02),
+      r: jitter(0.35, 0.015),
       light: 1,
-      ...drift(0.08),
+      ...drift(0.06),
     },
     {
-      x: jitter(-0.48, 0.05),
-      y: jitter(0.14, 0.04),
-      r: jitter(0.19, 0.02),
-      light: 0.95,
+      x: jitter(-0.6, 0.05),
+      y: jitter(0.1, 0.03),
+      r: jitter(0.25, 0.015),
+      light: 0.9,
+      ...drift(0.09),
+    },
+    {
+      x: jitter(-0.12, 0.05),
+      y: jitter(0.22, 0.03),
+      r: jitter(0.1, 0.01),
+      light: 0.25,
       ...drift(0.1),
-    },
-    {
-      x: jitter(-0.16, 0.05),
-      y: jitter(-0.14, 0.04),
-      r: jitter(0.17, 0.02),
-      light: 0.1,
-      ...drift(0.16),
-    },
-    {
-      x: jitter(0.6, 0.03),
-      y: jitter(0.24, 0.03),
-      r: jitter(0.09, 0.01),
-      light: 0.8,
-      ...drift(0.12),
     },
   ];
 }
