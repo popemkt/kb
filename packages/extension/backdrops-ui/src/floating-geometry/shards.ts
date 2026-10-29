@@ -18,7 +18,7 @@ export type Vec3 = readonly [number, number, number];
 type Tri = readonly [Vec3, Vec3, Vec3];
 
 /** How many faces the shader reads: a layout fills at most this many. */
-export const FACES = 24;
+export const FACES = 28;
 
 /** A piece of glass: its faces about its centre, how it sways and drifts, and how far back it is. */
 export interface Piece {
@@ -91,12 +91,14 @@ const spoke = (hub: Vec3, angle: number, reach: number, z: number): Vec3 => [
 
 /**
  * The seed's pieces: a main knot at the origin (the composition places it)
- * and three lesser ones off it, each a fan of shards whose tips nearly meet
- * at it. Coordinates are relative to the main knot, at full scale.
+ * and six lesser ones spread across the frame either side of it, as the
+ * reference's glass fills its picture, each a fan of large shards whose tips
+ * nearly meet at it. Coordinates are relative to the main knot, at full
+ * scale.
  */
 export interface ShardLayout {
   readonly pieces: readonly Piece[];
-  /** Where the shards' tips meet, the main knot first (at the origin). */
+  /** Where the shards' tips meet, the main knot first (at the origin), then the two the other lamps light. */
   readonly knots: readonly Vec3[];
 }
 
@@ -108,36 +110,42 @@ export function layoutShards(rng: Rng): ShardLayout {
     reach: number;
     depth: readonly [number, number];
   }[] = [
-    { at: [0, 0, 0], fans: [4, 3], reach: 0.95, depth: [0, 0.3] },
+    { at: [0, 0, 0], fans: [4, 3], reach: 0.6, depth: [0, 0.3] },
     {
-      at: [rng.range(-0.62, -0.46), rng.range(0.22, 0.34), -0.12],
+      at: [rng.range(-0.66, -0.54), rng.range(0.18, 0.28), -0.12],
       fans: [4],
-      reach: 0.72,
-      depth: [0.35, 0.65],
+      reach: 0.55,
+      depth: [0.15, 0.45],
     },
     {
-      at: [rng.range(0.42, 0.58), rng.range(0.26, 0.38), -0.08],
+      at: [rng.range(0.36, 0.5), rng.range(0.22, 0.32), -0.08],
       fans: [3],
-      reach: 0.66,
+      reach: 0.45,
       depth: [0.25, 0.55],
     },
     {
-      at: [rng.range(-0.25, 0), rng.range(-0.5, -0.38), -0.25],
+      at: [rng.range(-0.4, -0.25), rng.range(-0.36, -0.28), -0.25],
       fans: [3],
-      reach: 0.85,
-      depth: [0.7, 1],
+      reach: 0.55,
+      depth: [0.55, 0.9],
     },
     {
-      at: [rng.range(0.78, 0.95), rng.range(-0.3, -0.12), -0.15],
+      at: [rng.range(0.5, 0.65), rng.range(-0.28, -0.18), -0.15],
       fans: [3],
-      reach: 0.6,
+      reach: 0.45,
       depth: [0.45, 0.8],
     },
     {
-      at: [rng.range(-1.05, -0.85), rng.range(-0.2, 0), -0.3],
+      at: [rng.range(-1.05, -0.92), rng.range(-0.15, -0.02), -0.3],
+      fans: [4],
+      reach: 0.5,
+      depth: [0.55, 0.95],
+    },
+    {
+      at: [rng.range(-0.98, -0.85), rng.range(0.3, 0.4), -0.2],
       fans: [3],
-      reach: 0.66,
-      depth: [0.75, 1],
+      reach: 0.45,
+      depth: [0.65, 1],
     },
   ];
   const pieces: Piece[] = [];

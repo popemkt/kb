@@ -21,6 +21,13 @@ describe("layoutShards", () => {
     expect(layoutShards(seededRng(7))).not.toEqual(layoutShards(seededRng(8)));
   });
 
+  it("spreads its knots across a frame twice as wide as it is high, as the reference fills its picture", () => {
+    for (let seed = 1; seed < 50; seed++) {
+      const xs = layoutShards(seededRng(seed)).knots.map(([x]) => x);
+      expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(1.4);
+    }
+  });
+
   it("fans each knot's shards out from tips that nearly meet at it", () => {
     const { pieces, knots } = layoutShards(seededRng(3));
     const main = knots[0] ?? [0, 0, 0];

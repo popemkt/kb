@@ -7,12 +7,13 @@
  *   shards are crisp, and only the far ones a little out of focus. Each face
  *   is solved per pixel from its three corners (projected on the CPU each
  *   frame, `shards.ts`): how far inside it the pixel is, and how far from
- *   each edge. A face is faintly cool where the light misses it;
- *   light comes through it brightest along its edges, a little refracted
- *   inward, and through its body as it turns to face the lamp. Its edges are
- *   fine lines that burn gold near the lamp and fade to steel away from it,
- *   with a thin halo; the shards' tips meet in knots, and the knots near the
- *   lamp flare (the frame's only HDR, so the bloom finds them).
+ *   each edge. A face is slate glass where the light misses it. Three lamps
+ *   stand behind three knots (`lamps`); a tip near one pours gold light far
+ *   into its faces, in streaks fanning out from the tip, brightest along
+ *   the edges, a little refracted inward. Its edges are fine lines that burn
+ *   gold near a lamp and cool to steel away from it, with a halo; the
+ *   shards' tips meet in knots, and the lit knots flare (the frame's HDR, so
+ *   the bloom finds them).
  * - **A band of light sweeps across** (`sweep`): every edge it crosses
  *   glints, gold on a dark page and peach on a light one.
  * - **It dissolves by its own shapes** (`../gpu/dissolve`): each face fades
@@ -52,11 +53,11 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import { Vector2, Vector4 } from "three/webgpu";
+import { Matrix3, Vector2, Vector4 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
 import { dissolve, dissolveUniforms } from "../gpu/dissolve";
-import { fbm4 } from "../gpu/noise";
+import { fbm4, gnoise } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { FACES } from "./shards";
 
@@ -64,10 +65,13 @@ type F = TslNode<"float">;
 type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 
-/** The lamp's light, and the glass where the lamp misses it (linear). */
-const AMBER = vec3(1.0, 0.5, 0.16);
-const GOLD = vec3(1.0, 0.68, 0.34);
+/** The lamps' light, and the glass where they miss it (linear). */
+const AMBER = vec3(1.0, 0.46, 0.13);
+const GOLD = vec3(1.0, 0.66, 0.3);
 const STEEL = vec3(0.14, 0.24, 0.66);
+const SLATE = vec3(0.1, 0.16, 0.36);
+/** How many lamps stand behind the glass: the main one, and one behind each of the next two knots. */
+const LAMPS = 3;
 /** A light page's inks: periwinkle edges warming to peach at the lamp, frost panes cool or peach, the lamp's warmth. */
 const PERIWINKLE = vec3(0.5, 0.56, 0.9);
 const APRICOT = vec3(0.98, 0.56, 0.36);
@@ -89,14 +93,16 @@ const vectors = (n: number) => Array.from({ length: n }, () => new Vector4());
 export function glassUniforms() {
   /** The per-face values the CPU writes; the arrays below read these very objects. */
   const face = { corners: vectors(FACES * 2), edges: vectors(FACES), boxes: vectors(FACES) };
+  /** Each lamp behind the glass: x, y (frame units: height 1, origin at the centre, y up), strength. */
+  const lamp = vectors(LAMPS);
   return {
     face,
+    lamp,
     dark: uniform(1),
     time: uniform(0),
-    /** The lamp behind the glass, frame units (height 1, origin at the centre, y up). */
-    lamp: uniform(new Vector2()),
-    /** A dimmer lamp behind another knot. */
-    second: uniform(new Vector2()),
+    /** This load's few degrees of hue: the light turned about grey (`hueTurn`). */
+    hue: uniform(new Matrix3()),
+    lamps: uniformArray<"vec4">(lamp, "vec4"),
     /** How bright the lamp is: 1 at rest, swelling with the owner's writes. */
     heat: uniform(1),
     /** The main knot, frame units: the haze gathers round it. */
@@ -131,7 +137,6 @@ interface Pixel {
   readonly p: V2;
   readonly reach: F;
   readonly warmth: F;
-  readonly glow: F;
   readonly band: F;
 }
 
@@ -143,12 +148,7 @@ interface Sums {
 }
 
 /** Face `i` over a pixel: its light, what it leaves of the paper, and its glass, added into `sums`. */
-function shadeFace(
-  u: GlassUniforms,
-  i: number,
-  { p, reach, warmth, glow, band }: Pixel,
-  sums: Sums,
-) {
+function shadeFace(u: GlassUniforms, i: number, { p, reach, warmth, band }: Pixel, sums: Sums) {
   const { light, paper, panes } = sums;
   const ab = u.corners.element(i * 2);
   const cd = u.corners.element(i * 2 + 1);
@@ -184,31 +184,35 @@ function shadeFace(
   const near = float(1).sub(depth.mul(0.6));
   // Light refracted in from the edges, brightest just inside them.
   const rim = exp(max(depthIn, 0).div(depth.mul(0.03).add(0.012)).negate()).mul(fill);
-  // The body is navy glass. A tip near a lamp pours light into its faces, brightest at the tip
-  // and in a pane that faces the lamp (transmission); an edge-on pane catches a cool sheen
-  // along its edges (Fresnel).
-  const toA = a.sub(u.lamp);
-  const toA2 = a.sub(u.second);
-  const tipLit = exp(dot(toA, toA).div(reach).mul(-5))
-    .add(exp(dot(toA2, toA2).div(reach).mul(-8)).mul(0.5))
-    .toVar();
-  const pour = exp(length(pa).div(u.scale.mul(0.13)).negate())
+  // The body is slate glass. A tip near a lamp pours light far into its faces, in streaks
+  // fanning out from the tip, brightest in a pane that faces the lamp (transmission); an
+  // edge-on pane catches a cool sheen along its edges (Fresnel).
+  const tipLit = float(0).toVar();
+  for (let k = 0; k < LAMPS; k++) {
+    const lamp = u.lamps.element(k);
+    const toA = a.sub(lamp.xy);
+    tipLit.addAssign(exp(dot(toA, toA).div(reach).mul(-4)).mul(lamp.z));
+  }
+  const fromTip = length(pa);
+  // Rays fanning out from the tip: a few bright, over a soft glow.
+  const ray = gnoise(pa.div(fromTip.add(1e-4)).mul(9).add(float(i).mul(3.7)));
+  const streaks = smoothstep(0.52, 0.82, ray).mul(1.3).add(0.12);
+  const pour = exp(fromTip.div(u.scale.mul(0.34)).negate())
     .mul(tipLit)
     .toVar();
   const through = warmth
-    .mul(lit.mul(0.05).add(0.005))
-    .add(pour.mul(lit.mul(1.2).add(0.25)))
-    .add(glow.mul(0.01));
+    .mul(lit.mul(0.06).add(0.01))
+    .add(pour.mul(streaks).mul(lit.mul(1.1).add(0.18)));
   const fresnel = float(1).sub(lit).pow(2);
-  const facet = STEEL.mul(lit.mul(0.03).add(0.035))
+  const facet = SLATE.mul(lit.mul(0.1).add(0.09))
     .add(AMBER.mul(through))
     .mul(fill)
-    .add(mix(STEEL.mul(0.18), AMBER, pour.mul(1.5).min(1)).mul(rim.mul(lit.mul(0.6).add(0.3))))
-    .add(STEEL.mul(rim.mul(fresnel).mul(0.22)));
+    .add(mix(SLATE.mul(0.5), AMBER, pour.mul(2).min(1)).mul(rim.mul(lit.mul(0.6).add(0.4))))
+    .add(STEEL.mul(rim.mul(fresnel).mul(0.25)));
   // An edge burns brightest near its tip and fades along its length.
-  const along = exp(length(pa).div(u.scale.mul(0.35)).negate())
-    .mul(0.75)
-    .add(0.25);
+  const along = exp(fromTip.div(u.scale.mul(0.5)).negate())
+    .mul(0.7)
+    .add(0.3);
   const edges = mix(STEEL.mul(0.35), GOLD, warmth.mul(warmth).add(pour).add(band).min(1)).mul(
     line.mul(along).mul(lit.mul(0.4).add(0.6)).mul(band.mul(1.6).add(1)),
   );
@@ -224,7 +228,7 @@ function shadeFace(
   light.addAssign(facet.add(edges).mul(near).add(GOLD.mul(knot)).mul(u.heat));
   // A light page: a pane is a pale frost, peach toward the lamp; its edges periwinkle, warming to peach.
   const ink = mix(PERIWINKLE, APRICOT, warmth.add(band).min(1));
-  const pane = mix(FROST, PEACH, warmth.mul(lit.mul(0.5).add(0.5)).add(pour).min(1));
+  const pane = mix(FROST, PEACH, warmth.mul(lit.mul(0.5).add(0.5)).add(pour.mul(streaks)).min(1));
   paper.mulAssign(mix(vec3(1, 1, 1), pane, fill.mul(near).mul(0.5).add(rim.mul(0.3))));
   paper.mulAssign(
     mix(vec3(1, 1, 1), ink, min(line.mul(along.add(1)).mul(near).mul(band.mul(0.3).add(0.5)), 0.6)),
@@ -236,21 +240,18 @@ export function glassFragment(u: GlassUniforms): TslNode<"vec4"> {
   return Fn(() => {
     const at = uv();
     const p = vec2(mix(u.window.x, u.window.z, at.x), mix(u.window.y, u.window.w, at.y)).toVar();
-    const toLamp = p.sub(u.lamp);
-    const toSecond = p.sub(u.second);
     const reach = u.scale.mul(u.scale);
-    const d2 = dot(toLamp, toLamp).div(reach);
-    const s2 = dot(toSecond, toSecond).div(reach);
-    // The lamps' field: a warmth, a tighter core where the light is hottest, and a faint glow
-    // round them; the second lamp is a dimmer one behind another knot.
-    const warmth = exp(d2.mul(-7))
-      .add(exp(s2.mul(-12)).mul(0.3))
-      .min(1)
-      .toVar();
-    const core = exp(d2.mul(-40))
-      .add(exp(s2.mul(-60)).mul(0.5))
-      .toVar();
-    const glow = exp(d2.mul(-1.4)).toVar();
+    // The lamps' field: a warmth, and a tighter core where the light is hottest.
+    const warmth = float(0).toVar();
+    const core = float(0).toVar();
+    for (let k = 0; k < LAMPS; k++) {
+      const lamp = u.lamps.element(k);
+      const to = p.sub(lamp.xy);
+      const d2 = dot(to, to).div(reach);
+      warmth.addAssign(exp(d2.mul(-5)).mul(lamp.z));
+      core.addAssign(exp(d2.mul(-40)).mul(lamp.z));
+    }
+    warmth.assign(warmth.min(1));
     // The sweeping band: every edge it crosses glints.
     const across = dot(p, SWEEP).sub(u.sweep).div(BAND);
     const band = exp(across.mul(across).negate()).toVar();
@@ -266,7 +267,7 @@ export function glassFragment(u: GlassUniforms): TslNode<"vec4"> {
         .and(p.x.lessThan(box.z))
         .and(p.y.greaterThan(box.y))
         .and(p.y.lessThan(box.w));
-      If(within, () => shadeFace(u, i, { p, reach, warmth, glow, band }, { light, paper, panes }));
+      If(within, () => shadeFace(u, i, { p, reach, warmth, band }, { light, paper, panes }));
     }
     // The field behind: a navy haze, and the lamp's warmth in the air.
     const haze = fbm4(p.mul(1.4).add(vec2(u.time.mul(0.006), u.time.mul(-0.004))));
@@ -275,13 +276,15 @@ export function glassFragment(u: GlassUniforms): TslNode<"vec4"> {
     const fromHub = p.sub(u.hub);
     const gathered = exp(dot(fromHub, fromHub).div(reach).mul(-1.6));
     const left = dissolve(u.reach, p, u.time.mul(0.004));
-    const air = vec3(0.011, 0.019, 0.05)
-      .mul(haze.mul(0.8).add(0.55).mul(gathered).mul(panes.min(2).mul(0.9).add(0.2)))
-      .add(AMBER.mul(warmth.mul(0.035).add(core.mul(0.03)).mul(u.heat)));
+    const inGlass = panes.min(2).mul(0.9).add(0.06);
+    const air = vec3(0.014, 0.024, 0.065)
+      .mul(haze.mul(0.8).add(0.55).mul(gathered.mul(0.6).add(0.4)))
+      .add(AMBER.mul(warmth.mul(0.05).add(core.mul(0.05)).mul(u.heat)))
+      .mul(inGlass);
     // Where many panes overlap at the lamp the light piles up: roll it off softly, keeping its hue,
     // so the knot glows pale gold rather than burning white.
     const piled = dot(light, vec3(0.2126, 0.7152, 0.0722));
-    const lit = light.div(piled.mul(0.3).add(1)).add(air).mul(left);
+    const lit = u.hue.mul(light.div(piled.mul(0.3).add(1)).add(air)).mul(left);
     const print = mix(
       vec3(1, 1, 1),
       paper.mul(mix(vec3(1, 1, 1), SUNLIT, warmth.mul(0.45).mul(u.heat.min(1.6)))),

@@ -3896,8 +3896,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - **Art dissolves by its own shape** (`gpu/dissolve.ts`). Anything still
     on the frame where the side feather begins reads as a box, however soft
     the feather. So a scene keeps its art to a reach about its composition:
-    an ellipse slid inward until it clears every side, whose rim noise eats
-    into (only ever inward, so nothing is left past it). What fades as a
+    a superellipse (fuller than an ellipse, so art that fills the frame
+    keeps its corners) slid inward until it clears every side, whose rim
+    noise eats into (only ever inward, so nothing is left past it). How much
+    of it is whole is the scene's: a subject in the open keeps little, art
+    that fills the frame as its picture does keeps most. What fades as a
     whole (a shard, an orb) fades by where it stands in the reach
     (`keptAt`); every pixel, field and haze too, by the ragged rim
     (`dissolve`). A scene that does so asks the stage for only a thin
@@ -3998,16 +4001,19 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - A light page is the paper itself, with a pastel breath of gas.
 - **Floating geometry.** Low-poly glass shards on a dark field, amber light
   coming through them (the owner's reference: crumpled, gold-lit glass
-  drifting slowly). Each load lays out its own glass (`shards.ts`): fans of
-  three or four faces that share a tip and their spokes, folded along them,
-  round six knots where the tips nearly meet, so light gathers where edges
-  converge.
+  drifting slowly). The glass fills the frame as the reference's fills its
+  picture, gold-dominant. Each load lays out its own glass (`shards.ts`):
+  fans of three or four large faces that share a tip and their spokes,
+  folded along them, round seven knots spread across the frame where the
+  tips nearly meet, so light gathers where edges converge. Each load also
+  moves the main knot a little, sizes the glass within a tenth, and turns
+  the light's hue a few degrees (**Variation**).
   - Each piece sways about an axis of its own (11–19 s), rolls in depth
     about a second one (17–29 s) and drifts, on its own clocks, and never
     turns all the way round, so the composition the seed laid out holds.
     The eye leans with the pointer (and idly without one), so the near
     shards slide against the far ones. The CPU projects every face each
-    frame (24 at most), and the glass is drawn offscreen at the device's
+    frame (28 at most), and the glass is drawn offscreen at the device's
     pixels, each edge antialiased over one of them: the near shards are
     crisp, only the far ones a little out of focus and dimmer.
   - A band of light sweeps across the glass every 11 seconds (typing rests
@@ -4016,21 +4022,24 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - Per pixel, each face is solved from its corners: how far inside it the
     pixel is and how far from each edge; a pixel outside a face's box (its
     halo and flare included, set on the CPU) skips it. A face's body is
-    navy glass. A tip near a lamp pours light into its faces, brightest at
-    the tip and in a pane that faces the lamp (transmission); light runs
-    in along the edges as amber streaks, and an edge-on pane catches a cool
-    sheen along them (Fresnel). Edges are fine lines that
+    slate glass. A tip near a lamp pours gold light far into its faces, in
+    rays fanning out from the tip over a soft glow, brightest in a pane that
+    faces the lamp (transmission); light runs in along the edges as amber
+    streaks, and an edge-on pane catches a cool sheen along them (Fresnel). Edges are fine lines that
     burn gold near a lamp and fade to steel away from it, and knots near
-    the lamp glow. Where many panes overlap at the lamp the light piles up,
+    a lamp glow, and the bloom is strong enough to find them. Where many
+    panes overlap at a lamp the light piles up,
     so it rolls off softly, keeping its hue: the knot is pale gold, never
     white. A navy haze lives in the glass, thickest where panes overlap near
-    the main knot, so it takes their shapes. Faces fade as a whole toward
-    the rim of the reach and the rest dissolves at it, so the glass
-    dissolves shard by shard, never at a side of the frame.
-  - Two lamps sit behind the glass: the main one follows the pointer on a
+    the main knot, so it takes their shapes, and the lamps' warmth in the
+    air is only in the glass too. The reach is the whole frame, whole out to
+    three fifths of it: faces fade as a whole toward its rim and the rest
+    dissolves at it, so the glass dissolves shard by shard, never at a side
+    of the frame.
+  - Three lamps sit behind the glass: the main one follows the pointer on a
     soft spring (about two seconds), so the light moves through the facets
-    under it, and wanders slowly near the main knot without one; a dimmer
-    one keeps to another knot. Typing slows the drift. Writes swell the
+    under it, and wanders slowly near the main knot without one; two dimmer
+    ones keep to the next two knots, each breathing on its own clock. Typing slows the drift. Writes swell the
     lamp (`impulse`), and a write outside typing (`stir`) or a new page
     (`ripple`) leans every shard a little further on its own swing, which
     eases back.

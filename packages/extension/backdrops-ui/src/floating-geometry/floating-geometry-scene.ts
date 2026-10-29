@@ -6,9 +6,15 @@
  * tips meet; they sway and drift on clocks of their own and never turn all
  * the way round, so the composition holds.
  *
- * The light: a lamp behind the main knot, and a band of light that sweeps
- * across the glass every `SWEEP_PERIOD` seconds, so edge after edge glints
- * as it passes.
+ * The glass fills the frame as the reference's fills its picture, and
+ * dissolves by its own shapes: a face far out in the frame's reach fades
+ * whole, and the rest is eaten at the reach's ragged rim.
+ * Each load varies where the main knot sits, how large the glass is and a
+ * few degrees of the light's hue (`variation`).
+ *
+ * The light: three lamps behind three knots, and a band of light that
+ * sweeps across the glass every `SWEEP_PERIOD` seconds, so edge after edge
+ * glints as it passes.
  *
  * The owner: the lamp behind the glass follows the pointer on a soft
  * spring, so the light moves through the facets under it, and with no
@@ -21,7 +27,7 @@
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { variation } from "../scene/seed";
+import { hueTurn, variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -50,8 +56,10 @@ const WANDER_RATE = 0.2;
 const SWEEP_PERIOD = 11;
 /** The way the sweep travels: from the upper left down to the right. */
 const SWEEP_DIR = { x: 0.894, y: -0.447 };
-/** How far the glass may spread about the main knot before it has dissolved (shares of the scale). */
-const REACH = { x: 1.25, y: 0.62 };
+/** How much of the frame's reach the glass fills whole before it dissolves. */
+const SOLID = 0.62;
+/** Each lamp's strength: the main one, then the two behind the next knots. */
+const LAMP_STRENGTH = [1, 0.75, 0.55] as const;
 /** How far past its corners anything of a face shows (frame units): its edges' halo and its tip's flare. */
 const BOX_MARGIN = 0.12;
 
@@ -78,22 +86,46 @@ function writeFaces(u: GlassUniforms, faces: readonly ProjectedFace[], reach: Re
   });
 }
 
+/** The main lamp where it is, and the others at their knots, each breathing a little on a clock of its own. */
+function writeLamps(
+  u: GlassUniforms,
+  lamp: { readonly x: number; readonly y: number },
+  others: readonly { readonly x: number; readonly y: number }[],
+  hub: { readonly x: number; readonly y: number; readonly scale: number },
+  wander: number,
+) {
+  u.lamp[0]?.set(lamp.x, lamp.y, LAMP_STRENGTH[0], 0);
+  others.forEach((knot, k) => {
+    const turn = wander * (0.7 + 0.2 * k) + k * 2;
+    u.lamp[k + 1]?.set(
+      hub.x + (knot.x + 0.03 * Math.sin(turn)) * hub.scale,
+      hub.y + (knot.y + 0.02 * Math.cos(turn * 1.3)) * hub.scale,
+      (LAMP_STRENGTH[k + 1] ?? 0.5) * (0.85 + 0.15 * Math.sin(turn * 0.6)),
+      0,
+    );
+  });
+}
+
 function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
   const { pieces, knots } = layoutShards(vary.stream("shards"));
+  /** Where the main knot sits off the composition's, and how large the glass is (shares of the scale). */
+  const shift = { x: vary.range("knot.x", -0.12, 0.12), y: vary.range("knot.y", -0.06, 0.06) };
+  const size = vary.range("size", 0.92, 1.1);
   const u = glassUniforms();
+  u.hue.value.set(...hueTurn(vary.range("hue", -0.06, 0.06)));
   const scrim = textScrim();
   const glass = offscreenPass(stage.renderer, () => glassFragment(u), { history: false });
   stage.scene.backgroundNode = glassFrame(u, glass.picture, scrim, groundsOf(stage));
   /** Where the lamp rests against the main knot (shares of the scale). */
   const rest = { x: vary.range("lamp.x", 0.02, 0.08), y: vary.range("lamp.y", -0.08, -0.02) };
-  /** The dimmer lamp, by the knot up and to the left of the main one. */
-  const second = { x: knots[1]?.[0] ?? -0.5, y: knots[1]?.[1] ?? 0.3 };
+  /** The other lamps, behind the next two knots. */
+  const others = knots.slice(1, 3).map(([x, y]) => ({ x, y }));
 
   let width = 1;
   let height = 1;
   let hub = { x: 0, y: 0, scale: 1 };
-  let reach: Reach = { x: 0, y: 0, rx: 1, ry: 1 };
+  let reach: Reach = { x: 0, y: 0, rx: 1, ry: 1, solid: SOLID };
   const lamp = { x: 0, y: 0 };
   const velocity = { x: 0, y: 0 };
   let settled = false;
@@ -124,15 +156,21 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       width = w;
       height = h;
       const aspect = w / h;
-      hub = { x: (composition.x - 0.5) * aspect, y: 0.5 - composition.y, scale: composition.scale };
-      u.scale.value = composition.scale;
+      const scale = composition.scale * size;
+      hub = {
+        x: (composition.x - 0.5) * aspect + shift.x * scale,
+        y: 0.5 - composition.y + shift.y * scale,
+        scale,
+      };
+      u.scale.value = scale;
       u.hub.value.set(hub.x, hub.y);
       if (!settled) {
         lamp.x = hub.x + rest.x * hub.scale;
         lamp.y = hub.y + rest.y * hub.scale;
         settled = true;
       }
-      reach = reachWithin(aspect, hub, { x: REACH.x * hub.scale, y: REACH.y * hub.scale });
+      // The whole frame, a little high, so the glass thins out toward the page below.
+      reach = reachWithin(aspect, { x: 0, y: 0.04 }, { x: aspect / 2, y: 0.5 }, SOLID);
       u.reach.set(reach);
       u.window.value.set(-aspect / 2, -0.5, aspect / 2, 0.5);
       span = Math.abs(SWEEP_DIR.x) * aspect + Math.abs(SWEEP_DIR.y);
@@ -144,7 +182,7 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
-      stage.setBloom(look.dark ? 0.4 : 0);
+      stage.setBloom(look.dark ? 0.65 : 0);
     },
     frame: (dt: number, reactions: Reactions) => {
       // Typing slows the drift; the clock only runs forward.
@@ -181,12 +219,7 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       swirl += (0.5 * reactions.stir + 0.35 * reactions.ripple - swirl) * Math.min(1, dt * 1.5);
       u.heat.value = 1 + 0.55 * reactions.impulse;
       u.time.value = time;
-      u.lamp.value.set(lamp.x, lamp.y);
-      // The second lamp keeps to its knot, breathing a little on a clock of its own.
-      u.second.value.set(
-        hub.x + (second.x + 0.03 * Math.sin(wander * 0.7)) * hub.scale,
-        hub.y + (second.y + 0.02 * Math.cos(wander * 0.9)) * hub.scale,
-      );
+      writeLamps(u, lamp, others, hub, wander);
       project();
       glass.render();
     },
@@ -202,9 +235,9 @@ export function mountFloatingGeometry(
     host,
     init,
     {
-      bloom: { strength: 0.4, radius: 0.6 },
+      bloom: { strength: 0.65, radius: 0.7 },
       // The glass dissolves within its own reach; the frame's feather is only the last guard.
-      feather: { sides: 0.03, top: 0.03, bottom: 0.03 },
+      feather: { sides: 0.03, top: 0.02, bottom: 0.03 },
       lens: { aberration: 0.006, streak: 0, grain: 0.015 },
     },
     floatingGeometry,

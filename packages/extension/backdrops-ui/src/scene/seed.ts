@@ -73,18 +73,49 @@ export function variation(seed: number): Variation {
   };
 }
 
-/** `rgb` (linear) turned about the grey axis by `angle` (radians): a hue offset that keeps its grey. */
+/**
+ * A hue offset of `angle` (radians) as a matrix, rows first: a colour turned
+ * about the grey axis, so its grey is kept. A shader multiplies by it.
+ */
+export type Matrix3Rows = readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+export function hueTurn(angle: number): Matrix3Rows {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle) / Math.sqrt(3);
+  const along = (1 - cos) / 3;
+  const same = cos + along;
+  return [
+    same,
+    along - sin,
+    along + sin,
+    along + sin,
+    same,
+    along - sin,
+    along - sin,
+    along + sin,
+    same,
+  ];
+}
+
+/** `rgb` (linear) turned about the grey axis by `angle` (radians). */
 export function turnHue(
   rgb: readonly [number, number, number],
   angle: number,
 ): [number, number, number] {
-  const [r, g, b] = rgb;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle) / Math.sqrt(3);
-  const along = ((r + g + b) / 3) * (1 - cos);
+  const m = hueTurn(angle);
   return [
-    r * cos + (b - g) * sin + along,
-    g * cos + (r - b) * sin + along,
-    b * cos + (g - r) * sin + along,
+    m[0] * rgb[0] + m[1] * rgb[1] + m[2] * rgb[2],
+    m[3] * rgb[0] + m[4] * rgb[1] + m[5] * rgb[2],
+    m[6] * rgb[0] + m[7] * rgb[1] + m[8] * rgb[2],
   ];
 }
