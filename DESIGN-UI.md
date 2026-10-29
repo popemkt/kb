@@ -2751,16 +2751,16 @@ There is one mechanism, not a second path beside the core plugins:
 The Settings page is every choice the kb makes, the few this device makes,
 and each extension's switch. The header's gear (`SettingsTrigger`,
 `@kb/ui-sdk`; the graph's and the lab's headers render the same one), the
-sidebar's Settings row and ⌘K's *Settings* (`sys.cmd.settings`) open it in
-the focused pane; ⌘K's *Settings: Extensions* (`sys.cmd.extensions`) opens
+sidebar's Settings row and ⌘K's _Settings_ (`sys.cmd.settings`) open it in
+the focused pane; ⌘K's _Settings: Extensions_ (`sys.cmd.extensions`) opens
 its Extensions part. It replaced the Preferences popover, which overflowed
 a short window and drew core's settings only, and the Extensions page,
 which drew each switch apart from the settings. The record of why is
 `docs/research/2026-10-27-settings-parts.md`.
 
 - **Four parts, each a path.** `SettingsView`'s one param is the part
-  (`SETTINGS_PARTS`, `@kb/views`): *General* at `/settings`, *Appearance*,
-  *Extensions* and *Advanced* at `/settings/<part>`
+  (`SETTINGS_PARTS`, `@kb/views`): _General_ at `/settings`, _Appearance_,
+  _Extensions_ and _Advanced_ at `/settings/<part>`
   (`lib/settings-parts.ts`). A rail names the parts (a row above the page
   in a narrow window), and the part is the path, so a part is linked to
   and history moves between parts. The paths the page had before lead to
@@ -2780,10 +2780,10 @@ which drew each switch apart from the settings. The record of why is
   clears it.
 - **General** holds this device's width and sidebar (`kb-prefs`, never
   the graph, and the section says so), then any setting of core's that
-  Appearance does not group, under *Other settings*, so none is left off.
+  Appearance does not group, under _Other settings_, so none is left off.
 - **Appearance** holds light, dark or system (this device's, for the
   reasons under Design systems), then core's settings in the page's
-  arrangement of core's node: *Theme*, *Page head*, *Motion*, *Effects*.
+  arrangement of core's node: _Theme_, _Page head_, _Motion_, _Effects_.
   Each motion setting notes the value in force and where it comes from
   (set here, the shown theme's preset, the default), and a page-head
   setting core's node leaves unset notes what the head shows instead; an
@@ -3193,14 +3193,14 @@ dark variant. Which systems exist is a plugin point: core contributes its
 default, families contribute the rest, and the page names none of them.
 kb ships six; the last three are whole themes (Themes, below):
 
-| id                  | from              | character                                                                                                                                                                                                                                                            |
-| ------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kb` (default)      | core              | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                           |
-| `themes.paper`      | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
-| `themes.terminal`   | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
-| `zzz.theme`         | the ZZZ family    | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
-| `transistor.theme`  | the Transistor family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                       |
-| `yorha.theme`       | the YoRHa family  | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night       |
+| id                 | from                  | character                                                                                                                                                                                                                                                            |
+| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kb` (default)     | core                  | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                           |
+| `themes.paper`     | the themes family     | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
+| `themes.terminal`  | the themes family     | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
+| `zzz.theme`        | the ZZZ family        | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
+| `transistor.theme` | the Transistor family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                  |
+| `yorha.theme`      | the YoRHa family      | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night      |
 
 - **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
   beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
@@ -3429,18 +3429,18 @@ above). What each of kb's themes is after, and where each idea lives, is
   value, so a system that wants nothing new restates the default and looks
   as it did.
 
-  | token                                                                                                                                                                                  | says                                                                                                                                                                                                                                         | read by                                |
-  | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-  | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                 | the display face: page titles, the brand, a view's name                                                                                                                                                                                      | `.kb-display` (`tokens.css`)           |
-  | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                           | the label face: small uppercase section labels                                                                                                                                                                                               | `.kb-label`                            |
-  | `--label-ink`                                                                                                                                                                          | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                 | `.kb-label`                            |
-  | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                               | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                             | `.kb-palette-mark` (`command-palette.tsx`) |
-  | `--scrim-filter`                                                                                                                                                                       | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                          | `.kb-scrim`                            |
-  | `--art-chrome`, `--art-scrim`                                                                                                                                                          | `background` layers drawn over the chrome (header, sidebar, a view's bar; each layer may say how it is placed or attached, e.g. `fixed` to the window, and the bar keeps its own colour) and a `background-image` over a modal's scrim; `none` by default                                                                                                                       | `.kb-chrome`, `.kb-scrim`              |
-  | `--corner-shape`                                                                                                                                                                       | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                         | `index.css` base                       |
-  | `--chip-skew`                                                                                                                                                                          | the lean of a tag chip                                                                                                                                                                                                                       | `.kb-tag`                              |
-  | `--selection`, `--scrollbar-thumb` | the tint of selected text and of a scroller's thumb, each mixed with transparency by the shell; `--primary` and `--foreground` by default (derived, so a system restates them only for a colour of its own: ZZZ's lime highlighter, Transistor's gold by day and sword-light by night) | `::selection` and the scrollbar rules (`index.css`) |
-  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play | `motion.css`, `lib/timing.ts`, the art |
+  | token                                                                                                                                                                                                    | says                                                                                                                                                                                                                                                                                   | read by                                             |
+  | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+  | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                                   | the display face: page titles, the brand, a view's name                                                                                                                                                                                                                                | `.kb-display` (`tokens.css`)                        |
+  | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                                             | the label face: small uppercase section labels                                                                                                                                                                                                                                         | `.kb-label`                                         |
+  | `--label-ink`                                                                                                                                                                                            | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                                                            | `.kb-label`                                         |
+  | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                                                 | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                                                                        | `.kb-palette-mark` (`command-palette.tsx`)          |
+  | `--scrim-filter`                                                                                                                                                                                         | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                                                                    | `.kb-scrim`                                         |
+  | `--art-chrome`, `--art-scrim`                                                                                                                                                                            | `background` layers drawn over the chrome (header, sidebar, a view's bar; each layer may say how it is placed or attached, e.g. `fixed` to the window, and the bar keeps its own colour) and a `background-image` over a modal's scrim; `none` by default                              | `.kb-chrome`, `.kb-scrim`                           |
+  | `--corner-shape`                                                                                                                                                                                         | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                                                                   | `index.css` base                                    |
+  | `--chip-skew`                                                                                                                                                                                            | the lean of a tag chip                                                                                                                                                                                                                                                                 | `.kb-tag`                                           |
+  | `--selection`, `--scrollbar-thumb`                                                                                                                                                                       | the tint of selected text and of a scroller's thumb, each mixed with transparency by the shell; `--primary` and `--foreground` by default (derived, so a system restates them only for a colour of its own: ZZZ's lime highlighter, Transistor's gold by day and sword-light by night) | `::selection` and the scrollbar rules (`index.css`) |
+  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play                                           | `motion.css`, `lib/timing.ts`, the art              |
 
 - **One gesture vocabulary.** `motion.css` keeps the gestures and their
   keyframes; a theme only picks among them. A surface entering (a popover,
@@ -3546,27 +3546,27 @@ choosing the one it pairs with, and contribute them; write its section in
 
 The canonical list of what a theme is made of, and how far each piece is
 reachable through kb's own API (actions, the CLI, MCP) rather than only
-through code. *Data* means a node or prop in the graph, read and written
-by actions; *code* means a file in a family's or the shell's source,
+through code. _Data_ means a node or prop in the graph, read and written
+by actions; _code_ means a file in a family's or the shell's source,
 changed only by a release. Every piece that should be data and is not has
 a `#gap` node, named in the last column.
 
-| piece | where it lives | through kb's API | gap |
-| --- | --- | --- | --- |
-| Which theme the page shows | core's `sys.f.design-system`, a ref to the theme's option node | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Settings) | — |
-| The catalogue of themes and backdrops (ids, labels) | option nodes the seed derives from declarations (`<family>/src/extension.ts`, `foldSeed`) | data, read-only by convention (`sys.*`, written with `--force`) | — |
-| A theme's backdrops and its pairing | `sys.f.design-system` on each backdrop's option node; `sys.f.backdrop` on the theme's (`SeedOption.chooses`) | data: read by actions; a write changes what the head shows | — |
-| The backdrop shown, its strength and direction | `sys.f.backdrop`, `…-strength`, `…-direction` on the page's node or core's | data | — |
-| A backdrop's renderer | a component contributed through `BackdropPoint` under the declared id (`<family>-ui/src/art/*-backdrop.tsx`) | code, chosen by data: the entry is data, the art a registered renderer | — (the intended split) |
-| Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `<family>-ui/src/<family>.css` (Paper's and Terminal's `themes-ui/src/design-systems/*.css`), mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
-| The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
-| Theme art: ground and veil | `<family>-ui/src/art/*-art.tsx`, `art/art.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Faces | `@fontsource*` imports in each `<family>-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
-| Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Settings shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
-| Motion keyframes and a theme's base timing | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*` | code: the options rescale and swap them, never name new ones | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens) |
-| The selected row's paint | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes) | code, and no token reaches it | `01M5SNSR9AC5V1NA31QY8DNEX6` |
-| Settings a person picks (theme, backdrop, its strength and way) | core's node, in Settings | data | — |
+| piece                                                                                         | where it lives                                                                                                                                  | through kb's API                                                                                             | gap                                        |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Which theme the page shows                                                                    | core's `sys.f.design-system`, a ref to the theme's option node                                                                                  | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Settings)              | —                                          |
+| The catalogue of themes and backdrops (ids, labels)                                           | option nodes the seed derives from declarations (`<family>/src/extension.ts`, `foldSeed`)                                                       | data, read-only by convention (`sys.*`, written with `--force`)                                              | —                                          |
+| A theme's backdrops and its pairing                                                           | `sys.f.design-system` on each backdrop's option node; `sys.f.backdrop` on the theme's (`SeedOption.chooses`)                                    | data: read by actions; a write changes what the head shows                                                   | —                                          |
+| The backdrop shown, its strength and direction                                                | `sys.f.backdrop`, `…-strength`, `…-direction` on the page's node or core's                                                                      | data                                                                                                         | —                                          |
+| A backdrop's renderer                                                                         | a component contributed through `BackdropPoint` under the declared id (`<family>-ui/src/art/*-backdrop.tsx`)                                    | code, chosen by data: the entry is data, the art a registered renderer                                       | — (the intended split)                     |
+| Token values: colours, faces, shapes, marks, motion timing                                    | each theme's sheet, `<family>-ui/src/<family>.css` (Paper's and Terminal's `themes-ui/src/design-systems/*.css`), mounted by the painter        | code                                                                                                         | `01M5SNSPSGYCF6AKWVXQS2GJQJ`               |
+| The design-system layers (layer-1 defaults, the bridge, roles)                                | `app/ui/src/design-system.css`, `index.css`, `tokens.css`                                                                                       | code: the renderer every theme feeds                                                                         | — (the renderer)                           |
+| Theme art: ground and veil                                                                    | `<family>-ui/src/art/*-art.tsx`, `art/art.css`; one `Art` component on the theme's contribution                                                 | code: words, gestures and timing inside                                                                      | `01M5SNSQ4Y11AHAHDA43PCV5D6`               |
+| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option)                                       | `01M5SNSQ4Y11AHAHDA43PCV5D6`               |
+| Faces                                                                                         | `@fontsource*` imports in each `<family>-ui/src/plugin.ts`, named by the sheets' `--app-font*`                                                  | code                                                                                                         | `01M5SNSQH2HMD784PCD51W46D5`               |
+| Motion options: mode, intensity, style, speed, each effect                                    | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`)                                   | data: read and set like any field, Settings shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
+| Motion keyframes and a theme's base timing                                                    | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*`                                                                   | code: the options rescale and swap them, never name new ones                                                 | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens)   |
+| The selected row's paint                                                                      | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes)                                                                                     | code, and no token reaches it                                                                                | `01M5SNSR9AC5V1NA31QY8DNEX6`               |
+| Settings a person picks (theme, backdrop, its strength and way)                               | core's node, in Settings                                                                                                                        | data                                                                                                         | —                                          |
 
 The direction (Rule 1, one contract): a theme becomes one node, the theme's
 option node, that carries its tokens, its art's renderer ids with their
@@ -3871,6 +3871,15 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     would wash it to white.
   - The frame is opaque, so a theme's ground art would show a rectangle
     (gap 01M5STYVFCKQ7TZ8XBSGSRHRH9).
+  - **Art dissolves by its own shape** (`gpu/dissolve.ts`). Anything still
+    on the frame where the side feather begins reads as a box, however soft
+    the feather. So a scene keeps its art to a reach about its composition:
+    an ellipse slid inward until it clears every side, whose rim noise eats
+    into (only ever inward, so nothing is left past it). What fades as a
+    whole (a shard, an orb) fades by where it stands in the reach
+    (`keptAt`); every pixel, field and haze too, by the ragged rim
+    (`dissolve`). A scene that does so asks the stage for only a thin
+    feather, as a last guard.
 - **Framing by width** (`framing.ts`). Each backdrop has a panel
   composition and a wide one: where its subject sits, its scale and how
   present it is. A side panel's width (480px and below) takes the first, a
@@ -3966,24 +3975,36 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     it, and in a panel the ribbons rise above the title.
   - A light page is the paper itself, with a pastel breath of gas.
 - **Floating geometry.** Low-poly glass shards on a dark field, amber light
-  coming through them (the owner's reference: soft gold-lit glass triangles
-  drifting slowly). Each load lays out its own shards (`shards.ts`), one or
-  two faces each (a fold), fanned round four knots where their tips nearly
-  meet, so light gathers where edges converge.
-  - Each piece sways about an axis of its own and drifts a little, on its
-    own clocks, and never turns all the way round, so the composition the
-    seed laid out holds. The CPU projects every face each frame (20 at
-    most), and the glass is drawn offscreen at about a texel a CSS pixel:
-    it is soft, and the far shards softer and dimmer, as if out of focus.
+  coming through them (the owner's reference: crumpled, gold-lit glass
+  drifting slowly). Each load lays out its own glass (`shards.ts`): fans of
+  three or four faces that share a tip and their spokes, folded along them,
+  round six knots where the tips nearly meet, so light gathers where edges
+  converge.
+  - Each piece sways about an axis of its own (11–19 s), rolls in depth
+    about a second one (17–29 s) and drifts, on its own clocks, and never
+    turns all the way round, so the composition the seed laid out holds.
+    The eye leans with the pointer (and idly without one), so the near
+    shards slide against the far ones. The CPU projects every face each
+    frame (24 at most), and the glass is drawn offscreen at the device's
+    pixels, each edge antialiased over one of them: the near shards are
+    crisp, only the far ones a little out of focus and dimmer.
+  - A band of light sweeps across the glass every 11 seconds (typing rests
+    it), so edge after edge glints as it passes; a still rests with it
+    through the main knot.
   - Per pixel, each face is solved from its corners: how far inside it the
-    pixel is and how far from each edge. A face's body stays cool steel
-    glass, a little brighter as it turns to face the lamp; the lamp's light
-    runs in along its edges as amber streaks. Edges are fine lines that
+    pixel is and how far from each edge; a pixel outside a face's box (its
+    halo and flare included, set on the CPU) skips it. A face's body is
+    navy glass. A tip near a lamp pours light into its faces, brightest at
+    the tip and in a pane that faces the lamp (transmission); light runs
+    in along the edges as amber streaks, and an edge-on pane catches a cool
+    sheen along them (Fresnel). Edges are fine lines that
     burn gold near a lamp and fade to steel away from it, and knots near
     the lamp glow. Where many panes overlap at the lamp the light piles up,
     so it rolls off softly, keeping its hue: the knot is pale gold, never
-    white. A navy field gathers round the glass, as in the reference, and
-    fades out before the frame's edge.
+    white. A navy haze lives in the glass, thickest where panes overlap near
+    the main knot, so it takes their shapes. Faces fade as a whole toward
+    the rim of the reach and the rest dissolves at it, so the glass
+    dissolves shard by shard, never at a side of the frame.
   - Two lamps sit behind the glass: the main one follows the pointer on a
     soft spring (about two seconds), so the light moves through the facets
     under it, and wanders slowly near the main knot without one; a dimmer
@@ -3991,9 +4012,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     lamp (`impulse`), and a write outside typing (`stir`) or a new page
     (`ripple`) leans every shard a little further on its own swing, which
     eases back.
-  - A light page is the glass as a print: each face takes a little of the
-    paper, edges are bronze lines that turn gilt toward the lamp, and the
-    lamp warms the paper round it. The text scrim keeps the glass quiet
+  - A light page is the glass as the other backdrops show one, a soft wash
+    of ink on the paper: each pane a pale frost, cool away from the lamp
+    and peach near it, its edges fine graphite lines warming to sienna
+    toward the lamp and under the sweep, and the lamp's warmth on the paper
+    round it. The text scrim keeps the glass quiet
     under the head's text in both.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn:

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { seededRng } from "../scene/rng";
 import { FACES, layoutShards, projectShards, rotate, type Vec3 } from "./shards";
 
-const AT = { x: 0.4, y: 0.05, scale: 1 };
+const AT = { x: 0.4, y: 0.05, scale: 1, lean: [0, 0] } as const;
 const area = (f: { a: readonly number[]; b: readonly number[]; c: readonly number[] }) => {
   const [ax = 0, ay = 0] = f.a;
   const [bx = 0, by = 0] = f.b;
@@ -24,8 +24,8 @@ describe("layoutShards", () => {
   it("fans each knot's shards out from tips that nearly meet at it", () => {
     const { pieces, knots } = layoutShards(seededRng(3));
     const main = knots[0] ?? [0, 0, 0];
-    // The main knot's three shards come first; each one's first corner is its tip.
-    for (const piece of pieces.slice(0, 3)) {
+    // The main knot's two fans come first; each face's first corner is its tip.
+    for (const piece of pieces.slice(0, 2)) {
       const tip = piece.faces[0]?.[0] ?? [9, 9, 9];
       const at = [piece.centre[0] + tip[0], piece.centre[1] + tip[1]];
       expect(Math.hypot((at[0] ?? 0) - main[0], (at[1] ?? 0) - main[1])).toBeLessThan(0.08);
@@ -54,6 +54,17 @@ describe("projectShards", () => {
         expect(Math.hypot(f.a[0] - r.a[0], f.a[1] - r.a[1])).toBeLessThan(0.35);
       });
     }
+  });
+
+  it("slides the near pieces further than the far ones as the eye leans (parallax)", () => {
+    const rest = projectShards(pieces, 0, AT, [0.4, 0], 0);
+    const leant = projectShards(pieces, 0, { ...AT, lean: [0.5, 0] }, [0.4, 0], 0);
+    const shift = (i: number) => (leant[i]?.a[0] ?? 0) - (rest[i]?.a[0] ?? 0);
+    const used = pieces.flatMap((p) => p.faces.map(() => p.depth));
+    const nearest = used.indexOf(Math.min(...used));
+    const farthest = used.indexOf(Math.max(...used));
+    expect(shift(nearest)).toBeLessThan(0);
+    expect(Math.abs(shift(nearest))).toBeGreaterThan(Math.abs(shift(farthest)));
   });
 
   it("lights a face by how squarely it faces the lamp, within 0–1", () => {
