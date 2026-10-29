@@ -3972,16 +3972,18 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   meet, so light gathers where edges converge.
   - Each piece sways about an axis of its own and drifts a little, on its
     own clocks, and never turns all the way round, so the composition the
-    seed laid out holds. The CPU projects every face each frame (16 at
+    seed laid out holds. The CPU projects every face each frame (20 at
     most), and the glass is drawn offscreen at about a texel a CSS pixel:
     it is soft, and the far shards softer and dimmer, as if out of focus.
   - Per pixel, each face is solved from its corners: how far inside it the
-    pixel is and how far from each edge. A face is faintly steel where the
-    light misses it; light comes through it brightest just inside its
-    edges, and through its body as it turns to face the lamp. Edges are
-    fine lines that burn gold near a lamp and fade to steel away from it;
-    knots near the lamp flare, the frame's only HDR, for the bloom. A navy
-    haze gathers round the glass and is gone before the frame's edge.
+    pixel is and how far from each edge. A face's body stays cool steel
+    glass, a little brighter as it turns to face the lamp; the lamp's light
+    runs in along its edges as amber streaks. Edges are fine lines that
+    burn gold near a lamp and fade to steel away from it, and knots near
+    the lamp glow. Where many panes overlap at the lamp the light piles up,
+    so it rolls off softly, keeping its hue: the knot is pale gold, never
+    white. A navy field gathers round the glass, as in the reference, and
+    fades out before the frame's edge.
   - Two lamps sit behind the glass: the main one follows the pointer on a
     soft spring (about two seconds), so the light moves through the facets
     under it, and wanders slowly near the main knot without one; a dimmer

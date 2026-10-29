@@ -55,14 +55,15 @@ type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 
 /** The lamp's light, and the glass where the lamp misses it (linear). */
-const AMBER = vec3(1.0, 0.56, 0.22);
-const GOLD = vec3(1.0, 0.78, 0.48);
+const AMBER = vec3(1.0, 0.5, 0.16);
+const GOLD = vec3(1.0, 0.68, 0.34);
 const STEEL = vec3(0.32, 0.4, 0.7);
 /** A light page's ink: the edges' bronze, warming to gold at the lamp, and the glass's cool grey. */
 const BRONZE = vec3(0.32, 0.2, 0.08);
 const GILT = vec3(0.78, 0.5, 0.16);
 const GLASS = vec3(0.62, 0.7, 0.82);
-const SUNLIT = vec3(1.0, 0.9, 0.74);
+const SUNLIT = vec3(1.0, 0.86, 0.66);
+const AMBER_GLASS = vec3(0.98, 0.78, 0.52);
 
 const vectors = (n: number) => Array.from({ length: n }, () => new Vector4());
 
@@ -154,32 +155,43 @@ export function glassFragment(u: GlassUniforms): TslNode<"vec4"> {
         .mul(shown);
       const near = float(1).sub(depth.mul(0.6));
       // Light refracted in from the edges, brightest just inside them.
-      const rim = exp(max(depthIn, 0).div(depth.mul(0.06).add(0.05)).negate()).mul(fill);
-      const facet = STEEL.mul(0.035)
-        .add(AMBER.mul(warmth.mul(0.2).add(glow.mul(0.03)).mul(lit.mul(0.7).add(0.3))))
+      const rim = exp(max(depthIn, 0).div(depth.mul(0.05).add(0.03)).negate()).mul(fill);
+      // The body stays cool glass; the lamp's light runs in along the edges, as streaks.
+      const facet = STEEL.mul(lit.mul(0.035).add(0.03))
+        .add(AMBER.mul(warmth.mul(0.1).add(glow.mul(0.015)).mul(lit.mul(0.7).add(0.3))))
         .mul(fill)
-        .add(mix(STEEL.mul(0.1), AMBER.mul(0.85), warmth).mul(rim.mul(lit.mul(0.6).add(0.4))));
-      const edges = mix(STEEL.mul(0.22), GOLD.mul(1.35), warmth.add(glow.mul(0.15)).min(1)).mul(
+        .add(mix(STEEL.mul(0.14), AMBER.mul(0.95), warmth).mul(rim.mul(lit.mul(0.6).add(0.4))));
+      const edges = mix(STEEL.mul(0.22), GOLD.mul(1.0), warmth.add(glow.mul(0.15)).min(1)).mul(
         line.mul(lit.mul(0.4).add(0.6)),
       );
       // The tips meet in knots; a knot near the lamp flares.
       const toTip = p.sub(a);
-      const knot = exp(dot(toTip, toTip).mul(-9000)).mul(core).mul(shown).mul(near).mul(2.5);
+      const knot = exp(dot(toTip, toTip).mul(-1200)).mul(core).mul(shown).mul(near).mul(0.9);
       light.addAssign(facet.add(edges).mul(near).add(GOLD.mul(knot)).mul(u.heat));
       // A light page: the glass takes a little of the paper, the edges are bronze turning gilt.
       const ink = mix(BRONZE, GILT, warmth);
-      paper.mulAssign(mix(vec3(1, 1, 1), GLASS, fill.mul(near).mul(0.35)));
-      paper.mulAssign(mix(vec3(1, 1, 1), ink, min(line.mul(near).mul(0.55), 0.85)));
+      // Glass near the lamp is amber; away from it, a cool grey.
+      const pane = mix(GLASS, AMBER_GLASS, warmth.mul(lit.mul(0.5).add(0.5)));
+      paper.mulAssign(mix(vec3(1, 1, 1), pane, fill.mul(near).mul(0.5).add(rim.mul(0.25))));
+      paper.mulAssign(mix(vec3(1, 1, 1), ink, min(line.mul(near).mul(0.8), 0.9)));
     }
     // The field behind: a navy haze, and the lamp's warmth in the air.
     const haze = fbm4(p.mul(1.4).add(vec2(u.time.mul(0.006), u.time.mul(-0.004))));
     // The haze gathers round the glass and is gone before the frame's edge, so no rectangle shows.
     const fromHub = p.sub(u.hub);
-    const gathered = exp(dot(fromHub, fromHub).div(reach).mul(-2.5));
-    const air = vec3(0.008, 0.014, 0.032)
-      .mul(haze.mul(0.9).add(0.35).mul(gathered))
+    // …and fades out before the pass's own edges, so the frame shows no side.
+    const inset = min(
+      min(p.x.sub(u.window.x), u.window.z.sub(p.x)).div(0.35),
+      min(p.y.sub(u.window.y), u.window.w.sub(p.y)).div(0.2),
+    );
+    const gathered = exp(dot(fromHub, fromHub).div(reach).mul(-0.9)).mul(smoothstep(0, 1, inset));
+    const air = vec3(0.011, 0.019, 0.05)
+      .mul(haze.mul(0.8).add(0.55).mul(gathered))
       .add(AMBER.mul(warmth.mul(0.035).add(core.mul(0.03)).mul(u.heat)));
-    const lit = light.add(air);
+    // Where many panes overlap at the lamp the light piles up: roll it off softly, keeping its hue,
+    // so the knot glows pale gold rather than burning white.
+    const piled = dot(light, vec3(0.2126, 0.7152, 0.0722));
+    const lit = light.div(piled.mul(0.3).add(1)).add(air);
     const print = paper.mul(mix(vec3(1, 1, 1), SUNLIT, warmth.mul(0.55).mul(u.heat.min(1.6))));
     return vec4(mix(print, lit, u.dark), 1);
   })();
@@ -200,7 +212,7 @@ export function glassFrame(
     const q = vec2(screenUV.x.sub(0.5).mul(aspect), float(0.5).sub(screenUV.y));
     const span = vec2(u.window.z.sub(u.window.x), u.window.w.sub(u.window.y));
     const seen = glass(q.sub(vec2(u.window.x, u.window.y)).div(span)).rgb.toVar();
-    const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y))).mul(0.7);
+    const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y))).mul(0.5);
     const lit = ground.add(seen.mul(float(1).sub(quiet)));
     const print = paint(page.mul(mix(seen, vec3(1, 1, 1), quiet)));
     return mix(print, lit, u.dark);

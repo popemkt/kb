@@ -16,7 +16,7 @@ export type Vec3 = readonly [number, number, number];
 type Tri = readonly [Vec3, Vec3, Vec3];
 
 /** How many faces the shader reads: a layout fills at most this many. */
-export const FACES = 16;
+export const FACES = 20;
 
 /** A piece of glass: its faces about its centre, how it sways and drifts, and how far back it is. */
 export interface Piece {
@@ -95,23 +95,23 @@ export interface ShardLayout {
 export function layoutShards(rng: Rng): ShardLayout {
   // Each knot: where it is, how many shards meet there, how far they reach, and how far back they stand.
   const hubs: { at: Vec3; pieces: number; reach: number; depth: readonly [number, number] }[] = [
-    { at: [0, 0, 0], pieces: 3, reach: 1.0, depth: [0, 0.3] },
+    { at: [0, 0, 0], pieces: 3, reach: 1.2, depth: [0, 0.3] },
     {
       at: [rng.range(-0.62, -0.46), rng.range(0.22, 0.34), -0.12],
-      pieces: 2,
-      reach: 0.7,
+      pieces: 3,
+      reach: 0.85,
       depth: [0.35, 0.65],
     },
     {
       at: [rng.range(0.4, 0.56), rng.range(0.26, 0.38), -0.08],
       pieces: 2,
-      reach: 0.62,
+      reach: 0.8,
       depth: [0.25, 0.55],
     },
     {
       at: [rng.range(-0.2, 0.05), rng.range(-0.5, -0.38), -0.25],
-      pieces: 1,
-      reach: 0.9,
+      pieces: 2,
+      reach: 1.1,
       depth: [0.7, 1],
     },
   ];
