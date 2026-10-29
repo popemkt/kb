@@ -26,12 +26,13 @@ describe("layoutWeb", () => {
     }
   });
 
-  it("hangs the piece from above its hot point: the main knot lowest, the others spread above it", () => {
+  it("spreads the piece either side of its hot point, wider than tall, so it sits whole in the band", () => {
     for (let seed = 1; seed < 50; seed++) {
-      const { knots } = layoutWeb(seededRng(seed));
-      const xs = knots.map(([x]) => x);
-      expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.55);
-      for (const [, y] of knots.slice(1)) expect(y).toBeGreaterThan(0);
+      const web = layoutWeb(seededRng(seed));
+      const xs = web.knots.map(([x]) => x);
+      expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.85);
+      const bounds = pieceBounds(web);
+      expect(bounds.right - bounds.left).toBeGreaterThan(1.6 * (bounds.top - bounds.bottom));
     }
   });
 
@@ -43,10 +44,10 @@ describe("layoutWeb", () => {
 });
 
 describe("fitPiece", () => {
-  const margin = { sides: 0.1, bottom: 0.07 };
+  const margin = { sides: 0.1, top: 0.04, bottom: 0.07 };
 
   it("leaves a piece where the composition puts it when the frame has room", () => {
-    const bounds = { left: -0.4, right: 0.4, bottom: -0.3 };
+    const bounds = { left: -0.4, right: 0.4, top: 0.3, bottom: -0.3 };
     expect(fitPiece(bounds, { x: 0.2, y: 0.1, scale: 1 }, 2, margin)).toEqual({
       x: 0.2,
       y: 0.1,
@@ -54,22 +55,27 @@ describe("fitPiece", () => {
     });
   });
 
-  it("keeps every facet inside the sides and the bottom, sliding before it shrinks", () => {
+  it("keeps every facet inside the sides, the top and the bottom, sliding before it shrinks", () => {
     for (let seed = 1; seed < 50; seed++) {
       const bounds = pieceBounds(layoutWeb(seededRng(seed)));
       for (const aspect of [0.95, 1.4, 2, 3]) {
-        for (const x of [-aspect / 2, 0, aspect / 2]) {
-          const hub = fitPiece(bounds, { x, y: -0.4, scale: 1 }, aspect, margin);
+        for (const [x, y] of [
+          [-aspect / 2, -0.4],
+          [0, 0.4],
+          [aspect / 2, 0],
+        ] as const) {
+          const hub = fitPiece(bounds, { x, y, scale: 1 }, aspect, margin);
           expect(hub.x + bounds.right * hub.scale).toBeLessThanOrEqual(aspect / 2 - 0.1 + 1e-9);
           expect(hub.x + bounds.left * hub.scale).toBeGreaterThanOrEqual(-aspect / 2 + 0.1 - 1e-9);
           expect(hub.y + bounds.bottom * hub.scale).toBeGreaterThanOrEqual(-0.5 + 0.07 - 1e-9);
+          expect(hub.y + bounds.top * hub.scale).toBeLessThanOrEqual(0.5 - 0.04 + 1e-9);
           expect(hub.scale).toBeLessThanOrEqual(1);
         }
       }
     }
     // Room enough across, so it slides rather than shrinks.
     const wide = fitPiece(
-      { left: -0.4, right: 0.4, bottom: -0.3 },
+      { left: -0.4, right: 0.4, top: 0.3, bottom: -0.3 },
       { x: 1.2, y: 0, scale: 1 },
       3,
       margin,

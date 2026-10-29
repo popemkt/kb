@@ -60,11 +60,12 @@ export interface WebLayout {
 
 /**
  * The seed's glass: a near sheet of large facets, and behind it a middle
- * one and a far one of larger facets, each turned against the others; the main knot at the origin (the composition
- * places it), where the light gathers, low in the piece, and two above it,
- * at the right and the left, where the piece runs off the frame's top: one
- * mass hanging into the frame to its hot point, as a title screen sets its
- * hero opposite its words.
+ * one and a far one of larger facets, each turned against the others; the
+ * main knot at the origin (the composition places it), where the light
+ * gathers, and two either side of it, a little above at the right and a
+ * little below at the left: one mass spread across the frame, wider than
+ * tall, so it sits whole in the head's band as a title screen sets its hero
+ * opposite its words.
  */
 export function layoutWeb(rng: Rng): WebLayout {
   // The near sheet has a corner at the main knot, so the light gathers on one; the far one lies anywhere.
@@ -82,9 +83,9 @@ export function layoutWeb(rng: Rng): WebLayout {
   const near = sheet(rng.range(0.24, 0.28), 0);
   const far = sheet(rng.range(0.5, 0.6), 1);
   const knots: WebLayout["knots"] = [
-    [0, 0, rng.range(0.36, 0.4)],
-    [rng.range(0.36, 0.44), rng.range(0.3, 0.38), rng.range(0.4, 0.44)],
-    [rng.range(-0.4, -0.32), rng.range(0.24, 0.32), rng.range(0.32, 0.36)],
+    [0, 0, rng.range(0.38, 0.42)],
+    [rng.range(0.5, 0.58), rng.range(0.03, 0.08), rng.range(0.32, 0.36)],
+    [rng.range(-0.56, -0.48), rng.range(-0.05, -0.01), rng.range(0.28, 0.32)],
   ];
   // The middle sheet is drawn last, so a seed's piece and far web are what they were without it.
   const middle = sheet(rng.range(0.34, 0.4), 0.5);
@@ -98,12 +99,13 @@ export function layoutWeb(rng: Rng): WebLayout {
  * sheet's slide and the eye's lean move it a little more (frame units).
  */
 const OVERHANG = (JITTER / 2) * Math.SQRT2 + SWAY;
-const SLIDE_ROOM = 0.08;
+const SLIDE_ROOM = 0.06;
 
 /** Where the piece can reach about its main knot at full scale: frame units, left and bottom negative. */
 export interface PieceBounds {
   readonly left: number;
   readonly right: number;
+  readonly top: number;
   readonly bottom: number;
 }
 
@@ -113,27 +115,42 @@ export function pieceBounds({ sheets, knots }: WebLayout): PieceBounds {
   return {
     left: Math.min(...along(([x, , r]) => x - r)) - over,
     right: Math.max(...along(([x, , r]) => x + r)) + over,
+    top: Math.max(...along(([, y, r]) => y + r)) + over,
     bottom: Math.min(...along(([, y, r]) => y - r)) - over,
   };
+}
+
+/** How far inside the frame's edges the piece keeps (frame units). */
+export interface PieceMargin {
+  readonly sides: number;
+  readonly top: number;
+  readonly bottom: number;
 }
 
 /**
  * Where the main knot stands and how large the piece is in a frame `aspect`
  * wide and 1 high (origin at its centre, y up): at `at` and `scale`, slid in
- * and then shrunk only as far as keeps every facet inside the frame's sides
- * and bottom by their margins (frame units). Its top may run off the
- * frame's, which lies under the app's bar.
+ * and then shrunk only as far as keeps every facet inside the frame by its
+ * margins (frame units), so the whole cluster sits in the head's band.
  */
 export function fitPiece(
   bounds: PieceBounds,
   at: { readonly x: number; readonly y: number; readonly scale: number },
   aspect: number,
-  margin: { readonly sides: number; readonly bottom: number },
+  margin: PieceMargin,
 ): { readonly x: number; readonly y: number; readonly scale: number } {
   const half = Math.max(0.05, aspect / 2 - margin.sides);
-  const scale = Math.min(at.scale, (2 * half) / (bounds.right - bounds.left));
+  const tall = Math.max(0.05, 1 - margin.top - margin.bottom);
+  const scale = Math.min(
+    at.scale,
+    (2 * half) / (bounds.right - bounds.left),
+    tall / (bounds.top - bounds.bottom),
+  );
   const x = Math.min(half - bounds.right * scale, Math.max(-half - bounds.left * scale, at.x));
-  const y = Math.max(at.y, -0.5 + margin.bottom - bounds.bottom * scale);
+  const y = Math.min(
+    0.5 - margin.top - bounds.top * scale,
+    Math.max(-0.5 + margin.bottom - bounds.bottom * scale, at.y),
+  );
   return { x, y, scale };
 }
 

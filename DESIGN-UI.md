@@ -4083,42 +4083,57 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   (**Variation**).
   - **Two layers.** The near sheet is the piece: the facets whose three
     corners' lattice points lie within reach of three knots, the main one,
-    where the light gathers, low in the piece, and one above it at either
-    side, where the piece runs off the frame's top. Each facet is whole, so
-    the piece's edge is its own seams. It never fades: the composition
-    places it right of the title and fits it whole inside the frame's sides
-    and bottom (`fitPiece`, from the reach of its knots, how far a corner
-    strays and how far the sheet slides), sliding it in before it shrinks
-    it. Behind it, a middle and a far sheet, larger facets turned against
+    where the light gathers, and one either side of it, a little above at
+    the right and a little below at the left, so the piece is one mass
+    wider than tall. Each facet is whole, so the piece's edge is its own
+    seams. It never fades and is never cut: the composition places it right
+    of the title at the title's height and fits the whole cluster inside
+    the head's band, clear of the frame's sides, of the strip under the
+    app's bar and of the head's rows (`fitPiece`, from the reach of its
+    knots, how far a corner strays and how far the sheet slides), sliding
+    it in before it shrinks it. Behind it, a middle and a far sheet, larger facets turned against
     it, are part of the field: every facet, out of focus (each pane's edges
     soft, the farther the softer), barely warmed by the lamps, a few of its
     planes catching the light, in broad slow pools of light across the
-    frame with the web nearly dark between them, all half lost in the haze.
+    frame with the web dark between them, all half lost in the haze.
+    **Far glints** burn in it: one to a cell of the frame's width in heights
+    (so a wider frame has more), above the title's line and clear of the
+    piece, each heating the vertices of the sheets behind near it as the
+    lamps heat the piece's, so a corner there burns and light runs along
+    its creases, smaller and hazier than the piece's. The frame has two or
+    three lights, never one, and the field round the title has a focus.
     Each pane, seam and corner of theirs fades whole by where it stands
     (`farField`), a seam or corner by itself so the facets either side of
     it agree, thinning out toward the frame's sides, low under the head's
-    rows and under the title. The field is navy air lit by the lamps and the
+    rows and under the title (over a little of the frame at either side, so
+    the field and its glints reach the title's side). The field is a dark,
+    contrasty navy air lit by the lamps and the
     piece, brightest about the piece and falling away from it by its own
     light within a round glow about it (`glowAbout`), over a haze that
     crosses the whole frame, dimmer away from the piece in heights, lit by
     the pools, its lower edge its smoke's folds. The frame has no side
     feather: the haze meets the region's own sides.
-  - **In front of the field**: the piece hides some of the air behind it;
-    its outline is lit from behind, cool, warming where light runs along
+  - **In front of the field**: the piece is translucent, hiding a little of
+    the air behind it, so the warm air the lamps light shows through its
+    faces; its outline is lit from behind, cool, warming where light runs along
     it; it casts a soft shadow on the field below it; and the near sheet
     slides further than the far one and the field as the eye leans
     (parallax).
-  - **The light**: three lamps stand behind the knots, the main one bright
-    and the other two quiet; a corner's heat is the lamps near it, squared,
-    so one hot point burns and the rest barely warm. The near sheet has a
+  - **The light**: three lamps stand behind the knots, the main one
+    brightest and the other two each a glint of its own; a corner's heat is
+    the lamps near it, squared, so a few points burn and the rest barely
+    warm. The near sheet has a
     corner on the main knot and the main lamp rests on it: a warm-white core
     with a long soft amber bloom. Light runs along a crease from a hot
-    corner and dies out within a fifth of the piece, a fine stroke turning
-    white-hot where it is hottest with a soft spill into both facets (the
-    caustic where they fold), each crease as sharp as its own hash; most
-    seams fall to a hair of steel. A hot corner pours a fan of light into
+    corner and dies out within a quarter of the piece, a fine stroke turning
+    white-hot where it is hottest with a soft spill and a broad bloom into
+    both facets (the caustic where they fold), so the light, not the line,
+    carries the edges that meet at a hot point; each crease is as sharp as
+    its own hash, and most seams fall to a hair of steel. A hot corner pours a fan of light into
     each facet that meets there, hugging the seams that leave it, as much as
-    the facet passes of the lamp behind (transmission). Each facet's body is
+    the facet passes of the lamp behind (transmission; a sheet behind passes
+    little, so a far glint is a point and its creases, never a muddy pane).
+    Each facet's body is
     dark slate glass, lighter as it faces the key and toward the lamp's side
     of the facet, so every plane reads by its turn. Where light piles up it
     rolls off softly, keeping its hue.

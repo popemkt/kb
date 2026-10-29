@@ -6,14 +6,15 @@
  * slide a little and their vertices fold on clocks of their own, so the
  * composition holds.
  *
- * The piece hangs right of the title, whole inside the frame's sides and
- * bottom (`fitPiece`). Behind it the hazed web and the air span the scroll
+ * The piece hangs right of the title, the whole cluster inside the head's
+ * band, never cut by an edge (`fitPiece`, `BAND`). Behind it the hazed web and the air span the scroll
  * region: the lit air dissolves by its own round reach about the piece,
  * and the web and its haze cross the whole frame, thinning out facet by
  * facet toward its sides and bottom and under the text (`FIELD`). Each load varies where the main knot sits, how
  * large the glass is and a few degrees of the light's hue (`variation`).
  *
- * The light: three lamps behind three knots, and a band of light that
+ * The light: three lamps behind three knots, far glints in the web behind
+ * (the shader's), and a band of light that
  * sweeps across the glass every `SWEEP_PERIOD` seconds, so seam after seam
  * glints as it passes.
  *
@@ -49,6 +50,8 @@ import {
 import { fitPiece, layoutWeb, pieceBounds, placeSheets, type PieceBounds } from "./web";
 import type { Anchor } from "../gpu/framing";
 
+/** How strongly the light blooms on a dark page: the glints and the seams that meet there carry the frame. */
+const BLOOM = 0.5;
 /** The lamp's spring (ω, rad/s): it follows the pointer in about two seconds, as light through glass would drift. */
 const FOLLOW = 2.4;
 /** The most texels the glass is drawn at per CSS pixel: past this a seam is no crisper, only dearer. */
@@ -56,10 +59,11 @@ const TEXELS = 1.5;
 /** The texels the field is drawn at per CSS pixel: a far layer, out of focus, so a few are enough. */
 const FIELD_TEXELS = 0.5;
 /**
- * Where the far web's facets thin out: over the outer heights of the frame
- * at either side, and low in it, under the head's rows.
+ * Where the far web's facets thin out: over a little of the frame at either
+ * side, so the field reaches the title's side and its glints stand there,
+ * and low in it, under the head's rows.
  */
-const FIELD: FieldReach = { sides: 0.9, low: [-0.34, 0.18] };
+const FIELD: FieldReach = { sides: 0.4, low: [-0.34, 0.18] };
 /** How far the lamp wanders from its rest with no pointer (shares of the composition's scale), and how slowly (rad/s). */
 const WANDER = 0.09;
 const WANDER_RATE = 0.2;
@@ -74,17 +78,23 @@ const SWEEP_DIR = { x: 0.894, y: -0.447 };
  */
 const AIR = { x: 0.5, y: 0.55, grow: 0.8 } as const;
 const SOLID = 0.08;
-/** Each lamp's strength: the main one, the one hot point, then two quieter ones behind the next knots. */
-const LAMP_STRENGTH = [1, 0.26, 0.18] as const;
+/** Each lamp's strength: the main one, the hot point, then two quieter ones behind the next knots, each a glint of its own. */
+const LAMP_STRENGTH = [1, 0.62, 0.42] as const;
 /**
  * The frame's feather (shares of its width and height): none at the sides,
  * which are the scroll region's own (the haze is full-bleed and the far web
  * thins out by its facets), a guard at the top and bottom.
  */
 const FEATHER = { sides: 0, top: 0.02, bottom: 0.03 } as const;
-/** How far inside the frame's sides and bottom the piece's facets keep: a share of its width, and room (frame units). */
+/**
+ * How far inside the frame the piece's facets keep: at the sides a share of
+ * its width and room; at the top the strip under the app's bar; at the
+ * bottom the head's rows (frame units). So the whole cluster sits in the
+ * head's band, never cut by an edge.
+ */
 const SIDE_SHARE = 0.03;
 const EDGE_ROOM = 0.04;
+const BAND = { top: 0.04, bottom: 0.2 } as const;
 /** The main lamp where it is, and the others at their knots, each breathing a little on a clock of its own. */
 function writeLamps(
   u: GlassUniforms,
@@ -121,7 +131,7 @@ function hubFor(
       scale: wanted,
     },
     aspect,
-    { sides: SIDE_SHARE * aspect + EDGE_ROOM, bottom: FEATHER.bottom + EDGE_ROOM },
+    { sides: SIDE_SHARE * aspect + EDGE_ROOM, ...BAND },
   );
 }
 
@@ -214,10 +224,10 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   };
 
   return {
-    // In a panel the piece sits high above the title, smaller and quieter; wide, right of the title,
-    // running off the frame's top.
-    panel: { x: 0.06, y: 0.14, scale: 0.6, presence: 0.75 },
-    wide: { x: 0.4, y: 0.4, scale: 1, presence: 1 },
+    // In a panel the piece sits high above the title, smaller and quieter; wide, right of the title
+    // at its height, the whole cluster in the band (`fitPiece`).
+    panel: { x: 0.06, y: 0.2, scale: 0.6, presence: 0.75 },
+    wide: { x: 0.55, y: 0.4, scale: 1, presence: 1 },
     layout: (layout: BackdropLayout) => {
       const { width: w, height: h, quality, anchor } = layout;
       width = w;
@@ -241,7 +251,7 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
-      stage.setBloom(look.dark ? 0.4 : 0);
+      stage.setBloom(look.dark ? BLOOM : 0);
     },
     frame: (dt: number, reactions: Reactions) => {
       // Typing slows the drift; the clock only runs forward.
@@ -294,7 +304,7 @@ export function mountFloatingGeometry(
     host,
     init,
     {
-      bloom: { strength: 0.4, radius: 0.5 },
+      bloom: { strength: BLOOM, radius: 0.5 },
       // The glass dissolves within its own reach; the frame's feather is only the last guard.
       feather: FEATHER,
       lens: { aberration: 0.006, streak: 0, grain: 0.015 },
