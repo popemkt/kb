@@ -292,6 +292,13 @@ export interface PageActivity {
   readonly writes: number;
 }
 
+/**
+ * A page where the owner does nothing: what art drawn where no owner acts is
+ * handed (a backdrop's Appearance card; a veil on the plane that hears no
+ * write).
+ */
+export const QUIET_ACTIVITY: PageActivity = { editing: false, writes: 0 };
+
 /** What a page head tells the backdrop it shows. */
 export interface BackdropProps {
   /** The head's colour: the shown node's tag colour, else the accent. */

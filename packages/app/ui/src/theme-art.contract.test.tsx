@@ -36,6 +36,7 @@ import {
   DesignSystemPoint,
   PageBackdrop,
   THEME_GESTURE_MAX_MS,
+  QUIET_ACTIVITY,
   ThemeArt,
   replacePath,
   currentContributions,
@@ -199,7 +200,7 @@ describe("every contributed design system's art and pairing", () => {
       const { Art } = system;
       if (Art === undefined) continue;
       const pane = (path: string) =>
-        createElement(Art, { plane: "pane", activity: { editing: false, writes: 0 }, path });
+        createElement(Art, { plane: "pane", activity: QUIET_ACTIVITY, path });
       // Load the art's code first, so the fake clock below drives it alone.
       const warm = createRoot(document.createElement("div"));
       await act(async () => warm.render(pane("/warm")));

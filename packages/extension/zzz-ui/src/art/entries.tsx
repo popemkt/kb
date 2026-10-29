@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
-import type { BackdropProps, ThemeArtProps } from "@kb/ui-sdk";
-import { NOWHERE, STILL, deferred } from "@kb/theme-art";
+import { QUIET_ACTIVITY, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
+import { NOWHERE, deferred } from "@kb/theme-art";
 
 /*
  * What the ZZZ family contributes for its theme's art, each piece loaded
@@ -28,7 +28,7 @@ export function ZzzArt({ plane, activity, path }: ThemeArtProps): ReactElement |
     case "veil":
       return <StreetVeil activity={activity} path={NOWHERE} />;
     case "pane":
-      return <StreetVeil activity={STILL} path={path} />;
+      return <StreetVeil activity={QUIET_ACTIVITY} path={path} />;
     default:
       return plane satisfies never;
   }

@@ -110,6 +110,7 @@ export {
   type BackdropPresentation,
   type BackdropProps,
   type PageActivity,
+  QUIET_ACTIVITY,
   type Dock,
   DockPoint,
   familyViews,

@@ -1,5 +1,5 @@
-import type { BackdropProps, ThemeArtProps } from "@kb/ui-sdk";
-import { NOWHERE, STILL, deferred } from "@kb/theme-art";
+import { QUIET_ACTIVITY, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
+import { NOWHERE, deferred } from "@kb/theme-art";
 
 /*
  * What the YoRHa family contributes for its theme's art, each piece loaded
@@ -27,7 +27,7 @@ export function YorhaArt({ plane, activity, path }: ThemeArtProps) {
     case "veil":
       return <YorhaVeil activity={activity} path={NOWHERE} />;
     case "pane":
-      return <YorhaVeil activity={STILL} path={path} />;
+      return <YorhaVeil activity={QUIET_ACTIVITY} path={path} />;
     default:
       return plane satisfies never;
   }

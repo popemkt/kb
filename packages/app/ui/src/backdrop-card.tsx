@@ -5,14 +5,13 @@ import {
   HoldStill,
   useContributions,
   usePageBackdrop,
-  type PageActivity,
+  QUIET_ACTIVITY,
   type PointerSource,
 } from "@kb/ui-sdk";
 
 /** The width a card draws its backdrop's frame at, then scales into the card: a side panel's, the narrowest a head is drawn. */
 const FRAME_WIDTH = 480;
-/** A sample hears no owner: nothing is being typed or written, and no pointer is over it. */
-const QUIET: PageActivity = { editing: false, writes: 0 };
+/** A sample hears no owner: nothing is being typed or written (`QUIET_ACTIVITY`), and no pointer is over it. */
 const NO_POINTER: PointerSource = { now: () => null };
 
 /**
@@ -88,7 +87,7 @@ export default function BackdropCard({ id }: { readonly id: string }) {
             strength={strength}
             direction={direction}
             opacity={presentation.opacity[strength]}
-            activity={QUIET}
+            activity={QUIET_ACTIVITY}
             pointer={NO_POINTER}
           />
         </HoldStill>
