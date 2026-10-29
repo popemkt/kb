@@ -26,9 +26,11 @@ import {
   groundsOf,
 } from "../gpu/gpu-scene";
 import { reachWithin } from "../gpu/dissolve";
+import { variation } from "../scene/seed";
 import { textScrim } from "../gpu/text-scrim";
 import { TURN_SECONDS, tremble } from "./medallion";
 import { medallionFrame, medallionUniforms } from "./medallion-shader";
+import { SIGIL_BAIL, bakedRelief } from "./relief";
 
 type Rgb = readonly [number, number, number];
 
@@ -53,20 +55,26 @@ const SWING = { angle: 0.08, period: 7.5 } as const;
 const REACH = { x: 3.4, y: 2.2 } as const;
 /** How much of the reach the smoke fills whole: a subject in the open, so little. */
 const SOLID = 0.4;
+/** How far above the frame's top it hangs from (medallion units). */
+const PIVOT_ABOVE = 0.4;
 /** Under reduced motion: how long the eyes stay lit, still (ms). */
 const HELD_MS = 3500;
 
 function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
+  const vary = variation(init.seed);
   const u = medallionUniforms();
   const scrim = textScrim();
-  stage.scene.backgroundNode = medallionFrame(u, scrim, groundsOf(stage));
+  const relief = bakedRelief(stage.renderer);
+  relief.setArt(null);
+  u.bail.value = SIGIL_BAIL.y + SIGIL_BAIL.radius;
+  stage.scene.backgroundNode = medallionFrame(u, relief, scrim, groundsOf(stage));
 
   let width = 1;
   let height = 1;
   let rest = { x: 0, y: 0 };
   let radius = RADIUS;
   // A still is curated; a moving scene starts somewhere of its own.
-  let time = init.reducedMotion ? 30 : (init.seed % 997) / 3;
+  let time = init.reducedMotion ? 30 : vary.range("clock", 0, 330);
   let turn = (time / TURN_SECONDS) * TAU;
   let seen = 0;
   let since = Infinity;
@@ -85,6 +93,8 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       radius = RADIUS * composition.scale;
       u.radius.value = radius;
       u.centre.value.set(rest.x, rest.y);
+      // It hangs from above the frame's top, so the chain runs out of the frame.
+      u.pivot.value = (0.5 - rest.y) / radius + PIVOT_ABOVE;
       u.reach.set(reachWithin(w / h, rest, { x: REACH.x * radius, y: REACH.y * radius }, SOLID));
       scrim.layout(w, h);
     },
@@ -130,7 +140,10 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       u.turn.value = turn;
       u.sway.value = SWING.angle * Math.sin((TAU * time) / SWING.period);
     },
-    dispose: () => clearTimeout(wake),
+    dispose: () => {
+      clearTimeout(wake);
+      relief.dispose();
+    },
   };
 }
 
