@@ -3752,14 +3752,17 @@ exist is a plugin point, and the kit names none of them.
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
 
-- **The choice is fields.** Which backdrop, its strength and its direction
-  are three settings of core's node (`sys.extension.core`), since the slot is
-  core's and names no backdrop. Core seeds the fields. Each field configures
-  core, takes one value, and is a ref to one of its own children:
+- **The choice is fields.** Which backdrop, its strength, its direction and
+  its art are four settings of core's node (`sys.extension.core`), since the
+  slot is core's and names no backdrop. Core seeds the fields, and each
+  configures core and takes one value. The first three are each a ref to
+  one of their own children:
   - `sys.f.backdrop`: the declared backdrops' options;
   - `sys.f.backdrop.strength`: `subtle`, `soft` or `vivid`;
   - `sys.f.backdrop.direction`: `down` (vertically inverted) or `up`. A
     backdrop with no directions ignores it.
+
+  The fourth, `sys.f.backdrop.art`, is text (**The art setting**, below).
 
   The same fields on a node choose for that node's page. Each setting is read
   from the node shown first, then from core's node (`backdropChoice` in
@@ -3776,7 +3779,26 @@ exist is a plugin point, and the kit names none of them.
     `backdropStrength`, `backdropDirection`). A stale key is ignored on read
     and dropped on the next write.
 
-- **One picker.** Settings draws core's three settings with the page's
+- **The art setting.** `sys.f.backdrop.art` names an image of kb's own
+  assets (`assets/…`, DESIGN.md → Assets) that the backdrop draws as its
+  art in place of its own, where it has art to replace. It is how an
+  owner's own picture reaches a backdrop without entering the repository:
+  a file in their `.kb/assets/` is theirs, and the backdrop's code is the
+  same for it as for its own art.
+  - It is read as the others are, the page's node first, then core's
+    (`BackdropChoice.art`). Anything that is not an image of kb's assets is
+    no value and falls through, so a setting can never make the page fetch
+    from elsewhere.
+  - The slot hands every backdrop its URL (`BackdropProps.art`, null for
+    none); a backdrop with no art to replace ignores it, as one with no
+    directions ignores direction.
+  - The Wolf medallion replaces its relief with it: red is height, green
+    where it glows, alpha its silhouette, square, its round body 0.4 of its
+    width about its centre. The chain leaves from the top of its silhouette
+    on the centre column. An image that will not load leaves kb's sigil.
+  - Set it in Settings → Appearance (the `art` row under Page head), or
+    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png`.
+- **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
   backdrop drawn still (Option previews). It draws direction whatever the backdrop,
@@ -4293,7 +4315,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     and far for recesses) and glow. The source is kb's sigil (disk, a rim
     a few thousandths out of round and notched, the gabled mask, the
     engraving, and a bail for the chain), or an image the backdrop's art
-    setting points at (**The art setting**, below). The frame takes the
+    setting points at (**The art setting**, above). The frame takes the
     slope from the baked height a texel across, so its normals are smooth
     and never the screen's 2×2 derivatives.
   - **Worn steel**, physically motivated: a metal's reflectance (Schlick

@@ -479,6 +479,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const directionOptions = BACKDROP_DIRECTIONS.map((value) =>
     mk(BACKDROP_DIRECTION_OPTION_IDS[value], value),
   );
+  // The backdrop's art: a file of kb's own assets a backdrop draws in place of its own (`BackdropChoice.art`).
+  const backdropArtField = singleField(
+    SYSTEM_IDS.backdropArtField,
+    "backdrop.art",
+    "text",
+    configuresCore,
+  );
   const backdropDirectionField: KbNode = {
     ...singleField(SYSTEM_IDS.backdropDirectionField, "backdrop.direction", "ref", configuresCore),
     children: directionOptions.map((option) => option.id),
@@ -579,6 +586,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...strengthOptions,
     backdropDirectionField,
     ...directionOptions,
+    backdropArtField,
     designSystemField,
     ...motionFields,
   ];

@@ -57,7 +57,7 @@ function useSeen(box: HTMLElement | null): { readonly seen: boolean; readonly wi
  */
 export default function BackdropCard({ id }: { readonly id: string }) {
   const backdrop = useContributions(BackdropPoint).find(({ value }) => value.key.id === id);
-  const { strength, direction } = usePageBackdrop();
+  const { strength, direction, art } = usePageBackdrop();
   const [box, setBox] = useState<HTMLSpanElement | null>(null);
   const { seen, width } = useSeen(box);
   if (backdrop === undefined) return null;
@@ -86,6 +86,7 @@ export default function BackdropCard({ id }: { readonly id: string }) {
             node={undefined}
             strength={strength}
             direction={direction}
+            art={art}
             opacity={presentation.opacity[strength]}
             activity={QUIET_ACTIVITY}
             pointer={NO_POINTER}

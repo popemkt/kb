@@ -8,7 +8,13 @@
  * byte, and {@link parseInlineMd} is that result with the markup dropped, for
  * readers that only want the meaning (a graph label).
  */
-import { isAssetPath, mediaKindFromHref, normalizeUrl, type AssetMediaKind } from "@kb/model";
+import {
+  assetUrl,
+  isAssetPath,
+  mediaKindFromHref,
+  normalizeUrl,
+  type AssetMediaKind,
+} from "@kb/model";
 
 /** Shared type-scale class: edit + view must use this for equal line-height. */
 export const KB_TEXT_CLASS = "kb-text";
@@ -80,7 +86,7 @@ const SAFE_HREF = /^(https?:\/\/|mailto:|#|\/|\.\/|\.\.\/|assets\/)/i;
 export function assetSrcUrl(href: string): string {
   const h = href.trim();
   if (h.startsWith("/")) return h;
-  if (isAssetPath(h)) return `/${h}`;
+  if (isAssetPath(h)) return assetUrl(h);
   return h;
 }
 

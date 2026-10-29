@@ -112,7 +112,7 @@ export default function GpuBackdrop({
   const reducedMotion = useReducedMotion();
   const seed = useBackdropSeed(reducedMotion);
   const [state, setState] = useState<SceneState>("loading");
-  const { color, direction, opacity, activity, node, pointer } = backdrop;
+  const { color, direction, art, opacity, activity, node, pointer } = backdrop;
   const nodeId = node?.id;
   const { editing } = activity;
   // A load mounts its scene once: a change of look, motion or editing reaches
@@ -124,10 +124,11 @@ export default function GpuBackdrop({
       dark: appearance.dark,
       presence: opacity,
       direction,
+      art,
     };
     latest.current.look = look;
     mounted.current?.setLook(look);
-  }, [appearance, color, direction, opacity]);
+  }, [appearance, art, color, direction, opacity]);
 
   useEffect(() => {
     const el = host.current;

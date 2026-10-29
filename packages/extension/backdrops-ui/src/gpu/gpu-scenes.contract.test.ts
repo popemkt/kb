@@ -31,6 +31,7 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
   dark,
   presence: 1,
   direction: "down",
+  art: null,
   reducedMotion,
   timing: TIMING_FALLBACK,
   seed: 7,

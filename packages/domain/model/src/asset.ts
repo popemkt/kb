@@ -38,6 +38,11 @@ export function isAssetPath(href: string): boolean {
   return /^assets\/\S/i.test(href.trim());
 }
 
+/** Where kb serves one of its assets (`assets/…`): at the same path from its root. */
+export function assetUrl(path: string): string {
+  return `/${path.trim()}`;
+}
+
 /** Whether text embeds one of kb's assets as markdown media, `![…](assets/…)`. */
 export function textHasAssetRef(text: string): boolean {
   return /!\[[^\]]*\]\(assets\/[^)\s]+\)/i.test(text);

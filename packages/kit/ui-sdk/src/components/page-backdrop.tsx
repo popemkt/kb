@@ -76,7 +76,7 @@ function placementOf({ span, offset }: BackdropPresentation): {
  * no head yet, so nothing renders it there. GAP [[01M54CEKJJXNDPYNT55AR6KEV8]]
  */
 export function PageBackdrop({ color, node }: { color: string; node?: OutlineNode }) {
-  const { backdrop: chosen, strength, direction } = usePageBackdrop(node);
+  const { backdrop: chosen, strength, direction, art } = usePageBackdrop(node);
   const activity = usePageActivity();
   const [pointer, attachFrame] = usePointerOver();
   const spansRegion = chosen?.value.presentation.span.reach === "region";
@@ -109,6 +109,7 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
         node={node}
         strength={strength}
         direction={direction}
+        art={art}
         opacity={presentation.opacity[strength]}
         activity={activity}
         pointer={pointer}

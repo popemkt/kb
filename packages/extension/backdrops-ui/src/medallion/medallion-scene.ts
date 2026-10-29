@@ -14,6 +14,7 @@
  * climb, and smoke and embers dissolve within a reach about it.
  */
 import type { SceneStage } from "@kb/scene-gpu";
+import { logWarn } from "@kb/ui-sdk";
 import type { PageEventKind, Reactions } from "../scene/reactions";
 import { TAU } from "../scene/math";
 import {
@@ -30,7 +31,7 @@ import { variation } from "../scene/seed";
 import { textScrim } from "../gpu/text-scrim";
 import { TURN_SECONDS, tremble } from "./medallion";
 import { medallionFrame, medallionUniforms } from "./medallion-shader";
-import { SIGIL_BAIL, bakedRelief } from "./relief";
+import { SIGIL_BAIL, bakedRelief, loadReliefArt, type ReliefArt } from "./relief";
 
 type Rgb = readonly [number, number, number];
 
@@ -65,8 +66,35 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
   const u = medallionUniforms();
   const scrim = textScrim();
   const relief = bakedRelief(stage.renderer);
-  relief.setArt(null);
-  u.bail.value = SIGIL_BAIL.y + SIGIL_BAIL.radius;
+  // The art the relief is baked from: kb's sigil (null), or an image the art setting names.
+  let art: string | null = null;
+  let shown: ReliefArt | null = null;
+  const showArt = (image: ReliefArt | null) => {
+    shown?.texture.dispose();
+    shown = image;
+    relief.setArt(image);
+    u.bail.value = image === null ? SIGIL_BAIL.y + SIGIL_BAIL.radius : image.top;
+    stage.invalidate();
+  };
+  const chooseArt = (url: string | null) => {
+    if (url === art) return;
+    art = url;
+    if (url === null) {
+      showArt(null);
+      return;
+    }
+    loadReliefArt(url)
+      .then((image) => {
+        if (art === url) showArt(image);
+        else image.texture.dispose();
+      })
+      .catch((error: unknown) => {
+        // Art that will not load leaves the sigil: a backdrop never fails a page.
+        logWarn("backdrop art", error);
+        if (art === url) showArt(null);
+      });
+  };
+  showArt(null);
   stage.scene.backgroundNode = medallionFrame(u, relief, scrim, groundsOf(stage));
 
   let width = 1;
@@ -99,6 +127,7 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       scrim.layout(w, h);
     },
     setLook: (look: GpuLook) => {
+      chooseArt(look.art);
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.35 : 0);
     },
@@ -142,6 +171,8 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
     },
     dispose: () => {
       clearTimeout(wake);
+      art = null;
+      shown?.texture.dispose();
       relief.dispose();
     },
   };

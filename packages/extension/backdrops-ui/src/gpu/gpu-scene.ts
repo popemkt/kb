@@ -42,6 +42,8 @@ export interface GpuLook {
   /** The head's opacity at the chosen strength. */
   readonly presence: number;
   readonly direction: BackdropDirection;
+  /** The URL of the art to draw in place of the scene's own (`BackdropProps.art`); null, its own. */
+  readonly art: string | null;
 }
 
 export interface GpuBackdropInit extends GpuLook {

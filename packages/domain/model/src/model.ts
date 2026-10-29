@@ -267,6 +267,7 @@ export const SYSTEM_IDS = {
   backdropField: "sys.f.backdrop",
   backdropStrengthField: "sys.f.backdrop.strength",
   backdropDirectionField: "sys.f.backdrop.direction",
+  backdropArtField: "sys.f.backdrop.art",
   /**
    * The design system the page is painted in (`design-system.ts`): a ref to
    * one of its field's children, the declared systems' options. A setting

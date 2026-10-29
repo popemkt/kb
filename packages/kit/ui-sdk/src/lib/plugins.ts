@@ -326,6 +326,12 @@ export interface BackdropProps {
   readonly node: OutlineNode | undefined;
   readonly strength: BackdropStrength;
   readonly direction: BackdropDirection;
+  /**
+   * The URL of an image of kb's assets the backdrop draws as its art, in
+   * place of its own, where it has art to replace; null, its own. A
+   * backdrop with no art to replace ignores it.
+   */
+  readonly art: string | null;
   /** The presentation's opacity at `strength`. */
   readonly opacity: number;
   /** What the owner is doing on the page now. */

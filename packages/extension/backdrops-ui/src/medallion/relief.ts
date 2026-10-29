@@ -39,7 +39,7 @@ import {
   vec2,
   vec4,
 } from "three/tsl";
-import { DataTexture, RGBAFormat, type Texture, type WebGPURenderer } from "three/webgpu";
+import { DataTexture, RGBAFormat, Texture, type WebGPURenderer } from "three/webgpu";
 import { offscreenPass, type TslNode } from "@kb/scene-gpu";
 import { gnoise } from "../gpu/noise";
 import { TAU } from "../scene/math";
@@ -150,6 +150,47 @@ const fromBaked = (at: V2): V2 => at.mul(2).sub(1).mul(EXTENT);
 /** Where a point in medallion units lies in the baked picture (UV). */
 export const toBaked = (q: V2): V2 => q.div(EXTENT * 2).add(0.5);
 
+/** An image as the relief's source: its texture, and the top of its silhouette at its centre (medallion units), where a chain leaves it. */
+export interface ReliefArt {
+  readonly texture: Texture;
+  readonly top: number;
+}
+
+/** How opaque a texel must be to count as the silhouette. */
+const OPAQUE = 128;
+
+/**
+ * The image at `url` as the relief's source (`ReliefArt`). Its top is read
+ * from its centre column's alpha, so whatever hangs it, a bail or a ring,
+ * is where the chain meets it.
+ */
+export async function loadReliefArt(url: string): Promise<ReliefArt> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`backdrop art ${url}: ${response.status}`);
+  const bitmap = await createImageBitmap(await response.blob());
+  const canvas = new OffscreenCanvas(1, bitmap.height);
+  const context = canvas.getContext("2d");
+  if (context === null) throw new Error("backdrop art: no 2d context");
+  context.drawImage(
+    bitmap,
+    Math.floor(bitmap.width / 2),
+    0,
+    1,
+    bitmap.height,
+    0,
+    0,
+    1,
+    bitmap.height,
+  );
+  const alpha = context.getImageData(0, 0, 1, bitmap.height).data;
+  let row = 0;
+  while (row < bitmap.height && (alpha[row * 4 + 3] ?? 0) < OPAQUE) row++;
+  const image = new Texture(bitmap);
+  image.flipY = false;
+  image.needsUpdate = true;
+  return { texture: image, top: (0.5 - row / bitmap.height) * 2 * EXTENT };
+}
+
 /** One clear texel, until an image is given. */
 function emptyArt(): Texture {
   const empty = new DataTexture(new Uint8Array(4), 1, 1, RGBAFormat);
@@ -221,11 +262,11 @@ export function bakedRelief(renderer: WebGPURenderer) {
     maps: (at: V2): V4 => material.picture(at),
     /** One texel of the baked picture, in UV. */
     texel,
-    setArt: (image: Texture | null) => {
+    setArt: (image: ReliefArt | null) => {
       if (image === null) {
         useArt.value = 0;
       } else {
-        art.value = image;
+        art.value = image.texture;
         useArt.value = 1;
       }
       bake();
