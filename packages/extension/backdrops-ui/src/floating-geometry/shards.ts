@@ -108,35 +108,35 @@ export function layoutShards(rng: Rng): ShardLayout {
     reach: number;
     depth: readonly [number, number];
   }[] = [
-    { at: [0, 0, 0], fans: [4, 3], reach: 0.72, depth: [0, 0.3] },
+    { at: [0, 0, 0], fans: [4, 3], reach: 0.95, depth: [0, 0.3] },
     {
       at: [rng.range(-0.62, -0.46), rng.range(0.22, 0.34), -0.12],
       fans: [4],
-      reach: 0.55,
+      reach: 0.72,
       depth: [0.35, 0.65],
     },
     {
       at: [rng.range(0.42, 0.58), rng.range(0.26, 0.38), -0.08],
       fans: [3],
-      reach: 0.5,
+      reach: 0.66,
       depth: [0.25, 0.55],
     },
     {
       at: [rng.range(-0.25, 0), rng.range(-0.5, -0.38), -0.25],
       fans: [3],
-      reach: 0.65,
+      reach: 0.85,
       depth: [0.7, 1],
     },
     {
       at: [rng.range(0.78, 0.95), rng.range(-0.3, -0.12), -0.15],
       fans: [3],
-      reach: 0.45,
+      reach: 0.6,
       depth: [0.45, 0.8],
     },
     {
       at: [rng.range(-1.05, -0.85), rng.range(-0.2, 0), -0.3],
       fans: [3],
-      reach: 0.5,
+      reach: 0.66,
       depth: [0.75, 1],
     },
   ];

@@ -3001,7 +3001,8 @@ the pointer is over a scene, where its ray meets a plane, and which presses
 were taps — every study and the 3D graph read the one field), `stage` (renderer, post chain, tone
 mapping, palette uniforms, frame loop, reveal; optionally a camera's
 artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
-film grain), a feather along the frame's own sides, a presence knob and a
+film grain, only where the scene's art is, never on its ground, so the
+grain cannot shift the ground's level and draw the frame), a feather along the frame's own sides, a presence knob and a
 GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
 shader drawn into a render target of its own size, optionally reading its
 last picture back, which a scene samples as a texture), `tone` (the
@@ -4014,7 +4015,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     eases back.
   - A light page is the glass as the other backdrops show one, a soft wash
     of ink on the paper: each pane a pale frost, cool away from the lamp
-    and peach near it, its edges fine graphite lines warming to sienna
+    and peach near it, its edges fine periwinkle lines warming to peach
     toward the lamp and under the sweep, and the lamp's warmth on the paper
     round it. The text scrim keeps the glass quiet
     under the head's text in both.

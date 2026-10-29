@@ -287,10 +287,13 @@ function postChain(
   );
   let shownColor: TslNode<"vec3"> = display.rgb.add(noise.sub(0.5).mul(knobs.dither.div(255)));
   if (lens.grain > 0) {
-    // Film grain where the scene is, never on the page's ground beyond it.
+    // Film grain where the scene's art is, never on the page's ground: not beyond the frame, and
+    // not on the ground inside it either, where grain clipped at the page's white or black would
+    // shift its level and draw the frame's rectangle.
     const pixel = screenCoordinate.xy.floor();
     const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
-    shownColor = shownColor.add(grain.mul(lens.grain).mul(float(1).sub(veil)));
+    const art = length(display.rgb.sub(renderOutput(vec4(colors.ground, 1)).rgb));
+    shownColor = shownColor.add(grain.mul(lens.grain).mul(smoothstep(0.004, 0.04, art)));
   }
   const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;

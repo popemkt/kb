@@ -14,7 +14,7 @@
  *   with a thin halo; the shards' tips meet in knots, and the knots near the
  *   lamp flare (the frame's only HDR, so the bloom finds them).
  * - **A band of light sweeps across** (`sweep`): every edge it crosses
- *   glints, gold on a dark page and sienna on a light one.
+ *   glints, gold on a dark page and peach on a light one.
  * - **It dissolves by its own shapes** (`../gpu/dissolve`): each face fades
  *   as a whole by how far it lies from the main knot (`fade`, from the CPU),
  *   and every pixel, haze and all, by the reach's ragged rim, so no side of
@@ -22,7 +22,7 @@
  * - **Dark** pages show the light over a navy haze on the page's own ground.
  *   **Light** pages show the glass as the other backdrops show a light page,
  *   a soft wash of ink on the paper: each pane a pale frost, cool away from
- *   the lamp and peach near it, its edges fine graphite lines warming toward
+ *   the lamp and peach near it, its edges fine periwinkle lines warming toward
  *   the lamp, and the lamp's warmth on the paper round it. It is composed in
  *   the page's own terms (`Grounds`).
  * - **The frame** reads the glass and keeps it quiet under the head's text
@@ -68,11 +68,11 @@ type V3 = TslNode<"vec3">;
 const AMBER = vec3(1.0, 0.5, 0.16);
 const GOLD = vec3(1.0, 0.68, 0.34);
 const STEEL = vec3(0.14, 0.24, 0.66);
-/** A light page's ink: graphite edges warming to sienna at the lamp, frost panes cool or peach, the lamp's warmth. */
-const GRAPHITE = vec3(0.22, 0.24, 0.3);
-const SIENNA = vec3(0.56, 0.3, 0.12);
-const FROST = vec3(0.7, 0.75, 0.84);
-const PEACH = vec3(1.0, 0.78, 0.58);
+/** A light page's inks: periwinkle edges warming to peach at the lamp, frost panes cool or peach, the lamp's warmth. */
+const GRAPHITE = vec3(0.5, 0.56, 0.9);
+const SIENNA = vec3(0.98, 0.56, 0.36);
+const FROST = vec3(0.84, 0.87, 0.99);
+const PEACH = vec3(1.0, 0.82, 0.68);
 const SUNLIT = vec3(1.0, 0.9, 0.78);
 
 /** The way the sweep travels (unit; the scene's `SWEEP_DIR`), and how wide its band is. */
@@ -218,7 +218,7 @@ function shadeFace(
     .mul(0.9);
   panes.addAssign(fill.mul(near));
   light.addAssign(facet.add(edges).mul(near).add(GOLD.mul(knot)).mul(u.heat));
-  // A light page: a pane is a pale frost, peach toward the lamp; its edges graphite, warming to sienna.
+  // A light page: a pane is a pale frost, peach toward the lamp; its edges periwinkle, warming to peach.
   const ink = mix(GRAPHITE, SIENNA, warmth.add(band).min(1));
   const pane = mix(FROST, PEACH, warmth.mul(lit.mul(0.5).add(0.5)).add(pour).min(1));
   paper.mulAssign(mix(vec3(1, 1, 1), pane, fill.mul(near).mul(0.55).add(rim.mul(0.35))));
@@ -238,7 +238,7 @@ export function glassFragment(u: GlassUniforms): TslNode<"vec4"> {
     // The lamps' field: a warmth, a tighter core where the light is hottest, and a faint glow
     // round them; the second lamp is a dimmer one behind another knot.
     const warmth = exp(d2.mul(-7))
-      .add(exp(s2.mul(-12)).mul(0.55))
+      .add(exp(s2.mul(-12)).mul(0.3))
       .min(1)
       .toVar();
     const core = exp(d2.mul(-40))
