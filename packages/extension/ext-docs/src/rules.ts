@@ -1,5 +1,6 @@
 import type { KbNode, NodeId } from "@kb/model";
 import { renderText, type TemplateContext } from "@kb/contracts";
+import { cell, fieldLines, nodesTagged, propText, rowIds, tagIdsNamed } from "./nodes.ts";
 
 /**
  * The `rules` template: the repo's rule and gap index, rendered from the
@@ -15,43 +16,8 @@ function enforcementRank(value: string): number {
   return i >= 0 ? i : ENFORCEMENT_ORDER.length;
 }
 
-function typeRefIds(node: KbNode): NodeId[] {
-  return (node.props["sys.f.type"] ?? []).filter((pv) => pv.t === "ref").map((pv) => pv.v);
-}
-
-/** Ids of tag nodes whose text is `name` (a tag is a node typed `sys.tag`). */
-function tagIdsNamed(ctx: TemplateContext, name: string): Set<NodeId> {
-  const ids = new Set<NodeId>();
-  for (const [id, node] of ctx.nodes) {
-    if (node.text === name && typeRefIds(node).includes("sys.tag")) ids.add(id);
-  }
-  return ids;
-}
-
-function nodesTagged(ctx: TemplateContext, tagIds: Set<NodeId>): KbNode[] {
-  const out: KbNode[] = [];
-  for (const [, node] of ctx.nodes) {
-    if (typeRefIds(node).some((ref) => tagIds.has(ref))) out.push(node);
-  }
-  return out;
-}
-
-/** First value of `field` on `node`, refs resolved to the target's text. */
-function propText(ctx: TemplateContext, node: KbNode, field: string): string | undefined {
-  const fieldId = ctx.fieldIdByName(field);
-  const value = fieldId === undefined ? undefined : node.props[fieldId]?.[0];
-  if (value === undefined) return undefined;
-  if (value.t === "ref") {
-    return ctx.nodes.get(value.v)?.text ?? value.v;
-  }
-  return renderText(String(value.v), ctx);
-}
-
-/** Markdown table cells are single-line and `|` terminates one. */
-function cell(value: string | undefined): string {
-  if (value === undefined || value === "") return "—";
-  return value.replaceAll("|", "\\|").replaceAll(/\s*\n\s*/g, " ");
-}
+/** A gap's fields, in the order its section lists them. */
+const GAP_FIELDS = ["expected", "current", "impact", "closes", "rule"];
 
 function appendGapSection(
   lines: string[],
@@ -64,12 +30,10 @@ function appendGapSection(
   if (gapNodes.length === 0) lines.push(emptyMessage);
   for (const node of gapNodes) {
     lines.push(`### ${renderText(node.text, ctx)}`, "");
-    for (const field of ["expected", "current", "impact", "closes", "rule"]) {
-      const value = propText(ctx, node, field);
-      if (value !== undefined && value !== "") {
-        lines.push(`- **${field}** — ${value.replaceAll(/\s*\n\s*/g, " ")}`);
-      }
-    }
+    const fields = GAP_FIELDS.map((field) => ctx.fieldIdByName(field)).filter(
+      (id): id is NodeId => id !== undefined,
+    );
+    lines.push(...fieldLines(ctx, node, fields));
     lines.push(`- **node** — \`${node.id}\``, "");
   }
 }
@@ -80,10 +44,7 @@ function appendGapSection(
  * one view renders the whole rules index.
  */
 export function rules(rows: unknown[][], ctx: TemplateContext): string {
-  const ruleIds = [
-    ...new Set(rows.map((r) => r[0]).filter((v): v is string => typeof v === "string")),
-  ];
-  const ruleNodes = ruleIds
+  const ruleNodes = rowIds(rows)
     .map((id) => ctx.nodes.get(id))
     .filter((n): n is KbNode => n !== undefined)
     .toSorted(
