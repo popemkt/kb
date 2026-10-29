@@ -3,12 +3,12 @@
  *
  * - **Smoke.** Two folds of noise rising slowly through the field, one
  *   warping the other, lit faintly from below by the embers.
- * - **The circle.** Two fine rings and the five glyphs between them
+ * - **The circle.** Two fine rings, broken into arcs, and the five glyphs between them
  *   (`medallion.ts`), each stroke a segment's distance, turning slowly. They
  *   smoulder like the embers, and flare a little when the medallion does.
  * - **The medallion.** A height field: the disk, its raised and notched
  *   rim, the mask raised on it in a bevel, and the engraving cut into the
- *   mask. Its slope is read from the screen's derivatives (one evaluation),
+ *   mask. Its slope is a forward difference a pixel across, on the disk alone,
  *   which lights it as dark steel: a cool key from the upper left, the
  *   embers' warmth from below, a hard highlight. The eyes hold a faint
  *   light that flares (`glow`) in the colour of what happened (`tint`), with
@@ -21,18 +21,20 @@
  *   light under it and the embers keep to a reach about the medallion and
  *   thin out at its ragged rim, so the smoke's own folds are its edge,
  *   never a side of the frame.
- * - **Dark** pages are smoke on the page's ground; **light** pages are the
- *   same scene as an ink drawing on the paper (`Grounds`): wash smoke, sepia
- *   glyphs, a polished steel disk, rust specks for embers.
+ * - **Dark** pages are light over the page's ground, which nothing darkens:
+ *   the text scrim and the disk's shadow quiet the art, never the ground.
+ *   **Light** pages are the same scene as an engraving in faint ink on the
+ *   paper (`Grounds`): wash smoke, sepia glyphs, the disk as its relief's
+ *   lines with no fill and no shadow, rust specks for embers.
  */
 import {
   Fn,
+  vec4,
+  If,
   abs,
   atan,
   clamp,
   cos,
-  dFdx,
-  dFdy,
   dot,
   exp,
   float,
@@ -176,8 +178,11 @@ function embers(p: V2, time: F, cells: number, speed: number, seed: number): F {
   const flicker = sin(time.mul(7).add(own.mul(40)))
     .mul(0.35)
     .add(0.65);
+  // Most sparks are specks; a few are large and bright.
+  const size = hash(cell.add(5.3)).pow(3).mul(0.07).add(0.025);
   return step(0.74, own)
-    .mul(smoothstep(0.06, 0.0, d).add(exp(d.mul(d).mul(-260)).mul(0.25)))
+    .mul(smoothstep(size, 0.0, d).add(exp(d.mul(d).div(size.mul(size)).mul(-1.2)).mul(0.25)))
+    .mul(size.mul(14).add(0.3))
     .mul(flicker);
 }
 
@@ -191,13 +196,14 @@ function smoke(p: V2, time: F): F {
 }
 
 /**
- * The disk at `q` (medallion units, `r` its distance from the centre) as a
- * height field (disk, rim and notches, the gabled mask, the engraving), and
- * how the steel takes the light there.
+ * The disk's relief at `q` (medallion units; `px` a pixel's width in them):
+ * the disk, its rim and notches, the gabled mask and the engraving, and the
+ * height they make. No derivatives here, so it can be evaluated again a
+ * pixel away, inside a branch.
  */
-function steelAt(q: V2, r: F) {
-  const edge = fwidth(r);
-  const disk = smoothstep(edge.add(1), float(1).sub(edge), r).toVar();
+const reliefFn = Fn(([q, px]: readonly [V2, F]) => {
+  const r = length(q);
+  const disk = smoothstep(px.add(1), float(1).sub(px), r);
   const rim = smoothstep(0.82, 0.88, r).mul(smoothstep(1, 0.93, r));
   const cell = abs(
     fract(
@@ -206,12 +212,18 @@ function steelAt(q: V2, r: F) {
         .add(0.5),
     ).sub(0.5),
   );
-  const notch = smoothstep(0.12, 0.04, cell).mul(rim);
-  const mask = smoothstep(0, 0.06, polygon(q, MASK).negate()).toVar();
-  const eyes = nearest(q, EYES).toVar();
-  const groove = smoothstep(0.03, 0.012, min(nearest(q, ENGRAVING), eyes))
-    .mul(mask)
-    .toVar();
+  // Each notch's walls slope over a few pixels at least, so they are facets, never one-pixel cliffs.
+  const notch = smoothstep(
+    px
+      .mul(48 / TAU)
+      .div(max(r, 0.1))
+      .add(0.11),
+    float(0.05),
+    cell,
+  ).mul(rim);
+  const mask = smoothstep(0, 0.06, polygon(q, MASK).negate());
+  const eyes = nearest(q, EYES);
+  const groove = smoothstep(0.03, 0.012, min(nearest(q, ENGRAVING), eyes)).mul(mask);
   // The mask is gabled: a ridge down its middle, so each half takes the light its own way.
   const height = disk
     .mul(0.3)
@@ -219,14 +231,56 @@ function steelAt(q: V2, r: F) {
     .add(mask.mul(abs(q.x).mul(-0.3).add(0.36)))
     .sub(groove.mul(0.12))
     .sub(notch.mul(0.08));
-  // The slope from the screen's derivatives, bounded: a pixel across a sharp edge reads no cliff.
-  const slope = clamp(vec2(dFdx(height).div(dFdx(q.x)), dFdy(height).div(dFdy(q.y))), -3, 3);
+  return vec4(height, disk, mask, groove);
+}).setLayout({
+  name: "kbMedallionRelief",
+  type: "vec4",
+  inputs: [
+    { name: "q", type: "vec2" },
+    { name: "px", type: "float" },
+  ],
+});
+
+/**
+ * The disk at `q` (medallion units, `r` its distance from the centre) as a
+ * height field (`reliefFn`), and how the steel takes the light there. Its
+ * slope is a forward difference a pixel across, per pixel, on the disk
+ * alone: the screen's derivatives are shared by each 2×2 block of pixels,
+ * and a highlight on them sparkles along every edge.
+ */
+function steelAt(q: V2, r: F) {
+  const px = fwidth(q.x).max(1e-4).toVar();
+  const here = reliefFn(q, px).toVar();
+  const slope = vec2(0, 0).toVar();
+  If(r.lessThan(1.05), () => {
+    const dx = reliefFn(q.add(vec2(px, 0)), px).x.sub(here.x);
+    const dy = reliefFn(q.add(vec2(0, px)), px).x.sub(here.x);
+    slope.assign(clamp(vec2(dx, dy).div(px), -2.5, 2.5));
+  });
+  const disk = here.y;
+  const mask = here.z;
+  const groove = here.w;
+  const eyes = nearest(q, EYES).toVar();
+  const notchless = float(1).sub(
+    smoothstep(0.82, 0.88, r)
+      .mul(smoothstep(1, 0.93, r))
+      .mul(0.6),
+  );
   const normal = normalize(vec3(slope.mul(-0.6), 1));
   const key = max(dot(normal, vec3(KEY_DIR.x, KEY_DIR.y, KEY_DIR.z)), 0);
   const warm = max(dot(normal, vec3(WARM_DIR.x, WARM_DIR.y, WARM_DIR.z)), 0);
-  const shine = pow(max(dot(normal, normalize(vec3(KEY_DIR.x, KEY_DIR.y, KEY_DIR.z + 1))), 0), 48);
+  const shine = pow(max(dot(normal, normalize(vec3(KEY_DIR.x, KEY_DIR.y, KEY_DIR.z + 1))), 0), 64)
+    .mul(notchless)
+    .toVar();
+  // Steel reflects its surroundings: bright above, dark below, more so as a surface tilts away
+  // (Fresnel), and it is turned on a lathe, so fine rings run round the disk.
+  const env = smoothstep(-0.3, 0.9, normal.y).mul(float(1).sub(normal.z).mul(3).add(0.25)).toVar();
+  const lathe = fbm4(vec2(r.mul(36), atan(q.y, q.x).mul(1.5)))
+    .mul(0.4)
+    .add(0.8);
+  const relief = length(slope).toVar();
   const lit = key.mul(0.9).add(0.15).toVar();
-  return { disk, mask, eyes, groove, lit, warm, shine };
+  return { disk, mask, eyes, groove, lit: lit.mul(lathe), warm, shine, env, relief };
 }
 
 /** The frame, for `scene.backgroundNode`. */
@@ -248,72 +302,67 @@ export function medallionFrame(
     const q = p.sub(u.centre).div(u.radius).toVar();
     const r = length(q).toVar();
 
-    // The circle: two rings and the glyphs, turning.
-    const ring = min(abs(r.sub(CIRCLE.inner)), abs(r.sub(CIRCLE.outer)));
-    const glyph = glyphs(turned(q, u.turn.negate()));
+    // The circle: two rings broken into arcs, and the glyphs, turning.
+    const spun = turned(q, u.turn.negate()).toVar();
+    const angle = atan(spun.y, spun.x).div(TAU).add(0.5);
+    const arcs = (n: number, phase: number, gap: number) => {
+      const g = fract(angle.mul(n).add(phase));
+      return smoothstep(0, 0.015, g).mul(smoothstep(gap, gap - 0.015, g));
+    };
+    const ring = smoothstep(0.008, 0.002, abs(r.sub(CIRCLE.inner)))
+      .mul(arcs(5, 0.05, 0.86))
+      .add(smoothstep(0.008, 0.002, abs(r.sub(CIRCLE.outer))).mul(arcs(8, 0.3, 0.9)));
+    const glyph = glyphs(spun);
     const runes = smoothstep(0.016, 0.004, glyph)
       .add(exp(glyph.mul(glyph).mul(-900)).mul(0.35))
-      .add(smoothstep(0.008, 0.002, ring).mul(0.45))
+      .add(ring.mul(0.45))
       .toVar();
 
-    const { disk, mask, eyes, groove, lit, warm, shine } = steelAt(turned(q, u.sway), r);
+    const { disk, mask, eyes, groove, lit, warm, shine, env, relief } = steelAt(
+      turned(q, u.sway),
+      r,
+    );
     // The eyes' light: a core in the slits, a halo past them, and the disk's halo.
     const core = smoothstep(0.035, 0.008, eyes).mul(mask);
     const halo = exp(eyes.mul(eyes).mul(-160)).mul(mask);
     const aura = exp(max(r.sub(1), 0).mul(-9)).mul(float(1).sub(disk));
     const flare = u.glow.sub(0.2).max(0).div(0.8);
-
-    // Dark: smoke on the ground, the circle smouldering, the steel disk, embers in front.
-    const field = ground
-      .add(SMOKE.mul(dense.mul(1.4)))
-      .add(UNDERGLOW.mul(low.mul(dense.mul(0.6).add(0.5)).mul(left)))
-      .add(SMOULDER.mul(runes.mul(flare.mul(0.5).add(0.32))))
-      .add(u.tint.mul(aura.mul(flare).mul(0.22)))
-      // The disk's shadow on the smoke, a little below and right.
-      .mul(
-        float(1).sub(
-          exp(
-            length(q.sub(vec2(0.06, -0.08)))
-              .sub(1)
-              .max(0)
-              .mul(-6),
-          )
-            .mul(0.5)
-            .mul(float(1).sub(disk)),
-        ),
-      );
-    const steel = STEEL.mul(KEY.mul(lit))
-      .add(STEEL.mul(WARM.mul(warm.mul(0.7))))
-      .add(KEY.mul(shine.mul(0.9)))
-      .mul(float(1).sub(groove.mul(0.55)))
-      .add(u.tint.mul(core.mul(u.glow).mul(2.4).add(halo.mul(u.glow).mul(0.5))));
     const sparks = embers(p, u.time, 9, 0.08, 0)
       .add(embers(p, u.time, 15, 0.12, 31).mul(0.6))
       .mul(low.mul(0.8).add(0.2))
       .mul(left);
-    const night = mix(field, steel, disk)
-      .add(EMBER.mul(sparks.mul(2.2)))
-      .mul(float(1).sub(quiet.mul(0.4)));
-
-    // Light: the same scene inked on the page's paper.
-    // The disk's shadow on the paper, as on the smoke.
+    // The disk's shadow, a little below and right: on the smoke (never on the page's own ground).
     const cast = exp(
       length(q.sub(vec2(0.06, -0.08)))
         .sub(1)
         .max(0)
-        .mul(-7),
-    )
-      .mul(float(1).sub(disk))
-      .mul(0.3);
-    const paper = mix(vec3(1, 1, 1), WASH, dense.mul(0.9))
-      .mul(mix(vec3(1, 1, 1), SEPIA, runes.min(1)))
-      .mul(mix(vec3(1, 1, 1), RUST, sparks.mul(0.6)))
-      .mul(float(1).sub(cast));
-    const polished = POLISHED.mul(lit.mul(2.4).add(0.1))
-      .add(shine.mul(0.6))
-      .mul(float(1).sub(groove.mul(0.6)))
-      .min(1);
-    const inked = mix(paper, polished, disk);
+        .mul(-6),
+    ).mul(float(1).sub(disk));
+
+    // Dark: light over the page's ground, which nothing darkens: smoke, the circle smouldering,
+    // the steel disk, embers in front, all quieter under the head's text.
+    const smoky = SMOKE.mul(dense.mul(1.4))
+      .add(UNDERGLOW.mul(low.mul(dense.mul(0.6).add(0.5)).mul(left)))
+      .mul(float(1).sub(cast.mul(0.5)))
+      .add(SMOULDER.mul(runes.mul(flare.mul(0.5).add(0.32))))
+      .add(u.tint.mul(aura.mul(flare).mul(0.22)));
+    const steel = STEEL.mul(KEY.mul(lit))
+      .add(KEY.mul(env.mul(0.06)))
+      .add(STEEL.mul(WARM.mul(warm.mul(0.7))))
+      .add(KEY.mul(shine.mul(1.6)))
+      .mul(float(1).sub(groove.mul(0.7)))
+      .add(u.tint.mul(core.mul(u.glow).mul(5).add(halo.mul(u.glow).mul(0.6))));
+    const art = mix(smoky, steel.sub(ground), disk).add(EMBER.mul(sparks.mul(2.2)));
+    const night = ground.add(art.mul(float(1).sub(quiet.mul(0.4))));
+
+    // Light: the same scene as an engraving in faint ink on the paper: the disk is its relief's
+    // lines and a breath of steel, with no fill and no shadow.
+    const paper = mix(vec3(1, 1, 1), WASH, dense.mul(0.6))
+      .mul(mix(vec3(1, 1, 1), SEPIA, runes.mul(0.7).min(1)))
+      .mul(mix(vec3(1, 1, 1), RUST, sparks.mul(0.5).min(1)));
+    const engraved = smoothstep(0.4, 2.5, relief).mul(0.32).add(groove.mul(0.22)).min(0.45);
+    const etched = mix(vec3(1, 1, 1), POLISHED, engraved.add(float(1).sub(lit).max(0).mul(0.05)));
+    const inked = mix(paper, etched, disk);
     const glowing = mix(
       inked,
       u.tint,

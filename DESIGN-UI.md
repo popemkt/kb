@@ -4288,11 +4288,18 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   (`gpu/dissolve.ts`): the smoke's own folds are its edge, never a side of
   the frame.
   - One pass, no offscreen picture: the disk is a height field (disk, rim,
-    mask, engraving) whose slope is read from the screen's derivatives and
-    lit as dark steel: a cool key from the upper left, the embers' warmth
-    from below. Glyphs and rings are strokes' distances; the smoke is two
-    folds of noise, one warping the other; the embers are sparks on a
-    grid's cells, each kept inside its cell.
+    mask, engraving) whose slope is a forward difference a pixel across,
+    evaluated on the disk alone (the screen's derivatives are shared by
+    2×2 blocks of pixels, and a highlight on them sparkles as salt along
+    every edge). It is lit as lathe-turned dark steel: a cool key from the
+    upper left, the embers' warmth from below, its surroundings reflected
+    brighter above than below and more as a surface tilts away, a hard
+    highlight, and fine rings round the disk. Glyphs and rings are
+    strokes' distances, the rings broken into arcs; the smoke is two folds
+    of noise, one warping the other; the embers are sparks on a grid's
+    cells, mostly specks and a few large and bright.
+  - Light over the page's ground, never under it: the text scrim and the
+    disk's shadow quiet the art, never the ground itself.
   - **It senses the page.** On a `notice` the medallion trembles for under
     a second and its eyes flare in that event's colour (silver for a change
     from elsewhere, red for an error, gold for a finished agent turn), with
@@ -4301,8 +4308,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     a few seconds later, two still frames the scene asks the stage for.
   - The pointer near the disk wakes its eyes a little; typing slows the
     smoke; writes (`stir`) turn the circle faster for a while.
-  - A light page is the same scene inked on the paper: a smoke wash, sepia
-    glyphs, a polished steel disk casting a soft shadow, rust specks.
+  - A light page is the same scene as an engraving in faint ink on the
+    paper: a smoke wash, sepia glyphs, the disk as its relief's lines with
+    no fill and no shadow, rust specks.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it
