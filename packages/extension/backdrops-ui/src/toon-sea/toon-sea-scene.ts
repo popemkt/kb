@@ -13,7 +13,7 @@
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -33,16 +33,17 @@ const SPLASH_CYCLE = 6;
 const SKY_EVERY = 0.06;
 
 function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
+  const vary = variation(init.seed);
   const u = toonSeaUniforms();
-  u.time.value = 30 + rng.range(0, 240);
+  u.time.value = 30 + vary.range("clock", 0, 240);
   u.horizon.value = HORIZON;
   /** The splash rings' one clock: each ring is a phase of it, so none ever starts over. */
-  let splashClock = rng.range(0, SPLASH_CYCLE);
+  let splashClock = vary.range("splashes", 0, SPLASH_CYCLE);
+  const splashSeed = vary.range("splash.places", 0, 1e4);
   const splashAt = (cycle: number, ring: number) => {
     // Where a ring's cycle lands, from a hash of the cycle: the same every time it is asked.
     const h = (n: number) => {
-      const v = Math.sin(n * 127.1 + init.seed * 0.013) * 43758.5453;
+      const v = Math.sin(n * 127.1 + splashSeed) * 43758.5453;
       return v - Math.floor(v);
     };
     return {

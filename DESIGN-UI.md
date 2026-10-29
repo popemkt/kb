@@ -3781,6 +3781,27 @@ exist is a plugin point, and the kit names none of them.
   into a node and makes an edit: the slot keeps the instance it mounted, and
   a GPU backdrop's scene mounts once and its clock only moves forward.
 
+#### Variation
+
+Every load of the page shows a backdrop a little differently, as a
+reference picture would be redrawn rather than replayed: where its subject
+sits, how large, a few degrees of its hue, where in its cycle its motion
+starts. The variation is the art direction's, never dice: each way a
+backdrop may differ is a named draw within a range that still reads as its
+picture.
+
+- **One seed a load** (`scene/seed.ts`, `useBackdropSeed`), for the 2D
+  stage and the GPU one alike: a backdrop mounted again in the same load
+  (Settings' cards, the head) shows the same variation. Reduced motion
+  shows the one curated still.
+- **Draws by name** (`variation(seed)`): `range`, `pick`, `sign`, `phase`,
+  and a `stream` for a layout that draws many. Each name has a stream of its
+  own, so adding a draw never moves another, and a fixed seed draws the same
+  every time. A hue offset turns a colour about the grey axis (`turnHue`).
+- **Pinned for pictures.** `?backdrop-seed=<n>` in the page's address pins
+  the seed, so a screenshot shows the same variation each time; a test
+  passes its own seed.
+
 #### 2D scenes
 
 Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
@@ -3894,7 +3915,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   the stage's `gpuMs` (queue completion; gap 01M5STYVVX474T8WBT4FY341CM); on
   WebGL2 it reads the frame interval. The canvas carries `data-quality` and
   `data-gpu-ms`.
-- **Reduced motion** shows one still frame, of one curated seed.
+- **Reduced motion** shows one still frame, of the curated seed (**Variation**).
 - **One scene for the life of the head.** The host mounts a scene once for
   its head: an edit, a keystroke, a new colour or theme reaches it as a
   call (`setLook`, `write`, `setEditing`), never as a remount, and its

@@ -21,7 +21,7 @@
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -79,14 +79,14 @@ function writeFaces(u: GlassUniforms, faces: readonly ProjectedFace[], reach: Re
 }
 
 function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
-  const { pieces, knots } = layoutShards(rng);
+  const vary = variation(init.seed);
+  const { pieces, knots } = layoutShards(vary.stream("shards"));
   const u = glassUniforms();
   const scrim = textScrim();
   const glass = offscreenPass(stage.renderer, () => glassFragment(u), { history: false });
   stage.scene.backgroundNode = glassFrame(u, glass.picture, scrim, groundsOf(stage));
   /** Where the lamp rests against the main knot (shares of the scale). */
-  const rest = { x: rng.range(0.02, 0.08), y: rng.range(-0.08, -0.02) };
+  const rest = { x: vary.range("lamp.x", 0.02, 0.08), y: vary.range("lamp.y", -0.08, -0.02) };
   /** The dimmer lamp, by the knot up and to the left of the main one. */
   const second = { x: knots[1]?.[0] ?? -0.5, y: knots[1]?.[1] ?? 0.3 };
 
@@ -97,8 +97,8 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   const lamp = { x: 0, y: 0 };
   const velocity = { x: 0, y: 0 };
   let settled = false;
-  let time = rng.range(0, 60);
-  let wander = rng.range(0, Math.PI * 2);
+  let time = vary.range("clock", 0, 60);
+  let wander = vary.phase("wander");
   let swirl = 0;
   // A still rests with the sweep through the main knot; a running scene starts it off the glass.
   let sweepClock = init.reducedMotion ? SWEEP_PERIOD * 0.55 : 0;

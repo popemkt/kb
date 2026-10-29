@@ -23,7 +23,8 @@ import { damp } from "../scene/math";
 import { rareMoments, type Moments } from "../scene/moments";
 import { paintFlier, type Lit } from "../scene/paint-flier";
 import type { Reactions } from "../scene/reactions";
-import { seededRng, type Rng } from "../scene/rng";
+import type { Rng } from "../scene/rng";
+import { variation } from "../scene/seed";
 
 /** Fliers at each strength, before quality scales them. */
 const FLOCK = { subtle: 4, soft: 6, vivid: 9 } as const;
@@ -239,7 +240,7 @@ function drawSky(ctx: CanvasRenderingContext2D, world: World, time: number): voi
 }
 
 export const createSky: CompositionFactory = (seed): Composition => {
-  const rng = seededRng(seed);
+  const rng = variation(seed).stream("sky");
   const sky: Sky = {
     rng,
     moments: rareMoments(rng, 38, 18, rng.range(10, 24)),

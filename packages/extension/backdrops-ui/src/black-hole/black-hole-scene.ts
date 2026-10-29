@@ -18,7 +18,7 @@
 import { max, min, screenUV, vec2 } from "three/tsl";
 import { offscreenPass, type OffscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -81,9 +81,11 @@ function sharpened(hole: OffscreenPass) {
 }
 
 function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
+  const vary = variation(init.seed);
+  /** Each flare's place on its orbit, drawn anew for each. */
+  const flares = vary.stream("flares");
   const u = blackHoleUniforms();
-  u.time.value = 120 + rng.range(0, 60);
+  u.time.value = 120 + vary.range("clock", 0, 60);
   const hole = offscreenPass(
     stage.renderer,
     (inputs) => blackHoleFragment(u, inputs, groundsOf(stage)),
@@ -128,7 +130,7 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       u.pulse.value = reactions.impulse;
       // A flare starting from dark is set somewhere new on its orbit; a further write brightens it.
       if (u.flare.value < FLARE_REST && reactions.stir >= FLARE_REST) {
-        u.flarePhase.value = rng.range(0, FULL_TURN);
+        u.flarePhase.value = flares.range(0, FULL_TURN);
       }
       u.flare.value = reactions.stir;
       const pointer = reactions.pointer;

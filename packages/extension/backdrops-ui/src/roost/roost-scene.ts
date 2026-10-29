@@ -29,7 +29,8 @@ import { rareMoments, type Moments } from "../scene/moments";
 import { css } from "../scene/palette";
 import { paintFigure, paintFlier, type Lit } from "../scene/paint-flier";
 import type { Reactions } from "../scene/reactions";
-import { seededRng, type Rng } from "../scene/rng";
+import type { Rng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import { houseOf, type Faded, type House } from "./house";
 import {
   HANG_TILT,
@@ -369,7 +370,7 @@ function drawRoost(ctx: CanvasRenderingContext2D, world: World, time: number): v
 }
 
 export const createRoost: CompositionFactory = (seed): Composition => {
-  const rng = seededRng(seed);
+  const rng = variation(seed).stream("roost");
   const roost: Roost = {
     rng,
     outings: rareMoments(rng, 13, 5, rng.range(4, 9)),
