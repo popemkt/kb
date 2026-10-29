@@ -196,6 +196,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — list nested panes in the screen state with their own ids
 - **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
 
+### GAP: a dependency from one kernel to a family another kernel composes cannot be an edge
+
+- **expected** — a call from the registry to a family the kb ui host composes (the agent) is an edge the graph reports and a key whose absence pends its caller, on every host
+- **current** — the registry, the kb ui host and the page each run their own kernel; canvas's run is in the registry and the agent in the kb ui host, so the call crosses kernels by action id and, where no agent is hosted, fails by name (ext-canvas/src/run.ts:271)
+- **impact** — even with contribution keys in inject, this edge would read as missing in the registry while the call would succeed through kb ui
+- **closes** — P4 of docs/research/2026-10-29-plugin-codependency.md, after the owner chooses between resolving against the catalog the invoke core reaches and composing a needed family beside its caller
+- **node** — `01M63C0M1WRKY0Q09AGK9NK7NJ`
+
 ### GAP: a family a host composes is switched only where that host runs
 
 - **expected** — every surface can write any family's switch, a hosted one included, and kb ext list lists it
@@ -652,6 +660,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
+### GAP: cross-family action calls by string id are invisible to the dependency graph
+
+- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
+- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
+- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
+- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -856,6 +873,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a pending-transaction model the outline can draw and a palette command to start and release a turn; the theme then draws the plan
 - **node** — `01M5S0J203QE0ZMB7MGN7GJXD8`
 
+### GAP: no test holds that switching one optional family off leaves the others whole
+
+- **expected** — a switch matrix over the registry, the kb ui host and the page: for each optional family F, with every other family on, every other family's plugin is active or pending only on a key F alone provides, every read action answers, and no plugin fails
+- **current** — core-only.test.ts proves core stands without every optional family; that the family is the unit (DESIGN.md) is held only by the import fence, which cannot see a call by action id
+- **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
+- **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
+
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -871,6 +896,23 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Special nodes (inboxes, sys nodes) read the same as any other link.
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
+
+### GAP: nodes that reference a family's seed are not counted or shown before it is switched off
+
+- **expected** — extension.list rows carry referencedBy, the nodes outside a family whose refs land in what it seeds, read from :node/mentions joined to :node/owner, and extension.impact groups them by the kind of node referenced
+- **current** — the footprint lists what a family seeds and contributes, but not who points at it; views, backdrop and design-system choices that name a switched-off family degrade silently
+- **impact** — a person cannot tell how much of their graph a switch affects; the degrade is correct but unannounced
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0HZMR1ZSS95YZGJ868PR`
+
+### GAP: nothing flags another family's action id or seed id spelled as a string
+
+- **expected** — L1, a harness lint, fails a string literal ext.<f>.<id> in a package of another family; L2, a harness test over bundledOwners(), fails a literal equal to a node id another family seeds; L3 keeps a module top level inert (no effects, no globalThis or window writes)
+- **current** — the family fence refuses imports only, so a coupling it forbids reappears as a string: four foreign action ids in ext-canvas, and sys.tag.canvas copied into the kit (gap 01M436DVSEHKNYWSF2MR07HPMR)
+- **impact** — each copy is a mirror held by a test or by nothing; a rename breaks it at run time, not at build
+- **closes** — P2 (L1) and P3 (L2, L3) of docs/research/2026-10-29-plugin-codependency.md
+- **rule** — Core names no feature
+- **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
 
 ### GAP: only text cards can be promoted to nodes
 
@@ -1056,6 +1098,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
 - **node** — `01M1QZNM17MTGGPE517NVZYJT0`
 
+### GAP: switching a family off says nothing about what depends on it
+
+- **expected** — a read action, extension.impact {name, on}, answers what a switch would pause (plugins that go pending, with the key each waits on), degrade (nodes outside the family that reference its seed) and resume; Settings shows it before an off with a non-empty impact, the CLI prints it, and MCP and the agent have it as a read tool
+- **current** — extension.switch (operations/src/extensions.ts:62) checks only that the family is optional and returns {name, on}; nothing computes dependants before or after the write
+- **impact** — a person or an agent switches a family off without knowing which other features pause or which nodes will show as unavailable; the loss is found later, elsewhere
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
 ### GAP: sys.f.color keeps an always-open swatch row
 
 - **expected** — A colour value is a chip that opens a picker on demand, like every other option-shaped value.
@@ -1161,6 +1212,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
 - **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
 - **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
+
+### GAP: the extension dependency graph has no command, view or reverse edges
+
+- **expected** — extension.graph returns every derived edge {from, to, key, kind, optional, source} and data edges between families; kb ext graph prints it (and --dot), kb ext why <plugin> says why a plugin is not active, extension.list rows carry dependants, and the graph view has a lens over sys.extensions drawing the same edges
+- **current** — kernel.dependencies() exists and organisationOf reads it into each row's injects, forward only and per family; no surface prints the whole graph or who depends on a family
+- **impact** — the coupling that exists cannot be seen in one place; a reviewer cannot ask what depends on canvas
+- **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
 
 ### GAP: the graph legend overlays a renderer that cannot pan
 
