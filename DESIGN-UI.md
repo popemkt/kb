@@ -3733,7 +3733,9 @@ exist is a plugin point, and the kit names none of them.
   - `backdrops.silk` is silk ribbons in three depths, lit on a stage that
     opens onto a faint cosmos;
   - `backdrops.floating-geometry` is a web of low-poly glass facets on a
-    deep navy field, gold light gathering where they meet.
+    deep navy field, gold light gathering where they meet;
+  - `backdrops.gradient-orbs` is large soft orbs glowing on a deep blue
+    field, lit from between them in violet, rose and peach.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -3877,7 +3879,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens, Black hole, Toon sea, Silk and Floating geometry are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea, Silk, Floating geometry and Gradient orbs are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -4182,8 +4184,32 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     periwinkle and apricot ink, and the web behind in fainter ink over the
     wash, its panes fainter still. The text scrim keeps the field quiet under the head's text in
     both, never the piece.
+- **Gradient orbs.** Large soft orbs on a deep blue field, after the
+  owner's reference: a great orb low and right, one high at the left, a
+  small one far right and a faint one in shadow between them. Each load
+  varies that composition a little from its seed (`orbs.ts`).
+  - One pass, no offscreen picture: each orb is a circle's distance field
+    shaded as a sphere and laid over the ones behind it. A lamp in front of
+    the frame, between the orbs, lights each from where its centre sees it,
+    so every orb carries one broad gradient (deep blue in its shadow,
+    through violet and rose to peach on the side toward the lamp), with a
+    warm rim on that limb and a cool one round the far limb, never a hot
+    spot.
+  - Smooth blending is in the edges and the glow: an orb's edge is crisp
+    where the lamp catches it and melts into the field on its shadow side,
+    and its glow spills past the lit limb over whatever lies behind it, so
+    orbs that drift across each other blend rather than cut.
+  - Each orb drifts about its rest on slow paths of its own (a minute or
+    more), and breathes. The lamp follows the pointer on a slow spring, so
+    the orbs turn their lit sides toward it, and wanders between them
+    without one. Typing slows the drift; writes (`impulse`) swell the orbs
+    a little and lift their glow, and they ease back.
+  - A light page paints the pastel pair on the paper: lilac and periwinkle
+    shadow, blush and cream toward the lamp, on a periwinkle wash.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
-  high-key pictures, and the page must show them as drawn:
+  high-key pictures, and the page must show them as drawn (Gradient orbs
+  takes the frame and the fade too; it is drawn for the dark page, so it
+  needs no grade):
   - a strength barely veils them (`sceneFrame`: 0.95, 0.98, 1), since a
     veil toward a light page is a wash;
   - they fade into the page in display values (`fadeSpace: "display"`), as

@@ -42,3 +42,8 @@ export function SilkBackdrop(props: BackdropProps) {
 export function FloatingGeometryBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="floatingGeometry" backdrop={props} />;
 }
+
+/** Soft orbs glowing on a deep field, melting together where they meet (`orbs/`). */
+export function GradientOrbsBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="gradientOrbs" backdrop={props} />;
+}

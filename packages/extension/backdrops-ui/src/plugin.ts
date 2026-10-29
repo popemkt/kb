@@ -4,6 +4,7 @@ import {
   BLACK_HOLE_BACKDROP,
   FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
+  GRADIENT_ORBS_BACKDROP,
   LENS_BACKDROP,
   ROOST_BACKDROP,
   SILK_BACKDROP,
@@ -19,6 +20,7 @@ import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
 import {
   BlackHoleBackdrop,
   FloatingGeometryBackdrop,
+  GradientOrbsBackdrop,
   LensBackdrop,
   SilkBackdrop,
   ToonSeaBackdrop,
@@ -128,6 +130,12 @@ const floatingGeometry: Omit<Backdrop, "key"> = {
   Component: FloatingGeometryBackdrop,
 };
 
+/** Soft orbs glowing on a deep field, melting together: a painted scene, its own field and all. */
+const gradientOrbs: Omit<Backdrop, "key"> = {
+  presentation: sceneFrame,
+  Component: GradientOrbsBackdrop,
+};
+
 /**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
@@ -152,6 +160,7 @@ export const backdropsUiPlugin = definePlugin({
           BackdropPoint,
           provideBackdrop(FLOATING_GEOMETRY_BACKDROP, floatingGeometry),
         ),
+        ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_ORBS_BACKDROP, gradientOrbs)),
       ],
       { discard: true },
     ),

@@ -35,6 +35,7 @@ const SCENES = {
   silk: () => import("../silk/silk-scene").then((m) => m.mountSilk),
   floatingGeometry: () =>
     import("../floating-geometry/floating-geometry-scene").then((m) => m.mountFloatingGeometry),
+  gradientOrbs: () => import("../orbs/orbs-scene").then((m) => m.mountGradientOrbs),
 } satisfies Record<string, () => Promise<GpuBackdropMount>>;
 
 export type GpuSceneId = keyof typeof SCENES;

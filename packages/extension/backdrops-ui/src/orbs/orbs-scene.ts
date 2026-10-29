@@ -1,0 +1,122 @@
+/**
+ * The Gradient orbs backdrop: soft glowing spheres drifting slowly on a
+ * deep field, their soft edges and glows blending (shader:
+ * `orbs-shader.ts`; the orbs: `orbs.ts`). Each mount varies the reference
+ * composition a little from its seed.
+ *
+ * The owner: the lamp that lights the orbs follows the pointer on a slow
+ * spring, so they turn their lit faces toward it, and wanders off the
+ * between the orbs without one. Typing slows the drift. Writes are an
+ * impulse, never a restart: the orbs breathe out a little and their glow
+ * lifts with it, and ease back.
+ */
+import type { SceneStage } from "@kb/scene-gpu";
+import type { Reactions } from "../scene/reactions";
+import { seededRng } from "../scene/rng";
+import {
+  mountBackdrop,
+  type BackdropLayout,
+  type BackdropParts,
+  type GpuBackdropInit,
+  type GpuBackdropScene,
+  type GpuLook,
+  groundsOf,
+} from "../gpu/gpu-scene";
+import { textScrim } from "../gpu/text-scrim";
+import { orbFrame, orbUniforms } from "./orbs-shader";
+import { layoutOrbs, placeOrbs } from "./orbs";
+
+/** The lamp's spring (ω, rad/s): slow, so the light swings round the orbs rather than snapping. */
+const FOLLOW = 1.6;
+/** Where the lamp rests with no pointer: between the orbs, right of centre (frame units from the composition), and its height, low so it rakes their limbs. */
+const LAMP_REST = { x: 0.58, y: 0.2 } as const;
+const LAMP_HEIGHT = 0.28;
+/** How far and how slowly it wanders there (frame units, rad/s). */
+const WANDER = 0.12;
+const WANDER_RATE = 0.05;
+
+function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
+  const rng = seededRng(init.seed);
+  const orbs = layoutOrbs(rng);
+  const u = orbUniforms();
+  const scrim = textScrim();
+  stage.scene.backgroundNode = orbFrame(u, scrim, groundsOf(stage));
+
+  let width = 1;
+  let height = 1;
+  let frame = { x: 0, y: 0, scale: 1 };
+  const lamp = { x: 0, y: 0 };
+  const velocity = { x: 0, y: 0 };
+  let settled = false;
+  let time = rng.range(0, 120);
+  let wander = rng.range(0, Math.PI * 2);
+
+  return {
+    // In a panel the orbs gather high and right, smaller; wide, the great orb right of the title.
+    panel: { x: 0.68, y: 0.42, scale: 0.6, presence: 0.85 },
+    wide: { x: 0.6, y: 0.5, scale: 1, presence: 1 },
+    layout: ({ width: w, height: h, composition }: BackdropLayout) => {
+      width = w;
+      height = h;
+      frame = {
+        x: (composition.x - 0.5) * (w / h),
+        y: 0.5 - composition.y,
+        scale: composition.scale,
+      };
+      if (!settled) {
+        lamp.x = frame.x + LAMP_REST.x * frame.scale;
+        lamp.y = frame.y + LAMP_REST.y * frame.scale;
+        settled = true;
+      }
+      scrim.layout(w, h);
+    },
+    setLook: (look: GpuLook) => {
+      u.dark.value = look.dark ? 1 : 0;
+      stage.setBloom(look.dark ? 0.25 : 0);
+    },
+    frame: (dt: number, reactions: Reactions) => {
+      time += dt * (1 - 0.6 * reactions.calm);
+      wander += dt * WANDER_RATE;
+      const pointer = reactions.pointer;
+      const rest = {
+        x: frame.x + (LAMP_REST.x + WANDER * Math.cos(wander)) * frame.scale,
+        y: frame.y + (LAMP_REST.y + WANDER * 0.5 * Math.sin(wander * 1.4)) * frame.scale,
+      };
+      const over = { x: (pointer.x - width / 2) / height, y: (height / 2 - pointer.y) / height };
+      const aim = {
+        x: rest.x + (over.x - rest.x) * pointer.near,
+        y: rest.y + (over.y - rest.y) * pointer.near,
+      };
+      if (dt > 0) {
+        velocity.x += (FOLLOW * FOLLOW * (aim.x - lamp.x) - 2 * FOLLOW * velocity.x) * dt;
+        velocity.y += (FOLLOW * FOLLOW * (aim.y - lamp.y) - 2 * FOLLOW * velocity.y) * dt;
+        lamp.x += velocity.x * dt;
+        lamp.y += velocity.y * dt;
+      }
+      u.lamp.value.set(lamp.x, lamp.y, LAMP_HEIGHT);
+      u.glow.value = 1 + 0.6 * reactions.impulse;
+      placeOrbs(orbs, time, frame, reactions.impulse).forEach((orb, i) =>
+        u.placed[i]?.set(orb.x, orb.y, orb.r, orb.light),
+      );
+    },
+    dispose: () => undefined,
+  };
+}
+
+export function mountGradientOrbs(
+  host: HTMLElement,
+  init: GpuBackdropInit,
+): Promise<GpuBackdropScene> {
+  return mountBackdrop(
+    host,
+    init,
+    {
+      bloom: { strength: 0.25, radius: 0.7 },
+      lens: { aberration: 0, streak: 0, grain: 0.012 },
+      // A painted scene: it fades into the page as a CSS mask would.
+      fadeSpace: "display",
+      feather: { sides: 0.1, top: 0.06, bottom: 0.38 },
+    },
+    gradientOrbs,
+  );
+}

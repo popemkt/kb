@@ -45,6 +45,12 @@ export const FLOATING_GEOMETRY_BACKDROP: SeedBackdrop = {
   label: "Floating geometry",
 };
 
+/** Large soft orbs glowing on a deep field, melting together where they drift close. */
+export const GRADIENT_ORBS_BACKDROP: SeedBackdrop = {
+  id: "backdrops.gradient-orbs",
+  label: "Gradient orbs",
+};
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
@@ -63,6 +69,7 @@ export const backdropsExtension = defineExtension({
         TOON_SEA_BACKDROP,
         SILK_BACKDROP,
         FLOATING_GEOMETRY_BACKDROP,
+        GRADIENT_ORBS_BACKDROP,
       ],
     },
   ],
