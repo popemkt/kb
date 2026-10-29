@@ -4279,10 +4279,14 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   steel disk with a raised, notched rim, and on it a front-facing wolf mask
   cut in straight planes (pointed ears, a ruff in two steps, a long closed
   muzzle), gabled down its middle, its eyes engraved slits (`medallion.ts`).
-  Behind it a faint circle of five glyphs turns once in four minutes, each
+  Behind it a faint circle of five glyphs turns once in two minutes, each
   kb's own evocation of one Sign by its nature, in a few straight strokes:
   a force pushed out, a flame, a ward, a shield, a mind turned. Smoke rises
-  through the field and embers climb it.
+  round it and embers climb, and the medallion swings a little on its
+  chain (every 7.5 s), so the key light glides over its bevels. Smoke and
+  embers keep to a reach about the disk and dissolve at its ragged rim
+  (`gpu/dissolve.ts`): the smoke's own folds are its edge, never a side of
+  the frame.
   - One pass, no offscreen picture: the disk is a height field (disk, rim,
     mask, engraving) whose slope is read from the screen's derivatives and
     lit as dark steel: a cool key from the upper left, the embers' warmth

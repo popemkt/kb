@@ -9,7 +9,9 @@
  * its eyes flare in that event's colour. Under reduced motion it never
  * moves: its eyes light, still, and go dark again a few seconds later (two
  * still frames). The pointer near it wakes its eyes a little; typing slows
- * the smoke; writes turn the circle a little faster for a while.
+ * the smoke; writes turn the circle a little faster for a while. At rest it
+ * swings a little on its chain (`SWING`), the smoke rises and the embers
+ * climb, and smoke and embers dissolve within a reach about it.
  */
 import type { SceneStage } from "@kb/scene-gpu";
 import type { PageEventKind, Reactions } from "../scene/reactions";
@@ -23,6 +25,7 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
+import { reachWithin } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import { TURN_SECONDS, tremble } from "./medallion";
 import { medallionFrame, medallionUniforms } from "./medallion-shader";
@@ -44,6 +47,12 @@ const GLOW_REST = 0.2;
 const GLOW_NEAR = 0.15;
 /** The disk's radius at full scale (frame heights). */
 const RADIUS = 0.235;
+/** How far the medallion swings on its chain (rad) and how often (s). */
+const SWING = { angle: 0.05, period: 7.5 } as const;
+/** How far the smoke and embers spread about the disk before they have dissolved (radii). */
+const REACH = { x: 3.4, y: 2.2 } as const;
+/** How much of the reach the smoke fills whole: a subject in the open, so little. */
+const SOLID = 0.4;
 /** Under reduced motion: how long the eyes stay lit, still (ms). */
 const HELD_MS = 3500;
 
@@ -76,6 +85,7 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       radius = RADIUS * composition.scale;
       u.radius.value = radius;
       u.centre.value.set(rest.x, rest.y);
+      u.reach.set(reachWithin(w / h, rest, { x: REACH.x * radius, y: REACH.y * radius }, SOLID));
       scrim.layout(w, h);
     },
     setLook: (look: GpuLook) => {
@@ -118,6 +128,7 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
       u.centre.value.set(rest.x + dx * radius, rest.y + dy * radius);
       u.time.value = time;
       u.turn.value = turn;
+      u.sway.value = SWING.angle * Math.sin((TAU * time) / SWING.period);
     },
     dispose: () => clearTimeout(wake),
   };
@@ -133,7 +144,8 @@ export function mountWolfMedallion(
     {
       bloom: { strength: 0.35, radius: 0.5 },
       lens: { aberration: 0.003, streak: 0, grain: 0.018 },
-      feather: { sides: 0.12, top: 0.06, bottom: 0.42 },
+      // Smoke and embers dissolve within their own reach; the frame's feather is only the last guard.
+      feather: { sides: 0.03, top: 0.03, bottom: 0.03 },
     },
     wolfMedallion,
   );

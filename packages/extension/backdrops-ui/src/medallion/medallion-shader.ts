@@ -15,6 +15,12 @@
  *   a halo round the disk.
  * - **Embers.** Two layers of sparks rising on the cells of a grid, each
  *   swaying and flickering, dying as they climb.
+ * - **The medallion swings** a little on its chain (`sway`), so the key
+ *   light glides over its bevels.
+ * - **It dissolves by its own shapes** (`../gpu/dissolve`): the smoke, the
+ *   light under it and the embers keep to a reach about the medallion and
+ *   thin out at its ragged rim, so the smoke's own folds are its edge,
+ *   never a side of the frame.
  * - **Dark** pages are smoke on the page's ground; **light** pages are the
  *   same scene as an ink drawing on the paper (`Grounds`): wash smoke, sepia
  *   glyphs, a polished steel disk, rust specks for embers.
@@ -50,6 +56,7 @@ import {
 } from "three/tsl";
 import { Vector2, Vector3 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
+import { dissolve, dissolveUniforms } from "../gpu/dissolve";
 import type { Grounds } from "../gpu/gpu-scene";
 import { fbm4, hash } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
@@ -87,8 +94,11 @@ export function medallionUniforms() {
     /** The disk's centre (frame units, the tremble in it) and radius. */
     centre: uniform(new Vector2(0.3, 0)),
     radius: uniform(0.26),
-    /** How far the circle has turned (rad). */
+    /** How far the circle has turned (rad), and how far the medallion has swung on its chain. */
     turn: uniform(0),
+    sway: uniform(0),
+    /** The reach the smoke and embers dissolve within. */
+    reach: dissolveUniforms(),
     /** How bright the eyes are: a faint light at rest, 1 at a flare. */
     glow: uniform(0.2),
     /** The colour of what happened, which the eyes and the halo take. */
@@ -174,8 +184,8 @@ function embers(p: V2, time: F, cells: number, speed: number, seed: number): F {
 /** The smoke's density at `p`: one fold of noise warping another, rising. */
 function smoke(p: V2, time: F): F {
   const st = p.mul(2);
-  const slow = fbm4(st.mul(1.4).add(vec2(time.mul(0.01), time.mul(-0.04))));
-  return smoothstep(0.35, 0.85, fbm4(st.mul(2.3).add(vec2(slow.mul(1.5), time.mul(-0.07))))).mul(
+  const slow = fbm4(st.mul(1.4).add(vec2(time.mul(0.016), time.mul(-0.065))));
+  return smoothstep(0.35, 0.85, fbm4(st.mul(2.3).add(vec2(slow.mul(1.5), time.mul(-0.11))))).mul(
     slow.mul(0.4).add(0.6),
   );
 }
@@ -231,7 +241,8 @@ export function medallionFrame(
     const low = smoothstep(0.15, 1, screenUV.y);
     const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y)));
 
-    const dense = smoke(p, u.time).toVar();
+    const left = dissolve(u.reach, p, u.time.mul(0.01)).toVar();
+    const dense = smoke(p, u.time).mul(left).toVar();
 
     // The medallion's own space: radius 1, y up.
     const q = p.sub(u.centre).div(u.radius).toVar();
@@ -245,7 +256,7 @@ export function medallionFrame(
       .add(smoothstep(0.008, 0.002, ring).mul(0.45))
       .toVar();
 
-    const { disk, mask, eyes, groove, lit, warm, shine } = steelAt(q, r);
+    const { disk, mask, eyes, groove, lit, warm, shine } = steelAt(turned(q, u.sway), r);
     // The eyes' light: a core in the slits, a halo past them, and the disk's halo.
     const core = smoothstep(0.035, 0.008, eyes).mul(mask);
     const halo = exp(eyes.mul(eyes).mul(-160)).mul(mask);
@@ -255,7 +266,7 @@ export function medallionFrame(
     // Dark: smoke on the ground, the circle smouldering, the steel disk, embers in front.
     const field = ground
       .add(SMOKE.mul(dense.mul(1.4)))
-      .add(UNDERGLOW.mul(low.mul(dense.mul(0.6).add(0.5))))
+      .add(UNDERGLOW.mul(low.mul(dense.mul(0.6).add(0.5)).mul(left)))
       .add(SMOULDER.mul(runes.mul(flare.mul(0.5).add(0.32))))
       .add(u.tint.mul(aura.mul(flare).mul(0.22)))
       // The disk's shadow on the smoke, a little below and right.
@@ -276,9 +287,10 @@ export function medallionFrame(
       .add(KEY.mul(shine.mul(0.9)))
       .mul(float(1).sub(groove.mul(0.55)))
       .add(u.tint.mul(core.mul(u.glow).mul(2.4).add(halo.mul(u.glow).mul(0.5))));
-    const sparks = embers(p, u.time, 9, 0.05, 0)
-      .add(embers(p, u.time, 15, 0.08, 31).mul(0.6))
-      .mul(low.mul(0.8).add(0.2));
+    const sparks = embers(p, u.time, 9, 0.08, 0)
+      .add(embers(p, u.time, 15, 0.12, 31).mul(0.6))
+      .mul(low.mul(0.8).add(0.2))
+      .mul(left);
     const night = mix(field, steel, disk)
       .add(EMBER.mul(sparks.mul(2.2)))
       .mul(float(1).sub(quiet.mul(0.4)));
