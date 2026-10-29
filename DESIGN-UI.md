@@ -4191,7 +4191,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   only its lower cap showing under the frame's top, lit on its lower right;
   and a dim one far behind between them, part of the field. In a panel or
   on a phone, where the title and the first rows cross the whole frame,
-  they stand smaller and high, off the text. Each load varies
+  they stand small and high, off the text, the great orb whole in the top
+  right corner. Each load varies
   that composition a little and turns the whole hue a few degrees
   (`orbs.ts`, **Variation**). Its frame spans the scroll region
   (**A frame that spans the region**): the field is full-bleed to the
@@ -4204,28 +4205,39 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     falls off smoothly across the whole face: deep blue in shadow through
     periwinkle and rose to a cream crescent on the lit side. No gloss, no
     hot spot, no bands; a limb softened as a lens's depth of field softens a
-    large near shape, a little for the great orb, more the farther.
+    large near shape, a little for the great orb, more the farther. Where
+    the light turns away, the face runs through a richer, darker violet
+    terminator before the shadow, as light scattered just under a soft
+    surface does.
   - **Two layers.** The field is deep blue air, royal toward the top and
     the lamp, lit by the orbs' glows, with the far orb far out of focus in
     it. Behind the great orbs, far orbs are seeded one to a broad cell in
     heights, few and large and far out of focus (no speckle of small ones),
     under half the cells showing a soft, dim disc lit toward the lamp, each
     fading whole by where it stands (`farField`). Every cell's orb lights the
-    field about it with a glow wider than tall, shrunk until it clears the
-    frame's bottom, and the field is the union of those glows and the great
-    orbs' own (`glowAbout`): full-bleed across the frame, its lower edge
-    their round glows, wide and gone well above the frame's bottom, so it
-    falls away as a few long curves, never a band, a scallop, an ellipse or
-    a side feather (the frame has none). Its light falls away from the great
-    orbs in heights, so a wider frame adds a dimmer field. The two great
+    field about it with a glow much wider than tall, shrunk until it clears
+    the frame's bottom, and the field is the union of those glows and the
+    great orbs' own (`glowAbout`), each whole out to its orb's limb, so an
+    orb always sits in its own light, and easing smoothly to nothing past
+    it: full-bleed across the frame, its lower edge their round glows, wide
+    and gone well above the frame's bottom, so it falls away as a few long,
+    smooth curves, never a ragged bank, a band, a scallop, an ellipse or a
+    side feather (the frame has none). Where it thins out it is a lit haze
+    thinning, never a dark bank. Its light falls away from the great orbs
+    in heights, so a wider frame adds a dimmer field, graded by broad, slow
+    banks of violet haze so it has depth, never a flat indigo. The two great
     orbs are never faded, the text scrim included, and stay clear of the
     frame's bottom wherever they drift; only its top cuts them.
   - **In front of the field**: Fresnel on the lit side only, the face
     brightening toward its limb where the light wraps it, the shadowed limb
-    left dark, so no line outlines an orb; a deep bloom off the lit limb,
-    broad and soft out into the field, never a ring, dissolving with it; a soft shadow each casts on the field away from the lamp,
-    wider than itself, and a darker contact close round each near orb where
-    it crosses what is behind it; the second orb a little hazier and bluer
+    left dark, so no line outlines an orb; its light spilling off the lit
+    limb, a tight glow hugging it and a deep bloom past it, broad and soft
+    out into the field, and a faint cool glow all round, the shadowed limb
+    too, each falling away from the limb, never a ring, dissolving with the
+    field; a soft shadow each casts on the field away from the lamp and a
+    little below, wider than itself and deep, as it hangs over the field,
+    and a darker contact close round each near orb where it crosses what is
+    behind it, deepest on its shadowed side; the second orb a little hazier and bluer
     than the first, the far one far out of focus; and parallax, the near
     orb sliding further than the far one as the eye leans with the pointer
     (idly without one).
@@ -4240,7 +4252,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     shadow, blush and cream toward the lamp, each in a lilac glow of its own
     over a periwinkle wash that is the field's light version, full-bleed
     and paling away from the orbs, the far orbs pastel in it, their shadows
-    lilac on it.
+    lilac on it. On paper an orb's limb is softer than on a dark page and
+    its shadowed limb pales toward the wash, as haze would take it, so a
+    pastel orb never sits on the white as a cut-out.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it

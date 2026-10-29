@@ -65,10 +65,10 @@ import {
 } from "three/tsl";
 import { Matrix3, Vector3, Vector4 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
-import { dissolve, dissolveUniforms, type FarField } from "../gpu/dissolve";
+import { dissolveUniforms, type DissolveUniforms, type FarField } from "../gpu/dissolve";
 import type { Grounds } from "../gpu/gpu-scene";
 import type { textScrim } from "../gpu/text-scrim";
-import { hash, hash2 } from "../gpu/noise";
+import { gnoise, hash, hash2 } from "../gpu/noise";
 import { ORBS } from "./orbs";
 
 type F = TslNode<"float">;
@@ -88,8 +88,11 @@ const AMBER = vec3(1.15, 0.64, 0.48);
 const NEAR_SOFT = 0.012;
 const FAR_SOFT = 0.9;
 /** How far an orb's shadow falls from it, away from the lamp, and how wide its penumbra is (shares of its radius). */
-const SHADOW_FALL = 0.14;
-const SHADOW_SOFT = 0.35;
+const SHADOW_FALL = 0.2;
+const SHADOW_SOFT = 0.45;
+/** How deep a near orb's shadow on the field is, and how far below it the shadow sinks (shares of its radius). */
+const SHADOW_DEPTH = 0.72;
+const SHADOW_SINK = 0.12;
 /** The dark field: royal blue high and toward the lamp, deep navy low. */
 const FIELD = vec3(0.014, 0.04, 0.3);
 const FIELD_DEEP = vec3(0.003, 0.01, 0.1);
@@ -180,7 +183,8 @@ function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behi
   const normal = vec3(q, facing);
   const toward = u.lits.element(i).xy;
   const key = normalize(vec3(toward, u.lamp.z));
-  const light = dot(normal, key).mul(0.5).add(0.5).pow(1.5).mul(orb.w).toVar();
+  const lambert = dot(normal, key).toVar();
+  const light = lambert.mul(0.5).add(0.5).pow(1.5).mul(orb.w).toVar();
   const limb = max(dot(out, toward), 0).toVar();
   // A soft limb, as a lens's depth of field leaves a large near shape: softer the farther, and
   // the farthest far out of focus.
@@ -188,6 +192,8 @@ function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behi
     .mul(1.2)
     .add(orb.z.mul(mix(float(NEAR_SOFT), float(FAR_SOFT), depth.pow(3))));
   const cover = smoothstep(soft, soft.negate(), edge).toVar();
+  // On paper a pastel limb against the white reads as a cut-out, so the day's limb is softer still.
+  const coverDay = smoothstep(soft.mul(3), soft.mul(-5), edge);
   const outside = max(edge, 0);
   // Fresnel on the lit side only: the face brightens toward its limb where the light wraps it,
   // and the shadowed limb stays dark, so no line outlines it.
@@ -197,25 +203,36 @@ function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behi
     .mul(smoothstep(0.05, 0.75, limb))
     .mul(near);
   const backColour = mix(hue.pink, hue.cream, limb);
-  // A deep bloom off the lit limb into the field, in its own light: broad and soft, never a ring.
-  const bloom = exp(outside.div(orb.z.mul(-0.3)))
-    .mul(0.16)
-    .mul(limb.mul(limb).mul(0.9).add(0.1))
+  // Its light spills off the lit limb into the field: a tight glow hugging the limb and a deep,
+  // broad bloom past it, both in its own light; and a faint cool glow all round, the shadowed
+  // limb too, so the orb stands off the field rather than lying on it. Never a ring: each falls
+  // away from the limb, none has an edge of its own.
+  const lit = limb.mul(limb).toVar();
+  const bloom = exp(outside.div(orb.z.mul(-0.05)))
+    .mul(0.22)
+    .mul(lit)
+    .add(exp(outside.div(orb.z.mul(-0.32))).mul(lit.mul(0.26).add(0.09)))
     .mul(orb.w)
     .mul(u.glow)
     .mul(float(1).sub(cover))
     .mul(near)
     // It lights the field, and dissolves with it.
     .mul(left);
-  // Where it crosses what is behind it, the near orb darkens it: contact, close to its limb.
+  // Where it crosses what is behind it, the near orb darkens it: contact, close to its limb,
+  // deepest on its shadowed side, under the glow.
   const contact = float(1).sub(
-    exp(outside.div(orb.z.mul(-0.1)))
-      .mul(0.5)
+    exp(outside.div(orb.z.mul(-0.12)))
+      .mul(lit.oneMinus().mul(0.25).add(0.25))
       .mul(near),
   );
+  // The terminator: where the light turns away the face runs through a richer, darker violet
+  // before the shadow, as light scattered just under a soft surface does.
+  const terminator = exp(lambert.add(0.05).div(0.28).pow(2).negate()).mul(near).mul(orb.w);
   // Atmosphere: the farther, the hazier and bluer, toward the field behind it.
   const sphere = mix(
-    ramp([BLUE, hue.violet, hue.pink, hue.cream], light).add(backColour.mul(back.mul(0.4))),
+    ramp([BLUE, hue.violet, hue.pink, hue.cream], light)
+      .add(backColour.mul(back.mul(0.4)))
+      .add(mix(hue.violet, hue.pink, 0.45).mul(terminator.mul(0.18))),
     FIELD.mul(1.3),
     depth.mul(0.55),
   )
@@ -223,17 +240,20 @@ function orbOver(u: OrbUniforms, i: number, { p, left, hue }: Pixel, below: Behi
     .mul(mix(0.45, 1, orb.w));
   const shown = cover.mul(mix(float(1), left, depth));
   const glowColour = mix(hue.violet, mix(hue.pink, hue.cream, limb), limb);
+  const shownDay = coverDay.mul(mix(float(1), left, depth));
   const night = mix(below.night.mul(contact), sphere, shown).add(glowColour.mul(bloom));
+  // On paper its shadowed limb pales toward the wash behind, as haze would take it, so the orb
+  // has no dark rim against the white.
   const pastel = mix(
     ramp([LILAC, PERIWINKLE, BLUSH, CREAM_INK], light).add(back.mul(0.08)),
     WASH,
-    depth.mul(0.55),
+    depth.mul(0.55).max(facing.oneMinus().pow(3).mul(limb.oneMinus()).mul(0.55)),
   ).min(1);
   // On paper the bloom is a lilac glow round it, so its limb sits in its own light, not on white.
   const day = mix(
     mix(below.day, below.day.mul(mix(LILAC, BLUSH, limb)), bloom.mul(1.4).min(0.6)),
     pastel,
-    shown,
+    shownDay,
   );
   return { night, day, held: below.held.max(shown.mul(near)) };
 }
@@ -275,11 +295,22 @@ const FAR_LAYERS: readonly FarLayer[] = [
 /** How many cells either side of a pixel's a far orb's glow may reach it from. */
 const FAR_SPAN = 2;
 /** How much wider than tall a far orb's glow is. */
-const SPREAD = 2.6;
+const SPREAD = 3.6;
 /** How far above the frame's bottom every far glow is gone (frame units). */
 const FAR_CLEAR = 0.28;
 /** How fast the field's light falls away from the great orbs, across (frame units): a wider frame adds a dimmer field. */
 const FIELD_FALL = 2.6;
+/** The haze the field hangs in: broad slow banks of it (one about every 1/`HAZE_SCALE` heights), and its violet. */
+const HAZE_SCALE = 1.3;
+const HAZE = vec3(0.09, 0.08, 0.36);
+
+/**
+ * How much of an orb's glow reaches `p`: whole within its `solid` share,
+ * easing smoothly to nothing at its rim, so the field falls away by the
+ * orb's own round light, never a ragged bank.
+ */
+const glowOf = (reach: DissolveUniforms, p: V2): F =>
+  smoothstep(1, reach.solid, length(p.sub(reach.centre).div(reach.radius))).pow(1.5);
 
 /** What the far orbs leave at a pixel: how much of the field their glows light, and their discs over it. */
 interface FarOrbs {
@@ -322,7 +353,7 @@ function farOrbsAt(u: OrbUniforms, p: V2, hue: Leaned): FarOrbs {
       const halo = mix(float(0.35), float(1), hash(vec2(cell.add(31.4), layer.seed)));
       const reach = r.mul(halo.mul(layer.halo).add(1)).min(centre.y.add(0.5 - FAR_CLEAR));
       const spread = length(off.div(vec2(SPREAD, 1)));
-      none.mulAssign(float(1).sub(smoothstep(reach, r.mul(0.3), spread).mul(standing)));
+      none.mulAssign(float(1).sub(smoothstep(reach, r.mul(0.3), spread).pow(1.5).mul(standing)));
       // The disc, out of focus, lit on the side toward the lamp.
       const q = off.div(r);
       const normal = vec3(q, sqrt(max(float(1).sub(dot(q, q)), 0)));
@@ -370,15 +401,20 @@ export function orbFrame(
     let none: F = far.glow.oneMinus();
     for (let i = 0; i < ORBS; i++) {
       const orb = u.orbs.element(i);
-      const fallen = p.sub(orb.xy.sub(u.lits.element(i).xy.mul(orb.z.mul(SHADOW_FALL))));
+      // Away from the lamp, and a little below: it hangs over the field, which is behind and under it.
+      const fallen = p.sub(
+        orb.xy
+          .sub(u.lits.element(i).xy.mul(orb.z.mul(SHADOW_FALL)))
+          .sub(vec2(0, orb.z.mul(SHADOW_SINK))),
+      );
       const cast = smoothstep(
         orb.z.mul(1 + SHADOW_SOFT),
         orb.z.mul(1 - SHADOW_SOFT * 0.5),
         length(fallen),
       );
-      shade = shade.mul(float(1).sub(cast.mul(u.depths.element(i).oneMinus().mul(0.6))));
+      shade = shade.mul(float(1).sub(cast.mul(u.depths.element(i).oneMinus().mul(SHADOW_DEPTH))));
       const reach = u.reaches[i];
-      if (reach !== undefined) none = none.mul(dissolve(reach, p, u.time.mul(0.01)).oneMinus());
+      if (reach !== undefined) none = none.mul(glowOf(reach, p).oneMinus());
     }
     const left = none.oneMinus().toVar();
     // The great orbs light the field: it dims away from them across the frame, never to nothing.
@@ -389,8 +425,20 @@ export function orbFrame(
     )
       .mul(0.45)
       .add(0.55);
-    const field: V3 = mix(FIELD_DEEP, FIELD, rise.mul(lit))
+    // Broad, slow banks of haze grade the field, so far from the orbs it has depth, never a flat
+    // indigo; and where the field thins out it is that haze thinning, lit, never a dark bank.
+    const mist = gnoise(p.mul(vec2(HAZE_SCALE * 0.5, HAZE_SCALE)).add(vec2(u.time.mul(0.008), 2.3)))
+      .mul(0.6)
+      .add(gnoise(p.mul(HAZE_SCALE * 0.31).add(vec2(7.1, u.time.mul(-0.005)))).mul(0.4))
+      .toVar();
+    const thinning = left.mul(left.oneMinus()).mul(4);
+    const field: V3 = mix(FIELD_DEEP, FIELD, rise.mul(lit).mul(mist.mul(1.1).add(0.45)).min(1.1))
       .mul(shade)
+      .add(
+        HAZE.mul(
+          smoothstep(0.35, 0.85, mist).mul(0.7).add(thinning.mul(0.35)).mul(rise.mul(0.5).add(0.5)),
+        ),
+      )
       .add(mix(hue.violet, hue.pink, 0.6).mul(near.mul(0.05)));
     const wash: V3 = mix(
       mix(WASH, vec3(1, 1, 1), rise.oneMinus().mul(0.35).add(lit.oneMinus().mul(0.3))),

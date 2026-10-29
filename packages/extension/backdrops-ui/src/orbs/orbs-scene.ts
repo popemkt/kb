@@ -44,6 +44,8 @@ const WANDER_RATE = 0.12;
  * head's rows.
  */
 const FIELD: FieldReach = { sides: 0, low: [-0.45, 0.05] };
+/** The most of an orb's glow that is whole, however near the frame's bottom has shrunk it. */
+const SOLID_MOST = 0.85;
 /** The hue leans and returns this often (s). */
 const HUE_PERIOD = 48;
 
@@ -66,9 +68,10 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const lean = { x: 0, y: 0 };
 
   return {
-    // In a panel the orbs are smaller and high, off the title and the first rows, which cross
-    // the whole frame; wide, the great orb right of the title.
-    panel: { x: 0.1, y: 0.12, scale: 0.5, presence: 0.85 },
+    // In a panel the orbs are small and high, the great one whole in the top right corner, off
+    // the title and the first rows, which cross the whole frame; wide, the great orb right of the
+    // title, cut by the frame's top.
+    panel: { x: 0.1, y: 0.39, scale: 0.3, presence: 0.9 },
     wide: { x: 0, y: 0.5, scale: 1, presence: 1 },
     layout: (layout: BackdropLayout) => {
       const { width: w, height: h, anchor } = layout;
@@ -121,9 +124,11 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
           u.placed[i]?.set(orb.x, orb.y, orb.r, orb.light);
           u.lit[i]?.set(...litToward(orb, lamp), 0, 0);
           u.depth[i] = orb.depth;
-          // The field is the orbs' glows: each round its orb, as far as the frame has room.
+          // The field is the orbs' glows: each round its orb, as far as the frame has room, and
+          // whole out to the orb's own limb, so the orb always sits in its light, never on the page.
           const reach = orb.r + orb.halo;
-          u.reaches[i]?.set(glowAbout(width / height, orb, { x: reach, y: reach }, orb.r / reach));
+          const glow = glowAbout(width / height, orb, { x: reach, y: reach }, 0);
+          u.reaches[i]?.set({ ...glow, solid: Math.min(SOLID_MOST, orb.r / glow.rx) });
         },
       );
     },
