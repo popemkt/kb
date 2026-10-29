@@ -14,7 +14,14 @@
  *   it and melting into the field on its shadow side; its glow spills past
  *   the lit limb and adds over whatever lies behind. Orbs are laid back to
  *   front (`orbs[0]`, the great orb, in front), so where two drift across
- *   each other the nearer one's soft edge blends into the farther.
+ *   each other the nearer one's soft edge blends into the farther. As two
+ *   drift near, a neck of glow grows between them (their distances'
+ *   smooth minimum, `NECK`), and thins again as they part.
+ * - **The hue drifts**: the ramp's violet, rose and peach lean toward
+ *   indigo, magenta and amber and back on a slow clock (`hue`).
+ * - **It dissolves by its own shape** (`../gpu/dissolve`): the field and
+ *   the orbs dissolve at the ragged rim of the reach about the composition,
+ *   never at a side of the frame.
  * - **Dark** pages paint the reference's palette over a deep blue field
  *   that lifts toward the lamp. **Light** pages paint its pair: pastel
  *   peach and lilac on a periwinkle wash of the page's own paper (`Grounds`).
@@ -40,6 +47,7 @@ import {
 } from "three/tsl";
 import { Vector3, Vector4 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
+import { dissolve, dissolveUniforms } from "../gpu/dissolve";
 import type { Grounds } from "../gpu/gpu-scene";
 import type { textScrim } from "../gpu/text-scrim";
 import { ORBS } from "./orbs";
@@ -51,7 +59,13 @@ type V3 = TslNode<"vec3">;
 const DEEP = vec3(0.05, 0.08, 0.56);
 const VIOLET = vec3(0.2, 0.1, 0.72);
 const ROSE = vec3(0.74, 0.21, 0.42);
-const PEACH = vec3(1.0, 0.64, 0.44);
+const PEACH = vec3(1.0, 0.8, 0.66);
+/** Where the hue leans to and back: indigo, magenta, amber. */
+const INDIGO = vec3(0.1, 0.12, 0.8);
+const MAGENTA = vec3(0.7, 0.14, 0.62);
+const AMBER = vec3(1.0, 0.66, 0.44);
+/** How far apart two orbs' edges may be for a neck to form between them (frame units). */
+const NECK = 0.09;
 /** The cool rim round an orb's far limb. */
 const LILAC_RIM = vec3(0.42, 0.3, 1.0);
 /** The dark field: a deep blue, lifting toward the lamp. */
@@ -77,6 +91,11 @@ export function orbUniforms() {
     lamp: uniform(new Vector3(0.4, 0.2, 0.35)),
     /** How bright the glow is: 1 at rest, lifting with the owner's writes. */
     glow: uniform(1),
+    /** How far the hue leans, 0–1. */
+    hue: uniform(0),
+    time: uniform(0),
+    /** The reach the orbs dissolve within. */
+    reach: dissolveUniforms(),
   };
 }
 export type OrbUniforms = ReturnType<typeof orbUniforms>;
@@ -102,8 +121,31 @@ export function orbFrame(
     const near = exp(dot(lampAt, lampAt).mul(-0.8));
     const quiet = scrim.under(vec2(screenUV.x, float(1).sub(screenUV.y)));
 
-    let night: V3 = ground.add(mix(FIELD, FIELD_LIT, near));
-    let day: V3 = mix(WASH, vec3(1, 1, 1), screenUV.y.oneMinus().mul(0.4));
+    const left = dissolve(u.reach, p, u.time.mul(0.01));
+    const violet = mix(VIOLET, INDIGO, u.hue);
+    const rose = mix(ROSE, MAGENTA, u.hue);
+    const peach = mix(PEACH, AMBER, u.hue);
+    let day: V3 = vec3(1, 1, 1);
+    // The necks: the orbs' distances' smooth minimum reaches past each one where two are near,
+    // so a bridge of glow forms between them as they drift together, and thins as they part.
+    let nearest: F = float(9);
+    let joined: F = float(9);
+    // The field is the orbs' own halo: deep blue round each, so it has their shapes, never one of its own.
+    let halo: F = float(0);
+    for (let i = 0; i < ORBS; i++) {
+      const orb = u.orbs.element(i);
+      const edge = length(p.sub(orb.xy)).sub(orb.z);
+      const h = max(float(NECK).sub(joined.sub(edge).abs()), 0).div(NECK);
+      joined = joined.min(edge).sub(h.mul(h).mul(NECK * 0.25));
+      nearest = nearest.min(edge);
+      halo = halo.add(exp(max(edge, 0).div(orb.z.mul(0.3).add(0.025)).negate()));
+    }
+    const field = smoothstep(0, 1, halo.min(1));
+    let night: V3 = mix(FIELD, FIELD_LIT, near).mul(field);
+    day = mix(day, mix(WASH, vec3(1, 1, 1), screenUV.y.oneMinus().mul(0.4)), field);
+    const neck = smoothstep(0.02, -0.01, joined).mul(smoothstep(0, 0.02, nearest));
+    night = night.add(mix(violet, rose, 0.4).mul(neck.mul(0.45)));
+    day = mix(day, day.mul(PERIWINKLE), neck.mul(0.6));
     // Back to front: the last orb is farthest.
     for (let i = ORBS - 1; i >= 0; i--) {
       const orb = u.orbs.element(i);
@@ -130,20 +172,22 @@ export function orbFrame(
         .mul(u.glow)
         .mul(float(1).sub(cover));
 
-      const sphere = ramp([DEEP, VIOLET, ROSE, PEACH], light)
-        .add(PEACH.mul(rim.mul(0.6)))
+      const sphere = ramp([DEEP, violet, rose, peach], light)
+        .add(peach.mul(rim.mul(0.6)))
         .add(LILAC_RIM.mul(pow(float(1).sub(normal.z), 3).mul(float(1).sub(limb)).mul(0.35)))
         .mul(u.glow.mul(0.15).add(0.85))
         .mul(mix(0.4, 1, orb.w));
-      night = mix(night, sphere, cover).add(mix(VIOLET, ROSE, limb).mul(spill.mul(0.28)));
+      night = mix(night, sphere, cover).add(mix(violet, rose, limb).mul(spill.mul(0.28)));
       const pastel = ramp([LILAC, PERIWINKLE, BLUSH, CREAM], light)
         .add(CREAM.mul(rim.mul(0.3)))
         .min(1);
       day = mix(mix(day, pastel, cover), day.mul(BLUSH), spill.mul(0.4));
     }
 
-    const shownDark = night.mul(float(1).sub(quiet.mul(0.15)));
-    const shownLight = paint(page.mul(mix(day, vec3(1, 1, 1), quiet.mul(0.2))));
+    const shownDark = ground.add(night.mul(left).mul(float(1).sub(quiet.mul(0.15))));
+    const shownLight = paint(
+      page.mul(mix(vec3(1, 1, 1), mix(day, vec3(1, 1, 1), quiet.mul(0.2)), left)),
+    );
     return mix(shownLight, shownDark, u.dark);
   })();
 }

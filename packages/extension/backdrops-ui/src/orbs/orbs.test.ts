@@ -37,9 +37,20 @@ describe("placeOrbs", () => {
         if (orb === undefined) throw new Error("an orb went missing");
         expect(Math.abs(placed.x - (AT.x + orb.x))).toBeLessThanOrEqual(orb.reach + 1e-9);
         expect(Math.abs(placed.y - (AT.y + orb.y))).toBeLessThanOrEqual(orb.reach * 0.7 + 1e-9);
-        expect(placed.r / orb.r).toBeGreaterThan(0.97);
-        expect(placed.r / orb.r).toBeLessThan(1.03);
+        expect(placed.r / orb.r).toBeGreaterThan(0.94);
+        expect(placed.r / orb.r).toBeLessThan(1.06);
       });
+    }
+  });
+
+  it("keeps every orb whole inside a frame centred on it: only its own edge ever cuts it", () => {
+    for (let seed = 1; seed < 60; seed++) {
+      const all = layoutOrbs(seededRng(seed));
+      for (let t = 0; t < 120; t += 2.3) {
+        for (const placed of placeOrbs(all, t, { x: 0, y: 0, scale: 1 }, 0)) {
+          expect(Math.abs(placed.y) + placed.r).toBeLessThan(0.5);
+        }
+      }
     }
   });
 

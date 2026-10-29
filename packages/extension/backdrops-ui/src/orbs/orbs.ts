@@ -1,8 +1,9 @@
 /**
  * Gradient orbs, as the CPU holds them: a few large soft spheres in the
  * frame, each resting where the composition puts it and drifting about
- * that rest on slow Lissajous paths of its own, its radius breathing a
- * little. One of them sits in the light's shadow. The first is nearest: the
+ * that rest on Lissajous paths of its own (twenty to forty seconds round),
+ * far enough that orbs drift across each other and part, its radius
+ * breathing. One of them sits in the light's shadow. The first is nearest: the
  * shader lays them back to front, their soft edges and glows blending
  * (`orbs-shader.ts`).
  *
@@ -30,46 +31,47 @@ export interface Orb {
 }
 
 /**
- * The reference composition (the owner's picture): a great orb low and to
- * the right, its top in the frame; one high at the left, half out of it; a
- * dim one in shadow between them; and a small bright one off the right edge
- * whose glow warms it. The seed varies each a little.
+ * The reference composition (the owner's picture), set whole into the
+ * frame, since an orb is never cut by anything but its own soft edge: a
+ * great orb low and to the right; one high at the left; a dim one in
+ * shadow between them; and a small bright one up to the right whose glow
+ * warms the great one. The seed varies each a little.
  */
 export function layoutOrbs(rng: Rng): readonly Orb[] {
   const jitter = (v: number, by: number) => v + rng.range(-by, by);
   const drift = (reach: number): Pick<Orb, "reach" | "periods" | "phases"> => ({
     reach,
-    periods: [rng.range(55, 90), rng.range(70, 110)],
+    periods: [rng.range(20, 32), rng.range(26, 40)],
     phases: [rng.range(0, TAU), rng.range(0, TAU)],
   });
   return [
     {
-      x: jitter(0.18, 0.04),
-      y: jitter(-0.26, 0.03),
-      r: jitter(0.48, 0.02),
+      x: jitter(0.2, 0.04),
+      y: jitter(-0.06, 0.03),
+      r: jitter(0.3, 0.015),
       light: 1,
-      ...drift(0.05),
-    },
-    {
-      x: jitter(-0.82, 0.05),
-      y: jitter(0.4, 0.04),
-      r: jitter(0.42, 0.03),
-      light: 0.95,
-      ...drift(0.06),
-    },
-    {
-      x: jitter(-0.32, 0.05),
-      y: jitter(0.02, 0.04),
-      r: jitter(0.3, 0.03),
-      light: 0.1,
       ...drift(0.08),
     },
     {
-      x: jitter(0.64, 0.03),
-      y: jitter(0.44, 0.03),
-      r: jitter(0.13, 0.02),
+      x: jitter(-0.5, 0.05),
+      y: jitter(0.12, 0.04),
+      r: jitter(0.24, 0.02),
+      light: 0.95,
+      ...drift(0.1),
+    },
+    {
+      x: jitter(-0.16, 0.05),
+      y: jitter(-0.14, 0.04),
+      r: jitter(0.17, 0.02),
+      light: 0.1,
+      ...drift(0.16),
+    },
+    {
+      x: jitter(0.6, 0.03),
+      y: jitter(0.24, 0.03),
+      r: jitter(0.09, 0.01),
       light: 0.8,
-      ...drift(0.07),
+      ...drift(0.12),
     },
   ];
 }
@@ -105,7 +107,7 @@ export function placeOrbs(
     const [ax, ay] = orb.phases;
     const dx = orb.reach * Math.sin((TAU * t) / px + ax);
     const dy = orb.reach * 0.7 * Math.sin((TAU * t) / py + ay);
-    const breathe = 1 + 0.025 * Math.sin((TAU * t) / (px * 0.6) + ay) + 0.05 * swell;
+    const breathe = 1 + 0.05 * Math.sin((TAU * t) / (px * 0.4) + ay) + 0.05 * swell;
     return {
       x: frame.x + (orb.x + dx) * frame.scale,
       y: frame.y + (orb.y + dy) * frame.scale,

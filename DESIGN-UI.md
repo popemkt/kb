@@ -4186,8 +4186,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     both, never the piece.
 - **Gradient orbs.** Large soft orbs on a deep blue field, after the
   owner's reference: a great orb low and right, one high at the left, a
-  small one far right and a faint one in shadow between them. Each load
-  varies that composition a little from its seed (`orbs.ts`).
+  small one up to the right and a faint one in shadow between them, each
+  whole in the frame, since an orb is cut by nothing but its own soft
+  edge. Each load varies that composition a little from its seed
+  (`orbs.ts`).
   - One pass, no offscreen picture: each orb is a circle's distance field
     shaded as a sphere and laid over the ones behind it. A lamp in front of
     the frame, between the orbs, lights each from where its centre sees it,
@@ -4198,9 +4200,16 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - Smooth blending is in the edges and the glow: an orb's edge is crisp
     where the lamp catches it and melts into the field on its shadow side,
     and its glow spills past the lit limb over whatever lies behind it, so
-    orbs that drift across each other blend rather than cut.
-  - Each orb drifts about its rest on slow paths of its own (a minute or
-    more), and breathes. The lamp follows the pointer on a slow spring, so
+    orbs that drift across each other blend rather than cut. As two drift
+    near, a neck of glow grows between them (their distances' smooth
+    minimum) and thins as they part.
+  - The deep blue field is the orbs' own halo, so it has their shapes; it
+    and the orbs dissolve at the ragged rim of their reach
+    (`gpu/dissolve.ts`), never at a side of the frame.
+  - Each orb drifts about its rest on paths of its own (twenty to forty
+    seconds round), far enough to cross another and part, and breathes;
+    the hue leans from violet, rose and peach toward indigo, magenta and
+    amber and back over 48 seconds. The lamp follows the pointer on a slow spring, so
     the orbs turn their lit sides toward it, and wanders between them
     without one. Typing slows the drift; writes (`impulse`) swell the orbs
     a little and lift their glow, and they ease back.

@@ -6,7 +6,9 @@
  *
  * The owner: the lamp that lights the orbs follows the pointer on a slow
  * spring, so they turn their lit faces toward it, and wanders off the
- * between the orbs without one. Typing slows the drift. Writes are an
+ * between the orbs without one. The orbs drift across each other and part,
+ * a neck of glow forming between two as they near, and the hue leans and
+ * returns on a slow clock (`HUE_PERIOD`). Typing slows the drift. Writes are an
  * impulse, never a restart: the orbs breathe out a little and their glow
  * lifts with it, and ease back.
  */
@@ -22,6 +24,7 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
+import { reachWithin } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import { orbFrame, orbUniforms } from "./orbs-shader";
 import { layoutOrbs, placeOrbs } from "./orbs";
@@ -32,8 +35,12 @@ const FOLLOW = 1.6;
 const LAMP_REST = { x: 0.58, y: 0.2 } as const;
 const LAMP_HEIGHT = 0.28;
 /** How far and how slowly it wanders there (frame units, rad/s). */
-const WANDER = 0.12;
-const WANDER_RATE = 0.05;
+const WANDER = 0.14;
+const WANDER_RATE = 0.12;
+/** The hue leans and returns this often (s). */
+const HUE_PERIOD = 48;
+/** How far the orbs may spread about the composition before they have dissolved (shares of the scale). */
+const REACH = { x: 1.5, y: 0.75 };
 
 function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const rng = seededRng(init.seed);
@@ -68,6 +75,9 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         lamp.y = frame.y + LAMP_REST.y * frame.scale;
         settled = true;
       }
+      u.reach.set(
+        reachWithin(w / h, frame, { x: REACH.x * frame.scale, y: REACH.y * frame.scale }),
+      );
       scrim.layout(w, h);
     },
     setLook: (look: GpuLook) => {
@@ -95,6 +105,8 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       }
       u.lamp.value.set(lamp.x, lamp.y, LAMP_HEIGHT);
       u.glow.value = 1 + 0.6 * reactions.impulse;
+      u.time.value = time;
+      u.hue.value = 0.5 - 0.5 * Math.cos((Math.PI * 2 * time) / HUE_PERIOD);
       placeOrbs(orbs, time, frame, reactions.impulse).forEach((orb, i) =>
         u.placed[i]?.set(orb.x, orb.y, orb.r, orb.light),
       );
@@ -113,9 +125,10 @@ export function mountGradientOrbs(
     {
       bloom: { strength: 0.25, radius: 0.7 },
       lens: { aberration: 0, streak: 0, grain: 0.012 },
-      // A painted scene: it fades into the page as a CSS mask would.
+      // A painted scene: it fades into the page as a CSS mask would. It dissolves within its own
+      // reach; the frame's feather is only the last guard.
       fadeSpace: "display",
-      feather: { sides: 0.1, top: 0.06, bottom: 0.38 },
+      feather: { sides: 0.03, top: 0.03, bottom: 0.03 },
     },
     gradientOrbs,
   );
