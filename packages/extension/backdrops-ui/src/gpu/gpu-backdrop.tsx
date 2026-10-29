@@ -5,7 +5,7 @@
  * the tokens and the head's colour, the strength's opacity, the owner's
  * activity) and runs it only while it can be seen: not in a hidden tab, not
  * scrolled out of view (`watchPlayback`), and still under reduced motion.
- * A machine that cannot start it keeps the wash.
+ * A machine that cannot start it gets the wash instead.
  *
  * This module is the first of the two lazy boundaries between the page and
  * three (`UI_LAZY_ONLY`): the plugin imports it with `lazy()`, and it
@@ -153,8 +153,8 @@ export default function GpuBackdrop({
 
   return (
     <>
-      {/* The tint stays under the opaque canvas, which fades in over it: never a gap between them. */}
-      <TintBackdrop color={color} opacity={opacity} />
+      {/* The wash is the fallback, never a placeholder: a load's one change is the scene's fade-in. */}
+      {state === "unavailable" ? <TintBackdrop color={color} opacity={opacity} /> : null}
       <div ref={host} className="kb-gpu-backdrop" data-scene-state={state} />
     </>
   );

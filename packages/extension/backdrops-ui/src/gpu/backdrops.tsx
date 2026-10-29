@@ -1,18 +1,18 @@
 /**
  * The GPU backdrops as the plugin contributes them: each is the GPU host
  * (`gpu-backdrop.tsx`) behind `lazy()`, the first of its two lazy
- * boundaries, over the wash while it loads.
+ * boundaries. Nothing stands in while it loads: the wash is only the
+ * fallback of a machine that cannot start the scene.
  */
 import { Suspense, lazy } from "react";
 import type { BackdropProps } from "@kb/ui-sdk";
-import { TintBackdrop } from "../tint-backdrop";
 import type { GpuSceneId } from "./gpu-backdrop";
 
 const GpuBackdrop = lazy(() => import("./gpu-backdrop"));
 
 function GpuBackdropHost({ scene, backdrop }: { scene: GpuSceneId; backdrop: BackdropProps }) {
   return (
-    <Suspense fallback={<TintBackdrop color={backdrop.color} opacity={backdrop.opacity} />}>
+    <Suspense fallback={null}>
       <GpuBackdrop scene={scene} backdrop={backdrop} />
     </Suspense>
   );

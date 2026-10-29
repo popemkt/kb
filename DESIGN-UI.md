@@ -3924,12 +3924,14 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     and `mountBackdrop` gives the scene its look before that frame;
   - a resize redraws in the same task (`redraw`), so a cleared canvas is
     never shown;
-  - the tint stays under the opaque canvas while it fades in, so there is
-    no gap between them.
+  - the head's wash is the fallback of a machine that cannot start the
+    scene, never a placeholder while it loads: the load's one change is
+    the scene fading in over the page's ground.
 
   `render-tests/tests-render/backdrop-load.e2e.ts` loads every GPU
   backdrop in a fresh tab and holds each load to this: one adapter, one
-  canvas never replaced, no context at 300×150, ready once, faded in once.
+  canvas never replaced, no context at 300×150, no wash, ready once, faded
+  in once.
 - **Framing by width** (`framing.ts`). Each backdrop has a panel
   composition and a wide one: where its subject sits, its scale and how
   present it is. A side panel's width (480px and below) takes the first, a

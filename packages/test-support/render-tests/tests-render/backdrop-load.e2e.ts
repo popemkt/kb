@@ -5,10 +5,10 @@
 // fresh tab loads the home page with that backdrop chosen and records what
 // the load did to the GPU and the page head: one adapter, one canvas never
 // replaced, a context only ever configured at the frame's own size (never the
-// canvas's default 300×150, a frame drawn before it had its size), the scene
-// marked ready once and the canvas faded in once. A remount, a second
-// context or a frame drawn at the wrong size is what the eye sees as a
-// flicker on load.
+// canvas's default 300×150, a frame drawn before it had its size), no wash
+// shown while it loads, the scene marked ready once and the canvas faded in
+// once. A remount, a second context, a frame drawn at the wrong size or a
+// placeholder before the scene is what the eye sees as a flicker on load.
 import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
 import type { APIRequestContext, BrowserContext } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
@@ -19,6 +19,8 @@ interface LoadRecord {
   readonly canvases: number;
   readonly removed: number;
   readonly configures: readonly string[];
+  /** The head's wash, which is a GPU backdrop's fallback only, shown during the load. */
+  readonly washes: number;
   readonly ready: number;
   readonly reveals: number;
   readonly state: string | null;
@@ -31,6 +33,7 @@ function recordLoad() {
     canvases: 0,
     removed: 0,
     configures: [] as string[],
+    washes: 0,
     ready: 0,
     reveals: 0,
   };
@@ -77,6 +80,10 @@ function recordLoad() {
       for (const node of mutation.addedNodes) {
         if (node instanceof HTMLCanvasElement && node.closest(".kb-gpu-backdrop") !== null) {
           record.canvases += 1;
+        }
+        if (node instanceof Element) {
+          const wash = ".kb-header-backdrop-space .kb-header-tint";
+          record.washes += node.matches(wash) ? 1 : node.querySelectorAll(wash).length;
         }
       }
       for (const node of mutation.removedNodes) {
@@ -157,6 +164,7 @@ test("every GPU backdrop loads once: one context, at its size, revealed once", a
     expect
       .soft(record.configures, `${option}: a context configured at the canvas's default size`)
       .not.toContain("300x150");
+    expect.soft(record.washes, `${option}: the wash shown while it loaded`).toBe(0);
     expect.soft(record.ready, `${option}: scene marked ready`).toBe(1);
     expect.soft(record.reveals, `${option}: canvas faded in`).toBe(1);
   }
