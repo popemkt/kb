@@ -22,7 +22,10 @@
  *   most seams fall to a hair of steel; a hot corner pours a fan of light
  *   into each facet that meets there, hugging the seams that leave it, as
  *   much as the facet passes of the lamp (transmission). A facet's body is
- *   slate glass lit by its turn to the key, so the crumple reads.
+ *   slate glass lit by its turn to the key, so the crumple reads, and it
+ *   holds light as glass does: its edges glow from within, a haze fills it,
+ *   and the core's light sweeps through it, warm near the core and cooling
+ *   across the piece.
  * - **A band of light sweeps across** (`sweep`): the piece's seams glint
  *   as it passes, gold on a dark page and apricot on a light one.
  * - **The field** is its own pass (`fieldFragment`), drawn at a share of
@@ -35,13 +38,17 @@
  *   them (`glintsAt`), so the frame has two or three lights. Each of their panes, seams and
  *   corners fades whole by where it stands (`farField`), so the web thins
  *   out shape by shape toward the frame's sides, its bottom and the text.
+ *   Between the web and the piece hang a few great shards (`shards.ts`):
+ *   long planes of clear glass crossing the head, hazed inside and glowing
+ *   along their edges, warm near the lamps, so the picture fills the head.
  *   The piece (`pieceFragment`) is the other pass, in front: translucent,
  *   so the lit air shows through its faces, it casts a shadow on the field
  *   and never fades.
  * - **Dark** pages show the light over the navy field on the page's own
  *   ground. **Light** pages show the glass as an engraving on the paper: a
  *   periwinkle wash, each facet a pale frost deeper as it turns from the
- *   key and peach where light passes it, its seams fine periwinkle ink
+ *   key and peach where light passes it, its edges deepening inward to a
+ *   periwinkle the glass holds, its seams fine periwinkle ink
  *   turning apricot where light runs, the hot point an apricot bloom. It is
  *   composed in the page's own terms (`Grounds`).
  * - **The frame** lays the piece over the field and keeps the field quiet
@@ -79,6 +86,7 @@ import { gnoise, hash, hash2 } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { SHEETS } from "./web";
 import { cornerAcross, facetAt, type Facet } from "./lattice";
+import { shardsAt } from "./shards";
 
 type F = TslNode<"float">;
 type V2 = TslNode<"vec2">;
@@ -122,10 +130,12 @@ const PIECE = 0.36;
 const SHADOW_FALL = vec2(0.03, 0.07);
 /** The cool light along the piece's edge, lit from behind. */
 const BACKLIT = vec3(0.45, 0.6, 1.0);
+/** The light the piece's glass holds away from the core: a cool blue-violet haze. */
+const GLASS_COOL = vec3(0.035, 0.05, 0.16);
 /** A light page's inks: periwinkle seams warming to apricot at a lamp, frost panes cool or peach, the lamps' warmth. */
 const PERIWINKLE = vec3(0.5, 0.56, 0.9);
 const APRICOT = vec3(0.98, 0.56, 0.36);
-const FROST = vec3(0.84, 0.87, 0.99);
+const FROST = vec3(0.78, 0.82, 0.98);
 const PEACH = vec3(1.0, 0.82, 0.68);
 const SUNLIT = vec3(1.0, 0.9, 0.78);
 const LILAC_SHADE = vec3(0.86, 0.86, 0.97);
@@ -142,7 +152,7 @@ const FLOW = 0.22;
  */
 const HAZE_FALL = 2.2;
 const HAZE_LEVEL = 0.22;
-const HAZE_LOW = [-0.38, 0.28] as const;
+const HAZE_LOW = [-0.32, 0.25] as const;
 const HAZE_PAPER = 0.35;
 /** How broad the patches of light in the far web are: one about every 1/`POOL` heights. */
 const POOL = 0.6;
@@ -211,6 +221,8 @@ interface Pixel {
   readonly band: F;
   readonly left: F;
   readonly glint: F;
+  /** How much of the far layer is left at the pixel itself: thinning toward the frame's bottom and under the text. */
+  readonly open: F;
 }
 
 /**
@@ -386,7 +398,7 @@ function seamsOf(u: GlassUniforms, lit: Lit, { p, band, texel }: Pixel): readonl
  * faces the key and toward the lamp's side of the facet, so each plane
  * reads by its turn and the piece by its crumple.
  */
-function faceOf(u: GlassUniforms, lit: Lit, { p, texel }: Pixel): readonly [V3, F, F] {
+function faceOf(u: GlassUniforms, lit: Lit, { p, texel }: Pixel): readonly [V3, F, F, F] {
   const { facet, heat, present, facing, key } = lit;
   const spread = u.scale.mul(0.12);
   const hug = u.scale.mul(0.03);
@@ -424,7 +436,25 @@ function faceOf(u: GlassUniforms, lit: Lit, { p, texel }: Pixel): readonly [V3, 
       .mul(sheen.mul(0.9).add(0.25))
       .add(0.006),
   );
-  return [body.add(mix(AMBER, GOLD, passed.min(1)).mul(passed.mul(1.4))).mul(shows), passed, seen];
+  // The piece is glass, not wire: each plane holds light. Its edges glow from within, where the
+  // glass is thickest; a haze fills it, rising toward the lamp's side; and the core's light sweeps
+  // through it, warm near the core and cooling across the piece.
+  const rim = exp(inside.div(u.scale.mul(0.022)).negate());
+  const core = exp(length(p.sub(main)).div(u.scale.mul(-0.55)));
+  const held = mix(GLASS_COOL, AMBER.mul(0.55), core)
+    .mul(rim.mul(0.8).add(sheen.mul(0.3)).add(0.1))
+    .mul(facing.mul(0.6).add(0.5))
+    .mul(lit.present);
+  return [
+    body
+      .add(mix(AMBER, GOLD, passed.min(1)).mul(passed.mul(1.4)))
+      .add(held)
+      .mul(shows),
+    passed,
+    seen,
+    // A sheet behind lends the paper a little of its planes' body, as far as it is shown.
+    rim.mul(lit.present).mul(seen).mul(lit.far.mul(-0.7).add(1)),
+  ];
 }
 
 /** A hot corner's core: warm white in a long amber glow; drawn by every facet that meets there, the piece's or not, so it is never cut. */
@@ -458,7 +488,7 @@ function coresOf(u: GlassUniforms, lit: Lit, p: V2): V3 {
 }
 
 /** How the facet under `p` on sheet `n` is lit: its corners' heat, membership, and turn. */
-function litFacet(u: GlassUniforms, n: number, { p, glint }: Pixel): Lit {
+function litFacet(u: GlassUniforms, n: number, { p, glint, open }: Pixel): Lit {
   const look = u.sheets.element(n * 2 + 1);
   const far = look.z;
   const seed = look.x;
@@ -468,8 +498,9 @@ function litFacet(u: GlassUniforms, n: number, { p, glint }: Pixel): Lit {
     p,
   );
   const { a, b, c, ia, ib, ic, frameOf } = facet;
-  // Which facets are the piece's: each whole, every corner's lattice point within reach, so none
-  // is cut and none comes and goes as the glass sways. A neighbour across an edge is judged the
+  // Which facets are the piece's: each whole, every corner within reach as it rests (`restingAt`),
+  // so none is cut, none reaches past the bounds the piece is fitted by, and none comes and goes as
+  // the glass sways. A neighbour across an edge is judged the
   // same, by its own third corner.
   // Only the near sheet is cut to the piece; a sheet behind it is every facet.
   const rim = float(PIECE).mul(step(far, 0));
@@ -510,7 +541,11 @@ function litFacet(u: GlassUniforms, n: number, { p, glint }: Pixel): Lit {
     seen: (centre: V2, key: V2) =>
       mix(
         float(1),
-        u.field.standing(centre, hash(key.add(seed.mul(1.37)))).mul(poolAt(u, centre).max(glint)),
+        u.field
+          .standing(centre, hash(key.add(seed.mul(1.37))))
+          .mul(poolAt(u, centre).max(glint))
+          // A long seam thins along its own length too, so none runs on to the frame's bottom.
+          .mul(open),
         step(1e-3, far),
       ),
   };
@@ -529,7 +564,7 @@ function shadeSheet(u: GlassUniforms, n: number, pixel: Pixel, { light, paper, c
   // whole by where it stands (`Lit.seen`), so the field thins out shape by shape; the piece never
   // fades.
   const [seams, ink] = seamsOf(u, lit, pixel);
-  const [face, passed, shown] = faceOf(u, lit, pixel);
+  const [face, passed, shown, rimmed] = faceOf(u, lit, pixel);
   const cores = coresOf(u, lit, pixel.p);
   const own = face.add(seams).add(cores).mul(u.heat);
   // Haze: the far sheet's light is half lost in the navy air, and greyer.
@@ -546,13 +581,19 @@ function shadeSheet(u: GlassUniforms, n: number, pixel: Pixel, { light, paper, c
   const hotSeam = luminance(seams).mul(1.5).min(1);
   const frost = mix(FROST, PEACH, passed.mul(1.5).min(1));
   paper.mulAssign(
-    mix(vec3(1, 1, 1), frost, key.oneMinus().mul(0.55).add(0.3).mul(present).mul(weight)),
+    mix(
+      vec3(1, 1, 1),
+      frost,
+      key.oneMinus().mul(0.55).add(0.4).mul(present).mul(weight).mul(far.mul(-0.5).add(1)),
+    ),
   );
+  // Each plane has body on paper too: its edges deepen inward, a periwinkle the glass holds.
+  paper.mulAssign(mix(vec3(1, 1, 1), PERIWINKLE, rimmed.mul(0.45)));
   paper.mulAssign(
     mix(
       vec3(1, 1, 1),
       mix(PERIWINKLE, APRICOT, hotSeam),
-      ink.mul(hotSeam.mul(0.5).add(0.45)).mul(depth),
+      ink.mul(hotSeam.mul(0.5).add(0.45)).mul(depth).mul(far.mul(-0.45).add(1)),
     ),
   );
   paper.mulAssign(mix(vec3(1, 1, 1), APRICOT, luminance(cores).mul(2.5).min(0.7)));
@@ -609,10 +650,11 @@ function fieldOf(u: GlassUniforms, { p, warmth, left, glint }: Pixel): readonly 
     .add(glass.mul(0.35))
     .mul(smoke.mul(0.8).add(0.6))
     .mul(left);
+  // The haze is the piece's light in the air, falling away from it, its lower edge softened by the
+  // smoke and spread over half the frame's height, gone before its bottom, so it ends nowhere
+  // along a line.
   const haze = exp(reach.div(HAZE_FALL).negate())
-    .mul(0.8)
-    .add(0.2)
-    .mul(smoothstep(HAZE_LOW[0], HAZE_LOW[1], p.y.add(smoke.sub(0.5).mul(1.1))))
+    .mul(smoothstep(HAZE_LOW[0], HAZE_LOW[1], p.y.add(smoke.sub(0.5).mul(0.3))))
     .mul(mist.mul(0.5).add(0.75))
     // The light pooled in the web lights the haze round it too.
     .mul(poolAt(u, p).mul(0.9).add(0.45))
@@ -662,7 +704,8 @@ function pixelAt(u: GlassUniforms, texel: F): Pixel {
   const left = dissolve(u.reach, p, u.time.mul(0.004)).toVar();
   // How near a far glint: its light pools in the web and the air round it.
   const glint = glintsAt(u, p).sqrt().min(1).toVar();
-  return { p, texel, warmth, band, left, glint };
+  const open = u.field.standing(p, float(1)).toVar();
+  return { p, texel, warmth, band, left, glint, open };
 }
 
 /** Where light piles up at a hot corner, roll it off softly, keeping its hue, so the core is warm white rather than clipped. */
@@ -683,14 +726,23 @@ export function fieldFragment(u: GlassUniforms): TslNode<"vec4"> {
     const cover = float(0).toVar();
     for (let n = SHEETS - 1; n >= 1; n--) shadeSheet(u, n, pixel, { light, paper, cover });
     const [air, wash, cast] = fieldOf(u, pixel);
-    const lit = u.hue.mul(air.add(rolled(light)));
+    // The great shards hang between the web and the piece, crossing the head.
+    const shards = shardsAt(u.field, pixel.p, u.lamps.element(0).xy, {
+      scale: u.scale,
+      pixel: u.fieldPixel,
+      time: u.time,
+      open: pixel.open,
+    });
+    const lit = u.hue.mul(air.add(rolled(light.add(shards.light.mul(u.heat)))));
     const print = mix(
       vec3(1, 1, 1),
       mix(WASH, SUNLIT, pixel.warmth.mul(0.5).mul(u.heat.min(1.6))).mul(
         mix(vec3(1, 1, 1), LILAC_SHADE, cast),
       ),
       wash,
-    ).mul(paper);
+    )
+      .mul(paper)
+      .mul(mix(vec3(1, 1, 1), mix(PERIWINKLE, APRICOT, shards.warm), shards.ink.mul(0.9)));
     return vec4(mix(print, lit, u.dark), 1);
   })();
 }

@@ -26,6 +26,14 @@ export interface SheetAt {
   readonly look: V4;
 }
 
+/** Where lattice point `idx` rests, strayed by its own hash (lattice units): a vertex before it sways. */
+const restingAt = (idx: V2, seed: F): V2 =>
+  idx.add(
+    hash2(idx.add(vec2(seed, seed.mul(0.37))))
+      .sub(0.5)
+      .mul(JITTER),
+  );
+
 /**
  * A lattice vertex: its point `idx` strayed by its own hash, swaying a
  * little, and folded in depth on a clock of its own (z in cells, signed).
@@ -67,7 +75,7 @@ export interface Facet {
   readonly ic: V2;
   /** How far `p` is from edges AB, BC and CA, frame units. */
   readonly edges: V3;
-  /** Where a lattice point (indices, unstrayed) lies in the frame. */
+  /** Where a lattice point (indices) rests in the frame, strayed as its vertex is before it sways (`restingAt`). */
   readonly frameOf: (idx: V2) => V2;
 }
 
@@ -148,7 +156,7 @@ export function facetAt({ geo, look }: SheetAt, time: F, p: V2): Facet {
     ib,
     ic,
     edges: vec3(edgeIn(l, a.xy, b.xy), edgeIn(l, b.xy, c.xy), edgeIn(l, c.xy, a.xy)).mul(geo.z),
-    frameOf: (idx: V2) => toFrame(vec3(idx, 0)).xy,
+    frameOf: (idx: V2) => toFrame(vec3(restingAt(idx, seed), 0)).xy,
   };
 }
 

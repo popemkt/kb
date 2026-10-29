@@ -94,11 +94,11 @@ export function layoutWeb(rng: Rng): WebLayout {
 
 /**
  * How far the piece stands past its knots' reach: a facet is the piece's
- * when its corners' lattice points lie within reach, and a corner strays
- * from its point by the jitter and the sway (shares of a cell); the near
- * sheet's slide and the eye's lean move it a little more (frame units).
+ * when its corners, strayed as they rest, lie within reach, so only the
+ * sway takes one past it (shares of a cell); the near sheet's slide and the
+ * eye's lean move it a little more (frame units).
  */
-const OVERHANG = (JITTER / 2) * Math.SQRT2 + SWAY;
+const OVERHANG = SWAY;
 const SLIDE_ROOM = 0.06;
 
 /** Where the piece can reach about its main knot at full scale: frame units, left and bottom negative. */

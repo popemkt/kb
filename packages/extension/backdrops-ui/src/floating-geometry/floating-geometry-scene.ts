@@ -78,8 +78,8 @@ const SWEEP_DIR = { x: 0.894, y: -0.447 };
  */
 const AIR = { x: 0.5, y: 0.55, grow: 0.8 } as const;
 const SOLID = 0.08;
-/** Each lamp's strength: the main one, the hot point, then two quieter ones behind the next knots, each a glint of its own. */
-const LAMP_STRENGTH = [1, 0.62, 0.42] as const;
+/** Each lamp's strength: the main one, the hot point; a second behind the next knot, nearly as hot, a second warm core; a quieter third, a glint. */
+const LAMP_STRENGTH = [1, 0.85, 0.42] as const;
 /**
  * The frame's feather (shares of its width and height): none at the sides,
  * which are the scroll region's own (the haze is full-bleed and the far web
@@ -88,13 +88,13 @@ const LAMP_STRENGTH = [1, 0.62, 0.42] as const;
 const FEATHER = { sides: 0, top: 0.02, bottom: 0.03 } as const;
 /**
  * How far inside the frame the piece's facets keep: at the sides a share of
- * its width and room; at the top the strip under the app's bar; at the
- * bottom the head's rows (frame units). So the whole cluster sits in the
- * head's band, never cut by an edge.
+ * its width and room; at the top the strip under the app's bar; a little at
+ * the bottom (frame units). So the whole cluster fills the head right of the
+ * title, as large as the frame's height allows, never cut by an edge.
  */
 const SIDE_SHARE = 0.03;
 const EDGE_ROOM = 0.04;
-const BAND = { top: 0.04, bottom: 0.2 } as const;
+const BAND = { top: 0.04, bottom: 0.08 } as const;
 /** The main lamp where it is, and the others at their knots, each breathing a little on a clock of its own. */
 function writeLamps(
   u: GlassUniforms,
@@ -185,7 +185,7 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   const { sheets, knots } = web;
   const bounds = pieceBounds(web);
   /** Where the main knot sits off the composition's, and how large the glass is (shares of the scale). */
-  const shift = { x: vary.range("knot.x", -0.12, 0.12), y: vary.range("knot.y", -0.06, 0.06) };
+  const shift = { x: vary.range("knot.x", -0.06, 0.06), y: vary.range("knot.y", -0.06, 0.06) };
   const size = vary.range("size", 0.92, 1.1);
   const scrim = textScrim();
   const u = glassUniforms(farField(scrim, FIELD));
@@ -224,10 +224,10 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   };
 
   return {
-    // In a panel the piece sits high above the title, smaller and quieter; wide, right of the title
-    // at its height, the whole cluster in the band (`fitPiece`).
-    panel: { x: 0.06, y: 0.2, scale: 0.6, presence: 0.75 },
-    wide: { x: 0.55, y: 0.4, scale: 1, presence: 1 },
+    // In a panel (a phone) the title and the rows cross the frame, so the piece is small and sits
+    // above the title's row; wide, it fills the head right of the title, whole (`fitPiece`).
+    panel: { x: 0.12, y: 0.17, scale: 0.27, presence: 0.8 },
+    wide: { x: 0.4, y: 0.42, scale: 1, presence: 1 },
     layout: (layout: BackdropLayout) => {
       const { width: w, height: h, quality, anchor } = layout;
       width = w;
