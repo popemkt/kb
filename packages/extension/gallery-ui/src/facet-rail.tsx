@@ -102,7 +102,7 @@ export function FacetRail({
   return (
     <aside
       data-testid="gallery-facets"
-      className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border px-2 pb-6"
+      className="flex min-h-0 w-full shrink-0 flex-col overflow-y-auto px-2 pb-6 md:w-56 md:border-r md:border-border"
     >
       <div className="flex items-center justify-between px-2 pt-3">
         <span className="text-ui font-medium text-foreground/80">Facets</span>

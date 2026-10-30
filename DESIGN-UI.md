@@ -3178,6 +3178,13 @@ the reasons are the research record,
   square when it records none). Only the tiles within one viewport of the
   window, either way, are elements; the window's tiles are found per column
   by binary search, so a scroll frame costs what it shows, not the library.
+- **A phone shows one pane at a time.** Beside the grid and the facets, a
+  wide page keeps one side panel, the composer or the sources, and an open
+  visual's detail stands in for it. In a narrow viewport
+  (`useNarrowViewport`, the sidebar's breakpoint) the columns cannot stand
+  side by side, so the same choice of pane covers all four, visuals, facets,
+  composer and sources, under one row of tabs, and the detail stands in for
+  whichever is shown. An empty library offers the way to the sources.
 - **The selection is also the composer's.** The chosen styles, in facet
   order, wrap the subject by A1111's rule (`{prompt}` in a template is
   replaced; a template without it is appended) for one model family; a

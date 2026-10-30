@@ -15,8 +15,8 @@ test.beforeEach(async ({ page }) => {
   runtimeErrors.set(page, errors);
   page.on("pageerror", (error) => errors.push(error.message));
   // The gallery is an optional extension, off by default: switch it on in
-  // the Extensions panel and wait for the server to report it loaded.
-  await page.goto("/extensions");
+  // Settings' Extensions and wait for the server to report it loaded.
+  await page.goto("/settings/extensions");
   const gallery = page.getByTestId("extension-gallery");
   await gallery.getByTestId("switch-gallery").selectOption("on");
   await expect(gallery.getByText("off: contributes nothing", { exact: true })).toHaveCount(0);
@@ -99,4 +99,24 @@ test("a visual shows in the grid with its image, and opens in its detail", async
   const detail = page.getByTestId("gallery-detail");
   await expect(detail.getByRole("heading", { name: "Dusk over the bay" })).toBeVisible();
   await expect(detail.getByText("a bay at dusk, long exposure")).toBeVisible();
+});
+
+test("a phone shows one pane at a time, and an empty library leads to the sources", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/gallery");
+  await page.getByTestId("gallery-starter").click();
+  // The visuals first; the facets are a tab of their own, not a column beside them.
+  await expect(page.getByRole("tab", { name: "Visuals" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('[data-gallery-facet="Shot size"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Find references in the sources" }).click();
+  await expect(page.getByRole("tab", { name: "Sources" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("gallery-sources")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Facets" }).click();
+  await page.locator('[data-gallery-style="close-up"]').click();
+  await page.getByRole("tab", { name: "Compose" }).click();
+  await page.getByLabel("Subject").fill("a lighthouse");
+  await expect(page.locator('[data-gallery-output="Prompt"]')).toHaveText("a lighthouse, close-up");
 });
