@@ -5,7 +5,13 @@
  * ext.canvas.tx.apply; afterward the edge does not track/own the prop.
  * Bound vs unbound is computed at render time only (no reconciler writes).
  */
-import { browserHost, logError, type OutlineNode, type PropValue } from "@kb/ui-sdk";
+import {
+  browserHost,
+  logError,
+  type BrowserHost,
+  type OutlineNode,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { ulid } from "ulid";
 import {
   CANVAS_IDS,
@@ -140,14 +146,19 @@ export async function persistCanvasDoc(
   return true;
 }
 
-/** A new empty canvas, under `parent` when given (a page of its board); its id, or null when refused. */
+/**
+ * A new empty canvas, under `parent` when given (a page of its board), made
+ * through `host` (the page's, unless a caller holds its own); its id, or
+ * null when refused.
+ */
 export async function createCanvasNode(
   text = "Untitled canvas",
   parent?: string,
+  host: Pick<BrowserHost, "invoke"> = browserHost(),
 ): Promise<string | null> {
   const id = ulid();
   const docStr = stringifyCanvasDoc(EMPTY_CANVAS_DOC);
-  const receipt = await browserHost().invoke("node.add", {
+  const receipt = await host.invoke("node.add", {
     text,
     id,
     tags: [CANVAS_IDS.canvasTag],

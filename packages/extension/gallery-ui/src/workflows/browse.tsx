@@ -1,7 +1,8 @@
 /**
  * Browse my library: every visual, filtered by facet, and the online
  * sources (DESIGN-UI.md → The gallery). The facet selection is the look's
- * styles, so what the grid shows is what the look asks for; a visual opened
+ * styles, so what the grid shows is what the look asks for, and the closest
+ * references when nothing shows all of it; a visual opened
  * can be pinned to the look, add its styles to it, or start the reference
  * workflow.
  *
@@ -10,13 +11,13 @@
  * pane of its own under the same tabs.
  */
 import { useDeferredValue, useMemo, useState } from "react";
-import { facetCounts, filterVisuals, orderedStyles } from "@kb/gallery";
+import { facetCounts, orderedStyles } from "@kb/gallery";
 import { useNarrowViewport } from "@kb/ui-sdk";
 import { DetailPanel } from "../detail-panel";
 import { addDraftStyles, pinToDraft, toggleDraftStyle, updateDraft, useDraft } from "../draft";
 import { FacetRail } from "../facet-rail";
 import { useComposer, type ComposerFrame } from "../frame";
-import { selectionOf } from "../selection";
+import { referencesOf, selectionOf } from "../selection";
 import { SourcesPanel } from "../sources-panel";
 import { Tabs } from "../tabs";
 import { VisualsPane } from "../visuals-pane";
@@ -40,9 +41,9 @@ function Browse({ frame }: { readonly frame: ComposerFrame }) {
   const [pane, setPane] = useState<Pane>(narrow ? "visuals" : "facets");
   // Typing stays responsive at fifty thousand visuals: the filter follows it.
   const deferredText = useDeferredValue(text);
-  const shown = useMemo(
-    () => filterVisuals(library, selection, deferredText),
-    [library, selection, deferredText],
+  const { visuals: shown, match } = useMemo(
+    () => referencesOf(library, draft.styles, deferredText),
+    [library, draft.styles, deferredText],
   );
   const counts = useMemo(
     () => facetCounts(library, selection, deferredText),
@@ -59,6 +60,7 @@ function Browse({ frame }: { readonly frame: ComposerFrame }) {
     <VisualsPane
       library={library}
       shown={shown}
+      match={match}
       text={text}
       onText={setText}
       gridKey={`${draft.styles.join(",")}|${deferredText}`}

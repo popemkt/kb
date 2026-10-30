@@ -101,10 +101,13 @@ function Called({ frame, visual }: { readonly frame: ComposerFrame; readonly vis
     if (frame.model === null) return toast(`Reading the picture ${MODEL_NEEDS}`);
     if (cover === null) return toast("This visual has no picture to read");
     setBusy(true);
-    const answer = await frame.model.reflect(visual.text, [cover], frame.library);
-    setBusy(false);
+    const answer = await frame.model
+      .reflect(visual.text, [cover], frame.library)
+      .finally(() => setBusy(false));
     if (answer === null) return;
-    if (answer.saw === 0) toast("Your model cannot see pictures: it read only the title");
+    if (answer.refused !== undefined)
+      toast(`Your model refused the picture (${answer.refused}): it read only the title`);
+    else if (answer.saw === 0) toast("Your model cannot see pictures: it read only the title");
     setReflected(answer);
   };
   return (

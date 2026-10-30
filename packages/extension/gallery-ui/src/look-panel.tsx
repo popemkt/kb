@@ -24,12 +24,12 @@ import {
   type ComposeTarget,
   type LookDraft,
 } from "@kb/gallery";
-import { assetSrcUrl, cn, navigate, toast, useContributions } from "@kb/ui-sdk";
+import { assetSrcUrl, cn, navigate, toast } from "@kb/ui-sdk";
 import { copyText } from "./copy";
-import { currentDraft, toggleDraftStyle, updateDraft, useDraft } from "./draft";
+import { currentDraft, openLook, toggleDraftStyle, updateDraft, useDraft } from "./draft";
 import type { ComposerFrame } from "./frame";
-import { ComposerModelPoint, MODEL_NEEDS } from "./model";
-import { MOODBOARD_NEEDS, MoodboardPoint } from "./moodboard";
+import { MODEL_NEEDS } from "./model";
+import { MOODBOARD_NEEDS } from "./moodboard";
 import { paletteOfPictures } from "./palette-canvas";
 import { saveLook } from "./save-look";
 
@@ -207,7 +207,7 @@ function Prompts({ draft, frame }: { readonly draft: LookDraft; readonly frame: 
   // The composition a rewrite is being asked for; only the latest ask's answer lands.
   const [asking, setAsking] = useState<Composed | null>(null);
   const latest = useRef(0);
-  const model = useContributions(ComposerModelPoint)[0]?.value ?? null;
+  const { model } = frame;
   const composed = promptsOf(draft, frame.library).find((p) => p.target === target);
   const positive = composed?.positive ?? "";
   const reads = COMPOSE_TARGETS.find((t) => t.id === target)?.negatives ?? true;
@@ -384,7 +384,7 @@ function LookActions({
   readonly frame: ComposerFrame;
 }) {
   const [saving, setSaving] = useState(false);
-  const board = useContributions(MoodboardPoint)[0]?.value ?? null;
+  const { board } = frame;
   const save = async (): Promise<string | null> => {
     setSaving(true);
     const id = await saveLook(frame.saveInto, frame.node);
@@ -438,7 +438,7 @@ function LookActions({
         type="button"
         className={BUTTON}
         title="Start a new look; the saved one stays"
-        onClick={() => updateDraft(() => EMPTY_LOOK)}
+        onClick={() => openLook(EMPTY_LOOK, frame.node)}
       >
         New
       </button>

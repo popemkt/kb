@@ -11,8 +11,10 @@
  *   (`enhanceInput`).
  * - **Reflect** breaks an idea, words and pictures, into axes with terms
  *   (`reflectInput`, read back by `parseReflection`). Pictures go as asset
- *   paths; a model that cannot see is sent the words alone, and the reply
- *   says how many pictures it saw, so the page can say so.
+ *   paths, as many as the completion takes; a model that cannot see is
+ *   sent the words alone, and the reply says how many pictures it saw. A
+ *   request the endpoint refuses with pictures is asked again with the
+ *   words alone, and the reflection says why, so the page can.
  */
 import { Effect } from "effect";
 import {
@@ -26,10 +28,16 @@ import {
 import { definePlugin, Point } from "@kb/plugin";
 import { ModelCompletionService, toast, type ModelCompletion } from "@kb/ui-sdk";
 
-/** A reflection, and how many of the pictures sent the model saw. */
+/**
+ * A reflection, how many pictures were sent and how many the model saw;
+ * `refused` is why the request with pictures failed, when the words alone
+ * answered.
+ */
 export interface Reflected {
   readonly reflection: Reflection;
+  readonly sent: number;
   readonly saw: number;
+  readonly refused?: string;
 }
 
 export interface ComposerModel {
@@ -49,9 +57,6 @@ export const ComposerModelPoint = Point<ComposerModel>()("gallery.model");
 /** What the page says a use of the model needs while none is offered. */
 export const MODEL_NEEDS = "needs the agent: switch it on in Settings → Extensions, in kb ui";
 
-/** The most pictures one reflection sends. */
-const PICTURES = 4;
-
 function composerModelOver(completion: ModelCompletion): ComposerModel {
   return {
     enhance: async (prompt, target) => {
@@ -61,11 +66,19 @@ function composerModelOver(completion: ModelCompletion): ComposerModel {
       return null;
     },
     reflect: async (words, pictures, library) => {
-      const images = pictures.slice(0, PICTURES);
-      const reply = await completion.complete({
-        ...reflectInput(words, library, images.length),
-        ...(images.length === 0 ? {} : { images }),
-      });
+      const images = pictures.slice(0, completion.pictures);
+      const ask = (shown: readonly string[]) =>
+        completion.complete({
+          ...reflectInput(words, library, shown.length),
+          ...(shown.length === 0 ? {} : { images: shown }),
+        });
+      let reply = await ask(images);
+      let refused: string | undefined;
+      // A model behind a seeing wire may still refuse pictures: ask again with the words alone.
+      if (!reply.ok && images.length > 0 && words.trim() !== "") {
+        refused = reply.reason;
+        reply = await ask([]);
+      }
       if (!reply.ok) {
         toast(`Could not reflect it: ${reply.reason}`);
         return null;
@@ -75,7 +88,12 @@ function composerModelOver(completion: ModelCompletion): ComposerModel {
         toast("The model's answer could not be read as axes; try again");
         return null;
       }
-      return { reflection, saw: reply.saw };
+      return {
+        reflection,
+        sent: images.length,
+        saw: reply.saw,
+        ...(refused === undefined ? {} : { refused }),
+      };
     },
   };
 }

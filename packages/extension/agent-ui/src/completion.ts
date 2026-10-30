@@ -7,7 +7,7 @@
  * A half that wants a model's text injects the service, so it waits while
  * the agent is off and names nothing of this family.
  */
-import { AGENT_COMPLETE_ACTION, CompleteOutputSchema } from "@kb/agent";
+import { AGENT_COMPLETE_ACTION, COMPLETION_LIMITS, CompleteOutputSchema } from "@kb/agent";
 import { failed, onWire, PAGE_WIRE } from "@kb/contracts";
 import type { CompletionReply, CompletionRequest, ModelCompletion } from "@kb/ui-sdk";
 import type { AgentPorts } from "./chat";
@@ -30,5 +30,6 @@ export function modelCompletion(ports: Pick<AgentPorts, "invoke">): ModelComplet
       if (text === "") return { ok: false, reason: "the model answered nothing" };
       return { ok: true, text, saw: reply.data.saw };
     },
+    pictures: COMPLETION_LIMITS.images,
   };
 }

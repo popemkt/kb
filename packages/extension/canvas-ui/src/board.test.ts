@@ -60,4 +60,23 @@ describe("the canvas board", () => {
     expect(reply).toEqual({ ok: true, board: "board", path: "/canvas/board", placed: 1 });
     expect(invoke).toHaveBeenCalledTimes(1);
   });
+
+  test("makes the board under its owner when it has none, through the host it was given", async () => {
+    const owner = { id: "look", text: "Look", children: [], props: {} } as unknown as OutlineNode;
+    const calls: Array<{ id: string; input: Record<string, unknown> }> = [];
+    const invoke = vi.fn(async (id: string, input: unknown) => {
+      calls.push({ id, input: input as Record<string, unknown> });
+      return { status: "succeeded" as const, id, output: {} };
+    });
+    const board = canvasBoard({ node: (id) => (id === "look" ? owner : undefined), invoke });
+    const reply = await board.pin("look", "Look — moodboard", [{ node: "pin-1" }]);
+    const made = calls[0];
+    expect(made?.id).toBe("node.add");
+    expect(made?.input).toMatchObject({ text: "Look — moodboard", parent: "look" });
+    expect(calls[1]).toMatchObject({
+      id: "ext.canvas.place",
+      input: { canvasId: made?.input["id"] },
+    });
+    expect(reply).toMatchObject({ ok: true, board: made?.input["id"], placed: 1 });
+  });
 });

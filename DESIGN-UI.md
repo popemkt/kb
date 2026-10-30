@@ -3169,11 +3169,16 @@ which also lists the workflows judged and not built.
   works on is the host's, not config: the library, the look being made
   and the services the page has travel in the `ComposerFrame` context, as
   a graph renderer's frame does. A workflow's params name what it starts
-  from (`from`, a node id), so `/gallery/<workflow>?from=<id>` opens a
+  from (`from`, a node id), so `/gallery/<workflow>/<id>` opens a
   workflow on a visual, a look or any node.
 - **Opening `/gallery` asks where the person is starting from.** The
   chooser lists the workflows by their questions and the looks made so
-  far; the last workflow chosen on this device is offered first. Each
+  far. The family's first two, the two the gallery is for (I know what I
+  want; help me articulate it), are drawn large with their steps, and
+  the rest under "More ways in", each naming what it reads and makes; the
+  last workflow chosen on this device is offered first, and large. A look
+  carried on, or a new one, replaces unsaved work only when the person
+  says so. Each
   workflow page carries the same choice as a row of tabs, so a person can
   change their way in without losing what they have made.
 - **Every workflow makes one thing: a look.** A look is a node tagged
@@ -3271,8 +3276,11 @@ which also lists the workflows judged and not built.
     text becomes the look's `for`, so its backlinks show its art
     direction; its words fill an empty brief, its looks can be carried on,
     and the workflow hands on to Articulate or Compose.
-- **The look's styles are the selection.** Browse filters by them, Know
-  shows their references, and the prompt composes them: in facet order,
+- **The look's styles are the selection.** Browse filters by them and
+  Compose shows their references (`referencesOf`): every visual while the
+  look has none, the ones that show all of them, or, when none does, the
+  closest, the ones that show most of them, said to be so, never an empty
+  grid. The prompt composes them: in facet order,
   they wrap the look's brief by A1111's rule (`{prompt}` in a template is
   replaced; a template without it is appended) for one model family; a
   family that reads no negative prompt gets none. The composition is tidied
@@ -3283,10 +3291,12 @@ which also lists the workflows judged and not built.
   child injects `ModelCompletionService`, which the agent's half provides
   over its `ext.agent.complete`, and offers the composer's model at
   `ComposerModelPoint`: Enhance, Reflect and "Ask your model" use it.
-  Reflect sends the person's pictures as asset paths (at most four); the
-  reply says how many the model saw, and a model that cannot see is sent
-  the words alone, which the page says. A request with pictures that the
-  endpoint refuses is asked again with the words alone. Enhance sends the
+  Reflect sends the person's pictures as asset paths, as many as the
+  completion says it takes (`ModelCompletion.pictures`); the reply says how
+  many the model saw, and a model that cannot see is sent the words alone,
+  which the page says. A request with pictures that fails is asked again,
+  by the composer's model, with the words alone, and the page says why the
+  pictures were not read. Enhance sends the
   prompt as the message and a system prompt for the family
   (`enhanceInput`, `@kb/gallery`: an instruction-LLM's role, how that
   family reads a prompt, whether it reads a negative, and the rewrite

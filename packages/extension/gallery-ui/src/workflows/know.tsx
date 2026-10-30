@@ -9,19 +9,13 @@
  * search for the same words.
  */
 import { useMemo, useState } from "react";
-import {
-  filterVisuals,
-  nearest,
-  orderedStyles,
-  type StyleEntry,
-  type WorkflowParams,
-} from "@kb/gallery";
+import { orderedStyles, type StyleEntry, type WorkflowParams } from "@kb/gallery";
 import { cn } from "@kb/ui-sdk";
 import { DetailPanel } from "../detail-panel";
 import { addDraftStyles, pinToDraft, toggleDraftStyle, updateDraft, useDraft } from "../draft";
 import { useComposer, type ComposerFrame } from "../frame";
 import { MasonryGrid } from "../masonry-grid";
-import { selectionOf } from "../selection";
+import { referencesOf } from "../selection";
 import { SourcesPanel } from "../sources-panel";
 import { addStyle } from "../styles-api";
 import { complete } from "./complete";
@@ -130,15 +124,10 @@ function References({ frame }: { readonly frame: ComposerFrame }) {
   const { library } = frame;
   const draft = useDraft();
   const [openId, setOpenId] = useState<string | null>(null);
-  const all = useMemo(
-    () => filterVisuals(library, selectionOf(library, draft.styles), ""),
+  const { visuals: shown, match } = useMemo(
+    () => referencesOf(library, draft.styles, ""),
     [library, draft.styles],
   );
-  const near = useMemo(
-    () => (all.length > 0 || draft.styles.length === 0 ? [] : nearest(library, draft.styles)),
-    [all, library, draft.styles],
-  );
-  const shown = all.length > 0 ? all : near.flatMap((id) => frame.node(id) ?? []);
   const open = openId === null ? undefined : frame.node(openId);
   if (open !== undefined) {
     return (
@@ -155,14 +144,12 @@ function References({ frame }: { readonly frame: ComposerFrame }) {
       />
     );
   }
-  const said =
-    draft.styles.length === 0
-      ? `Every visual in the library (${library.visuals.length})`
-      : all.length > 0
-        ? `${all.length} ${all.length === 1 ? "reference shows" : "references show"} all of it`
-        : shown.length > 0
-          ? "None shows all of it; these show the most"
-          : "No reference shows any of it yet: find some online";
+  const said = {
+    every: `Every visual in the library (${library.visuals.length})`,
+    all: `${shown.length} ${shown.length === 1 ? "reference shows" : "references show"} all of it`,
+    most: "Closest: none shows all of the look, these show the most of it",
+    none: "No reference shows any of it yet: find some online",
+  }[match];
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <p data-testid="know-said" className="px-1 py-2 text-label text-foreground/50">

@@ -43,7 +43,7 @@ import {
  */
 
 /** The bounds of one completion: what it sends, what it keeps of the reply, how long it waits. */
-const COMPLETION_LIMITS = {
+export const COMPLETION_LIMITS = {
   /** The longest system prompt, in characters. */
   system: 20_000,
   /** The longest message, in characters. */

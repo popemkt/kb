@@ -4,10 +4,12 @@
  */
 import { MasonryGrid } from "./masonry-grid";
 import type { GraphNode, Library } from "@kb/gallery";
+import type { References } from "./selection";
 
 export function VisualsPane({
   library,
   shown,
+  match,
   text,
   onText,
   gridKey,
@@ -18,6 +20,8 @@ export function VisualsPane({
   readonly library: Library;
   /** The visuals the selection and the search let through. */
   readonly shown: readonly GraphNode[];
+  /** How `shown` answers the selection: the closest are said to be so. */
+  readonly match: References["match"];
   readonly text: string;
   readonly onText: (text: string) => void;
   /** A new filter is a new grid: it starts at the top of its results. */
@@ -43,9 +47,11 @@ export function VisualsPane({
           data-testid="gallery-count"
           className="shrink-0 text-label text-foreground/45 tabular-nums"
         >
-          {shown.length === total
-            ? `${total} ${total === 1 ? "visual" : "visuals"}`
-            : `${shown.length} of ${total}`}
+          {match === "most"
+            ? `${shown.length} closest`
+            : shown.length === total
+              ? `${total} ${total === 1 ? "visual" : "visuals"}`
+              : `${shown.length} of ${total}`}
         </span>
       </div>
       {total === 0 ? (
@@ -66,7 +72,14 @@ export function VisualsPane({
           No visual matches. Clear a facet or the search.
         </p>
       ) : (
-        <MasonryGrid key={gridKey} visuals={shown} selectedId={openId} onOpen={onOpen} />
+        <>
+          {match === "most" && (
+            <p className="px-3 pb-1 text-label text-foreground/50">
+              None shows all of the look: these show the most of it. Clear a facet to widen.
+            </p>
+          )}
+          <MasonryGrid key={gridKey} visuals={shown} selectedId={openId} onOpen={onOpen} />
+        </>
       )}
     </main>
   );

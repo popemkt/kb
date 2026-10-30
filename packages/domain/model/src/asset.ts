@@ -11,17 +11,10 @@
 const MEDIA_KINDS = ["image", "video", "audio"] as const;
 export type AssetMediaKind = (typeof MEDIA_KINDS)[number];
 
-/** The extensions of each kind of media kb renders. */
-export const MEDIA_EXTENSIONS: { readonly [K in AssetMediaKind]: ReadonlySet<string> } = {
-  image: new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp"]),
-  video: new Set(["mp4", "webm", "mov", "ogv", "m4v"]),
-  audio: new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"]),
-};
-
 /**
  * The media type of each extension kb stores an asset under: what the asset
- * route serves it as, and what a model is told a picture is. One map, so the
- * two never disagree.
+ * route serves it as, what a model is told a picture is, and, by its first
+ * part, the kind of media it is. One map, so none of them disagree.
  */
 const ASSET_MEDIA_TYPES: Readonly<Record<string, string>> = {
   png: "image/png",
@@ -46,6 +39,21 @@ const ASSET_MEDIA_TYPES: Readonly<Record<string, string>> = {
   opus: "audio/opus",
   pdf: "application/pdf",
 };
+
+/** The extensions of each kind of media kb renders: those whose media type is of that kind. */
+export const MEDIA_EXTENSIONS: { readonly [K in AssetMediaKind]: ReadonlySet<string> } = {
+  image: extensionsOf("image"),
+  video: extensionsOf("video"),
+  audio: extensionsOf("audio"),
+};
+
+function extensionsOf(kind: AssetMediaKind): ReadonlySet<string> {
+  return new Set(
+    Object.entries(ASSET_MEDIA_TYPES).flatMap(([ext, type]) =>
+      type.startsWith(`${kind}/`) ? [ext] : [],
+    ),
+  );
+}
 
 /** The media type a path names by its extension (case-blind); null for one kb has none for. */
 export function assetMediaType(path: string): string | null {

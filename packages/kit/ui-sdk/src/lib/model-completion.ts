@@ -33,6 +33,8 @@ export type CompletionReply =
 
 export interface ModelCompletion {
   readonly complete: (request: CompletionRequest) => Promise<CompletionReply>;
+  /** The most pictures one request may carry: a request with more is refused whole. */
+  readonly pictures: number;
 }
 
 /** Where a family that holds a model provides its completion while it is loaded. */

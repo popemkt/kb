@@ -105,11 +105,14 @@ function StartBox({
 }
 
 /** What the page says about the pictures after a reflection. */
-function sawText(sent: number, saw: number): string | null {
+function sawText(reflected: Reflected): string | null {
+  const { sent } = reflected;
   if (sent === 0) return null;
-  if (saw === 0)
+  if (reflected.refused !== undefined)
+    return `Your model refused the pictures (${reflected.refused}), so it read the words only.`;
+  if (reflected.saw === 0)
     return "Your model read the words only: it cannot see pictures, so they were not sent.";
-  return `Your model saw ${saw} of the ${sent} ${sent === 1 ? "picture" : "pictures"}.`;
+  return `Your model saw ${reflected.saw} of the ${sent} ${sent === 1 ? "picture" : "pictures"}.`;
 }
 
 function Reflect({
@@ -128,14 +131,9 @@ function Reflect({
   const reflect = async () => {
     if (frame.model === null) return toast(`Reflect ${MODEL_NEEDS}`);
     setBusy(true);
-    let reflected = await frame.model.reflect(words, pictures, frame.library);
-    // A model behind a seeing wire may still refuse pictures: ask again with the words alone.
-    if (reflected === null && pictures.length > 0 && words.trim() !== "") {
-      toast("Asking again with the words alone");
-      const words_only = await frame.model.reflect(words, [], frame.library);
-      reflected = words_only === null ? null : { ...words_only, saw: 0 };
-    }
-    setBusy(false);
+    const reflected = await frame.model
+      .reflect(words, pictures, frame.library)
+      .finally(() => setBusy(false));
     if (reflected === null) return;
     const brief = reflected.reflection.description.trim();
     if (brief !== "")
@@ -170,9 +168,9 @@ function Articulate({ frame }: { readonly frame: ComposerFrame }) {
   const draft = useDraft();
   const [words, setWords] = useState(draft.description);
   const [pictures, setPictures] = useState<readonly string[]>([]);
-  const [reflected, setReflected] = useState<(Reflected & { readonly sent: number }) | null>(null);
+  const [reflected, setReflected] = useState<Reflected | null>(null);
   const [online, setOnline] = useState(false);
-  const said = reflected === null ? null : sawText(reflected.sent, reflected.saw);
+  const said = reflected === null ? null : sawText(reflected);
   return (
     <div
       data-testid="gallery-articulate"
@@ -184,12 +182,7 @@ function Articulate({ frame }: { readonly frame: ComposerFrame }) {
         pictures={pictures}
         onPictures={(change) => setPictures(change)}
       />
-      <Reflect
-        frame={frame}
-        words={words}
-        pictures={pictures}
-        onReflected={(r) => setReflected({ ...r, sent: Math.min(pictures.length, 4) })}
-      />
+      <Reflect frame={frame} words={words} pictures={pictures} onReflected={setReflected} />
       {said !== null && (
         <p data-testid="gallery-saw" className="text-label text-foreground/55">
           {said}

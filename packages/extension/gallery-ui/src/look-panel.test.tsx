@@ -25,12 +25,13 @@ import {
   ModelCompletionService,
   setToastSink,
   syncUiPlugins,
+  useContributions,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { updateDraft } from "./draft";
 import type { ComposerFrame } from "./frame";
 import { LookPanel } from "./look-panel";
-import { MODEL_NEEDS, galleryModelPlugin } from "./model";
+import { ComposerModelPoint, MODEL_NEEDS, galleryModelPlugin } from "./model";
 
 const ENHANCE_NEEDS = `Enhance ${MODEL_NEEDS}`;
 const CINEMATIC: StyleEntry = {
@@ -56,6 +57,12 @@ const FRAME: ComposerFrame = {
   board: null,
   open: () => {},
 };
+
+/** The panel in a frame whose model is the one offered now, as the page builds it. */
+function Framed() {
+  const model = useContributions(ComposerModelPoint)[0]?.value ?? null;
+  return <LookPanel frame={{ ...FRAME, model }} />;
+}
 const REWRITE = "A cinematic still on 35 mm film, soft grain, a low sun raking across the frame";
 const enhanceButton = () =>
   document.querySelector<HTMLButtonElement>('[data-testid="gallery-enhance"]');
@@ -89,6 +96,7 @@ describe("the look's Enhance", () => {
           calls.push(request);
           return Promise.resolve(answer());
         },
+        pictures: 4,
       }),
   });
   /** The page's plugins, with or without a family that provides a completion. */
@@ -108,7 +116,7 @@ describe("the look's Enhance", () => {
   });
   const render = (styles: readonly StyleEntry[] = [CINEMATIC]) => {
     updateDraft(() => ({ ...EMPTY_LOOK, styles: styles.map((style) => style.id) }));
-    act(() => root.render(<LookPanel frame={FRAME} />));
+    act(() => root.render(<Framed />));
   };
   test("says what it needs while no family provides a completion, and works once one does", async () => {
     provided(false);

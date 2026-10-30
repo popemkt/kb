@@ -46,11 +46,11 @@ export function canvasBoard(host: Pick<BrowserHost, "invoke" | "node">): Board {
     title: string,
     cards: readonly BoardCard[],
   ): Promise<BoardReply> => {
-    // A node made a moment ago may not be on the page yet: it has no board then either.
+    // The page's replica holds a node the page just wrote (its commit is local first).
     const existing = (host.node(owner)?.children ?? [])
       .map((id) => host.node(id))
       .find((child) => child !== undefined && isCanvasNode(child));
-    const board = existing?.id ?? (await createCanvasNode(title, owner));
+    const board = existing?.id ?? (await createCanvasNode(title, owner, host));
     if (board === null) return { ok: false, reason: "the board could not be made" };
     const doc = readCanvasDoc(existing);
     const shown = new Set(doc.nodes.filter(isKbNode).map((item) => item.nodeId));

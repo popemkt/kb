@@ -37,7 +37,7 @@ import {
   ViewSlot,
   type FamilyView,
 } from "@kb/ui-sdk";
-import { lastWorkflow, rememberWorkflow, updateDraft, useDraft } from "./draft";
+import { lastWorkflow, openLook, rememberWorkflow, useDraft } from "./draft";
 import { ComposerFrameContext, type ComposerFrame } from "./frame";
 import { LookPanel } from "./look-panel";
 import { ComposerModelPoint } from "./model";
@@ -69,6 +69,49 @@ function useFrame(): ComposerFrame {
   }, [nodes, library, sources, model, board]);
 }
 
+/** How many ways in the chooser draws large, the family's first: the two the gallery is for. */
+const LEADING = 2;
+
+function WayIn({
+  workflow,
+  last,
+  large,
+  frame,
+}: {
+  readonly workflow: WorkflowKey;
+  readonly last: boolean;
+  readonly large: boolean;
+  readonly frame: ComposerFrame;
+}) {
+  const { blurb, steps, reads, writes } = workflow.workflow;
+  const tags = (ids: readonly string[]) => ids.map((id) => frame.node(id)?.text ?? id).join(", ");
+  const touches = `Reads ${tags(reads)}; makes ${tags(writes)}`;
+  return (
+    <button
+      type="button"
+      data-gallery-workflow={localIdOf(workflow)}
+      title={large ? touches : `${blurb}\n${steps.join(" → ")}\n${touches}`}
+      className={cn(
+        "flex flex-col items-start gap-1 rounded-lg border border-border text-left hover:bg-foreground/5",
+        large ? "p-4" : "px-3 py-2",
+        last && "border-primary/40",
+      )}
+      onClick={() => frame.open(localIdOf(workflow))}
+    >
+      <span className={cn("font-medium text-foreground/85", large ? "text-title" : "text-ui")}>
+        {workflow.workflow.question}
+      </span>
+      {large && (
+        <>
+          <span className="text-meta text-foreground/55">{blurb}</span>
+          <span className="text-label text-foreground/40">{steps.join(" → ")}</span>
+        </>
+      )}
+      {last && <span className="text-label text-primary">Last used</span>}
+    </button>
+  );
+}
+
 function Chooser({
   workflows,
   frame,
@@ -79,8 +122,22 @@ function Chooser({
   const nodes = useNodes();
   const looks = useMemo(() => looksOf(nodes.values()), [nodes]);
   const last = lastWorkflow();
+  // The last way in is offered first, and large, with the family's leading ones.
+  const leading = new Set([
+    ...(last === null ? [] : [last]),
+    ...workflows.slice(0, LEADING).map(({ key }) => localIdOf(key)),
+  ]);
   const ordered = workflows.toSorted(
     (a, b) => Number(localIdOf(b.key) === last) - Number(localIdOf(a.key) === last),
+  );
+  const way = (key: WorkflowKey) => (
+    <WayIn
+      key={key.id}
+      workflow={key}
+      last={localIdOf(key) === last}
+      large={leading.has(localIdOf(key))}
+      frame={frame}
+    />
   );
   return (
     <div
@@ -89,22 +146,13 @@ function Chooser({
     >
       <h1 className="text-title font-medium text-foreground/85">Where are you starting from?</h1>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {ordered.map(({ key }) => (
-          <button
-            key={key.id}
-            type="button"
-            data-gallery-workflow={localIdOf(key)}
-            className={cn(
-              "flex flex-col items-start gap-1 rounded-lg border border-border p-3 text-left hover:bg-foreground/5",
-              localIdOf(key) === last && "border-primary/40",
-            )}
-            onClick={() => frame.open(localIdOf(key))}
-          >
-            <span className="text-ui font-medium text-foreground/85">{key.workflow.question}</span>
-            <span className="text-meta text-foreground/55">{key.workflow.blurb}</span>
-            {localIdOf(key) === last && <span className="text-label text-primary">Last used</span>}
-          </button>
-        ))}
+        {ordered.filter(({ key }) => leading.has(localIdOf(key))).map(({ key }) => way(key))}
+      </div>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-meta text-foreground/55">More ways in</h2>
+        <div className="flex flex-wrap gap-2">
+          {ordered.filter(({ key }) => !leading.has(localIdOf(key))).map(({ key }) => way(key))}
+        </div>
       </div>
       {looks.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -116,8 +164,7 @@ function Chooser({
                 type="button"
                 className="rounded-md border border-border px-2 py-1 text-meta text-foreground/75 hover:bg-foreground/5"
                 onClick={() => {
-                  updateDraft(() => lookOf(look, frame.node));
-                  frame.open(last ?? "know");
+                  if (openLook(lookOf(look, frame.node), frame.node)) frame.open(last ?? "know");
                 }}
               >
                 {nameOf(lookOf(look, frame.node))}

@@ -32,7 +32,17 @@ const get = (id: string) => byId.get(id);
 describe("finding the node a look is for", () => {
   it("matches text, leaving out system nodes and the gallery's own looks", () => {
     expect(findNodes(nodes, "LIGHTHOUSE").map((x) => x.id)).toEqual(["story"]);
-    expect(findNodes(nodes, "  ")).toEqual([]);
+  });
+
+  it("offers the newest nodes a person made before anything is typed", () => {
+    const made = [
+      "01M00000000000000000000001",
+      "01M00000000000000000000003",
+      "01M00000000000000000000002",
+    ];
+    const system = nodes.filter((x) => x.id.startsWith("sys.") || x.id.endsWith("look"));
+    const offered = findNodes([...made.map((id) => n(id, `note ${id}`)), ...system], "  ");
+    expect(offered.map((x) => x.id)).toEqual([made[1], made[2], made[0]]);
   });
 
   it("stops at the limit", () => {

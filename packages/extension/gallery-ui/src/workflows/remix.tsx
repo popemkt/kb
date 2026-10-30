@@ -96,6 +96,10 @@ function SourcePicker({
       <span className={HEADING}>
         Choose two or three sources ({chosen.length} of {MAX_SOURCES})
       </span>
+      <p className="text-label text-foreground/50">
+        Then take each axis from the one you choose: the lighting of one, the palette of another.
+        Looks and visuals both count.
+      </p>
       {looks.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {looks.map((look) => chip(look, `Look: ${nameOf(lookOf(look, frame.node))}`))}

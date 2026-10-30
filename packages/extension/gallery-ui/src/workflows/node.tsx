@@ -10,7 +10,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { lookOf, looksOf, nameOf, type GraphNode, type WorkflowParams } from "@kb/gallery";
 import { navigate, nodePath, useNodes } from "@kb/ui-sdk";
-import { updateDraft, useDraft } from "../draft";
+import { openLook, updateDraft, useDraft } from "../draft";
 import { useComposer, type ComposerFrame } from "../frame";
 import { findNodes, isPickable, looksFor, plainOf, seedOf } from "./node-model";
 import { NoComposer } from "./no-composer";
@@ -54,6 +54,11 @@ function NodeSearch({
         className="w-full min-w-0 rounded-md border border-border bg-transparent px-2 py-1 text-meta text-foreground/85"
         onChange={(e) => setText(e.target.value)}
       />
+      {query.trim() === "" && found.length > 0 && (
+        <p className="text-label text-foreground/45">
+          The newest first. The look will name the node it is for, so the node lists its looks.
+        </p>
+      )}
       {query.trim() !== "" && found.length === 0 && (
         <p className="text-meta text-foreground/45">No node holds those words.</p>
       )}
@@ -120,7 +125,7 @@ function ForNode({
                 key={look.id}
                 type="button"
                 className={BUTTON}
-                onClick={() => updateDraft(() => lookOf(look, frame.node))}
+                onClick={() => openLook(lookOf(look, frame.node), frame.node)}
               >
                 {nameOf(lookOf(look, frame.node))}
               </button>

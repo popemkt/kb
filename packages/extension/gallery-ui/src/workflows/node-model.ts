@@ -16,14 +16,25 @@ export function isPickable(node: GraphNode): boolean {
   );
 }
 
-/** The nodes whose text holds `query`, in the order given, at most `limit`; none for no query. */
+/** How many of the newest nodes are offered before anything is typed. */
+const NEWEST = 12;
+
+/**
+ * The nodes whose text holds `query`, in the order given, at most `limit`;
+ * for no query, the newest a person made (a ULID sorts by when it was made).
+ */
 export function findNodes(
   nodes: Iterable<GraphNode>,
   query: string,
   limit = 50,
 ): readonly GraphNode[] {
   const needle = query.trim().toLowerCase();
-  if (needle === "") return [];
+  if (needle === "") {
+    return [...nodes]
+      .filter(isPickable)
+      .toSorted((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
+      .slice(0, NEWEST);
+  }
   const found: GraphNode[] = [];
   for (const node of nodes) {
     if (!isPickable(node) || !node.text.toLowerCase().includes(needle)) continue;

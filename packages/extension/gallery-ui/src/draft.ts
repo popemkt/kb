@@ -6,7 +6,7 @@
  * workflow chosen is kept on the device, so `/gallery` offers it first.
  */
 import { useSyncExternalStore } from "react";
-import { EMPTY_LOOK, type LookDraft } from "@kb/gallery";
+import { EMPTY_LOOK, lookOf, nameOf, type GraphNode, type LookDraft } from "@kb/gallery";
 
 const DRAFT_KEY = "kb-gallery-draft";
 const WORKFLOW_KEY = "kb-gallery-workflow";
@@ -84,6 +84,25 @@ export function updateDraft(change: (before: LookDraft) => LookDraft): void {
   draft = next;
   storage("session")?.setItem(DRAFT_KEY, JSON.stringify(draft));
   for (const listener of listeners) listener();
+}
+
+/** Whether `d` holds work no saved look has: a new look with anything in it, or a saved one changed since. */
+function unsaved(d: LookDraft, get: (id: string) => GraphNode | undefined): boolean {
+  const saved = d.id === null ? undefined : get(d.id);
+  const against = saved === undefined ? { ...EMPTY_LOOK, id: d.id } : lookOf(saved, get);
+  return JSON.stringify(d) !== JSON.stringify(against);
+}
+
+/**
+ * Make `next` the look being made: a saved look carried on, or a new one.
+ * Unsaved work is dropped only when the person says so; whether it was replaced.
+ */
+export function openLook(next: LookDraft, get: (id: string) => GraphNode | undefined): boolean {
+  if (next.id !== null && next.id === draft.id) return true;
+  if (unsaved(draft, get) && !window.confirm(`Drop the unsaved changes to “${nameOf(draft)}”?`))
+    return false;
+  updateDraft(() => next);
+  return true;
 }
 
 /** The draft with `styleId` chosen if it was not, unchosen if it was. */
