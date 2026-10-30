@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   ActionPoint,
   CoreInvoke,
+  extensionActionId,
   extensionNamespace,
   failed,
   familyTags,
@@ -48,7 +49,7 @@ const COMPLETION_LIMITS = {
 const COMPLETE_ID = "complete";
 
 /** The id the completion is invoked by: the one spelling of it, for the family's own halves. */
-export const AGENT_COMPLETE_ACTION = `${extensionNamespace(agentExtension.name)}.${COMPLETE_ID}`;
+export const AGENT_COMPLETE_ACTION = extensionActionId(agentExtension.name, COMPLETE_ID);
 
 /** The system prompt of a completion whose caller names none. */
 const COMPLETION_SYSTEM = "Answer the message. Reply with the answer alone, no preamble.";

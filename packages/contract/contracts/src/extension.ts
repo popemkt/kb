@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import { NoParams, viewKey } from "@kb/views";
-import { Point, Service, definePlugin, type ContributionEntry } from "@kb/plugin";
+import { Point, Service, definePlugin, namespaced, type ContributionEntry } from "@kb/plugin";
 import type { NodeIndex } from "@kb/query";
 import type { KbContext } from "./session.ts";
 import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
@@ -117,6 +117,11 @@ export const TemplatePoint = Point<TemplateFn>()("kb.templates");
 /** The namespace a family's plugin contributes in, so its ids read `ext.<name>.<id>`. */
 export function extensionNamespace(name: string): string {
   return `ext.${name}`;
+}
+
+/** The id a family's action is invoked by: its local `id` in the family's namespace, `ext.<name>.<id>`. */
+export function extensionActionId(name: string, id: string): string {
+  return namespaced(extensionNamespace(name), id);
 }
 
 /** The {@link ActionPoint} contribution for `action`, under its local id. */

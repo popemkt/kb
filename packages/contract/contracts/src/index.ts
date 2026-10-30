@@ -97,6 +97,7 @@ export {
   HOST_MODULES,
   HOST_MODULES_KEY,
   TemplatePoint,
+  extensionActionId,
   extensionNamespace,
   extensionPagePath,
   installHostModules,
