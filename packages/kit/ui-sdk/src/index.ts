@@ -182,6 +182,7 @@ export { SidebarToggle } from "./components/sidebar-toggle";
 export { SETTINGS_PATH, SettingsTrigger } from "./components/settings-trigger";
 export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
 export { ThemeIcon } from "./components/theme-icon";
+export { ViewOptionsGlyph } from "./components/view-options-glyph";
 export { useAnchoredPosition } from "./components/use-anchored-position";
 export { useDismiss, type DismissInside } from "./components/use-dismiss";
 export { useRevealMarkup } from "./components/use-reveal-markup";

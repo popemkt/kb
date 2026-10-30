@@ -1,8 +1,7 @@
 import { GraphMappings } from "./graph-mappings";
 import { useRef, useState } from "react";
-import { GearSixIcon } from "@phosphor-icons/react";
 import { setLensProp } from "./lens-writes";
-import { cn, useContributions, useDismiss } from "@kb/ui-sdk";
+import { cn, useContributions, useDismiss, ViewOptionsGlyph } from "@kb/ui-sdk";
 import { declaredOptionId } from "@kb/model";
 import {
   LENS_LABEL_DENSITIES,
@@ -22,7 +21,7 @@ interface GraphSettingsProps {
 }
 
 /**
- * Settings popover — every control writes a `sys.f.lens.*` prop via
+ * The graph's options popover — every control writes a `sys.f.lens.*` prop via
  * setLensProp (unset-before-set). Only open/closed stays in React.
  */
 export function GraphSettings({ perspective }: GraphSettingsProps) {
@@ -58,20 +57,20 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
           "flex h-7 w-7 items-center justify-center rounded-md text-foreground/50 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/80",
           open && "bg-foreground/[0.08] text-foreground/80",
         )}
-        title="Graph settings"
-        aria-label="Graph settings"
+        title="Graph options"
+        aria-label="Graph options"
         aria-expanded={open}
         data-testid="graph-settings-toggle"
         onClick={() => setOpen((o) => !o)}
       >
-        <GearSixIcon size={14} />
+        <ViewOptionsGlyph size={14} />
       </button>
       {open ? (
         <div
           className="absolute right-0 top-9 z-40 max-h-[calc(100vh-10rem)] w-72 overflow-y-auto rounded-lg border border-border bg-popover/95 p-3 shadow-overlay backdrop-blur-sm"
           data-testid="graph-settings-panel"
         >
-          <p className="mb-2 text-label font-semibold kb-label text-foreground/40">Settings</p>
+          <p className="mb-2 text-label font-semibold kb-label text-foreground/40">Options</p>
 
           <GraphMappings perspective={perspective} />
 

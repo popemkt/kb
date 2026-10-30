@@ -375,7 +375,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             {held !== null && lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
               <WorkspaceState
                 title="No nodes in view"
-                description="Broaden the node query in Graph settings."
+                description="Broaden the node query in Graph options."
               />
             ) : rendererKey !== null && settings !== null && Result.isSuccess(settings) ? (
               <GraphFrameContext.Provider value={frame}>

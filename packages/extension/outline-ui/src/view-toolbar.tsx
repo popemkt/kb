@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { GearSixIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { queryTextOf } from "@kb/model";
-import { browserHost, cn, useViewSettingsFrame, useFrameViews } from "@kb/ui-sdk";
+import { browserHost, cn, useViewSettingsFrame, useFrameViews, ViewOptionsGlyph } from "@kb/ui-sdk";
 import { type FrameViewKey, localIdOf } from "@kb/views";
 import { useOutlineNode } from "./outline.store";
 import { queryBuilderId, setQueryBuilderOpen, useQueryBuilderOpen } from "./query-builder/open";
@@ -86,7 +86,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           setExpanded(true);
         }}
       >
-        <GearSixIcon size={14} />
+        <ViewOptionsGlyph size={14} />
       </button>
     );
   }
@@ -135,7 +135,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           setViewSettingsFrame(settingsOpen ? null : frameId);
         }}
       >
-        <GearSixIcon size={12} weight={settingsOpen ? "fill" : "regular"} />
+        <ViewOptionsGlyph size={12} weight={settingsOpen ? "bold" : "regular"} />
       </button>
       {tucked ? (
         <button

@@ -1,6 +1,6 @@
 /**
  * Settings' Extensions and Advanced parts, driven through the real App: the
- * sidebar opens Settings and its rail the part (⌘K's command is
+ * header's gear opens Settings and its rail the part (⌘K's command is
  * `run-command`'s), the part draws what `extension.list` and
  * `extension.footprint` answer with the page's own kernel joined in, each
  * family in its own section with its switch, which asks the server through
@@ -181,13 +181,13 @@ describe("Settings' Extensions (acceptance)", () => {
   const card = (name: string) =>
     present(container.querySelector(`[data-testid="extension-${name}"]`), `${name} section`);
 
-  const buttonNamed = (text: string) =>
-    [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === text);
-
-  /** Open Settings from the sidebar, then `part` from its rail. */
-  async function openFromSidebar(part: "Extensions" | "Advanced" = "Extensions"): Promise<void> {
+  /** Open Settings from the header's gear, then `part` from its rail. */
+  async function openFromHeader(part: "Extensions" | "Advanced" = "Extensions"): Promise<void> {
     await act(async () => {
-      present(buttonNamed("Settings"), "the sidebar's Settings row").click();
+      present(
+        container.querySelector<HTMLButtonElement>('header button[aria-label="Settings"]'),
+        "the header's gear",
+      ).click();
     });
     await until(() => container.querySelector("[data-settings-part-link]") !== null);
     await act(async () => {
@@ -213,9 +213,9 @@ describe("Settings' Extensions (acceptance)", () => {
     await act(async () => fold.click());
   }
 
-  it("opens from the sidebar and draws each extension as the server reports it", async () => {
+  it("opens from the header's gear and draws each extension as the server reports it", async () => {
     expect(page()).toBeNull();
-    await openFromSidebar();
+    await openFromHeader();
     expect(page()).not.toBeNull();
 
     // A required family says so; an optional one has its switch, as reported.
@@ -246,7 +246,7 @@ describe("Settings' Extensions (acceptance)", () => {
   });
 
   it("lists the listeners asked in turn, in order, and the extensions refused, in Advanced", async () => {
-    await openFromSidebar("Advanced");
+    await openFromHeader("Advanced");
     const identity = present(
       container.querySelector('[data-testid="point-host-identity.providers"]'),
       "the host's identity providers",
@@ -268,7 +268,7 @@ describe("Settings' Extensions (acceptance)", () => {
   });
 
   it("asks the server to switch a family, through extension.switch", async () => {
-    await openFromSidebar();
+    await openFromHeader();
     const graphSwitch = present(
       card("graph").querySelector<HTMLSelectElement>('[data-testid="switch-graph"]'),
       "graph's switch",
@@ -284,7 +284,7 @@ describe("Settings' Extensions (acceptance)", () => {
   });
 
   it("draws a family's settings, the fields of its node, in its section, the switch apart", async () => {
-    await openFromSidebar();
+    await openFromHeader();
     const rows = [...card("graph").querySelectorAll("[data-setting]")];
     expect(rows.length).toBeGreaterThan(0);
     expect(card("graph").textContent).toContain("suggest relations");
@@ -304,7 +304,7 @@ describe("Settings' Extensions (acceptance)", () => {
 
   it("says why when the server cannot give the report, and asks again on request", async () => {
     failing = "unreachable";
-    await openFromSidebar();
+    await openFromHeader();
     expect(page()?.querySelector('[role="alert"]')?.textContent).toContain("connection refused");
     expect(page()?.textContent).not.toContain("Reading the extensions");
 
@@ -322,7 +322,7 @@ describe("Settings' Extensions (acceptance)", () => {
 
   it("does not draw a footprint it could not read as one with nothing in it", async () => {
     failing = "footprint";
-    await openFromSidebar();
+    await openFromHeader();
     expect(page()?.querySelector('[role="alert"]')?.textContent).toBe(
       "extension.footprint is not granted",
     );
