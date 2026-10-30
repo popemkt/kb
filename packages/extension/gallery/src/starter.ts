@@ -164,6 +164,17 @@ const FACETS: ReadonlyArray<readonly [facet: string, values: readonly string[]]>
     ],
   ],
   [
+    "Texture",
+    [
+      "film grain",
+      "clean digital",
+      "soft focus",
+      "crisp detail",
+      "halftone",
+      "visible brushstrokes",
+    ],
+  ],
+  [
     "Film stock",
     [
       "Kodak Portra 400",

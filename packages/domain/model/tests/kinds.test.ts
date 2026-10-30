@@ -39,6 +39,7 @@ describe("kinds, roles and options", () => {
       "comment",
       "facet",
       "image source",
+      "look",
       "ontology",
       "script",
       "style",

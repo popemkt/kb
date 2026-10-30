@@ -13,6 +13,7 @@ import { makeKernel } from "@kb/plugin";
 import {
   GALLERY_IDS,
   GALLERY_SOURCE_IDS,
+  GALLERY_WORKFLOWS,
   GalleryView,
   STARTER_SIZE,
   galleryExtension,
@@ -39,13 +40,14 @@ const isKind = (node: KbNode, kind: string) =>
   node.props[SYSTEM_IDS.typeField]?.some((v) => v.t === "ref" && v.v === kind) ?? false;
 
 describe("gallery family", () => {
-  test("its declaration lists the library page, off by default", () => {
-    expect(galleryExtension.views?.map((view) => view.key)).toEqual([GalleryView]);
+  test("its declaration lists the composer page and its workflows, off by default", () => {
+    const keys = [GalleryView, ...GALLERY_WORKFLOWS];
+    expect(galleryExtension.views?.map((view) => view.key)).toEqual(keys);
     expect(galleryExtension.optional).toEqual({ byDefault: "off" });
     expect(BUNDLED_DECLARATIONS).toContain(galleryExtension);
     expect(GalleryView.id).toBe("gallery.library");
     expect(galleryPlugin().name).toBe(galleryExtension.name);
-    expect(contributed()).toEqual([GalleryView.id]);
+    expect(contributed()).toEqual(keys.map((key) => key.id));
   });
 
   test("the bundled seed holds its tags, fields and sources", () => {

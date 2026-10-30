@@ -140,6 +140,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
+### GAP: a captured image link keeps the link, not the picture
+
+- **expected** — Capturing an https image URL in the gallery saves the picture as an asset, as a pasted file is: kb's server downloads it, bounded in size and type, and the visual embeds it in media.
+- **current** — Capture saves a #visual whose source is the URL and whose text is the URL's last path segment, with no media: no core or gallery action downloads an arbitrary https image, and ext.gallery.save downloads only from the hosts a source adapter names (admitted/reachable in @kb/gallery-net), deliberately, so a fetch-anything action is not an SSRF hole.
+- **impact** — A link-only capture shows no picture in the grid, triage or a look's pins, contributes nothing to a palette, and breaks when the remote page moves.
+- **closes** — A server action that downloads a person-chosen https image under an SSRF policy (public addresses only, resolved and pinned, no redirects to private ranges, size and type bounded) and writes through asset.upload; Capture then calls it and adds media to the visual.
+- **node** — `01M66SF67J0TDSK1R85KYBYVBD`
+
 ### GAP: a channel a registry family contributes is not served
 
 - **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
@@ -1486,6 +1494,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a busy untrusted code view can stutter its own frame
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
+
+### GAP: view families are a closed list in core's model; a family cannot declare its own
+
+- **expected** — a family's declaration names the view families it owns (as it names its views, viewDef), and the seed derives each family's option under sys.f.view.family from the declarations, so ViewFamily is a reading of what is declared
+- **current** — VIEW_FAMILY_VALUES in @kb/model (view-node.ts) lists every view family by hand, including the graph family's graph.renderer and the gallery's gallery.workflow, so core names concepts of optional families
+- **impact** — a new family of views, from a bundled family or a repository extension, must edit core; core seeds the family option of a family that may be off
+- **closes** — defineExtension takes viewFamilies; the bundled fold seeds their options; ViewKey.family is typed by a registry the declarations extend; VIEW_FAMILY_VALUES keeps core's own (outline.frame) only
+- **node** — `01M66RQ281GTJNACBJ572PHCJP`
 
 ### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
 

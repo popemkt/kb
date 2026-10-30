@@ -1,14 +1,15 @@
 /**
  * The gallery family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The declaration is the one home of the family's name,
- * seed and view; the bundled seed folds it, and both hosts load
- * {@link galleryPlugin}, so the key cannot differ between them. It is
- * optional and off by default: a person switches the library on.
+ * seed and views (the composer page and its workflows); the bundled seed
+ * folds it, and both hosts load {@link galleryPlugin}, so a key cannot
+ * differ between them. It is optional and off by default: a person switches
+ * the gallery on.
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { gallerySeedNodes } from "./seed.ts";
-import { GalleryView } from "./view.ts";
+import { GALLERY_WORKFLOWS, GalleryView } from "./view.ts";
 
 export const galleryExtension = defineExtension({
   name: "gallery",
@@ -16,7 +17,7 @@ export const galleryExtension = defineExtension({
   tags: ["gallery"],
   optional: { byDefault: "off" },
   seed: gallerySeedNodes,
-  views: [viewDef(GalleryView)],
+  views: [viewDef(GalleryView), ...GALLERY_WORKFLOWS.map((key) => viewDef(key))],
 });
 
 /**

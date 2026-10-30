@@ -1,17 +1,23 @@
 /**
- * The composer's Enhance (research record §6.5): working while a family
+ * The look panel's Enhance (research record §6.5): working while a family
  * provides the page's model completion, it sends the composed prompt and the
  * family's system prompt and shows the rewrite as an editable prompt of its
  * own, for as long as the composition it was made from stands. While none is
  * provided it says what it needs and sends nothing. A failed completion
  * leaves no rewrite and says why. The gallery reaches a model only through
  * `ModelCompletionService`, so these tests provide a stand-in for it, beside
- * the gallery's real `enhance` child, never a model.
+ * the gallery's real `model` child, never a model.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { composePrompt, enhanceInput, type StyleEntry } from "@kb/gallery";
+import {
+  EMPTY_LOOK,
+  composePrompt,
+  enhanceInput,
+  type Library,
+  type StyleEntry,
+} from "@kb/gallery";
 import { definePlugin } from "@kb/plugin";
 import {
   type CompletionReply,
@@ -21,8 +27,12 @@ import {
   syncUiPlugins,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { ComposePanel } from "./compose-panel";
-import { ENHANCE_NEEDS, galleryEnhancePlugin } from "./enhance";
+import { updateDraft } from "./draft";
+import type { ComposerFrame } from "./frame";
+import { LookPanel } from "./look-panel";
+import { MODEL_NEEDS, galleryModelPlugin } from "./model";
+
+const ENHANCE_NEEDS = `Enhance ${MODEL_NEEDS}`;
 const CINEMATIC: StyleEntry = {
   id: "s.cinematic",
   text: "Cinematic",
@@ -31,6 +41,21 @@ const CINEMATIC: StyleEntry = {
   negative: "",
 };
 const COMPOSED = composePrompt("", "", [CINEMATIC], "sd").positive;
+const LIBRARY: Library = {
+  visuals: [],
+  styles: new Map([[CINEMATIC.id, CINEMATIC]]),
+  facets: [],
+  stylesOf: new Map(),
+};
+const FRAME: ComposerFrame = {
+  library: LIBRARY,
+  node: () => undefined,
+  sources: [],
+  saveInto: null,
+  model: null,
+  board: null,
+  open: () => {},
+};
 const REWRITE = "A cinematic still on 35 mm film, soft grain, a low sun raking across the frame";
 const enhanceButton = () =>
   document.querySelector<HTMLButtonElement>('[data-testid="gallery-enhance"]');
@@ -43,7 +68,7 @@ async function press(button: HTMLElement | null): Promise<void> {
     await Promise.resolve();
   });
 }
-describe("the composer's Enhance", () => {
+describe("the look's Enhance", () => {
   let dom: InstalledDom;
   let root: Root;
   let answer: () => CompletionReply | Promise<CompletionReply>;
@@ -57,7 +82,7 @@ describe("the composer's Enhance", () => {
   afterAll(() => dom.restore());
   /** A stand-in for the family that holds a model: it provides the page's completion. */
   const model = definePlugin({
-    name: "model",
+    name: "agent",
     apply: (ctx) =>
       ctx.provide(ModelCompletionService, {
         complete: (request) => {
@@ -68,7 +93,7 @@ describe("the composer's Enhance", () => {
   });
   /** The page's plugins, with or without a family that provides a completion. */
   const provided = (on: boolean) =>
-    act(() => syncUiPlugins(on ? [model, galleryEnhancePlugin] : [galleryEnhancePlugin]));
+    act(() => syncUiPlugins(on ? [model, galleryModelPlugin] : [galleryModelPlugin]));
   beforeEach(() => {
     calls = [];
     toasts = [];
@@ -81,8 +106,10 @@ describe("the composer's Enhance", () => {
     document.body.replaceChildren();
     syncUiPlugins([]);
   });
-  const render = (styles: readonly StyleEntry[] = [CINEMATIC]) =>
-    act(() => root.render(<ComposePanel styles={styles} onRemove={() => {}} />));
+  const render = (styles: readonly StyleEntry[] = [CINEMATIC]) => {
+    updateDraft(() => ({ ...EMPTY_LOOK, styles: styles.map((style) => style.id) }));
+    act(() => root.render(<LookPanel frame={FRAME} />));
+  };
   test("says what it needs while no family provides a completion, and works once one does", async () => {
     provided(false);
     render();

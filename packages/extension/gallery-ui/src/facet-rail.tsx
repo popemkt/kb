@@ -100,10 +100,7 @@ export function FacetRail({
 }) {
   const chosen = chosenStyles(selection);
   return (
-    <aside
-      data-testid="gallery-facets"
-      className="flex min-h-0 w-full shrink-0 flex-col overflow-y-auto px-2 pb-6 md:w-56 md:border-r md:border-border"
-    >
+    <aside data-testid="gallery-facets" className="flex min-h-0 w-full flex-col px-2 pb-6">
       <div className="flex items-center justify-between px-2 pt-3">
         <span className="text-ui font-medium text-foreground/80">Facets</span>
         {chosen.size > 0 && (

@@ -1,6 +1,6 @@
 import { lazy } from "react";
 import { ImagesSquareIcon } from "@phosphor-icons/react";
-import { GalleryView } from "@kb/gallery";
+import { GalleryView, type ComposerParams } from "@kb/gallery";
 import {
   navigate,
   paramsOf,
@@ -8,16 +8,17 @@ import {
   SidebarSection,
   ViewErrorBoundary,
   type MatchedRoute,
+  type ViewProps,
 } from "@kb/ui-sdk";
 import { GALLERY_PATH } from "./routes";
 
-/** The page and its panels stay in the gallery's own chunk. */
-const GalleryPage = lazy(() => import("./gallery-page"));
+/** The page, its panels and its workflows stay in the gallery's own chunks. */
+const ComposerPage = lazy(() => import("./composer-page"));
 
-export function GallerySurface() {
+export function GallerySurface({ params }: ViewProps<ComposerParams>) {
   return (
-    <ViewErrorBoundary title="Gallery crashed" resetKey="gallery">
-      <GalleryPage />
+    <ViewErrorBoundary title="Gallery crashed" resetKey={`gallery|${params.workflow ?? ""}`}>
+      <ComposerPage params={params} />
     </ViewErrorBoundary>
   );
 }

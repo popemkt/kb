@@ -1,8 +1,8 @@
 /**
  * One visual, large: its image, where it came from and on what terms, the
  * prompt it was made with, and its styles. A style chip toggles it in the
- * selection; "Use its styles" makes the visual's styles the selection, so
- * the grid shows its kin and the composer its look.
+ * look being made; "Add its styles" adds them all, "Pin to the look" pins
+ * the visual, and "Start from this" opens the reference workflow on it.
  */
 import {
   coverOf,
@@ -37,19 +37,94 @@ function CopyLine({ label, text }: { readonly label: string; readonly text: stri
   );
 }
 
+function DetailActions({
+  visual,
+  source,
+  hasStyles,
+  pinned,
+  onUseStyles,
+  onPin,
+  onStartFrom,
+}: {
+  readonly visual: GraphNode;
+  readonly source: string | null;
+  readonly hasStyles: boolean;
+  readonly pinned: boolean;
+  readonly onUseStyles: () => void;
+  readonly onPin: () => void;
+  readonly onStartFrom?: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <button
+        type="button"
+        disabled={pinned}
+        data-testid="gallery-pin"
+        className="rounded-md border border-primary/40 px-2 py-0.5 text-label text-primary hover:bg-primary/10 disabled:opacity-50"
+        onClick={onPin}
+      >
+        {pinned ? "Pinned to the look" : "Pin to the look"}
+      </button>
+      {onStartFrom !== undefined && (
+        <button
+          type="button"
+          className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
+          onClick={onStartFrom}
+        >
+          Start from this
+        </button>
+      )}
+      <button
+        type="button"
+        className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
+        onClick={() => navigate(nodePath(visual.id))}
+      >
+        Open node
+      </button>
+      {hasStyles && (
+        <button
+          type="button"
+          className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
+          onClick={onUseStyles}
+        >
+          Add its styles
+        </button>
+      )}
+      {source !== null && (
+        <a
+          href={source}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
+        >
+          Source ↗
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function DetailPanel({
   visual,
   library,
   chosen,
+  pinned,
   onToggle,
   onUseStyles,
+  onPin,
+  onStartFrom,
   onClose,
 }: {
   readonly visual: GraphNode;
   readonly library: Library;
   readonly chosen: ReadonlySet<string>;
+  /** Whether the look being made pins it. */
+  readonly pinned: boolean;
   readonly onToggle: (styleId: string) => void;
   readonly onUseStyles: () => void;
+  readonly onPin: () => void;
+  /** Open the reference workflow on it. */
+  readonly onStartFrom?: () => void;
   readonly onClose: () => void;
 }) {
   const cover = coverOf(visual);
@@ -76,34 +151,15 @@ export function DetailPanel({
           />
         </a>
       )}
-      <div className="flex flex-wrap gap-1">
-        <button
-          type="button"
-          className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
-          onClick={() => navigate(nodePath(visual.id))}
-        >
-          Open node
-        </button>
-        {styles.length > 0 && (
-          <button
-            type="button"
-            className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
-            onClick={onUseStyles}
-          >
-            Use its styles
-          </button>
-        )}
-        {source !== null && (
-          <a
-            href={source}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
-          >
-            Source ↗
-          </a>
-        )}
-      </div>
+      <DetailActions
+        visual={visual}
+        source={source}
+        hasStyles={styles.length > 0}
+        pinned={pinned}
+        onUseStyles={onUseStyles}
+        onPin={onPin}
+        {...(onStartFrom === undefined ? {} : { onStartFrom })}
+      />
       {creditOf(visual) !== "" && (
         <p className="text-label text-foreground/50">{creditOf(visual)}</p>
       )}

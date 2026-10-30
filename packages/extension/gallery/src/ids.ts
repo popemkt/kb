@@ -3,7 +3,8 @@
  * frozen data). Its tags and fields are what a visual reference library is
  * made of (docs/research/2026-10-28-visual-reference-gallery.md §4): a
  * visual, a style that is also a facet value, the facet its styles sit
- * under, and the online sources the library searches.
+ * under, and the online sources the library searches; and what the
+ * composer makes of them, a look (docs/research/2026-10-30-visual-composer.md §3).
  */
 export const GALLERY_IDS = {
   /** One picture or clip in the library. */
@@ -14,6 +15,8 @@ export const GALLERY_IDS = {
   facetTag: "sys.tag.facet",
   /** An online source the sources panel searches or links to. */
   sourceTag: "sys.tag.image-source",
+  /** What the composer makes: a described, styled look with its pins and moodboard. */
+  lookTag: "sys.tag.look",
   /** Markdown embeds of the item's media, `![alt](assets/…)` (text, many). */
   mediaField: "sys.f.gallery.media",
   /** Where a visual came from (url, one). */
@@ -34,6 +37,14 @@ export const GALLERY_IDS = {
   searchUrlField: "sys.f.gallery.search-url",
   /** How a source is searched: an option node (ref, one). */
   sourceKindField: "sys.f.gallery.source-kind",
+  /** A look's brief in plain language, and its composer's subject (text, one). */
+  descriptionField: "sys.f.gallery.description",
+  /** A look's swatches, `#rrggbb`, taken from its pins (text, many). */
+  paletteField: "sys.f.gallery.palette",
+  /** The visual a look's pin stands for; the pin's text is its note (ref, one). */
+  referenceField: "sys.f.gallery.reference",
+  /** The node a look art-directs (ref, one). */
+  forField: "sys.f.gallery.for",
   /** Where a saved visual goes: a setting of the gallery (ref, one). */
   saveIntoField: "sys.f.gallery.save-into",
   /** Open the search page in a new tab, and nothing else. */

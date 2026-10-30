@@ -19,7 +19,8 @@
     "@kb/views": "workspace:*",
     "@phosphor-icons/react": "catalog:",
     "effect": "catalog:",
-    "react": "catalog:"
+    "react": "catalog:",
+    "ulid": "catalog:"
   },
   "devDependencies": {
     "@kb/ui-test-kit": "workspace:*",

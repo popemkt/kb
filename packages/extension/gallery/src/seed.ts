@@ -75,6 +75,13 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
       hidden: true,
     }),
     seededField(GALLERY_IDS.searchUrlField, "search url", "text", at, { one: true }),
+    seededField(GALLERY_IDS.descriptionField, "description", "text", at, { one: true }),
+    seededField(GALLERY_IDS.paletteField, "palette", "text", at),
+    seededField(GALLERY_IDS.referenceField, "reference", "ref", at, {
+      one: true,
+      props: { [SYSTEM_IDS.targetTagField]: ref(GALLERY_IDS.visualTag) },
+    }),
+    seededField(GALLERY_IDS.forField, "look for", "ref", at, { one: true }),
     seededField(GALLERY_IDS.saveIntoField, "save into", "ref", at, {
       one: true,
       props: { [SYSTEM_IDS.configuresField]: ref(extensionNodeId("gallery")) },
@@ -109,6 +116,18 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
     ),
     // A facet's own media is its cover: an image that shows what the facet sorts by.
     seededTag(GALLERY_IDS.facetTag, "facet", [GALLERY_IDS.mediaField], at),
+    seededTag(
+      GALLERY_IDS.lookTag,
+      "look",
+      [
+        GALLERY_IDS.descriptionField,
+        GALLERY_IDS.stylesField,
+        GALLERY_IDS.negativeField,
+        GALLERY_IDS.paletteField,
+        GALLERY_IDS.forField,
+      ],
+      at,
+    ),
     seededTag(
       GALLERY_IDS.sourceTag,
       "image source",

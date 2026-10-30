@@ -56,7 +56,15 @@ function ResultCard({
   );
 }
 
-function ApiSource({ source, query }: { readonly source: ImageSource; readonly query: string }) {
+function ApiSource({
+  source,
+  query,
+  onSaved,
+}: {
+  readonly source: ImageSource;
+  readonly query: string;
+  readonly onSaved?: (visual: string) => void;
+}) {
   const [page, setPage] = useState<SearchPage | null>(null);
   const [asked, setAsked] = useState("");
   const [busy, setBusy] = useState(false);
@@ -96,7 +104,12 @@ function ApiSource({ source, query }: { readonly source: ImageSource; readonly q
             <ResultCard
               key={result.id}
               result={result}
-              onSave={() => saveResult(source.id, result).then((id) => id !== null)}
+              onSave={() =>
+                saveResult(source.id, result).then((id) => {
+                  if (id !== null) onSaved?.(id);
+                  return id !== null;
+                })
+              }
             />
           ))}
         </div>
@@ -118,10 +131,13 @@ function ApiSource({ source, query }: { readonly source: ImageSource; readonly q
 export function SourcesPanel({
   sources,
   suggested,
+  onSaved,
 }: {
   readonly sources: readonly ImageSource[];
   /** The query the page suggests: the search text and the chosen styles. */
   readonly suggested: string;
+  /** Called with a saved result's visual: a workflow pins it to the look. */
+  readonly onSaved?: (visual: string) => void;
 }) {
   const [typed, setTyped] = useState<string | null>(null);
   const query = typed ?? suggested;
@@ -158,7 +174,12 @@ export function SourcesPanel({
         </div>
       )}
       {apis.map((source) => (
-        <ApiSource key={source.id} source={source} query={query} />
+        <ApiSource
+          key={source.id}
+          source={source}
+          query={query}
+          {...(onSaved === undefined ? {} : { onSaved })}
+        />
       ))}
       {sources.length === 0 && (
         <p className="text-label leading-snug text-foreground/40">

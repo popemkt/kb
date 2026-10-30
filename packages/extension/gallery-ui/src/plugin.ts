@@ -10,22 +10,26 @@ import {
   SidebarSectionPoint,
   ViewPoint,
 } from "@kb/ui-sdk";
-import { galleryEnhancePlugin } from "./enhance";
+import { galleryModelPlugin } from "./model";
+import { galleryMoodboardPlugin } from "./moodboard";
+import { GALLERY_WORKFLOW_SURFACES } from "./workflows";
 import { matchGallery, GALLERY_PATH } from "./routes";
 import { GallerySection, GallerySurface } from "./surfaces";
 
 /**
- * The gallery: a library of visual references (styles, shots, motions,
- * palettes, artists), browsed by facet, composed into prompts, and fed from
- * online sources. Optional and off by default: the page loads this entry
- * only while the server reports the gallery switched on (`ui-plugins.ts`),
- * so its view, its route and its sidebar row exist only then.
+ * The gallery: a visual composer over a library of references (styles,
+ * shots, motions, palettes, artists), with workflows for each way in and a
+ * look as what they make. Optional and off by default: the page loads this
+ * entry only while the server reports the gallery switched on
+ * (`ui-plugins.ts`), so its views, its route and its sidebar row exist only
+ * then.
  *
  * It is the gallery family's page entry, so it loads the family's shared
- * plugin as a child: the gallery view's key reaches the page kernel's
- * catalog from the family, as the server's does. Its `enhance` child
- * injects the page's model completion, so the composer's Enhance waits
- * while no family provides one and the gallery does not (`enhance.ts`).
+ * plugin as a child: the views' keys reach the page kernel's catalog from
+ * the family, as the server's do. Its `model` child injects the page's
+ * model completion and its `moodboard` child the page's board, so each use
+ * waits while no family provides it and the gallery names neither family
+ * (`model.ts`, `moodboard.ts`).
  */
 export const galleryUiPlugin = definePlugin({
   name: galleryExtension.name,
@@ -35,7 +39,19 @@ export const galleryUiPlugin = definePlugin({
     Effect.all(
       [
         ctx.plugin(galleryPlugin()),
-        ctx.plugin(galleryEnhancePlugin),
+        ctx.plugin(galleryModelPlugin),
+        ctx.plugin(galleryMoodboardPlugin),
+        ...GALLERY_WORKFLOW_SURFACES.map(({ key, Component }, order) =>
+          ctx.contribute(
+            ViewPoint,
+            provideView(key, {
+              placements: ["inline"],
+              sample: {},
+              picker: { order },
+              Component,
+            }),
+          ),
+        ),
         ctx.contribute(
           ViewPoint,
           provideView(GalleryView, {
