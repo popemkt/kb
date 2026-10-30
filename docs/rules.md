@@ -506,6 +506,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Each system's sheet moves to the family's shared package (designSystems carrying the sheet), so the server reads core's setting and resolves the tokens.
 - **node** — `01M54QTGRJYJZ7W5SXDP4356QW`
 
+### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
+
+- **expected** — a family switched off keeps its seeded nodes (the data outlives the code, DESIGN.md → seed) but the tag and field pickers offer only the vocabulary of loaded families, or mark an off family's as such, as a view of an off family opens as 'cannot be shown here'
+- **current** — every bundled family's seed is every store's, so a store with the gallery off (this repository's) offers #visual, #style, #facet, #image source and the gallery's fields in its tag and field pickers beside #agent-provider and #canvas, with nothing to say they belong to a family that is off
+- **impact** — noise in the pickers that grows with each optional family; a person can tag a node #visual in a store where nothing reads it
+- **closes** — the page's pickers filter seeded tags and fields by their owner family's switch (ownership is already derived from the bundled declarations), with a test that switching a family off removes its vocabulary from the pickers and switching it on restores it
+- **node** — `01M66PBRBD1S692MW017T9ERV3`
+
 ### GAP: api/live.ts writes straight into the outline and ui stores
 
 - **expected** — api/ speaks to the server and hands results back. Applying a delta to a store is the caller's job — the session runtime or an action.
