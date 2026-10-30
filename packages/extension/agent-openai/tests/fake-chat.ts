@@ -5,12 +5,17 @@
  * events, text in two pieces and each call's arguments split across chunks,
  * as servers do.
  */
-import type { ModelDouble } from "@kb/agent";
+import { isAgentImageType, type AgentImage, type ModelDouble } from "@kb/agent";
 import type { ChatFetch, ChatRequestInit } from "../src/index.ts";
+
+/** A part of a user message's content: its text, or a picture as a `data:` URL. */
+type WirePart =
+  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "image_url"; readonly image_url: { readonly url: string } };
 
 interface WireMessage {
   readonly role: "system" | "user" | "assistant" | "tool";
-  readonly content: string | null;
+  readonly content: string | readonly WirePart[] | null;
   readonly tool_calls?: readonly unknown[];
   readonly tool_call_id?: string;
 }
@@ -22,6 +27,24 @@ interface WireRequest {
   readonly tools?: readonly { readonly function: { readonly name: string } }[];
 }
 
+/** A message's text: its content, or the text of its parts. */
+function textOf(content: WireMessage["content"]): string {
+  if (content === null) return "";
+  if (typeof content === "string") return content;
+  return content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
+}
+
+/** The pictures a message's parts carry, read back from their `data:` URLs. */
+function imagesOf(content: WireMessage["content"] | undefined): readonly AgentImage[] {
+  if (content === undefined || content === null || typeof content === "string") return [];
+  return content.flatMap((part) => {
+    if (part.type !== "image_url") return [];
+    const url = /^data:([^;]+);base64,(.*)$/.exec(part.image_url.url);
+    const mediaType = url?.[1] ?? "";
+    return isAgentImageType(mediaType) ? [{ mediaType, data: url?.[2] ?? "" }] : [];
+  });
+}
+
 /** What the model is shown: the conversation as the request carries it. */
 function sightOf(request: WireRequest) {
   const { messages } = request;
@@ -29,8 +52,11 @@ function sightOf(request: WireRequest) {
   const since = messages.slice(last + 1);
   return {
     tools: (request.tools ?? []).map((tool) => tool.function.name),
-    users: messages.flatMap((message) => (message.role === "user" ? [message.content ?? ""] : [])),
-    results: since.flatMap((message) => (message.role === "tool" ? [message.content ?? ""] : [])),
+    users: messages.flatMap((message) =>
+      message.role === "user" ? [textOf(message.content)] : [],
+    ),
+    images: imagesOf(messages[last]?.content),
+    results: since.flatMap((message) => (message.role === "tool" ? [textOf(message.content)] : [])),
     step: since.filter((message) => message.role === "assistant").length + 1,
   };
 }

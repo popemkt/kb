@@ -25,14 +25,27 @@ const succeeded = (output: unknown): Promise<ActionReceipt> =>
 describe("the agent's model completion", () => {
   test("asks the family's completion as the person, and answers its text", async () => {
     const { calls, completion } = over(() =>
-      succeeded({ text: "\n a lighthouse  ", truncated: false, provider: "scripted" }),
+      succeeded({ text: "\n a lighthouse  ", truncated: false, provider: "scripted", saw: 0 }),
     );
     const request = { system: "You rewrite prompts.", message: "a lighthouse" };
-    expect(await completion.complete(request)).toEqual({ ok: true, text: "a lighthouse" });
+    expect(await completion.complete(request)).toEqual({ ok: true, text: "a lighthouse", saw: 0 });
     expect(calls).toHaveLength(1);
     expect(calls[0]?.id).toBe(AGENT_COMPLETE_ACTION);
     expect(calls[0]?.input).toEqual(request);
     expect(calls[0]?.actor).toBe("human");
+  });
+
+  test("passes the pictures it is asked about, and answers how many the model saw", async () => {
+    const { calls, completion } = over(() =>
+      succeeded({ text: "a pier at dusk", truncated: false, provider: "scripted", saw: 1 }),
+    );
+    const request = { message: "Describe this.", images: ["assets/pier.png"] };
+    expect(await completion.complete(request)).toEqual({
+      ok: true,
+      text: "a pier at dusk",
+      saw: 1,
+    });
+    expect(calls[0]?.input).toEqual(request);
   });
 
   test("a failed call answers its reason", async () => {
@@ -56,7 +69,9 @@ describe("the agent's model completion", () => {
       ok: false,
       reason: "socket closed",
     });
-    const empty = over(() => succeeded({ text: "  ", truncated: false, provider: "scripted" }));
+    const empty = over(() =>
+      succeeded({ text: "  ", truncated: false, provider: "scripted", saw: 0 }),
+    );
     expect(await empty.completion.complete({ message: "a cat" })).toEqual({
       ok: false,
       reason: "the model answered nothing",

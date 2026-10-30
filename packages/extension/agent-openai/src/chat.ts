@@ -4,6 +4,7 @@ import {
   resolveCredential,
   stepRuntime,
   type AgentAdapter,
+  type AgentImage,
   type ProviderConfig,
   type Step,
   type StepCall,
@@ -61,10 +62,30 @@ export interface ChatRequestInit {
 /** The part of `fetch` a step uses. The contract hands it a fake that serves a model. */
 export type ChatFetch = (url: string, init: ChatRequestInit) => Promise<Response>;
 
+/**
+ * A user message's content as Chat Completions takes it: its text alone, or,
+ * when it carries pictures, a text part and then each picture as an
+ * `image_url` part holding its bytes as a `data:` URL, the form OpenAI and
+ * the servers that speak its wire (CLIProxyAPI, Ollama) read.
+ */
+function userContent(text: string, images: readonly AgentImage[]): unknown {
+  if (images.length === 0) return text;
+  return [
+    { type: "text", text },
+    ...images.map((image) => ({
+      type: "image_url",
+      image_url: { url: `data:${image.mediaType};base64,${image.data}` },
+    })),
+  ];
+}
+
 /** A message as Chat Completions takes it. */
 function wireMessage(message: StepMessage): Record<string, unknown> {
   if (message.role === "tool") {
     return { role: "tool", tool_call_id: message.call, content: message.text };
+  }
+  if (message.role === "user") {
+    return { role: "user", content: userContent(message.text, message.images) };
   }
   if (message.role !== "assistant") return { role: message.role, content: message.text };
   return {
@@ -418,6 +439,8 @@ export function openAiChatAdapter(
     runtime: (provider, secrets) =>
       stepRuntime({
         name: "OpenAI-compatible chat",
+        // The request carries a message's pictures; a model that takes none answers with an error.
+        sees: true,
         step: chatStep(provider, secrets, send, timeouts),
       }),
   };

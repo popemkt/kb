@@ -1,10 +1,11 @@
 /**
- * kb's own media, said once: the kind of media by extension, whether a
+ * kb's own media, said once: the kind and media type by extension, whether a
  * reference names one of kb's assets, and whether text embeds one.
  */
 import { describe, expect, test } from "bun:test";
 import {
   assetEmbedsOf,
+  assetMediaType,
   isAssetPath,
   mediaKindFromExt,
   mediaKindFromHref,
@@ -22,6 +23,14 @@ describe("kb's media", () => {
     expect(
       ["assets/a.PNG", "https://x.test/v.webm?t=1", "notes.txt"].map(mediaKindFromHref),
     ).toEqual(["image", "video", null]);
+  });
+
+  test("an extension names its media type, case-blind, and an unknown or inherited name none", () => {
+    expect(
+      ["assets/a.PNG", "assets/b.jpg", "/x/clip.webm", "notes.txt", "assets/x.constructor"].map(
+        assetMediaType,
+      ),
+    ).toEqual(["image/png", "image/jpeg", "video/webm", null, null]);
   });
 
   test("only `assets/…` is one of kb's assets, and only `![…](assets/…)` embeds one", () => {

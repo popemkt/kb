@@ -28,7 +28,7 @@ export type ScriptStep =
   | { readonly hang: true };
 
 export interface ScriptedRuntime extends AgentRuntime {
-  /** Every turn the runtime was given, in order. */
+  /** Every turn the runtime was given, as its script was shown it, in order. */
   readonly turns: readonly AgentTurn[];
 }
 
@@ -44,21 +44,31 @@ function play(turn: AgentTurn, step: ScriptStep): Stream.Stream<AgentOutput, Age
   );
 }
 
+/**
+ * A runtime that plays `script`. It `sees` unless told otherwise: its script
+ * is handed the turn, pictures and all, so a test of a caller can stand in
+ * for a backend of either kind.
+ */
 export function scriptedRuntime(
   script: (turn: AgentTurn) => readonly ScriptStep[],
+  options: { readonly sees?: boolean } = {},
 ): ScriptedRuntime {
   const turns: AgentTurn[] = [];
+  const sees = options.sees ?? true;
   return {
     name: "scripted",
+    sees,
     turns,
     turn: (turn) =>
       Stream.unwrap(
         Effect.sync(() => {
-          const index = turns.push(turn);
+          // A runtime that does not see is never shown a message's pictures.
+          const shown = sees ? turn : { ...turn, message: { ...turn.message, images: [] } };
+          const index = turns.push(shown);
           const session: AgentOutput = { kind: "session", resume: `scripted-${index}` };
           return Stream.concat(
             Stream.make(session),
-            Stream.fromIterable(script(turn)).pipe(Stream.flatMap((step) => play(turn, step))),
+            Stream.fromIterable(script(shown)).pipe(Stream.flatMap((step) => play(shown, step))),
           );
         }),
       ),

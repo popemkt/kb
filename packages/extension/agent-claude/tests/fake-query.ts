@@ -9,8 +9,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { Options, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { ModelDouble } from "@kb/agent";
+import type { Options, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { isAgentImageType, type AgentImage, type ModelDouble } from "@kb/agent";
 import type { ClaudeQuery } from "../src/claude.ts";
 import { KB_TOOL_SERVER } from "../src/tool-server.ts";
 
@@ -34,12 +34,34 @@ function resultText(result: Awaited<ReturnType<Client["callTool"]>>): string {
   return content.map((part) => part.text ?? "").join("");
 }
 
+/** What the model is shown of the turn's one user message: its text, and the pictures before it. */
+async function promptOf(prompt: AsyncIterable<SDKUserMessage>) {
+  const messages: SDKUserMessage[] = [];
+  for await (const sent of prompt) messages.push(sent);
+  const [only] = messages;
+  if (only === undefined || messages.length > 1) {
+    throw new Error(`a turn sends one user message, not ${messages.length}`);
+  }
+  const { content } = only.message;
+  const blocks = typeof content === "string" ? [{ type: "text" as const, text: content }] : content;
+  const text = blocks.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("");
+  const images = blocks.flatMap((block): AgentImage[] =>
+    block.type === "image" &&
+    block.source.type === "base64" &&
+    isAgentImageType(block.source.media_type)
+      ? [{ mediaType: block.source.media_type, data: block.source.data }]
+      : [],
+  );
+  return { text, images };
+}
+
 export function fakeClaude(model: ModelDouble): ClaudeQuery {
   const sessions = new Map<string, readonly string[]>();
   return ({ prompt, options }) =>
     (async function* () {
       const session = options.resume ?? crypto.randomUUID();
-      const users = [...(sessions.get(session) ?? []), prompt];
+      const { text, images } = await promptOf(prompt);
+      const users = [...(sessions.get(session) ?? []), text];
       sessions.set(session, users);
       yield message({ type: "system", subtype: "init", session_id: session });
       const client = await toolClient(options);
@@ -50,7 +72,7 @@ export function fakeClaude(model: ModelDouble): ClaudeQuery {
         for (let step = 1; ; step++) {
           let called = false;
           let wrote = false;
-          for (const move of model({ tools, users, results: [...results], step })) {
+          for (const move of model({ tools, users, images, results: [...results], step })) {
             if ("fail" in move) {
               yield message({
                 type: "result",

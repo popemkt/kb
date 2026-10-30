@@ -1,7 +1,9 @@
 /**
  * The agent's completion as the page's `ModelCompletionService`: the
  * person's call to the family's own `ext.agent.complete`, through the
- * page's one invoke path, its reply read as text or as why there is none.
+ * page's one invoke path, the request (pictures included) passed as it is,
+ * its reply read as text and how many pictures the model saw, or as why
+ * there is none.
  * A half that wants a model's text injects the service, so it waits while
  * the agent is off and names nothing of this family.
  */
@@ -25,7 +27,8 @@ export function modelCompletion(ports: Pick<AgentPorts, "invoke">): ModelComplet
       const reply = CompleteOutputSchema.safeParse(receipt.output);
       if (!reply.success) return { ok: false, reason: "the agent's reply could not be read" };
       const text = reply.data.text.trim();
-      return text === "" ? { ok: false, reason: "the model answered nothing" } : { ok: true, text };
+      if (text === "") return { ok: false, reason: "the model answered nothing" };
+      return { ok: true, text, saw: reply.data.saw };
     },
   };
 }

@@ -265,6 +265,7 @@ export {
 export { isVocabulary } from "./vocabulary.ts";
 export {
   MEDIA_EXTENSIONS,
+  assetMediaType,
   assetUrl,
   assetEmbedsOf,
   isAssetPath,

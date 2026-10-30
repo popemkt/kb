@@ -11,6 +11,25 @@ import type { AdapterId, ProviderConfig } from "./provider.ts";
  * `DESIGN.md` → Agent packages.
  */
 
+/**
+ * The media types a picture a message carries may have: the ones the
+ * models kb reaches take (Claude's and Chat Completions' alike).
+ */
+export const AGENT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
+export type AgentImageType = (typeof AGENT_IMAGE_TYPES)[number];
+
+/** Whether `mediaType` is one a message's picture may have. */
+export function isAgentImageType(mediaType: string): mediaType is AgentImageType {
+  return (AGENT_IMAGE_TYPES as readonly string[]).includes(mediaType);
+}
+
+/** A picture a message carries: its media type and its bytes. */
+export interface AgentImage {
+  readonly mediaType: AgentImageType;
+  /** The bytes, base64. */
+  readonly data: string;
+}
+
 /** What the person wrote, and what their tab showed when they sent it. */
 export interface AgentMessage {
   readonly text: string;
@@ -20,6 +39,12 @@ export interface AgentMessage {
    * that carries none, which is its text alone.
    */
   readonly screen: string | null;
+  /**
+   * The pictures the message carries, in order; empty for most. A runtime
+   * that {@link AgentRuntime.sees} shows the model each with the text; one
+   * that does not sends the text alone.
+   */
+  readonly images: readonly AgentImage[];
 }
 
 /** One turn, as the bridge hands it to a runtime. */
@@ -64,6 +89,12 @@ export class AgentRuntimeError extends Schema.TaggedError<AgentRuntimeError>()(
 export interface AgentRuntime {
   /** How the sidebar names the backend. */
   readonly name: string;
+  /**
+   * Whether its wire carries a message's {@link AgentMessage.images} to the
+   * model. One that does not answers from the text alone, and a caller
+   * reports the model saw none.
+   */
+  readonly sees: boolean;
   /**
    * Run one turn. The stream ends when the turn does, and interrupting it
    * cancels the turn, including a tool call still waiting for the person.

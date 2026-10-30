@@ -4450,12 +4450,17 @@ The sidebar agent lives outside core, in packages that core never imports
   `AgentRuntime.turn(turn)` streams the reply's text and a `session`
   handle, and it ends when the turn does. Interrupting the stream cancels
   the turn, including a call that is waiting for the person. A turn
-  carries the system prompt, the message (the text and the sender's
-  screen), `resume` (the runtime's last `session`, which the bridge never
-  reads), the tools and `call`. The bridge owns the conversation, the
-  tools, approval and the prompt. A runtime owns only how one turn of a
-  model runs. ACP or another provider would be a further adapter, not a
-  fork. Tests run on `scriptedRuntime`.
+  carries the system prompt, the message (the text, the sender's screen,
+  and the pictures it carries, `images`: each a media type of
+  `AGENT_IMAGE_TYPES`, png, jpeg, gif or webp, and its bytes in base64;
+  empty for most), `resume` (the runtime's last `session`, which the
+  bridge never reads), the tools and `call`. A runtime declares whether
+  its wire carries pictures (`sees`): one that does shows the model each
+  picture with the text, and one that does not answers from the text
+  alone, so a caller can say the model saw none. The bridge owns the
+  conversation, the tools, approval and the prompt. A runtime owns only
+  how one turn of a model runs. ACP or another provider would be a
+  further adapter, not a fork. Tests run on `scriptedRuntime`.
 - **Providers are nodes; adapters are code.**
   - An `#agent-provider` node is one model a person configured. Its fields
     are `adapter` (one of that field's own option children, one per id in
@@ -4548,7 +4553,10 @@ The sidebar agent lives outside core, in packages that core never imports
   is emitted; the model is offered exactly the turn's tools, by their
   `kb mcp` names; a call reaches `turn.call` once, by action id with its
   input, and its receipt reaches the model; a tool not in the turn's
-  answers `unknown_action` and is never invoked; a backend error is an
+  answers `unknown_action` and is never invoked; a message's pictures
+  reach the model in order with its text when the runtime `sees`, and
+  none do when it does not, which still answers, and a message with no
+  pictures shows the model none; a backend error is an
   `AgentRuntimeError`; a loop that never stops ends at `MAX_STEPS` with
   one; `resume` carries the conversation into the next turn;
   interrupting the turn while the model is mid-step cancels the step on
@@ -4559,7 +4567,8 @@ The sidebar agent lives outside core, in packages that core never imports
   server as Claude Code would; `openai-chat` over a fake `fetch` that
   reads its request bodies and streams server-sent events back, text in
   pieces and arguments split across chunks; and the step loop over a step
-  played in memory. `scriptedRuntime` is the bridge's double, a script rather than a
+  played in memory, once over a wire that carries pictures and once over
+  one that does not. `scriptedRuntime` is the bridge's double, a script rather than a
   model behind a wire, so it is no subject.
 - **The step loop** (`stepRuntime`, `@kb/agent`) is the tool loop for an
   adapter whose wire runs one model step and leaves the tools to its
@@ -4569,7 +4578,8 @@ The sidebar agent lives outside core, in packages that core never imports
   runs each call through `turn.call` in order (an approval waits per
   call), hands the receipt back as `kb mcp` answers it, stops at
   `MAX_STEPS`, and keeps the history a `resume` handle names in memory, a
-  new handle per turn.
+  new handle per turn. The adapter says whether its step carries a user
+  message's pictures (`sees`); a step that does not is handed none.
 - **The `openai-chat` adapter** (`openAiChatAdapter`, `@kb/agent-openai`)
   is a step for the step loop over any endpoint that speaks OpenAI's Chat
   Completions, such as CLIProxyAPI (`http://127.0.0.1:8317/v1`, the
@@ -4578,6 +4588,11 @@ The sidebar agent lives outside core, in packages that core never imports
   turn saying which. A step is one streamed POST to
   `<endpoint>/chat/completions`, with the turn's tools as functions; a
   credential that resolves is a bearer token, read as each step starts.
+  It `sees`: a user message with pictures is sent as content parts, its
+  text and then each picture as an `image_url` holding a
+  `data:<type>;base64,…` URL, the form OpenAI and the servers that speak
+  its wire read; a model behind the endpoint that takes no pictures
+  answers with an error, which fails the turn.
   The server-sent events are decoded with Schema: text is passed on as it
   arrives, a call's pieces are joined by index and handed to the loop when
   the step ends, and a failed response or an error event ends the turn.
@@ -4647,7 +4662,7 @@ The sidebar agent lives outside core, in packages that core never imports
   `kb.manifest.extensions`, and the page offers the agent's dock only
   while it is reported on ([Extension families](#extension-families)).
 - **The completion is kb's one way to ask a model for text.**
-  `ext.agent.complete {system?, message} → {text, truncated, provider}`
+  `ext.agent.complete {system?, message, images?} → {text, truncated, provider, saw}`
   (`complete.ts`) is contributed by the bridge's child plugin
   (`agent/actions`, in `ext.agent`), so it is a hosted action
   ([Plugin channels](#plugin-channels) → hosted actions): every surface of
@@ -4665,16 +4680,26 @@ The sidebar agent lives outside core, in packages that core never imports
     `CoreInvoke` as the caller reads: a provider whose binding nobody
     trusted here fails the call naming its digest, before anything runs.
     The turn carries the caller's system prompt (a plain answerer's,
-    `COMPLETION_SYSTEM`, when it names none), the message as its text
-    alone (no screen), no tools and no `resume`, on a runtime built for
-    the call, so nothing of it outlives the call.
+    `COMPLETION_SYSTEM`, when it names none), the message as its text (no
+    screen) with the pictures `images` names, no tools and no `resume`, on
+    a runtime built for the call, so nothing of it outlives the call.
+  - A picture is one of kb's assets, by the `assets/…` path `asset.upload`
+    answers with (`isAssetPath`), read through the `Assets` port, which
+    keeps a path and any link it follows inside the assets; its media type
+    is its extension's (`assetMediaType`, `@kb/model`, the one map the
+    asset route serves by too), and must be one a model takes. `saw` is
+    how many the model was shown: all of them on a runtime that `sees`,
+    0 on one that does not, which answered from the text alone.
   - Its mode is a read that reaches outside the root (`outsideRoot`): it
     changes nothing in kb, and it sends what it is given to the provider's
     endpoint, or starts the provider's process.
     A guard may ask about it like any action; none that ships does.
   - Every call is bounded (`COMPLETION_LIMITS`): a system prompt of at
-    most 20 000 characters and a message of at most 100 000, refused as
-    `invalid_input` past them before anything runs; the reply kept to
+    most 20 000 characters, a message of at most 100 000, and at most 4
+    pictures of at most 5 MiB each, refused before anything runs
+    (`invalid_input` past a bound or for a type no model takes, `not_found`
+    for an asset there is none of, `forbidden` for a path that leaves the
+    assets); the reply kept to
     32 000 characters, where the turn is stopped and `truncated` set; and
     the whole reply within 180 s. A provider's failure is the call's
     `internal` failure, with its message.
@@ -4718,6 +4743,9 @@ The sidebar agent lives outside core, in packages that core never imports
     root's, so the turn fails rather than run it. Failing both, it uses
     the SDK's bundled binary, which only a checkout's `node_modules`
     holds.
+  - A turn sends one user message as a stream of one `SDKUserMessage`
+    (the SDK sends it, then waits for the turn to end): each picture as a
+    base64 image block, then the text, so it `sees`.
   - The model's only tools are the turn's, served by an in-process MCP
     server built for each turn. They have the names, hints and results
     of `kb mcp` (`mcp-tool.ts` in contracts), and none is deferred behind

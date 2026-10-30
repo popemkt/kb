@@ -31,7 +31,7 @@ const STAMP: ManifestEntry = {
 async function connect(calls: Array<[string, unknown]>) {
   const turn: AgentTurn = {
     system: AGENT_SYSTEM_PROMPT,
-    message: { text: "hi", screen: null },
+    message: { text: "hi", screen: null, images: [] },
     resume: undefined,
     tools: [GET, STAMP],
     call: (action, input) =>

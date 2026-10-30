@@ -1,6 +1,7 @@
 /**
  * A one-shot completion with the model the person chose, as a service: a
- * system prompt and one message in, the reply's text out. The family that
+ * system prompt and one message in, with any pictures from kb's assets, the
+ * reply's text out, and how many pictures the model was shown. The family that
  * holds a model provides it while its page half is loaded, over its own
  * action; a half that wants a model's text (the gallery's prompt enhancer)
  * injects the service, so it waits, pending, while no family provides it,
@@ -13,11 +14,21 @@ export interface CompletionRequest {
   readonly system?: string;
   /** The one message the model answers. */
   readonly message: string;
+  /**
+   * Pictures shown with the message: kb's assets, by the `assets/…` path
+   * `asset.upload` answers with. A model that cannot take them answers from
+   * the text alone.
+   */
+  readonly images?: readonly string[];
 }
 
-/** The reply's text, or why there is none, in words the person can read. */
+/**
+ * The reply's text and how many of the request's pictures the model was
+ * shown (0 when it answered from the text alone), or why there is no reply,
+ * in words the person can read.
+ */
 export type CompletionReply =
-  | { readonly ok: true; readonly text: string }
+  | { readonly ok: true; readonly text: string; readonly saw: number }
   | { readonly ok: false; readonly reason: string };
 
 export interface ModelCompletion {

@@ -18,6 +18,44 @@ export const MEDIA_EXTENSIONS: { readonly [K in AssetMediaKind]: ReadonlySet<str
   audio: new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"]),
 };
 
+/**
+ * The media type of each extension kb stores an asset under: what the asset
+ * route serves it as, and what a model is told a picture is. One map, so the
+ * two never disagree.
+ */
+const ASSET_MEDIA_TYPES: Readonly<Record<string, string>> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  avif: "image/avif",
+  bmp: "image/bmp",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  ogv: "video/ogg",
+  m4v: "video/x-m4v",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  flac: "audio/flac",
+  opus: "audio/opus",
+  pdf: "application/pdf",
+};
+
+/** The media type a path names by its extension (case-blind); null for one kb has none for. */
+export function assetMediaType(path: string): string | null {
+  const ext = /\.([a-z0-9]{1,12})$/i.exec(path.trim())?.[1]?.toLowerCase();
+  // `Object.hasOwn`, so an extension such as `.constructor` names nothing.
+  return ext !== undefined && Object.hasOwn(ASSET_MEDIA_TYPES, ext)
+    ? (ASSET_MEDIA_TYPES[ext] ?? null)
+    : null;
+}
+
 /** The kind of media an extension (with or without its dot) is; null for one kb does not render. */
 export function mediaKindFromExt(ext: string): AssetMediaKind | null {
   const e = ext.replace(/^\./, "").toLowerCase();

@@ -72,7 +72,7 @@ describe("the composer's Enhance", () => {
   beforeEach(() => {
     calls = [];
     toasts = [];
-    answer = () => ({ ok: true, text: REWRITE });
+    answer = () => ({ ok: true, text: REWRITE, saw: 0 });
     provided(true);
     root = createRoot(document.body.appendChild(document.createElement("div")));
   });
@@ -150,12 +150,12 @@ describe("the composer's Enhance", () => {
     const [first, second] = replies;
     // The first answer arrives late: the later ask supersedes it.
     await act(async () => {
-      first?.({ ok: true, text: "for Stable Diffusion" });
+      first?.({ ok: true, text: "for Stable Diffusion", saw: 0 });
       await Promise.resolve();
     });
     expect(rewrite()).toBeNull();
     await act(async () => {
-      second?.({ ok: true, text: REWRITE });
+      second?.({ ok: true, text: REWRITE, saw: 0 });
       await Promise.resolve();
     });
     expect(rewrite()?.value).toBe(REWRITE);

@@ -4,6 +4,7 @@ import { AGENT_SYSTEM_PROMPT } from "./prompt.ts";
 import {
   AgentRuntimeError,
   MAX_STEPS,
+  type AgentImage,
   type AgentOutput,
   type AgentRuntime,
   type AgentTurn,
@@ -17,10 +18,11 @@ import {
  *
  * The double is a model that plays moves: each step of a turn it is shown
  * what a model of that backend would have been shown (the tools by name,
- * the user messages, the tool results) and answers with text, tool calls
- * or a failure. An adapter's subject plays it over its wire: a fake `query`
- * yielding the SDK's messages for Claude, a fake `fetch` serving Chat
- * Completions for `openai-chat`, an in-memory step for the step loop.
+ * the user messages and this turn's pictures, the tool results) and
+ * answers with text, tool calls or a failure. An adapter's subject plays
+ * it over its wire: a fake `query` yielding the SDK's messages for Claude,
+ * a fake `fetch` serving Chat Completions for `openai-chat`, an in-memory
+ * step for the step loop.
  *
  * It is runner-agnostic so the port's own package can state it: a test file
  * hands it its runner's `describe`, `test` and a deep-equality check.
@@ -32,6 +34,8 @@ export interface ModelSight {
   readonly tools: readonly string[];
   /** Each user message of the conversation so far, oldest first; the last is this turn's. */
   readonly users: readonly string[];
+  /** The pictures shown with this turn's user message, in order, as the wire carried them. */
+  readonly images: readonly AgentImage[];
   /** The text of each tool result this turn has handed it, in order. */
   readonly results: readonly string[];
   /** Which step of this turn it takes, from 1. */
@@ -110,10 +114,15 @@ function recording(play: ModelDouble): {
   };
 }
 
-function turnOf(text: string, resume: string | undefined, call: AgentTurn["call"]): AgentTurn {
+function turnOf(
+  text: string,
+  resume: string | undefined,
+  call: AgentTurn["call"],
+  images: readonly AgentImage[] = [],
+): AgentTurn {
   return {
     system: AGENT_SYSTEM_PROMPT,
-    message: { text, screen: null },
+    message: { text, screen: null, images },
     resume,
     tools: TOOLS,
     call,
@@ -180,6 +189,15 @@ interface Property {
     subject: RuntimeSubject,
   ) => Effect.Effect<{ readonly observed: unknown; readonly expected: unknown }>;
 }
+
+/** Two pictures a message carries: a one-pixel PNG and a few bytes said to be a JPEG. */
+const PICTURES: readonly AgentImage[] = [
+  {
+    mediaType: "image/png",
+    data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  },
+  { mediaType: "image/jpeg", data: "/9j/4AAQSkZJRg==" },
+];
 
 const PROPERTIES: readonly Property[] = [
   {
@@ -272,6 +290,43 @@ const PROPERTIES: readonly Property[] = [
             failed: played.failure?.startsWith("AgentRuntimeError: ") === true,
           },
           expected: { steps: MAX_STEPS, failed: true },
+        }),
+      ),
+  },
+  {
+    name: "a runtime that sees shows the model the message's pictures, in order, with its text; one that does not shows none and still answers",
+    check: (subject) =>
+      Effect.gen(function* () {
+        const { model, sights } = recording(() => [{ say: "a lighthouse" }]);
+        const runtime = subject.runtime(model);
+        const played = yield* playTurn(
+          runtime,
+          turnOf("what is this?", undefined, answering([]), PICTURES),
+        );
+        return {
+          observed: {
+            images: sights.map((sight) => sight.images),
+            asked: sights.map((sight) => sight.users.at(-1)?.endsWith("what is this?")),
+            text: textOf(played.outputs),
+            failure: played.failure,
+          },
+          expected: {
+            images: [runtime.sees ? PICTURES : []],
+            asked: [true],
+            text: "a lighthouse",
+            failure: null,
+          },
+        };
+      }),
+  },
+  {
+    name: "a message with no pictures shows the model none",
+    check: (subject) =>
+      Effect.map(
+        play(subject, () => [{ say: "hi" }]),
+        (played) => ({
+          observed: played.sights.map((sight) => sight.images),
+          expected: [[]],
         }),
       ),
   },

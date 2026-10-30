@@ -5,13 +5,14 @@
  * environment is explicit: the one kb gives an agent runtime (what it holds
  * is `childProcessEnv("agent")`'s, tested with it), with the person's own
  * Claude login only while the provider names neither an endpoint nor a key.
+ * And what a turn says: one user message, its pictures before its text.
  */
 import { describe, expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Stream } from "effect";
-import type { Options } from "@anthropic-ai/claude-agent-sdk";
+import type { Options, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { DEFAULT_PROVIDER, type ProviderConfig } from "@kb/agent";
 import { NO_SECRETS, SecretError, type SecretSource } from "@kb/contracts";
 import { claudeAdapter, type ClaudeQuery } from "../src/index.ts";
@@ -48,7 +49,7 @@ function startedWith(
   const runtime = claudeAdapter({ cwd, query, env }).runtime(provider, secrets);
   const turn = runtime.turn({
     system: "",
-    message: { text: "hi", screen: null },
+    message: { text: "hi", screen: null, images: [] },
     tools: [],
     resume: undefined,
     call: () => Effect.die("no calls"),
@@ -71,6 +72,48 @@ describe("the claude-agent-sdk adapter", () => {
     });
     expect(options?.model).toBeUndefined();
     expect(options?.pathToClaudeCodeExecutable).toBe("claude");
+  });
+
+  test("a turn sends one user message: each picture as a base64 image block, then the text", async () => {
+    const sent: SDKUserMessage[] = [];
+    const query: ClaudeQuery = ({ prompt }) =>
+      (async function* () {
+        for await (const message of prompt) sent.push(message);
+        yield { type: "result", subtype: "success", is_error: false, result: "" } as SDKMessage;
+      })();
+    const runtime = claudeAdapter({ cwd: "/kb", query, env: INHERITED }).runtime(
+      { ...DEFAULT_PROVIDER, executable: "claude" },
+      SECRETS,
+    );
+    expect(runtime.sees).toBe(true);
+    await Effect.runPromise(
+      Stream.runDrain(
+        runtime.turn({
+          system: "",
+          message: {
+            text: "what is this?",
+            screen: null,
+            images: [{ mediaType: "image/gif", data: "R0lGOD" }],
+          },
+          tools: [],
+          resume: undefined,
+          call: () => Effect.die("no calls"),
+        }),
+      ),
+    );
+    expect(sent).toEqual([
+      {
+        type: "user",
+        parent_tool_use_id: null,
+        message: {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/gif", data: "R0lGOD" } },
+            { type: "text", text: "what is this?" },
+          ],
+        },
+      },
+    ]);
   });
 
   test("its model, binary, endpoint and resolved key reach Claude Code", async () => {
