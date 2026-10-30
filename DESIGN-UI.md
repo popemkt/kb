@@ -3663,6 +3663,16 @@ implements one written contract. kb takes (c) now:
 A page head paints an ambient backdrop behind its content. Which backdrops
 exist is a plugin point, and the kit names none of them.
 
+Every backdrop is built and judged against the backdrop framework,
+[`docs/backdrops.md`](docs/backdrops.md): its criteria (headed by premium,
+like a game's title screen; then fidelity to the reference, objects above
+the backdrop, scale and colour first, light-page blending, no visible
+boundary, sharpness, no load flicker, motion, seeded variation, diversity,
+GPU budget, original marks, delivered whole) are `#backdrop-criterion` nodes, each with the owner's
+words (`asks`), how it is judged, its target and what it applies to, and the
+document is their projection (`kb docs materialize`). A PR for a backdrop
+reports a score against each.
+
 - **The point.** `BackdropPoint` (`ui.backdrops`, `@kb/ui-sdk`, beside
   `ViewPoint`, `DockPoint` and `OverlayPoint`) holds one `Backdrop` per
   contribution: its `key`, its `presentation` and its `Component`.
