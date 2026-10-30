@@ -43,7 +43,21 @@ export function assetUrl(path: string): string {
   return `/${path.trim()}`;
 }
 
+/** One of kb's assets embedded in text as markdown media, `![alt](assets/…)`. */
+export interface AssetEmbed {
+  readonly alt: string;
+  readonly path: string;
+}
+
+/** The asset embeds in text, in order: the one statement of what such an embed looks like. */
+export function assetEmbedsOf(text: string): readonly AssetEmbed[] {
+  return [...text.matchAll(/!\[([^\]]*)\]\((assets\/[^)\s]+)\)/gi)].map((m) => ({
+    alt: m[1] ?? "",
+    path: m[2] ?? "",
+  }));
+}
+
 /** Whether text embeds one of kb's assets as markdown media, `![…](assets/…)`. */
 export function textHasAssetRef(text: string): boolean {
-  return /!\[[^\]]*\]\(assets\/[^)\s]+\)/i.test(text);
+  return assetEmbedsOf(text).length > 0;
 }

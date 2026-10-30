@@ -266,10 +266,12 @@ export { isVocabulary } from "./vocabulary.ts";
 export {
   MEDIA_EXTENSIONS,
   assetUrl,
+  assetEmbedsOf,
   isAssetPath,
   mediaKindFromExt,
   mediaKindFromHref,
   textHasAssetRef,
+  type AssetEmbed,
   type AssetMediaKind,
 } from "./asset.ts";
 export { sanitizeSvg } from "./svg-sanitize.ts";

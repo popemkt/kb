@@ -21,6 +21,7 @@ import { collectionsPlugin } from "@kb/collections";
 import { canvasServerPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
+import { galleryServerPlugin } from "@kb/gallery-net";
 import { governancePlugin } from "@kb/governance";
 import { graphServerPlugin } from "@kb/graph";
 import { labPlugin } from "@kb/lab";
@@ -74,4 +75,5 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   zzzPlugin(),
   transistorPlugin(),
   yorhaPlugin(),
+  galleryServerPlugin(),
 ]);

@@ -3015,7 +3015,7 @@ and it adds no field an extension author must fill in.
 #### Extension families
 
 This is the contract for every feature kb bundles, such as the outline,
-the collections, chart, code, lab, agent, canvas, docs and check. **Core names no feature.** The reasons and
+the collections, chart, code, lab, gallery, agent, canvas, docs and check. **Core names no feature.** The reasons and
 the order of the move are in the
 [extension-boundaries plan](docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md).
 Where the code does not meet this contract yet, a gap says so (listed at the
@@ -3063,8 +3063,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     table, board and cards frame views), canvas, chart, code, the page-head
     backdrops (DESIGN-UI.md → Page-head backdrops), the themes (DESIGN-UI.md
     → Design tokens → Design systems) and the agent are
-    optional and on by default; the lab is optional and off by
-    default. Docs and check are required. The outline is the default
+    optional and on by default; the lab and the gallery
+    (DESIGN-UI.md → The gallery) are optional and off by default. Docs and check are required. The outline is the default
     editing mode and provides the default view type, the view a node opens
     in when it names none; switched off, a node is read in core's read view
     instead (View nodes → core's read view is the floor), and the home is
