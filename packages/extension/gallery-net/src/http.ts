@@ -37,6 +37,14 @@ function sendable(url: URL, allowed: (host: string) => boolean): boolean {
   );
 }
 
+/** Whether `href` is a URL a source's request may go to (`sendable`): what a result may show or download. */
+export function reachable(href: string, allowed: (host: string) => boolean): boolean {
+  return URL.canParse(href) && sendable(new URL(href), allowed);
+}
+
+/** Any host: a result's page may live anywhere, but only ever over https. */
+export const ANY_HOST = (): boolean => true;
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

@@ -92,6 +92,16 @@ describe("openverse", () => {
     });
   });
 
+  test("a landing page that is not https gives way to the work's Openverse page", () => {
+    const [work] = openverseImages.results;
+    const answer = {
+      results: [{ ...work, foreign_landing_url: "http://www.flickr.com/photos/x/1" }],
+    };
+    expect(openverseAdapter.page(answer).results[0]?.page).toBe(
+      "https://openverse.org/image/4bc43a04-ef46-4544-a0c1-63c63f56e276",
+    );
+  });
+
   test("its search asks for no mature works", () => {
     const url = new URL(openverseAdapter.searchUrl("lighthouse", undefined));
     expect(url.searchParams.get("mature")).toBe("false");

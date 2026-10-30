@@ -10,10 +10,11 @@
  * by the page and never reaches these actions.
  */
 import { z } from "zod";
-import type { ActionDefinition } from "@kb/contracts";
+import { extensionActionId, type ActionDefinition } from "@kb/contracts";
+import { galleryExtension } from "./extension.ts";
 
 /** One result, the same shape whichever source answered it. */
-export const SourceResultSchema = z.object({
+const SourceResultSchema = z.object({
   /** The source's own id for it. */
   id: z.string(),
   title: z.string(),
@@ -92,9 +93,11 @@ export const galleryStarterDef = {
   }),
 } satisfies ActionDefinition;
 
+const idOf = (def: ActionDefinition) => extensionActionId(galleryExtension.name, def.id);
+
 /** The ids the page calls them by. */
 export const GALLERY_ACTIONS = {
-  search: "ext.gallery.search",
-  save: "ext.gallery.save",
-  starter: "ext.gallery.starter",
+  search: idOf(gallerySearchDef),
+  save: idOf(gallerySaveDef),
+  starter: idOf(galleryStarterDef),
 } as const;

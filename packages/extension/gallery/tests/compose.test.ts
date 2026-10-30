@@ -5,7 +5,8 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { composePrompt, mergePrompt } from "@kb/gallery";
+import { composePrompt } from "@kb/gallery";
+import { mergePrompt } from "../src/compose.ts";
 
 describe("mergePrompt", () => {
   test("a template with {prompt} has every occurrence replaced", () => {
@@ -68,6 +69,18 @@ describe("composePrompt", () => {
       positive: "wide shot, highly detailed, neon light",
       negative: "blurry, lowres",
     });
+  });
+
+  test("a comma inside brackets does not split a part, so a group is kept whole", () => {
+    const weighted = { prompt: "{prompt}, (red, blue:1.2), <lora:film, grain:0.6>", negative: "" };
+    const again = { prompt: "{prompt}, (green, blue:1.2), [day, night:0.5]", negative: "" };
+    expect(composePrompt("a kite", "", [weighted, again]).positive).toBe(
+      "a kite, (red, blue:1.2), <lora:film, grain:0.6>, (green, blue:1.2), [day, night:0.5]",
+    );
+    // A whole group repeated is still one part, kept once.
+    expect(composePrompt("(red, blue:1.2)", "", [weighted]).positive).toBe(
+      "(red, blue:1.2), <lora:film, grain:0.6>",
+    );
   });
 
   test("no styles is the subject as written", () => {

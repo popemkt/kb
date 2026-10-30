@@ -20,7 +20,7 @@ import {
   type gallerySearchDef,
 } from "@kb/gallery";
 import { SOURCE_ADAPTERS, type SearchPage, type SourceAdapter } from "./adapters.ts";
-import { boundedBytes, getFrom, getJson, type SourceFetch } from "./http.ts";
+import { ANY_HOST, boundedBytes, getFrom, getJson, reachable, type SourceFetch } from "./http.ts";
 
 /** Asset uploads are capped at 25 MiB (`asset.upload`); a larger download is refused before it is held. */
 const IMAGE_MAX_BYTES = 25 * 1024 * 1024;
@@ -57,6 +57,20 @@ const adapterOf = Effect.fn("gallery.adapter")(function* (sourceId: string) {
   return { adapter, name: source.text };
 });
 
+/**
+ * Whether the page may show `result`: its image and thumbnail on the
+ * adapter's hosts and its page over https, all as a request would be sent.
+ * A source's answer is remote text, so a result that breaks this is dropped,
+ * whichever adapter read it.
+ */
+function admitted(adapter: SourceAdapter, result: SourceResult): boolean {
+  return (
+    reachable(result.image, adapter.hosts) &&
+    reachable(result.thumb, adapter.hosts) &&
+    reachable(result.page, ANY_HOST)
+  );
+}
+
 export function searchEffect(send: SourceFetch) {
   return Effect.fn("ext.gallery.search")(function* (
     input: z.infer<typeof gallerySearchDef.inputSchema>,
@@ -68,7 +82,8 @@ export function searchEffect(send: SourceFetch) {
       adapter.searchUrl(input.query.trim(), input.cursor),
       adapter.hosts,
     );
-    return adapter.page(answer);
+    const page = adapter.page(answer);
+    return { ...page, results: page.results.filter((result) => admitted(adapter, result)) };
   });
 }
 
@@ -154,6 +169,12 @@ export function saveEffect(send: SourceFetch) {
     input: z.infer<typeof gallerySaveDef.inputSchema>,
   ): Effect.fn.Return<{ id: string; asset: string }, DomainError, KbCtx> {
     const { adapter } = yield* adapterOf(input.source);
+    // A saved visual links its page; a caller's result is held to what a search admits.
+    if (!admitted(adapter, input.result))
+      return yield* domainError(
+        "invalid_input",
+        "a result's image and thumbnail must be on the source's hosts, and its page https",
+      );
     const { bytes, ext } = yield* download(send, adapter, input.result.image);
     const uploaded = pathOf(
       yield* call({

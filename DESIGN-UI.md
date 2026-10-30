@@ -3163,15 +3163,15 @@ the reasons are the research record,
   no template composes as its name. An online source is a node tagged
   `#image source`, with a `search url` (`{query}` stands for the query)
   and a `source kind`. The family seeds the tags, the fields and six
-  sources; the page offers a starter (twelve facets, 127 styles, and
-  an empty `Library` that becomes where saves go, the gallery's `save into`
-  setting).
+  sources; the page offers a starter (`starter.ts`: facets of styles,
+  counted by `STARTER_SIZE`, and an empty `Library` that becomes where
+  saves go, the gallery's `save into` setting).
 - **The page reads its replica, never the store.** `libraryOf`,
   `filterVisuals` and `facetCounts` (`@kb/gallery`) are pure over the node
   set, so a facet click is a pass over memory: about 70 ms at fifty thousand
   visuals where the same counts as datalog take 750 ms (research record §7).
 - **Facets filter by OR within a facet, AND across**, and count
-  disjunctively: a style's count is over the visuals every *other* facet's
+  disjunctively: a style's count is over the visuals every _other_ facet's
   choice lets through, so choosing within a facet never zeroes its siblings.
 - **The grid is a virtualised masonry.** Tiles go, in order, into the
   shortest column, at the aspect the visual records (`width`, `height`;
@@ -3206,7 +3206,11 @@ the reasons are the research record,
   through `ext.gallery.save`, which downloads it only from hosts the source's
   adapter names, over https, through at most two redirects, and then writes
   only through core's `asset.upload` and `node.add`, with the result's page,
-  creator and licence on the visual.
+  creator and licence on the visual. A source's answer is remote text, so
+  every adapter's results are held to one rule (`admitted`): the image and
+  the thumbnail the page shows on the adapter's hosts, and the page it
+  links over https, each as a request would be sent. A search drops a
+  result that breaks it, and a save refuses one before it fetches.
 
 ### Locations
 

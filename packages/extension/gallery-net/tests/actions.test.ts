@@ -74,6 +74,28 @@ describe("ext.gallery.search", () => {
     expect(net.asked[0]?.init.redirect).toBe("manual");
   });
 
+  test("a result whose image or thumbnail is off the adapter's hosts, or whose page is not https, is dropped", async () => {
+    const [model] = civitaiModels.items;
+    const image = (url: string) => ({
+      ...model,
+      modelVersions: [{ images: [{ id: 1, url, nsfwLevel: 1, type: "image" }] }],
+    });
+    const answer = {
+      items: [
+        image("https://image.civitai.com/x/b/original=true/1.jpeg"),
+        image("https://tracker.example/original=true/1.jpeg"),
+        image("http://image.civitai.com/x/b/original=true/1.jpeg"),
+      ],
+    };
+    const net = fakeSource({ [SEARCH]: { body: JSON.stringify(answer) } });
+    const exit = await run(
+      searchEffect(net.send)({ source: GALLERY_SOURCE_IDS.civitai, query: "watercolor" }),
+    );
+    expect(Exit.isSuccess(exit) && exit.value.results.map((r) => r.thumb)).toEqual([
+      "https://image.civitai.com/x/b/width=450/1.jpeg",
+    ]);
+  });
+
   test("a link source is the page's to open, never called", async () => {
     const net = fakeSource({});
     const exit = await run(
@@ -138,6 +160,24 @@ describe("ext.gallery.save", () => {
     );
     expect(Exit.isFailure(exit)).toBe(true);
     expect(calls).toEqual([]);
+  });
+
+  test("a result a search would not admit is refused before anything is fetched or written", async () => {
+    for (const result of [
+      { ...RESULT, page: "javascript:alert(1)" },
+      { ...RESULT, page: "http://civitai.com/models/1" },
+      { ...RESULT, thumb: "https://tracker.example/pixel.gif" },
+    ]) {
+      const net = fakeSource({});
+      const calls: ActionRequest[] = [];
+      const exit = await run(
+        saveEffect(net.send)({ source: GALLERY_SOURCE_IDS.civitai, result }),
+        calls,
+      );
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(net.asked).toEqual([]);
+      expect(calls).toEqual([]);
+    }
   });
 
   test("a body that is not an image is refused", async () => {

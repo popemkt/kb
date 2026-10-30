@@ -14,12 +14,12 @@ import {
   GALLERY_IDS,
   GALLERY_SOURCE_IDS,
   GalleryView,
-  STARTER_LIBRARY,
   STARTER_SIZE,
   galleryExtension,
   galleryPlugin,
   starterOutline,
 } from "@kb/gallery";
+import { STARTER_LIBRARY } from "../src/starter.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 

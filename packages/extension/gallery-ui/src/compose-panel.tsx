@@ -9,7 +9,7 @@
  * rewrite is an editable prompt of its own, kept while the composition it
  * was made from stands. While none is, Enhance says what it needs.
  */
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { COMPOSE_TARGETS, composePrompt, type ComposeTarget, type StyleEntry } from "@kb/gallery";
 import { cn, toast, useContributions } from "@kb/ui-sdk";
 import { copyText } from "./copy";
@@ -72,12 +72,19 @@ function Output({
 const FIELD =
   "w-full rounded-md border border-border bg-transparent px-2 py-1 text-meta text-foreground/85";
 
-/** A rewrite of one composition: the prompt and family it was made from, and its text as edited. */
-interface Enhanced {
+/** One composition: the prompt and the family it is for. */
+interface Composed {
   readonly from: string;
   readonly target: ComposeTarget;
+}
+
+/** A rewrite of one composition, and its text as edited. */
+interface Enhanced extends Composed {
   readonly text: string;
 }
+
+const isOf = (made: Composed | null, from: string, target: ComposeTarget) =>
+  made !== null && made.from === from && made.target === target;
 
 function FamilyPicker({
   target,
@@ -181,25 +188,28 @@ export function ComposePanel({
   const [negative, setNegative] = useState("");
   const [target, setTarget] = useState<ComposeTarget>("sd");
   const [enhanced, setEnhanced] = useState<Enhanced | null>(null);
-  const [enhancing, setEnhancing] = useState(false);
+  // The composition a rewrite is being asked for; only the latest ask's answer lands.
+  const [asking, setAsking] = useState<Composed | null>(null);
+  const latest = useRef(0);
   const enhancer = useContributions(PromptEnhancerPoint)[0]?.value ?? null;
   const reads = COMPOSE_TARGETS.find((t) => t.id === target)?.negatives ?? true;
   const composed = composePrompt(subject, negative, styles, target);
-  // A rewrite stands for the composition it was made from, and goes with it.
-  const rewrite =
-    enhanced !== null && enhanced.from === composed.positive && enhanced.target === target
-      ? enhanced
-      : null;
+  // A rewrite stands for the composition it was made from, and goes with it;
+  // so does an ask, so another composition may be enhanced at once.
+  const rewrite = isOf(enhanced, composed.positive, target) ? enhanced : null;
+  const enhancing = isOf(asking, composed.positive, target);
   const enhance = () => {
     if (enhancer === null) {
       toast(ENHANCE_NEEDS);
       return;
     }
     const from = composed.positive;
-    setEnhancing(true);
+    const ask = (latest.current += 1);
+    setAsking({ from, target });
     void enhancer.enhance(from, target).then((text) => {
+      if (ask !== latest.current) return;
       if (text !== null) setEnhanced({ from, target, text });
-      setEnhancing(false);
+      setAsking(null);
     });
   };
   return (

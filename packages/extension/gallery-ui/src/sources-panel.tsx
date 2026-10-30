@@ -19,12 +19,13 @@ function ResultCard({
   onSave,
 }: {
   readonly result: SourceResult;
-  readonly onSave: () => Promise<void>;
+  /** Whether the save landed; a failed one has said why, and may be tried again. */
+  readonly onSave: () => Promise<boolean>;
 }) {
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const save = () => {
     setSaving("saving");
-    void onSave().then(() => setSaving("saved"));
+    void onSave().then((saved) => setSaving(saved ? "saved" : "idle"));
   };
   return (
     <figure data-gallery-result={result.id} className="flex flex-col gap-1">
@@ -59,12 +60,13 @@ function ApiSource({ source, query }: { readonly source: ImageSource; readonly q
   const [page, setPage] = useState<SearchPage | null>(null);
   const [asked, setAsked] = useState("");
   const [busy, setBusy] = useState(false);
-  const search = (cursor?: string) => {
+  // More continues the search that answered the page shown, whatever is typed since.
+  const search = (asking: string, cursor?: string) => {
     setBusy(true);
-    void searchSource(source.id, query, cursor).then((answer) => {
+    void searchSource(source.id, asking, cursor).then((answer) => {
       setBusy(false);
       if (answer === null) return;
-      setAsked(query);
+      setAsked(asking);
       setPage((before) =>
         cursor === undefined || before === null
           ? answer
@@ -80,7 +82,7 @@ function ApiSource({ source, query }: { readonly source: ImageSource; readonly q
           type="button"
           disabled={busy || query.trim() === ""}
           className="rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5 disabled:opacity-50"
-          onClick={() => search()}
+          onClick={() => search(query)}
         >
           {busy ? "Searching…" : "Search"}
         </button>
@@ -94,7 +96,7 @@ function ApiSource({ source, query }: { readonly source: ImageSource; readonly q
             <ResultCard
               key={result.id}
               result={result}
-              onSave={() => saveResult(source.id, result).then(() => undefined)}
+              onSave={() => saveResult(source.id, result).then((id) => id !== null)}
             />
           ))}
         </div>
@@ -104,9 +106,9 @@ function ApiSource({ source, query }: { readonly source: ImageSource; readonly q
           type="button"
           disabled={busy}
           className="text-label text-foreground/50 hover:text-foreground/80"
-          onClick={() => search(page.next)}
+          onClick={() => search(asked, page.next)}
         >
-          More from {source.text}
+          More from {source.text} for “{asked}”
         </button>
       )}
     </section>

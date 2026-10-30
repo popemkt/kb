@@ -4,12 +4,14 @@
  * `{prompt}` has every occurrence replaced by the prompt so far; one that
  * does not is appended after it, joined with ", ", empty parts dropped.
  * Styles apply in order, each wrapping the result so far, and the positive
- * and negative are merged separately by the same rule. The rule is total: no
- * input loses text.
+ * and negative are merged separately by the same rule. The merge is total:
+ * no input loses text.
  *
  * The composition is then tidied as a person pastes it: an empty subject
  * leaves no dangling comma, and a part several styles add ("highly
- * detailed") is kept once, where it first appears.
+ * detailed") is kept once, where it first appears. A part is what lies
+ * between commas outside brackets, so a weighted group `(red, blue:1.2)`,
+ * a `[from:to:0.5]` or a `<lora:name:0.8>` is one part, kept whole.
  */
 
 const PLACEHOLDER = "{prompt}";
@@ -44,11 +46,32 @@ export interface Composition {
   readonly negative: string;
 }
 
-/** `text` without empty or repeated comma-separated parts, the first of each kept. */
+const OPENS = "([{<";
+const CLOSES = ")]}>";
+
+/** `text`'s comma-separated parts, a comma inside brackets not separating. */
+function partsOf(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i] ?? "";
+    if (OPENS.includes(c)) depth += 1;
+    else if (CLOSES.includes(c)) depth = Math.max(0, depth - 1);
+    else if (c === "," && depth === 0) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
+/** `text` without empty or repeated parts, the first of each kept. */
 function tidy(text: string): string {
   const seen = new Set<string>();
   const parts: string[] = [];
-  for (const raw of text.split(",")) {
+  for (const raw of partsOf(text)) {
     const part = raw.trim();
     const key = part.toLowerCase();
     if (part === "" || seen.has(key)) continue;

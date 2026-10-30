@@ -46,7 +46,7 @@ async function press(button: HTMLElement | null): Promise<void> {
 describe("the composer's Enhance", () => {
   let dom: InstalledDom;
   let root: Root;
-  let answer: () => CompletionReply;
+  let answer: () => CompletionReply | Promise<CompletionReply>;
   let calls: CompletionRequest[];
   let toasts: string[];
   beforeAll(() => {
@@ -132,6 +132,36 @@ describe("the composer's Enhance", () => {
     );
     expect(rewrite()).toBeNull();
   });
+  test("a composition changed mid-ask may be enhanced at once, and the late answer is not shown", async () => {
+    const replies: ((reply: CompletionReply) => void)[] = [];
+    answer = () => new Promise((resolve) => replies.push(resolve));
+    render();
+    await press(enhanceButton());
+    expect(enhanceButton()?.textContent).toBe("Enhancing…");
+    // Another family is another composition: Enhance is offered for it while the first ask runs.
+    await press(
+      [...document.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(
+        (radio) => radio.textContent === "FLUX",
+      ) ?? null,
+    );
+    expect(enhanceButton()?.textContent).toBe("Enhance");
+    expect(enhanceButton()?.disabled).toBe(false);
+    await press(enhanceButton());
+    const [first, second] = replies;
+    // The first answer arrives late: the later ask supersedes it.
+    await act(async () => {
+      first?.({ ok: true, text: "for Stable Diffusion" });
+      await Promise.resolve();
+    });
+    expect(rewrite()).toBeNull();
+    await act(async () => {
+      second?.({ ok: true, text: REWRITE });
+      await Promise.resolve();
+    });
+    expect(rewrite()?.value).toBe(REWRITE);
+    expect(calls.map((call) => call.system?.includes("FLUX"))).toEqual([false, true]);
+  });
+
   test("a failed completion leaves no rewrite, and says why", async () => {
     answer = () => ({
       ok: false,

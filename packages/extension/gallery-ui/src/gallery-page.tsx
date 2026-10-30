@@ -23,7 +23,7 @@ import { DetailPanel } from "./detail-panel";
 import { FacetRail } from "./facet-rail";
 import { addStarter } from "./gallery-api";
 import { MasonryGrid } from "./masonry-grid";
-import { chosenStyles, selectionOf, toggleStyle } from "./selection";
+import { chosenStyles, liveSelection, selectionOf, toggleStyle } from "./selection";
 import { SourcesPanel } from "./sources-panel";
 
 type Panel = "compose" | "sources";
@@ -87,7 +87,9 @@ export default function GalleryPage() {
   const nodes = useNodes();
   const library = useMemo(() => libraryOf(nodes.values()), [nodes]);
   const sources = useMemo(() => imageSourcesOf(nodes.values()), [nodes]);
-  const [selection, setSelection] = useState<FacetSelection>(new Map());
+  const [chosenIds, setSelection] = useState<FacetSelection>(new Map());
+  // A chosen style read where it is now: one moved is under its new facet, one deleted is gone.
+  const selection = useMemo(() => liveSelection(library, chosenIds), [library, chosenIds]);
   const [text, setText] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>("compose");
@@ -103,7 +105,8 @@ export default function GalleryPage() {
   );
   const chosen = chosenStyles(selection);
   const styles = orderedStyles(library, chosen);
-  const toggle = (id: string) => setSelection((s) => toggleStyle(library, s, id));
+  const toggle = (id: string) =>
+    setSelection((s) => toggleStyle(library, liveSelection(library, s), id));
   const open: GraphNode | undefined = openId === null ? undefined : nodes.get(openId);
 
   if (library.facets.length === 0 && library.visuals.length === 0) return <Starter />;

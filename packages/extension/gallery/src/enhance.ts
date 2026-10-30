@@ -24,7 +24,7 @@ const HOW_IT_READS: Readonly<Record<ComposeTarget, string>> = {
     "prompt: say what should be there, never what should not.",
 };
 /** The system prompt that rewrites a prompt for `target`. */
-export function enhancerSystem(target: ComposeTarget): string {
+function enhancerSystem(target: ComposeTarget): string {
   const label = COMPOSE_TARGETS.find((t) => t.id === target)?.label ?? target;
   return [
     `You rewrite prompts for ${label}, a generative image or video model.`,

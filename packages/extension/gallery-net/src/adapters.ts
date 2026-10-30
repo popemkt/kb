@@ -4,7 +4,8 @@
  * hosts it may reach. Every adapter meets the same promise (the contract
  * suite in `tests/adapters.test.ts` runs over {@link SOURCE_ADAPTERS}):
  * results are PG only, carry a page to open and a credit, and never point
- * a download at a host the adapter does not name.
+ * a download or a thumbnail at a host the adapter does not name. The search
+ * holds every adapter's results to that (`admitted`, `actions.ts`).
  *
  * What each source allows, and why these two, is the research record's §3.
  */
@@ -134,7 +135,11 @@ const OpenverseAnswer = z.object({
 
 const OPENVERSE_API = "https://api.openverse.org";
 
-/** One Openverse work as a result: its proxied thumbnail, its page and its terms. */
+/**
+ * One Openverse work as a result: its proxied thumbnail, its page and its
+ * terms. Its page is where the work lives when that is https, else its
+ * Openverse page: a provider's landing page is often plain http.
+ */
 function openverseResult(image: z.infer<typeof OpenverseImage>): SourceResult {
   const { id, title, width, height, creator, license, license_version, attribution } = image;
   const thumb = `${OPENVERSE_API}/v1/images/${encodeURIComponent(id)}/thumb/`;
@@ -150,7 +155,10 @@ function openverseResult(image: z.infer<typeof OpenverseImage>): SourceResult {
     image: thumb,
     ...(width === null || width === undefined ? {} : { width }),
     ...(height === null || height === undefined ? {} : { height }),
-    page: image.foreign_landing_url ?? `https://openverse.org/image/${id}`,
+    page:
+      image.foreign_landing_url?.startsWith("https://") === true
+        ? image.foreign_landing_url
+        : `https://openverse.org/image/${encodeURIComponent(id)}`,
     ...(creator === null || creator === undefined ? {} : { creator }),
     ...(licence === undefined ? {} : { licence }),
   };

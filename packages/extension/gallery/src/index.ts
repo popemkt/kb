@@ -10,7 +10,6 @@ export { galleryExtension, galleryPlugin } from "./extension.ts";
 export { GalleryView } from "./view.ts";
 export {
   GALLERY_ACTIONS,
-  SourceResultSchema,
   gallerySaveDef,
   galleryStarterDef,
   gallerySearchDef,
@@ -19,12 +18,11 @@ export {
 export {
   COMPOSE_TARGETS,
   composePrompt,
-  mergePrompt,
   type ComposeTarget,
   type Composition,
   type StyleTemplate,
 } from "./compose.ts";
-export { enhanceInput, enhancerSystem } from "./enhance.ts";
+export { enhanceInput } from "./enhance.ts";
 export {
   UNFILED,
   aspectOf,
@@ -47,4 +45,4 @@ export {
   type Library,
   type StyleEntry,
 } from "./library.ts";
-export { STARTER_LIBRARY, STARTER_SIZE, starterOutline } from "./starter.ts";
+export { STARTER_SIZE, starterOutline } from "./starter.ts";

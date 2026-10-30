@@ -18,8 +18,14 @@ export interface SearchPage {
   readonly next?: string;
 }
 
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function call(id: string, input: unknown, what: string): Promise<unknown> {
-  const receipt = await browserHost().invoke(id, input);
+  const receipt = await browserHost()
+    .invoke(id, input)
+    .catch((error: unknown) => ({ status: "failed" as const, message: messageOf(error) }));
   if (receipt.status === "failed") {
     toast(`${what}: ${receipt.message}`);
     return null;

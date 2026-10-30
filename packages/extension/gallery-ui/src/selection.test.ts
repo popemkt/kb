@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS, type PropValue } from "@kb/model";
 import { GALLERY_IDS, UNFILED, libraryOf, type GraphNode } from "@kb/gallery";
-import { chosenStyles, selectionOf, toggleStyle } from "./selection";
+import { chosenStyles, liveSelection, selectionOf, toggleStyle } from "./selection";
 
 const ref = (v: string): PropValue => ({ t: "ref", v });
 const n = (id: string, tag: string | null, children: string[] = []): GraphNode => ({
@@ -37,5 +37,19 @@ describe("the facet selection", () => {
     const selection = selectionOf(library, ["low", "golden", "gone"]);
     expect([...selection.keys()]).toEqual(["angle", "light"]);
     expect([...chosenStyles(selection)]).toEqual(["low", "golden"]);
+  });
+  it("reads a chosen style where the library files it now, and drops one it no longer holds", () => {
+    const chosen = selectionOf(library, ["golden", "low"]);
+    // "golden" moved from Light to Angle, and "low" was deleted, in another tab.
+    const now = libraryOf([
+      n("styles", null, ["light", "angle"]),
+      n("light", GALLERY_IDS.facetTag, ["neon"]),
+      n("neon", GALLERY_IDS.styleTag),
+      n("angle", GALLERY_IDS.facetTag, ["golden"]),
+      n("golden", GALLERY_IDS.styleTag),
+    ]);
+    const live = liveSelection(now, chosen);
+    expect([...live.keys()]).toEqual(["angle"]);
+    expect([...(live.get("angle") ?? [])]).toEqual(["golden"]);
   });
 });

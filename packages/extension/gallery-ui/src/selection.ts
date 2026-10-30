@@ -3,7 +3,9 @@
  * a visual's own styles taken as the selection. The selection is both the
  * filter (OR within a facet, AND across) and what the composer composes, so
  * choosing "low angle" and "golden hour" shows the references and the
- * prompt for them at once.
+ * prompt for them at once. It is read against the library as it is now
+ * (`liveSelection`), so a style deleted or moved since it was chosen never
+ * filters by where it used to be.
  */
 import { UNFILED, type FacetSelection, type Library } from "@kb/gallery";
 
@@ -45,4 +47,9 @@ export function chosenStyles(selection: FacetSelection): ReadonlySet<string> {
   const all = new Set<string>();
   for (const chosen of selection.values()) for (const id of chosen) all.add(id);
   return all;
+}
+
+/** `selection` as the library files it now: each chosen style under its facet, a deleted one dropped. */
+export function liveSelection(library: Library, selection: FacetSelection): FacetSelection {
+  return selectionOf(library, [...chosenStyles(selection)]);
 }
