@@ -1,5 +1,6 @@
 import type { KbNode, NodeId } from "@kb/model";
 import { renderText, type TemplateContext } from "@kb/contracts";
+import { nodesTagged, rowIds, tagIdsNamed } from "./nodes.ts";
 
 /**
  * The `todos` template: repo-doc policy, not core mechanism. Registered as
@@ -27,20 +28,7 @@ function nodeStatus(node: KbNode, statusFieldId: NodeId | undefined): string {
 }
 
 function collectProjectNodes(ctx: TemplateContext): Map<NodeId, KbNode> {
-  const projectTagIds = new Set<NodeId>();
-  for (const [id, node] of ctx.nodes) {
-    if (node.text !== "project") continue;
-    const typeRefs = node.props["sys.f.type"]?.filter((pv) => pv.t === "ref").map((pv) => pv.v);
-    if (typeRefs?.includes("sys.tag") === true) projectTagIds.add(id);
-  }
-  const projectNodes = new Map<NodeId, KbNode>();
-  if (projectTagIds.size === 0) return projectNodes;
-  for (const [id, node] of ctx.nodes) {
-    const typeRefs =
-      node.props["sys.f.type"]?.filter((pv) => pv.t === "ref").map((pv) => pv.v) ?? [];
-    if (typeRefs.some((ref) => projectTagIds.has(ref))) projectNodes.set(id, node);
-  }
-  return projectNodes;
+  return new Map(nodesTagged(ctx, tagIdsNamed(ctx, "project")).map((node) => [node.id, node]));
 }
 
 function renderStatusGroups(
@@ -137,7 +125,7 @@ function todosFlat(ids: string[], ctx: TemplateContext, statusFieldId: NodeId | 
 /** Todo-tagged nodes grouped by project (if project supertag nodes exist) and `status`. Rows: [[nodeId], …]. */
 export function todos(rows: unknown[][], ctx: TemplateContext): string {
   const statusFieldId = ctx.fieldIdByName("status");
-  const ids = [...new Set(rows.map((r) => r[0]).filter((v): v is string => typeof v === "string"))];
+  const ids = rowIds(rows);
   if (ids.length === 0) return "# Todos\n\n_No todos._";
   const projectNodes = collectProjectNodes(ctx);
   if (projectNodes.size > 0) return todosByProject(ids, ctx, statusFieldId, projectNodes);

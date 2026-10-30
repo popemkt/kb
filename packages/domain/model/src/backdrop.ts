@@ -1,10 +1,11 @@
 /**
- * Which backdrop a page head paints, how strong and which way it faces
- * (DESIGN-UI.md → Page-head backdrops): three settings of core's node
+ * Which backdrop a page head paints, how strong, which way it faces and
+ * what art it draws (DESIGN-UI.md → Page-head backdrops): settings of core's node
  * (`sys.extension.core`), since the slot is core's and names no backdrop,
- * and the same three fields on a node, for that node's page. Each is a ref
- * to one of its field's children: the backdrops are the options the seed
- * fold derives from the families' declarations, as it derives views'.
+ * and the same fields on a node, for that node's page. The first three are
+ * each a ref to one of its field's children: the backdrops are the options
+ * the seed fold derives from the families' declarations, as it derives
+ * views'. The art is a path of kb's own assets (`assets/…`).
  */
 import {
   declaredChoice,
@@ -12,8 +13,9 @@ import {
   type DeclaredOptions,
   type SeedOption,
 } from "./declared-option.ts";
+import { isAssetPath, mediaKindFromHref } from "./asset.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
-import { firstRef } from "./node-config.ts";
+import { firstRef, firstStr } from "./node-config.ts";
 
 /**
  * A backdrop as a declaration names it: a declared option, whose id its
@@ -57,6 +59,12 @@ export interface BackdropChoice {
   readonly backdrop: string | null;
   readonly strength: BackdropStrength;
   readonly direction: BackdropDirection;
+  /**
+   * A file of kb's own assets (`assets/…`) the backdrop draws as its art in
+   * place of its own, where it has art to replace (the Wolf medallion's
+   * relief); null, its own.
+   */
+  readonly art: string | null;
 }
 
 type Props = KbNode["props"];
@@ -76,7 +84,7 @@ function optionOf<V extends string>(
  * options, and the first contributed backdrop, `subtle` and `down` where
  * none does. A backdrop nobody contributes now (its plugin unloaded, its
  * declaration gone) is no option, so it falls through as an unknown
- * strength does.
+ * strength does; so does art that names no image of kb's assets.
  */
 export function backdropChoice(
   sources: readonly (Props | undefined)[],
@@ -103,5 +111,12 @@ export function backdropChoice(
           firstRef(SYSTEM_IDS.backdropDirectionField)(props),
         ),
       ) ?? "down",
+    art:
+      first((props) => {
+        const path = firstStr(SYSTEM_IDS.backdropArtField)(props);
+        return path !== undefined && isAssetPath(path) && mediaKindFromHref(path) === "image"
+          ? path
+          : undefined;
+      }) ?? null,
   };
 }

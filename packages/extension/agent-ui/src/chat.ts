@@ -54,6 +54,8 @@ export interface AgentPorts {
   readonly invoke: (invocation: ActionInvocation) => Promise<ActionReceipt>;
   /** A fresh conversation id. */
   readonly newConversation: () => string;
+  /** The agent finished a turn with its answer (not stopped, not failed): the page counts it. */
+  readonly finished: () => void;
 }
 
 interface ChatState {
@@ -124,7 +126,9 @@ export function restartChat(): void {
 
 function receive(data: unknown): void {
   const event = AgentEventSchema.safeParse(data);
-  if (event.success) update((transcript) => withEvent(transcript, event.data));
+  if (!event.success) return;
+  update((transcript) => withEvent(transcript, event.data));
+  if (event.data.type === "turn-end" && event.data.outcome === "done") ports?.finished();
 }
 
 /** Hear the channel and the socket through `next`; returns the detach. */

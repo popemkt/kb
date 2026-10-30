@@ -34,6 +34,8 @@ export interface ReplicaView {
   install(nodes: KbNode[], rev: number): void;
   /** The node as the replica shows it now, which for a held id is its local image. */
   local(id: string): KbNode | undefined;
+  /** A frame made elsewhere changed what the page shows (none of it this page's held writes). */
+  arrived(): void;
 }
 
 /** What the machine asks of the network. */
@@ -172,6 +174,7 @@ export class BrowserReplica {
       deletes: tx.deletes.filter((id) => !this.isHeld(id)),
     };
     this.show(shown);
+    if (shown.upserts.length + shown.deletes.length > 0) this.view.arrived();
     this.show(this.release(this.confirmedBy(this.rev)));
   }
 

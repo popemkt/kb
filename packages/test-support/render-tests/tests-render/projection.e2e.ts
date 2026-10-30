@@ -58,12 +58,12 @@ test("collapse holds the camera; mapped perspectives save as node references and
     });
   }
   await page.locator('[data-renderer-button="treemap"]').click();
-  await page.getByRole("button", { name: "Graph settings", exact: true }).click();
+  await page.getByRole("button", { name: "Graph options", exact: true }).click();
   await page.getByLabel("Area by", { exact: true }).selectOption("prop:render.field.area");
   await page.getByLabel("Group by", { exact: true }).selectOption("prop:render.field.group");
   await page.getByLabel("Color by", { exact: true }).selectOption("prop:render.field.group");
   await page.getByLabel("Label from", { exact: true }).selectOption("prop:render.field.label");
-  await page.getByRole("button", { name: "Graph settings", exact: true }).click();
+  await page.getByRole("button", { name: "Graph options", exact: true }).click();
   const research = page.locator('[data-treemap-node="render.fixture.node.1"]');
   const writing = page.locator('[data-treemap-node="render.fixture.node.2"]');
   await expect(research).toHaveAttribute("aria-label", "Ideas worth connecting");
@@ -115,10 +115,10 @@ test("collapse holds the camera; mapped perspectives save as node references and
     "treemap",
   );
   await expect(research).toHaveAttribute("aria-label", "Ideas worth connecting");
-  await page.getByRole("button", { name: "Graph settings", exact: true }).click();
+  await page.getByRole("button", { name: "Graph options", exact: true }).click();
   await expect(page.getByLabel("Area by", { exact: true })).toHaveValue("prop:render.field.area");
   await expect(page.getByLabel("Group by", { exact: true })).toHaveValue("prop:render.field.group");
-  await page.getByRole("button", { name: "Graph settings", exact: true }).click();
+  await page.getByRole("button", { name: "Graph options", exact: true }).click();
   const receipt = await action("node.get", { id: savedId });
   expect(receipt.output.node.props["sys.f.view"]).toEqual([
     { t: "ref", v: "sys.view.graph.treemap" },

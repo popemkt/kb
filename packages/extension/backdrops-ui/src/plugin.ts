@@ -2,20 +2,33 @@ import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import {
   BLACK_HOLE_BACKDROP,
+  FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
+  GRADIENT_ORBS_BACKDROP,
+  LIGHT_TRAILS_BACKDROP,
   LENS_BACKDROP,
   ROOST_BACKDROP,
   SILK_BACKDROP,
   SKY_BACKDROP,
   TOON_SEA_BACKDROP,
   UNICORN_BACKDROP,
+  WOLF_MEDALLION_BACKDROP,
   backdropsExtension,
   backdropsPlugin,
 } from "@kb/backdrops";
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
 import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
-import { BlackHoleBackdrop, LensBackdrop, SilkBackdrop, ToonSeaBackdrop } from "./gpu/backdrops";
+import {
+  BlackHoleBackdrop,
+  FloatingGeometryBackdrop,
+  GradientOrbsBackdrop,
+  LensBackdrop,
+  LightTrailsBackdrop,
+  SilkBackdrop,
+  ToonSeaBackdrop,
+  WolfMedallionBackdrop,
+} from "./gpu/backdrops";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
 import { GradientBackdrop } from "./tint-backdrop";
@@ -28,7 +41,7 @@ const gradient: Omit<Backdrop, "key"> = {
     space: 0,
     directions: [],
     height: 160,
-    maxWidth: 1120,
+    span: { reach: "content", maxWidth: 1120 },
     offset: -40,
     opacity: { subtle: 0.5, soft: 0.75, vivid: 1 },
   },
@@ -41,7 +54,7 @@ const unicorn: Omit<Backdrop, "key"> = {
     space: 160,
     directions: BACKDROP_DIRECTIONS,
     height: 500,
-    maxWidth: 960,
+    span: { reach: "content", maxWidth: 960 },
     offset: -8,
     opacity: { subtle: 0.35, soft: 0.5, vivid: 0.75 },
   },
@@ -54,7 +67,7 @@ const sky: Omit<Backdrop, "key"> = {
     space: 120,
     directions: BACKDROP_DIRECTIONS,
     height: 360,
-    maxWidth: 1040,
+    span: { reach: "content", maxWidth: 1040 },
     offset: -10,
     opacity: { subtle: 0.45, soft: 0.68, vivid: 0.88 },
   },
@@ -67,7 +80,7 @@ const roost: Omit<Backdrop, "key"> = {
     space: 140,
     directions: BACKDROP_DIRECTIONS,
     height: 380,
-    maxWidth: 1040,
+    span: { reach: "content", maxWidth: 1040 },
     offset: -10,
     opacity: { subtle: 0.5, soft: 0.7, vivid: 0.9 },
   },
@@ -84,7 +97,7 @@ const gpuFrame: Omit<Backdrop, "key" | "Component">["presentation"] = {
   space: 120,
   directions: [],
   height: 360,
-  maxWidth: 1040,
+  span: { reach: "content", maxWidth: 1040 },
   offset: -10,
   opacity: { subtle: 0.7, soft: 0.85, vivid: 1 },
 };
@@ -112,6 +125,44 @@ const toonSea: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: To
 const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkBackdrop };
 
 /**
+ * A web of glass facets on deep navy, gold light where they meet. Its field
+ * spans the scroll region: a wider window adds field at the sides, and the
+ * glass, placed from the content, keeps its place and size.
+ */
+const floatingGeometry: Omit<Backdrop, "key"> = {
+  presentation: { ...gpuFrame, span: { reach: "region" } },
+  Component: FloatingGeometryBackdrop,
+};
+
+/**
+ * Two great orbs in front of a deep blue field: a painted scene, its own
+ * field and all, spanning the scroll region so the field reaches the
+ * window's sides, the orbs placed from the content.
+ */
+const gradientOrbs: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  Component: GradientOrbsBackdrop,
+};
+
+/**
+ * kb's steel wolf medallion over smoke and embers, sensing the page: the
+ * smoke spans the scroll region, the medallion placed from the content.
+ */
+const wolfMedallion: Omit<Backdrop, "key"> = {
+  presentation: { ...gpuFrame, span: { reach: "region" } },
+  Component: WolfMedallionBackdrop,
+};
+
+/**
+ * Long-exposure light streaking across a deep navy field: its field spans
+ * the scroll region, the knot of light placed from the content.
+ */
+const lightTrails: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  Component: LightTrailsBackdrop,
+};
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), with the family's shared plugin as a child.
@@ -131,6 +182,13 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(BLACK_HOLE_BACKDROP, blackHole)),
         ctx.contribute(BackdropPoint, provideBackdrop(TOON_SEA_BACKDROP, toonSea)),
         ctx.contribute(BackdropPoint, provideBackdrop(SILK_BACKDROP, silk)),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(FLOATING_GEOMETRY_BACKDROP, floatingGeometry),
+        ),
+        ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_ORBS_BACKDROP, gradientOrbs)),
+        ctx.contribute(BackdropPoint, provideBackdrop(WOLF_MEDALLION_BACKDROP, wolfMedallion)),
+        ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
       ],
       { discard: true },
     ),

@@ -18,7 +18,7 @@
 import { max, min, screenUV, vec2 } from "three/tsl";
 import { offscreenPass, type OffscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -81,9 +81,11 @@ function sharpened(hole: OffscreenPass) {
 }
 
 function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
+  const vary = variation(init.seed);
+  /** Each flare's place on its orbit, drawn anew for each. */
+  const flares = vary.stream("flares");
   const u = blackHoleUniforms();
-  u.time.value = 120 + rng.range(0, 60);
+  u.time.value = 120 + vary.range("clock", 0, 60);
   const hole = offscreenPass(
     stage.renderer,
     (inputs) => blackHoleFragment(u, inputs, groundsOf(stage)),
@@ -102,19 +104,21 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   let elapsed = 0;
 
   return {
-    panel: { x: 0.68, y: 0.3, scale: 0.62, presence: 0.72 },
-    wide: { x: 0.63, y: 0.38, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
+    panel: { x: 0.21, y: 0.3, scale: 0.62, presence: 0.72 },
+    wide: { x: 0.26, y: 0.38, scale: 1, presence: 1 },
+    layout: ({ width: w, height: h, quality, anchor }: BackdropLayout) => {
       width = w;
       height = h;
-      u.center.value.set(composition.x, 1 - composition.y);
-      u.focal.value = 2.3 * composition.scale;
+      // The shader reads the hole's centre as shares of the frame, y up.
+      u.center.value.set(0.5 + anchor.x / (w / h), 0.5 + anchor.y);
+      u.focal.value = 2.3 * anchor.scale;
       const density = holeDensity(quality);
       hole.setSize(w * density, h * density);
       u.steps.value = STEP_CAP;
       // A still frame has no frames before it to settle its samples.
       u.samples.value = init.reducedMotion ? 3 : 1;
       fresh = true;
+      return anchor;
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
@@ -128,7 +132,7 @@ function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       u.pulse.value = reactions.impulse;
       // A flare starting from dark is set somewhere new on its orbit; a further write brightens it.
       if (u.flare.value < FLARE_REST && reactions.stir >= FLARE_REST) {
-        u.flarePhase.value = rng.range(0, FULL_TURN);
+        u.flarePhase.value = flares.range(0, FULL_TURN);
       }
       u.flare.value = reactions.stir;
       const pointer = reactions.pointer;

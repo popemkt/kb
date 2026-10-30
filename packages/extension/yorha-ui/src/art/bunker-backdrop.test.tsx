@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { BackdropProps, PageActivity } from "@kb/ui-sdk";
+import { QUIET_ACTIVITY, type BackdropProps, type PageActivity } from "@kb/ui-sdk";
 import { BunkerBackdrop } from "./bunker-backdrop";
 
 beforeAll(() => {
@@ -17,6 +17,7 @@ function props(activity: PageActivity): BackdropProps {
     node: undefined,
     strength: "subtle",
     direction: "down",
+    art: null,
     opacity: 0.7,
     activity,
     pointer: { now: () => null },
@@ -31,7 +32,7 @@ describe("the Bunker's head", () => {
     let writes = 0;
     const draw = (editing: boolean) => {
       act(() => {
-        root.render(<BunkerBackdrop {...props({ editing, writes })} />);
+        root.render(<BunkerBackdrop {...props({ ...QUIET_ACTIVITY, editing, writes })} />);
       });
     };
     draw(false);

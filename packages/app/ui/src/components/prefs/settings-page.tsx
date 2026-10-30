@@ -93,6 +93,7 @@ const CORE_GROUPS: readonly {
       { field: SYSTEM_IDS.backdropField, label: "backdrop" },
       { field: SYSTEM_IDS.backdropStrengthField, label: "strength" },
       { field: SYSTEM_IDS.backdropDirectionField, label: "direction" },
+      { field: SYSTEM_IDS.backdropArtField, label: "art" },
     ],
   },
   {
@@ -374,6 +375,7 @@ function useCoreRow(graph: GraphRead, settings: readonly Setting[]): CoreRowOf {
     [SYSTEM_IDS.backdropField, head.backdrop?.value.key.label ?? "none"],
     [SYSTEM_IDS.backdropStrengthField, head.strength],
     [SYSTEM_IDS.backdropDirectionField, head.direction],
+    [SYSTEM_IDS.backdropArtField, head.art ?? "its own"],
   ]);
   const unset = (field: NodeId) => (core?.props[field]?.length ?? 0) === 0;
   return ({ field, label }) => {

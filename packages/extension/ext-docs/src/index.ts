@@ -17,6 +17,7 @@ import { docsExtension } from "@kb/docs";
 import { type DomainError, domainError } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { type DocsView, docsViewNamed, docsViewsOf } from "@kb/views";
+import { document } from "./document.ts";
 import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
 
@@ -187,6 +188,7 @@ const actions: ExtensionAction[] = [
 const templates: ExtensionTemplate[] = [
   { id: "todos", aliases: ["todos"], template: todos },
   { id: "rules", aliases: ["rules"], template: rules },
+  { id: "document", aliases: ["document"], template: document },
 ];
 
 /** The docs family's server entry: `ext.docs.*`, with its bare legacy aliases. */
@@ -209,5 +211,6 @@ export const docsPlugin = definePlugin({
       { discard: true },
     ),
 });
+
 export { rules } from "./rules.ts";
 export { todos } from "./todos.ts";

@@ -126,7 +126,8 @@ export interface StageOptions {
   /**
    * Fade into the ground along the frame's own sides instead, over these
    * shares of its width (each side) and height (top, bottom): a frame set
-   * into a page, whose edges must vanish into it.
+   * into a page, whose edges must vanish into it. A 0 leaves that edge
+   * unfaded: a frame whose sides are the page region's own.
    */
   readonly feather?: { readonly sides: number; readonly top: number; readonly bottom: number };
   /**
@@ -175,6 +176,14 @@ export type PaletteUniforms = ReturnType<typeof paletteUniforms>;
 type PaletteKey = keyof PaletteUniforms;
 const PALETTE_KEYS: readonly PaletteKey[] = ["ground", "edge", "hue", "ink", "accent"];
 
+/**
+ * How far in from one edge of the frame `from` is (0 at it), faded over
+ * `share`: a side with no feather (0) is not faded at all, since a
+ * smoothstep over no span is undefined.
+ */
+const side = (share: number, from: TslNode<"float">): TslNode<"float"> =>
+  share > 0 ? smoothstep(0, share, from) : float(1);
+
 /** How a frame's edges fade into the ground: 1 at the edge, 0 inside. */
 function edgeFade(options: StageOptions, vignette: TslNode<"float">): TslNode<"float"> {
   const feather = options.feather;
@@ -183,8 +192,8 @@ function edgeFade(options: StageOptions, vignette: TslNode<"float">): TslNode<"f
   }
   const x = screenUV.x;
   const y = screenUV.y;
-  const across = smoothstep(0, feather.sides, x).mul(smoothstep(0, feather.sides, float(1).sub(x)));
-  const down = smoothstep(0, feather.top, y).mul(smoothstep(0, feather.bottom, float(1).sub(y)));
+  const across = side(feather.sides, x).mul(side(feather.sides, float(1).sub(x)));
+  const down = side(feather.top, y).mul(side(feather.bottom, float(1).sub(y)));
   // Squared: the fade starts softly, so no line marks where it begins.
   const inside = across.mul(down);
   return float(1).sub(inside.mul(inside));
@@ -287,10 +296,13 @@ function postChain(
   );
   let shownColor: TslNode<"vec3"> = display.rgb.add(noise.sub(0.5).mul(knobs.dither.div(255)));
   if (lens.grain > 0) {
-    // Film grain where the scene is, never on the page's ground beyond it.
+    // Film grain where the scene's art is, never on the page's ground: not beyond the frame, and
+    // not on the ground inside it either, where grain clipped at the page's white or black would
+    // shift its level and draw the frame's rectangle.
     const pixel = screenCoordinate.xy.floor();
     const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
-    shownColor = shownColor.add(grain.mul(lens.grain).mul(float(1).sub(veil)));
+    const art = length(display.rgb.sub(renderOutput(vec4(colors.ground, 1)).rgb));
+    shownColor = shownColor.add(grain.mul(lens.grain).mul(smoothstep(0.004, 0.04, art)));
   }
   const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;
@@ -316,9 +328,11 @@ async function mountRenderer(
     antialias: true,
     powerPreference: "high-performance",
   });
+  // Sized before its context is: the first frame is drawn at the host's size, never the canvas's default.
+  renderer.setPixelRatio(pixelRatio());
+  renderer.setSize(Math.max(1, host.clientWidth), Math.max(1, host.clientHeight), false);
   await renderer.init();
   renderer.toneMapping = TONE_MAPPINGS[options.toneMapping ?? "aces"];
-  renderer.setPixelRatio(pixelRatio());
   if (shadows) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFShadowMap;
@@ -385,6 +399,9 @@ function frameLoop(
   /** Who waits for the next frame to be drawn. */
   const waiting: (() => void)[] = [];
   function draw(now: number): void {
+    // This is the frame a pending request asked for: it is not drawn twice.
+    cancelAnimationFrame(pending);
+    pending = 0;
     const dt = reduced || last < 0 ? 0 : clampStep((now - last) / 1000);
     last = now;
     elapsed += dt;
@@ -417,6 +434,11 @@ function frameLoop(
   return {
     draw,
     invalidate,
+    /** Draw now, in this task, when the view is shown: a resized canvas is cleared, and must never be shown so. */
+    redraw: () => {
+      if (visible) draw(performance.now());
+      else invalidate();
+    },
     /**
      * A frame drawn from now: one is asked for, and `after` runs in the same
      * task, right after it is drawn — before it is shown, while the canvas
@@ -549,6 +571,18 @@ function postControls(
   };
 }
 
+/** Sizes the canvas and the view to the host's (CSS pixels); false for a host with no size. */
+function sizer(renderer: WebGPURenderer, camera: PerspectiveCamera) {
+  return (width: number, height: number): boolean => {
+    if (width <= 0 || height <= 0) return false;
+    renderer.setPixelRatio(pixelRatio());
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    return true;
+  };
+}
+
 async function createStage(host: HTMLElement, options: StageOptions) {
   const shadows = options.shadows === true;
   const occluded = options.ao === true;
@@ -566,6 +600,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
   });
   loop.setInitialPalette(options.palette);
   const { invalidate } = loop;
+  const size = sizer(renderer, camera);
 
   return {
     scene,
@@ -628,16 +663,14 @@ async function createStage(host: HTMLElement, options: StageOptions) {
         renderer.domElement.style.opacity = "1";
       });
     },
+    size,
+    /** Draw now, in this task, when the view is shown (`frameLoop`'s `redraw`). */
+    redraw: loop.redraw,
     /** The scene host's handle, answered by the stage (`@/scene/host`). */
     handle: {
       backend: backendOf(renderer),
       resize: (width: number, height: number) => {
-        if (width <= 0 || height <= 0) return;
-        renderer.setPixelRatio(pixelRatio());
-        renderer.setSize(width, height, false);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        invalidate();
+        if (size(width, height)) loop.redraw();
       },
       setRunning: loop.setVisible,
       setReducedMotion: loop.setReducedMotion,
@@ -665,11 +698,14 @@ export interface SceneParts {
   readonly setReducedMotion?: (reduced: boolean) => void;
   /** Release what the stage's scene traversal does not reach (listeners, workers, textures). */
   readonly dispose?: () => void;
+  /** What the view needs before its first frame is shown (an image it draws); the reveal waits for it. */
+  readonly ready?: Promise<unknown>;
 }
 
 /**
- * Build a view on a new stage and reveal it. If the build or the reveal
- * fails, the view's parts and the stage are given back before the error goes
+ * Build a view on a new stage, lay it out at its host's size, wait for what
+ * it needs (`ready`) and reveal it: one first frame, at its size, faded in
+ * once. If the build or the reveal fails, the view's parts and the stage are given back before the error goes
  * on: nobody will ever hold a handle to them, so every failed open would
  * otherwise leak a GPU context. The handle is the stage's, extended by the
  * parts.
@@ -684,6 +720,10 @@ export async function mountScene<P extends SceneParts>(
   try {
     parts = build(stage);
     stage.setFrame(parts.frame);
+    if (stage.size(host.clientWidth, host.clientHeight)) {
+      parts.resize?.(host.clientWidth, host.clientHeight);
+    }
+    await parts.ready;
     stage.reveal();
   } catch (error) {
     parts?.dispose?.();
@@ -697,9 +737,11 @@ export async function mountScene<P extends SceneParts>(
     parts: built,
     handle: {
       backend: base.backend,
+      // The view is laid out at its new size before the frame that shows it.
       resize: (width, height) => {
-        base.resize(width, height);
+        if (!stage.size(width, height)) return;
         built.resize?.(width, height);
+        stage.redraw();
       },
       setRunning: base.setRunning,
       setReducedMotion: (reduced) => {

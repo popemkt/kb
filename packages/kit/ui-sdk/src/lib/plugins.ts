@@ -256,31 +256,67 @@ export interface Overlay {
 export const OverlayPoint = Point<Overlay>()("ui.overlays");
 
 /**
+ * How far across the page a backdrop's frame reaches: centred under the
+ * head's content and at most `maxWidth` wide, or across the whole scroll
+ * region behind it (`BREAKOUT_CLASS`), whatever the content's width, so a
+ * wider window or the full content width adds field at its sides.
+ */
+type BackdropSpan =
+  | { readonly reach: "content"; readonly maxWidth: number }
+  | { readonly reach: "region" };
+
+/**
  * How a page head frames a backdrop: the breathing room it reserves above
- * the head's content, its frame's height, bounded width and vertical offset,
- * the directions it can face (none, when it has no direction), and how
- * opaque it is at each strength.
+ * the head's content, its frame's height, span and vertical offset, the
+ * directions it can face (none, when it has no direction), and how opaque
+ * it is at each strength.
  */
 export interface BackdropPresentation {
   readonly space: number;
   readonly height: number;
-  readonly maxWidth: number;
+  readonly span: BackdropSpan;
   readonly offset: number;
   readonly directions: readonly BackdropDirection[];
   readonly opacity: Readonly<Record<BackdropStrength, number>>;
 }
 
 /**
+ * What has happened on the page, counted since it loaded: changes made
+ * elsewhere that it has been shown (another tab, the CLI, the agent's
+ * writes), errors it has told the owner of, and turns the sidebar's agent
+ * has finished with an answer. The host counts them (`BrowserHost.events`).
+ */
+export interface PageEvents {
+  readonly arrivals: number;
+  readonly errors: number;
+  readonly turns: number;
+}
+
+/**
  * What the owner is doing on the page, as a backdrop may read it
  * (DESIGN-UI.md → Page-head backdrops): whether a node's text is being
- * edited, and how many writes the graph has taken. A backdrop compares the
- * count with the one it last saw, so it needs no listener of its own for
- * app events. Navigation is the `node` it is handed changing.
+ * edited, how many writes the graph has taken, and what has happened on it
+ * (`PageEvents`). A backdrop compares a count with the one it last saw, so
+ * it needs no listener of its own for app events. Navigation is the `node`
+ * it is handed changing.
  */
-export interface PageActivity {
+export interface PageActivity extends PageEvents {
   readonly editing: boolean;
   readonly writes: number;
 }
+
+/**
+ * A page where the owner does nothing: what art drawn where no owner acts is
+ * handed (a backdrop's Appearance card; a veil on the plane that hears no
+ * write).
+ */
+export const QUIET_ACTIVITY: PageActivity = {
+  editing: false,
+  writes: 0,
+  arrivals: 0,
+  errors: 0,
+  turns: 0,
+};
 
 /** What a page head tells the backdrop it shows. */
 export interface BackdropProps {
@@ -290,6 +326,12 @@ export interface BackdropProps {
   readonly node: OutlineNode | undefined;
   readonly strength: BackdropStrength;
   readonly direction: BackdropDirection;
+  /**
+   * The URL of an image of kb's assets the backdrop draws as its art, in
+   * place of its own, where it has art to replace; null, its own. A
+   * backdrop with no art to replace ignores it.
+   */
+  readonly art: string | null;
   /** The presentation's opacity at `strength`. */
   readonly opacity: number;
   /** What the owner is doing on the page now. */

@@ -16,11 +16,20 @@
  * - `stir` is the impulse with typing's share taken out (none while calm), so
  *   a scene that keeps still for typing reads it; `ripple` is a pulse on a
  *   move to another page.
+ * - `startle` is a short pulse when something happens on the page that the
+ *   owner did not do here (`PageEvents`: a change from elsewhere, an error, a
+ *   turn the agent finished); `noticed` says which happened last, and how
+ *   many have, for a scene that answers each kind its own way or holds what
+ *   it noticed still.
  * - `pointer` is where the owner's pointer is over the frame (null when it
  *   is not), its `near` easing in and out so the actors do not twitch at the
  *   edge, and `speed` how fast it is moving.
  */
+import type { PageEvents } from "@kb/ui-sdk";
 import { clamp01, damp, envelope } from "./math.ts";
+
+/** Something that happened on the page: one of its counted events. */
+export type PageEventKind = keyof PageEvents;
 
 interface PointerState {
   readonly x: number;
@@ -47,10 +56,15 @@ export interface Reactions {
   readonly stir: number;
   /** The owner moved to another page: 0..1, slower. */
   readonly ripple: number;
+  /** Something happened on the page (`notice`): 0..1, a quick start and a short fall. */
+  readonly startle: number;
+  /** The kind last noticed (null before any), and how many have been. */
+  readonly noticed: { readonly kind: PageEventKind | null; readonly count: number };
   readonly pointer: PointerState;
   /** Fired by the stage when the activity signal moves. */
   readonly write: () => void;
   readonly navigate: () => void;
+  readonly notice: (kind: PageEventKind) => void;
   readonly setEditing: (editing: boolean) => void;
   readonly setPointer: (x: number, y: number) => void;
   readonly clearPointer: () => void;
@@ -81,6 +95,8 @@ export function startReactions(): Reactions {
   let pending = 0;
   let landed = -Infinity;
   const ripplePulse: Pulse = { at: -1e9, rise: 0.35, fall: 2.4, gain: 1 };
+  const startlePulse: Pulse = { at: -1e9, rise: 0.06, fall: 1.1, gain: 1 };
+  let noticed: Reactions["noticed"] = { kind: null, count: 0 };
   let px = 0;
   let py = 0;
   let over = false;
@@ -104,6 +120,12 @@ export function startReactions(): Reactions {
     get ripple() {
       return pulseValue(ripplePulse, now);
     },
+    get startle() {
+      return pulseValue(startlePulse, now);
+    },
+    get noticed() {
+      return noticed;
+    },
     get pointer() {
       return { x: px, y: py, near, speed };
     },
@@ -112,6 +134,10 @@ export function startReactions(): Reactions {
     },
     navigate: () => {
       ripplePulse.at = now;
+    },
+    notice: (kind) => {
+      startlePulse.at = now;
+      noticed = { kind, count: noticed.count + 1 };
     },
     setEditing: (value) => {
       editing = value;

@@ -79,7 +79,7 @@ const pnoiseFn = Fn(([p, per]: readonly [V2, F]) => {
   ],
 });
 
-const gnoise = (p: V2): F => gnoiseFn(p);
+export const gnoise = (p: V2): F => gnoiseFn(p);
 export const pnoise = (p: V2, per: number): F => pnoiseFn(p, float(per));
 
 /** Turn and scale for the next octave: no octave lines up with another's grid. */

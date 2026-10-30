@@ -1,4 +1,3 @@
-import { useBreakoutShift } from "./use-breakout";
 import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
@@ -34,6 +33,8 @@ import {
   usePageGraph,
   usePane,
   usePrefs,
+  BREAKOUT_CLASS,
+  useBreakoutShift,
 } from "@kb/ui-sdk";
 import { localIdOf, type ParamsOf } from "@kb/views";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
@@ -144,7 +145,7 @@ export function BoardCardsView({
   );
 
   const breakout = view.key === CollectionBoardView && widthPref === "centered";
-  const breakoutRef = useBreakoutShift<HTMLDivElement>(
+  const breakoutRef = useBreakoutShift(
     breakout && groupFieldId !== null && (frameNode !== undefined || rowIds !== undefined),
   );
 
@@ -191,7 +192,7 @@ export function BoardCardsView({
       className={cn(
         "board-cards-view my-2",
         view.key === CollectionBoardView && "overflow-x-auto",
-        breakout && "table-view-breakout",
+        breakout && [BREAKOUT_CLASS, "px-4"],
       )}
       data-board-cards-view="true"
       data-view-mode={mode}

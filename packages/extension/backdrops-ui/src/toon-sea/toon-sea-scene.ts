@@ -13,7 +13,7 @@
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -33,16 +33,17 @@ const SPLASH_CYCLE = 6;
 const SKY_EVERY = 0.06;
 
 function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
+  const vary = variation(init.seed);
   const u = toonSeaUniforms();
-  u.time.value = 30 + rng.range(0, 240);
+  u.time.value = 30 + vary.range("clock", 0, 240);
   u.horizon.value = HORIZON;
   /** The splash rings' one clock: each ring is a phase of it, so none ever starts over. */
-  let splashClock = rng.range(0, SPLASH_CYCLE);
+  let splashClock = vary.range("splashes", 0, SPLASH_CYCLE);
+  const splashSeed = vary.range("splash.places", 0, 1e4);
   const splashAt = (cycle: number, ring: number) => {
     // Where a ring's cycle lands, from a hash of the cycle: the same every time it is asked.
     const h = (n: number) => {
-      const v = Math.sin(n * 127.1 + init.seed * 0.013) * 43758.5453;
+      const v = Math.sin(n * 127.1 + splashSeed) * 43758.5453;
       return v - Math.floor(v);
     };
     return {
@@ -60,21 +61,24 @@ function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   return {
     // The sun (the moon) stands high and right; in a panel a little lower in its corner.
-    panel: { x: 0.72, y: 0.17, scale: 0.85, presence: 1 },
-    wide: { x: 0.74, y: 0.15, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
+    panel: { x: 0.26, y: 0.17, scale: 0.85, presence: 1 },
+    wide: { x: 0.48, y: 0.15, scale: 1, presence: 1 },
+    layout: (layout: BackdropLayout) => {
+      const { width: w, height: h, quality, anchor } = layout;
       width = w;
       height = h;
       u.aspect.value = w / h;
       u.size.value.set(w, h);
-      u.sun.value.set(composition.x, 1 - composition.y);
-      u.scrim.layout(w, h);
+      // The shader reads the sun as shares of the frame, y up.
+      u.sun.value.set(0.5 + anchor.x / (w / h), 0.5 + anchor.y);
+      u.scrim.layout(layout);
       u.detail.value = quality;
       // The sky is soft: at full quality two texels for three device pixels (the stage's ratio,
       // at most 2), so the clouds' outlines stay clean when it is scaled up.
       const share = Math.min(window.devicePixelRatio || 1, 2) * 0.67 * (0.6 + 0.4 * quality);
       sky.setSize(w * share, h * share);
       sinceSky = Infinity;
+      return anchor;
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

@@ -1,3 +1,4 @@
+// oxlint-disable-next-line no-restricted-imports -- the gear is Settings' own, and this is its one way in
 import { GearSixIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
 import { navigate } from "../lib/router";
@@ -6,10 +7,11 @@ import { navigate } from "../lib/router";
 export const SETTINGS_PATH = "/settings";
 
 /**
- * The one way to Settings from a header: the shell's header and every page
- * header that has its own (the graph's, the lab's) render this. It wears a
- * neutral gear, since the theme is one setting among those it opens, and
- * opens the page in the focused pane.
+ * The one way to Settings on screen: the header's corner. The shell's header
+ * renders it, and a page that takes the header's place (the graph's, the
+ * lab's) renders it in its own header's corner, so every page shows exactly
+ * one. It wears the gear, which nothing else wears (a view's own options
+ * wear `ViewOptionsGlyph`), and opens the page in the focused pane.
  */
 export function SettingsTrigger({ className }: { readonly className?: string }) {
   return (

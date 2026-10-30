@@ -39,6 +39,30 @@ export const TOON_SEA_BACKDROP: SeedBackdrop = { id: "backdrops.toon-sea", label
 /** Layered silk ribbons on a stage before a faint cosmos; the owner's activity runs a shimmer along them. */
 export const SILK_BACKDROP: SeedBackdrop = { id: "backdrops.silk", label: "Silk" };
 
+/** A web of low-poly glass facets on a deep navy field, gold light gathering where they meet. */
+export const FLOATING_GEOMETRY_BACKDROP: SeedBackdrop = {
+  id: "backdrops.floating-geometry",
+  label: "Floating geometry",
+};
+
+/** Two great orbs floating in front of a deep blue field, lit violet, pink and cream. */
+export const GRADIENT_ORBS_BACKDROP: SeedBackdrop = {
+  id: "backdrops.gradient-orbs",
+  label: "Gradient orbs",
+};
+
+/** kb's own steel wolf medallion over smoke and embers, a circle of five glyphs turning behind it; it trembles when something happens. */
+export const WOLF_MEDALLION_BACKDROP: SeedBackdrop = {
+  id: "backdrops.wolf-medallion",
+  label: "Wolf medallion",
+};
+
+/** Long-exposure light streaking across a deep navy field, gathering in a white-hot knot. */
+export const LIGHT_TRAILS_BACKDROP: SeedBackdrop = {
+  id: "backdrops.light-trails",
+  label: "Light trails",
+};
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
@@ -56,6 +80,10 @@ export const backdropsExtension = defineExtension({
         BLACK_HOLE_BACKDROP,
         TOON_SEA_BACKDROP,
         SILK_BACKDROP,
+        FLOATING_GEOMETRY_BACKDROP,
+        GRADIENT_ORBS_BACKDROP,
+        WOLF_MEDALLION_BACKDROP,
+        LIGHT_TRAILS_BACKDROP,
       ],
     },
   ],

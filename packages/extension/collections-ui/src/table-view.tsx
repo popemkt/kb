@@ -1,4 +1,3 @@
-import { useBreakoutShift } from "./use-breakout";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
@@ -32,6 +31,8 @@ import {
   useIsSelected,
   usePane,
   usePrefs,
+  BREAKOUT_CLASS,
+  useBreakoutShift,
 } from "@kb/ui-sdk";
 import type { ParamsOf, SortSpec } from "@kb/views";
 import { CollectionTableView } from "@kb/collections";
@@ -153,7 +154,7 @@ export function TableView({
   );
 
   const breakoutCentered = widthPref === "centered";
-  const breakoutRef = useBreakoutShift<HTMLDivElement>(
+  const breakoutRef = useBreakoutShift(
     breakoutCentered && (frameNode !== undefined || rowIds !== undefined),
   );
 
@@ -165,7 +166,7 @@ export function TableView({
       className={cn(
         "table-view kb-text overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background",
         // w-full is a utility, so it would beat the breakout's width.
-        breakoutCentered ? "table-view-breakout" : "w-full",
+        breakoutCentered ? [BREAKOUT_CLASS, "px-4"] : "w-full",
       )}
       data-table-view="true"
       data-frame-id={frameId}

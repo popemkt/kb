@@ -32,8 +32,8 @@ import type { SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, type SceneStage, type StageOptions, type TslNode } from "@kb/scene-gpu";
 import type { PointerSource, Timing } from "@kb/ui-sdk";
 import { meterOf } from "../scene/meter";
-import { startReactions, type Reactions } from "../scene/reactions";
-import { framingAt, type Composition } from "./framing";
+import { startReactions, type PageEventKind, type Reactions } from "../scene/reactions";
+import { anchorIn, framingAt, type Anchor, type Composition, type ContentBox } from "./framing";
 
 /** What the page says about how a backdrop paints. */
 export interface GpuLook {
@@ -42,6 +42,8 @@ export interface GpuLook {
   /** The head's opacity at the chosen strength. */
   readonly presence: number;
   readonly direction: BackdropDirection;
+  /** The URL of the art to draw in place of the scene's own (`BackdropProps.art`); null, its own. */
+  readonly art: string | null;
 }
 
 export interface GpuBackdropInit extends GpuLook {
@@ -50,6 +52,8 @@ export interface GpuBackdropInit extends GpuLook {
   /** This mount's seed; a still (reduced motion) is always the same curated one. */
   readonly seed: number;
   readonly pointer: PointerSource;
+  /** Where the head's content lies across the frame as it mounts. */
+  readonly content: ContentBox;
 }
 
 /** A mounted GPU backdrop, as its React host drives it. */
@@ -58,7 +62,11 @@ export interface GpuBackdropScene extends SceneHandle {
   /** A write landed (a keystroke while editing): an impulse, merged into the one under way. */
   readonly write: () => void;
   readonly navigate: () => void;
+  /** Something happened on the page (`Reactions.notice`). */
+  readonly notice: (kind: PageEventKind) => void;
   readonly setEditing: (editing: boolean) => void;
+  /** The head's content moved across the frame (the content width changed): the hero follows it. */
+  readonly setContent: (content: ContentBox) => void;
   /** Seconds the scene has run since it mounted: it never goes back. */
   readonly clock: () => number;
 }
@@ -93,7 +101,10 @@ export interface BackdropLayout {
   readonly height: number;
   /** 1 at full detail, down to `MIN_QUALITY` while frames run over budget. */
   readonly quality: number;
-  readonly composition: Composition;
+  /** Where the hero stands, from the composition for this width and the content (`framing.ts`). */
+  readonly anchor: Anchor;
+  /** Where the head's content lies, CSS pixels from the frame's left: its text is there. */
+  readonly content: ContentBox;
 }
 
 export interface BackdropParts {
@@ -102,11 +113,17 @@ export interface BackdropParts {
   readonly wide: Composition;
   /** Advance by `dt` seconds (0 under reduced motion) and draw what it draws offscreen. */
   readonly frame: (dt: number, reactions: Reactions) => void;
-  /** Lay out for a new size or quality. */
-  readonly layout: (layout: BackdropLayout) => void;
+  /**
+   * Lay out for a new size or quality, and say where the hero was drawn, in
+   * frame units (`Anchor`): from its anchor, and moved or made smaller only
+   * where the frame obliged. Null for a field with no one hero.
+   */
+  readonly layout: (layout: BackdropLayout) => Anchor | null;
   readonly setLook: (look: GpuLook) => void;
   /** Release what the stage's scene traversal does not reach. */
   readonly dispose: () => void;
+  /** What it needs before its first frame is shown (`SceneParts.ready`). */
+  readonly ready?: Promise<unknown>;
 }
 
 /** The stage a backdrop asks for beyond the kit's shared frame. */
@@ -128,6 +145,22 @@ const INTERVAL_BUDGET_MS = 1000 / 48;
 const MIN_QUALITY = 0.4;
 const QUALITY_STEP = 0.15;
 
+/**
+ * What a spec reads to see the hero hold its place and size whatever the
+ * width (`data-hero`): heights right of the content's centre, heights up
+ * from the frame's middle, and its scale.
+ */
+function reportHero(
+  canvas: HTMLCanvasElement,
+  hero: Anchor | null,
+  { width, height, content }: Pick<BackdropLayout, "width" | "height" | "content">,
+) {
+  const centre = (content.left + content.width / 2 - width / 2) / height;
+  if (hero === null) delete canvas.dataset.hero;
+  else
+    canvas.dataset.hero = [hero.x - centre, hero.y, hero.scale].map((v) => v.toFixed(3)).join(" ");
+}
+
 export async function mountBackdrop(
   host: HTMLElement,
   init: GpuBackdropInit,
@@ -140,6 +173,7 @@ export async function mountBackdrop(
   let look: GpuLook = init;
   let width = 0;
   let height = 0;
+  let content = init.content;
   let quality = 1;
   let elapsed = 0;
 
@@ -158,14 +192,18 @@ export async function mountBackdrop(
     },
     (on) => {
       const backdrop = build(on, init);
+      // Its first frame is already the page's look.
+      backdrop.setLook(init);
       const canvas = on.renderer.domElement;
       canvas.dataset.backend = on.backend;
       const relayout = () => {
         if (width < 2 || height < 2) return;
         const composition = framingAt(width, backdrop.panel, backdrop.wide);
         on.setPresence(look.presence * composition.presence);
-        backdrop.layout({ width, height, quality, composition });
+        const anchor = anchorIn(composition, { width, height }, content);
+        const hero = backdrop.layout({ width, height, quality, anchor, content });
         canvas.dataset.quality = quality.toFixed(2);
+        reportHero(canvas, hero, { width, height, content });
       };
       const measure = (dt: number) => {
         const gpu = on.gpuMs();
@@ -199,6 +237,7 @@ export async function mountBackdrop(
           relayout();
         },
         dispose: backdrop.dispose,
+        ready: backdrop.ready,
       };
     },
   );
@@ -209,7 +248,6 @@ export async function mountBackdrop(
     backdrop.setLook(next);
     relayout();
   };
-  setLook(init);
 
   return {
     ...handle,
@@ -222,8 +260,17 @@ export async function mountBackdrop(
       reactions.navigate();
       stage.invalidate();
     },
+    notice: (kind) => {
+      reactions.notice(kind);
+      stage.invalidate();
+    },
     setEditing: (next) => {
       reactions.setEditing(next);
+      stage.invalidate();
+    },
+    setContent: (next) => {
+      content = next;
+      relayout();
       stage.invalidate();
     },
     clock: () => elapsed,

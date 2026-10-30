@@ -215,7 +215,7 @@ describe("W7 TableView & ViewToolbar", () => {
         widthPref: "centered",
       }),
     );
-    expect(centered).toContain("table-view-breakout");
+    expect(centered).toContain("kb-breakout");
     expect(centered).toContain('data-breakout="centered"');
 
     const full = renderToStaticMarkup(
@@ -227,7 +227,7 @@ describe("W7 TableView & ViewToolbar", () => {
         widthPref: "full",
       }),
     );
-    expect(full).not.toContain("table-view-breakout");
+    expect(full).not.toContain("kb-breakout");
     expect(full).not.toContain('data-breakout="centered"');
   });
 

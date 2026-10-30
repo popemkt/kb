@@ -1,6 +1,70 @@
+import { useCallback, type CSSProperties, type Ref } from "react";
 import { usePageActivity, usePageBackdrop } from "../hooks";
+import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
+import { cn } from "../lib/cn";
+import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/plugins";
 import { usePointerOver } from "../lib/pointer-over";
 import type { OutlineNode } from "../lib/types";
+
+/**
+ * A backdrop's frame: the box its component draws in, as tall as its
+ * presentation says, clipped, inert and hidden, carrying which backdrop it
+ * is and which way it faces. Where the frame stands is its host's
+ * (`placement`, and a class that places it): a page head centres it under
+ * the head or spans the scroll region with it, a card scales it into the
+ * card.
+ */
+export function BackdropFrame({
+  id,
+  backdrop: { presentation, Component },
+  placement,
+  className,
+  frameRef,
+  ...props
+}: BackdropProps & {
+  readonly id: string;
+  readonly backdrop: Backdrop;
+  readonly placement: CSSProperties;
+  readonly className?: string;
+  readonly frameRef?: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div
+      ref={frameRef}
+      className={cn("kb-header-backdrop pointer-events-none", className)}
+      data-backdrop={id}
+      data-direction={props.direction}
+      style={{
+        position: "absolute",
+        overflow: "hidden",
+        height: presentation.height,
+        ...placement,
+      }}
+      aria-hidden="true"
+      data-header-wash="true"
+    >
+      <Component {...props} />
+    </div>
+  );
+}
+
+/** Where a page head stands its frame: by its span, at its offset. */
+function placementOf({ span, offset }: BackdropPresentation): {
+  readonly placement: CSSProperties;
+  readonly className?: string;
+} {
+  if (span.reach === "region")
+    return { placement: { left: 0, top: offset }, className: BREAKOUT_CLASS };
+  return {
+    placement: {
+      left: "50%",
+      width: "100%",
+      transform: "translateX(-50%)",
+      maxWidth: span.maxWidth,
+      top: offset,
+    },
+  };
+}
 
 /**
  * The one page-head slot (DESIGN-UI.md → Page-head backdrops): the chosen
@@ -12,46 +76,44 @@ import type { OutlineNode } from "../lib/types";
  * no head yet, so nothing renders it there. GAP [[01M54CEKJJXNDPYNT55AR6KEV8]]
  */
 export function PageBackdrop({ color, node }: { color: string; node?: OutlineNode }) {
-  const { backdrop: chosen, strength, direction } = usePageBackdrop(node);
+  const { backdrop: chosen, strength, direction, art } = usePageBackdrop(node);
   const activity = usePageActivity();
   const [pointer, attachFrame] = usePointerOver();
+  const spansRegion = chosen?.value.presentation.span.reach === "region";
+  const shift = useBreakoutShift(spansRegion);
+  const frameRef = useCallback(
+    (frame: HTMLDivElement | null) => {
+      shift(frame);
+      const detach = attachFrame(frame);
+      return () => {
+        shift(null);
+        detach?.();
+      };
+    },
+    [attachFrame, shift],
+  );
   if (chosen === null) return null;
-  const { presentation, Component } = chosen.value;
-  const opacity = presentation.opacity[strength];
+  const { presentation } = chosen.value;
   return (
     <div
       className="kb-header-backdrop-space relative pointer-events-none"
       style={{ height: `min(${presentation.space}px, 24vw)` }}
       aria-hidden="true"
     >
-      <div
-        ref={attachFrame}
-        className="kb-header-backdrop pointer-events-none"
-        data-backdrop={chosen.id}
-        data-direction={direction}
-        style={{
-          position: "absolute",
-          left: "50%",
-          width: "100%",
-          transform: "translateX(-50%)",
-          overflow: "hidden",
-          height: presentation.height,
-          maxWidth: presentation.maxWidth,
-          top: presentation.offset,
-        }}
-        aria-hidden="true"
-        data-header-wash="true"
-      >
-        <Component
-          color={color}
-          node={node}
-          strength={strength}
-          direction={direction}
-          opacity={opacity}
-          activity={activity}
-          pointer={pointer}
-        />
-      </div>
+      <BackdropFrame
+        id={chosen.id}
+        backdrop={chosen.value}
+        frameRef={frameRef}
+        {...placementOf(presentation)}
+        color={color}
+        node={node}
+        strength={strength}
+        direction={direction}
+        art={art}
+        opacity={presentation.opacity[strength]}
+        activity={activity}
+        pointer={pointer}
+      />
     </div>
   );
 }

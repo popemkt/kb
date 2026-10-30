@@ -792,9 +792,14 @@ included). A kind whose options are best chosen by sight also draws
 `card`, a sample large enough to choose by. The editor names no kind:
 core's design-system plugin previews a design system with its swatch and,
 at card size, a small page its sheet paints with what the theme brings
-under it (its extension, the backdrop it pairs, its motion preset); the
-backdrops tag theirs with their theme at chip size, and a graph theme
-would fill the same slot. A preview draws nothing for a thing nobody
+under it (its extension, the backdrop it pairs, its motion preset); and
+a backdrop with its theme's swatch at chip size and, at card size, the
+backdrop itself (`BackdropCard`): its own renderer in the frame the head
+draws (`BackdropFrame`), laid out at a side panel's width and scaled into
+the card, at the strength and direction in force, hearing no owner, and
+held still (`HoldStill`, Motion options), mounted once the card is on
+screen, so a gallery costs what it shows. A graph theme would fill the
+same slot. A preview draws nothing for a thing nobody
 contributes now.
 
 **Option galleries.** A one-valued option field whose kind previews at
@@ -2744,18 +2749,27 @@ There is one mechanism, not a second path beside the core plugins:
 ### Settings
 
 The Settings page is every choice the kb makes, the few this device makes,
-and each extension's switch. The header's gear (`SettingsTrigger`,
-`@kb/ui-sdk`; the graph's and the lab's headers render the same one), the
-sidebar's Settings row and ⌘K's *Settings* (`sys.cmd.settings`) open it in
-the focused pane; ⌘K's *Settings: Extensions* (`sys.cmd.extensions`) opens
-its Extensions part. It replaced the Preferences popover, which overflowed
-a short window and drew core's settings only, and the Extensions page,
-which drew each switch apart from the settings. The record of why is
+and each extension's switch. The header's gear and ⌘K's _Settings_
+(`sys.cmd.settings`) open it in the focused pane; ⌘K's _Settings:
+Extensions_ (`sys.cmd.extensions`) opens its Extensions part. It replaced
+the Preferences popover, which overflowed a short window and drew core's
+settings only, and the Extensions page, which drew each switch apart from
+the settings. The record of why is
 `docs/research/2026-10-27-settings-parts.md`.
 
+- **One way in.** Every page shows exactly one way to Settings, the gear in
+  its header's corner (`SettingsTrigger`, `@kb/ui-sdk`): the shell's header
+  renders it, and a page that takes the header's place (the graph's, the
+  lab's) renders the same one in its own header's corner. The sidebar has
+  no Settings row. The gear is Settings' alone: an extension's settings
+  are fields of its node, drawn in its section of Extensions, never behind
+  an icon of its own, and a view's own options (a graph's layout and lens,
+  an outline frame's view and filters) stay in the view and wear
+  `ViewOptionsGlyph` (sliders). `eslint/no-restricted-imports` in
+  `.oxlintrc.json` refuses the gear icons anywhere but `SettingsTrigger`.
 - **Four parts, each a path.** `SettingsView`'s one param is the part
-  (`SETTINGS_PARTS`, `@kb/views`): *General* at `/settings`, *Appearance*,
-  *Extensions* and *Advanced* at `/settings/<part>`
+  (`SETTINGS_PARTS`, `@kb/views`): _General_ at `/settings`, _Appearance_,
+  _Extensions_ and _Advanced_ at `/settings/<part>`
   (`lib/settings-parts.ts`). A rail names the parts (a row above the page
   in a narrow window), and the part is the path, so a part is linked to
   and history moves between parts. The paths the page had before lead to
@@ -2775,10 +2789,10 @@ which drew each switch apart from the settings. The record of why is
   clears it.
 - **General** holds this device's width and sidebar (`kb-prefs`, never
   the graph, and the section says so), then any setting of core's that
-  Appearance does not group, under *Other settings*, so none is left off.
+  Appearance does not group, under _Other settings_, so none is left off.
 - **Appearance** holds light, dark or system (this device's, for the
   reasons under Design systems), then core's settings in the page's
-  arrangement of core's node: *Theme*, *Page head*, *Motion*, *Effects*.
+  arrangement of core's node: _Theme_, _Page head_, _Motion_, _Effects_.
   Each motion setting notes the value in force and where it comes from
   (set here, the shown theme's preset, the default), and a page-head
   setting core's node leaves unset notes what the head shows instead; an
@@ -2787,8 +2801,9 @@ which drew each switch apart from the settings. The record of why is
   <theme>_ clears every motion setting of core's. Effects are labelled in
   words (`hoverLift` is _hover lift_) and drawn as a grid. The backdrop's
   direction is drawn whatever the backdrop, and notes when the shown
-  backdrop faces no way. The theme is a gallery because its kind previews
-  at card size ([Field values → option galleries](#field-values-one-slot-grammar));
+  backdrop faces no way. The theme and the backdrop are galleries because
+  their kinds preview at card size
+  ([Field values → option galleries](#field-values-one-slot-grammar));
   the page asks for nothing.
 - **Extensions** holds one section per extension node under
   `sys.extensions`, in that list's order, read from the whole graph (the
@@ -2844,8 +2859,8 @@ which drew each switch apart from the settings. The record of why is
   filter and the former paths each have a case.
   `components/prefs/settings-extensions.acceptance.test.tsx` drives the
   Extensions and Advanced parts through the real App. The design-system
-  and backdrop contracts choose through Appearance, the design system by
-  a card of its gallery.
+  and backdrop contracts choose through Appearance, each by a card of its
+  gallery.
 - The page's body loads when it is first opened, not with the shell.
 
 ### Extension UI halves
@@ -2995,7 +3010,8 @@ the pointer is over a scene, where its ray meets a plane, and which presses
 were taps — every study and the 3D graph read the one field), `stage` (renderer, post chain, tone
 mapping, palette uniforms, frame loop, reveal; optionally a camera's
 artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
-film grain), a feather along the frame's own sides, a presence knob and a
+film grain, only where the scene's art is, never on its ground, so the
+grain cannot shift the ground's level and draw the frame), a feather along the frame's own sides, a presence knob and a
 GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
 shader drawn into a render target of its own size, optionally reading its
 last picture back, which a scene samples as a texture), `tone` (the
@@ -3187,14 +3203,14 @@ dark variant. Which systems exist is a plugin point: core contributes its
 default, families contribute the rest, and the page names none of them.
 kb ships six; the last three are whole themes (Themes, below):
 
-| id                  | from              | character                                                                                                                                                                                                                                                            |
-| ------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kb` (default)      | core              | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                           |
-| `themes.paper`      | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
-| `themes.terminal`   | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
-| `zzz.theme`         | the ZZZ family    | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
-| `transistor.theme`  | the Transistor family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                       |
-| `yorha.theme`       | the YoRHa family  | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night       |
+| id                 | from                  | character                                                                                                                                                                                                                                                            |
+| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kb` (default)     | core                  | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                           |
+| `themes.paper`     | the themes family     | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                                 |
+| `themes.terminal`  | the themes family     | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white            |
+| `zzz.theme`        | the ZZZ family        | after Zenless Zone Zero: a near-black street, lime and yellow; Archivo in black narrow italic capitals for titles and a wide italic strip for labels; bevelled corners, 2px outlines, hard offset sticker shadows, leaning chips; a jelly spring. Light is newsprint |
+| `transistor.theme` | the Transistor family | after Transistor: a teal Cloudbank night, ivory ink, cyan with magenta, red and gold; Marcellus SC titles, amber Share Tech Mono labels, Jost text; scooped corners, elevation as a cyan glow; a slow, deliberate settle. Light is Cloudbank by day                  |
+| `yorha.theme`      | the YoRHa family      | after NieR:Automata: light-first warm beige paper, khaki ink, a rust accent; Barlow text, Barlow Condensed capitals for titles and labels; square corners, flat ink offset blocks; mechanical motion with no bounce, a glitch on failure. Dark is a khaki night      |
 
 - **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
   beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
@@ -3423,18 +3439,18 @@ above). What each of kb's themes is after, and where each idea lives, is
   value, so a system that wants nothing new restates the default and looks
   as it did.
 
-  | token                                                                                                                                                                                  | says                                                                                                                                                                                                                                         | read by                                |
-  | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-  | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                 | the display face: page titles, the brand, a view's name                                                                                                                                                                                      | `.kb-display` (`tokens.css`)           |
-  | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                           | the label face: small uppercase section labels                                                                                                                                                                                               | `.kb-label`                            |
-  | `--label-ink`                                                                                                                                                                          | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                 | `.kb-label`                            |
-  | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                               | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                             | `.kb-palette-mark` (`command-palette.tsx`) |
-  | `--scrim-filter`                                                                                                                                                                       | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                          | `.kb-scrim`                            |
-  | `--art-chrome`, `--art-scrim`                                                                                                                                                          | `background` layers drawn over the chrome (header, sidebar, a view's bar; each layer may say how it is placed or attached, e.g. `fixed` to the window, and the bar keeps its own colour) and a `background-image` over a modal's scrim; `none` by default                                                                                                                       | `.kb-chrome`, `.kb-scrim`              |
-  | `--corner-shape`                                                                                                                                                                       | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                         | `index.css` base                       |
-  | `--chip-skew`                                                                                                                                                                          | the lean of a tag chip                                                                                                                                                                                                                       | `.kb-tag`                              |
-  | `--selection`, `--scrollbar-thumb` | the tint of selected text and of a scroller's thumb, each mixed with transparency by the shell; `--primary` and `--foreground` by default (derived, so a system restates them only for a colour of its own: ZZZ's lime highlighter, Transistor's gold by day and sword-light by night) | `::selection` and the scrollbar rules (`index.css`) |
-  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play | `motion.css`, `lib/timing.ts`, the art |
+  | token                                                                                                                                                                                                    | says                                                                                                                                                                                                                                                                                   | read by                                             |
+  | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+  | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                                   | the display face: page titles, the brand, a view's name                                                                                                                                                                                                                                | `.kb-display` (`tokens.css`)                        |
+  | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                                             | the label face: small uppercase section labels                                                                                                                                                                                                                                         | `.kb-label`                                         |
+  | `--label-ink`                                                                                                                                                                                            | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                                                            | `.kb-label`                                         |
+  | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                                                 | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                                                                        | `.kb-palette-mark` (`command-palette.tsx`)          |
+  | `--scrim-filter`                                                                                                                                                                                         | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                                                                    | `.kb-scrim`                                         |
+  | `--art-chrome`, `--art-scrim`                                                                                                                                                                            | `background` layers drawn over the chrome (header, sidebar, a view's bar; each layer may say how it is placed or attached, e.g. `fixed` to the window, and the bar keeps its own colour) and a `background-image` over a modal's scrim; `none` by default                              | `.kb-chrome`, `.kb-scrim`                           |
+  | `--corner-shape`                                                                                                                                                                                         | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                                                                   | `index.css` base                                    |
+  | `--chip-skew`                                                                                                                                                                                            | the lean of a tag chip                                                                                                                                                                                                                                                                 | `.kb-tag`                                           |
+  | `--selection`, `--scrollbar-thumb`                                                                                                                                                                       | the tint of selected text and of a scroller's thumb, each mixed with transparency by the shell; `--primary` and `--foreground` by default (derived, so a system restates them only for a colour of its own: ZZZ's lime highlighter, Transistor's gold by day and sword-light by night) | `::selection` and the scrollbar rules (`index.css`) |
+  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play                                           | `motion.css`, `lib/timing.ts`, the art              |
 
 - **One gesture vocabulary.** `motion.css` keeps the gestures and their
   keyframes; a theme only picks among them. A surface entering (a popover,
@@ -3540,27 +3556,27 @@ choosing the one it pairs with, and contribute them; write its section in
 
 The canonical list of what a theme is made of, and how far each piece is
 reachable through kb's own API (actions, the CLI, MCP) rather than only
-through code. *Data* means a node or prop in the graph, read and written
-by actions; *code* means a file in a family's or the shell's source,
+through code. _Data_ means a node or prop in the graph, read and written
+by actions; _code_ means a file in a family's or the shell's source,
 changed only by a release. Every piece that should be data and is not has
 a `#gap` node, named in the last column.
 
-| piece | where it lives | through kb's API | gap |
-| --- | --- | --- | --- |
-| Which theme the page shows | core's `sys.f.design-system`, a ref to the theme's option node | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Settings) | — |
-| The catalogue of themes and backdrops (ids, labels) | option nodes the seed derives from declarations (`<family>/src/extension.ts`, `foldSeed`) | data, read-only by convention (`sys.*`, written with `--force`) | — |
-| A theme's backdrops and its pairing | `sys.f.design-system` on each backdrop's option node; `sys.f.backdrop` on the theme's (`SeedOption.chooses`) | data: read by actions; a write changes what the head shows | — |
-| The backdrop shown, its strength and direction | `sys.f.backdrop`, `…-strength`, `…-direction` on the page's node or core's | data | — |
-| A backdrop's renderer | a component contributed through `BackdropPoint` under the declared id (`<family>-ui/src/art/*-backdrop.tsx`) | code, chosen by data: the entry is data, the art a registered renderer | — (the intended split) |
-| Token values: colours, faces, shapes, marks, motion timing | each theme's sheet, `<family>-ui/src/<family>.css` (Paper's and Terminal's `themes-ui/src/design-systems/*.css`), mounted by the painter | code | `01M5SNSPSGYCF6AKWVXQS2GJQJ` |
-| The design-system layers (layer-1 defaults, the bridge, roles) | `app/ui/src/design-system.css`, `index.css`, `tokens.css` | code: the renderer every theme feeds | — (the renderer) |
-| Theme art: ground and veil | `<family>-ui/src/art/*-art.tsx`, `art/art.css`; one `Art` component on the theme's contribution | code: words, gestures and timing inside | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option) | `01M5SNSQ4Y11AHAHDA43PCV5D6` |
-| Faces | `@fontsource*` imports in each `<family>-ui/src/plugin.ts`, named by the sheets' `--app-font*` | code | `01M5SNSQH2HMD784PCD51W46D5` |
-| Motion options: mode, intensity, style, speed, each effect | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`) | data: read and set like any field, Settings shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
-| Motion keyframes and a theme's base timing | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*` | code: the options rescale and swap them, never name new ones | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens) |
-| The selected row's paint | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes) | code, and no token reaches it | `01M5SNSR9AC5V1NA31QY8DNEX6` |
-| Settings a person picks (theme, backdrop, its strength and way) | core's node, in Settings | data | — |
+| piece                                                                                         | where it lives                                                                                                                                  | through kb's API                                                                                             | gap                                        |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Which theme the page shows                                                                    | core's `sys.f.design-system`, a ref to the theme's option node                                                                                  | data: read and set like any field (`kb set sys.extension.core sys.f.design-system …`, Settings)              | —                                          |
+| The catalogue of themes and backdrops (ids, labels)                                           | option nodes the seed derives from declarations (`<family>/src/extension.ts`, `foldSeed`)                                                       | data, read-only by convention (`sys.*`, written with `--force`)                                              | —                                          |
+| A theme's backdrops and its pairing                                                           | `sys.f.design-system` on each backdrop's option node; `sys.f.backdrop` on the theme's (`SeedOption.chooses`)                                    | data: read by actions; a write changes what the head shows                                                   | —                                          |
+| The backdrop shown, its strength and direction                                                | `sys.f.backdrop`, `…-strength`, `…-direction` on the page's node or core's                                                                      | data                                                                                                         | —                                          |
+| A backdrop's renderer                                                                         | a component contributed through `BackdropPoint` under the declared id (`<family>-ui/src/art/*-backdrop.tsx`)                                    | code, chosen by data: the entry is data, the art a registered renderer                                       | — (the intended split)                     |
+| Token values: colours, faces, shapes, marks, motion timing                                    | each theme's sheet, `<family>-ui/src/<family>.css` (Paper's and Terminal's `themes-ui/src/design-systems/*.css`), mounted by the painter        | code                                                                                                         | `01M5SNSPSGYCF6AKWVXQS2GJQJ`               |
+| The design-system layers (layer-1 defaults, the bridge, roles)                                | `app/ui/src/design-system.css`, `index.css`, `tokens.css`                                                                                       | code: the renderer every theme feeds                                                                         | — (the renderer)                           |
+| Theme art: ground and veil                                                                    | `<family>-ui/src/art/*-art.tsx`, `art/art.css`; one `Art` component on the theme's contribution                                                 | code: words, gestures and timing inside                                                                      | `01M5SNSQ4Y11AHAHDA43PCV5D6`               |
+| Page-change and write overlays (ZZZ's wipe, Jaunt(), YoRHa's scan, the sound-effect stickers) | the pane plane (page changes) and veil plane (writes) of each theme's art; their removal limit `THEME_GESTURE_MAX_MS` (`ui-sdk/lib/plugins.ts`) | code; data only switches them on or off (the `pageWipe` motion option)                                       | `01M5SNSQ4Y11AHAHDA43PCV5D6`               |
+| Faces                                                                                         | `@fontsource*` imports in each `<family>-ui/src/plugin.ts`, named by the sheets' `--app-font*`                                                  | code                                                                                                         | `01M5SNSQH2HMD784PCD51W46D5`               |
+| Motion options: mode, intensity, style, speed, each effect                                    | `sys.f.motion.*` on core's node; a theme's preset as the same fields on its option node (`motionPresetProps`)                                   | data: read and set like any field, Settings shows each value in force and its source (Motion options, below) | — (gap `01M5SNSQXBAM8P7K25GSM5ASP5`, done) |
+| Motion keyframes and a theme's base timing                                                    | keyframes in `app/ui/src/motion.css`, `motion-fx.css`; a sheet's `--motion-*`                                                                   | code: the options rescale and swap them, never name new ones                                                 | `01M5SNSPSGYCF6AKWVXQS2GJQJ` (as tokens)   |
+| The selected row's paint                                                                      | `kit/ui-sdk/src/components/sidebar-row.tsx` (fixed classes)                                                                                     | code, and no token reaches it                                                                                | `01M5SNSR9AC5V1NA31QY8DNEX6`               |
+| Settings a person picks (theme, backdrop, its strength and way)                               | core's node, in Settings                                                                                                                        | data                                                                                                         | —                                          |
 
 The direction (Rule 1, one contract): a theme becomes one node, the theme's
 option node, that carries its tokens, its art's renderer ids with their
@@ -3606,6 +3622,11 @@ which (`motionChoice`, `@kb/model/motion-choice`).
   whatever the OS says, `full` overrides the OS, `system` asks it; `off`
   also turns every effect off. Script motion hears it too:
   `prefersReducedMotion` reads the mode before the media query.
+- **A subtree may hold still** whatever the mode (`HoldStill`, `@kb/ui-sdk`):
+  `useReducedMotion` answers true inside it, and its element carries
+  `data-motion="reduced"`, which the global rule reads on any element, so
+  CSS motion stops there too. A sample drawn to be chosen by (a backdrop's
+  option card) is a still, as everything is under reduced motion.
 - **Settings** draws each option with the page's field editor and, under
   it, the value in force and its source (`set here`, `from <theme>`,
   `by default`, the last two after `unset here`); the effects sit in their own group, two to a row; a reset
@@ -3642,6 +3663,16 @@ implements one written contract. kb takes (c) now:
 A page head paints an ambient backdrop behind its content. Which backdrops
 exist is a plugin point, and the kit names none of them.
 
+Every backdrop is built and judged against the backdrop framework,
+[`docs/backdrops.md`](docs/backdrops.md): its criteria (headed by premium,
+like a game's title screen; then fidelity to the reference, objects above
+the backdrop, scale and colour first, light-page blending, no visible
+boundary, sharpness, no load flicker, motion, seeded variation, diversity,
+GPU budget, original marks, delivered whole) are `#backdrop-criterion` nodes, each with the owner's
+words (`asks`), how it is judged, its target and what it applies to, and the
+document is their projection (`kb docs materialize`). A PR for a backdrop
+reports a score against each.
+
 - **The point.** `BackdropPoint` (`ui.backdrops`, `@kb/ui-sdk`, beside
   `ViewPoint`, `DockPoint` and `OverlayPoint`) holds one `Backdrop` per
   contribution: its `key`, its `presentation` and its `Component`.
@@ -3650,21 +3681,34 @@ exist is a plugin point, and the kit names none of them.
     under the key's local id, so the contribution answers to the declared
     id, as a view answers to its key.
   - The presentation is how a head frames it: the breathing room it
-    reserves above the title (`space`), its frame's `height`, bounded
-    `maxWidth` and vertical `offset`, the `directions` it can face (none for
-    one with no direction), and its `opacity` at each strength.
+    reserves above the title (`space`), its frame's `height`, `span` and
+    vertical `offset`, the `directions` it can face (none for one with no
+    direction), and its `opacity` at each strength. The span is how far
+    across the page the frame reaches: centred under the head's content and
+    at most `maxWidth` wide (`reach: "content"`), or across the whole
+    scroll region behind it (`reach: "region"`), so a wider window or the
+    full content width adds field at its sides.
   - The component receives what the head knows (`BackdropProps`): its
     colour (the shown node's tag colour, else the accent), the node it shows
     if any, the strength, the direction, the opacity at that strength, what
     the owner is doing (`activity`) and where the pointer is (`pointer`).
   - **Activity is a declared input, not a listener.** `PageActivity` is
     whether a node's text is being edited (`editing`, the host's read of the
-    page editor) and how many writes the graph has taken (`writes`, the
-    index's generation), both read through `BrowserHost`, so the slot hands
-    every backdrop the same signal (`usePageActivity`). A backdrop that
-    reacts to the owner compares `writes` with the count it last saw and
-    reads `editing` as a state; navigation is the `node` it is handed
-    changing. It adds no document listener for app events.
+    page editor), how many writes the graph has taken (`writes`, the
+    index's generation), and what has happened on the page (`PageEvents`,
+    the host's `events`): how many changes made elsewhere it has been shown
+    (`arrivals`: a frame from the server that changed what the page shows,
+    none of it this page's own held write; the replica says so,
+    `ReplicaView.arrived`), how many errors the owner has been told of
+    (`errors`: every one passes the toast list), and how many turns the
+    sidebar's agent finished with its answer (`turns`: the agent's UI half
+    says so through its ports, `AgentPorts.finished`). All of it is read
+    through `BrowserHost`, so the slot hands every backdrop the same signal
+    (`usePageActivity`). A backdrop that reacts to the owner compares a
+    count with the one it last saw and reads `editing` as a state;
+    navigation is the `node` it is handed changing. It adds no document
+    listener for app events. Art drawn where no owner acts (a backdrop's
+    card, the veil on a pane's plane) is handed `QUIET_ACTIVITY`.
   - **The pointer is declared too.** The frame is `pointer-events: none`, so
     it hears no pointer; the slot owns the one passive listener, on the
     smallest ancestor whose box covers the frame (`usePointerOver`). Every
@@ -3715,19 +3759,29 @@ exist is a plugin point, and the kit names none of them.
     cel-shaded: a day sea, and at night a moonlit indigo with
     bioluminescent wakes;
   - `backdrops.silk` is silk ribbons in three depths, lit on a stage that
-    opens onto a faint cosmos.
+    opens onto a faint cosmos;
+  - `backdrops.floating-geometry` is a web of low-poly glass facets on a
+    deep navy field, gold light gathering where they meet;
+  - `backdrops.gradient-orbs` is two great orbs floating in front of a
+    deep blue field, lit from the upper right in violet, pink and cream;
+  - `backdrops.wolf-medallion` is kb's own steel wolf medallion over smoke
+    and rising embers, a faint circle of five glyphs turning behind it; it
+    trembles when something happens on the page.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
 
-- **The choice is fields.** Which backdrop, its strength and its direction
-  are three settings of core's node (`sys.extension.core`), since the slot is
-  core's and names no backdrop. Core seeds the fields. Each field configures
-  core, takes one value, and is a ref to one of its own children:
+- **The choice is fields.** Which backdrop, its strength, its direction and
+  its art are four settings of core's node (`sys.extension.core`), since the
+  slot is core's and names no backdrop. Core seeds the fields, and each
+  configures core and takes one value. The first three are each a ref to
+  one of their own children:
   - `sys.f.backdrop`: the declared backdrops' options;
   - `sys.f.backdrop.strength`: `subtle`, `soft` or `vivid`;
   - `sys.f.backdrop.direction`: `down` (vertically inverted) or `up`. A
     backdrop with no directions ignores it.
+
+  The fourth, `sys.f.backdrop.art`, is text (**The art setting**, below).
 
   The same fields on a node choose for that node's page. Each setting is read
   from the node shown first, then from core's node (`backdropChoice` in
@@ -3744,9 +3798,29 @@ exist is a plugin point, and the kit names none of them.
     `backdropStrength`, `backdropDirection`). A stale key is ignored on read
     and dropped on the next write.
 
-- **One picker.** Settings draws core's three settings with the page's
+- **The art setting.** `sys.f.backdrop.art` names an image of kb's own
+  assets (`assets/…`, DESIGN.md → Assets) that the backdrop draws as its
+  art in place of its own, where it has art to replace. It is how an
+  owner's own picture reaches a backdrop without entering the repository:
+  a file in their `.kb/assets/` is theirs, and the backdrop's code is the
+  same for it as for its own art.
+  - It is read as the others are, the page's node first, then core's
+    (`BackdropChoice.art`). Anything that is not an image of kb's assets is
+    no value and falls through, so a setting can never make the page fetch
+    from elsewhere.
+  - The slot hands every backdrop its URL (`BackdropProps.art`, null for
+    none); a backdrop with no art to replace ignores it, as one with no
+    directions ignores direction.
+  - The Wolf medallion replaces its relief with it: red is height, green
+    where it glows, alpha its silhouette, square, its round body 0.4 of its
+    width about its centre. The chain leaves from the top of its silhouette
+    on the centre column. An image that will not load leaves kb's sigil.
+  - Set it in Settings → Appearance (the `art` row under Page head), or
+    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png`.
+- **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
-  are the one list of backdrops. It draws direction whatever the backdrop,
+  are the one list of backdrops, laid out as a gallery of cards, each the
+  backdrop drawn still (Option previews). It draws direction whatever the backdrop,
   as it draws every setting it lists, and says so under it when the shown
   backdrop faces no way.
 - **The contract** (`app/ui/src/backdrop-point.contract.test.tsx`) runs over
@@ -3757,13 +3831,35 @@ exist is a plugin point, and the kit names none of them.
     field.
   - The slot shows each backdrop, framed by its presentation, at every
     strength and direction.
-  - Choosing a backdrop writes core's setting, and the row and the slot
-    then show it.
+  - Settings draws each backdrop as a card of the gallery, by its own
+    renderer, still, at core's strength, hearing no owner; choosing a card
+    writes core's setting, and the row and the slot then show it.
   - A page's own node chooses for that page over core's.
 - **The continuity contract** (`app/ui/src/backdrop-continuity.contract.test.tsx`)
   renders the page head with each declared backdrop chosen, types 30 keys
   into a node and makes an edit: the slot keeps the instance it mounted, and
   a GPU backdrop's scene mounts once and its clock only moves forward.
+
+#### Variation
+
+Every load of the page shows a backdrop a little differently, as a
+reference picture would be redrawn rather than replayed: where its subject
+sits, how large, a few degrees of its hue, where in its cycle its motion
+starts. The variation is the art direction's, never dice: each way a
+backdrop may differ is a named draw within a range that still reads as its
+picture.
+
+- **One seed a load** (`scene/seed.ts`, `useBackdropSeed`), for the 2D
+  stage and the GPU one alike: a backdrop mounted again in the same load
+  (Settings' cards, the head) shows the same variation. Reduced motion
+  shows the one curated still.
+- **Draws by name** (`variation(seed)`): `range`, `pick`, `sign`, `phase`,
+  and a `stream` for a layout that draws many. Each name has a stream of its
+  own, so adding a draw never moves another, and a fixed seed draws the same
+  every time. A hue offset turns a colour about the grey axis (`turnHue`).
+- **Pinned for pictures.** `?backdrop-seed=<n>` in the page's address pins
+  the seed, so a screenshot shows the same variation each time; a test
+  passes its own seed.
 
 #### 2D scenes
 
@@ -3804,6 +3900,14 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
   a keystroke adds a little: continuous typing is a gentle sustained
   response that eases away when it stops. `stir` is the impulse without
   typing's share, for a scene that keeps still while the owner types.
+- **What happens is noticed.** A page event that moved (`PageEvents`: a
+  change from elsewhere, an error, a turn the agent finished) is a
+  `notice`: a short `startle` pulse, and `noticed`, the kind last noticed
+  and how many have been, for a scene that answers each kind its own way
+  or holds what it noticed while it cannot move. Both stages' hosts tell
+  the owner to their reactions through one bridge (`scene/owner.ts`): a
+  count that moved is one event, a page change a navigation, editing a
+  state.
 
 Roost is the same kit with another layout:
 
@@ -3836,7 +3940,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens, Black hole, Toon sea and Silk are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion and Light trails are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -3849,19 +3953,102 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   and its `BackdropParts`.
   - The stage curves with the shoulder (`tone.ts`: identity below a knee, a
     soft roll-off above), so a dark page's ground is the page's to the level.
-    The frame's sides, top and bottom feather into that ground.
+    The frame's sides, top and bottom feather into that ground; a feather of
+    0 leaves that edge unfaded, for a frame whose sides are the scroll
+    region's own.
   - A dark page's scene is light over the stage's ground. A light page's
     picture is composed in the page's own terms (the ground times a shade)
     and painted through the curve (`stage.paint`, `Grounds`), or the curve
     would wash it to white.
   - The frame is opaque, so a theme's ground art would show a rectangle
     (gap 01M5STYVFCKQ7TZ8XBSGSRHRH9).
-- **Framing by width** (`framing.ts`). Each backdrop has a panel
-  composition and a wide one: where its subject sits, its scale and how
-  present it is. A side panel's width (480px and below) takes the first, a
-  frame 900px wide the second, and the widths between ease from one to the
-  other. In a panel the subject is smaller, set high and right, away from
-  the title and the list, and quieter.
+  - **Art dissolves by its own shape** (`gpu/dissolve.ts`). Anything still
+    on the frame where the side feather begins reads as a box, however soft
+    the feather. So a scene keeps its art to a reach about its composition:
+    a superellipse (fuller than an ellipse, so art that fills the frame
+    keeps its corners) slid inward until it clears every side, whose rim
+    noise eats into (only ever inward, so nothing is left past it). How much
+    of it is whole is the scene's: a subject in the open keeps little, a
+    field that fills the frame keeps more. A field lit by its subject (the
+    air round a glass piece, the glow round an orb) is a round glow about
+    that subject (`glowAbout`): it stays on the subject and shrinks as a
+    whole until it clears the frame's sides and bottom (its top may run on
+    under the app's bar), so however near a side the subject stands the
+    field fades by its own round shape, never by a band along the side.
+    Every pixel of a field dissolves by the ragged rim (`dissolve`). A scene
+    that does so asks the stage for only a thin feather, as a last guard.
+  - **A far layer across the region** (`farField`). A frame that spans the
+    scroll region carries its far layers (distant shards, far orbs, plumes of
+    smoke, sparks, glyph haze) across its whole width, seeded one to a cell
+    in heights, so a wider frame adds more of the same. A far shape is never
+    cut by a reach: it fades whole by where its centre stands, toward the
+    frame's sides as far as the scene asks (not at all for a full-bleed
+    field), toward its bottom and under the head's text, each a little sooner
+    or later by its own draw, so the layer thins out shape by shape and no
+    line marks where.
+  - **Objects stand in front of their field.** Where a scene has objects
+    (orbs, glass, a medallion), only the field behind them dissolves; the
+    objects are whole and in focus, kept inside the frame by their
+    composition or cut only by its top. What sets them in front is the
+    scene's: a back light on their edges, a shadow they cast on the field,
+    parallax against it, and the farther ones hazier. The text scrim quiets
+    the field under the head's text, never an object.
+- **One load, one reveal.** A load mounts a backdrop's scene once and
+  shows it once: one GPU context, configured at the frame's own size, a
+  first frame already laid out and in the page's look, then one fade-in.
+  What a flicker on load is made of, and where each is closed:
+  - the host (`gpu/gpu-backdrop.tsx`) mounts again only for another
+    backdrop: reduced motion reaches the scene it mounted
+    (`setReducedMotion`), and the seed is the mount's;
+  - the renderer takes its host's size before its context is configured, so
+    no frame is drawn at the canvas's default 300×150 (`mountRenderer`);
+  - `mountScene` lays the view out at its host's size, waits for what it
+    needs before its first frame (`SceneParts.ready`: the medallion's art,
+    so the sigil never shows before the image), then reveals;
+    `mountBackdrop` gives the scene its look before that frame;
+  - a resize redraws in the same task (`redraw`), so a cleared canvas is
+    never shown;
+  - the head's wash is the fallback of a machine that cannot start the
+    scene, never a placeholder while it loads: the load's one change is
+    the scene fading in over the page's ground.
+
+  `render-tests/tests-render/backdrop-load.e2e.ts` loads every GPU
+  backdrop in a fresh tab and holds each load to this: one adapter, one
+  canvas never replaced, no context at 300×150, no wash, ready once, faded
+  in once.
+
+- **Framing by width** (`framing.ts`). The head keeps one height
+  whatever its width, so a hero is composed from the height and an anchor,
+  never from the width: its size is a share of the height, and its place
+  is so many heights right of the centre of the head's content, the column
+  the title stands in (`anchorIn`). A wider frame adds field at the sides;
+  the hero stays where it was, as large as it was. The host measures where
+  the content lies across the frame (`ContentBox`, the part of the frame
+  its holder covers) and tells the scene when it moves (`setContent`); the
+  text scrim is laid out from it too. Each backdrop has a panel composition
+  and a wide one: where its hero sits, its scale and how present it is. A
+  frame 480px wide and below (a side panel, a phone) takes the first, one
+  900px wide the second, and the widths between ease from one to the
+  other. In a panel the hero is smaller, set high and right, away from the
+  title and the list, and quieter. A scene's layout returns where it drew
+  its hero (an `Anchor`, moved or made smaller only where the frame obliged,
+  so it stays whole; null for a field with no one hero, as Silk is), and
+  the canvas carries it as `data-hero`: heights right of the content's
+  centre, heights up from the frame's middle, and its scale.
+- **A frame that spans the region.** A backdrop whose field should reach
+  past the content (Floating geometry, Gradient orbs, Wolf medallion) has
+  the span `reach: "region"`: its
+  frame is a breakout (`BREAKOUT_CLASS`, `useBreakoutShift`), as wide as the
+  scroll region whatever the content width, and the hero is still placed
+  from the content (`ContentBox`), so both content widths at one window
+  width draw the same hero, and a wider window adds field at the sides.
+  `backdrop-width.e2e.ts` proves it under reduced motion (one piece per
+  load): through both content widths and windows from 1280 to 2560px
+  wide, resized while it runs, the reported hero holds within a rounding,
+  the frame spans the region without scrolling the page sideways, the
+  canvas is never replaced and no frame is blank; on a phone it is drawn
+  in its panel composition. Below a frame about 1000px wide the glass is
+  slid in and made smaller to stay whole.
 - **Cost.** It runs only while the tab is shown and the frame is in view
   (`watchPlayback`). Each frame's GPU time is metered against 6 ms; while it
   runs over, the backdrop steps its quality down (the offscreen pass's
@@ -3869,7 +4056,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   the stage's `gpuMs` (queue completion; gap 01M5STYVVX474T8WBT4FY341CM); on
   WebGL2 it reads the frame interval. The canvas carries `data-quality` and
   `data-gpu-ms`.
-- **Reduced motion** shows one still frame, of one curated seed.
+- **Reduced motion** shows one still frame, of the curated seed (**Variation**).
 - **One scene for the life of the head.** The host mounts a scene once for
   its head: an edit, a keystroke, a new colour or theme reaches it as a
   call (`setLook`, `write`, `setEditing`), never as a remount, and its
@@ -3918,7 +4105,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     pixel's footprint, stepped body bands, a toon Fresnel, foam on crests,
     anime wave lines, and a banded glitter path of star glints.
   - Under the head's text the shared scrim (`gpu/text-scrim.ts`: a soft
-    block just behind the title and the meta row, sized in CSS pixels, so
+    block just behind the title and the meta row, sized in CSS pixels from
+    the content's left (`ContentBox`), so
     the rest of the picture keeps its colour) keeps them readable, and the
     glitter stays out from under it.
   - The pointer resting over the water spreads ripple rings. Typing calms
@@ -3950,8 +4138,346 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - The same scrim sits under the head's text, the cosmos keeps clear of
     it, and in a panel the ribbons rise above the title.
   - A light page is the paper itself, with a pastel breath of gas.
+- **Floating geometry.** A crumpled piece of low-poly glass floating in
+  front of deep navy air, gold light gathering where its facets meet (the
+  owner's reference: crumpled, gold-lit glass). Each load lays out its own
+  glass (`web.ts`): three sheets of facets, each a lattice of jittered
+  triangles solved per pixel, so shared corners and seams are one, never
+  pieces apart. Its frame spans the scroll region (**A frame that spans the
+  region**): the piece is placed from the content, and the field behind it
+  reaches the region's sides. Each load also moves the main knot a little, sizes the
+  glass within a tenth, and turns the light's hue a few degrees
+  (**Variation**).
+  - **Two layers.** The near sheet is the piece: the facets whose three
+    corners, strayed as they rest (`restingAt`), lie within reach of three
+    knots, the main one, where the light gathers, and one either side of
+    it, a little above at the right and a little below at the left, so the
+    piece is one mass wider than tall. Each facet is whole, so the piece's
+    edge is its own seams. It never fades and is never cut: the
+    composition places it right of the title and fits the whole cluster
+    inside the frame, clear of its sides, of the strip under the app's bar
+    and a little of its bottom (`fitPiece`, from the reach of its knots,
+    how far a corner sways and how far the sheet slides; a corner judged
+    where it rests needs no room for its stray, so the bound is tight and
+    the piece fills the head's height), sliding it in before it shrinks
+    it. The wide composition leaves room at a desktop head's right, so
+    at 1280 the piece seldom needs to slide and the hero holds whatever the
+    width. In a panel or on a phone, where the
+    title and the rows cross the frame, it is small and sits above the
+    title's row. Between the piece and the web hang a few **great
+    shards** (`shards.ts`), one to a cell of the frame's width in heights
+    (so a wider frame has more): long planes of clear glass crossing the
+    head, hazed inside and brighter toward the lamp, their edges glowing,
+    warm near the lamp and cool far from it, each fading whole by where it
+    stands and thinning where it crosses the text or nears the frame's
+    bottom, its lowest corner kept clear of it, so they fill the head as
+    the reference's sweep of big shards does. Behind them, a middle and a far sheet, larger facets turned against
+    it, are part of the field: every facet, out of focus (each pane's edges
+    soft, the farther the softer), barely warmed by the lamps, a few of its
+    planes catching the light, in broad slow pools of light across the
+    frame with the web dark between them, all half lost in the haze.
+    **Far glints** burn in it: one to a cell of the frame's width in heights
+    (so a wider frame has more), above the title's line and clear of the
+    piece, each heating the vertices of the sheets behind near it as the
+    lamps heat the piece's, so a corner there burns and light runs along
+    its creases, smaller and hazier than the piece's. The frame has two or
+    three lights, never one, and the field round the title has a focus.
+    Each pane, seam and corner of theirs fades whole by where it stands
+    (`farField`), a seam or corner by itself so the facets either side of
+    it agree, thinning out toward the frame's sides, low under the head's
+    rows and under the title (over a little of the frame at either side, so
+    the field and its glints reach the title's side), and a long seam thins
+    along its own length too, so none runs on to the frame's bottom. The
+    field is a dark, contrasty navy air lit by the lamps and the
+    piece, brightest about the piece and falling away from it by its own
+    light within a round glow about it (`glowAbout`), over a haze that is
+    the piece's light in the air, dimmer away from it in heights, lit by
+    the pools, its lower edge softened by its smoke and spread over half
+    the frame's height, gone before its bottom, so no level line marks it.
+    The frame has no side feather: the haze meets the region's own sides.
+  - **In front of the field**: the piece is translucent, hiding a little of
+    the air behind it, so the warm air the lamps light shows through its
+    faces; its outline is lit from behind, cool, warming where light runs along
+    it; it casts a soft shadow on the field below it; and the near sheet
+    slides further than the far one and the field as the eye leans
+    (parallax).
+  - **The light**: three lamps stand behind the knots, the main one
+    brightest, the second nearly as hot, a second warm core, and the third
+    a glint of its own; a corner's heat is
+    the lamps near it, squared, so a few points burn and the rest barely
+    warm. The near sheet has a
+    corner on the main knot and the main lamp rests on it: a warm-white core
+    with a long soft amber bloom. Light runs along a crease from a hot
+    corner and dies out within a quarter of the piece, a fine stroke turning
+    white-hot where it is hottest with a soft spill and a broad bloom into
+    both facets (the caustic where they fold), so the light, not the line,
+    carries the edges that meet at a hot point; each crease is as sharp as
+    its own hash, and most seams fall to a hair of steel. A hot corner pours a fan of light into
+    each facet that meets there, hugging the seams that leave it, as much as
+    the facet passes of the lamp behind (transmission; a sheet behind passes
+    little, so a far glint is a point and its creases, never a muddy pane).
+    Each facet's body is
+    dark slate glass, lighter as it faces the key and toward the lamp's side
+    of the facet, so every plane reads by its turn, and it holds light as
+    glass does, never a wireframe: its edges glow from within, where the
+    glass is thickest, a haze fills it, and the core's light sweeps through
+    it, warm near the core and cooling to a blue-violet across the piece.
+    Where light piles up it rolls off softly, keeping its hue.
+  - Every vertex folds in depth on a clock of its own (9 to 17 s) and
+    sways a little; each sheet slides slowly about its rest, and the
+    piece's knots slide with it, so its facets never change. The glass is
+    drawn offscreen at up to 1.5 texels a CSS pixel, fewer as quality
+    steps down; the field (the sheets behind it, the air and the haze) is a
+    pass of its own at half a texel a CSS pixel, so it is cheap however wide
+    the frame, and as out of focus as a far layer; a pixel spends nothing on
+    the piece where it cannot be.
+  - A band of light sweeps across every 11 seconds (typing rests it), so
+    seam after seam of the piece glints, the sheets behind barely; a still
+    rests with it through the main knot.
+  - The main lamp follows the pointer on a soft spring (about two
+    seconds) and wanders a little about its corner without one; the other
+    two breathe on their own clocks. Typing slows the drift. Writes swell
+    the lamps (`impulse`), and a write outside typing (`stir`) or a new
+    page (`ripple`) folds the glass a little further, which eases back.
+  - A light page is the glass as an engraving on the paper: a periwinkle
+    wash for the air, each facet a frost, deeper as it turns from the key
+    and peach where light passes it, its edges deepening inward to a
+    periwinkle the glass holds, so each plane has body, its seams fine
+    periwinkle ink turning apricot where light runs along them, the hot
+    point an apricot bloom, and the piece's lilac shadow; the shards in
+    periwinkle and apricot ink, and the web behind in fainter ink over the
+    wash, its panes fainter still. The text scrim keeps the field quiet under the head's text in
+    both, never the piece.
+- **Gradient orbs.** Two great orbs floating in front of a deep blue field,
+  after the owner's reference: a great orb right of the title, half again
+  as wide as the frame is tall, cut by the frame's top and lit on its
+  right; a second, two thirds its size, high at the left above the title,
+  only its lower cap showing under the frame's top, lit on its lower right;
+  and a dim one far behind between them, part of the field. In a panel or
+  on a phone, where the title and the first rows cross the whole frame,
+  they stand small and high, off the text, the great orb whole in the top
+  right corner. Each load varies
+  that composition a little and turns the whole hue a few degrees
+  (`orbs.ts`, **Variation**). Its frame spans the scroll region
+  (**A frame that spans the region**): the field is full-bleed to the
+  region's sides at every width, a phone's too, and the orbs are placed
+  from the content, so they hold their place and size whatever the width.
+  - One pass, no offscreen picture: each orb is a circle's distance field
+    shaded as a sphere and laid over the ones behind it. One key, high
+    toward the side its lit limb faces, lights it (where the composition
+    turns it, the lamp leaning it, `litToward`), wrapped, so the light
+    falls off smoothly across the whole face: deep blue in shadow through
+    periwinkle and rose to a cream crescent on the lit side. No gloss, no
+    hot spot, no bands; a limb softened as a lens's depth of field softens a
+    large near shape, a little for the great orb, more the farther. Where
+    the light turns away, the face runs through a richer, darker violet
+    terminator before the shadow, as light scattered just under a soft
+    surface does.
+  - **Two layers.** The field is deep blue air, royal toward the top and
+    the lamp, lit by the orbs' glows, with the far orb far out of focus in
+    it. Behind the great orbs, far orbs are seeded one to a broad cell in
+    heights, few and large and far out of focus (no speckle of small ones),
+    under half the cells showing a soft, dim disc lit toward the lamp, each
+    fading whole by where it stands (`farField`). Every cell's orb lights the
+    field about it with a glow much wider than tall, shrunk until it clears
+    the frame's bottom, and the field is the union of those glows and the
+    great orbs' own (`glowAbout`), each whole out to its orb's limb, so an
+    orb always sits in its own light, and easing smoothly to nothing past
+    it: full-bleed across the frame, its lower edge their round glows, wide
+    and gone well above the frame's bottom, so it falls away as a few long,
+    smooth curves, never a ragged bank, a band, a scallop, an ellipse or a
+    side feather (the frame has none). Where it thins out it is a lit haze
+    thinning, never a dark bank. Its light falls away from the great orbs
+    in heights, so a wider frame adds a dimmer field, graded by broad, slow
+    banks of violet haze so it has depth, never a flat indigo. The two great
+    orbs are never faded, the text scrim included, and stay clear of the
+    frame's bottom wherever they drift; only its top cuts them.
+  - **In front of the field**: Fresnel on the lit side only, the face
+    brightening toward its limb where the light wraps it, the shadowed limb
+    left dark, so no line outlines an orb; its light spilling off the lit
+    limb, a tight glow hugging it and a deep bloom past it, broad and soft
+    out into the field, and a faint cool glow all round, the shadowed limb
+    too, each falling away from the limb, never a ring, dissolving with the
+    field; a soft shadow each casts on the field away from the lamp and a
+    little below, wider than itself and deep, as it hangs over the field,
+    and a darker contact close round each near orb where it crosses what is
+    behind it, deepest on its shadowed side; the second orb a little hazier and bluer
+    than the first, the far one far out of focus; and parallax, the near
+    orb sliding further than the far one as the eye leans with the pointer
+    (idly without one).
+  - Each orb drifts about its rest on paths of its own (twenty to forty
+    seconds round), and breathes; the hue leans from periwinkle, rose and
+    cream toward indigo, magenta and amber and back over 48 seconds. The
+    lamp follows the pointer on a slow spring, so the orbs turn their lit
+    sides toward it, and wanders at the upper right without one. Typing
+    slows the drift; writes (`impulse`) swell the orbs a little and lift
+    their glow, and they ease back.
+  - A light page paints the pastel pair on the paper: lilac and periwinkle
+    shadow, blush and cream toward the lamp, each in a lilac glow of its own
+    over a periwinkle wash that is the field's light version, full-bleed
+    and paling away from the orbs, the far orbs pastel in it, their shadows
+    lilac on it. On paper an orb's limb is softer than on a dark page and
+    its shadowed limb pales toward the wash, as haze would take it, so a
+    pastel orb never sits on the white as a cut-out.
+- **Wolf medallion.** kb's own sigil, never another work's emblem: a round
+  steel disk with a raised, notched rim, and on it a front-facing wolf mask
+  cut in straight planes (pointed ears, a ruff in two steps, a long closed
+  muzzle), gabled down its middle, its eyes engraved slits (`medallion.ts`).
+  Behind it a faint circle of five glyphs turns once in two minutes, each
+  kb's own evocation of one Sign by its nature, in a few straight strokes:
+  a force pushed out, a flame, a ward, a shield, a mind turned. Each glyph
+  smoulders on a slow clock of its own, never in step, and the circle keeps
+  clear of the head's text and fades before it reaches the rows' tags low
+  at its right. Smoke curls close round it and embers climb, and a warm
+  back light stands behind it, glowing in the air and the smoke about it,
+  so all its warmth is the medallion's own, never a stain beside it. Its frame
+  spans the scroll region (**A frame that spans the region**), and the
+  medallion is placed from the content. The near smoke keeps to a round
+  glow about the disk (`glowAbout`), little of it whole, and dissolves at
+  its ragged rim (`gpu/dissolve.ts`), so it tapers out by its own folds,
+  never a box or a side of the frame. The far layers cross the whole frame
+  (`farField`): the far smoke in soft banks one to a cell in heights, each
+  a broad, low puff wider than tall, drifting and swelling on its own
+  clock and torn by the far smoke's folds, which are drawn out across
+  rather than up, so nothing stands as a column or a streak (rising
+  plumes from a narrow foot, and a far fold drawn upward, read as faint
+  vertical streaks across a wide frame);
+  sparks, fewer than about the disk; and glyph haze, faint out-of-focus
+  glyphs one to a cell, rising a little and breathing, clear of the
+  medallion's circle. Each bank, spark and glyph fades whole where it
+  stands, toward the frame's sides, its bottom and the text.
+  - **The relief is baked once** (`medallion/relief.ts`), into three
+    passes run only when its source changes: the source as height, where
+    it glows and its silhouette; its edge cleaned, the silhouette eroded
+    past any matte its edge carries and the height run on flat past the
+    cut (the highest round each point there), so no cliff at the cut lights
+    as an outline or a halo, an image's or the sigil's; then the material's
+    maps, height, cavity (how far a point lies below the relief round it,
+    near for engraving and far for recesses) and glow. The source is kb's sigil (disk, a rim
+    a few thousandths out of round and notched, the gabled mask, the
+    engraving, and a bail for the chain), or an image the backdrop's art
+    setting points at (**The art setting**, above). The frame takes the
+    slope from the baked height a texel across, so its normals are smooth
+    and never the screen's 2×2 derivatives, over the pixel's own footprint
+    (never finer than a texel), so a grain finer than a pixel in an image
+    is averaged away rather than sparkling.
+  - **Worn steel**, physically motivated: a metal's reflectance (Schlick
+    Fresnel) over its surroundings reflected (a warm floor the embers
+    light, a cool sky, a soft window up left), and a brushed anisotropic
+    highlight (Ward), since it was turned on a lathe and the brushing runs
+    round the centre, so the highlight stretches across it. The key falls
+    across the face from its upper left, a gradient, so the relic is lit
+    rather than printed, and a bevel facing it square takes a pin-hot
+    highlight. A glint circles its bevels, a broad, bright specular sheen
+    sweeps across the face every 9 seconds, and the bevels on the smoke's
+    side catch a hot, narrow rim from below. The cavity puts grime and a
+    brown-black patina deep in the recesses and occludes them; convex edges
+    are rubbed bright; fine scratches score it and catch the key; casting
+    pits are rare small hollows. Scratches and pits fade out where they
+    grow finer than a pixel.
+  - **The chain**: oval links, every other one face on and the next edge
+    on, each a round wire, from the bail up past the frame's top. The
+    medallion and its chain swing as one pendulum from a pivot above the
+    frame (every 7.5 s), so the key glides over the bevels.
+  - Glyphs and rings are strokes' distances, the rings broken into arcs;
+    the smoke is two layers, a far slow fold and a near one curled by a
+    slow fold of its own into eddies and wisps, thickest close about the
+    medallion, lit by the embers from below and by the back light behind
+    it, brightest just past its silhouette; the embers are sparks on a
+    grid's cells, mostly specks and a few large and bright.
+  - **It stands in front of its field.** The field stays a local glow of
+    smoke and embers; the medallion over it is whole, never cut by the
+    smoke's dissolve. Dark steel on a near-black ground needs light behind
+    it: a warm back light glows in the air behind the medallion, round it
+    and a little toward the smoke's side, kept within the near smoke's
+    reach so it is gone before the frame's bottom; it hugs the silhouette
+    just past its edge all round, the shadow side too, broader on the
+    smoke's side; and it grazes the medallion's own edge as a thin rim of
+    light all round (an image's lower jaw parts from the ground), wrapping
+    further in on the smoke's side (a back light, never a line drawn round
+    it); its shadow cast on the smoke,
+    a darker contact where the chain meets the bail, and parallax (it leans
+    a little toward the pointer while the circle and smoke behind it stay)
+    set it in front. Its halo, edge light and shadow are its own
+    silhouette softened, so they follow its shape, a sigil's or an
+    image's.
+  - Light over the page's ground, never under it: the text scrim and the
+    disk's shadow quiet the field, never the ground itself, and never the
+    medallion or its chain.
+  - **It senses the page.** On a `notice` the medallion trembles for under
+    a second and its eyes flare in that event's colour (silver for a change
+    from elsewhere, red for an error, gold for a finished agent turn), with
+    a halo round the disk, and settles back to its faint amber. Under
+    reduced motion it never moves: the eyes light, still, and go dark again
+    a few seconds later, two still frames the scene asks the stage for.
+  - The pointer near the disk wakes its eyes a little; typing slows the
+    smoke; writes (`stir`) turn the circle faster for a while.
+  - A light page is the same scene on paper, the medallion a real object
+    on the page: polished darker steel, its light exposed for the day on a
+    curve that keeps its darks, so its engraving lies in deep shadow and
+    its bevels and glints are brightest, never a flat grey disc; the soft
+    window's reflection partly held back, or it is a fog over the steel;
+    the smoke's rim laying gold in its bevels as on a dark page, a thin
+    warm rim on the smoke's side and a warm glint sweeping its bevels; its
+    edge darkening where it turns away and its silhouette taken from its
+    solid part, so no pale fringe rings it, an image's spikes included; the
+    chain plain iron; and a soft contact shadow on the paper just below and
+    right (the one it casts on the smoke), with a wider, softer one past it,
+    so it rests on the page. The
+    lens draws no aberration on this backdrop, so no colour fringes an
+    edge. It fades into the page in display values
+    (`fadeSpace: "display"`), so a strength's veil leaves the steel its
+    darks. The same holds for kb's sigil and for an image the art setting
+    names. Then a smoke wash, sepia glyphs and rust specks. An engraving in
+    faint ink was tried first and all but vanished on white; a steel toned
+    between a light and a shade by its luminance read as a grey pewter
+    ghost.
+- **Light trails.** Long-exposure light streaking across the head from the
+  upper left down to the right in a gentle S, after the owner's reference
+  tile 09: hairline strands, crisp cyan and blue with a few gold, gathering
+  in a white-hot knot right of the title, finer and denser there, and
+  fanning out away from it, in the navy glow of its own light
+  (`light-trails/`). In a panel or on a phone the knot rests high and
+  right, above the title's row. Each load varies the strands a little
+  and turns the hue a few degrees (**Variation**).
+  - One pass, no offscreen picture. Every strand is a curve in the hero's
+    units, heights from the knot at its scale (`trails.ts`), so a wider
+    frame shows more of each strand, never more or larger ones; the frame
+    spans the scroll region and the knot is placed from the content
+    (**A frame that spans the region**), and the canvas reports the knot
+    (`data-hero`).
+  - **Depth is focus.** A near strand is a hairline a pixel or two wide
+    with a faint short glow; focus falls off late (as the cube of depth), so
+    the mid strands stay fine and only the farthest widen, dimmer and bluer,
+    into the field's broad sheens: one kind of thing at every depth. A few
+    sparks, warm white, drift with the flow near the bundle.
+  - **The knot** is a sharp cyan-white core in a tight bloom, with a long
+    hairline lens streak along the bundle and a softer, shorter one under
+    it, as a lens draws a bright point; its wide bloom is a gaussian, gone
+    well short of the frame's bottom.
+  - **It fades by its own shapes.** The dark field is no slab: it is the
+    bundle's own glow, navy about its path and round the knot, in slow
+    smoke, with the far sheens; toward the head's rows it thins by its
+    smoke's ragged edge, gone before the frame's bottom. A strand comes and
+    goes along its length, never at the knot, and dies out down the frame
+    at a height of its own (`trails.ts`, `low`), so the bundle thins strand
+    by strand and its bottom is never one line; under the head's text it
+    all but goes, so the title and the first rows stand clear. The strands
+    run to the frame's top, under the app's bar, and past its sides, so no
+    side of the frame is a fade and no gap opens under the header.
+  - The owner: where the pointer rests the trails burn brighter, as a
+    longer exposure would, and the knot leans toward it on a slow spring;
+    typing slows the light; writes brighten the packets of light that run
+    along the strands. Under reduced motion it is one still frame.
+  - A light page is the same strands as ink on the page's paper: deep
+    cobalt and amber hairlines, inked strongly enough to hold on white and
+    on a phone, over a pale periwinkle wash along the bundle; the knot a
+    point of bare paper in a cyan bloom and streak, so the core still
+    reads.
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
-  high-key pictures, and the page must show them as drawn:
+  high-key pictures, and the page must show them as drawn (Gradient orbs
+  takes the frame and the fade too; it is drawn for the dark page, so it
+  needs no grade):
   - a strength barely veils them (`sceneFrame`: 0.95, 0.98, 1), since a
     veil toward a light page is a wash;
   - they fade into the page in display values (`fadeSpace: "display"`), as

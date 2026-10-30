@@ -1,7 +1,9 @@
 /**
  * The Silk backdrop: silk ribbons in three depths on a stage that opens onto
- * a faint cosmos (shaders: `silk-shader.ts`). Every mount seeds the ribbons'
- * phases; their dyes, depths and paths are art-directed.
+ * a faint cosmos (shaders: `silk-shader.ts`). Their dyes, depths and paths
+ * are art-directed; each load varies them a little (`variation`): where each
+ * ribbon crosses, a few degrees of the dyes' hue, and where in its cycle each
+ * one starts.
  *
  * Layers: BG ribbons soft in the haze, the in-focus MG hero, and two large
  * defocused FG edges framing the right-hand corners, each at its own
@@ -18,7 +20,7 @@
 import { DataTexture, DataUtils, HalfFloatType, LinearFilter, RGFormat } from "three/webgpu";
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { turnHue, variation } from "../scene/seed";
 import { PANEL_WIDTH, WIDE_WIDTH } from "../gpu/framing";
 import {
   mountBackdrop,
@@ -378,20 +380,22 @@ function pointerWind(u: SilkUniforms) {
 }
 
 function silk(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
+  const vary = variation(init.seed);
   const u = silkUniforms();
-  const phases = RIBBON_SET.map(() => rng.range(0, Math.PI * 2));
+  const phases = RIBBON_SET.map((_, i) => vary.phase(`ribbon.${i}`));
+  /** A few degrees either way: the dyes stay the art's. */
+  const hue = vary.range("hue", -0.1, 0.1);
   RIBBON_SET.forEach((r, i) => {
-    u.ribbon.geo1[i]?.set(r.y0, r.a1, r.f1, r.a2);
+    u.ribbon.geo1[i]?.set(r.y0 + vary.range(`ribbon.${i}.y`, -0.015, 0.015), r.a1, r.f1, r.a2);
     u.ribbon.geo2[i]?.set(r.f2, phases[i] ?? 0, r.width, r.twist);
     u.ribbon.geo3[i]?.set(r.depth, r.sheer, r.speed, r.coc);
     u.ribbon.geo4[i]?.set(r.tilt, 0, 0, 0);
   });
   // A still is one curated moment; a live mount starts somewhere in the ribbons' cycle.
-  let time = init.reducedMotion ? 52 : rng.range(40, 60);
+  let time = init.reducedMotion ? 52 : vary.range("clock", 40, 60);
   let twist = time;
   let sweepClock = init.reducedMotion ? 5.5 : 3;
-  let shimmer = rng.range(0, 4.8);
+  let shimmer = vary.range("shimmer", 0, 4.8);
   const wind = windStrip(phases);
   const blow = pointerWind(u);
   const grounds = groundsOf(stage);
@@ -410,21 +414,22 @@ function silk(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     u.dark.value = look.dark ? 1 : 0;
     const face = look.dark ? 0 : 1;
     RIBBON_SET.forEach((r, i) => {
-      u.ribbon.front[i]?.set(...r.front[face], 0);
-      u.ribbon.back[i]?.set(...r.back[face], 0);
+      u.ribbon.front[i]?.set(...turnHue(r.front[face], hue), 0);
+      u.ribbon.back[i]?.set(...turnHue(r.back[face], hue), 0);
     });
   };
   applyLook(init);
 
   return {
     // The hero crosses the frame high, over and right of the title; a panel keeps it, quieter.
-    panel: { x: 0.6, y: 0.2, scale: 1, presence: 1 },
-    wide: { x: 0.6, y: 0.2, scale: 1, presence: 1 },
-    layout: ({ width, height, quality }: BackdropLayout) => {
+    panel: { x: 0.12, y: 0.2, scale: 1, presence: 1 },
+    wide: { x: 0.2, y: 0.2, scale: 1, presence: 1 },
+    layout: (layout: BackdropLayout) => {
+      const { width, height, quality } = layout;
       frameSize.width = width;
       frameSize.height = height;
       u.aspect.value = width / height;
-      u.scrim.layout(width, height);
+      u.scrim.layout(layout);
       // In a narrow frame the text crosses it: the ribbons rise to keep above the title.
       u.lift.value =
         PANEL_LIFT *
@@ -441,6 +446,8 @@ function silk(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         (height + 2 * COSMOS_MARGIN * height) * texel,
       );
       sinceCosmos = Infinity;
+      // The silk is a field: its ribbons cross the whole frame, with no one hero.
+      return null;
     },
     setLook: (look: GpuLook) => {
       applyLook(look);

@@ -1,5 +1,8 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
-import { prefersReducedMotion } from "./motion";
+import { HoldStill } from "../components/hold-still";
+import { prefersReducedMotion, useReducedMotion } from "./motion";
 
 const g = globalThis as Record<string, unknown>;
 
@@ -41,5 +44,24 @@ describe("prefersReducedMotion", () => {
       mode = reduced;
       expect(prefersReducedMotion(), reduced).toBe(true);
     }
+  });
+});
+
+/** Says whether it holds still. */
+const Probe = () => createElement("i", { "data-still": String(useReducedMotion()) });
+
+describe("useReducedMotion", () => {
+  it("holds still inside HoldStill whatever the mode, and says so to CSS on its element", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        "div",
+        null,
+        createElement(Probe),
+        createElement(HoldStill, null, createElement(Probe)),
+      ),
+    );
+    expect(html).toBe(
+      '<div><i data-still="false"></i><span data-motion="reduced"><i data-still="true"></i></span></div>',
+    );
   });
 });

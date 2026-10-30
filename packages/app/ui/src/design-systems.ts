@@ -10,8 +10,8 @@
  * It also previews the design-system field's options (`OptionPreviewPoint`),
  * whoever contributes them: each with its swatch at chip size, and as a
  * card at card size, so the field editor lays the field out as a gallery;
- * and the backdrop field's, each tagged with the theme it belongs to, at
- * chip size only.
+ * and the backdrop field's, each tagged with the theme it belongs to at
+ * chip size, and drawn still as a card, so it is a gallery too.
  */
 import { familyTags } from "@kb/contracts";
 import { Effect } from "effect";
@@ -19,7 +19,7 @@ import { BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS } from "@kb/model";
 import { KB_DESIGN_SYSTEM, coreExtension } from "@kb/operations";
 import { definePlugin } from "@kb/plugin";
 import { DesignSystemPoint, OptionPreviewPoint, provideDesignSystem } from "@kb/ui-sdk";
-import { BackdropThemeTag } from "@/backdrop-theme-tag";
+import { BackdropPreview } from "@/backdrop-preview";
 import { DesignSystemPreview } from "@/design-system-swatch";
 
 export const designSystemsUiPlugin = definePlugin({
@@ -43,7 +43,7 @@ export const designSystemsUiPlugin = definePlugin({
         }),
         ctx.contribute(OptionPreviewPoint, {
           id: "backdrop",
-          value: { kind: BACKDROP_OPTIONS, sizes: ["chip"], Preview: BackdropThemeTag },
+          value: { kind: BACKDROP_OPTIONS, sizes: ["chip", "card"], Preview: BackdropPreview },
         }),
       ],
       { discard: true },

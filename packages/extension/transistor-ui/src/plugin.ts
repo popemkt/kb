@@ -34,7 +34,7 @@ const cloudbank: Omit<Backdrop, "key"> = {
     space: 160,
     directions: [],
     height: 250,
-    maxWidth: 1120,
+    span: { reach: "content", maxWidth: 1120 },
     offset: -24,
     opacity: { subtle: 0.7, soft: 0.85, vivid: 1 },
   },

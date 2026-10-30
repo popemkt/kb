@@ -95,7 +95,6 @@ describe("built-in routes", () => {
       "canvas.section",
       "outline.pinned",
       "locations.section",
-      "settings.section",
     ]);
   });
 

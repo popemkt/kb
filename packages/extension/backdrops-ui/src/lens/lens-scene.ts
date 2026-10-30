@@ -15,7 +15,7 @@
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { seededRng } from "../scene/rng";
+import { variation } from "../scene/seed";
 import {
   mountBackdrop,
   type BackdropLayout,
@@ -28,7 +28,8 @@ import {
 import { lensFrame, lensUniforms, nebulaFragment } from "./lens-shader";
 
 /** Curated palettes: [gas core, gas rim, filament], linear. */
-const PALETTES: readonly (readonly [number, number, number])[][] = [
+type Palette = readonly (readonly [number, number, number])[];
+const PALETTES: readonly [Palette, ...Palette[]] = [
   [
     [0.55, 0.32, 1.0],
     [0.1, 0.55, 1.0],
@@ -66,21 +67,21 @@ const FLASH_REST = 0.03;
 const NEBULA_EVERY = 0.12;
 
 function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
-  const rng = seededRng(init.seed);
-  const palette = PALETTES[rng.int(0, PALETTES.length - 1)] ?? PALETTES[0] ?? [];
+  const vary = variation(init.seed);
+  const palette = vary.pick("palette", PALETTES);
   const u = lensUniforms();
   const [core, rim, filament] = palette;
   if (core !== undefined) u.core.value.setRGB(...core);
   if (rim !== undefined) u.rim.value.setRGB(...rim);
   if (filament !== undefined) u.filament.value.setRGB(...filament);
-  u.offset.value.set(rng.range(0, 100), rng.range(0, 100));
-  u.spin.value = (rng.chance(0.5) ? -1 : 1) * rng.range(0.0012, 0.002); // ~4–7° a minute
-  u.warp.value = rng.range(3, 4.5);
-  u.density.value = rng.range(0.92, 1.04);
-  u.starCut.value = rng.range(0.93, 0.96);
+  u.offset.value.set(vary.range("nebula.x", 0, 100), vary.range("nebula.y", 0, 100));
+  u.spin.value = vary.sign("spin") * vary.range("spin.rate", 0.0012, 0.002); // ~4–7° a minute
+  u.warp.value = vary.range("warp", 3, 4.5);
+  u.density.value = vary.range("density", 0.92, 1.04);
+  u.starCut.value = vary.range("stars", 0.93, 0.96);
   /** Where the star rests, as shares of the composition's reach (`layout`). */
-  const rest = { x: rng.range(-0.35, 0.35), y: rng.range(-0.3, 0.3) };
-  u.time.value = rng.range(0, 400);
+  const rest = { x: vary.range("rest.x", -0.35, 0.35), y: vary.range("rest.y", -0.3, 0.3) };
+  u.time.value = vary.range("clock", 0, 400);
 
   const nebula = offscreenPass(stage.renderer, () => nebulaFragment(u), { history: false });
   stage.scene.backgroundNode = lensFrame(u, nebula.picture, groundsOf(stage));
@@ -97,15 +98,15 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
 
   return {
     // In a panel the star rests high and right, small and quiet; wide, right of the title.
-    panel: { x: 0.74, y: 0.22, scale: 0.7, presence: 0.55 },
-    wide: { x: 0.66, y: 0.36, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, composition }: BackdropLayout) => {
+    panel: { x: 0.28, y: 0.22, scale: 0.7, presence: 0.55 },
+    wide: { x: 0.32, y: 0.36, scale: 1, presence: 1 },
+    layout: ({ width: w, height: h, quality, anchor }: BackdropLayout) => {
       width = w;
       height = h;
-      scale = composition.scale;
+      scale = anchor.scale;
       const aspect = w / h;
-      home.x = (composition.x - 0.5) * aspect + rest.x * 0.12 * scale;
-      home.y = 0.5 - composition.y + rest.y * 0.1 * scale;
+      home.x = anchor.x + rest.x * 0.12 * scale;
+      home.y = anchor.y + rest.y * 0.1 * scale;
       u.cloud.value.set(home.x + 0.1 * scale, home.y - 0.05 * scale);
       if (!settled) {
         position.x = home.x;
@@ -118,6 +119,7 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       const texel = 0.3 + 0.25 * quality;
       nebula.setSize((w + 2 * MARGIN * h) * texel, (h + 2 * MARGIN * h) * texel);
       sinceNebula = Infinity;
+      return { x: home.x, y: home.y, scale };
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;

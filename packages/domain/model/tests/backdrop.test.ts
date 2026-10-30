@@ -21,12 +21,17 @@ const core: KbNode["props"] = {
 
 const CONTRIBUTED = ["backdrops.gradient", "backdrops.unicorn"];
 
+const art = (v: string): KbNode["props"] => ({
+  [SYSTEM_IDS.backdropArtField]: [{ t: "str", v }],
+});
+
 describe("backdropChoice", () => {
   test("with no settings: the first contributed, subtle, facing down", () => {
     expect(backdropChoice([undefined, {}], CONTRIBUTED)).toEqual({
       backdrop: null,
       strength: "subtle",
       direction: "down",
+      art: null,
     });
   });
 
@@ -35,6 +40,7 @@ describe("backdropChoice", () => {
       backdrop: "backdrops.gradient",
       strength: "vivid",
       direction: "up",
+      art: null,
     });
   });
 
@@ -46,6 +52,7 @@ describe("backdropChoice", () => {
       backdrop: "backdrops.unicorn",
       strength: "vivid",
       direction: "up",
+      art: null,
     });
   });
 
@@ -58,6 +65,7 @@ describe("backdropChoice", () => {
       backdrop: "backdrops.gradient",
       strength: "vivid",
       direction: "up",
+      art: null,
     });
   });
 
@@ -67,5 +75,17 @@ describe("backdropChoice", () => {
     };
     expect(backdropChoice([page, core], CONTRIBUTED).backdrop).toBe("backdrops.gradient");
     expect(backdropChoice([page, core], ["backdrops.unicorn"]).backdrop).toBeNull();
+  });
+
+  test("art names an image of kb's assets, or it is none", () => {
+    expect(backdropChoice([art("assets/wolf.png"), core], CONTRIBUTED).art).toBe("assets/wolf.png");
+    expect(backdropChoice([undefined, art("assets/wolf.png")], CONTRIBUTED).art).toBe(
+      "assets/wolf.png",
+    );
+    expect(backdropChoice([art("https://example.com/wolf.png")], CONTRIBUTED).art).toBeNull();
+    expect(backdropChoice([art("assets/notes.pdf")], CONTRIBUTED).art).toBeNull();
+    expect(backdropChoice([art("/etc/passwd"), art("assets/b.webp")], CONTRIBUTED).art).toBe(
+      "assets/b.webp",
+    );
   });
 });

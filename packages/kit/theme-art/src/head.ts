@@ -1,4 +1,4 @@
-import type { Backdrop, PageActivity } from "@kb/ui-sdk";
+import type { Backdrop } from "@kb/ui-sdk";
 
 /**
  * A theme's head drawn as a band across the top, as tall as Broadcast's:
@@ -11,7 +11,7 @@ export function band(Component: Backdrop["Component"]): Omit<Backdrop, "key"> {
       space: 160,
       directions: [],
       height: 180,
-      maxWidth: 1080,
+      span: { reach: "content", maxWidth: 1080 },
       offset: -10,
       opacity: { subtle: 0.72, soft: 0.86, vivid: 1 },
     },
@@ -27,7 +27,5 @@ export function band(Component: Backdrop["Component"]): Omit<Backdrop, "key"> {
  * the window and a page change only in the pane whose page changed.
  */
 
-/** The activity a pane's plane hands its veil: never a write. */
-export const STILL: PageActivity = { editing: false, writes: 0 };
 /** The path the window's veil hands its veil: never a page change. */
 export const NOWHERE = "";

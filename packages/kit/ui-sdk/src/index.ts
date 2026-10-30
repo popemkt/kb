@@ -110,6 +110,8 @@ export {
   type BackdropPresentation,
   type BackdropProps,
   type PageActivity,
+  type PageEvents,
+  QUIET_ACTIVITY,
   type Dock,
   DockPoint,
   familyViews,
@@ -149,7 +151,8 @@ export {
 } from "./lib/view-key";
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
-export { PageBackdrop } from "./components/page-backdrop";
+export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
+export { HoldStill } from "./components/hold-still";
 export { ThemeArt } from "./components/theme-art";
 
 // The primitives.
@@ -179,6 +182,7 @@ export { SidebarToggle } from "./components/sidebar-toggle";
 export { SETTINGS_PATH, SettingsTrigger } from "./components/settings-trigger";
 export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
 export { ThemeIcon } from "./components/theme-icon";
+export { ViewOptionsGlyph } from "./components/view-options-glyph";
 export { useAnchoredPosition } from "./components/use-anchored-position";
 export { useDismiss, type DismissInside } from "./components/use-dismiss";
 export { useRevealMarkup } from "./components/use-reveal-markup";
@@ -437,7 +441,7 @@ export {
   setCaretSerializedOffset,
 } from "./lib/md-edit";
 export { assetSrcUrl, KB_TEXT_CLASS } from "./lib/md-inline";
-export { prefersReducedMotion, useReducedMotion } from "./lib/motion";
+export { HeldStill, prefersReducedMotion, useReducedMotion } from "./lib/motion";
 export { MAIN_PANE, PaneContext, usePane } from "./lib/pane";
 export {
   type PaneReport,
@@ -519,3 +523,4 @@ export { setToastSink, toast } from "./lib/toast";
 export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { placeOver, type PointerPlace, type PointerSource } from "./lib/pointer-over";
+export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";

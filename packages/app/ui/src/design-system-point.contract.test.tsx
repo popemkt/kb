@@ -335,7 +335,11 @@ describe("every contributed design system", () => {
       root = createRoot(container);
       act(() => root.render(createElement(SettingsPage, { part: "appearance" })));
       // A card loads behind lazy(): wait, inside act, until every card has landed.
-      const landed = () => container.querySelectorAll("[data-option-card]").length > 0;
+      // Its own setting's cards: the backdrop field's are a gallery too, and may land first.
+      const landed = () =>
+        container.querySelectorAll(
+          `[data-setting="${SYSTEM_IDS.designSystemField}"] [data-option-card]`,
+        ).length > 0;
       for (let tries = 0; tries < 100 && !landed(); tries += 1) {
         await act(async () => {
           await new Promise((done) => setTimeout(done, 10));

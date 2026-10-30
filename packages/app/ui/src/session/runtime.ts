@@ -52,6 +52,8 @@ export interface BrowserSessionView {
   readonly onLocalCommit: () => void;
   readonly applyServerTx: (tx: StoreTx, rev: number) => void;
   readonly installServerSnapshot: (nodes: KbNode[], rev: number) => void;
+  /** A change made elsewhere reached what the page shows (`ReplicaView.arrived`). */
+  readonly arrived: () => void;
 }
 
 interface BrowserSession {
@@ -161,6 +163,7 @@ export function replaceBrowserSession(
         apply: view.applyServerTx,
         install: view.installServerSnapshot,
         local: (id) => index.getNode(id),
+        arrived: view.arrived,
       },
       () => link,
     ),

@@ -4,9 +4,10 @@
  * plugin's own, is declared, so the seed holds its option under
  * `sys.f.backdrop`, the one list Settings picks from; it is shown by the
  * one slot (`PageBackdrop`) for every strength and direction core's
- * settings choose, framed by its own presentation; choosing it in
- * Settings writes core's setting, and the slot then shows it. A page's
- * own node chooses for that page over core's.
+ * settings choose, framed by its own presentation; Settings draws it as a
+ * card, its own renderer held still, and choosing that card writes core's
+ * setting, which the slot then shows. A page's own node chooses for that
+ * page over core's.
  *
  * A backdrop no declaration lists, or one the slot passes over, or one only
  * kb's own family could contribute, fails here.
@@ -14,6 +15,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { Effect } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
@@ -42,17 +44,21 @@ import {
 } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
+  BREAKOUT_CLASS,
   BackdropPoint,
   EMPTY_EDITOR,
   PageBackdrop,
   currentContributions,
   provideBackdrop,
   syncUiPlugins,
+  useReducedMotion,
   type BackdropProps,
   type OutlineNode,
   type PageEditor,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { BackdropPreview } from "@/backdrop-preview";
+import { designSystemsUiPlugin } from "@/design-systems";
 import { SettingsPage } from "@/components/prefs/settings-page";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -67,9 +73,11 @@ const CORE = extensionNodeId("core");
 /** A plugin's own backdrop: it shows what it was handed, so the slot's props can be read back. */
 function PlainBackdrop({ color, strength, direction, opacity, activity, pointer }: BackdropProps) {
   const place = pointer.now();
+  const still = useReducedMotion();
   return (
     <i
       data-plain={`${color} ${strength} ${direction} ${opacity}`}
+      data-still={String(still)}
       data-editing={String(activity.editing)}
       data-writes={activity.writes}
       data-pointer={place === null ? "none" : `${place.x},${place.y}`}
@@ -102,7 +110,7 @@ const plainPlugin = definePlugin({
               space: 40,
               directions: BACKDROP_DIRECTIONS,
               height: 120,
-              maxWidth: 600,
+              span: { reach: "content", maxWidth: 600 },
               offset: 0,
               opacity: PLAIN_OPACITY,
             },
@@ -148,6 +156,15 @@ function settingsOf(
   };
 }
 
+/** Wait, inside act, until `landed` holds (a lazy chunk has loaded), for at most a second. */
+async function settle(landed: () => boolean): Promise<void> {
+  for (let tries = 0; tries < 100 && !landed(); tries += 1) {
+    await act(async () => {
+      await new Promise((done) => setTimeout(done, 10));
+    });
+  }
+}
+
 /** Every backdrop the page's kernel holds now. */
 const backdrops = () => currentContributions(BackdropPoint);
 
@@ -166,7 +183,8 @@ describe("every contributed page-head backdrop", () => {
   beforeAll(() => {
     installed = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
-    syncPagePlugins([...PAGE_FAMILIES, plainPlugin]);
+    // Core's previews come with the page: the backdrop field's card is one.
+    syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES, plainPlugin]);
   });
   afterAll(() => {
     syncUiPlugins([]);
@@ -207,10 +225,33 @@ describe("every contributed page-head backdrop", () => {
           );
           expect(frame?.dataset.direction).toBe(direction);
           expect(frame?.style.height).toBe(`${value.presentation.height}px`);
-          expect(frame?.style.maxWidth).toBe(`${value.presentation.maxWidth}px`);
-          expect(frame?.childElementCount).toBeGreaterThan(0);
+          const { span } = value.presentation;
+          // Bounded under the content, or across the scroll region as a breakout.
+          expect({
+            maxWidth: frame?.style.maxWidth,
+            breakout: frame?.classList.contains(BREAKOUT_CLASS),
+          }).toEqual(
+            span.reach === "content"
+              ? { maxWidth: `${span.maxWidth}px`, breakout: false }
+              : { maxWidth: "", breakout: true },
+          );
         }
       }
+    }
+  });
+
+  it("draws in its frame once it has loaded, a lazy backdrop too", async () => {
+    // A lazy backdrop shows nothing until its module has loaded (a placeholder would be
+    // a second appearance), so its frame is read from a render that waits for it.
+    for (const { value } of backdrops()) {
+      useGraphStore
+        .getState()
+        .hydrateFromWire(graphWith(settingsOf(value.key.id, "soft", "down")), 1, "fixtures");
+      const { prelude } = await prerender(createElement(PageBackdrop, { color: "red" }));
+      const host = document.createElement("div");
+      host.innerHTML = await new Response(prelude).text();
+      const frame = host.querySelector<HTMLElement>(".kb-header-backdrop");
+      expect(frame?.childElementCount, value.key.id).toBeGreaterThan(0);
     }
   });
 
@@ -362,12 +403,19 @@ describe("every contributed page-head backdrop", () => {
     let container: HTMLElement;
     let root: Root;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       useGraphStore.getState().hydrateFromWire(graphWith({}), 1, "fixtures");
       container = document.createElement("div");
       document.body.appendChild(container);
       root = createRoot(container);
       act(() => root.render(createElement(SettingsPage, { part: "appearance" })));
+      // The gallery and its cards load behind lazy(): wait, inside act, until the cards have landed.
+      await settle(
+        () =>
+          container.querySelectorAll(
+            `[data-setting="${SYSTEM_IDS.backdropField}"] [data-option-card]`,
+          ).length > 0,
+      );
     });
     afterAll(() => {
       act(() => root.unmount());
@@ -380,18 +428,78 @@ describe("every contributed page-head backdrop", () => {
       return group;
     };
 
-    it("draws core's three settings as field rows, the backdrop's as chips, not a gallery", () => {
-      expect(rows().querySelectorAll("[data-field-row]")).toHaveLength(3);
-      // A backdrop previews at chip size only, so its field keeps the chips and the picker.
-      expect(rows().querySelector("[data-option-gallery]")).toBeNull();
+    /** The gallery's card for the declared backdrop `id`. */
+    const card = (id: string) => {
+      const found = rows().querySelector<HTMLElement>(
+        `[role="radio"][data-option="${backdropOptionId(id)}"]`,
+      );
+      if (found === null) throw new Error(`the gallery draws no card for ${id}`);
+      return found;
+    };
+
+    it("draws core's four settings as field rows, the backdrop's as a gallery with a card per contributed backdrop", () => {
+      expect(rows().querySelectorAll("[data-field-row]")).toHaveLength(4);
+      expect(rows().querySelector("[data-option-gallery]")).not.toBeNull();
+      for (const { value } of backdrops()) {
+        expect(
+          card(value.key.id).querySelector(`[data-option-card="${value.key.id}"]`),
+        ).not.toBeNull();
+      }
     });
 
-    it("is chosen by writing core's setting, which the row and the slot then show", async () => {
+    it("draws a card's backdrop with its own renderer, still, at core's strength, hearing no owner", async () => {
+      const Observer = globalThis.IntersectionObserver;
+      // The card mounts its frame once it is on screen: here, at once.
+      globalThis.IntersectionObserver = class {
+        readonly seen: IntersectionObserverCallback;
+        constructor(seen: IntersectionObserverCallback) {
+          this.seen = seen;
+        }
+        observe(target: Element) {
+          this.seen([{ isIntersecting: true, target } as IntersectionObserverEntry], this as never);
+        }
+        disconnect() {}
+        unobserve() {}
+      } as unknown as typeof IntersectionObserver;
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const own = createRoot(host);
+      try {
+        act(() => own.render(createElement(BackdropPreview, { id: PLAIN_KEY.id, size: "card" })));
+        await settle(() => host.querySelector("[data-plain]") !== null);
+        const drawn = host.querySelector<HTMLElement>("[data-plain]");
+        expect(drawn?.closest('[data-motion="reduced"]')).not.toBeNull();
+        expect(drawn?.dataset.still).toBe("true");
+        expect(drawn?.dataset.plain).toBe(`var(--primary) subtle down ${PLAIN_OPACITY.subtle}`);
+        expect([drawn?.dataset.editing, drawn?.dataset.writes, drawn?.dataset.pointer]).toEqual([
+          "false",
+          "0",
+          "none",
+        ]);
+        // The page head draws the same backdrop moving.
+        await act(() =>
+          mutations.updateProp(CORE, SYSTEM_IDS.backdropField, choosing(PLAIN_KEY.id)),
+        );
+        expect(slot()?.querySelector<HTMLElement>("[data-plain]")?.dataset.still).toBe("false");
+      } finally {
+        act(() => own.unmount());
+        host.remove();
+        globalThis.IntersectionObserver = Observer;
+      }
+    });
+
+    it("is chosen by a card, which writes core's setting, and the row and the slot then show it", async () => {
       await act(() => mutations.updateProp(CORE, SYSTEM_IDS.backdropField, choosing(PLAIN_KEY.id)));
+      const other = backdrops().find(({ value }) => value.key.id !== PLAIN_KEY.id)?.value.key;
+      if (other === undefined) throw new Error("no second backdrop to choose");
+      await act(async () => {
+        card(other.id).click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
       const core = useGraphStore.getState().index?.getNode(CORE);
-      expect(core?.props[SYSTEM_IDS.backdropField]).toEqual([choosing(PLAIN_KEY.id)]);
-      expect(rows().textContent).toContain(PLAIN_KEY.label);
-      expect(slot()?.dataset.backdrop).toBe(PLAIN_KEY.id);
+      expect(core?.props[SYSTEM_IDS.backdropField]).toEqual([choosing(other.id)]);
+      expect(card(other.id).getAttribute("aria-checked")).toBe("true");
+      expect(slot()?.dataset.backdrop).toBe(other.id);
     });
   });
 });

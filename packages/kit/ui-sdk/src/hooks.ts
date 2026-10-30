@@ -6,6 +6,7 @@
 import { type DependencyList, useContext, useMemo, useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
 import {
+  assetUrl,
   backdropChoice,
   designSystemOptionId,
   extensionNodeId,
@@ -61,11 +62,16 @@ export function useNode(id: string | undefined): OutlineNode | undefined {
   return useHostValue((host) => (id === undefined ? undefined : host.node(id)));
 }
 
-/** A page head's backdrop: the contribution it shows (null, none contributed), its strength and direction. */
+/**
+ * A page head's backdrop: the contribution it shows (null, none
+ * contributed), its strength and direction, and the URL of the art it draws
+ * in place of its own (null, its own).
+ */
 export interface PageBackdropChoice {
   readonly backdrop: Contribution<Backdrop> | null;
   readonly strength: BackdropStrength;
   readonly direction: BackdropDirection;
+  readonly art: string | null;
 }
 
 /**
@@ -101,6 +107,7 @@ export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
     backdrop: chosenDeclared(backdrops, choice.backdrop),
     strength: choice.strength,
     direction: choice.direction,
+    art: choice.art === null ? null : assetUrl(choice.art),
   };
 }
 
@@ -134,7 +141,8 @@ export function useEditing(): boolean {
 export function usePageActivity(): PageActivity {
   const editing = useEditing();
   const writes = useGeneration();
-  return useMemo(() => ({ editing, writes }), [editing, writes]);
+  const events = useHostValue((host) => host.events());
+  return useMemo(() => ({ ...events, editing, writes }), [events, editing, writes]);
 }
 
 /** Whether a node is being edited in this instance. */

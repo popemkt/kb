@@ -453,6 +453,7 @@ function run(row: Row) {
         for (const n of nodes) visible.set(n.id, n);
       },
       local: (id) => visible.get(id),
+      arrived: () => {},
     },
     () => ({
       since: (rev) => since.push(rev),
@@ -504,6 +505,7 @@ describe("browser replica sync machine", () => {
 describe("a burst of events is one view apply", () => {
   function recording() {
     const applied: Array<{ upserts: string[]; deletes: string[]; rev: number }> = [];
+    const arrivals = { count: 0 };
     const replica = new BrowserReplica(
       [node("n.a", "a"), node("n.b", "b")],
       0,
@@ -512,10 +514,11 @@ describe("a burst of events is one view apply", () => {
           applied.push({ upserts: tx.upserts.map((n) => n.text), deletes: tx.deletes, rev }),
         install: () => {},
         local: () => undefined,
+        arrived: () => void (arrivals.count += 1),
       },
       () => null,
     );
-    return { replica, applied };
+    return { replica, applied, arrivals };
   }
 
   it("applies the frames' net change once, at the last frame's rev", () => {
@@ -532,5 +535,36 @@ describe("a burst of events is one view apply", () => {
     const { replica, applied } = recording();
     replica.receiveAll([frame(1), frame(2)]);
     expect(applied).toEqual([{ upserts: [], deletes: [], rev: 2 }]);
+  });
+});
+
+describe("a change made elsewhere is an arrival", () => {
+  function counting() {
+    let arrivals = 0;
+    const replica = new BrowserReplica(
+      [node("n.a", "a")],
+      0,
+      {
+        apply: () => {},
+        install: () => {},
+        local: () => undefined,
+        arrived: () => void arrivals++,
+      },
+      () => null,
+    );
+    return { replica, arrivals: () => arrivals };
+  }
+
+  it("counts each frame that changes what the page shows, and no frame that changes nothing", () => {
+    const { replica, arrivals } = counting();
+    replica.receiveAll([frame(1, { "n.a": "one" }), frame(2), frame(3, { "n.a": null })]);
+    expect(arrivals()).toBe(2);
+  });
+
+  it("does not count the frame that carries this page's own held write", () => {
+    const { replica, arrivals } = counting();
+    replica.hold(["n.a"]);
+    replica.receiveAll([frame(1, { "n.a": "mine" })]);
+    expect(arrivals()).toBe(0);
   });
 });

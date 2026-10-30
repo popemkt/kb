@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Person } from "@kb/contracts";
 import type { WsStatus } from "@/api/ws";
-import { setToastSink } from "@kb/ui-sdk";
+import { QUIET_ACTIVITY, setToastSink, type PageEvents } from "@kb/ui-sdk";
 
 export interface Toast {
   id: number;
@@ -61,9 +61,22 @@ interface UiState {
   setNodePaletteOpen: (open: boolean) => void;
   setViewSettingsFrameId: (frameId: string | null) => void;
   setOpenDock: (dock: string | null) => void;
+  /**
+   * What has happened on the page, counted (`BrowserHost.events`). An error
+   * is counted where every error the owner is told of passes: `pushToast`.
+   */
+  events: PageEvents;
+  /** Count one change from elsewhere shown, or one turn the agent finished. */
+  noteEvent: (event: "arrivals" | "turns") => void;
   pushToast: (kind: Toast["kind"], text: string) => void;
   dismissToast: (id: number) => void;
 }
+
+const NO_EVENTS: PageEvents = {
+  arrivals: QUIET_ACTIVITY.arrivals,
+  errors: QUIET_ACTIVITY.errors,
+  turns: QUIET_ACTIVITY.turns,
+};
 
 let toastSeq = 0;
 
@@ -76,6 +89,7 @@ export const useUiStore = create<UiState>((set) => ({
   nodePaletteOpen: false,
   viewSettingsFrameId: null,
   openDock: null,
+  events: NO_EVENTS,
 
   // Whose a connection is, it is told after it opens; a closed one is no one's yet.
   setWsStatus: (wsStatus) =>
@@ -95,9 +109,14 @@ export const useUiStore = create<UiState>((set) => ({
   setViewSettingsFrameId: (viewSettingsFrameId) => set({ viewSettingsFrameId }),
   setOpenDock: (openDock) => set({ openDock }),
 
+  noteEvent: (event) => set((s) => ({ events: { ...s.events, [event]: s.events[event] + 1 } })),
+
   pushToast: (kind, text) => {
     const id = ++toastSeq;
-    set((s) => ({ toasts: withToast(s.toasts, { id, kind, text }) }));
+    set((s) => ({
+      toasts: withToast(s.toasts, { id, kind, text }),
+      events: kind === "error" ? { ...s.events, errors: s.events.errors + 1 } : s.events,
+    }));
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
     }, TOAST_MS);

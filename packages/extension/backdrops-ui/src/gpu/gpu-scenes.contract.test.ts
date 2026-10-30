@@ -1,6 +1,6 @@
 /**
  * The scene contract (`sceneContract`, `@kb/ui-test-kit`) over the GPU
- * backdrops' scenes, Lens, Black hole, Toon sea and Silk, each on a dark
+ * backdrops' scenes, Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion and Light trails, each on a dark
  * page and a light one: each draws an offscreen pass (the nebula, the hole,
  * the sky, the silk), so the stand-in renderer counts those too, and a
  * hidden scene must still draw nothing.
@@ -31,10 +31,12 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
   dark,
   presence: 1,
   direction: "down",
+  art: null,
   reducedMotion,
   timing: TIMING_FALLBACK,
   seed: 7,
   pointer: { now: () => null },
+  content: { left: 0, width: 720 },
 });
 
 const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
@@ -42,6 +44,12 @@ const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
   "black hole": () => import("../black-hole/black-hole-scene").then((m) => m.mountBlackHole),
   "toon sea": () => import("../toon-sea/toon-sea-scene").then((m) => m.mountToonSea),
   silk: () => import("../silk/silk-scene").then((m) => m.mountSilk),
+  "floating geometry": () =>
+    import("../floating-geometry/floating-geometry-scene").then((m) => m.mountFloatingGeometry),
+  "gradient orbs": () => import("../orbs/orbs-scene").then((m) => m.mountGradientOrbs),
+  "wolf medallion": () => import("../medallion/medallion-scene").then((m) => m.mountWolfMedallion),
+  "light trails": () =>
+    import("../light-trails/light-trails-scene").then((m) => m.mountLightTrails),
 };
 
 sceneContract(
