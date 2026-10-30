@@ -1,4 +1,5 @@
 export { MAX_CONVERSATIONS_PER_CONNECTION, agentPlugin } from "./bridge.ts";
+export { AGENT_COMPLETE_ACTION, CompleteOutputSchema } from "./complete.ts";
 export { agentExtension } from "./extension.ts";
 export { AGENT_SYSTEM_PROMPT, userTurnText } from "./prompt.ts";
 export { AGENT_CHANNEL, AGENT_WIRE, AgentEventSchema, AgentRequestSchema } from "./protocol.ts";

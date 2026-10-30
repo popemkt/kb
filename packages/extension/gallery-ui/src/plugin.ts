@@ -10,6 +10,7 @@ import {
   SidebarSectionPoint,
   ViewPoint,
 } from "@kb/ui-sdk";
+import { galleryEnhancePlugin } from "./enhance";
 import { matchGallery, GALLERY_PATH } from "./routes";
 import { GallerySection, GallerySurface } from "./surfaces";
 
@@ -22,7 +23,9 @@ import { GallerySection, GallerySurface } from "./surfaces";
  *
  * It is the gallery family's page entry, so it loads the family's shared
  * plugin as a child: the gallery view's key reaches the page kernel's
- * catalog from the family, as the server's does.
+ * catalog from the family, as the server's does. Its `enhance` child
+ * injects the page's model completion, so the composer's Enhance waits
+ * while no family provides one and the gallery does not (`enhance.ts`).
  */
 export const galleryUiPlugin = definePlugin({
   name: galleryExtension.name,
@@ -32,6 +35,7 @@ export const galleryUiPlugin = definePlugin({
     Effect.all(
       [
         ctx.plugin(galleryPlugin()),
+        ctx.plugin(galleryEnhancePlugin),
         ctx.contribute(
           ViewPoint,
           provideView(GalleryView, {

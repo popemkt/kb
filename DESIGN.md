@@ -4654,8 +4654,12 @@ The sidebar agent lives outside core, in packages that core never imports
   a `kb ui` hosting the agent lists and invokes it, and a family's action
   reaches it through `CoreInvoke`. A process that hosts no agent has none,
   and a caller that finds none fails by name. A family that needs a model
-  calls it by id and holds no model client of its own (it may not import
-  the agent family anyway: the family fence).
+  holds no model client of its own (it may not import the agent family
+  anyway: the family fence). A server-side action calls it by id (a
+  canvas run's instruction; GAP [[01M63BZRZ4RDTCE1ZFVGRNEXGR]]); a page
+  half injects `ModelCompletionService`, which the agent's half
+  (`@kb/agent-ui`, `completion.ts`) provides over it while it is loaded
+  (DESIGN-UI.md → Extension UI halves).
   - It is one turn of the provider the agent's node selects, chosen by the
     one chooser (`chooseProvider`) with the same trust, read through
     `CoreInvoke` as the caller reads: a provider whose binding nobody

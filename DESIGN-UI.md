@@ -2930,6 +2930,13 @@ the shell.
     in one projection, and the shell installs whichever is provided. What
     the page shows of the graph (`shownNodesOf`, over `PageGraphState`) is
     the kit's too, so a projection and the shell read it through one cache.
+  - the services one family's half provides for another's, each a key in
+    the sdk so neither names the other: `NodeLinkGraphService` (the graph's
+    lens graphs, for the lab's Sky) and `ModelCompletionService` (the
+    agent's one-shot completion, for the gallery's Enhance). The reader
+    injects the key, from a child when the need is optional, so the kernel
+    holds the edge, and that child waits, pending, while the provider is
+    off. No half calls another family's action by id.
 
   The sdk never imports the shell's stores. The 3D scene kit is two kit
   packages beside it, for canvas 3D, the lab and the graph's `graph.force3d`
@@ -3178,6 +3185,20 @@ the reasons are the research record,
   as a person pastes it: an empty subject leaves no dangling comma, and a
   part several styles add is kept once. A visual's "Use its styles" makes
   its styles the selection.
+- **Enhance asks the person's model, through a declared need.** The
+  gallery's `enhance` child injects `ModelCompletionService`, which the
+  agent's half provides over its `ext.agent.complete`; the child offers the
+  enhancer at `PromptEnhancerPoint`, and the composed prompt's Enhance uses
+  it. It sends the prompt as the message and a system prompt for the family
+  (`enhanceInput`, `@kb/gallery`: an instruction-LLM's role, how that
+  family reads a prompt, whether it reads a negative, and the rewrite
+  alone as the answer), and shows the reply as an editable prompt of its
+  own, with its Copy, while the composition it was made from stands. While
+  no family provides a completion (the agent off, or no `kb ui` to host
+  it) the child pends and Enhance stays, dimmed: its title and a tap say
+  that it needs the agent and where to switch it on. The gallery holds no
+  model client and names nothing of the agent family; a failed completion
+  is a toast, with its reason.
 - **Online sources keep their terms.** A link source (Pinterest, Are.na,
   Unsplash, Lexica) is its search page opened in a new tab; kb never calls
   it. An API source (Civitai, Openverse) is searched through

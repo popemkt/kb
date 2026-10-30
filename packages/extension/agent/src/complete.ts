@@ -21,9 +21,10 @@ import type { AgentTurn } from "./runtime.ts";
  * person chose for the agent (`sys.f.agent.provider`, read per call by the
  * one chooser, `chooseProvider`, with its binding's trust), with no tools
  * and no screen: the caller's system prompt and one message in, the reply's
- * text out. A family that needs a model calls it by id (a canvas run's
- * instruction, the gallery's prompt enhancer), so no family holds a model
- * client of its own.
+ * text out. A family that needs a model calls it (a canvas run's
+ * instruction by id; a page half, such as the gallery's prompt enhancer,
+ * through the `ModelCompletionService` the agent's page half provides over
+ * it), so no family holds a model client of its own.
  *
  * Every call is bounded: what it is sent ({@link COMPLETION_LIMITS}), how
  * much of the reply it keeps, and how long it waits. It declares no node it
@@ -42,6 +43,12 @@ const COMPLETION_LIMITS = {
   /** How long a completion waits for its whole reply. */
   timeoutMs: 180_000,
 } as const;
+
+/** The completion's local id, in the family's namespace. */
+const COMPLETE_ID = "complete";
+
+/** The id the completion is invoked by: the one spelling of it, for the family's own halves. */
+export const AGENT_COMPLETE_ACTION = `${extensionNamespace(agentExtension.name)}.${COMPLETE_ID}`;
 
 /** The system prompt of a completion whose caller names none. */
 const COMPLETION_SYSTEM = "Answer the message. Reply with the answer alone, no preamble.";
@@ -62,7 +69,8 @@ const completeInput = z.object({
     .describe("the one message the model answers"),
 });
 
-const completeOutput = z.object({
+/** What a completion answers. */
+export const CompleteOutputSchema = z.object({
   text: z.string().describe("the reply"),
   truncated: z
     .boolean()
@@ -71,7 +79,7 @@ const completeOutput = z.object({
 });
 
 type CompleteInput = z.infer<typeof completeInput>;
-type CompleteOutput = z.infer<typeof completeOutput>;
+type CompleteOutput = z.infer<typeof CompleteOutputSchema>;
 
 /** A turn of one message and no tools: a tool call, which no model is offered, is refused. */
 function completionTurn(input: CompleteInput): AgentTurn {
@@ -125,7 +133,7 @@ function completeEffect(backends: Backends) {
 /** The action over the host's `backends`. */
 function completeAction(backends: Backends): ExtensionAction {
   return {
-    id: "complete",
+    id: COMPLETE_ID,
     title: "Complete with the agent's model",
     description:
       "Ask the model the person chose for the agent (its selected #agent-provider, or the default) " +
@@ -134,7 +142,7 @@ function completeAction(backends: Backends): ExtensionAction {
     // It changes nothing in kb; it reaches the provider's endpoint or starts its process.
     mode: { kind: "read", outsideRoot: true },
     inputSchema: completeInput,
-    outputSchema: completeOutput,
+    outputSchema: CompleteOutputSchema,
     effect: completeEffect(backends),
   };
 }
