@@ -49,6 +49,7 @@ describe("the page's eager bundle", () => {
   test("carries no DataScript, and stays inside its byte budget", async () => {
     const out = await mkdtemp(join(tmpdir(), "kb-page-bundle-"));
     try {
+      // GAP [[01M66K9DRY5A9RYHFD99QCQTE8]] a test-mode build, whose size grows with the checkout's path
       const build = Bun.spawnSync(["bun", "x", "vp", "build", "--outDir", out, "--emptyOutDir"], {
         cwd: UI_ROOT,
         stdout: "pipe",

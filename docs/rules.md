@@ -1221,6 +1221,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
 - **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
+### GAP: the eager-budget test measures a test-mode build, whose size grows with the checkout's path
+
+- **expected** — page-bundle.test.ts measures the build the page ships, a production build (NODE_ENV=production), whose bytes do not depend on where the checkout lives, against a budget calibrated to it
+- **current** — it spawns vp build under bun test's NODE_ENV=test; that build embeds each module's absolute path (101 of them in the eager set), so one tree measures 1,962,825 bytes at /tmp/kbm, 1,964,340 at /home/runner/work/kb/kb and 1,971,107 in a bb worktree path, and main fails its own budget in a long worktree path
+- **impact** — the budget passes or fails by the checkout's path, not by what the page ships; about 260 KB of the measured 1.96 MB is never shipped (the production eager set is 1.70 MB), so a real regression can hide in the slack and a long path fails a clean tree
+- **closes** — spawn the build with NODE_ENV=production and recalibrate EAGER_BUDGET_BYTES to the production eager set (1,701,190 bytes with the gallery)
+- **node** — `01M66K9DRY5A9RYHFD99QCQTE8`
+
 ### GAP: the extension dependency graph has no command, view or reverse edges
 
 - **expected** — extension.graph returns every derived edge {from, to, key, kind, optional, source} and data edges between families; kb ext graph prints it (and --dot), kb ext why <plugin> says why a plugin is not active, extension.list rows carry dependants, and the graph view has a lens over sys.extensions drawing the same edges
