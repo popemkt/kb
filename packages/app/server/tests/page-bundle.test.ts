@@ -31,10 +31,12 @@ const DATASCRIPT = /cljs\.core/;
  * the backdrops' one bridge that tells them to a scene, every scene's own
  * code loading lazily; raised by 1 KB for a backdrop's art setting: the
  * model's art field and choice, `assetUrl`, and its row in Settings).
- * And by 10 KB for the gallery family's declaration (its seed: four tags,
- * their fields and six image sources), whose page and readings load lazily.
+ * And by 4 KB for the gallery family's declaration (its ids and its seed:
+ * four tags, their fields and six image sources), which the page folds as
+ * it folds every family's; its page, readings and action schemas load
+ * lazily, its package being free of side effects.
  */
-const EAGER_BUDGET_BYTES = 1_975_000;
+const EAGER_BUDGET_BYTES = 1_969_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
