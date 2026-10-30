@@ -4,7 +4,9 @@ import { definePlugin } from "@kb/plugin";
 import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "./surfaces";
 import { CanvasListView, CanvasView, canvasExtension, canvasPlugin } from "@kb/canvas";
+import { canvasBoard } from "./board";
 import {
+  BoardService,
   BrowserHostService,
   provideRoute,
   provideView,
@@ -15,7 +17,8 @@ import {
 
 /**
  * Canvases: the list and one canvas (its own viewport, so `fixed`), their
- * routes, the section.
+ * routes, the section, and the page's board (`BoardService`): a node's
+ * board is its child canvas.
  *
  * It is the canvas family's page entry, so it loads the family's shared
  * plugin as a child: the canvas views' keys reach the page kernel's catalog
@@ -29,6 +32,9 @@ export const canvasUiPlugin = definePlugin({
     Effect.all(
       [
         ctx.plugin(canvasPlugin()),
+        Effect.flatMap(ctx.get(BrowserHostService), (host) =>
+          ctx.provide(BoardService, canvasBoard(host)),
+        ),
         ctx.contribute(
           ViewPoint,
           provideView(CanvasListView, {
