@@ -62,12 +62,9 @@
  */
 import {
   Fn,
-  cross,
   abs,
   clamp,
   cos,
-  dFdx,
-  dFdy,
   dot,
   exp,
   float,
@@ -99,6 +96,7 @@ import { fbm4, gnoise, hash, hash2 } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { TAU } from "../scene/math";
 import { coreColour, coreSight, socketLight } from "./eye-shader";
+import { KEY, RIM_SIDE, WARM, metalLit } from "./metal-shader";
 import { LUMA, circleAt, glyphHaze, turned } from "./glyphs-shader";
 import { EXTENT, RISE, toBaked, type BakedRelief } from "./relief";
 
@@ -108,16 +106,11 @@ type V3 = TslNode<"vec3">;
 
 /**
  * Worn steel (linear): its reflectance, rubbed bright on the edges, and the
- * brown-black patina in its recesses; the key light and the embers' warmth;
- * its surroundings, a warm floor and a cool sky; and the darker iron chain.
+ * brown-black patina in its recesses; and the darker iron chain.
  */
 const STEEL_F0 = vec3(0.56, 0.55, 0.53);
 const POLISH_F0 = vec3(0.8, 0.8, 0.78);
 const PATINA = vec3(0.06, 0.042, 0.03);
-const KEY = vec3(0.72, 0.8, 0.95);
-const WARM = vec3(1.0, 0.42, 0.14);
-const SKY = vec3(0.07, 0.08, 0.1);
-const FLOOR = vec3(0.05, 0.025, 0.012);
 const CHAIN = vec3(0.4, 0.4, 0.42);
 /** The chain's links (medallion units): how far apart, half their length and width, and the wire's radius. */
 const LINK = { pitch: 0.17, length: 0.11, width: 0.07, wire: 0.022 } as const;
@@ -170,16 +163,6 @@ const FAR_SPARKS = 0.35;
 const FAR_GLYPH_LIGHT = 0.09;
 /** The smoke where the embers and the light behind the disk catch it. */
 const EMBERLIT = vec3(0.17, 0.07, 0.022);
-/** The way the hot rim light comes from: below and right, where the smoke and embers are. */
-const RIM_SIDE = vec2(0.35, -0.94);
-
-/** The way the key falls across the face (upper left to lower right), and the way the sheen sweeps, and how often (s). */
-const KEY_ACROSS = vec2(-0.65, 0.76);
-const SWEEP_WAY = vec2(0.71, -0.71);
-const SWEEP_PERIOD = 9;
-/** The key light and the warm light from below, as directions toward them. */
-const KEY_DIR = new Vector3(-0.55, 0.65, 0.6).normalize();
-const WARM_DIR = new Vector3(0.15, -0.85, 0.5).normalize();
 
 /** Everything the CPU sets, and the glyphs it draws into the atlas. */
 export function medallionUniforms(field: FarField, glyphs: GlyphAtlas) {
@@ -378,51 +361,15 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
     .toVar();
   const pitted = pits(q).mul(resolved(PIT_CELLS)).toVar();
   const normal = normalize(vec3(slope.mul(-RISE), float(1).add(pitted.mul(0.6)))).toVar();
-  // How far the normal turns across the pixel: the lobes widen by it (geometric specular AA).
-  const dnx = dFdx(normal);
-  const dny = dFdy(normal);
-  const spread = dot(dnx, dnx)
-    .add(dot(dny, dny))
-    .mul(SPECULAR_AA.variance)
-    .min(SPECULAR_AA.most)
-    .toVar();
-  const view = vec3(0, 0, 1);
   // Grime and patina gather where the relief is lower than round it; the edges are rubbed bright.
   const grime = smoothstep(0.02, 0.4, cavity).max(pitted.mul(0.8)).toVar();
   const worn = smoothstep(0.03, 0.3, cavity.negate()).mul(float(1).sub(grime)).toVar();
   const albedo = mix(mix(STEEL_F0, PATINA, grime.mul(0.85)), POLISH_F0, worn.mul(0.7)).toVar();
-  const fresnel = albedo.add(
-    vec3(1, 1, 1)
-      .sub(albedo)
-      .mul(pow(float(1).sub(normal.z), 5)),
-  );
-  const { highlight, glint, rim } = steelLights({ q, normal, grime, worn, spread }, time);
-  // Its surroundings, reflected: a dim warm floor lit by the embers, a cool sky, a soft window up left.
-  const ray = normal.mul(normal.z.mul(2)).sub(view);
-  const sky = mix(FLOOR, SKY, smoothstep(-0.5, 0.7, ray.y));
-  const window = exp(
-    length(ray.xy.sub(vec2(-0.45, 0.5)))
-      .pow(2)
-      .mul(-10),
-  ).mul(0.9);
-  const surroundings = sky.add(KEY.mul(window.mul(0.8)));
-  const occluded = float(1).sub(grime.mul(0.94));
-  // What the window alone puts on it: a day's exposure holds it back, or it is a fog over the steel.
-  const windowed = fresnel
-    .mul(KEY.mul(window.mul(0.8)))
-    .mul(occluded)
-    .toVar();
-  // The key falls across the face from its upper left: a gradient, so the relic is lit, not printed.
-  const across = smoothstep(-1.1, 1.1, dot(q, KEY_ACROSS));
-  const lit = fresnel
-    .mul(
-      surroundings
-        .mul(occluded)
-        .mul(mix(0.45, 1.3, across))
-        .add(highlight),
-    )
-    .add(KEY.mul(scored.mul(across.mul(0.5).add(0.03))).mul(occluded))
-    .toVar();
+  // Brushed on a lathe: the brushing runs round the centre, so the highlight stretches across it.
+  const brushed = normalize(vec3(q.y.negate(), q.x, 0).add(vec3(1e-4, 0, 0)));
+  const metal = metalLit({ q, normal, brushed, albedo, grime, worn }, time);
+  const { glint, windowed, rim, spread, occluded, across } = metal;
+  const lit = metal.lit.add(KEY.mul(scored.mul(across.mul(0.5).add(0.03))).mul(occluded)).toVar();
   const surface = { normal, spread, albedo, grime };
   return {
     silhouette,
@@ -435,86 +382,6 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
     windowed,
     rim,
   };
-}
-
-/**
- * What the lights put on the steel at a point: where it is (medallion units),
- * its normal, its grime and wear, and how far its normal turns across the
- * pixel (`spread`, a slope's variance), which every lobe widens by.
- */
-interface Surface {
-  readonly q: V2;
-  readonly normal: V3;
-  readonly grime: F;
-  readonly worn: F;
-  readonly spread: F;
-}
-
-/**
- * Geometric specular antialiasing (Kaplanyan et al. 2016): a pixel's
- * normals vary by their screen derivatives, and a lobe narrower than that
- * variance is sampled into sparkle, so each lobe's widths (slopes) grow by it,
- * its peak falling as it widens, so its light is the same. `variance` takes
- * the derivatives to a slope's variance; `most` bounds it, so a crease never
- * turns a highlight into a wash.
- */
-const SPECULAR_AA = { variance: 0.5, most: 0.18 } as const;
-
-/**
- * The lights on the steel: the key, brushed across the lathe's rings, with
- * a pin-hot highlight where a bevel faces it square; the embers' warmth
- * from below; a low glint circling the disk; a broad sheen sweeping across
- * it every `SWEEP_PERIOD` seconds; and the smoke's hot rim on the bevels
- * that face it (`rim`, kept apart, as a dark page and a light one spend it
- * differently).
- */
-function steelLights({ q, normal, grime, worn, spread }: Surface, time: F) {
-  const view = vec3(0, 0, 1);
-  // Brushed on a lathe: the brushing runs round the centre, so the highlight stretches across it.
-  const round = normalize(vec3(q.y.negate(), q.x, 0).add(vec3(1e-4, 0, 0)));
-  const tangent = normalize(round.sub(normal.mul(dot(normal, round))));
-  const bitangent = cross(normal, tangent);
-  const lobe = (toLight: V3, along: number, across: number): F => {
-    const half = normalize(toLight.add(view));
-    const wideAlong = sqrt(spread.add(along * along));
-    const wideAcross = sqrt(spread.add(across * across));
-    const ht = dot(half, tangent).div(wideAlong);
-    const hb = dot(half, bitangent).div(wideAcross);
-    const hn = max(dot(half, normal), 1e-3);
-    return exp(ht.mul(ht).add(hb.mul(hb)).div(hn.mul(hn)).negate())
-      .mul(max(dot(normal, toLight), 0))
-      .mul(
-        wideAlong
-          .mul(wideAcross)
-          .reciprocal()
-          .mul(along * across),
-      );
-  };
-  const rough = grime.mul(0.25).add(1);
-  const clean = float(1).sub(grime.mul(0.85));
-  const key = vec3(KEY_DIR.x, KEY_DIR.y, KEY_DIR.z);
-  const warm = vec3(WARM_DIR.x, WARM_DIR.y, WARM_DIR.z);
-  // A glint circles the bevels slowly: a low light going round the disk.
-  const orbit = time.mul(0.42);
-  const circling = normalize(vec3(cos(orbit), sin(orbit), float(0.32)));
-  const glint = lobe(circling, 0.07, 0.3).mul(worn.mul(0.8).add(0.5)).mul(clean).toVar();
-  // A sheen sweeps across the face, upper left to lower right: a broad light passing over it.
-  const along = dot(q, SWEEP_WAY).sub(fract(time.div(SWEEP_PERIOD)).mul(5).sub(2.5));
-  const sweep = exp(along.div(0.42).pow(2).negate())
-    .mul(lobe(normalize(vec3(SWEEP_WAY.mul(0.6), float(1))), 0.6, 0.6))
-    .mul(worn.mul(0.6).add(0.4));
-  // The smoke's side lights the bevels that face it: a hot, narrow rim, only the edge on that side.
-  const tilt = float(1).sub(normal.z);
-  const facingSmoke = max(dot(normalize(normal.xy.add(1e-5)), RIM_SIDE), 0);
-  const onSide = smoothstep(0.1, 0.7, dot(normalize(q.add(1e-5)), RIM_SIDE));
-  const rim = smoothstep(0.15, 0.6, tilt).mul(facingSmoke.pow(3)).mul(onSide).mul(clean).toVar();
-  const highlight = KEY.mul(lobe(key, 0.14, 0.5).mul(rough.reciprocal()).mul(2.8))
-    .add(KEY.mul(lobe(key, 0.035, 0.1).mul(9)))
-    .add(WARM.mul(lobe(warm, 0.12, 0.4).mul(0.35)))
-    .add(KEY.mul(glint.mul(2.6)))
-    .add(KEY.mul(sweep.mul(2.6)))
-    .mul(clean);
-  return { highlight, glint, rim };
 }
 
 /**
