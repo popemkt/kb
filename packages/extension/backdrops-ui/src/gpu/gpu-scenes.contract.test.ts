@@ -1,16 +1,18 @@
 /**
  * The scene contract (`sceneContract`, `@kb/ui-test-kit`) over the GPU
- * backdrops' scenes, Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails and each of Astral's compositions, each on a dark
+ * backdrops' scenes, Lens, each of Black hole's looks, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails and each of Astral's compositions, each on a dark
  * page and a light one: each draws an offscreen pass (the nebula, the hole,
  * the sky, the silk), so the stand-in renderer counts those too, and a
  * hidden scene must still draw nothing.
  */
-import { vi } from "vitest";
+import { expect, it, vi } from "vitest";
+import { BLACK_HOLE_BACKDROP } from "@kb/backdrops";
 import type { ScenePalette } from "@kb/scene";
 import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { sceneContract } from "@kb/ui-test-kit";
 import type * as ThreeWebGpu from "three/webgpu";
 import { ASTRAL_VARIANTS } from "../astral/astral";
+import { BLACK_HOLE_VARIANTS } from "../black-hole/black-hole-scene";
 import type { GpuBackdropInit, GpuBackdropMount } from "./gpu-scene";
 
 vi.mock("three/webgpu", async (importOriginal) => ({
@@ -43,7 +45,6 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
 
 const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
   lens: () => import("../lens/lens-scene").then((m) => m.mountLens),
-  "black hole": () => import("../black-hole/black-hole-scene").then((m) => m.mountBlackHole),
   "toon sea": () => import("../toon-sea/toon-sea-scene").then((m) => m.mountToonSea),
   silk: () => import("../silk/silk-scene").then((m) => m.mountSilk),
   "floating geometry": () =>
@@ -52,6 +53,17 @@ const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
   "wolf medallion": () => import("../medallion/medallion-scene").then((m) => m.mountWolfMedallion),
   "light trails": () =>
     import("../light-trails/light-trails-scene").then((m) => m.mountLightTrails),
+  ...Object.fromEntries(
+    BLACK_HOLE_VARIANTS.map((variant) => [
+      `black hole ${variant}`,
+      () =>
+        import("../black-hole/black-hole-scene").then(
+          (m): GpuBackdropMount =>
+            (host, given) =>
+              m.mountBlackHole(host, { ...given, variant }),
+        ),
+    ]),
+  ),
   ...Object.fromEntries(
     ASTRAL_VARIANTS.map((variant) => [
       `astral ${variant}`,
@@ -76,3 +88,9 @@ sceneContract(
     ),
   ),
 );
+
+it("draws a look for every variant the black hole's key declares, and no other", () => {
+  expect(BLACK_HOLE_VARIANTS.toSorted()).toEqual(
+    (BLACK_HOLE_BACKDROP.variants ?? []).map((variant) => variant.id).toSorted(),
+  );
+});

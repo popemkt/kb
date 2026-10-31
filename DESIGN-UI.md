@@ -4068,8 +4068,10 @@ A PR for a backdrop reports a score against each criterion.
     flying at night;
   - `backdrops.lens` is a dark star drifting through a nebula and bending its
     light, a new nebula each load (see **GPU scenes** below);
-  - `backdrops.black-hole` is Gargantua: a black hole whose thick gas disk
-    streams round it, lensed over and under its shadow;
+  - `backdrops.black-hole` is a black hole in one of two looks, its
+    variants: Gargantua, whose thick gas disk streams round it, lensed over
+    and under its shadow; and Warp, a thin, razor-bright disk seen almost
+    edge on through a graphic lens;
   - `backdrops.toon-sea` is an open sea under anime-game cumulus,
     cel-shaded: a day sea, and at night a moonlit indigo with
     bioluminescent wakes;
@@ -4176,7 +4178,8 @@ A PR for a backdrop reports a score against each criterion.
     `.kb/assets/` themselves.
 - **Variants.** A backdrop may come in variants: compositions of one
   backdrop that share its look, its code and its card, such as Astral's
-  Movement, Orrery, Planisphere and Armillary. Each head shows one of them
+  Movement, Orrery, Planisphere and Armillary, or the Black hole's
+  Gargantua and Warp. Each head shows one of them
   for the load, drawn at random from the ones it may show.
   - **Declared on the key.** A backdrop's key lists its variants
     (`SeedBackdrop.variants`: a local id, a label, and the schemes it is
@@ -4477,7 +4480,15 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     little. A write is a supernova beside it, lensed into two images, which
     a further write brightens rather than starts again.
   - A light page shows the plate's negative.
-- **Black hole.** Rays are traced through a Schwarzschild field into a
+- **Black hole.** One backdrop, two looks (its variants, `LOOKS` in
+  `black-hole-scene.ts`), seen through one rig (`hole-rig.ts`): the
+  camera's dolly, the flare's orbit, and the offscreen picture's density
+  and sharpened upscale. A pin that changes while the page is open swaps
+  the look on the same stage.
+  - The pointer swings the camera slowly. Typing dims the disk a little and
+    each keystroke breathes into it. A write sets a hot flare orbiting in
+    it, which a further write brightens rather than starts again.
+- **Black hole · Gargantua.** Rays are traced through a Schwarzschild field into a
   volumetric disk, drawn offscreen with history.
   - The gas streams on Keplerian shear. Two copies of its pattern, half a
     period apart, crossfade, so the shear never winds it into rings.
@@ -4492,11 +4503,30 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     through the slab near the inner edge takes three samples, so the ring's
     thin crossings are not missed. The upscale is sharpened
     (contrast-adaptive), and the stage adds fine grain.
-  - The pointer swings the camera slowly. Typing dims the disk a little and
-    each keystroke breathes into it. A write sets a hot flare orbiting in
-    it, which a further write brightens rather than starts again.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
+- **Black hole · Warp.** A graphic lens seen almost edge on, the look
+  inspired by the black hole of Bruno Simon's Awwwards 2022 workshop
+  (unlicensed, so studied, never copied: the technique and code are kb's
+  own; docs/research/2026-10-31-3d-quality-bar.md §6).
+  - A two-segment thin lens, no march: a ray runs straight to the plane
+    through the hole square to the view, is turned toward the hole by an
+    angle falling as one over how near it passed, and runs on. The first
+    segment meets the disk's near side, crossing the shadow; the second, the
+    far side lifted over the shadow as an arch and echoed under it, and the
+    stars crowded into an Einstein ring. The arch is gathered brighter
+    toward the rim.
+  - The disk is a flat sheet: periodic noise stretched round it, sheared
+    by orbital speed and falling slowly inward in log radius, two copies
+    crossfading; the streaks warp a ramp (blackbody white-hot through amber
+    to rose and a violet tail turned a little each load), and the ramp sets
+    the opacity. The side coming toward the camera is Doppler-beamed. A
+    hairline photon ring sits at the shadow's rim, a texel wide.
+  - One offscreen pass with no history, at up to two texels a CSS pixel,
+    lowered by the meter; the upscale is lightly sharpened.
+  - A light page is an ink drawing: an indigo wash in the shadow, pooled
+    low and thinning to the rim the photon ring draws as a fine line; the
+    gas inked violet, rose and gilt by how solid it is.
 - **Toon sea.** An open sea under anime-game cumulus, cel-shaded: a day
   sea, and at night a moonlit indigo with bioluminescent wakes.
   - The sky (gradient, sun or moon with its halo and rays, cirrus, a far

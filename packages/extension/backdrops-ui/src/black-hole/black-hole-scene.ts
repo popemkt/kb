@@ -5,6 +5,8 @@
  *
  * - **Gargantua** (`gargantua.ts`): light traced through the Schwarzschild
  *   metric, a thick, streaming gas disk.
+ * - **Warp** (`warp.ts`): a graphic lens seen almost edge on, a thin,
+ *   razor-bright disk bent over the shadow and echoed under it.
  *
  * Every look is seen through one rig (`hole-rig.ts`): the pointer tilts and
  * swings the camera, slowly (a camera move, not a cursor, M1); with no
@@ -26,13 +28,14 @@ import {
   type GpuLook,
 } from "../gpu/gpu-scene";
 import { gargantua } from "./gargantua";
+import { warp } from "./warp";
 import type { HoleLook, HoleLookBuild } from "./hole-rig";
 
 /** The black hole's looks, by the variant id its declaration gives each (`BLACK_HOLE_BACKDROP`). */
-export const BLACK_HOLE_VARIANTS = ["gargantua"] as const;
+export const BLACK_HOLE_VARIANTS = ["gargantua", "warp"] as const;
 export type BlackHoleVariant = (typeof BLACK_HOLE_VARIANTS)[number];
 
-const LOOKS: Readonly<Record<BlackHoleVariant, HoleLookBuild>> = { gargantua };
+const LOOKS: Readonly<Record<BlackHoleVariant, HoleLookBuild>> = { gargantua, warp };
 
 const isBlackHoleVariant = (id: string | null): id is BlackHoleVariant =>
   BLACK_HOLE_VARIANTS.some((variant) => variant === id);
@@ -76,6 +79,7 @@ export function mountBlackHole(
     {
       // A tight bloom and fine grain: high definition, like the film, never a haze.
       bloom: { strength: 0.18, radius: 0.25 },
+      // GAP [[01M69N2F7HVAWSS2TBVMPM43Y7]] one lens for every look, fixed at mount
       lens: { aberration: 0.012, streak: 0.3, grain: 0.034 },
     },
     blackHole,

@@ -244,6 +244,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — derive mentions from layout panes at load, as decision 6 does for canvas layout entries
 - **node** — `01M411FNY9J46BD71N2C5641NB`
 
+### GAP: a light page fades a GPU backdrop into the paper in linear light, so its deepest ink is a mid-tone
+
+- **expected** — A backdrop drawn as ink on a light page can reach the page's own ink: the dark end of the fade into the paper is even in display space, so a shadow or a line reads as ink.
+- **current** — The stage mixes the scene toward the paper in linear light by the frame's presence (0.85 at soft) and its feather (stage.ts, veil), so pure black shows near sRGB 125-160 in the head. The Black hole's Warp look compensates with deeper inks (an indigo wash, a fine ink ring); Gargantua's charcoal shadow reads mid-grey. fadeSpace is a stage option fixed at mount, shared by both looks, so one look cannot take display space without changing the other.
+- **impact** — Blends into a light page: a light look reads paler and washier than drawn; a black hole's shadow reads as a grey disc rather than ink.
+- **closes** — The stage fades a light page's darks in display space (or takes the fade space per look, as it takes bloom), measured on both black hole looks and Lens.
+- **node** — `01M69N1WB5WSN86NWTBH0JEA93`
+
 ### GAP: a location cannot be added from the editor
 
 - **expected** — A location (another kb root this machine opens) is added, opened and forgotten from the editor.
@@ -1428,6 +1436,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every family reads its nodes through a type named for the outline.
 - **closes** — One rename across the workspace, done when the canvas packages are free to touch.
 - **node** — `01M53GQC1V4S043899SSX8Q47J`
+
+### GAP: the looks of one GPU backdrop share the stage lens fixed at mount, so a look cannot set its own colour split
+
+- **expected** — A look sets the stage's lens (aberration, streak, grain) as it sets its bloom, so each look of a backdrop is finished for its own picture.
+- **current** — The lens is a BackdropStageOptions field fixed at mount (mountBackdrop); the Black hole's Gargantua and Warp share aberration 0.012, streak 0.3, grain 0.034, tuned for Gargantua's faint stars. Warp's brighter compact stars split into short colour dashes toward the frame's edges.
+- **impact** — Sharpness: at DPR 2 a few of Warp's stars near the frame's edge read as red-blue dashes rather than points.
+- **closes** — A setLens on the stage beside setBloom, called from each look's setLook; Warp then takes a smaller aberration (about 0.006).
+- **node** — `01M69N2F7HVAWSS2TBVMPM43Y7`
 
 ### GAP: the node menu's order is list position
 
