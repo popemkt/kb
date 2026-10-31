@@ -126,7 +126,7 @@ function Called({ frame, visual }: { readonly frame: ComposerFrame; readonly vis
                 "rounded-md px-1.5 py-0.5 text-meta",
                 draft.styles.includes(id)
                   ? "bg-primary/10 text-primary"
-                  : "bg-foreground/5 text-foreground/70 hover:bg-foreground/10",
+                  : "bg-foreground/5 text-foreground/70 hover:text-foreground",
               )}
               onClick={() => toggleDraftStyle(id)}
             >

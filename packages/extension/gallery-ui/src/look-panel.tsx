@@ -145,7 +145,7 @@ function ChosenStyles({
               type="button"
               title={`${library.facets.find((f) => f.id === style.facet)?.text ?? "Unfiled"}: remove from the look`}
               data-look-style={style.text}
-              className="rounded-md bg-primary/10 px-1.5 py-0.5 text-label text-primary hover:bg-primary/20"
+              className="rounded-md bg-primary/10 px-1.5 py-0.5 text-label text-primary hover:text-foreground"
               onClick={() => toggleDraftStyle(style.id)}
             >
               {style.text} ×

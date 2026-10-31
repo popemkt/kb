@@ -174,7 +174,7 @@ export function DetailPanel({
                 "rounded-md px-1.5 py-0.5 text-label",
                 chosen.has(id)
                   ? "bg-primary/10 text-primary"
-                  : "bg-foreground/5 text-foreground/65 hover:bg-foreground/10",
+                  : "bg-foreground/5 text-foreground/65 hover:text-foreground",
               )}
               onClick={() => onToggle(id)}
             >
