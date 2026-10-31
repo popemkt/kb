@@ -3218,8 +3218,13 @@ which also lists the workflows judged and not built.
   `#image source`, with a `search url` (`{query}` stands for the query)
   and a `source kind`. The family seeds the tags, the fields and six
   sources; the page offers a starter (`starter.ts`: facets of styles,
-  counted by `STARTER_SIZE`, and an empty `Library` that becomes where
-  saves go, the gallery's `save into` setting).
+  counted by `STARTER_SIZE`, and a `Library` that becomes where saves go,
+  the gallery's `save into` setting). The library starts with a dozen
+  public-domain works (`starter-visuals.ts` in the server half: Hokusai to
+  Dorothea Lange, from Wikimedia Commons, credited with their pages), each
+  filed under the starter's styles it shows, so Browse and Remix have
+  something to work on from the first minute. Each carries its bytes in
+  source, so a release's one bundle carries them and a page never does.
 - **The page reads its replica, never the store.** `libraryOf`,
   `filterVisuals` and `facetCounts` (`@kb/gallery`) are pure over the node
   set, so a facet click is a pass over memory: about 70 ms at fifty thousand

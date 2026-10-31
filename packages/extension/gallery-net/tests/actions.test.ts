@@ -20,6 +20,7 @@ import {
   visualProps,
 } from "../src/actions.ts";
 import { boundedBytes, getFrom } from "../src/http.ts";
+import { STARTER_VISUALS } from "../src/starter-visuals.ts";
 import { civitaiModels, fakeSource } from "./fake-source.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -60,12 +61,16 @@ function run<A, E>(effect: Effect.Effect<A, E, KbCtx>, calls: ActionRequest[] = 
   );
 }
 
-const STARTER_LINES = starterOutline().split("\n").length;
+const STARTER = starterOutline();
 const OUTPUTS: Record<string, unknown> = {
   "asset.upload": { path: "assets/01X.jpg" },
   "node.addTree": {
     ids: ["01STYLES", "01LIB"],
-    lines: { "1": "01STYLES", [STARTER_LINES]: "01LIB" },
+    lines: Object.fromEntries([
+      ["1", "01STYLES"],
+      [String(STARTER.library), "01LIB"],
+      ...[...STARTER.styles].map(([name, line]) => [String(line), `style:${name}`]),
+    ]),
   },
 };
 
@@ -213,19 +218,41 @@ describe("ext.gallery.save", () => {
 const all = () => true;
 const hop = (n: number) => `https://a.test/${n}`;
 describe("ext.gallery.starter", () => {
-  test("pastes the starter, then names its Library where saves go, on the server's ids", async () => {
+  test("pastes the starter, names its Library where saves go, then files its pictures there", async () => {
     const calls: ActionRequest[] = [];
     const exit = await run(starterEffect(), calls);
     expect(Exit.isSuccess(exit) && exit.value).toEqual({
       library: "01LIB",
       ids: ["01STYLES", "01LIB"],
+      visuals: STARTER_VISUALS.map(() => "01NEW"),
     });
-    expect(calls.map((c) => c.id)).toEqual(["node.addTree", "node.update"]);
-    expect(calls[0]?.input).toEqual({ outline: starterOutline() });
+    expect(calls.slice(0, 2).map((c) => c.id)).toEqual(["node.addTree", "node.update"]);
+    expect(calls[0]?.input).toEqual({ outline: STARTER.text });
     expect(calls[1]?.input).toEqual({
       id: extensionNodeId("gallery"),
       setProps: [{ field: GALLERY_IDS.saveIntoField, value: { t: "ref", v: "01LIB" } }],
     });
+    const adds = calls.filter((c) => c.id === "node.add");
+    expect(adds).toHaveLength(STARTER_VISUALS.length);
+    expect(calls.filter((c) => c.id === "asset.upload")).toHaveLength(STARTER_VISUALS.length);
+    const wave = adds[0]?.input as {
+      text: string;
+      parent: string;
+      props: { field: string; value: { v: unknown } }[];
+    };
+    expect(wave.text).toBe("The Great Wave off Kanagawa");
+    expect(wave.parent).toBe("01LIB");
+    expect(
+      wave.props.filter((p) => p.field === GALLERY_IDS.stylesField).map((p) => p.value.v),
+    ).toEqual(STARTER_VISUALS[0].styles.map((name) => `style:${name}`));
+  });
+
+  test("every picture it ships is a JPEG, filed only under styles the starter adds", () => {
+    expect(new Set(STARTER_VISUALS.map((visual) => visual.key)).size).toBe(STARTER_VISUALS.length);
+    for (const visual of STARTER_VISUALS) {
+      expect(atob(visual.jpeg.slice(0, 4))).toBe("\xff\xd8\xff");
+      for (const style of visual.styles) expect(STARTER.styles.has(style)).toBe(true);
+    }
   });
 });
 

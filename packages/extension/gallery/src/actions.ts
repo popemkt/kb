@@ -92,8 +92,9 @@ export const galleryCaptureDef = {
 } satisfies ActionDefinition;
 
 /**
- * The starter library, added on the server in one call: the outline paste
- * and the setting that names its `Library` as where saves go. Run where its
+ * The starter library, added on the server in one call: the outline paste,
+ * the setting that names its `Library` as where saves go, and the pictures
+ * it starts with. Run where its
  * ids are minted, so the setting names the node the store holds; a page
  * that pasted the outline itself would name the id its own optimistic
  * commit minted, which the server's commit does not keep.
@@ -103,14 +104,16 @@ export const galleryStarterDef = {
   id: "starter",
   title: "Add the gallery's starter library",
   description:
-    "Add a Styles tree of facets (#facet) and their styles (#style): shot size, camera angle and motion, lens, lighting, palette, film stock, mood, era and more; and an empty Library, which becomes where saved visuals go.",
+    "Add a Styles tree of facets (#facet) and their styles (#style): shot size, camera angle and motion, lens, lighting, palette, film stock, mood, era and more; and a Library of a dozen public-domain pictures (#visual) filed by those styles, which becomes where saved visuals go.",
   mode: { kind: "write" },
   inputSchema: z.object({}),
   outputSchema: z.object({
     /** The new `Library`, now the gallery's `save into`. */
     library: z.string(),
-    /** Every node the starter added, in tree order. */
+    /** Every node of the outline the starter added, in tree order. */
     ids: z.array(z.string()),
+    /** The pictures it added to the library. */
+    visuals: z.array(z.string()),
   }),
 } satisfies ActionDefinition;
 

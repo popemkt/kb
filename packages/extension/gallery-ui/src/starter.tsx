@@ -10,7 +10,7 @@ export function Starter() {
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6">
       <WorkspaceState
         title="A visual composer"
-        description={`Find references and put the image in your head into words. Visuals are nodes tagged #visual, filed by styles tagged #style under facets tagged #facet, and what you make is a #look. Start with ${STARTER_SIZE.facets} facets and ${STARTER_SIZE.styles} styles (shot, angle, motion, lens, lighting, palette, …).`}
+        description={`Find references and put the image in your head into words. Visuals are nodes tagged #visual, filed by styles tagged #style under facets tagged #facet, and what you make is a #look. Start with ${STARTER_SIZE.facets} facets and ${STARTER_SIZE.styles} styles (shot, angle, motion, lens, lighting, palette, …), and a dozen public-domain pictures filed by them.`}
       />
       <button
         type="button"

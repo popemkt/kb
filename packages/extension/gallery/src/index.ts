@@ -91,4 +91,4 @@ export {
   type Library,
   type StyleEntry,
 } from "./library.ts";
-export { STARTER_SIZE, starterOutline } from "./starter.ts";
+export { STARTER_SIZE, starterOutline, type StarterOutline } from "./starter.ts";
