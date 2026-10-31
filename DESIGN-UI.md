@@ -3190,8 +3190,16 @@ which also lists the workflows judged and not built.
   workflow edits it: the description, the chosen styles by facet, the
   prompts per model family (read from the look by the composer's rule,
   never stored), Enhance, the palette, the pins and their notes. Saving
-  writes the look; a saved look reopens as the draft. A look exports as a
-  brief in Markdown (`briefOf`) and opens as a moodboard.
+  writes the look; a saved look reopens as the draft. A look opens as a
+  moodboard, and exports through one contract (`LOOK_EXPORTS`, each entry
+  a label, a file name and a rendering of the look), offered by one picker
+  to copy, download or preview: the brief for a person (`briefOf`), and
+  the 3D art direction a builder follows (`artDirectionOf`). The art
+  direction writes each chosen style under its facet with its notes (what
+  it looks like, what it is made with, where it is seen, how to make it
+  per tool), and every style a chosen one is made with, however deep,
+  under its own facet and marked with the style that calls for it; then
+  the palette, what to avoid, the prompts and the references.
 - **The moodboard is the canvas family's, through a declared need.** The
   canvas family's page half provides `BoardService` (`@kb/ui-sdk`): a
   board under a node, and a card placed on it for each node not yet there,

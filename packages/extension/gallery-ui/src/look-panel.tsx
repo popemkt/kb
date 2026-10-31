@@ -3,7 +3,7 @@
  * its name, brief and what to avoid, its styles by facet, its prompt for
  * one model family (composed by the A1111 rule, `promptsOf`, never stored),
  * its palette, its pins and their notes, and what a look does: save, open
- * as a moodboard, export as a brief.
+ * as a moodboard, export (`LOOK_EXPORTS`: the brief, the 3D art direction).
  *
  * While the composer's model is offered (`ComposerModelPoint`), Enhance has
  * the person's model rewrite the prompt for the family. The rewrite is an
@@ -12,7 +12,7 @@
  * is, Enhance says what it needs. The moodboard is offered the same way,
  * while the canvas provides a board (`MoodboardPoint`).
  */
-import { Fragment, type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import {
   COMPOSE_TARGETS,
   EMPTY_LOOK,
@@ -92,30 +92,35 @@ function Output({
   );
 }
 
-function FamilyPicker({
-  target,
+/** One of a few named choices, as a row of radio chips: the model family, the export. */
+function Picker<T extends string>({
+  label,
+  options,
+  value,
   onPick,
 }: {
-  readonly target: ComposeTarget;
-  readonly onPick: (target: ComposeTarget) => void;
+  readonly label: string;
+  readonly options: ReadonlyArray<{ readonly id: T; readonly label: string }>;
+  readonly value: T;
+  readonly onPick: (id: T) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Model family">
-      {COMPOSE_TARGETS.map((t) => (
+    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={label}>
+      {options.map((option) => (
         <button
-          key={t.id}
+          key={option.id}
           type="button"
           role="radio"
-          aria-checked={t.id === target}
+          aria-checked={option.id === value}
           className={cn(
             "rounded-md border px-2 py-0.5 text-label",
-            t.id === target
+            option.id === value
               ? "border-primary/40 bg-primary/10 text-primary"
               : "border-border text-foreground/60 hover:bg-foreground/5",
           )}
-          onClick={() => onPick(t.id)}
+          onClick={() => onPick(option.id)}
         >
-          {t.label}
+          {option.label}
         </button>
       ))}
     </div>
@@ -228,7 +233,7 @@ function Prompts({ draft, frame }: { readonly draft: LookDraft; readonly frame: 
   };
   return (
     <>
-      <FamilyPicker target={target} onPick={setTarget} />
+      <Picker label="Model family" options={COMPOSE_TARGETS} value={target} onPick={setTarget} />
       <Output label="Prompt" text={positive}>
         <EnhanceButton
           offered={model !== null}
@@ -428,23 +433,6 @@ function LookActions({
       >
         Moodboard
       </button>
-      {LOOK_EXPORTS.map((target) => {
-        const text = () => target.render(draft, frame.library, frame.node);
-        return (
-          <Fragment key={target.id}>
-            <button type="button" className={BUTTON} onClick={() => copyText(text(), target.label)}>
-              Copy {target.label.toLowerCase()}
-            </button>
-            <button
-              type="button"
-              className={BUTTON}
-              onClick={() => download(exportFileName(nameOf(draft), target), text())}
-            >
-              Export .md
-            </button>
-          </Fragment>
-        );
-      })}
       <button
         type="button"
         className={BUTTON}
@@ -453,6 +441,42 @@ function LookActions({
       >
         New
       </button>
+    </div>
+  );
+}
+
+/**
+ * What the look exports to (`LOOK_EXPORTS`): the brief for a person, or the
+ * 3D art direction a builder follows; copied, downloaded, or read here.
+ */
+function Exports({ draft, frame }: { readonly draft: LookDraft; readonly frame: ComposerFrame }) {
+  const [chosen, setChosen] = useState(LOOK_EXPORTS[0]?.id ?? "");
+  const target = LOOK_EXPORTS.find((t) => t.id === chosen) ?? LOOK_EXPORTS[0];
+  if (target === undefined) return null;
+  const text = target.render(draft, frame.library, frame.node);
+  return (
+    <div className="flex flex-col gap-1" data-testid="gallery-exports">
+      <Head label={`Export: ${target.label}`} text={text}>
+        <button
+          type="button"
+          className={LINK}
+          onClick={() => download(exportFileName(nameOf(draft), target), text)}
+        >
+          Download .md
+        </button>
+      </Head>
+      <Picker label="Export" options={LOOK_EXPORTS} value={target.id} onPick={setChosen} />
+      <details className="group">
+        <summary className="cursor-pointer text-label text-foreground/45 hover:text-foreground/70">
+          Preview
+        </summary>
+        <pre
+          data-gallery-export={target.id}
+          className="mt-1 max-h-72 overflow-auto rounded-md border border-border bg-foreground/[0.03] px-2 py-1.5 text-meta break-words whitespace-pre-wrap text-foreground/80 select-text"
+        >
+          {text}
+        </pre>
+      </details>
     </div>
   );
 }
@@ -513,6 +537,7 @@ export function LookPanel({ frame }: { readonly frame: ComposerFrame }) {
       <Prompts draft={draft} frame={frame} />
       <Palette draft={draft} frame={frame} />
       <Pins draft={draft} frame={frame} />
+      <Exports draft={draft} frame={frame} />
       <LookActions draft={draft} frame={frame} />
     </div>
   );

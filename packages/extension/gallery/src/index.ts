@@ -38,6 +38,7 @@ export {
   type Pin,
 } from "./look.ts";
 export { LOOK_EXPORTS, exportFileName, type LookExport } from "./exports.ts";
+export { artDirectionOf, stylesCalledFor } from "./art-direction.ts";
 export { paletteOf } from "./palette.ts";
 export {
   axesOf,
