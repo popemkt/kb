@@ -1,8 +1,8 @@
 // Deliberately .e2e.ts: Bun's recursive unit-test discovery must not load it.
 //
 // The gallery in a real browser: switched on as a person does, started from
-// its starter library, asked where to start, and each way in making the one
-// look beside it: a prompt composed from two facets and taken to the online
+// its starter library and its pictures, asked where to start, and each way
+// in making the one look beside it: a prompt composed from two facets and taken to the online
 // sources, a style named by its first letters, an idea named axis by axis
 // and by reacting, a look saved with its pins and opened as a canvas
 // moodboard, a phone showing one pane at a time. The unit suites hold the
@@ -93,7 +93,17 @@ test("the starter asks where to start, and Browse composes a look from two facet
   await expect(page.locator("[data-gallery-workflow]")).toHaveCount(7);
   await page.locator('[data-gallery-workflow="browse"]').click();
   await expect(page).toHaveURL(/\/gallery\/browse$/);
-  await expect(page.getByText(/^No visuals yet/)).toBeVisible();
+  // The library starts with the starter's pictures, filed by its styles.
+  await expect(page.getByTestId("gallery-count")).toHaveText("12 visuals");
+  const wave = page
+    .locator("[data-gallery-tile]")
+    .filter({ hasText: "The Great Wave off Kanagawa" });
+  await expect
+    .poll(() => wave.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(1);
+  await page.locator('[data-gallery-style="Ukiyo-e"]').click();
+  await expect(page.getByTestId("gallery-count")).toHaveText("2 of 12");
+  await page.locator('[data-gallery-style="Ukiyo-e"]').click();
 
   await page.locator('[data-gallery-style="golden hour"]').click();
   await page.locator('[data-gallery-style="close-up"]').click();
@@ -145,12 +155,12 @@ test("Know completes a style from its first letters, and shows its references", 
   request,
 }) => {
   await starter(page);
-  await addVisual(request, "Golden bay", [await styleId(request, "golden hour")]);
+  await addVisual(request, "Blue bay", [await styleId(request, "blue hour")]);
   await page.locator('[data-gallery-workflow="know"]').click();
-  await page.getByLabel("Name a style").fill("golden h");
-  await expect(page.locator('[data-gallery-suggestion="golden hour"]')).toBeVisible();
+  await page.getByLabel("Name a style").fill("blue h");
+  await expect(page.locator('[data-gallery-suggestion="blue hour"]')).toBeVisible();
   await page.getByLabel("Name a style").press("Enter");
-  await expect(page.locator('[data-look-style="golden hour"]')).toBeVisible();
+  await expect(page.locator('[data-look-style="blue hour"]')).toBeVisible();
   await expect(page.getByTestId("know-said")).toHaveText("1 reference shows all of it");
   await expect(page.locator("[data-gallery-tile]")).toHaveCount(1);
 });
@@ -197,7 +207,8 @@ test("a phone shows one pane at a time, the look a tab of its own", async ({ pag
   // The visuals first; the facets are a tab of their own, not a column beside them.
   await expect(page.getByRole("tab", { name: "Visuals" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator('[data-gallery-facet="Shot size"]')).toHaveCount(0);
-  await page.getByRole("button", { name: "Find references in the sources" }).click();
+  await expect(page.getByTestId("gallery-count")).toHaveText("12 visuals");
+  await page.getByRole("tab", { name: "Sources" }).click();
   await expect(page.getByRole("tab", { name: "Sources" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("gallery-sources")).toBeVisible();
 

@@ -71,8 +71,30 @@ export const gallerySaveDef = {
 } satisfies ActionDefinition;
 
 /**
- * The starter library, added on the server in one call: the outline paste
- * and the setting that names its `Library` as where saves go. Run where its
+ * A picture link kept as a picture: fetched only from the image hosts the
+ * gallery's server entry lists (`captureHosts`), refused as `forbidden`
+ * from any other, which the page then keeps as a link.
+ */
+export const galleryCaptureDef = {
+  id: "capture",
+  title: "Keep the picture a link names",
+  description:
+    "Download the picture an https link names, from one of the image hosts the gallery fetches from, into the kb's assets, and add it as a visual whose source is the link. A link to any other host is refused (forbidden).",
+  mode: { kind: "write", outsideRoot: true },
+  inputSchema: z.object({
+    url: z.string(),
+    /** What the visual is called. */
+    text: z.string().min(1),
+    /** Where the visual goes; the gallery's `save into` when omitted. */
+    parent: z.string().optional(),
+  }),
+  outputSchema: z.object({ id: z.string(), asset: z.string() }),
+} satisfies ActionDefinition;
+
+/**
+ * The starter library, added on the server in one call: the outline paste,
+ * the setting that names its `Library` as where saves go, and the pictures
+ * it starts with. Run where its
  * ids are minted, so the setting names the node the store holds; a page
  * that pasted the outline itself would name the id its own optimistic
  * commit minted, which the server's commit does not keep.
@@ -82,14 +104,16 @@ export const galleryStarterDef = {
   id: "starter",
   title: "Add the gallery's starter library",
   description:
-    "Add a Styles tree of facets (#facet) and their styles (#style): shot size, camera angle and motion, lens, lighting, palette, film stock, mood, era and more; and an empty Library, which becomes where saved visuals go.",
+    "Add a Styles tree of facets (#facet) and their styles (#style): shot size, camera angle and motion, lens, lighting, palette, film stock, mood, era and more; and a Library of a dozen public-domain pictures (#visual) filed by those styles, which becomes where saved visuals go.",
   mode: { kind: "write" },
   inputSchema: z.object({}),
   outputSchema: z.object({
     /** The new `Library`, now the gallery's `save into`. */
     library: z.string(),
-    /** Every node the starter added, in tree order. */
+    /** Every node of the outline the starter added, in tree order. */
     ids: z.array(z.string()),
+    /** The pictures it added to the library. */
+    visuals: z.array(z.string()),
   }),
 } satisfies ActionDefinition;
 
@@ -99,5 +123,6 @@ const idOf = (def: ActionDefinition) => extensionActionId(galleryExtension.name,
 export const GALLERY_ACTIONS = {
   search: idOf(gallerySearchDef),
   save: idOf(gallerySaveDef),
+  capture: idOf(galleryCaptureDef),
   starter: idOf(galleryStarterDef),
 } as const;

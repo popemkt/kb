@@ -13,7 +13,9 @@
  * colour schemes, film stocks, media and movements. The Artist facet ships
  * empty: which artists to name is the person's choice (§3). Facets are in
  * composer order, subject first then medium to mood (§2), and that order is
- * the outline's, so reordering them reorders every composition.
+ * the outline's, so reordering them reorders every composition. The
+ * library starts with a dozen public-domain pictures filed by those styles,
+ * which are the server half's (`@kb/gallery-net`, `starter-visuals.ts`).
  */
 
 /** The name of the node the starter puts saved visuals under. */
@@ -205,15 +207,28 @@ const FACETS: ReadonlyArray<readonly [facet: string, values: readonly string[]]>
   ["Era", ["1920s", "1950s", "1970s", "1980s", "1990s", "Y2K", "2000s digicam"]],
 ];
 
-/** The starter as outline paste: a `Styles` tree of facets and their styles, and an empty library. */
-export function starterOutline(): string {
+/** The starter as outline paste, with the line each node it names is on, for the ids `node.addTree` answers by line. */
+export interface StarterOutline {
+  readonly text: string;
+  /** The `Library`'s line. */
+  readonly library: number;
+  /** Each style's line, by its name. */
+  readonly styles: ReadonlyMap<string, number>;
+}
+
+/** The starter as outline paste: a `Styles` tree of facets and their styles, and the library. */
+export function starterOutline(): StarterOutline {
   const lines = ["- Styles"];
+  const styles = new Map<string, number>();
   for (const [facet, values] of FACETS) {
     lines.push(`  - ${facet} #facet`);
-    for (const value of values) lines.push(`    - ${value} #style`);
+    for (const value of values) {
+      lines.push(`    - ${value} #style`);
+      styles.set(value, lines.length);
+    }
   }
   lines.push(`- ${STARTER_LIBRARY}`);
-  return lines.join("\n");
+  return { text: lines.join("\n"), library: lines.length, styles };
 }
 
 /** How many facets and styles the starter adds. */

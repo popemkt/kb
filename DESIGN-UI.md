@@ -3218,8 +3218,13 @@ which also lists the workflows judged and not built.
   `#image source`, with a `search url` (`{query}` stands for the query)
   and a `source kind`. The family seeds the tags, the fields and six
   sources; the page offers a starter (`starter.ts`: facets of styles,
-  counted by `STARTER_SIZE`, and an empty `Library` that becomes where
-  saves go, the gallery's `save into` setting).
+  counted by `STARTER_SIZE`, and a `Library` that becomes where saves go,
+  the gallery's `save into` setting). The library starts with a dozen
+  public-domain works (`starter-visuals.ts` in the server half: Hokusai to
+  Dorothea Lange, from Wikimedia Commons, credited with their pages), each
+  filed under the starter's styles it shows, so Browse and Remix have
+  something to work on from the first minute. Each carries its bytes in
+  source, so a release's one bundle carries them and a page never does.
 - **The page reads its replica, never the store.** `libraryOf`,
   `filterVisuals` and `facetCounts` (`@kb/gallery`) are pure over the node
   set, so a facet click is a pass over memory: about 70 ms at fifty thousand
@@ -3253,17 +3258,21 @@ which also lists the workflows judged and not built.
     styles of an axis the look has nothing in (`eitherOrs`).
   - _I have a picture_ (`reference`): one visual (`from`), picked or
     dropped in; its styles as chips, the model's reading of the picture
-    when it can see, more like it (`moreLike`, by shared styles), and its
+    (read as it opens when the person's model sees, which the completion
+    says without asking a model, and on asking otherwise), more like it (`moreLike`, by shared styles), and its
     variations along one axis (`variationsOf`), each a whole look.
   - _Browse my library_ (`browse`): the virtualised grid beside one column
     of facets or online sources, and an open visual's detail in their
     place; in a narrow viewport the grid is a pane of its own under the
     same tabs.
   - _I found something_ (`capture`): a picture dropped, pasted or chosen
-    is kept through `asset.upload` and becomes a visual with no styles; an
-    https link to a picture becomes a visual that keeps the link as its
-    `source`, with no media, since nothing in kb fetches from any host
-    (gap 01M66SF67J0TDSK1R85KYBYVBD). Untriaged is a visual with no styles,
+    is kept through `asset.upload` and becomes a visual with no styles. An
+    https link to a picture is fetched by the server
+    (`ext.gallery.capture`), but only from the image hosts its server entry
+    lists, and those of its search sources (`captureHosts`), and becomes a
+    visual whose `source` is the link; a link to any other host is refused
+    and kept as a link alone, a visual with no media, which the page says.
+    Untriaged is a visual with no styles,
     read, never stored. Triage shows one at a time: a type-ahead over the
     styles that gives a style to the visual itself, a pin to the look, and
     Next (Enter takes the first suggestion; ArrowRight or `n` moves on).
@@ -3291,6 +3300,8 @@ which also lists the workflows judged and not built.
   child injects `ModelCompletionService`, which the agent's half provides
   over its `ext.agent.complete`, and offers the composer's model at
   `ComposerModelPoint`: Enhance, Reflect and "Ask your model" use it.
+  Whether the model sees is the completion's to say (`sees`, over the
+  agent's `ext.agent.sight`, which reads the provider and asks no model).
   Reflect sends the person's pictures as asset paths, as many as the
   completion says it takes (`ModelCompletion.pictures`); the reply says how
   many the model saw, and a model that cannot see is sent the words alone,

@@ -1,24 +1,39 @@
 /**
- * Capture's writes beyond a picture kept (`../upload.ts`): a link kept as a
- * visual, and a style given to a visual in triage. Both are core's
- * `node.add` and `node.update`, through the page's one invoke path.
+ * Capture's writes beyond a picture dropped or pasted (`../upload.ts`): a
+ * link kept, and a style given to a visual in triage, through the page's
+ * one invoke path.
  */
-import { GALLERY_IDS } from "@kb/gallery";
+import { GALLERY_ACTIONS, GALLERY_IDS } from "@kb/gallery";
 import { browserHost, toast } from "@kb/ui-sdk";
 import { addNode } from "../add-node";
 import { linkVisualInput, type CapturedLink } from "./capture-model";
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
 /**
- * Keep `link` as a visual with its source and no media; its id, or null
- * after saying why not. kb has no action that downloads a picture from any
- * https host, and the gallery deliberately adds none (`admitted` in
- * `@kb/gallery-net`), so the link is what is kept.
+ * Keep `link` as a visual; its id, or null after saying why not. The
+ * server fetches the picture from the image hosts it lists
+ * (`ext.gallery.capture`); a link to any other host is refused, and is
+ * kept as a link alone: a visual with its source and no media.
  */
 export async function addLinkVisual(
   link: CapturedLink,
   parent: string | null,
 ): Promise<string | null> {
-  // GAP [[01M66SF67J0TDSK1R85KYBYVBD]]: the link is kept, not the picture.
+  const receipt = await browserHost().invoke(GALLERY_ACTIONS.capture, {
+    url: link.url,
+    text: link.name,
+    ...(parent === null ? {} : { parent }),
+  });
+  if (receipt.status === "succeeded") {
+    const id = isRecord(receipt.output) ? receipt.output["id"] : undefined;
+    return typeof id === "string" ? id : null;
+  }
+  if (receipt.code !== "forbidden") {
+    toast(`Could not keep the picture: ${receipt.message}`);
+    return null;
+  }
+  toast(`${receipt.message}: the link is kept, not the picture`);
   return addNode(linkVisualInput(link, parent), "Could not keep the link");
 }
 

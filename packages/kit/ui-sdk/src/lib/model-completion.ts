@@ -35,6 +35,8 @@ export interface ModelCompletion {
   readonly complete: (request: CompletionRequest) => Promise<CompletionReply>;
   /** The most pictures one request may carry: a request with more is refused whole. */
   readonly pictures: number;
+  /** Whether the model a request would reach is shown its pictures; asks no model. */
+  readonly sees: () => Promise<boolean>;
 }
 
 /** Where a family that holds a model provides its completion while it is loaded. */

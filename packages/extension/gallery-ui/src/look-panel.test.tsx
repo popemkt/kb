@@ -97,6 +97,7 @@ describe("the look's Enhance", () => {
           return Promise.resolve(answer());
         },
         pictures: 4,
+        sees: () => Promise.resolve(false),
       }),
   });
   /** The page's plugins, with or without a family that provides a completion. */

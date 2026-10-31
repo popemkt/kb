@@ -78,7 +78,8 @@ describe("gallery family", () => {
   });
 
   test("the starter parses as facets of styles, then the library", () => {
-    const parsed = parseOutline(starterOutline());
+    const outline = starterOutline();
+    const parsed = parseOutline(outline.text);
     if (!parsed.ok) throw new Error(`starter outline line ${parsed.line}: ${parsed.reason}`);
     expect(parsed.items.map((item) => item.text)).toEqual(["Styles", STARTER_LIBRARY]);
     const facets = parsed.items[0]?.children ?? [];
@@ -89,5 +90,9 @@ describe("gallery family", () => {
     expect(styles.every((style) => style.tags.join() === "style")).toBe(true);
     // Every style name is unique, so a person can add one by name.
     expect(new Set(styles.map((style) => style.text)).size).toBe(styles.length);
+    // The lines it names are the lines `node.addTree` answers ids by.
+    const lines = outline.text.split("\n");
+    expect(lines[outline.library - 1]).toBe(`- ${STARTER_LIBRARY}`);
+    for (const [name, line] of outline.styles) expect(lines[line - 1]).toBe(`    - ${name} #style`);
   });
 });

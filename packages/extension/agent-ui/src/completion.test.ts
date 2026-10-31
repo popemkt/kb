@@ -1,10 +1,11 @@
 /**
  * The agent's completion as the page's `ModelCompletionService`: one call to
  * the family's own completion through the port it is given, its reply's
- * text trimmed, and every way there is no text said in words.
+ * text trimmed, and every way there is no text said in words; and whether
+ * its model sees, by the family's sight, unseeing when that cannot be read.
  */
 import { describe, expect, test } from "vitest";
-import { AGENT_COMPLETE_ACTION } from "@kb/agent";
+import { AGENT_COMPLETE_ACTION, AGENT_SIGHT_ACTION } from "@kb/agent";
 import type { ActionInvocation, ActionReceipt } from "@kb/contracts";
 import { modelCompletion } from "./completion";
 
@@ -81,5 +82,17 @@ describe("the agent's model completion", () => {
       ok: false,
       reason: "the agent's reply could not be read",
     });
+  });
+
+  test("says whether its model sees by the family's sight, and sees nothing it cannot read", async () => {
+    const seeing = over(() => succeeded({ sees: true, provider: "scripted" }));
+    expect(await seeing.completion.sees()).toBe(true);
+    expect(seeing.calls[0]?.id).toBe(AGENT_SIGHT_ACTION);
+    const blind = over(() =>
+      Promise.resolve({ status: "failed", id: AGENT_SIGHT_ACTION, code: "internal", message: "x" }),
+    );
+    expect(await blind.completion.sees()).toBe(false);
+    const garbled = over(() => succeeded({ sees: "yes" }));
+    expect(await garbled.completion.sees()).toBe(false);
   });
 });

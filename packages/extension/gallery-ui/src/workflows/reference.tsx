@@ -3,14 +3,15 @@
  * library or dropped in. Then:
  *
  * - **What is this called?** Its styles, each a chip that adds it to the
- *   look; and, while a model that sees is offered, the model's reading of
- *   the picture, axis by axis, in the library's words.
+ *   look; and the model's reading of the picture, axis by axis, in the
+ *   library's words: read as it opens when the person's model sees, and
+ *   on asking otherwise.
  * - **More like this:** the visuals that share most of its styles (image
  *   similarity is a recorded gap; shared styles stand in).
  * - **Variations:** its look along one axis, one style swapped for a
  *   sibling of its facet, each a whole look to take.
  */
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useEffectEvent, useMemo, useState } from "react";
 import {
   coverOf,
   filterVisuals,
@@ -110,6 +111,20 @@ function Called({ frame, visual }: { readonly frame: ComposerFrame; readonly vis
     else if (answer.saw === 0) toast("Your model cannot see pictures: it read only the title");
     setReflected(answer);
   };
+  // A model that sees reads the picture as it opens; one that does not waits to be asked.
+  const read = useEffectEvent(() => void ask());
+  const { model } = frame;
+  useEffect(() => {
+    let open = true;
+    if (model !== null && cover !== null) {
+      void model.sees().then((sees) => {
+        if (open && sees) read();
+      });
+    }
+    return () => {
+      open = false;
+    };
+  }, [model, cover]);
   return (
     <section aria-label="What is this called" className="flex flex-col gap-2">
       <h2 className={HEADING}>What is this called?</h2>
@@ -164,7 +179,7 @@ function Called({ frame, visual }: { readonly frame: ComposerFrame; readonly vis
           className={cn(BUTTON, frame.model === null && "text-foreground/35")}
           onClick={() => void ask()}
         >
-          {busy ? "Reading…" : "Ask your model"}
+          {busy ? "Reading…" : reflected === null ? "Ask your model" : "Ask again"}
         </button>
       </div>
       {reflected !== null && (

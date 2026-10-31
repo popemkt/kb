@@ -140,14 +140,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
-### GAP: a captured image link keeps the link, not the picture
-
-- **expected** — Capturing an https image URL in the gallery saves the picture as an asset, as a pasted file is: kb's server downloads it, bounded in size and type, and the visual embeds it in media.
-- **current** — Capture saves a #visual whose source is the URL and whose text is the URL's last path segment, with no media: no core or gallery action downloads an arbitrary https image, and ext.gallery.save downloads only from the hosts a source adapter names (admitted/reachable in @kb/gallery-net), deliberately, so a fetch-anything action is not an SSRF hole.
-- **impact** — A link-only capture shows no picture in the grid, triage or a look's pins, contributes nothing to a palette, and breaks when the remote page moves.
-- **closes** — A server action that downloads a person-chosen https image under an SSRF policy (public addresses only, resolved and pinned, no redirects to private ranges, size and type bounded) and writes through asset.upload; Capture then calls it and adds media to the visual.
-- **node** — `01M66SF67J0TDSK1R85KYBYVBD`
-
 ### GAP: a channel a registry family contributes is not served
 
 - **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included

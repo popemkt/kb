@@ -1,11 +1,12 @@
 /**
- * The handlers of `ext.gallery.search` and `ext.gallery.save`. A search
+ * The handlers of the gallery's server actions. A search
  * reads the source node, picks its kind's adapter and asks the source. A
  * save downloads the result's image from a host the adapter names and then
  * goes through core's own actions, `asset.upload` and `node.add`, so the
  * asset rules (types, size, SVG sanitising) and the write rules (tags,
  * typed values, the integrity check) have one owner each and the gallery
- * restates neither.
+ * restates neither. Capture keeps a picture a link names, and the starter
+ * files the pictures it ships, the same way.
  */
 import { Effect } from "effect";
 import type { z } from "zod";
@@ -14,12 +15,14 @@ import { domainError, extensionNodeId, type DomainError, type KbNode } from "@kb
 import {
   GALLERY_IDS,
   isTagged,
+  type galleryCaptureDef,
   type SourceResult,
   starterOutline,
   type gallerySaveDef,
   type gallerySearchDef,
 } from "@kb/gallery";
 import { SOURCE_ADAPTERS, type SearchPage, type SourceAdapter } from "./adapters.ts";
+import { STARTER_LICENCE, STARTER_VISUALS } from "./starter-visuals.ts";
 import { ANY_HOST, boundedBytes, getFrom, getJson, reachable, type SourceFetch } from "./http.ts";
 
 /** Asset uploads are capped at 25 MiB (`asset.upload`); a larger download is refused before it is held. */
@@ -87,13 +90,13 @@ export function searchEffect(send: SourceFetch) {
   });
 }
 
-/** The image of a result, as bytes and the extension its type names. */
+/** The picture at `url`, from a host `allowed` names, as bytes and the extension its type names. */
 const download = Effect.fn("gallery.download")(function* (
   send: SourceFetch,
-  adapter: SourceAdapter,
+  allowed: (host: string) => boolean,
   url: string,
 ) {
-  const response = yield* getFrom(send, url, adapter.hosts, "image/*");
+  const response = yield* getFrom(send, url, allowed, "image/*");
   const type =
     (response.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
   const ext = IMAGE_EXTS[type];
@@ -164,6 +167,54 @@ function idOf(output: unknown): string | null {
     : null;
 }
 
+/** What a kept picture becomes: a visual named `text`, with `props` around its asset. */
+interface Kept {
+  readonly text: string;
+  readonly props: (asset: string) => readonly unknown[];
+  /** Where it goes; the gallery's `save into` when absent. */
+  readonly parent?: string | undefined;
+}
+
+/**
+ * The one way the gallery files a picture: its bytes (base64) written
+ * through `asset.upload`, and a visual added around the asset through
+ * `node.add`.
+ */
+const file = Effect.fn("gallery.file")(function* (data: string, ext: string, visual: Kept) {
+  const uploaded = pathOf(
+    yield* call({ id: "asset.upload", input: { bytes: data, encoding: "base64", ext } }),
+  );
+  if (uploaded === null) return yield* domainError("internal", "asset.upload answered no path");
+  const ctx = yield* KbCtx;
+  const parent =
+    visual.parent ??
+    refOf(ctx.index.getNode(extensionNodeId("gallery")), GALLERY_IDS.saveIntoField);
+  const added = idOf(
+    yield* call({
+      id: "node.add",
+      input: {
+        text: visual.text,
+        tags: [GALLERY_IDS.visualTag],
+        props: visual.props(uploaded),
+        ...(parent === null ? {} : { parent }),
+      },
+    }),
+  );
+  if (added === null) return yield* domainError("internal", "node.add answered no id");
+  return { id: added, asset: uploaded };
+});
+
+/** A picture from the network, downloaded from a host `allowed` names, then filed. */
+const keep = Effect.fn("gallery.keep")(function* (
+  send: SourceFetch,
+  allowed: (host: string) => boolean,
+  url: string,
+  visual: Kept,
+) {
+  const { bytes, ext } = yield* download(send, allowed, url);
+  return yield* file(base64Of(bytes), ext, visual);
+});
+
 export function saveEffect(send: SourceFetch) {
   return Effect.fn("ext.gallery.save")(function* (
     input: z.infer<typeof gallerySaveDef.inputSchema>,
@@ -175,31 +226,52 @@ export function saveEffect(send: SourceFetch) {
         "invalid_input",
         "a result's image and thumbnail must be on the source's hosts, and its page https",
       );
-    const { bytes, ext } = yield* download(send, adapter, input.result.image);
-    const uploaded = pathOf(
-      yield* call({
-        id: "asset.upload",
-        input: { bytes: base64Of(bytes), encoding: "base64", ext },
-      }),
-    );
-    if (uploaded === null) return yield* domainError("internal", "asset.upload answered no path");
-    const ctx = yield* KbCtx;
-    const parent =
-      input.parent ??
-      refOf(ctx.index.getNode(extensionNodeId("gallery")), GALLERY_IDS.saveIntoField);
-    const added = idOf(
-      yield* call({
-        id: "node.add",
-        input: {
-          text: input.result.title,
-          tags: [GALLERY_IDS.visualTag],
-          props: visualProps(input.result, uploaded),
-          ...(parent === null ? {} : { parent }),
-        },
-      }),
-    );
-    if (added === null) return yield* domainError("internal", "node.add answered no id");
-    return { id: added, asset: uploaded };
+    return yield* keep(send, adapter.hosts, input.result.image, {
+      text: input.result.title,
+      props: (asset) => visualProps(input.result, asset),
+      parent: input.parent,
+    });
+  });
+}
+
+/**
+ * The hosts Capture fetches a picture from: image hosts that serve the
+ * picture itself at the link a person copies, and every search source's.
+ */
+const IMAGE_HOSTS: ReadonlySet<string> = new Set([
+  "upload.wikimedia.org",
+  "images.unsplash.com",
+  "live.staticflickr.com",
+  "images.pexels.com",
+  "cdn.pixabay.com",
+  "i.imgur.com",
+  "i.pinimg.com",
+  "pbs.twimg.com",
+  "i.redd.it",
+]);
+
+export function captureHosts(host: string): boolean {
+  return IMAGE_HOSTS.has(host) || SOURCE_ADAPTERS.some((adapter) => adapter.hosts(host));
+}
+
+export function captureEffect(send: SourceFetch) {
+  return Effect.fn("ext.gallery.capture")(function* (
+    input: z.infer<typeof galleryCaptureDef.inputSchema>,
+  ): Effect.fn.Return<{ id: string; asset: string }, DomainError, KbCtx> {
+    if (!reachable(input.url, captureHosts))
+      return yield* domainError(
+        "forbidden",
+        `${URL.canParse(input.url) ? new URL(input.url).hostname : input.url} is not one of the image hosts the gallery fetches from`,
+      );
+    const title = input.text.replace(/[[\]]/g, "");
+    return yield* keep(send, captureHosts, input.url, {
+      text: input.text,
+      props: (asset) => [
+        str(GALLERY_IDS.mediaField, `![${title}](${asset})`),
+        str(GALLERY_IDS.sourceField, input.url),
+      ],
+      parent: input.parent,
+    });
   });
 }
 
@@ -218,16 +290,15 @@ function idsOf(output: unknown): string[] {
   return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
 }
 
-/** `ext.gallery.starter`: the starter outline, then its `Library` as the gallery's `save into`. */
+/** `ext.gallery.starter`: the starter outline, its `Library` as the gallery's `save into`, then its pictures there. */
 export const starterEffect = Effect.fn("ext.gallery.starter")(function* (): Effect.fn.Return<
-  { library: string; ids: string[] },
+  { library: string; ids: string[]; visuals: string[] },
   DomainError,
   KbCtx
 > {
   const outline = starterOutline();
-  const added = yield* call({ id: "node.addTree", input: { outline } });
-  // The library is the outline's last line (`starterOutline`).
-  const library = idAtLine(added, outline.split("\n").length);
+  const added = yield* call({ id: "node.addTree", input: { outline: outline.text } });
+  const library = idAtLine(added, outline.library);
   if (library === null) return yield* domainError("internal", "node.addTree answered no Library");
   yield* call({
     id: "node.update",
@@ -236,5 +307,25 @@ export const starterEffect = Effect.fn("ext.gallery.starter")(function* (): Effe
       setProps: [{ field: GALLERY_IDS.saveIntoField, value: { t: "ref", v: library } }],
     },
   });
-  return { library, ids: idsOf(added) };
+  const visuals = yield* Effect.forEach(STARTER_VISUALS, (visual) =>
+    file(visual.jpeg, "jpg", {
+      text: visual.title,
+      props: (asset) => [
+        str(GALLERY_IDS.mediaField, `![${visual.title}](${asset})`),
+        str(GALLERY_IDS.sourceField, visual.page),
+        str(GALLERY_IDS.creditField, `by ${visual.creator}, ${visual.date} · ${STARTER_LICENCE}`),
+        num(GALLERY_IDS.widthField, visual.width),
+        num(GALLERY_IDS.heightField, visual.height),
+        ...visual.styles.flatMap((style) => {
+          const line = outline.styles.get(style);
+          const id = line === undefined ? null : idAtLine(added, line);
+          return id === null
+            ? []
+            : [{ field: GALLERY_IDS.stylesField, value: { t: "ref", v: id } }];
+        }),
+      ],
+      parent: library,
+    }).pipe(Effect.map(({ id }) => id)),
+  );
+  return { library, ids: idsOf(added), visuals };
 });
