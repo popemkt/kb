@@ -220,6 +220,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
+### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
+
+- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
+- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
+- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
+- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
+- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
+
 ### GAP: a frame view's page is the outline at the frame
 
 - **expected** — A frame opened as a page shows its frame view (a table, a board) whichever family draws the page, so the collections family stands without the outline.
@@ -325,6 +333,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A wrongly picked reference must be deleted and recreated in the UI.
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
+
+### GAP: a remote root keeps no persisted mirror, so it cannot start or read offline
+
+- **expected** — A remote store persists its last mirror (nodes and tail head) so a restart offline reads it, and a quota stop leaves something to read (docs/research/2026-10-31-online-stores.md §3.4).
+- **current** — The mirror is in memory only (the BrowserStore shape); a cold start needs the network.
+- **impact** — No offline start; a DO daily-quota block or a Turso BLOCKED leaves nothing to read after a restart.
+- **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
+- **node** — `01M6950XSKGDE356Q8RK622WKQ`
 
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
@@ -824,6 +840,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
 
+### GAP: kb has no online store; two machines share a graph only through git
+
+- **expected** — A RemoteStore behind EffectStore over a RemoteAuthority port (a Durable Object first, Turso second), joined to the shared store, log and tail contract suites (docs/research/2026-10-31-online-stores.md §4, §7).
+- **current** — The only stores are .kb/nodes.jsonl and .kb/kb.sqlite in the root; a second machine sees changes by git.
+- **impact** — No live shared editing across machines; the owner's Cloudflare/Turso setup has nothing to talk to.
+- **closes** — The prototype of docs/research/2026-10-31-online-stores.md §7: the port, the mirror store, the DO authority, the two-process sync test.
+- **node** — `01M6950VPS4MH8NWDWB4ZF9CP1`
+
 ### GAP: kb mutation skips saving its baseline when the merge step fails
 
 - **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
@@ -953,6 +977,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 (L1) and P3 (L2, L3) of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Core names no feature
 - **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
+
+### GAP: offline writes to a shared store are unsupported (the tail is a total order the store assigns)
+
+- **expected** — Either offline writes are refused with a stated reason, or revs are assigned at push time so devices can write offline (docs/research/2026-10-31-online-stores.md §2.4).
+- **current** — Not built. Turso Sync's last-push-wins row merge would collide two offline devices' tx.rev and meta.rev.
+- **impact** — A flight or outage means read-only; Turso Sync cannot be adopted as is.
+- **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
+- **node** — `01M6950YQJFX3TYG608GNVHRX4`
 
 ### GAP: only text cards can be promoted to nodes
 
@@ -1388,6 +1420,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the saved-query virtual set appends to the store's tail, which a remote root does not own
+
+- **expected** — The virtual set records its transactions without taking a rev in the store's sequence (docs/research/2026-10-31-online-stores.md §4.4).
+- **current** — SavedQuerySet calls ctx.log.append, which allocates head+1 in the store's tail; on a remote mirror the authority's next rev collides with it.
+- **impact** — A remote root cannot hold .kb/queries/*.edn without forcing a resync that drops the virtual records.
+- **closes** — Give virtual transactions their own sequence, or stop logging them in the store's tail.
+- **node** — `01M6950ZTT4AQNADV0RVM9JSW1`
 
 ### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
 
