@@ -17,6 +17,7 @@ import {
   type KbNode,
   rankOf,
   rankTx,
+  StoreState,
   canonicalJsonl,
   present,
   type DomainError,
@@ -357,7 +358,7 @@ function multipleParentErrors(nodes: KbNode[]): string[] {
  */
 function orderingErrors(nodes: KbNode[]): string[] {
   const out = nodes.filter((n) => !rankOf(n).ranked).map((n) => `node ${n.id} has no sibling rank`);
-  const settled = rankTx(nodes, { upserts: nodes, deletes: [] }).upserts;
+  const settled = rankTx(StoreState.of(nodes), { upserts: nodes, deletes: [] }).upserts;
   const byId = new Map(nodes.map((n) => [n.id, n]));
   for (const node of settled) {
     const stored = byId.get(node.id)?.order;

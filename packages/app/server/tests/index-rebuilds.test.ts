@@ -7,7 +7,7 @@
  * one incremental transaction plus a staleness check that knows this session
  * wrote the file, so the number to assert is zero.
  */
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -72,12 +72,16 @@ describe("index rebuilds on the interactive path", () => {
       expect(rebuildsOf(ctx.index)).toBe(before);
 
       // …and the watcher firing on the write this session just made adds
-      // none: the store file is the one the session last wrote, so the ingest
-      // diff is empty and appends no second transaction for the same edit.
+      // none: the store file is the one the session last wrote, so there is
+      // nothing to compare, no second transaction for the same edit, and no
+      // read of the graph to find that out.
       const revAfterAction = ctx.log.head;
+      const storedNodes = spyOn(ctx.index, "storedNodes");
       await Effect.runPromise(
         ingestExternalWrite(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))) as Effect.Effect<void>,
       );
+      expect(storedNodes).not.toHaveBeenCalled();
+      storedNodes.mockRestore();
       expect(rebuildsOf(ctx.index)).toBe(before);
       expect(ctx.log.head).toBe(revAfterAction);
       expect(ctx.index.getNode("n.edit")?.text).toBe("edited");
@@ -102,14 +106,20 @@ describe("index rebuilds on the interactive path", () => {
       );
 
       await Effect.runPromise(
-        reloadEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))) as Effect.Effect<void>,
+        reloadEffect(ctx).pipe(
+          Effect.asVoid,
+          Effect.provide(kbRuntimeLayer(ctx)),
+        ) as Effect.Effect<void>,
       );
       expect(ctx.index.getNode("n.external")).toBeDefined();
       expect(rebuildsOf(ctx.index)).toBe(before + 1);
 
       // A second reload with nothing new does not build again.
       await Effect.runPromise(
-        reloadEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))) as Effect.Effect<void>,
+        reloadEffect(ctx).pipe(
+          Effect.asVoid,
+          Effect.provide(kbRuntimeLayer(ctx)),
+        ) as Effect.Effect<void>,
       );
       expect(rebuildsOf(ctx.index)).toBe(before + 1);
     } finally {

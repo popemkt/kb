@@ -8,12 +8,14 @@ import {
   domainError,
   isDomainError,
   rankTx,
+  StoreState,
   type DomainError,
   type KbNode,
   type StoreTx,
 } from "@kb/model";
 import {
   fingerprintChanges,
+  KeptState,
   staleCommitError,
   type EffectStore,
   type StoreCommit,
@@ -63,6 +65,11 @@ function mapCommitError(err: unknown, path: string): DomainError {
  *
  * Load is all-or-nothing like JSONL's: one undecodable row fails the whole
  * load, naming that row's id, and nothing is rewritten.
+ *
+ * The state this store last read or wrote is kept under its `rev`
+ * (`KeptState`), so a commit that lands on that state settles its ranks
+ * without decoding every row; another writer moves `rev`, and the commit
+ * reads the rows as it always did.
  */
 export class SqliteStore implements EffectStore {
   readonly path: string;
@@ -72,11 +79,12 @@ export class SqliteStore implements EffectStore {
   readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly txTail: SqliteTxTail;
   private readonly connection: SqliteConnection;
+  private readonly kept = new KeptState<StoreState>();
 
   constructor(root: string) {
     this.path = sqliteStorePath(root);
     this.connection = sqliteConnection(this.path);
-    this.loadEffect = loadNodes(this.connection, this.path);
+    this.loadEffect = loadNodes(this.connection, this.path, this.kept);
     this.fingerprint = fingerprintOf(this.connection);
     this.changes = fingerprintChanges({
       directories: [dirname(this.path)],
@@ -95,8 +103,15 @@ export class SqliteStore implements EffectStore {
     const path = this.path;
     const fingerprint = this.fingerprint;
     const txTail = this.txTail;
+    const kept = this.kept;
     return Effect.gen(function* () {
-      const { base, applied } = yield* commitTx(connection, path, { tx, record, expected }, txTail);
+      const { base, applied } = yield* commitTx(
+        connection,
+        path,
+        { tx, record, expected },
+        txTail,
+        kept,
+      );
       return { base, fingerprint: yield* fingerprint, tx: applied };
     });
   }
@@ -125,6 +140,7 @@ function commitTx(
   path: string,
   { tx, record, expected }: CommitRequest,
   txTail: SqliteTxTail,
+  kept: KeptState<StoreState>,
 ): Effect.Effect<{ base: StoreFingerprint | null; applied: StoreTx }, DomainError> {
   return Effect.try({
     try: () => {
@@ -134,13 +150,17 @@ function commitTx(
         `INSERT INTO nodes (id, body) VALUES (?, ?)
            ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
       );
-      return db
+      const committed = db
         .transaction(() => {
           const base = commitMark(db);
           const stale = staleCommitError(expected, base);
           // Thrown to roll the transaction back; `catch` below passes it through.
           if (stale !== null) throw stale;
-          const applied = tx.upserts.length === 0 ? tx : rankTx(storedNodes(db, path), tx);
+          // Taken, not read: a commit that fails leaves nothing kept.
+          const state =
+            kept.take(base) ??
+            (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
+          const applied = state === null ? tx : rankTx(state, tx);
           for (const id of applied.deletes) drop.run(id);
           for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
           // After the rows, whose triggers have moved `rev`, so the mark the
@@ -151,9 +171,16 @@ function commitTx(
           if (applied.upserts.length > 0 || applied.deletes.length > 0) {
             txTail.appendWithin(db, applied, record);
           }
-          return { base, applied };
+          // Read under the write lock, after the triggers: the state this
+          // commit leaves is the one a reopen will name.
+          return { base, applied, state, after: commitMark(db) };
         })
         .immediate();
+      if (committed.state !== null && committed.after !== null) {
+        committed.state.apply(committed.applied);
+        kept.keep(committed.after, committed.state);
+      }
+      return { base: committed.base, applied: committed.applied };
     },
     catch: (err) => (isDomainError(err) ? err : mapCommitError(err, path)),
   });
@@ -182,12 +209,20 @@ function fingerprintOf(connection: SqliteConnection): Effect.Effect<StoreFingerp
 function loadNodes(
   connection: SqliteConnection,
   path: string,
+  kept: KeptState<StoreState>,
 ): Effect.Effect<KbNode[], DomainError> {
   return Effect.suspend(() =>
     Effect.try({
       try: () => {
         const db = connection.peek();
-        return db === null ? [] : storedNodes(db, path);
+        if (db === null) return [];
+        // The mark first: a write landing between it and the rows leaves rows
+        // newer than the mark, which the next commit sees as another state
+        // and reads again — never the other way round.
+        const mark = commitMark(db);
+        const nodes = storedNodes(db, path);
+        if (mark !== null) kept.keep(mark, StoreState.of(nodes));
+        return nodes;
       },
       catch: (err) =>
         isDomainError(err)

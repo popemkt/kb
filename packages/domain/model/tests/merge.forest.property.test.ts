@@ -18,6 +18,7 @@ import { canonicalJsonl } from "../src/canonical.ts";
 import { mergeNodeSets, type MergeResult } from "../src/merge.ts";
 import type { KbNode } from "../src/model.ts";
 import { compareRootOrder, rankForInsert, ranksFor, rankTx } from "../src/order.ts";
+import { StoreState } from "../src/store-state.ts";
 import { present } from "../src/present.ts";
 import { txIntegrityError } from "../src/tx.ts";
 
@@ -167,7 +168,7 @@ const scenario = fc.tuple(baseArb, opsArb, opsArb).map(([base, oursOps, theirsOp
 /** The store promise: a forest, and every group settled as a commit leaves it. */
 function expectStore(nodes: readonly KbNode[]): void {
   expect(txIntegrityError([], { upserts: [...nodes], deletes: [] })).toBeNull();
-  const settled = rankTx([], { upserts: [...nodes], deletes: [] }).upserts;
+  const settled = rankTx(StoreState.of([]), { upserts: [...nodes], deletes: [] }).upserts;
   expect(canonicalJsonl(settled)).toBe(canonicalJsonl(nodes));
 }
 

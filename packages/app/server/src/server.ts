@@ -161,17 +161,21 @@ function clientSend(ws: Bun.ServerWebSocket<WsData>): ClientSend {
  * `nodes.jsonl`, an older kb, a restore from backup. A file event carries no
  * transaction, only "something happened", so that case is the one place a
  * delta still has to be recovered by comparing node sets. It runs only when
- * the tail had nothing to say, because a change the tail already explained
- * would otherwise be recorded twice — once as the writer authored it and once
+ * the reload replaced something and the tail had nothing to say: a session
+ * that was current has nothing to compare (the store's `changes` announce
+ * this session's own commits too, and comparing two copies of a large graph
+ * to find no difference costs more than the commit did), and a change the
+ * tail already explained would otherwise be recorded twice — once as the writer authored it and once
  * as this session re-derived it. An empty transaction is not appended either:
  * it costs a rev and a frame and says nothing.
  */
 export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function* (ctx: KbContext) {
-  const before = ctx.index.storedNodes();
-  yield* reloadEffect(ctx);
-  // The tail explained the change, so nothing here has to guess at it.
-  if (ctx.log.refresh().length > 0) return;
-  const ops = diffTx(before, ctx.index.storedNodes());
+  const replaced = yield* reloadEffect(ctx);
+  // The tail explained the change, so nothing here has to guess at it; and a
+  // session that was already current (the echo of its own commit) has nothing
+  // to compare.
+  if (ctx.log.refresh().length > 0 || replaced === null) return;
+  const ops = diffTx(replaced, ctx.index.storedNodes());
   if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
   ctx.log.append(ops, yield* currentIso);
 });

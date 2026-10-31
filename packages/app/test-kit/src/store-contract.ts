@@ -35,6 +35,7 @@ import {
   present,
   rankOf,
   rankTx,
+  StoreState,
   SYSTEM_IDS,
   type DomainError,
   type KbNode,
@@ -46,6 +47,7 @@ import {
   CONTRACT_AT,
   backendRoot,
   openSession,
+  plainNode,
   scratchRoot,
   stateOf,
   type StoreFactory,
@@ -59,6 +61,7 @@ import {
   viewTypeOrderSurvivesOpening,
 } from "./seed-opening-contract.ts";
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
+import { commitAfterAnotherWriterMergesIntoIt } from "./writers-contract.ts";
 
 export type { StoreFactory } from "./store-session.ts";
 
@@ -115,10 +118,6 @@ const nodeArb = fc
     return node;
   });
 
-function plainNode(id: string, text: string): KbNode {
-  return { id, text, props: {}, children: [], createdAt: AT, updatedAt: AT };
-}
-
 function mergedConcernsSurviveCommit(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(
     Effect.scoped(
@@ -163,7 +162,7 @@ function roundTripHolds(makeStore: StoreFactory, nodes: KbNode[]): Promise<void>
 
         // What was written, as the commit settles it: the model says which
         // ranks a commit repairs, and nothing else about a node may change.
-        const settled = applyTx([], rankTx([], { upserts: nodes, deletes: [] }));
+        const settled = applyTx([], rankTx(StoreState.of([]), { upserts: nodes, deletes: [] }));
         const byId = new Map(settled);
         for (const loadedNode of loaded) {
           expect(loadedNode).toEqual(
@@ -199,6 +198,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ],
   ["a merged position and content survive a commit and reload", mergedConcernsSurviveCommit],
   ["a commit touches only the nodes that changed", commitTouchesOnlyChanges],
+  [
+    "a commit after another writer's merges into what it left and settles against it",
+    commitAfterAnotherWriterMergesIntoIt,
+  ],
   [
     "opening is a read: reopening leaves the nodes, the fingerprint and the tail as they were",
     openingNeverWrites,
@@ -604,6 +607,11 @@ function unrankedNodeIsRanked(makeStore: StoreFactory): Promise<void> {
   );
 }
 
+/** A root appended after `n-a` (rank `i`), with the rank a writer that read only `n-a` derives. */
+function append(id: string): KbNode {
+  return { ...plainNode(id, id), order: "j" };
+}
+
 function concurrentAppendsGetDistinctRanks(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(
     Effect.scoped(
@@ -616,7 +624,6 @@ function concurrentAppendsGetDistinctRanks(makeStore: StoreFactory): Promise<voi
           { at: AT },
         );
         // Both writers read the same tail and derived the same next rank.
-        const append = (id: string) => ({ ...plainNode(id, id), order: "j" });
         const exits = yield* Effect.all(
           [
             Effect.exit(one.commitEffect({ upserts: [append("n-b")], deletes: [] }, { at: AT })),

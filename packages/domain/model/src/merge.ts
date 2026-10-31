@@ -11,6 +11,7 @@
 import { canonicalJson } from "./canonical.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import { compareRootOrder, rankTx } from "./order.ts";
+import { StoreState } from "./store-state.ts";
 
 /** Why two sides could not be reconciled for one node id. */
 export type MergeConflictReason =
@@ -57,7 +58,7 @@ interface Side {
 
 function readSide(nodes: readonly KbNode[]): Side {
   const ranked = new Map(
-    rankTx([], { upserts: [...nodes], deletes: [] }).upserts.map((n) => [n.id, n]),
+    rankTx(StoreState.of([]), { upserts: [...nodes], deletes: [] }).upserts.map((n) => [n.id, n]),
   );
   const parents = new Map<NodeId, NodeId>();
   for (const node of ranked.values()) {
@@ -281,6 +282,6 @@ export function mergeNodeSets(
   merge.decideExistence();
   merge.closeForest();
   // Rule 5: ranks settle as a commit's do.
-  const nodes = rankTx([], { upserts: merge.nodes(), deletes: [] }).upserts;
+  const nodes = rankTx(StoreState.of([]), { upserts: merge.nodes(), deletes: [] }).upserts;
   return { nodes, conflicts: merge.conflicts.list };
 }
