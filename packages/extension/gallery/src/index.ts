@@ -37,6 +37,7 @@ export {
   type LookWrite,
   type Pin,
 } from "./look.ts";
+export { LOOK_EXPORTS, exportFileName, type LookExport } from "./exports.ts";
 export { paletteOf } from "./palette.ts";
 export {
   axesOf,

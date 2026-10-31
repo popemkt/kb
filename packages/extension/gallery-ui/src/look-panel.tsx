@@ -12,12 +12,13 @@
  * is, Enhance says what it needs. The moodboard is offered the same way,
  * while the canvas provides a board (`MoodboardPoint`).
  */
-import { type ReactNode, useRef, useState } from "react";
+import { Fragment, type ReactNode, useRef, useState } from "react";
 import {
   COMPOSE_TARGETS,
   EMPTY_LOOK,
-  briefOf,
+  LOOK_EXPORTS,
   coverOf,
+  exportFileName,
   nameOf,
   orderedStyles,
   promptsOf,
@@ -367,11 +368,11 @@ function Pins({ draft, frame }: { readonly draft: LookDraft; readonly frame: Com
   );
 }
 
-function downloadBrief(name: string, text: string): void {
+function download(file: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${name.replaceAll(/[^\w\- ]+/g, "").trim() || "look"}.md`;
+  a.download = file;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -407,7 +408,6 @@ function LookActions({
     if (!reply.ok) return toast(`Could not open the moodboard: ${reply.reason}`);
     navigate(reply.path);
   };
-  const brief = briefOf(draft, frame.library, frame.node);
   return (
     <div className="flex flex-wrap gap-1">
       <button
@@ -428,12 +428,23 @@ function LookActions({
       >
         Moodboard
       </button>
-      <button type="button" className={BUTTON} onClick={() => copyText(brief, "Brief")}>
-        Copy brief
-      </button>
-      <button type="button" className={BUTTON} onClick={() => downloadBrief(nameOf(draft), brief)}>
-        Export .md
-      </button>
+      {LOOK_EXPORTS.map((target) => {
+        const text = () => target.render(draft, frame.library, frame.node);
+        return (
+          <Fragment key={target.id}>
+            <button type="button" className={BUTTON} onClick={() => copyText(text(), target.label)}>
+              Copy {target.label.toLowerCase()}
+            </button>
+            <button
+              type="button"
+              className={BUTTON}
+              onClick={() => download(exportFileName(nameOf(draft), target), text())}
+            >
+              Export .md
+            </button>
+          </Fragment>
+        );
+      })}
       <button
         type="button"
         className={BUTTON}
