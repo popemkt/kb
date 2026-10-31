@@ -56,6 +56,11 @@ export const noteStoreSynced = Effect.fn("kb.noteStoreSynced")(function* (
  * Bring the session up to date with the store. A no-op when the store is in
  * the state this session last read or wrote.
  *
+ * Answers the stored nodes the reload replaced, or null when the session was
+ * already current, so a caller that must say what moved (the server's ingest
+ * of another writer's change) compares against the state it actually held,
+ * and asks nothing of the graph when nothing moved.
+ *
  * The index keeps its virtual nodes (saved queries materialised by `kb ui`,
  * which live in the index and never in jsonl) across the rebuild, so a
  * post-write reload cannot leave the graph empty of them — and a `sys.query.*`
@@ -64,12 +69,15 @@ export const noteStoreSynced = Effect.fn("kb.noteStoreSynced")(function* (
  */
 export const reloadEffect = Effect.fn("kb.reload")(function* (
   ctx: KbContext<NodeIndex>,
-): Effect.fn.Return<void, DomainError, KbStore> {
+): Effect.fn.Return<ReadonlyArray<KbNode> | null, DomainError, KbStore> {
   const store = yield* KbStore;
   const fingerprint = yield* store.fingerprint;
-  if (fingerprint !== null && fingerprint === seen.get(ctx)) return;
-  ctx.index.rebuild(yield* store.loadEffect);
+  if (fingerprint !== null && fingerprint === seen.get(ctx)) return null;
+  const loaded = yield* store.loadEffect;
+  const replaced = ctx.index.storedNodes();
+  ctx.index.rebuild(loaded);
   if (fingerprint !== null) seen.set(ctx, fingerprint);
+  return replaced;
 });
 
 /**
