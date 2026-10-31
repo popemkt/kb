@@ -12,9 +12,10 @@ import {
 } from "../src/adapters.ts";
 import { civitaiModels, openverseImages } from "./fake-source.ts";
 
-const FIXTURES = new Map<string, unknown>([
-  [civitaiAdapter.kind, civitaiModels],
-  [openverseAdapter.kind, openverseImages],
+/** Each adapter's fixture: an answer, and the query it answers. */
+const FIXTURES = new Map<string, { readonly answer: unknown; readonly query: string }>([
+  [civitaiAdapter.kind, { answer: civitaiModels, query: "watercolor" }],
+  [openverseAdapter.kind, { answer: openverseImages, query: "lighthouse" }],
 ]);
 
 describe("every source adapter", () => {
@@ -27,20 +28,22 @@ describe("every source adapter", () => {
       const search = new URL(adapter.searchUrl("dolly zoom & co", "2"));
       expect(search.protocol).toBe("https:");
       expect(adapter.hosts(search.hostname)).toBe(true);
-      for (const result of adapter.page(fixture).results) {
+      if (fixture === undefined) return;
+      for (const result of adapter.page(fixture.answer, fixture.query, undefined).results) {
         for (const url of [result.thumb, result.image, result.page])
           expect(new URL(url).protocol).toBe("https:");
         expect(adapter.hosts(new URL(result.image).hostname)).toBe(true);
       }
     });
     test(`${adapter.kind}: results are PG only, and each says where it lives`, () => {
-      const { results } = adapter.page(fixture);
+      if (fixture === undefined) return;
+      const { results } = adapter.page(fixture.answer, fixture.query, undefined);
       expect(results.length).toBe(1);
       expect(results.every((r) => r.page !== "" && r.licence !== undefined)).toBe(true);
     });
     test(`${adapter.kind}: an answer of another shape reads as no results`, () => {
-      expect(adapter.page({ nope: true }).results).toEqual([]);
-      expect(adapter.page(null).results).toEqual([]);
+      expect(adapter.page({ nope: true }, "a", undefined).results).toEqual([]);
+      expect(adapter.page(null, "a", undefined).results).toEqual([]);
     });
     test(`${adapter.kind}: a host it does not name is refused`, () => {
       expect(adapter.hosts("evil.example")).toBe(false);
@@ -50,7 +53,7 @@ describe("every source adapter", () => {
 
 describe("civitai", () => {
   test("a model's first PG image, resized by its path segment, with the model's terms", () => {
-    const { results, next } = civitaiAdapter.page(civitaiModels);
+    const { results, next } = civitaiAdapter.page(civitaiModels, "watercolor", undefined);
     expect(next).toBe("2");
     expect(results[0]).toEqual({
       id: "civitai:749060:125103835",
@@ -77,7 +80,7 @@ describe("civitai", () => {
 
 describe("openverse", () => {
   test("a work's proxied thumbnail, its landing page and its attribution", () => {
-    const { results, next } = openverseAdapter.page(openverseImages);
+    const { results, next } = openverseAdapter.page(openverseImages, "lighthouse", undefined);
     expect(next).toBe("2");
     expect(results[0]).toEqual({
       id: "openverse:4bc43a04-ef46-4544-a0c1-63c63f56e276",
@@ -97,7 +100,7 @@ describe("openverse", () => {
     const answer = {
       results: [{ ...work, foreign_landing_url: "http://www.flickr.com/photos/x/1" }],
     };
-    expect(openverseAdapter.page(answer).results[0]?.page).toBe(
+    expect(openverseAdapter.page(answer, "lighthouse", undefined).results[0]?.page).toBe(
       "https://openverse.org/image/4bc43a04-ef46-4544-a0c1-63c63f56e276",
     );
   });

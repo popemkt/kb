@@ -23,8 +23,13 @@ export interface SourceAdapter {
   /** Whether a search or a download may reach `host`. */
   readonly hosts: (host: string) => boolean;
   readonly searchUrl: (query: string, cursor: string | undefined) => string;
-  /** The answer read into results; an answer of another shape reads as none. */
-  readonly page: (answer: unknown) => SearchPage;
+  /**
+   * The answer to `searchUrl(query, cursor)` read into results; an answer of
+   * another shape reads as none. A source that searches answers only what
+   * matches, and its reading ignores the query; a source that publishes a
+   * catalogue answers all of it, and its reading is the search.
+   */
+  readonly page: (answer: unknown, query: string, cursor: string | undefined) => SearchPage;
 }
 
 const PAGE_SIZE = 20;

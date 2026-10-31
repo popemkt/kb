@@ -80,12 +80,9 @@ export function searchEffect(send: SourceFetch) {
   ): Effect.fn.Return<SearchPage, DomainError, KbCtx> {
     const { adapter } = yield* adapterOf(input.source);
     if (input.query.trim() === "") return { results: [] };
-    const answer = yield* getJson(
-      send,
-      adapter.searchUrl(input.query.trim(), input.cursor),
-      adapter.hosts,
-    );
-    const page = adapter.page(answer);
+    const query = input.query.trim();
+    const answer = yield* getJson(send, adapter.searchUrl(query, input.cursor), adapter.hosts);
+    const page = adapter.page(answer, query, input.cursor);
     return { ...page, results: page.results.filter((result) => admitted(adapter, result)) };
   });
 }
