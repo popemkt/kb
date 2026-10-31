@@ -7,5 +7,5 @@
   "trailingComma": "all",
   "bracketSpacing": true,
   "arrowParens": "always",
-  "ignorePatterns": ["**/public/vendor/**"]
+  "ignorePatterns": ["**/public/vendor/**", "**/datom-kernel-wasm/src/pkg/**"]
 }

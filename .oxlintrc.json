@@ -23,7 +23,8 @@
     "**/node_modules/**",
     "**/storybook-static/**",
     "**/ext-sdk/generated/**",
-    "**/public/vendor/**"
+    "**/public/vendor/**",
+    "**/datom-kernel-wasm/src/pkg/**"
   ],
   "categories": {
     "correctness": "error",

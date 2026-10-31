@@ -18,6 +18,11 @@ export type { LogAdapter } from "./log-contract.ts";
 export { sandboxContract } from "./sandbox-contract.ts";
 export { seedGolden } from "./seed-golden.ts";
 export { storeContract } from "./store-contract.ts";
+export {
+  datomKernelContract,
+  kernelAndDatascript,
+  KERNEL_CORPUS,
+} from "./datom-kernel-contract.ts";
 export { CONTRACT_AT, persist, scratchRoot } from "./store-session.ts";
 export type { StoreFactory } from "./store-session.ts";
 export { benchmarkEnabled } from "./bench.ts";

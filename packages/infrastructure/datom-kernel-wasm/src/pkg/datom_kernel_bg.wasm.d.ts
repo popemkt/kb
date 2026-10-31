@@ -1,0 +1,11 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_index_free: (a: number, b: number) => void;
+export const index_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+export const index_run: (a: number, b: number, c: number) => number;
+export const index_tags: (a: number, b: number) => void;
+export const index_values: (a: number, b: number) => void;
+export const __wbindgen_export: (a: number, b: number) => number;
+export const __wbindgen_add_to_stack_pointer: (a: number) => number;
+export const __wbindgen_export2: (a: number, b: number, c: number) => void;
