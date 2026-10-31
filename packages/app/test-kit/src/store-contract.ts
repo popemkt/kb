@@ -35,6 +35,7 @@ import {
   present,
   rankOf,
   rankTx,
+  StoreState,
   SYSTEM_IDS,
   type DomainError,
   type KbNode,
@@ -163,7 +164,7 @@ function roundTripHolds(makeStore: StoreFactory, nodes: KbNode[]): Promise<void>
 
         // What was written, as the commit settles it: the model says which
         // ranks a commit repairs, and nothing else about a node may change.
-        const settled = applyTx([], rankTx([], { upserts: nodes, deletes: [] }));
+        const settled = applyTx([], rankTx(StoreState.of([]), { upserts: nodes, deletes: [] }));
         const byId = new Map(settled);
         for (const loadedNode of loaded) {
           expect(loadedNode).toEqual(

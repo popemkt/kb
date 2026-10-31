@@ -6,6 +6,7 @@ import {
   applyTx,
   domainError,
   rankTx,
+  StoreState,
   ensureDomainError,
   type DomainError,
   canonicalJsonl,
@@ -147,7 +148,7 @@ export class JsonlStore implements EffectStore {
         const stale = staleCommitError(expected, base);
         if (stale !== null) return yield* stale;
         const existing = yield* decodeNodes(current, path);
-        const applied = rankTx(existing, tx);
+        const applied = rankTx(StoreState.of(existing), tx);
         const body = canonicalJsonl([...applyTx(existing, applied).values()]);
         const fingerprint = contentMark(body);
 

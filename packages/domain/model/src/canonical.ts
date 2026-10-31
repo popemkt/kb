@@ -1,5 +1,5 @@
 import { Predicate } from "effect";
-import type { KbNode } from "./model.ts";
+import type { KbNode, NodeId } from "./model.ts";
 
 /** Deterministic JSON: recursively sort object keys. */
 export function canonicalJson(value: unknown): string {
@@ -34,6 +34,17 @@ export function byNodeId(a: KbNode, b: KbNode): number {
  * this one only until one of them is edited.
  */
 export function canonicalJsonl(nodes: readonly KbNode[]): string {
-  const sorted = [...nodes].toSorted(byNodeId);
-  return sorted.length === 0 ? "" : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
+  return canonicalJsonlOf(nodes.map((n) => [n.id, canonicalJson(n)] as const));
+}
+
+/**
+ * The same file from each node's line, already written (`canonicalJson` of
+ * the node), keyed by its id: what a writer that keeps its lines between
+ * commits joins, so only the nodes a commit wrote are serialised again. The
+ * order and the joining are this function's alone; {@link canonicalJsonl}
+ * is it over freshly written lines.
+ */
+export function canonicalJsonlOf(lines: Iterable<readonly [NodeId, string]>): string {
+  const sorted = [...lines].toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return sorted.length === 0 ? "" : sorted.map(([, line]) => line).join("\n") + "\n";
 }
