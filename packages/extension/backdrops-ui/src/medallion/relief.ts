@@ -73,7 +73,7 @@ function segment(q: V2, [[ax, ay], [bx, by]]: Stroke): F {
 }
 
 /** The nearest of `strokes` from `q`. */
-export const nearest = (q: V2, strokes: readonly Stroke[]): F =>
+const nearest = (q: V2, strokes: readonly Stroke[]): F =>
   strokes.map((stroke) => segment(q, stroke)).reduce((a, b) => min(a, b));
 
 /** A closed polygon's signed distance from `q`: negative inside. */

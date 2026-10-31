@@ -3991,25 +3991,53 @@ reports a score against each.
     `backdropStrength`, `backdropDirection`). A stale key is ignored on read
     and dropped on the next write.
 
-- **The art setting.** `sys.f.backdrop.art` names an image of kb's own
-  assets (`assets/…`, DESIGN.md → Assets) that the backdrop draws as its
-  art in place of its own, where it has art to replace. It is how an
+- **The art setting.** `sys.f.backdrop.art` names a file of kb's own
+  assets (`assets/…`, DESIGN.md → Assets) naming the art the backdrop
+  draws in place of its own, where it has art to replace. It is how an
   owner's own picture reaches a backdrop without entering the repository:
   a file in their `.kb/assets/` is theirs, and the backdrop's code is the
-  same for it as for its own art.
+  same for it as for its own art. The file is one of two forms, and both
+  read as one `BackdropArt` (`@kb/model`'s `backdrop-art.ts`), whose parts a
+  backdrop takes where it has them and draws its own for the rest:
+  - **An image** is the hero picture alone.
+  - **An art manifest** (`.json`) names several parts: `image`, the hero
+    picture, and `glyphs`, up to eight, each a `color` (`#rrggbb`) and a
+    shape: SVG `path` data in a `viewBox` (default `[0, 0, 100, 100]`),
+    stroked `stroke` wide with round caps and joins, or filled with none;
+    or an `image` whose alpha is its shape. References are files beside
+    the manifest, named plainly (no scheme, root or `..`), and must be
+    images, so a manifest can only name kb's own assets. A part left out
+    or named wrongly is the backdrop's own, a glyph with no colour takes
+    the colour of the backdrop's own glyph in its place, and a manifest
+    that will not load leaves the backdrop all its own.
+
+    ```json
+    { "image": "medallion.png",
+      "glyphs": [ { "name": "first", "color": "#7cc4ff",
+                    "viewBox": [0, 0, 100, 100], "path": "M 50,13 L 12,84 L 88,84 Z", "stroke": 7 } ] }
+    ```
+  - A backdrop's own glyphs are the default implementation of the same
+    part: the Wolf medallion's runes are a `BackdropGlyph` list
+    (`RUNES`), drawn by the one path an owner's glyphs take (`gpu/glyph-atlas.ts`).
   - It is read as the others are, the page's node first, then core's
-    (`BackdropChoice.art`). Anything that is not an image of kb's assets is
-    no value and falls through, so a setting can never make the page fetch
-    from elsewhere.
+    (`BackdropChoice.art`). Anything that is not an image or an art
+    manifest of kb's assets is no value and falls through, so a setting can
+    never make the page fetch from elsewhere.
   - The slot hands every backdrop its URL (`BackdropProps.art`, null for
     none); a backdrop with no art to replace ignores it, as one with no
     directions ignores direction.
-  - The Wolf medallion replaces its relief with it: red is height, green
-    where it glows, alpha its silhouette, square, its round body 0.4 of its
-    width about its centre. The chain leaves from the top of its silhouette
-    on the centre column. An image that will not load leaves kb's sigil.
+  - The Wolf medallion replaces its relief with the art's image: red is
+    height, green where it glows, alpha its silhouette, square, its round
+    body 0.4 of its width about its centre. The chain leaves from the top of
+    its silhouette on the centre column. It replaces its circle's runes with
+    the art's glyphs, one to a slot round the circle, the first at the top.
+    An image that will not load leaves kb's sigil, and glyphs that will not
+    load leave its runes.
   - Set it in Settings → Appearance (the `art` row under Page head), or
-    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png`.
+    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png` (or
+    `.json`). An asset route serves a manifest as `application/json`; the
+    upload takes media only, so a manifest is a file the owner places in
+    `.kb/assets/` themselves.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -4518,8 +4546,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   muzzle), gabled down its middle, its eyes engraved slits (`medallion.ts`).
   Behind it a faint circle of five glyphs turns once in two minutes, each
   kb's own evocation of one Sign by its nature, in a few straight strokes:
-  a force pushed out, a flame, a ward, a shield, a mind turned. Each glyph
-  smoulders on a slow clock of its own, never in step, and the circle keeps
+  a force pushed out, a flame, a ward, a shield, a mind turned. Each glows
+  faintly in the colour of its nature (a pale cold blue, ember, violet,
+  amber, a soft green), its stroke and a soft bloom round it, breathing on
+  a slow clock of its own with a faint flicker, never in step (still under
+  reduced motion), and the circle keeps
   clear of the head's text and fades before it reaches the rows' tags low
   at its right. Smoke curls close round it and embers climb, and a warm
   back light stands behind it, glowing in the air and the smoke about it,
@@ -4580,8 +4611,15 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     on, each a round wire, from the bail up past the frame's top. The
     medallion and its chain swing as one pendulum from a pivot above the
     frame (every 7.5 s), so the key glides over the bevels.
-  - Glyphs are strokes' distances and rings lines covered by the pixel's
-    footprint (`hairline`), the rings broken into arcs;
+  - **Glyphs are one atlas** (`gpu/glyph-atlas.ts`): every glyph, a rune or
+    the art's, is drawn once into a cell, its coverage and its glow (the
+    coverage blurred), and the atlas keeps its mip chain. The circle reads
+    the glyph of the slot a pixel falls in, and the far haze a glyph's glow,
+    one read each, with explicit derivatives, so a glyph is antialiased at
+    device pixels at any size and the slots' seams pick no wrong level. A
+    glyph's colour is its light on a dark page and its ink, deepened with a
+    little sepia, on a light one. The rings are lines covered by the
+    pixel's footprint (`hairline`), broken into arcs;
     the smoke is two layers, a far slow fold and a near one curled by a
     slow fold of its own into eddies and wisps, thickest close about the
     medallion, lit by the embers from below and by the back light behind
@@ -4630,7 +4668,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     edge. It fades into the page in display values
     (`fadeSpace: "display"`), so a strength's veil leaves the steel its
     darks. The same holds for kb's sigil and for an image the art setting
-    names. Then a smoke wash, sepia glyphs and rust specks. An engraving in
+    names. Then a smoke wash, sepia rings, glyphs inked in their own colours and rust specks. An engraving in
     faint ink was tried first and all but vanished on white; a steel toned
     between a light and a shade by its luminance read as a grey pewter
     ghost.

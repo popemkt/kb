@@ -5,11 +5,15 @@
  * steps, a long closed muzzle), its eyes engraved slits. Around it turns a
  * faint circle of five glyphs, each kb's own evocation of one Sign by its
  * nature (a force pushed out, a flame, a ward, a shield, a mind turned),
- * drawn in a few straight strokes.
+ * drawn in a few straight strokes, each in a faint colour of that nature.
+ * They are the backdrop's own glyph art (`RUNES`), the same contract an
+ * owner's glyphs meet (`BackdropGlyph`).
  *
  * Everything is in medallion units: the disk's radius is 1, y up. Pure, so
  * the geometry and the tremble are tested without a GPU.
  */
+
+import type { BackdropGlyph } from "@kb/model";
 
 export type Point = readonly [number, number];
 /** One straight stroke: from, to. */
@@ -70,9 +74,15 @@ export const ENGRAVING: readonly Stroke[] = [
   ]),
 ];
 
-/** One glyph of the circle: what it evokes, and its strokes in a cell of radius 1. */
+/**
+ * One glyph of the circle: what it evokes, its colour (`#rrggbb`), and its
+ * strokes in a cell of radius 1. The colours are by nature, muted so each
+ * reads as a faint emissive: a force a pale cold blue, a flame ember, a ward
+ * violet, a shield amber, a mind a soft green.
+ */
 export interface Glyph {
   readonly evokes: "force" | "flame" | "ward" | "shield" | "mind";
+  readonly color: string;
   readonly strokes: readonly Stroke[];
 }
 
@@ -81,6 +91,7 @@ export const GLYPHS: readonly Glyph[] = [
   {
     // A force pushed out: a stem and two chevrons rising from it.
     evokes: "force",
+    color: "#8fbfe8",
     strokes: [
       [
         [0, -0.7],
@@ -107,6 +118,7 @@ export const GLYPHS: readonly Glyph[] = [
   {
     // A flame: a tall narrow lozenge, and the wick through it.
     evokes: "flame",
+    color: "#f07a3c",
     strokes: [
       [
         [0, -0.7],
@@ -133,6 +145,7 @@ export const GLYPHS: readonly Glyph[] = [
   {
     // A ward: a gate, two bars held apart by a post, barred across.
     evokes: "ward",
+    color: "#a48ce0",
     strokes: [
       [
         [-0.55, 0.6],
@@ -155,6 +168,7 @@ export const GLYPHS: readonly Glyph[] = [
   {
     // A shield: a heater shield's outline, a spine down it.
     evokes: "shield",
+    color: "#e3b45a",
     strokes: [
       [
         [-0.5, 0.6],
@@ -185,6 +199,7 @@ export const GLYPHS: readonly Glyph[] = [
   {
     // A mind turned: two hooks turned about each other.
     evokes: "mind",
+    color: "#86c99a",
     strokes: [
       [
         [-0.5, -0.5],
@@ -209,6 +224,20 @@ export const GLYPHS: readonly Glyph[] = [
     ],
   },
 ];
+
+/** How wide a rune's strokes are, in its cell's radii. */
+const RUNE_STROKE = 0.13;
+
+/** A glyph's strokes as path data in the view box [-1, -1, 2, 2], y down as SVG's is. */
+const pathOf = (strokes: readonly Stroke[]): string =>
+  strokes.map(([[ax, ay], [bx, by]]) => `M ${ax} ${-ay} L ${bx} ${-by}`).join(" ");
+
+/** kb's runes as the backdrop's own glyph art: what an art setting's glyphs replace. */
+export const RUNES: readonly BackdropGlyph[] = GLYPHS.map((glyph) => ({
+  name: glyph.evokes,
+  color: glyph.color,
+  shape: { kind: "path", d: pathOf(glyph.strokes), viewBox: [-1, -1, 2, 2], stroke: RUNE_STROKE },
+}));
 
 /** The circle the glyphs stand on, and its two fine rings (medallion units). */
 export const CIRCLE = { glyphs: 1.4, inner: 1.22, outer: 1.56, glyph: 0.15 } as const;

@@ -167,6 +167,17 @@ export {
   type BackdropStrength,
 } from "./backdrop.ts";
 export {
+  MAX_BACKDROP_GLYPHS,
+  OWN_ART,
+  backdropArtOf,
+  imageArt,
+  isArtManifest,
+  isBackdropArt,
+  type BackdropArt,
+  type BackdropGlyph,
+  type BackdropGlyphShape,
+} from "./backdrop-art.ts";
+export {
   MOTION_EFFECTS,
   MOTION_FIELD_IDS,
   MOTION_INTENSITIES,

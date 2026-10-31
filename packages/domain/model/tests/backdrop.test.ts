@@ -77,7 +77,9 @@ describe("backdropChoice", () => {
     expect(backdropChoice([page, core], ["backdrops.unicorn"]).backdrop).toBeNull();
   });
 
-  test("art names an image of kb's assets, or it is none", () => {
+  test("art names an image or an art manifest of kb's assets, or it is none", () => {
+    expect(backdropChoice([art("assets/signs.json")], CONTRIBUTED).art).toBe("assets/signs.json");
+    expect(backdropChoice([art("https://example.com/signs.json")], CONTRIBUTED).art).toBeNull();
     expect(backdropChoice([art("assets/wolf.png"), core], CONTRIBUTED).art).toBe("assets/wolf.png");
     expect(backdropChoice([undefined, art("assets/wolf.png")], CONTRIBUTED).art).toBe(
       "assets/wolf.png",
