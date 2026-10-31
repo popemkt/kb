@@ -3222,8 +3222,8 @@ which also lists the workflows judged and not built.
   projection, rendering technique, and 3D setups under Lighting) carry all
   of them. An online source is a node tagged
   `#image source`, with a `search url` (`{query}` stands for the query)
-  and a `source kind`. The family seeds the tags, the fields and six
-  sources; the page offers a starter, which the server adds
+  and a `source kind`. The family seeds the tags, the fields and sixteen
+  sources, image and 3D; the page offers a starter, which the server adds
   (`ext.gallery.starter`; `starter.ts` in the server half: facets of
   styles, and a `Library` that becomes where saves go, the gallery's
   `save into` setting), so its vocabulary is never in a page's download.
@@ -3327,9 +3327,14 @@ which also lists the workflows judged and not built.
   model client and names nothing of the agent family; a failed completion
   is a toast, with its reason.
 - **Online sources keep their terms.** A link source (Pinterest, Are.na,
-  Unsplash, Lexica) is its search page opened in a new tab; kb never calls
-  it. An API source (Civitai, Openverse) is searched through
-  `ext.gallery.search` (`@kb/gallery-net`), PG only, and a result is kept
+  Unsplash, Lexica; for 3D, ArtStation, Shadertoy, Godot Shaders, Blender
+  Studio, Blender Artists, BlendKit, YouTube) is its search page opened in
+  a new tab; kb never calls it. An API source (Civitai, Openverse;
+  Sketchfab, Poly Haven, the three.js examples) is searched through
+  `ext.gallery.search` (`@kb/gallery-net`), PG only. A source that
+  publishes a catalogue instead of a search (Poly Haven, the three.js
+  examples) is read for the query by its adapter, the entries holding most
+  of the query's words first. A result is kept
   through `ext.gallery.save`, which downloads it only from hosts the source's
   adapter names, over https, through at most two redirects, and then writes
   only through core's `asset.upload` and `node.add`, with the result's page,

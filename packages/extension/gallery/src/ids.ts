@@ -57,6 +57,12 @@ export const GALLERY_IDS = {
   kindCivitai: "sys.gallery.source-kind.civitai",
   /** Openverse's public REST API. */
   kindOpenverse: "sys.gallery.source-kind.openverse",
+  /** Sketchfab's Data API search, Creative Commons models only. */
+  kindSketchfab: "sys.gallery.source-kind.sketchfab",
+  /** Poly Haven's published catalogue of CC0 HDRIs, textures and models. */
+  kindPolyHaven: "sys.gallery.source-kind.polyhaven",
+  /** The three.js examples' published list, with their screenshots. */
+  kindThreeExamples: "sys.gallery.source-kind.threejs-examples",
 } as const;
 
 /** The sources the family seeds, in the panel's order. */
@@ -67,4 +73,14 @@ export const GALLERY_SOURCE_IDS = {
   arena: "sys.gallery.source.arena",
   unsplash: "sys.gallery.source.unsplash",
   lexica: "sys.gallery.source.lexica",
+  sketchfab: "sys.gallery.source.sketchfab",
+  polyhaven: "sys.gallery.source.polyhaven",
+  threejsExamples: "sys.gallery.source.threejs-examples",
+  artstation: "sys.gallery.source.artstation",
+  shadertoy: "sys.gallery.source.shadertoy",
+  godotShaders: "sys.gallery.source.godot-shaders",
+  blenderStudio: "sys.gallery.source.blender-studio",
+  blenderArtists: "sys.gallery.source.blender-artists",
+  blendkit: "sys.gallery.source.blendkit",
+  youtube: "sys.gallery.source.youtube",
 } as const;

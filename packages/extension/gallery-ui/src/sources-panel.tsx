@@ -1,10 +1,11 @@
 /**
  * Online sources for the query at hand. A link source (Pinterest, Are.na,
- * Unsplash, Lexica) is its search page, opened in a new tab: kb never calls
- * it, as its terms ask (research record §3). An API source (Civitai,
- * Openverse) is searched through `ext.gallery.search`, PG only, and a
- * result is kept through `ext.gallery.save`, with its page, creator and
- * licence on the visual.
+ * ArtStation, Shadertoy, …) is its search page, opened in a new tab: kb
+ * never calls it, as its terms ask (research record §3). An API source
+ * (Civitai, Openverse, Sketchfab, Poly Haven, the three.js examples) is
+ * searched through `ext.gallery.search`, PG only, and a result is kept
+ * through `ext.gallery.save`, with its page, creator and licence on the
+ * visual.
  */
 import { useState } from "react";
 import { searchUrlOf, type ImageSource, type SourceResult } from "@kb/gallery";

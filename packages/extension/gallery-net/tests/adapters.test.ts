@@ -9,13 +9,26 @@ import {
   civitaiAdapter,
   civitaiSized,
   openverseAdapter,
+  polyHavenAdapter,
+  queryWords,
+  sketchfabAdapter,
+  threeExamplesAdapter,
 } from "../src/adapters.ts";
-import { civitaiModels, openverseImages } from "./fake-source.ts";
+import {
+  civitaiModels,
+  openverseImages,
+  polyHavenAssets,
+  sketchfabModels,
+  threeExamplesFiles,
+} from "./fake-source.ts";
 
 /** Each adapter's fixture: an answer, and the query it answers. */
 const FIXTURES = new Map<string, { readonly answer: unknown; readonly query: string }>([
   [civitaiAdapter.kind, { answer: civitaiModels, query: "watercolor" }],
   [openverseAdapter.kind, { answer: openverseImages, query: "lighthouse" }],
+  [sketchfabAdapter.kind, { answer: sketchfabModels, query: "pagoda" }],
+  [polyHavenAdapter.kind, { answer: polyHavenAssets, query: "warm sunset" }],
+  [threeExamplesAdapter.kind, { answer: threeExamplesFiles, query: "toon" }],
 ]);
 
 describe("every source adapter", () => {
@@ -109,5 +122,97 @@ describe("openverse", () => {
     const url = new URL(openverseAdapter.searchUrl("lighthouse", undefined));
     expect(url.searchParams.get("mature")).toBe("false");
     expect(url.searchParams.has("page")).toBe(false);
+  });
+});
+
+describe("sketchfab", () => {
+  test("a downloadable, unrestricted model under a CC licence, its thumbnail and image sized", () => {
+    const { results, next } = sketchfabAdapter.page(sketchfabModels, "pagoda", undefined);
+    expect(next).toBe("24");
+    expect(results).toEqual([
+      {
+        id: "sketchfab:134a80bc",
+        title: "Low poly pagoda",
+        thumb: "https://media.sketchfab.com/models/134a80bc/thumbnails/t/256.jpeg",
+        image: "https://media.sketchfab.com/models/134a80bc/thumbnails/t/1024.jpeg",
+        width: 1024,
+        height: 576,
+        page: "https://sketchfab.com/3d-models/low-poly-pagoda-134a80bc",
+        creator: "Lan",
+        licence: "CC Attribution, on Sketchfab",
+      },
+    ]);
+  });
+
+  test("its search asks for models, unrestricted and downloadable, and pages by cursor", () => {
+    const url = new URL(sketchfabAdapter.searchUrl("pagoda", "24"));
+    expect(url.pathname).toBe("/v3/search");
+    expect(url.searchParams.get("restricted")).toBe("0");
+    expect(url.searchParams.get("downloadable")).toBe("true");
+    expect(url.searchParams.get("cursor")).toBe("24");
+  });
+});
+
+describe("the catalogues", () => {
+  test("a query's words are its own, lowercase, three letters or more", () => {
+    expect(queryWords("Cel-shaded, toon ramp & a PS1")).toEqual([
+      "cel",
+      "shaded",
+      "toon",
+      "ramp",
+      "ps1",
+    ]);
+  });
+
+  test("Poly Haven: the assets the query's words name, the most words first, CC0", () => {
+    const { results, next } = polyHavenAdapter.page(polyHavenAssets, "warm sunset bay", undefined);
+    expect(next).toBeUndefined();
+    expect(results).toEqual([
+      {
+        id: "polyhaven:golden_bay",
+        title: "Golden Bay (HDRI)",
+        thumb:
+          "https://cdn.polyhaven.com/asset_img/thumbs/golden_bay.png?width=256&height=256&format=webp&v=1",
+        image:
+          "https://cdn.polyhaven.com/asset_img/thumbs/golden_bay.png?width=1024&height=1024&format=webp&v=1",
+        width: 1024,
+        height: 1024,
+        page: "https://polyhaven.com/a/golden_bay",
+        creator: "Greg Zaal",
+        licence: "CC0, from Poly Haven",
+      },
+    ]);
+    expect(polyHavenAdapter.page(polyHavenAssets, "zebra", undefined).results).toEqual([]);
+  });
+
+  test("three.js examples: the examples whose names hold the query's words, with their screenshots", () => {
+    const { results } = threeExamplesAdapter.page(
+      threeExamplesFiles,
+      "pixel postprocessing",
+      undefined,
+    );
+    expect(results.map((r) => r.id)).toEqual([
+      "threejs:webgl_postprocessing_pixel",
+      "threejs:webgl_postprocessing",
+    ]);
+    expect(results[0]?.thumb).toBe(
+      "https://threejs.org/examples/screenshots/webgl_postprocessing_pixel.jpg",
+    );
+    expect(results[0]?.page).toBe("https://threejs.org/examples/#webgl_postprocessing_pixel");
+  });
+
+  test("a catalogue pages by offset, and asks for the same list whatever the query", () => {
+    const many = { webgl: Array.from({ length: 45 }, (_, i) => `webgl_toon_${i}`) };
+    const first = threeExamplesAdapter.page(many, "toon", undefined);
+    expect(first.results).toHaveLength(20);
+    expect(first.next).toBe("20");
+    const last = threeExamplesAdapter.page(many, "toon", "40");
+    expect(last.results.map((r) => r.id)).toEqual(
+      [40, 41, 42, 43, 44].map((i) => `threejs:webgl_toon_${i}`),
+    );
+    expect(last.next).toBeUndefined();
+    expect(threeExamplesAdapter.searchUrl("a", "20")).toBe(
+      threeExamplesAdapter.searchUrl("b", undefined),
+    );
   });
 });

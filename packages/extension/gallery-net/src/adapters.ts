@@ -7,7 +7,8 @@
  * a download or a thumbnail at a host the adapter does not name. The search
  * holds every adapter's results to that (`admitted`, `actions.ts`).
  *
- * What each source allows, and why these two, is the research record's §3.
+ * What each source allows, and why these, is the research record's §3 and
+ * the 3D record's (docs/research/2026-10-31-3d-styles-and-sources.md).
  */
 import { z } from "zod";
 import { GALLERY_IDS, type SourceResult } from "@kb/gallery";
@@ -193,5 +194,241 @@ export const openverseAdapter: SourceAdapter = {
   },
 };
 
+// ─── Sketchfab ──────────────────────────────────────────────────────────────
+
+const SketchfabThumb = z.object({ url: z.string(), width: z.number(), height: z.number() });
+const SketchfabModel = z.object({
+  uid: z.string(),
+  name: z.string(),
+  viewerUrl: z.string(),
+  isAgeRestricted: z.boolean(),
+  license: z.object({ label: z.string() }).nullable().optional(),
+  user: z
+    .object({ displayName: z.string().nullable().optional(), username: z.string() })
+    .nullable()
+    .optional(),
+  thumbnails: z
+    .object({ images: z.array(SketchfabThumb) })
+    .nullable()
+    .optional(),
+});
+const SketchfabAnswer = z.object({
+  results: z.array(z.unknown()),
+  cursors: z.object({ next: z.string().nullable().optional() }).optional(),
+});
+
+/** The smallest of `images` at least `width` wide, else the largest. */
+function sizedAtLeast<T extends { readonly width: number }>(
+  images: readonly T[],
+  width: number,
+): T | undefined {
+  const sorted = images.toSorted((a, b) => a.width - b.width);
+  return sorted.find((image) => image.width >= width) ?? sorted.at(-1);
+}
+
+/**
+ * Sketchfab's Data API search: models only, never age-restricted, and only
+ * those a person may download, which are the ones under a Creative Commons
+ * licence; a result whose licence is not Creative Commons is dropped.
+ */
+export const sketchfabAdapter: SourceAdapter = {
+  kind: GALLERY_IDS.kindSketchfab,
+  hosts: (host) => host === "api.sketchfab.com" || host === "media.sketchfab.com",
+  searchUrl: (query, cursor) => {
+    const params = new URLSearchParams({
+      type: "models",
+      q: query,
+      restricted: "0",
+      downloadable: "true",
+      count: "24",
+    });
+    if (cursor !== undefined) params.set("cursor", cursor);
+    return `https://api.sketchfab.com/v3/search?${params.toString()}`;
+  },
+  page: (answer) => {
+    const parsed = SketchfabAnswer.safeParse(answer);
+    if (!parsed.success) return { results: [] };
+    const results: SourceResult[] = [];
+    for (const item of parsed.data.results) {
+      const model = SketchfabModel.safeParse(item);
+      if (!model.success || model.data.isAgeRestricted) continue;
+      const licence = model.data.license?.label ?? "";
+      if (!licence.startsWith("CC")) continue;
+      const images = model.data.thumbnails?.images ?? [];
+      const thumb = sizedAtLeast(images, 256);
+      const image = sizedAtLeast(images, 1024);
+      if (thumb === undefined || image === undefined) continue;
+      const user = model.data.user;
+      const creator =
+        user === null || user === undefined ? undefined : (user.displayName ?? user.username);
+      results.push({
+        id: `sketchfab:${model.data.uid}`,
+        title: model.data.name,
+        thumb: thumb.url,
+        image: image.url,
+        width: image.width,
+        height: image.height,
+        page: model.data.viewerUrl,
+        ...(creator === undefined ? {} : { creator }),
+        licence: `${licence}, on Sketchfab`,
+      });
+    }
+    const next = parsed.data.cursors?.next;
+    return next === null || next === undefined ? { results } : { results, next };
+  },
+};
+
+// ─── Catalogues: Poly Haven, three.js examples ─────────────────────────────
+
+/** The words of a query a catalogue entry is matched by: lowercase, three letters or more. */
+export function queryWords(query: string): readonly string[] {
+  return [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}]+/u))].filter(
+    (word) => word.length >= 3,
+  );
+}
+
+/**
+ * One page of a catalogue read for a query: each entry scored by how many
+ * of the query's words its text holds, the best first (ties keep the
+ * catalogue's order), `PAGE_SIZE` from the offset `cursor` names.
+ */
+function catalogPage<T>(
+  entries: readonly T[],
+  textOf: (entry: T) => string,
+  query: string,
+  cursor: string | undefined,
+  resultOf: (entry: T) => SourceResult,
+): SearchPage {
+  const words = queryWords(query);
+  const scored = entries
+    .map((entry) => {
+      const text = textOf(entry).toLowerCase();
+      return { entry, score: words.filter((word) => text.includes(word)).length };
+    })
+    .filter(({ score }) => score > 0)
+    .toSorted((a, b) => b.score - a.score);
+  const from = Math.max(0, Number.parseInt(cursor ?? "0", 10) || 0);
+  const results = scored.slice(from, from + PAGE_SIZE).map(({ entry }) => resultOf(entry));
+  return from + PAGE_SIZE < scored.length
+    ? { results, next: String(from + PAGE_SIZE) }
+    : { results };
+}
+
+const PolyHavenAsset = z.object({
+  name: z.string(),
+  type: z.number(),
+  tags: z.array(z.string()).optional(),
+  categories: z.array(z.string()).optional(),
+  category: z.string().optional(),
+  description: z.string().optional(),
+  authors: z.record(z.string(), z.string()).optional(),
+  thumbnail_url: z.string(),
+  download_count: z.number().optional(),
+});
+type PolyHavenAsset = z.infer<typeof PolyHavenAsset> & { readonly id: string };
+
+const POLY_HAVEN_TYPES = ["HDRI", "texture", "model"] as const;
+
+/** A Poly Haven thumbnail at `size` px square: the CDN sizes it by its query. */
+function polyHavenSized(url: string, size: number): string {
+  const sized = new URL(url);
+  sized.searchParams.set("width", String(size));
+  sized.searchParams.set("height", String(size));
+  return sized.href;
+}
+
+/**
+ * Poly Haven: CC0 HDRIs, textures and models. Its API has no text search,
+ * so the search reads its published catalogue for the query, by name, tags,
+ * categories and description. Its terms ask for a client of its own name
+ * (the user agent every request carries, `./http.ts`) and a visible credit,
+ * which the source's name in the panel is.
+ */
+export const polyHavenAdapter: SourceAdapter = {
+  kind: GALLERY_IDS.kindPolyHaven,
+  hosts: (host) => host === "api.polyhaven.com" || host === "cdn.polyhaven.com",
+  searchUrl: () => "https://api.polyhaven.com/assets?type=all",
+  page: (answer, query, cursor) => {
+    if (typeof answer !== "object" || answer === null || Array.isArray(answer))
+      return { results: [] };
+    const assets: PolyHavenAsset[] = [];
+    for (const [id, raw] of Object.entries(answer)) {
+      const asset = PolyHavenAsset.safeParse(raw);
+      if (asset.success) assets.push({ ...asset.data, id });
+    }
+    assets.sort((a, b) => (b.download_count ?? 0) - (a.download_count ?? 0));
+    return catalogPage(
+      assets,
+      (asset) =>
+        [
+          asset.name,
+          ...(asset.tags ?? []),
+          ...(asset.categories ?? []),
+          asset.category,
+          asset.description,
+        ].join(" "),
+      query,
+      cursor,
+      (asset) => {
+        const authors = Object.keys(asset.authors ?? {});
+        const kind = POLY_HAVEN_TYPES[asset.type] ?? "asset";
+        return {
+          id: `polyhaven:${asset.id}`,
+          title: `${asset.name} (${kind})`,
+          thumb: polyHavenSized(asset.thumbnail_url, 256),
+          image: polyHavenSized(asset.thumbnail_url, 1024),
+          width: 1024,
+          height: 1024,
+          page: `https://polyhaven.com/a/${encodeURIComponent(asset.id)}`,
+          ...(authors.length === 0 ? {} : { creator: authors.join(", ") }),
+          licence: "CC0, from Poly Haven",
+        };
+      },
+    );
+  },
+};
+
+const ThreeExamplesAnswer = z.record(z.string(), z.array(z.string()));
+
+/**
+ * The three.js examples: every technique demo the library ships, read from
+ * its published list for the query by the words of each example's name
+ * (`webgl_postprocessing_pixel`), shown with its own screenshot. The
+ * examples are MIT, as three.js is.
+ */
+export const threeExamplesAdapter: SourceAdapter = {
+  kind: GALLERY_IDS.kindThreeExamples,
+  hosts: (host) => host === "threejs.org",
+  searchUrl: () => "https://threejs.org/examples/files.json",
+  page: (answer, query, cursor) => {
+    const parsed = ThreeExamplesAnswer.safeParse(answer);
+    if (!parsed.success) return { results: [] };
+    const names = [...new Set(Object.values(parsed.data).flat())].filter((name) =>
+      /^[a-z0-9_]+$/.test(name),
+    );
+    return catalogPage(
+      names,
+      (name) => name.replaceAll("_", " "),
+      query,
+      cursor,
+      (name) => ({
+        id: `threejs:${name}`,
+        title: name.replaceAll("_", " "),
+        thumb: `https://threejs.org/examples/screenshots/${name}.jpg`,
+        image: `https://threejs.org/examples/screenshots/${name}.jpg`,
+        page: `https://threejs.org/examples/#${name}`,
+        creator: "three.js authors",
+        licence: "MIT, three.js examples",
+      }),
+    );
+  },
+};
+
 /** Every API adapter, by the source-kind option it serves. */
-export const SOURCE_ADAPTERS: readonly SourceAdapter[] = [civitaiAdapter, openverseAdapter];
+export const SOURCE_ADAPTERS: readonly SourceAdapter[] = [
+  civitaiAdapter,
+  openverseAdapter,
+  sketchfabAdapter,
+  polyHavenAdapter,
+  threeExamplesAdapter,
+];

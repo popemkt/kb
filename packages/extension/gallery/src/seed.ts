@@ -56,6 +56,67 @@ const SOURCES: ReadonlyArray<readonly [id: string, text: string, kind: string, u
     "https://unsplash.com/s/photos/{query}",
   ],
   [GALLERY_SOURCE_IDS.lexica, "Lexica", GALLERY_IDS.kindLink, "https://lexica.art/?q={query}"],
+  // 3D: models, materials and technique demos (docs/research/2026-10-31-3d-styles-and-sources.md).
+  [
+    GALLERY_SOURCE_IDS.sketchfab,
+    "Sketchfab",
+    GALLERY_IDS.kindSketchfab,
+    "https://sketchfab.com/search?q={query}&type=models&features=downloadable",
+  ],
+  [
+    GALLERY_SOURCE_IDS.polyhaven,
+    "Poly Haven",
+    GALLERY_IDS.kindPolyHaven,
+    "https://polyhaven.com/all?s={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.threejsExamples,
+    "three.js examples",
+    GALLERY_IDS.kindThreeExamples,
+    "https://threejs.org/examples/?q={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.artstation,
+    "ArtStation",
+    GALLERY_IDS.kindLink,
+    "https://www.artstation.com/search?sort_by=relevance&query={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.shadertoy,
+    "Shadertoy",
+    GALLERY_IDS.kindLink,
+    "https://www.shadertoy.com/results?query={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.godotShaders,
+    "Godot Shaders",
+    GALLERY_IDS.kindLink,
+    "https://godotshaders.com/?s={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.blenderStudio,
+    "Blender Studio",
+    GALLERY_IDS.kindLink,
+    "https://studio.blender.org/search/?query={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.blenderArtists,
+    "Blender Artists",
+    GALLERY_IDS.kindLink,
+    "https://blenderartists.org/search?q={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.blendkit,
+    "BlendKit",
+    GALLERY_IDS.kindLink,
+    "https://www.blendkit.com/asset-gallery?query={query}",
+  ],
+  [
+    GALLERY_SOURCE_IDS.youtube,
+    "YouTube",
+    GALLERY_IDS.kindLink,
+    "https://www.youtube.com/results?search_query={query}",
+  ],
 ];
 
 export function gallerySeedNodes(at: string): readonly KbNode[] {
@@ -90,11 +151,21 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
     }),
     {
       ...kind,
-      children: [GALLERY_IDS.kindLink, GALLERY_IDS.kindCivitai, GALLERY_IDS.kindOpenverse],
+      children: [
+        GALLERY_IDS.kindLink,
+        GALLERY_IDS.kindCivitai,
+        GALLERY_IDS.kindOpenverse,
+        GALLERY_IDS.kindSketchfab,
+        GALLERY_IDS.kindPolyHaven,
+        GALLERY_IDS.kindThreeExamples,
+      ],
     },
     plain(GALLERY_IDS.kindLink, "link", at),
     plain(GALLERY_IDS.kindCivitai, "civitai", at),
     plain(GALLERY_IDS.kindOpenverse, "openverse", at),
+    plain(GALLERY_IDS.kindSketchfab, "sketchfab", at),
+    plain(GALLERY_IDS.kindPolyHaven, "poly haven", at),
+    plain(GALLERY_IDS.kindThreeExamples, "three.js examples", at),
     seededTag(
       GALLERY_IDS.visualTag,
       "visual",
