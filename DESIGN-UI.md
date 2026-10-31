@@ -3858,13 +3858,14 @@ exist is a plugin point, and the kit names none of them.
 
 Every backdrop is built and judged against the backdrop framework,
 [`docs/backdrops.md`](docs/backdrops.md): its criteria (headed by premium,
-like a game's title screen; then fidelity to the reference, objects above
-the backdrop, scale and colour first, light-page blending, no visible
-boundary, sharpness, no load flicker, motion, seeded variation, diversity,
-GPU budget, original marks, delivered whole) are `#backdrop-criterion` nodes, each with the owner's
-words (`asks`), how it is judged, its target and what it applies to, and the
-document is their projection (`kb docs materialize`). A PR for a backdrop
-reports a score against each.
+like a game's title screen; the document lists the rest) are
+`#backdrop-criterion` nodes, each with the owner's words (`asks`), how it is
+judged, its target and what it applies to, and the document is their
+projection (`kb docs materialize`). Below them it keeps the floor: six
+reference experiments, `#reference` nodes with their licences, that a new
+backdrop or theme is held beside
+([`docs/research/2026-10-31-3d-quality-bar.md`](docs/research/2026-10-31-3d-quality-bar.md)).
+A PR for a backdrop reports a score against each criterion.
 
 - **The point.** `BackdropPoint` (`ui.backdrops`, `@kb/ui-sdk`, beside
   `ViewPoint`, `DockPoint` and `OverlayPoint`) holds one `Backdrop` per

@@ -2,12 +2,12 @@
 
 # Backdrop framework
 
-Every page-head backdrop is built and judged against these criteria, in this order: scale and colour first, then everything else. Where the owner said it, their words are kept as they said them (asks). Each is a node tagged #backdrop-criterion; this document is their projection, and a PR for a backdrop reports a score against each.
+Every page-head backdrop is built and judged against these criteria, in this order: scale and colour first, then everything else. Where the owner said it, their words are kept as they said them (asks). Each is a node tagged #backdrop-criterion; this document is their projection, and a PR for a backdrop reports a score against each. Beneath them sits the floor: six reference experiments that a new backdrop or theme is held beside, listed at the end (docs/research/2026-10-31-3d-quality-bar.md).
 
 ## Premium, like a game's title screen
 
 - **asks** — “bring out the best visual artist inside you for these effects. Usually these should feel premium like game title/menu screen”
-- **judged** — The headline criterion, judged first and by the same independent reviewer: set beside AAA game title and menu screens, is it composed, cinematically lit, deep and restrained? Anything that reads as a tech demo (a shader showing off, noise for its own sake, an effect with no subject) fails it.
+- **judged** — The headline criterion, judged first and by the same independent reviewer: set beside AAA game title and menu screens, is it composed, cinematically lit, deep and restrained? Anything that reads as a tech demo (a shader showing off, noise for its own sake, an effect with no subject) fails it. The floor is the six references below (the quality bar, docs/research/2026-10-31-3d-quality-bar.md): hold the backdrop beside the nearest one at the same frame size and it must not look the poorer.
 - **target** — 8/10 or better against that bar
 - **applies** — every backdrop
 
@@ -22,7 +22,7 @@ Every page-head backdrop is built and judged against these criteria, in this ord
 
 - **asks** — “the back drop, if with spatial elements, should strive for the effect of the spatial elements being on top of, above the backdrop ... that doesn't mean we can't use advanced shader tricks that make impossible effects in 3 dimension. But ... strive for that.”
 - **judged** — Two layers, seen in the dark and light shots and a motion strip. The background (a deep field, a gradient or haze) is its own layer, and only it dissolves into the page. The objects (orbs, a piece of glass, a medallion) sit above it, whole and in focus: the fade never cuts them. They are separated from the field by a rim or back light, a contact shadow or occlusion on the field, blur or haze on the field alone, parallax between the layers, and a little atmospheric perspective.
-- **target** — every object reads as in front of its field; none is clipped by a fade
+- **target** — every object reads as in front of its field; none is clipped by a fade; at least three layers (a ground, a subject, an atmosphere) that shift by different amounts in the motion strip
 - **applies** — every backdrop with spatial objects
 
 ## Scale and colour first
@@ -56,22 +56,22 @@ Every page-head backdrop is built and judged against these criteria, in this ord
 ## Sharpness
 
 - **asks** — crisp AA; sharper
-- **judged** — 2x crops at device pixel ratio 2: thin lines and edges are antialiased at device pixels, with no stair-steps, no shimmer in motion, and no blur where the reference is crisp.
-- **target** — the reviewer finds no aliasing and no soft edge the reference does not have
+- **judged** — 2x crops at device pixel ratio 2: thin lines and edges are antialiased at device pixels, with no stair-steps, no shimmer in motion, and no blur where the reference is crisp. Offscreen and post targets count: a pass drawn to a target with no multisampling or supersampling aliases whatever the canvas does.
+- **target** — the reviewer finds no aliasing and no soft edge the reference does not have, at device pixel ratio 1 and at 2
 - **applies** — every backdrop
 
 ## No load flicker
 
 - **asks** — each backdrop flickers 4–5 times on load; one mount, one first frame, then one steady fade-in
-- **judged** — The render spec backdrop-load.e2e.ts loads every GPU backdrop in a fresh tab and counts what the load did: one GPU adapter, one canvas never replaced, a context only ever configured at the frame's own size, the scene ready once and the canvas faded in once. A load strip (frames 0–2 s, desktop and phone) shows the fade.
-- **target** — the spec green; the strip shows one fade and nothing else
+- **judged** — The render spec backdrop-load.e2e.ts loads every GPU backdrop in a fresh tab and counts what the load did: one GPU adapter, one canvas never replaced, a context only ever configured at the frame's own size, the scene ready once and the canvas faded in once. A load strip (frames 0–2 s, desktop and phone) shows the fade. An intro, if there is one, takes under 3 s from mount to the settled composition, and the first visible frame is already the composed picture: the fade reveals it, and nothing builds or pops in after it (no late texture, no second layer arriving, no re-layout).
+- **target** — the spec green; the strip shows one fade and nothing else; ready and settled in under 3 s
 - **applies** — every backdrop
 
 ## Motion
 
 - **asks** — dynamic, subtle motion like the existing backdrops; reduced motion respected; YoRHa: “smoother, less jagged”
-- **judged** — Motion strips (frames 1.5 s apart) and a reaction to a page event: it always moves a little, never pulls the eye from the text, and eases with no visible steps. Under reduced motion it is one still frame; the motion settings scale it.
-- **target** — moving, calm, smooth; still under reduced motion
+- **judged** — Motion strips (frames 1.5 s apart) and a reaction to a page event: it always moves a little, never pulls the eye from the text, and eases with no visible steps. Under reduced motion it is one still frame; the motion settings scale it. Every moving value eases toward its target by damping on elapsed time, never by a linear ramp or a fixed step per frame, so the trajectory is the same at 30 and at 120 fps; idle motion is a sum of slow, unrelated frequencies or noise, never one loop.
+- **target** — moving, calm, smooth; still under reduced motion; the same trajectory at a frame step of 8 ms and of 33 ms, within 2%
 - **applies** — every backdrop
 
 ## A little seeded variation
@@ -91,8 +91,8 @@ Every page-head backdrop is built and judged against these criteria, in this ord
 ## GPU budget
 
 - **asks** — light to medium GPU cost, with frame times measured
-- **judged** — Uncapped frame time at device pixel ratio 2, whole page, dark at 1280, light at 1280 and the panel at 480, measured beside Lens and Silk on the same machine in the same run.
-- **target** — about Silk's cost or less, and never above 4 ms a frame on the reference machine
+- **judged** — Uncapped frame time at device pixel ratio 2, whole page, dark at 1280, light at 1280 and the panel at 480, measured beside Lens and Silk on the same machine in the same run. It does only what changes: a fixed field is baked once or drawn at its own lower resolution, repeated shapes are instanced, and a pass nothing sees is not drawn (the scene contract's hidden scene draws nothing).
+- **target** — about Silk's cost or less, and never above 4 ms a frame on the reference machine; the PR lists the passes a frame runs
 - **applies** — every backdrop
 
 ## Original marks in the public repository
@@ -108,3 +108,75 @@ Every page-head backdrop is built and judged against these criteria, in this ord
 - **judged** — The PR has both pages, a gallery card, the scene contract and its own tests, and before and after screenshots at desktop and phone widths.
 - **target** — all present in the PR
 - **applies** — every backdrop
+
+## Graded and finished
+
+- **asks** — “some nice things from the threejs author … that’s the quality if we do 3d that we need to at least achieve” (the owner, on the six references below, 2026-10-31)
+- **judged** — The dark and light shots and a 2x crop, read as a colourist would. Colour is authored, not defaulted: every hue comes from one palette (a ground tint, a dominant, an accent, a highlight), applied by a lookup ramp or a few lights, never an engine default or a raw albedo. The picture then goes through a tone curve or an authored ramp, so highlights roll off and shadows keep a tint instead of clipping flat. The finish is restrained and lives at the edges and in the light: grain scaled by luminance, a chromatic split that grows toward the frame's edge, a vignette. None of it lies on the text or on the page's own ground.
+- **target** — dark: the darkest 1% of the art's pixels are a tint of the ground, never #000, and no more than 0.5% of the frame is clipped flat white outside the hot core; grain shows in a 100% crop and is gone at 50%; no colour fringe in the central half of the frame; light: the same, in the page's terms, not washed out
+- **applies** — every backdrop and theme
+
+## Lit with intent
+
+- **asks** — the same floor as Graded and finished: the six references below (the owner, 2026-10-31)
+- **judged** — Each surface is self-luminous with a hot core and a falloff (a disc, an ember, a screen), or lit from a named key with a rim or fresnel edge in a second colour. Lighting is baked into the texture or computed live, and the PR says which, light by light. Solid things take a contact shadow or occlusion on what is behind them. A uniform ambient fill or an engine-default lit material fails.
+- **target** — the PR names each light (direction, colour, baked or live), and the shot shows a rim or fresnel edge on every object; occlusion is present where objects are solid
+- **applies** — every backdrop and theme with lit surfaces
+
+## Detail at several scales
+
+- **asks** — the same floor as Graded and finished: the six references below (the owner, 2026-10-31)
+- **judged** — The 2x crop shows structure at three scales: a macro shape, a middle scale (filaments, ridges, folds) and a fine one (grain, speckle). Noise is built from at least two octaves a factor of two or more apart, and an organic form warps the noise's own coordinates. No single-octave noise, and no tile repeating inside the frame (its period is longer than the frame, or its seam is invisible).
+- **target** — the reviewer finds three scales in the 2x crop; every procedural field has two or more octaves; no visible repeat
+- **applies** — every backdrop and theme with a procedural surface
+
+## Believable interaction
+
+- **asks** — the same floor as Graded and finished: the six references below (the owner, 2026-10-31)
+- **judged** — A pointer or a page event moves a physical thing (a camera on a dolly, a light on an arm, a body with weight), never a sprite that follows the cursor. A scripted pointer track (enter, sweep, rest, leave) shows the reaction starting eased (the first frame moves under 20% of its final displacement), bounded (the hero moves by at most a tenth of its own size, the camera stays inside limits that keep the composition), independent of the frame rate, and settling to the rest pose within 3 s of the pointer leaving, with no overshoot and no jump. Fast attack and slow release is the default shape of a reaction.
+- **target** — the scripted track passes: a time constant of 0.15–0.6 s, the hero's displacement bounded, at rest within 3 s of the pointer leaving
+- **applies** — every backdrop and theme that reacts to the pointer or the page
+
+The quality floor: six experiments by Bruno Simon, the author of the Three.js Journey course. The owner named them as what 3D here must at least reach, and their favourite is the volcano robot. Each is studied, not copied: none carries a licence, so a backdrop takes its techniques, in its own code, art and colour, and none of theirs (docs/research/2026-10-31-3d-quality-bar.md).
+
+## Woodkid Volcano Robot (the owner's favourite)
+
+- **url** — https://experiment-woodkid-volcano-robot.vercel.app
+- **repo** — https://github.com/brunosimon/experiment-woodkid-volcano-robot
+- **licence** — none: no LICENSE file in the repository and package.json says UNLICENSED (all rights reserved); study only
+- **learn** — Restraint: one matte grey subject, one hard moving spotlight with a deep soft shadow, fog into black, a filmic tone curve, a final pass that jitters pixels and splits colour only toward the edges, and a title card that covers the load. Four moods (dark, silhouette white, red, wireframe with bloom) are data over the same scene.
+
+## My Room in 3D
+
+- **url** — https://my-room-in-3d.vercel.app
+- **repo** — https://github.com/brunosimon/my-room-in-3d
+- **licence** — none: no LICENSE file in the repository and package.json says UNLICENSED (all rights reserved); study only
+- **learn** — Bake the light: three 4096-pixel bakes (day, night, neutral) cross-fade by one number, a light map lets three coloured practical lights glow on top, and only the small things (steam, screens, LEDs) are live. The camera is a damped orbit with hard limits, so every view is composed.
+
+## Organic Sphere
+
+- **url** — https://organic-sphere.vercel.app
+- **repo** — https://github.com/brunosimon/organic-sphere
+- **licence** — none: no LICENSE file in the repository and package.json says UNLICENSED (all rights reserved); study only
+- **learn** — One object lit only at its rim: two coloured lights gated by fresnel on a domain-warped sphere, a tinted bloom, a deep violet ground, and parameters that rise fast and fall slowly. All the beauty is in the edge light.
+
+## Holographic Terrain (Valley)
+
+- **url** — https://experiment-holographic-terrain.vercel.app
+- **repo** — https://github.com/brunosimon/experiment-holographic-terrain
+- **licence** — none: no LICENSE file in the repository and package.json says UNLICENSED (all rights reserved); study only
+- **learn** — Scale from optics: contour lines on displaced noise, a hue that drifts in noise, a depth-of-field pass that refocuses with eased tweens, a vignette overlay that fades in, and a parallax that eases to the pointer.
+
+## Infinite World
+
+- **url** — https://infinite-world.vercel.app/
+- **repo** — https://github.com/brunosimon/infinite-world
+- **licence** — none: no LICENSE file in the repository; package.json says ISC, which grants nothing without the licence text, so treat as unlicensed; study only
+- **learn** — A world that always matches its sky: the sky is drawn small to a target and sampled as the fog colour, so the horizon never seams. Terrain is lit per vertex, built in workers by distance, grass is one patch, and a short day cycle drives every colour through ramps.
+
+## Awwwards 2022 workshop black hole
+
+- **url** — https://awwwards-2022-workshop.vercel.app
+- **repo** — no public repository under github.com/brunosimon; attendees' copies exist (for one, github.com/Kirilbt/awwwards-black-hole)
+- **licence** — none found: no repository of the author's is public, and the copies we found say UNLICENSED with no LICENSE file; all rights reserved, so not MIT; study only
+- **learn** — A black hole faked in about 350 lines: a noisy ramp-coloured ring, a screen-space pull toward the hole, a colour split toward the edges and luminance-weighted grain. It shows how far a lookup and a lens trick go, and how raw the result is without a tone curve or multisampling.

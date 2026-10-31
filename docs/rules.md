@@ -1260,6 +1260,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the two read actions beside the agent's other actions, each answered by every adapter, with a property over kb ui
 - **node** — `01M5ZF97R8ZK857GS29QGVD3EN`
 
+### GAP: the backdrop bar's mechanical checks are read by a reviewer, not run
+
+- **expected** — Four of the bar's items are scripts in the shared contracts: the same trajectory at a frame step of 8 ms and of 33 ms (the scene contract drives frame(dt)), the scripted pointer track settling within 3 s and inside its bound, the darkest pixels of a dark screenshot being a tint and the clipped-white share under 0.5%, and the intro under 3 s (backdrop-load.e2e.ts) (docs/research/2026-10-31-3d-quality-bar.md §5).
+- **current** — The criteria Graded and finished, Believable interaction, Motion and No load flicker name these checks and a reviewer applies them from strips and crops; none runs in verify or CI.
+- **impact** — A backdrop can pass with a linear ramp, a frame-rate-dependent ease, a clipped highlight or a slow intro, and nothing goes red.
+- **closes** — Add the four checks to the scene contract (gpu-scenes.contract.test.ts) and the render specs, over every GPU backdrop, then restate each criterion's target as the check.
+- **node** — `01M69E060PGKKK7C39YTA9CM9F`
+
 ### GAP: the backdrop pointer source goes stale under a sibling overlay
 
 - **expected** — A page head's backdrop knows the pointer wherever it lies over the backdrop's box, whatever is drawn on top.
