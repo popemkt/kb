@@ -8,7 +8,8 @@
  * them. The server's entry (`@kb/ext-canvas`) adds the family's actions, and
  * the page's adds its surfaces. A canvas says itself in the generic text, so
  * its views carry no text of their own. A `#canvas` node opens in its
- * canvas (`tagDefaultViews`). It is optional and on by default.
+ * canvas (`tagDefaultViews`), and the outline previews it under its row
+ * (`inlinePreview`). It is optional and on by default.
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
@@ -26,6 +27,7 @@ export const canvasExtension = defineExtension({
   seed: canvasSeedNodes,
   views: [viewDef(CanvasListView), viewDef(CanvasView)],
   tagDefaultViews: { [CANVAS_IDS.canvasTag]: CanvasView },
+  inlinePreview: true,
   refCarriers: [{ field: CANVAS_IDS.canvasField, refsOf: canvasReferences }],
   context: CANVAS_CONTEXT,
 });

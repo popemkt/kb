@@ -52,8 +52,10 @@ import type { OutlineNode } from "./types";
 /**
  * Where a host renders a view: `page` fills the box the host gives it (the
  * shell's page, the graph's canvas); `inline` sits in the outline's flow,
- * under the row of the frame it shows. The rest of the placements wait on
- * their first host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
+ * under the row of the node it shows — a frame's children, or a node's
+ * preview in the view its tag opens it in, read-only in a fixed box. The
+ * rest of the placements wait on their first host:
+ * GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
 export type Placement = "page" | "inline";
 
@@ -105,10 +107,11 @@ export interface ProvidedView {
 
 export const ViewPoint = Point<ProvidedView>()("ui.views");
 
-/** The `ViewPoint` contribution for `key`, under the key's own local id. */
 /**
- * A view of a family (its key names a `family`) must say how a picker names
- * it: its pickers list it by nothing else. A view of no family has no picker.
+ * The `ViewPoint` contribution for `key`, under the key's own local id. A
+ * view of a family (its key names a `family`) must say how a picker names
+ * it: its pickers list it by nothing else. A view of no family may say so
+ * too, for where a node is opened in it ("Open in …", "Open with…").
  */
 export function provideView<P>(
   key: ViewKey<P> & { readonly family: string },
@@ -116,7 +119,7 @@ export function provideView<P>(
 ): ContributionEntry<ProvidedView>;
 export function provideView<P>(
   key: PlainViewKey<P>,
-  view: Omit<View<P>, "key" | "picker">,
+  view: Omit<View<P>, "key">,
 ): ContributionEntry<ProvidedView>;
 export function provideView<P>(
   key: ViewKey<P>,

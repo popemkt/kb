@@ -347,6 +347,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * (it configures the kind `sys.tag`), which templates it, so a person
    * chooses a tag's in the editor, a seeded tag's too.
    */
+  // GAP [[01M69DX3D78HDQJ7W5E4HGC4PJ]] its options are every view type, not only those a node opens in
   const viewDefaultField = refQueryField(
     SYSTEM_IDS.viewDefaultField,
     "view.default",
@@ -356,6 +357,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
     },
   );
+  // A node's inline preview toggle (`previewShownOf`): the node's own choice, never drawn as a row.
+  const previewField = singleField(SYSTEM_IDS.previewField, "preview", "checkbox", HIDE);
   // A docs view's params beside its subject (`lens.query`): which template, written where.
   const viewTemplateField = singleField(SYSTEM_IDS.viewTemplateField, "view.template", "text");
   const viewOutputField = singleField(SYSTEM_IDS.viewOutputField, "view.output", "text");
@@ -573,6 +576,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewField,
     viewsField,
     viewDefaultField,
+    previewField,
     viewTemplateField,
     viewOutputField,
     viewSavedQueryField,

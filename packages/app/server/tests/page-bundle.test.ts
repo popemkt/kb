@@ -46,9 +46,15 @@ const DATASCRIPT = /cljs\.core/;
  * art manifest; the medallion's shaders and glyph atlas load lazily. And by
  * 2 KB for the gallery's 3D seed in its declaration: the `made with`, `seen
  * in` and `how to` fields, three source kinds and ten 3D sources; the 3D
- * starter is the server's, and the art-direction export loads lazily.
+ * starter is the server's, and the art-direction export loads lazily. And
+ * by 18 KB for a node's handler: the tag default in the resolver and the
+ * ways a node opens (`nodeOpenings`, moved from the pane switcher into
+ * `@kb/views`), the node menu's "Open with" and preview rows, the outline
+ * row's "Open in …" and preview box (`node-handler.tsx`), and the preview
+ * settings' fields; the canvas's preview picture loads lazily, as its page
+ * does.
  */
-const EAGER_BUDGET_BYTES = 1_978_000;
+const EAGER_BUDGET_BYTES = 1_996_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

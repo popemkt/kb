@@ -3,6 +3,7 @@
  * way this page can open the target, its tags' defaults first and the one it
  * opens in by default marked; running a row moves the focused pane there and
  * writes nothing. With the canvas family off, a canvas is offered no canvas.
+ * Where the view draws a preview, the menu also opens or closes the node's.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SYSTEM_IDS, present, type PropValue } from "@kb/model";
@@ -34,7 +35,7 @@ const tagged = (tag: string): Record<string, PropValue[]> => ({
   [SYSTEM_IDS.typeField]: [{ t: "ref", v: tag }],
 });
 
-function graph(): WireNode[] {
+function graph(extra: Record<string, WireNode["props"]> = {}): WireNode[] {
   const node = (id: string, props: WireNode["props"]): WireNode => ({
     id,
     text: id,
@@ -48,9 +49,11 @@ function graph(): WireNode[] {
     seeded.find((n) => n.id === SYSTEM_IDS.viewsRoot),
     "seeded",
   );
-  return [...seeded, node("n.board", tagged("sys.tag.canvas")), node("n.plain", {}), root].filter(
-    (n, i, all) => all.findIndex((m) => m.id === n.id) === i,
-  );
+  const over = (n: WireNode): WireNode =>
+    extra[n.id] === undefined ? n : { ...n, props: { ...n.props, ...extra[n.id] } };
+  return [...seeded, node("n.board", tagged("sys.tag.canvas")), node("n.plain", {}), root]
+    .filter((n, i, all) => all.findIndex((m) => m.id === n.id) === i)
+    .map(over);
 }
 
 function context(): CommandContext {
@@ -66,9 +69,9 @@ function context(): CommandContext {
   };
 }
 
-function offered(nodeId: string) {
+function offered(nodeId: string, prefix = "open-with:") {
   useOutlineStore.setState({ selectedNodeId: nodeId });
-  return listNodeCommands(context()).filter((c) => c.id.startsWith("open-with:"));
+  return listNodeCommands(context()).filter((c) => c.id.startsWith(prefix));
 }
 
 describe("Open with…", () => {
@@ -103,5 +106,39 @@ describe("Open with…", () => {
     syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin]);
     expect(offered("n.board").map((c) => c.label)).not.toContain("Open with: Canvas (default)");
     expect(offered("n.plain").map((c) => c.label)).toContain("Open with: Outline (default)");
+  });
+});
+
+describe("the preview toggle in the node menu", () => {
+  let dom: InstalledDom;
+  const previews = (nodeId: string) => offered(nodeId, "toggle-preview").map((c) => c.label);
+  beforeEach(() => {
+    dom = installDomGlobals();
+    resetOutlineStore();
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin]);
+  });
+  afterEach(() => {
+    syncUiPlugins([]);
+    dom.restore();
+  });
+  const hydrate = (extra: Record<string, WireNode["props"]> = {}) =>
+    useGraphStore.getState().hydrateFromWire(graph(extra), 1, "fixtures");
+
+  it("offers a canvas its preview, by whether the node's own toggle has it open", () => {
+    hydrate();
+    expect(previews("n.board")).toEqual(["Show preview: Canvas"]);
+    expect(previews("n.plain")).toEqual([]);
+    hydrate({
+      "n.board": {
+        ...tagged("sys.tag.canvas"),
+        [SYSTEM_IDS.previewField]: [{ t: "bool", v: true }],
+      },
+    });
+    expect(previews("n.board")).toEqual(["Hide preview: Canvas"]);
+  });
+
+  it("offers none where the canvas family's settings show no previews", () => {
+    hydrate({ "sys.extension.canvas": { "sys.f.canvas.preview": [{ t: "bool", v: false }] } });
+    expect(previews("n.board")).toEqual([]);
   });
 });

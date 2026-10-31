@@ -203,33 +203,47 @@ function throughNamed(view: string, node: NodeId, r: Resolving): Opened {
 /**
  * `node` (carried by `carrier`) in its default view: the first view node it
  * names, else its first tag's default view type this host holds
- * ({@link heldTagDefault}), else the store's default view type.
+ * ({@link heldTagDefaultOf}), else the store's default view type.
  */
 function throughDefault(carrier: Carrier, node: NodeId, r: Resolving): Opened {
   const viewId = defaultViewIdOf(carrier);
   if (viewId !== null) return throughViewNode(viewId, node, r);
-  const tagged = heldTagDefault(carrier, r);
+  const tagged = heldTagDefaultOf(carrier, r.catalog.keyOf, r.lookup, r.report)?.key ?? null;
   if (tagged !== null)
     return shownPage(pageOf(tagged, {}, node, null, r.report), node, { subject: node }, r);
   return throughDefaultType(node, node, r);
 }
 
+/** A tag's default view type a host holds: the tag, and the view's key. */
+export interface HeldTagDefault {
+  readonly tag: NodeId;
+  readonly key: ViewKey<unknown>;
+}
+
 /**
- * The key of the first of `carrier`'s tags' default view types this host
- * holds, or null. One that names no view type, or names the home, is
- * reported and passed over; one this host holds no key for is passed over.
+ * The first of `carrier`'s tags' default view types a host holds (`keyOf`
+ * finds a view's key by its option, null where the host holds none), or
+ * null: what a node naming no view opens in before the store's default, and
+ * the handler the outline offers its row ("Open in …", its inline preview).
+ * One that names no view type, or names the home, is reported and passed
+ * over; one the host holds no key for (its family off) is passed over.
  */
-function heldTagDefault(carrier: Carrier, r: Resolving): ViewKey<unknown> | null {
-  for (const { tag, option } of tagDefaultViewsOf(carrier, r.lookup)) {
+export function heldTagDefaultOf(
+  carrier: Carrier | undefined,
+  keyOf: (view: string) => ViewKey<unknown> | null,
+  lookup: (id: NodeId) => Carrier | undefined,
+  report: ConfigReport,
+): HeldTagDefault | null {
+  for (const { tag, option } of tagDefaultViewsOf(carrier, lookup)) {
     const type = viewIdOfOption(option);
     if (type === null || type === HomeView.id) {
-      r.report(
+      report(
         `${tag}'s default view type ${option} is no view a node opens in (${SYSTEM_IDS.viewDefaultField})`,
       );
       continue;
     }
-    const key = r.catalog.keyOf(type);
-    if (key !== null) return key;
+    const key = keyOf(type);
+    if (key !== null) return { tag, key };
   }
   return null;
 }

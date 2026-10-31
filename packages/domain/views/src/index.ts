@@ -117,6 +117,7 @@ export {
   type SplitDirection,
 } from "./layout.ts";
 export {
+  heldTagDefaultOf,
   nodeOpenings,
   resolveDefaultViewType,
   resolveNodeView,
@@ -124,6 +125,7 @@ export {
   type HeldViewTarget,
   type NamedView,
   type BrokenViewTarget,
+  type HeldTagDefault,
   type NodeOpening,
   type NodeViewTarget,
   type UnheldViewTarget,

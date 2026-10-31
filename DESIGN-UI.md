@@ -2566,6 +2566,28 @@ until "Save workspace".
   It is reached from the keyboard as every node command is: the node menu
   is a palette, so typing "open with" finds the rows. Which view a tag
   opens in is the tag's `view.default` row, a field like any other.
+- **A row's handler.** A node whose tag opens it in a view this page draws
+  (`nodeHandlerOf`, DESIGN.md → View nodes → a tag's view may preview its
+  nodes inline) shows "Open in Canvas ↗" at the end of its row: the
+  view's label and its picker's icon, and the same step as the node
+  menu's "Open with: Canvas". It does not change what a click on the
+  bullet does, which stays as resolved. On a pointer that hovers it shows
+  on hover and on focus within the row; on touch (`hover: none`) it is
+  always there, compact: the icon and the label, "Open in" read to a
+  screen reader only. Both are buttons, so Tab reaches them.
+  (`node-handler.tsx`, `@kb/outline-ui`)
+- **A row's preview.** Where the handler's family draws its view `inline`
+  and its settings show previews, the row also offers a "Preview" toggle
+  (a caret, `aria-expanded`; on touch the caret alone), and the node menu
+  offers "Show preview: Canvas" / "Hide preview: Canvas". Open, the
+  preview stands under the row at the row's indent plus one, in a box of
+  the family's `preview height`, so opening it moves what is below by that
+  much and nothing moves after. The view mounts only once the box comes
+  within 200px of the viewport (`useSeen`), so a long outline pays for the
+  previews it shows, not for the ones it holds. Pressing it, or Enter on
+  it, opens the node in the handler's view. It takes the content column's
+  width, so it fits both width modes. With the family off there is no
+  toggle and no preview.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,

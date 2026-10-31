@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { SquareIcon } from "@phosphor-icons/react";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
@@ -46,7 +47,9 @@ export const canvasUiPlugin = definePlugin({
         ctx.contribute(
           ViewPoint,
           provideView(CanvasView, {
-            placements: ["page"],
+            // Inline it is a row's preview: a still picture of the canvas.
+            placements: ["page", "inline"],
+            picker: { order: 0, icon: SquareIcon },
             sample: { id: "canvas.contract-sample" },
             Component: CanvasSurface,
           }),

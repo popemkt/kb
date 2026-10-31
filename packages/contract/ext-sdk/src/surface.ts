@@ -336,6 +336,12 @@ export interface ExtensionDeclaration {
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
   /**
+   * It draws an inline preview of a node its tags open in (its page half
+   * offers that view at placement `inline`); its node gains the preview
+   * settings: shown, expanded, height.
+   */
+  readonly inlinePreview?: true;
+  /**
    * The declared options it contributes, by kind (a design system, a
    * backdrop): each named by the id its page contribution answers to.
    */

@@ -169,6 +169,12 @@ export const SYSTEM_IDS = {
    * `sys.views`' options, carried by `sys.views` and seeded.
    */
   viewDefaultField: "sys.f.view.default",
+  /**
+   * Whether a node's inline preview is shown open (checkbox, one, hidden):
+   * the person's toggle on the node; absent, the previewing family's
+   * `preview.expanded` setting decides (`previewShownOf`).
+   */
+  previewField: "sys.f.preview",
   /** A docs view's template: the name of a template an extension registers (text). */
   viewTemplateField: "sys.f.view.template",
   /** A docs view's output: the repo-relative markdown path it is written to (text). */

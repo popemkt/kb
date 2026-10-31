@@ -24,6 +24,7 @@ import {
   type NodeId,
   nowIso,
 } from "./model.ts";
+import { previewSettingFields, previewSettingValues } from "./preview.ts";
 import type { SeedRetirement } from "./seed-retirement.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
@@ -72,6 +73,12 @@ export interface SeedSource {
    * holds the store's in; a tag two sources claim is refused.
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, SeedView>>;
+  /**
+   * It draws inline previews of the nodes its tags open in: the fold derives
+   * its preview settings (`previewSettingFields`), each configuring its node,
+   * as its own seed nodes.
+   */
+  readonly inlinePreview?: true;
   /**
    * The seeded ids it renamed or removed since a store could have been
    * seeded with them, each with what replaced it, if anything, and the
@@ -201,8 +208,10 @@ function declaredOptionNode(kind: DeclaredOptions, option: SeedOption, at: strin
 
 /**
  * A source's own node, `sys.extension.<name>`, as the fold derives it: named
- * by its label and holding nothing, so an optional family's switch reads as
- * its declared default until someone switches it. Being one of
+ * by its label and holding no switch, so an optional family's switch reads as
+ * its declared default until someone switches it. It holds the defaults of
+ * the settings the fold derives for the source (`previewSettingValues`), so
+ * those show what is in effect. Being one of
  * `sys.extensions`' children is what it is, as a view's option is one of
  * `sys.views`'.
  */
@@ -210,7 +219,7 @@ function extensionNode(source: SeedSource, at: string): KbNode {
   return {
     id: extensionNodeId(source.name),
     text: source.label,
-    props: {},
+    props: source.inlinePreview === true ? previewSettingValues(source.name) : {},
     children: [],
     createdAt: at,
     updatedAt: at,
@@ -342,7 +351,10 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   const kinds = declaredKinds(sources);
   const parts = sources.map((source) => ({
     name: source.name,
-    seed: source.seed?.(at) ?? [],
+    seed: [
+      ...(source.seed?.(at) ?? []),
+      ...(source.inlinePreview === true ? previewSettingFields(source.name, at) : []),
+    ],
     files: source.files,
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
     declared: kinds.map((kind) => declaredOf(source, kind, at)),
