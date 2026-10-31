@@ -3253,7 +3253,8 @@ which also lists the workflows judged and not built.
     styles of an axis the look has nothing in (`eitherOrs`).
   - _I have a picture_ (`reference`): one visual (`from`), picked or
     dropped in; its styles as chips, the model's reading of the picture
-    when it can see, more like it (`moreLike`, by shared styles), and its
+    (read as it opens when the person's model sees, which the completion
+    says without asking a model, and on asking otherwise), more like it (`moreLike`, by shared styles), and its
     variations along one axis (`variationsOf`), each a whole look.
   - _Browse my library_ (`browse`): the virtualised grid beside one column
     of facets or online sources, and an open visual's detail in their
@@ -3294,6 +3295,8 @@ which also lists the workflows judged and not built.
   child injects `ModelCompletionService`, which the agent's half provides
   over its `ext.agent.complete`, and offers the composer's model at
   `ComposerModelPoint`: Enhance, Reflect and "Ask your model" use it.
+  Whether the model sees is the completion's to say (`sees`, over the
+  agent's `ext.agent.sight`, which reads the provider and asks no model).
   Reflect sends the person's pictures as asset paths, as many as the
   completion says it takes (`ModelCompletion.pictures`); the reply says how
   many the model saw, and a model that cannot see is sent the words alone,

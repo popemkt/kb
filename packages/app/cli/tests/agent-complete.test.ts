@@ -31,6 +31,7 @@ import { bunFileSystemLayer } from "@kb/runtime";
 import { startUi, type UiServerHandle } from "@kb/server";
 
 const COMPLETE = "ext.agent.complete";
+const AGENT_SIGHT_ACTION = "ext.agent.sight";
 /** What the completion keeps of a reply, in characters (`COMPLETION_LIMITS.reply`). */
 const REPLY_LIMIT = 32_000;
 
@@ -145,6 +146,21 @@ describe("ext.agent.complete", () => {
     } finally {
       sees = true;
     }
+  });
+
+  test("its sight says whether the provider's model sees, and asks no model", async () => {
+    const from = built.length;
+    expect(await call(AGENT_SIGHT_ACTION, {})).toMatchObject({
+      status: "succeeded",
+      output: { sees: true, provider: "scripted" },
+    });
+    sees = false;
+    try {
+      expect(await call(AGENT_SIGHT_ACTION, {})).toMatchObject({ output: { sees: false } });
+    } finally {
+      sees = true;
+    }
+    expect(built.slice(from).every((runtime) => runtime.turns.length === 0)).toBe(true);
   });
 
   test("a picture that is no asset, no picture a model takes, missing or too large is refused before any model runs", async () => {

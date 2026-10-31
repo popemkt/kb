@@ -41,6 +41,8 @@ export interface Reflected {
 }
 
 export interface ComposerModel {
+  /** Whether the person's model is shown pictures: a picture is then read without asking. */
+  readonly sees: () => Promise<boolean>;
   /** `prompt` rewritten for `target`; null after telling the person why not. */
   readonly enhance: (prompt: string, target: ComposeTarget) => Promise<string | null>;
   /** `words` and `pictures` (asset paths) broken into axes; null after saying why not. */
@@ -59,6 +61,7 @@ export const MODEL_NEEDS = "needs the agent: switch it on in Settings → Extens
 
 function composerModelOver(completion: ModelCompletion): ComposerModel {
   return {
+    sees: () => completion.sees(),
     enhance: async (prompt, target) => {
       const reply = await completion.complete(enhanceInput(prompt, target));
       if (reply.ok) return reply.text;
