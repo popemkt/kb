@@ -36,7 +36,7 @@ describe("the starter", () => {
     for (const [name, line] of outline.styles) expect(lines[line - 1]).toBe(`    - ${name} #style`);
   });
 
-  test("a style's notes are fields the gallery seeds, and its styles name the starter's", () => {
+  test("a style's notes are fields the gallery seeds, and what it is made with names the starter's", () => {
     const styles = stylesOf();
     const fields = new Set(
       (galleryExtension.seed?.(AT) ?? [])
@@ -54,7 +54,7 @@ describe("the starter", () => {
     for (const style of noted)
       for (const field of style.fields) {
         expect(fields.has(field.name)).toBe(true);
-        if (field.name !== "styles") continue;
+        if (field.name !== "made with") continue;
         for (const value of field.values)
           expect(names.has(value.raw.replace(/^\[\[(.*)\]\]$/, "$1"))).toBe(true);
       }
@@ -75,7 +75,9 @@ describe("the starter", () => {
 
   test("a 3D style is made with techniques the starter names, and prompts name no work", () => {
     const style = stylesOf().find((item) => item.text === "cel-shaded");
-    const made = style?.fields.find((field) => field.name === "styles")?.values.map((v) => v.raw);
+    const made = style?.fields
+      .find((field) => field.name === "made with")
+      ?.values.map((v) => v.raw);
     expect(made).toContain("[[toon ramp]]");
     expect(made).toContain("[[inverted hull outline]]");
     const how = style?.fields.find((field) => field.name === "how to")?.values ?? [];

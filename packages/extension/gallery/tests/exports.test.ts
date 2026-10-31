@@ -38,7 +38,7 @@ const NODES: GraphNode[] = [
   facet("s3d", "3D style", ["cel"]),
   style("cel", "cel-shaded", {
     [GALLERY_IDS.descriptionField]: [str("Two or three hard tone bands and a dark outline.")],
-    [GALLERY_IDS.stylesField]: [ref("ramp"), ref("hull")],
+    [GALLERY_IDS.madeWithField]: [ref("ramp"), ref("hull")],
     [GALLERY_IDS.seenInField]: [str("A sailing game"), str("A skating game")],
     [GALLERY_IDS.howToField]: [
       str("Three.js: MeshToonMaterial with a gradientMap."),
@@ -53,10 +53,10 @@ const NODES: GraphNode[] = [
   // A toon ramp is made with flat shading, which calls for the ramp again: a cycle, read once.
   style("ramp", "toon ramp", {
     [GALLERY_IDS.howToField]: [str("Three.js: a NearestFilter DataTexture.")],
-    [GALLERY_IDS.stylesField]: [ref("flat")],
+    [GALLERY_IDS.madeWithField]: [ref("flat")],
   }),
   style("hull", "inverted hull outline"),
-  style("flat", "flat shading", { [GALLERY_IDS.stylesField]: [ref("ramp"), ref("gone")] }),
+  style("flat", "flat shading", { [GALLERY_IDS.madeWithField]: [ref("ramp"), ref("gone")] }),
 ];
 const library = libraryOf(NODES);
 const byId = new Map(NODES.map((node) => [node.id, node]));

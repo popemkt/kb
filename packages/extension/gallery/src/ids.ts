@@ -23,8 +23,10 @@ export const GALLERY_IDS = {
   sourceField: "sys.f.gallery.source",
   /** Who made it and on what terms, as the source states (text, one). */
   creditField: "sys.f.gallery.credit",
-  /** The styles a visual shows, a look chooses, or a style is made with (ref to #style, many). */
+  /** The styles a visual shows or a look chooses (ref to #style, many). */
   stylesField: "sys.f.gallery.styles",
+  /** The styles a style is made with: cel-shaded with its toon ramp and outline (ref to #style, many). */
+  madeWithField: "sys.f.gallery.made-with",
   /** Works that show a style: games, films, prints (text, many). */
   seenInField: "sys.f.gallery.seen-in",
   /** How to make a style, one value per tool, led by the tool's name (text, many). */

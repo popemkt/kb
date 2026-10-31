@@ -3224,8 +3224,8 @@ which also lists the workflows judged and not built.
   `#facet`, a reading of structure, not a field, so moving a style re-files
   it everywhere. A style's `prompt` and `negative` are templates; one with
   no template composes as its name. A style also carries what a builder
-  reads: its `description` (what it looks like), its `styles` (the styles
-  it is made with, so "cel-shaded" names its toon ramp and outline), the
+  reads: its `description` (what it looks like), what it is `made with`
+  (other styles, so "cel-shaded" names its toon ramp and outline), the
   works it is `seen in`, and `how to` make it, one value per tool (Three.js,
   Blender, Godot). The starter's 3D facets (3D style, presentation,
   projection, rendering technique, and 3D setups under Lighting) carry all

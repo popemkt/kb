@@ -166,7 +166,7 @@ export function libraryOf(nodes: Iterable<GraphNode>): Library {
   // What a style is made with is known once every style is.
   for (const node of styleNodes) {
     const entry = styles.get(node.id);
-    const madeWith = refs(node, GALLERY_IDS.stylesField).filter(
+    const madeWith = refs(node, GALLERY_IDS.madeWithField).filter(
       (id) => id !== node.id && styles.has(id),
     );
     if (entry !== undefined && madeWith.length > 0) styles.set(node.id, { ...entry, madeWith });

@@ -128,6 +128,9 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
     seededField(GALLERY_IDS.stylesField, "styles", "ref", at, {
       props: { [SYSTEM_IDS.targetTagField]: ref(GALLERY_IDS.styleTag) },
     }),
+    seededField(GALLERY_IDS.madeWithField, "made with", "ref", at, {
+      props: { [SYSTEM_IDS.targetTagField]: ref(GALLERY_IDS.styleTag) },
+    }),
     seededField(GALLERY_IDS.promptField, "prompt", "text", at, { one: true }),
     seededField(GALLERY_IDS.seenInField, "seen in", "text", at),
     seededField(GALLERY_IDS.howToField, "how to", "text", at),
@@ -189,7 +192,7 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
         GALLERY_IDS.descriptionField,
         GALLERY_IDS.promptField,
         GALLERY_IDS.negativeField,
-        GALLERY_IDS.stylesField,
+        GALLERY_IDS.madeWithField,
         GALLERY_IDS.seenInField,
         GALLERY_IDS.howToField,
         GALLERY_IDS.mediaField,

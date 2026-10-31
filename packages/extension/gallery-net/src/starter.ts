@@ -37,7 +37,7 @@ export const STARTER_LIBRARY = "Library";
 /**
  * A style the starter adds: its name, and, when the starter knows them, the
  * notes a person or a builder reads, each written as the field of the same
- * name (`description`, `prompt`, `negative`, `styles`, `seen in`, `how to`).
+ * name (`description`, `prompt`, `negative`, `made with`, `seen in`, `how to`).
  * A bare string is a style named by name only, which takes the notes
  * `NOTES_3D` has for that name, if any.
  */
@@ -47,7 +47,7 @@ export interface StyleSeed {
   readonly description?: string;
   readonly prompt?: string;
   readonly negative?: string;
-  /** The starter's styles it is made with, by name: its `styles`. */
+  /** The starter's styles it is made with, by name: its `made with`. */
   readonly madeWith?: readonly string[];
   /** Works that show it. */
   readonly seenIn?: readonly string[];
@@ -276,7 +276,7 @@ function noteLines(seed: StyleSeed, indent: string): string[] {
     ...one("prompt", seed.prompt),
     ...one("negative", seed.negative),
     ...many(
-      "styles",
+      "made with",
       seed.madeWith?.map((name) => `[[${name}]]`),
     ),
     ...many("seen in", seed.seenIn),
