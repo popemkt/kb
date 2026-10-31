@@ -68,6 +68,8 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
       props: { [SYSTEM_IDS.targetTagField]: ref(GALLERY_IDS.styleTag) },
     }),
     seededField(GALLERY_IDS.promptField, "prompt", "text", at, { one: true }),
+    seededField(GALLERY_IDS.seenInField, "seen in", "text", at),
+    seededField(GALLERY_IDS.howToField, "how to", "text", at),
     seededField(GALLERY_IDS.negativeField, "negative", "text", at, { one: true }),
     seededField(GALLERY_IDS.widthField, "gallery.width", "number", at, { one: true, hidden: true }),
     seededField(GALLERY_IDS.heightField, "gallery.height", "number", at, {
@@ -111,7 +113,16 @@ export function gallerySeedNodes(at: string): readonly KbNode[] {
     seededTag(
       GALLERY_IDS.styleTag,
       "style",
-      [GALLERY_IDS.promptField, GALLERY_IDS.negativeField, GALLERY_IDS.mediaField],
+      // What it looks like, its template, what it is made with, where it is seen, and how to make it.
+      [
+        GALLERY_IDS.descriptionField,
+        GALLERY_IDS.promptField,
+        GALLERY_IDS.negativeField,
+        GALLERY_IDS.stylesField,
+        GALLERY_IDS.seenInField,
+        GALLERY_IDS.howToField,
+        GALLERY_IDS.mediaField,
+      ],
       at,
     ),
     // A facet's own media is its cover: an image that shows what the facet sorts by.

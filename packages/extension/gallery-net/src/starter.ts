@@ -5,20 +5,31 @@
  * `sys.*` and write-guarded, and a person's facets and styles are theirs to
  * rename, move and delete.
  *
- * Every value is a name only. A style's prompt defaults to its name
- * (`./library.ts`), so "golden hour" composes as "golden hour" until someone
+ * Most values are a name only. A style's prompt defaults to its name
+ * (`libraryOf`), so "golden hour" composes as "golden hour" until someone
  * writes it a template. The vocabulary is the research record's §4 list:
  * shot sizes and angles (StudioBinder, Veo), camera moves (the names
  * Higgsfield, Luma, Kling and Veo share), lenses, lighting, moods,
- * colour schemes, film stocks, media and movements. The Artist facet ships
- * empty: which artists to name is the person's choice (§3). Facets are in
+ * colour schemes, film stocks, media and movements; and the 3D record's
+ * (docs/research/2026-10-31-3d-styles-and-sources.md): 3D styles, rendering
+ * techniques, 3D lighting setups, projections and presentations, which
+ * carry their notes (`./starter-3d.ts`). The Artist facet ships empty:
+ * which artists to name is the person's choice (§3). Facets are in
  * composer order, subject first then medium to mood (§2), and that order is
  * the outline's, so reordering them reorders every composition. The
- * library starts with a dozen public-domain pictures filed by those styles,
- * which are `./starter-visuals.ts`. Both are the server half's: the
- * starter is added by the server's `ext.gallery.starter`, so what it adds
- * never reaches a page.
+ * library starts with pictures filed by those styles: public-domain works
+ * and 3D renders made for it (`./starter-visuals.ts`). Both are the server
+ * half's: the starter is added by the server's `ext.gallery.starter`, so
+ * what it adds never reaches a page.
  */
+import {
+  LIGHTING_3D,
+  NOTES_3D,
+  PRESENTATIONS,
+  PROJECTIONS,
+  STYLES_3D,
+  TECHNIQUES,
+} from "./starter-3d.ts";
 
 /** The name of the node the starter puts saved visuals under. */
 export const STARTER_LIBRARY = "Library";
@@ -29,7 +40,7 @@ export const STARTER_LIBRARY = "Library";
  * name (`description`, `prompt`, `negative`, `styles`, `seen in`, `how to`).
  * A bare string is a style that is a name only.
  */
-interface StyleSeed {
+export interface StyleSeed {
   readonly name: string;
   /** What it looks like, in plain words. */
   readonly description?: string;
@@ -86,7 +97,9 @@ const FACETS: readonly FacetSeed[] = [
       "Vaporwave",
     ],
   ],
+  ["3D style", STYLES_3D],
   ["Artist", []],
+  ["Presentation", PRESENTATIONS],
   [
     "Shot size",
     [
@@ -114,6 +127,7 @@ const FACETS: readonly FacetSeed[] = [
       "aerial view",
     ],
   ],
+  ["Projection", PROJECTIONS],
   [
     "Camera motion",
     [
@@ -145,12 +159,12 @@ const FACETS: readonly FacetSeed[] = [
       "35mm lens",
       "50mm lens",
       "85mm portrait lens",
-      "135mm telephoto lens",
+      { name: "135mm telephoto lens", ...NOTES_3D["135mm telephoto lens"] },
       "fisheye lens",
       "macro lens",
       "anamorphic lens",
       "tilt-shift",
-      "shallow depth of field",
+      { name: "shallow depth of field", ...NOTES_3D["shallow depth of field"] },
       "deep focus",
       "lens flare",
     ],
@@ -158,9 +172,9 @@ const FACETS: readonly FacetSeed[] = [
   [
     "Lighting",
     [
-      "golden hour",
+      { name: "golden hour", ...NOTES_3D["golden hour"] },
       "blue hour",
-      "overcast daylight",
+      { name: "overcast daylight", ...NOTES_3D["overcast daylight"] },
       "moonlight",
       "candlelight",
       "neon lighting",
@@ -170,11 +184,13 @@ const FACETS: readonly FacetSeed[] = [
       "low key",
       "rim light",
       "backlight",
-      "volumetric light",
+      { name: "volumetric light", ...NOTES_3D["volumetric light"] },
       "hard flash",
       "softbox lighting",
+      ...LIGHTING_3D,
     ],
   ],
+  ["Rendering technique", TECHNIQUES],
   [
     "Palette",
     [
@@ -193,11 +209,11 @@ const FACETS: readonly FacetSeed[] = [
   [
     "Texture",
     [
-      "film grain",
+      { name: "film grain", ...NOTES_3D["film grain"] },
       "clean digital",
       "soft focus",
       "crisp detail",
-      "halftone",
+      { name: "halftone", ...NOTES_3D["halftone"] },
       "visible brushstrokes",
     ],
   ],

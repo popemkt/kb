@@ -23,8 +23,12 @@ export const GALLERY_IDS = {
   sourceField: "sys.f.gallery.source",
   /** Who made it and on what terms, as the source states (text, one). */
   creditField: "sys.f.gallery.credit",
-  /** The styles a visual shows (ref to #style, many). */
+  /** The styles a visual shows, a look chooses, or a style is made with (ref to #style, many). */
   stylesField: "sys.f.gallery.styles",
+  /** Works that show a style: games, films, prints (text, many). */
+  seenInField: "sys.f.gallery.seen-in",
+  /** How to make a style, one value per tool, led by the tool's name (text, many). */
+  howToField: "sys.f.gallery.how-to",
   /** A style's template, or the prompt a visual was made with (text, one). */
   promptField: "sys.f.gallery.prompt",
   /** The negative counterpart of `prompt` (text, one). */
@@ -37,7 +41,7 @@ export const GALLERY_IDS = {
   searchUrlField: "sys.f.gallery.search-url",
   /** How a source is searched: an option node (ref, one). */
   sourceKindField: "sys.f.gallery.source-kind",
-  /** A look's brief in plain language, and its composer's subject (text, one). */
+  /** A look's brief, and its composer's subject; what a style looks like (text, one). */
   descriptionField: "sys.f.gallery.description",
   /** A look's swatches, `#rrggbb`, taken from its pins (text, many). */
   paletteField: "sys.f.gallery.palette",

@@ -10,7 +10,7 @@ export function Starter() {
       <WorkspaceState
         title="A visual composer"
         description={
-          "Find references and put the image in your head into words. Visuals are nodes tagged #visual, filed by styles tagged #style under facets tagged #facet, and what you make is a #look. Start with facets of styles (shot, angle, motion, lens, lighting, palette, …), and a dozen public-domain pictures filed by them."
+          "Find references and put the image in your head into words. Visuals are nodes tagged #visual, filed by styles tagged #style under facets tagged #facet, and what you make is a #look. Start with facets of styles (shot, angle, motion, lens, lighting, palette, 3D style, rendering technique, …), and pictures filed by them: public-domain works, and a pagoda rendered in 3D styles."
         }
       />
       <button

@@ -40,6 +40,10 @@ const CINEMATIC: StyleEntry = {
   facet: null,
   prompt: "cinematic still {prompt}, film grain",
   negative: "",
+  description: "",
+  madeWith: [],
+  seenIn: [],
+  howTo: [],
 };
 const COMPOSED = composePrompt("", "", [CINEMATIC], "sd").positive;
 const LIBRARY: Library = {
