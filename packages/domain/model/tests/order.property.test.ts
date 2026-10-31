@@ -3,6 +3,7 @@ import { present } from "../src/present.ts";
 import fc from "fast-check";
 import type { KbNode } from "../src/model.ts";
 import { compareRootOrder, rankBetween, rankForInsert, ranksFor, rankTx } from "../src/order.ts";
+import { StoreState } from "../src/store-state.ts";
 
 describe("order properties (fast-check)", () => {
   test("ranksFor strictly preserves input order and assigns distinct ranks", () => {
@@ -237,7 +238,8 @@ function plain(id: string, children: string[], order: string | undefined): KbNod
 /** The whole set as a commit of every node would store it. */
 function settle(nodes: KbNode[]): Map<string, KbNode> {
   const settled = new Map(nodes.map((n) => [n.id, n]));
-  for (const n of rankTx(nodes, { upserts: nodes, deletes: [] }).upserts) settled.set(n.id, n);
+  for (const n of rankTx(StoreState.of(nodes), { upserts: nodes, deletes: [] }).upserts)
+    settled.set(n.id, n);
   return settled;
 }
 
@@ -264,7 +266,9 @@ describe("rankTx (fast-check)", () => {
         }
         // Settled is a fixed point: settling again writes nothing new.
         const again = [...settled.values()];
-        expect(rankTx(again, { upserts: again, deletes: [] }).upserts).toEqual(again);
+        expect(rankTx(StoreState.of(again), { upserts: again, deletes: [] }).upserts).toEqual(
+          again,
+        );
       }),
       { numRuns: 1000 },
     );

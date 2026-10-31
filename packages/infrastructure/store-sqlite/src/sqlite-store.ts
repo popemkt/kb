@@ -8,6 +8,7 @@ import {
   domainError,
   isDomainError,
   rankTx,
+  StoreState,
   type DomainError,
   type KbNode,
   type StoreTx,
@@ -140,7 +141,8 @@ function commitTx(
           const stale = staleCommitError(expected, base);
           // Thrown to roll the transaction back; `catch` below passes it through.
           if (stale !== null) throw stale;
-          const applied = tx.upserts.length === 0 ? tx : rankTx(storedNodes(db, path), tx);
+          const applied =
+            tx.upserts.length === 0 ? tx : rankTx(StoreState.of(storedNodes(db, path)), tx);
           for (const id of applied.deletes) drop.run(id);
           for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
           // After the rows, whose triggers have moved `rev`, so the mark the

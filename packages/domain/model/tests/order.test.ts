@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { KbNode } from "../src/model.ts";
 import { compareRootOrder, rankTx } from "../src/order.ts";
+import { StoreState } from "../src/store-state.ts";
 
 function node(id: string, children: string[] = [], order?: string): KbNode {
   return {
@@ -17,7 +18,8 @@ function node(id: string, children: string[] = [], order?: string): KbNode {
 /** The whole set as a commit of every node would store it. */
 function settle(nodes: KbNode[]): Map<string, KbNode> {
   const settled = new Map(nodes.map((n) => [n.id, n]));
-  for (const n of rankTx(nodes, { upserts: nodes, deletes: [] }).upserts) settled.set(n.id, n);
+  for (const n of rankTx(StoreState.of(nodes), { upserts: nodes, deletes: [] }).upserts)
+    settled.set(n.id, n);
   return settled;
 }
 
@@ -44,7 +46,7 @@ test("an unranked set is ranked in its visible order: children by array, roots b
 test("a well-ranked group is never rewritten, so a reorder survives the next commit", () => {
   // b was deliberately moved above a; rank order, not id order, is the truth.
   const nodes = [node("r-a", [], "p"), node("r-b", [], "c")];
-  expect(rankTx(nodes, { upserts: nodes, deletes: [] }).upserts).toEqual(nodes);
+  expect(rankTx(StoreState.of(nodes), { upserts: nodes, deletes: [] }).upserts).toEqual(nodes);
 });
 
 test("only the gaps in a partly ranked group are filled", () => {
@@ -62,9 +64,12 @@ test("only the gaps in a partly ranked group are filled", () => {
 
 test("roots sharing a rank are separated with one write, keeping their visible order", () => {
   const nodes = [node("n1", [], "i"), node("n2", [], "i"), node("n3", [], "m")];
-  const { upserts } = rankTx(nodes, { upserts: [], deletes: [] });
+  const { upserts } = rankTx(StoreState.of(nodes), { upserts: [], deletes: [] });
   expect(upserts).toEqual([]);
-  const written = rankTx(nodes, { upserts: [node("n2", [], "i")], deletes: [] }).upserts;
+  const written = rankTx(StoreState.of(nodes), {
+    upserts: [node("n2", [], "i")],
+    deletes: [],
+  }).upserts;
   const settled = new Map(nodes.map((n) => [n.id, n]));
   for (const n of written) settled.set(n.id, n);
   expect(rootIds(settled)).toEqual(["n1", "n2", "n3"]);
@@ -109,13 +114,19 @@ test("groups the transaction does not touch are left exactly as stored", () => {
     node("q", ["c"]),
     node("c"),
   ];
-  const { upserts } = rankTx(nodes, { upserts: [node("c", [], undefined)], deletes: [] });
+  const { upserts } = rankTx(StoreState.of(nodes), {
+    upserts: [node("c", [], undefined)],
+    deletes: [],
+  });
   expect(upserts.map((n) => n.id)).toEqual(["c"]);
   expect(upserts[0]?.order).toBeDefined();
 });
 
 test("a parent's children group is touched when the parent is written", () => {
   const nodes = [node("p", ["a", "b"]), node("a"), node("b")];
-  const { upserts } = rankTx(nodes, { upserts: [node("p", ["a", "b"], "i")], deletes: [] });
+  const { upserts } = rankTx(StoreState.of(nodes), {
+    upserts: [node("p", ["a", "b"], "i")],
+    deletes: [],
+  });
   expect(upserts.map((n) => n.id).toSorted()).toEqual(["a", "b", "p"]);
 });

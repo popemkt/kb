@@ -1,6 +1,6 @@
 import { present } from "./present.ts";
 import type { KbNode, NodeId } from "./model.ts";
-import { applyTx, type StoreTx } from "./tx.ts";
+import type { StoreTx } from "./tx.ts";
 
 /**
  * Sibling ranks: variable-length base-36 fractions (DESIGN.md → Sibling
@@ -249,6 +249,18 @@ function repairGroup(members: readonly RankSlot[]): Map<NodeId, string> {
 }
 
 /**
+ * What a commit's rank settling reads of the state it lands on: a node by
+ * id, its parent, and the forest roots in visible order. A store's kept state
+ * (`StoreState`) answers it, so settling reads the groups it touches and
+ * nothing else.
+ */
+export interface RankBase {
+  get(id: NodeId): KbNode | undefined;
+  parentOf(id: NodeId): NodeId | undefined;
+  roots(): Slots<KbNode>;
+}
+
+/**
  * `tx` as it commits: its upserts, plus whatever rank repairs the sibling
  * groups it touches need, so that every group a commit writes to is well
  * ranked in the state it lands in.
@@ -259,16 +271,19 @@ function repairGroup(members: readonly RankSlot[]): Map<NodeId, string> {
  * read — the store's to settle, once, rather than each writer's guess. A
  * group is touched when the tx upserts one of its members, or the parent
  * whose children array it is. Untouched groups are left exactly as stored.
+ *
+ * The state is read through `base` with `tx` laid over it (deletes first,
+ * then upserts, as `applyTx` applies them), so what settling costs is
+ * the groups it touches — and the roots, when it touches them — not the
+ * store.
  */
-export function rankTx(previous: readonly KbNode[], tx: StoreTx): StoreTx {
+export function rankTx(base: RankBase, tx: StoreTx): StoreTx {
   if (tx.upserts.length === 0) return tx;
-  const next = applyTx(previous, tx);
-  const parentOf = new Map<NodeId, NodeId>();
-  for (const node of next.values()) for (const child of node.children) parentOf.set(child, node.id);
+  const next = overlay(base, tx);
 
   const groups = new Set<NodeId | null>();
   for (const node of tx.upserts) {
-    groups.add(parentOf.get(node.id) ?? null);
+    groups.add(next.parentOf(node.id) ?? null);
     if (node.children.length > 0) groups.add(node.id);
   }
 
@@ -276,7 +291,7 @@ export function rankTx(previous: readonly KbNode[], tx: StoreTx): StoreTx {
   for (const parent of groups) {
     const members =
       parent === null
-        ? [...next.values()].filter((n) => !parentOf.has(n.id)).toSorted(compareRootOrder)
+        ? next.roots()
         : (next.get(parent)?.children ?? []).flatMap((id) => {
             const member = next.get(id);
             return member === undefined ? [] : [member];
@@ -295,6 +310,57 @@ export function rankTx(previous: readonly KbNode[], tx: StoreTx): StoreTx {
     if (node !== undefined && !written.has(id)) upserts.push({ ...node, order: rank });
   }
   return { upserts, deletes: tx.deletes };
+}
+
+/** `base` with `tx` applied, read lazily: what {@link rankTx} settles against. */
+function overlay(
+  base: RankBase,
+  tx: StoreTx,
+): {
+  get(id: NodeId): KbNode | undefined;
+  parentOf(id: NodeId): NodeId | undefined;
+  roots(): KbNode[];
+} {
+  const deleted = new Set(tx.deletes);
+  const upserted = new Map<NodeId, KbNode>();
+  for (const node of tx.upserts) upserted.set(node.id, node);
+  /** Each child an upsert names, by the upsert naming it: those parents are the tx's word. */
+  const claimed = new Map<NodeId, NodeId>();
+  for (const node of upserted.values())
+    for (const child of node.children) claimed.set(child, node.id);
+
+  const get = (id: NodeId): KbNode | undefined =>
+    upserted.get(id) ?? (deleted.has(id) ? undefined : base.get(id));
+  const parentOf = (id: NodeId): NodeId | undefined => {
+    const claimant = claimed.get(id);
+    if (claimant !== undefined) return claimant;
+    // A stored parent still holds the child unless the tx rewrote or removed it.
+    const stored = base.parentOf(id);
+    return stored === undefined || upserted.has(stored) || deleted.has(stored) ? undefined : stored;
+  };
+  const roots = (): KbNode[] => {
+    const candidates = new Set<NodeId>();
+    const stored = base.roots();
+    for (let i = 0; i < stored.length; i++) {
+      const root = stored.at(i);
+      if (root !== undefined) candidates.add(root.id);
+    }
+    // What the tx can make a root: a node it writes, a child its rewrite of
+    // a parent dropped, and a child of a node it deletes.
+    for (const node of upserted.values()) {
+      candidates.add(node.id);
+      for (const child of base.get(node.id)?.children ?? []) candidates.add(child);
+    }
+    for (const id of deleted)
+      for (const child of base.get(id)?.children ?? []) candidates.add(child);
+    const out: KbNode[] = [];
+    for (const id of candidates) {
+      const node = get(id);
+      if (node !== undefined && parentOf(id) === undefined) out.push(node);
+    }
+    return out.toSorted(compareRootOrder);
+  };
+  return { get, parentOf, roots };
 }
 
 /**
