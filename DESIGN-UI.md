@@ -4012,10 +4012,20 @@ reports a score against each.
     that will not load leaves the backdrop all its own.
 
     ```json
-    { "image": "medallion.png",
-      "glyphs": [ { "name": "first", "color": "#7cc4ff",
-                    "viewBox": [0, 0, 100, 100], "path": "M 50,13 L 12,84 L 88,84 Z", "stroke": 7 } ] }
+    {
+      "image": "medallion.png",
+      "glyphs": [
+        {
+          "name": "first",
+          "color": "#7cc4ff",
+          "viewBox": [0, 0, 100, 100],
+          "path": "M 50,13 L 12,84 L 88,84 Z",
+          "stroke": 7
+        }
+      ]
+    }
     ```
+
   - A backdrop's own glyphs are the default implementation of the same
     part: the Wolf medallion's runes are a `BackdropGlyph` list
     (`RUNES`), drawn by the one path an owner's glyphs take (`gpu/glyph-atlas.ts`).
@@ -4027,7 +4037,8 @@ reports a score against each.
     none); a backdrop with no art to replace ignores it, as one with no
     directions ignores direction.
   - The Wolf medallion replaces its relief with the art's image: red is
-    height, green where it glows, alpha its silhouette, square, its round
+    height, green where it glows (its eyes, each sunk into a socket and lit
+    from inside), alpha its silhouette, square, its round
     body 0.4 of its width about its centre. The chain leaves from the top of
     its silhouette on the centre column. It replaces its circle's runes with
     the art's glyphs, one to a slot round the circle, the first at the top.
@@ -4570,14 +4581,16 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   glyphs one to a cell, rising a little and breathing, clear of the
   medallion's circle. Each bank, spark and glyph fades whole where it
   stands, toward the frame's sides, its bottom and the text.
-  - **The relief is baked once** (`medallion/relief.ts`), into three
-    passes run only when its source changes: the source as height, where
-    it glows and its silhouette; its edge cleaned, the silhouette eroded
-    past any matte its edge carries and the height run on flat past the
-    cut (the highest round each point there), so no cliff at the cut lights
-    as an outline or a halo, an image's or the sigil's; then the material's
-    maps, height, cavity (how far a point lies below the relief round it,
-    near for engraving and far for recesses) and glow. The source is kb's sigil (disk, a rim
+  - **The relief is baked once** (`medallion/relief.ts`), in passes run
+    only when its source changes: the source as height, where it glows and
+    its silhouette; its edge cleaned, the silhouette eroded past any matte
+    its edge carries and the height run on flat past the cut (the highest
+    round each point there), so no cliff at the cut lights as an outline or
+    a halo, an image's or the sigil's; its sockets, a bowl sunk into the
+    height wherever it glows (**Its eyes**, below); the material's maps,
+    height, cavity (how far a point lies below the relief round it, near
+    for engraving and far for recesses) and heat; and the sockets' light.
+    The source is kb's sigil (disk, a rim
     a few thousandths out of round and notched, the gabled mask, the
     engraving, and a bail for the chain), or an image the backdrop's art
     setting points at (**The art setting**, above). The maps keep their mip
@@ -4607,6 +4620,38 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     normal's own variance across the pixel (geometric specular AA): each
     lobe widens by it and dims as it widens, so a bevel's pin-hot highlight
     never sparkles as the medallion swings.
+  - **Its eyes are lights deep in sockets** (`medallion/eye-shader.ts`),
+    never a glow painted on the face; an owner's image and kb's sigil
+    alike, from where they glow and nothing else:
+    - The bake sinks a socket round each glow: a bowl whose walls fall
+      smoothly from the metal past it to a floor under the glow (the glow
+      blurred, so no ring of the blur shows as a terrace).
+    - The core is the glow on the socket's floor, hottest where it lies
+      deepest inside the glow (its heat, measured in from the glow's edge
+      in medallion units, so a thin slit and a broad almond both have a
+      heart), near white there and the light's own colour at its edge. It
+      lies below the face: it shows low in the socket's mouth, the brow over
+      it hiding its top, and it shifts against the mouth as the medallion
+      leans toward the pointer.
+    - Its light is baked as a flux at every point near it: the glow
+      gathered on a coarse grid, each cell a point light a little above
+      the floor, its light falling with the square of distance and hidden
+      where the relief between them stands above the line to it, so a brow
+      shades what lies past it. The frame lights the steel by it as by any
+      light: through the steel's reflectance (Schlick Fresnel), a GGX lobe
+      as rough as its grime and widened by the pixel's own spread (the
+      specular AA), and a little diffuse in the patina. The socket's walls
+      facing the core take its light, the rims catch it from inside, and a
+      face turned from it or above it stays dark.
+    - Its halo is that light's strength from every side, so it bleeds out
+      of the socket where the light reaches and is hidden where it is
+      hidden; on a dark page the stage's bloom carries the core further.
+      Awake, the light wavers a little on the scene's clock, more as the
+      eyes wake, so a still frame is still. On a light page the core is
+      light on the paper, covering it as far as its light runs.
+    - A flat glowing ellipse on the face was tried first, a core and a
+      halo added where the relief glowed: it read as a texture in front of
+      the eye, not a light inside it.
   - **The chain**: oval links, every other one face on and the next edge
     on, each a round wire, from the bail up past the frame's top. The
     medallion and its chain swing as one pendulum from a pivot above the
@@ -4645,7 +4690,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     disk's shadow quiet the field, never the ground itself, and never the
     medallion or its chain.
   - **It senses the page.** On a `notice` the medallion trembles for under
-    a second and its eyes flare in that event's colour (silver for a change
+    a second and its eyes flare in that event's colour, their light on the
+    sockets' walls with them (silver for a change
     from elsewhere, red for an error, gold for a finished agent turn), with
     a halo round the disk, and settles back to its faint amber. Under
     reduced motion it never moves: the eyes light, still, and go dark again

@@ -21,8 +21,12 @@
  *   faces it, a hot rim from the smoke's side, a glint circling its bevels
  *   and a broad sheen sweeping across it (`steelLights`), grime and
  *   patina deep in its cavities, edges rubbed bright, scratches and casting
- *   pits, and a darker contact where the chain meets the bail. Where the relief glows (the eyes) a faint light flares (`glow`)
- *   in the colour of what happened (`tint`), with a halo round it.
+ *   pits, and a darker contact where the chain meets the bail.
+ * - **Its eyes** are lights deep in sockets the relief sinks where it glows
+ *   (`eye-shader.ts`): a hot core on each socket's floor, its light on the
+ *   socket's walls and the metal by it through the steel's own reflectance,
+ *   and a halo the relief hides where it hides the light; faint at rest,
+ *   flaring (`glow`) in the colour of what happened (`tint`).
  * - **The chain**: links up from the bail past the frame's top, face on and
  *   edge on by turns, round wire.
  * - **Embers.** Two layers of sparks rising on the cells of a grid, each
@@ -93,8 +97,9 @@ import type { GlyphAtlas } from "../gpu/glyph-atlas";
 import { fbm4, gnoise, hash, hash2 } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { TAU } from "../scene/math";
+import { coreColour, coreSight, socketLight } from "./eye-shader";
 import { LUMA, circleAt, glyphHaze, glyphLight, turned } from "./glyphs-shader";
-import { EXTENT, toBaked, type BakedRelief } from "./relief";
+import { EXTENT, RISE, toBaked, type BakedRelief } from "./relief";
 
 type F = TslNode<"float">;
 type V2 = TslNode<"vec2">;
@@ -156,6 +161,8 @@ const DAY_GOLD = vec3(0.95, 0.6, 0.2);
 /** How much of the soft window's reflection a day's exposure holds back. */
 const DAY_WINDOW = 0.5;
 const DAY_SHADOW = vec3(0.62, 0.58, 0.55);
+/** How much of the paper a unit of the eyes' core covers with its light. */
+const DAY_CORE = 0.45;
 /** How strongly the far smoke stands in its banks, what share of far cells hold a spark, and how bright the far glyphs smoulder. */
 const FAR_SMOKE = 1.5;
 const FAR_SPARKS = 0.35;
@@ -342,7 +349,7 @@ function pits(q: V2): F {
 
 /**
  * The medallion at `q` (medallion units, swung) as worn steel, from the
- * baked relief: its slope a texel across, its cavity and its glow, lit by a
+ * baked relief: its slope a texel across, its cavity, its heat and its sockets' light, lit by a
  * key, the embers from below and its surroundings, with a brushed
  * anisotropic highlight, grime and patina in the recesses, edges rubbed
  * bright, scratches and casting pits.
@@ -369,7 +376,7 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
     .mul(0.6)
     .toVar();
   const pitted = pits(q).mul(resolved(PIT_CELLS)).toVar();
-  const normal = normalize(vec3(slope.mul(-0.6), float(1).add(pitted.mul(0.6)))).toVar();
+  const normal = normalize(vec3(slope.mul(-RISE), float(1).add(pitted.mul(0.6)))).toVar();
   // How far the normal turns across the pixel: the lobes widen by it (geometric specular AA).
   const dnx = dFdx(normal);
   const dny = dFdy(normal);
@@ -382,7 +389,7 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
   // Grime and patina gather where the relief is lower than round it; the edges are rubbed bright.
   const grime = smoothstep(0.02, 0.4, cavity).max(pitted.mul(0.8)).toVar();
   const worn = smoothstep(0.03, 0.3, cavity.negate()).mul(float(1).sub(grime)).toVar();
-  const albedo = mix(mix(STEEL_F0, PATINA, grime.mul(0.85)), POLISH_F0, worn.mul(0.7));
+  const albedo = mix(mix(STEEL_F0, PATINA, grime.mul(0.85)), POLISH_F0, worn.mul(0.7)).toVar();
   const fresnel = albedo.add(
     vec3(1, 1, 1)
       .sub(albedo)
@@ -415,7 +422,18 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
     )
     .add(KEY.mul(scored.mul(across.mul(0.5).add(0.03))).mul(occluded))
     .toVar();
-  return { silhouette, glow: maps.z, cavity, slope, lit, normal, glint, windowed, rim };
+  const surface = { normal, spread, albedo, grime };
+  return {
+    silhouette,
+    heat: maps.z,
+    light: relief.light(at),
+    surface,
+    cavity,
+    lit,
+    glint,
+    windowed,
+    rim,
+  };
 }
 
 /**
@@ -577,7 +595,6 @@ function fieldAt(
 /** What the medallion leaves at a pixel, as the dark and the light picture both read it. */
 interface Medallion {
   readonly silhouette: F;
-  readonly glow: F;
   readonly cavity: F;
   readonly lit: V3;
   readonly glint: F;
@@ -642,11 +659,14 @@ function dayPicture(
     swung,
     chain,
     contact,
+    eye,
   }: {
     readonly relief: BakedRelief;
     readonly swung: V2;
     readonly chain: ReturnType<typeof chainAt>;
     readonly contact: F;
+    /** The eyes' light on the steel, and their core's light and how much of the pixel it is. */
+    readonly eye: { readonly shine: V3; readonly core: V3; readonly cover: F };
   },
 ): V3 {
   const toned = (light: V3) =>
@@ -675,13 +695,15 @@ function dayPicture(
   const chainOnPaper = mix(paper, toned(vec3(iron, iron, iron)).mul(contact), chain.cover);
   // Polished dark steel: its engraving deep in shadow, its edge darkening where it turns away (so
   // no pale fringe rings it on the paper), the smoke's rim laying gold in its bevels, a warm glint.
-  const metal = toned(steel.lit.sub(steel.windowed.mul(DAY_WINDOW)))
+  const metal = toned(steel.lit.sub(steel.windowed.mul(DAY_WINDOW)).add(eye.shine))
     .mul(contact)
     .mul(mix(vec3(1, 1, 1), DAY_INK, smoothstep(0.02, 0.32, steel.cavity).mul(0.9)))
     .mul(float(1).sub(back.rim.mul(0.45)))
     .add(DAY_GOLD.mul(steel.rim.mul(0.85)))
     .add(GLINT.mul(steel.glint.add(back.wrap.mul(steel.rim.add(0.15)).mul(0.5))));
-  return mix(chainOnPaper, metal, smoothstep(0.45, 0.9, steel.silhouette));
+  // The core is light on paper too: its own colour, never toned down into the steel's.
+  const lit = mix(metal, eye.core, eye.cover);
+  return mix(chainOnPaper, lit, smoothstep(0.45, 0.9, steel.silhouette));
 }
 
 /** The frame, for `scene.backgroundNode`. */
@@ -715,15 +737,22 @@ export function medallionFrame(
     // It swings from a pivot above, so the medallion and its chain move as one pendulum.
     const pivot = vec2(0, u.pivot);
     const swung = turned(q.sub(u.lean).sub(pivot), u.sway).add(pivot).toVar();
-    const steel: Medallion = steelAt(relief, swung, u.time);
-    const { silhouette, glow, lit, rim } = steel;
+    const steel = steelAt(relief, swung, u.time);
+    const { silhouette, lit, rim } = steel;
     const chain = chainAt(swung, u.bail);
     // Where the chain meets the bail, each shades the other.
     const bailAt = swung.sub(vec2(0, u.bail));
     const contact = float(1).sub(exp(dot(bailAt, bailAt).mul(-180)).mul(0.6));
-    // The eyes' light: a core where the relief glows, a halo past it.
-    const core = smoothstep(0.35, 0.9, glow);
-    const halo = glow.mul(0.6);
+    // The eyes: lights deep in their sockets, faint at rest and flaring in what happened's colour.
+    const eye = socketLight(steel.surface, {
+      light: steel.light,
+      heat: steel.heat,
+      deep: relief.maps(toBaked(swung.add(coreSight(u.lean)))).z,
+      power: u.glow.mul(0.75).add(0.25),
+      time: u.time,
+    });
+    const eyeShine = u.tint.mul(eye.shine).toVar();
+    const eyeCore = coreColour(u.tint, eye.white).mul(eye.core).toVar();
     const back = backLight(relief, swung, { q, r });
     const flare = u.glow.sub(0.2).max(0).div(0.8);
 
@@ -750,7 +779,9 @@ export function medallionFrame(
       .mul(contact)
       .add(WARM.mul(rim.mul(2.2).add(back.wrap.mul(0.35))))
       .add(BACK_RIM.mul(back.rim.mul(back.smokeSide.mul(0.5).add(0.3))))
-      .add(u.tint.mul(core.mul(u.glow).mul(5).add(halo.mul(u.glow).mul(0.6))));
+      .add(eyeShine.mul(contact))
+      .add(eyeCore)
+      .add(u.tint.mul(eye.halo));
     const art = mix(chained, shone.sub(ground), silhouette).add(EMBER.mul(sparks.mul(2.2)));
     // The scrim quiets the field under the text, never the medallion or its chain in front of it.
     const held = float(1).sub(silhouette.max(chain.cover));
@@ -760,13 +791,20 @@ export function medallionFrame(
       steel,
       back,
       { dense, runes, rings, hue, haze, sparks },
-      { relief, swung, chain, contact },
+      {
+        relief,
+        swung,
+        chain,
+        contact,
+        eye: {
+          shine: eyeShine.add(u.tint.mul(eye.halo)),
+          core: coreColour(u.tint, eye.white),
+          // Paper takes light, never more: the core covers it as far as its light runs, so it keeps its falloff.
+          cover: eye.core.mul(DAY_CORE).min(1),
+        },
+      },
     );
-    const glowing = mix(
-      inked,
-      u.tint,
-      core.mul(u.glow.add(0.4)).mul(0.85).add(back.aura.mul(flare).mul(0.2)).min(1),
-    );
+    const glowing = mix(inked, u.tint, back.aura.mul(flare).mul(0.2).min(1));
     const day = paint(page.mul(mix(glowing, vec3(1, 1, 1), quiet.mul(held).mul(0.35))));
     return mix(day, night, u.dark);
   })();
