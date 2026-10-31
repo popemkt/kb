@@ -4549,11 +4549,16 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     near for engraving and far for recesses) and glow. The source is kb's sigil (disk, a rim
     a few thousandths out of round and notched, the gabled mask, the
     engraving, and a bail for the chain), or an image the backdrop's art
-    setting points at (**The art setting**, above). The frame takes the
-    slope from the baked height a texel across, so its normals are smooth
-    and never the screen's 2×2 derivatives, over the pixel's own footprint
-    (never finer than a texel), so a grain finer than a pixel in an image
-    is averaged away rather than sparkling.
+    setting points at (**The art setting**, above). The maps keep their mip
+    chain and are read over the pixel's footprint by explicit derivatives
+    (`offscreenPass`'s `mipmapped`: a frame is a scene's background, which
+    three reads at one fixed level), so the silhouette, the engraving's
+    edges and the casting's grain are filtered at their source, never
+    read at their finest level into stairs at a fifth of their size. The frame takes
+    the slope from the baked height over the same footprint (never finer
+    than a texel), so its normals are smooth and never the screen's 2×2
+    derivatives, and a grain finer than a pixel is averaged away rather
+    than sparkling.
   - **Worn steel**, physically motivated: a metal's reflectance (Schlick
     Fresnel) over its surroundings reflected (a warm floor the embers
     light, a cool sky, a soft window up left), and a brushed anisotropic
@@ -4567,12 +4572,16 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     brown-black patina deep in the recesses and occludes them; convex edges
     are rubbed bright; fine scratches score it and catch the key; casting
     pits are rare small hollows. Scratches and pits fade out where they
-    grow finer than a pixel.
+    grow finer than a pixel. Every highlight is antialiased by the
+    normal's own variance across the pixel (geometric specular AA): each
+    lobe widens by it and dims as it widens, so a bevel's pin-hot highlight
+    never sparkles as the medallion swings.
   - **The chain**: oval links, every other one face on and the next edge
     on, each a round wire, from the bail up past the frame's top. The
     medallion and its chain swing as one pendulum from a pivot above the
     frame (every 7.5 s), so the key glides over the bevels.
-  - Glyphs and rings are strokes' distances, the rings broken into arcs;
+  - Glyphs are strokes' distances and rings lines covered by the pixel's
+    footprint (`hairline`), the rings broken into arcs;
     the smoke is two layers, a far slow fold and a near one curled by a
     slow fold of its own into eddies and wisps, thickest close about the
     medallion, lit by the embers from below and by the back light behind

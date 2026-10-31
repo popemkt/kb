@@ -13,6 +13,7 @@ export { createRig, finishMaterial, matcapMaterial, paletteMatcap, type Finish }
 export {
   offscreenPass,
   type OffscreenInputs,
+  type OffscreenOptions,
   type OffscreenPass,
   type PictureSampler,
 } from "./offscreen";

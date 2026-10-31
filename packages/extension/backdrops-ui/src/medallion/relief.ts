@@ -19,8 +19,9 @@
  * the silhouette's cut, the highest round each point there, so the frame's
  * slope never finds a cliff at the cut to light as an outline; then the
  * material's maps, height, cavity (how far a point lies below the relief
- * round it, where grime and patina collect), glow and silhouette. The frame
- * takes the relief's slope from the baked height a texel across.
+ * round it, where grime and patina collect), glow and silhouette, kept with
+ * their mip chain. The frame takes the relief's slope from the baked height
+ * over the pixel's footprint, from the mip level that footprint reads.
  */
 import {
   Fn,
@@ -278,7 +279,10 @@ export function bakedRelief(renderer: WebGPURenderer) {
         );
         return vec4(here.x, cavity, here.y, here.w);
       })(),
-    { history: false },
+    // The frame reads the maps at a fifth of their size or less: their mip chain filters each read
+    // over the pixel's footprint, so the silhouette, the engraving's edges and the slope are
+    // antialiased at their source rather than sampled into stairs.
+    { history: false, mipmapped: true },
   );
   source.setSize(SIDE, SIDE);
   edge.setSize(SIDE, SIDE);

@@ -60,6 +60,8 @@ import {
   atan,
   clamp,
   cos,
+  dFdx,
+  dFdy,
   dot,
   exp,
   float,
@@ -434,6 +436,14 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
     .toVar();
   const pitted = pits(q).mul(resolved(PIT_CELLS)).toVar();
   const normal = normalize(vec3(slope.mul(-0.6), float(1).add(pitted.mul(0.6)))).toVar();
+  // How far the normal turns across the pixel: the lobes widen by it (geometric specular AA).
+  const dnx = dFdx(normal);
+  const dny = dFdy(normal);
+  const spread = dot(dnx, dnx)
+    .add(dot(dny, dny))
+    .mul(SPECULAR_AA.variance)
+    .min(SPECULAR_AA.most)
+    .toVar();
   const view = vec3(0, 0, 1);
   // Grime and patina gather where the relief is lower than round it; the edges are rubbed bright.
   const grime = smoothstep(0.02, 0.4, cavity).max(pitted.mul(0.8)).toVar();
@@ -444,7 +454,7 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
       .sub(albedo)
       .mul(pow(float(1).sub(normal.z), 5)),
   );
-  const { highlight, glint, rim } = steelLights({ q, normal, grime, worn }, time);
+  const { highlight, glint, rim } = steelLights({ q, normal, grime, worn, spread }, time);
   // Its surroundings, reflected: a dim warm floor lit by the embers, a cool sky, a soft window up left.
   const ray = normal.mul(normal.z.mul(2)).sub(view);
   const sky = mix(FLOOR, SKY, smoothstep(-0.5, 0.7, ray.y));
@@ -474,13 +484,28 @@ function steelAt(relief: BakedRelief, q: V2, time: F) {
   return { silhouette, glow: maps.z, cavity, slope, lit, normal, glint, windowed, rim };
 }
 
-/** What the lights put on the steel at a point: where it is (medallion units), its normal, and its grime and wear. */
+/**
+ * What the lights put on the steel at a point: where it is (medallion units),
+ * its normal, its grime and wear, and how far its normal turns across the
+ * pixel (`spread`, a slope's variance), which every lobe widens by.
+ */
 interface Surface {
   readonly q: V2;
   readonly normal: V3;
   readonly grime: F;
   readonly worn: F;
+  readonly spread: F;
 }
+
+/**
+ * Geometric specular antialiasing (Kaplanyan et al. 2016): a pixel's
+ * normals vary by their screen derivatives, and a lobe narrower than that
+ * variance is sampled into sparkle, so each lobe's widths (slopes) grow by it,
+ * its peak falling as it widens, so its light is the same. `variance` takes
+ * the derivatives to a slope's variance; `most` bounds it, so a crease never
+ * turns a highlight into a wash.
+ */
+const SPECULAR_AA = { variance: 0.5, most: 0.18 } as const;
 
 /**
  * The lights on the steel: the key, brushed across the lathe's rings, with
@@ -490,7 +515,7 @@ interface Surface {
  * that face it (`rim`, kept apart, as a dark page and a light one spend it
  * differently).
  */
-function steelLights({ q, normal, grime, worn }: Surface, time: F) {
+function steelLights({ q, normal, grime, worn, spread }: Surface, time: F) {
   const view = vec3(0, 0, 1);
   // Brushed on a lathe: the brushing runs round the centre, so the highlight stretches across it.
   const round = normalize(vec3(q.y.negate(), q.x, 0).add(vec3(1e-4, 0, 0)));
@@ -498,12 +523,19 @@ function steelLights({ q, normal, grime, worn }: Surface, time: F) {
   const bitangent = cross(normal, tangent);
   const lobe = (toLight: V3, along: number, across: number): F => {
     const half = normalize(toLight.add(view));
-    const ht = dot(half, tangent).div(along);
-    const hb = dot(half, bitangent).div(across);
+    const wideAlong = sqrt(spread.add(along * along));
+    const wideAcross = sqrt(spread.add(across * across));
+    const ht = dot(half, tangent).div(wideAlong);
+    const hb = dot(half, bitangent).div(wideAcross);
     const hn = max(dot(half, normal), 1e-3);
-    return exp(ht.mul(ht).add(hb.mul(hb)).div(hn.mul(hn)).negate()).mul(
-      max(dot(normal, toLight), 0),
-    );
+    return exp(ht.mul(ht).add(hb.mul(hb)).div(hn.mul(hn)).negate())
+      .mul(max(dot(normal, toLight), 0))
+      .mul(
+        wideAlong
+          .mul(wideAcross)
+          .reciprocal()
+          .mul(along * across),
+      );
   };
   const rough = grime.mul(0.25).add(1);
   const clean = float(1).sub(grime.mul(0.85));
@@ -578,6 +610,19 @@ function chainAt(q: V2, bail: F) {
   return { cover, light };
 }
 
+/** The rings' half width (medallion units). */
+const RING_HALF = 0.0045;
+
+/**
+ * A line `half` wide either side, at a distance `d` from it: covered by how
+ * much of the pixel's footprint lies within it, so it is antialiased at
+ * device pixels however large or small it is drawn, never stepped or soft.
+ */
+function hairline(d: F, half: number): F {
+  const w = fwidth(d).max(1e-5).mul(0.75);
+  return smoothstep(w.add(half), float(half).sub(w), d);
+}
+
 /**
  * The circle behind the medallion at `q` (medallion units, `r` from its
  * centre): two rings broken into arcs, and the glyphs, turning, each
@@ -590,9 +635,9 @@ function circleAt(u: MedallionUniforms, q: V2, r: F): F {
     const g = fract(angle.mul(n).add(phase));
     return smoothstep(0, 0.015, g).mul(smoothstep(gap, gap - 0.015, g));
   };
-  const ring = smoothstep(0.008, 0.002, abs(r.sub(CIRCLE.inner)))
+  const ring = hairline(abs(r.sub(CIRCLE.inner)), RING_HALF)
     .mul(arcs(5, 0.05, 0.86))
-    .add(smoothstep(0.008, 0.002, abs(r.sub(CIRCLE.outer))).mul(arcs(8, 0.3, 0.9)));
+    .add(hairline(abs(r.sub(CIRCLE.outer)), RING_HALF).mul(arcs(8, 0.3, 0.9)));
   const along = sin(angle.mul(TAU * 3).add(u.time.mul(0.25)))
     .mul(0.3)
     .add(0.55);
