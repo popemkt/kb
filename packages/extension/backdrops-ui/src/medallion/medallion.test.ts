@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CIRCLE, ENGRAVING, EYES, GLYPHS, MASK, tremble, type Point } from "./medallion";
+import { CIRCLE, ENGRAVING, EYES, GLYPHS, MASK, RUNES, tremble, type Point } from "./medallion";
 
 /** Whether `at` is inside the closed polygon `points` (even–odd). */
 function inside([x, y]: Point, points: readonly Point[]): boolean {
@@ -55,6 +55,25 @@ describe("the circle of glyphs", () => {
     expect(CIRCLE.glyphs - reach * CIRCLE.glyph).toBeGreaterThan(CIRCLE.inner);
     expect(CIRCLE.glyphs + reach * CIRCLE.glyph).toBeLessThan(CIRCLE.outer);
     expect(CIRCLE.inner).toBeGreaterThan(1);
+  });
+});
+
+describe("the runes as glyph art", () => {
+  it("are the glyphs, in order, each its own colour, drawn as strokes in its cell", () => {
+    expect(RUNES.map((rune) => rune.name)).toEqual(GLYPHS.map((glyph) => glyph.evokes));
+    const colours = RUNES.map((rune) => rune.color);
+    expect(new Set(colours).size).toBe(GLYPHS.length);
+    for (const [k, rune] of RUNES.entries()) {
+      expect(rune.color).toMatch(/^#[0-9a-f]{6}$/);
+      expect(rune.shape.kind).toBe("path");
+      if (rune.shape.kind !== "path") continue;
+      expect(rune.shape.viewBox).toEqual([-1, -1, 2, 2]);
+      expect(rune.shape.stroke).toBeGreaterThan(0);
+      // Every stroke is in the path, y flipped as SVG's is.
+      for (const [[ax, ay], [bx, by]] of GLYPHS[k]?.strokes ?? []) {
+        expect(rune.shape.d).toContain(`M ${ax} ${-ay} L ${bx} ${-by}`);
+      }
+    }
   });
 });
 

@@ -3991,25 +3991,64 @@ reports a score against each.
     `backdropStrength`, `backdropDirection`). A stale key is ignored on read
     and dropped on the next write.
 
-- **The art setting.** `sys.f.backdrop.art` names an image of kb's own
-  assets (`assets/…`, DESIGN.md → Assets) that the backdrop draws as its
-  art in place of its own, where it has art to replace. It is how an
+- **The art setting.** `sys.f.backdrop.art` names a file of kb's own
+  assets (`assets/…`, DESIGN.md → Assets) naming the art the backdrop
+  draws in place of its own, where it has art to replace. It is how an
   owner's own picture reaches a backdrop without entering the repository:
   a file in their `.kb/assets/` is theirs, and the backdrop's code is the
-  same for it as for its own art.
+  same for it as for its own art. The file is one of two forms, and both
+  read as one `BackdropArt` (`@kb/model`'s `backdrop-art.ts`), whose parts a
+  backdrop takes where it has them and draws its own for the rest:
+  - **An image** is the hero picture alone.
+  - **An art manifest** (`.json`) names several parts: `image`, the hero
+    picture, and `glyphs`, up to eight, each a `color` (`#rrggbb`) and a
+    shape: SVG `path` data in a `viewBox` (default `[0, 0, 100, 100]`),
+    stroked `stroke` wide with round caps and joins, or filled with none;
+    or an `image` whose alpha is its shape. References are files beside
+    the manifest, named plainly (no scheme, root or `..`), and must be
+    images, so a manifest can only name kb's own assets. A part left out
+    or named wrongly is the backdrop's own, a glyph with no colour takes
+    the colour of the backdrop's own glyph in its place, and a manifest
+    that will not load leaves the backdrop all its own.
+
+    ```json
+    {
+      "image": "medallion.png",
+      "glyphs": [
+        {
+          "name": "first",
+          "color": "#7cc4ff",
+          "viewBox": [0, 0, 100, 100],
+          "path": "M 50,13 L 12,84 L 88,84 Z",
+          "stroke": 7
+        }
+      ]
+    }
+    ```
+
+  - A backdrop's own glyphs are the default implementation of the same
+    part: the Wolf medallion's runes are a `BackdropGlyph` list
+    (`RUNES`), drawn by the one path an owner's glyphs take (`gpu/glyph-atlas.ts`).
   - It is read as the others are, the page's node first, then core's
-    (`BackdropChoice.art`). Anything that is not an image of kb's assets is
-    no value and falls through, so a setting can never make the page fetch
-    from elsewhere.
+    (`BackdropChoice.art`). Anything that is not an image or an art
+    manifest of kb's assets is no value and falls through, so a setting can
+    never make the page fetch from elsewhere.
   - The slot hands every backdrop its URL (`BackdropProps.art`, null for
     none); a backdrop with no art to replace ignores it, as one with no
     directions ignores direction.
-  - The Wolf medallion replaces its relief with it: red is height, green
-    where it glows, alpha its silhouette, square, its round body 0.4 of its
-    width about its centre. The chain leaves from the top of its silhouette
-    on the centre column. An image that will not load leaves kb's sigil.
+  - The Wolf medallion replaces its relief with the art's image: red is
+    height, green where it glows (its eyes, each sunk into a socket and lit
+    from inside), alpha its silhouette, square, its round
+    body 0.4 of its width about its centre. The chain leaves from the top of
+    its silhouette on the centre column. It replaces its circle's runes with
+    the art's glyphs, one to a slot round the circle, the first at the top.
+    An image that will not load leaves kb's sigil, and glyphs that will not
+    load leave its runes.
   - Set it in Settings → Appearance (the `art` row under Page head), or
-    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png`.
+    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png` (or
+    `.json`). An asset route serves a manifest as `application/json`; the
+    upload takes media only, so a manifest is a file the owner places in
+    `.kb/assets/` themselves.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -4518,8 +4557,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   muzzle), gabled down its middle, its eyes engraved slits (`medallion.ts`).
   Behind it a faint circle of five glyphs turns once in two minutes, each
   kb's own evocation of one Sign by its nature, in a few straight strokes:
-  a force pushed out, a flame, a ward, a shield, a mind turned. Each glyph
-  smoulders on a slow clock of its own, never in step, and the circle keeps
+  a force pushed out, a flame, a ward, a shield, a mind turned. Each glows
+  faintly in the colour of its nature (a pale cold blue, ember, violet,
+  amber, a soft green), its stroke and a soft bloom round it, breathing on
+  a slow clock of its own with a faint flicker, never in step (still under
+  reduced motion), and the circle keeps
   clear of the head's text and fades before it reaches the rows' tags low
   at its right. Smoke curls close round it and embers climb, and a warm
   back light stands behind it, glowing in the air and the smoke about it,
@@ -4539,21 +4581,28 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   glyphs one to a cell, rising a little and breathing, clear of the
   medallion's circle. Each bank, spark and glyph fades whole where it
   stands, toward the frame's sides, its bottom and the text.
-  - **The relief is baked once** (`medallion/relief.ts`), into three
-    passes run only when its source changes: the source as height, where
-    it glows and its silhouette; its edge cleaned, the silhouette eroded
-    past any matte its edge carries and the height run on flat past the
-    cut (the highest round each point there), so no cliff at the cut lights
-    as an outline or a halo, an image's or the sigil's; then the material's
-    maps, height, cavity (how far a point lies below the relief round it,
-    near for engraving and far for recesses) and glow. The source is kb's sigil (disk, a rim
+  - **The relief is baked once** (`medallion/relief.ts`), in passes run
+    only when its source changes: the source as height, where it glows and
+    its silhouette; its edge cleaned, the silhouette eroded past any matte
+    its edge carries and the height run on flat past the cut (the highest
+    round each point there), so no cliff at the cut lights as an outline or
+    a halo, an image's or the sigil's; its sockets, a bowl sunk into the
+    height wherever it glows (**Its eyes**, below); the material's maps,
+    height, cavity (how far a point lies below the relief round it, near
+    for engraving and far for recesses) and heat; and the sockets' light.
+    The source is kb's sigil (disk, a rim
     a few thousandths out of round and notched, the gabled mask, the
     engraving, and a bail for the chain), or an image the backdrop's art
-    setting points at (**The art setting**, above). The frame takes the
-    slope from the baked height a texel across, so its normals are smooth
-    and never the screen's 2×2 derivatives, over the pixel's own footprint
-    (never finer than a texel), so a grain finer than a pixel in an image
-    is averaged away rather than sparkling.
+    setting points at (**The art setting**, above). The maps keep their mip
+    chain and are read over the pixel's footprint by explicit derivatives
+    (`offscreenPass`'s `mipmapped`: a frame is a scene's background, which
+    three reads at one fixed level), so the silhouette, the engraving's
+    edges and the casting's grain are filtered at their source, never
+    read at their finest level into stairs at a fifth of their size. The frame takes
+    the slope from the baked height over the same footprint (never finer
+    than a texel), so its normals are smooth and never the screen's 2×2
+    derivatives, and a grain finer than a pixel is averaged away rather
+    than sparkling.
   - **Worn steel**, physically motivated: a metal's reflectance (Schlick
     Fresnel) over its surroundings reflected (a warm floor the embers
     light, a cool sky, a soft window up left), and a brushed anisotropic
@@ -4567,12 +4616,55 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     brown-black patina deep in the recesses and occludes them; convex edges
     are rubbed bright; fine scratches score it and catch the key; casting
     pits are rare small hollows. Scratches and pits fade out where they
-    grow finer than a pixel.
+    grow finer than a pixel. Every highlight is antialiased by the
+    normal's own variance across the pixel (geometric specular AA): each
+    lobe widens by it and dims as it widens, so a bevel's pin-hot highlight
+    never sparkles as the medallion swings.
+  - **Its eyes are lights deep in sockets** (`medallion/eye-shader.ts`),
+    never a glow painted on the face; an owner's image and kb's sigil
+    alike, from where they glow and nothing else:
+    - The bake sinks a socket round each glow: a bowl whose walls fall
+      smoothly from the metal past it to a floor under the glow (the glow
+      blurred, so no ring of the blur shows as a terrace).
+    - The core is the glow on the socket's floor, hottest where it lies
+      deepest inside the glow (its heat, measured in from the glow's edge
+      in medallion units, so a thin slit and a broad almond both have a
+      heart), near white there and the light's own colour at its edge. It
+      lies below the face: it shows low in the socket's mouth, the brow over
+      it hiding its top, and it shifts against the mouth as the medallion
+      leans toward the pointer.
+    - Its light is baked as a flux at every point near it: the glow
+      gathered on a coarse grid, each cell a point light a little above
+      the floor, its light falling with the square of distance and hidden
+      where the relief between them stands above the line to it, so a brow
+      shades what lies past it. The frame lights the steel by it as by any
+      light: through the steel's reflectance (Schlick Fresnel), a GGX lobe
+      as rough as its grime and widened by the pixel's own spread (the
+      specular AA), and a little diffuse in the patina. The socket's walls
+      facing the core take its light, the rims catch it from inside, and a
+      face turned from it or above it stays dark.
+    - Its halo is that light's strength from every side, so it bleeds out
+      of the socket where the light reaches and is hidden where it is
+      hidden; on a dark page the stage's bloom carries the core further.
+      Awake, the light wavers a little on the scene's clock, more as the
+      eyes wake, so a still frame is still. On a light page the core is
+      light on the paper, covering it as far as its light runs.
+    - A flat glowing ellipse on the face was tried first, a core and a
+      halo added where the relief glowed: it read as a texture in front of
+      the eye, not a light inside it.
   - **The chain**: oval links, every other one face on and the next edge
     on, each a round wire, from the bail up past the frame's top. The
     medallion and its chain swing as one pendulum from a pivot above the
     frame (every 7.5 s), so the key glides over the bevels.
-  - Glyphs and rings are strokes' distances, the rings broken into arcs;
+  - **Glyphs are one atlas** (`gpu/glyph-atlas.ts`): every glyph, a rune or
+    the art's, is drawn once into a cell, its coverage and its glow (the
+    coverage blurred), and the atlas keeps its mip chain. The circle reads
+    the glyph of the slot a pixel falls in, and the far haze a glyph's glow,
+    one read each, with explicit derivatives, so a glyph is antialiased at
+    device pixels at any size and the slots' seams pick no wrong level. A
+    glyph's colour is its light on a dark page and its ink, deepened with a
+    little sepia, on a light one. The rings are lines covered by the
+    pixel's footprint (`hairline`), broken into arcs;
     the smoke is two layers, a far slow fold and a near one curled by a
     slow fold of its own into eddies and wisps, thickest close about the
     medallion, lit by the embers from below and by the back light behind
@@ -4598,7 +4690,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     disk's shadow quiet the field, never the ground itself, and never the
     medallion or its chain.
   - **It senses the page.** On a `notice` the medallion trembles for under
-    a second and its eyes flare in that event's colour (silver for a change
+    a second and its eyes flare in that event's colour, their light on the
+    sockets' walls with them (silver for a change
     from elsewhere, red for an error, gold for a finished agent turn), with
     a halo round the disk, and settles back to its faint amber. Under
     reduced motion it never moves: the eyes light, still, and go dark again
@@ -4621,7 +4714,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     edge. It fades into the page in display values
     (`fadeSpace: "display"`), so a strength's veil leaves the steel its
     darks. The same holds for kb's sigil and for an image the art setting
-    names. Then a smoke wash, sepia glyphs and rust specks. An engraving in
+    names. Then a smoke wash, sepia rings, glyphs inked in their own colours and rust specks. An engraving in
     faint ink was tried first and all but vanished on white; a steel toned
     between a light and a shade by its luminance read as a grey pewter
     ghost.

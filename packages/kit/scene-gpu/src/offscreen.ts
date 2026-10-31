@@ -1,7 +1,7 @@
 /**
  * An offscreen pass: a picture a scene draws at a resolution of its own,
  * before its frame, and samples in its frame like any texture (Lab principle
- * P3: the cost is the scene's to hold). Two needs share it:
+ * P3: the cost is the scene's to hold). Three needs share it:
  *
  * - **Expensive and soft.** A raymarch or a deep noise field costs per pixel
  *   and has no fine detail to lose, so it is drawn at a fraction of the
@@ -11,6 +11,14 @@
  *   hands it to the next as a texture, so a scene can blend a jittered
  *   sample into the ones before it: noise that moves every frame averages
  *   away, and fewer samples a frame look like many.
+ * - **Baked once, read smaller.** With `mipmapped`, the target keeps its mip
+ *   chain, built again after each render, so a picture drawn once at a high
+ *   resolution and read at whatever size the frame shows it (a relief) is
+ *   filtered over each pixel's footprint, never sampled into stairs and
+ *   sparkle. Its reads name that footprint themselves (the screen
+ *   derivatives of where they read): a scene's frame is its background, and
+ *   three reads every texture there at the background's fixed level, which
+ *   would read the chain's finest level at every size.
  *
  * One TSL graph on one quad (T1); `history` is the picture before this one,
  * and `size` the target's size in pixels. Disposing gives back both targets
@@ -18,13 +26,14 @@
  */
 import {
   HalfFloatType,
+  LinearMipmapLinearFilter,
   NodeMaterial,
   QuadMesh,
   RenderTarget,
   Vector2,
   type WebGPURenderer,
 } from "three/webgpu";
-import { texture, uniform } from "three/tsl";
+import { dFdx, dFdy, texture, uniform } from "three/tsl";
 import { sampleTexture, type TslNode } from "./tsl";
 
 /** A picture read at a point (UV, 0–1 each way): the vec4 there, filtered. */
@@ -49,9 +58,19 @@ export interface OffscreenPass {
   readonly dispose: () => void;
 }
 
-/** A half-float target with no depth, resized by the pass. */
-function offscreenTarget(): RenderTarget {
-  const target = new RenderTarget(1, 1, { depthBuffer: false, type: HalfFloatType });
+/** How a pass's target is kept: its last picture handed to the next (`history`), and its mip chain (`mipmapped`). */
+export interface OffscreenOptions {
+  readonly history: boolean;
+  readonly mipmapped?: boolean;
+}
+
+/** A half-float target with no depth, resized by the pass, with its mip chain where it is read smaller. */
+function offscreenTarget(mipmapped: boolean): RenderTarget {
+  const target = new RenderTarget(1, 1, {
+    depthBuffer: false,
+    type: HalfFloatType,
+    ...(mipmapped ? { generateMipmaps: true, minFilter: LinearMipmapLinearFilter } : {}),
+  });
   target.texture.name = "offscreen";
   return target;
 }
@@ -59,10 +78,11 @@ function offscreenTarget(): RenderTarget {
 export function offscreenPass(
   renderer: WebGPURenderer,
   fragment: (inputs: OffscreenInputs) => TslNode<"vec4">,
-  options: { readonly history: boolean },
+  options: OffscreenOptions,
 ): OffscreenPass {
-  let write = offscreenTarget();
-  let read = options.history ? offscreenTarget() : write;
+  const mipmapped = options.mipmapped ?? false;
+  let write = offscreenTarget(mipmapped);
+  let read = options.history ? offscreenTarget(mipmapped) : write;
   const size = uniform(new Vector2(1, 1));
   const history = texture(read.texture);
   const picture = texture(write.texture);
@@ -72,7 +92,8 @@ export function offscreenPass(
   const quad = new QuadMesh(material);
 
   return {
-    picture: (at) => sampleTexture(picture, at),
+    picture: (at) =>
+      mipmapped ? picture.sample(at).grad(dFdx(at), dFdy(at)) : sampleTexture(picture, at),
     size,
     setSize: (width, height) => {
       const w = Math.max(1, Math.round(width));

@@ -5,7 +5,8 @@
  * and the same fields on a node, for that node's page. The first three are
  * each a ref to one of its field's children: the backdrops are the options
  * the seed fold derives from the families' declarations, as it derives
- * views'. The art is a path of kb's own assets (`assets/…`).
+ * views'. The art is a path of kb's own assets (`assets/…`): an image, or
+ * a manifest naming several parts of the art (`backdrop-art.ts`).
  */
 import {
   declaredChoice,
@@ -13,7 +14,8 @@ import {
   type DeclaredOptions,
   type SeedOption,
 } from "./declared-option.ts";
-import { isAssetPath, mediaKindFromHref } from "./asset.ts";
+import { isAssetPath } from "./asset.ts";
+import { isBackdropArt } from "./backdrop-art.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
 import { firstRef, firstStr } from "./node-config.ts";
 
@@ -60,9 +62,10 @@ export interface BackdropChoice {
   readonly strength: BackdropStrength;
   readonly direction: BackdropDirection;
   /**
-   * A file of kb's own assets (`assets/…`) the backdrop draws as its art in
-   * place of its own, where it has art to replace (the Wolf medallion's
-   * relief); null, its own.
+   * A file of kb's own assets (`assets/…`) naming the art the backdrop draws
+   * in place of its own, where it has art to replace (the Wolf medallion's
+   * relief and glyphs): an image, or an art manifest (`backdropArtOf`);
+   * null, its own.
    */
   readonly art: string | null;
 }
@@ -84,7 +87,8 @@ function optionOf<V extends string>(
  * options, and the first contributed backdrop, `subtle` and `down` where
  * none does. A backdrop nobody contributes now (its plugin unloaded, its
  * declaration gone) is no option, so it falls through as an unknown
- * strength does; so does art that names no image of kb's assets.
+ * strength does; so does art that names no image or art manifest of kb's
+ * assets.
  */
 export function backdropChoice(
   sources: readonly (Props | undefined)[],
@@ -114,9 +118,7 @@ export function backdropChoice(
     art:
       first((props) => {
         const path = firstStr(SYSTEM_IDS.backdropArtField)(props);
-        return path !== undefined && isAssetPath(path) && mediaKindFromHref(path) === "image"
-          ? path
-          : undefined;
+        return path !== undefined && isAssetPath(path) && isBackdropArt(path) ? path : undefined;
       }) ?? null,
   };
 }
