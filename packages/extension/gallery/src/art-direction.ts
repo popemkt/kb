@@ -9,12 +9,16 @@
  * so those are written too, each under its own facet and marked with the
  * style that calls for it, however deep the making goes.
  *
+ * It is about building, so it holds no prompt for an image model (those
+ * are the brief's), and a look with no styles has nothing to build: its art
+ * direction is empty.
+ *
  * Every section is the library's own: facets in the composer's order, with
  * their names as the person gave them, so a library with a "Lighting" and a
  * "Projection" facet reads as lighting and camera, and one without them
  * does not pretend to.
  */
-import { nameOf, promptLines, referenceLines, type LookDraft } from "./look.ts";
+import { nameOf, referenceLines, type LookDraft } from "./look.ts";
 import { orderedStyles, type GraphNode, type Library, type StyleEntry } from "./library.ts";
 
 /**
@@ -69,12 +73,14 @@ function styleLines(
   return lines;
 }
 
-/** A look as a 3D art-direction brief, in Markdown. */
+/** A look as a 3D art-direction brief, in Markdown; empty while the look has no styles. */
 export function artDirectionOf(
   draft: LookDraft,
   library: Library,
   get: (id: string) => GraphNode | undefined,
 ): string {
+  const calledFor = stylesCalledFor(draft, library);
+  if (calledFor.size === 0) return "";
   const lines = [`# 3D art direction: ${nameOf(draft)}`, ""];
   if (draft.description.trim() !== "") lines.push(draft.description.trim(), "");
   const forNode = draft.forNode === null ? undefined : get(draft.forNode);
@@ -85,7 +91,6 @@ export function artDirectionOf(
       "is listed under its own heading, marked with the style that calls for it.",
     "",
   );
-  const calledFor = stylesCalledFor(draft, library);
   const styles = orderedStyles(library, new Set(calledFor.keys()));
   for (const facet of library.facets) {
     const here = styles.filter((style) => style.facet === facet.id);
@@ -105,6 +110,6 @@ export function artDirectionOf(
   if (draft.palette.length > 0)
     lines.push("## Palette", "", ...draft.palette.map((hex) => `- \`${hex}\``), "");
   if (draft.negative.trim() !== "") lines.push("## Avoid", "", draft.negative.trim(), "");
-  lines.push(...promptLines(draft, library), ...referenceLines(draft, get));
+  lines.push(...referenceLines(draft, get));
   return lines.join("\n");
 }

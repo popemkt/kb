@@ -93,7 +93,13 @@ export function lookOf(look: GraphNode, get: (id: string) => GraphNode | undefin
 /** What a look is called when it has no name: its brief's first words. */
 export function nameOf(draft: LookDraft): string {
   if (draft.name.trim() !== "") return draft.name.trim();
-  const words = draft.description.trim().split(/\s+/).slice(0, 6).join(" ");
+  // The brief's first words, without the punctuation they were cut at.
+  const words = draft.description
+    .trim()
+    .split(/\s+/)
+    .slice(0, 6)
+    .join(" ")
+    .replace(/[^\p{L}\p{N})\]]+$/u, "");
   return words === "" ? "Untitled look" : words;
 }
 
@@ -265,7 +271,7 @@ export function briefOf(
 }
 
 /** A brief's prompts section: the look's prompt for each model family. */
-export function promptLines(draft: LookDraft, library: Library): readonly string[] {
+function promptLines(draft: LookDraft, library: Library): readonly string[] {
   const lines = ["## Prompts", ""];
   for (const p of promptsOf(draft, library)) {
     lines.push(`**${p.label}**`, "", "```", p.positive, "```", "");

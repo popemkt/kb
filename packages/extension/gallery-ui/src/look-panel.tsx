@@ -149,7 +149,12 @@ function ChosenStyles({
             <button
               key={style.id}
               type="button"
-              title={`${library.facets.find((f) => f.id === style.facet)?.text ?? "Unfiled"}: remove from the look`}
+              title={[
+                style.description,
+                `${library.facets.find((f) => f.id === style.facet)?.text ?? "Unfiled"}: remove from the look`,
+              ]
+                .filter((line) => line !== "")
+                .join("\n")}
               data-look-style={style.text}
               className="rounded-md bg-primary/10 px-1.5 py-0.5 text-label text-primary hover:text-foreground"
               onClick={() => toggleDraftStyle(style.id)}
@@ -459,6 +464,7 @@ function Exports({ draft, frame }: { readonly draft: LookDraft; readonly frame: 
       <Head label={`Export: ${target.label}`} text={text}>
         <button
           type="button"
+          disabled={text === ""}
           className={LINK}
           onClick={() => download(exportFileName(nameOf(draft), target), text)}
         >
@@ -474,7 +480,11 @@ function Exports({ draft, frame }: { readonly draft: LookDraft; readonly frame: 
           data-gallery-export={target.id}
           className="mt-1 max-h-72 overflow-auto rounded-md border border-border bg-foreground/[0.03] px-2 py-1.5 text-meta break-words whitespace-pre-wrap text-foreground/80 select-text"
         >
-          {text}
+          {text === "" ? (
+            <span className="text-foreground/40">Choose the look's styles first.</span>
+          ) : (
+            text
+          )}
         </pre>
       </details>
     </div>

@@ -227,7 +227,7 @@ describe("the look's Enhance", () => {
     act(() => choices[1]?.click());
     expect(choices[1]?.getAttribute("aria-checked")).toBe("true");
     expect(shown()?.getAttribute("data-gallery-export")).toBe("art-direction");
-    expect(shown()?.textContent).toContain(": 3D art direction");
+    expect(shown()?.textContent).toContain("# 3D art direction: ");
     expect(shown()?.textContent).toContain("- Cinematic");
   });
 });

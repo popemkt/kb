@@ -3200,7 +3200,8 @@ which also lists the workflows judged and not built.
   it looks like, what it is made with, where it is seen, how to make it
   per tool), and every style a chosen one is made with, however deep,
   under its own facet and marked with the style that calls for it; then
-  the palette, what to avoid, the prompts and the references.
+  the palette, what to avoid and the references. It is for building, so
+  it holds no image model's prompt, and a look with no styles has none.
 - **The moodboard is the canvas family's, through a declared need.** The
   canvas family's page half provides `BoardService` (`@kb/ui-sdk`): a
   board under a node, and a card placed on it for each node not yet there,
@@ -3259,8 +3260,11 @@ which also lists the workflows judged and not built.
 - **The gallery's workflows**, each a view of the family, in the tabs'
   order:
   - _I know what I want_ (`know`): a term typed is completed from the
-    style library, each suggestion named with its facet, and Enter takes
-    the first; a word the library lacks joins the brief or becomes a style
+    style library at the start of a word ("toon" finds "toon ramp", not
+    "cartoon"), each suggestion named with its facet, then the styles made
+    with those, named with what they are made with ("cel-shaded, with toon
+    ramp"); a suggestion's description shows on hover, as it does on a
+    facet's styles and the look's, and Enter takes the first; a word the library lacks joins the brief or becomes a style
     under a facet (`addStyle`), so the library grows as it is used. The
     references that show every chosen style appear beneath, or, when none
     does, those that show the most (`nearest`).

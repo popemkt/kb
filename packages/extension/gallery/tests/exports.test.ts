@@ -138,6 +138,11 @@ describe("the 3D art direction", () => {
     expect(text).toContain("### flat shading (for cel-shaded)");
     expect(text).toContain("## Palette\n\n- `#8e1d10`\n- `#c8922c`");
     expect(text).toContain("## Avoid\n\nphotoreal");
-    expect(text).toContain("## Prompts");
+    // It is for building: no image model's prompt.
+    expect(text).not.toContain("## Prompts");
+  });
+
+  test("a look with no styles has nothing to build", () => {
+    expect(artDirectionOf({ ...draft, styles: [] }, library, get)).toBe("");
   });
 });
