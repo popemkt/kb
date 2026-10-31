@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import {
+  ASTRAL_BACKDROP,
   BLACK_HOLE_BACKDROP,
   FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
@@ -20,6 +21,7 @@ import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
 import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
 import {
+  AstralBackdrop,
   BlackHoleBackdrop,
   FloatingGeometryBackdrop,
   GradientOrbsBackdrop,
@@ -163,6 +165,15 @@ const lightTrails: Omit<Backdrop, "key"> = {
 };
 
 /**
+ * Celestial instruments in a living sky: the sky spans the scroll region,
+ * the instrument placed from the content.
+ */
+const astral: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  Component: AstralBackdrop,
+};
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), with the family's shared plugin as a child.
@@ -189,6 +200,7 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_ORBS_BACKDROP, gradientOrbs)),
         ctx.contribute(BackdropPoint, provideBackdrop(WOLF_MEDALLION_BACKDROP, wolfMedallion)),
         ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
+        ctx.contribute(BackdropPoint, provideBackdrop(ASTRAL_BACKDROP, astral)),
       ],
       { discard: true },
     ),

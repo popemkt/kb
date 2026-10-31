@@ -65,6 +65,7 @@ const GPU_BACKDROPS = new Set([
   "backdrops.gradient-orbs",
   "backdrops.wolf-medallion",
   "backdrops.light-trails",
+  "backdrops.astral",
 ]);
 
 /** The browser entries of the families on in a store with no switch written, as the page loads them. */

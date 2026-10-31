@@ -35,6 +35,7 @@ let loadSeed: number | null = null;
 /** This load's seed, whatever the motion setting: the same for every backdrop that asks. */
 export function useLoadSeed(): number {
   const [seed] = useState(() => {
+    // GAP [[01M69H8012T55AXMZBJ45Q1PVC]]: no store identity to salt it with, so no sky is a store's own.
     loadSeed ??= pinnedSeed() ?? Math.floor(Math.random() * 2 ** 31);
     return loadSeed;
   });

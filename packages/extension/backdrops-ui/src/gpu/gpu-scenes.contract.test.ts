@@ -1,6 +1,6 @@
 /**
  * The scene contract (`sceneContract`, `@kb/ui-test-kit`) over the GPU
- * backdrops' scenes, Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion and Light trails, each on a dark
+ * backdrops' scenes, Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails and each of Astral's compositions, each on a dark
  * page and a light one: each draws an offscreen pass (the nebula, the hole,
  * the sky, the silk), so the stand-in renderer counts those too, and a
  * hidden scene must still draw nothing.
@@ -10,6 +10,7 @@ import type { ScenePalette } from "@kb/scene";
 import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { sceneContract } from "@kb/ui-test-kit";
 import type * as ThreeWebGpu from "three/webgpu";
+import { ASTRAL_VARIANTS } from "../astral/astral";
 import type { GpuBackdropInit, GpuBackdropMount } from "./gpu-scene";
 
 vi.mock("three/webgpu", async (importOriginal) => ({
@@ -51,6 +52,17 @@ const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
   "wolf medallion": () => import("../medallion/medallion-scene").then((m) => m.mountWolfMedallion),
   "light trails": () =>
     import("../light-trails/light-trails-scene").then((m) => m.mountLightTrails),
+  ...Object.fromEntries(
+    ASTRAL_VARIANTS.map((variant) => [
+      `astral ${variant}`,
+      () =>
+        import("../astral/astral-scene").then(
+          (m): GpuBackdropMount =>
+            (host, given) =>
+              m.mountAstral(host, { ...given, variant }),
+        ),
+    ]),
+  ),
 };
 
 sceneContract(

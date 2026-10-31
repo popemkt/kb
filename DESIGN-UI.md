@@ -4311,7 +4311,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion and Light trails are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails and Astral are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -4407,7 +4407,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   the canvas carries it as `data-hero`: heights right of the content's
   centre, heights up from the frame's middle, and its scale.
 - **A frame that spans the region.** A backdrop whose field should reach
-  past the content (Floating geometry, Gradient orbs, Wolf medallion) has
+  past the content (Floating geometry, Gradient orbs, Wolf medallion, Astral) has
   the span `reach: "region"`: its
   frame is a breakout (`BREAKOUT_CLASS`, `useBreakoutShift`), as wide as the
   scroll region whatever the content width, and the hero is still placed
@@ -4933,6 +4933,68 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     on a phone, over a pale periwinkle wash along the bundle; the knot a
     point of bare paper in a cyan bloom and streak, so the core still
     reads.
+- **Astral.** Precise celestial instruments in engraved metal, the
+  four-point needle star at every scale (`astral/`): hairline engraving in
+  champagne, ivory and silver on ink-navy, one cool accent (ice, blued
+  steel), and on a light page ink and gilt on warm paper. No pentagram, no
+  stock magic circle, no glow for its own sake: the light is the stars'
+  and the studio's. It is one backdrop with four compositions, its
+  variants (**Variants**), a load showing one: **Movement** (an astrolabe
+  dial before a great crown wheel and its train, a balance swinging
+  beside), **Orrery** (silver orbits seen from a little above, planets as
+  stars on rods round a column), **Planisphere** (a star plate whose rim
+  is a great wheel, made for the light page) and **Armillary** (great
+  graduated rings in perspective round the hub star, the eye drifting
+  round them).
+  - **Compositions are data** (`astral.ts`, `compositions.ts`): a list of
+    parts (a wheel, an arm, a rod, a star, a group), each in its parent's
+    frame, turning by its drive; `astral-scene.ts` builds whatever a list
+    holds, one builder per kind. Each load composes anew from its
+    variation: ring and pointer counts, radii, ratios, where the wheels
+    mesh (`meshed`, so teeth fall in gaps), where the stars stand.
+  - **Real solids in a true perspective.** A wheel is its outline (teeth,
+    spoke windows or a bore) extruded with a fine bevel
+    (`astral-geometry.ts`), drawn with MSAA in a 40° view, so parts occlude
+    one another as the eye drifts. Engraving (guilloché, scales, rings, a
+    star chart, côtes, a hairspring's spiral) is cut in the face's own
+    coordinates, antialiased by its footprint and thinned to a hairline
+    below a pixel.
+  - **The light, live and named.** Metal reflects a studio: a soft key at
+    the upper left (the lamp, warm white), a strip at the right (cool
+    white) and a little fill above. Faces are brushed in circles about
+    their axis (an anisotropic sheen across the brushing); a cut's walls
+    catch the key by which way they face. A glint sweeps the metal now and
+    then. The front parts cast soft contact shadows on the sky and on the
+    wheels behind, and a far wheel sinks into the haze. The stars are
+    self-luminous: a hot core and needle spikes, drawn instanced, facing
+    the eye.
+  - **Ticking.** The trains tick in eased steps with a little escapement
+    recoil (`trainClock`, `tickEase`), every wheel by its ratio and some
+    only every few ticks; a balance swings a little off the tick, so the
+    two drift in and out of phase. The clock is elapsed time, so where a
+    wheel stands is the same at any frame rate.
+  - **A sky that lives** (`ambient`): each on a clock of its own, a few a
+    minute between them, a shooting star, a constellation drawing itself
+    and fading, a far train engaging a while, a glint across the metal;
+    dust drifts in slow light shafts, the stars breathe.
+  - **The owner.** A write, a move to another page or something noticed
+    on the page ticks every train one notch at once and flares the hub
+    star. The pointer is a lamp on an arm: the studio's key swings toward
+    it (attack 0.3 s, release 0.55 s) and the stars near it glint; nothing
+    else follows it.
+  - **A light page** draws the same solids as a printed plate: a face is
+    the paper in a wash of its metal, lit by a low raking light, its
+    outline and cuts in ink, gilt for the stars and the hub, and the
+    instrument's shadow cast on the paper.
+  - **A frame's passes**: the sky's slow fields (the nebula, the warmth
+    about the hub, the paper's fibre) offscreen at half the CSS pixels,
+    four times a second (`slowSky`); one MSAA scene pass (the sky as the
+    background node, its stars and events per pixel, the solids, the
+    instanced stars); the stage's bloom mips; and its composite (lens,
+    feather, tone, dither). Glints, the constellation and the shooting star
+    are branches only drawn while on.
+  - Reduced motion is one still: the variant drawn by the load's seed, the
+    rest from the curated still's (**Variation**).
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it

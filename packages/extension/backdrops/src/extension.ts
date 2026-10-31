@@ -68,6 +68,22 @@ export const LIGHT_TRAILS_BACKDROP: SeedBackdrop = {
   label: "Light trails",
 };
 
+/**
+ * Celestial instruments in engraved metal, the four-point needle star at
+ * every scale, in a living sky; four compositions, one drawn a load, each
+ * made for its scheme (a pin of another scheme draws it in that one's look).
+ */
+export const ASTRAL_BACKDROP: SeedBackdrop = {
+  id: "backdrops.astral",
+  label: "Astral",
+  variants: [
+    { id: "movement", label: "Movement", schemes: ["dark"] },
+    { id: "orrery", label: "Orrery", schemes: ["dark"] },
+    { id: "planisphere", label: "Planisphere", schemes: ["light"] },
+    { id: "armillary", label: "Armillary", schemes: ["dark"] },
+  ],
+};
+
 /** Every backdrop the family declares, in the order its options are listed. */
 const BACKDROPS: readonly SeedBackdrop[] = [
   UNICORN_BACKDROP,
@@ -82,6 +98,7 @@ const BACKDROPS: readonly SeedBackdrop[] = [
   GRADIENT_ORBS_BACKDROP,
   WOLF_MEDALLION_BACKDROP,
   LIGHT_TRAILS_BACKDROP,
+  ASTRAL_BACKDROP,
 ];
 
 export const backdropsExtension = defineExtension({

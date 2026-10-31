@@ -57,3 +57,8 @@ export function WolfMedallionBackdrop(props: BackdropProps) {
 export function LightTrailsBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="lightTrails" backdrop={props} />;
 }
+
+/** Celestial instruments in engraved metal in a living sky, one composition a load (`astral/`). */
+export function AstralBackdrop(props: BackdropProps) {
+  return <GpuBackdropHost scene="astral" backdrop={props} />;
+}
