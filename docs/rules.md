@@ -253,6 +253,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYNGRHH8HHBHV2KQ3MNAV`
 
+### GAP: a merge's conflicts are returned to a git driver and have no place in the graph
+
+- **expected** — A conflict the merge reports (modified-both-position, deleted-and-modified, modified-both-same-stamp) becomes a node a person reads, naming the node, the reason and the side kept (docs/research/2026-10-31-offline-first.md §3.3).
+- **current** — MergeResult.conflicts is an array the git driver prints to stderr; nothing at run time shows it.
+- **impact** — An offline merge would silently keep one side; the loser's change is invisible to the person who made it.
+- **closes** — A conflict tag and the sync agent writing one node per reported conflict (P1).
+- **node** — `01M69E3QETRHZH00T7JFMQ0F37`
+
 ### GAP: a modal transform takes one typed value, not a vector
 
 - **expected** — typed input like Blender's: one value per axis with Tab to the next, and expressions
@@ -374,6 +382,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the Light study has aliased edges
 - **closes** — upgrade to three r187, which fixes GTAO with MSAA depth (mrdoob/three.js#34598, #34609), and drop the single-sample branch
 - **node** — `01M416DT1SEWS5P3J28JT4R6YG`
+
+### GAP: a store has no identity, so a reset or replaced authority looks like the one a device synced with
+
+- **expected** — An authority carries an id made at creation; a device's base stores it; a different id on connect stops the sync and asks, never merges and never clears local data (docs/research/2026-10-31-offline-first.md §3.6).
+- **current** — Stores have no id; the fingerprint names a state, not a store.
+- **impact** — Pointing a device at a fresh or different authority would push or merge its whole graph into the wrong place.
+- **closes** — A backend id in the authority's schema and in the base's cursor, checked on connect.
+- **node** — `01M69E3RQH76X44JB9H5NYDWBE`
 
 ### GAP: a store's release is not on the port; selectStore drops it
 
@@ -839,6 +855,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — in 3D, an edge to a label or standing billboard runs to the floor beneath it
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
+
+### GAP: kb cannot be edited offline and merged later; devices meet only through git
+
+- **expected** — A SyncAgent in the style of git: pull the authority, mergeNodeSets(base, local, remote), commit the result locally, push one compare-and-swap append of what differs from the base (docs/research/2026-10-31-offline-first.md §3).
+- **current** — No sync loop, no persisted base, no authority; the merge exists only as the git driver for nodes.jsonl.
+- **impact** — A second machine's edits reach this one by git commit and merge only; no live shared editing, no offline queue.
+- **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
+- **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
 
 ### GAP: kb has no online store; two machines share a graph only through git
 
