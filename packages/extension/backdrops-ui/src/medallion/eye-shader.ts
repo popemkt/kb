@@ -7,7 +7,8 @@
  *   edge, whatever the glow's size or shape. It lies at the socket's
  *   bottom, below the face (`CORE`): seen through the socket's mouth, it
  *   sits low in it, the brow over it hiding its top, and it shifts against
- *   the mouth as the medallion leans, so it reads as deep, not drawn on.
+ *   the mouth as the medallion twists on its chain, so it reads as deep,
+ *   not drawn on.
  * - **The socket and the metal by it** take its light by their normals
  *   (`socketLight`): the baked flux, its direction and its strength falling
  *   with the square of distance, through the steel's own reflectance, a
@@ -44,13 +45,13 @@ const EYE = { core: 4, edge: 0.15, shine: 1.5, halo: 0.03, diffuse: 0.35 } as co
 /**
  * How deep the core lies: how far below the socket's mouth it shows (the
  * brow over it, medallion units), and how far it shifts against the mouth
- * for a medallion unit of lean.
+ * for a medallion unit of twist.
  */
 const CORE = { low: new Vector2(0, 0.022), parallax: 0.5 } as const;
 
-/** Where the core shows through the socket's mouth at a point, for `lean` (`MedallionUniforms.lean`): the point the heat is read from, as an offset. */
-export const coreSight = (lean: V2): V2 =>
-  vec2(CORE.low.x, CORE.low.y).add(lean.mul(CORE.parallax));
+/** Where the core shows through the socket's mouth at a point, for `twist` (`MedallionUniforms.twist`): the point the heat is read from, as an offset. */
+export const coreSight = (twist: F): V2 =>
+  vec2(CORE.low.x, CORE.low.y).add(vec2(twist.mul(CORE.parallax), 0));
 
 /** What the steel is where the eyes' light falls on it. */
 export interface EyeSurface {

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { CIRCLE, ENGRAVING, EYES, GLYPHS, MASK, RUNES, tremble, type Point } from "./medallion";
+import {
+  CIRCLE,
+  ENGRAVING,
+  EYES,
+  GLYPHS,
+  HANGING,
+  MASK,
+  RUNES,
+  swingOn,
+  type Point,
+  type Swing,
+} from "./medallion";
 
 /** Whether `at` is inside the closed polygon `points` (even–odd). */
 function inside([x, y]: Point, points: readonly Point[]): boolean {
@@ -77,24 +88,38 @@ describe("the runes as glyph art", () => {
   });
 });
 
-describe("tremble", () => {
-  it("is still before anything happens and once it has rung, and shivers within its reach between", () => {
-    expect(tremble(Infinity, 1)).toEqual([0, 0]);
-    expect(tremble(-1, 1)).toEqual([0, 0]);
-    expect(tremble(10, 1)).toEqual([0, 0]);
-    let moved = 0;
-    for (let t = 0; t < 3; t += 1 / 120) {
-      const [x, y] = tremble(t, 1);
-      expect(Math.hypot(x, y)).toBeLessThan(0.05);
-      moved = Math.max(moved, Math.hypot(x, y));
-    }
-    expect(moved).toBeGreaterThan(0.01);
-    expect(Math.hypot(...tremble(2.5, 1))).toBeLessThan(Math.hypot(...tremble(0.2, 1)) + 1e-3);
+/** A swing left to the air for `seconds` in steps of `dt` from `at`: where it ends, and the furthest it swung. */
+function settle(from: Swing, seconds: number, dt: number, at = 0) {
+  let swing = from;
+  let most = 0;
+  for (let t = at; t < at + seconds; t += dt) {
+    swing = swingOn(swing, dt, t, 0);
+    most = Math.max(most, Math.abs(swing.angle));
+  }
+  return { swing, most };
+}
+
+describe("swingOn", () => {
+  it("sways only a little and slowly at rest, kept up by the air", () => {
+    const { swing } = settle({ angle: 0, speed: 0 }, 200, 1 / 60);
+    const { most } = settle(swing, 120, 1 / 60, 200);
+    expect(most).toBeGreaterThan(HANGING.sway * 0.5);
+    expect(most).toBeLessThan(HANGING.sway * 1.6);
   });
 
-  it("is as strong as what startled it", () => {
-    const [x] = tremble(0.1, 0.5);
-    const [full] = tremble(0.1, 1);
-    expect(x).toBeCloseTo(full / 2, 9);
+  it("swings further when pushed, and the swing dies back to its sway", () => {
+    const pushed = swingOn({ angle: 0, speed: 0 }, 0, 0, 1);
+    expect(pushed.speed).toBeCloseTo(HANGING.push, 9);
+    const soon = settle(pushed, HANGING.period, 1 / 60);
+    const later = settle(settle(pushed, 60, 1 / 60).swing, HANGING.period, 1 / 60, 60);
+    expect(soon.most).toBeGreaterThan(later.most);
+    expect(later.most).toBeLessThan(HANGING.sway * 1.6);
+  });
+
+  it("stays a pendulum at any frame rate", () => {
+    const fine = settle({ angle: 0.03, speed: 0 }, 30, 1 / 120);
+    const coarse = settle({ angle: 0.03, speed: 0 }, 30, 1 / 10);
+    expect(coarse.most).toBeLessThan(0.04);
+    expect(Math.abs(coarse.swing.angle - fine.swing.angle)).toBeLessThan(0.01);
   });
 });

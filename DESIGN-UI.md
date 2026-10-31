@@ -3958,8 +3958,8 @@ reports a score against each.
   - `backdrops.gradient-orbs` is two great orbs floating in front of a
     deep blue field, lit from the upper right in violet, pink and cream;
   - `backdrops.wolf-medallion` is kb's own steel wolf medallion over smoke
-    and rising embers, a faint circle of five glyphs turning behind it; it
-    trembles when something happens on the page.
+    and rising embers, a faint circle of five glyphs turning behind it; its
+    eyes flare when something happens on the page.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -4634,7 +4634,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
       heart), near white there and the light's own colour at its edge. It
       lies below the face: it shows low in the socket's mouth, the brow over
       it hiding its top, and it shifts against the mouth as the medallion
-      leans toward the pointer.
+      twists a little on its chain while it swings.
     - Its light is baked as a flux at every point near it: the glow
       gathered on a coarse grid, each cell a point light a little above
       the floor, its light falling with the square of distance and hidden
@@ -4666,9 +4666,19 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     medallion's own metal under the same lights (`medallion/metal-shader.ts`,
     one model for both), brushed along its wire, its lobes widened by the
     same specular AA; the eyes' light ends long before it. A flat chain, a
-    ring and a bar drawn by turns with a tube's shading, was tried first. The
-    medallion and its chain swing as one pendulum from a pivot above the
-    frame (every 7.5 s), so the key glides over the bevels.
+    ring and a bar drawn by turns with a tube's shading, was tried first.
+  - **It hangs.** The medallion and its chain are one pendulum from a pivot
+    above the frame (`swingOn`, `HANGING`, in `medallion.ts`): slow (7.5 s),
+    lightly damped, kept swaying by two slow breaths of air just off its own
+    swing, so its sway is very small (about a hundredth of a radian each
+    way) and drifts; something happening on the page pushes it a little
+    further, and the swing dies back. It twists a little on its chain as it
+    swings, which only the depth of its eyes shows. It never moves toward
+    the pointer: a pendant that leaned to follow a cursor read as physically
+    wrong, so the pointer stirs the air instead, the embers drifting and
+    swirling away from a gust that follows the pointer with a lag and
+    settling back once it has passed (`AIR`). Under reduced motion it hangs
+    straight and the embers are never stirred.
   - **Glyphs are one atlas** (`gpu/glyph-atlas.ts`): every glyph, a rune or
     the art's, is drawn once into a cell, its coverage and its glow (the
     coverage blurred), and the atlas keeps its mip chain. The circle reads
@@ -4696,23 +4706,22 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     light all round (an image's lower jaw parts from the ground), wrapping
     further in on the smoke's side (a back light, never a line drawn round
     it); its shadow cast on the smoke,
-    a darker contact where the chain meets the bail, and parallax (it leans
-    a little toward the pointer while the circle and smoke behind it stay)
-    set it in front. Its halo, edge light and shadow are its own
+    and a darker contact where the chain meets the bail set it in front. Its halo, edge light and shadow are its own
     silhouette softened, so they follow its shape, a sigil's or an
     image's.
   - Light over the page's ground, never under it: the text scrim and the
     disk's shadow quiet the field, never the ground itself, and never the
     medallion or its chain.
-  - **It senses the page.** On a `notice` the medallion trembles for under
-    a second and its eyes flare in that event's colour, their light on the
+  - **It senses the page, by light.** On a `notice` its eyes flare in that
+    event's colour (and its swing is pushed a little), their light on the
     sockets' walls with them (silver for a change
     from elsewhere, red for an error, gold for a finished agent turn), with
     a halo round the disk, and settles back to its faint amber. Under
     reduced motion it never moves: the eyes light, still, and go dark again
     a few seconds later, two still frames the scene asks the stage for.
-  - The pointer near the disk wakes its eyes a little; typing slows the
-    smoke; writes (`stir`) turn the circle faster for a while.
+  - The pointer near the disk wakes its eyes a little and stirs the embers;
+    typing slows the smoke; writes (`stir`) turn the circle faster for a
+    while.
   - A light page is the same scene on paper, the medallion a real object
     on the page: polished darker steel, its light exposed for the day on a
     curve that keeps its darks, so its engraving lies in deep shadow and

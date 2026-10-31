@@ -10,7 +10,7 @@
  * owner's glyphs meet (`BackdropGlyph`).
  *
  * Everything is in medallion units: the disk's radius is 1, y up. Pure, so
- * the geometry and the tremble are tested without a GPU.
+ * the geometry and the swing are tested without a GPU.
  */
 
 import type { BackdropGlyph } from "@kb/model";
@@ -244,21 +244,43 @@ export const CIRCLE = { glyphs: 1.4, inner: 1.22, outer: 1.56, glyph: 0.15 } as 
 /** One turn of the circle (s). */
 export const TURN_SECONDS = 120;
 
-/** How the medallion trembles: its reach (medallion units) and how long it rings (s). */
-const TREMBLE_REACH = 0.035;
-const TREMBLE_RING = 0.9;
+/**
+ * How the medallion hangs: a pendulum on its chain, slow (its period, s),
+ * damped (the share of its critical damping), stirred by the air into a
+ * sway this small (rad, its steady swing at rest), and pushed this hard
+ * (rad/s) when something happens on the page.
+ */
+export const HANGING = { period: 7.5, damping: 0.05, sway: 0.02, push: 0.03 } as const;
+
+/** A pendulum's state: how far it has swung from hanging straight (rad), and how fast it is swinging (rad/s). */
+export interface Swing {
+  readonly angle: number;
+  readonly speed: number;
+}
 
 /**
- * Where the medallion stands `since` seconds after something happened,
- * startled by `strength` (0–1): a fast, uneven shiver about its rest,
- * dying away within a second. Nothing before, and nothing once it has rung.
+ * The air on the medallion at `time` (s): two slow breaths near its own
+ * swing, out of step, so its sway drifts and never repeats in a way the eye
+ * can follow. As a torque, scaled so the damped pendulum's steady swing
+ * peaks at about `HANGING.sway` (`AIR_GAIN`, its response to breaths just
+ * off its own swing).
  */
-export function tremble(since: number, strength: number): Point {
-  if (since < 0 || since > TREMBLE_RING * 4) return [0, 0];
-  const reach =
-    TREMBLE_REACH * strength * Math.exp(-since / TREMBLE_RING) * Math.min(1, since * 30);
-  return [
-    reach * 0.5 * (Math.sin(since * 61) + Math.sin(since * 97 + 1.3)),
-    reach * 0.5 * (Math.sin(since * 73 + 0.7) + Math.sin(since * 109 + 2.1)),
-  ];
+const AIR_GAIN = 2.2;
+function airOn(time: number): number {
+  const w = (2 * Math.PI) / HANGING.period;
+  const breath = Math.sin(time * w * 0.93) + 0.6 * Math.sin(time * w * 1.08 + 1.7);
+  return breath * AIR_GAIN * HANGING.sway * HANGING.damping * w * w;
+}
+
+/**
+ * The medallion's swing `dt` seconds on from `swing` at `time`, `pushed`
+ * (0–1) by something happening now: a damped pendulum driven by the air,
+ * stepped semi-implicitly so it stays stable at any frame rate.
+ */
+export function swingOn(swing: Swing, dt: number, time: number, pushed: number): Swing {
+  const w = (2 * Math.PI) / HANGING.period;
+  const step = Math.min(dt, 0.1);
+  const torque = airOn(time) - w * w * swing.angle - 2 * HANGING.damping * w * swing.speed;
+  const speed = swing.speed + torque * step + pushed * HANGING.push;
+  return { angle: swing.angle + speed * step, speed };
 }

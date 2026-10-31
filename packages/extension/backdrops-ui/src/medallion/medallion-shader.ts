@@ -40,8 +40,10 @@
  *   out-of-focus glyphs one to a cell, clear of the medallion's circle
  *   (`glyphHaze`). Each bank, spark and glyph fades whole by where it
  *   stands (`farField`), toward the frame's sides, its bottom and the text.
- * - **It swings** with its chain from a pivot above the frame (`sway`,
- *   `pivot`), so the key light glides over its bevels.
+ * - **It hangs** with its chain from a pivot above the frame (`sway`,
+ *   `pivot`, a pendulum the scene steps), so the key light glides over its
+ *   bevels; it never follows the pointer, which stirs the embers instead
+ *   (`air`, `stirred`).
  * - **It dissolves by its own shapes** (`../gpu/dissolve`): the near smoke
  *   and the light under it keep to a reach about the medallion and thin out
  *   at its ragged rim, so the smoke's own folds are its edge, never a side
@@ -86,7 +88,7 @@ import {
   vec2,
   vec3,
 } from "three/tsl";
-import { Vector2, Vector3 } from "three/webgpu";
+import { Vector2, Vector3, Vector4 } from "three/webgpu";
 import type { TslNode } from "@kb/scene-gpu";
 import { dissolve, dissolveUniforms, type FarField } from "../gpu/dissolve";
 import type { Grounds } from "../gpu/gpu-scene";
@@ -165,14 +167,16 @@ export function medallionUniforms(field: FarField, glyphs: GlyphAtlas) {
     glyphs,
     dark: uniform(1),
     time: uniform(0),
-    /** The disk's centre (frame units, the tremble in it) and radius. */
+    /** The disk's centre (frame units) and radius. */
     centre: uniform(new Vector2(0.3, 0)),
     radius: uniform(0.26),
     /** How far the circle has turned (rad), and how far the medallion has swung on its chain. */
     turn: uniform(0),
     sway: uniform(0),
-    /** How far the medallion leans toward the viewer's pointer (medallion units): the circle and smoke behind it do not, so it reads as in front. */
-    lean: uniform(new Vector2(0, 0)),
+    /** How far it has turned about its chain as it swings (medallion units of the eyes' parallax): only the depth of its eyes reads it. */
+    twist: uniform(0),
+    /** The air the pointer stirs about the embers: where its gust is (frame units), how hard it blows (0–1), and how far it reaches (frame units). */
+    air: uniform(new Vector4(0, 0, 0, 0.16)),
     /** Where it swings from (medallion units, above it, past the frame's top), and where the chain leaves its bail. */
     pivot: uniform(2.2),
     bail: uniform(1.12),
@@ -394,6 +398,22 @@ function softSilhouette(relief: BakedRelief, q: V2, spread: number, taps: number
 }
 
 /**
+ * Where a spark seen at `p` (frame units) was before `air` (`MedallionUniforms.air`)
+ * blew it: pushed away from the gust and swirled round it, the most at its
+ * heart and none past its reach, so the embers part and eddy round the
+ * pointer and drift back as it settles.
+ */
+function stirred(air: TslNode<"vec4">, p: V2): V2 {
+  const off = p.sub(air.xy);
+  const away = off.div(length(off).max(1e-4));
+  const reach = air.w;
+  const fall = exp(dot(off, off).div(reach.mul(reach)).negate());
+  return p.sub(
+    away.add(vec2(away.y.negate(), away.x).mul(0.7)).mul(air.z.mul(reach).mul(0.7).mul(fall)),
+  );
+}
+
+/**
  * The field at `p`, the medallion's background layer: how much of the near
  * reach is left (`left`); two layers of smoke, a far one, slower and
  * larger, about the medallion and in banks across the whole frame, its
@@ -416,8 +436,10 @@ function fieldAt(
   const haze = { amount: far.amount.mul(clear).toVar(), tint: far.tint.mul(clear).toVar() };
   const standing: Standing = (centre, own) =>
     left.max(u.field.standing(centre, own).mul(step(own, FAR_SPARKS)));
-  const sparks = embers(p, u.time, [9, 0.08, 0], standing)
-    .add(embers(p, u.time, [15, 0.12, 31], standing).mul(0.6))
+  // The sparks are read where the pointer's gust has blown them from: pushed away from it and swirled.
+  const blown = stirred(u.air, p).toVar();
+  const sparks = embers(blown, u.time, [9, 0.08, 0], standing)
+    .add(embers(blown, u.time, [15, 0.12, 31], standing).mul(0.6))
     .mul(low.mul(0.8).add(0.2))
     .toVar();
   return { left, dense, haze, sparks };
@@ -569,7 +591,7 @@ export function medallionFrame(
 
     // It swings from a pivot above, so the medallion and its chain move as one pendulum.
     const pivot = vec2(0, u.pivot);
-    const swung = turned(q.sub(u.lean).sub(pivot), u.sway).add(pivot).toVar();
+    const swung = turned(q.sub(pivot), u.sway).add(pivot).toVar();
     const steel = steelAt(relief, swung, u.time);
     const { silhouette, lit, rim } = steel;
     const chain = chainAt(swung, u.bail, u.time);
@@ -580,7 +602,7 @@ export function medallionFrame(
     const eye = socketLight(steel.surface, {
       light: steel.light,
       heat: steel.heat,
-      deep: relief.maps(toBaked(swung.add(coreSight(u.lean)))).z,
+      deep: relief.maps(toBaked(swung.add(coreSight(u.twist)))).z,
       power: u.glow.mul(0.75).add(0.25),
       time: u.time,
     });
