@@ -4654,8 +4654,19 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     - A flat glowing ellipse on the face was tried first, a core and a
       halo added where the relief glowed: it read as a texture in front of
       the eye, not a light inside it.
-  - **The chain**: oval links, every other one face on and the next edge
-    on, each a round wire, from the bail up past the frame's top. The
+  - **The chain** (`medallion/chain-shader.ts`) is three-dimensional: oval
+    links of round wire (a stadium swept by the wire), interlocking, every
+    other one turned a quarter about the chain's line, from the bail up past
+    the frame's top. Each is solved where the eye's ray meets it,
+    analytically for the pixel (a face-on link a stadium torus seen from the
+    front, an edge-on one its straight runs and the half tori at its ends
+    seen from the side), so it costs two links a pixel and no geometry;
+    where two cross the nearer shows, softened over the pixel's footprint,
+    and where one passes close by another's wire it is shadowed. It is the
+    medallion's own metal under the same lights (`medallion/metal-shader.ts`,
+    one model for both), brushed along its wire, its lobes widened by the
+    same specular AA; the eyes' light ends long before it. A flat chain, a
+    ring and a bar drawn by turns with a tube's shading, was tried first. The
     medallion and its chain swing as one pendulum from a pivot above the
     frame (every 7.5 s), so the key glides over the bevels.
   - **Glyphs are one atlas** (`gpu/glyph-atlas.ts`): every glyph, a rune or
@@ -4711,7 +4722,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     warm rim on the smoke's side and a warm glint sweeping its bevels; its
     edge darkening where it turns away and its silhouette taken from its
     solid part, so no pale fringe rings it, an image's spikes included; the
-    chain plain iron; and a soft contact shadow on the paper just below and
+    chain the same metal, exposed alike; and a soft contact shadow on the paper just below and
     right (the one it casts on the smoke), with a wider, softer one past it,
     so it rests on the page. The
     lens draws no aberration on this backdrop, so no colour fringes an

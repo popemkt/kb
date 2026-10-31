@@ -28,8 +28,9 @@
  *   socket's walls and the metal by it through the steel's own reflectance,
  *   and a halo the relief hides where it hides the light; faint at rest,
  *   flaring (`glow`) in the colour of what happened (`tint`).
- * - **The chain**: links up from the bail past the frame's top, face on and
- *   edge on by turns, round wire.
+ * - **The chain** (`chain-shader.ts`): oval links of round wire in three
+ *   dimensions, interlocking, every other one turned a quarter, up from the
+ *   bail past the frame's top, the same metal under the same lights.
  * - **Embers.** Two layers of sparks rising on the cells of a grid, each
  *   swaying and flickering, dying as they climb.
  * - **Far layers** (`fieldAt`) cross the whole frame: the far smoke in
@@ -51,8 +52,8 @@
  *   scene on paper (`Grounds`, `dayPicture`): the steel as an object on the
  *   page, its light exposed for the day on a gentle curve (light polished
  *   steel, dark engraving, bright bevels, the soft window partly held back
- *   so it is no fog), a thin warm rim and a warm glint, the chain plain
- *   iron, and a soft contact shadow on the paper below and right; wash
+ *   so it is no fog), a thin warm rim and a warm glint, the chain the same
+ *   metal exposed alike, and a soft contact shadow on the paper below and right; wash
  *   smoke, sepia rings, glyphs in sepia faintly tinted and rust specks for embers.
  * - **Its edge is lit from behind** (`backLight`): a warm light stands
  *   behind the medallion, glowing in the air and on the smoke just past its
@@ -73,7 +74,6 @@ import {
   fwidth,
   length,
   max,
-  min,
   mix,
   normalize,
   pow,
@@ -81,7 +81,6 @@ import {
   screenUV,
   sin,
   smoothstep,
-  sqrt,
   step,
   uniform,
   vec2,
@@ -95,25 +94,20 @@ import type { GlyphAtlas } from "../gpu/glyph-atlas";
 import { fbm4, gnoise, hash, hash2 } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { TAU } from "../scene/math";
+import { chainAt } from "./chain-shader";
 import { coreColour, coreSight, socketLight } from "./eye-shader";
 import { KEY, RIM_SIDE, WARM, metalLit } from "./metal-shader";
-import { LUMA, circleAt, glyphHaze, turned } from "./glyphs-shader";
+import { circleAt, glyphHaze, turned } from "./glyphs-shader";
 import { EXTENT, RISE, toBaked, type BakedRelief } from "./relief";
 
 type F = TslNode<"float">;
 type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 
-/**
- * Worn steel (linear): its reflectance, rubbed bright on the edges, and the
- * brown-black patina in its recesses; and the darker iron chain.
- */
+/** Worn steel (linear): its reflectance, rubbed bright on the edges, and the brown-black patina in its recesses. */
 const STEEL_F0 = vec3(0.56, 0.55, 0.53);
 const POLISH_F0 = vec3(0.8, 0.8, 0.78);
 const PATINA = vec3(0.06, 0.042, 0.03);
-const CHAIN = vec3(0.4, 0.4, 0.42);
-/** The chain's links (medallion units): how far apart, half their length and width, and the wire's radius. */
-const LINK = { pitch: 0.17, length: 0.11, width: 0.07, wire: 0.022 } as const;
 /** The smoke, the light under it, the glyphs' smoulder and the embers. */
 const SMOKE = vec3(0.03, 0.036, 0.04);
 const UNDERGLOW = vec3(0.06, 0.017, 0.004);
@@ -400,37 +394,6 @@ function softSilhouette(relief: BakedRelief, q: V2, spread: number, taps: number
 }
 
 /**
- * The chain at `q` (medallion units, swung): links up from `bail` to past the
- * frame's top, every other one face on (an oval ring) and the next edge on
- * (a bar), each a round wire lit as the steel is. Its cover and its light.
- */
-function chainAt(q: V2, bail: F) {
-  const y = q.y.sub(bail);
-  const index = floor(y.div(LINK.pitch));
-  const local = (k: F) => vec2(q.x, y.sub(k.add(0.5).mul(LINK.pitch)));
-  // A face-on link: an oval ring; an edge-on one: a bar as long as the ring is tall.
-  const ring = (p: V2): F =>
-    abs(
-      length(p.div(vec2(LINK.width, LINK.length)))
-        .sub(1)
-        .mul(LINK.width),
-    ).sub(LINK.wire);
-  const bar = (p: V2): F =>
-    length(vec2(p.x, max(abs(p.y).sub(LINK.length - LINK.wire), 0))).sub(LINK.wire);
-  const at = (k: F): F => {
-    const even = fract(k.mul(0.5)).lessThan(0.25);
-    return even.select(ring(local(k)), bar(local(k)));
-  };
-  const d = min(at(index), min(at(index.sub(1)), at(index.add(1)))).toVar();
-  const cover = smoothstep(fwidth(d).max(1e-4), fwidth(d).negate(), d).mul(step(0, y.add(0.02)));
-  // A round wire: lit by how its surface faces the key across the wire.
-  const across = clamp(d.negate().div(LINK.wire), 0, 1);
-  const tube = sqrt(across);
-  const light = KEY.mul(tube.mul(0.25).add(pow(tube, 8).mul(0.6))).mul(CHAIN);
-  return { cover, light };
-}
-
-/**
  * The field at `p`, the medallion's background layer: how much of the near
  * reach is left (`left`); two layers of smoke, a far one, slower and
  * larger, about the medallion and in banks across the whole frame, its
@@ -558,9 +521,11 @@ function dayPicture(
     )
     .mul(mix(vec3(1, 1, 1), RUST, field.sparks.mul(0.5).min(1)))
     .mul(mix(vec3(1, 1, 1), DAY_SHADOW, onPaper.min(0.55)));
-  // The chain is plain iron: toned by its light alone, so the curve gives it no cast.
-  const iron = dot(chain.light, LUMA);
-  const chainOnPaper = mix(paper, toned(vec3(iron, iron, iron)).mul(contact), chain.cover);
+  // The chain is the same metal as the steel, exposed for the day as it is.
+  const iron = toned(chain.lit.sub(chain.windowed.mul(DAY_WINDOW)))
+    .mul(contact)
+    .add(GLINT.mul(chain.glint.mul(0.5)));
+  const chainOnPaper = mix(paper, iron, chain.cover);
   // Polished dark steel: its engraving deep in shadow, its edge darkening where it turns away (so
   // no pale fringe rings it on the paper), the smoke's rim laying gold in its bevels, a warm glint.
   const metal = toned(steel.lit.sub(steel.windowed.mul(DAY_WINDOW)).add(eye.shine))
@@ -607,7 +572,7 @@ export function medallionFrame(
     const swung = turned(q.sub(u.lean).sub(pivot), u.sway).add(pivot).toVar();
     const steel = steelAt(relief, swung, u.time);
     const { silhouette, lit, rim } = steel;
-    const chain = chainAt(swung, u.bail);
+    const chain = chainAt(swung, u.bail, u.time);
     // Where the chain meets the bail, each shades the other.
     const bailAt = swung.sub(vec2(0, u.bail));
     const contact = float(1).sub(exp(dot(bailAt, bailAt).mul(-180)).mul(0.6));
@@ -642,7 +607,8 @@ export function medallionFrame(
       .add(haze.tint.mul(FAR_GLYPH_LIGHT))
       .add(u.tint.mul(back.aura.mul(flare).mul(0.22)))
       .add(BACKLIGHT.mul(back.behind.mul(dense.mul(1.4).add(0.1))).mul(back.smokeSide.add(0.4)));
-    const chained = mix(smoky, chain.light.mul(contact).sub(ground).max(smoky), chain.cover);
+    const chainLight = chain.lit.mul(contact).add(WARM.mul(chain.rim.mul(1.5)));
+    const chained = mix(smoky, chainLight.sub(ground).max(smoky), chain.cover);
     const shone = lit
       .mul(contact)
       .add(WARM.mul(rim.mul(2.2).add(back.wrap.mul(0.35))))

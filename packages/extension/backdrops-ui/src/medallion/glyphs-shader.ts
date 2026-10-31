@@ -51,7 +51,6 @@ const GLYPH_WHITE = vec3(1, 0.86, 0.66);
 const GLYPH_TINT = { stroke: 0.12, glow: 0.45 } as const;
 const GLYPH_GLOW = 0.8;
 const GLYPH_LIGHT = 1.1;
-export const LUMA = vec3(0.2126, 0.7152, 0.0722);
 /**
  * A glyph's light on a dark page for its colour `hue`, `tint` of the way
  * from the warm white toward it; the colour taken at its own brightest, so
