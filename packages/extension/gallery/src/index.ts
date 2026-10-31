@@ -55,6 +55,7 @@ export {
 } from "./articulate.ts";
 export {
   GALLERY_ACTIONS,
+  galleryCaptureDef,
   gallerySaveDef,
   galleryStarterDef,
   gallerySearchDef,

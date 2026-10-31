@@ -71,6 +71,27 @@ export const gallerySaveDef = {
 } satisfies ActionDefinition;
 
 /**
+ * A picture link kept as a picture: fetched only from the image hosts the
+ * gallery's server entry lists (`captureHosts`), refused as `forbidden`
+ * from any other, which the page then keeps as a link.
+ */
+export const galleryCaptureDef = {
+  id: "capture",
+  title: "Keep the picture a link names",
+  description:
+    "Download the picture an https link names, from one of the image hosts the gallery fetches from, into the kb's assets, and add it as a visual whose source is the link. A link to any other host is refused (forbidden).",
+  mode: { kind: "write", outsideRoot: true },
+  inputSchema: z.object({
+    url: z.string(),
+    /** What the visual is called. */
+    text: z.string().min(1),
+    /** Where the visual goes; the gallery's `save into` when omitted. */
+    parent: z.string().optional(),
+  }),
+  outputSchema: z.object({ id: z.string(), asset: z.string() }),
+} satisfies ActionDefinition;
+
+/**
  * The starter library, added on the server in one call: the outline paste
  * and the setting that names its `Library` as where saves go. Run where its
  * ids are minted, so the setting names the node the store holds; a page
@@ -99,5 +120,6 @@ const idOf = (def: ActionDefinition) => extensionActionId(galleryExtension.name,
 export const GALLERY_ACTIONS = {
   search: idOf(gallerySearchDef),
   save: idOf(gallerySaveDef),
+  capture: idOf(galleryCaptureDef),
   starter: idOf(galleryStarterDef),
 } as const;

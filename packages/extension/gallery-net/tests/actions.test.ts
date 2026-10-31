@@ -10,7 +10,15 @@ import { Effect, Exit } from "effect";
 import { CoreInvoke, KbCtx, type ActionRequest, type ActionReceipt } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode } from "@kb/model";
 import { GALLERY_IDS, GALLERY_SOURCE_IDS, starterOutline, type SourceResult } from "@kb/gallery";
-import { base64Of, saveEffect, searchEffect, starterEffect, visualProps } from "../src/actions.ts";
+import {
+  base64Of,
+  captureEffect,
+  captureHosts,
+  saveEffect,
+  searchEffect,
+  starterEffect,
+  visualProps,
+} from "../src/actions.ts";
 import { boundedBytes, getFrom } from "../src/http.ts";
 import { civitaiModels, fakeSource } from "./fake-source.ts";
 
@@ -248,5 +256,46 @@ describe("the network posture", () => {
     expect(Exit.isFailure(exit)).toBe(true);
     const ok = await Effect.runPromiseExit(boundedBytes(new Response("abc"), 10));
     expect(Exit.isSuccess(ok) && new TextDecoder().decode(ok.value)).toBe("abc");
+  });
+});
+
+describe("ext.gallery.capture", () => {
+  const LINK = "https://upload.wikimedia.org/wikipedia/commons/a/a5/Great_Wave.jpg";
+
+  test("fetches a picture from a listed image host, and keeps the link as its source", async () => {
+    const net = fakeSource({
+      [LINK]: { headers: { "content-type": "image/jpeg" }, body: new Uint8Array([7, 8]) },
+    });
+    const calls: ActionRequest[] = [];
+    const exit = await run(captureEffect(net.send)({ url: LINK, text: "Great Wave" }), calls);
+    expect(Exit.isSuccess(exit) && exit.value).toEqual({ id: "01NEW", asset: "assets/01X.jpg" });
+    expect(calls.map((c) => c.id)).toEqual(["asset.upload", "node.add"]);
+    expect(calls[1]?.input).toMatchObject({
+      text: "Great Wave",
+      tags: [GALLERY_IDS.visualTag],
+      parent: "library",
+      props: [
+        { field: GALLERY_IDS.mediaField, value: { t: "str", v: "![Great Wave](assets/01X.jpg)" } },
+        { field: GALLERY_IDS.sourceField, value: { t: "str", v: LINK } },
+      ],
+    });
+  });
+
+  test("a link to a host off the list is forbidden before anything is fetched or written", async () => {
+    const net = fakeSource({});
+    const calls: ActionRequest[] = [];
+    const exit = await run(
+      captureEffect(net.send)({ url: "https://example.com/x.jpg", text: "x" }),
+      calls,
+    );
+    expect(Exit.isFailure(exit) && JSON.stringify(exit.cause)).toContain("forbidden");
+    expect(net.asked).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  test("the list names image hosts and every search source's", () => {
+    expect(captureHosts("upload.wikimedia.org")).toBe(true);
+    expect(captureHosts("image.civitai.com")).toBe(true);
+    expect(captureHosts("example.com")).toBe(false);
   });
 });

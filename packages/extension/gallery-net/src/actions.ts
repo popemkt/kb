@@ -14,6 +14,7 @@ import { domainError, extensionNodeId, type DomainError, type KbNode } from "@kb
 import {
   GALLERY_IDS,
   isTagged,
+  type galleryCaptureDef,
   type SourceResult,
   starterOutline,
   type gallerySaveDef,
@@ -224,6 +225,47 @@ export function saveEffect(send: SourceFetch) {
     return yield* keep(send, adapter.hosts, input.result.image, {
       text: input.result.title,
       props: (asset) => visualProps(input.result, asset),
+      parent: input.parent,
+    });
+  });
+}
+
+/**
+ * The hosts Capture fetches a picture from: image hosts that serve the
+ * picture itself at the link a person copies, and every search source's.
+ */
+const IMAGE_HOSTS: ReadonlySet<string> = new Set([
+  "upload.wikimedia.org",
+  "images.unsplash.com",
+  "live.staticflickr.com",
+  "images.pexels.com",
+  "cdn.pixabay.com",
+  "i.imgur.com",
+  "i.pinimg.com",
+  "pbs.twimg.com",
+  "i.redd.it",
+]);
+
+export function captureHosts(host: string): boolean {
+  return IMAGE_HOSTS.has(host) || SOURCE_ADAPTERS.some((adapter) => adapter.hosts(host));
+}
+
+export function captureEffect(send: SourceFetch) {
+  return Effect.fn("ext.gallery.capture")(function* (
+    input: z.infer<typeof galleryCaptureDef.inputSchema>,
+  ): Effect.fn.Return<{ id: string; asset: string }, DomainError, KbCtx> {
+    if (!reachable(input.url, captureHosts))
+      return yield* domainError(
+        "forbidden",
+        `${URL.canParse(input.url) ? new URL(input.url).hostname : input.url} is not one of the image hosts the gallery fetches from`,
+      );
+    const title = input.text.replace(/[[\]]/g, "");
+    return yield* keep(send, captureHosts, input.url, {
+      text: input.text,
+      props: (asset) => [
+        str(GALLERY_IDS.mediaField, `![${title}](${asset})`),
+        str(GALLERY_IDS.sourceField, input.url),
+      ],
       parent: input.parent,
     });
   });

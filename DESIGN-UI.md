@@ -3260,10 +3260,13 @@ which also lists the workflows judged and not built.
     place; in a narrow viewport the grid is a pane of its own under the
     same tabs.
   - _I found something_ (`capture`): a picture dropped, pasted or chosen
-    is kept through `asset.upload` and becomes a visual with no styles; an
-    https link to a picture becomes a visual that keeps the link as its
-    `source`, with no media, since nothing in kb fetches from any host
-    (gap 01M66SF67J0TDSK1R85KYBYVBD). Untriaged is a visual with no styles,
+    is kept through `asset.upload` and becomes a visual with no styles. An
+    https link to a picture is fetched by the server
+    (`ext.gallery.capture`), but only from the image hosts its server entry
+    lists, and those of its search sources (`captureHosts`), and becomes a
+    visual whose `source` is the link; a link to any other host is refused
+    and kept as a link alone, a visual with no media, which the page says.
+    Untriaged is a visual with no styles,
     read, never stored. Triage shows one at a time: a type-ahead over the
     styles that gives a style to the visual itself, a pin to the look, and
     Next (Enter takes the first suggestion; ArrowRight or `n` moves on).
