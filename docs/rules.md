@@ -368,6 +368,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
+### GAP: a stranger's extension is trusted by digest alone, with no reach shown before trust and no diff on update
+
+- **expected** — Before sandbox.trust, a person sees where the closure came from, its files and sizes, the host modules and Node/Bun builtins it imports, and on update the diff against the locked rev, on the one extension.list report (docs/research/2026-10-31-plugin-sources.md §5).
+- **current** — kb ext list shows the closure digest, and the untrusted failure names it. The declaration is code, so nothing static says what an extension does or reaches.
+- **impact** — Trusting an installed extension means reading every file by hand; a reach disclosure is a disclosure, not containment, and an extension is owner code once trusted.
+- **closes** — P0 of docs/research/2026-10-31-plugin-sources.md: from and reach on extension.list.
+- **node** — `01M68NF9WGE31RYX3VB9EWHC8M`
+
 ### GAP: a tag's template fields cannot be reordered
 
 - **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
@@ -505,6 +513,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An export from a Paper or Terminal knowledge base looks like kb's default outside a page.
 - **closes** — Each system's sheet moves to the family's shared package (designSystems carrying the sheet), so the server reads core's setting and resolves the tokens.
 - **node** — `01M54QTGRJYJZ7W5SXDP4356QW`
+
+### GAP: an extension cannot be installed from a pinned source, and nothing records where one came from
+
+- **expected** — An extension's bytes can come from a git source pinned to a full commit sha: install vendors the tree into .kb/extensions/, a committed .kb/extensions.lock.json records original and locked (rev, files digest), and kb ext validate fails files that differ from the lock (docs/research/2026-10-31-plugin-sources.md §3, §4).
+- **current** — Bytes arrive only as files already in the root, put there by hand or by git. There is no update path and no provenance.
+- **impact** — Taking an extension from outside the repo is a manual copy; an update is a hand edit, and nothing says what it came from or whether it was altered after.
+- **closes** — P0 of docs/research/2026-10-31-plugin-sources.md: extension.install, extension.update, extension.remove, the lock, and the lock check in admission.
+- **node** — `01M68NF91SD1D15C00TYDTPQXE`
 
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
@@ -848,6 +864,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
 - **node** — `01M3KA394XS9DCGY9RHS151G6F`
 
+### GAP: no index of installable extensions
+
+- **expected** — An index repo of entries {name, repo, path, sha} merged by PR, whose CI installs each into a clean root and runs kb ext validate and the reach report; name@index as the install spelling; indexes pinned in the same lock (docs/research/2026-10-31-plugin-sources.md §8).
+- **current** — A source must be spelled out in full; there is nothing to browse or search.
+- **impact** — Discovery is word of mouth, and a name has no single owner, so two sources can claim one extension namespace.
+- **closes** — P1 of docs/research/2026-10-31-plugin-sources.md.
+- **node** — `01M68NFAXME4CJ8EQT36HKB9ED`
+
 ### GAP: no one coverage property holds every family to all three hosts
 
 - **expected** — One property holds every declared family to a seed node, a server entry and a browser entry.
@@ -1073,6 +1097,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A repo cannot add a view without editing kb itself.
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
+
+### GAP: sandboxed third-party code has no distribution
+
+- **expected** — Code views and scripts (nodes under a CodeGrant) can be installed from a source as an outline, their grants said in words by grantSentence and each untrusted until its digest is trusted; a component engine runs non-JavaScript guests under the same grant (docs/research/2026-10-31-plugin-sources.md §5).
+- **current** — A stranger's code can be pasted as nodes by hand; there is no source reader for nodes, and the component engine is not built.
+- **impact** — The only way to take code from a stranger that kb can contain is not reachable by install; the reachable one (an extension) is not contained.
+- **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
+- **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
 
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
@@ -1445,6 +1477,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
+
+### GAP: two installed extensions cannot share a service key
+
+- **expected** — An installed extension can inject a service another installed extension provides; the key has one home both can import (docs/research/2026-10-31-plugin-sources.md §7, and Q1 of 2026-10-29-plugin-codependency.md).
+- **current** — Keys are compared by identity and an extension's closure inlines every import but the host's modules, so each bundle holds its own copy of a key one of them defines.
+- **impact** — An installed extension depends only on keys the host owns; a pair of installed extensions cannot be a provider and a consumer.
+- **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
+- **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
 
 ### GAP: two processes that start a kb ui for one root at once can start two servers
 
