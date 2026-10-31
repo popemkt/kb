@@ -21,7 +21,30 @@
 /** The name of the node the starter puts saved visuals under. */
 export const STARTER_LIBRARY = "Library";
 
-const FACETS: ReadonlyArray<readonly [facet: string, values: readonly string[]]> = [
+/**
+ * A style the starter adds: its name, and, when the starter knows them, the
+ * notes a person or a builder reads, each written as the field of the same
+ * name (`description`, `prompt`, `negative`, `styles`, `seen in`, `how to`).
+ * A bare string is a style that is a name only.
+ */
+interface StyleSeed {
+  readonly name: string;
+  /** What it looks like, in plain words. */
+  readonly description?: string;
+  readonly prompt?: string;
+  readonly negative?: string;
+  /** The starter's styles it is made with, by name: its `styles`. */
+  readonly madeWith?: readonly string[];
+  /** Works that show it. */
+  readonly seenIn?: readonly string[];
+  /** How to make it, one value per tool, each led by the tool's name. */
+  readonly howTo?: readonly string[];
+}
+
+/** A facet of the starter: its name and its styles, in composer order. */
+type FacetSeed = readonly [facet: string, values: ReadonlyArray<string | StyleSeed>];
+
+const FACETS: readonly FacetSeed[] = [
   [
     "Medium",
     [
@@ -216,15 +239,40 @@ export interface StarterOutline {
   readonly styles: ReadonlyMap<string, number>;
 }
 
+const seedOf = (value: string | StyleSeed): StyleSeed =>
+  typeof value === "string" ? { name: value } : value;
+
+/** A style's notes as field lines under it, at `indent`. */
+function noteLines(seed: StyleSeed, indent: string): string[] {
+  const one = (field: string, value: string | undefined) =>
+    value === undefined ? [] : [`${indent}- ${field}:: ${value}`];
+  const many = (field: string, values: readonly string[] | undefined) =>
+    values === undefined || values.length === 0
+      ? []
+      : [`${indent}- ${field}::`, ...values.map((value) => `${indent}  - ${value}`)];
+  return [
+    ...one("description", seed.description),
+    ...one("prompt", seed.prompt),
+    ...one("negative", seed.negative),
+    ...many(
+      "styles",
+      seed.madeWith?.map((name) => `[[${name}]]`),
+    ),
+    ...many("seen in", seed.seenIn),
+    ...many("how to", seed.howTo),
+  ];
+}
+
 /** The starter as outline paste: a `Styles` tree of facets and their styles, and the library. */
 export function starterOutline(): StarterOutline {
   const lines = ["- Styles"];
   const styles = new Map<string, number>();
   for (const [facet, values] of FACETS) {
     lines.push(`  - ${facet} #facet`);
-    for (const value of values) {
-      lines.push(`    - ${value} #style`);
-      styles.set(value, lines.length);
+    for (const seed of values.map(seedOf)) {
+      lines.push(`    - ${seed.name} #style`);
+      styles.set(seed.name, lines.length);
+      lines.push(...noteLines(seed, "      "));
     }
   }
   lines.push(`- ${STARTER_LIBRARY}`);
