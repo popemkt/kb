@@ -11,16 +11,15 @@ import {
   cos,
   dFdx,
   dFdy,
-  dot,
   float,
   floor,
   fract,
   fwidth,
   length,
+  max,
   mix,
   sin,
   smoothstep,
-  sqrt,
   vec2,
   vec3,
 } from "three/tsl";
@@ -42,15 +41,24 @@ export const turned = (q: V2, angle: F | number): V2 => {
 };
 
 /**
- * How much of a glyph's glow its light carries beside its stroke, and how
- * bright both are on a dark page: its colour evened by its luminance (in
- * part), so a deep violet or red reads as faint as a pale green or gold.
+ * A glyph's light on a dark page is light first and colour second, as if
+ * leaking from a groove: a warm pale white (`GLYPH_WHITE`) faintly tinted
+ * by its colour, a little in its stroke and more in its soft glow
+ * (`GLYPH_TINT`); how much of the glow its light carries beside its
+ * stroke, and how bright both are.
  */
+const GLYPH_WHITE = vec3(1, 0.86, 0.66);
+const GLYPH_TINT = { stroke: 0.12, glow: 0.45 } as const;
 const GLYPH_GLOW = 0.8;
-const GLYPH_LIGHT = 0.62;
+const GLYPH_LIGHT = 1.1;
 export const LUMA = vec3(0.2126, 0.7152, 0.0722);
-/** A glyph's light on a dark page, in its colour `hue`, evened (`GLYPH_LIGHT`). */
-export const glyphLight = (hue: V3): V3 => hue.div(sqrt(dot(hue, LUMA).max(0.04))).mul(GLYPH_LIGHT);
+/**
+ * A glyph's light on a dark page for its colour `hue`, `tint` of the way
+ * from the warm white toward it; the colour taken at its own brightest, so
+ * a deep violet tints as much as a pale gold and the light is evened.
+ */
+const glyphLight = (hue: V3, tint: F | number): V3 =>
+  mix(GLYPH_WHITE, hue.div(max(hue.x, max(hue.y, hue.z)).max(1e-3)), tint).mul(GLYPH_LIGHT);
 
 /**
  * The circle's glyphs at `q` (medallion units, the circle turned with it):
@@ -86,9 +94,16 @@ function circleGlyphs(u: MedallionUniforms, q: V2, time: F) {
     .mul(sin(time.mul(1.7).add(slot.mul(1.3))))
     .mul(0.08)
     .add(1);
+  const shine = breath.mul(flicker);
+  const hue = u.glyphs.color(slot).toVar();
+  const glow = read.y.mul(GLYPH_GLOW);
   return {
-    lit: read.x.add(read.y.mul(GLYPH_GLOW)).mul(breath).mul(flicker),
-    hue: u.glyphs.color(slot),
+    lit: read.x.add(glow).mul(shine),
+    light: glyphLight(hue, GLYPH_TINT.stroke)
+      .mul(read.x)
+      .add(glyphLight(hue, GLYPH_TINT.glow).mul(glow))
+      .mul(shine),
+    hue,
   };
 }
 
@@ -99,8 +114,8 @@ const FAR_GLYPH = { cell: 1.15, size: [0.07, 0.11], clear: [2.2, 3.2] } as const
  * cell, each one of the circle's, a little turned, out of focus (the
  * atlas's glow, never its stroke), breathing on a slow clock of its own and
  * rising a little; each fades whole by where it stands, and keeps clear of
- * the medallion's own circle. How much there is, and its light in the
- * glyphs' colours (`tint`).
+ * the medallion's own circle. How much there is, and its light (`tint`),
+ * as the circle's glow is lit.
  */
 export function glyphHaze(u: MedallionUniforms, p: V2) {
   const home = floor(p.x.div(FAR_GLYPH.cell));
@@ -129,7 +144,7 @@ export function glyphHaze(u: MedallionUniforms, p: V2) {
       .mul(rise.mul(TAU / 2).sin());
     const lit = read.y.mul(breath).mul(shown);
     amount = amount.add(lit);
-    tint = tint.add(u.glyphs.color(pick).mul(lit));
+    tint = tint.add(glyphLight(u.glyphs.color(pick), GLYPH_TINT.glow).mul(lit));
   }
   return { amount, tint };
 }
@@ -150,7 +165,8 @@ function hairline(d: F, half: number): F {
 /**
  * The circle behind the medallion at `q` (medallion units, `r` from its
  * centre): two rings broken into arcs (`rings`), and the glyphs, turning,
- * each breathing (`glyphs`, in their colour `hue`).
+ * each breathing (`glyphs`, how much of each is drawn; `light`, its light
+ * on a dark page; `hue`, its colour).
  */
 export function circleAt(u: MedallionUniforms, q: V2, r: F) {
   const spun = turned(q, u.turn.negate()).toVar();
@@ -165,6 +181,6 @@ export function circleAt(u: MedallionUniforms, q: V2, r: F) {
   const along = sin(angle.mul(TAU * 3).add(u.time.mul(0.25)))
     .mul(0.3)
     .add(0.55);
-  const { lit, hue } = circleGlyphs(u, spun, u.time);
-  return { glyphs: lit, hue, rings: ring.mul(along).mul(0.5) };
+  const { lit, light, hue } = circleGlyphs(u, spun, u.time);
+  return { glyphs: lit, light, hue, rings: ring.mul(along).mul(0.5) };
 }

@@ -4558,8 +4558,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   Behind it a faint circle of five glyphs turns once in two minutes, each
   kb's own evocation of one Sign by its nature, in a few straight strokes:
   a force pushed out, a flame, a ward, a shield, a mind turned. Each glows
-  faintly in the colour of its nature (a pale cold blue, ember, violet,
-  amber, a soft green), its stroke and a soft bloom round it, breathing on
+  faintly as light leaking from a groove, more light than colour: a warm
+  pale white tinted by the colour of its nature (a pale cold blue, ember,
+  violet, amber, a soft green), a little in its stroke and more in the
+  soft bloom round it, breathing on
   a slow clock of its own with a faint flicker, never in step (still under
   reduced motion), and the circle keeps
   clear of the head's text and fades before it reaches the rows' tags low
@@ -4662,8 +4664,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     the glyph of the slot a pixel falls in, and the far haze a glyph's glow,
     one read each, with explicit derivatives, so a glyph is antialiased at
     device pixels at any size and the slots' seams pick no wrong level. A
-    glyph's colour is its light on a dark page and its ink, deepened with a
-    little sepia, on a light one. The rings are lines covered by the
+    glyph's colour tints its light on a dark page (a warm white, the colour
+    taken at its own brightest so every glyph tints alike) and its ink, sepia
+    faintly tinted, on a light one. Glyphs in their full colours were tried
+    first and read as coloured paint, not light. The rings are lines covered by the
     pixel's footprint (`hairline`), broken into arcs;
     the smoke is two layers, a far slow fold and a near one curled by a
     slow fold of its own into eddies and wisps, thickest close about the
@@ -4714,7 +4718,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     edge. It fades into the page in display values
     (`fadeSpace: "display"`), so a strength's veil leaves the steel its
     darks. The same holds for kb's sigil and for an image the art setting
-    names. Then a smoke wash, sepia rings, glyphs inked in their own colours and rust specks. An engraving in
+    names. Then a smoke wash, sepia rings, glyphs in sepia faintly tinted by their colours and rust specks. An engraving in
     faint ink was tried first and all but vanished on white; a steel toned
     between a light and a shade by its luminance read as a grey pewter
     ghost.

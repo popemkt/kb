@@ -9,8 +9,9 @@
  * - **The circle.** Two fine rings, broken into arcs, and between them the
  *   glyphs (kb's runes, `medallion.ts`, or the art setting's), one to a
  *   slot, read from the glyph atlas (`../gpu/glyph-atlas`, `glyphs-shader.ts`), turning slowly.
- *   Each glows faintly in its own colour, a stroke and a soft bloom round
- *   it, breathing on its own slow clock with a faint flicker, never in step;
+ *   Each glows faintly as light leaking from a groove, a warm pale white
+ *   only tinted by its colour, a little in its stroke and more in the soft
+ *   bloom round it, breathing on its own slow clock with a faint flicker, never in step;
  *   they flare a little when the medallion does and keep clear of the
  *   head's text.
  * - **The medallion** is worn steel over its baked relief: its slope taken
@@ -52,7 +53,7 @@
  *   steel, dark engraving, bright bevels, the soft window partly held back
  *   so it is no fog), a thin warm rim and a warm glint, the chain plain
  *   iron, and a soft contact shadow on the paper below and right; wash
- *   smoke, sepia rings, glyphs inked in their colours and rust specks for embers.
+ *   smoke, sepia rings, glyphs in sepia faintly tinted and rust specks for embers.
  * - **Its edge is lit from behind** (`backLight`): a warm light stands
  *   behind the medallion, glowing in the air and on the smoke just past its
  *   silhouette all round, the shadow side too, and catching its own edge as
@@ -98,7 +99,7 @@ import { fbm4, gnoise, hash, hash2 } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
 import { TAU } from "../scene/math";
 import { coreColour, coreSight, socketLight } from "./eye-shader";
-import { LUMA, circleAt, glyphHaze, glyphLight, turned } from "./glyphs-shader";
+import { LUMA, circleAt, glyphHaze, turned } from "./glyphs-shader";
 import { EXTENT, RISE, toBaked, type BakedRelief } from "./relief";
 
 type F = TslNode<"float">;
@@ -141,8 +142,8 @@ const EMBER = vec3(1.0, 0.36, 0.07);
 const WASH = vec3(0.66, 0.58, 0.5);
 const SEPIA = vec3(0.36, 0.2, 0.1);
 const RUST = vec3(0.8, 0.36, 0.16);
-/** A glyph's ink on paper: its colour deepened, a little sepia in it, so it reads as ink and not as light. */
-const inkOf = (hue: V3): V3 => mix(SEPIA, hue.mul(0.55), 0.7);
+/** A glyph's ink on paper: sepia, faintly tinted by its colour (deepened), as its light on a dark page is mostly light. */
+const inkOf = (hue: V3): V3 => mix(SEPIA, hue.mul(0.55), 0.3);
 /**
  * The steel on a light page: how far its light is exposed for the day and
  * how gentle the curve is (light polished steel, its bevels and glints
@@ -166,7 +167,7 @@ const DAY_CORE = 0.45;
 /** How strongly the far smoke stands in its banks, what share of far cells hold a spark, and how bright the far glyphs smoulder. */
 const FAR_SMOKE = 1.5;
 const FAR_SPARKS = 0.35;
-const FAR_GLYPH_LIGHT = 0.045;
+const FAR_GLYPH_LIGHT = 0.09;
 /** The smoke where the embers and the light behind the disk catch it. */
 const EMBERLIT = vec3(0.17, 0.07, 0.022);
 /** The way the hot rim light comes from: below and right, where the smoke and embers are. */
@@ -770,7 +771,7 @@ export function medallionFrame(
       .add(BACK_HUG.mul(back.near.mul(back.smokeSide.mul(0.6).add(0.5))))
       .mul(float(1).sub(back.cast.mul(0.7)))
       .add(SMOULDER.mul(rings.mul(flare.mul(0.5).add(0.4))))
-      .add(glyphLight(hue).mul(runes.mul(flare.mul(0.5).add(0.4))))
+      .add(circle.light.mul(kept).mul(flare.mul(0.5).add(0.4)))
       .add(haze.tint.mul(FAR_GLYPH_LIGHT))
       .add(u.tint.mul(back.aura.mul(flare).mul(0.22)))
       .add(BACKLIGHT.mul(back.behind.mul(dense.mul(1.4).add(0.1))).mul(back.smokeSide.add(0.4)));
