@@ -280,17 +280,25 @@ export const sketchfabAdapter: SourceAdapter = {
 
 // ─── Catalogues: Poly Haven, three.js examples ─────────────────────────────
 
-/** The words of a query a catalogue entry is matched by: lowercase, three letters or more. */
+/** The words of a text, lowercase: a run of letters and digits each. */
+function wordsOf(text: string): readonly string[] {
+  return text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word !== "");
+}
+
+/** The words of a query a catalogue entry is matched by: two letters or more, once each. */
 export function queryWords(query: string): readonly string[] {
-  return [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}]+/u))].filter(
-    (word) => word.length >= 3,
-  );
+  return [...new Set(wordsOf(query))].filter((word) => word.length >= 2);
 }
 
 /**
  * One page of a catalogue read for a query: each entry scored by how many
- * of the query's words its text holds, the best first (ties keep the
- * catalogue's order), `PAGE_SIZE` from the offset `cursor` names.
+ * of the query's words begin a word of its text ("toon" matches "toon" and
+ * "toonish", not "cartoon"), the best first (ties keep the catalogue's
+ * order), those it matches none of left out, `PAGE_SIZE` from the offset
+ * `cursor` names.
  */
 function catalogPage<T>(
   entries: readonly T[],
@@ -302,8 +310,11 @@ function catalogPage<T>(
   const words = queryWords(query);
   const scored = entries
     .map((entry) => {
-      const text = textOf(entry).toLowerCase();
-      return { entry, score: words.filter((word) => text.includes(word)).length };
+      const text = wordsOf(textOf(entry));
+      return {
+        entry,
+        score: words.filter((word) => text.some((own) => own.startsWith(word))).length,
+      };
     })
     .filter(({ score }) => score > 0)
     .toSorted((a, b) => b.score - a.score);
@@ -329,7 +340,10 @@ type PolyHavenAsset = z.infer<typeof PolyHavenAsset> & { readonly id: string };
 
 const POLY_HAVEN_TYPES = ["HDRI", "texture", "model"] as const;
 
-/** A Poly Haven thumbnail at `size` px square: the CDN sizes it by its query. */
+/**
+ * A Poly Haven thumbnail that fits a `size` px square: the CDN scales it to
+ * fit, keeping its shape and never enlarging it, so its size is not known.
+ */
 function polyHavenSized(url: string, size: number): string {
   const sized = new URL(url);
   sized.searchParams.set("width", String(size));
@@ -377,8 +391,6 @@ export const polyHavenAdapter: SourceAdapter = {
           title: `${asset.name} (${kind})`,
           thumb: polyHavenSized(asset.thumbnail_url, 256),
           image: polyHavenSized(asset.thumbnail_url, 1024),
-          width: 1024,
-          height: 1024,
           page: `https://polyhaven.com/a/${encodeURIComponent(asset.id)}`,
           ...(authors.length === 0 ? {} : { creator: authors.join(", ") }),
           licence: "CC0, from Poly Haven",
@@ -394,7 +406,8 @@ const ThreeExamplesAnswer = z.record(z.string(), z.array(z.string()));
  * The three.js examples: every technique demo the library ships, read from
  * its published list for the query by the words of each example's name
  * (`webgl_postprocessing_pixel`), shown with its own screenshot. The
- * examples are MIT, as three.js is.
+ * examples' code is MIT, as three.js is; the models and textures a scene
+ * shows carry their own licences, which the credit says.
  */
 export const threeExamplesAdapter: SourceAdapter = {
   kind: GALLERY_IDS.kindThreeExamples,
@@ -418,7 +431,8 @@ export const threeExamplesAdapter: SourceAdapter = {
         image: `https://threejs.org/examples/screenshots/${name}.jpg`,
         page: `https://threejs.org/examples/#${name}`,
         creator: "three.js authors",
-        licence: "MIT, three.js examples",
+        licence:
+          "three.js example: code MIT, the scene's models and textures under their own licences",
       }),
     );
   },

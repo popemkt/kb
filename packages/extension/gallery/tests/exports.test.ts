@@ -45,9 +45,10 @@ const NODES: GraphNode[] = [
       str("Blender: Shader to RGB into a Color Ramp."),
     ],
   }),
-  facet("light", "Lighting", ["golden", "key"]),
+  facet("light", "Lighting", ["golden", "key", "blue"]),
   style("golden", "golden hour"),
   style("key", "toon key light"),
+  style("blue", "blue hour", { [GALLERY_IDS.seenInField]: [str("A harbour at dusk")] }),
   facet("tech", "Rendering technique", ["ramp", "hull", "flat"]),
   // A toon ramp is made with flat shading, which calls for the ramp again: a cycle, read once.
   style("ramp", "toon ramp", {
@@ -65,7 +66,7 @@ const draft: LookDraft = {
   ...EMPTY_LOOK,
   name: "Pagoda at dusk",
   description: "the One Pillar Pagoda at dusk",
-  styles: ["golden", "cel"],
+  styles: ["golden", "cel", "blue"],
   negative: "photoreal",
   palette: ["#8e1d10", "#c8922c"],
 };
@@ -93,7 +94,14 @@ describe("the 3D art direction", () => {
 
   test("the chosen styles call for what they are made with, however deep, once", () => {
     const called = stylesCalledFor(draft, library);
-    expect([...called.keys()].toSorted()).toEqual(["cel", "flat", "golden", "hull", "ramp"]);
+    expect([...called.keys()].toSorted()).toEqual([
+      "blue",
+      "cel",
+      "flat",
+      "golden",
+      "hull",
+      "ramp",
+    ]);
     expect(called.get("golden")).toEqual([]);
     expect(called.get("ramp")).toEqual(["cel"]);
     expect(called.get("flat")).toEqual(["cel"]);
@@ -102,7 +110,7 @@ describe("the 3D art direction", () => {
   test("writes each facet's styles with their notes, and what they call for under its own facet", () => {
     const text = artDirectionOf(draft, library, get);
     expect(
-      text.startsWith("# Pagoda at dusk: 3D art direction\n\nthe One Pillar Pagoda at dusk"),
+      text.startsWith("# 3D art direction: Pagoda at dusk\n\nthe One Pillar Pagoda at dusk"),
     ).toBe(true);
     const at = (needle: string) => text.indexOf(needle);
     // Facets in the composer's order: 3D style, Lighting, Rendering technique.
@@ -122,6 +130,8 @@ describe("the 3D art direction", () => {
     );
     // A style with no notes is a line; one the look did not choose says what calls for it.
     expect(text).toContain("- golden hour\n");
+    // A style whose only note is where it is seen still says so.
+    expect(text).toContain("### blue hour\n\n- Seen in: A harbour at dusk\n");
     expect(text).not.toContain("toon key light");
     expect(text).toContain("### toon ramp (for cel-shaded)");
     expect(text).toContain("- inverted hull outline (for cel-shaded)");

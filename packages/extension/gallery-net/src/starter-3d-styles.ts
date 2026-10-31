@@ -429,7 +429,7 @@ export const STYLES_3D: readonly StyleSeed[] = [
     ],
     seenIn: ["Crash Bandicoot", "Final Fantasy VII", "Resident Evil (1996)", "Silent Hill"],
     howTo: [
-      "Three.js: onBeforeCompile (or TSL) on the vertex stage: round gl_Position.xy/w to a coarse grid for vertex snapping; for affine mapping multiply uv by w in the vertex stage and divide by the interpolated w in the fragment stage, because GLSL ES 3.00 has no noperspective qualifier (unverified for r186 TSL). Use NearestFilter textures at 128x128, a low-res render target, fog and optional dither.",
+      "Three.js: onBeforeCompile (or TSL) on the vertex stage: round gl_Position.xy/w to a coarse grid for vertex snapping; for affine mapping multiply uv by w in the vertex stage and divide by the interpolated w in the fragment stage, because GLSL ES 3.00 has no noperspective qualifier. Use NearestFilter textures at 128x128, a low-res render target, fog and optional dither.",
       "Blender: Not native; use a PSX shader add-on (e.g. Psx Cycles) or fake with Vertex Snap via Geometry Nodes (Set Position with rounding), Closest image interpolation, a low-res render and Posterize; remember Blender uses perspective-correct mapping so affine warp must be baked.",
     ],
   },
@@ -493,7 +493,7 @@ export const STYLES_3D: readonly StyleSeed[] = [
       "LittleBigPlanet (papercraft aesthetic)",
     ],
     howTo: [
-      "Three.js: Stack thin ExtrudeGeometry/ShapeGeometry layers (or planes with alphaMap) at small Z offsets with MeshStandardMaterial roughness ~1 and a paper map, a DirectionalLight with PCFSoftShadowMap shadows between layers, and GTAOPass for crevices. Backlight glow with MeshPhysicalMaterial transmission/thickness is possible but unverified for paper realism.",
+      "Three.js: Stack thin ExtrudeGeometry/ShapeGeometry layers (or planes with alphaMap) at small Z offsets with MeshStandardMaterial roughness ~1 and a paper map, a DirectionalLight with PCFSoftShadowMap shadows between layers, and GTAOPass for crevices. Backlight glow with MeshPhysicalMaterial transmission/thickness is possible.",
       "Blender: Stacked planes or thin Solidify slabs with a Principled BSDF (high roughness, Subsurface or Translucent BSDF for backlit paper), paper bump/fibre texture, area-light backlight, Cycles for soft contact shadows.",
     ],
   },

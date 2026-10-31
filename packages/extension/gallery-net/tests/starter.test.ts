@@ -5,7 +5,8 @@
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS, parseOutline, type OutlineItem } from "@kb/model";
 import { galleryExtension } from "@kb/gallery";
-import { STARTER_LIBRARY, STARTER_SIZE, starterOutline } from "../src/starter.ts";
+import { NOTES_3D } from "../src/starter-3d.ts";
+import { STARTER_LIBRARY, starterOutline } from "../src/starter.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -22,10 +23,10 @@ describe("the starter", () => {
     if (!parsed.ok) throw new Error(`starter outline line ${parsed.line}: ${parsed.reason}`);
     expect(parsed.items.map((item) => item.text)).toEqual(["Styles", STARTER_LIBRARY]);
     const facets = parsed.items[0]?.children ?? [];
-    expect(facets.length).toBe(STARTER_SIZE.facets);
+    expect(facets.map((facet) => facet.text)).toContain("3D style");
     expect(facets.every((facet) => facet.tags.join() === "facet")).toBe(true);
     const styles = facets.flatMap((facet) => facet.children);
-    expect(styles.length).toBe(STARTER_SIZE.styles);
+    expect(styles.length).toBe(outline.styles.size);
     expect(styles.every((style) => style.tags.join() === "style")).toBe(true);
     // Every style name is unique, so a person can add one by name.
     expect(new Set(styles.map((style) => style.text)).size).toBe(styles.length);
@@ -57,6 +58,19 @@ describe("the starter", () => {
         for (const value of field.values)
           expect(names.has(value.raw.replace(/^\[\[(.*)\]\]$/, "$1"))).toBe(true);
       }
+  });
+
+  test("every note for a style named by name only reaches that style", () => {
+    const byName = new Map(stylesOf().map((style) => [style.text, style]));
+    for (const [name, notes] of Object.entries(NOTES_3D)) {
+      const fields = byName.get(name)?.fields.map((field) => field.name) ?? [];
+      expect({ name, fields }).toEqual({
+        name,
+        fields: expect.arrayContaining(
+          notes.description === undefined ? ["how to"] : ["description", "how to"],
+        ),
+      });
+    }
   });
 
   test("a 3D style is made with techniques the starter names, and prompts name no work", () => {

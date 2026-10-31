@@ -38,7 +38,8 @@ export const STARTER_LIBRARY = "Library";
  * A style the starter adds: its name, and, when the starter knows them, the
  * notes a person or a builder reads, each written as the field of the same
  * name (`description`, `prompt`, `negative`, `styles`, `seen in`, `how to`).
- * A bare string is a style that is a name only.
+ * A bare string is a style named by name only, which takes the notes
+ * `NOTES_3D` has for that name, if any.
  */
 export interface StyleSeed {
   readonly name: string;
@@ -51,6 +52,7 @@ export interface StyleSeed {
   /** Works that show it. */
   readonly seenIn?: readonly string[];
   /** How to make it, one value per tool, each led by the tool's name. */
+  // GAP [[01M68CQN0E7CMMEATHT0RDYV10]]: the tool is a word in the text, not a node.
   readonly howTo?: readonly string[];
 }
 
@@ -159,12 +161,12 @@ const FACETS: readonly FacetSeed[] = [
       "35mm lens",
       "50mm lens",
       "85mm portrait lens",
-      { name: "135mm telephoto lens", ...NOTES_3D["135mm telephoto lens"] },
+      "135mm telephoto lens",
       "fisheye lens",
       "macro lens",
       "anamorphic lens",
       "tilt-shift",
-      { name: "shallow depth of field", ...NOTES_3D["shallow depth of field"] },
+      "shallow depth of field",
       "deep focus",
       "lens flare",
     ],
@@ -172,9 +174,9 @@ const FACETS: readonly FacetSeed[] = [
   [
     "Lighting",
     [
-      { name: "golden hour", ...NOTES_3D["golden hour"] },
+      "golden hour",
       "blue hour",
-      { name: "overcast daylight", ...NOTES_3D["overcast daylight"] },
+      "overcast daylight",
       "moonlight",
       "candlelight",
       "neon lighting",
@@ -184,7 +186,7 @@ const FACETS: readonly FacetSeed[] = [
       "low key",
       "rim light",
       "backlight",
-      { name: "volumetric light", ...NOTES_3D["volumetric light"] },
+      "volumetric light",
       "hard flash",
       "softbox lighting",
       ...LIGHTING_3D,
@@ -209,11 +211,11 @@ const FACETS: readonly FacetSeed[] = [
   [
     "Texture",
     [
-      { name: "film grain", ...NOTES_3D["film grain"] },
+      "film grain",
       "clean digital",
       "soft focus",
       "crisp detail",
-      { name: "halftone", ...NOTES_3D["halftone"] },
+      "halftone",
       "visible brushstrokes",
     ],
   ],
@@ -257,8 +259,9 @@ export interface StarterOutline {
   readonly styles: ReadonlyMap<string, number>;
 }
 
+/** A style as the starter writes it: one named by name only takes the notes it has there. */
 const seedOf = (value: string | StyleSeed): StyleSeed =>
-  typeof value === "string" ? { name: value } : value;
+  typeof value === "string" ? { name: value, ...NOTES_3D[value] } : value;
 
 /** A style's notes as field lines under it, at `indent`. */
 function noteLines(seed: StyleSeed, indent: string): string[] {
@@ -296,9 +299,3 @@ export function starterOutline(): StarterOutline {
   lines.push(`- ${STARTER_LIBRARY}`);
   return { text: lines.join("\n"), library: lines.length, styles };
 }
-
-/** How many facets and styles the starter adds. */
-export const STARTER_SIZE = {
-  facets: FACETS.length,
-  styles: FACETS.reduce((n, [, values]) => n + values.length, 0),
-};

@@ -1,7 +1,10 @@
 /**
- * One promise, every adapter: results are PG only, every URL in a result is
- * https, every image a save would download is on a host the adapter names,
- * and its search URL is too. Then each adapter's own reading of its answer.
+ * One promise, every adapter: what the source marks as not for everyone
+ * (mature, age-restricted, NSFW) is left out, every URL in a result is
+ * https, every image a save would download, thumbnail too, is on a host the
+ * adapter names, and its search URL is too. Each fixture holds one result
+ * the adapter keeps beside ones it must leave out. Then each adapter's own
+ * reading of its answer.
  */
 import { describe, expect, test } from "bun:test";
 import {
@@ -46,9 +49,10 @@ describe("every source adapter", () => {
         for (const url of [result.thumb, result.image, result.page])
           expect(new URL(url).protocol).toBe("https:");
         expect(adapter.hosts(new URL(result.image).hostname)).toBe(true);
+        expect(adapter.hosts(new URL(result.thumb).hostname)).toBe(true);
       }
     });
-    test(`${adapter.kind}: results are PG only, and each says where it lives`, () => {
+    test(`${adapter.kind}: keeps only what it may show, each saying where it lives and its licence`, () => {
       if (fixture === undefined) return;
       const { results } = adapter.page(fixture.answer, fixture.query, undefined);
       expect(results.length).toBe(1);
@@ -154,13 +158,21 @@ describe("sketchfab", () => {
 });
 
 describe("the catalogues", () => {
-  test("a query's words are its own, lowercase, three letters or more", () => {
-    expect(queryWords("Cel-shaded, toon ramp & a PS1")).toEqual([
+  test("a query's words are its own, lowercase, two letters or more", () => {
+    expect(queryWords("Cel-shaded, toon ramp & a PS1 3D toon")).toEqual([
       "cel",
       "shaded",
       "toon",
       "ramp",
       "ps1",
+      "3d",
+    ]);
+  });
+
+  test("a query's word matches the start of an entry's word, not its middle", () => {
+    const names = { webgl: ["webgl_toonish_ramp", "webgl_cartoon_ramp"] };
+    expect(threeExamplesAdapter.page(names, "toon", undefined).results.map((r) => r.id)).toEqual([
+      "threejs:webgl_toonish_ramp",
     ]);
   });
 
@@ -175,8 +187,6 @@ describe("the catalogues", () => {
           "https://cdn.polyhaven.com/asset_img/thumbs/golden_bay.png?width=256&height=256&format=webp&v=1",
         image:
           "https://cdn.polyhaven.com/asset_img/thumbs/golden_bay.png?width=1024&height=1024&format=webp&v=1",
-        width: 1024,
-        height: 1024,
         page: "https://polyhaven.com/a/golden_bay",
         creator: "Greg Zaal",
         licence: "CC0, from Poly Haven",
@@ -201,18 +211,36 @@ describe("the catalogues", () => {
     expect(results[0]?.page).toBe("https://threejs.org/examples/#webgl_postprocessing_pixel");
   });
 
-  test("a catalogue pages by offset, and asks for the same list whatever the query", () => {
-    const many = { webgl: Array.from({ length: 45 }, (_, i) => `webgl_toon_${i}`) };
-    const first = threeExamplesAdapter.page(many, "toon", undefined);
-    expect(first.results).toHaveLength(20);
-    expect(first.next).toBe("20");
-    const last = threeExamplesAdapter.page(many, "toon", "40");
-    expect(last.results.map((r) => r.id)).toEqual(
-      [40, 41, 42, 43, 44].map((i) => `threejs:webgl_toon_${i}`),
-    );
-    expect(last.next).toBeUndefined();
-    expect(threeExamplesAdapter.searchUrl("a", "20")).toBe(
-      threeExamplesAdapter.searchUrl("b", undefined),
-    );
-  });
+  const CATALOGUES = [
+    {
+      adapter: threeExamplesAdapter,
+      many: { webgl: Array.from({ length: 45 }, (_, i) => `webgl_toon_${i}`) },
+      id: (i: number) => `threejs:webgl_toon_${i}`,
+    },
+    {
+      adapter: polyHavenAdapter,
+      many: Object.fromEntries(
+        Array.from({ length: 45 }, (_, i) => [
+          `toon_${i}`,
+          {
+            name: `Toon ${i}`,
+            type: 1,
+            thumbnail_url: `https://cdn.polyhaven.com/asset_img/thumbs/toon_${i}.png`,
+            download_count: 100 - i,
+          },
+        ]),
+      ),
+      id: (i: number) => `polyhaven:toon_${i}`,
+    },
+  ];
+  for (const { adapter, many, id } of CATALOGUES)
+    test(`${adapter.kind}: pages by offset, and asks for the same list whatever the query`, () => {
+      const first = adapter.page(many, "toon", undefined);
+      expect(first.results).toHaveLength(20);
+      expect(first.next).toBe("20");
+      const last = adapter.page(many, "toon", "40");
+      expect(last.results.map((r) => r.id)).toEqual([40, 41, 42, 43, 44].map(id));
+      expect(last.next).toBeUndefined();
+      expect(adapter.searchUrl("a", "20")).toBe(adapter.searchUrl("b", undefined));
+    });
 });

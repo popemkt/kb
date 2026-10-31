@@ -28,6 +28,7 @@ export const GALLERY_IDS = {
   /** Works that show a style: games, films, prints (text, many). */
   seenInField: "sys.f.gallery.seen-in",
   /** How to make a style, one value per tool, led by the tool's name (text, many). */
+  // GAP [[01M68CQN0E7CMMEATHT0RDYV10]]: the tool is a word in the text, not a node.
   howToField: "sys.f.gallery.how-to",
   /** A style's template, or the prompt a visual was made with (text, one). */
   promptField: "sys.f.gallery.prompt",

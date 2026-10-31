@@ -53,7 +53,11 @@ function styleLines(
 ): readonly string[] {
   const nameOfStyle = (id: string) => library.styles.get(id)?.text ?? id;
   const why = calledBy.length === 0 ? "" : ` (for ${calledBy.map(nameOfStyle).join(", ")})`;
-  const noted = style.description !== "" || style.howTo.length > 0 || style.madeWith.length > 0;
+  const noted =
+    style.description !== "" ||
+    style.madeWith.length > 0 ||
+    style.seenIn.length > 0 ||
+    style.howTo.length > 0;
   if (!noted) return [`- ${style.text}${why}`];
   const lines = [`### ${style.text}${why}`, ""];
   if (style.description !== "") lines.push(style.description, "");
@@ -71,7 +75,7 @@ export function artDirectionOf(
   library: Library,
   get: (id: string) => GraphNode | undefined,
 ): string {
-  const lines = [`# ${nameOf(draft)}: 3D art direction`, ""];
+  const lines = [`# 3D art direction: ${nameOf(draft)}`, ""];
   if (draft.description.trim() !== "") lines.push(draft.description.trim(), "");
   const forNode = draft.forNode === null ? undefined : get(draft.forNode);
   if (forNode !== undefined) lines.push(`For: ${forNode.text}`, "");

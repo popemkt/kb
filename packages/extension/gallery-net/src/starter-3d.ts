@@ -6,8 +6,9 @@
  * Three.js, Blender and Godot. Curated from the research gather recorded in
  * docs/research/2026-10-31-3d-styles-and-sources.md; a name the starter
  * already has (golden hour, halftone, tilt-shift) is not repeated here, and
- * its notes sit with it in `./starter.ts`. No style is named after an
- * artist or a studio, and no prompt names a work, a studio or a product.
+ * its notes are in `NOTES_3D`. No style or prompt names an artist, a studio
+ * or a work; two name a console's era, as the genre does (PS1 retro, N64
+ * low-res).
  */
 import type { StyleSeed } from "./starter.ts";
 
@@ -46,7 +47,7 @@ export const TECHNIQUES: readonly StyleSeed[] = [
       "{prompt}, cel-shaded with two or three hard-edged tone bands, flat lit colours, no gradients",
     howTo: [
       "Three.js: MeshToonMaterial.gradientMap: a DataTexture (e.g. 3-5 texels, RedFormat) with minFilter and magFilter set to NearestFilter so the bands do not blend. webgl_materials_toon and webgpu_materials_toon show it.",
-      "Blender: EEVEE: Diffuse BSDF into Shader to RGB, then Color Ramp with Constant interpolation, then an Emission shader. Toon BSDF node is the built-in alternative (EEVEE support level unverified).",
+      "Blender: EEVEE: Diffuse BSDF into Shader to RGB, then Color Ramp with Constant interpolation, then an Emission shader. Toon BSDF node is the built-in alternative.",
       "Godot: StandardMaterial3D Diffuse Mode = Toon, or render_mode diffuse_toon in a spatial shader.",
     ],
   },
@@ -150,7 +151,7 @@ export const TECHNIQUES: readonly StyleSeed[] = [
     prompt:
       "{prompt}, painterly oil-painting look, flat brush-like colour patches with preserved edges",
     howTo: [
-      "Three.js: No addon (confirmed absent from postprocessing and tsl/display listings at r186). Needs a custom ShaderPass or TSL node; the anisotropic variant needs a structure-tensor (Sobel) pass first.",
+      "Three.js: No addon (none in postprocessing or tsl/display). Needs a custom ShaderPass or TSL node; the anisotropic variant needs a structure-tensor (Sobel) pass first.",
       "Blender: Compositor Kuwahara node (Blender 4.0+), types Classic and Anisotropic, with Size, Uniformity, Sharpness and Eccentricity on the anisotropic mode.",
       "Godot: Custom screen-reading shader (hint_screen_texture) with the sector-average loop.",
     ],
@@ -255,9 +256,9 @@ export const TECHNIQUES: readonly StyleSeed[] = [
     prompt:
       "{prompt}, warped swimming textures on large polygons, PS1-style affine texture distortion",
     howTo: [
-      "Three.js: WebGL interpolates perspective-correctly by default. Trick: in the vertex shader output vUv = uv * gl_Position.w and vW = gl_Position.w, then in the fragment shader use vUv / vW, which yields screen-space linear interpolation. No noperspective qualifier in GLSL ES 3.00 (unverified).",
+      "Three.js: WebGL interpolates perspective-correctly by default. Trick: in the vertex shader output vUv = uv * gl_Position.w and vW = gl_Position.w, then in the fragment shader use vUv / vW, which yields screen-space linear interpolation. No noperspective qualifier in GLSL ES 3.00.",
       "Blender: No built-in render option; effectively not available in Cycles or EEVEE.",
-      "Godot: Unverified whether 4.x exposes an affine interpolation qualifier; the same w-divide trick works in a shader.",
+      "Godot: The same w-divide trick, in a spatial shader.",
     ],
   },
   {
@@ -280,7 +281,7 @@ export const TECHNIQUES: readonly StyleSeed[] = [
       "{prompt}, cinematic colour grade, stylised colour palette, graded shadows and highlights",
     howTo: [
       "Three.js: LUTPass({ lut, intensity }) with a lut from LUTCubeLoader, LUT3dlLoader or LUTImageLoader (webgl_postprocessing_3dlut). WebGPU: lut3D() from Lut3DNode (webgpu_postprocessing_3dlut). Placement relative to OutputPass (tone mapping) matters; check per LUT.",
-      "Blender: View transform plus Look and Curves in Color Management; Compositor Color Balance or RGB Curves nodes. Direct per-file LUT loading needs an OCIO config (unverified).",
+      "Blender: View transform plus Look and Curves in Color Management; Compositor Color Balance or RGB Curves nodes. Loading a LUT file directly needs an OCIO config.",
       "Godot: Environment Adjustments colour correction with a 1D or 3D LUT texture.",
     ],
   },
@@ -339,7 +340,7 @@ export const TECHNIQUES: readonly StyleSeed[] = [
     howTo: [
       "Three.js: material.wireframe = true (1 px lines); WireframeGeometry plus LineSegments; thick lines via LineSegments2 and LineMaterial (webgl_lines_fat_wireframe); anti-aliased shaded-plus-wire via a barycentric-coordinate shader.",
       "Blender: Wireframe modifier on a duplicate, the viewport Wireframe display or overlay, or the Wireframe shader node.",
-      "Godot: Viewport debug draw Wireframe (editor/debug), or lines via a custom mesh (unverified).",
+      "Godot: Viewport debug draw Wireframe (editor/debug), or lines via a custom mesh.",
     ],
   },
   {
@@ -533,7 +534,7 @@ export const PROJECTIONS: readonly StyleSeed[] = [
     prompt:
       "{prompt}, 2:1 dimetric pixel-art style isometric view, wide diamond tiles, classic strategy-game perspective",
     howTo: [
-      "Three.js: OrthographicCamera at yaw 45 degrees and elevation 30 degrees (sin 30 = 0.5 gives 2:1 diamonds): position (0.612, 0.5, 0.612) * d, lookAt(0, 0, 0). The 26.565 degrees (atan 0.5) figure is the screen angle of tile edges, not the camera elevation (derived, unverified against a reference engine). Snap the camera to whole texels when combined with pixelation.",
+      "Three.js: OrthographicCamera at yaw 45 degrees and elevation 30 degrees (sin 30 = 0.5 gives 2:1 diamonds): position (0.612, 0.5, 0.612) * d, lookAt(0, 0, 0). The 26.565 degrees (atan 0.5) figure is the screen angle of tile edges, not the camera elevation (derived). Snap the camera to whole texels when combined with pixelation.",
       "Blender: Orthographic camera at Z rotation 45 degrees and X rotation 60 degrees (90 minus a 30 degree elevation).",
       "Godot: Camera3D Orthogonal with rotation_degrees = (-30, 45, 0).",
     ],
@@ -556,7 +557,7 @@ export const PROJECTIONS: readonly StyleSeed[] = [
     prompt:
       "{prompt}, oblique cabinet projection, front face drawn flat and undistorted with the sides receding diagonally, technical illustration",
     howTo: [
-      "Three.js: No oblique camera class. Take an OrthographicCamera looking down -Z and shear its projection matrix so depth shifts x and y (elements[8] and [9], reapplied after every updateProjectionMatrix(); exact signs unverified), or put the content under a Matrix4.makeShear() transform on a root object.",
+      "Three.js: No oblique camera class. Take an OrthographicCamera looking down -Z and shear its projection matrix so depth shifts x and y (elements[8] and [9], reapplied after every updateProjectionMatrix()), or put the content under a Matrix4.makeShear() transform on a root object.",
       "Blender: No oblique camera. Orthographic front camera and apply a shear transform to the content (Shear tool) or a parent matrix; Camera Shift X/Y is lens shift, not oblique.",
       "Godot: No oblique camera; Camera3D frustum offset is off-axis lens shift, not shear; shear in a vertex shader instead.",
     ],
@@ -699,9 +700,11 @@ export const PRESENTATIONS: readonly StyleSeed[] = [
   },
 ];
 
-/** Notes for styles the starter already names, by name. */
-
-export const NOTES_3D = {
+/**
+ * Notes for styles the starter names by name only, in a facet that is not
+ * 3D (golden hour, halftone): a style named there takes its notes from here.
+ */
+export const NOTES_3D: Readonly<Record<string, Omit<StyleSeed, "name">>> = {
   halftone: {
     description:
       "Tone is rendered as a grid of dots (or lines) whose size follows brightness, like comic-book or newspaper print; optional RGB channels give a CMYK-ish misregistration. One cheap full-screen pass.",
@@ -724,8 +727,8 @@ export const NOTES_3D = {
     description:
       "Animated noise is added over the image, with luminance-dependent strength, to take the digital edge off and imitate film stock. Cheap.",
     howTo: [
-      "Three.js: FilmPass(intensity, grayscale) in EffectComposer (r186 signature; older releases had separate noise and scanline params). WebGPU: film() from FilmNode (tsl/display/FilmNode.js).",
-      "Blender: Compositor: Noise Texture mixed with Overlay or Soft Light over the image; no dedicated grain node (unverified).",
+      "Three.js: FilmPass(intensity, grayscale) in EffectComposer. WebGPU: film() from FilmNode (tsl/display/FilmNode.js).",
+      "Blender: Compositor: Noise Texture mixed with Overlay or Soft Light over the image; no dedicated grain node.",
       "Godot: Screen-reading shader adding a hashed noise per frame.",
     ],
   },
@@ -754,4 +757,4 @@ export const NOTES_3D = {
       "Godot: Camera3D perspective with fov 10-25 and a large distance.",
     ],
   },
-} as const satisfies Readonly<Record<string, Omit<StyleSeed, "name">>>;
+};

@@ -3192,7 +3192,8 @@ which also lists the workflows judged and not built.
   never stored), Enhance, the palette, the pins and their notes. Saving
   writes the look; a saved look reopens as the draft. A look opens as a
   moodboard, and exports through one contract (`LOOK_EXPORTS`, each entry
-  a label, a file name and a rendering of the look), offered by one picker
+  a label, what its file is named after the look's name (`exportFileName`),
+  and a rendering of the look), offered by one picker
   to copy, download or preview: the brief for a person (`briefOf`), and
   the 3D art direction a builder follows (`artDirectionOf`). The art
   direction writes each chosen style under its facet with its notes (what
@@ -3237,7 +3238,9 @@ which also lists the workflows judged and not built.
   `save into` setting), so its vocabulary is never in a page's download.
   The library starts with a dozen
   public-domain works (`starter-visuals.ts`, beside it: Hokusai to
-  Dorothea Lange, from Wikimedia Commons, credited with their pages), each
+  Dorothea Lange, from Wikimedia Commons, credited with their pages) and
+  one scene rendered in fourteen of the 3D styles (kb's own, CC0, made by
+  the three.js scene in `docs/research/assets/2026-10-31-3d-styles/`), each
   filed under the starter's styles it shows, so Browse and Remix have
   something to work on from the first minute. Each carries its bytes in
   source, so a release's one bundle carries them and a page never does.
@@ -3341,8 +3344,9 @@ which also lists the workflows judged and not built.
   Sketchfab, Poly Haven, the three.js examples) is searched through
   `ext.gallery.search` (`@kb/gallery-net`), PG only. A source that
   publishes a catalogue instead of a search (Poly Haven, the three.js
-  examples) is read for the query by its adapter, the entries holding most
-  of the query's words first. A result is kept
+  examples) is read for the query by its adapter: an entry matches a word
+  of the query that begins one of its own words, the entries matching most
+  first, and one that matches none is left out. A result is kept
   through `ext.gallery.save`, which downloads it only from hosts the source's
   adapter names, over https, through at most two redirects, and then writes
   only through core's `asset.upload` and `node.add`, with the result's page,
