@@ -25,6 +25,22 @@
         "aarch64-linux"
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      # EXPERIMENT (docs/research/2026-10-31-rust-wasm-in-kb.md): the
+      # toolchain the datom kernel's Rust crate builds with. Not part of the
+      # default shell, so nothing kb runs today pays for it. The crate pins
+      # `wasm-bindgen` to this nixpkgs' `wasm-bindgen-cli` exactly.
+      wasmShell =
+        pkgs:
+        pkgs.mkShell {
+          packages = with pkgs; [
+            binaryen
+            cargo
+            # nixpkgs' rustc links wasm32 with `lld` from PATH, not a bundled rust-lld.
+            lld
+            rustc
+            wasm-bindgen-cli
+          ];
+        };
     in
     {
       packages = forAllSystems (pkgs: {
@@ -53,6 +69,7 @@
             shellcheck
           ];
         };
+        wasm = wasmShell pkgs;
       });
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt);

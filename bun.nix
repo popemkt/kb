@@ -649,6 +649,7 @@
   "@kb/collections" = copyPathToStore ./packages/extension/collections;
   "@kb/collections-ui" = copyPathToStore ./packages/extension/collections-ui;
   "@kb/contracts" = copyPathToStore ./packages/contract/contracts;
+  "@kb/datom-kernel-wasm" = copyPathToStore ./packages/infrastructure/datom-kernel-wasm;
   "@kb/docs" = copyPathToStore ./packages/extension/docs;
   "@kb/ext-canvas" = copyPathToStore ./packages/extension/ext-canvas;
   "@kb/ext-check" = copyPathToStore ./packages/extension/ext-check;

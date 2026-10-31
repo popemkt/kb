@@ -1159,6 +1159,19 @@
         "@types/react": "catalog:",
       },
     },
+    "packages/infrastructure/datom-kernel-wasm": {
+      "name": "@kb/datom-kernel-wasm",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/query": "workspace:*",
+      },
+      "devDependencies": {
+        "@kb/model": "workspace:*",
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+        "playwright": "catalog:",
+      },
+    },
     "packages/infrastructure/sandbox-quickjs": {
       "name": "@kb/sandbox-quickjs",
       "version": "0.0.0",
@@ -1716,6 +1729,8 @@
     "@kb/collections-ui": ["@kb/collections-ui@workspace:packages/extension/collections-ui"],
 
     "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
+
+    "@kb/datom-kernel-wasm": ["@kb/datom-kernel-wasm@workspace:packages/infrastructure/datom-kernel-wasm"],
 
     "@kb/docs": ["@kb/docs@workspace:packages/extension/docs"],
 

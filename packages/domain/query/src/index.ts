@@ -63,3 +63,15 @@ export {
   neighbourhoodQuery,
 } from "./queries.ts";
 export type { NeighbourhoodDirection } from "./queries.ts";
+// EXPERIMENT (docs/research/2026-10-31-rust-wasm-in-kb.md): the datom kernel contract.
+export { decodeRows, encodeDatoms, encodeQuery, TAG } from "./kernel/contract.ts";
+export type {
+  DatomKernel,
+  Encoded,
+  KernelIndex,
+  KernelPattern,
+  KernelQuery,
+  KernelTerm,
+} from "./kernel/contract.ts";
+export { datomsOf, kernelQueryEdn } from "./kernel/datoms-of.ts";
+export { tsKernel } from "./kernel/ts-kernel.ts";
