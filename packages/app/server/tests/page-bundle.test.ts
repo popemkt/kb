@@ -34,9 +34,12 @@ const DATASCRIPT = /cljs\.core/;
  * And by 4 KB for the gallery family's declaration (its ids and its seed:
  * four tags, their fields and six image sources), which the page folds as
  * it folds every family's; its page, readings and action schemas load
- * lazily, its package being free of side effects.
+ * lazily, its package being free of side effects. And by 2 KB for the
+ * composer's declaration: its seven workflow views, each key carrying the
+ * question, steps and tags the chooser reads, and the `#look` tag and its
+ * fields; every workflow's surface loads lazily.
  */
-const EAGER_BUDGET_BYTES = 1_969_000;
+const EAGER_BUDGET_BYTES = 1_971_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
