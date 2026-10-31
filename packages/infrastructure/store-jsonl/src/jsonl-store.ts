@@ -3,21 +3,23 @@ import { FileSystem } from "effect/FileSystem";
 import { watch } from "node:fs";
 import { dirname, join } from "node:path";
 import {
-  applyTx,
+  canonicalJson,
+  canonicalJsonlOf,
+  decodeStoredNode,
   domainError,
+  ensureDomainError,
   rankTx,
   StoreState,
-  ensureDomainError,
   type DomainError,
-  canonicalJsonl,
-  decodeStoredNode,
   type KbNode,
+  type NodeId,
   type StoreTx,
 } from "@kb/model";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
 import { durableReplaceFile } from "./durable-replace.ts";
 import {
   fingerprintChanges,
+  KeptState,
   staleCommitError,
   type EffectStore,
   type StoreCommit,
@@ -87,6 +89,17 @@ const readBody = Effect.fn("readBody")(function* (
 }, Effect.provide(BunFileSystem.layer));
 
 /**
+ * What this store keeps of the bytes it last read or wrote: the nodes, and
+ * each node's line once a commit of this store wrote the file. A file read
+ * from disk keeps no lines (null): it may not be canonical, and the first
+ * commit writes every line, as every commit once did.
+ */
+interface Kept {
+  readonly state: StoreState;
+  readonly lines: Map<NodeId, string> | null;
+}
+
+/**
  * JSONL backend: `<root>/.kb/nodes.jsonl`
  * One canonical-JSON node per line, sorted by id.
  *
@@ -97,6 +110,12 @@ const readBody = Effect.fn("readBody")(function* (
  * Load is all-or-nothing: any malformed/invalid line fails the Effect with a
  * line-numbered DomainError and returns no nodes — the file is never rewritten
  * by load (compatible with the pre-Schema loader, which threw mid-parse).
+ *
+ * A commit reads and hashes the file, as it must to know which bytes it
+ * merges into. When those are the bytes this store last read or wrote, it
+ * merges into what it kept of them (`Kept`) instead of decoding the file
+ * again, and serialises only the nodes it writes; any other bytes — another
+ * writer's, a hand edit — are decoded as they always were.
  *
  * Effect-native I/O: {@link JsonlStore.loadEffect}/{@link JsonlStore.commitEffect}.
  * The Bun FileSystem is provided here, not asked of callers.
@@ -112,11 +131,18 @@ export class JsonlStore implements EffectStore {
    */
   readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly txTail: JsonlTxTail;
+  readonly #kept = new KeptState<Kept>();
 
   constructor(root: string) {
     this.path = join(root, ".kb", "nodes.jsonl");
     this.backupPath = `${this.path}.bak`;
-    this.loadEffect = Effect.flatMap(readBody(this.path), (body) => decodeNodes(body, this.path));
+    this.loadEffect = Effect.flatMap(readBody(this.path), (body) =>
+      Effect.tap(decodeNodes(body, this.path), (nodes) =>
+        Effect.sync(() => {
+          this.#kept.keep(contentMark(body), { state: StoreState.of(nodes), lines: null });
+        }),
+      ),
+    );
     this.fingerprint = Effect.sync(() => storeMark(this.path));
     this.changes = fingerprintChanges({
       directories: [dirname(this.path)],
@@ -134,6 +160,7 @@ export class JsonlStore implements EffectStore {
     const path = this.path;
     const backupPath = this.backupPath;
     const txTail = this.txTail;
+    const keeping = this.#kept;
     return Effect.scoped(
       Effect.gen(function* () {
         yield* Effect.acquireRelease(acquireNodesWriteLockEffect(path), (lockPath) =>
@@ -147,9 +174,20 @@ export class JsonlStore implements EffectStore {
         const base = contentMark(current);
         const stale = staleCommitError(expected, base);
         if (stale !== null) return yield* stale;
-        const existing = yield* decodeNodes(current, path);
-        const applied = rankTx(StoreState.of(existing), tx);
-        const body = canonicalJsonl([...applyTx(existing, applied).values()]);
+        // Taken, not read: whatever fails from here leaves nothing kept, and
+        // the next commit reads the file.
+        const kept = keeping.take(base) ?? {
+          state: StoreState.of(yield* decodeNodes(current, path)),
+          lines: null,
+        };
+        const applied = rankTx(kept.state, tx);
+        kept.state.apply(applied);
+        const lines = kept.lines ?? linesOf(kept.state.values());
+        if (kept.lines !== null) {
+          for (const id of applied.deletes) lines.delete(id);
+          for (const node of applied.upserts) lines.set(node.id, canonicalJson(node));
+        }
+        const body = canonicalJsonlOf(lines);
         const fingerprint = contentMark(body);
 
         yield* Effect.try({
@@ -171,8 +209,16 @@ export class JsonlStore implements EffectStore {
           });
         }
 
+        keeping.keep(fingerprint, { state: kept.state, lines });
         return { base, fingerprint, tx: applied };
       }),
     ).pipe(Effect.provide(BunFileSystem.layer));
   }
+}
+
+/** Each node's line in the store's file, by id. */
+function linesOf(nodes: Iterable<KbNode>): Map<NodeId, string> {
+  const lines = new Map<NodeId, string>();
+  for (const node of nodes) lines.set(node.id, canonicalJson(node));
+  return lines;
 }

@@ -134,3 +134,25 @@ export function staleCommitError(
     actual: base,
   });
 }
+
+/**
+ * What a store keeps of the state it last read or wrote, under the
+ * fingerprint that names that state (DESIGN.md → Storage → a commit reads
+ * what it lands on): handed back only to a commit whose base is that same
+ * fingerprint, and taken when it is, so a commit that fails keeps nothing.
+ * Never the truth — losing it costs one read.
+ */
+export class KeptState<T> {
+  #kept: { readonly mark: StoreFingerprint; readonly value: T } | null = null;
+
+  keep(mark: StoreFingerprint, value: T): void {
+    this.#kept = { mark, value };
+  }
+
+  /** What was kept under `mark`, or null; nothing is kept after. */
+  take(mark: StoreFingerprint | null): T | null {
+    const kept = this.#kept;
+    this.#kept = null;
+    return kept !== null && kept.mark === mark ? kept.value : null;
+  }
+}
