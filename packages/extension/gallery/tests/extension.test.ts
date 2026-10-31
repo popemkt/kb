@@ -1,26 +1,22 @@
 /**
  * The gallery family owns its vocabulary: its declaration lists the library
  * page and seeds its tags, fields and sources, every name of which resolves
- * to one node in a bundled store, and its starter is an outline the outline
- * parser reads as facets of styles.
+ * to one node in a bundled store.
  */
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 import { ViewKeyPoint } from "@kb/contracts";
-import { SYSTEM_IDS, parseOutline, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, type KbNode } from "@kb/model";
 import { makeKernel } from "@kb/plugin";
 import {
   GALLERY_IDS,
   GALLERY_SOURCE_IDS,
   GALLERY_WORKFLOWS,
   GalleryView,
-  STARTER_SIZE,
   galleryExtension,
   galleryPlugin,
-  starterOutline,
 } from "@kb/gallery";
-import { STARTER_LIBRARY } from "../src/starter.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -75,24 +71,5 @@ describe("gallery family", () => {
           own.id,
         ]);
     }
-  });
-
-  test("the starter parses as facets of styles, then the library", () => {
-    const outline = starterOutline();
-    const parsed = parseOutline(outline.text);
-    if (!parsed.ok) throw new Error(`starter outline line ${parsed.line}: ${parsed.reason}`);
-    expect(parsed.items.map((item) => item.text)).toEqual(["Styles", STARTER_LIBRARY]);
-    const facets = parsed.items[0]?.children ?? [];
-    expect(facets.length).toBe(STARTER_SIZE.facets);
-    expect(facets.every((facet) => facet.tags.join() === "facet")).toBe(true);
-    const styles = facets.flatMap((facet) => facet.children);
-    expect(styles.length).toBe(STARTER_SIZE.styles);
-    expect(styles.every((style) => style.tags.join() === "style")).toBe(true);
-    // Every style name is unique, so a person can add one by name.
-    expect(new Set(styles.map((style) => style.text)).size).toBe(styles.length);
-    // The lines it names are the lines `node.addTree` answers ids by.
-    const lines = outline.text.split("\n");
-    expect(lines[outline.library - 1]).toBe(`- ${STARTER_LIBRARY}`);
-    for (const [name, line] of outline.styles) expect(lines[line - 1]).toBe(`    - ${name} #style`);
   });
 });

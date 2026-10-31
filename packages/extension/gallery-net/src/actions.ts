@@ -17,11 +17,11 @@ import {
   isTagged,
   type galleryCaptureDef,
   type SourceResult,
-  starterOutline,
   type gallerySaveDef,
   type gallerySearchDef,
 } from "@kb/gallery";
 import { SOURCE_ADAPTERS, type SearchPage, type SourceAdapter } from "./adapters.ts";
+import { starterOutline } from "./starter.ts";
 import { STARTER_VISUALS } from "./starter-visuals.ts";
 import { ANY_HOST, boundedBytes, getFrom, getJson, reachable, type SourceFetch } from "./http.ts";
 

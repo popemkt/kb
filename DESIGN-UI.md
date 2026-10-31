@@ -3217,10 +3217,12 @@ which also lists the workflows judged and not built.
   no template composes as its name. An online source is a node tagged
   `#image source`, with a `search url` (`{query}` stands for the query)
   and a `source kind`. The family seeds the tags, the fields and six
-  sources; the page offers a starter (`starter.ts`: facets of styles,
-  counted by `STARTER_SIZE`, and a `Library` that becomes where saves go,
-  the gallery's `save into` setting). The library starts with a dozen
-  public-domain works (`starter-visuals.ts` in the server half: Hokusai to
+  sources; the page offers a starter, which the server adds
+  (`ext.gallery.starter`; `starter.ts` in the server half: facets of
+  styles, and a `Library` that becomes where saves go, the gallery's
+  `save into` setting), so its vocabulary is never in a page's download.
+  The library starts with a dozen
+  public-domain works (`starter-visuals.ts`, beside it: Hokusai to
   Dorothea Lange, from Wikimedia Commons, credited with their pages), each
   filed under the starter's styles it shows, so Browse and Remix have
   something to work on from the first minute. Each carries its bytes in

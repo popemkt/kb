@@ -3,7 +3,7 @@
  * docs/research/2026-10-28-visual-reference-gallery.md): its ids, seed,
  * declaration and view key, the action schemas, and the pure readings both
  * hosts share: the library and its facets, prompt composition and the
- * enhancer's request, the starter; and the composer's: its workflows' keys,
+ * enhancer's request; and the composer's: its workflows' keys,
  * the look, the palette, and the readings that articulate an idea.
  */
 export { GALLERY_IDS, GALLERY_SOURCE_IDS } from "./ids.ts";
@@ -92,4 +92,3 @@ export {
   type Library,
   type StyleEntry,
 } from "./library.ts";
-export { STARTER_SIZE, starterOutline, type StarterOutline } from "./starter.ts";

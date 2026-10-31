@@ -15,7 +15,9 @@
  * composer order, subject first then medium to mood (§2), and that order is
  * the outline's, so reordering them reorders every composition. The
  * library starts with a dozen public-domain pictures filed by those styles,
- * which are the server half's (`@kb/gallery-net`, `starter-visuals.ts`).
+ * which are `./starter-visuals.ts`. Both are the server half's: the
+ * starter is added by the server's `ext.gallery.starter`, so what it adds
+ * never reaches a page.
  */
 
 /** The name of the node the starter puts saved visuals under. */
