@@ -23,7 +23,7 @@ import {
   Vector3,
   Color,
 } from "three/webgpu";
-import type { BackdropGlyphShape } from "@kb/model";
+import { MAX_BACKDROP_GLYPHS, type BackdropGlyphShape } from "@kb/model";
 import type { TslNode } from "@kb/scene-gpu";
 
 type F = TslNode<"float">;
@@ -31,8 +31,8 @@ type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 type V4 = TslNode<"vec4">;
 
-/** How many glyphs the atlas holds, side by side. */
-const GLYPH_SLOTS = 8;
+/** How many glyphs the atlas holds, side by side: as many as art may name. */
+const GLYPH_SLOTS = MAX_BACKDROP_GLYPHS;
 /** A cell's side (texels). */
 const CELL = 128;
 /** How far a cell reaches from its centre, in glyph radii. */

@@ -660,7 +660,7 @@ function dayPicture(
     .add(softSilhouette(relief, swung.sub(DAY_SHADOW_FALL), 0.34, 8).mul(open).mul(0.4));
   const paper = mix(vec3(1, 1, 1), WASH, field.dense.mul(0.2))
     .mul(mix(vec3(1, 1, 1), SEPIA, field.rings.mul(0.7).min(1)))
-    .mul(mix(vec3(1, 1, 1), inkOf(field.hue), field.runes.mul(0.7).min(1)))
+    .mul(mix(vec3(1, 1, 1), inkOf(field.hue), field.runes.mul(0.85).min(1)))
     .mul(
       mix(
         vec3(1, 1, 1),

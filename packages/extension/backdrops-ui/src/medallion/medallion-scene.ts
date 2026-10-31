@@ -36,7 +36,7 @@ import { textScrim } from "../gpu/text-scrim";
 import { OWN_ART, type BackdropGlyph } from "@kb/model";
 import { loadBackdropArt } from "../gpu/art";
 import { glyphAtlas, type GlyphAtlas, type GlyphPaint } from "../gpu/glyph-atlas";
-import { GLYPHS, RUNES, TURN_SECONDS, tremble } from "./medallion";
+import { RUNES, TURN_SECONDS, tremble } from "./medallion";
 import { medallionFrame, medallionUniforms } from "./medallion-shader";
 import { SIGIL_BAIL, bakedRelief, loadReliefArt, type BakedRelief, type ReliefArt } from "./relief";
 
@@ -79,7 +79,7 @@ const HELD_MS = 3500;
 function paintOf(glyphs: readonly BackdropGlyph[] | null): readonly GlyphPaint[] {
   return (glyphs ?? RUNES).map((glyph, k) => ({
     shape: glyph.shape,
-    color: glyph.color ?? GLYPHS[k % GLYPHS.length]?.color ?? "#ffffff",
+    color: glyph.color ?? RUNES[k % RUNES.length]?.color ?? "#ffffff",
   }));
 }
 
