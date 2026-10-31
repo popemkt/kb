@@ -37,9 +37,12 @@ const DATASCRIPT = /cljs\.core/;
  * lazily, its package being free of side effects. And by 2 KB for the
  * composer's declaration: its seven workflow views, each key carrying the
  * question, steps and tags the chooser reads, and the `#look` tag and its
- * fields; every workflow's surface loads lazily.
+ * fields; every workflow's surface loads lazily. And by 1 KB for the
+ * replica's `StoreState`: the page's store keeps the node set it settles
+ * sibling ranks over, and `rankTx` reads it through an overlay, rather than
+ * rebuilding a map of every node per optimistic write.
  */
-const EAGER_BUDGET_BYTES = 1_971_000;
+const EAGER_BUDGET_BYTES = 1_972_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
