@@ -9,7 +9,8 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
 import { CoreInvoke, KbCtx, type ActionRequest, type ActionReceipt } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode } from "@kb/model";
-import { GALLERY_IDS, GALLERY_SOURCE_IDS, starterOutline, type SourceResult } from "@kb/gallery";
+import { GALLERY_IDS, GALLERY_SOURCE_IDS, type SourceResult } from "@kb/gallery";
+import { starterOutline } from "../src/starter.ts";
 import {
   base64Of,
   captureEffect,

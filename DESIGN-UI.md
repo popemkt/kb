@@ -3190,8 +3190,18 @@ which also lists the workflows judged and not built.
   workflow edits it: the description, the chosen styles by facet, the
   prompts per model family (read from the look by the composer's rule,
   never stored), Enhance, the palette, the pins and their notes. Saving
-  writes the look; a saved look reopens as the draft. A look exports as a
-  brief in Markdown (`briefOf`) and opens as a moodboard.
+  writes the look; a saved look reopens as the draft. A look opens as a
+  moodboard, and exports through one contract (`LOOK_EXPORTS`, each entry
+  a label, what its file is named after the look's name (`exportFileName`),
+  and a rendering of the look), offered by one picker
+  to copy, download or preview: the brief for a person (`briefOf`), and
+  the 3D art direction a builder follows (`artDirectionOf`). The art
+  direction writes each chosen style under its facet with its notes (what
+  it looks like, what it is made with, where it is seen, how to make it
+  per tool), and every style a chosen one is made with, however deep,
+  under its own facet and marked with the style that calls for it; then
+  the palette, what to avoid and the references. It is for building, so
+  it holds no image model's prompt, and a look with no styles has none.
 - **The moodboard is the canvas family's, through a declared need.** The
   canvas family's page half provides `BoardService` (`@kb/ui-sdk`): a
   board under a node, and a card placed on it for each node not yet there,
@@ -3214,14 +3224,24 @@ which also lists the workflows judged and not built.
   is a node tagged `#style`; its facet is the nearest ancestor tagged
   `#facet`, a reading of structure, not a field, so moving a style re-files
   it everywhere. A style's `prompt` and `negative` are templates; one with
-  no template composes as its name. An online source is a node tagged
+  no template composes as its name. A style also carries what a builder
+  reads: its `description` (what it looks like), what it is `made with`
+  (other styles, so "cel-shaded" names its toon ramp and outline), the
+  works it is `seen in`, and `how to` make it, one value per tool (Three.js,
+  Blender, Godot). The starter's 3D facets (3D style, presentation,
+  projection, rendering technique, and 3D setups under Lighting) carry all
+  of them. An online source is a node tagged
   `#image source`, with a `search url` (`{query}` stands for the query)
-  and a `source kind`. The family seeds the tags, the fields and six
-  sources; the page offers a starter (`starter.ts`: facets of styles,
-  counted by `STARTER_SIZE`, and a `Library` that becomes where saves go,
-  the gallery's `save into` setting). The library starts with a dozen
-  public-domain works (`starter-visuals.ts` in the server half: Hokusai to
-  Dorothea Lange, from Wikimedia Commons, credited with their pages), each
+  and a `source kind`. The family seeds the tags, the fields and sixteen
+  sources, image and 3D; the page offers a starter, which the server adds
+  (`ext.gallery.starter`; `starter.ts` in the server half: facets of
+  styles, and a `Library` that becomes where saves go, the gallery's
+  `save into` setting), so its vocabulary is never in a page's download.
+  The library starts with a dozen
+  public-domain works (`starter-visuals.ts`, beside it: Hokusai to
+  Dorothea Lange, from Wikimedia Commons, credited with their pages) and
+  one scene rendered in fourteen of the 3D styles (kb's own, CC0, made by
+  the three.js scene in `docs/research/assets/2026-10-31-3d-styles/`), each
   filed under the starter's styles it shows, so Browse and Remix have
   something to work on from the first minute. Each carries its bytes in
   source, so a release's one bundle carries them and a page never does.
@@ -3240,8 +3260,11 @@ which also lists the workflows judged and not built.
 - **The gallery's workflows**, each a view of the family, in the tabs'
   order:
   - _I know what I want_ (`know`): a term typed is completed from the
-    style library, each suggestion named with its facet, and Enter takes
-    the first; a word the library lacks joins the brief or becomes a style
+    style library at the start of a word ("toon" finds "toon ramp", not
+    "cartoon"), each suggestion named with its facet, then the styles made
+    with those, named with what they are made with ("cel-shaded, with toon
+    ramp"); a suggestion's description shows on hover, as it does on a
+    facet's styles and the look's, and Enter takes the first; a word the library lacks joins the brief or becomes a style
     under a facet (`addStyle`), so the library grows as it is used. The
     references that show every chosen style appear beneath, or, when none
     does, those that show the most (`nearest`).
@@ -3319,9 +3342,15 @@ which also lists the workflows judged and not built.
   model client and names nothing of the agent family; a failed completion
   is a toast, with its reason.
 - **Online sources keep their terms.** A link source (Pinterest, Are.na,
-  Unsplash, Lexica) is its search page opened in a new tab; kb never calls
-  it. An API source (Civitai, Openverse) is searched through
-  `ext.gallery.search` (`@kb/gallery-net`), PG only, and a result is kept
+  Unsplash, Lexica; for 3D, ArtStation, Shadertoy, Godot Shaders, Blender
+  Studio, Blender Artists, BlendKit, YouTube) is its search page opened in
+  a new tab; kb never calls it. An API source (Civitai, Openverse;
+  Sketchfab, Poly Haven, the three.js examples) is searched through
+  `ext.gallery.search` (`@kb/gallery-net`), PG only. A source that
+  publishes a catalogue instead of a search (Poly Haven, the three.js
+  examples) is read for the query by its adapter: an entry matches a word
+  of the query that begins one of its own words, the entries matching most
+  first, and one that matches none is left out. A result is kept
   through `ext.gallery.save`, which downloads it only from hosts the source's
   adapter names, over https, through at most two redirects, and then writes
   only through core's `asset.upload` and `node.add`, with the result's page,

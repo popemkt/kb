@@ -13,11 +13,14 @@ const FOLDED = 10;
 
 function StyleRow({
   label,
+  description,
   count,
   chosen,
   onToggle,
 }: {
   readonly label: string;
+  /** What the style looks like, shown on hover: "" when it says nothing. */
+  readonly description: string;
   readonly count: number;
   readonly chosen: boolean;
   readonly onToggle: () => void;
@@ -27,6 +30,7 @@ function StyleRow({
       type="button"
       aria-pressed={chosen}
       data-gallery-style={label}
+      title={description === "" ? undefined : description}
       className={cn(
         "flex w-full items-center gap-2 rounded-md px-2 py-0.5 text-left text-meta",
         chosen ? "bg-primary/10 text-primary" : "text-foreground/70 hover:bg-foreground/5",
@@ -67,6 +71,7 @@ function FacetGroup({
         <StyleRow
           key={id}
           label={library.styles.get(id)?.text ?? id}
+          description={library.styles.get(id)?.description ?? ""}
           count={counts.get(id) ?? 0}
           chosen={chosen.has(id)}
           onToggle={() => onToggle(id)}

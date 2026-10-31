@@ -40,6 +40,10 @@ const CINEMATIC: StyleEntry = {
   facet: null,
   prompt: "cinematic still {prompt}, film grain",
   negative: "",
+  description: "",
+  madeWith: [],
+  seenIn: [],
+  howTo: [],
 };
 const COMPOSED = composePrompt("", "", [CINEMATIC], "sd").positive;
 const LIBRARY: Library = {
@@ -210,5 +214,20 @@ describe("the look's Enhance", () => {
       "Could not enhance the prompt: agent provider Local proxy is not trusted on this machine",
     ]);
     expect(enhanceButton()?.disabled).toBe(false);
+  });
+
+  test("exports the look as the brief or as its 3D art direction, chosen like the model family", () => {
+    render();
+    const exports = document.querySelector('[data-testid="gallery-exports"]');
+    const choices = [...(exports?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? [])];
+    expect(choices.map((c) => c.textContent)).toEqual(["Brief", "3D art direction"]);
+    const shown = () => exports?.querySelector("[data-gallery-export]");
+    expect(shown()?.getAttribute("data-gallery-export")).toBe("brief");
+    expect(shown()?.textContent).toContain("## Prompts");
+    act(() => choices[1]?.click());
+    expect(choices[1]?.getAttribute("aria-checked")).toBe("true");
+    expect(shown()?.getAttribute("data-gallery-export")).toBe("art-direction");
+    expect(shown()?.textContent).toContain("# 3D art direction: ");
+    expect(shown()?.textContent).toContain("- Cinematic");
   });
 });

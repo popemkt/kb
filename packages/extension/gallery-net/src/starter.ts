@@ -5,23 +5,61 @@
  * `sys.*` and write-guarded, and a person's facets and styles are theirs to
  * rename, move and delete.
  *
- * Every value is a name only. A style's prompt defaults to its name
- * (`./library.ts`), so "golden hour" composes as "golden hour" until someone
+ * Most values are a name only. A style's prompt defaults to its name
+ * (`libraryOf`), so "golden hour" composes as "golden hour" until someone
  * writes it a template. The vocabulary is the research record's §4 list:
  * shot sizes and angles (StudioBinder, Veo), camera moves (the names
  * Higgsfield, Luma, Kling and Veo share), lenses, lighting, moods,
- * colour schemes, film stocks, media and movements. The Artist facet ships
- * empty: which artists to name is the person's choice (§3). Facets are in
+ * colour schemes, film stocks, media and movements; and the 3D record's
+ * (docs/research/2026-10-31-3d-styles-and-sources.md): 3D styles, rendering
+ * techniques, 3D lighting setups, projections and presentations, which
+ * carry their notes (`./starter-3d.ts`). The Artist facet ships empty:
+ * which artists to name is the person's choice (§3). Facets are in
  * composer order, subject first then medium to mood (§2), and that order is
  * the outline's, so reordering them reorders every composition. The
- * library starts with a dozen public-domain pictures filed by those styles,
- * which are the server half's (`@kb/gallery-net`, `starter-visuals.ts`).
+ * library starts with pictures filed by those styles: public-domain works
+ * and 3D renders made for it (`./starter-visuals.ts`). Both are the server
+ * half's: the starter is added by the server's `ext.gallery.starter`, so
+ * what it adds never reaches a page.
  */
+import {
+  LIGHTING_3D,
+  NOTES_3D,
+  PRESENTATIONS,
+  PROJECTIONS,
+  STYLES_3D,
+  TECHNIQUES,
+} from "./starter-3d.ts";
 
 /** The name of the node the starter puts saved visuals under. */
 export const STARTER_LIBRARY = "Library";
 
-const FACETS: ReadonlyArray<readonly [facet: string, values: readonly string[]]> = [
+/**
+ * A style the starter adds: its name, and, when the starter knows them, the
+ * notes a person or a builder reads, each written as the field of the same
+ * name (`description`, `prompt`, `negative`, `made with`, `seen in`, `how to`).
+ * A bare string is a style named by name only, which takes the notes
+ * `NOTES_3D` has for that name, if any.
+ */
+export interface StyleSeed {
+  readonly name: string;
+  /** What it looks like, in plain words. */
+  readonly description?: string;
+  readonly prompt?: string;
+  readonly negative?: string;
+  /** The starter's styles it is made with, by name: its `made with`. */
+  readonly madeWith?: readonly string[];
+  /** Works that show it. */
+  readonly seenIn?: readonly string[];
+  /** How to make it, one value per tool, each led by the tool's name. */
+  // GAP [[01M68CQN0E7CMMEATHT0RDYV10]]: the tool is a word in the text, not a node.
+  readonly howTo?: readonly string[];
+}
+
+/** A facet of the starter: its name and its styles, in composer order. */
+type FacetSeed = readonly [facet: string, values: ReadonlyArray<string | StyleSeed>];
+
+const FACETS: readonly FacetSeed[] = [
   [
     "Medium",
     [
@@ -61,7 +99,9 @@ const FACETS: ReadonlyArray<readonly [facet: string, values: readonly string[]]>
       "Vaporwave",
     ],
   ],
+  ["3D style", STYLES_3D],
   ["Artist", []],
+  ["Presentation", PRESENTATIONS],
   [
     "Shot size",
     [
@@ -89,6 +129,7 @@ const FACETS: ReadonlyArray<readonly [facet: string, values: readonly string[]]>
       "aerial view",
     ],
   ],
+  ["Projection", PROJECTIONS],
   [
     "Camera motion",
     [
@@ -148,8 +189,10 @@ const FACETS: ReadonlyArray<readonly [facet: string, values: readonly string[]]>
       "volumetric light",
       "hard flash",
       "softbox lighting",
+      ...LIGHTING_3D,
     ],
   ],
+  ["Rendering technique", TECHNIQUES],
   [
     "Palette",
     [
@@ -216,23 +259,43 @@ export interface StarterOutline {
   readonly styles: ReadonlyMap<string, number>;
 }
 
+/** A style as the starter writes it: one named by name only takes the notes it has there. */
+const seedOf = (value: string | StyleSeed): StyleSeed =>
+  typeof value === "string" ? { name: value, ...NOTES_3D[value] } : value;
+
+/** A style's notes as field lines under it, at `indent`. */
+function noteLines(seed: StyleSeed, indent: string): string[] {
+  const one = (field: string, value: string | undefined) =>
+    value === undefined ? [] : [`${indent}- ${field}:: ${value}`];
+  const many = (field: string, values: readonly string[] | undefined) =>
+    values === undefined || values.length === 0
+      ? []
+      : [`${indent}- ${field}::`, ...values.map((value) => `${indent}  - ${value}`)];
+  return [
+    ...one("description", seed.description),
+    ...one("prompt", seed.prompt),
+    ...one("negative", seed.negative),
+    ...many(
+      "made with",
+      seed.madeWith?.map((name) => `[[${name}]]`),
+    ),
+    ...many("seen in", seed.seenIn),
+    ...many("how to", seed.howTo),
+  ];
+}
+
 /** The starter as outline paste: a `Styles` tree of facets and their styles, and the library. */
 export function starterOutline(): StarterOutline {
   const lines = ["- Styles"];
   const styles = new Map<string, number>();
   for (const [facet, values] of FACETS) {
     lines.push(`  - ${facet} #facet`);
-    for (const value of values) {
-      lines.push(`    - ${value} #style`);
-      styles.set(value, lines.length);
+    for (const seed of values.map(seedOf)) {
+      lines.push(`    - ${seed.name} #style`);
+      styles.set(seed.name, lines.length);
+      lines.push(...noteLines(seed, "      "));
     }
   }
   lines.push(`- ${STARTER_LIBRARY}`);
   return { text: lines.join("\n"), library: lines.length, styles };
 }
-
-/** How many facets and styles the starter adds. */
-export const STARTER_SIZE = {
-  facets: FACETS.length,
-  styles: FACETS.reduce((n, [, values]) => n + values.length, 0),
-};

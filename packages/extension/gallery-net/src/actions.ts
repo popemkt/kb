@@ -17,12 +17,12 @@ import {
   isTagged,
   type galleryCaptureDef,
   type SourceResult,
-  starterOutline,
   type gallerySaveDef,
   type gallerySearchDef,
 } from "@kb/gallery";
 import { SOURCE_ADAPTERS, type SearchPage, type SourceAdapter } from "./adapters.ts";
-import { STARTER_LICENCE, STARTER_VISUALS } from "./starter-visuals.ts";
+import { starterOutline } from "./starter.ts";
+import { STARTER_VISUALS } from "./starter-visuals.ts";
 import { ANY_HOST, boundedBytes, getFrom, getJson, reachable, type SourceFetch } from "./http.ts";
 
 /** Asset uploads are capped at 25 MiB (`asset.upload`); a larger download is refused before it is held. */
@@ -80,12 +80,9 @@ export function searchEffect(send: SourceFetch) {
   ): Effect.fn.Return<SearchPage, DomainError, KbCtx> {
     const { adapter } = yield* adapterOf(input.source);
     if (input.query.trim() === "") return { results: [] };
-    const answer = yield* getJson(
-      send,
-      adapter.searchUrl(input.query.trim(), input.cursor),
-      adapter.hosts,
-    );
-    const page = adapter.page(answer);
+    const query = input.query.trim();
+    const answer = yield* getJson(send, adapter.searchUrl(query, input.cursor), adapter.hosts);
+    const page = adapter.page(answer, query, input.cursor);
     return { ...page, results: page.results.filter((result) => admitted(adapter, result)) };
   });
 }
@@ -313,7 +310,7 @@ export const starterEffect = Effect.fn("ext.gallery.starter")(function* (): Effe
       props: (asset) => [
         str(GALLERY_IDS.mediaField, `![${visual.title}](${asset})`),
         str(GALLERY_IDS.sourceField, visual.page),
-        str(GALLERY_IDS.creditField, `by ${visual.creator}, ${visual.date} · ${STARTER_LICENCE}`),
+        str(GALLERY_IDS.creditField, `by ${visual.creator}, ${visual.date} · ${visual.licence}`),
         num(GALLERY_IDS.widthField, visual.width),
         num(GALLERY_IDS.heightField, visual.height),
         ...visual.styles.flatMap((style) => {

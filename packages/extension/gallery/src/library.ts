@@ -71,6 +71,14 @@ export interface StyleEntry {
   readonly facet: string | null;
   readonly prompt: string;
   readonly negative: string;
+  /** What it looks like, in plain words; empty when it says nothing. */
+  readonly description: string;
+  /** The styles it is made with (its `styles`), as ids the library knows. */
+  readonly madeWith: readonly string[];
+  /** Works that show it. */
+  readonly seenIn: readonly string[];
+  /** How to make it, one value per tool, each led by the tool's name. */
+  readonly howTo: readonly string[];
 }
 
 export interface FacetEntry {
@@ -107,6 +115,7 @@ export function libraryOf(nodes: Iterable<GraphNode>): Library {
   }
   const visuals: GraphNode[] = [];
   const styles = new Map<string, StyleEntry>();
+  const styleNodes: GraphNode[] = [];
   const facets: { id: string; text: string; styles: string[] }[] = [];
   const facetById = new Map<string, { id: string; text: string; styles: string[] }>();
   const seen = new Set<string>();
@@ -132,10 +141,15 @@ export function libraryOf(nodes: Iterable<GraphNode>): Library {
           id: node.id,
           text: node.text,
           facet: here,
-          // A style with no template composes as its name (`./starter.ts`).
+          // A style with no template composes as its name.
           prompt: promptOf(node) === "" ? node.text.trim() : promptOf(node),
           negative: negativeOf(node),
+          description: strings(node, GALLERY_IDS.descriptionField)[0] ?? "",
+          madeWith: [],
+          seenIn: strings(node, GALLERY_IDS.seenInField),
+          howTo: strings(node, GALLERY_IDS.howToField),
         });
+        styleNodes.push(node);
         if (here !== null) facetById.get(here)?.styles.push(node.id);
       }
       if (isTagged(node, GALLERY_IDS.visualTag)) visuals.push(node);
@@ -149,6 +163,14 @@ export function libraryOf(nodes: Iterable<GraphNode>): Library {
   for (const node of byId.values()) if (!held.has(node.id)) walk(node);
   // A cycle has no root: walk what is left so nothing tagged goes missing.
   for (const node of byId.values()) walk(node);
+  // What a style is made with is known once every style is.
+  for (const node of styleNodes) {
+    const entry = styles.get(node.id);
+    const madeWith = refs(node, GALLERY_IDS.madeWithField).filter(
+      (id) => id !== node.id && styles.has(id),
+    );
+    if (entry !== undefined && madeWith.length > 0) styles.set(node.id, { ...entry, madeWith });
+  }
   const stylesOf = new Map<string, readonly string[]>();
   for (const visual of visuals) {
     stylesOf.set(

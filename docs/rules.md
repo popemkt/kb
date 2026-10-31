@@ -368,6 +368,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
+### GAP: a style's how-to names its tool in text, not by a node
+
+- **expected** — A how-to is a value whose tool (Three.js, Blender, Godot) is a node it refers to, so a builder's export or a query can ask for one tool's notes
+- **current** — Each 'how to' value is text led by the tool's name ('Three.js: …'); only a test reads the prefix
+- **impact** — A consumer wanting one tool's notes parses strings; a misspelt tool name is a different tool and nothing notices
+- **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
+- **node** — `01M68CQN0E7CMMEATHT0RDYV10`
+
 ### GAP: a tag's template fields cannot be reordered
 
 - **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
