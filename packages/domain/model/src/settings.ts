@@ -51,7 +51,7 @@ export function settingsOf(
   for (const field of nodes) {
     if (field.id === SYSTEM_IDS.extensionEnabledField) continue;
     if (!typeRefsOf(field).includes(SYSTEM_IDS.field)) continue;
-    if (!configures(field.id, field, nodeId)) continue;
+    if (!configures(field.id, field, { id: nodeId })) continue;
     settings.push({
       field: field.id,
       label: field.text,

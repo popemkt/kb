@@ -7,8 +7,10 @@
 import { Result } from "effect";
 import {
   SYSTEM_IDS,
+  canonicalJson,
   defaultViewIdOf,
   defaultViewTypeOf,
+  hostViewIds,
   isViewNode,
   viewIdOfOption,
   viewOptionId,
@@ -17,8 +19,8 @@ import {
   type NodeProps,
 } from "@kb/model";
 import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
-import { HomeView, NodeReadView, type NodeParams } from "./layout.ts";
-import type { ConfigReport, ViewKey, ViewPage } from "./view-key.ts";
+import { HomeView, LayoutView, NodeReadView, NodeView, type NodeParams } from "./layout.ts";
+import { paramsFromProps, type ConfigReport, type ViewKey, type ViewPage } from "./view-key.ts";
 
 /** What the resolver reads of a node: its props, and its text when it names a view. */
 interface Carrier {
@@ -306,4 +308,73 @@ function unheld(
 ): Result.Result<UnheldViewTarget, string> {
   const listed = viewNamed(view, r.catalog, r.lookup);
   return listed === null ? Result.fail(failure) : Result.succeed({ key: null, listed, ...shown });
+}
+
+/**
+ * One way to open a node: the `view` its `/node/<id>/<view>` location names
+ * (a view node's id, or a view type's option; absent, its default), what it
+ * is called, and, for a view type, its key, so a host can tell whether it
+ * draws that view where it would open.
+ */
+export interface NodeOpening {
+  readonly view?: string;
+  readonly label: string;
+  readonly key?: ViewKey<unknown>;
+}
+
+const quiet: ConfigReport = () => {};
+
+/**
+ * Whether `key` is a view a node is shown in: its settings read for a node
+ * from an empty view node, and read differently than for none. A family's
+ * view is shown inside its host's page, so it is reached through the node's
+ * own views instead.
+ */
+function showsANode(key: ViewKey<unknown>, host: NodeId): boolean {
+  if (key === NodeView || key === LayoutView || key.family !== undefined) return false;
+  const forHost = paramsFromProps(key, {}, host, quiet);
+  if (Result.isFailure(forHost)) return false;
+  const forNone = paramsFromProps(key, {}, null, quiet);
+  return (
+    Result.isFailure(forNone) || canonicalJson(forNone.success) !== canonicalJson(forHost.success)
+  );
+}
+
+/**
+ * What a view node is called: its text, else its view's label, its view
+ * named as a node opens it ({@link viewNamed}), so a view a host cannot draw
+ * is named too.
+ */
+function viewNodeLabel(
+  id: NodeId,
+  catalog: Pick<Catalog, "listedOf">,
+  lookup: (id: NodeId) => Carrier | undefined,
+): string {
+  const node = lookup(id);
+  const text = node?.text?.trim() ?? "";
+  if (text !== "") return text;
+  const option = viewOptionOf(node);
+  return (option === null ? null : viewNamed(option, catalog, lookup))?.label ?? id;
+}
+
+/**
+ * Every way `host` can be opened, in order: its default, each view node it
+ * names (its own default first), then each view type of `catalog` a node is
+ * shown in. One list, so the pane switcher and the node menu offer the same
+ * openings.
+ */
+export function nodeOpenings(
+  host: NodeId,
+  catalog: Pick<ViewCatalogOf<CatalogItem>, "items" | "listedOf">,
+  lookup: (id: NodeId) => Carrier | undefined,
+): NodeOpening[] {
+  const node = lookup(host);
+  if (node === undefined) return [];
+  return [
+    { label: "Default view" },
+    ...hostViewIds(node).map((id) => ({ view: id, label: viewNodeLabel(id, catalog, lookup) })),
+    ...catalog.items
+      .filter(({ key }) => showsANode(key, host))
+      .map(({ key }) => ({ view: key.option, label: key.label, key })),
+  ];
 }

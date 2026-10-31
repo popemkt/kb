@@ -116,12 +116,14 @@ export {
   type SplitDirection,
 } from "./layout.ts";
 export {
+  nodeOpenings,
   resolveDefaultViewType,
   resolveNodeView,
   viewNamed,
   type HeldViewTarget,
   type NamedView,
   type BrokenViewTarget,
+  type NodeOpening,
   type NodeViewTarget,
   type UnheldViewTarget,
 } from "./node-view.ts";

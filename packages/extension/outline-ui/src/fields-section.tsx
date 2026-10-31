@@ -434,7 +434,11 @@ export function NodeField({
   const follow = useFollow();
   const fieldType = resolveFieldTypeById(fieldId, context.schema);
   const fieldNode = context.schema.get(fieldId);
-  const readOnly = !isWritableField(nodeId, fieldId, fieldNode);
+  const readOnly = !isWritableField(
+    context.schema.get(nodeId) ?? { id: nodeId },
+    fieldId,
+    fieldNode,
+  );
   // An option field whose kind previews at card size is chosen by sight: its
   // options laid out at once (DESIGN-UI.md → Field values → option galleries).
   const card = useOptionPreview(fieldId, "card");

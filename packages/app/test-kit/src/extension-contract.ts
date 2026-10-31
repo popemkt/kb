@@ -263,7 +263,7 @@ function settingsPromises(declaration: ExtensionDeclaration, host: SwitchingHost
           );
           expect(listed.map((s) => s.field)).not.toContain(SYSTEM_IDS.extensionEnabledField);
           for (const { field } of listed) {
-            expect(isWritableField(own, field, ctx.index.getNode(field))).toBe(true);
+            expect(isWritableField({ id: own }, field, ctx.index.getNode(field))).toBe(true);
           }
         }),
       ),

@@ -75,26 +75,63 @@ export interface SeedSource {
 }
 
 /**
- * The default view type the sources provide, as `sys.views`' prop: the one
- * source's `defaultView`, which must be one of its own views. Two sources
- * that each provide one, or one that names a view it does not provide, is a
- * bundling defect, so it throws. With none, `sys.views` names no default and
- * a node that names no view opens as broken (DESIGN.md → View nodes).
+ * One source's claim on the default view type of one carrier node: the node
+ * whose `sys.f.view.default` the fold writes (`sys.views` for the store's),
+ * and which of the source's own views it names.
  */
-function defaultViewProps(sources: readonly SeedSource[]): KbNode["props"] {
-  const providers = sources.filter((source) => source.defaultView !== undefined);
-  const [provider, second] = providers;
-  if (second !== undefined) {
-    throw new Error(
-      `the default view type is provided twice (${providers.map((p) => p.name).join(", ")})`,
-    );
+interface DefaultViewClaim {
+  readonly on: NodeId;
+  readonly view: SeedView;
+  readonly by: string;
+}
+
+/** Every default view type `sources` claim, in source order. */
+function defaultViewClaims(sources: readonly SeedSource[]): DefaultViewClaim[] {
+  return sources.flatMap((source) =>
+    source.defaultView === undefined
+      ? []
+      : [{ on: SYSTEM_IDS.viewsRoot, view: source.defaultView, by: source.name }],
+  );
+}
+
+/**
+ * The `sys.f.view.default` each claimed carrier holds, by its id: the one
+ * claim on it, which must name one of its source's own views on a node the
+ * fold seeds. Two claims on one carrier, a claim on a node no source seeds,
+ * or one naming a view its source does not provide is a bundling defect, so
+ * it throws; a repository extension's is refused like any declaration that
+ * does not fold. A carrier no source claims names no default (`sys.views`
+ * naming none, a node that names no view opens as broken: DESIGN.md → View
+ * nodes).
+ */
+function defaultViewProps(
+  sources: readonly SeedSource[],
+  seeded: ReadonlyMap<NodeId, string>,
+): Map<NodeId, KbNode["props"]> {
+  const byCarrier = Map.groupBy(defaultViewClaims(sources), (claim) => claim.on);
+  const props = new Map<NodeId, KbNode["props"]>();
+  for (const [on, claims] of byCarrier) {
+    const [claim, second] = claims;
+    if (claim === undefined) continue;
+    if (second !== undefined) {
+      throw new Error(
+        `the default view type of ${on} is provided twice (${claims.map((c) => c.by).join(", ")})`,
+      );
+    }
+    const provider = sources.find((source) => source.name === claim.by);
+    if (!(provider?.views ?? []).some(({ key }) => key.id === claim.view.id)) {
+      throw new Error(
+        `${claim.by} names ${claim.view.id} the default view of ${on} but provides no such view`,
+      );
+    }
+    if (!seeded.has(on)) {
+      throw new Error(`${claim.by} names the default view of ${on}, which the seed does not hold`);
+    }
+    props.set(on, {
+      [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: viewOptionId(claim.view.id) }],
+    });
   }
-  const view = provider?.defaultView;
-  if (provider === undefined || view === undefined) return {};
-  if (!(provider.views ?? []).some(({ key }) => key.id === view.id)) {
-    throw new Error(`${provider.name} names ${view.id} its default view but provides no such view`);
-  }
-  return { [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: viewOptionId(view.id) }] };
+  return props;
 }
 
 /** The option node that names `view` under `sys.views`, carrying its family. */
@@ -284,8 +321,8 @@ function retiredRows(
  * same order; every source's declared options as option nodes, children of
  * the field of their kind (`declaredKinds`: `sys.f.backdrop`,
  * `sys.f.design-system`, or a family's own) in the same order; with
- * `sys.views` naming the default view type its one provider declares
- * (`defaultViewProps`). Each derived node is placed right after its list. Each node's owner comes with it ({@link FoldedSeed}).
+ * each claimed carrier naming the default view type its one claimant
+ * declares (`defaultViewProps`: `sys.views` names the store's). Each derived node is placed right after its list. Each node's owner comes with it ({@link FoldedSeed}).
  * Pure data: it opens nothing, and it throws on an id two sources declare,
  * because that is a bundling defect no store can repair.
  */
@@ -328,12 +365,13 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   }
   // Read once every id is known to have one owner, so a doubled source is
   // refused for its ids first.
-  const defaults = defaultViewProps(sources);
+  const defaults = defaultViewProps(sources, seen);
   const retired = retiredRows(sources, seen);
   return {
-    nodes: folded.map((node) =>
-      node.id === SYSTEM_IDS.viewsRoot ? { ...node, props: { ...node.props, ...defaults } } : node,
-    ),
+    nodes: folded.map((node) => {
+      const claimed = defaults.get(node.id);
+      return claimed === undefined ? node : { ...node, props: { ...node.props, ...claimed } };
+    }),
     owners: new Map(
       parts.flatMap((part) =>
         [...part.seed, ...part.options, ...part.declared.flat(), part.own].map(
