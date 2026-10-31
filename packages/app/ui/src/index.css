@@ -257,11 +257,77 @@
     word-break: break-word;
   }
 
-  /* The scroll region: the width a breakout spans. A container's width is its
-   * content box, so `100cqw` here excludes a classic scrollbar's track, which
-   * the pane's own width (it holds the scroller) does not. */
+  /* The scroll region: the width a breakout spans (`100cqw`, its content
+   * box). It keeps no scrollbar gutter: its scrollbar is kb's own thumb over
+   * its right edge (`RegionScrollbar`), so its content box is the pane's whole
+   * width on every platform and a breakout (a region-spanning backdrop, a
+   * table) runs edge to edge, never short of a classic scrollbar's track,
+   * which nothing inside a scroller can paint under. */
   [data-main-region="scroll"] {
     container-type: inline-size;
+    scrollbar-width: none;
+  }
+
+  [data-main-region="scroll"]::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* `RegionScrollbar`: a 12px track over the region's right edge, which
+   * passes the pointer through to the region, and in it a thumb, hidden at
+   * rest and shown while the region scrolls (`data-scrolling`), while it is
+   * hovered and while it is dragged, as native overlay thumbs are. The thumb
+   * is a 10px hit box painting a 6px bar (8px under the pointer), so it is
+   * grabbable and thin. The backdrop fills the layer under the track; the
+   * content never does: every column the region shows keeps a right inset
+   * of at least 1rem (the shell's `.kb-shell` padding, a page's `px-4`, a
+   * breakout table's `px-4`), so no text or control sits under the thumb
+   * (`region-scrollbar.e2e.ts` holds it). */
+  .kb-region-scrollbar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 12px;
+    z-index: 30;
+    pointer-events: none;
+  }
+
+  .kb-region-thumb {
+    position: absolute;
+    top: 0;
+    right: 1px;
+    width: 10px;
+    box-sizing: border-box;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 9999px;
+    background-color: color-mix(in oklch, var(--scrollbar-thumb) 15%, transparent);
+    opacity: 0;
+    pointer-events: auto;
+    touch-action: none;
+    transition:
+      opacity 0.4s ease,
+      background-color 0.4s ease,
+      border-width 0.15s ease;
+  }
+
+  [data-main-region][data-scrolling="true"] + .kb-region-scrollbar .kb-region-thumb,
+  .kb-region-thumb:hover,
+  .kb-region-thumb[data-dragging="true"] {
+    opacity: 1;
+  }
+
+  .kb-region-thumb:hover,
+  .kb-region-thumb[data-dragging="true"] {
+    border-width: 1px;
+    background-color: color-mix(in oklch, var(--scrollbar-thumb) 30%, transparent);
+  }
+
+  /* A region with nothing to scroll shows no thumb, hovered or not; it
+   * still takes the pointer, which measures it again (the page may since
+   * have grown). */
+  .kb-region-scrollbar[data-overflows="false"] .kb-region-thumb {
+    opacity: 0;
   }
 
   /*

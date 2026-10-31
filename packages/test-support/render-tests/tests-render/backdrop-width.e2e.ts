@@ -91,9 +91,11 @@ async function spreadOf(page: Page): Promise<number> {
 }
 
 /**
- * The frame spans the scroll region's width once the resize has laid out
- * (a forced layout reads a container's old width until the next frame),
- * and the page does not scroll sideways.
+ * The frame spans the scroll region's whole width — its border box, under
+ * where a classic scrollbar's track would be, so a gutter the region kept
+ * would show as a strip the frame stops short of — once the resize has
+ * laid out (a forced layout reads a container's old width until the next
+ * frame), and the page does not scroll sideways.
  */
 async function expectSpansRegion(page: Page, label: string) {
   const fit = () =>
@@ -101,7 +103,8 @@ async function expectSpansRegion(page: Page, label: string) {
       const box = document.querySelector(frame)?.getBoundingClientRect();
       const region = document.querySelector<HTMLElement>('[data-main-region="scroll"]');
       return {
-        short: (region?.clientWidth ?? -1) - Math.round(box?.width ?? 0),
+        short:
+          Math.round(region?.getBoundingClientRect().width ?? -1) - Math.round(box?.width ?? 0),
         sideways: document.documentElement.scrollWidth - window.innerWidth,
       };
     }, FRAME);
