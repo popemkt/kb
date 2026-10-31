@@ -56,9 +56,11 @@ const DATASCRIPT = /cljs\.core/;
  * by 3 KB for a tab that outlives its build: `lib/stale-build` (the build a
  * hello names and the chunk that did not arrive, through one guard), the
  * socket's `onBuild` and the header's "kb was updated" notice, which must be
- * there before any page's chunk is asked for.
+ * there before any page's chunk is asked for. And by 2 KB for backdrop
+ * variants: the model's variant field and option kind, `shownVariants`,
+ * `BackdropFrame`'s pinned set and its row in Settings.
  */
-const EAGER_BUDGET_BYTES = 2_006_000;
+const EAGER_BUDGET_BYTES = 2_008_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

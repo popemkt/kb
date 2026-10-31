@@ -10,7 +10,12 @@
  * contributes a backdrop, or none.
  */
 import { declarationPlugin, defineExtension } from "@kb/contracts";
-import { BACKDROP_OPTIONS, type SeedBackdrop } from "@kb/model";
+import {
+  BACKDROP_OPTIONS,
+  BACKDROP_VARIANT_OPTIONS,
+  backdropVariantOptions,
+  type SeedBackdrop,
+} from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 
 /** The Unicorn Studio scene over the tag/accent wash: the one a head shows while none is chosen. */
@@ -63,29 +68,31 @@ export const LIGHT_TRAILS_BACKDROP: SeedBackdrop = {
   label: "Light trails",
 };
 
+/** Every backdrop the family declares, in the order its options are listed. */
+const BACKDROPS: readonly SeedBackdrop[] = [
+  UNICORN_BACKDROP,
+  GRADIENT_BACKDROP,
+  SKY_BACKDROP,
+  ROOST_BACKDROP,
+  LENS_BACKDROP,
+  BLACK_HOLE_BACKDROP,
+  TOON_SEA_BACKDROP,
+  SILK_BACKDROP,
+  FLOATING_GEOMETRY_BACKDROP,
+  GRADIENT_ORBS_BACKDROP,
+  WOLF_MEDALLION_BACKDROP,
+  LIGHT_TRAILS_BACKDROP,
+];
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
   tags: ["backdrops"],
   optional: { byDefault: "on" },
   declaredOptions: [
-    {
-      kind: BACKDROP_OPTIONS,
-      options: [
-        UNICORN_BACKDROP,
-        GRADIENT_BACKDROP,
-        SKY_BACKDROP,
-        ROOST_BACKDROP,
-        LENS_BACKDROP,
-        BLACK_HOLE_BACKDROP,
-        TOON_SEA_BACKDROP,
-        SILK_BACKDROP,
-        FLOATING_GEOMETRY_BACKDROP,
-        GRADIENT_ORBS_BACKDROP,
-        WOLF_MEDALLION_BACKDROP,
-        LIGHT_TRAILS_BACKDROP,
-      ],
-    },
+    { kind: BACKDROP_OPTIONS, options: BACKDROPS },
+    // Each backdrop's variants, derived from its key: declared once, where the backdrop is.
+    { kind: BACKDROP_VARIANT_OPTIONS, options: backdropVariantOptions(BACKDROPS) },
   ],
 });
 

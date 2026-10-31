@@ -6,10 +6,13 @@
  * each a ref to one of its field's children: the backdrops are the options
  * the seed fold derives from the families' declarations, as it derives
  * views'. The art is a path of kb's own assets (`assets/…`): an image, or
- * a manifest naming several parts of the art (`backdrop-art.ts`).
+ * a manifest naming several parts of the art (`backdrop-art.ts`). The
+ * variants are refs to any of their field's children, the declared
+ * backdrops' variants: the ones a head may show, one picked per load.
  */
 import {
   declaredChoice,
+  declaredIdOf,
   declaredOptionId,
   type DeclaredOptions,
   type SeedOption,
@@ -19,11 +22,28 @@ import { isBackdropArt } from "./backdrop-art.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
 import { firstRef, firstStr } from "./node-config.ts";
 
+/** The colour schemes a page is painted in. */
+export type ColorScheme = "dark" | "light";
+
+/**
+ * One of a backdrop's variants (DESIGN-UI.md → Page-head backdrops →
+ * Variants): a composition of the same backdrop, named by an id local to
+ * it, and the schemes it is made for (both, unless it says).
+ */
+export interface BackdropVariant {
+  readonly id: string;
+  readonly label: string;
+  readonly schemes?: readonly ColorScheme[];
+}
+
 /**
  * A backdrop as a declaration names it: a declared option, whose id its
- * contribution answers to in the page's backdrop point.
+ * contribution answers to in the page's backdrop point, and its variants,
+ * if it has any.
  */
-export type SeedBackdrop = SeedOption;
+export interface SeedBackdrop extends SeedOption {
+  readonly variants?: readonly BackdropVariant[];
+}
 
 /** The backdrops' options: the children of `sys.f.backdrop`. */
 export const BACKDROP_OPTIONS: DeclaredOptions = {
@@ -34,6 +54,55 @@ export const BACKDROP_OPTIONS: DeclaredOptions = {
 /** The option node that names the backdrop `id` under `sys.f.backdrop`. */
 export function backdropOptionId(id: string): NodeId {
   return declaredOptionId(BACKDROP_OPTIONS, id);
+}
+
+/**
+ * The backdrops' variants: the children of `sys.f.backdrop.variant`, one
+ * per variant of each declared backdrop (`backdropVariantOptions`).
+ */
+export const BACKDROP_VARIANT_OPTIONS: DeclaredOptions = {
+  field: SYSTEM_IDS.backdropVariantField,
+  prefix: "sys.backdrop-variant.",
+};
+
+/** A variant's declared id: its backdrop's, then its own. */
+const variantId = (backdrop: SeedBackdrop, variant: BackdropVariant): string =>
+  `${backdrop.id}.${variant.id}`;
+
+/**
+ * The variants of `backdrops` as declared options of their kind, each
+ * choosing the backdrop it is a variant of: what a family declares, so the
+ * seed derives one option per variant, and a value names it as it names any
+ * option.
+ */
+export function backdropVariantOptions(backdrops: readonly SeedBackdrop[]): SeedOption[] {
+  return backdrops.flatMap((backdrop) =>
+    (backdrop.variants ?? []).map((variant) => ({
+      id: variantId(backdrop, variant),
+      label: `${backdrop.label} · ${variant.label}`,
+      chooses: [{ kind: BACKDROP_OPTIONS, id: backdrop.id }],
+    })),
+  );
+}
+
+/**
+ * The variants of `backdrop` a head may show on a `scheme` page, by local
+ * id, given the variants its settings pin (`BackdropChoice.variants`):
+ * those pinned, or all where none of this backdrop's is; of them, the ones
+ * made for the scheme. Where none of them is, the pinned ones still, each
+ * drawn in its look for the other scheme: a pin is the owner's word, so it
+ * is kept over the scheme. Empty for a backdrop with no variants.
+ */
+export function shownVariants(
+  backdrop: SeedBackdrop,
+  pinned: readonly string[],
+  scheme: ColorScheme,
+): string[] {
+  const all = backdrop.variants ?? [];
+  const chosen = all.filter((variant) => pinned.includes(variantId(backdrop, variant)));
+  const set = chosen.length === 0 ? all : chosen;
+  const suited = set.filter((variant) => (variant.schemes ?? [scheme]).includes(scheme));
+  return (suited.length === 0 ? set : suited).map((variant) => variant.id);
 }
 
 export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
@@ -68,6 +137,11 @@ export interface BackdropChoice {
    * null, its own.
    */
   readonly art: string | null;
+  /**
+   * The variants pinned (declared ids, of any backdrop): every one the
+   * nearest node that pins any holds; none, all of them (`shownVariants`).
+   */
+  readonly variants: readonly string[];
 }
 
 type Props = KbNode["props"];
@@ -120,5 +194,12 @@ export function backdropChoice(
         const path = firstStr(SYSTEM_IDS.backdropArtField)(props);
         return path !== undefined && isAssetPath(path) && isBackdropArt(path) ? path : undefined;
       }) ?? null,
+    variants:
+      first((props) => {
+        const pinned = (props[SYSTEM_IDS.backdropVariantField] ?? []).flatMap((value) =>
+          value.t === "ref" ? (declaredIdOf(BACKDROP_VARIANT_OPTIONS, value.v) ?? []) : [],
+        );
+        return pinned.length === 0 ? undefined : pinned;
+      }) ?? [],
   };
 }

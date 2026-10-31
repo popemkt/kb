@@ -7,7 +7,9 @@
  *
  * - The seed is one per load of the page: a scene mounted again (the head
  *   remounting, Settings' cards) shows the same variation as before.
- * - Reduced motion always shows the one curated still.
+ * - Reduced motion always shows the one curated still; which of a
+ *   backdrop's variants a load shows is drawn from the load's seed even so
+ *   (`drawVariant`), so a still is composed at random as every load is.
  * - `?backdrop-seed=<n>` in the page's address pins the seed, so a
  *   screenshot shows the same variation each time; a test passes its own.
  * - `variation(seed)` draws by name. Each name has a stream of its own, so a
@@ -30,12 +32,18 @@ function pinnedSeed(): number | null {
 /** This load's seed, drawn when a backdrop first asks for it. */
 let loadSeed: number | null = null;
 
-/** The seed a backdrop's scene is made from: this load's, or under reduced motion the curated still. */
-export function useBackdropSeed(reducedMotion: boolean): number {
+/** This load's seed, whatever the motion setting: the same for every backdrop that asks. */
+export function useLoadSeed(): number {
   const [seed] = useState(() => {
     loadSeed ??= pinnedSeed() ?? Math.floor(Math.random() * 2 ** 31);
     return loadSeed;
   });
+  return seed;
+}
+
+/** The seed a backdrop's scene is made from: this load's, or under reduced motion the curated still. */
+export function useBackdropSeed(reducedMotion: boolean): number {
+  const seed = useLoadSeed();
   return reducedMotion ? STILL_SEED : seed;
 }
 
@@ -71,6 +79,22 @@ export function variation(seed: number): Variation {
     phase: (name) => unit(name) * Math.PI * 2,
     stream,
   };
+}
+
+/**
+ * The variant a backdrop shows of the ones it may (`BackdropProps.variants`):
+ * `current` while it is still among them, so a change of scheme that keeps
+ * it never redraws; otherwise one drawn by `seed`, so every scene of one
+ * load (the head, Settings' cards) draws the same. Null when it has none.
+ */
+export function drawVariant(
+  seed: number,
+  shown: readonly string[],
+  current: string | null,
+): string | null {
+  if (current !== null && shown.includes(current)) return current;
+  const [first, ...rest] = shown;
+  return first === undefined ? null : variation(seed).pick("variant", [first, ...rest]);
 }
 
 /**

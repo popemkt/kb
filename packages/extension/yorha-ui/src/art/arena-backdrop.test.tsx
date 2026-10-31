@@ -48,6 +48,7 @@ function props(activity: PageActivity): BackdropProps {
     strength: "subtle",
     direction: "down",
     art: null,
+    variants: [],
     opacity: 0.7,
     activity,
     pointer: { now: () => null },

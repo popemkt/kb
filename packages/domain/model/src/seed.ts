@@ -503,6 +503,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "text",
     configuresCore,
   );
+  // The variants a backdrop may show (`BackdropChoice.variants`): any of its field's children, the
+  // declared backdrops' variants the fold derives, so it is seeded with none; none pinned, all.
+  const backdropVariantField = typedField(
+    SYSTEM_IDS.backdropVariantField,
+    "backdrop.variant",
+    "ref",
+    configuresCore,
+  );
   const backdropDirectionField: KbNode = {
     ...singleField(SYSTEM_IDS.backdropDirectionField, "backdrop.direction", "ref", configuresCore),
     children: directionOptions.map((option) => option.id),
@@ -604,6 +612,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     backdropDirectionField,
     ...directionOptions,
     backdropArtField,
+    backdropVariantField,
     designSystemField,
     ...motionFields,
   ];

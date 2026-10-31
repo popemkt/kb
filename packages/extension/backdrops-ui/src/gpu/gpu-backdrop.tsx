@@ -21,7 +21,7 @@ import {
   type BackdropProps,
 } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback";
-import { useBackdropSeed } from "../scene/seed";
+import { drawVariant, useBackdropSeed, useLoadSeed } from "../scene/seed";
 import { readStagePalette } from "../scene/tokens";
 import { useTellOwner } from "../scene/owner";
 import { TintBackdrop } from "../tint-backdrop";
@@ -112,8 +112,13 @@ export default function GpuBackdrop({
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
   const seed = useBackdropSeed(reducedMotion);
+  const loadSeed = useLoadSeed();
   const [state, setState] = useState<SceneState>("loading");
-  const { color, direction, art, opacity, activity, node, pointer } = backdrop;
+  const { color, direction, art, opacity, activity, node, pointer, variants } = backdrop;
+  // The variant is the load's, reduced motion or not; one still shown keeps its place across a change of scheme.
+  const [variant, setVariant] = useState(() => drawVariant(loadSeed, variants, null));
+  const next = drawVariant(loadSeed, variants, variant);
+  if (next !== variant) setVariant(next);
   const nodeId = node?.id;
   const { editing } = activity;
   // A load mounts its scene once: a change of look, motion or editing reaches
@@ -126,10 +131,11 @@ export default function GpuBackdrop({
       presence: opacity,
       direction,
       art,
+      variant,
     };
     latest.current.look = look;
     mounted.current?.setLook(look);
-  }, [appearance, art, color, direction, opacity]);
+  }, [appearance, art, color, direction, opacity, variant]);
 
   useEffect(() => {
     const el = host.current;

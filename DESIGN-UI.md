@@ -4064,17 +4064,20 @@ A PR for a backdrop reports a score against each criterion.
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
 
-- **The choice is fields.** Which backdrop, its strength, its direction and
-  its art are four settings of core's node (`sys.extension.core`), since the
-  slot is core's and names no backdrop. Core seeds the fields, and each
-  configures core and takes one value. The first three are each a ref to
-  one of their own children:
+- **The choice is fields.** Which backdrop, its strength, its direction, its
+  art and its variants are five settings of core's node
+  (`sys.extension.core`), since the slot is core's and names no backdrop.
+  Core seeds the fields, and each configures core; all but the variants
+  take one value. The first three are each a ref to one of their own
+  children:
   - `sys.f.backdrop`: the declared backdrops' options;
   - `sys.f.backdrop.strength`: `subtle`, `soft` or `vivid`;
   - `sys.f.backdrop.direction`: `down` (vertically inverted) or `up`. A
     backdrop with no directions ignores it.
 
   The fourth, `sys.f.backdrop.art`, is text (**The art setting**, below).
+  The fifth, `sys.f.backdrop.variant`, holds any number of refs to its own
+  children (**Variants**, below).
 
   The same fields on a node choose for that node's page. Each setting is read
   from the node shown first, then from core's node (`backdropChoice` in
@@ -4149,6 +4152,42 @@ A PR for a backdrop reports a score against each criterion.
     `.json`). An asset route serves a manifest as `application/json`; the
     upload takes media only, so a manifest is a file the owner places in
     `.kb/assets/` themselves.
+- **Variants.** A backdrop may come in variants: compositions of one
+  backdrop that share its look, its code and its card, such as Astral's
+  Movement, Orrery, Planisphere and Armillary. Each head shows one of them
+  for the load, drawn at random from the ones it may show.
+  - **Declared on the key.** A backdrop's key lists its variants
+    (`SeedBackdrop.variants`: a local id, a label, and the schemes it is
+    made for, both unless it says). Its family declares them as options of
+    the variant kind (`backdropVariantOptions`, `BACKDROP_VARIANT_OPTIONS`),
+    so the seed derives one option per variant under
+    `sys.f.backdrop.variant`, `sys.backdrop-variant.<backdrop>.<variant>`,
+    labelled `<Backdrop> · <Variant>`. Each variant's option chooses its
+    backdrop (`SeedOption.chooses`), as a theme's backdrop chooses its
+    theme.
+  - **Pinned as a set.** `sys.f.backdrop.variant` holds any number of refs,
+    so an owner pins none, one or several. It is read as the other settings
+    are, the page's node first, then core's; the nearest node that pins any
+    holds the set whole (`BackdropChoice.variants`).
+  - **What a head may show** (`shownVariants`, decided once, in
+    `BackdropFrame`): the shown backdrop's pinned variants, or all of them
+    where none of its own is pinned (a pin of another backdrop's is none of
+    this one's); of those, the ones made for the page's scheme. Where none
+    of the pinned ones is made for it, the pinned ones still, each drawn in
+    its look for the other scheme: a pin is the owner's word, so it is kept
+    over the scheme. The component hears them by local id
+    (`BackdropProps.variants`; empty for a backdrop with none).
+  - **One drawn per load.** The backdrop shows one of them, drawn by the
+    load's seed (Variation, below), so every load may show another and the
+    cards and the head of one load agree; the GPU host draws it for its
+    scenes (`drawVariant`, `GpuLook.variant`). The draw is the load's under
+    reduced motion too, so a still is composed at random as well. A change
+    of scheme keeps the one shown while it is still among those the head may
+    show, and draws again, in the running scene, when it is not.
+  - Set them in Settings → Appearance (the `variants` row under Page head),
+    or `kb set sys.extension.core sys.f.backdrop.variant
+    sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
+    another pins a second, and `kb unset` takes one back out.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the

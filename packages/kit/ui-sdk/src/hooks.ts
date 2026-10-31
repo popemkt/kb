@@ -63,14 +63,16 @@ export function useNode(id: string | undefined): OutlineNode | undefined {
 
 /**
  * A page head's backdrop: the contribution it shows (null, none
- * contributed), its strength and direction, and the URL of the art it draws
- * in place of its own (null, its own).
+ * contributed), its strength and direction, the URL of the art it draws
+ * in place of its own (null, its own), and the variants pinned, by
+ * declared id (none, all: `shownVariants`).
  */
 export interface PageBackdropChoice {
   readonly backdrop: Contribution<Backdrop> | null;
   readonly strength: BackdropStrength;
   readonly direction: BackdropDirection;
   readonly art: string | null;
+  readonly variants: readonly string[];
 }
 
 /**
@@ -107,6 +109,7 @@ export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
     strength: choice.strength,
     direction: choice.direction,
     art: choice.art === null ? null : assetUrl(choice.art),
+    variants: choice.variants,
   };
 }
 
