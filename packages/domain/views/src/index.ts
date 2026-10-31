@@ -103,6 +103,7 @@ export {
   findPane,
   freshPaneId,
   layoutPanes,
+  nodePath,
   neighbourOf,
   normalizeLayout,
   openBeside,

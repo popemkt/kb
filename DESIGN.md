@@ -500,7 +500,9 @@ type PropValue =
   protection is a third, separate concern (`isSysPrefixed` + `--force`);
   referencing a `sys.*` node as a _value_ is not a write to it. The one
   write a person makes to a `sys.*` node without `--force` is a value of a
-  field that configures it (`sys.f.configures`, [Extension
+  field that configures it (`sys.f.configures`, naming the node, the
+  extensions' list for every extension's node, or a kind for every node of
+  it — `sys.f.view.default` configures `sys.tag`; [Extension
   families](#extension-families) → configuration), stated once in
   `@kb/model`'s `system-write.ts` and checked by the commit itself
   (`persistEffect`, the rule's one owner, over every transaction's upserts
@@ -1045,6 +1047,46 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   - **Not order.** Order is not the mechanism here, as it is for a host's
     views: the order of `sys.views` is the fold's, and a store seeded earlier
     may hold it otherwise.
+- **A tag names the view type its nodes open in, before the store's.** The
+  same field, `sys.f.view.default`, on a tag node: a node that names no view
+  opens in the first of its tags' defaults (in the order it carries them,
+  `tagDefaultViewsOf`) that its host holds a key for, else in the store's,
+  else core's read view. So the resolution is one chain — the node's own
+  view nodes, its tags', the store's, the floor — read by
+  `resolveNodeView`, and opening a node through it is opening it through
+  that view type by name, as before. A view node shown for every node of a
+  tag stays out of scope (above): a tag names a view *type*, which takes no
+  settings from the tag.
+  - **Who names it.** A family claims a tag in its declaration
+    (`tagDefaultViews`: by the tag's id, one of its own views' keys; the
+    canvas claims `#canvas` for its canvas view), and the fold writes the
+    claim as the tag node's `sys.f.view.default`, as it writes the store's
+    on `sys.views` (one claim per carrier node). A tag two declarations
+    claim, a claim on a tag no source seeds, or one naming a view its
+    family does not provide does not fold: a bundling defect for bundled
+    families, and for a repository extension a declaration that does not
+    fold, refused as a unit and reported (Extension families). Never
+    resolved by order.
+  - **The person overrides it on the tag.** `sys.f.view.default` is a
+    setting of the kind `sys.tag` (`sys.f.configures` naming a kind: every
+    node of it), and the kind templates it, so every tag's page shows the
+    row and a seeded tag's is the person's to write without `force`, in
+    the editor or through `node.update`. Unset, a claimed tag's comes back
+    on the next open (the fill-absent pass, GAP
+    [[01M3A0ZEWWG0VEHXEM3YNKRQ0Y]]); choosing another view, the outline
+    included, is how a person says "not this one".
+  - **Family off.** A tag's default this host holds no key for is passed
+    over, quietly, so a `#canvas` node opens in the store's default while
+    the canvas is off; one that names no view type a node opens in (a
+    typo, the home) is reported and passed over. Never an error.
+  - **The ways a node opens are one list.** `nodeOpenings` (`@kb/views`)
+    lists them in order — its default, each view node it names, each view
+    type a node is shown in with its tags' defaults first (each with its
+    tag) — and marks the one the default resolves to. The UI's pane
+    switcher and "Open with…" read it (DESIGN-UI → Opening a node), and
+    `view.openings {node}` answers it for an agent or `kb action-invoke`,
+    each opening with the `/node/<id>/<view>` path `ui.navigate` takes
+    (`nodePath`, `@kb/views`).
 - **Placement is not stored yet.** Each view is shown at the placement its
   host offers. A stored placement arrives with the hosts that read it, in
   phase A2 (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]); a field no host reads
@@ -3052,10 +3094,11 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
-  its state in a store where no one has switched it), and, for the one
-  family that provides it, of the default view type (View nodes):
+  its state in a store where no one has switched it), for the one
+  family that provides it, of the default view type, and of the tags whose
+  nodes open in one of its views (View nodes):
   - every entry plugin takes its `name` from the declaration;
   - so do the manifest row and the browser resolver's key;
   - the package's `family:<name>` tag is checked equal to it.
@@ -3200,7 +3243,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     bundled order, then each `HOSTED_FAMILIES` one's (a family a host
     composes beside the registry, such as `kb ui`'s agent: its code is that
     host's, its seed is every store's), with `sys.views` naming the default
-    view type its one provider declares (`defaultView`);
+    view type its one provider declares (`defaultView`), and each claimed
+    tag naming the view type its one claimant declares (`tagDefaultViews`);
   - each declaration's own node, `sys.extension.<name>`, derived from it as
     a view's option is derived from its key: named by its label and filed
     under core's list node `sys.extensions` ("Extensions"), in declaration
@@ -4004,6 +4048,7 @@ answers `{canvasId, items, edges, reported}`.
 | `asset.upload`                                                               | write | write bytes to `.kb/assets/<ulid>.<ext>`, at most `ASSET_MAX_BYTES` (25 MiB, the one limit a page also checks before reading a file); returns the `assets/…` markdown path. An `.svg` is markup that can carry script, so it is kept only as `sanitizeSvg` (`@kb/model`) writes it back: read token by token, drawing kept, scripts, handlers, foreign HTML and references outside the document left out, refused when it does not read as SVG; and it is served as an image, never inlined |
 | `render.view`                                                                | read  | render a docs view (a `docs.markdown` view node, by name) to html or md                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `render.views`                                                               | read  | list the docs view names available to `render.view`                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `view.openings`                                                              | read  | every way a node opens, in order (its default, its view nodes, view types with its tags' defaults first), the default marked, each with its `ui.navigate` path                                                                                                                                                                                                                                                                                                                              |
 | `views.migrate`                                                              | write | rewrite a store written before view nodes to them and import `.kb/views` ([View nodes](#view-nodes))                                                                                                                                                                                                                                                                                                                                                                                        |
 | `kb.manifest`                                                                | read  | list every registered action as its manifest entry (MCP's `kb_manifest`), the view catalog and the extensions ([Extension families](#extension-families))                                                                                                                                                                                                                                                                                                                                   |
 | `extension.switch`                                                           | write | turn an optional extension on or off for this kb: the registry loads it, or leaves it out, from the next call ([Extension families](#extension-families))                                                                                                                                                                                                                                                                                                                                   |

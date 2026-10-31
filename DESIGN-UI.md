@@ -2551,6 +2551,21 @@ until "Save workspace".
   reference) zooms the outline when the pane shows the page's outline. When
   the pane shows an outline rooted at a node (`/node/<id>`), it moves that
   pane to the node instead (`OpenNodeContext`, `useOpenNode`).
+- **Opening a node** goes through its default (DESIGN.md → View nodes): its
+  own view nodes, then its tags' default view types (`#canvas` opens in its
+  canvas), then the store's, then the read view. A Shift-click, "Open in
+  panel" and a rooted pane's `open` all go to `/node/<id>`, so a canvas
+  opens as a canvas there; the page's own zoom stays the outline's, since
+  the zoom is the outline's location (`/outline/<id>`).
+- **"Open with…"** is the node menu's row per way this page can open the
+  node: `pageOpeningsOf` (`lib/node-openings`), which is `nodeOpenings`
+  (`@kb/views`) less the view types this page draws no page of — the same
+  list the pane switcher offers. Its tags' defaults come first and the one
+  it opens in by default says "(default)". A row moves the focused pane to
+  `/node/<id>/<view>`, so the step is in the history, and writes nothing.
+  It is reached from the keyboard as every node command is: the node menu
+  is a palette, so typing "open with" finds the rows. Which view a tag
+  opens in is the tag's `view.default` row, a field like any other.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,

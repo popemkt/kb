@@ -159,6 +159,17 @@ export const NodeView = viewKey(`${LAYOUT_NAMESPACE}.node`, "Node", NodeParams, 
 });
 
 /**
+ * {@link NodeView}'s location: `/node/<id>`, a node in its default view;
+ * `/node/<id>/<view>`, the node through one view (a view node it names, or a
+ * view type by its option). What a page navigates to and `view.openings`
+ * names, so both say one path.
+ */
+export function nodePath(node: string, view?: string): string {
+  const base = `/node/${encodeURIComponent(node)}`;
+  return view === undefined ? base : `${base}/${encodeURIComponent(view)}`;
+}
+
+/**
  * Where the page stands (`/`, `/outline/<id>`): the page's zoom, shown in the
  * store's default view type for no node, as a scope's nodes are
  * (`resolveDefaultViewType`). The zoom is the page's, not any family's, so

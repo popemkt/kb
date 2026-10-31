@@ -66,6 +66,13 @@ export interface SeedSource {
    */
   readonly defaultView?: SeedView;
   /**
+   * The tags whose nodes open in one of this source's own `views` before the
+   * store's default: by the tag node's id, the view's key. The fold writes
+   * each as that tag node's `sys.f.view.default`, the field `sys.views`
+   * holds the store's in; a tag two sources claim is refused.
+   */
+  readonly tagDefaultViews?: Readonly<Record<NodeId, SeedView>>;
+  /**
    * The seeded ids it renamed or removed since a store could have been
    * seeded with them, each with what replaced it, if anything, and the
    * labels it changed: its rows of the retirement table (`SeedRetirement`),
@@ -85,13 +92,18 @@ interface DefaultViewClaim {
   readonly by: string;
 }
 
-/** Every default view type `sources` claim, in source order. */
+/** Every default view type `sources` claim, in source order: the store's, then each tag's. */
 function defaultViewClaims(sources: readonly SeedSource[]): DefaultViewClaim[] {
-  return sources.flatMap((source) =>
-    source.defaultView === undefined
+  return sources.flatMap((source) => [
+    ...(source.defaultView === undefined
       ? []
-      : [{ on: SYSTEM_IDS.viewsRoot, view: source.defaultView, by: source.name }],
-  );
+      : [{ on: SYSTEM_IDS.viewsRoot, view: source.defaultView, by: source.name }]),
+    ...Object.entries(source.tagDefaultViews ?? {}).map(([on, view]) => ({
+      on,
+      view,
+      by: source.name,
+    })),
+  ]);
 }
 
 /**

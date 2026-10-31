@@ -24,6 +24,7 @@ import { ulid } from "ulid";
 import {
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
+  ArrowSquareOutIcon,
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
@@ -67,12 +68,15 @@ import {
   SETTINGS_PATH,
   type OutlineCommandApi,
   shownDesignSystem,
+  ViewPoint,
   SYSTEM_IDS,
   type ThemePref,
   toast,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { pageOpeningsOf } from "@/lib/node-openings";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
+import { pageCatalog } from "@/lib/view-catalog";
 import { settingsPath } from "@/lib/settings-parts";
 import {
   LayoutView,
@@ -540,6 +544,39 @@ function defaultViewCommands(ctx: CommandContext): readonly Command[] {
   );
 }
 
+/**
+ * "Open with…" for the target (DESIGN-UI.md → Opening a node): a row for
+ * each way this page can open it (`pageOpeningsOf`), its tags' defaults
+ * first and the one it opens in by default marked so. Each moves the
+ * focused pane to the node opened that way; nothing is written.
+ */
+function openWithCommands(ctx: CommandContext): readonly Command[] {
+  const nodeId = ctx.target.nodeId;
+  if (nodeId === null) return [];
+  const byId = new Map(ctx.outline.wireNodes.map((n) => [n.id, n]));
+  const openings = pageOpeningsOf(nodeId, pageCatalog(), currentContributions(ViewPoint), (id) =>
+    byId.get(id),
+  );
+  return openings.flatMap(({ view, label, default: isDefault }): Command[] =>
+    view === undefined
+      ? []
+      : [
+          {
+            id: `open-with:${view}`,
+            scope: "node",
+            chrome: () => ({
+              label: `Open with: ${label}${isDefault === true ? " (default)" : ""}`,
+              icon: <ArrowSquareOutIcon size={14} />,
+            }),
+            run: (c) => {
+              c.palette.close();
+              browserHost().navigatePane(c.workspace.focused, nodePath(nodeId, view));
+            },
+          },
+        ],
+  );
+}
+
 /** Every command, in order: the static ones, with the views' where they sit. */
 function commandsFor(ctx: CommandContext): readonly Command[] {
   const views = frameViewCommands(ctx);
@@ -547,6 +584,7 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
     ...GLOBAL_COMMANDS,
     ...views.global,
     ...NODE_COMMANDS,
+    ...openWithCommands(ctx),
     ...views.node,
     ...defaultViewCommands(ctx),
     ...currentContributions(CommandPoint).map(({ value }) => value),

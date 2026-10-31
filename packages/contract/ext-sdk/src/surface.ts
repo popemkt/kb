@@ -330,6 +330,12 @@ export interface ExtensionDeclaration {
   /** The views it provides; its entries contribute exactly these (`declarationPlugin`). */
   readonly views?: readonly ViewDef<unknown>[];
   /**
+   * The tags whose nodes open in one of its own `views` before the store's
+   * default: by the tag's id, the view's key. A tag another declaration
+   * already claims makes this one not fold, so it is refused as a unit.
+   */
+  readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
+  /**
    * The declared options it contributes, by kind (a design system, a
    * backdrop): each named by the id its page contribution answers to.
    */

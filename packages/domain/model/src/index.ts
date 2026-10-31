@@ -241,6 +241,8 @@ export {
   VIEW_OPTION_TARGET_QUERY,
   defaultViewIdOf,
   defaultViewTypeOf,
+  tagDefaultViewsOf,
+  type TagDefaultView,
   familyViewIdOf,
   docsViewNameError,
   docsViewNameOf,

@@ -4,10 +4,10 @@
  *
  * A `sys.*` node is seeded and code reads its shape, so it is written only
  * with `force`, with one exception the graph itself declares: a system field
- * that carries `sys.f.configures`, a ref to an extension's node (or to their
- * list, `sys.extensions`, for every one of them), is a setting of that
- * extension, and its values on that node are written like any field's
- * values on any node. The field must itself be a system field: only the
+ * that carries `sys.f.configures`, a ref to an extension's node, to their
+ * list `sys.extensions` (every one of them), or to a kind (`sys.tag`: every
+ * tag), is a setting of what it names, and its
+ * values there are written like any field's values on any node. The field must itself be a system field: only the
  * owner's `force` mints or retargets one, so a field anyone may add cannot
  * declare itself a setting of a node it does not own. Nothing else of a
  * system node is a person's to write: not its text, its children, its rank,
@@ -23,7 +23,7 @@
  * edit only where the write would land.
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
-import { refValuesOf, type NodeLike } from "./ontology.ts";
+import { refValuesOf, typeRefsOf, type NodeLike } from "./ontology.ts";
 
 /** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
 export interface NodeWrite {
@@ -45,8 +45,9 @@ export type NodeOf = (id: NodeId) => Pick<NodeLike, "props"> | undefined;
 
 /**
  * Whether the field `fieldId` (its node `fieldNode`) is a setting of
- * `node`: a system field whose `sys.f.configures` names that node, or
- * names `sys.extensions` where the node is an extension's.
+ * `node`: a system field whose `sys.f.configures` names that node, names
+ * `sys.extensions` where the node is an extension's, or names a kind the
+ * node is (one of its `sys.f.type` refs: `sys.tag` for every tag).
  */
 export function configures(
   fieldId: NodeId,
@@ -55,8 +56,11 @@ export function configures(
 ): boolean {
   if (!isSysPrefixed(fieldId)) return false;
   const named = refValuesOf(fieldNode, SYSTEM_IDS.configuresField);
+  const kinds = node.props === undefined ? [] : typeRefsOf({ props: node.props });
   return named.some((target) =>
-    target === SYSTEM_IDS.extensionsRoot ? isExtensionNodeId(node.id) : target === node.id,
+    target === SYSTEM_IDS.extensionsRoot
+      ? isExtensionNodeId(node.id)
+      : target === node.id || kinds.includes(target),
   );
 }
 

@@ -41,7 +41,11 @@ import {
  * the generic rule has to exclude exactly this set — reading it here instead of
  * restating it is what keeps the two from drifting.
  */
-export const TEMPLATE_TAGS: readonly string[] = [SYSTEM_IDS.field, SYSTEM_IDS.ontologyTag];
+export const TEMPLATE_TAGS: readonly string[] = [
+  SYSTEM_IDS.field,
+  SYSTEM_IDS.ontologyTag,
+  SYSTEM_IDS.tag,
+];
 
 /** What a field that holds one value declares: its cardinality. */
 const SINGLE: KbNode["props"] = { [SYSTEM_IDS.cardinalityField]: [cardinalityValue("one")] };
@@ -221,6 +225,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     [SYSTEM_IDS.fieldsField]: [
       { t: "ref", v: SYSTEM_IDS.colorField },
       { t: "ref", v: SYSTEM_IDS.hiddenField },
+      { t: "ref", v: SYSTEM_IDS.viewDefaultField },
     ],
   });
 
@@ -335,12 +340,21 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     hidden: true,
   });
   const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY, HIDE);
-  // The view type a node that names no view opens in (one option), held by `sys.views`.
+  /*
+   * The view type a node that names no view opens in (one option): the
+   * store's, held by `sys.views`, and a tag's, held by the tag node, which
+   * its nodes open in first (DESIGN → View nodes). A setting of every tag
+   * (it configures the kind `sys.tag`), which templates it, so a person
+   * chooses a tag's in the editor, a seeded tag's too.
+   */
   const viewDefaultField = refQueryField(
     SYSTEM_IDS.viewDefaultField,
     "view.default",
     VIEW_OPTION_TARGET_QUERY,
-    { one: true },
+    {
+      one: true,
+      props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
+    },
   );
   // A docs view's params beside its subject (`lens.query`): which template, written where.
   const viewTemplateField = singleField(SYSTEM_IDS.viewTemplateField, "view.template", "text");

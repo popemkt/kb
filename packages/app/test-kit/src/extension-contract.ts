@@ -160,6 +160,29 @@ function defaultViewPromises(declaration: ExtensionDeclaration): void {
     expect(() => foldSeed(sources, CONTRACT_AT)).toThrow(/provided twice/);
   });
 
+  test("each tag it claims opens in a view it provides, and a rival claim on it is refused", () => {
+    const claims = Object.entries(declaration.tagDefaultViews ?? {});
+    const provided = (declaration.views ?? []).map(({ key }): string => key.id);
+    for (const [tag, view] of claims) {
+      expect(provided).toContain(view.id);
+      const seeded = foldSeed(foldWith(declaration), CONTRACT_AT).nodes.find((n) => n.id === tag);
+      expect(seeded?.props[SYSTEM_IDS.viewDefaultField]).toEqual([
+        { t: "ref", v: viewOptionId(view.id) },
+      ]);
+      const rival: SeedView = { id: "contract.rival-tag-view", label: "Rival" };
+      const sources = [
+        ...foldWith(declaration),
+        {
+          name: "contract.rival",
+          label: "Rival",
+          views: [{ key: rival }],
+          tagDefaultViews: { [tag]: rival },
+        },
+      ];
+      expect(() => foldSeed(sources, CONTRACT_AT)).toThrow(/provided twice/);
+    }
+  });
+
   test("the fold refuses a default it names without providing that view", () => {
     const stray: SeedSource = {
       ...declaration,

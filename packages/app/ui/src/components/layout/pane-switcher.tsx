@@ -1,13 +1,11 @@
 /**
  * A pane's view switcher: what else the pane can show. The node the pane is
- * shown for, opened each way it can be (`nodeOpenings`) that this page draws
- * as a page; then every page a route opens with nothing chosen. Choosing one moves the pane; nothing is written.
+ * shown for, opened each way this page can open it (`pageOpeningsOf`); then every page a route opens with nothing chosen. Choosing one moves the pane; nothing is written.
  */
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { Predicate } from "effect";
-import { nodeOpenings } from "@kb/views";
 import {
   cn,
   matchRoute,
@@ -18,6 +16,7 @@ import {
   ViewPoint,
   useDismiss,
 } from "@kb/ui-sdk";
+import { pageOpeningsOf } from "@/lib/node-openings";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore, useShownNodes } from "@/stores/graph.store";
 import { shownZoomAt } from "./pane-title";
@@ -53,15 +52,11 @@ function useSections(path: string): readonly Section[] {
   const sections: Section[] = [];
   const hostNode = host === null ? undefined : nodes.get(host);
   if (host !== null && hostNode !== undefined) {
-    // A view type is offered where this page draws it as a page.
-    const paged = new Set(
-      views.filter(({ value }) => value.placements.includes("page")).map(({ value }) => value.key),
-    );
     sections.push({
       title: hostNode.text.trim() === "" ? "This node" : hostNode.text.trim(),
-      choices: nodeOpenings(host, catalog, (id) => nodes.get(id))
-        .filter(({ key }) => key === undefined || paged.has(key))
-        .map(({ view, label }) => ({ path: nodePath(host, view), label })),
+      choices: pageOpeningsOf(host, catalog, views, (id) => nodes.get(id)).map(
+        ({ view, label }) => ({ path: nodePath(host, view), label }),
+      ),
     });
   }
   const pages = routes.flatMap(({ value }) =>
