@@ -87,13 +87,13 @@ export function searchEffect(send: SourceFetch) {
   });
 }
 
-/** The image of a result, as bytes and the extension its type names. */
+/** The picture at `url`, from a host `allowed` names, as bytes and the extension its type names. */
 const download = Effect.fn("gallery.download")(function* (
   send: SourceFetch,
-  adapter: SourceAdapter,
+  allowed: (host: string) => boolean,
   url: string,
 ) {
-  const response = yield* getFrom(send, url, adapter.hosts, "image/*");
+  const response = yield* getFrom(send, url, allowed, "image/*");
   const type =
     (response.headers.get("content-type") ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
   const ext = IMAGE_EXTS[type];
@@ -164,6 +164,52 @@ function idOf(output: unknown): string | null {
     : null;
 }
 
+/** What a kept picture becomes: a visual named `text`, with `props` around its asset. */
+interface Kept {
+  readonly text: string;
+  readonly props: (asset: string) => readonly unknown[];
+  /** Where it goes; the gallery's `save into` when absent. */
+  readonly parent?: string | undefined;
+}
+
+/**
+ * The one way the gallery keeps a picture from the network: downloaded
+ * from a host `allowed` names, written through `asset.upload`, and added
+ * as a visual through `node.add`.
+ */
+const keep = Effect.fn("gallery.keep")(function* (
+  send: SourceFetch,
+  allowed: (host: string) => boolean,
+  url: string,
+  visual: Kept,
+) {
+  const { bytes, ext } = yield* download(send, allowed, url);
+  const uploaded = pathOf(
+    yield* call({
+      id: "asset.upload",
+      input: { bytes: base64Of(bytes), encoding: "base64", ext },
+    }),
+  );
+  if (uploaded === null) return yield* domainError("internal", "asset.upload answered no path");
+  const ctx = yield* KbCtx;
+  const parent =
+    visual.parent ??
+    refOf(ctx.index.getNode(extensionNodeId("gallery")), GALLERY_IDS.saveIntoField);
+  const added = idOf(
+    yield* call({
+      id: "node.add",
+      input: {
+        text: visual.text,
+        tags: [GALLERY_IDS.visualTag],
+        props: visual.props(uploaded),
+        ...(parent === null ? {} : { parent }),
+      },
+    }),
+  );
+  if (added === null) return yield* domainError("internal", "node.add answered no id");
+  return { id: added, asset: uploaded };
+});
+
 export function saveEffect(send: SourceFetch) {
   return Effect.fn("ext.gallery.save")(function* (
     input: z.infer<typeof gallerySaveDef.inputSchema>,
@@ -175,31 +221,11 @@ export function saveEffect(send: SourceFetch) {
         "invalid_input",
         "a result's image and thumbnail must be on the source's hosts, and its page https",
       );
-    const { bytes, ext } = yield* download(send, adapter, input.result.image);
-    const uploaded = pathOf(
-      yield* call({
-        id: "asset.upload",
-        input: { bytes: base64Of(bytes), encoding: "base64", ext },
-      }),
-    );
-    if (uploaded === null) return yield* domainError("internal", "asset.upload answered no path");
-    const ctx = yield* KbCtx;
-    const parent =
-      input.parent ??
-      refOf(ctx.index.getNode(extensionNodeId("gallery")), GALLERY_IDS.saveIntoField);
-    const added = idOf(
-      yield* call({
-        id: "node.add",
-        input: {
-          text: input.result.title,
-          tags: [GALLERY_IDS.visualTag],
-          props: visualProps(input.result, uploaded),
-          ...(parent === null ? {} : { parent }),
-        },
-      }),
-    );
-    if (added === null) return yield* domainError("internal", "node.add answered no id");
-    return { id: added, asset: uploaded };
+    return yield* keep(send, adapter.hosts, input.result.image, {
+      text: input.result.title,
+      props: (asset) => visualProps(input.result, asset),
+      parent: input.parent,
+    });
   });
 }
 
