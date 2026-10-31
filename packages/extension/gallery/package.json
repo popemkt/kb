@@ -1,0 +1,33 @@
+{
+  "name": "@kb/gallery",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/views": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/bundled": "workspace:*",
+    "@types/bun": "catalog:",
+    "effect": "catalog:",
+    "fast-check": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "family:gallery"
+    ]
+  }
+}

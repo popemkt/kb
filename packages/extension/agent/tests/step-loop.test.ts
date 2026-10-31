@@ -20,8 +20,10 @@ import {
 function sightOf(messages: readonly StepMessage[]) {
   const last = messages.findLastIndex((message) => message.role === "user");
   const since = messages.slice(last + 1);
+  const user = messages[last];
   return {
     users: messages.flatMap((message) => (message.role === "user" ? [message.text] : [])),
+    images: user?.role === "user" ? user.images : [],
     results: since.flatMap((message) => (message.role === "tool" ? [message.text] : [])),
     step: since.filter((message) => message.role === "assistant").length + 1,
   };
@@ -56,18 +58,34 @@ function modelStep(model: ModelDouble): Step {
   };
 }
 
+const runner = {
+  describe,
+  test,
+  same: (observed: unknown, expected: unknown) => expect(observed).toEqual(expected),
+};
+
 agentRuntimeContract(
   {
     name: "step loop",
-    runtime: (model) => stepRuntime({ name: "in memory", step: modelStep(model) }),
+    runtime: (model) => stepRuntime({ name: "in memory", step: modelStep(model), sees: true }),
   },
-  { describe, test, same: (observed, expected) => expect(observed).toEqual(expected) },
+  runner,
+);
+
+// A step whose wire carries no pictures keeps the same contract, answering from the text alone.
+agentRuntimeContract(
+  {
+    name: "step loop, over a wire that carries no pictures",
+    runtime: (model) => stepRuntime({ name: "in memory", step: modelStep(model), sees: false }),
+  },
+  runner,
 );
 
 describe("the step loop's own text", () => {
   test("text from a later step starts a new paragraph", async () => {
     const runtime = stepRuntime({
       name: "in memory",
+      sees: true,
       step: modelStep(({ step }) =>
         step === 1
           ? [{ say: "Looking." }, { call: "node_get", input: {} }]
@@ -78,7 +96,7 @@ describe("the step loop's own text", () => {
       Stream.runCollect(
         runtime.turn({
           system: "",
-          message: { text: "find", screen: null },
+          message: { text: "find", screen: null, images: [] },
           resume: undefined,
           tools: [],
           call: (action) => Effect.die(action),

@@ -225,7 +225,7 @@ class Bridge {
       const tools = listingOf(AGENT_WIRE, manifest);
       const outputs = runtime.turn({
         system: AGENT_SYSTEM_PROMPT,
-        message: { text, screen },
+        message: { text, screen, images: [] },
         resume: conversation.resume,
         tools,
         call: call(new Map(tools.map((entry) => [entry.id, entry]))),

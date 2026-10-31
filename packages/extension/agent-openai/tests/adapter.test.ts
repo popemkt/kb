@@ -2,9 +2,9 @@
  * What the `openai-chat` adapter puts on the wire beyond the contract's
  * properties: the request a step sends (the URL under the provider's
  * endpoint, the model, the tools as functions, a bearer token only when a
- * credential resolves), how a call is echoed back in the next step, and how
- * a provider that lacks an endpoint or a model, a failed response and an
- * error event each end the turn.
+ * credential resolves, a message's pictures as content parts), how a call is
+ * echoed back in the next step, and how a provider that lacks an endpoint or
+ * a model, a failed response and an error event each end the turn.
  */
 import { describe, expect, test } from "bun:test";
 import { Effect, Stream } from "effect";
@@ -56,7 +56,7 @@ function turnOver(
   }).runtime(provider, secrets);
   const turn = runtime.turn({
     system: "You are kb's agent.",
-    message: { text: "hi", screen: null },
+    message: { text: "hi", screen: null, images: [] },
     tools: [GET],
     resume: undefined,
     call: (action, input) =>
@@ -122,13 +122,45 @@ describe("the openai-chat adapter's wire", () => {
       messages: [
         { role: "system", content: "You are kb's agent." },
         // The message as every runtime sends it, its screen block, if any, first (`userTurnText`).
-        { role: "user", content: userTurnText({ text: "hi", screen: null }) },
+        { role: "user", content: userTurnText({ text: "hi", screen: null, images: [] }) },
       ],
       tools: [
         {
           type: "function",
           function: { name: "node_get", description: "Read a node.", parameters: GET.inputSchema },
         },
+      ],
+    });
+  });
+
+  test("a message's pictures go as content parts: its text, then each picture as a data URL", async () => {
+    const chat = fakeChat(() => [{ say: "A lighthouse." }]);
+    const runtime = openAiChatAdapter({ fetch: chat.fetch }).runtime(PROVIDER, NO_SECRETS);
+    expect(runtime.sees).toBe(true);
+    await Effect.runPromise(
+      Stream.runDrain(
+        runtime.turn({
+          system: "Describe.",
+          message: {
+            text: "what is this?",
+            screen: null,
+            images: [
+              { mediaType: "image/png", data: "iVBORw0K" },
+              { mediaType: "image/webp", data: "UklGRg==" },
+            ],
+          },
+          tools: [],
+          resume: undefined,
+          call: (action) => Effect.die(action),
+        }),
+      ),
+    );
+    expect(chat.requests[0]?.body.messages[1]).toEqual({
+      role: "user",
+      content: [
+        { type: "text", text: "what is this?" },
+        { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0K" } },
+        { type: "image_url", image_url: { url: "data:image/webp;base64,UklGRg==" } },
       ],
     });
   });
@@ -229,7 +261,7 @@ describe("the openai-chat adapter's wire", () => {
       Stream.runDrain(
         runtime.turn({
           system: "",
-          message: { text: "hi", screen: null },
+          message: { text: "hi", screen: null, images: [] },
           tools: [],
           resume: undefined,
           call: (action) => Effect.succeed(succeeded(action, {})),

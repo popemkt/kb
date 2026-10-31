@@ -140,6 +140,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
+### GAP: a captured image link keeps the link, not the picture
+
+- **expected** — Capturing an https image URL in the gallery saves the picture as an asset, as a pasted file is: kb's server downloads it, bounded in size and type, and the visual embeds it in media.
+- **current** — Capture saves a #visual whose source is the URL and whose text is the URL's last path segment, with no media: no core or gallery action downloads an arbitrary https image, and ext.gallery.save downloads only from the hosts a source adapter names (admitted/reachable in @kb/gallery-net), deliberately, so a fetch-anything action is not an SSRF hole.
+- **impact** — A link-only capture shows no picture in the grid, triage or a look's pins, contributes nothing to a palette, and breaks when the remote page moves.
+- **closes** — A server action that downloads a person-chosen https image under an SSRF policy (public addresses only, resolved and pinned, no redirects to private ranges, size and type bounded) and writes through asset.upload; Capture then calls it and adds media to the visual.
+- **node** — `01M66SF67J0TDSK1R85KYBYVBD`
+
 ### GAP: a channel a registry family contributes is not served
 
 - **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
@@ -505,6 +513,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An export from a Paper or Terminal knowledge base looks like kb's default outside a page.
 - **closes** — Each system's sheet moves to the family's shared package (designSystems carrying the sheet), so the server reads core's setting and resolves the tokens.
 - **node** — `01M54QTGRJYJZ7W5SXDP4356QW`
+
+### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
+
+- **expected** — a family switched off keeps its seeded nodes (the data outlives the code, DESIGN.md → seed) but the tag and field pickers offer only the vocabulary of loaded families, or mark an off family's as such, as a view of an off family opens as 'cannot be shown here'
+- **current** — every bundled family's seed is every store's, so a store with the gallery off (this repository's) offers #visual, #style, #facet, #image source and the gallery's fields in its tag and field pickers beside #agent-provider and #canvas, with nothing to say they belong to a family that is off
+- **impact** — noise in the pickers that grows with each optional family; a person can tag a node #visual in a store where nothing reads it
+- **closes** — the page's pickers filter seeded tags and fields by their owner family's switch (ownership is already derived from the bundled declarations), with a test that switching a family off removes its vocabulary from the pickers and switching it on restores it
+- **node** — `01M66PBRBD1S692MW017T9ERV3`
 
 ### GAP: api/live.ts writes straight into the outline and ui stores
 
@@ -889,6 +905,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
+### GAP: node.addTree mints its ids twice when the page runs it optimistically
+
+- **expected** — An optimistic write names the same nodes on the page and on the server: the ids the local commit mints are the ids the server commits, as node.add does by taking the minted id as input
+- **current** — node.addTree takes no ids, so the page's local commit (invokeSettled, writeLocal) mints one set and the server's commit another; the page shows the local ids until the push settles, then the replica converges on the server's and the local ones vanish
+- **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
+- **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
+- **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
+
 ### GAP: nodes have no icon, so refs cannot show one
 
 - **expected** — A node can carry an icon or emoji (as a field, a node like any other) and a ref shows it before its label, as Tana does.
@@ -1213,6 +1237,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
 - **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
+### GAP: the eager-budget test measures a test-mode build, whose size grows with the checkout's path
+
+- **expected** — page-bundle.test.ts measures the build the page ships, a production build (NODE_ENV=production), whose bytes do not depend on where the checkout lives, against a budget calibrated to it
+- **current** — it spawns vp build under bun test's NODE_ENV=test; that build embeds each module's absolute path (101 of them in the eager set), so one tree measures 1,962,825 bytes at /tmp/kbm, 1,964,340 at /home/runner/work/kb/kb and 1,971,107 in a bb worktree path, and main fails its own budget in a long worktree path
+- **impact** — the budget passes or fails by the checkout's path, not by what the page ships; about 260 KB of the measured 1.96 MB is never shipped (the production eager set is 1.70 MB), so a real regression can hide in the slack and a long path fails a clean tree
+- **closes** — spawn the build with NODE_ENV=production and recalibrate EAGER_BUDGET_BYTES to the production eager set (1,701,190 bytes with the gallery)
+- **node** — `01M66K9DRY5A9RYHFD99QCQTE8`
+
 ### GAP: the extension dependency graph has no command, view or reverse edges
 
 - **expected** — extension.graph returns every derived edge {from, to, key, kind, optional, source} and data edges between families; kb ext graph prints it (and --dot), kb ext why <plugin> says why a plugin is not active, extension.list rows carry dependants, and the graph view has a lens over sys.extensions drawing the same edges
@@ -1462,6 +1494,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a busy untrusted code view can stutter its own frame
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
+
+### GAP: view families are a closed list in core's model; a family cannot declare its own
+
+- **expected** — a family's declaration names the view families it owns (as it names its views, viewDef), and the seed derives each family's option under sys.f.view.family from the declarations, so ViewFamily is a reading of what is declared
+- **current** — VIEW_FAMILY_VALUES in @kb/model (view-node.ts) lists every view family by hand, including the graph family's graph.renderer and the gallery's gallery.workflow, so core names concepts of optional families
+- **impact** — a new family of views, from a bundled family or a repository extension, must edit core; core seeds the family option of a family that may be off
+- **closes** — defineExtension takes viewFamilies; the bundled fold seeds their options; ViewKey.family is typed by a registry the declarations extend; VIEW_FAMILY_VALUES keeps core's own (outline.frame) only
+- **node** — `01M66RQ281GTJNACBJ572PHCJP`
 
 ### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
 

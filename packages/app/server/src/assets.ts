@@ -1,39 +1,15 @@
-import { join, normalize, relative, resolve, isAbsolute } from "node:path";
+import { join, normalize, resolve } from "node:path";
 import { Effect, Option } from "effect";
 import { FileSystem, type File } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
-import { resolveAssetFile, assetsDir } from "@kb/workspace-fs";
+import { assetMediaType } from "@kb/model";
+import { containedFile, resolveAssetFile, assetsDir } from "@kb/workspace-fs";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { UI_DIST } from "./paths.ts";
 
-const ASSET_MIME: Record<string, string> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  webp: "image/webp",
-  svg: "image/svg+xml",
-  avif: "image/avif",
-  bmp: "image/bmp",
-  mp4: "video/mp4",
-  webm: "video/webm",
-  mov: "video/quicktime",
-  ogv: "video/ogg",
-  m4v: "video/x-m4v",
-  mp3: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  m4a: "audio/mp4",
-  aac: "audio/aac",
-  flac: "audio/flac",
-  opus: "audio/opus",
-  pdf: "application/pdf",
-};
-
 /** Resolve Content-Type for a kb asset path; unknown → octet-stream. */
 export function assetContentType(absPath: string): string {
-  const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
-  return ASSET_MIME[ext] ?? "application/octet-stream";
+  return assetMediaType(absPath) ?? "application/octet-stream";
 }
 
 function assetHeaders(abs: string): Record<string, string> {
@@ -53,39 +29,6 @@ function plainStatus(body: string, status: number): HttpServerResponse.HttpServe
   return HttpServerResponse.raw(body, { status });
 }
 
-function isPathInside(rootReal: string, targetReal: string): boolean {
-  const rel = relative(rootReal, targetReal);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
-
-/**
- * Canonical-path containment: realPath(candidate) must stay under
- * realPath(rootDir) and name a regular file. Symlink escapes → forbidden;
- * missing → missing.
- */
-const resolveContainedFile = Effect.fn("kb.ui.resolveContainedFile")(function* (
-  rootDir: string,
-  candidate: string,
-) {
-  const fs = yield* FileSystem;
-  const rootReal = yield* fs.realPath(rootDir).pipe(Effect.option);
-  if (Option.isNone(rootReal)) {
-    return { kind: "missing" as const };
-  }
-  const fileReal = yield* fs.realPath(candidate).pipe(Effect.option);
-  if (Option.isNone(fileReal)) {
-    return { kind: "missing" as const };
-  }
-  if (!isPathInside(rootReal.value, fileReal.value)) {
-    return { kind: "forbidden" as const };
-  }
-  const info = yield* fs.stat(fileReal.value).pipe(Effect.option);
-  if (Option.isNone(info) || info.value.type !== "File") {
-    return { kind: "forbidden" as const };
-  }
-  return { kind: "ok" as const, path: fileReal.value, info: info.value };
-});
-
 /**
  * Read-only GET for `.kb/assets/*`. Traversal / missing → 403 / 404.
  * Never lists the directory.
@@ -102,7 +45,7 @@ export const serveKbAssetEffect = Effect.fn("kb.ui.serveKbAsset")(function* (
   if (abs === null) {
     return plainStatus("forbidden", 403);
   }
-  const contained = yield* resolveContainedFile(assetsDir(kbRoot), abs);
+  const contained = yield* containedFile(assetsDir(kbRoot), abs);
   if (contained.kind === "missing") {
     return plainStatus("not found", 404);
   }
@@ -189,7 +132,7 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
     });
 
   if (yield* fs.exists(candidate).pipe(Effect.orDie)) {
-    const contained = yield* resolveContainedFile(UI_DIST, candidate);
+    const contained = yield* containedFile(UI_DIST, candidate);
     if (contained.kind === "ok") {
       return served(contained.path, rel, contained.info);
     }

@@ -11,6 +11,7 @@ import { userTurnText } from "./prompt.ts";
 import {
   AgentRuntimeError,
   MAX_STEPS,
+  type AgentImage,
   type AgentOutput,
   type AgentRuntime,
   type AgentTurn,
@@ -44,7 +45,8 @@ export interface StepTool {
 /** The conversation as a step is handed it. */
 export type StepMessage =
   | { readonly role: "system"; readonly text: string }
-  | { readonly role: "user"; readonly text: string }
+  /** A person's message: its text (`userTurnText`), and the pictures shown with it. */
+  | { readonly role: "user"; readonly text: string; readonly images: readonly AgentImage[] }
   | { readonly role: "assistant"; readonly text: string; readonly calls: readonly StepCall[] }
   | { readonly role: "tool"; readonly call: string; readonly text: string };
 
@@ -144,12 +146,19 @@ function stepsFrom(
  * A runtime over `step`: the adapter's model, with the tool loop run here.
  * `resume` is a handle on a conversation this runtime holds in memory; a
  * handle it does not hold starts afresh. Each turn emits a new handle, which
- * names the conversation with that turn in it.
+ * names the conversation with that turn in it. `sees` is whether the step's
+ * wire carries a user message's pictures; a step that does not is handed
+ * none.
  */
-export function stepRuntime(options: { readonly name: string; readonly step: Step }): AgentRuntime {
+export function stepRuntime(options: {
+  readonly name: string;
+  readonly step: Step;
+  readonly sees: boolean;
+}): AgentRuntime {
   const histories = new Map<string, readonly StepMessage[]>();
   return {
     name: options.name,
+    sees: options.sees,
     turn: (turn) =>
       Stream.unwrap(
         Effect.sync(() => {
@@ -159,7 +168,14 @@ export function stepRuntime(options: { readonly name: string; readonly step: Ste
             turn,
             tools: turn.tools.map(stepTool),
             byName: new Map(turn.tools.map((entry) => [mcpToolName(entry.id), entry])),
-            messages: [...prior, { role: "user", text: userTurnText(turn.message) }],
+            messages: [
+              ...prior,
+              {
+                role: "user",
+                text: userTurnText(turn.message),
+                images: options.sees ? turn.message.images : [],
+              },
+            ],
             wrote: false,
             save: (messages) => histories.set(resume, messages),
           };

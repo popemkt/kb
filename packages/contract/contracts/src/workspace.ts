@@ -67,6 +67,13 @@ export interface AssetsPort {
    * asset, the adapter decides where it lands.
    */
   write(id: string, ext: string, bytes: Uint8Array): Effect.Effect<string, DomainError>;
+  /**
+   * The bytes of the asset `path` names (`assets/…`, as `write` answers),
+   * never more than `maxBytes`: `not_found` when there is none, `forbidden`
+   * when the path, or a link it follows, leaves the assets, and
+   * `invalid_input` when the asset is larger, which is then never read.
+   */
+  read(path: string, maxBytes: number): Effect.Effect<Uint8Array, DomainError>;
 }
 
 export class Assets extends Context.Service<Assets, AssetsPort>()("kb/Assets") {}

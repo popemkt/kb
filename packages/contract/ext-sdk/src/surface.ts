@@ -268,7 +268,7 @@ export interface Plugin {
 }
 
 /** The families of views a host chooses between by config. */
-export type ViewFamily = "graph.renderer" | "outline.frame";
+export type ViewFamily = "graph.renderer" | "outline.frame" | "gallery.workflow";
 
 /** How a key stores its params on a view node: read from props, written back to them. */
 export interface ViewConfigCodec<P> {

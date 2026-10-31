@@ -206,7 +206,7 @@ describe("ext.canvas.run with the agent's model", () => {
     expect(sum?.[0]?.system).toMatch(/^You are one component of a canvas/);
     expect(sum?.[0]?.system.endsWith(`\n\nInstruction: ${ADD}`)).toBe(true);
     // The inputs in edge order, set apart by a line of dashes.
-    expect(sum?.[0]?.message).toEqual({ text: "21\n\n---\n\n4", screen: null });
+    expect(sum?.[0]?.message).toEqual({ text: "21\n\n---\n\n4", screen: null, images: [] });
     expect(sum?.[0]?.tools).toEqual([]);
     expect(shout?.[0]?.message.text).toBe("25");
     // Outputs land on their nodes as they did before a model performed them.

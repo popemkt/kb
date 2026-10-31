@@ -7,7 +7,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
   },
   "dependencies": {
     "@kb/agent": "workspace:*",
@@ -21,7 +22,9 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
-    "@types/react": "catalog:"
+    "@types/react": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "nx": {
     "tags": [

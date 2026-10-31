@@ -1,13 +1,14 @@
 import { realpathSync } from "node:fs";
 import { sep } from "node:path";
 import { Effect, Stream } from "effect";
-import type { Options, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { Options, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
   AgentRuntimeError,
   MAX_STEPS,
   resolveCredential,
   userTurnText,
   type AgentAdapter,
+  type AgentMessage,
   type AgentOutput,
   type AgentRuntime,
   type AgentTurn,
@@ -70,11 +71,37 @@ interface ClaudeRuntimeOptions {
   readonly query?: ClaudeQuery;
 }
 
-/** The part of the SDK's `query` a turn uses: start a session, read its messages. */
+/**
+ * The part of the SDK's `query` a turn uses: start a session with the one
+ * user message the turn sends, and read its messages.
+ */
 export type ClaudeQuery = (params: {
-  readonly prompt: string;
+  readonly prompt: AsyncIterable<SDKUserMessage>;
   readonly options: Options;
 }) => AsyncIterable<SDKMessage>;
+
+/**
+ * The one user message a turn sends, as Messages API content blocks: each
+ * picture as a base64 image block, then the text (`userTurnText`), the
+ * order Claude reads best. A message with no pictures is its text block
+ * alone, which is what the SDK makes of a string prompt.
+ */
+function userMessage(message: AgentMessage): SDKUserMessage {
+  return {
+    type: "user",
+    parent_tool_use_id: null,
+    message: {
+      role: "user",
+      content: [
+        ...message.images.map((image) => ({
+          type: "image" as const,
+          source: { type: "base64" as const, media_type: image.mediaType, data: image.data },
+        })),
+        { type: "text", text: userTurnText(message) },
+      ],
+    },
+  };
+}
 
 /** The SDK's own `query`, imported on first use so no other command pays for it. */
 const sdkQuery = Effect.tryPromise({
@@ -276,6 +303,7 @@ function queryOptions(
 function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
   return {
     name: "Claude",
+    sees: true,
     turn: (turn) =>
       Stream.unwrap(
         Effect.gen(function* () {
@@ -290,7 +318,8 @@ function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
           );
           const messages = abortingFirst(
             query({
-              prompt: userTurnText(turn.message),
+              // A stream of one message: the SDK sends it, then waits for the turn to end.
+              prompt: Stream.toAsyncIterable(Stream.make(userMessage(turn.message))),
               options: queryOptions(options, turn, abort, key, executable),
             }),
             abort,

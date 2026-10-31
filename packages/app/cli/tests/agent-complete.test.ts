@@ -4,12 +4,14 @@
  * server hosts the agent and reached like any other action. It runs one turn
  * of the provider the agent's node selects, here a scripted provider (no
  * model, no login, no network), with the caller's system prompt and one
- * message, no tools and no screen; it keeps a bounded reply; a provider that
- * fails, or whose binding nobody trusted here, fails it by name; no sandboxed code may call it; and switched
- * off with the agent, it is gone.
+ * message (with the pictures it names, read from the root's assets, and how
+ * many the model was shown), no tools and no screen; it keeps a bounded
+ * reply; a provider that fails, or whose binding nobody trusted here, fails
+ * it by name; no sandboxed code may call it; and switched off with the
+ * agent, it is gone.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -41,6 +43,8 @@ function script(text: string): readonly ScriptStep[] {
 
 /** Every runtime the scripted adapter built, in order. */
 const built: ScriptedRuntime[] = [];
+/** Whether the next runtime the scripted adapter builds sees pictures. */
+let sees = true;
 
 const AGENT: ExtensionEntry = {
   declaration: agentExtension,
@@ -50,7 +54,7 @@ const AGENT: ExtensionEntry = {
         id: DEFAULT_ADAPTER,
         login: () => [],
         runtime: () => {
-          const runtime = scriptedRuntime((turn) => script(turn.message.text));
+          const runtime = scriptedRuntime((turn) => script(turn.message.text), { sees });
           built.push(runtime);
           return runtime;
         },
@@ -104,15 +108,58 @@ describe("ext.agent.complete", () => {
     const from = built.length;
     expect(await call(COMPLETE, { system: "You title things.", message: "hi" })).toMatchObject({
       status: "succeeded",
-      output: { text: "Hello, there", truncated: false, provider: "scripted" },
+      output: { text: "Hello, there", truncated: false, provider: "scripted", saw: 0 },
     });
     // A runtime of its own per call, so nothing of a call outlives it.
     expect(built).toHaveLength(from + 1);
     const [turn] = built[from]?.turns ?? [];
     expect(turn?.system).toBe("You title things.");
-    expect(turn?.message).toEqual({ text: "hi", screen: null });
+    expect(turn?.message).toEqual({ text: "hi", screen: null, images: [] });
     expect(turn?.resume).toBeUndefined();
     expect(turn?.tools).toEqual([]);
+  });
+
+  test("shows the model the pictures it names, read from the root's assets, and says how many", async () => {
+    await mkdir(join(root, ".kb", "assets"), { recursive: true });
+    await writeFile(join(root, ".kb", "assets", "pier.png"), new Uint8Array([137, 80, 78, 71]));
+    await writeFile(join(root, ".kb", "assets", "dusk.JPG"), new Uint8Array([255, 216, 255]));
+    const from = built.length;
+    expect(
+      await call(COMPLETE, { message: "hi", images: ["assets/pier.png", "assets/dusk.JPG"] }),
+    ).toMatchObject({ status: "succeeded", output: { text: "Hello, there", saw: 2 } });
+    expect(built[from]?.turns[0]?.message.images).toEqual([
+      { mediaType: "image/png", data: "iVBORw==" },
+      { mediaType: "image/jpeg", data: "/9j/" },
+    ]);
+  });
+
+  test("a runtime that does not see answers from the text alone, and says it saw none", async () => {
+    sees = false;
+    try {
+      const from = built.length;
+      expect(await call(COMPLETE, { message: "hi", images: ["assets/pier.png"] })).toMatchObject({
+        status: "succeeded",
+        output: { text: "Hello, there", saw: 0 },
+      });
+      expect(built[from]?.turns[0]?.message.images).toEqual([]);
+    } finally {
+      sees = true;
+    }
+  });
+
+  test("a picture that is no asset, no picture a model takes, missing or too large is refused before any model runs", async () => {
+    await writeFile(join(root, ".kb", "assets", "logo.svg"), "<svg/>");
+    await writeFile(join(root, ".kb", "assets", "huge.png"), new Uint8Array(5 * 1024 * 1024 + 1));
+    const from = built.length;
+    const refused = async (images: readonly string[]) =>
+      ((await call(COMPLETE, { message: "hi", images })) as { code?: string }).code;
+    expect(await refused(["https://example.com/a.png"])).toBe("invalid_input");
+    expect(await refused(["assets/logo.svg"])).toBe("invalid_input");
+    expect(await refused(["assets/none.png"])).toBe("not_found");
+    expect(await refused(["assets/huge.png"])).toBe("invalid_input");
+    expect(await refused(["assets/../nodes.jsonl.png"])).toBe("forbidden");
+    expect(await refused(Array.from({ length: 5 }, () => "assets/pier.png"))).toBe("invalid_input");
+    expect(built).toHaveLength(from);
   });
 
   test("without a system prompt, the model is told to answer and nothing more", async () => {

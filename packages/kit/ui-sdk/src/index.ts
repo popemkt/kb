@@ -218,6 +218,13 @@ export {
 } from "./lib/field-type";
 export { isFieldHidden, resolveVisibleProps } from "./lib/field-visibility";
 export {
+  type CompletionReply,
+  type CompletionRequest,
+  type ModelCompletion,
+  ModelCompletionService,
+} from "./lib/model-completion";
+export { type Board, type BoardCard, type BoardReply, BoardService } from "./lib/board";
+export {
   type NodeLinkEdge,
   type NodeLinkGraph,
   type NodeLinkGraphs,

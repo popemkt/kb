@@ -88,12 +88,14 @@ describe("UI datalog on DatascriptIndex", () => {
       // chart view option (+1), the code view option (+1), the
       // Extensions panel's view option (+1), core's home and read view
       // options (+2), the Settings page's view option (+1), and the
-      // Extensions panel's retired into Settings (-1).
-      ["queries.list-all", 84],
+      // Extensions panel's retired into Settings (-1); the gallery's view
+      // options, its library and seven workflows, and the workflow view
+      // family (+9).
+      ["queries.list-all", 93],
       ["queries.list-fields", 30],
       ["queries.list-tags", 2],
       ["queries.backlinks-n.root-a", 0],
-      ["query-node.default", 84],
+      ["query-node.default", 93],
       ["schema-zoom.tagged-todo", 2],
       ["schema-zoom.field-status", 2],
       ["graph-lens.todo-via-id", 2],

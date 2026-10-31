@@ -219,7 +219,8 @@ function failureOf(plugin: string, cause: Cause.Cause<PluginError>): PluginError
   );
 }
 
-function namespaced(namespace: string, id: string): string {
+/** The id a contribution `id` takes in `namespace`: `<namespace>.<id>`, or `id` in the root one. */
+export function namespaced(namespace: string, id: string): string {
   return namespace === "" ? id : `${namespace}.${id}`;
 }
 

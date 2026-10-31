@@ -31,8 +31,15 @@ const DATASCRIPT = /cljs\.core/;
  * the backdrops' one bridge that tells them to a scene, every scene's own
  * code loading lazily; raised by 1 KB for a backdrop's art setting: the
  * model's art field and choice, `assetUrl`, and its row in Settings).
+ * And by 4 KB for the gallery family's declaration (its ids and its seed:
+ * four tags, their fields and six image sources), which the page folds as
+ * it folds every family's; its page, readings and action schemas load
+ * lazily, its package being free of side effects. And by 2 KB for the
+ * composer's declaration: its seven workflow views, each key carrying the
+ * question, steps and tags the chooser reads, and the `#look` tag and its
+ * fields; every workflow's surface loads lazily.
  */
-const EAGER_BUDGET_BYTES = 1_965_000;
+const EAGER_BUDGET_BYTES = 1_971_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
@@ -45,6 +52,7 @@ describe("the page's eager bundle", () => {
   test("carries no DataScript, and stays inside its byte budget", async () => {
     const out = await mkdtemp(join(tmpdir(), "kb-page-bundle-"));
     try {
+      // GAP [[01M66K9DRY5A9RYHFD99QCQTE8]] a test-mode build, whose size grows with the checkout's path
       const build = Bun.spawnSync(["bun", "x", "vp", "build", "--outDir", out, "--emptyOutDir"], {
         cwd: UI_ROOT,
         stdout: "pipe",

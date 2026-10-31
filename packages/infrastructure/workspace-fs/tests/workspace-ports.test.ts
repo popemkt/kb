@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer, Result } from "effect";
@@ -208,5 +208,45 @@ describe("Assets port", () => {
       root,
     );
     expect(Result.isFailure(result)).toBe(true);
+  });
+
+  /** What `read` answers for `path` in `root`: its bytes, or the code it failed with. */
+  function readIn(root: string, path: string, maxBytes = 10) {
+    return run(
+      Effect.gen(function* () {
+        const assets = yield* Assets;
+        return yield* assets.read(path, maxBytes).pipe(
+          Effect.map((bytes) => [...bytes]),
+          Effect.catch((error) => Effect.succeed(error.code)),
+        );
+      }),
+      root,
+    );
+  }
+
+  test("read hands back what write stored, by the path write answered", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-assets-read-"));
+    const path = await run(
+      Effect.gen(function* () {
+        const assets = yield* Assets;
+        return yield* assets.write("01ABC", "png", new Uint8Array([1, 2, 3]));
+      }),
+      root,
+    );
+    expect(await readIn(root, path)).toEqual([1, 2, 3]);
+  });
+
+  test("read refuses what is missing, larger than its bound, or outside the assets", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-assets-read-bounds-"));
+    await mkdir(join(root, ".kb", "assets"), { recursive: true });
+    await writeFile(join(root, ".kb", "assets", "big.png"), new Uint8Array(11));
+    await writeFile(join(root, "secret.png"), new Uint8Array([9]));
+    await symlink(join(root, "secret.png"), join(root, ".kb", "assets", "out.png"));
+    expect(await readIn(root, "assets/none.png")).toBe("not_found");
+    expect(await readIn(root, "assets/big.png")).toBe("invalid_input");
+    expect(await readIn(root, "assets/../secret.png")).toBe("forbidden");
+    expect(await readIn(root, "notes/secret.png")).toBe("forbidden");
+    // A link inside the assets that points out of them is not followed out.
+    expect(await readIn(root, "assets/out.png")).toBe("forbidden");
   });
 });

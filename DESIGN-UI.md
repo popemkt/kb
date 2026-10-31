@@ -2930,6 +2930,13 @@ the shell.
     in one projection, and the shell installs whichever is provided. What
     the page shows of the graph (`shownNodesOf`, over `PageGraphState`) is
     the kit's too, so a projection and the shell read it through one cache.
+  - the services one family's half provides for another's, each a key in
+    the sdk so neither names the other: `NodeLinkGraphService` (the graph's
+    lens graphs, for the lab's Sky) and `ModelCompletionService` (the
+    agent's one-shot completion, for the gallery's Enhance). The reader
+    injects the key, from a child when the need is optional, so the kernel
+    holds the edge, and that child waits, pending, while the provider is
+    off. No half calls another family's action by id.
 
   The sdk never imports the shell's stores. The 3D scene kit is two kit
   packages beside it, for canvas 3D, the lab and the graph's `graph.force3d`
@@ -3137,6 +3144,181 @@ bounds — the timing mirror and the principle bounds on the timing tokens
 fallback (each study on WebGL2 without WebGPU, or saying why it cannot
 start, in the render suite) — are tests; the lazy three chunk is the
 harness's fence above. Everything else here is prose, and its rule says so.
+
+### The gallery
+
+The gallery (`@kb/gallery-ui`, `/gallery`) is a visual composer over a
+library of references: it helps a person find references and articulate
+the image in their head, whichever way they come in. The library is a
+structured Pinterest of one's own: styles, shots, camera angles and
+motions, lenses, lighting, palettes, artists, each a node, and the images
+that show them. It is optional and off by default. The model and the
+reasons are two research records: the library,
+[docs/research/2026-10-28-visual-reference-gallery.md](docs/research/2026-10-28-visual-reference-gallery.md),
+and the ways in,
+[docs/research/2026-10-30-visual-composer.md](docs/research/2026-10-30-visual-composer.md),
+which also lists the workflows judged and not built.
+
+- **Ways in are workflows, and a workflow is a view.** A workflow is a
+  view of the family `gallery.workflow` (`WorkflowKey`, `@kb/gallery`):
+  its key carries the question it answers (where the person is coming
+  from), its steps, and the tags it reads and writes. The page lists the
+  workflows provided (`familyViews`), in their pickers' order, and draws
+  the chosen one through a `<ViewSlot>`; another family adds a workflow by
+  providing a view of the family from its own UI half. What a workflow
+  works on is the host's, not config: the library, the look being made
+  and the services the page has travel in the `ComposerFrame` context, as
+  a graph renderer's frame does. A workflow's params name what it starts
+  from (`from`, a node id), so `/gallery/<workflow>/<id>` opens a
+  workflow on a visual, a look or any node.
+- **Opening `/gallery` asks where the person is starting from.** The
+  chooser lists the workflows by their questions and the looks made so
+  far. The family's first two, the two the gallery is for (I know what I
+  want; help me articulate it), are drawn large with their steps, and
+  the rest under "More ways in", each naming what it reads and makes; the
+  last workflow chosen on this device is offered first, and large. A look
+  carried on, or a new one, replaces unsaved work only when the person
+  says so. Each
+  workflow page carries the same choice as a row of tabs, so a person can
+  change their way in without losing what they have made.
+- **Every workflow makes one thing: a look.** A look is a node tagged
+  `#look`: its `description` (the brief, and the composer's subject), its
+  `styles`, its `negative`, its `palette` (hex swatches), its pins (child
+  nodes whose text is the note and whose `reference` is the visual), the
+  node it is `for`, and its moodboard (a child `#canvas`). The page holds
+  one draft look, shared by every workflow, and the look panel beside the
+  workflow edits it: the description, the chosen styles by facet, the
+  prompts per model family (read from the look by the composer's rule,
+  never stored), Enhance, the palette, the pins and their notes. Saving
+  writes the look; a saved look reopens as the draft. A look exports as a
+  brief in Markdown (`briefOf`) and opens as a moodboard.
+- **The moodboard is the canvas family's, through a declared need.** The
+  canvas family's page half provides `BoardService` (`@kb/ui-sdk`): a
+  board under a node, and a card placed on it for each node not yet there,
+  with the node's picture beside it. The gallery's `moodboard` child
+  injects it and offers the look's moodboard at `MoodboardPoint`; while
+  canvas is off the child pends and the look panel says the moodboard
+  needs the canvas and where to switch it on. A pin's card shows the pin
+  node, so a note edited on the board is the note in the look.
+- **The palette is extracted in the browser** from the look's pins
+  (`paletteOf`, `@kb/gallery`: a median cut over the pinned images'
+  pixels, drawn small on a canvas element), so it costs nothing on the
+  server and nothing until a look has pins.
+- **On a phone** the workflow and the look are two panes under the
+  workflow's tabs, and a workflow that has panes of its own (Browse:
+  visuals, facets, sources) shows them one at a time.
+
+- **Everything in it is a node.** A visual is a node tagged `#visual` whose
+  `media` field embeds its image (`![…](assets/…)`, so it renders as node
+  text does) and whose `styles` field refers to the styles it shows. A style
+  is a node tagged `#style`; its facet is the nearest ancestor tagged
+  `#facet`, a reading of structure, not a field, so moving a style re-files
+  it everywhere. A style's `prompt` and `negative` are templates; one with
+  no template composes as its name. An online source is a node tagged
+  `#image source`, with a `search url` (`{query}` stands for the query)
+  and a `source kind`. The family seeds the tags, the fields and six
+  sources; the page offers a starter (`starter.ts`: facets of styles,
+  counted by `STARTER_SIZE`, and an empty `Library` that becomes where
+  saves go, the gallery's `save into` setting).
+- **The page reads its replica, never the store.** `libraryOf`,
+  `filterVisuals` and `facetCounts` (`@kb/gallery`) are pure over the node
+  set, so a facet click is a pass over memory: about 70 ms at fifty thousand
+  visuals where the same counts as datalog take 750 ms (research record §7).
+- **Facets filter by OR within a facet, AND across**, and count
+  disjunctively: a style's count is over the visuals every _other_ facet's
+  choice lets through, so choosing within a facet never zeroes its siblings.
+- **The grid is a virtualised masonry.** Tiles go, in order, into the
+  shortest column, at the aspect the visual records (`width`, `height`;
+  square when it records none). Only the tiles within one viewport of the
+  window, either way, are elements; the window's tiles are found per column
+  by binary search, so a scroll frame costs what it shows, not the library.
+- **The gallery's workflows**, each a view of the family, in the tabs'
+  order:
+  - _I know what I want_ (`know`): a term typed is completed from the
+    style library, each suggestion named with its facet, and Enter takes
+    the first; a word the library lacks joins the brief or becomes a style
+    under a facet (`addStyle`), so the library grows as it is used. The
+    references that show every chosen style appear beneath, or, when none
+    does, those that show the most (`nearest`).
+  - _Help me articulate it_ (`articulate`): start from words and pictures
+    dropped or pasted (kept as assets); Reflect asks the model to break it
+    into axes (`axesOf`: subject, mood, lighting, camera and lens, palette,
+    era or style, artists, composition, motion, each reading the library's
+    facets by name, and a facet no axis names is an axis of its own), and
+    each axis offers chips drawn with an example picture (`examplesOf`), a
+    new word dashed. With no model, every axis offers its styles to pick by
+    hand. Then react: references nearest the look to like (pin it and take
+    its styles), refuse (offer less like it) or take one axis from (its
+    styles on that axis, pinned with that note), and either/or cards, two
+    styles of an axis the look has nothing in (`eitherOrs`).
+  - _I have a picture_ (`reference`): one visual (`from`), picked or
+    dropped in; its styles as chips, the model's reading of the picture
+    when it can see, more like it (`moreLike`, by shared styles), and its
+    variations along one axis (`variationsOf`), each a whole look.
+  - _Browse my library_ (`browse`): the virtualised grid beside one column
+    of facets or online sources, and an open visual's detail in their
+    place; in a narrow viewport the grid is a pane of its own under the
+    same tabs.
+  - _I found something_ (`capture`): a picture dropped, pasted or chosen
+    is kept through `asset.upload` and becomes a visual with no styles; an
+    https link to a picture becomes a visual that keeps the link as its
+    `source`, with no media, since nothing in kb fetches from any host
+    (gap 01M66SF67J0TDSK1R85KYBYVBD). Untriaged is a visual with no styles,
+    read, never stored. Triage shows one at a time: a type-ahead over the
+    styles that gives a style to the visual itself, a pin to the look, and
+    Next (Enter takes the first suggestion; ArrowRight or `n` moves on).
+  - _Mix what I have_ (`remix`): two or three sources, visuals or saved
+    looks, laid out one axis at a time with a choice per axis of whose
+    styles to take; "Make the look" takes the union and pins the visual
+    sources, each noted with the axes taken from it. Varying one look along
+    one axis is the same move with one source (`variationsOf`).
+  - _It is for something in kb_ (`node`): a node opened on or found by its
+    text becomes the look's `for`, so its backlinks show its art
+    direction; its words fill an empty brief, its looks can be carried on,
+    and the workflow hands on to Articulate or Compose.
+- **The look's styles are the selection.** Browse filters by them and
+  Compose shows their references (`referencesOf`): every visual while the
+  look has none, the ones that show all of them, or, when none does, the
+  closest, the ones that show most of them, said to be so, never an empty
+  grid. The prompt composes them: in facet order,
+  they wrap the look's brief by A1111's rule (`{prompt}` in a template is
+  replaced; a template without it is appended) for one model family; a
+  family that reads no negative prompt gets none. The composition is tidied
+  as a person pastes it: an empty brief leaves no dangling comma, and a
+  part several styles add is kept once. A visual's "Add its styles" adds
+  them to the look.
+- **The model is asked through a declared need.** The gallery's `model`
+  child injects `ModelCompletionService`, which the agent's half provides
+  over its `ext.agent.complete`, and offers the composer's model at
+  `ComposerModelPoint`: Enhance, Reflect and "Ask your model" use it.
+  Reflect sends the person's pictures as asset paths, as many as the
+  completion says it takes (`ModelCompletion.pictures`); the reply says how
+  many the model saw, and a model that cannot see is sent the words alone,
+  which the page says. A request with pictures that fails is asked again,
+  by the composer's model, with the words alone, and the page says why the
+  pictures were not read. Enhance sends the
+  prompt as the message and a system prompt for the family
+  (`enhanceInput`, `@kb/gallery`: an instruction-LLM's role, how that
+  family reads a prompt, whether it reads a negative, and the rewrite
+  alone as the answer), and shows the reply as an editable prompt of its
+  own, with its Copy and "Use as brief", while the composition it was made
+  from stands. While no family provides a completion (the agent off, or no
+  `kb ui` to host it) the child pends and each use stays, dimmed: its title
+  and a tap say that it needs the agent and where to switch it on. The gallery holds no
+  model client and names nothing of the agent family; a failed completion
+  is a toast, with its reason.
+- **Online sources keep their terms.** A link source (Pinterest, Are.na,
+  Unsplash, Lexica) is its search page opened in a new tab; kb never calls
+  it. An API source (Civitai, Openverse) is searched through
+  `ext.gallery.search` (`@kb/gallery-net`), PG only, and a result is kept
+  through `ext.gallery.save`, which downloads it only from hosts the source's
+  adapter names, over https, through at most two redirects, and then writes
+  only through core's `asset.upload` and `node.add`, with the result's page,
+  creator and licence on the visual. A source's answer is remote text, so
+  every adapter's results are held to one rule (`admitted`): the image and
+  the thumbnail the page shows on the adapter's hosts, and the page it
+  links over https, each as a request would be sent. A search drops a
+  result that breaks it, and a save refuses one before it fetches.
 
 ### Locations
 
