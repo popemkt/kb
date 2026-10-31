@@ -177,14 +177,20 @@
     user-select: none;
   }
 
-  /* Custom Scrollbar - Auto-hiding, its thumb a tint of `--scrollbar-thumb`. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-  }
+  /* Custom Scrollbar - Auto-hiding, its thumb a tint of `--scrollbar-thumb`,
+   * 6px wide (`::-webkit-scrollbar`). The standard properties are only for a
+   * browser without the pseudo-elements (Firefox): where both exist, the
+   * standard ones win, and `scrollbar-width: thin` made every track the
+   * platform's thin width (10px in Chromium) instead of 6px. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+    }
 
-  [data-scrolling="true"] {
-    scrollbar-color: color-mix(in oklch, var(--scrollbar-thumb) 15%, transparent) transparent;
+    [data-scrolling="true"] {
+      scrollbar-color: color-mix(in oklch, var(--scrollbar-thumb) 15%, transparent) transparent;
+    }
   }
 
   ::-webkit-scrollbar {
