@@ -1,162 +1,71 @@
 /**
- * The Black hole backdrop: Gargantua, a Schwarzschild black hole with a
- * thick, streaming gas disk (shader: `black-hole-shader.ts`), right of the
- * title, a little below the horizon of its own disk.
+ * The Black hole backdrop: a black hole right of the title, a little below
+ * the horizon of its own disk, in one of its looks (`LOOKS`), each a variant
+ * the page draws for the load (`GpuLook.variant`):
  *
- * The owner: the pointer tilts and swings the camera, slowly (a camera move,
- * not a cursor, M1); with no pointer the camera rests, breathing. Writes are
- * an impulse, never a restart: typing dims the disk a little and each
- * keystroke breathes into it; a write outside typing sets a hot flare
- * orbiting in it, which a further write brightens rather than starts again.
+ * - **Gargantua** (`gargantua.ts`): light traced through the Schwarzschild
+ *   metric, a thick, streaming gas disk.
+ * - **Warp** (`warp.ts`): a streaked disk seen almost edge on, pulled
+ *   toward the hole into an arch over the shadow and an echo under it.
  *
- * Cost: the hole is drawn offscreen, and what the meter trades is its
- * resolution and nothing else (`holeDensity`). A ray's steps are never cut
- * short (`STEP_CAP`): the rays that wind round the hole take the most, and
- * they are the photon ring. One jittered sample a step; the frames before it
- * fill in what one frame's samples leave out.
+ * Every look is seen through one rig (`hole-rig.ts`): the pointer tilts and
+ * swings the camera, slowly (a camera move, not a cursor, M1); with no
+ * pointer it rests, breathing. Writes are an impulse, never a restart:
+ * typing dims the disk a little and each keystroke breathes into it; a
+ * write outside typing sets a hot flare orbiting in it, which a further
+ * write brightens rather than starts again.
+ *
+ * One stage holds whichever look is shown: a pin that changes while the
+ * page is open swaps the look in place, never the scene.
  */
-import { max, min, screenUV, vec2 } from "three/tsl";
-import { offscreenPass, type OffscreenPass, type SceneStage } from "@kb/scene-gpu";
-import type { Reactions } from "../scene/reactions";
+import type { SceneStage } from "@kb/scene-gpu";
 import { variation } from "../scene/seed";
 import {
   mountBackdrop,
-  type BackdropLayout,
   type BackdropParts,
   type GpuBackdropInit,
   type GpuBackdropScene,
   type GpuLook,
-  groundsOf,
 } from "../gpu/gpu-scene";
-import { blackHoleFragment, blackHoleUniforms } from "./black-hole-shader";
+import { GARGANTUA_LENS, gargantua } from "./gargantua";
+import { warp } from "./warp";
+import type { HoleLook, HoleLookBuild } from "./hole-rig";
 
-/**
- * How much of each new frame enters the picture; the rest is the frames
- * before. High: the history only settles the jitter, it must not smear the
- * streaming gas.
- */
-const BLEND = 0.7;
-/** How hard the upscale is sharpened (contrast-adaptive, see `sharpened`). */
-const SHARPEN = 0.6;
-/** The camera's follow (1/s): slow, a dolly rather than a cursor. */
-const FOLLOW = 2.2;
-/** Below this the flare is dark, and the next one may start elsewhere on its orbit. */
-const FLARE_REST = 0.03;
-/** The flare's phase is drawn from this mount's seed, anew for each flare. */
-const FULL_TURN = Math.PI * 2;
-/**
- * Enough steps for a ray that winds round the photon sphere: fewer, and the
- * photon ring is the first thing lost. Rays that miss break out long before
- * it, so the cap costs little.
- */
-const STEP_CAP = 300;
-/**
- * The hole's texels per CSS pixel at `quality` (0.4–1): crisp first. Never
- * under one a CSS pixel, however long frames run; 1.5 at full quality,
- * capped at the screen's own density.
- */
-function holeDensity(quality: number): number {
-  const screen = Math.max(1, globalThis.devicePixelRatio || 1);
-  return Math.min(1 + (0.5 * Math.max(0, quality - 0.4)) / 0.6, screen);
-}
+/** The black hole's looks, by the variant id its declaration gives each (`BLACK_HOLE_BACKDROP`). */
+export const BLACK_HOLE_VARIANTS = ["gargantua", "warp"] as const;
+export type BlackHoleVariant = (typeof BLACK_HOLE_VARIANTS)[number];
 
-/**
- * The hole's picture scaled to the frame and sharpened (after AMD's
- * contrast-adaptive sharpening): each pixel pushed away from its four
- * neighbours' mean, clamped to their range, so filaments and the photon
- * ring stay crisp without ringing.
- */
-function sharpened(hole: OffscreenPass) {
-  const at = vec2(screenUV.x, screenUV.y.oneMinus());
-  const texel = vec2(1, 1).div(hole.size);
-  const centre = hole.picture(at).rgb;
-  const n = hole.picture(at.add(vec2(0, texel.y))).rgb;
-  const s = hole.picture(at.sub(vec2(0, texel.y))).rgb;
-  const e = hole.picture(at.add(vec2(texel.x, 0))).rgb;
-  const w = hole.picture(at.sub(vec2(texel.x, 0))).rgb;
-  const mean = n.add(s).add(e).add(w).mul(0.25);
-  const low = min(min(n, s), min(e, w)).min(centre);
-  const high = max(max(n, s), max(e, w)).max(centre);
-  return centre.add(centre.sub(mean).mul(SHARPEN)).clamp(low, high);
-}
+const LOOKS: Readonly<Record<BlackHoleVariant, HoleLookBuild>> = { gargantua, warp };
+
+const isBlackHoleVariant = (id: string | null): id is BlackHoleVariant =>
+  BLACK_HOLE_VARIANTS.some((variant) => variant === id);
 
 function blackHole(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
-  /** Each flare's place on its orbit, drawn anew for each. */
-  const flares = vary.stream("flares");
-  const u = blackHoleUniforms();
-  u.time.value = 120 + vary.range("clock", 0, 60);
-  const hole = offscreenPass(
-    stage.renderer,
-    (inputs) => blackHoleFragment(u, inputs, groundsOf(stage)),
-    {
-      history: true,
-    },
-  );
-  stage.scene.backgroundNode = sharpened(hole);
-
-  const rest = { inclination: 0.105, azimuth: 0 };
-  const camera = { ...rest };
-  let width = 1;
-  let height = 1;
-  /** A fresh picture has no history to blend with. */
-  let fresh = true;
-  let elapsed = 0;
+  const variantOf = (look: GpuLook): BlackHoleVariant =>
+    isBlackHoleVariant(look.variant) ? look.variant : vary.pick("variant", BLACK_HOLE_VARIANTS);
+  const build = (variant: BlackHoleVariant): HoleLook => LOOKS[variant](stage, init, vary);
+  const first = variantOf(init);
+  /** The id of the look on the stage. */
+  let shown: string = first;
+  let look = build(first);
 
   return {
     panel: { x: 0.21, y: 0.3, scale: 0.62, presence: 0.72 },
     wide: { x: 0.26, y: 0.38, scale: 1, presence: 1 },
-    layout: ({ width: w, height: h, quality, anchor }: BackdropLayout) => {
-      width = w;
-      height = h;
-      // The shader reads the hole's centre as shares of the frame, y up.
-      u.center.value.set(0.5 + anchor.x / (w / h), 0.5 + anchor.y);
-      u.focal.value = 2.3 * anchor.scale;
-      const density = holeDensity(quality);
-      hole.setSize(w * density, h * density);
-      u.steps.value = STEP_CAP;
-      // A still frame has no frames before it to settle its samples.
-      u.samples.value = init.reducedMotion ? 3 : 1;
-      fresh = true;
-      return anchor;
-    },
-    setLook: (look: GpuLook) => {
-      u.dark.value = look.dark ? 1 : 0;
-      stage.setBloom(look.dark ? 0.18 : 0.06);
-      fresh = true;
-    },
-    frame: (dt: number, reactions: Reactions) => {
-      elapsed += dt;
-      u.time.value += dt;
-      u.calm.value = reactions.calm;
-      u.pulse.value = reactions.impulse;
-      // A flare starting from dark is set somewhere new on its orbit; a further write brightens it.
-      if (u.flare.value < FLARE_REST && reactions.stir >= FLARE_REST) {
-        u.flarePhase.value = flares.range(0, FULL_TURN);
+    // The stage lays the new look out after a change of look (`mountBackdrop`).
+    layout: (layout) => look.layout(layout),
+    setLook: (next: GpuLook) => {
+      const variant = variantOf(next);
+      if (variant !== shown) {
+        look.dispose();
+        shown = variant;
+        look = build(variant);
       }
-      u.flare.value = reactions.stir;
-      const pointer = reactions.pointer;
-      const aim =
-        pointer.near > 0.05
-          ? {
-              inclination: 0.06 + 0.16 * (1 - pointer.y / height),
-              azimuth: (pointer.x / width - 0.6) * 0.5,
-            }
-          : {
-              inclination: rest.inclination + 0.02 * Math.sin(elapsed * 0.07),
-              azimuth: 0.08 * Math.sin(elapsed * 0.045),
-            };
-      const k = 1 - Math.exp(-dt * FOLLOW);
-      camera.inclination += (aim.inclination - camera.inclination) * k;
-      camera.azimuth += (aim.azimuth - camera.azimuth) * k;
-      u.inclination.value = camera.inclination;
-      u.azimuth.value = camera.azimuth;
-      u.frame.value = (u.frame.value + (dt > 0 ? 1 : 0)) % 4096;
-      u.blend.value = fresh || dt === 0 ? 1 : BLEND;
-      hole.render();
-      fresh = false;
+      look.setLook(next);
     },
-    dispose: hole.dispose,
+    frame: (dt, reactions) => look.frame(dt, reactions),
+    dispose: () => look.dispose(),
   };
 }
 
@@ -170,7 +79,8 @@ export function mountBlackHole(
     {
       // A tight bloom and fine grain: high definition, like the film, never a haze.
       bloom: { strength: 0.18, radius: 0.25 },
-      lens: { aberration: 0.012, streak: 0.3, grain: 0.034 },
+      // Built with Gargantua's lens, which has every artefact a look retunes in its `setLook`.
+      lens: GARGANTUA_LENS,
     },
     blackHole,
   );

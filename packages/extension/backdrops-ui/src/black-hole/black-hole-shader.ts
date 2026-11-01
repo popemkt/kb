@@ -58,7 +58,8 @@ import {
 import { Vector2 } from "three/webgpu";
 import type { OffscreenInputs, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
-import { blackbody, fbm4, hash, pnoise } from "../gpu/noise";
+import { blackbody, fbm4, pnoise } from "../gpu/noise";
+import { starsOf } from "./stars";
 
 type F = TslNode<"float">;
 type V3 = TslNode<"vec3">;
@@ -159,29 +160,11 @@ function densityFn(u: BlackHoleUniforms) {
   return (c: V3, r: F) => fn(c, r);
 }
 
-/** The stars behind, in direction `d`: two layers, no band (lensed, a band draws a ring of its own). */
-const starsFn = Fn(([d]: readonly [V3]) => {
-  const sp = vec2(atan(d.z, d.x), asin(clamp(d.y, -1, 1))).toVar();
-  let light: V3 = vec3(0, 0, 0);
-  for (let layer = 0; layer < 2; layer++) {
-    const g = sp.mul(layer === 0 ? 160 : 380);
-    const id = g.floor();
-    const f = g.fract().sub(0.5);
-    const h = hash(id.add(layer * 31));
-    const shown = smoothstep(layer === 0 ? 0.975 : 0.955, layer === 0 ? 0.977 : 0.957, h);
-    const o = vec2(hash(id.add(4)), hash(id.add(4.5)))
-      .sub(0.5)
-      .mul(0.7);
-    const dd = length(f.sub(o));
-    light = light.add(
-      blackbody(mix(3.5, 12, hash(id.add(2))))
-        .mul(pow(hash(id.add(7)), 3).mul(layer === 0 ? 0.7 : 0.3))
-        .mul(exp(dd.mul(dd).mul(layer === 0 ? -60 : -90)))
-        .mul(shown),
-    );
-  }
-  return light;
-}).setLayout({ name: "kbHoleStars", type: "vec3", inputs: [{ name: "d", type: "vec3" }] });
+/** The stars behind: two faint layers, fine and finer (`stars.ts`). */
+const starsFn = starsOf("kbHoleStars", [
+  { cells: 160, sparse: 0.975, gain: 0.7, sharpness: 60, salt: 0 },
+  { cells: 380, sparse: 0.955, gain: 0.3, sharpness: 90, salt: 31 },
+]);
 
 /** The light page's sky, lensed like the stars: high-key haze with a little structure. */
 function daySky(page: V3, d: V3): V3 {

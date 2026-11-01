@@ -3104,8 +3104,11 @@ before the bloom; a pixel with no solid, a backdrop's sky, in focus; and
 a stage focused nowhere, radius 0, drawing none of it);
 optionally a camera's
 artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
-film grain, only where the scene's art is, never on its ground, so the
-grain cannot shift the ground's level and draw the frame), a feather along the frame's own sides, a presence knob and a
+film grain, and a sparkle of grain that grows with the art's light, all
+only where the scene's art is, never on its ground, so the grain cannot
+shift the ground's level and draw the frame; the artefacts a stage is
+built with are retuned by `setLens`, as the bloom is by `setBloom`, so
+each look of a backdrop finishes its own picture), a feather along the frame's own sides, a presence knob and a
 GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
 shader drawn into a render target of its own size, optionally reading its
 last picture back, which a scene samples as a texture), `screen-fill`
@@ -4068,8 +4071,10 @@ A PR for a backdrop reports a score against each criterion.
     flying at night;
   - `backdrops.lens` is a dark star drifting through a nebula and bending its
     light, a new nebula each load (see **GPU scenes** below);
-  - `backdrops.black-hole` is Gargantua: a black hole whose thick gas disk
-    streams round it, lensed over and under its shadow;
+  - `backdrops.black-hole` is a black hole in one of two looks, its
+    variants: Gargantua, whose thick gas disk streams round it, lensed over
+    and under its shadow; and Warp, a streaked disk seen almost edge on
+    through a screen-space lens that bends it into an arch and an echo;
   - `backdrops.toon-sea` is an open sea under anime-game cumulus,
     cel-shaded: a day sea, and at night a moonlit indigo with
     bioluminescent wakes;
@@ -4176,7 +4181,8 @@ A PR for a backdrop reports a score against each criterion.
     `.kb/assets/` themselves.
 - **Variants.** A backdrop may come in variants: compositions of one
   backdrop that share its look, its code and its card, such as Astral's
-  Movement, Orrery, Planisphere and Armillary. Each head shows one of them
+  Movement, Orrery, Planisphere and Armillary, or the Black hole's
+  Gargantua and Warp. Each head shows one of them
   for the load, drawn at random from the ones it may show.
   - **Declared on the key.** A backdrop's key lists its variants
     (`SeedBackdrop.variants`: a local id, a label, and the schemes it is
@@ -4477,7 +4483,15 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     little. A write is a supernova beside it, lensed into two images, which
     a further write brightens rather than starts again.
   - A light page shows the plate's negative.
-- **Black hole.** Rays are traced through a Schwarzschild field into a
+- **Black hole.** One backdrop, two looks (its variants, `LOOKS` in
+  `black-hole-scene.ts`), seen through one rig (`hole-rig.ts`): the
+  camera's dolly, the flare's orbit, and the offscreen picture's density
+  and sharpened upscale. A pin that changes while the page is open swaps
+  the look on the same stage.
+  - The pointer swings the camera slowly. Typing dims the disk a little and
+    each keystroke breathes into it. A write sets a hot flare orbiting in
+    it, which a further write brightens rather than starts again.
+- **Black hole · Gargantua.** Rays are traced through a Schwarzschild field into a
   volumetric disk, drawn offscreen with history.
   - The gas streams on Keplerian shear. Two copies of its pattern, half a
     period apart, crossfade, so the shear never winds it into rings.
@@ -4492,11 +4506,44 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     through the slab near the inner edge takes three samples, so the ring's
     thin crossings are not missed. The upscale is sharpened
     (contrast-adaptive), and the stage adds fine grain.
-  - The pointer swings the camera slowly. Typing dims the disk a little and
-    each keystroke breathes into it. A write sets a hot flare orbiting in
-    it, which a further write brightens rather than starts again.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
+- **Black hole · Warp.** The lens-warp black hole after the demo in Bruno
+  Simon's Awwwards 2022 workshop, made to match its picture. The demo is
+  unlicensed, so it was studied and measured, never copied: the code is
+  kb's own, and the ramp is re-created from samples of the picture
+  (docs/research/2026-10-31-3d-quality-bar.md §6).
+  - **The hole is a pull, not a body.** Each pixel shows what lies nearer
+    the hole than it does, by a strength that is whole within the horizon's
+    reach and gone beyond the lens's. The strength is measured where the
+    pixel's ray meets the nearer of a sheet square to the view through the
+    hole and the disk's own plane, which fades out toward its edge. Where
+    the strength is whole, every pixel shows the hole's own point, which is
+    empty: the shadow is a collapsed lookup, with no sphere and no ring to
+    outline it. The same pull bends the far side of the disk over the
+    shadow as an arch, folds a small whole image of the disk under the near
+    side as an echo with its own dark eye, and draws the stars round the
+    shadow out into thin arcs.
+  - **The disk is a flat ring of streaming light.** Five octaves of
+    periodic noise, each drifting round and inward at its own speed, give a
+    turbulence that pushes a ramp coordinate up the ring's radius. The
+    ramp sets colour and opacity alike: hot streaks are solid, the faint
+    outer gas is clear. Its stops are colours sampled from the reference
+    (white-hot, cream, peach, orange, red, crimson, violet, plum, into a
+    near-black purple sky), each placed where it covers the reference's
+    share of the frame.
+  - **The camera** rests a little above the disk's plane, rolled, as in the
+    reference, and the shared rig moves it.
+  - One offscreen pass with no history, at up to two texels a CSS pixel,
+    lowered by the meter; the upscale is lightly sharpened. Next to no
+    bloom, as in the reference, so the shadow stays the sky's colour. The
+    look retunes the stage's lens: a colour split toward the edges, and
+    grain that sparkles with the gas's light, so the hot streaks speckle and
+    the dark stays clean.
+  - A light page is an ink drawing: an indigo wash pooled where the pull is
+    whole and thinning over its reach, with no edge; the gas inked by its
+    heat, violet, crimson, orange and amber, so its streaks show; the stars
+    fine ink arcs. Its lens has even grain and no sparkle.
 - **Toon sea.** An open sea under anime-game cumulus, cel-shaded: a day
   sea, and at night a moonlit indigo with bioluminescent wakes.
   - The sky (gradient, sun or moon with its halo and rays, cirrus, a far

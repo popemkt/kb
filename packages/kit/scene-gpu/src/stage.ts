@@ -156,10 +156,26 @@ export interface StageOptions {
   readonly toneMapping?: SceneToneMapping;
   /** Depth of field (`focus.ts`): where the camera focuses, and how it loses focus either side. */
   readonly focus?: StageFocus;
-  /** A camera's artefacts, each 0 for none: see the post chain above. */
-  readonly lens?: { readonly aberration: number; readonly streak: number; readonly grain: number };
+  /**
+   * A camera's artefacts, each 0 for none: see the post chain above. What is
+   * not 0 here is built into the chain, and `setLens` retunes it; what is 0
+   * here the chain does not have.
+   */
+  readonly lens?: StageLens;
   /** Read each frame's GPU time back where the backend can (`gpuMs`). */
   readonly gpuTiming?: boolean;
+}
+
+/** A camera's artefacts and how strong each is (0, none). */
+export interface StageLens {
+  /** Red and blue land apart, growing toward the edges. */
+  readonly aberration: number;
+  /** The bloom drawn out sideways. */
+  readonly streak: number;
+  /** Film grain over the art, as strong everywhere. */
+  readonly grain: number;
+  /** Film grain over the art that grows with its light: the hot parts speckle, the dark stay clean. */
+  readonly sparkle?: number;
 }
 
 /**
@@ -228,6 +244,45 @@ function focusOf(options: StageOptions, picture: TextureNode, scenePass: ReturnT
   );
 }
 
+/** A stage built without a lens: none of its artefacts. */
+const NO_LENS: StageLens = { aberration: 0, streak: 0, grain: 0 };
+
+/** The lens's strengths as uniforms, which `setLens` retunes. */
+const lensKnobs = (lens: StageLens) => ({
+  aberration: uniform(lens.aberration),
+  streak: uniform(lens.streak),
+  grain: uniform(lens.grain),
+  sparkle: uniform(lens.sparkle ?? 0),
+});
+
+/** Whether a lens has grain at all, even or sparkling. */
+const grained = (lens: StageLens): boolean => lens.grain > 0 || (lens.sparkle ?? 0) > 0;
+
+/**
+ * Film grain where the scene's art is, never on the page's ground: not beyond
+ * the frame, and not on the ground inside it either, where grain clipped at
+ * the page's white or black would shift its level and draw the frame's
+ * rectangle. Even by `grain`, and growing with the art's light by `sparkle`.
+ */
+function filmGrain(
+  display: TslNode<"vec3">,
+  ground: TslNode<"vec3">,
+  knobs: {
+    readonly grainSeed: TslNode<"float">;
+    readonly grain: TslNode<"float">;
+    readonly sparkle: TslNode<"float">;
+  },
+): TslNode<"vec3"> {
+  const pixel = screenCoordinate.xy.floor();
+  const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
+  const art = length(display.sub(ground));
+  const light = dot(display, vec3(0.2126, 0.7152, 0.0722));
+  const strength = knobs.grain.add(knobs.sparkle.mul(light));
+  return vec3(grain, grain, grain)
+    .mul(strength)
+    .mul(smoothstep(0.004, 0.04, art));
+}
+
 /** The post chain, and the handles a view turns. */
 function postChain(
   renderer: WebGPURenderer,
@@ -246,6 +301,8 @@ function postChain(
     presence: uniform(1),
     /** Moves the grain each frame. */
     grainSeed: uniform(0),
+    /** The lens's strengths, retuned by `setLens`. */
+    ...lensKnobs(options.lens ?? NO_LENS),
   };
   // three r186's GTAO reads its centre depth with `gather()`, which WGSL has
   // no overload for on a multisampled depth texture, so under occlusion the
@@ -272,13 +329,14 @@ function postChain(
   const picture = (uv: TslNode<"vec2">) => (focus === null ? color.sample(uv) : focus.sample(uv));
   if (focus !== null) lit = picture(screenUV);
   const glow = bloom(lit, options.bloom.strength, options.bloom.radius, BLOOM_THRESHOLD);
-  const lens = options.lens ?? { aberration: 0, streak: 0, grain: 0 };
+  // Which artefacts the chain has is decided once, from the lens it is built with.
+  const lens = options.lens ?? NO_LENS;
   let composed: TslNode<"vec3"> = lit.rgb.add(glow.rgb);
   if (!occluded && (lens.aberration > 0 || lens.streak > 0)) {
     // Chromatic aberration: red and blue land a little apart, more toward the
     // edges, and most in the bloom, where the brightest highlights spread.
     const away = screenUV.sub(0.5);
-    const shift = away.mul(length(away)).mul(lens.aberration);
+    const shift = away.mul(length(away)).mul(knobs.aberration);
     const glowTexture = bloomTexture(glow);
     const at = (uv: TslNode<"vec2">) => picture(uv).rgb.add(glowTexture.sample(uv).rgb);
     const spread = shift.mul(3);
@@ -305,7 +363,7 @@ function postChain(
         );
         weight += 2 * w;
       }
-      composed = composed.add(streak.mul(lens.streak / weight).mul(vec3(0.92, 0.97, 1.1)));
+      composed = composed.add(streak.mul(knobs.streak.div(weight)).mul(vec3(0.92, 0.97, 1.1)));
     }
   }
   // How much of each pixel is the ground: the edges, and all of it as the scene's presence falls.
@@ -328,14 +386,10 @@ function postChain(
     float(52.9829189).mul(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715)))),
   );
   let shownColor: TslNode<"vec3"> = display.rgb.add(noise.sub(0.5).mul(knobs.dither.div(255)));
-  if (lens.grain > 0) {
-    // Film grain where the scene's art is, never on the page's ground: not beyond the frame, and
-    // not on the ground inside it either, where grain clipped at the page's white or black would
-    // shift its level and draw the frame's rectangle.
-    const pixel = screenCoordinate.xy.floor();
-    const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
-    const art = length(display.rgb.sub(renderOutput(vec4(colors.ground, 1)).rgb));
-    shownColor = shownColor.add(grain.mul(lens.grain).mul(smoothstep(0.004, 0.04, art)));
+  if (grained(lens)) {
+    shownColor = shownColor.add(
+      filmGrain(display.rgb, renderOutput(vec4(colors.ground, 1)).rgb, knobs),
+    );
   }
   const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;
@@ -580,6 +634,14 @@ function postControls(
     },
     setBloom: (strength: number) => {
       chain.glow.strength.value = strength;
+      invalidate();
+    },
+    /** Retunes the lens the stage was built with (`StageOptions.lens`); an artefact it was built without stays absent. */
+    setLens: (lens: StageLens) => {
+      chain.knobs.aberration.value = lens.aberration;
+      chain.knobs.streak.value = lens.streak;
+      chain.knobs.grain.value = lens.grain;
+      chain.knobs.sparkle.value = lens.sparkle ?? 0;
       invalidate();
     },
     setToneMapping: (kind: SceneToneMapping) => {

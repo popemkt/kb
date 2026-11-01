@@ -32,10 +32,20 @@ export const ROOST_BACKDROP: SeedBackdrop = { id: "backdrops.roost", label: "Roo
 /** A dark star drifting through a seeded nebula and bending its light; a write is a lensed supernova. */
 export const LENS_BACKDROP: SeedBackdrop = { id: "backdrops.lens", label: "Lens" };
 
-/** Gargantua: a black hole whose thick gas disk streams round it, its far side bent over the shadow. */
+/**
+ * A black hole right of the title, in one of two looks, one drawn a load:
+ * Gargantua, whose thick gas disk streams round it, its far side bent over
+ * the shadow; and Warp, a streaked disk seen almost edge on and pulled
+ * toward the hole into an arch and an echo (after the black hole of Bruno
+ * Simon's Awwwards 2022 workshop). Both are made for either page.
+ */
 export const BLACK_HOLE_BACKDROP: SeedBackdrop = {
   id: "backdrops.black-hole",
   label: "Black hole",
+  variants: [
+    { id: "gargantua", label: "Gargantua" },
+    { id: "warp", label: "Warp" },
+  ],
 };
 
 /** A cel-shaded sea under anime-game clouds; the pointer ripples it, the owner's activity splashes and glints. */

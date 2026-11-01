@@ -23,7 +23,7 @@ export function LensBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="lens" backdrop={props} />;
 }
 
-/** Gargantua (`black-hole/`). */
+/** A black hole, Gargantua or Warp, one look a load (`black-hole/`). */
 export function BlackHoleBackdrop(props: BackdropProps) {
   return <GpuBackdropHost scene="blackHole" backdrop={props} />;
 }

@@ -60,9 +60,10 @@ const DATASCRIPT = /cljs\.core/;
  * variants: the model's variant field and option kind, `shownVariants`,
  * `BackdropFrame`'s pinned set and its row in Settings.
  * And by 1 KB for Astral's declaration, its key and its four variants;
- * its scene loads lazily.
+ * its scene loads lazily. And by 100 bytes (71 measured) for the Black
+ * hole's two variants on its key; its looks load lazily.
  */
-const EAGER_BUDGET_BYTES = 2_009_000;
+const EAGER_BUDGET_BYTES = 2_009_100;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
