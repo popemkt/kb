@@ -1341,6 +1341,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a command presentation slot on the palette, contributed with a design system and falling back to the default row
 - **node** — `01M5S0J1FVEGHTYJVY4HRS857S`
 
+### GAP: the composer's axes are named in code, not read from the Styles outline
+
+- **expected** — An axis (what an idea is broken into, and what a scene is composed of) is a reading of the Styles outline, as a style's facet is: a #facet that holds facets (Camera over Shot size, Camera angle, Lens), or a lone facet. Reordering or regrouping facets regroups Articulate's Reflect, Remix's rows and Scene's parts at once.
+- **current** — AXIS_SPECS in @kb/gallery articulate.ts names nine axes and the lower-case facet names each reads (camera and lens = lens, film stock; composition = shot size, camera angle). A facet no axis names is an axis of its own, so the 3D facets (3D style, Presentation, Projection, Rendering technique) and any facet a person renames stand alone.
+- **impact** — A person cannot group facets into the parts Scene shows or the axes Reflect asks for. Renaming a facet silently moves it out of its axis. The axis ids are also the model's JSON keys in Reflect.
+- **closes** — axesOf reads facets of facets from the library (a facet's nearest #facet ancestor), the starter groups its facets that way, AXIS_SPECS is deleted, and Reflect keys its JSON by an axis's name. Articulate, Remix and Scene keep calling axesOf, so all three follow.
+- **node** — `01M6BYQEZ6BC91MBTXM9NF1ZVX`
+
 ### GAP: the date editor's Enter and Tab skip the value keymap
 
 - **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.

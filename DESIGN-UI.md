@@ -3349,6 +3349,20 @@ which also lists the workflows judged and not built.
     its styles), refuse (offer less like it) or take one axis from (its
     styles on that axis, pinned with that note), and either/or cards, two
     styles of an axis the look has nothing in (`eitherOrs`).
+  - _Set up a scene_ (`scene`): a studio dock, and the scene is the look,
+    nothing beside it. Its field is the look's brief, where `#` completes
+    a style as Compose does and takes it. Its parts are the library's axes
+    (`axesOf`, the subject aside, since the field is the subject), plus
+    References, the look's pins. Each part is a card showing what fills it
+    with its example picture, or "Auto" while nothing does, which is no
+    stored value: the prompt leaves an empty facet to the model, as it
+    always does. A part opens one picker: its facets as tabs, their
+    styles as picture cards with their descriptions, which toggle and
+    leave it open, and a first tile that names a new style under the
+    tab's facet (`addStyle`). References offers the library's visuals,
+    the pinned first, then those most like them (`moreLike`). Above the
+    dock, the scene so far as pictures. Its prompt and exports are the
+    look panel's.
   - _I have a picture_ (`reference`): one visual (`from`), picked or
     dropped in; its styles as chips, the model's reading of the picture
     (read as it opens when the person's model sees, which the completion
