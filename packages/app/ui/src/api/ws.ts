@@ -6,6 +6,7 @@
  *    `since` question) between the socket and the replica's sync machine,
  *    which alone decides what they mean (session/replica.ts)
  *  - who the server takes this connection to be: the person, or nobody
+ *  - the build the server serves, which a tab of another build follows
  *  - this tab's screen: the latest record it published, and the commands the
  *    server sends it and their answers
  *  - plugin channels: a plugin's frames to this connection, and ours to it
@@ -75,6 +76,12 @@ export interface KbWsClientOptions {
    * channel. `embedding` is what an app that frames the page may have.
    */
   onPerson?: (person: Person | null, embedding: Embedding) => void;
+  /**
+   * The build the server serves, told in every connection's `hello`
+   * (`undefined` when it serves no built page): what a tab of another
+   * build follows (`@kb/ui-sdk` → `lib/stale-build`).
+   */
+  onBuild?: (build: string | undefined) => void;
   /**
    * A command the server asks this tab to carry out; the answer goes back
    * with {@link KbWsClient.answerScreenCommand} under the same id.
@@ -272,6 +279,12 @@ export class KbWsClient {
     else this.opts.onServerError?.(err);
   }
 
+  /** A graph-stream message, to the replica; a hello's build, to whoever follows it. */
+  private graph(msg: GraphMessage): void {
+    if (msg.op === "hello") this.opts.onBuild?.(msg.build);
+    this.opts.onGraph(msg);
+  }
+
   private handleMessage(raw: string): void {
     let json: unknown;
     try {
@@ -296,7 +309,7 @@ export class KbWsClient {
       case "hello":
       case "tx":
       case "snapshot-required":
-        this.opts.onGraph(msg);
+        this.graph(msg);
         break;
       case "rows":
         // No subscription asked for these: the page asks its own engine.

@@ -2,11 +2,19 @@ import { act, createElement, type ReactElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { watchForNewBuild } from "../lib/stale-build";
 import { ViewError, ViewErrorBoundary } from "./view-error-boundary";
 
 function Boom({ fail }: { fail: boolean }): ReactElement {
   if (fail) throw new Error("webgl kaboom");
   return createElement("div", { "data-testid": "ok" }, "ok");
+}
+
+/** A view whose chunk the server no longer has: the tab outlived its build. */
+function Gone(): ReactElement {
+  throw new TypeError(
+    "Failed to fetch dynamically imported module: https://kb/static/composer-page-CSoHrcCV.js",
+  );
 }
 
 function Shell({ children }: { children: ReactNode }): ReactElement {
@@ -96,6 +104,48 @@ describe("ViewErrorBoundary", () => {
     });
     expect(container.querySelector('[data-testid="ok"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="view-error"]')).toBeNull();
+  });
+
+  it("reloads into the new build once, saying so, when its view's chunk is gone", () => {
+    const storage = new Map<string, string>();
+    let reloads = 0;
+    /** The page as the shell installs it, of `build`, in a tab whose storage outlives its reloads. */
+    const install = (build: string) =>
+      watchForNewBuild(new EventTarget(), {
+        build,
+        storage: {
+          getItem: (key) => storage.get(key) ?? null,
+          setItem: (key, value) => void storage.set(key, value),
+        },
+        reload: () => void reloads++,
+      });
+    const gallery = (key: string) =>
+      createElement(ViewErrorBoundary, {
+        title: "Gallery crashed",
+        resetKey: key,
+        children: createElement(Gone),
+      });
+
+    const old = install("/static/index-old.js");
+    act(() => {
+      root.render(gallery("first"));
+    });
+    expect(reloads).toBe(1);
+    expect(container.textContent).toContain("kb was updated");
+    expect(container.textContent).not.toContain("Gallery crashed");
+    old();
+
+    // A page of a build this tab reloaded for already: the failure is
+    // shown, not reloaded again (stale-build.test models the fresh page).
+    storage.set("kb.reloaded-for-build", "/static/index-same.js");
+    const same = install("/static/index-same.js");
+    act(() => {
+      root.render(gallery("again"));
+    });
+    expect(reloads).toBe(1);
+    expect(container.textContent).toContain("Gallery crashed");
+    expect(container.textContent).toContain("Failed to fetch dynamically imported module");
+    same();
   });
 
   it("ViewError retry button invokes onRetry", () => {

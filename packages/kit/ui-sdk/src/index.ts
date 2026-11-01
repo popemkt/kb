@@ -485,6 +485,7 @@ export {
   replacePath,
   subscribePath,
 } from "./lib/router";
+export { type BuildFollowing, followServerBuild, watchForNewBuild } from "./lib/stale-build";
 export {
   djb2Hash,
   hashTagColor,

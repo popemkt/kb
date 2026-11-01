@@ -32,10 +32,10 @@ class MockServer {
     return present(this.sockets.at(-1), "latest socket");
   }
 
-  /** Accept the connection and send the protocol hello. */
-  accept(rev: number): void {
+  /** Accept the connection and send the protocol hello, naming the build served when there is one. */
+  accept(rev: number, build?: string): void {
     this.socket.accept();
-    this.push({ op: "hello", rev });
+    this.push(build === undefined ? { op: "hello", rev } : { op: "hello", rev, build });
   }
 
   push(msg: ServerMessage): void {
@@ -72,21 +72,24 @@ interface Harness {
   client: KbWsClient;
   graph: GraphMessage[];
   errors: Array<{ id?: string; code: string; message: string }>;
+  builds: Array<string | undefined>;
 }
 
 function makeHarness(): Harness {
   const server = new MockServer();
   const graph: GraphMessage[] = [];
   const errors: Array<{ id?: string; code: string; message: string }> = [];
+  const builds: Array<string | undefined> = [];
   const client = new KbWsClient({
     url: "ws://test/ws",
     makeSocket: server.makeSocket,
     onGraph: (msg) => graph.push(msg),
     onServerError: (err) => errors.push(err),
+    onBuild: (build) => builds.push(build),
     backoffInitialMs: 100,
     backoffMaxMs: 1000,
   });
-  return { server, client, graph, errors };
+  return { server, client, graph, errors, builds };
 }
 
 describe("KbWsClient", () => {
@@ -121,6 +124,19 @@ describe("KbWsClient", () => {
       { op: "snapshot-required", head: 9 },
     ]);
     expect(h.server.received("since")).toEqual([]);
+  });
+
+  it("tells the build the server serves on every connect, the one after a release included", () => {
+    const h = makeHarness();
+    h.client.connect();
+    h.server.accept(4, "/static/index-old.js");
+    h.server.drop();
+    vi.advanceTimersByTime(100);
+    h.server.accept(4, "/static/index-new.js");
+    h.server.drop();
+    vi.advanceTimersByTime(200);
+    h.server.accept(4);
+    expect(h.builds).toEqual(["/static/index-old.js", "/static/index-new.js", undefined]);
   });
 
   it("asks since on the replica's behalf", () => {

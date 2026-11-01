@@ -256,6 +256,23 @@ be kept, never how it is sent.
   one round trip and gets `304` when it has not changed
   (`staticCacheHeaders`, `assets.ts`). A repository extension's page half
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
+- **A tab outlives its build.** A release replaces `ui/dist`, so a tab
+  opened before it asks for chunks the server no longer has. A build is
+  the `src` of the module script `index.html` loads, whose digest changes
+  whenever any chunk it may fetch is renamed. The rule is a handshake:
+  every connection's `hello` names the build the server serves now
+  (`build`, read from the `index.html` it serves, so a build replaced under
+  a running server is the one named). A tab of another build reloads into
+  it. If the tab holds edits the server has not confirmed yet, which a
+  reload would drop, the header offers the reload instead ("kb was
+  updated · Reload"). The fallback is a chunk that does not arrive before
+  any hello says so (Vite's `vite:preloadError`, or a view's error
+  boundary catching it): it reloads the same way, and the boundary says
+  "kb was updated" meanwhile. Both go through one guard, once per build.
+  The tab's session storage records the build it reloaded for, so a
+  reload that lands on the same build is offered or shown instead of
+  looping. A page that is not a build (the dev server's) follows none
+  (`@kb/ui-sdk` → `lib/stale-build.ts`).
 - **Compressed when it is text.** A `200` whose type is script, style,
   markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
   or gzip, whichever the request's `Accept-Encoding` weighs highest (its

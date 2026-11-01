@@ -127,6 +127,8 @@ export class SubscriptionHub {
   private readonly channels: ChannelDirectory;
   /** What an app that frames the page may have, which each connection is told. */
   private readonly embedding: Embedding;
+  /** The build the server serves now, which each connection is told (`hello.build`). */
+  private readonly build: () => string | null;
   private readonly unsubscribe: () => void;
   /** The screens of the connections that are UI tabs; the pictures they draw kept under the root. */
   readonly screens: ScreenHub;
@@ -135,9 +137,11 @@ export class SubscriptionHub {
     ctx: KbContext,
     channels: ChannelDirectory = NO_CHANNELS,
     embedding: Embedding = NO_EMBEDDING,
+    build: () => string | null = () => null,
   ) {
     this.ctx = ctx;
     this.embedding = embedding;
+    this.build = build;
     this.screens = new ScreenHub((name, picture) =>
       keepCapture(ctx.root, name, picture).pipe(Effect.provide(bunFileSystemLayer)),
     );
@@ -191,8 +195,9 @@ export class SubscriptionHub {
   addClient(clientId: string, deliver: ClientSend, caller: Caller): Effect.Effect<void> {
     const send = (text: string) => Effect.ignore(deliver(text));
     this.clients.set(clientId, { send, deliver, caller, watchTx: false, subs: new Map() });
+    const build = this.build();
     const greeting: ServerMessage[] = [
-      { op: "hello", rev: this.ctx.log.head },
+      { op: "hello", rev: this.ctx.log.head, ...(build === null ? {} : { build }) },
       {
         op: "person",
         person: caller.person,

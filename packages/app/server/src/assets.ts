@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { join, normalize, resolve } from "node:path";
 import { Effect, Option } from "effect";
 import { FileSystem, type File } from "effect/FileSystem";
@@ -146,6 +147,35 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
   const index = yield* fs.stat(indexHtml).pipe(Effect.orDie);
   return served(indexHtml, "index.html", index);
 });
+
+/**
+ * The build a page's `index.html` loads: the `src` of its module script,
+ * whose digest names every chunk it may fetch. Null for a page with none.
+ */
+export function entryScriptOf(html: string): string | null {
+  for (const [tag] of html.matchAll(/<script\b[^>]*>/g)) {
+    if (!/\btype=["']?module\b/.test(tag)) continue;
+    const src = /\bsrc=["']([^"']+)["']/.exec(tag)?.[1];
+    if (src !== undefined) return src;
+  }
+  return null;
+}
+
+/**
+ * The build the server serves now (`hello.build`): read from `ui/dist`'s
+ * `index.html` each time, as {@link serveStaticEffect} serves it, so a build
+ * replaced under a running server is the one it names. Null when the UI has
+ * not been built. Read synchronously, because the greeting it joins is a
+ * connection's first frames: nothing the connection is answered may pass
+ * them (a page's `index.html` is a few KB).
+ */
+export function servedBuild(distDir: string = UI_DIST): string | null {
+  try {
+    return entryScriptOf(readFileSync(join(distDir, "index.html"), "utf8"));
+  } catch {
+    return null;
+  }
+}
 
 /** Promise facade for the WS-free HTTP path / tests. */
 export function serveStatic(pathname: string): Promise<Response | null> {

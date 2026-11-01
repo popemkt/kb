@@ -139,8 +139,14 @@ export type Embedding = z.infer<typeof EmbeddingSchema>;
 export const NO_EMBEDDING: Embedding = { origins: [], scripts: [] };
 
 export const ServerMessageSchema = z.discriminatedUnion("op", [
-  /** First message after connect. */
-  z.object({ op: z.literal("hello"), rev: z.number().int() }),
+  /**
+   * First message after connect. `build` is the page the server serves now:
+   * the `src` of the module script its `index.html` loads, whose digest
+   * names the build. Absent when it serves no built page. A tab built
+   * otherwise is out of date (DESIGN-UI.md → Delivery, "A tab outlives its
+   * build").
+   */
+  z.object({ op: z.literal("hello"), rev: z.number().int(), build: z.string().optional() }),
   /**
    * Who the server takes this connection to be, sent after `hello`: the
    * person, as the deployment's authentication named them, or nobody

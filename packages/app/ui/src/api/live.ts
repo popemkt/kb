@@ -2,8 +2,8 @@
  * Singleton live connection: carries the socket's graph stream into the
  * browser replica's sync machine (session/replica.ts), runs the network moves
  * it asks for (`since`, the /api/graph snapshot), wires the ui store
- * (status indicator, error toasts), and hands what the server says about this
- * tab's screen to whatever the tab has installed for it (`src/screen.ts`).
+ * (status indicator, error toasts, the build a hello names), and hands what
+ * the server says about this tab's screen to whatever the tab has installed for it (`src/screen.ts`).
  *
  * This is the one place live updates enter the replica, and it hands them over
  * at most once per animation frame: everything that arrived since the last
@@ -13,6 +13,7 @@
  * tolerates; a burst of frames no longer costs a projection each.
  */
 import { screenRejected, type ScreenAck, type ScreenCommand } from "@kb/contracts";
+import { followServerBuild } from "@kb/ui-sdk";
 import { embedWith } from "@/api/embed";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
@@ -101,6 +102,16 @@ function frameInbox(): (event: SyncEvent) => void {
   };
 }
 
+/**
+ * The build a connection's `hello` names, followed: a tab of another build
+ * reloads into it, unless edits the server has not confirmed yet would be
+ * lost, when the header offers the reload instead.
+ */
+function followBuild(build: string | undefined): void {
+  const unsaved = (browserReplica()?.state.holds ?? 0) > 0;
+  if (followServerBuild(build, unsaved) === "offer") useUiStore.getState().offerNewBuild();
+}
+
 /** Store-wired client; overrides let tests inject a fake socket. */
 export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): KbWsClient {
   const deliver = frameInbox();
@@ -113,6 +124,7 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
     },
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
+    onBuild: followBuild,
     onScreenCommand: (id, command) => answerScreenCommand(next, id, command),
     onScreenRefused: (tab) => screenTab?.refused(tab),
     ...overrides,

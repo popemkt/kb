@@ -1,3 +1,4 @@
+import { watchForNewBuild } from "@kb/ui-sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@/components/App";
@@ -22,6 +23,9 @@ function preloadInterLatin() {
 }
 
 preloadInterLatin();
+// A tab left open across a release follows the server into the new build
+// (`@kb/ui-sdk` → `lib/stale-build`). The dev server's page is no build.
+if (!import.meta.env.DEV) watchForNewBuild();
 initPrefs();
 startDesignSystems();
 // The motion painter paints once the graph has arrived, so it loads with
