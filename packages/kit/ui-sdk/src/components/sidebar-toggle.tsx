@@ -13,8 +13,8 @@ export interface SidebarToggleProps {
 }
 
 /**
- * The one left-rail toggle: the shell header and every page header that has
- * one render this. It takes the flag and the gesture as props —
+ * The one left-rail toggle, in the shell's header, which every page is
+ * drawn under. It takes the flag and the gesture as props —
  * `useSidebarToggle` on the prefs store owns both.
  */
 export function SidebarToggle({ open, onToggle, className }: SidebarToggleProps) {

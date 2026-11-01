@@ -18,8 +18,7 @@ import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { loadManifest, readManifest } from "@/lib/manifest";
-import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
-import { layoutPanes } from "@kb/views";
+import { startWorkspace } from "@/stores/workspace.store";
 import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
 import { startOutlineLocation, useGraphStore } from "@/stores/graph.store";
 import { pageEditor } from "@/stores/page-editor";
@@ -194,9 +193,6 @@ export function App() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const route = useRoute();
-  const panes = useWorkspaceStore((s) => layoutPanes(s.layout).length);
-  // A lone page that takes the whole column (the graph) takes the header's place too.
-  const header = panes > 1 || route === null || route.frame !== "full";
 
   // The URL names the focused pane: a navigation moves it.
   useEffect(() => startWorkspace(), []);
@@ -270,7 +266,8 @@ export function App() {
         tabIndex={-1}
         className="relative flex min-h-0 min-w-0 flex-1 flex-col outline-none"
       >
-        {header ? <WorkspaceHeader status={status} /> : null}
+        {/* The shell's: every page is drawn under it, whatever its frame. */}
+        <WorkspaceHeader status={status} />
         <WorkspaceBoundary
           pending={status === "loading"}
           title={route?.pendingTitle ?? "Opening your workspace…"}

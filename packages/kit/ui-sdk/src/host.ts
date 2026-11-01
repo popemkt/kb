@@ -62,14 +62,6 @@ export interface BrowserHost extends NodeTextPort {
   readonly appearance: () => Appearance;
   /** The device-level preferences now. */
   readonly prefs: () => Prefs;
-  /** Whether the left rail is open, at a narrow or a wide viewport. */
-  readonly sidebarOpen: (narrow: boolean) => boolean;
-  /** Toggle the left rail from its button, drawn with the rail `open`; focus returns to it. */
-  readonly toggleSidebar: (
-    narrow: boolean,
-    open: boolean,
-    button: HTMLButtonElement | null,
-  ) => void;
   /** How references in rendered text are inked. */
   readonly refInk: () => RefInk;
   /** Zoom the outline to a node. */

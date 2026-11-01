@@ -55,7 +55,12 @@ export declare function provideView<P>(
   },
 ): ContributionEntry<ProvidedView>;
 
-/** How the shell frames a page. */
+/**
+ * How a page is framed inside its pane, under the shell's header, which is
+ * drawn above every page whatever its frame: `scroll`, a scroll region
+ * around it; `fixed`, a box of the pane's size; `full`, nothing, the page
+ * fills the pane and frames itself (its own scrolling, its own toolbar).
+ */
 export type RouteFrame = "scroll" | "fixed" | "full";
 
 /** A path resolved to a view and its params. */

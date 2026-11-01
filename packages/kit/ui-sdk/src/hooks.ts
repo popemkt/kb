@@ -31,7 +31,6 @@ import { schemaOf, type SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
 import type { PageGraphState } from "./lib/page-graph";
 import type { Appearance, Prefs } from "./lib/theme";
-import { useNarrowViewport } from "./lib/viewport";
 import { browserHost, type BrowserHost } from "./host";
 import { type FrameViewKey, isFrameViewKey } from "@kb/views";
 import { shownDesignSystem } from "./lib/design-system";
@@ -240,16 +239,6 @@ export function useAppearance(): Appearance {
 /** What `select` answers of the device-level preferences, re-read when they change. */
 export function usePrefs<T>(select: (prefs: Prefs) => T): T {
   return useHostValue((host) => select(host.prefs()));
-}
-
-/** The left rail's state and gesture, for the `SidebarToggle` primitive. */
-export function useSidebarToggle(): {
-  readonly open: boolean;
-  readonly onToggle: (button: HTMLButtonElement | null) => void;
-} {
-  const narrow = useNarrowViewport();
-  const open = useHostValue((host) => host.sidebarOpen(narrow));
-  return { open, onToggle: (button) => browserHost().toggleSidebar(narrow, open, button) };
 }
 
 /**

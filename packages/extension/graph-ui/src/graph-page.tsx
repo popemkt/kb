@@ -10,12 +10,9 @@ import {
   navigate,
   OntologyPicker,
   ontologyPath,
-  SettingsTrigger,
-  SidebarToggle,
   useAppearance,
   useAnswered,
   usePageGraph,
-  useSidebarToggle,
   useWireNodes,
   ViewSlot,
   WorkspaceState,
@@ -67,7 +64,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const { zoomTo } = browserHost();
   const ontologyMembers = usePageGraph((s) => s.ontologyMembers);
   const appearance = useAppearance();
-  const sidebar = useSidebarToggle();
 
   const [includeSystemNodes, setIncludeSystemNodes] = useState(() => {
     try {
@@ -275,7 +271,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="kb-chrome flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
-        <SidebarToggle {...sidebar} />
         {/* Under an ontology its own header names the scope and switches its views. */}
         {ontologyId === null ? (
           <span className="kb-display text-ui font-medium text-muted-foreground">graph</span>
@@ -345,8 +340,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             <WarningIcon size={12} /> query error
           </span>
         )}
-        <div className="flex-1" />
-        <SettingsTrigger />
       </header>
       <div className="relative min-h-0 flex-1 kb-workspace-reveal">
         {!listed.settled && !active ? null : !active ? (
