@@ -220,6 +220,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
+### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
+
+- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
+- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
+- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
+- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
+- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
+
 ### GAP: a frame view's page is the outline at the frame
 
 - **expected** — A frame opened as a page shows its frame view (a table, a board) whichever family draws the page, so the collections family stands without the outline.
@@ -244,6 +252,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An 'Add location…' gesture in the Locations section calling the same action the CLI calls.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYNGRHH8HHBHV2KQ3MNAV`
+
+### GAP: a merge's conflicts are returned to a git driver and have no place in the graph
+
+- **expected** — A conflict the merge reports (modified-both-position, deleted-and-modified, modified-both-same-stamp) becomes a node a person reads, naming the node, the reason and the side kept (docs/research/2026-10-31-offline-first.md §3.3).
+- **current** — MergeResult.conflicts is an array the git driver prints to stderr; nothing at run time shows it.
+- **impact** — An offline merge would silently keep one side; the loser's change is invisible to the person who made it.
+- **closes** — A conflict tag and the sync agent writing one node per reported conflict (P1).
+- **node** — `01M69E3QETRHZH00T7JFMQ0F37`
 
 ### GAP: a modal transform takes one typed value, not a vector
 
@@ -326,6 +342,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
 
+### GAP: a remote root keeps no persisted mirror, so it cannot start or read offline
+
+- **expected** — A remote store persists its last mirror (nodes and tail head) so a restart offline reads it, and a quota stop leaves something to read (docs/research/2026-10-31-online-stores.md §3.4).
+- **current** — The mirror is in memory only (the BrowserStore shape); a cold start needs the network.
+- **impact** — No offline start; a DO daily-quota block or a Turso BLOCKED leaves nothing to read after a restart.
+- **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
+- **node** — `01M6950XSKGDE356Q8RK622WKQ`
+
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
 - **expected** — a guest's graph.query has a deadline in the query layer
@@ -359,6 +383,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — upgrade to three r187, which fixes GTAO with MSAA depth (mrdoob/three.js#34598, #34609), and drop the single-sample branch
 - **node** — `01M416DT1SEWS5P3J28JT4R6YG`
 
+### GAP: a store has no identity, so a reset or replaced authority looks like the one a device synced with
+
+- **expected** — An authority carries an id made at creation; a device's base stores it; a different id on connect stops the sync and asks, never merges and never clears local data (docs/research/2026-10-31-offline-first.md §3.6).
+- **current** — Stores have no id; the fingerprint names a state, not a store.
+- **impact** — Pointing a device at a fresh or different authority would push or merge its whole graph into the wrong place.
+- **closes** — A backend id in the authority's schema and in the base's cursor, checked on connect.
+- **node** — `01M69E3RQH76X44JB9H5NYDWBE`
+
 ### GAP: a store's release is not on the port; selectStore drops it
 
 - **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
@@ -367,6 +399,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
+
+### GAP: a stranger's extension is trusted by digest alone, with no reach shown before trust and no diff on update
+
+- **expected** — Before sandbox.trust, a person sees where the closure came from, its files and sizes, the host modules and Node/Bun builtins it imports, and on update the diff against the locked rev, on the one extension.list report (docs/research/2026-10-31-plugin-sources.md §5).
+- **current** — kb ext list shows the closure digest, and the untrusted failure names it. The declaration is code, so nothing static says what an extension does or reaches.
+- **impact** — Trusting an installed extension means reading every file by hand; a reach disclosure is a disclosure, not containment, and an extension is owner code once trusted.
+- **closes** — P0 of docs/research/2026-10-31-plugin-sources.md: from and reach on extension.list.
+- **node** — `01M68NF9WGE31RYX3VB9EWHC8M`
 
 ### GAP: a style's how-to names its tool in text, not by a node
 
@@ -513,6 +553,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An export from a Paper or Terminal knowledge base looks like kb's default outside a page.
 - **closes** — Each system's sheet moves to the family's shared package (designSystems carrying the sheet), so the server reads core's setting and resolves the tokens.
 - **node** — `01M54QTGRJYJZ7W5SXDP4356QW`
+
+### GAP: an extension cannot be installed from a pinned source, and nothing records where one came from
+
+- **expected** — An extension's bytes can come from a git source pinned to a full commit sha: install vendors the tree into .kb/extensions/, a committed .kb/extensions.lock.json records original and locked (rev, files digest), and kb ext validate fails files that differ from the lock (docs/research/2026-10-31-plugin-sources.md §3, §4).
+- **current** — Bytes arrive only as files already in the root, put there by hand or by git. There is no update path and no provenance.
+- **impact** — Taking an extension from outside the repo is a manual copy; an update is a hand edit, and nothing says what it came from or whether it was altered after.
+- **closes** — P0 of docs/research/2026-10-31-plugin-sources.md: extension.install, extension.update, extension.remove, the lock, and the lock check in admission.
+- **node** — `01M68NF91SD1D15C00TYDTPQXE`
 
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
@@ -816,6 +864,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
 
+### GAP: kb cannot be edited offline and merged later; devices meet only through git
+
+- **expected** — A SyncAgent in the style of git: pull the authority, mergeNodeSets(base, local, remote), commit the result locally, push one compare-and-swap append of what differs from the base (docs/research/2026-10-31-offline-first.md §3).
+- **current** — No sync loop, no persisted base, no authority; the merge exists only as the git driver for nodes.jsonl.
+- **impact** — A second machine's edits reach this one by git commit and merge only; no live shared editing, no offline queue.
+- **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
+- **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
+
+### GAP: kb has no online store; two machines share a graph only through git
+
+- **expected** — A RemoteStore behind EffectStore over a RemoteAuthority port (a Durable Object first, Turso second), joined to the shared store, log and tail contract suites (docs/research/2026-10-31-online-stores.md §4, §7).
+- **current** — The only stores are .kb/nodes.jsonl and .kb/kb.sqlite in the root; a second machine sees changes by git.
+- **impact** — No live shared editing across machines; the owner's Cloudflare/Turso setup has nothing to talk to.
+- **closes** — The prototype of docs/research/2026-10-31-online-stores.md §7: the port, the mirror store, the DO authority, the two-process sync test.
+- **node** — `01M6950VPS4MH8NWDWB4ZF9CP1`
+
 ### GAP: kb mutation skips saving its baseline when the merge step fails
 
 - **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
@@ -855,6 +919,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Linking from a text value needs the id by hand.
 - **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
 - **node** — `01M3KA394XS9DCGY9RHS151G6F`
+
+### GAP: no index of installable extensions
+
+- **expected** — An index repo of entries {name, repo, path, sha} merged by PR, whose CI installs each into a clean root and runs kb ext validate and the reach report; name@index as the install spelling; indexes pinned in the same lock (docs/research/2026-10-31-plugin-sources.md §8).
+- **current** — A source must be spelled out in full; there is nothing to browse or search.
+- **impact** — Discovery is word of mouth, and a name has no single owner, so two sources can claim one extension namespace.
+- **closes** — P1 of docs/research/2026-10-31-plugin-sources.md.
+- **node** — `01M68NFAXME4CJ8EQT36HKB9ED`
 
 ### GAP: no one coverage property holds every family to all three hosts
 
@@ -937,6 +1009,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 (L1) and P3 (L2, L3) of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Core names no feature
 - **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
+
+### GAP: offline writes to a shared store are unsupported (the tail is a total order the store assigns)
+
+- **expected** — Either offline writes are refused with a stated reason, or revs are assigned at push time so devices can write offline (docs/research/2026-10-31-online-stores.md §2.4).
+- **current** — Not built. Turso Sync's last-push-wins row merge would collide two offline devices' tx.rev and meta.rev.
+- **impact** — A flight or outage means read-only; Turso Sync cannot be adopted as is.
+- **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
+- **node** — `01M6950YQJFX3TYG608GNVHRX4`
 
 ### GAP: only text cards can be promoted to nodes
 
@@ -1082,6 +1162,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
+### GAP: sandboxed third-party code has no distribution
+
+- **expected** — Code views and scripts (nodes under a CodeGrant) can be installed from a source as an outline, their grants said in words by grantSentence and each untrusted until its digest is trusted; a component engine runs non-JavaScript guests under the same grant (docs/research/2026-10-31-plugin-sources.md §5).
+- **current** — A stranger's code can be pasted as nodes by hand; there is no source reader for nodes, and the component engine is not built.
+- **impact** — The only way to take code from a stranger that kb can contain is not reachable by install; the reachable one (an extension) is not contained.
+- **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
+- **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
+
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -1179,6 +1267,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a provider that cannot run says so only when a turn fails, and a model id is typed with no suggestion
 - **closes** — the two read actions beside the agent's other actions, each answered by every adapter, with a property over kb ui
 - **node** — `01M5ZF97R8ZK857GS29QGVD3EN`
+
+### GAP: the backdrop bar's mechanical checks are read by a reviewer, not run
+
+- **expected** — Four of the bar's items are scripts in the shared contracts: the same trajectory at a frame step of 8 ms and of 33 ms (the scene contract drives frame(dt)), the scripted pointer track settling within 3 s and inside its bound, the darkest pixels of a dark screenshot being a tint and the clipped-white share under 0.5%, and the intro under 3 s (backdrop-load.e2e.ts) (docs/research/2026-10-31-3d-quality-bar.md §5).
+- **current** — The criteria Graded and finished, Believable interaction, Motion and No load flicker name these checks and a reviewer applies them from strips and crops; none runs in verify or CI.
+- **impact** — A backdrop can pass with a linear ramp, a frame-rate-dependent ease, a clipped highlight or a slow intro, and nothing goes red.
+- **closes** — Add the four checks to the scene contract (gpu-scenes.contract.test.ts) and the render specs, over every GPU backdrop, then restate each criterion's target as the check.
+- **node** — `01M69E060PGKKK7C39YTA9CM9F`
 
 ### GAP: the backdrop pointer source goes stale under a sibling overlay
 
@@ -1365,6 +1461,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
+### GAP: the saved-query virtual set appends to the store's tail, which a remote root does not own
+
+- **expected** — The virtual set records its transactions without taking a rev in the store's sequence (docs/research/2026-10-31-online-stores.md §4.4).
+- **current** — SavedQuerySet calls ctx.log.append, which allocates head+1 in the store's tail; on a remote mirror the authority's next rev collides with it.
+- **impact** — A remote root cannot hold .kb/queries/*.edn without forcing a resync that drops the virtual records.
+- **closes** — Give virtual transactions their own sequence, or stop logging them in the store's tail.
+- **node** — `01M6950ZTT4AQNADV0RVM9JSW1`
+
 ### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
 
 - **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
@@ -1453,6 +1557,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
+
+### GAP: two installed extensions cannot share a service key
+
+- **expected** — An installed extension can inject a service another installed extension provides; the key has one home both can import (docs/research/2026-10-31-plugin-sources.md §7, and Q1 of 2026-10-29-plugin-codependency.md).
+- **current** — Keys are compared by identity and an extension's closure inlines every import but the host's modules, so each bundle holds its own copy of a key one of them defines.
+- **impact** — An installed extension depends only on keys the host owns; a pair of installed extensions cannot be a provider and a consumer.
+- **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
+- **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
 
 ### GAP: two processes that start a kb ui for one root at once can start two servers
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import {
   cn,
   matchRoute,
@@ -10,18 +10,23 @@ import {
   WorkspaceState,
   type ResolvedRoute,
 } from "@kb/ui-sdk";
+import { RegionScrollbar } from "./region-scrollbar";
 
 const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
 
 /**
  * A pane's scroll region.
  *
- * It owns the scrollbar gutter, and reserves it whether or not this view
- * happens to overflow (`::-webkit-scrollbar` is 6px wide and therefore takes
- * layout width, see index.css). Without that, a long view had a scrollbar and
- * a short one did not, the content box changed width by 6px between them, and
- * the centered column — breadcrumb included — shifted ~3px. Fixing it here is
- * what keeps every downstream element free of compensating offsets.
+ * It keeps no scrollbar gutter (index.css): its scrollbar is kb's own thumb
+ * over its right edge (`RegionScrollbar`). So its content box is the pane's
+ * whole width whether or not this view overflows and whatever scrollbars
+ * the platform shows: a long view and a short one resolve to the same width
+ * (a width that changed between them once shifted the centered column, the
+ * breadcrumb with it, ~3px), and a breakout (a region-spanning backdrop, a
+ * table) runs to the pane's edge, where a classic scrollbar's track would
+ * have left it short (nothing inside a scroller paints under its own
+ * scrollbar). Fixing it here is what keeps every downstream element free of
+ * compensating offsets.
  */
 function ScrollRegion({
   scroll,
@@ -31,21 +36,21 @@ function ScrollRegion({
   readonly scroll: boolean;
   readonly children: ReactNode;
 }) {
+  const region = useRef<HTMLElement>(null);
   return (
-    <main
-      className={cn(
-        "min-h-0 flex-1",
-        // `overflow-y: scroll`, not `auto` + `scrollbar-gutter: stable`. Both
-        // reserve the 6px track so an overflowing view and a short one resolve
-        // to the same content width (that width difference is what moved the
-        // centered column, and the breadcrumb with it). Only this one works
-        // everywhere: scrollbar-gutter needs Safari 18.2+.
-        scroll ? "overflow-x-auto overflow-y-scroll" : "overflow-hidden",
-      )}
-      data-main-region={scroll ? "scroll" : "fixed"}
-    >
-      {children}
-    </main>
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <main
+        ref={region}
+        className={cn(
+          "min-h-0 flex-1",
+          scroll ? "overflow-x-auto overflow-y-auto" : "overflow-hidden",
+        )}
+        data-main-region={scroll ? "scroll" : "fixed"}
+      >
+        {children}
+      </main>
+      {scroll && <RegionScrollbar region={region} />}
+    </div>
   );
 }
 

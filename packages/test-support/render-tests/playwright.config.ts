@@ -32,6 +32,9 @@ export default defineConfig({
     channel: "chromium",
     viewport: { width: 1280, height: 900 },
     deviceScaleFactor: 1,
-    launchOptions: { args: chromiumGpuArgs },
+    // Playwright hides scrollbars in headless Chromium by default; kept, the
+    // page lays out with classic scrollbars, as Chromium on Linux and Windows
+    // does for a person, so a gutter a scroller keeps shows in every spec.
+    launchOptions: { args: chromiumGpuArgs, ignoreDefaultArgs: ["--hide-scrollbars"] },
   },
 });

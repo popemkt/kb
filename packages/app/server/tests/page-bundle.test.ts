@@ -40,9 +40,12 @@ const DATASCRIPT = /cljs\.core/;
  * fields; every workflow's surface loads lazily. And by 1 KB for the
  * replica's `StoreState`: the page's store keeps the node set it settles
  * sibling ranks over, and `rankTx` reads it through an overlay, rather than
- * rebuilding a map of every node per optimistic write.
+ * rebuilding a map of every node per optimistic write. And by 4 KB for the
+ * scroll region's overlay scrollbar, which every pane frame draws, and the
+ * model's `backdropArtOf`, which reads a backdrop's art as an image or an
+ * art manifest; the medallion's shaders and glyph atlas load lazily.
  */
-const EAGER_BUDGET_BYTES = 1_972_000;
+const EAGER_BUDGET_BYTES = 1_976_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

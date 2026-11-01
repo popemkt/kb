@@ -38,6 +38,8 @@ const ASSET_MEDIA_TYPES: Readonly<Record<string, string>> = {
   flac: "audio/flac",
   opus: "audio/opus",
   pdf: "application/pdf",
+  // Data kb reads, never renders: a backdrop's art manifest (backdrop-art.ts).
+  json: "application/json",
 };
 
 /** The extensions of each kind of media kb renders: those whose media type is of that kind. */
