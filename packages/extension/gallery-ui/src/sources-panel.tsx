@@ -1,10 +1,11 @@
 /**
  * Online sources for the query at hand. A link source (Pinterest, Are.na,
- * Unsplash, Lexica) is its search page, opened in a new tab: kb never calls
- * it, as its terms ask (research record §3). An API source (Civitai,
- * Openverse) is searched through `ext.gallery.search`, PG only, and a
- * result is kept through `ext.gallery.save`, with its page, creator and
- * licence on the visual.
+ * ArtStation, Shadertoy, …) is its search page, opened in a new tab: kb
+ * never calls it, as its terms ask (research record §3). An API source
+ * (Civitai, Openverse, Sketchfab, Poly Haven, the three.js examples) is
+ * searched through `ext.gallery.search`, PG only, and a result is kept
+ * through `ext.gallery.save`, with its page, creator and licence on the
+ * visual.
  */
 import { useState } from "react";
 import { searchUrlOf, type ImageSource, type SourceResult } from "@kb/gallery";
@@ -40,8 +41,12 @@ function ResultCard({
       </a>
       <figcaption className="flex flex-col gap-0.5">
         <span className="truncate text-label text-foreground/75">{result.title}</span>
-        {result.licence !== undefined && (
-          <span className="line-clamp-2 text-label text-foreground/40">{result.licence}</span>
+        {(result.creator !== undefined || result.licence !== undefined) && (
+          <span className="line-clamp-2 text-label text-foreground/40">
+            {[result.creator === undefined ? "" : `by ${result.creator}`, result.licence ?? ""]
+              .filter((part) => part !== "")
+              .join(" · ")}
+          </span>
         )}
         <button
           type="button"
@@ -99,7 +104,7 @@ function ApiSource({
         <p className="text-label text-foreground/40">Nothing for “{asked}”.</p>
       )}
       {page !== null && page.results.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-2">
           {page.results.map((result) => (
             <ResultCard
               key={result.id}
@@ -149,7 +154,7 @@ export function SourcesPanel({
         <span className="text-label text-foreground/45">Look for</span>
         <input
           value={query}
-          placeholder="dolly zoom, golden hour…"
+          placeholder="dolly zoom, golden hour, toon shader…"
           className={FIELD}
           onChange={(e) => setTyped(e.target.value)}
         />

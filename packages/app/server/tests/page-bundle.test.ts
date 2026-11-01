@@ -43,9 +43,12 @@ const DATASCRIPT = /cljs\.core/;
  * rebuilding a map of every node per optimistic write. And by 4 KB for the
  * scroll region's overlay scrollbar, which every pane frame draws, and the
  * model's `backdropArtOf`, which reads a backdrop's art as an image or an
- * art manifest; the medallion's shaders and glyph atlas load lazily.
+ * art manifest; the medallion's shaders and glyph atlas load lazily. And by
+ * 2 KB for the gallery's 3D seed in its declaration: the `made with`, `seen
+ * in` and `how to` fields, three source kinds and ten 3D sources; the 3D
+ * starter is the server's, and the art-direction export loads lazily.
  */
-const EAGER_BUDGET_BYTES = 1_976_000;
+const EAGER_BUDGET_BYTES = 1_978_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

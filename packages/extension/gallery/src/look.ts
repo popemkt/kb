@@ -93,7 +93,13 @@ export function lookOf(look: GraphNode, get: (id: string) => GraphNode | undefin
 /** What a look is called when it has no name: its brief's first words. */
 export function nameOf(draft: LookDraft): string {
   if (draft.name.trim() !== "") return draft.name.trim();
-  const words = draft.description.trim().split(/\s+/).slice(0, 6).join(" ");
+  // The brief's first words, without the punctuation they were cut at.
+  const words = draft.description
+    .trim()
+    .split(/\s+/)
+    .slice(0, 6)
+    .join(" ")
+    .replace(/[^\p{L}\p{N})\]]+$/u, "");
   return words === "" ? "Untitled look" : words;
 }
 
@@ -260,25 +266,38 @@ export function briefOf(
   }
   if (draft.negative.trim() !== "") lines.push(`Avoid: ${draft.negative.trim()}`, "");
   if (draft.palette.length > 0) lines.push("## Palette", "", draft.palette.join(" "), "");
-  lines.push("## Prompts", "");
+  lines.push(...promptLines(draft, library), ...referenceLines(draft, get));
+  return lines.join("\n");
+}
+
+/** A brief's prompts section: the look's prompt for each model family. */
+function promptLines(draft: LookDraft, library: Library): readonly string[] {
+  const lines = ["## Prompts", ""];
   for (const p of promptsOf(draft, library)) {
     lines.push(`**${p.label}**`, "", "```", p.positive, "```", "");
     if (p.negative !== "") lines.push("Negative:", "", "```", p.negative, "```", "");
   }
-  if (draft.pins.length > 0) {
-    lines.push("## References", "");
-    for (const pin of draft.pins) {
-      const visual = get(pin.visual);
-      if (visual === undefined) continue;
-      const cover = coverOf(visual);
-      const source = sourceUrlOf(visual);
-      const credit = creditOf(visual);
-      const note = pin.note.trim() === "" ? "" : ` — ${pin.note.trim()}`;
-      lines.push(`- ${visual.text}${note}`);
-      if (cover !== null) lines.push(`  ![${visual.text}](${cover})`);
-      if (source !== null) lines.push(`  Source: ${source}${credit === "" ? "" : ` (${credit})`}`);
-    }
-    lines.push("");
+  return lines;
+}
+
+/** A brief's references section: each pin's visual, its note, picture, source and credit. */
+export function referenceLines(
+  draft: LookDraft,
+  get: (id: string) => GraphNode | undefined,
+): readonly string[] {
+  if (draft.pins.length === 0) return [];
+  const lines = ["## References", ""];
+  for (const pin of draft.pins) {
+    const visual = get(pin.visual);
+    if (visual === undefined) continue;
+    const cover = coverOf(visual);
+    const source = sourceUrlOf(visual);
+    const credit = creditOf(visual);
+    const note = pin.note.trim() === "" ? "" : ` — ${pin.note.trim()}`;
+    lines.push(`- ${visual.text}${note}`);
+    if (cover !== null) lines.push(`  ![${visual.text}](${cover})`);
+    if (source !== null) lines.push(`  Source: ${source}${credit === "" ? "" : ` (${credit})`}`);
   }
-  return lines.join("\n");
+  lines.push("");
+  return lines;
 }

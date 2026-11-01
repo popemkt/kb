@@ -18,7 +18,7 @@ import { MasonryGrid } from "../masonry-grid";
 import { referencesOf } from "../selection";
 import { SourcesPanel } from "../sources-panel";
 import { addStyle } from "../styles-api";
-import { complete } from "./complete";
+import { complete, namesTerm } from "./complete";
 import { NoComposer } from "./no-composer";
 
 function Term({ frame }: { readonly frame: ComposerFrame }) {
@@ -40,12 +40,20 @@ function Term({ frame }: { readonly frame: ComposerFrame }) {
   };
   const facetText = (s: StyleEntry) =>
     frame.library.facets.find((f) => f.id === s.facet)?.text ?? "";
+  // A style offered for what it is made with says which.
+  const why = (s: StyleEntry) =>
+    namesTerm(s.text, term)
+      ? facetText(s)
+      : `with ${s.madeWith
+          .map((id) => frame.library.styles.get(id)?.text ?? "")
+          .filter((name) => namesTerm(name, term))
+          .join(", ")}`;
   return (
     <div className="flex flex-col gap-2">
       <input
         value={term}
         autoFocus
-        placeholder="Type a style: golden hour, low angle, 35mm…"
+        placeholder="Type a style: golden hour, low angle, cel-shaded…"
         aria-label="Name a style"
         className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-ui text-foreground/85"
         onChange={(e) => setTerm(e.target.value)}
@@ -66,6 +74,7 @@ function Term({ frame }: { readonly frame: ComposerFrame }) {
               role="option"
               aria-selected={i === 0}
               data-gallery-suggestion={s.text}
+              title={s.description === "" ? undefined : s.description}
               className={cn(
                 "rounded-md border px-2 py-0.5 text-meta",
                 i === 0
@@ -74,7 +83,7 @@ function Term({ frame }: { readonly frame: ComposerFrame }) {
               )}
               onClick={() => take(s.id)}
             >
-              {s.text} <span className="text-label text-foreground/40">{facetText(s)}</span>
+              {s.text} <span className="text-label text-foreground/40">{why(s)}</span>
             </button>
           ))}
           {hits.length === 0 && had.length > 0 && (
