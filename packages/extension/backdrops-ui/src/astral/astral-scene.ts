@@ -71,7 +71,7 @@ import {
   type Train,
 } from "./astral";
 import { compose } from "./compositions";
-import { armGeometry, rimOf, rodGeometry, wheelGeometry } from "./astral-geometry";
+import { armGeometry, rodGeometry, shadowRadius, wheelGeometry } from "./astral-geometry";
 import {
   CONSTELLATION_POINTS,
   KEY_REST,
@@ -223,7 +223,7 @@ function buildMechanism(
       own.haze === 0 &&
       casters.length < SHADOWS
     ) {
-      casters.push({ object, radius: shape.teeth > 0 ? shape.radius : rimOf(shape) + 0.03 });
+      casters.push({ object, radius: shadowRadius(shape) });
     }
     for (const child of part.children ?? []) place(child, object, depth + 1, own.haze);
   };
