@@ -158,7 +158,11 @@ export function mountRiver(host: HTMLElement, init: LabSceneInit): Promise<LabSc
   return mountStudy(
     host,
     init,
-    { fov: 40, bloom: { strength: 0.7, radius: 0.5 }, vignette: 0.5 },
+    {
+      projection: { kind: "perspective", fov: 40 },
+      bloom: { strength: 0.7, radius: 0.5 },
+      vignette: 0.5,
+    },
     river,
   );
 }

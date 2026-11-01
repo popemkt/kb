@@ -333,7 +333,7 @@ export async function mountCanvasScene(
   const { parts, handle } = await mountScene(
     host,
     {
-      fov: PERSPECTIVE_FOV,
+      projection: { kind: "perspective", fov: PERSPECTIVE_FOV },
       palette: init.palette,
       timing: init.timing,
       reducedMotion: init.reducedMotion,

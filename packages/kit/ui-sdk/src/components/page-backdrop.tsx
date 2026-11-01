@@ -1,5 +1,6 @@
 import { useCallback, type CSSProperties, type Ref } from "react";
-import { usePageActivity, usePageBackdrop } from "../hooks";
+import { shownVariants } from "@kb/model";
+import { useAppearance, usePageActivity, usePageBackdrop } from "../hooks";
 import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
 import { cn } from "../lib/cn";
 import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/plugins";
@@ -12,22 +13,29 @@ import type { OutlineNode } from "../lib/types";
  * is and which way it faces. Where the frame stands is its host's
  * (`placement`, and a class that places it): a page head centres it under
  * the head or spans the scroll region with it, a card scales it into the
- * card.
+ * card. Of the variants its settings pin, it tells the component those it
+ * may show on this page's scheme (`shownVariants`), the one place that is
+ * decided.
  */
 export function BackdropFrame({
   id,
-  backdrop: { presentation, Component },
+  backdrop: { key, presentation, Component },
   placement,
   className,
   frameRef,
+  pinned,
   ...props
-}: BackdropProps & {
+}: Omit<BackdropProps, "variants"> & {
   readonly id: string;
   readonly backdrop: Backdrop;
   readonly placement: CSSProperties;
   readonly className?: string;
   readonly frameRef?: Ref<HTMLDivElement>;
+  /** The variants pinned, by declared id (`PageBackdropChoice.variants`). */
+  readonly pinned: readonly string[];
 }) {
+  const { dark } = useAppearance();
+  const variants = shownVariants(key, pinned, dark ? "dark" : "light");
   return (
     <div
       ref={frameRef}
@@ -43,7 +51,7 @@ export function BackdropFrame({
       aria-hidden="true"
       data-header-wash="true"
     >
-      <Component {...props} />
+      <Component {...props} variants={variants} />
     </div>
   );
 }
@@ -76,7 +84,7 @@ function placementOf({ span, offset }: BackdropPresentation): {
  * no head yet, so nothing renders it there. GAP [[01M54CEKJJXNDPYNT55AR6KEV8]]
  */
 export function PageBackdrop({ color, node }: { color: string; node?: OutlineNode }) {
-  const { backdrop: chosen, strength, direction, art } = usePageBackdrop(node);
+  const { backdrop: chosen, strength, direction, art, variants } = usePageBackdrop(node);
   const activity = usePageActivity();
   const [pointer, attachFrame] = usePointerOver();
   const spansRegion = chosen?.value.presentation.span.reach === "region";
@@ -110,6 +118,7 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
         strength={strength}
         direction={direction}
         art={art}
+        pinned={variants}
         opacity={presentation.opacity[strength]}
         activity={activity}
         pointer={pointer}

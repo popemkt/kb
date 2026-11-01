@@ -209,7 +209,12 @@ export function mountSky(host: HTMLElement, init: LabSceneInit): Promise<LabScen
   return mountStudy(
     host,
     init,
-    { fov: 50, far: 1200, bloom: { strength: 0.85, radius: 0.55 }, vignette: 0.3 },
+    {
+      projection: { kind: "perspective", fov: 50 },
+      far: 1200,
+      bloom: { strength: 0.85, radius: 0.55 },
+      vignette: 0.3,
+    },
     sky,
   );
 }

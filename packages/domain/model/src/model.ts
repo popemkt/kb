@@ -269,6 +269,11 @@ export const SYSTEM_IDS = {
   backdropDirectionField: "sys.f.backdrop.direction",
   backdropArtField: "sys.f.backdrop.art",
   /**
+   * The variants a page head's backdrop may show (`backdrop.ts`): refs to
+   * its field's children, the declared backdrops' variants; none, all.
+   */
+  backdropVariantField: "sys.f.backdrop.variant",
+  /**
    * The design system the page is painted in (`design-system.ts`): a ref to
    * one of its field's children, the declared systems' options. A setting
    * of core's node.

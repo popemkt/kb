@@ -383,6 +383,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — upgrade to three r187, which fixes GTAO with MSAA depth (mrdoob/three.js#34598, #34609), and drop the single-sample branch
 - **node** — `01M416DT1SEWS5P3J28JT4R6YG`
 
+### GAP: a store has no identity of its own, so a backdrop cannot be unique per store
+
+- **expected** — Each kb store carries a stable identity (a system node or store-level field) that a backdrop's variation mixes into its seed, so two stores open on two different skies while one store keeps its own across loads (the owner's ask for Astral: a sky unique to each store).
+- **current** — A backdrop's variation is drawn from the load's seed alone (variation(seed), useLoadSeed in @kb/backdrops-ui scene/seed.ts); nothing names the store, so every store draws from the same space and none keeps a sky of its own.
+- **impact** — Astral and every seeded backdrop look alike across stores; a per-store sky would have to invent an ad-hoc id (a path hash), which breaks for a moved or cloned store.
+- **closes** — A store identity in the model (a system node created once per store and kept by merge), exposed to the UI and mixed into useLoadSeed as a store salt, with the store contract proving it stable across open, merge and move.
+- **node** — `01M69H8012T55AXMZBJ45Q1PVC`
+
 ### GAP: a store has no identity, so a reset or replaced authority looks like the one a device synced with
 
 - **expected** — An authority carries an id made at creation; a device's base stores it; a different id on connect stops the sync and asks, never merges and never clears local data (docs/research/2026-10-31-offline-first.md §3.6).
@@ -2435,6 +2443,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Lift the node lookup to a prop or a small resolver passed by the caller, the way RefAutocomplete already takes its candidates. Lands with the outline-store split.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRJA3ZRAWPTB0ZH5YEYG`
+
+### GAP: the GPU stage has no depth-of-field pass, so Astral focuses every depth
+
+- **expected** — The scene kit's stage offers depth of field as an option (a circle of confusion from view depth, a gather at reduced resolution, composited before bloom), so a backdrop with solids at several depths (Astral's Armillary, its far trains) keeps its hero in focus and softens the far and near parts.
+- **current** — Astral draws every solid in focus; its far trains recede only by haze and size (astral-shader.ts, partMaterial's haze).
+- **impact** — Depth reads by haze alone, short of the brief's real 3D finish (DOF, bloom, grain, vignette); a per-scene blur would be a second mechanism beside the stage's passes.
+- **closes** — The stage's depth of field (StageOptions.focus, @kb/scene-gpu focus.ts): a circle of confusion from view depth through the stage's projection, a two-stroke gather drawn before the bloom; opt-in per backdrop, Astral's compositions naming their focus (Mechanism.focus).
+- **node** — `01M69H80QY694GT75AM2PWPSZX`
 
 ### GAP: the graph query-error chip colours itself with Tailwind amber instead of the warning token
 

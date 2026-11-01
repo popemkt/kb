@@ -182,5 +182,10 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
 }
 
 export function mountEmbers(host: HTMLElement, init: LabSceneInit): Promise<LabScene> {
-  return mountStudy(host, init, { fov: 38, bloom: { strength: 1.15, radius: 0.65 } }, embers);
+  return mountStudy(
+    host,
+    init,
+    { projection: { kind: "perspective", fov: 38 }, bloom: { strength: 1.15, radius: 0.65 } },
+    embers,
+  );
 }

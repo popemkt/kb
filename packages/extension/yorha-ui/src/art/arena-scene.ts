@@ -520,7 +520,7 @@ export async function mountArena(host: HTMLElement, init: ArenaInit): Promise<Ar
   const { stage, parts, handle } = await mountScene(
     host,
     {
-      fov: STILL_VIEW.fov,
+      projection: { kind: "perspective", fov: STILL_VIEW.fov },
       near: 0.1,
       far: 200,
       palette: init.palette,

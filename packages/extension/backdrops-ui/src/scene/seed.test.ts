@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { turnHue, variation } from "./seed";
+import { drawVariant, turnHue, variation } from "./seed";
 
 function draw(seed: number) {
   const vary = variation(seed);
@@ -50,5 +50,27 @@ describe("turnHue", () => {
     const turned = turnHue(rgb, 0.7);
     expect(turned.reduce((a, b) => a + b)).toBeCloseTo(1.3, 9);
     turnHue(rgb, Math.PI * 2).forEach((c, i) => expect(c).toBeCloseTo(rgb[i] ?? 0, 9));
+  });
+});
+
+describe("drawVariant", () => {
+  const SHOWN = ["dusk", "night", "noon"] as const;
+
+  it("draws one of the shown by the seed, the same every time for one load", () => {
+    const drawn = drawVariant(42, SHOWN, null);
+    expect(SHOWN).toContain(drawn);
+    expect(drawVariant(42, SHOWN, null)).toBe(drawn);
+    const seen = new Set(Array.from({ length: 40 }, (_, seed) => drawVariant(seed, SHOWN, null)));
+    expect(seen.size).toBe(SHOWN.length);
+  });
+
+  it("keeps the one shown while it is still among them, and draws again when it is not", () => {
+    expect(drawVariant(42, ["night", "noon"], "night")).toBe("night");
+    expect(drawVariant(42, ["noon"], "night")).toBe("noon");
+  });
+
+  it("is none for a backdrop with no variants", () => {
+    expect(drawVariant(42, [], null)).toBeNull();
+    expect(drawVariant(42, [], "night")).toBeNull();
   });
 });

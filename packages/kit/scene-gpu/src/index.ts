@@ -17,12 +17,15 @@ export {
   type OffscreenPass,
   type PictureSampler,
 } from "./offscreen";
+export { type StageFocus } from "./focus";
 export { onFacingPlane, pixelsPerUnit, toScreen, type ScreenPoint } from "./screen";
+export { screenFill } from "./screen-fill";
 export {
   mountScene,
   type PaletteUniforms,
   type SceneStage,
   type SceneToneMapping,
+  type Projection,
   type StageOptions,
 } from "./stage";
 export { starfield } from "./starfield";
