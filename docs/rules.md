@@ -920,6 +920,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — per-item origins in the gizmo
 - **node** — `01M41W57GRNCMBJG1RYJQTA68P`
 
+### GAP: long field values are drawn in full in the outline
+
+- **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).
+- **current** — A field's value renders in full and wraps (FieldsSection → NodeField); nothing clamps or expands a long value.
+- **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
+- **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
+- **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
+
 ### GAP: no [[ completion while editing a text field value
 
 - **expected** — Typing [[ in a text value opens the same node picker node text does.
