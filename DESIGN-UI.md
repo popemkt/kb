@@ -4339,7 +4339,7 @@ WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
 
-Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails and Astral are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
+Lens, Black hole, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails, Astral and Disc field are shaders on the scene kit (`@kb/scene-gpu`, T1: TSL,
 WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 
 - **Two lazy boundaries.** The plugin's eager module holds only the
@@ -5104,7 +5104,45 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     only inside its box.
   - Reduced motion is one still: the variant drawn by the load's seed, the
     rest from the curated still's (**Variation**).
-- **Painted scenes keep their colour.** Toon sea and Silk were drawn as
+- **Disc field.** A vineyard lane painted in overlapping discs, the
+  pointillist look of a painted wine estate (the owner's reference, and
+  the pointillism lab it was worked out in): rows of vines converging down
+  a peach dust path, great masses of leaves at the front, grapes and wild
+  flowers tucked in, all dissolving into the page by its own spray
+  (`disc-field/`). Each load lays the vineyard out anew (**Variation**).
+  - **The picture is data** (`disc-field.ts`). Nothing is a mesh: the lane
+    is a set of surfaces (clumps of leaves in rows, stems, grapes, blooms,
+    the path and the lanes' grass), each sampled into points that carry
+    their own colour, lit once at bake by a low sun and darkened toward
+    each clump's foot. Colour comes from authored ramps, never from a lit
+    material. The cloud is shuffled, so a frame over budget draws a fair
+    prefix of it, never a corner of the lane.
+  - **A disc is flat and hard-edged**: one instanced sprite per point, its
+    edge antialiased by alpha to coverage over the scene pass's MSAA,
+    never blurred; discs overlap by depth alone. Its size is a random draw
+    (most small, a few large) times perspective, never under a device-pixel
+    floor nor over a share of the frame's height.
+  - **The silhouette** is a noise-warped ellipse about the hero. Inside it
+    every disc stands; across its spray band discs drop out at random
+    thresholds and shrink; past it a few specks are left, most of them
+    about the painting's foot. The page itself takes a cream wash under the
+    painting on a light page, after the plain ellipse, so no noise is read
+    for every pixel of the frame.
+  - **Framing**: the lane is seen through the stage's 40° camera and moved
+    to the hero's anchor by a lens shift (the camera's view offset), so
+    its size comes from the frame's height alone. Wide, a broad vignette
+    right of the title, its spray reaching under it; in a panel, smaller
+    and high at the right. Under the title's block (`textScrim`) discs are
+    smaller and paler.
+  - **Life**: the camera stands on a dolly that leans toward the pointer
+    on a critically damped spring, so the near masses slide against the
+    far rows; with no pointer it drifts on slow, unrelated swings. The
+    leaves stir, each disc on its own slow motions; a write is a breath
+    of wind through them, eased in and out. Reduced motion is one still.
+  - **A frame's passes**: one MSAA scene pass (the page's wash on the
+    background, then the discs, one instanced draw), and the stage's
+    composite (feather, tone, dither, a little grain); no bloom.
+- **Painted scenes keep their colour.** Toon sea, Silk and Disc field were drawn as
   high-key pictures, and the page must show them as drawn (Gradient orbs
   takes the frame and the fade too; it is drawn for the dark page, so it
   needs no grade):

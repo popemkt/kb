@@ -3,6 +3,7 @@ import { familyTags } from "@kb/contracts";
 import {
   ASTRAL_BACKDROP,
   BLACK_HOLE_BACKDROP,
+  DISC_FIELD_BACKDROP,
   FLOATING_GEOMETRY_BACKDROP,
   GRADIENT_BACKDROP,
   GRADIENT_ORBS_BACKDROP,
@@ -23,6 +24,7 @@ import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
 import {
   AstralBackdrop,
   BlackHoleBackdrop,
+  DiscFieldBackdrop,
   FloatingGeometryBackdrop,
   GradientOrbsBackdrop,
   LensBackdrop,
@@ -174,6 +176,16 @@ const astral: Omit<Backdrop, "key"> = {
 };
 
 /**
+ * A vineyard lane painted in overlapping discs on the page's own ground: it
+ * spans the scroll region, the painting placed from the content and
+ * dissolving into the page by its own spray, so a wider window adds page.
+ */
+const discField: Omit<Backdrop, "key"> = {
+  presentation: { ...sceneFrame, span: { reach: "region" } },
+  Component: DiscFieldBackdrop,
+};
+
+/**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), with the family's shared plugin as a child.
@@ -201,6 +213,7 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(WOLF_MEDALLION_BACKDROP, wolfMedallion)),
         ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
         ctx.contribute(BackdropPoint, provideBackdrop(ASTRAL_BACKDROP, astral)),
+        ctx.contribute(BackdropPoint, provideBackdrop(DISC_FIELD_BACKDROP, discField)),
       ],
       { discard: true },
     ),
