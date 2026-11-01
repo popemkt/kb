@@ -72,6 +72,8 @@ export interface RowChromeInput {
    */
   instanceKey: string;
   showDebugFields: boolean;
+  /** Hidden fields the row's display draws anyway (`ResolvePropsOptions.revealed`). */
+  revealed?: ReadonlySet<string> | undefined;
 }
 
 /**
@@ -85,6 +87,7 @@ export function resolveRowChrome({
   view,
   instanceKey,
   showDebugFields,
+  revealed,
 }: RowChromeInput): RowChrome {
   const shown = shownNode(node, schema);
   const isQueryResult = isQueryResultInstance(instanceKey);
@@ -97,7 +100,7 @@ export function resolveRowChrome({
   const showsQueryResults = isQuery && !isQueryResult && !repeats;
   const showsChildren = !isQuery && hasChildren;
   const hasFrameRows = showsChildren || showsQueryResults;
-  const hasFields = resolveProps(shown, schema, { showDebugFields }).length > 0;
+  const hasFields = resolveProps(shown, schema, { showDebugFields, revealed }).length > 0;
   const isExpandable = hasFrameRows || hasFields;
   const projected = projectsRows(view);
 

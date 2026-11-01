@@ -241,6 +241,8 @@ export {
   VIEW_OPTION_TARGET_QUERY,
   defaultViewIdOf,
   defaultViewTypeOf,
+  tagDefaultViewsOf,
+  type TagDefaultView,
   familyViewIdOf,
   docsViewNameError,
   docsViewNameOf,
@@ -288,3 +290,18 @@ export {
   type AssetMediaKind,
 } from "./asset.ts";
 export { sanitizeSvg } from "./svg-sanitize.ts";
+export {
+  DISPLAY_DEFAULTS,
+  DISPLAY_OPTIONS,
+  displayDefaultId,
+  eachDisplayOption,
+  displayOptionsOf,
+  displaySettingFields,
+  displaySettingIds,
+  displaySettingsOf,
+  displaySettingValues,
+  type DisplayDefault,
+  type DisplayOption,
+  type DisplaySettings,
+  type DisplayView,
+} from "./display.ts";

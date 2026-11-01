@@ -15,6 +15,7 @@ export {
   paramsFromProps,
   paramsIssues,
   issueText,
+  ignoreReport,
   viewKey,
   type ConfigReport,
   type ParamsOf,
@@ -103,6 +104,7 @@ export {
   findPane,
   freshPaneId,
   layoutPanes,
+  nodePath,
   neighbourOf,
   normalizeLayout,
   openBeside,
@@ -116,12 +118,16 @@ export {
   type SplitDirection,
 } from "./layout.ts";
 export {
+  heldTagDefaultOf,
+  nodeOpenings,
   resolveDefaultViewType,
   resolveNodeView,
   viewNamed,
   type HeldViewTarget,
   type NamedView,
   type BrokenViewTarget,
+  type HeldTagDefault,
+  type NodeOpening,
   type NodeViewTarget,
   type UnheldViewTarget,
 } from "./node-view.ts";

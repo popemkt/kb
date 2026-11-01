@@ -425,6 +425,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
+### GAP: a tag's view.default picker offers view types no node opens in
+
+- **expected** — the picker on a tag's view.default offers only the view types a node can be shown in (showsANode), the outline among them
+- **current** — it offers every option of sys.views (the home, the canvas list, the 2D and 3D renderers); choosing one of those is reported at open and passed over, so the node opens in the store's default
+- **impact** — a person can pick a choice that silently does nothing for the tag's nodes apart from a warning in the log
+- **closes** — the field's option set narrowed by what a view shows (an option filter read from the view catalog), shared by the store default and the tag default
+- **node** — `01M69DX3D78HDQJ7W5E4HGC4PJ`
+
 ### GAP: a theme cannot bring a graph look of its own
 
 - **expected** — a design system names the graph lens theme it pairs with, as it names its page-head backdrop, and the graph shows it while no perspective chooses one (ZZZ's outlined sticker nodes, Transistor's light trails along edges; ART-DIRECTION.md)

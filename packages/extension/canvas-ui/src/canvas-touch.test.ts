@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { POINTER_SLOPS } from "@kb/ui-sdk";
-import { LONG_PRESS_MS, TouchGestures, type TouchHost } from "./canvas-touch";
+import { LONG_PRESS_MS, POINTER_SLOPS } from "@kb/ui-sdk";
+import { TouchGestures, type TouchHost } from "./canvas-touch";
 
 /** A host that writes down what it is asked, with a clock the test turns by hand. */
 function rig() {

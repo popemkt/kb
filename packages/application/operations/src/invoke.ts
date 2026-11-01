@@ -82,6 +82,7 @@ import { nodeAddTreeDef, nodeAddTreeEffect } from "./node-add-tree.ts";
 import { kbManifestDef, kbManifestEffect } from "./manifest.ts";
 import { viewsMigrateDef, viewsMigrateEffect } from "./views-migrate.ts";
 import { viewProposeDef, viewProposeEffect } from "./view-propose.ts";
+import { viewOpeningsDef, viewOpeningsEffect } from "./view-openings.ts";
 import { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
 import {
   renderViewActionEffect,
@@ -142,6 +143,7 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
   coreNative(graphChangesDef, graphChangesEffect),
   coreNative(ontologyMembersDef, ontologyMembersEffect),
   coreNative(viewProposeDef, viewProposeEffect),
+  coreNative(viewOpeningsDef, viewOpeningsEffect),
 ];
 
 /**

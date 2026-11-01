@@ -23,7 +23,7 @@ import { useRevealMarkup } from "./use-reveal-markup";
 import { useTextHistory } from "./use-text-history";
 import { PickerList } from "./picker-list";
 import { nearestOffsetForX, offsetFromPoint } from "../lib/caret";
-import { TagChipGroup } from "./tag-chip";
+import { TagChipGroup, type TagChipAction } from "./tag-chip";
 
 /** Where a caret placement puts the caret: an offset, the end, or a column to keep. */
 export type CaretAt = number | "end" | { x: number };
@@ -60,6 +60,8 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   content: string;
   isActive: boolean;
   tags: TagBadge[];
+  /** The action segment of one of `tags`' chips (`TagChipGroup`'s `tagAction`). */
+  tagAction?: (TagChipAction & { readonly tag: string }) | undefined;
   /** Explicit local placement for non-outline hosts such as a page title. */
   initialCaret?: "end";
   textClassName?: string;
@@ -105,6 +107,7 @@ export function NodeTextHost({
   content,
   isActive,
   tags,
+  tagAction,
   initialCaret,
   textClassName,
   onBlur,
@@ -429,6 +432,7 @@ export function NodeTextHost({
                 e.stopPropagation();
                 onRemoveTag(tag.id);
               }}
+              tagAction={tagAction}
             />
           </span>
         )}

@@ -16,13 +16,11 @@
  *   cancelled and the context menu opens where it is, as a right click's
  *   does. The finger is then the menu's until it lifts.
  *
- * Whether a finger has moved is read by the touch slop (`POINTER_SLOPS`).
+ * Whether a finger has moved is read by the touch slop (`POINTER_SLOPS`), and
+ * how long it waits by `LONG_PRESS_MS`.
  */
-import { pastSlop } from "@kb/ui-sdk";
+import { LONG_PRESS_MS, pastSlop } from "@kb/ui-sdk";
 import type { CanvasPoint } from "./canvas-camera";
-
-/** How long a finger is held still before it is a long press: Android's long-press timeout. */
-export const LONG_PRESS_MS = 500;
 
 export interface TouchHost {
   /** Cancel the press finger `id` began in the projection, as the browser does a touch it takes. */

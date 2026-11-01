@@ -1,15 +1,11 @@
 /**
  * A pane's view switcher: what else the pane can show. The node the pane is
- * shown for, through each of its views (its default first) and through each
- * view type a node can be shown in; then every page a route opens with
- * nothing chosen. Choosing one moves the pane; nothing is written.
+ * shown for, opened each way this page can open it (`pageOpeningsOf`); then every page a route opens with nothing chosen. Choosing one moves the pane; nothing is written.
  */
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { Predicate, Result } from "effect";
-import { canonicalJson, hostViewIds, viewOptionOf } from "@kb/model";
-import { LayoutView, NodeView, paramsFromProps, viewNamed, type ViewKey } from "@kb/views";
+import { Predicate } from "effect";
 import {
   cn,
   matchRoute,
@@ -18,9 +14,9 @@ import {
   useAnchoredPosition,
   useContributions,
   ViewPoint,
-  type NodeMap,
   useDismiss,
 } from "@kb/ui-sdk";
+import { pageOpeningsOf } from "@/lib/node-openings";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore, useShownNodes } from "@/stores/graph.store";
 import { shownZoomAt } from "./pane-title";
@@ -33,42 +29,6 @@ interface Choice {
 interface Section {
   readonly title: string;
   readonly choices: readonly Choice[];
-}
-
-/**
- * What a view node is called here: its text, else its view's label, its view
- * named as a node opens it (`viewNamed`), so a view this page cannot draw is
- * named too.
- */
-function viewNodeLabel(
-  id: string,
-  nodes: NodeMap,
-  catalog: Parameters<typeof viewNamed>[1],
-): string {
-  const node = nodes.get(id);
-  const text = node?.text.trim() ?? "";
-  if (text !== "") return text;
-  const option = viewOptionOf(node);
-  const named = option === null ? null : viewNamed(option, catalog, (view) => nodes.get(view));
-  return named?.label ?? id;
-}
-
-const quiet = (): void => {};
-
-/**
- * Whether `key` is a view a node is shown in: its settings read for a node
- * from an empty view node, and read differently than for none. A family's
- * view is shown inside its host's page, so it is reached through the node's
- * own views instead.
- */
-function showsANode(key: ViewKey<unknown>, host: string): boolean {
-  if (key === NodeView || key === LayoutView || key.family !== undefined) return false;
-  const forHost = paramsFromProps(key, {}, host, quiet);
-  if (Result.isFailure(forHost)) return false;
-  const forNone = paramsFromProps(key, {}, null, quiet);
-  return (
-    Result.isFailure(forNone) || canonicalJson(forNone.success) !== canonicalJson(forHost.success)
-  );
 }
 
 /** The node a page at `path` is shown for, when it is shown for one. */
@@ -94,19 +54,9 @@ function useSections(path: string): readonly Section[] {
   if (host !== null && hostNode !== undefined) {
     sections.push({
       title: hostNode.text.trim() === "" ? "This node" : hostNode.text.trim(),
-      choices: [
-        { path: nodePath(host), label: "Default view" },
-        ...hostViewIds(hostNode).map((id) => ({
-          path: nodePath(host, id),
-          label: viewNodeLabel(id, nodes, catalog),
-        })),
-        ...views
-          .filter(({ value }) => value.placements.includes("page") && showsANode(value.key, host))
-          .map(({ value }) => ({
-            path: nodePath(host, value.key.option),
-            label: value.key.label,
-          })),
-      ],
+      choices: pageOpeningsOf(host, catalog, views, (id) => nodes.get(id)).map(
+        ({ view, label }) => ({ path: nodePath(host, view), label }),
+      ),
     });
   }
   const pages = routes.flatMap(({ value }) =>

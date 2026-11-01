@@ -24,6 +24,7 @@ import { ulid } from "ulid";
 import {
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
+  ArrowSquareOutIcon,
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
@@ -67,12 +68,15 @@ import {
   SETTINGS_PATH,
   type OutlineCommandApi,
   shownDesignSystem,
+  ViewPoint,
   SYSTEM_IDS,
   type ThemePref,
   toast,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { pageOpeningsOf } from "@/lib/node-openings";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
+import { pageCatalog } from "@/lib/view-catalog";
 import { settingsPath } from "@/lib/settings-parts";
 import {
   LayoutView,
@@ -540,6 +544,43 @@ function defaultViewCommands(ctx: CommandContext): readonly Command[] {
   );
 }
 
+/**
+ * "Open with…" for the target (DESIGN-UI.md → Opening a node): a row for
+ * each way this page can open it (`pageOpeningsOf`), the one it opens in by
+ * default marked so. A view a tag of it names is its tag opening, "Open in
+ * …", and leads the menu. Each moves the focused pane to the node opened
+ * that way; nothing is written.
+ */
+function openWithCommands(ctx: CommandContext): readonly Command[] {
+  const nodeId = ctx.target.nodeId;
+  if (nodeId === null) return [];
+  const byId = new Map(ctx.outline.wireNodes.map((n) => [n.id, n]));
+  const views = currentContributions(ViewPoint);
+  const openings = pageOpeningsOf(nodeId, pageCatalog(), views, (id) => byId.get(id));
+  return openings.flatMap(({ view, label, key, tag, default: isDefault }): Command[] => {
+    if (view === undefined) return [];
+    const Icon = views.find(({ value }) => value.key === key)?.value.picker?.icon;
+    return [
+      {
+        id: `open-with:${view}`,
+        scope: "node",
+        leads: tag !== undefined,
+        chrome: () => ({
+          label:
+            tag === undefined
+              ? `Open with: ${label}${isDefault ? " (default)" : ""}`
+              : `Open in ${label}`,
+          icon: Icon === undefined ? <ArrowSquareOutIcon size={14} /> : <Icon size={14} />,
+        }),
+        run: (c) => {
+          c.palette.close();
+          browserHost().navigatePane(c.workspace.focused, nodePath(nodeId, view));
+        },
+      },
+    ];
+  });
+}
+
 /** Every command, in order: the static ones, with the views' where they sit. */
 function commandsFor(ctx: CommandContext): readonly Command[] {
   const views = frameViewCommands(ctx);
@@ -547,6 +588,7 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
     ...GLOBAL_COMMANDS,
     ...views.global,
     ...NODE_COMMANDS,
+    ...openWithCommands(ctx),
     ...views.node,
     ...defaultViewCommands(ctx),
     ...currentContributions(CommandPoint).map(({ value }) => value),
@@ -555,24 +597,28 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
 }
 
 /**
- * The commands this node offers, in order — the node menu's query over the
- * registry. A command with no `chrome` cannot be a node command, so a
+ * The commands this node offers, in order, the leading ones (`leads`)
+ * first — the node menu's query over the registry. A command with no `chrome` cannot be a node command, so a
  * `scope: "node"` row without one is a programming error rather than a
  * silently missing row.
  */
 export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
   // GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]
-  return commandsFor(ctx)
-    .filter((command) => command.scope === "node" && (command.when?.(ctx) ?? true))
-    .map((command) => {
-      const chrome = present(command.chrome, `node command ${command.id} has no chrome`)(ctx);
-      return {
-        id: command.id,
-        label: chrome.label,
-        icon: chrome.icon,
-        run: () => void runCommand(command.id, ctx),
-      };
-    });
+  const offered = commandsFor(ctx).filter(
+    (command) => command.scope === "node" && (command.when?.(ctx) ?? true),
+  );
+  return [
+    ...offered.filter((command) => command.leads === true),
+    ...offered.filter((command) => command.leads !== true),
+  ].map((command) => {
+    const chrome = present(command.chrome, `node command ${command.id} has no chrome`)(ctx);
+    return {
+      id: command.id,
+      label: chrome.label,
+      icon: chrome.icon,
+      run: () => void runCommand(command.id, ctx),
+    };
+  });
 }
 
 /** Run a command by id — the runner both palettes share. */

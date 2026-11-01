@@ -2194,7 +2194,9 @@ a separate point that only points at it.
   never `ctx`. It carries `placement`, which is `page` (the view fills
   the box its host gives it: the shell's page, the graph's canvas) or
   `inline` (the view sits in the outline's flow, under the row of the frame
-  it shows), and, when the host draws the view from a view node, that node
+  it shows) or `preview` (the view draws a node in a small fixed box under
+  its row; a contribution never lists it — `provideView` offers it because
+  the view's key says `preview`, the one statement of it), and, when the host draws the view from a view node, that node
   (`viewNode`, which the slot takes and the node route passes): where a view
   that edits its own settings writes them (the chart's spec editor). A view
   drawn from a view type or from code has none. The rest of the host contract (size, appearance, reduced motion,
@@ -2551,6 +2553,56 @@ until "Save workspace".
   reference) zooms the outline when the pane shows the page's outline. When
   the pane shows an outline rooted at a node (`/node/<id>`), it moves that
   pane to the node instead (`OpenNodeContext`, `useOpenNode`).
+- **Opening a node** goes through its default (DESIGN.md → View nodes): its
+  own view nodes, then its tags' default view types (`#canvas` opens in its
+  canvas), then the store's, then the read view. A Shift-click, "Open in
+  panel" and a rooted pane's `open` all go to `/node/<id>`, so a canvas
+  opens as a canvas there; the page's own zoom stays the outline's, since
+  the zoom is the outline's location (`/outline/<id>`).
+- **"Open with…"** is the node menu's row per way this page can open the
+  node: `pageOpeningsOf` (`lib/node-openings`), which is `nodeOpenings`
+  (`@kb/views`) less the view types this page draws no page of — the same
+  list the pane switcher offers. The one it opens in by default says
+  "(default)". A view a tag of the node names is its tag opening, so its
+  row says "Open in Canvas" and leads the menu (`Command.leads`). A row
+  moves the focused pane to `/node/<id>/<view>`, so the step is in the
+  history, and writes nothing. It is reached from the keyboard as every
+  node command is: the node menu is a palette, so typing "open" finds the
+  rows. Which view a tag opens in is the tag's `view.default` row, a field
+  like any other.
+- **A tag's opening on its row costs the row nothing.** A node whose tag
+  opens it in a view this page draws (`tagOpeningOf`, DESIGN.md → View
+  nodes → a tag's view sets how its nodes show) gets nothing new on its
+  row: the chip of that tag, which already says why the node is special,
+  grows a ↗ segment behind a hairline (`TagChip`'s `action`), "Open in
+  Canvas", the same step as the menu's row. The chip's name still goes to
+  the tag. On a pointer that hovers the segment shows while the row is
+  hovered or holds focus; on touch (`hover: none`) it is always there. It
+  is a button, so Tab reaches it. A click on the bullet stays as resolved.
+- **The bullet's menu.** A right click on a row's bullet, or a finger held
+  on it for `LONG_PRESS_MS` (`useMenuGesture`, `@kb/ui-sdk`), selects the
+  row and opens the node menu on it, as ⌘K does on a selected row. A long
+  press opens it under the finger, so the rest of that touch is the
+  menu's: the click the finger lifts with lands nowhere, on the bullet or
+  on the menu opened over it. It is how a phone reaches the node
+  menu, and so the display toggles.
+- **A row's display options.** After "Open in …", the node menu offers
+  "Show …" / "Hide …" for each display option the opening offers: the
+  preview, where the page draws the view at placement `preview`, and the
+  properties. Each is the node's own toggle; where the node says nothing,
+  its family's setting ("when a node asks" or "always") decides.
+  - **The preview** stands under the row at the row's indent plus one, in
+    a box of the family's `preview height`, so showing it moves what is
+    below by that much and nothing moves after. The view mounts only once
+    the box comes within 200px of the viewport (`useSeen`), so a long
+    outline pays for the previews it shows, not for the ones it holds.
+    Pressing it, or Enter on it, opens the node in the opening's view. It
+    takes the content column's width, so it fits both width modes.
+    (`row-preview.tsx`, `@kb/outline-ui`)
+  - **The properties** are the node's field rows as a plain node's: the
+    row's fields section, and the zoomed node's, reveal the fields of the
+    tag that opens it, drawn as any other field (`RowOpening.revealed`).
+  - With the family off there is no opening, so no option.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,

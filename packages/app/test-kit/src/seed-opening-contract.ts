@@ -220,3 +220,58 @@ export function unfoldedSeedNodesSurviveOpening(makeStore: StoreFactory): Promis
     ),
   );
 }
+
+/** `node` without its values of field `key`. */
+function without(node: KbNode, key: string): KbNode {
+  return {
+    ...node,
+    props: Object.fromEntries(Object.entries(node.props).filter(([k]) => k !== key)),
+  };
+}
+
+/**
+ * A store an earlier kb seeded before tags had default view types — the
+ * golden without `#canvas`'s, without the tag kind templating the field, and
+ * without the field configuring tags — gains all three on its first open,
+ * in exactly one write, and no later open writes (the seed's own passes: a
+ * fill-absent prop, a kind's template).
+ */
+export function tagDefaultViewReachesEarlierStoreOnce(makeStore: StoreFactory): Promise<void> {
+  const field = SYSTEM_IDS.viewDefaultField;
+  const canvasTag = "sys.tag.canvas";
+  const earlier = seedGoldenNodes().map((node) => {
+    if (node.id === canvasTag) return without(node, field);
+    if (node.id === field) return without(node, SYSTEM_IDS.configuresField);
+    if (node.id !== SYSTEM_IDS.tag) return node;
+    const template = (node.props[SYSTEM_IDS.fieldsField] ?? []).filter(
+      (value) => !(value.t === "ref" && value.v === field),
+    );
+    return { ...node, props: { ...node.props, [SYSTEM_IDS.fieldsField]: template } };
+  });
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        yield* makeStore(root).commitEffect({ upserts: earlier, deletes: [] }, { at: AT });
+        const before = makeStore(root).txTail.entries().length;
+        yield* openSession(root);
+        const after = makeStore(root).txTail.entries();
+        expect(after.length).toBe(before + 1);
+        const write = after.at(-1)?.ops;
+        expect(write?.deletes).toEqual([]);
+        expect(write?.upserts.map((node) => node.id).toSorted()).toEqual(
+          [field, SYSTEM_IDS.tag, canvasTag].toSorted(),
+        );
+        const loaded = new Map((yield* makeStore(root).loadEffect).map((node) => [node.id, node]));
+        expect(loaded.get(canvasTag)?.props[field]).toEqual([
+          { t: "ref", v: viewOptionId("canvas.page") },
+        ]);
+        expect(loaded.get(SYSTEM_IDS.tag)?.props[SYSTEM_IDS.fieldsField]).toContainEqual({
+          t: "ref",
+          v: field,
+        });
+        yield* opensWithoutWriting(makeStore, root);
+      }),
+    ),
+  );
+}

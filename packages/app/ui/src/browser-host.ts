@@ -10,6 +10,7 @@ import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
 import { proposeView } from "@/lib/propose-view";
+import { pageCatalog } from "@/lib/view-catalog";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke } from "@/session/runtime";
@@ -88,6 +89,7 @@ const host: BrowserHost = {
   activateNode: (nodeId, cursorPos, instanceKey) =>
     pageEditor().getState().activateNode(nodeId, cursorPos, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
+  viewCatalog: pageCatalog,
   writes: mutations,
   invoke,
   screen: paneScreenPort,

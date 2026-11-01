@@ -63,6 +63,14 @@ export interface ExtensionDeclaration {
    */
   readonly defaultView?: ViewKey<unknown>;
   /**
+   * The tags whose nodes open in one of its own `views` before the store's
+   * default (DESIGN.md → View nodes): by the tag's id, the view's key. The
+   * seed writes each as the tag node's `sys.f.view.default`, which a person
+   * may change there, and refuses a tag another declaration claims, so a
+   * repository extension that claims one is refused as a unit.
+   */
+  readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
+  /**
    * The declared options the family contributes (DESIGN.md → Extension
    * families → Declared options), by kind: page-head backdrops
    * (`BACKDROP_OPTIONS`), design systems (`DESIGN_SYSTEM_OPTIONS`), or the

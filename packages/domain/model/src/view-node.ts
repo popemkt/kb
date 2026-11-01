@@ -82,6 +82,30 @@ export function defaultViewTypeOf(views: Carrier | undefined): NodeId | null {
   return firstRefOf(views, SYSTEM_IDS.viewDefaultField);
 }
 
+/** One tag's default view type, as a node of it reads it: the tag, and the option it names. */
+export interface TagDefaultView {
+  readonly tag: NodeId;
+  readonly option: NodeId;
+}
+
+/**
+ * The default view types of `node`'s tags, in the order it carries them:
+ * each tag (a `sys.f.type` ref) whose node names one in
+ * `sys.f.view.default`, the field `sys.views` names the store's in
+ * ({@link defaultViewTypeOf}). A node that names no view opens in the first
+ * of these its host can show, before the store's. `lookup` reads a node.
+ */
+export function tagDefaultViewsOf(
+  node: Carrier | undefined,
+  lookup: (id: NodeId) => Carrier | undefined,
+): TagDefaultView[] {
+  return (node?.props[SYSTEM_IDS.typeField] ?? []).flatMap((value) => {
+    if (value.t !== "ref") return [];
+    const option = defaultViewTypeOf(lookup(value.v));
+    return option === null ? [] : [{ tag: value.v, option }];
+  });
+}
+
 /**
  * A host's views with `viewId` first and the rest in their order: what
  * making it the host's default writes, as one replacement of `sys.f.views`.

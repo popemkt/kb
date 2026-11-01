@@ -26,6 +26,7 @@ import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
 import { VALUE_KINDS, valueKindOf } from "./value-kind";
 import { arriveAt, slotAt } from "./value-slot-nav";
+import { useRowOpening } from "./row-opening";
 
 /**
  * The gallery loads when a field first draws as one: only a kind whose
@@ -434,7 +435,11 @@ export function NodeField({
   const follow = useFollow();
   const fieldType = resolveFieldTypeById(fieldId, context.schema);
   const fieldNode = context.schema.get(fieldId);
-  const readOnly = !isWritableField(nodeId, fieldId, fieldNode);
+  const readOnly = !isWritableField(
+    context.schema.get(nodeId) ?? { id: nodeId },
+    fieldId,
+    fieldNode,
+  );
   // An option field whose kind previews at card size is chosen by sight: its
   // options laid out at once (DESIGN-UI.md → Field values → option galleries).
   const card = useOptionPreview(fieldId, "card");
@@ -491,11 +496,13 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   // the section depends on the definitions and values it reads, not the graph.
   const context = useGraphRead();
   const node = context.outline.get(nodeId);
-  // Debug rows are this node's own business (⌘K → "Show debug fields").
+  // Debug rows are this node's own business (⌘K → "Show debug fields"), and
+  // so are the fields its tag opening's view draws, while its properties show.
   const showDebugFields = useDebugFields(nodeId);
+  const revealed = useRowOpening(node)?.revealed;
 
   if (!node) return null;
-  const props = resolveProps(node, context.schema, { showDebugFields });
+  const props = resolveProps(node, context.schema, { showDebugFields, revealed });
   if (props.length === 0) return null;
 
   return (

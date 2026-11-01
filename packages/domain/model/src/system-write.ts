@@ -4,10 +4,10 @@
  *
  * A `sys.*` node is seeded and code reads its shape, so it is written only
  * with `force`, with one exception the graph itself declares: a system field
- * that carries `sys.f.configures`, a ref to an extension's node (or to their
- * list, `sys.extensions`, for every one of them), is a setting of that
- * extension, and its values on that node are written like any field's
- * values on any node. The field must itself be a system field: only the
+ * that carries `sys.f.configures`, a ref to an extension's node, to their
+ * list `sys.extensions` (every one of them), or to a kind (`sys.tag`: every
+ * tag), is a setting of what it names, and its
+ * values there are written like any field's values on any node. The field must itself be a system field: only the
  * owner's `force` mints or retargets one, so a field anyone may add cannot
  * declare itself a setting of a node it does not own. Nothing else of a
  * system node is a person's to write: not its text, its children, its rank,
@@ -23,7 +23,7 @@
  * edit only where the write would land.
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
-import { refValuesOf, type NodeLike } from "./ontology.ts";
+import { refValuesOf, typeRefsOf, type NodeLike } from "./ontology.ts";
 
 /** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
 export interface NodeWrite {
@@ -31,23 +31,36 @@ export interface NodeWrite {
   readonly after: KbNode | undefined;
 }
 
+/**
+ * The node a setting is checked against: its id, and its props where they
+ * are at hand (its kinds, `sys.f.type`, are what a setting of a kind reads).
+ */
+export interface Configured {
+  readonly id: NodeId;
+  readonly props?: NodeLike["props"];
+}
+
 /** How a write finds the nodes it is checked against: the graph before it. */
 export type NodeOf = (id: NodeId) => Pick<NodeLike, "props"> | undefined;
 
 /**
  * Whether the field `fieldId` (its node `fieldNode`) is a setting of
- * `nodeId`: a system field whose `sys.f.configures` names that node, or
- * names `sys.extensions` where the node is an extension's.
+ * `node`: a system field whose `sys.f.configures` names that node, names
+ * `sys.extensions` where the node is an extension's, or names a kind the
+ * node is (one of its `sys.f.type` refs: `sys.tag` for every tag).
  */
 export function configures(
   fieldId: NodeId,
   fieldNode: Pick<NodeLike, "props"> | undefined,
-  nodeId: NodeId,
+  node: Configured,
 ): boolean {
   if (!isSysPrefixed(fieldId)) return false;
   const named = refValuesOf(fieldNode, SYSTEM_IDS.configuresField);
+  const kinds = node.props === undefined ? [] : typeRefsOf({ props: node.props });
   return named.some((target) =>
-    target === SYSTEM_IDS.extensionsRoot ? isExtensionNodeId(nodeId) : target === nodeId,
+    target === SYSTEM_IDS.extensionsRoot
+      ? isExtensionNodeId(node.id)
+      : target === node.id || kinds.includes(target),
   );
 }
 
@@ -82,15 +95,15 @@ export function changedFields(before: KbNode | undefined, after: KbNode | undefi
 
 /**
  * Whether a person may write values of the field `fieldId` (its node
- * `fieldNode`) on `nodeId` without force: on any node that is not a system
+ * `fieldNode`) on `node` without force: on any node that is not a system
  * node, and on a system node only where the field is one of its settings.
  */
 export function isWritableField(
-  nodeId: NodeId,
+  node: Configured,
   fieldId: NodeId,
   fieldNode: Pick<NodeLike, "props"> | undefined,
 ): boolean {
-  return !isSysPrefixed(nodeId) || configures(fieldId, fieldNode, nodeId);
+  return !isSysPrefixed(node.id) || configures(fieldId, fieldNode, node);
 }
 
 /**
@@ -117,7 +130,7 @@ export function systemWriteRefusal(
     return protectedWrite;
   }
   for (const field of changedFields(before, next)) {
-    if (!isWritableField(next.id, field, fieldOf(field))) return protectedWrite;
+    if (!isWritableField(before, field, fieldOf(field))) return protectedWrite;
   }
   return null;
 }

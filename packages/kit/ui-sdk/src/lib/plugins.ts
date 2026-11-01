@@ -52,10 +52,16 @@ import type { OutlineNode } from "./types";
 /**
  * Where a host renders a view: `page` fills the box the host gives it (the
  * shell's page, the graph's canvas); `inline` sits in the outline's flow,
- * under the row of the frame it shows. The rest of the placements wait on
- * their first host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
+ * under the row of the frame whose children it lays out; `preview` is a
+ * compact, read-only picture of a node under its row, in a box of fixed
+ * height, which a view offers exactly when its key says it draws one
+ * (`ViewKey.preview`, {@link provideView}). The rest of the placements wait
+ * on their first host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
-export type Placement = "page" | "inline";
+export type Placement = "page" | "inline" | "preview";
+
+/** The placements a contribution lists itself: `preview` is its key's to say. */
+type ListedPlacement = Exclude<Placement, "preview">;
 
 /** What a host guarantees a view: never a store, never `ctx`. */
 export interface ViewHost {
@@ -105,24 +111,35 @@ export interface ProvidedView {
 
 export const ViewPoint = Point<ProvidedView>()("ui.views");
 
-/** The `ViewPoint` contribution for `key`, under the key's own local id. */
+/** What a view contribution says beside its key: its placements but `preview`, which the key says. */
+type ViewEntry<P> = Omit<View<P>, "key" | "placements"> & {
+  readonly placements: readonly ListedPlacement[];
+};
+
 /**
- * A view of a family (its key names a `family`) must say how a picker names
- * it: its pickers list it by nothing else. A view of no family has no picker.
+ * The `ViewPoint` contribution for `key`, under the key's own local id. A
+ * view of a family (its key names a `family`) must say how a picker names
+ * it: its pickers list it by nothing else. A view of no family may say so
+ * too, for where a node is opened in it ("Open in …", "Open with…"). It is
+ * offered at `preview` too when its key draws a preview (`ViewKey.preview`),
+ * so its component is drawn there with `host.placement === "preview"`.
  */
 export function provideView<P>(
   key: ViewKey<P> & { readonly family: string },
-  view: Omit<View<P>, "key" | "picker"> & { readonly picker: ViewPicker },
+  view: Omit<ViewEntry<P>, "picker"> & { readonly picker: ViewPicker },
 ): ContributionEntry<ProvidedView>;
 export function provideView<P>(
   key: PlainViewKey<P>,
-  view: Omit<View<P>, "key" | "picker">,
+  view: ViewEntry<P>,
 ): ContributionEntry<ProvidedView>;
 export function provideView<P>(
   key: ViewKey<P>,
-  view: Omit<View<P>, "key">,
+  view: ViewEntry<P>,
 ): ContributionEntry<ProvidedView> {
-  const provided: View<P> = { key, ...view };
+  const placements: readonly Placement[] = key.preview
+    ? [...view.placements, "preview"]
+    : view.placements;
+  const provided: View<P> = { key, ...view, placements };
   return { id: localIdOf(key), value: provided };
 }
 

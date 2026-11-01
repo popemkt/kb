@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { HashIcon, XIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
 import { tagChipColors } from "../lib/tag-color";
@@ -35,10 +36,22 @@ export function OptionChip({ id, label, color }: { id: string; label: string; co
   );
 }
 
+/**
+ * A second target inside a chip: what the tag does for the node it is on,
+ * beside going to the tag (the chip of the tag a node opens through names
+ * that view: "Open in Canvas").
+ */
+export interface TagChipAction {
+  readonly label: string;
+  readonly icon: ReactNode;
+  readonly run: (e: React.MouseEvent) => void;
+}
+
 export interface TagChipProps {
   tag: TagBadge;
   onClick?: (e: React.MouseEvent) => void;
   onRemove?: (e: React.MouseEvent) => void;
+  action?: TagChipAction | undefined;
   className?: string;
 }
 
@@ -50,8 +63,12 @@ export interface TagChipProps {
  * same thing. The mark scales in `em`, so it tracks --type-tag for free.
  * Remove × overlays the hash slot so hover never changes measured width
  * (i10 item 2; Tana/CodeFlow placement).
+ *
+ * An `action` is a segment after the name, behind a hairline: on a pointer
+ * that hovers it grows in while the row is hovered or holds focus, so it
+ * costs the row nothing at rest; on touch it is always there.
  */
-export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
+export function TagChip({ tag, onClick, onRemove, action, className }: TagChipProps) {
   const canNavigate = Boolean(onClick);
   const mark = (
     <span
@@ -116,6 +133,27 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
           {label}
         </span>
       )}
+      {action === undefined ? null : (
+        <button
+          type="button"
+          className={cn(
+            "hidden shrink-0 items-center self-stretch border-l border-current/25 pl-1 outline-none",
+            "group-hover/node:inline-flex group-focus-within/node:inline-flex focus-visible:inline-flex",
+            "[@media(hover:none)]:inline-flex",
+            "rounded-r-sm opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60",
+          )}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            action.run(e);
+          }}
+          title={action.label}
+          aria-label={action.label}
+          data-tag-action="true"
+        >
+          {action.icon}
+        </button>
+      )}
     </span>
   );
 }
@@ -124,10 +162,13 @@ export function TagChipGroup({
   tags,
   onTagClick,
   onTagRemove,
+  tagAction,
 }: {
   tags: TagBadge[];
   onTagClick?: (tag: TagBadge, e: React.MouseEvent) => void;
   onTagRemove?: (tag: TagBadge, e: React.MouseEvent) => void;
+  /** The action segment of the chip of the tag it names (`TagChipAction`). */
+  tagAction?: (TagChipAction & { readonly tag: string }) | undefined;
 }) {
   if (tags.length === 0) return null;
   return (
@@ -141,6 +182,7 @@ export function TagChipGroup({
           tag={tag}
           onClick={onTagClick ? (e) => onTagClick(tag, e) : undefined}
           onRemove={onTagRemove ? (e) => onTagRemove(tag, e) : undefined}
+          action={tagAction?.tag === tag.id ? tagAction : undefined}
         />
       ))}
     </div>

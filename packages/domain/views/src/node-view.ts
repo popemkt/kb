@@ -7,9 +7,12 @@
 import { Result } from "effect";
 import {
   SYSTEM_IDS,
+  canonicalJson,
   defaultViewIdOf,
   defaultViewTypeOf,
+  hostViewIds,
   isViewNode,
+  tagDefaultViewsOf,
   viewIdOfOption,
   viewOptionId,
   viewOptionOf,
@@ -17,8 +20,14 @@ import {
   type NodeProps,
 } from "@kb/model";
 import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
-import { HomeView, NodeReadView, type NodeParams } from "./layout.ts";
-import type { ConfigReport, ViewKey, ViewPage } from "./view-key.ts";
+import { HomeView, LayoutView, NodeReadView, NodeView, type NodeParams } from "./layout.ts";
+import {
+  ignoreReport,
+  paramsFromProps,
+  type ConfigReport,
+  type ViewKey,
+  type ViewPage,
+} from "./view-key.ts";
 
 /** What the resolver reads of a node: its props, and its text when it names a view. */
 interface Carrier {
@@ -150,10 +159,15 @@ function readInPlace(
  * - `view` names a view node: that view node, shown for the node;
  * - no `view`, and the node is a view node: that view node, shown for no node;
  * - no `view`: the node's default view (the first view node it names), or,
- *   when it names none, the store's default view type, which `sys.views`
- *   names (`defaultViewTypeOf`), opened as if `view` named it.
+ *   when it names none, the first of its tags' default view types this host
+ *   holds a key for (`tagDefaultViewsOf`), else the store's default view
+ *   type, which `sys.views` names (`defaultViewTypeOf`), each opened as if
+ *   `view` named it.
  *
- * A node always has a view to open in: where the store's default view type
+ * A tag's default this host holds no key for (its family switched off, or
+ * not bundled) is passed over, so the node opens as if the tag named none;
+ * one that names no view type is reported and passed over. A node always
+ * has a view to open in: where the store's default view type
  * is one this host holds no key for (its family is switched off, or not
  * bundled), or the store names none, the node is read
  * ({@link NodeReadView}, core's) in its place. So is a held view whose page
@@ -194,12 +208,50 @@ function throughNamed(view: string, node: NodeId, r: Resolving): Opened {
 
 /**
  * `node` (carried by `carrier`) in its default view: the first view node it
- * names, else the store's default view type.
+ * names, else its first tag's default view type this host holds
+ * ({@link heldTagDefaultOf}), else the store's default view type.
  */
 function throughDefault(carrier: Carrier, node: NodeId, r: Resolving): Opened {
   const viewId = defaultViewIdOf(carrier);
   if (viewId !== null) return throughViewNode(viewId, node, r);
+  const tagged = heldTagDefaultOf(carrier, r.catalog.keyOf, r.lookup, r.report)?.key ?? null;
+  if (tagged !== null)
+    return shownPage(pageOf(tagged, {}, node, null, r.report), node, { subject: node }, r);
   return throughDefaultType(node, node, r);
+}
+
+/** A tag's default view type a host holds: the tag, and the view's key. */
+export interface HeldTagDefault {
+  readonly tag: NodeId;
+  readonly key: ViewKey<unknown>;
+}
+
+/**
+ * The first of `carrier`'s tags' default view types a host holds (`keyOf`
+ * finds a view's key by its option, null where the host holds none), or
+ * null: what a node naming no view opens in before the store's default, and
+ * the handler the outline offers its row ("Open in …", its inline preview).
+ * One that names no view type, or names the home, is reported and passed
+ * over; one the host holds no key for (its family off) is passed over.
+ */
+export function heldTagDefaultOf(
+  carrier: Carrier | undefined,
+  keyOf: (view: string) => ViewKey<unknown> | null,
+  lookup: (id: NodeId) => Carrier | undefined,
+  report: ConfigReport,
+): HeldTagDefault | null {
+  for (const { tag, option } of tagDefaultViewsOf(carrier, lookup)) {
+    const type = viewIdOfOption(option);
+    if (type === null || type === HomeView.id) {
+      report(
+        `${tag}'s default view type ${option} is no view a node opens in (${SYSTEM_IDS.viewDefaultField})`,
+      );
+      continue;
+    }
+    const key = keyOf(type);
+    if (key !== null) return { tag, key };
+  }
+  return null;
 }
 
 /**
@@ -306,4 +358,95 @@ function unheld(
 ): Result.Result<UnheldViewTarget, string> {
   const listed = viewNamed(view, r.catalog, r.lookup);
   return listed === null ? Result.fail(failure) : Result.succeed({ key: null, listed, ...shown });
+}
+
+/**
+ * One way to open a node: the `view` its `/node/<id>/<view>` location names
+ * (a view node's id, or a view type's option; absent, its default), what it
+ * is called, and, for a view type, its key, so a host can tell whether it
+ * draws that view where it would open.
+ */
+export interface NodeOpening {
+  readonly view?: string;
+  readonly label: string;
+  readonly key?: ViewKey<unknown>;
+  /** The tag whose default view type this is, for one a tag of the node names. */
+  readonly tag?: NodeId;
+  /** Whether this is what the node opens in by default. */
+  readonly default: boolean;
+}
+
+/**
+ * Whether `key` is a view a node is shown in: its settings read for a node
+ * from an empty view node, and read differently than for none. A family's
+ * view is shown inside its host's page, so it is reached through the node's
+ * own views instead.
+ */
+function showsANode(key: ViewKey<unknown>, host: NodeId): boolean {
+  if (key === NodeView || key === LayoutView || key.family !== undefined) return false;
+  const forHost = paramsFromProps(key, {}, host, ignoreReport);
+  if (Result.isFailure(forHost)) return false;
+  const forNone = paramsFromProps(key, {}, null, ignoreReport);
+  return (
+    Result.isFailure(forNone) || canonicalJson(forNone.success) !== canonicalJson(forHost.success)
+  );
+}
+
+/**
+ * What a view node is called: its text, else its view's label, its view
+ * named as a node opens it ({@link viewNamed}), so a view a host cannot draw
+ * is named too.
+ */
+function viewNodeLabel(
+  id: NodeId,
+  catalog: Pick<Catalog, "listedOf">,
+  lookup: (id: NodeId) => Carrier | undefined,
+): string {
+  const node = lookup(id);
+  const text = node?.text?.trim() ?? "";
+  if (text !== "") return text;
+  const option = viewOptionOf(node);
+  return (option === null ? null : viewNamed(option, catalog, lookup))?.label ?? id;
+}
+
+/**
+ * Every way `host` can be opened, in order: its default, each view node it
+ * names (its own default first), then each view type of `catalog` a node is
+ * shown in, its tags' defaults first (each with the tag it is the default
+ * of). The opening the default resolves to (`resolveNodeView`) is marked
+ * `default`. One list, so the pane switcher, the node menu and
+ * `view.openings` offer the same openings.
+ */
+export function nodeOpenings(
+  host: NodeId,
+  catalog: Pick<ViewCatalogOf<CatalogItem>, "items" | "keyOf" | "listedOf">,
+  lookup: (id: NodeId) => Carrier | undefined,
+): NodeOpening[] {
+  const node = lookup(host);
+  if (node === undefined) return [];
+  const resolved = resolveNodeView({ node: host }, catalog, lookup, ignoreReport);
+  const target = Result.isSuccess(resolved) ? resolved.success : null;
+  const isDefault = (opening: Omit<NodeOpening, "default">): boolean =>
+    target !== null &&
+    target.key !== null &&
+    (target.viewNode === undefined ? opening.key === target.key : opening.view === target.viewNode);
+  const tagOf = new Map<string, NodeId>();
+  for (const { tag, option } of tagDefaultViewsOf(node, lookup)) {
+    if (!tagOf.has(option)) tagOf.set(option, tag);
+  }
+  const types = catalog.items
+    .filter(({ key }) => showsANode(key, host))
+    .map(({ key }) => {
+      const tag = tagOf.get(key.option);
+      return { view: key.option, label: key.label, key, ...(tag === undefined ? {} : { tag }) };
+    });
+  const openings: Omit<NodeOpening, "default">[] = [
+    ...hostViewIds(node).map((id) => ({ view: id, label: viewNodeLabel(id, catalog, lookup) })),
+    ...types.filter((opening) => opening.tag !== undefined),
+    ...types.filter((opening) => opening.tag === undefined),
+  ];
+  return [
+    { label: "Default view", default: false },
+    ...openings.map((opening) => ({ ...opening, default: isDefault(opening) })),
+  ];
 }

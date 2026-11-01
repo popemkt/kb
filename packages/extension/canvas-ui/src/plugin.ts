@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { SquareIcon } from "@phosphor-icons/react";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
@@ -46,7 +47,9 @@ export const canvasUiPlugin = definePlugin({
         ctx.contribute(
           ViewPoint,
           provideView(CanvasView, {
+            // Its key draws a preview, so it is offered at `preview` too: a still picture.
             placements: ["page"],
+            picker: { order: 0, icon: SquareIcon },
             sample: { id: "canvas.contract-sample" },
             Component: CanvasSurface,
           }),

@@ -1,4 +1,5 @@
 import { cn } from "../lib/cn";
+import { useMenuGesture } from "../lib/menu-gesture";
 import {
   BULLET_GEOMETRY,
   BULLET_GLYPH,
@@ -17,6 +18,11 @@ import type { OutlineNode } from "../lib/types";
 interface BulletProps extends OutlineBulletOptions {
   node: OutlineNode;
   onClick: (e: React.MouseEvent) => void;
+  /**
+   * Open the node's menu: a right click on the bullet, or a finger held on
+   * it (`useMenuGesture`). A surface with no menu for the node passes none.
+   */
+  onMenu?: (() => void) | undefined;
 }
 
 /**
@@ -135,18 +141,22 @@ const BULLET_SHAPES: Record<BulletShape, (props: { a: BulletAppearance }) => Rea
   dot: Dot,
 };
 
-export function Bullet({ node, onClick, ...options }: BulletProps) {
+const noMenu = () => {};
+
+export function Bullet({ node, onClick, onMenu, ...options }: BulletProps) {
   const appearance = outlineBulletAppearance(node, options);
   const Shape = BULLET_SHAPES[appearance.shape];
+  const menu = useMenuGesture(onMenu ?? noMenu);
 
   const bullet = (
     <button
       type="button"
       onClick={onClick}
+      {...(onMenu === undefined ? {} : menu)}
       className={cn(
         "bullet-container group/bullet relative flex h-6 w-6 shrink-0 items-center justify-center",
         "rounded-sm hover:bg-foreground/5 transition-colors duration-100",
-        "cursor-pointer",
+        "cursor-pointer [-webkit-touch-callout:none]",
       )}
       style={appearance.isSys ? { opacity: BULLET_SYS_OPACITY } : undefined}
       tabIndex={-1}

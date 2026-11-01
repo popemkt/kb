@@ -33,6 +33,17 @@ describe("field visibility", () => {
     expect(isFieldHidden("field.noisy", schemaFor(nodes))).toBe(true);
   });
 
+  it("draws a hidden field a node's display reveals as any other, and leaves the rest hidden", () => {
+    const nodes = mapFromFixture();
+    const node = present(nodes.get("n.root-a"), "n.root-a");
+    const revealed = resolveVisibleProps(node, schemaFor(nodes), {
+      revealed: new Set(["field.noisy"]),
+    });
+    const noisy = revealed.find((p) => p.fieldId === "field.noisy");
+    expect(noisy?.debug).toBe(false);
+    expect(revealed.map((p) => p.fieldId)).not.toContain("sys.f.type");
+  });
+
   it("draws a system field its node does not hide, with no list in the page", () => {
     // The gap this closes: an allow-list of five sys fields decided what a
     // person saw, so a field's cardinality and inverse, which sys.field

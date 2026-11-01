@@ -30,6 +30,13 @@ export interface ResolvePropsOptions {
    * device-wide pref, which is why the option is worth naming precisely.
    */
   showDebugFields?: boolean;
+  /**
+   * Fields drawn though their field node hides them, as any other field is:
+   * the ones the node's display asks for (the outline's "Show properties"
+   * reveals the fields of the tag that opens the node in its view, which
+   * that view draws instead).
+   */
+  revealed?: ReadonlySet<string> | undefined;
 }
 
 export type VisibleProp = ResolvedProp & {
@@ -63,6 +70,8 @@ function templatedFieldIds(node: OutlineNode, schema: SchemaIndex): string[] {
   return ids;
 }
 
+const NONE: ReadonlySet<string> = new Set();
+
 /** Resolve node props for FieldRow display with visibility filtering. */
 export function resolveVisibleProps(
   node: OutlineNode,
@@ -70,11 +79,14 @@ export function resolveVisibleProps(
   opts: ResolvePropsOptions = {},
 ): VisibleProp[] {
   const showAll = opts.showDebugFields ?? false;
+  const revealed = opts.revealed ?? NONE;
+  // Hidden from this node's rows: its field node hides it, and its display does not reveal it.
+  const hides = (fieldId: string) => !revealed.has(fieldId) && isFieldHidden(fieldId, schema);
   const out: VisibleProp[] = [];
   const seen = new Set<string>();
 
   for (const [fieldId, values] of Object.entries(node.props)) {
-    const hiddenByDefault = isFieldHidden(fieldId, schema);
+    const hiddenByDefault = hides(fieldId);
     if (!showAll && hiddenByDefault) continue;
 
     const fieldNode = schema.get(fieldId);
@@ -92,7 +104,7 @@ export function resolveVisibleProps(
   // as soon as the tag declares them.
   for (const fieldId of templatedFieldIds(node, schema)) {
     if (seen.has(fieldId)) continue;
-    if (!showAll && isFieldHidden(fieldId, schema)) continue;
+    if (!showAll && hides(fieldId)) continue;
     const fieldNode = schema.get(fieldId);
     out.push({
       fieldId,

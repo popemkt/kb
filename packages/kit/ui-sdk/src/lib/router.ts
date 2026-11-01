@@ -58,14 +58,8 @@ export function usePath(): string {
   return useSyncExternalStore(subscribePath, getPath, () => "/");
 }
 
-/**
- * `/node/<id>`: a node in its default view; `/node/<id>/<view>`: the node
- * through one view (a view node it names, or a view type by its option).
- */
-export function nodePath(node: string, view?: string): string {
-  const base = `/node/${encodeURIComponent(node)}`;
-  return view === undefined ? base : `${base}/${encodeURIComponent(view)}`;
-}
+/** A node's location (`NodeView`'s, in `@kb/views`), where the page navigates to it. */
+export { nodePath } from "@kb/views";
 
 /** `/o/<id>` (page) · `/o/<id>/outline` · `/o/<id>/graph`. */
 export function ontologyPath(id: string, view: OntologyView = "page"): string {
