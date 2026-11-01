@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { RetryableError } from "./kept-load";
-import { type BuildEnv, isMissingChunk, reloadForNewBuild, watchForNewBuild } from "./stale-build";
+import {
+  type BuildEnv,
+  followServerBuild,
+  isMissingChunk,
+  reloadForNewBuild,
+  watchForNewBuild,
+} from "./stale-build";
 
 const missing = (url = "https://kb/static/composer-page-CSoHrcCV.js") =>
   new TypeError(`Failed to fetch dynamically imported module: ${url}`);
@@ -10,7 +16,7 @@ const preloadError = (payload: unknown) =>
   Object.assign(new Event("vite:preloadError", { cancelable: true }), { payload });
 
 /** A tab: its build, its session storage (kept across its reloads), and how often it reloaded. */
-function tab(build: string, storage = new Map<string, string>()) {
+function tab(build: string | null, storage = new Map<string, string>()) {
   const reloads: string[] = [];
   const env: BuildEnv = {
     build,
@@ -18,10 +24,51 @@ function tab(build: string, storage = new Map<string, string>()) {
       getItem: (key) => storage.get(key) ?? null,
       setItem: (key, value) => void storage.set(key, value),
     },
-    reload: () => reloads.push(build),
+    reload: () => reloads.push(build ?? "dev"),
   };
   return { env, storage, reloads };
 }
+
+describe("the build the server says it serves", () => {
+  it("is followed when it is another: the tab reloads into it, once", async () => {
+    const old = tab("/static/index-h1.js");
+    expect(followServerBuild("/static/index-h2.js", false, old.env)).toBe("reloading");
+    expect(old.reloads).toHaveLength(1);
+
+    // The reload came back to the old page (a cache, a proxy): offered, not looped.
+    vi.resetModules();
+    const reloaded = await import("./stale-build");
+    const again = tab("/static/index-h1.js", old.storage);
+    expect(reloaded.followServerBuild("/static/index-h2.js", false, again.env)).toBe("offer");
+    expect(again.reloads).toHaveLength(0);
+  });
+
+  it("is offered, not forced, while edits the server has not confirmed would be lost", () => {
+    const t = tab("/static/index-h3.js");
+    expect(followServerBuild("/static/index-h4.js", true, t.env)).toBe("offer");
+    expect(t.reloads).toHaveLength(0);
+    // Offering records nothing: once the edits are in, the next hello reloads.
+    expect(followServerBuild("/static/index-h4.js", false, t.env)).toBe("reloading");
+    expect(t.reloads).toHaveLength(1);
+  });
+
+  it("asks nothing when it is this page's, when the server serves no built page, or on the dev server", () => {
+    const t = tab("/static/index-h5.js");
+    expect(followServerBuild("/static/index-h5.js", false, t.env)).toBe("current");
+    expect(followServerBuild(undefined, false, t.env)).toBe("current");
+    const dev = tab(null);
+    expect(followServerBuild("/static/index-h5.js", false, dev.env)).toBe("current");
+    expect(reloadForNewBuild(missing(), dev.env)).toBe(false);
+    expect([...t.reloads, ...dev.reloads]).toEqual([]);
+  });
+
+  it("shares the one guard with a chunk that did not arrive: a build is reloaded for once, whichever saw it first", () => {
+    const t = tab("/static/index-h6.js");
+    expect(reloadForNewBuild(missing(), t.env)).toBe(true);
+    expect(followServerBuild("/static/index-h7.js", false, t.env)).toBe("reloading");
+    expect(t.reloads).toHaveLength(1);
+  });
+});
 
 describe("a tab left open across a release", () => {
   it("knows each browser's words for a chunk that did not arrive, through a retryable load's cause", () => {

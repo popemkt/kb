@@ -92,6 +92,15 @@ describe("ui assets boundary", () => {
   });
 });
 
+/** The `hello` frame a hub greets a local program's connection with. */
+async function hello(hub: SubscriptionHub): Promise<unknown> {
+  const frames: string[] = [];
+  const send = (text: string) => Effect.sync(() => void frames.push(text));
+  await Effect.runPromise(hub.addClient("c1", send, PROGRAM));
+  hub.dispose();
+  return JSON.parse(present(frames[0], "the hello frame"));
+}
+
 /** The `person` frame a hub greets a local program's connection with. */
 async function greeted(hub: SubscriptionHub): Promise<unknown> {
   const frames: string[] = [];
@@ -129,6 +138,38 @@ describe("who may frame the page", () => {
       embedding: { origins: ["https://bb.example"], scripts: ["https://bb.example/bridge.js"] },
     });
     expect(await greeted(new SubscriptionHub(ctx))).toEqual({ op: "person", person: null });
+  });
+});
+
+describe("the build a connection is told", () => {
+  test("is the module script the page's index.html loads, whatever its attributes' order", () => {
+    expect(
+      assets.entryScriptOf(
+        '<script>var a</script><script type="module" crossorigin src="/static/index-fENRSP5E.js"></script>',
+      ),
+    ).toBe("/static/index-fENRSP5E.js");
+    expect(assets.entryScriptOf("<script src='/s/x.js' type=module></script>")).toBe("/s/x.js");
+    expect(assets.entryScriptOf('<script src="/legacy.js"></script>')).toBeNull();
+    expect(assets.entryScriptOf("<p>no page</p>")).toBeNull();
+  });
+
+  test("is read from ui/dist each time, so a build replaced under the server is the one named", async () => {
+    const dist = await mkdtemp(join(tmpdir(), "kb-ui-build-"));
+    expect(assets.servedBuild(dist)).toBeNull();
+    await writeFile(join(dist, "index.html"), '<script type="module" src="/static/index-a.js">');
+    expect(assets.servedBuild(dist)).toBe("/static/index-a.js");
+    await writeFile(join(dist, "index.html"), '<script type="module" src="/static/index-b.js">');
+    expect(assets.servedBuild(dist)).toBe("/static/index-b.js");
+  });
+
+  test("greets each connection in its hello, and says nothing when no page is built", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-hello-"));
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const ctx = await openKb(root);
+    expect(
+      await hello(new SubscriptionHub(ctx, undefined, undefined, () => "/static/index-a.js")),
+    ).toEqual({ op: "hello", rev: ctx.log.head, build: "/static/index-a.js" });
+    expect(await hello(new SubscriptionHub(ctx))).toEqual({ op: "hello", rev: ctx.log.head });
   });
 });
 

@@ -52,9 +52,13 @@ const DATASCRIPT = /cljs\.core/;
  * pane switcher into `@kb/views`), the node menu's "Open in …", "Open with"
  * and display rows, the tag chip's ↗ segment, the bullet's menu gesture,
  * the row's preview box (`row-preview.tsx`) and the display settings'
- * fields; the canvas's preview picture loads lazily, as its page does.
+ * fields; the canvas's preview picture loads lazily, as its page does. And
+ * by 3 KB for a tab that outlives its build: `lib/stale-build` (the build a
+ * hello names and the chunk that did not arrive, through one guard), the
+ * socket's `onBuild` and the header's "kb was updated" notice, which must be
+ * there before any page's chunk is asked for.
  */
-const EAGER_BUDGET_BYTES = 2_003_000;
+const EAGER_BUDGET_BYTES = 2_006_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

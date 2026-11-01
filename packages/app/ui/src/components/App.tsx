@@ -72,6 +72,29 @@ function ConnectionDot() {
   );
 }
 
+/**
+ * The reload a newer build is waiting on, offered when the tab was not
+ * reloaded into it by itself: it held unsaved edits, which a reload would
+ * drop, or this build was reloaded for already.
+ */
+function NewBuildNotice() {
+  const newBuild = useUiStore((s) => s.newBuild);
+  if (!newBuild) return null;
+  return (
+    <span role="status" className="flex items-center gap-2 text-label text-muted-foreground">
+      kb was updated
+      <button
+        type="button"
+        onClick={() => location.reload()}
+        title="Reload into the new version. Edits not saved yet are lost."
+        className="rounded-md border border-foreground/10 bg-foreground/[0.04] px-2 py-0.5 text-label text-foreground/75 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/90"
+      >
+        Reload
+      </button>
+    </span>
+  );
+}
+
 function Toasts() {
   const toasts = useUiStore((s) => s.toasts);
   const dismiss = useUiStore((s) => s.dismissToast);
@@ -149,6 +172,7 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
         <span className="text-label text-faint-foreground">loading…</span>
       ) : null}
       <ConnectionDot />
+      <NewBuildNotice />
       <div className="flex-1" />
       <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
       <DockToggles />

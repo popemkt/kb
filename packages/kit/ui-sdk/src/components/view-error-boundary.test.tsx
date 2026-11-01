@@ -2,6 +2,7 @@ import { act, createElement, type ReactElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { watchForNewBuild } from "../lib/stale-build";
 import { ViewError, ViewErrorBoundary } from "./view-error-boundary";
 
 function Boom({ fail }: { fail: boolean }): ReactElement {
@@ -30,7 +31,6 @@ describe("ViewErrorBoundary", () => {
   let container: HTMLDivElement;
   let root: Root;
   let consoleError: typeof console.error;
-  let reloads = 0;
 
   beforeAll(() => {
     dom = new Window();
@@ -39,8 +39,6 @@ describe("ViewErrorBoundary", () => {
     g.document = dom.document;
     g.HTMLElement = dom.HTMLElement;
     g.Node = dom.Node;
-    g.sessionStorage = dom.sessionStorage;
-    g.location = { pathname: "/", reload: () => void reloads++ };
   });
 
   beforeEach(() => {
@@ -109,11 +107,18 @@ describe("ViewErrorBoundary", () => {
   });
 
   it("reloads into the new build once, saying so, when its view's chunk is gone", () => {
-    const entry = dom.document.createElement("script");
-    entry.setAttribute("type", "module");
-    entry.setAttribute("src", "https://kb/static/index-old.js");
-    dom.document.head.appendChild(entry);
-    reloads = 0;
+    const storage = new Map<string, string>();
+    let reloads = 0;
+    /** The page as the shell installs it, of `build`, in a tab whose storage outlives its reloads. */
+    const install = (build: string) =>
+      watchForNewBuild(new EventTarget(), {
+        build,
+        storage: {
+          getItem: (key) => storage.get(key) ?? null,
+          setItem: (key, value) => void storage.set(key, value),
+        },
+        reload: () => void reloads++,
+      });
     const gallery = (key: string) =>
       createElement(ViewErrorBoundary, {
         title: "Gallery crashed",
@@ -121,27 +126,26 @@ describe("ViewErrorBoundary", () => {
         children: createElement(Gone),
       });
 
+    const old = install("/static/index-old.js");
     act(() => {
       root.render(gallery("first"));
     });
     expect(reloads).toBe(1);
     expect(container.textContent).toContain("kb was updated");
     expect(container.textContent).not.toContain("Gallery crashed");
+    old();
 
-    // The reload landed on the same build: the failure is shown, once.
-    act(() => {
-      root.unmount();
-    });
-    root = createRoot(container);
-    dom.sessionStorage.setItem("kb.reloaded-for-build", "https://kb/static/index-same.js");
-    entry.setAttribute("src", "https://kb/static/index-same.js");
+    // A page of a build this tab reloaded for already: the failure is
+    // shown, not reloaded again (stale-build.test models the fresh page).
+    storage.set("kb.reloaded-for-build", "/static/index-same.js");
+    const same = install("/static/index-same.js");
     act(() => {
       root.render(gallery("again"));
     });
     expect(reloads).toBe(1);
     expect(container.textContent).toContain("Gallery crashed");
     expect(container.textContent).toContain("Failed to fetch dynamically imported module");
-    entry.remove();
+    same();
   });
 
   it("ViewError retry button invokes onRetry", () => {

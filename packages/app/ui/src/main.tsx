@@ -23,9 +23,9 @@ function preloadInterLatin() {
 }
 
 preloadInterLatin();
-// A tab left open across a release reloads into the new build when a chunk
-// it was built against is gone (`@kb/ui-sdk` → `lib/stale-build`).
-watchForNewBuild();
+// A tab left open across a release follows the server into the new build
+// (`@kb/ui-sdk` → `lib/stale-build`). The dev server's page is no build.
+if (!import.meta.env.DEV) watchForNewBuild();
 initPrefs();
 startDesignSystems();
 // The motion painter paints once the graph has arrived, so it loads with

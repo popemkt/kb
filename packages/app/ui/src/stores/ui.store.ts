@@ -39,6 +39,12 @@ interface UiState {
   person: Person | null | undefined;
   toasts: Toast[];
   /**
+   * The server serves a newer build than this tab's, and the tab was not
+   * reloaded into it (it held unsaved edits, or this build was reloaded for
+   * already): the header offers the reload (`@kb/ui-sdk` → `lib/stale-build`).
+   */
+  newBuild: boolean;
+  /**
    * The sidebar floating over a narrow viewport. Transient, like a popover:
    * the docked sidebar's open state is a device preference (`sidebarOpen`),
    * and a narrow screen never inherits it.
@@ -56,6 +62,7 @@ interface UiState {
 
   setWsStatus: (status: WsStatus) => void;
   setPerson: (person: Person | null) => void;
+  offerNewBuild: () => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
   setNodePaletteOpen: (open: boolean) => void;
@@ -84,6 +91,7 @@ export const useUiStore = create<UiState>((set) => ({
   wsStatus: "idle",
   person: undefined,
   toasts: [],
+  newBuild: false,
   sidebarOverlayOpen: false,
   globalPaletteOpen: false,
   nodePaletteOpen: false,
@@ -95,6 +103,7 @@ export const useUiStore = create<UiState>((set) => ({
   setWsStatus: (wsStatus) =>
     set(wsStatus === "open" ? { wsStatus } : { wsStatus, person: undefined }),
   setPerson: (person) => set({ person }),
+  offerNewBuild: () => set({ newBuild: true }),
   setSidebarOverlayOpen: (sidebarOverlayOpen) => set({ sidebarOverlayOpen }),
   setGlobalPaletteOpen: (globalPaletteOpen) =>
     set((s) => ({
