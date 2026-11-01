@@ -132,7 +132,12 @@ export function mountMotion(host: HTMLElement, init: LabSceneInit): Promise<LabS
   return mountStudy(
     host,
     init,
-    { fov: 30, bloom: { strength: 0.3, radius: 0.4 }, shadows: true, vignette: 0.6 },
+    {
+      projection: { kind: "perspective", fov: 30 },
+      bloom: { strength: 0.3, radius: 0.4 },
+      shadows: true,
+      vignette: 0.6,
+    },
     motion,
   );
 }

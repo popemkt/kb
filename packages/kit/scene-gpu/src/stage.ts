@@ -107,8 +107,19 @@ const TONE_MAPPINGS: Record<SceneToneMapping, ToneMapping> = {
   none: NoToneMapping,
 };
 
+/**
+ * How a stage's camera projects: in perspective through a vertical field
+ * of view (degrees), or orthographically, `height` world units from the
+ * frame's bottom to its top, so a part's size never depends on its depth.
+ * The camera is three's perspective camera either way (its type is the
+ * stage's contract); an orthographic stage sets its projection matrix.
+ */
+export type Projection =
+  | { readonly kind: "perspective"; readonly fov: number }
+  | { readonly kind: "orthographic"; readonly height: number };
+
 export interface StageOptions {
-  readonly fov: number;
+  readonly projection: Projection;
   /** The camera's clip range, in world units; a study's default is 0.1–400. */
   readonly near?: number;
   readonly far?: number;
@@ -571,14 +582,35 @@ function postControls(
   };
 }
 
+/** The camera's projection for a frame of `aspect` (`Projection`). */
+function project(camera: PerspectiveCamera, projection: Projection, aspect: number) {
+  camera.aspect = aspect;
+  if (projection.kind === "perspective") {
+    camera.updateProjectionMatrix();
+    return;
+  }
+  const h = projection.height / 2;
+  const w = h * aspect;
+  camera.projectionMatrix.makeOrthographic(
+    -w,
+    w,
+    h,
+    -h,
+    camera.near,
+    camera.far,
+    camera.coordinateSystem,
+    camera.reversedDepth,
+  );
+  camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+}
+
 /** Sizes the canvas and the view to the host's (CSS pixels); false for a host with no size. */
-function sizer(renderer: WebGPURenderer, camera: PerspectiveCamera) {
+function sizer(renderer: WebGPURenderer, camera: PerspectiveCamera, projection: Projection) {
   return (width: number, height: number): boolean => {
     if (width <= 0 || height <= 0) return false;
     renderer.setPixelRatio(pixelRatio());
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    project(camera, projection, width / height);
     return true;
   };
 }
@@ -589,7 +621,13 @@ async function createStage(host: HTMLElement, options: StageOptions) {
   const build: StageBuild = { options, shadows, occluded };
   const renderer = await mountRenderer(host, build);
   const scene = new Scene();
-  const camera = new PerspectiveCamera(options.fov, 1, options.near ?? 0.1, options.far ?? 400);
+  const { projection } = options;
+  const camera = new PerspectiveCamera(
+    projection.kind === "perspective" ? projection.fov : 50,
+    1,
+    options.near ?? 0.1,
+    options.far ?? 400,
+  );
   const colors = paletteUniforms();
   const chain = postChain(renderer, scene, camera, build, colors);
   const timing = gpuTimer(renderer, options.gpuTiming === true);
@@ -600,7 +638,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
   });
   loop.setInitialPalette(options.palette);
   const { invalidate } = loop;
-  const size = sizer(renderer, camera);
+  const size = sizer(renderer, camera, projection);
 
   return {
     scene,

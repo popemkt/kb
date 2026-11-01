@@ -23,6 +23,7 @@ export {
   type PaletteUniforms,
   type SceneStage,
   type SceneToneMapping,
+  type Projection,
   type StageOptions,
 } from "./stage";
 export { starfield } from "./starfield";

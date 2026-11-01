@@ -98,7 +98,7 @@ export async function mountForce3d(
   const { parts, handle } = await mountScene(
     host,
     {
-      fov: FOV,
+      projection: { kind: "perspective", fov: FOV },
       near: NEAR,
       far: FAR,
       palette: init.palette,

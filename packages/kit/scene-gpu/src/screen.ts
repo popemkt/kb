@@ -66,7 +66,7 @@ export function toScreen(
   return Number.isFinite(out.x) && Number.isFinite(out.y);
 }
 
-/** CSS pixels one world unit covers at `depth`, on a canvas `height` CSS pixels tall. */
+/** CSS pixels one world unit covers at `depth`, on a canvas `height` CSS pixels tall, seen in perspective. */
 export function pixelsPerUnit(camera: PerspectiveCamera, height: number, depth: number): number {
   return height / 2 / Math.tan((camera.fov * Math.PI) / 360) / depth;
 }

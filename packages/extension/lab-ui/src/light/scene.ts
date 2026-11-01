@@ -172,7 +172,13 @@ export function mountLight(host: HTMLElement, init: LabSceneInit): Promise<LabSc
   return mountStudy(
     host,
     init,
-    { fov: 26, bloom: { strength: 0.35, radius: 0.4 }, ao: true, shadows: true, vignette: 0.45 },
+    {
+      projection: { kind: "perspective", fov: 26 },
+      bloom: { strength: 0.35, radius: 0.4 },
+      ao: true,
+      shadows: true,
+      vignette: 0.45,
+    },
     light,
   );
 }

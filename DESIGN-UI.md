@@ -3085,7 +3085,10 @@ one projection of a world point to canvas pixels, decided in view space;
 every label, pick and hover asks it), `pointer` (`PointerField`: where
 the pointer is over a scene, where its ray meets a plane, and which presses
 were taps — every study and the 3D graph read the one field), `stage` (renderer, post chain, tone
-mapping, palette uniforms, frame loop, reveal; optionally a camera's
+mapping, palette uniforms, frame loop, reveal; its camera's projection
+(`Projection`: a perspective through a field of view, or orthographic, so
+many world units from the frame's bottom to its top, as a flat technical
+drawing is projected); optionally a camera's
 artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
 film grain, only where the scene's art is, never on its ground, so the
 grain cannot shift the ground's level and draw the frame), a feather along the frame's own sides, a presence knob and a

@@ -183,7 +183,7 @@ export async function mountBackdrop(
     host,
     {
       ...options,
-      fov: 40,
+      projection: { kind: "perspective", fov: 40 },
       palette: init.palette,
       timing: init.timing,
       reducedMotion: init.reducedMotion,
