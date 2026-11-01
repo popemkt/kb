@@ -11,12 +11,9 @@ import {
   cn,
   navigate,
   readTiming,
-  SettingsTrigger,
-  SidebarToggle,
   useAppearance,
   useReducedMotion,
   useContributions,
-  useSidebarToggle,
   WorkspaceState,
 } from "@kb/ui-sdk";
 import { initialValues, type LabControlValue, type LabHover, type LabStudy } from "./kit/contract";
@@ -53,15 +50,11 @@ function StudySwitch({ scene }: { scene: LabSceneId }) {
 }
 
 function LabHeader({ scene, backend }: { scene: LabSceneId; backend: SceneBackend | null }) {
-  const sidebar = useSidebarToggle();
   return (
     <header className="relative z-10 flex h-11 shrink-0 items-center gap-3 px-4">
-      <SidebarToggle {...sidebar} />
       <span className="text-ui font-medium text-foreground/50">lab</span>
       <StudySwitch scene={scene} />
       {backend === null ? null : <span className="text-label text-foreground/35">{backend}</span>}
-      <div className="flex-1" />
-      <SettingsTrigger />
     </header>
   );
 }

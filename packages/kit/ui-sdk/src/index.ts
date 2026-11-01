@@ -46,7 +46,6 @@ export {
   useQueryRows,
   useRefInk,
   useSchema,
-  useSidebarToggle,
   useWireNodes,
 } from "./hooks";
 export {

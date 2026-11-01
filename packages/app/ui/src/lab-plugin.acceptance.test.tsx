@@ -296,6 +296,17 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(labRow()).toBeDefined();
   });
 
+  it("draws its page, which frames itself, under the shell's header: one way to Settings, the shell's", async () => {
+    server.lab = true;
+    await boot();
+    await until(() => labRow() !== undefined);
+    await act(async () => navigate("/lab"));
+    await until(() => study() !== null);
+    const gears = container.querySelectorAll('button[aria-label="Settings"]');
+    expect(gears).toHaveLength(1);
+    expect(gears[0]?.closest("#kb-main > header")).not.toBeNull();
+  });
+
   it("follows a switch written elsewhere, live, without a reload", async () => {
     await boot();
     expect(labRow()).toBeUndefined();

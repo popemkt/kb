@@ -20,12 +20,7 @@ import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useDesignSystemStore } from "@/stores/design-system.store";
 import { pageCommandContext } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
-import {
-  appearanceIn,
-  sidebarOpenIn,
-  toggleSidebarFrom,
-  usePrefsStore,
-} from "@/stores/prefs.store";
+import { appearanceIn, usePrefsStore } from "@/stores/prefs.store";
 import { nodeTextPort } from "@/stores/node-text-port";
 import { refInkIn } from "@/stores/ref-ink";
 import { paneScreenPort } from "@/stores/screen.store";
@@ -66,8 +61,6 @@ const host: BrowserHost = {
   wireNodes: () => useGraphStore.getState().wireNodes,
   appearance: () => appearanceIn(useDesignSystemStore.getState().painted, usePrefsStore.getState()),
   prefs: () => usePrefsStore.getState(),
-  sidebarOpen: sidebarOpenIn,
-  toggleSidebar: toggleSidebarFrom,
   refInk: () => refInkIn(useGraphStore.getState()),
   zoomTo: (id) => useGraphStore.getState().zoomTo(id),
   zoomHome: () => useGraphStore.getState().zoomHome(),

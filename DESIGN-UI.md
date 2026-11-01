@@ -2531,8 +2531,10 @@ until "Save workspace".
   load, the URL wins over the stored location of the focused pane.
 - **One pane has no chrome.** A workspace of one pane is drawn as the page
   always was: the header, then the pane. Two or more panes are a movable
-  layout grid, and the header stays. A page that takes the whole column
-  (the graph) takes the header's place only when it is the only pane.
+  layout grid, and the header stays. The header is the shell's: every page
+  is drawn under it, whatever its frame. A route's `frame` says only how its
+  page fills its pane (`full`: the page frames itself), never whether the
+  shell is drawn, so no contribution can hide or replace the shell's chrome.
 - **A pane's body outlives its place on screen** (`pane-bodies.tsx`). Each
   body is drawn once, into an element of its own, under its pane id
   (`PaneContext`, `lib/pane`). The layout only places that element, so
@@ -2819,9 +2821,8 @@ the settings. The record of why is
 `docs/research/2026-10-27-settings-parts.md`.
 
 - **One way in.** Every page shows exactly one way to Settings, the gear in
-  its header's corner (`SettingsTrigger`, `@kb/ui-sdk`): the shell's header
-  renders it, and a page that takes the header's place (the graph's, the
-  lab's) renders the same one in its own header's corner. The sidebar has
+  its header's corner (`SettingsTrigger`, `@kb/ui-sdk`), which the shell's
+  header renders over every page. The sidebar has
   no Settings row. The gear is Settings' alone: an extension's settings
   are fields of its node, drawn in its section of Extensions, never behind
   an icon of its own, and a view's own options (a graph's layout and lens,

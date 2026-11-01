@@ -224,21 +224,8 @@ function sidebarOpenOf(narrow: boolean, docked: boolean, overlay: boolean): bool
   return narrow ? overlay : docked;
 }
 
-/** Whether the left rail is open now, for a reader outside React. */
-export function sidebarOpenIn(narrow: boolean): boolean {
-  return sidebarOpenOf(
-    narrow,
-    usePrefsStore.getState().sidebarOpen,
-    useUiStore.getState().sidebarOverlayOpen,
-  );
-}
-
 /** Toggle the left rail from its button, which was drawn with the rail `open`. */
-export function toggleSidebarFrom(
-  narrow: boolean,
-  open: boolean,
-  button: HTMLButtonElement | null,
-): void {
+function toggleSidebarFrom(narrow: boolean, open: boolean, button: HTMLButtonElement | null): void {
   const focusedInSidebar = document.activeElement?.closest(SIDEBAR_REGION_SELECTOR);
   if (narrow) useUiStore.getState().setSidebarOverlayOpen(!open);
   else usePrefsStore.getState().toggleSidebar();

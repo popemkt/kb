@@ -48,7 +48,7 @@ import {
 } from "@kb/ui-sdk";
 
 /**
- * The graph: its page, the route to it (whole column, no workspace header),
+ * The graph: its page, the route to it (the page frames itself, `full`),
  * its section, one view per renderer — each drawn in the box the page's
  * canvas gives it, from the settings its key declares, and offered by the
  * renderer switch in its picker's order — and a node's neighbourhood, which
