@@ -1437,14 +1437,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One rename across the workspace, done when the canvas packages are free to touch.
 - **node** — `01M53GQC1V4S043899SSX8Q47J`
 
-### GAP: the looks of one GPU backdrop share the stage lens fixed at mount, so a look cannot set its own colour split
-
-- **expected** — A look sets the stage's lens (aberration, streak, grain) as it sets its bloom, so each look of a backdrop is finished for its own picture.
-- **current** — The lens is a BackdropStageOptions field fixed at mount (mountBackdrop); the Black hole's Gargantua and Warp share aberration 0.012, streak 0.3, grain 0.034, tuned for Gargantua's faint stars. Warp's brighter compact stars split into short colour dashes toward the frame's edges.
-- **impact** — Sharpness: at DPR 2 a few of Warp's stars near the frame's edge read as red-blue dashes rather than points.
-- **closes** — A setLens on the stage beside setBloom, called from each look's setLook; Warp then takes a smaller aberration (about 0.006).
-- **node** — `01M69N2F7HVAWSS2TBVMPM43Y7`
-
 ### GAP: the node menu's order is list position
 
 - **expected** — a node command declares where it sits in the menu, and the menu lists the registry's commands and every CommandPoint contribution by it

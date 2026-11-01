@@ -12,7 +12,7 @@
  * they are the photon ring. One jittered sample a step; the frames before it
  * fill in what one frame's samples leave out.
  */
-import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
+import { offscreenPass, type SceneStage, type StageLens } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
 import type { Variation } from "../scene/seed";
 import {
@@ -34,6 +34,8 @@ const BLEND = 0.7;
 const SHARPEN = 0.6;
 /** The hole's texels per CSS pixel at full quality. */
 const DENSITY = 1.5;
+/** A fine colour split, a streak drawn out of the tight bloom, fine grain: the film's camera. */
+export const GARGANTUA_LENS: StageLens = { aberration: 0.012, streak: 0.3, grain: 0.034 };
 /**
  * Enough steps for a ray that winds round the photon sphere: fewer, and the
  * photon ring is the first thing lost. Rays that miss break out long before
@@ -78,6 +80,7 @@ export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variat
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.18 : 0.06);
+      stage.setLens(GARGANTUA_LENS);
       fresh = true;
     },
     frame: (dt: number, reactions: Reactions) => {

@@ -3105,7 +3105,9 @@ a stage focused nowhere, radius 0, drawing none of it);
 optionally a camera's
 artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
 film grain, only where the scene's art is, never on its ground, so the
-grain cannot shift the ground's level and draw the frame), a feather along the frame's own sides, a presence knob and a
+grain cannot shift the ground's level and draw the frame; the artefacts a
+stage is built with are retuned by `setLens`, as the bloom is by
+`setBloom`, so each look of a backdrop finishes its own picture), a feather along the frame's own sides, a presence knob and a
 GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
 shader drawn into a render target of its own size, optionally reading its
 last picture back, which a scene samples as a texture), `screen-fill`

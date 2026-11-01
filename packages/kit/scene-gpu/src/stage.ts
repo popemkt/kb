@@ -156,10 +156,24 @@ export interface StageOptions {
   readonly toneMapping?: SceneToneMapping;
   /** Depth of field (`focus.ts`): where the camera focuses, and how it loses focus either side. */
   readonly focus?: StageFocus;
-  /** A camera's artefacts, each 0 for none: see the post chain above. */
-  readonly lens?: { readonly aberration: number; readonly streak: number; readonly grain: number };
+  /**
+   * A camera's artefacts, each 0 for none: see the post chain above. What is
+   * not 0 here is built into the chain, and `setLens` retunes it; what is 0
+   * here the chain does not have.
+   */
+  readonly lens?: StageLens;
   /** Read each frame's GPU time back where the backend can (`gpuMs`). */
   readonly gpuTiming?: boolean;
+}
+
+/** A camera's artefacts and how strong each is (0, none). */
+export interface StageLens {
+  /** Red and blue land apart, growing toward the edges. */
+  readonly aberration: number;
+  /** The bloom drawn out sideways. */
+  readonly streak: number;
+  /** Film grain over the art. */
+  readonly grain: number;
 }
 
 /**
@@ -246,6 +260,10 @@ function postChain(
     presence: uniform(1),
     /** Moves the grain each frame. */
     grainSeed: uniform(0),
+    /** The lens's strengths, retuned by `setLens`. */
+    aberration: uniform(options.lens?.aberration ?? 0),
+    streak: uniform(options.lens?.streak ?? 0),
+    grain: uniform(options.lens?.grain ?? 0),
   };
   // three r186's GTAO reads its centre depth with `gather()`, which WGSL has
   // no overload for on a multisampled depth texture, so under occlusion the
@@ -272,13 +290,14 @@ function postChain(
   const picture = (uv: TslNode<"vec2">) => (focus === null ? color.sample(uv) : focus.sample(uv));
   if (focus !== null) lit = picture(screenUV);
   const glow = bloom(lit, options.bloom.strength, options.bloom.radius, BLOOM_THRESHOLD);
+  // Which artefacts the chain has is decided once, from the lens it is built with.
   const lens = options.lens ?? { aberration: 0, streak: 0, grain: 0 };
   let composed: TslNode<"vec3"> = lit.rgb.add(glow.rgb);
   if (!occluded && (lens.aberration > 0 || lens.streak > 0)) {
     // Chromatic aberration: red and blue land a little apart, more toward the
     // edges, and most in the bloom, where the brightest highlights spread.
     const away = screenUV.sub(0.5);
-    const shift = away.mul(length(away)).mul(lens.aberration);
+    const shift = away.mul(length(away)).mul(knobs.aberration);
     const glowTexture = bloomTexture(glow);
     const at = (uv: TslNode<"vec2">) => picture(uv).rgb.add(glowTexture.sample(uv).rgb);
     const spread = shift.mul(3);
@@ -305,7 +324,7 @@ function postChain(
         );
         weight += 2 * w;
       }
-      composed = composed.add(streak.mul(lens.streak / weight).mul(vec3(0.92, 0.97, 1.1)));
+      composed = composed.add(streak.mul(knobs.streak.div(weight)).mul(vec3(0.92, 0.97, 1.1)));
     }
   }
   // How much of each pixel is the ground: the edges, and all of it as the scene's presence falls.
@@ -335,7 +354,7 @@ function postChain(
     const pixel = screenCoordinate.xy.floor();
     const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
     const art = length(display.rgb.sub(renderOutput(vec4(colors.ground, 1)).rgb));
-    shownColor = shownColor.add(grain.mul(lens.grain).mul(smoothstep(0.004, 0.04, art)));
+    shownColor = shownColor.add(grain.mul(knobs.grain).mul(smoothstep(0.004, 0.04, art)));
   }
   const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;
@@ -580,6 +599,13 @@ function postControls(
     },
     setBloom: (strength: number) => {
       chain.glow.strength.value = strength;
+      invalidate();
+    },
+    /** Retunes the lens the stage was built with (`StageOptions.lens`); an artefact it was built without stays absent. */
+    setLens: (lens: StageLens) => {
+      chain.knobs.aberration.value = lens.aberration;
+      chain.knobs.streak.value = lens.streak;
+      chain.knobs.grain.value = lens.grain;
       invalidate();
     },
     setToneMapping: (kind: SceneToneMapping) => {

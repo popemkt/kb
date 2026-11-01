@@ -26,6 +26,7 @@ export {
   type SceneStage,
   type SceneToneMapping,
   type Projection,
+  type StageLens,
   type StageOptions,
 } from "./stage";
 export { starfield } from "./starfield";

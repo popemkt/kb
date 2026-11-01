@@ -27,7 +27,7 @@ import {
   type GpuBackdropScene,
   type GpuLook,
 } from "../gpu/gpu-scene";
-import { gargantua } from "./gargantua";
+import { GARGANTUA_LENS, gargantua } from "./gargantua";
 import { warp } from "./warp";
 import type { HoleLook, HoleLookBuild } from "./hole-rig";
 
@@ -79,8 +79,8 @@ export function mountBlackHole(
     {
       // A tight bloom and fine grain: high definition, like the film, never a haze.
       bloom: { strength: 0.18, radius: 0.25 },
-      // GAP [[01M69N2F7HVAWSS2TBVMPM43Y7]] one lens for every look, fixed at mount
-      lens: { aberration: 0.012, streak: 0.3, grain: 0.034 },
+      // Built with Gargantua's lens, which has every artefact a look retunes in its `setLook`.
+      lens: GARGANTUA_LENS,
     },
     blackHole,
   );
