@@ -12,6 +12,7 @@ import {
   NodeWorkflow,
   ReferenceWorkflow,
   RemixWorkflow,
+  SceneWorkflow,
   type WorkflowKey,
   type WorkflowParams,
 } from "@kb/gallery";
@@ -39,6 +40,10 @@ export const GALLERY_WORKFLOW_SURFACES: ReadonlyArray<{
   {
     key: ArticulateWorkflow,
     Component: lazyWorkflow(async () => (await import("./articulate")).ArticulateSurface),
+  },
+  {
+    key: SceneWorkflow,
+    Component: lazyWorkflow(async () => (await import("./scene")).SceneSurface),
   },
   {
     key: ReferenceWorkflow,

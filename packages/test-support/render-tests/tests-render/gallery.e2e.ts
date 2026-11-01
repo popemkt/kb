@@ -90,7 +90,7 @@ test("the starter asks where to start, and Browse composes a look from two facet
       JSON.stringify(await call(request, "node.get", { id: "sys.extension.gallery" })),
     )
     .toContain("sys.f.gallery.save-into");
-  await expect(page.locator("[data-gallery-workflow]")).toHaveCount(7);
+  await expect(page.locator("[data-gallery-workflow]")).toHaveCount(8);
   await page.locator('[data-gallery-workflow="browse"]').click();
   await expect(page).toHaveURL(/\/gallery\/browse$/);
   // The library starts with the starter's pictures, filed by its styles.
@@ -163,6 +163,33 @@ test("Know completes a style from its first letters, and shows its references", 
   await expect(page.locator('[data-look-style="blue hour"]')).toBeVisible();
   await expect(page.getByTestId("know-said")).toHaveText("1 reference shows all of it");
   await expect(page.locator("[data-gallery-tile]")).toHaveCount(1);
+});
+
+test("Scene fills its parts from the library's pictures, and its field takes a style by #", async ({
+  page,
+  request,
+}) => {
+  await starter(page);
+  await addVisual(request, "Gold pagoda", [await styleId(request, "golden hour")]);
+  await page.locator('[data-gallery-workflow="scene"]').click();
+  await expect(page.getByTestId("gallery-scene")).toBeVisible();
+  const lighting = page.locator('[data-gallery-part="Lighting"]');
+  await expect(lighting).toContainText("Auto");
+  // A part's picker shows its styles with their pictures, and stays open across picks.
+  await lighting.click();
+  const picker = page.getByRole("dialog", { name: "Choose Lighting" });
+  await picker.locator('[data-gallery-style="golden hour"]').click();
+  await expect(picker.locator('[data-gallery-style="golden hour"] img')).toBeVisible();
+  await picker.locator('[data-gallery-style="blue hour"]').click();
+  await picker.getByRole("button", { name: "Done" }).click();
+  await expect(lighting).toContainText("golden hour, blue hour");
+  // The field is the look's brief; # takes a style into it.
+  const field = page.getByRole("textbox", { name: "The scene", exact: true });
+  await field.fill("a pagoda on one pillar, #low ang");
+  await expect(page.locator('[data-gallery-suggestion="low angle"]')).toBeVisible();
+  await field.press("Enter");
+  await expect(page.locator('[data-look-style="low angle"]')).toBeVisible();
+  await expect(field).toHaveValue("a pagoda on one pillar, ");
 });
 
 test("Articulate names an idea by hand and by reacting, and the look saves with a canvas moodboard", async ({

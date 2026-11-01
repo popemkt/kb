@@ -96,6 +96,15 @@ export const KnowWorkflow = workflowKey(`${GALLERY_NAMESPACE}.know`, "Compose", 
   writes: [lookTag],
 });
 
+export const SceneWorkflow = workflowKey(`${GALLERY_NAMESPACE}.scene`, "Scene", {
+  question: "Set up a scene",
+  blurb:
+    "Describe it, then fill each part of the shot from the library's pictures: camera, lighting, style, motion.",
+  steps: ["Describe it", "Fill each part", "Keep the look"],
+  reads: [styleTag, facetTag, visualTag],
+  writes: [lookTag],
+});
+
 export const ArticulateWorkflow = workflowKey(`${GALLERY_NAMESPACE}.articulate`, "Articulate", {
   question: "Help me articulate it",
   blurb:
@@ -151,6 +160,7 @@ export const NodeWorkflow = workflowKey(`${GALLERY_NAMESPACE}.node`, "For a node
 export const GALLERY_WORKFLOWS: readonly WorkflowKey[] = [
   KnowWorkflow,
   ArticulateWorkflow,
+  SceneWorkflow,
   ReferenceWorkflow,
   BrowseWorkflow,
   CaptureWorkflow,
