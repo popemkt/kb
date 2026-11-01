@@ -94,7 +94,7 @@ test("the starter asks where to start, and Browse composes a look from two facet
   await page.locator('[data-gallery-workflow="browse"]').click();
   await expect(page).toHaveURL(/\/gallery\/browse$/);
   // The library starts with the starter's pictures, filed by its styles.
-  await expect(page.getByTestId("gallery-count")).toHaveText("12 visuals");
+  await expect(page.getByTestId("gallery-count")).toHaveText("26 visuals");
   const wave = page
     .locator("[data-gallery-tile]")
     .filter({ hasText: "The Great Wave off Kanagawa" });
@@ -102,7 +102,7 @@ test("the starter asks where to start, and Browse composes a look from two facet
     .poll(() => wave.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(1);
   await page.locator('[data-gallery-style="Ukiyo-e"]').click();
-  await expect(page.getByTestId("gallery-count")).toHaveText("2 of 12");
+  await expect(page.getByTestId("gallery-count")).toHaveText("2 of 26");
   await page.locator('[data-gallery-style="Ukiyo-e"]').click();
 
   await page.locator('[data-gallery-style="golden hour"]').click();
@@ -207,7 +207,7 @@ test("a phone shows one pane at a time, the look a tab of its own", async ({ pag
   // The visuals first; the facets are a tab of their own, not a column beside them.
   await expect(page.getByRole("tab", { name: "Visuals" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator('[data-gallery-facet="Shot size"]')).toHaveCount(0);
-  await expect(page.getByTestId("gallery-count")).toHaveText("12 visuals");
+  await expect(page.getByTestId("gallery-count")).toHaveText("26 visuals");
   await page.getByRole("tab", { name: "Sources" }).click();
   await expect(page.getByRole("tab", { name: "Sources" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("gallery-sources")).toBeVisible();
