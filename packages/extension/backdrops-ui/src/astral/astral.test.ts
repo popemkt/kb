@@ -4,6 +4,8 @@ import { variation } from "../scene/seed";
 import {
   AMBIENT,
   ASTRAL_VARIANTS,
+  CONSTELLATION_LINKS,
+  CONSTELLATION_POINTS,
   STEP_SECONDS,
   TICK_PERIOD,
   ambient,
@@ -153,6 +155,19 @@ describe("compose", () => {
       expect(stars.filter((p) => p.shape.kind === "star" && p.shape.hub === true)).toHaveLength(1);
       expect(stars.length).toBeGreaterThan(4);
       for (const part of parts) for (const v of part.at) expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+
+  it("gives every composition a constellation that fits the sky's slots, its links joining its own stars", () => {
+    for (const variant of ASTRAL_VARIANTS) {
+      const { constellation } = compose(variant, variation(3));
+      expect(constellation.stars.length).toBeGreaterThan(2);
+      expect(constellation.stars.length).toBeLessThanOrEqual(CONSTELLATION_POINTS);
+      expect(constellation.links.length).toBeLessThanOrEqual(CONSTELLATION_LINKS);
+      for (const [from, to] of constellation.links) {
+        expect(constellation.stars[from]).toBeDefined();
+        expect(constellation.stars[to]).toBeDefined();
+      }
     }
   });
 });

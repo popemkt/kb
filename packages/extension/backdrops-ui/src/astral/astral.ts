@@ -143,8 +143,6 @@ export interface Part {
   /** Its turn about its own axis at rest (radians). */
   readonly spin?: number;
   readonly drive?: Drive;
-  /** How far it lies in the haze behind the instrument, 0–1. */
-  readonly haze?: number;
   readonly children?: readonly Part[];
 }
 
@@ -160,6 +158,47 @@ export interface Mechanism {
   /** How far the whole leans, and how far and how slowly it drifts (radians, seconds): the eye moving round it. */
   readonly lean: Vec3;
   readonly drift: { readonly yaw: number; readonly pitch: number; readonly period: number };
+  /**
+   * Its dark sky (linear), when it is not the ink-navy with a champagne
+   * warmth at the hub: the night it pools to and the light its hub glows
+   * with. The orrery is silver on black; the armillary glows cool.
+   */
+  readonly sky?: {
+    readonly night: readonly [number, number, number];
+    readonly glow: readonly [number, number, number];
+  };
+  /** The sky's graduated great circle, far behind: its centre from the hero and its radius (the instrument's units). */
+  readonly arc?: { readonly at: readonly [number, number]; readonly radius: number };
+  /** The constellation far behind it, in open sky. */
+  readonly constellation: Constellation;
+  /**
+   * Where the eye focuses, as the concept pictures' depth of field: the
+   * focal plane's depth from the hero (`at`, z in the instrument's units),
+   * the band either side of it that stays sharp (`depth`), how much further
+   * a part takes to blur fully (`falloff`), and that widest blur (`radius`,
+   * CSS pixels). None: every depth sharp.
+   */
+  readonly focus?: {
+    readonly at: number;
+    readonly depth: number;
+    readonly falloff: number;
+    readonly radius: number;
+  };
+}
+
+/** How many stars and links a constellation has at most: the sky's slots for it. */
+export const CONSTELLATION_POINTS = 7;
+export const CONSTELLATION_LINKS = 8;
+
+/**
+ * A constellation in the sky: its stars (x, y from the hero and the long
+ * spike, the instrument's units), and the hairlines joining them, by index
+ * into `stars`. The sky draws it (`astral-shader.ts`), each star in a small
+ * ring, as the concept pictures do.
+ */
+export interface Constellation {
+  readonly stars: readonly Vec3[];
+  readonly links: readonly (readonly [number, number])[];
 }
 
 /** One step of a tick: a sixtieth of a turn, as a seconds wheel. */

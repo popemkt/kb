@@ -1373,14 +1373,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
 
-### GAP: the GPU stage has no depth-of-field pass, so Astral focuses every depth
-
-- **expected** — The scene kit's stage offers depth of field as an option (a circle of confusion from view depth, a gather at reduced resolution, composited before bloom), so a backdrop with solids at several depths (Astral's Armillary, its far trains) keeps its hero in focus and softens the far and near parts.
-- **current** — Astral draws every solid in focus; its far trains recede only by haze and size (astral-shader.ts, partMaterial's haze).
-- **impact** — Depth reads by haze alone, short of the brief's real 3D finish (DOF, bloom, grain, vignette); a per-scene blur would be a second mechanism beside the stage's passes.
-- **closes** — A stage DOF pass in @kb/scene-gpu (stage.ts), opt-in per backdrop with its focus distance, run by the scene contract, used by Astral.
-- **node** — `01M69H80QY694GT75AM2PWPSZX`
-
 ### GAP: the graph legend overlays a renderer that cannot pan
 
 - **expected** — A renderer that cannot move its content (treemap: no zoom, no pan) lays out around the legend, so an open legend covers nothing for good
@@ -2451,6 +2443,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Lift the node lookup to a prop or a small resolver passed by the caller, the way RefAutocomplete already takes its candidates. Lands with the outline-store split.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRJA3ZRAWPTB0ZH5YEYG`
+
+### GAP: the GPU stage has no depth-of-field pass, so Astral focuses every depth
+
+- **expected** — The scene kit's stage offers depth of field as an option (a circle of confusion from view depth, a gather at reduced resolution, composited before bloom), so a backdrop with solids at several depths (Astral's Armillary, its far trains) keeps its hero in focus and softens the far and near parts.
+- **current** — Astral draws every solid in focus; its far trains recede only by haze and size (astral-shader.ts, partMaterial's haze).
+- **impact** — Depth reads by haze alone, short of the brief's real 3D finish (DOF, bloom, grain, vignette); a per-scene blur would be a second mechanism beside the stage's passes.
+- **closes** — The stage's depth of field (StageOptions.focus, @kb/scene-gpu focus.ts): a circle of confusion from view depth through the stage's projection, a two-stroke gather drawn before the bloom; opt-in per backdrop, Astral's compositions naming their focus (Mechanism.focus).
+- **node** — `01M69H80QY694GT75AM2PWPSZX`
 
 ### GAP: the graph query-error chip colours itself with Tailwind amber instead of the warning token
 

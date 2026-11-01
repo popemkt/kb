@@ -51,9 +51,11 @@ import {
   RenderPipeline,
   Scene,
   WebGPURenderer,
+  type TextureNode,
   type ToneMapping,
 } from "three/webgpu";
 import {
+  convertToTexture,
   dot,
   float,
   fog,
@@ -83,6 +85,7 @@ import { ao as gtao } from "three/addons/tsl/display/GTAONode.js";
 import { BLOOM_THRESHOLD, type SceneBackend, type SceneHandle, type ScenePalette } from "@kb/scene";
 import { backdropNode, type BackdropOptions } from "./backdrop";
 import { disposeGraph } from "./dispose";
+import { depthOfField, type StageFocus } from "./focus";
 import { shoulder, shoulderGround } from "./tone";
 import { bloomTexture, colorUniform, type TslNode } from "./tsl";
 import { approachRate, approachShare, clampStep, type Timing } from "@kb/ui-sdk";
@@ -112,7 +115,8 @@ const TONE_MAPPINGS: Record<SceneToneMapping, ToneMapping> = {
  * of view (degrees), or orthographically, `height` world units from the
  * frame's bottom to its top, so a part's size never depends on its depth.
  * The camera is three's perspective camera either way (its type is the
- * stage's contract); an orthographic stage sets its projection matrix.
+ * stage's contract); an orthographic stage sets its projection matrix, and
+ * draws its background with `screenFill`, which covers a frame of any shape.
  */
 export type Projection =
   | { readonly kind: "perspective"; readonly fov: number }
@@ -150,6 +154,8 @@ export interface StageOptions {
   readonly fadeSpace?: "linear" | "display";
   /** The tone curve the stage starts with (ACES by default). */
   readonly toneMapping?: SceneToneMapping;
+  /** Depth of field (`focus.ts`): where the camera focuses, and how it loses focus either side. */
+  readonly focus?: StageFocus;
   /** A camera's artefacts, each 0 for none: see the post chain above. */
   readonly lens?: { readonly aberration: number; readonly streak: number; readonly grain: number };
   /** Read each frame's GPU time back where the backend can (`gpuMs`). */
@@ -210,6 +216,18 @@ function edgeFade(options: StageOptions, vignette: TslNode<"float">): TslNode<"f
   return float(1).sub(inside.mul(inside));
 }
 
+/** The depth of field over `picture`, the scene pass's, if the stage asks for one (`focus`). */
+function focusOf(options: StageOptions, picture: TextureNode, scenePass: ReturnType<typeof pass>) {
+  if (options.focus === undefined) return null;
+  return depthOfField(
+    picture,
+    scenePass.getTextureNode("depth"),
+    options.projection,
+    [options.near ?? 0.1, options.far ?? 400],
+    options.focus,
+  );
+}
+
 /** The post chain, and the handles a view turns. */
 function postChain(
   renderer: WebGPURenderer,
@@ -249,6 +267,10 @@ function postChain(
     const occlusion = occlusionPass.getTextureNode().sample(screenUV).r;
     lit = lit.mul(mix(float(1), occlusion, knobs.occlusion));
   }
+  const focus = focusOf(options, lit === color ? color : convertToTexture(lit), scenePass);
+  // The picture the lens reads: the scene, or the scene softened by depth.
+  const picture = (uv: TslNode<"vec2">) => (focus === null ? color.sample(uv) : focus.sample(uv));
+  if (focus !== null) lit = picture(screenUV);
   const glow = bloom(lit, options.bloom.strength, options.bloom.radius, BLOOM_THRESHOLD);
   const lens = options.lens ?? { aberration: 0, streak: 0, grain: 0 };
   let composed: TslNode<"vec3"> = lit.rgb.add(glow.rgb);
@@ -258,7 +280,7 @@ function postChain(
     const away = screenUV.sub(0.5);
     const shift = away.mul(length(away)).mul(lens.aberration);
     const glowTexture = bloomTexture(glow);
-    const at = (uv: TslNode<"vec2">) => color.sample(uv).rgb.add(glowTexture.sample(uv).rgb);
+    const at = (uv: TslNode<"vec2">) => picture(uv).rgb.add(glowTexture.sample(uv).rgb);
     const spread = shift.mul(3);
     const glowAt = (uv: TslNode<"vec2">) => glowTexture.sample(uv).rgb;
     const fringe = vec3(
@@ -318,7 +340,7 @@ function postChain(
   const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;
   post.outputNode = vec4(shownColor, 1);
-  return { post, glow, occlusionPass, knobs, ground, paint };
+  return { post, glow, occlusionPass, focus, knobs, ground, paint };
 }
 
 function backendOf(renderer: WebGPURenderer): SceneBackend {
@@ -551,6 +573,11 @@ function postControls(
 ) {
   return {
     bloomStrength: () => chain.glow.strength.value,
+    /** Refocus a stage built with `focus` (a view whose scale changes moves its plane); else nothing. */
+    setFocus: (focus: StageFocus) => {
+      chain.focus?.set(focus);
+      invalidate();
+    },
     setBloom: (strength: number) => {
       chain.glow.strength.value = strength;
       invalidate();
@@ -605,10 +632,16 @@ function project(camera: PerspectiveCamera, projection: Projection, aspect: numb
 }
 
 /** Sizes the canvas and the view to the host's (CSS pixels); false for a host with no size. */
-function sizer(renderer: WebGPURenderer, camera: PerspectiveCamera, projection: Projection) {
+function sizer(
+  renderer: WebGPURenderer,
+  camera: PerspectiveCamera,
+  projection: Projection,
+  chain: ReturnType<typeof postChain>,
+) {
   return (width: number, height: number): boolean => {
     if (width <= 0 || height <= 0) return false;
     renderer.setPixelRatio(pixelRatio());
+    chain.focus?.scale(renderer.getPixelRatio());
     renderer.setSize(width, height, false);
     project(camera, projection, width / height);
     return true;
@@ -638,7 +671,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
   });
   loop.setInitialPalette(options.palette);
   const { invalidate } = loop;
-  const size = sizer(renderer, camera, projection);
+  const size = sizer(renderer, camera, projection, chain);
 
   return {
     scene,
@@ -716,6 +749,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
         loop.stop();
         disposeGraph(scene);
         chain.occlusionPass?.dispose();
+        chain.focus?.dispose();
         chain.glow.dispose();
         chain.post.dispose();
         void renderer.dispose();

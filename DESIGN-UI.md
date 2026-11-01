@@ -3088,13 +3088,32 @@ were taps — every study and the 3D graph read the one field), `stage` (rendere
 mapping, palette uniforms, frame loop, reveal; its camera's projection
 (`Projection`: a perspective through a field of view, or orthographic, so
 many world units from the frame's bottom to its top, as a flat technical
-drawing is projected); optionally a camera's
+drawing is projected); optionally a depth of field (`focus`, `focus.ts`:
+a focal plane's distance, how deep it stays sharp, how much further it
+takes to blur fully and the widest blur in CSS pixels; each pixel's circle
+of confusion from the scene pass's depth through the stage's own
+projection, so it holds for either; a gather in two strokes, across then
+down, each tap counted where its own circle reaches, a tap behind the
+pixel no wider than the pixel's own circle, so a blurred part spreads over
+what lies behind it and nothing behind bleeds over a sharp part; gathered
+at half the frame's pixels and laid over the sharp picture only where a
+circle, a pixel's own or a nearer part's spreading over it, passes a
+pixel, so the front layer keeps its own crispness, laid where the stage
+reads its picture, so no frame-sized texture is written for it; gathered
+before the bloom; a pixel with no solid, a backdrop's sky, in focus; and
+a stage focused nowhere, radius 0, drawing none of it);
+optionally a camera's
 artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
 film grain, only where the scene's art is, never on its ground, so the
 grain cannot shift the ground's level and draw the frame), a feather along the frame's own sides, a presence knob and a
 GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
 shader drawn into a render target of its own size, optionally reading its
-last picture back, which a scene samples as a texture), `tone` (the
+last picture back, which a scene samples as a texture), `screen-fill`
+(`screenFill`: a background on a quad covering the frame on the far plane,
+drawn after the opaque solids so it is shaded only where it shows; three
+draws `scene.backgroundNode` on a sphere that an orthographic view wider
+than about 2.8 times its height shows past, so an orthographic stage draws
+its background with this), `tone` (the
 shoulder curve and its pre-image), `tsl` (the typed TSL seam
 and the ease as a shader function), `rig` (lights and finishes),
 `backdrop` (every view's ground, through the stage's `backdrop()`: the
@@ -4936,66 +4955,106 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     on a phone, over a pale periwinkle wash along the bundle; the knot a
     point of bare paper in a cyan bloom and streak, so the core still
     reads.
-- **Astral.** Precise celestial instruments in engraved metal, the
-  four-point needle star at every scale (`astral/`): hairline engraving in
-  champagne, ivory and silver on ink-navy, one cool accent (ice, blued
-  steel), and on a light page ink and gilt on warm paper. No pentagram, no
-  stock magic circle, no glow for its own sake: the light is the stars'
-  and the studio's. It is one backdrop with four compositions, its
-  variants (**Variants**), a load showing one: **Movement** (an astrolabe
-  dial before a great crown wheel and its train, a balance swinging
-  beside), **Orrery** (silver orbits seen from a little above, planets as
-  stars on rods round a column), **Planisphere** (a star plate whose rim
-  is a great wheel, made for the light page) and **Armillary** (great
-  graduated rings in perspective round the hub star, the eye drifting
-  round them).
+- **Astral.** Precise celestial instruments drawn as a luminous technical
+  drawing moving in 3D, the four-point needle star at every scale
+  (`astral/`): hairline ink in champagne, ivory and silver-blue on
+  ink-navy, one cool accent (ice, blued steel), and on a light page ink
+  and gilt on warm paper. No pentagram, no stock magic circle, no glow for
+  its own sake: the light is the stars'. It is one backdrop with four
+  compositions, its variants (**Variants**), a load showing one:
+  **Movement** (an astrolabe dial before a great crown wheel and its
+  train, a balance swinging above), **Orrery** (silver orbits on black
+  seen from a little above, planets as stars on rods round a column),
+  **Planisphere** (a star plate whose rim is a great wheel, made for the
+  light page) and **Armillary** (great graduated rings round the hub
+  star, the eye drifting round them). Its look is the owner's chosen
+  concept stills: flat fills, hairline strokes, thin rings and tick
+  scales, gear teeth as line, needle stars, bokeh, a glowing hub.
   - **Compositions are data** (`astral.ts`, `compositions.ts`): a list of
     parts (a wheel, an arm, a rod, a star, a group), each in its parent's
     frame, turning by its drive; `astral-scene.ts` builds whatever a list
-    holds, one builder per kind. Each load composes anew from its
-    variation: ring and pointer counts, radii, ratios, where the wheels
-    mesh (`meshed`, so teeth fall in gaps), where the stars stand.
-  - **Real solids in a true perspective.** A wheel is its outline (teeth,
-    spoke windows or a bore) extruded with a fine bevel
-    (`astral-geometry.ts`), drawn with MSAA in a 40° view, so parts occlude
-    one another as the eye drifts. Engraving (guilloché, scales, rings, a
-    star chart, côtes, a hairspring's spiral) is cut in the face's own
-    coordinates, antialiased by its footprint and thinned to a hairline
-    below a pixel.
-  - **The light, live and named.** Metal reflects a studio: a soft key at
-    the upper left (the lamp, warm white), a strip at the right (cool
-    white) and a little fill above. Faces are brushed in circles about
-    their axis (an anisotropic sheen across the brushing); a cut's walls
-    catch the key by which way they face. A glint sweeps the metal now and
-    then. The front parts cast soft contact shadows on the sky and on the
-    wheels behind, and a far wheel sinks into the haze. The stars are
-    self-luminous: a hot core and needle spikes, drawn instanced, facing
-    the eye.
+    holds, one builder per kind. A composition may name its own dark sky
+    (the night it pools to, its nebula the same colour thickened, its
+    hub's glow), a graduated great circle behind it and where the stage
+    focuses (`Mechanism.focus`: the plane, the depth kept sharp, the
+    falloff, in the instrument's units, and the widest blur), and names the constellation far behind it in open sky
+    (`Constellation`: its stars and the links between them). Each load composes anew from its variation: ring and
+    pointer counts, radii, ratios, where the wheels mesh (`meshed`, so
+    teeth fall in gaps), where the stars stand.
+  - **Real solids, projected as a drawing.** A wheel is its outline
+    (teeth, spoke windows or a bore) extruded with a fine bevel
+    (`astral-geometry.ts`), drawn with MSAA through an orthographic camera
+    (`Projection`), so nothing is distorted by perspective and parts still
+    turn, tilt and occlude one another as the eye drifts. Depth shows by
+    motion, occlusion, tilt, haze, line weight and focus, never by size:
+    the haze is read per pixel from how far behind the hero's plane a
+    surface stands, past a little band so a front plate's own tilt stays
+    clear, so the far halves of rings and orbits and the trains behind
+    are drawn finer, cooler and dimmer; a composition with a focus
+    softens what lies before and behind it through the stage's depth of
+    field, the front layer crisp.
+  - **Cel-shaded, inked.** A face is flat colour in a few bands with crisp
+    edges: a lit crescent toward the key light, a shade away from it, a
+    darker band when the face turns from it, and the hub star's light on
+    the plates about it in two steps. Its edges are inked from the outline
+    the solid was cut from (`wheelLayout`, `armProfile`), measured in
+    pixels, so every line is a hairline (under a third of a CSS pixel on
+    a dark page, heavier in print) at any size and
+    angle; the turned rings in a wheel and what is cut into it
+    (guilloché, scales, rings, a star chart, côtes, a hairspring) are
+    inked the same. Walls are the ink, dimmed, lit or not by their turn.
+    A far part's ink cools to steel, dims and thins; a part set behind the
+    hero's plane lies in the front parts' soft shadow. No reflections, no
+    brushing, no specular.
+  - **Stars and glow, sharp and layered.** The stars are self-luminous,
+    their light in the concept pictures' layers rather than one glow: a
+    hard white core; two crossed needle tapers, broad at the heart and
+    box-filtered so they stay crisp at any width, white near the core
+    and their tone further out; a soft bloom along them; a tight inner
+    halo and a separate faint wide outer one, ice about the hub; and the
+    hub's short diagonals and hairline needles. They are drawn
+    instanced, facing the eye, in two layers: the field stars among the
+    solids, so a part in front hides them, and the hub star and its
+    flare over every part, as the concepts draw it, marking its own depth
+    where its spikes and core cover (`starMark`), so the depth of field
+    keeps it as sharp as its plane; the frame's bloom is small and close, so
+    a glow never washes. On paper a star is printed: a crisp gilt or ink
+    silhouette.
   - **Ticking.** The trains tick in eased steps with a little escapement
     recoil (`trainClock`, `tickEase`), every wheel by its ratio and some
     only every few ticks; a balance swings a little off the tick, so the
     two drift in and out of phase. The clock is elapsed time, so where a
     wheel stands is the same at any frame rate.
+  - **Constellations.** The composition's constellation stands faint in
+    the open sky: four-point glints, each in a small hairline ring,
+    joined by hairlines. A constellation drawing itself (below) is drawn
+    by the same means, its links growing star to star.
   - **A sky that lives** (`ambient`): each on a clock of its own, a few a
     minute between them, a shooting star, a constellation drawing itself
-    and fading, a far train engaging a while, a glint across the metal;
-    dust drifts in slow light shafts, the stars breathe.
+    and fading, a far train engaging a while (in a composition with one),
+    a glint across the lines; a few bokeh orbs drift, each a lens's blur
+    of a far light (a soft disc of its own size, a little brighter toward
+    its rim, faintly tinted between ice and warm), the great circle turns
+    very slowly, the stars breathe.
   - **The owner.** A write, a move to another page or something noticed
     on the page ticks every train one notch at once and flares the hub
-    star. The pointer is a lamp on an arm: the studio's key swings toward
-    it (attack 0.3 s, release 0.55 s) and the stars near it glint; nothing
-    else follows it.
-  - **A light page** draws the same solids as a printed plate: a face is
-    the paper in a wash of its metal, lit by a low raking light, its
-    outline and cuts in ink, gilt for the stars and the hub, and the
-    instrument's shadow cast on the paper.
+    star. The pointer is a lamp on an arm: the key swings toward it
+    (attack 0.3 s, release 0.55 s), so the light bands slide across the
+    plates, and the stars near it glint; nothing else follows it.
+  - **A light page** draws the same solids as a printed plate: the page
+    warmed to paper, a face washed in its metal, its shade band hatched,
+    its edges and cuts in ink a little heavier than light, gilt for the
+    stars and the hub, and the instrument's shadow cast on the paper.
   - **A frame's passes**: the sky's slow fields (the nebula, the warmth
     about the hub, the paper's fibre) offscreen at half the CSS pixels,
-    four times a second (`slowSky`); one MSAA scene pass (the sky as the
-    background node, its stars and events per pixel, the solids, the
-    instanced stars); the stage's bloom mips; and its composite (lens,
-    feather, tone, dither). Glints, the constellation and the shooting star
-    are branches only drawn while on.
+    four times a second (`slowSky`); one MSAA scene pass (the solids, then
+    the sky on a screen quad, `screenFill`, shaded only where no solid
+    covers it, its stars and events per pixel, then the instanced stars);
+    the stage's depth of field where the composition focuses; its bloom
+    mips; and its composite (lens, feather, tone,
+    dither). Glints, the constellations, the shooting star and the great
+    circle are branches only drawn where they are on: a constellation
+    only inside its box.
   - Reduced motion is one still: the variant drawn by the load's seed, the
     rest from the curated still's (**Variation**).
 - **Painted scenes keep their colour.** Toon sea and Silk were drawn as

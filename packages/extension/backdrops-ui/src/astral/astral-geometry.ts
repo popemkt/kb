@@ -6,8 +6,9 @@
  * axis +z, its thickness centred on it: the shader reads its face in those
  * coordinates (`astral-shader.ts`).
  *
- * A part's outline is stated once, here (`wheelLayout`, `armProfile`), and
- * its solid is cut from it.
+ * A part's outline is stated once, here (`wheelLayout`, `armProfile`): the
+ * solid is cut from it, and the shader inks the face's edge from the same
+ * numbers, so the line lies on the solid's edge at any angle.
  */
 import { type BufferGeometry, CylinderGeometry, ExtrudeGeometry, Path, Shape } from "three/webgpu";
 import { TAU } from "../scene/math";
@@ -24,10 +25,10 @@ const toothDepth = (r: number, teeth: number) => Math.min(0.06, ((TAU * r) / tee
  * A tooth's profile over its pitch (0–1 from a gap's centre): where its
  * flank leaves the root, reaches the tip, leaves it and meets the root again.
  */
-const TOOTH = { rise: 0.29, tip: 0.38, fall: 0.62, root: 0.71 } as const;
+export const TOOTH = { rise: 0.29, tip: 0.38, fall: 0.62, root: 0.71 } as const;
 
 /** A wheel's outline: its teeth (or a plain rim), its spokes' windows or its bore, all radii in its own units. */
-interface WheelLayout {
+export interface WheelLayout {
   readonly teeth: number;
   /** The rim's outer edge without teeth; with them, the tips and the roots. */
   readonly tip: number;
@@ -42,7 +43,7 @@ interface WheelLayout {
 }
 
 /** The outline of `shape`, as its solid is cut and its face is inked. */
-function wheelLayout(shape: WheelShape): WheelLayout {
+export function wheelLayout(shape: WheelShape): WheelLayout {
   const depth = shape.teeth > 0 ? toothDepth(shape.radius, shape.teeth) : 0;
   const windows = shape.inner === 0 && shape.spokes > 0;
   return {
@@ -50,9 +51,9 @@ function wheelLayout(shape: WheelShape): WheelLayout {
     tip: shape.radius + depth / 2,
     root: shape.radius - depth / 2,
     spokes: windows ? shape.spokes : 0,
-    hub: Math.max(0.05, shape.radius * 0.18),
-    rim: shape.radius - depth - Math.max(0.035, shape.radius * 0.1),
-    spoke: Math.max(0.018, shape.radius * 0.07),
+    hub: Math.max(0.045, shape.radius * 0.12),
+    rim: shape.radius - depth - Math.max(0.03, shape.radius * 0.07),
+    spoke: Math.max(0.014, shape.radius * 0.035),
     inner: shape.inner,
   };
 }
@@ -167,7 +168,7 @@ export function wheelGeometry(shape: WheelShape, quality: number): BufferGeometr
  * An arm's outline: its half-width at each station along it, from its tail
  * (-x) through its pivot to its tip (+x); the outline is symmetric about x.
  */
-function armProfile(shape: ArmShape): readonly (readonly [number, number])[] {
+export function armProfile(shape: ArmShape): readonly (readonly [number, number])[] {
   const w = shape.width / 2;
   const tail = shape.tail > 0 ? shape.tail : w;
   return [

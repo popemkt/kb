@@ -12,6 +12,7 @@ import {
   meshed,
   type ArmShape,
   type AstralVariant,
+  type Constellation,
   type Drive,
   type GroupShape,
   type Mechanism,
@@ -69,6 +70,106 @@ const polar = (r: number, angle: number, z = 0): Vec3 => [
 ];
 
 /**
+ * Constellation figures, a unit across with y up: each star x y and its
+ * long spike, and the links between them. The net is Movement's concept
+ * picture's own.
+ */
+const FIGURES = {
+  net: {
+    stars: [
+      [-0.5, 0.12, 0.057],
+      [-0.185, 0.25, 0.039],
+      [0.13, 0.093, 0.074],
+      [0.391, 0.207, 0.035],
+      [0.5, -0.12, 0.048],
+      [0.174, -0.25, 0.033],
+      [-0.152, -0.196, 0.043],
+    ],
+    links: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 2],
+    ],
+  },
+  dipper: {
+    stars: [
+      [-0.5, 0.16, 0.04],
+      [-0.3, 0.2, 0.035],
+      [-0.12, 0.13, 0.05],
+      [0.04, 0.06, 0.04],
+      [0.08, -0.15, 0.05],
+      [0.45, -0.2, 0.065],
+      [0.5, 0.04, 0.045],
+    ],
+    links: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 3],
+    ],
+  },
+  swan: {
+    stars: [
+      [0, 0.3, 0.065],
+      [0, 0.08, 0.045],
+      [-0.04, -0.12, 0.035],
+      [0.02, -0.32, 0.05],
+      [-0.42, 0.16, 0.04],
+      [0.4, -0.02, 0.045],
+    ],
+    links: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [4, 1],
+      [1, 5],
+    ],
+  },
+  crown: {
+    stars: [
+      [-0.5, 0.12, 0.045],
+      [-0.25, -0.1, 0.04],
+      [0, 0.06, 0.065],
+      [0.24, -0.12, 0.04],
+      [0.5, 0.14, 0.05],
+    ],
+    links: [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+  },
+} as const satisfies Record<string, Constellation>;
+
+/**
+ * A figure in the sky, centred `at` from the hero and `span` across (the
+ * instrument's units), facing either way by the load's variation.
+ */
+function skyConstellation(
+  vary: Variation,
+  variant: AstralVariant,
+  figure: Constellation,
+  at: readonly [number, number],
+  span: number,
+): Constellation {
+  const facing = vary.sign(`${variant}.constellation`);
+  return {
+    stars: figure.stars.map(
+      ([x, y, size]): Vec3 => [at[0] + facing * x * span, at[1] + y * span, size * span],
+    ),
+    links: figure.links,
+  };
+}
+
+/**
  * A far train, deep behind the instrument and lost in its haze: three
  * wheels that rest, and now and then engage and turn a while.
  */
@@ -89,17 +190,16 @@ function farTrain(vary: Variation, at: Vec3): Part[] {
       at: a.at,
       spin: a.spin,
       drive: tick(1, 1, "far"),
-      haze: 0.8,
     },
-    { shape: far(0.28, 29, 4), at: b.at, spin: b.spin, drive: tick(b.ratio, 1, "far"), haze: 0.8 },
-    { shape: far(0.4, 41, 5), at: c.at, spin: c.spin, drive: tick(c.ratio, 1, "far"), haze: 0.8 },
+    { shape: far(0.28, 29, 4), at: b.at, spin: b.spin, drive: tick(b.ratio, 1, "far") },
+    { shape: far(0.4, 41, 5), at: c.at, spin: c.spin, drive: tick(c.ratio, 1, "far") },
   ];
 }
 
 /** The dial: an engraved plate, its rings and scale, twelve star indices. */
 function dial(vary: Variation): Part {
-  const rings = vary.pick("movement.rings", [3, 4, 5] as const);
-  const dialRings = Array.from({ length: rings }, (_, i) => 0.74 - i * (0.42 / rings));
+  const rings = vary.pick("movement.rings", [1, 2, 3] as const);
+  const dialRings = Array.from({ length: rings }, (_, i) => 0.74 - i * (0.3 / rings));
   return {
     shape: wheel(1, "plate", {
       thickness: 0.05,
@@ -111,8 +211,8 @@ function dial(vary: Variation): Part {
           lines: 10,
           petals: vary.pick("movement.petals", [72, 96, 120] as const),
         },
-        { kind: "scale", from: 0.89, to: 0.98, ticks: 120, major: 5 },
-        { kind: "rings", radii: [0.98, 0.95, 0.89, 0.86, ...dialRings] },
+        { kind: "scale", from: 0.89, to: 0.98, ticks: 240, major: 5 },
+        { kind: "rings", radii: [0.98, 0.96, 0.89, 0.85, ...dialRings] },
       ],
     }),
     at: [0, 0, 0],
@@ -156,7 +256,7 @@ function rete(vary: Variation): Part {
     const a = (i / pointers) * TAU + draw.range(-0.25, 0.25);
     const r = draw.range(0.52, 0.76);
     children.push({
-      shape: arm(r - 0.27, 0.014, "champagne", { thickness: 0.012 }),
+      shape: arm(r - 0.27, 0.008, "champagne", { thickness: 0.012 }),
       at: polar(0.27, a, 0),
       spin: a,
       children: [
@@ -229,7 +329,6 @@ function crownTrain(vary: Variation): Part[] {
       at: crown.at,
       spin: crown.spin,
       drive: tick(ratio),
-      haze: 0.25,
       children: [{ shape: star(0.06, "ice"), at: [0, 0, 0.05] }],
     },
     {
@@ -237,7 +336,6 @@ function crownTrain(vary: Variation): Part[] {
       at: two.at,
       spin: two.spin,
       drive: tick(two.ratio),
-      haze: 0.25,
       children: [{ shape: star(0.05, "ice"), at: [0, 0, 0.05] }],
     },
     {
@@ -245,7 +343,6 @@ function crownTrain(vary: Variation): Part[] {
       at: [three.at[0], three.at[1], -0.32],
       spin: three.spin,
       drive: tick(three.ratio),
-      haze: 0.45,
     },
   ];
 }
@@ -255,10 +352,10 @@ function balance(vary: Variation): Part {
   const swing = TICK_PERIOD * 2 * vary.range("movement.beat", 1.04, 1.09);
   return {
     shape: GROUP,
-    at: [vary.range("movement.balX", 1.05, 1.3), vary.range("movement.balY", -0.75, -0.45), 0.1],
+    at: [vary.range("movement.balX", -1.2, -0.95), vary.range("movement.balY", 0.75, 0.92), 0.1],
     children: [
       {
-        shape: wheel(0.4, "silver", { inner: 0.36, spokes: 3, thickness: 0.035 }),
+        shape: wheel(0.4, "silver", { spokes: 3, thickness: 0.035 }),
         at: [0, 0, 0],
         drive: { kind: "swing", amplitude: 1.1, period: swing },
       },
@@ -284,6 +381,10 @@ function movement(vary: Variation): Mechanism {
     wide: { x: 0.52, y: 0.42, scale: 1 },
     lean: [0.05, -0.08, 0],
     drift: { yaw: 0.03, pitch: 0.015, period: 70 },
+    arc: { at: [-2.1, -8.5], radius: 9.45 },
+    constellation: skyConstellation(vary, "movement", FIGURES.net, [-3.27, 0.62], 1.45),
+    // The dial in focus; the train behind it soft, the deepest wheel softest.
+    focus: { at: 0.06, depth: 0.1, falloff: 0.25, radius: 2.4 },
     parts: [
       ...crownTrain(vary),
       ...farTrain(vary, [
@@ -317,18 +418,19 @@ function orrery(vary: Variation): Mechanism {
   radii.forEach((radius, i) => {
     const scaled = i % 2 === 1;
     orbits.push({
-      shape: wheel(radius + 0.016, "silver", {
-        inner: radius - 0.016,
-        thickness: 0.012,
-        engravings: scaled
-          ? [{ kind: "scale", from: radius - 0.016, to: radius + 0.016, ticks: 180, major: 10 }]
-          : [{ kind: "rings", radii: [radius - 0.008, radius + 0.008] }],
-      }),
+      // An orbit is a wire, every other one with a scale standing out of it.
+      shape: scaled
+        ? wheel(radius * 1.02, "silver", {
+            inner: radius - 0.002,
+            thickness: 0.003,
+            engravings: [{ kind: "scale", from: radius, to: radius * 1.02, ticks: 180, major: 10 }],
+          })
+        : wheel(radius + 0.002, "silver", { inner: radius - 0.002, thickness: 0.003 }),
       at: [0, 0, 0],
     });
     // Kepler, nearly: the inner ones step further each tick.
     const ratio = (0.9 * (radii[0] ?? radius) ** 1.5) / radius ** 1.5;
-    const size = draw.range(0.1, 0.15) * (i === count - 1 ? 1.3 : 1);
+    const size = draw.range(0.16, 0.24) * (i === count - 1 ? 1.3 : 1);
     const collar = -0.06 - i * 0.05;
     orbits.push({
       shape: GROUP,
@@ -345,7 +447,7 @@ function orrery(vary: Variation): Mechanism {
           tilt: [Math.PI / 2, 0, 0],
         },
         {
-          shape: wheel(size * 0.55, "silver", { inner: size * 0.47, thickness: 0.008 }),
+          shape: wheel(size * 0.32, "silver", { inner: size * 0.28, thickness: 0.006 }),
           at: [radius, 0, -collar],
         },
         {
@@ -359,11 +461,12 @@ function orrery(vary: Variation): Mechanism {
     shape: GROUP,
     at: [0, 0, 0],
     // The orbital plane seen a little from above, leaning.
-    tilt: [-Math.PI / 2 + vary.range("orrery.view", 0.42, 0.56), 0, 0],
+    tilt: [-Math.PI / 2 + vary.range("orrery.view", 0.27, 0.36), 0, 0],
     children: [...orbits],
   };
+  // The drive stands a little behind the orbits' plane: dimmer and finer, as the concept's.
   const drive = {
-    at: [0, -1, 0] as Vec3,
+    at: [0, -1, -0.5] as Vec3,
     radius: 0.3,
     teeth: 40,
     spin: vary.phase("orrery.drive"),
@@ -374,6 +477,7 @@ function orrery(vary: Variation): Mechanism {
     { radius: 0.15, teeth: 20 },
     vary.range("orrery.pinion", -0.4, 0.3),
   );
+  const collarRadius = (radii[0] ?? 0.4) * 0.34;
   return {
     variant: "orrery",
     unit: 0.27,
@@ -381,6 +485,8 @@ function orrery(vary: Variation): Mechanism {
     wide: { x: 0.54, y: 0.44, scale: 1 },
     lean: [0, 0, vary.range("orrery.lean", -0.18, -0.08)],
     drift: { yaw: 0.06, pitch: 0.02, period: 90 },
+    sky: { night: [0.0018, 0.0024, 0.0045], glow: [0.03, 0.034, 0.046] },
+    constellation: skyConstellation(vary, "orrery", FIGURES.dipper, [-3.9, 0.81], 1.85),
     parts: [
       {
         shape: { kind: "rod", length: 1, radius: 0.016, metal: "silver" },
@@ -398,13 +504,19 @@ function orrery(vary: Variation): Mechanism {
         spin: pinion.spin,
         drive: tick(pinion.ratio),
       },
-      ...farTrain(vary, [
-        vary.range("orrery.farX", -2.4, -1.9),
-        vary.range("orrery.farY", -0.9, -0.4),
-        -1.8,
-      ]),
       plane,
-      { shape: star(0.95, "ivory", { hub: true, across: 0.62 }), at: [0, 0, 0.02] },
+      // A fine graduated collar about the sun, square to the eye.
+      {
+        shape: wheel(collarRadius, "silver", {
+          inner: collarRadius - 0.003,
+          thickness: 0.003,
+          engravings: [
+            { kind: "scale", from: collarRadius * 0.9, to: collarRadius, ticks: 72, major: 6 },
+          ],
+        }),
+        at: [0, 0, 0.01],
+      },
+      { shape: star(0.58, "ivory", { hub: true, across: 0.7 }), at: [0, 0, 0.02] },
     ],
   };
 }
@@ -418,7 +530,8 @@ function planisphere(vary: Variation): Mechanism {
     plate,
     plateRatio,
     { radius: 0.255, teeth: 46 },
-    vary.range("planisphere.pinion", 3.35, 4.0),
+    // High at the plate's left, as the concept's.
+    vary.range("planisphere.pinion", 2.5, 2.85),
   );
   const sky = vary.stream("planisphere.constellations");
   const constellation = (centre: readonly [number, number], n: number): Part[] => {
@@ -473,6 +586,8 @@ function planisphere(vary: Variation): Mechanism {
     wide: { x: 0.52, y: 0.53, scale: 1 },
     lean: [0.12, -0.1, 0],
     drift: { yaw: 0.02, pitch: 0.012, period: 80 },
+    arc: { at: [-1.83, 6.04], radius: 6.38 },
+    constellation: skyConstellation(vary, "planisphere", FIGURES.crown, [-3.3, 1.0], 1.6),
     parts: [
       {
         shape: wheel(0.255, "champagne", { teeth: 46, spokes: 6, thickness: 0.04 }),
@@ -506,16 +621,54 @@ function planisphere(vary: Variation): Mechanism {
         ],
       },
       { shape: wheel(0.075, "blued", { inner: 0.058, thickness: 0.02 }), at: [0, 0, 0.1] },
-      { shape: star(0.7, "gilt", { hub: true, across: 0.66 }), at: [0, 0, 0.14] },
+      { shape: star(0.53, "gilt", { hub: true, across: 0.66 }), at: [0, 0, 0.14] },
     ],
   };
 }
 
-/** #4 Armillary: great graduated rings in perspective, a toothed meridian, an ecliptic of stars. */
+/** The armillary's drive: a pinion at the meridian's foot, a follower off to its left. */
+function meridianDrive(
+  vary: Variation,
+  meridian: {
+    readonly at: Vec3;
+    readonly radius: number;
+    readonly teeth: number;
+    readonly spin: number;
+  },
+): Part[] {
+  const pinion = meshed(
+    meridian,
+    0.5,
+    { radius: 0.33, teeth: 46 },
+    vary.range("armillary.pinion", -1.5, -1.3),
+  );
+  const follower = meshed(
+    { at: pinion.at, radius: 0.33, teeth: 46, spin: pinion.spin },
+    pinion.ratio,
+    { radius: 0.15, teeth: 21 },
+    vary.range("armillary.follower", 3.2, 3.6),
+  );
+  return [
+    {
+      shape: wheel(0.33, "champagne", { teeth: 46, spokes: 5, thickness: 0.04 }),
+      at: pinion.at,
+      spin: pinion.spin,
+      drive: tick(pinion.ratio),
+    },
+    {
+      shape: wheel(0.15, "champagne", { teeth: 21, spokes: 4, thickness: 0.04 }),
+      at: follower.at,
+      spin: follower.spin,
+      drive: tick(follower.ratio),
+    },
+  ];
+}
+
+/** #4 Armillary: great graduated rings seen obliquely, a toothed meridian, an ecliptic of stars. */
 function armillary(vary: Variation): Mechanism {
   const obliquity = (23.5 * Math.PI) / 180;
   const band = (radius: number, width: number, rest: Partial<WheelShape> = {}) =>
-    wheel(radius, "champagne", { inner: radius - width, thickness: 0.018, ...rest });
+    wheel(radius, "silver", { inner: radius - width, thickness: 0.008, ...rest });
   const parallels: readonly [readonly number[], ...(readonly number[])[]] = [
     [23.5, -23.5, 66.5, -66.5],
     [23.5, -23.5],
@@ -532,12 +685,6 @@ function armillary(vary: Variation): Mechanism {
     };
   });
   const meridian = { at: [0, 0, 0] as Vec3, radius: 1, teeth: 140, spin: 0 };
-  const pinion = meshed(
-    meridian,
-    0.5,
-    { radius: 0.33, teeth: 46 },
-    vary.range("armillary.pinion", -0.25, 0.15),
-  );
   const equatorial: Part = {
     shape: GROUP,
     at: [0, 0, 0],
@@ -580,7 +727,7 @@ function armillary(vary: Variation): Mechanism {
         ],
       },
       {
-        shape: { kind: "rod", length: 2.36, radius: 0.012, metal: "champagne" },
+        shape: { kind: "rod", length: 2.36, radius: 0.008, metal: "silver" },
         at: [0, 0, -1.18],
         tilt: [Math.PI / 2, 0, 0],
       },
@@ -593,8 +740,12 @@ function armillary(vary: Variation): Mechanism {
     unit: 0.31,
     panel: { x: 0.24, y: 0.44, scale: 0.55 },
     wide: { x: 0.5, y: 0.47, scale: 1 },
-    lean: [vary.range("armillary.elev", 0.32, 0.46), vary.range("armillary.az", -0.7, -0.4), 0],
+    lean: [vary.range("armillary.elev", 0.26, 0.36), vary.range("armillary.az", -1, -0.85), 0],
     drift: { yaw: 0.18, pitch: 0.05, period: 75 },
+    sky: { night: [0.0035, 0.008, 0.024], glow: [0.028, 0.048, 0.1] },
+    constellation: skyConstellation(vary, "armillary", FIGURES.swan, [-3.4, 0.8], 1.4),
+    // The hub in focus; the rings' near and far halves soft, as they leave it.
+    focus: { at: 0, depth: 0.2, falloff: 0.8, radius: 1.6 },
     parts: [
       {
         shape: band(1.06, 0.088, {
@@ -611,19 +762,9 @@ function armillary(vary: Variation): Mechanism {
         at: meridian.at,
         drive: tick(0.5),
       },
-      {
-        shape: wheel(0.33, "champagne", { teeth: 46, spokes: 5, thickness: 0.04 }),
-        at: pinion.at,
-        spin: pinion.spin,
-        drive: tick(pinion.ratio),
-      },
+      ...meridianDrive(vary, meridian),
       equatorial,
-      ...farTrain(vary, [
-        vary.range("armillary.farX", -2.8, -2.3),
-        vary.range("armillary.farY", -1.1, -0.6),
-        -1.6,
-      ]),
-      { shape: star(1.05, "ivory", { hub: true, across: 0.62 }), at: [0, 0, 0] },
+      { shape: star(0.73, "ivory", { hub: true, across: 0.62 }), at: [0, 0, 0] },
     ],
   };
 }

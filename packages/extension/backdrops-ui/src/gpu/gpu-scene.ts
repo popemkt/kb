@@ -130,12 +130,18 @@ export interface BackdropParts {
 
 /** The stage a backdrop asks for beyond the kit's shared frame. */
 /**
- * A backdrop's stage: its bloom and lens, and how its frame fades into the
+ * A backdrop's stage: its bloom and lens, its projection (a 40° perspective
+ * unless it asks for another, as a flat technical drawing asks for an
+ * orthographic one), its depth of field if it has one, and how its frame fades into the
  * page: a painted, high-key scene fades as a CSS mask would (`fadeSpace`),
  * and one whose subject reaches low in the frame (a sea under its horizon)
  * may fade later than the frame's own (`FRAME_FEATHER`).
  */
-export type BackdropStageOptions = Pick<StageOptions, "bloom" | "lens" | "fadeSpace" | "feather">;
+export type BackdropStageOptions = Pick<
+  StageOptions,
+  "bloom" | "lens" | "fadeSpace" | "feather" | "focus"
+> &
+  Partial<Pick<StageOptions, "projection">>;
 
 /** How the frame's sides, top and bottom fade into the page's ground (shares of the frame). */
 const FRAME_FEATHER = { sides: 0.12, top: 0.08, bottom: 0.5 } as const;
@@ -183,7 +189,7 @@ export async function mountBackdrop(
     host,
     {
       ...options,
-      projection: { kind: "perspective", fov: 40 },
+      projection: options.projection ?? { kind: "perspective", fov: 40 },
       palette: init.palette,
       timing: init.timing,
       reducedMotion: init.reducedMotion,

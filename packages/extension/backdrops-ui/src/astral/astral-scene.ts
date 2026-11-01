@@ -1,12 +1,15 @@
 /**
- * The Astral backdrop: precise celestial instruments in engraved metal,
- * the four-point needle star at every scale, in a sky that lives (DESIGN-UI.md
- * → Page-head backdrops → Astral). One scene, its compositions data
- * (`astral.ts`): Movement, Orrery, Planisphere and Armillary, one of them a
- * load, drawn by the page (`GpuLook.variant`); each is composed anew every
- * load. The solids are real (`astral-geometry.ts`) in a true perspective,
- * shaded as metal on a dark page and as ink and gilt on paper on a light
- * one (`astral-shader.ts`).
+ * The Astral backdrop: precise celestial instruments drawn as a luminous
+ * technical drawing that moves in 3D, the four-point needle star at every
+ * scale, in a sky that lives (DESIGN-UI.md → Page-head backdrops → Astral).
+ * One scene, its compositions data (`astral.ts`): Movement, Orrery,
+ * Planisphere and Armillary, one of them a load, drawn by the page
+ * (`GpuLook.variant`); each is composed anew every load. The solids are
+ * real (`astral-geometry.ts`), seen through an orthographic camera as a
+ * drawing is projected, and cel-shaded: flat bands, inked hairlines, light
+ * ink on navy on a dark page and ink and gilt on paper on a light one
+ * (`astral-shader.ts`). Depth shows by motion, occlusion, tilt, haze and
+ * line weight, never by size.
  *
  * - **Clockwork.** The trains tick in eased steps with a little recoil
  *   (`trainClock`), each wheel by its ratio; a balance swings a little off
@@ -15,12 +18,12 @@
  *   of their own.
  * - **The sky's rare events** (`ambient`): a shooting star, a constellation
  *   drawing itself and fading, a far train engaging a while, a glint
- *   sweeping the metal. Dust drifts through slow light shafts.
+ *   sweeping the lines.
  * - **The owner.** A write, a move to another page or something noticed
  *   on the page ticks every train one notch at once and flares the hub
- *   star. The pointer is a lamp on an arm: the studio's key swings a little
- *   toward it (attack 0.3 s, release 0.55 s), so the light runs across the
- *   bevels and the cuts, and the stars near it glint; nothing else moves.
+ *   star. The pointer is a lamp on an arm: the key swings a little toward
+ *   it (attack 0.3 s, release 0.55 s), so the light bands slide across the
+ *   plates, and the stars near it glint; nothing else moves.
  * - **Reduced motion** is one still, composed at random as every load is.
  */
 import {
@@ -37,7 +40,13 @@ import {
   type BufferGeometry,
   type MeshBasicNodeMaterial,
 } from "three/webgpu";
-import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
+import {
+  disposeGraph,
+  offscreenPass,
+  screenFill,
+  type SceneStage,
+  type StageFocus,
+} from "@kb/scene-gpu";
 import { TAU } from "../scene/math";
 import type { Reactions } from "../scene/reactions";
 import { seededRng } from "../scene/rng";
@@ -55,6 +64,7 @@ import {
 import { textScrim } from "../gpu/text-scrim";
 import {
   ASTRAL_VARIANTS,
+  CONSTELLATION_POINTS,
   TICK_PERIOD,
   ambient,
   driveAngle,
@@ -71,24 +81,46 @@ import {
   type Train,
 } from "./astral";
 import { compose } from "./compositions";
-import { armGeometry, rodGeometry, shadowRadius, wheelGeometry } from "./astral-geometry";
 import {
-  CONSTELLATION_POINTS,
+  armGeometry,
+  armProfile,
+  rodGeometry,
+  shadowRadius,
+  wheelGeometry,
+  wheelLayout,
+} from "./astral-geometry";
+import {
+  GLOW,
   KEY_REST,
+  NIGHT,
   SHADOWS,
   STAR_REACH,
   STAR_TONES,
-  astralSky,
-  slowSky,
   astralUniforms,
   partMaterial,
   setStarBlending,
+  starMark,
   starMaterial,
   type AstralUniforms,
+  type FigureUniforms,
+  type Outline,
 } from "./astral-shader";
+import { astralSky, slowSky } from "./astral-sky";
 
-/** The camera's distance: a plane through the origin shows exactly the frame's height (fov 40°). */
-const EYE = 0.5 / Math.tan((20 * Math.PI) / 180);
+/**
+ * The camera: orthographic, as a technical drawing is projected, the
+ * frame one world unit high at any depth, so world units are frame units;
+ * it stands back far enough that every part lies before it.
+ */
+const PROJECTION = { kind: "orthographic", height: 1 } as const;
+const EYE = 4;
+
+/** A composition that names no focus: every depth sharp. */
+const UNFOCUSED: StageFocus = { distance: EYE, depth: 0, falloff: 1, radius: 0 };
+/** A hairline, in CSS pixels: every inked line is this wide at any pixel ratio. */
+const HAIR = 0.3;
+/** The bloom on a dark page: small, so a glow is a tight core and never a wash. */
+const BLOOM = 0.16;
 /** The far train ticks this often while engaged (s). */
 const FAR_PERIOD = 0.55;
 /** How long the hub's flare takes to fade (s). */
@@ -126,6 +158,23 @@ function solidOf(part: Part, quality: number): BufferGeometry | null {
   }
 }
 
+/** The outline a part's solid was cut from, which its material inks: none for a star or a group. */
+function outlineOf(shape: Part["shape"]): Outline | null {
+  switch (shape.kind) {
+    case "wheel":
+      return { kind: "wheel", layout: wheelLayout(shape) };
+    case "arm":
+      return { kind: "arm", profile: armProfile(shape) };
+    case "rod":
+      return { kind: "rod" };
+    case "star":
+    case "group":
+      return null;
+    default:
+      return shape satisfies never;
+  }
+}
+
 interface Driven {
   readonly object: Object3D;
   readonly drive: Drive;
@@ -147,13 +196,78 @@ interface Built {
   readonly hero: Group;
   readonly instrument: Group;
   readonly driven: readonly Driven[];
-  readonly stars: readonly Placed[];
   /** Front discs that cast a shadow: the object and its radius (own units). */
   readonly casters: readonly { readonly object: Object3D; readonly radius: number }[];
-  readonly starMesh: InstancedMesh;
-  readonly starLife: InstancedBufferAttribute;
-  readonly starMaterial: MeshBasicNodeMaterial;
+  /** The field's stars, behind what stands before them, then the hub's, over everything. */
+  readonly starLayers: readonly StarLayer[];
   readonly dispose: () => void;
+}
+
+/** Stars drawn as one instanced mesh: which, and their per-frame `life`. */
+interface StarLayer {
+  readonly stars: readonly Placed[];
+  readonly mesh: InstancedMesh;
+  readonly life: InstancedBufferAttribute;
+  readonly material: MeshBasicNodeMaterial;
+  readonly dispose: () => void;
+}
+
+/**
+ * Stars as one layer: one instanced quad each, facing the eye; `life` is
+ * written each frame (`poseStars`). A layer holding the hub is drawn over
+ * everything, as the concepts draw the light source; the field is hidden
+ * by what stands before it.
+ */
+function starLayer(
+  stars: readonly Placed[],
+  u: AstralUniforms,
+  grounds: Grounds,
+  quad: PlaneGeometry,
+  dark: boolean,
+): StarLayer {
+  const count = Math.max(1, stars.length);
+  const shape = new InstancedBufferAttribute(new Float32Array(count * 4), 4);
+  const life = new InstancedBufferAttribute(new Float32Array(count * 4), 4);
+  life.setUsage(DynamicDrawUsage);
+  stars.forEach((star, i) => {
+    shape.setXYZW(
+      i,
+      STAR_TONES.indexOf(star.shape.tone),
+      star.shape.across,
+      star.shape.angle,
+      star.shape.hub === true ? 1 : 0,
+    );
+    life.setXYZW(i, 1, 1, 0, 0);
+  });
+  const material = starMaterial(u, grounds, shape, life);
+  setStarBlending(material, dark);
+  const front = stars.some((star) => star.shape.hub === true);
+  material.depthTest = !front;
+  const mesh = new InstancedMesh(quad, material, count);
+  mesh.count = stars.length;
+  mesh.frustumCulled = false;
+  mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  mesh.renderOrder = front ? 3 : 2;
+  // A front layer marks its depth where it covers, from the same instances, just before it is drawn.
+  const mark = front ? starMark(shape, life) : null;
+  if (mark !== null) {
+    const marks = new InstancedMesh(quad, mark, count);
+    marks.instanceMatrix = mesh.instanceMatrix;
+    marks.count = stars.length;
+    marks.frustumCulled = false;
+    marks.renderOrder = 2.5;
+    mesh.add(marks);
+  }
+  return {
+    stars,
+    mesh,
+    life,
+    material,
+    dispose: () => {
+      material.dispose();
+      mark?.dispose();
+    },
+  };
 }
 
 function buildMechanism(
@@ -175,22 +289,23 @@ function buildMechanism(
   const casters: { object: Object3D; radius: number }[] = [];
   const rng = seededRng(seed ^ 0x5a17);
 
-  const materialFor = (part: Part): MeshBasicNodeMaterial | null => {
+  const materialFor = (part: Part, behind: boolean): MeshBasicNodeMaterial | null => {
     const { shape } = part;
-    if (shape.kind === "star" || shape.kind === "group") return null;
+    const outline = outlineOf(shape);
+    if (outline === null || shape.kind === "star" || shape.kind === "group") return null;
     const engravings = shape.kind === "wheel" ? shape.engravings : [];
-    const flat = shape.kind === "wheel" || shape.kind === "arm";
-    const haze = part.haze ?? 0;
-    const key = `${shape.metal}|${haze}|${flat}|${JSON.stringify(engravings)}`;
+    const key = `${shape.metal}|${behind}|${JSON.stringify(outline)}|${JSON.stringify(engravings)}`;
     let material = materials.get(key);
     if (material === undefined) {
-      material = partMaterial(u, grounds, { metal: shape.metal, engravings, haze, flat });
+      material = partMaterial(u, grounds, { metal: shape.metal, engravings, outline, behind });
       materials.set(key, material);
     }
     return material;
   };
 
-  const place = (part: Part, parent: Object3D, depth: number, haze: number) => {
+  // A part set behind the hero's plane, and all it carries, lies in the front parts' shadow.
+  const place = (part: Part, parent: Object3D, depth: number, under: boolean) => {
+    const behind = under || (depth === 0 && part.at[2] <= -0.1);
     // Posed XYZ: it turns about its own axis first, then takes its tilt.
     const object = new Object3D();
     object.position.set(...part.at);
@@ -198,9 +313,8 @@ function buildMechanism(
     const rest = tz + (part.spin ?? 0);
     object.rotation.set(tx, ty, rest);
     parent.add(object);
-    const own = { ...part, haze: Math.max(haze, part.haze ?? 0) };
-    const geometry = solidOf(own, 1);
-    const material = materialFor(own);
+    const geometry = solidOf(part, 1);
+    const material = materialFor(part, behind);
     if (geometry !== null && material !== null) {
       geometries.push(geometry);
       object.add(new Mesh(geometry, material));
@@ -220,40 +334,23 @@ function buildMechanism(
       shape.kind === "wheel" &&
       shape.inner === 0 &&
       shape.radius >= 0.15 &&
-      own.haze === 0 &&
+      // Only a part on the hero's plane or before it: one behind lies in the shadows.
+      !behind &&
       casters.length < SHADOWS
     ) {
       casters.push({ object, radius: shadowRadius(shape) });
     }
-    for (const child of part.children ?? []) place(child, object, depth + 1, own.haze);
+    for (const child of part.children ?? []) place(child, object, depth + 1, behind);
   };
-  for (const part of mechanism.parts) place(part, instrument, 0, 0);
+  for (const part of mechanism.parts) place(part, instrument, 0, false);
 
-  // The stars: one instanced quad each, facing the eye.
-  const count = Math.max(1, stars.length);
-  const shape = new InstancedBufferAttribute(new Float32Array(count * 4), 4);
-  const life = new InstancedBufferAttribute(new Float32Array(count * 4), 4);
-  life.setUsage(DynamicDrawUsage);
-  stars.forEach((star, i) => {
-    shape.setXYZW(
-      i,
-      STAR_TONES.indexOf(star.shape.tone),
-      star.shape.across,
-      star.shape.angle,
-      star.shape.hub === true ? 1 : 0,
-    );
-    life.setXYZW(i, 1, 1, 0, 0);
-  });
   const quad = new PlaneGeometry(1, 1);
   geometries.push(quad);
-  const starMat = starMaterial(u, grounds, shape, life);
-  setStarBlending(starMat, dark);
-  const starMesh = new InstancedMesh(quad, starMat, count);
-  starMesh.count = stars.length;
-  starMesh.frustumCulled = false;
-  starMesh.instanceMatrix.setUsage(DynamicDrawUsage);
-  starMesh.renderOrder = 2;
-  root.add(starMesh);
+  const starLayers = [
+    stars.filter((star) => star.shape.hub !== true),
+    stars.filter((star) => star.shape.hub === true),
+  ].map((layer) => starLayer(layer, u, grounds, quad, dark));
+  for (const layer of starLayers) root.add(layer.mesh);
 
   return {
     mechanism,
@@ -261,15 +358,12 @@ function buildMechanism(
     hero,
     instrument,
     driven,
-    stars,
     casters,
-    starMesh,
-    starLife: life,
-    starMaterial: starMat,
+    starLayers,
     dispose: () => {
       for (const geometry of geometries) geometry.dispose();
       for (const material of materials.values()) material.dispose();
-      starMat.dispose();
+      for (const layer of starLayers) layer.dispose();
       root.removeFromParent();
     },
   };
@@ -303,11 +397,8 @@ function constellationOf(
   return points;
 }
 
-/** A point in the world, on the frame (frame units), and how much nearer than the origin's plane it draws. */
-function toFrame(v: Vector3): { readonly x: number; readonly y: number; readonly k: number } {
-  const k = EYE / Math.max(0.05, EYE - v.z);
-  return { x: v.x * k, y: v.y * k, k };
-}
+/** A point in the world, on the frame (frame units): the projection is orthographic, so it is the point's x and y. */
+const toFrame = (v: Vector3): { readonly x: number; readonly y: number } => ({ x: v.x, y: v.y });
 
 /** Where the hero stands: frame units, and its composition's scale. */
 interface Anchor {
@@ -330,9 +421,95 @@ function castShadows(built: Built, u: AstralUniforms, anchor: Anchor, dark: bool
     }
     caster.object.getWorldPosition(world);
     const at = toFrame(world);
-    const r = caster.radius * unit * at.k;
+    const r = caster.radius * unit;
     slot.set(at.x + 0.18 * r, at.y - 0.3 * r - 0.012, r * 1.02, dark ? 0.5 : 0.85);
   });
+}
+
+/** The hero where `anchor` puts it, and what the shaders read of it: its place, its unit, its sky and its great circle. */
+function placeHero(
+  built: Built,
+  u: AstralUniforms,
+  anchor: Anchor,
+  setFocus: (focus: StageFocus) => void,
+) {
+  const { mechanism } = built;
+  const unit = mechanism.unit * anchor.scale;
+  const { focus } = mechanism;
+  // The hero stands on z = 0, the eye EYE before it: the focus in the world's units.
+  setFocus(
+    focus === undefined
+      ? UNFOCUSED
+      : {
+          distance: EYE - focus.at * unit,
+          depth: focus.depth * unit,
+          falloff: focus.falloff * unit,
+          radius: focus.radius,
+        },
+  );
+  built.hero.position.set(anchor.x, anchor.y, 0);
+  built.hero.scale.setScalar(unit);
+  u.hero.value.set(anchor.x, anchor.y, anchor.scale, unit);
+  u.night.value.set(...(mechanism.sky?.night ?? NIGHT));
+  u.glow.value.set(...(mechanism.sky?.glow ?? GLOW));
+  const { arc, constellation } = mechanism;
+  if (arc === undefined) u.arc.value.set(0, 0, 0, 0);
+  else
+    u.arc.value.set(anchor.x + arc.at[0] * unit, anchor.y + arc.at[1] * unit, arc.radius * unit, 1);
+  const at = (x: number, y: number) => [anchor.x + x * unit, anchor.y + y * unit] as const;
+  drawFigure(
+    u.figure,
+    constellation.stars.map(([x, y, size]) => [...at(x, y), size * unit, 1] as const),
+    constellation.links.map(([from, to]) => {
+      const [x0, y0] = constellation.stars[from] ?? [0, 0];
+      const [x1, y1] = constellation.stars[to] ?? [0, 0];
+      return [...at(x0, y0), ...at(x1, y1)] as const;
+    }),
+    1,
+  );
+}
+
+type FigureStar = readonly [x: number, y: number, size: number, shown: number];
+type FigureLink = readonly [x0: number, y0: number, x1: number, y1: number];
+
+/**
+ * A constellation into `f` (frame units): its stars, its links as far as
+ * they have drawn, how strongly the links show, and the box it all lies in
+ * (an empty one when nothing shows).
+ */
+function drawFigure(
+  f: FigureUniforms,
+  stars: readonly FigureStar[],
+  links: readonly FigureLink[],
+  shown: number,
+) {
+  const box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+  const cover = (x: number, y: number, reach: number) => {
+    box.x0 = Math.min(box.x0, x - reach);
+    box.y0 = Math.min(box.y0, y - reach);
+    box.x1 = Math.max(box.x1, x + reach);
+    box.y1 = Math.max(box.y1, y + reach);
+  };
+  f.stars.forEach((slot, i) => {
+    const star = stars[i];
+    if (star === undefined || star[3] <= 0) slot.set(0, 0, 0, 0);
+    else {
+      slot.set(...star);
+      cover(star[0], star[1], star[2] + 0.012);
+    }
+  });
+  f.links.forEach((slot, i) => {
+    const link = links[i];
+    if (link === undefined || shown <= 0) slot.set(0, 0, 0, 0);
+    else {
+      slot.set(...link);
+      cover(link[0], link[1], 0.004);
+      cover(link[2], link[3], 0.004);
+    }
+  });
+  f.shown.value = shown;
+  if (box.x0 === Infinity) f.bounds.value.set(0, 0, 0, 0);
+  else f.bounds.value.set(box.x0, box.y0, box.x1, box.y1);
 }
 
 /** The instrument at `time`: the eye's drift round it, every drive at its angle. */
@@ -387,8 +564,17 @@ const facing = new Quaternion();
 
 /** The stars: each faces the eye where its part carries it, breathing, glinting near the pointer, the hub flaring. */
 function poseStars(built: Built, time: number, over: Over, flare: number, anchor: Anchor) {
-  const { mechanism, stars, starMesh, starLife } = built;
-  const unit = mechanism.unit * anchor.scale;
+  for (const layer of built.starLayers)
+    poseLayer(layer, built.mechanism.unit * anchor.scale, time, over, flare);
+}
+
+function poseLayer(
+  { stars, mesh, life }: StarLayer,
+  unit: number,
+  time: number,
+  over: Over,
+  flare: number,
+) {
   stars.forEach((star, i) => {
     star.anchor.getWorldPosition(world);
     const at = toFrame(world);
@@ -401,14 +587,14 @@ function poseStars(built: Built, time: number, over: Over, flare: number, anchor
     const hub = star.shape.hub === true;
     const bright = breath * (1 + 0.8 * glint) * (hub ? 1 + 1.6 * flare : 1);
     const reach = (1 + GLINT * glint) * (hub ? 1 + 0.45 * flare : 1);
-    starLife.setXYZW(i, bright, reach, 0, 0);
+    life.setXYZW(i, bright, reach, 0, 0);
     const size = star.shape.size * unit * 2 * STAR_REACH;
     scale.set(size, size, size);
     matrix.compose(world, facing, scale);
-    starMesh.setMatrixAt(i, matrix);
+    mesh.setMatrixAt(i, matrix);
   });
-  starLife.needsUpdate = true;
-  starMesh.instanceMatrix.needsUpdate = true;
+  life.needsUpdate = true;
+  mesh.instanceMatrix.needsUpdate = true;
 }
 
 /** The sky's rare events as the shader reads them: a glint sweep, a shooting star, a constellation. */
@@ -422,7 +608,7 @@ function skyEvents(u: AstralUniforms, anchor: Anchor) {
     }
     const l = lifeOf(glint, time);
     const span = 1.4 * anchor.scale;
-    const across = (anchor.x - span + 2 * span * smooth(l)) / EYE;
+    const across = anchor.x - span + 2 * span * smooth(l);
     u.sweep.value.set(across, Math.sin(Math.PI * l) ** 1.5, 0);
   };
   const shoot = (shot: Happening | undefined, time: number) => {
@@ -441,8 +627,7 @@ function skyEvents(u: AstralUniforms, anchor: Anchor) {
   };
   const form = (forming: Happening | undefined, time: number) => {
     if (forming === undefined) {
-      for (const slot of u.constellation) slot.w = 0;
-      u.lines.value = 0;
+      drawFigure(u.forming, [], [], 0);
       return;
     }
     if (forming.at !== formedAt) {
@@ -451,21 +636,24 @@ function skyEvents(u: AstralUniforms, anchor: Anchor) {
     }
     const l = lifeOf(forming, time);
     const fade = 1 - smooth((l - 0.72) / 0.28);
-    u.constellation.forEach((slot, i) => {
-      const point = points[i];
-      if (point === undefined) slot.set(0, 0, 0, 0);
-      else slot.set(point[0], point[1], point[2], smooth((l - 0.03 - i * 0.035) / 0.06) * fade);
-    });
-    u.lines.value = smooth((l - 0.28) / 0.22) * fade;
+    // Its stars appear one by one, then its links draw from each star to the next.
+    const drawn = smooth((l - 0.28) / 0.22) * (points.length - 1);
+    drawFigure(
+      u.forming,
+      points.map(([x, y, size], i) => [x, y, size, smooth((l - 0.03 - i * 0.035) / 0.06) * fade]),
+      points.slice(1).map(([x1, y1], i) => {
+        const [x0, y0] = points[i] ?? [x1, y1];
+        const g = Math.min(1, Math.max(0, drawn - i));
+        return [x0, y0, x0 + (x1 - x0) * g, y0 + (y1 - y0) * g];
+      }),
+      fade,
+    );
   };
   return {
     show: (under: Readonly<Partial<Record<AmbientKind, Happening>>>, time: number) => {
       sweep(under.glint, time);
       shoot(under.shootingStar, time);
       form(under.constellation, time);
-      // The shafts come and go on two slow periods.
-      u.shafts.value =
-        0.55 + 0.25 * Math.sin((TAU * time) / 37) + 0.2 * Math.sin((TAU * time) / 89 + 1.3);
     },
     /** The hero moved: the next constellation is drawn about where it stands. */
     follow: (next: Anchor) => {
@@ -522,8 +710,11 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const u = astralUniforms();
   const grounds = groundsOf(stage);
   const slow = slowFields(stage, u);
-  stage.scene.backgroundNode = astralSky(u, { scrim, slow: slow.picture }, grounds);
+  // The sky fills the frame on a quad: the orthographic view is wider than three's background sphere.
+  const backdrop = screenFill(astralSky(u, { scrim, slow: slow.picture }, grounds));
+  stage.scene.add(backdrop);
   stage.camera.position.set(0, 0, EYE);
+  u.eye.value = EYE;
   stage.camera.lookAt(0, 0, 0);
 
   let dark = init.dark;
@@ -552,10 +743,7 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const events = skyEvents(u, anchor);
   const heard = ownerEvents();
 
-  const place = () => {
-    built.hero.position.set(anchor.x, anchor.y, 0);
-    built.hero.scale.setScalar(built.mechanism.unit * anchor.scale);
-  };
+  const place = () => placeHero(built, u, anchor, stage.setFocus);
   const pose = (dt: number, reactions: Reactions | null) => {
     poseInstrument(built, time, ticks, phases);
     const pointer = reactions?.pointer;
@@ -586,8 +774,8 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       anchor = layout.anchor;
       events.follow(anchor);
       place();
-      u.hero.value.set(anchor.x, anchor.y, anchor.scale);
       u.detail.value = layout.quality;
+      u.hair.value = HAIR * stage.renderer.getPixelRatio();
       slow.layout(layout);
       scrim.layout(layout);
       pose(0, null);
@@ -596,7 +784,7 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     setLook: (look: GpuLook) => {
       dark = look.dark;
       u.dark.value = dark ? 1 : 0;
-      stage.setBloom(dark ? 0.42 : 0.04);
+      stage.setBloom(dark ? BLOOM : 0.03);
       const variant = variantOf(look);
       if (variant !== built.mechanism.variant) {
         built.dispose();
@@ -604,7 +792,7 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         place();
         pose(0, null);
       }
-      setStarBlending(built.starMaterial, dark);
+      for (const layer of built.starLayers) setStarBlending(layer.material, dark);
       castShadows(built, u, anchor, dark);
     },
     frame: (dt: number, reactions: Reactions) => {
@@ -630,6 +818,7 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     dispose: () => {
       built.dispose();
       slow.dispose();
+      disposeGraph(backdrop);
     },
   };
 }
@@ -639,10 +828,13 @@ export function mountAstral(host: HTMLElement, init: GpuBackdropInit): Promise<G
     host,
     init,
     {
-      // GAP [[01M69H80QY694GT75AM2PWPSZX]]: no depth of field; the far parts recede by haze alone.
-      bloom: { strength: 0.42, radius: 0.3 },
-      // A camera's finish: grain where the art is, and a split toward the frame's edge only.
-      lens: { aberration: 0.0012, streak: 0, grain: 0.02 },
+      // A little bloom, close: the stars' cores glow, their spikes stay sharp, nothing washes.
+      bloom: { strength: BLOOM, radius: 0.08 },
+      projection: PROJECTION,
+      // Each composition focuses its own way (`Mechanism.focus`), set as the hero is placed.
+      focus: UNFOCUSED,
+      // A camera's finish: fine grain. No split: a drawn line stays one colour to the frame's edge.
+      lens: { aberration: 0, streak: 0, grain: 0.015 },
       fadeSpace: "display",
       // The sky spans the scroll region; it fades into the page low in the frame and a little at the top.
       feather: { sides: 0, top: 0.05, bottom: 0.3 },
