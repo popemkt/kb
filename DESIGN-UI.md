@@ -3632,18 +3632,18 @@ above). What each of kb's themes is after, and where each idea lives, is
   value, so a system that wants nothing new restates the default and looks
   as it did.
 
-  | token                                                                                                                                                                                                    | says                                                                                                                                                                                                                                                                                   | read by                                             |
-  | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-  | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                                   | the display face: page titles, the brand, a view's name                                                                                                                                                                                                                                | `.kb-display` (`tokens.css`)                        |
-  | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                                             | the label face: small uppercase section labels                                                                                                                                                                                                                                         | `.kb-label`                                         |
-  | `--label-ink`                                                                                                                                                                                            | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                                                            | `.kb-label`                                         |
-  | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                                                 | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                                                                        | `.kb-palette-mark` (`command-palette.tsx`)          |
-  | `--scrim-filter`                                                                                                                                                                                         | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                                                                    | `.kb-scrim`                                         |
-  | `--art-chrome`, `--art-scrim`                                                                                                                                                                            | `background` layers drawn over the chrome (header, sidebar, a view's bar; each layer may say how it is placed or attached, e.g. `fixed` to the window, and the bar keeps its own colour) and a `background-image` over a modal's scrim; `none` by default                              | `.kb-chrome`, `.kb-scrim`                           |
-  | `--corner-shape`                                                                                                                                                                                         | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                                                                   | `index.css` base                                    |
-  | `--chip-skew`                                                                                                                                                                                            | the lean of a tag chip                                                                                                                                                                                                                                                                 | `.kb-tag`                                           |
-  | `--selection`, `--scrollbar-thumb`                                                                                                                                                                       | the tint of selected text and of a scroller's thumb, each mixed with transparency by the shell; `--primary` and `--foreground` by default (derived, so a system restates them only for a colour of its own: ZZZ's lime highlighter, Transistor's gold by day and sword-light by night) | `::selection` and the scrollbar rules (`index.css`) |
-  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play                                           | `motion.css`, `lib/timing.ts`, the art              |
+  | token                                                                                                                                                                                                    | says                                                                                                                                                                                                                                                                                   | read by                                                                                 |
+  | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+  | `--app-font-display`, `--display-style`, `--display-case`, `--display-tracking`, `--display-variation`                                                                                                   | the display face: page titles, the brand, a view's name                                                                                                                                                                                                                                | `.kb-display` (`tokens.css`)                                                            |
+  | `--app-font-label`, `--label-style`, `--label-tracking`, `--label-variation`                                                                                                                             | the label face: small uppercase section labels                                                                                                                                                                                                                                         | `.kb-label`                                                                             |
+  | `--label-ink`                                                                                                                                                                                            | the labels' glyph ink: `currentcolor` by default; a system may paint every label one ink (Transistor's amber terminal text)                                                                                                                                                            | `.kb-label`                                                                             |
+  | `--palette-mark`, `--palette-bar`, `--palette-bar-width`                                                                                                                                                 | a mark before the command palette's input (a `content` string) and a bar after it (a `background`, filled in eight steps as the palette opens); none by default                                                                                                                        | `.kb-palette-mark` (`command-palette.tsx`)                                              |
+  | `--scrim-filter`                                                                                                                                                                                         | a backdrop filter a modal's scrim adds to its blur (Transistor's colourless frozen world); `saturate(1)` by default                                                                                                                                                                    | `.kb-scrim`                                                                             |
+  | `--art-chrome`, `--art-scrim`                                                                                                                                                                            | `background` layers drawn over the chrome (header, sidebar, a view's bar; each layer may say how it is placed or attached, e.g. `fixed` to the window, and the bar keeps its own colour) and a `background-image` over a modal's scrim; `none` by default                              | `.kb-chrome`, `.kb-scrim`                                                               |
+  | `--corner-shape`                                                                                                                                                                                         | CSS `corner-shape` of every rounded utility but `rounded-full` (`round`, `bevel`, `scoop`); a browser without it draws round corners                                                                                                                                                   | `index.css` base                                                                        |
+  | `--chip-skew`                                                                                                                                                                                            | the lean of a tag chip                                                                                                                                                                                                                                                                 | `.kb-tag`                                                                               |
+  | `--selection`, `--scrollbar-thumb`                                                                                                                                                                       | the tint of selected text and of a scroller's thumb, each mixed with transparency by the shell; `--primary` and `--foreground` by default (derived, so a system restates them only for a colour of its own: ZZZ's lime highlighter, Transistor's gold by day and sword-light by night) | `::selection` and the scrollbar rules (`index.css`, the scroll region's thumb included) |
+  | `--motion-settle`, `--motion-spring`, `--motion-duration-{quick,enter,reveal,theme,arrive,follow}`, `--motion-stagger`, `--motion-ambient-period`, `--motion-enter`, `--motion-reveal`, `--motion-alert` | the motion personality: the ease (a cubic-bezier, which `lib/timing.ts` parses), the spring (any easing, `linear()` included), the durations, an ambient loop's least period, and which keyframes a surface's entry and a page's reveal play                                           | `motion.css`, `lib/timing.ts`, the art                                                  |
 
 - **One gesture vocabulary.** `motion.css` keeps the gestures and their
   keyframes; a theme only picks among them. A surface entering (a popover,
@@ -3959,8 +3959,8 @@ A PR for a backdrop reports a score against each criterion.
   - `backdrops.gradient-orbs` is two great orbs floating in front of a
     deep blue field, lit from the upper right in violet, pink and cream;
   - `backdrops.wolf-medallion` is kb's own steel wolf medallion over smoke
-    and rising embers, a faint circle of five glyphs turning behind it; it
-    trembles when something happens on the page.
+    and rising embers, a faint circle of five glyphs turning behind it; its
+    eyes flare when something happens on the page.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -3992,25 +3992,64 @@ A PR for a backdrop reports a score against each criterion.
     `backdropStrength`, `backdropDirection`). A stale key is ignored on read
     and dropped on the next write.
 
-- **The art setting.** `sys.f.backdrop.art` names an image of kb's own
-  assets (`assets/…`, DESIGN.md → Assets) that the backdrop draws as its
-  art in place of its own, where it has art to replace. It is how an
+- **The art setting.** `sys.f.backdrop.art` names a file of kb's own
+  assets (`assets/…`, DESIGN.md → Assets) naming the art the backdrop
+  draws in place of its own, where it has art to replace. It is how an
   owner's own picture reaches a backdrop without entering the repository:
   a file in their `.kb/assets/` is theirs, and the backdrop's code is the
-  same for it as for its own art.
+  same for it as for its own art. The file is one of two forms, and both
+  read as one `BackdropArt` (`@kb/model`'s `backdrop-art.ts`), whose parts a
+  backdrop takes where it has them and draws its own for the rest:
+  - **An image** is the hero picture alone.
+  - **An art manifest** (`.json`) names several parts: `image`, the hero
+    picture, and `glyphs`, up to eight, each a `color` (`#rrggbb`) and a
+    shape: SVG `path` data in a `viewBox` (default `[0, 0, 100, 100]`),
+    stroked `stroke` wide with round caps and joins, or filled with none;
+    or an `image` whose alpha is its shape. References are files beside
+    the manifest, named plainly (no scheme, root or `..`), and must be
+    images, so a manifest can only name kb's own assets. A part left out
+    or named wrongly is the backdrop's own, a glyph with no colour takes
+    the colour of the backdrop's own glyph in its place, and a manifest
+    that will not load leaves the backdrop all its own.
+
+    ```json
+    {
+      "image": "medallion.png",
+      "glyphs": [
+        {
+          "name": "first",
+          "color": "#7cc4ff",
+          "viewBox": [0, 0, 100, 100],
+          "path": "M 50,13 L 12,84 L 88,84 Z",
+          "stroke": 7
+        }
+      ]
+    }
+    ```
+
+  - A backdrop's own glyphs are the default implementation of the same
+    part: the Wolf medallion's runes are a `BackdropGlyph` list
+    (`RUNES`), drawn by the one path an owner's glyphs take (`gpu/glyph-atlas.ts`).
   - It is read as the others are, the page's node first, then core's
-    (`BackdropChoice.art`). Anything that is not an image of kb's assets is
-    no value and falls through, so a setting can never make the page fetch
-    from elsewhere.
+    (`BackdropChoice.art`). Anything that is not an image or an art
+    manifest of kb's assets is no value and falls through, so a setting can
+    never make the page fetch from elsewhere.
   - The slot hands every backdrop its URL (`BackdropProps.art`, null for
     none); a backdrop with no art to replace ignores it, as one with no
     directions ignores direction.
-  - The Wolf medallion replaces its relief with it: red is height, green
-    where it glows, alpha its silhouette, square, its round body 0.4 of its
-    width about its centre. The chain leaves from the top of its silhouette
-    on the centre column. An image that will not load leaves kb's sigil.
+  - The Wolf medallion replaces its relief with the art's image: red is
+    height, green where it glows (its eyes, each sunk into a socket and lit
+    from inside), alpha its silhouette, square, its round
+    body 0.4 of its width about its centre. The chain leaves from the top of
+    its silhouette on the centre column. It replaces its circle's runes with
+    the art's glyphs, one to a slot round the circle, the first at the top.
+    An image that will not load leaves kb's sigil, and glyphs that will not
+    load leave its runes.
   - Set it in Settings → Appearance (the `art` row under Page head), or
-    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png`.
+    `kb set sys.extension.core sys.f.backdrop.art assets/<file>.png` (or
+    `.json`). An asset route serves a manifest as `application/json`; the
+    upload takes media only, so a manifest is a file the owner places in
+    `.kb/assets/` themselves.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -4236,10 +4275,20 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   scroll region whatever the content width, and the hero is still placed
   from the content (`ContentBox`), so both content widths at one window
   width draw the same hero, and a wider window adds field at the sides.
+  The region keeps no scrollbar gutter, since nothing inside a scroller
+  can paint under its own classic scrollbar: its scrollbar is kb's thumb
+  (`RegionScrollbar`), a thin bar over its right edge, shown while it
+  scrolls, under the pointer and while dragged, and taking only drags and
+  wheels over it. So the frame fills the layer under the thumb, while the
+  content never sits there: every column the region shows keeps a right
+  inset of at least 1rem, wider than the thumb's 12px track.
+  `region-scrollbar.e2e.ts` holds both with classic scrollbars on, at both
+  content widths and on a phone: the region has no gutter, no text or
+  control meets the track, and the thumb drags.
   `backdrop-width.e2e.ts` proves it under reduced motion (one piece per
   load): through both content widths and windows from 1280 to 2560px
   wide, resized while it runs, the reported hero holds within a rounding,
-  the frame spans the region without scrolling the page sideways, the
+  the frame spans the region's whole width without scrolling the page sideways, the
   canvas is never replaced and no frame is blank; on a phone it is drawn
   in its panel composition. Below a frame about 1000px wide the glass is
   slid in and made smaller to stay whole.
@@ -4519,8 +4568,13 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   muzzle), gabled down its middle, its eyes engraved slits (`medallion.ts`).
   Behind it a faint circle of five glyphs turns once in two minutes, each
   kb's own evocation of one Sign by its nature, in a few straight strokes:
-  a force pushed out, a flame, a ward, a shield, a mind turned. Each glyph
-  smoulders on a slow clock of its own, never in step, and the circle keeps
+  a force pushed out, a flame, a ward, a shield, a mind turned. Each glows
+  faintly as light leaking from a groove, more light than colour: a warm
+  pale white tinted by the colour of its nature (a pale cold blue, ember,
+  violet, amber, a soft green), a little in its stroke and more in the
+  soft bloom round it, breathing on
+  a slow clock of its own with a faint flicker, never in step (still under
+  reduced motion), and the circle keeps
   clear of the head's text and fades before it reaches the rows' tags low
   at its right. Smoke curls close round it and embers climb, and a warm
   back light stands behind it, glowing in the air and the smoke about it,
@@ -4540,21 +4594,28 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   glyphs one to a cell, rising a little and breathing, clear of the
   medallion's circle. Each bank, spark and glyph fades whole where it
   stands, toward the frame's sides, its bottom and the text.
-  - **The relief is baked once** (`medallion/relief.ts`), into three
-    passes run only when its source changes: the source as height, where
-    it glows and its silhouette; its edge cleaned, the silhouette eroded
-    past any matte its edge carries and the height run on flat past the
-    cut (the highest round each point there), so no cliff at the cut lights
-    as an outline or a halo, an image's or the sigil's; then the material's
-    maps, height, cavity (how far a point lies below the relief round it,
-    near for engraving and far for recesses) and glow. The source is kb's sigil (disk, a rim
+  - **The relief is baked once** (`medallion/relief.ts`), in passes run
+    only when its source changes: the source as height, where it glows and
+    its silhouette; its edge cleaned, the silhouette eroded past any matte
+    its edge carries and the height run on flat past the cut (the highest
+    round each point there), so no cliff at the cut lights as an outline or
+    a halo, an image's or the sigil's; its sockets, a bowl sunk into the
+    height wherever it glows (**Its eyes**, below); the material's maps,
+    height, cavity (how far a point lies below the relief round it, near
+    for engraving and far for recesses) and heat; and the sockets' light.
+    The source is kb's sigil (disk, a rim
     a few thousandths out of round and notched, the gabled mask, the
     engraving, and a bail for the chain), or an image the backdrop's art
-    setting points at (**The art setting**, above). The frame takes the
-    slope from the baked height a texel across, so its normals are smooth
-    and never the screen's 2×2 derivatives, over the pixel's own footprint
-    (never finer than a texel), so a grain finer than a pixel in an image
-    is averaged away rather than sparkling.
+    setting points at (**The art setting**, above). The maps keep their mip
+    chain and are read over the pixel's footprint by explicit derivatives
+    (`offscreenPass`'s `mipmapped`: a frame is a scene's background, which
+    three reads at one fixed level), so the silhouette, the engraving's
+    edges and the casting's grain are filtered at their source, never
+    read at their finest level into stairs at a fifth of their size. The frame takes
+    the slope from the baked height over the same footprint (never finer
+    than a texel), so its normals are smooth and never the screen's 2×2
+    derivatives, and a grain finer than a pixel is averaged away rather
+    than sparkling.
   - **Worn steel**, physically motivated: a metal's reflectance (Schlick
     Fresnel) over its surroundings reflected (a warm floor the embers
     light, a cool sky, a soft window up left), and a brushed anisotropic
@@ -4568,12 +4629,78 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     brown-black patina deep in the recesses and occludes them; convex edges
     are rubbed bright; fine scratches score it and catch the key; casting
     pits are rare small hollows. Scratches and pits fade out where they
-    grow finer than a pixel.
-  - **The chain**: oval links, every other one face on and the next edge
-    on, each a round wire, from the bail up past the frame's top. The
-    medallion and its chain swing as one pendulum from a pivot above the
-    frame (every 7.5 s), so the key glides over the bevels.
-  - Glyphs and rings are strokes' distances, the rings broken into arcs;
+    grow finer than a pixel. Every highlight is antialiased by the
+    normal's own variance across the pixel (geometric specular AA): each
+    lobe widens by it and dims as it widens, so a bevel's pin-hot highlight
+    never sparkles as the medallion swings.
+  - **Its eyes are lights deep in sockets** (`medallion/eye-shader.ts`),
+    never a glow painted on the face; an owner's image and kb's sigil
+    alike, from where they glow and nothing else:
+    - The bake sinks a socket round each glow: a bowl whose walls fall
+      smoothly from the metal past it to a floor under the glow (the glow
+      blurred, so no ring of the blur shows as a terrace).
+    - The core is the glow on the socket's floor, hottest where it lies
+      deepest inside the glow (its heat, measured in from the glow's edge
+      in medallion units, so a thin slit and a broad almond both have a
+      heart), near white there and the light's own colour at its edge. It
+      lies below the face: it shows low in the socket's mouth, the brow over
+      it hiding its top, and it shifts against the mouth as the medallion
+      twists a little on its chain while it swings.
+    - Its light is baked as a flux at every point near it: the glow
+      gathered on a coarse grid, each cell a point light a little above
+      the floor, its light falling with the square of distance and hidden
+      where the relief between them stands above the line to it, so a brow
+      shades what lies past it. The frame lights the steel by it as by any
+      light: through the steel's reflectance (Schlick Fresnel), a GGX lobe
+      as rough as its grime and widened by the pixel's own spread (the
+      specular AA), and a little diffuse in the patina. The socket's walls
+      facing the core take its light, the rims catch it from inside, and a
+      face turned from it or above it stays dark.
+    - Its halo is that light's strength from every side, so it bleeds out
+      of the socket where the light reaches and is hidden where it is
+      hidden; on a dark page the stage's bloom carries the core further.
+      Awake, the light wavers a little on the scene's clock, more as the
+      eyes wake, so a still frame is still. On a light page the core is
+      light on the paper, covering it as far as its light runs.
+    - A flat glowing ellipse on the face was tried first, a core and a
+      halo added where the relief glowed: it read as a texture in front of
+      the eye, not a light inside it.
+  - **The chain** (`medallion/chain-shader.ts`) is three-dimensional: oval
+    links of round wire (a stadium swept by the wire), interlocking, every
+    other one turned a quarter about the chain's line, from the bail up past
+    the frame's top. Each is solved where the eye's ray meets it,
+    analytically for the pixel (a face-on link a stadium torus seen from the
+    front, an edge-on one its straight runs and the half tori at its ends
+    seen from the side), so it costs two links a pixel and no geometry;
+    where two cross the nearer shows, softened over the pixel's footprint,
+    and where one passes close by another's wire it is shadowed. It is the
+    medallion's own metal under the same lights (`medallion/metal-shader.ts`,
+    one model for both), brushed along its wire, its lobes widened by the
+    same specular AA; the eyes' light ends long before it. A flat chain, a
+    ring and a bar drawn by turns with a tube's shading, was tried first.
+  - **It hangs.** The medallion and its chain are one pendulum from a pivot
+    above the frame (`swingOn`, `HANGING`, in `medallion.ts`): slow (7.5 s),
+    lightly damped, kept swaying by two slow breaths of air just off its own
+    swing, so its sway is very small (about a hundredth of a radian each
+    way) and drifts; something happening on the page pushes it a little
+    further, and the swing dies back. It twists a little on its chain as it
+    swings, which only the depth of its eyes shows. It never moves toward
+    the pointer: a pendant that leaned to follow a cursor read as physically
+    wrong, so the pointer stirs the air instead, the embers drifting and
+    swirling away from a gust that follows the pointer with a lag and
+    settling back once it has passed (`AIR`). Under reduced motion it hangs
+    straight and the embers are never stirred.
+  - **Glyphs are one atlas** (`gpu/glyph-atlas.ts`): every glyph, a rune or
+    the art's, is drawn once into a cell, its coverage and its glow (the
+    coverage blurred), and the atlas keeps its mip chain. The circle reads
+    the glyph of the slot a pixel falls in, and the far haze a glyph's glow,
+    one read each, with explicit derivatives, so a glyph is antialiased at
+    device pixels at any size and the slots' seams pick no wrong level. A
+    glyph's colour tints its light on a dark page (a warm white, the colour
+    taken at its own brightest so every glyph tints alike) and its ink, sepia
+    faintly tinted, on a light one. Glyphs in their full colours were tried
+    first and read as coloured paint, not light. The rings are lines covered by the
+    pixel's footprint (`hairline`), broken into arcs;
     the smoke is two layers, a far slow fold and a near one curled by a
     slow fold of its own into eddies and wisps, thickest close about the
     medallion, lit by the embers from below and by the back light behind
@@ -4590,22 +4717,22 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     light all round (an image's lower jaw parts from the ground), wrapping
     further in on the smoke's side (a back light, never a line drawn round
     it); its shadow cast on the smoke,
-    a darker contact where the chain meets the bail, and parallax (it leans
-    a little toward the pointer while the circle and smoke behind it stay)
-    set it in front. Its halo, edge light and shadow are its own
+    and a darker contact where the chain meets the bail set it in front. Its halo, edge light and shadow are its own
     silhouette softened, so they follow its shape, a sigil's or an
     image's.
   - Light over the page's ground, never under it: the text scrim and the
     disk's shadow quiet the field, never the ground itself, and never the
     medallion or its chain.
-  - **It senses the page.** On a `notice` the medallion trembles for under
-    a second and its eyes flare in that event's colour (silver for a change
+  - **It senses the page, by light.** On a `notice` its eyes flare in that
+    event's colour (and its swing is pushed a little), their light on the
+    sockets' walls with them (silver for a change
     from elsewhere, red for an error, gold for a finished agent turn), with
     a halo round the disk, and settles back to its faint amber. Under
     reduced motion it never moves: the eyes light, still, and go dark again
     a few seconds later, two still frames the scene asks the stage for.
-  - The pointer near the disk wakes its eyes a little; typing slows the
-    smoke; writes (`stir`) turn the circle faster for a while.
+  - The pointer near the disk wakes its eyes a little and stirs the embers;
+    typing slows the smoke; writes (`stir`) turn the circle faster for a
+    while.
   - A light page is the same scene on paper, the medallion a real object
     on the page: polished darker steel, its light exposed for the day on a
     curve that keeps its darks, so its engraving lies in deep shadow and
@@ -4615,14 +4742,14 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     warm rim on the smoke's side and a warm glint sweeping its bevels; its
     edge darkening where it turns away and its silhouette taken from its
     solid part, so no pale fringe rings it, an image's spikes included; the
-    chain plain iron; and a soft contact shadow on the paper just below and
+    chain the same metal, exposed alike; and a soft contact shadow on the paper just below and
     right (the one it casts on the smoke), with a wider, softer one past it,
     so it rests on the page. The
     lens draws no aberration on this backdrop, so no colour fringes an
     edge. It fades into the page in display values
     (`fadeSpace: "display"`), so a strength's veil leaves the steel its
     darks. The same holds for kb's sigil and for an image the art setting
-    names. Then a smoke wash, sepia glyphs and rust specks. An engraving in
+    names. Then a smoke wash, sepia rings, glyphs in sepia faintly tinted by their colours and rust specks. An engraving in
     faint ink was tried first and all but vanished on white; a steel toned
     between a light and a shade by its luminance read as a grey pewter
     ghost.

@@ -72,11 +72,12 @@ describe("layout-shift regressions (i10)", () => {
     expect(src).not.toMatch(/items\.length > 0 && \(/);
   });
 
-  it("the main scroll region reserves its scrollbar gutter", () => {
+  it("the main scroll region keeps no scrollbar gutter, its scrollbar kb's own thumb", () => {
     const src = readFileSync(
       path.join(browserSource("@kb/ui"), "components/layout/pane-frame.tsx"),
       "utf8",
     );
+    const css = readFileSync(path.join(browserSource("@kb/ui"), "index.css"), "utf8");
     // One owner of a pane's scroll region — the className is not restated per route.
     expect(src).toMatch(/function ScrollRegion\(/);
     expect((src.match(/<main\b/g) ?? []).length).toBe(1);
@@ -84,17 +85,16 @@ describe("layout-shift regressions (i10)", () => {
     // Every page in a pane is framed by the one call site, canvas
     // (non-scrolling) included: the frame is data on the surface.
     expect((src.match(/<ScrollRegion\b/g) ?? []).length).toBe(1);
-    // The track is reserved unconditionally, so a view that overflows and one
-    // that does not resolve to the same content width — the centered column,
-    // and with it the breadcrumb, cannot shift by the 6px scrollbar.
-    expect(src).toMatch(/overflow-y-scroll/);
-    // Reserved by always-on scroll, not by scrollbar-gutter: the property is
-    // unsupported before Safari 18.2, which would leave the shift in place
-    // there. One mechanism, so the two cannot drift apart.
-    expect(src).not.toMatch(/\[scrollbar-gutter:/);
-    // Pinned at the region itself, so a later edit cannot quietly drop back to
-    // `overflow-auto` (the unrelated `<pre>` in the error view may keep it).
-    expect(src).toMatch(/scroll \? "overflow-x-auto overflow-y-scroll"/);
+    // No gutter at all, so a view that overflows and one that does not resolve
+    // to the same content width on every platform (the centered column, and
+    // with it the breadcrumb, cannot shift), and a region-spanning breakout
+    // reaches the pane's edge. Its scrollbar is the one thumb drawn over it.
+    expect(css).toMatch(/\[data-main-region="scroll"\] \{[^}]*scrollbar-width: none;/s);
+    expect(css).toMatch(/\[data-main-region="scroll"\]::-webkit-scrollbar \{\s*display: none;/);
+    expect(src).toMatch(/<RegionScrollbar region=\{region\} \/>/);
+    expect(src).not.toMatch(/\[scrollbar-gutter:|overflow-y-scroll/);
+    // Pinned at the region itself, so a later edit cannot quietly drop its scrolling.
+    expect(src).toMatch(/scroll \? "overflow-x-auto overflow-y-auto"/);
     // And the shift is fixed at the scroll region, not compensated downstream.
     const crumbs = readFileSync(path.join(outlineDir, "breadcrumbs.tsx"), "utf8");
     expect(crumbs).not.toMatch(/scrollbar|margin-left|\bml-|padding-right|\bpr-/);
