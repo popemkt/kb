@@ -26,6 +26,7 @@ import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
 import { VALUE_KINDS, valueKindOf } from "./value-kind";
 import { arriveAt, slotAt } from "./value-slot-nav";
+import { useRowOpening } from "./row-opening";
 
 /**
  * The gallery loads when a field first draws as one: only a kind whose
@@ -495,11 +496,13 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   // the section depends on the definitions and values it reads, not the graph.
   const context = useGraphRead();
   const node = context.outline.get(nodeId);
-  // Debug rows are this node's own business (⌘K → "Show debug fields").
+  // Debug rows are this node's own business (⌘K → "Show debug fields"), and
+  // so are the fields its tag opening's view draws, while its properties show.
   const showDebugFields = useDebugFields(nodeId);
+  const revealed = useRowOpening(node)?.revealed;
 
   if (!node) return null;
-  const props = resolveProps(node, context.schema, { showDebugFields });
+  const props = resolveProps(node, context.schema, { showDebugFields, revealed });
   if (props.length === 0) return null;
 
   return (

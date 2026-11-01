@@ -144,13 +144,20 @@ export interface Command {
   readonly chrome?: (ctx: CommandContext) => CommandChrome;
   /** Absent ⇒ always offered. */
   readonly when?: (ctx: CommandContext) => boolean;
+  /**
+   * The row is about how the node itself opens and shows — the view its tag
+   * opens it in, its display options — so the node menu lists it first, in
+   * the order the rest are listed in. Absent, false.
+   */
+  readonly leads?: boolean;
   readonly run: (ctx: CommandContext) => void | Promise<void>;
 }
 
 /**
  * Commands a plugin contributes beside its views (the chart's "Add chart").
  * The node menu lists them after the views and the default-view rows and
- * before "Filter…", in the order their plugins loaded; the runner finds them
+ * before "Filter…" (a leading one, `leads`, first), in the order their
+ * plugins loaded; the runner finds them
  * by id like any other.
  */
 export const CommandPoint = Point<Command>()("ui.commands");

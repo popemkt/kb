@@ -1,12 +1,19 @@
 /**
  * "Open with…" (DESIGN-UI.md → Opening a node): the node menu offers each
- * way this page can open the target, its tags' defaults first and the one it
- * opens in by default marked; running a row moves the focused pane there and
- * writes nothing. With the canvas family off, a canvas is offered no canvas.
- * Where the view draws a preview, the menu also opens or closes the node's.
+ * way this page can open the target, the one it opens in by default marked;
+ * the view a tag of it names, its tag opening, is "Open in …" and leads the
+ * menu. Running a row moves the focused pane there and writes nothing. With
+ * the canvas family off, a canvas is offered no canvas. After "Open in …",
+ * the menu shows or hides each display option the opening offers.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SYSTEM_IDS, present, previewSettingIds, type PropValue } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  displayDefaultId,
+  displaySettingIds,
+  present,
+  type PropValue,
+} from "@kb/model";
 import { OUTLINE_IDS } from "@kb/outline";
 import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
@@ -89,10 +96,11 @@ describe("Open with…", () => {
     dom.restore();
   });
 
-  it("offers a canvas its canvas first, as its default, then the outline", async () => {
+  it("leads a canvas's menu with its canvas, then offers the outline", async () => {
     syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin]);
+    useOutlineStore.setState({ selectedNodeId: "n.board" });
+    expect(listNodeCommands(context())[0]?.label).toBe("Open in Canvas");
     const labels = offered("n.board").map((c) => c.label);
-    expect(labels[0]).toBe("Open with: Canvas (default)");
     expect(labels).toContain("Open with: Outline");
     const outline = present(
       offered("n.board").find((c) => c.label === "Open with: Outline"),
@@ -105,14 +113,15 @@ describe("Open with…", () => {
 
   it("marks the outline the default of a plain node, and offers no canvas with the family off", () => {
     syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin]);
-    expect(offered("n.board").map((c) => c.label)).not.toContain("Open with: Canvas (default)");
+    expect(offered("n.board").map((c) => c.label)).not.toContain("Open in Canvas");
     expect(offered("n.plain").map((c) => c.label)).toContain("Open with: Outline (default)");
   });
 });
 
-describe("the preview toggle in the node menu", () => {
+describe("the display toggles in the node menu", () => {
   let dom: InstalledDom;
-  const previews = (nodeId: string) => offered(nodeId, "outline.preview").map((c) => c.label);
+  const toggles = (nodeId: string) => offered(nodeId, "outline.display.").map((c) => c.label);
+  const settings = displaySettingIds("canvas.page");
   beforeEach(() => {
     dom = installDomGlobals();
     resetOutlineStore();
@@ -125,25 +134,30 @@ describe("the preview toggle in the node menu", () => {
   const hydrate = (extra: Record<string, WireNode["props"]> = {}) =>
     useGraphStore.getState().hydrateFromWire(graph(extra), 1, "fixtures");
 
-  it("offers a canvas its preview, by whether the node's own toggle has it open", () => {
+  it('follow "Open in Canvas" on a canvas, each saying whether the node shows it', () => {
     hydrate();
-    expect(previews("n.board")).toEqual(["Show preview: Canvas"]);
-    expect(previews("n.plain")).toEqual([]);
+    useOutlineStore.setState({ selectedNodeId: "n.board" });
+    expect(
+      listNodeCommands(context())
+        .slice(0, 3)
+        .map((c) => c.label),
+    ).toEqual(["Open in Canvas", "Show preview", "Show properties"]);
+    expect(toggles("n.plain")).toEqual([]);
     hydrate({
       "n.board": {
         ...tagged("sys.tag.canvas"),
-        [OUTLINE_IDS.previewField]: [{ t: "bool", v: true }],
+        [OUTLINE_IDS.displayFields.preview]: [{ t: "bool", v: true }],
       },
     });
-    expect(previews("n.board")).toEqual(["Hide preview: Canvas"]);
+    expect(toggles("n.board")).toEqual(["Hide preview", "Show properties"]);
   });
 
-  it("offers none where the canvas family's settings show no previews", () => {
+  it("say what the canvas family's settings show, where the node says nothing", () => {
     hydrate({
       "sys.extension.canvas": {
-        [previewSettingIds("canvas.page").shows]: [{ t: "bool", v: false }],
+        [settings.properties]: [{ t: "ref", v: displayDefaultId(settings.properties, "always") }],
       },
     });
-    expect(previews("n.board")).toEqual([]);
+    expect(toggles("n.board")).toEqual(["Show preview", "Hide properties"]);
   });
 });

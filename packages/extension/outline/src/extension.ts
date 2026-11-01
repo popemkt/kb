@@ -15,7 +15,7 @@
  * another family's, which may not reach this package.
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
-import { seededField } from "@kb/model";
+import { DISPLAY_OPTIONS, seededField } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 import { OUTLINE_IDS } from "./ids.ts";
@@ -27,10 +27,14 @@ export const outlineExtension = defineExtension({
   tags: ["outline"],
   defaultView: OutlineView,
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
-  // A node's own preview toggle: the editor's, never drawn as a field row.
-  seed: (at) => [
-    seededField(OUTLINE_IDS.previewField, "preview", "checkbox", at, { one: true, hidden: true }),
-  ],
+  // A node's own display toggles: the editor's, never drawn as field rows.
+  seed: (at) =>
+    DISPLAY_OPTIONS.map((option) =>
+      seededField(OUTLINE_IDS.displayFields[option], `shows ${option}`, "checkbox", at, {
+        one: true,
+        hidden: true,
+      }),
+    ),
 });
 
 /** The outline family's shared plugin: its declaration's views, on either host. */

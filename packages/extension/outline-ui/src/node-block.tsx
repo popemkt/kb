@@ -1,5 +1,7 @@
 import { memo, useCallback } from "react";
+import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import {
+  browserHost,
   Bullet,
   bulletClickIntent,
   cn,
@@ -17,6 +19,7 @@ import {
   useFrameView,
   useGraphRead,
   useNodePaletteOpen,
+  usePane,
 } from "@kb/ui-sdk";
 import { useOutlineStore, outlineNodes } from "./outline.store";
 import { createTransientNode } from "./editing-writes";
@@ -24,8 +27,8 @@ import { createTransientNode } from "./editing-writes";
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
-import { RowOpeningActions, RowPreview } from "./row-preview";
-import { useRowOpening } from "./row-opening";
+import { RowPreview } from "./row-preview";
+import { openIn, useRowOpening } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { ViewToolbar } from "./view-toolbar";
@@ -94,6 +97,13 @@ export const NodeBlock = memo(function NodeBlock({
     [toggleCollapse, follow, shownId, nodeId],
   );
 
+  // The bullet's menu gesture (a right click, a held finger) opens the node
+  // menu on this row, as ⌘K does on a selected one.
+  const handleBulletMenu = useCallback(() => {
+    selectNode(nodeId, instanceKey);
+    browserHost().setNodePaletteOpen(true);
+  }, [selectNode, nodeId, instanceKey]);
+
   const handleActivate = useCallback(
     (cursorPos?: number) => {
       activateNode(nodeId, cursorPos, instanceKey);
@@ -115,8 +125,9 @@ export const NodeBlock = memo(function NodeBlock({
   // The view the shown node's children are shown in: the frame is the shown node.
   const frameView = useFrameView(shown);
   const frameViewKey = frameView?.key ?? null;
-  // The view the shown node's tag opens it in, offered on the row and previewed under it.
+  // The view the shown node's tag opens it in: on its tag's chip, and how the row shows the node.
   const opening = useRowOpening(shown);
+  const pane = usePane();
 
   if (!node || !shown) return null;
 
@@ -126,6 +137,7 @@ export const NodeBlock = memo(function NodeBlock({
     view: frameViewKey,
     instanceKey,
     showDebugFields,
+    revealed: opening?.revealed,
   });
 
   return (
@@ -151,6 +163,7 @@ export const NodeBlock = memo(function NodeBlock({
                 collapsible={chrome.isExpandable}
                 isRef={chrome.bulletIsRef}
                 onClick={handleBulletClick}
+                onMenu={handleBulletMenu}
               />
             }
             content={
@@ -159,17 +172,22 @@ export const NodeBlock = memo(function NodeBlock({
                 instanceKey={instanceKey}
                 isActive={isActive}
                 tags={shown.tags}
+                tagAction={
+                  opening === null
+                    ? undefined
+                    : {
+                        tag: opening.tag,
+                        label: `Open in ${opening.label}`,
+                        icon: <ArrowSquareOutIcon size="1em" weight="bold" />,
+                        run: () => openIn(pane, shownId, opening.key),
+                      }
+                }
                 onActivate={handleActivate}
                 onKeyDown={handleKeyDown}
               />
             }
           />
         </div>
-        {opening !== null && (
-          <div className="shrink-0 pr-2">
-            <RowOpeningActions nodeId={shownId} node={shown} opening={opening} />
-          </div>
-        )}
         {chrome.showToolbar && (
           // The toolbar stays out while something it opened is open (a
           // control of it is `aria-expanded`): the filters, or the query.
@@ -184,9 +202,7 @@ export const NodeBlock = memo(function NodeBlock({
         )}
       </div>
 
-      {opening !== null && (
-        <RowPreview nodeId={shownId} node={shown} opening={opening} depth={depth} />
-      )}
+      {opening !== null && <RowPreview nodeId={shownId} opening={opening} depth={depth} />}
 
       {chrome.showsChildContainer && (
         <div className="children-container relative">

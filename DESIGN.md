@@ -1087,41 +1087,53 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     `view.openings {node}` answers it for an agent or `kb action-invoke`,
     each opening with the `/node/<id>/<view>` path `ui.navigate` takes
     (`nodePath`, `@kb/views`).
-- **A tag's view may preview its nodes.** The view a node's tag opens it
+- **A tag's view sets how its nodes show.** The view a node's tag opens it
   in is the node's *tag opening* (`tagOpeningOf`, `@kb/ui-sdk`: the
   resolver's own rule `heldTagDefaultOf` over the page's view catalog, when
-  the page draws that view as a page). A view may also draw a *preview* of
-  a node it opens: a compact, read-only picture under the node's row in the
-  outline. It is a placement of the view the family already provides
-  (`preview`), never a second renderer; the canvas's is a still picture of
-  its board (`canvasSvg`, the export's painter), which goes live only when
-  the canvas is opened.
-  - **The view's key declares it, once.** `ViewKey.preview` (`viewKey(…,
-    { preview: true })`) is the one statement: the fold derives the view's
-    preview settings from it, and a page contribution of the view is
-    offered at placement `preview` because of it (`provideView`), never by
-    listing it. A view whose key says nothing draws none.
-  - **Its settings are its family's.** The fold derives them for each view
-    that previews (`previewSettingFields`, `@kb/model` `preview.ts`, the one
-    home of their ids and defaults), each configuring the node of the
-    family that provides the view: `sys.f.preview.<view>` (whether it
-    draws previews; seeded yes), `….expanded` (whether a node that says
-    nothing starts with its open; seeded no) and `….height` (how tall one
-    stands, CSS pixels, held to 60–600; seeded 180). They are drawn and
-    edited with the family's other settings (Settings → Extensions), and
-    the fold seeds their values on its node, so the rows show what is in
+  the page draws that view as a page). Such a node is still a node: in the
+  outline it is a row like any other, and a small set of *display options*
+  says what more its row shows (`@kb/model` `display.ts`, the one home of
+  the options, their settings' ids, values and defaults):
+  - **`preview`**: the view draws the node small under its row, a compact,
+    read-only picture. It is a placement of the view the family already
+    provides (`preview`), never a second renderer; the canvas's is a still
+    picture of its board (`canvasSvg`, the export's painter), which goes
+    live only when the canvas is opened. Only a view whose key says so
+    offers it: `ViewKey.preview` (`viewKey(…, { preview: true })`) is the
+    one statement, and a page contribution of the view is offered at
+    placement `preview` because of it (`provideView`), never by listing it.
+  - **`properties`**: the node's fields show as a plain node's do, the ones
+    its tag hides because its view draws them included: the fields the
+    tag templates (`sys.f.fields`) are revealed through the field-hiding
+    path every surface reads (`resolveVisibleProps`'s `revealed`), drawn as
+    any other field, not as debug rows.
+  - **Two levels, one rule.** Each option is on for a node by its own toggle,
+    and where the node says nothing, by its view's family's setting: "when a
+    node asks" (off until it does) or "always". A view's opening offers no
+    option it does not draw, and there is no implicit default beyond the
+    seeded "when a node asks".
+  - **The settings are the family's.** For each view a family claims as a
+    tag's default view (`tagDefaultViews`), the fold derives one option
+    field per option the view offers, `sys.f.display.<view>.<option>`,
+    whose values are its children, `….asked` and `….always`; and, where it
+    previews, `sys.f.display.<view>.preview.height` (CSS pixels, held to
+    60–600; seeded 180). Each configures the family's node, so it is drawn
+    and edited with the family's other settings (Settings → Extensions),
+    and the fold seeds their values there, so the rows show what is in
     effect. They are read off the node their fields configure
-    (`previewSettingsOf`), so nothing guesses which family a view is from,
-    and a view whose settings the store does not hold has no preview.
-  - **The node's toggle is the editor's.** The outline family seeds
-    `sys.f.outline.preview` (checkbox, one, hidden): on a node, its toggle,
-    and while it says nothing the view's `expanded` decides. The editor
-    reads and writes it in one place (`row-opening.ts`, `@kb/outline-ui`),
-    and its node menu offers "Show preview" / "Hide preview" through
-    `CommandPoint`. `kb set <id> sys.f.outline.preview true` opens one, and
-    `kb set sys.extension.canvas sys.f.preview.canvas.page.height 240`
-    changes the canvas's height, both without `force`.
-  - **Family off.** No tag opening, so no preview and no "Open in …": the
+    (`displaySettingsOf`), so nothing guesses which family a view is from;
+    settings the store does not hold read as the defaults.
+  - **The node's toggles are the editor's.** The outline family seeds
+    `sys.f.outline.preview` and `sys.f.outline.properties` (checkbox, one,
+    hidden), a node's own answer to each option. The editor reads and
+    writes them in one place (`row-opening.ts`, `@kb/outline-ui`), and its
+    node menu offers "Show …" / "Hide …" for each option the opening
+    offers, after "Open in …" (DESIGN-UI → Opening a node). `kb set <id>
+    sys.f.outline.properties true` shows a node's properties, and `kb set
+    sys.extension.canvas sys.f.display.canvas.page.preview
+    sys.f.display.canvas.page.preview.always` previews every canvas, both
+    without `force`.
+  - **Family off.** No tag opening, so no option and no "Open in …": the
     node is a row like any other, never an error.
 - **Placement is not stored yet.** Each view is shown at the placement its
   host offers. A stored placement arrives with the hosts that read it, in
@@ -3283,8 +3295,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     tag naming the view type its one claimant declares (`tagDefaultViews`);
   - each declaration's own node, `sys.extension.<name>`, derived from it as
     a view's option is derived from its key: named by its label, holding
-    the defaults of the settings the fold derives for it (the preview
-    settings of each of its views that previews, View nodes), and filed
+    the defaults of the settings the fold derives for it (the display
+    settings of each view it claims as a tag's default, View nodes), and filed
     under core's list node `sys.extensions` ("Extensions"), in declaration
     order, so every extension is a node of the graph, the hub its switch
     and its configuration hang off. Being one of that list's children is

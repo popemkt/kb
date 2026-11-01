@@ -2,11 +2,18 @@
  * A node's tag opening (DESIGN-UI.md → Opening a node → a tag's opening):
  * the view its tag opens it in — the resolver's own rule
  * (`heldTagDefaultOf`) over the page's view catalog — when this page draws
- * that view as a page, with how a chooser names it and, where the page draws
- * it as a preview too, the view's preview settings. The editor's row and
- * its node menu both read it here.
+ * that view as a page, with how a chooser names it, the display options it
+ * offers the node here and its family's settings for them (`@kb/model`'s
+ * `display.ts`). The editor's row and its node menu both read it here.
  */
-import { previewSettingsOf, type NodeId, type PreviewSettings, type PropValue } from "@kb/model";
+import {
+  displayOptionsOf,
+  displaySettingsOf,
+  type DisplayOption,
+  type DisplaySettings,
+  type NodeId,
+  type PropValue,
+} from "@kb/model";
 import { heldTagDefaultOf, ignoreReport, type ViewKey } from "@kb/views";
 import type { Contribution } from "@kb/plugin";
 import type { ProvidedView } from "./plugins";
@@ -27,8 +34,14 @@ export interface TagOpening {
   readonly key: ViewKey<unknown>;
   /** How a chooser names it (`provideView`'s picker), when its view says. */
   readonly picker: ViewPicker | undefined;
-  /** The view's preview settings, where this page draws its preview and the store holds them; else null. */
-  readonly preview: PreviewSettings | null;
+  /**
+   * The display options the node is offered here: the preview where the
+   * view's key draws one and this page draws it (placement `preview`), and
+   * its properties.
+   */
+  readonly options: readonly DisplayOption[];
+  /** Its family's settings for them (`displaySettingsOf`). */
+  readonly settings: DisplaySettings;
 }
 
 /**
@@ -49,13 +62,14 @@ export function tagOpeningOf(
     ({ value }) => value.key === held.key && value.placements.includes("page"),
   )?.value;
   if (provided === undefined) return null;
-  const settings = provided.placements.includes("preview")
-    ? previewSettingsOf(held.key.id, lookup)
-    : null;
   return {
     tag: held.tag,
     key: held.key,
     picker: provided.picker,
-    preview: settings?.shows === true ? settings : null,
+    options: displayOptionsOf({
+      id: held.key.id,
+      preview: provided.placements.includes("preview"),
+    }),
+    settings: displaySettingsOf(held.key.id, lookup),
   };
 }

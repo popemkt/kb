@@ -1,82 +1,18 @@
 /**
- * A row's tag opening, drawn (DESIGN-UI.md → Opening a node → a tag's
- * opening): the view the node's tag opens it in, offered on the row as
- * "Open in …" — the node menu's "Open with" row for that view — and, where
- * the page draws that view as a preview too, the preview under the row.
+ * A row's preview (DESIGN-UI.md → Opening a node → a row's display options): the
+ * view the node's tag opens it in, drawn small under the row, when the
+ * node's preview display option is on (`RowOpening.shown`).
  *
- * The preview is opt-in and cheap: its view's settings say whether it draws
- * one, whether one starts open and how tall it stands (`previewSettingsOf`);
- * the node's own toggle opens or closes it (`setPreviewShown`); it mounts
- * only once on screen, in a box of fixed height, so a long outline neither
- * shifts nor pays for previews it never shows.
+ * It is cheap: it stands in a box of its family's `preview height`, so a
+ * long outline never shifts, and mounts only once on screen, so it pays for
+ * no preview it never shows.
  */
 import { useEffect, useState } from "react";
-import { ArrowSquareOutIcon, CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { Result } from "effect";
 import type { NodeId } from "@kb/model";
 import { ignoreReport, paramsFromProps } from "@kb/views";
-import { cn, indentStyle, usePane, ViewSlot, type OutlineNode } from "@kb/ui-sdk";
-import { openIn, previewShownOf, setPreviewShown, type RowOpening } from "./row-opening";
-
-/**
- * The row's "Open in …" and its preview toggle: on hover or focus where
- * there is a pointer that hovers, always there (and compact) on touch.
- */
-export function RowOpeningActions({
-  nodeId,
-  node,
-  opening,
-}: {
-  readonly nodeId: NodeId;
-  readonly node: OutlineNode;
-  readonly opening: RowOpening;
-}) {
-  const pane = usePane();
-  const shown = opening.preview !== null && previewShownOf(node, opening.preview);
-  const control = cn(
-    "flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-label text-foreground/55",
-    "outline-none hover:bg-foreground/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/50",
-  );
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-0.5 transition-opacity",
-        "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 focus-within:opacity-100",
-        "[@media(hover:none)]:opacity-100",
-      )}
-      data-row-opening={opening.key.id}
-    >
-      {opening.preview === null ? null : (
-        <button
-          type="button"
-          className={control}
-          aria-expanded={shown}
-          aria-label={shown ? "Hide preview" : "Show preview"}
-          title={shown ? "Hide preview" : "Show preview"}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setPreviewShown(nodeId, !shown)}
-        >
-          {shown ? <CaretDownIcon size={12} /> : <CaretRightIcon size={12} />}
-          <span className="[@media(hover:none)]:sr-only">Preview</span>
-        </button>
-      )}
-      <button
-        type="button"
-        className={control}
-        title={`Open in ${opening.label}`}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => openIn(pane, nodeId, opening.key)}
-      >
-        {opening.icon}
-        <span>
-          <span className="[@media(hover:none)]:sr-only">Open in </span>
-          {opening.label}
-        </span>
-        <ArrowSquareOutIcon size={12} aria-hidden />
-      </button>
-    </div>
-  );
-}
+import { cn, indentStyle, usePane, ViewSlot } from "@kb/ui-sdk";
+import { openIn, type RowOpening } from "./row-opening";
 
 /**
  * Whether the element given to the returned ref has come near the viewport;
@@ -102,25 +38,22 @@ function useSeen(): readonly [(el: HTMLElement | null) => void, boolean] {
 }
 
 /**
- * The preview under the row, when it is open: the opening's view at
- * placement `preview`, in a box of its settings' height, mounted once on
- * screen. Pressing it opens the node in that view.
+ * The preview under the row, when it is on: the opening's view at placement
+ * `preview`, in a box of its family's height, mounted once on screen.
+ * Pressing it opens the node in that view.
  */
 export function RowPreview({
   nodeId,
-  node,
   opening,
   depth,
 }: {
   readonly nodeId: NodeId;
-  readonly node: OutlineNode;
   readonly opening: RowOpening;
   readonly depth: number;
 }) {
   const pane = usePane();
   const [box, seen] = useSeen();
-  const settings = opening.preview;
-  if (settings === null || !previewShownOf(node, settings)) return null;
+  if (!opening.shown.preview) return null;
   const params = paramsFromProps(opening.key, {}, nodeId, ignoreReport);
   if (Result.isFailure(params)) return null;
   return (
@@ -135,7 +68,7 @@ export function RowPreview({
           "relative w-full overflow-hidden rounded-md border border-border bg-foreground/[0.02]",
           "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         )}
-        style={{ height: settings.height }}
+        style={{ height: opening.settings.height }}
         onClick={() => openIn(pane, nodeId, opening.key)}
         onKeyDown={(e) => {
           if (e.key !== "Enter" && e.key !== " ") return;

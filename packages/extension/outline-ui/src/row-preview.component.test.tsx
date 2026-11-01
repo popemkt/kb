@@ -1,22 +1,36 @@
 /**
- * A row's preview (DESIGN-UI.md → Opening a node → a tag's opening): the
- * opening's view at placement `preview`, which its key offers, in a box of
- * its settings' height, drawn when the node's own toggle opens it — or,
- * while the toggle says nothing, when the settings open previews — and drawn
- * when it is opened after its row mounted, not only when it starts open.
+ * A row's tag opening, drawn (DESIGN-UI.md → Opening a node → a tag's
+ * opening): whether a display option is on for a node — its own toggle,
+ * else its view's family's setting, and never where the opening does not
+ * offer it; the preview, the opening's view at placement `preview` in a
+ * box of its family's height, drawn when it is turned on after its row
+ * mounted too; and "Open in …" as a segment of the tag's chip, which costs
+ * the row nothing.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Effect } from "effect";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { PREVIEW_DEFAULTS, type PreviewSettings } from "@kb/model";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  DISPLAY_DEFAULTS,
+  DISPLAY_OPTIONS,
+  type DisplayOption,
+  type DisplaySettings,
+} from "@kb/model";
 import { OUTLINE_IDS } from "@kb/outline";
 import { definePlugin } from "@kb/plugin";
 import { NoParams, viewKey } from "@kb/views";
-import { provideView, syncUiPlugins, ViewPoint, type OutlineNode } from "@kb/ui-sdk";
+import {
+  provideView,
+  syncUiPlugins,
+  TagChipGroup,
+  ViewPoint,
+  type OutlineNode,
+  type TagOpening,
+} from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { RowOpeningActions, RowPreview } from "./row-preview";
-import type { RowOpening } from "./row-opening";
+import { RowPreview } from "./row-preview";
+import { displayShownOf, type RowOpening } from "./row-opening";
 
 const PreviewedView = viewKey("test.previewed", "Board", NoParams, undefined, { preview: true });
 
@@ -35,25 +49,58 @@ const previewPlugin = definePlugin({
     ),
 });
 
-function opening(preview: Partial<PreviewSettings> = {}): RowOpening {
+/** The board node, its own preview toggle `own` (absent, it says nothing). */
+function node(own?: boolean): OutlineNode {
+  return {
+    id: "n.board",
+    text: "Board",
+    props:
+      own === undefined ? {} : { [OUTLINE_IDS.displayFields.preview]: [{ t: "bool", v: own }] },
+    children: [],
+  } as unknown as OutlineNode;
+}
+
+function tagOpening(
+  settings: Partial<DisplaySettings>,
+  options: readonly DisplayOption[] = DISPLAY_OPTIONS,
+): TagOpening {
   return {
     tag: "sys.tag.board",
     key: PreviewedView,
     picker: undefined,
-    preview: { ...PREVIEW_DEFAULTS, ...preview },
-    label: PreviewedView.label,
-    icon: null,
+    options,
+    settings: { ...DISPLAY_DEFAULTS, ...settings },
   };
 }
 
-function node(shown?: boolean): OutlineNode {
+/** The board's row opening, as `useRowOpening` reads it for `node(own)`. */
+function opening(own?: boolean, settings: Partial<DisplaySettings> = {}): RowOpening {
+  const base = tagOpening(settings);
   return {
-    id: "n.board",
-    text: "Board",
-    props: shown === undefined ? {} : { [OUTLINE_IDS.previewField]: [{ t: "bool", v: shown }] },
-    children: [],
-  } as unknown as OutlineNode;
+    ...base,
+    label: PreviewedView.label,
+    icon: null,
+    shown: {
+      preview: displayShownOf(node(own), base, "preview"),
+      properties: displayShownOf(node(own), base, "properties"),
+    },
+    revealed: new Set(),
+  };
 }
+
+describe("whether a display option is on for a node", () => {
+  it("is the node's own toggle, else its family's setting", () => {
+    expect(displayShownOf(node(), tagOpening({}), "preview")).toBe(false);
+    expect(displayShownOf(node(), tagOpening({ preview: "always" }), "preview")).toBe(true);
+    expect(displayShownOf(node(false), tagOpening({ preview: "always" }), "preview")).toBe(false);
+    expect(displayShownOf(node(true), tagOpening({}), "preview")).toBe(true);
+  });
+
+  it("is never on where the opening does not offer it", () => {
+    expect(displayShownOf(node(true), tagOpening({}, ["properties"]), "preview")).toBe(false);
+    expect(displayShownOf(node(true), null, "preview")).toBe(false);
+  });
+});
 
 describe("a row's preview", () => {
   let dom: InstalledDom;
@@ -83,15 +130,10 @@ describe("a row's preview", () => {
     container.remove();
   });
 
-  async function draw(shown: boolean | undefined, settings: Partial<PreviewSettings> = {}) {
+  async function draw(own: boolean | undefined, settings: Partial<DisplaySettings> = {}) {
     await act(async () => {
       root.render(
-        createElement(RowPreview, {
-          nodeId: "n.board",
-          node: node(shown),
-          opening: opening(settings),
-          depth: 0,
-        }),
+        createElement(RowPreview, { nodeId: "n.board", opening: opening(own, settings), depth: 0 }),
       );
     });
   }
@@ -105,10 +147,10 @@ describe("a row's preview", () => {
     expect(container.querySelector("[data-row-preview]")).toBeNull();
   });
 
-  it("starts open where its family opens previews, until the node's toggle closes it", async () => {
-    await draw(undefined, { expanded: true });
+  it("is drawn where its family shows previews always, until the node's toggle hides it", async () => {
+    await draw(undefined, { preview: "always" });
     expect(container.querySelector("[data-test-preview]")).not.toBeNull();
-    await draw(false, { expanded: true });
+    await draw(false, { preview: "always" });
     expect(container.querySelector("[data-row-preview]")).toBeNull();
   });
 
@@ -117,18 +159,55 @@ describe("a row's preview", () => {
     const box = container.querySelector<HTMLElement>("[data-row-preview] [role=button]");
     expect(box?.style.height).toBe("240px");
   });
+});
 
-  it("offers its toggle and its view on the row, the toggle saying whether it is open", async () => {
+describe("the tag chip's action", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("is a segment of the chip of the tag it names, and pressing it does not go to the tag", async () => {
+    const run = vi.fn();
+    const onTagClick = vi.fn();
     await act(async () => {
       root.render(
-        createElement(RowOpeningActions, {
-          nodeId: "n.board",
-          node: node(true),
-          opening: opening(),
+        createElement(TagChipGroup, {
+          tags: [
+            { id: "sys.tag.board", name: "board", color: "" },
+            { id: "t.other", name: "other", color: "" },
+          ],
+          onTagClick,
+          tagAction: { tag: "sys.tag.board", label: "Open in Board", icon: null, run },
         }),
       );
     });
-    expect(container.querySelector("[aria-expanded]")?.getAttribute("aria-expanded")).toBe("true");
-    expect(container.querySelector("[title='Open in Board']")).not.toBeNull();
+    const actions = container.querySelectorAll<HTMLElement>("[data-tag-action]");
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.getAttribute("aria-label")).toBe("Open in Board");
+    expect(actions[0]?.closest("[data-tag-chip]")?.textContent).toContain("board");
+    await act(async () => actions[0]?.click());
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(onTagClick).not.toHaveBeenCalled();
   });
 });

@@ -18,3 +18,10 @@ export const pointerKind = (pointerType: string): PointerKind =>
 /** Whether a press by a `kind` pointer that has travelled (dx, dy) CSS px is a drag. */
 export const pastSlop = (dx: number, dy: number, kind: PointerKind): boolean =>
   Math.hypot(dx, dy) > POINTER_SLOPS[kind];
+
+/**
+ * How long a finger is held still before it is a long press, which opens
+ * what a right click there would: Android's long-press timeout. One time for
+ * every surface that hears one — the canvas's touches, a row's bullet.
+ */
+export const LONG_PRESS_MS = 500;

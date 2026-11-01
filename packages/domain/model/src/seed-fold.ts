@@ -24,7 +24,7 @@ import {
   type NodeId,
   nowIso,
 } from "./model.ts";
-import { previewSettingFields, previewSettingValues } from "./preview.ts";
+import { displaySettingFields, displaySettingValues } from "./display.ts";
 import type { SeedRetirement } from "./seed-retirement.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
@@ -38,9 +38,9 @@ export interface SeedView {
   readonly label: string;
   readonly family?: ViewFamily | undefined;
   /**
-   * The view draws a preview of a node it opens (`ViewKey.preview`): the
-   * fold derives its preview settings (`previewSettingFields`) as settings
-   * of the source that provides it.
+   * The view draws a preview of a node it opens (`ViewKey.preview`): where
+   * its source claims it as a tag's default view, the display settings the
+   * fold derives for it (`displaySettingFields`) offer the preview.
    */
   readonly preview?: boolean | undefined;
 }
@@ -206,17 +206,17 @@ function declaredOptionNode(kind: DeclaredOptions, option: SeedOption, at: strin
   };
 }
 
-/** The views `source` provides that draw a preview of a node they open. */
-function previewing(source: SeedSource): SeedView[] {
-  return (source.views ?? []).map(({ key }) => key).filter((view) => view.preview === true);
+/** The views `source` claims as a tag's default view, each once: the ones its display settings are for. */
+function tagOpened(source: SeedSource): SeedView[] {
+  return [...new Set(Object.values(source.tagDefaultViews ?? {}))];
 }
 
 /**
  * A source's own node, `sys.extension.<name>`, as the fold derives it: named
  * by its label and holding no switch, so an optional family's switch reads as
  * its declared default until someone switches it. It holds the defaults of
- * the settings the fold derives for the source (`previewSettingValues`, one
- * set per view of it that previews), so those show what is in effect. Being
+ * the settings the fold derives for the source (`displaySettingValues`, one
+ * set per view of it a tag opens its nodes in), so those show what is in effect. Being
  * one of `sys.extensions`' children is what it is, as a view's option is one
  * of `sys.views`'.
  */
@@ -224,7 +224,7 @@ function extensionNode(source: SeedSource, at: string): KbNode {
   return {
     id: extensionNodeId(source.name),
     text: source.label,
-    props: Object.assign({}, ...previewing(source).map((view) => previewSettingValues(view.id))),
+    props: Object.assign({}, ...tagOpened(source).map(displaySettingValues)),
     children: [],
     createdAt: at,
     updatedAt: at,
@@ -358,7 +358,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     name: source.name,
     seed: [
       ...(source.seed?.(at) ?? []),
-      ...previewing(source).flatMap((view) => previewSettingFields(view.id, source.name, at)),
+      ...tagOpened(source).flatMap((view) => displaySettingFields(view, source.name, at)),
     ],
     files: source.files,
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),

@@ -17,7 +17,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -34,8 +34,9 @@ import {
   type TagBadge,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
+import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { NodeBlock, outlineNodes } from "@kb/outline-ui";
+import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 
 const RED = "#ef4444";
 const GREEN = "#22c55e";
@@ -255,6 +256,13 @@ function seedRefRow() {
   useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
+/** Dispatch `event` on `bullet`, inside `act`. */
+const fire = (bullet: HTMLElement, event: Event) => act(() => void bullet.dispatchEvent(event));
+
+/** Whether the node menu is open on the reference row's node. */
+const isOpenOnRow = () =>
+  useUiStore.getState().nodePaletteOpen && useOutlineStore.getState().selectedNodeId === "n.root-a";
+
 describe("reference-row bullet click parity", () => {
   let dom: Window;
   let container: HTMLDivElement;
@@ -333,5 +341,65 @@ describe("reference-row bullet click parity", () => {
     const graph = useGraphStore.getState();
     expect(graph.rootNodeId).toBe("n.root-a");
     expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+  });
+
+  describe("the bullet's menu gesture opens the node menu on its row", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      useUiStore.getState().setNodePaletteOpen(false);
+    });
+
+    it("a right click opens it, and toggles nothing", async () => {
+      const bullet = await renderRefRow();
+      fire(bullet, new dom.MouseEvent("contextmenu", { bubbles: true, cancelable: true }) as never);
+      expect(isOpenOnRow()).toBe(true);
+      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+    });
+
+    it("a finger held still opens it, and the click it lifts with lands nowhere", async () => {
+      const bullet = await renderRefRow();
+      vi.useFakeTimers();
+      const press = {
+        bubbles: true,
+        cancelable: true,
+        pointerType: "touch",
+        clientX: 4,
+        clientY: 4,
+      };
+      fire(bullet, new dom.PointerEvent("pointerdown", press) as never);
+      act(() => void vi.advanceTimersByTime(500));
+      expect(isOpenOnRow()).toBe(true);
+      fire(bullet, new dom.PointerEvent("pointerup", press) as never);
+      // The lift's click, on the bullet or on the menu opened over it, is the menu's.
+      clickBullet(bullet);
+      const elsewhere = new dom.MouseEvent("click", { bubbles: true, cancelable: true });
+      container.dispatchEvent(elsewhere as unknown as Event);
+      expect(elsewhere.defaultPrevented).toBe(true);
+      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+      // Then the page's clicks are its own again.
+      act(() => void vi.advanceTimersByTime(400));
+      const later = new dom.MouseEvent("click", { bubbles: true, cancelable: true });
+      container.dispatchEvent(later as unknown as Event);
+      expect(later.defaultPrevented).toBe(false);
+    });
+
+    it("a finger lifted sooner is a tap", async () => {
+      const bullet = await renderRefRow();
+      vi.useFakeTimers();
+      const press = {
+        bubbles: true,
+        cancelable: true,
+        pointerType: "touch",
+        clientX: 4,
+        clientY: 4,
+      };
+      fire(bullet, new dom.PointerEvent("pointerdown", press) as never);
+      act(() => void vi.advanceTimersByTime(200));
+      fire(bullet, new dom.PointerEvent("pointerup", press) as never);
+      act(() => void vi.advanceTimersByTime(500));
+      clickBullet(bullet);
+      expect(useUiStore.getState().nodePaletteOpen).toBe(false);
+      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(false);
+    });
   });
 });

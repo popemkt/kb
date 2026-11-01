@@ -180,7 +180,7 @@ export { OntologyPicker } from "./components/ontology-picker";
 export { type SidebarNavItem, SidebarRow, SidebarSection } from "./components/sidebar-row";
 export { SidebarToggle } from "./components/sidebar-toggle";
 export { SETTINGS_PATH, SettingsTrigger } from "./components/settings-trigger";
-export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
+export { OptionChip, TagChip, TagChipGroup, type TagChipAction } from "./components/tag-chip";
 export { ThemeIcon } from "./components/theme-icon";
 export { ViewOptionsGlyph } from "./components/view-options-glyph";
 export { useAnchoredPosition } from "./components/use-anchored-position";
@@ -467,7 +467,14 @@ export {
   type PickerRow,
   pickerRows,
 } from "./lib/picker";
-export { pastSlop, pointerKind, POINTER_SLOPS, type PointerKind } from "./lib/pointer-slop";
+export {
+  LONG_PRESS_MS,
+  pastSlop,
+  pointerKind,
+  POINTER_SLOPS,
+  type PointerKind,
+} from "./lib/pointer-slop";
+export { useMenuGesture, type MenuGesture } from "./lib/menu-gesture";
 export {
   getPath,
   navigate,

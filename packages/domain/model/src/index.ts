@@ -291,10 +291,17 @@ export {
 } from "./asset.ts";
 export { sanitizeSvg } from "./svg-sanitize.ts";
 export {
-  PREVIEW_DEFAULTS,
-  previewSettingFields,
-  previewSettingValues,
-  previewSettingIds,
-  previewSettingsOf,
-  type PreviewSettings,
-} from "./preview.ts";
+  DISPLAY_DEFAULTS,
+  DISPLAY_OPTIONS,
+  displayDefaultId,
+  eachDisplayOption,
+  displayOptionsOf,
+  displaySettingFields,
+  displaySettingIds,
+  displaySettingsOf,
+  displaySettingValues,
+  type DisplayDefault,
+  type DisplayOption,
+  type DisplaySettings,
+  type DisplayView,
+} from "./display.ts";

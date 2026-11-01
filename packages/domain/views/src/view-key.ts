@@ -72,8 +72,8 @@ export interface ViewKey<P> {
   /**
    * The view draws a preview of a node it opens: a compact, read-only
    * picture of it, which the editor shows under the node's row when a tag
-   * opens the node in this view (DESIGN.md → View nodes → a tag's view may
-   * preview its nodes). The one statement of it: the seed derives the
+   * opens the node in this view (DESIGN.md → View nodes → a tag's view sets
+   * how its nodes show). The one statement of it: the seed derives the
    * view's preview settings from it, and a page contribution of the view
    * offers placement `preview` because of it.
    */
