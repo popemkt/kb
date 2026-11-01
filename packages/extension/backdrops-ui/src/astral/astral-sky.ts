@@ -5,7 +5,7 @@
  *
  * - **On a dark page** ink-navy pooled about the instrument, a slow nebula,
  *   a field of tiny stars and four-point glints (lengthening near the
- *   pointer), a few soft bokeh orbs, a graduated great circle turning very
+ *   pointer), a graduated great circle turning very
  *   slowly (`arc`) and the composition's constellation, far and faint
  *   (`figure`). **On a light one** warm paper with its fibres, printed
  *   specks and marks, the great circle and the constellation in ink, and
@@ -159,7 +159,7 @@ function constellationAt(f: FigureUniforms, p: V2, px: F): F {
     const link = f.linkArray.element(i);
     const drawnSoFar = step(1e-5, length(link.zw.sub(link.xy)));
     links.addAssign(
-      exp(segment(p, link.xy, link.zw).div(px.mul(0.6)).pow(2).negate()).mul(drawnSoFar),
+      exp(segment(p, link.xy, link.zw).div(px.mul(0.45)).pow(2).negate()).mul(drawnSoFar),
     );
   }
   return stars.add(links.mul(f.shown).mul(0.08));
@@ -199,41 +199,6 @@ function shootingStar(u: AstralUniforms, p: V2, px: F): F {
     .mul(seen);
 }
 
-/**
- * Bokeh: a few out-of-focus orbs to the frame, drifting very slowly, each
- * a lens's blur of a far light: a disc with a soft edge, a little brighter
- * toward its rim, its own size (the larger, the fainter) and a faint tint
- * between ice and warm.
- */
-function bokehAt(p: V2, t: F): V3 {
-  const cell = 0.8;
-  const drift = p.add(vec2(t.mul(0.0025), t.mul(0.001)));
-  const home = floor(drift.div(cell).sub(0.5));
-  const orbs = vec3(0, 0, 0).toVar();
-  // An orb reaches less than a quarter cell, so the four nearest cells hold every one that reaches the pixel.
-  for (let i = 0; i <= 1; i++) {
-    for (let j = 0; j <= 1; j++) {
-      const id = home.add(vec2(i, j));
-      const h = hash2(id.add(51.3));
-      const centre = id.add(h.mul(0.5).add(0.25)).mul(cell);
-      const size = pow(hash(id.add(7.1)), 1.4);
-      const radius = mix(float(0.03), float(0.07), size);
-      // Out of focus: the edge as soft as a fifth of the disc, the rim a little brighter than the middle.
-      const soft = radius.mul(0.22).add(0.003);
-      const d = length(drift.sub(centre)).toVar();
-      const shown = step(hash(id.add(13.7)), 0.45).mul(mix(float(1), float(0.6), size));
-      // Drawn only where it reaches.
-      If(shown.greaterThan(0).and(d.lessThan(radius.add(soft))), () => {
-        const disc = smoothstep(radius.add(soft.mul(0.5)), radius.sub(soft), d);
-        const rim = smoothstep(radius.mul(0.35), radius.sub(soft.mul(0.4)), d);
-        const tint = mix(vec3(0.7, 0.8, 1), vec3(1, 0.88, 0.7), hash(id.add(23.9)).mul(0.6));
-        orbs.addAssign(tint.mul(disc.mul(rim.mul(0.45).add(0.5))).mul(shown));
-      });
-    }
-  }
-  return orbs;
-}
-
 /** Ticks on the sky's great circle: this many to a turn, every tenth a major one. */
 const ARC_TICKS = 720;
 
@@ -245,8 +210,8 @@ function arcAt(u: AstralUniforms, p: V2, px: F): F {
   const width = arc.z.mul(0.0075).toVar();
   const drawn = float(0).toVar();
   If(arc.z.greaterThan(0).and(abs(d.add(width.mul(0.5))).lessThan(width.add(px.mul(3)))), () => {
-    const rings = exp(d.div(px.mul(0.7)).pow(2).negate()).add(
-      exp(d.add(width).div(px.mul(0.6)).pow(2).negate()).mul(0.7),
+    const rings = exp(d.div(px.mul(0.5)).pow(2).negate()).add(
+      exp(d.add(width).div(px.mul(0.45)).pow(2).negate()).mul(0.6),
     );
     const n = atan(q.y, q.x)
       .add(u.time.mul(0.0015))
@@ -258,7 +223,7 @@ function arcAt(u: AstralUniforms, p: V2, px: F): F {
       .mul(arc.z);
     const major = step(fract(index.div(10).add(0.05)), 0.1);
     const reach = mix(width.mul(0.45), width, major);
-    const tick = exp(off.div(px.mul(0.6)).pow(2).negate())
+    const tick = exp(off.div(px.mul(0.45)).pow(2).negate())
       .mul(step(d.negate(), reach))
       .mul(step(d, 0));
     drawn.assign(rings.add(tick.mul(0.8)));
@@ -335,14 +300,13 @@ export function astralSky(
         // The nebula is the night's own colour, thickened: a darker night, a fainter nebula.
         .add(u.night.mul(1.25).mul(smoothstep(0.42, 0.85, nebula)))
         .add(vec3(0.018, 0.012, 0.005).mul(glow))
-        .add(hub)
-        .add(bokehAt(p, t).mul(0.08));
+        .add(hub);
       const lights = vec3(0.78, 0.82, 0.92)
         .mul(tiny)
         .add(vec3(0.86, 0.82, 0.74).mul(glints.mul(0.9)))
-        .add(vec3(0.95, 0.82, 0.58).mul(drawn))
+        .add(vec3(0.6, 0.62, 0.68).mul(drawn.mul(0.55)))
         .add(vec3(0.95, 0.92, 0.86).mul(streak))
-        .add(vec3(0.5, 0.44, 0.32).mul(arc.mul(0.3)))
+        .add(vec3(0.42, 0.44, 0.5).mul(arc.mul(0.1)))
         .mul(open);
       shown.assign(ground.add(sky.add(lights).mul(lit.mul(0.65).add(0.35))));
     }).Else(() => {
@@ -353,8 +317,8 @@ export function astralSky(
       const ink = tiny
         .mul(2.2)
         .add(glints.mul(1.0))
-        .add(drawn.mul(0.9))
-        .add(arc.mul(0.3))
+        .add(drawn.mul(0.55))
+        .add(arc.mul(0.12))
         .mul(open)
         .min(0.9);
       const paper = page.mul(vec3(0.975, 0.94, 0.86)).mul(shade);

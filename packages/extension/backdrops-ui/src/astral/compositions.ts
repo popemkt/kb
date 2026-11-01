@@ -307,7 +307,7 @@ function crownTrain(vary: Variation): Part[] {
     at: polar(
       vary.range("movement.crownR", 1.25, 1.45),
       vary.range("movement.crownA", 3.25, 3.55),
-      -0.2,
+      -0.45,
     ),
     radius,
     teeth,
@@ -384,7 +384,7 @@ function movement(vary: Variation): Mechanism {
     arc: { at: [-2.1, -8.5], radius: 9.45 },
     constellation: skyConstellation(vary, "movement", FIGURES.net, [-3.27, 0.62], 1.45),
     // The dial in focus; the train behind it soft, the deepest wheel softest.
-    focus: { at: 0.06, depth: 0.1, falloff: 0.25, radius: 2.4 },
+    focus: { at: 0.06, depth: 0.1, falloff: 0.3, radius: 5 },
     parts: [
       ...crownTrain(vary),
       ...farTrain(vary, [
