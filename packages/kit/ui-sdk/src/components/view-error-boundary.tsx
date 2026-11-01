@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { RetryableError } from "../lib/kept-load";
 import { logError } from "../lib/log";
+import { isMissingChunk, reloadForNewBuild } from "../lib/stale-build";
 
 export interface ViewErrorProps {
   title?: string;
@@ -49,6 +50,8 @@ interface ViewErrorBoundaryProps {
 
 interface ViewErrorBoundaryState {
   error: Error | null;
+  /** The error is a chunk of an older build, and the page is reloading for the new one. */
+  updating: boolean;
   /** Last `resetKey` folded into state, so a change to it clears the error. */
   resetKey: string | undefined;
 }
@@ -58,10 +61,12 @@ interface ViewErrorBoundaryState {
  * Shell chrome (sidebar, header, palette) stays outside this tree.
  */
 export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErrorBoundaryState> {
-  override state: ViewErrorBoundaryState = { error: null, resetKey: undefined };
+  override state: ViewErrorBoundaryState = { error: null, updating: false, resetKey: undefined };
 
-  static getDerivedStateFromError(error: Error): Pick<ViewErrorBoundaryState, "error"> {
-    return { error };
+  static getDerivedStateFromError(
+    error: Error,
+  ): Pick<ViewErrorBoundaryState, "error" | "updating"> {
+    return { error, updating: isMissingChunk(error) };
   }
 
   static getDerivedStateFromProps(
@@ -69,10 +74,15 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
     state: ViewErrorBoundaryState,
   ): ViewErrorBoundaryState | null {
     if (props.resetKey === state.resetKey) return null;
-    return { error: null, resetKey: props.resetKey };
+    return { error: null, updating: false, resetKey: props.resetKey };
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
+    // A view of a build the server no longer has is not a crash: the page
+    // reloads into the new one (`lib/stale-build`). When this build was
+    // reloaded for already, the failure is shown as one.
+    if (reloadForNewBuild(error)) return;
+    if (this.state.updating) this.setState({ updating: false });
     logError("ViewErrorBoundary caught", error, info.componentStack);
   }
 
@@ -85,6 +95,8 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
   };
 
   override render(): ReactNode {
+    if (this.state.error && this.state.updating)
+      return <ViewError title="kb was updated" message="Loading the new version…" />;
     if (this.state.error) {
       const { fallback } = this.props;
       if (fallback !== undefined && fallback !== null) return fallback;

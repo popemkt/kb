@@ -9,6 +9,13 @@ function Boom({ fail }: { fail: boolean }): ReactElement {
   return createElement("div", { "data-testid": "ok" }, "ok");
 }
 
+/** A view whose chunk the server no longer has: the tab outlived its build. */
+function Gone(): ReactElement {
+  throw new TypeError(
+    "Failed to fetch dynamically imported module: https://kb/static/composer-page-CSoHrcCV.js",
+  );
+}
+
 function Shell({ children }: { children: ReactNode }): ReactElement {
   return createElement(
     "div",
@@ -23,6 +30,7 @@ describe("ViewErrorBoundary", () => {
   let container: HTMLDivElement;
   let root: Root;
   let consoleError: typeof console.error;
+  let reloads = 0;
 
   beforeAll(() => {
     dom = new Window();
@@ -31,6 +39,8 @@ describe("ViewErrorBoundary", () => {
     g.document = dom.document;
     g.HTMLElement = dom.HTMLElement;
     g.Node = dom.Node;
+    g.sessionStorage = dom.sessionStorage;
+    g.location = { pathname: "/", reload: () => void reloads++ };
   });
 
   beforeEach(() => {
@@ -96,6 +106,42 @@ describe("ViewErrorBoundary", () => {
     });
     expect(container.querySelector('[data-testid="ok"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="view-error"]')).toBeNull();
+  });
+
+  it("reloads into the new build once, saying so, when its view's chunk is gone", () => {
+    const entry = dom.document.createElement("script");
+    entry.setAttribute("type", "module");
+    entry.setAttribute("src", "https://kb/static/index-old.js");
+    dom.document.head.appendChild(entry);
+    reloads = 0;
+    const gallery = (key: string) =>
+      createElement(ViewErrorBoundary, {
+        title: "Gallery crashed",
+        resetKey: key,
+        children: createElement(Gone),
+      });
+
+    act(() => {
+      root.render(gallery("first"));
+    });
+    expect(reloads).toBe(1);
+    expect(container.textContent).toContain("kb was updated");
+    expect(container.textContent).not.toContain("Gallery crashed");
+
+    // The reload landed on the same build: the failure is shown, once.
+    act(() => {
+      root.unmount();
+    });
+    root = createRoot(container);
+    dom.sessionStorage.setItem("kb.reloaded-for-build", "https://kb/static/index-same.js");
+    entry.setAttribute("src", "https://kb/static/index-same.js");
+    act(() => {
+      root.render(gallery("again"));
+    });
+    expect(reloads).toBe(1);
+    expect(container.textContent).toContain("Gallery crashed");
+    expect(container.textContent).toContain("Failed to fetch dynamically imported module");
+    entry.remove();
   });
 
   it("ViewError retry button invokes onRetry", () => {

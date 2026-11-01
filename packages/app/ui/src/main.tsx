@@ -1,3 +1,4 @@
+import { watchForNewBuild } from "@kb/ui-sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@/components/App";
@@ -22,6 +23,9 @@ function preloadInterLatin() {
 }
 
 preloadInterLatin();
+// A tab left open across a release reloads into the new build when a chunk
+// it was built against is gone (`@kb/ui-sdk` → `lib/stale-build`).
+watchForNewBuild();
 initPrefs();
 startDesignSystems();
 // The motion painter paints once the graph has arrived, so it loads with

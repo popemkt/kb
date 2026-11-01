@@ -256,6 +256,15 @@ be kept, never how it is sent.
   one round trip and gets `304` when it has not changed
   (`staticCacheHeaders`, `assets.ts`). A repository extension's page half
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
+- **A tab outlives its build.** A release replaces `ui/dist`, so a tab
+  opened before it asks for chunks the server no longer has. A chunk that
+  does not arrive (Vite's `vite:preloadError`, or a view's error boundary
+  catching it) reloads the page once into the new build, and the boundary
+  says "kb was updated" meanwhile. The build is the page's entry script,
+  whose digest changes whenever any chunk it may fetch is renamed. The tab's
+  session storage records the build it reloaded for, so a reload that lands
+  on the same build shows the failure instead of looping
+  (`@kb/ui-sdk` → `lib/stale-build.ts`).
 - **Compressed when it is text.** A `200` whose type is script, style,
   markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
   or gzip, whichever the request's `Accept-Encoding` weighs highest (its
