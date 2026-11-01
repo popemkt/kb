@@ -94,6 +94,12 @@ export const ASTRAL_BACKDROP: SeedBackdrop = {
   ],
 };
 
+/** A vineyard lane painted in overlapping discs, dissolving into the page by its own spray. */
+export const DISC_FIELD_BACKDROP: SeedBackdrop = {
+  id: "backdrops.disc-field",
+  label: "Disc field",
+};
+
 /** Every backdrop the family declares, in the order its options are listed. */
 const BACKDROPS: readonly SeedBackdrop[] = [
   UNICORN_BACKDROP,
@@ -109,6 +115,7 @@ const BACKDROPS: readonly SeedBackdrop[] = [
   WOLF_MEDALLION_BACKDROP,
   LIGHT_TRAILS_BACKDROP,
   ASTRAL_BACKDROP,
+  DISC_FIELD_BACKDROP,
 ];
 
 export const backdropsExtension = defineExtension({
