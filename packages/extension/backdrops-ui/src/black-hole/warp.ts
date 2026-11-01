@@ -1,23 +1,23 @@
 /**
- * Warp, a look of the Black hole backdrop: a graphic lens seen almost edge
- * on through a thin, razor-bright disk (shader: `warp-shader.ts`). The look
- * is inspired by the black hole of Bruno Simon's Awwwards 2022 workshop;
- * the code is kb's own.
+ * Warp, a look of the Black hole backdrop: the lens-warp black hole after
+ * the demo in Bruno Simon's Awwwards 2022 workshop; code written for kb
+ * (shader: `warp-shader.ts`). A streaked disk seen almost edge on, bent
+ * over its shadow and folded under it by a pull toward the hole.
  *
  * The owner, through the shared rig (`hole-rig.ts`), as for every look: the
  * pointer tilts and swings the camera; typing dims the disk and each
  * keystroke breathes into its streaks; a write sets a hot knot orbiting.
  *
- * Seeded: where the camera rests, the streaks' place in the noise, the
- * clock they start at, and a small turn of the violet tail's hue.
+ * Seeded: where the camera rests (a little higher or lower, a little
+ * round), the streaks' place in the noise and the clock they start at.
  *
  * Cost: no march and no history, so one pass of a few noise reads on the
- * disk's pixels, drawn offscreen at up to the screen's own density (the
- * photon ring is a texel wide) and lowered by the meter.
+ * disk's pixels, drawn offscreen at up to the screen's own density and
+ * lowered by the meter.
  */
-import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
+import { offscreenPass, type SceneStage, type StageLens } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
-import { turnHue, type Variation } from "../scene/seed";
+import type { Variation } from "../scene/seed";
 import {
   type BackdropLayout,
   type GpuBackdropInit,
@@ -31,16 +31,20 @@ import { warpFragment, warpUniforms } from "./warp-shader";
 const DENSITY = 2;
 /** A light sharpening of the upscale, only where the meter has lowered the density. */
 const SHARPEN = 0.35;
-/** The violet tail before its turn (linear). */
-const TAIL: readonly [number, number, number] = [0.42, 0.13, 0.72];
+/**
+ * The reference's camera, toned down: a colour split toward the edges, no
+ * streak (there is next to no bloom to draw it from), and on a dark page
+ * grain that sparkles in the hot gas and leaves the dark clean. A light
+ * page is all light, so there the grain is only fine and even.
+ */
+const LENS: StageLens = { aberration: 0.02, streak: 0, grain: 0.012, sparkle: 0.45 };
+const LIGHT_LENS: StageLens = { aberration: 0.006, streak: 0, grain: 0.02 };
 
 export function warp(stage: SceneStage, _init: GpuBackdropInit, vary: Variation): HoleLook {
   const flare = flareOrbit(vary);
   const u = warpUniforms();
   u.time.value = 60 + vary.range("clock", 0, 120);
   u.offset.value.set(vary.range("streaks", 0, 1), vary.range("infall", 0, 4));
-  const [r, g, b] = turnHue(TAIL, vary.range("tail", -0.28, 0.22));
-  u.tail.value.setRGB(Math.max(r, 0), Math.max(g, 0), Math.max(b, 0));
   const hole = offscreenPass(
     stage.renderer,
     (inputs) => warpFragment(u, inputs, groundsOf(stage)),
@@ -48,9 +52,9 @@ export function warp(stage: SceneStage, _init: GpuBackdropInit, vary: Variation)
   );
   stage.scene.backgroundNode = sharpened(hole, SHARPEN);
 
-  // Where the camera rests is the load's: a little higher or lower, a little round.
+  // Where the camera rests is the load's: about as high over the disk as the reference's.
   const dolly = holeDolly({
-    inclination: vary.range("tilt", 0.07, 0.11),
+    inclination: vary.range("tilt", 0.058, 0.068),
     azimuth: vary.range("swing", -0.16, 0.16),
   });
   let width = 1;
@@ -68,7 +72,8 @@ export function warp(stage: SceneStage, _init: GpuBackdropInit, vary: Variation)
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
-      stage.setBloom(look.dark ? 0.1 : 0.04);
+      stage.setBloom(look.dark ? 0.015 : 0.02);
+      stage.setLens(look.dark ? LENS : LIGHT_LENS);
     },
     frame: (dt: number, reactions: Reactions) => {
       u.time.value += dt;

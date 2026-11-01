@@ -172,8 +172,10 @@ export interface StageLens {
   readonly aberration: number;
   /** The bloom drawn out sideways. */
   readonly streak: number;
-  /** Film grain over the art. */
+  /** Film grain over the art, as strong everywhere. */
   readonly grain: number;
+  /** Film grain over the art that grows with its light: the hot parts speckle, the dark stay clean. */
+  readonly sparkle?: number;
 }
 
 /**
@@ -242,6 +244,45 @@ function focusOf(options: StageOptions, picture: TextureNode, scenePass: ReturnT
   );
 }
 
+/** A stage built without a lens: none of its artefacts. */
+const NO_LENS: StageLens = { aberration: 0, streak: 0, grain: 0 };
+
+/** The lens's strengths as uniforms, which `setLens` retunes. */
+const lensKnobs = (lens: StageLens) => ({
+  aberration: uniform(lens.aberration),
+  streak: uniform(lens.streak),
+  grain: uniform(lens.grain),
+  sparkle: uniform(lens.sparkle ?? 0),
+});
+
+/** Whether a lens has grain at all, even or sparkling. */
+const grained = (lens: StageLens): boolean => lens.grain > 0 || (lens.sparkle ?? 0) > 0;
+
+/**
+ * Film grain where the scene's art is, never on the page's ground: not beyond
+ * the frame, and not on the ground inside it either, where grain clipped at
+ * the page's white or black would shift its level and draw the frame's
+ * rectangle. Even by `grain`, and growing with the art's light by `sparkle`.
+ */
+function filmGrain(
+  display: TslNode<"vec3">,
+  ground: TslNode<"vec3">,
+  knobs: {
+    readonly grainSeed: TslNode<"float">;
+    readonly grain: TslNode<"float">;
+    readonly sparkle: TslNode<"float">;
+  },
+): TslNode<"vec3"> {
+  const pixel = screenCoordinate.xy.floor();
+  const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
+  const art = length(display.sub(ground));
+  const light = dot(display, vec3(0.2126, 0.7152, 0.0722));
+  const strength = knobs.grain.add(knobs.sparkle.mul(light));
+  return vec3(grain, grain, grain)
+    .mul(strength)
+    .mul(smoothstep(0.004, 0.04, art));
+}
+
 /** The post chain, and the handles a view turns. */
 function postChain(
   renderer: WebGPURenderer,
@@ -261,9 +302,7 @@ function postChain(
     /** Moves the grain each frame. */
     grainSeed: uniform(0),
     /** The lens's strengths, retuned by `setLens`. */
-    aberration: uniform(options.lens?.aberration ?? 0),
-    streak: uniform(options.lens?.streak ?? 0),
-    grain: uniform(options.lens?.grain ?? 0),
+    ...lensKnobs(options.lens ?? NO_LENS),
   };
   // three r186's GTAO reads its centre depth with `gather()`, which WGSL has
   // no overload for on a multisampled depth texture, so under occlusion the
@@ -291,7 +330,7 @@ function postChain(
   if (focus !== null) lit = picture(screenUV);
   const glow = bloom(lit, options.bloom.strength, options.bloom.radius, BLOOM_THRESHOLD);
   // Which artefacts the chain has is decided once, from the lens it is built with.
-  const lens = options.lens ?? { aberration: 0, streak: 0, grain: 0 };
+  const lens = options.lens ?? NO_LENS;
   let composed: TslNode<"vec3"> = lit.rgb.add(glow.rgb);
   if (!occluded && (lens.aberration > 0 || lens.streak > 0)) {
     // Chromatic aberration: red and blue land a little apart, more toward the
@@ -347,14 +386,10 @@ function postChain(
     float(52.9829189).mul(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715)))),
   );
   let shownColor: TslNode<"vec3"> = display.rgb.add(noise.sub(0.5).mul(knobs.dither.div(255)));
-  if (lens.grain > 0) {
-    // Film grain where the scene's art is, never on the page's ground: not beyond the frame, and
-    // not on the ground inside it either, where grain clipped at the page's white or black would
-    // shift its level and draw the frame's rectangle.
-    const pixel = screenCoordinate.xy.floor();
-    const grain = hash(pixel.x.add(pixel.y.mul(8192)).add(knobs.grainSeed.mul(7919))).sub(0.5);
-    const art = length(display.rgb.sub(renderOutput(vec4(colors.ground, 1)).rgb));
-    shownColor = shownColor.add(grain.mul(knobs.grain).mul(smoothstep(0.004, 0.04, art)));
+  if (grained(lens)) {
+    shownColor = shownColor.add(
+      filmGrain(display.rgb, renderOutput(vec4(colors.ground, 1)).rgb, knobs),
+    );
   }
   const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;
@@ -606,6 +641,7 @@ function postControls(
       chain.knobs.aberration.value = lens.aberration;
       chain.knobs.streak.value = lens.streak;
       chain.knobs.grain.value = lens.grain;
+      chain.knobs.sparkle.value = lens.sparkle ?? 0;
       invalidate();
     },
     setToneMapping: (kind: SceneToneMapping) => {

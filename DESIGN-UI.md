@@ -3104,10 +3104,11 @@ before the bloom; a pixel with no solid, a backdrop's sky, in focus; and
 a stage focused nowhere, radius 0, drawing none of it);
 optionally a camera's
 artefacts after bloom (`lens`: chromatic aberration, an anamorphic streak,
-film grain, only where the scene's art is, never on its ground, so the
-grain cannot shift the ground's level and draw the frame; the artefacts a
-stage is built with are retuned by `setLens`, as the bloom is by
-`setBloom`, so each look of a backdrop finishes its own picture), a feather along the frame's own sides, a presence knob and a
+film grain, and a sparkle of grain that grows with the art's light, all
+only where the scene's art is, never on its ground, so the grain cannot
+shift the ground's level and draw the frame; the artefacts a stage is
+built with are retuned by `setLens`, as the bloom is by `setBloom`, so
+each look of a backdrop finishes its own picture), a feather along the frame's own sides, a presence knob and a
 GPU frame meter, `gpuMs`), `offscreen` (`offscreenPass`: a full-frame
 shader drawn into a render target of its own size, optionally reading its
 last picture back, which a scene samples as a texture), `screen-fill`
@@ -4072,8 +4073,8 @@ A PR for a backdrop reports a score against each criterion.
     light, a new nebula each load (see **GPU scenes** below);
   - `backdrops.black-hole` is a black hole in one of two looks, its
     variants: Gargantua, whose thick gas disk streams round it, lensed over
-    and under its shadow; and Warp, a thin, razor-bright disk seen almost
-    edge on through a graphic lens;
+    and under its shadow; and Warp, a streaked disk seen almost edge on
+    through a screen-space lens that bends it into an arch and an echo;
   - `backdrops.toon-sea` is an open sea under anime-game cumulus,
     cel-shaded: a day sea, and at night a moonlit indigo with
     bioluminescent wakes;
@@ -4507,28 +4508,42 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     (contrast-adaptive), and the stage adds fine grain.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
-- **Black hole · Warp.** A graphic lens seen almost edge on, the look
-  inspired by the black hole of Bruno Simon's Awwwards 2022 workshop
-  (unlicensed, so studied, never copied: the technique and code are kb's
-  own; docs/research/2026-10-31-3d-quality-bar.md §6).
-  - A two-segment thin lens, no march: a ray runs straight to the plane
-    through the hole square to the view, is turned toward the hole by an
-    angle falling as one over how near it passed, and runs on. The first
-    segment meets the disk's near side, crossing the shadow; the second, the
-    far side lifted over the shadow as an arch and echoed under it, and the
-    stars crowded into an Einstein ring. The arch is gathered brighter
-    toward the rim.
-  - The disk is a flat sheet: periodic noise stretched round it, sheared
-    by orbital speed and falling slowly inward in log radius, two copies
-    crossfading; the streaks warp a ramp (blackbody white-hot through amber
-    to rose and a violet tail turned a little each load), and the ramp sets
-    the opacity. The side coming toward the camera is Doppler-beamed. A
-    hairline photon ring sits at the shadow's rim, a texel wide.
+- **Black hole · Warp.** The lens-warp black hole after the demo in Bruno
+  Simon's Awwwards 2022 workshop, made to match its picture. The demo is
+  unlicensed, so it was studied and measured, never copied: the code is
+  kb's own, and the ramp is re-created from samples of the picture
+  (docs/research/2026-10-31-3d-quality-bar.md §6).
+  - **The hole is a pull, not a body.** Each pixel shows what lies nearer
+    the hole than it does, by a strength that is whole within the horizon's
+    reach and gone beyond the lens's. The strength is measured where the
+    pixel's ray meets the nearer of a sheet square to the view through the
+    hole and the disk's own plane, which fades out toward its edge. Where
+    the strength is whole, every pixel shows the hole's own point, which is
+    empty: the shadow is a collapsed lookup, with no sphere and no ring to
+    outline it. The same pull bends the far side of the disk over the
+    shadow as an arch, folds a small whole image of the disk under the near
+    side as an echo with its own dark eye, and draws the stars round the
+    shadow out into thin arcs.
+  - **The disk is a flat ring of streaming light.** Five octaves of
+    periodic noise, each drifting round and inward at its own speed, give a
+    turbulence that pushes a ramp coordinate up the ring's radius. The
+    ramp sets colour and opacity alike: hot streaks are solid, the faint
+    outer gas is clear. Its stops are colours sampled from the reference
+    (white-hot, cream, peach, orange, red, crimson, violet, plum, into a
+    near-black purple sky), each placed where it covers the reference's
+    share of the frame.
+  - **The camera** rests a little above the disk's plane, rolled, as in the
+    reference, and the shared rig moves it.
   - One offscreen pass with no history, at up to two texels a CSS pixel,
-    lowered by the meter; the upscale is lightly sharpened.
-  - A light page is an ink drawing: an indigo wash in the shadow, pooled
-    low and thinning to the rim the photon ring draws as a fine line; the
-    gas inked violet, rose and gilt by how solid it is.
+    lowered by the meter; the upscale is lightly sharpened. Next to no
+    bloom, as in the reference, so the shadow stays the sky's colour. The
+    look retunes the stage's lens: a colour split toward the edges, and
+    grain that sparkles with the gas's light, so the hot streaks speckle and
+    the dark stays clean.
+  - A light page is an ink drawing: an indigo wash pooled where the pull is
+    whole and thinning over its reach, with no edge; the gas inked by its
+    heat, violet, crimson, orange and amber, so its streaks show; the stars
+    fine ink arcs. Its lens has even grain and no sparkle.
 - **Toon sea.** An open sea under anime-game cumulus, cel-shaded: a day
   sea, and at night a moonlit indigo with bioluminescent wakes.
   - The sky (gradient, sun or moon with its halo and rays, cirrus, a far

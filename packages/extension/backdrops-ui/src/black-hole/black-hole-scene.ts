@@ -5,8 +5,8 @@
  *
  * - **Gargantua** (`gargantua.ts`): light traced through the Schwarzschild
  *   metric, a thick, streaming gas disk.
- * - **Warp** (`warp.ts`): a graphic lens seen almost edge on, a thin,
- *   razor-bright disk bent over the shadow and echoed under it.
+ * - **Warp** (`warp.ts`): a streaked disk seen almost edge on, pulled
+ *   toward the hole into an arch over the shadow and an echo under it.
  *
  * Every look is seen through one rig (`hole-rig.ts`): the pointer tilts and
  * swings the camera, slowly (a camera move, not a cursor, M1); with no

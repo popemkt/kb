@@ -1,31 +1,31 @@
 /**
- * The Warp look's shader: a black hole as a graphic lens, seen almost edge
- * on through a thin, razor-bright disk. The look is inspired by the black
- * hole of Bruno Simon's Awwwards 2022 workshop; the technique and the code
- * are kb's own.
+ * The Warp look's shader: the lens-warp black hole after the demo in Bruno
+ * Simon's Awwwards 2022 workshop; code written for kb. The technique is
+ * re-created from a description of the picture, and the palette re-created
+ * from samples of it; nothing of the demo's source is used.
  *
- * - **A two-segment thin lens, no march.** A ray runs straight to the plane
- *   through the hole square to the view; there it is turned toward the hole
- *   by an angle that falls as one over how near it passed (`BEND`), and runs
- *   straight on. What the first segment meets is in front of the hole: the
- *   near side of the disk, crossing the shadow. What the second meets is
- *   behind it, seen bent: the far side of the disk lifted over the shadow as
- *   an arch and echoed under it, and the stars, crowded into a ring. A ray
- *   that passes inside the shadow's radius never leaves.
- * - **The disk is a sheet of streaming light.** A flat ring coloured by a
- *   ramp, white-hot at its inner lip through amber and rose to a violet
- *   tail; its streaks are periodic noise stretched round it, sheared by
- *   orbital speed (inner gas laps outer) and drifting slowly inward (infall,
- *   in log radius), two copies crossfading so the shear never winds them
- *   tight. The streaks warp the ramp, and the ramp sets the opacity: hot
- *   streaks are solid, faint gas is clear.
- * - **Doppler.** The side coming toward the camera is beamed: brighter and
- *   whiter; the receding side is dimmer and redder.
- * - **The photon ring:** a hairline at the shadow's rim, beamed like the
- *   disk, a texel wide at any size.
- * - **Dark** pages see light over the stage's ground; **light** pages an
- *   engraving: the disk as warm ink on the paper, its hot lip gilt, the
- *   shadow charcoal, the stars dust (`Grounds`).
+ * - **The hole is a pull, not a body.** Each pixel shows what lies nearer
+ *   the hole than it does: its point in the frame is pulled toward the
+ *   hole's by a strength (`pullOf`) that is 1 within the horizon's reach and
+ *   0 beyond the lens's, measured where the pixel's ray meets the nearer of
+ *   two surfaces through the hole, a sheet square to the view and the
+ *   disk's own plane. Where the strength is 1 every pixel shows the hole's
+ *   own point, which is empty: the shadow is a collapsed lookup with no
+ *   edge of its own. Above the hole the pulled pixels find the disk's far
+ *   side, bent over the shadow as an arch; under the near side, the sheet
+ *   in the disk's plane folds a small whole image of the disk, the echo;
+ *   round it, the stars are drawn out into thin arcs.
+ * - **The disk is a flat ring of streaming light.** Four octaves of periodic
+ *   noise, each drifting round and inward at its own speed (the inner gas
+ *   laps the outer), give a turbulence that pushes a ramp coordinate up the
+ *   ring's radius; the ramp sets colour and opacity alike, so hot streaks
+ *   are solid and the faint outer gas is clear. Its stops are sampled from
+ *   the reference: white-hot, cream, peach, orange, red, crimson, violet,
+ *   plum, into a near-black purple sky.
+ * - **Dark** pages see the picture as the display shows it, painted through
+ *   the stage's curve (`Grounds.paint`); **light** pages an ink drawing on
+ *   the paper: the shadow a soft indigo wash, the gas inked by how solid it
+ *   is, the stars fine ink arcs.
  */
 import {
   Fn,
@@ -37,56 +37,92 @@ import {
   dot,
   exp,
   float,
-  fract,
   length,
-  log,
   max,
-  min,
   mix,
   normalize,
-  pow,
+  select,
   sin,
   smoothstep,
-  sqrt,
   uniform,
   uv,
   vec2,
   vec3,
   vec4,
 } from "three/tsl";
-import { Color, Vector2 } from "three/webgpu";
+import { Vector2 } from "three/webgpu";
 import type { OffscreenInputs, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
-import { blackbody, fbm4, gnoise, pnoise } from "../gpu/noise";
+import { pnoise } from "../gpu/noise";
 import { starsOf } from "./stars";
 
 type F = TslNode<"float">;
+type V2 = TslNode<"vec2">;
 type V3 = TslNode<"vec3">;
 type V4 = TslNode<"vec4">;
 
-/** The shadow's radius, the unit everything else is measured in. */
-const SHADOW = 1;
-/** The disk's inner lip and outer reach. */
-const INNER = 1.55;
-const OUTER = 6.8;
-/** The camera's distance from the hole. */
+/** The camera's distance from the hole: the unit everything else is measured in is a tenth of it. */
 const DISTANCE = 10;
-/** The bend: a ray passing at distance b is turned by BEND / b (radians), at most `MAX_BEND`. */
-const BEND = 0.48;
-const MAX_BEND = 1.35;
-/** An authored roll: the disk's line leans a little. */
-const ROLL = 0.19;
+/** Within `HORIZON` of the hole the pull is whole; beyond `REACH` there is none. */
+const HORIZON = 0.8;
+const REACH = 2;
+/** The disk's plane carries the pull out to `SHEET`, fading from `SHEET_FADE`. */
+const SHEET = 6;
+const SHEET_FADE = 4.8;
+/** The disk's inner lip and outer reach. */
+const INNER = 1.5;
+const OUTER = 6;
+/** An authored roll: the disk's line falls to the right. */
+const ROLL = 0.2;
+/** How far the turbulence pushes the ramp: the streaks' contrast. */
+const STREAKS = 0.4;
 /**
- * Seconds a copy of the streaks is carried before it fades out: two copies,
- * half a period apart, crossfade, so the shear never winds them into rings.
+ * The turbulence's octaves: cells round the ring and across it, and how fast
+ * each drifts (turns a second round it, ring-widths a second inward). The
+ * finest drifts slowest, so the bands slide past one another.
  */
-const FLOW = 13;
-/** Orbital angular speed at radius 1 (rad/s), falling as r^-1.5. */
-const SPIN = 0.62;
-/** Log radius the streaks fall inward per second. */
-const INFALL = 0.028;
+const OCTAVES: readonly {
+  readonly cells: number;
+  readonly round: number;
+  readonly inward: number;
+}[] = [
+  { cells: 5, round: 0.09, inward: 0.09 },
+  { cells: 10, round: 0.075, inward: 0.075 },
+  { cells: 20, round: 0.06, inward: 0.06 },
+  { cells: 40, round: 0.045, inward: 0.045 },
+  { cells: 80, round: 0.035, inward: 0.035 },
+];
 /** The flare's orbit radius. */
 const FLARE_RADIUS = 3;
+
+/** The sky behind it all, in sRGB: a near-black purple, sampled from the reference; the ramp starts at it. */
+const SKY: readonly [number, number, number] = [19, 14, 22];
+/**
+ * The ramp, as the display shows it over the sky, in sRGB: the colours
+ * sampled from the reference along its disk from the outer fringe to the
+ * white-hot lip, each at the ramp coordinate (`at`) where it covers as much
+ * of the frame as it does in the reference (fitted by quantiles). Below the
+ * first, it runs down to the sky at 0.
+ */
+const RAMP: readonly { readonly at: number; readonly srgb: readonly [number, number, number] }[] = [
+  { at: 0.2, srgb: [59, 15, 67] },
+  { at: 0.52, srgb: [97, 16, 80] },
+  { at: 0.65, srgb: [144, 18, 73] },
+  { at: 0.83, srgb: [185, 36, 50] },
+  { at: 0.92, srgb: [209, 71, 40] },
+  { at: 0.96, srgb: [222, 108, 50] },
+  { at: 1.02, srgb: [232, 150, 82] },
+  { at: 1.09, srgb: [245, 191, 134] },
+  { at: 1.15, srgb: [255, 226, 190] },
+  { at: 1.3, srgb: [255, 249, 238] },
+];
+
+const linear = (c: number) => {
+  const s = c / 255;
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+};
+const shown = (c: readonly [number, number, number]) =>
+  vec3(linear(c[0]), linear(c[1]), linear(c[2]));
 
 export function warpUniforms() {
   return {
@@ -96,10 +132,8 @@ export function warpUniforms() {
     center: uniform(new Vector2(0.63, 0.6)),
     /** The lens's focal length in frame heights: the hole's size in the frame. */
     focal: uniform(1.6),
-    inclination: uniform(0.09),
+    inclination: uniform(0.08),
     azimuth: uniform(0),
-    /** The ramp's violet tail, turned a little each load. */
-    tail: uniform(new Color(0.42, 0.13, 0.72)),
     /** Where this load's streaks start, in the noise. */
     offset: uniform(new Vector2(0, 0)),
     /** How bright the flare is (`reactions.stir`), the writes as a whole (`impulse`), typing (`calm`). */
@@ -111,111 +145,122 @@ export function warpUniforms() {
 }
 export type WarpUniforms = ReturnType<typeof warpUniforms>;
 
-/** Angular speed of the gas at radius `r`. */
-const spin = (r: F): F => pow(r, -1.5).mul(SPIN);
+/** The ramp at `x` (0–1), as the display shows it: piecewise linear through `RAMP`. */
+function ramp(x: F): V3 {
+  let colour: V3 = shown(SKY);
+  let from = 0;
+  for (const stop of RAMP) {
+    colour = mix(colour, shown(stop.srgb), clamp(x.sub(from).div(stop.at - from), 0, 1));
+    from = stop.at;
+  }
+  return colour;
+}
 
-/**
- * The ramp: white-hot at 1, through amber, orange and rose, to the violet
- * tail at 0; above 1 (the Doppler-beamed side), hotter still. Its hot half
- * is a blackbody's, so it is kb's light, not a picked gradient.
- */
-function ramp(u: WarpUniforms, heat: F): V3 {
-  const hot = blackbody(mix(1.35, 9.5, pow(clamp(heat, 0, 1.4), 2.4)));
-  const rose = vec3(1, 0.2, 0.42);
-  const cool = mix(u.tail, rose, smoothstep(0.12, 0.42, heat));
-  return mix(cool, hot, smoothstep(0.22, 0.52, heat)).mul(pow(heat, 1.35).mul(2.6));
+/** The camera on its sphere round the hole, and the ray through `q` (frame heights from the hole, rolled). */
+function view(u: WarpUniforms) {
+  const eye = vec3(
+    cos(u.inclination).mul(sin(u.azimuth)),
+    sin(u.inclination),
+    cos(u.inclination).mul(cos(u.azimuth)).negate(),
+  ).mul(DISTANCE);
+  const forward = normalize(eye.negate());
+  const right = normalize(cross(vec3(0, 1, 0), forward));
+  const up = cross(forward, right);
+  const ray = (q: V2): V3 => normalize(forward.mul(u.focal).add(right.mul(q.x)).add(up.mul(q.y)));
+  return { eye, forward, ray };
 }
 
 /**
- * The disk at `hit` (on its plane), seen along `ray`: its light and opacity
- * (vec4: premultiplied rgb, alpha) and, in `w`, how hot it reads (the light
- * page inks by it). Zero off the ring.
+ * The pull at a ray: how near the hole it passes, as 1 inside `HORIZON`
+ * falling to 0 at `REACH`. It is measured on the sheet square to the view
+ * through the hole and, where the disk's plane lies in front of that sheet,
+ * on the plane too, which covers the sheet's measure out to `SHEET` and fades
+ * from `SHEET_FADE` to it, so the near side's measure gives way to the
+ * sheet's past the disk and folds the echo there.
+ */
+function pullOf(eye: V3, forward: V3, ray: V3): F {
+  const facing = forward.negate();
+  const tSheet = dot(eye, facing).negate().div(dot(ray, facing));
+  const across = smoothstep(REACH, HORIZON, length(eye.add(ray.mul(tSheet))));
+  const tPlane = eye.y.negate().div(ray.y);
+  const onPlane = length(eye.add(ray.mul(tPlane)));
+  const inFront = tPlane.greaterThan(0).and(tPlane.lessThan(tSheet));
+  const cover = select(inFront, smoothstep(SHEET, SHEET_FADE, onPlane), float(0));
+  return mix(across, smoothstep(REACH, HORIZON, onPlane), cover);
+}
+
+/**
+ * The disk where `ray` from `eye` meets its plane: its heat, the ramp
+ * coordinate pushed up by the turbulence, which sets its colour and its
+ * opacity alike. 0 off the ring.
  */
 function discFn(u: WarpUniforms) {
-  const fn = Fn(([hit, ray]: readonly [V3, V3]) => {
+  const fn = Fn(([eye, ray]: readonly [V3, V3]) => {
+    const out = float(0).toVar();
+    const t = eye.y.negate().div(ray.y);
+    const hit = eye.add(ray.mul(t));
     const r = length(vec2(hit.x, hit.z));
-    const angle = atan(hit.z, hit.x);
-    // 1 at the inner lip, 0 at the outer reach, in log radius: the hot part gets the room.
-    const lr = log(r);
-    const span = float(1)
-      .sub(lr.sub(Math.log(INNER)).div(Math.log(OUTER / INNER)))
-      .toVar();
-    const streaks = (carried: F, salt: number) => {
-      const turns = angle.sub(spin(r).mul(carried)).div(6.2832);
-      const infall = lr.add(carried.mul(INFALL)).add(u.offset.y);
-      // The streaks' own coordinates warped by a slow field, so their edges are organic.
-      const warp = gnoise(vec2(turns.mul(5).add(salt), infall.mul(4))).sub(0.5);
-      const radial = infall.add(warp.mul(0.06));
-      const along = turns.add(u.offset.x);
-      return pnoise(vec2(along.mul(7), radial.mul(11).add(salt)), 7)
-        .mul(0.5)
-        .add(pnoise(vec2(along.mul(17), radial.mul(27).add(salt + 9)), 17).mul(0.32))
-        .add(pnoise(vec2(along.mul(41), radial.mul(66).add(salt + 21)), 41).mul(0.18));
-    };
-    const a = fract(u.time.div(FLOW));
-    const b = fract(u.time.div(FLOW).add(0.5));
-    const weight = float(1).sub(a.mul(2).sub(1).abs());
-    const turbulence = streaks(a.mul(FLOW), 0)
-      .mul(weight)
-      .add(streaks(b.mul(FLOW), 57).mul(float(1).sub(weight)));
-    // A crisp inner lip (a texel or two of feather), a long ragged fade outward.
-    const lip = smoothstep(1.0, 0.985, span);
-    const reach = smoothstep(0, 0.55, span.add(turbulence.sub(0.5).mul(0.25)));
-    const contrast = float(0.95).add(u.pulse.mul(0.2));
-    const heat = clamp(pow(span, 1.3).mul(0.84).add(turbulence.sub(0.48).mul(contrast)), 0, 1)
-      .mul(lip)
-      .mul(reach)
-      .toVar();
-    // Doppler: the gas orbits; where it comes toward the camera it is beamed.
-    const speed = clamp(sqrt(float(0.3).div(r)), 0, 0.55);
-    const velocity = normalize(vec3(hit.z.negate(), 0, hit.x)).mul(speed);
-    const toward = dot(velocity, ray.negate());
-    const g = sqrt(float(1).sub(speed.mul(speed))).div(float(1).sub(toward));
-    const beamed = heat.mul(mix(1, g, 0.4));
-    // A write sets a hot knot orbiting in the gas.
-    const at = u.flarePhase.add(spin(float(FLARE_RADIUS)).mul(u.time));
-    const toFlare = vec2(hit.x, hit.z).sub(vec2(cos(at), sin(at)).mul(FLARE_RADIUS));
-    const knot = exp(dot(toFlare, toFlare).mul(-2.2)).mul(u.flare).mul(heat.add(0.2));
-    const fade = float(1).sub(u.calm.mul(0.3)).add(u.pulse.mul(0.3));
-    const light = ramp(u, beamed.add(knot.mul(0.6)))
-      .mul(pow(g, 1.4))
-      .mul(fade);
-    const alpha = clamp(pow(heat, 0.9).mul(1.25), 0, 1);
-    return vec4(light.mul(alpha), alpha);
+    If(t.greaterThan(0).and(r.greaterThan(INNER)).and(r.lessThan(OUTER)), () => {
+      // Round the ring, 0–1; across it, 1 at the inner lip and 0 at the outer reach.
+      const round = atan(hit.z, hit.x).div(6.2832).add(0.5);
+      const across = float(OUTER)
+        .sub(r)
+        .div(OUTER - INNER);
+      let sum: F = float(0);
+      for (const [k, octave] of OCTAVES.entries()) {
+        const p = vec2(
+          round.add(u.time.mul(octave.round)).add(u.offset.x.mul(k + 1)),
+          across.sub(u.time.mul(octave.inward)).add(u.offset.y.mul(k + 1)),
+        ).mul(octave.cells);
+        // `pnoise` sits about 0.5 ± 0.35: centred and stretched past ±1, so the streaks outweigh the radius.
+        const n = pnoise(p, octave.cells).sub(0.5).div(0.24);
+        sum = sum.add(n.mul(n));
+      }
+      const turbulence = sum.sqrt();
+      // Clear at both edges: the outer 40% fades out, the inner lip over its last 5%.
+      const falloff = smoothstep(0, 0.4, across).mul(smoothstep(1, 0.95, across));
+      // A write sets a hot knot orbiting in the gas.
+      const at = u.flarePhase.add(u.time.mul(0.35));
+      const toFlare = vec2(hit.x, hit.z).sub(vec2(cos(at), sin(at)).mul(FLARE_RADIUS));
+      const knot = exp(dot(toFlare, toFlare).mul(-1.6)).mul(u.flare).mul(0.6);
+      const contrast = float(STREAKS).add(u.pulse.mul(0.15));
+      out.assign(across.add(turbulence.mul(contrast)).add(knot).mul(falloff));
+    });
+    return out;
   }).setLayout({
     name: "kbWarpDisc",
-    type: "vec4",
+    type: "float",
     inputs: [
-      { name: "hit", type: "vec3" },
+      { name: "eye", type: "vec3" },
       { name: "ray", type: "vec3" },
     ],
   });
-  return (hit: V3, ray: V3): V4 => fn(hit, ray);
+  return (eye: V3, ray: V3): F => fn(eye, ray);
 }
 
-/** Pastel stars, a few with a long glow, and a faint field of finer ones. */
+/** Pale stars of every hue, a few with a long glow, and a fainter field of finer ones. */
 const stars = starsOf("kbWarpStars", [
-  { cells: 34, sparse: 0.9, gain: 1.1, sharpness: 150, halo: 0.5, salt: 3 },
-  { cells: 80, sparse: 0.84, gain: 0.35, sharpness: 80, salt: 17 },
+  {
+    cells: 50,
+    sparse: 0.75,
+    gain: 1.1,
+    sharpness: 420,
+    halo: 0.6,
+    salt: 3,
+    colour: { pastel: 0.8 },
+  },
+  { cells: 100, sparse: 0.94, gain: 0.5, sharpness: 300, salt: 17, colour: { pastel: 0.8 } },
 ]);
 
-/** The deep field behind the stars: a faint violet-indigo haze, two scales of it. */
-function haze(d: V3): F {
-  const sp = vec2(atan(d.z, d.x), d.y);
-  return fbm4(sp.mul(vec2(2.2, 5)).add(11))
-    .mul(0.7)
-    .add(gnoise(sp.mul(vec2(9, 16))).mul(0.3));
-}
-
 /**
- * The offscreen pass: the frame of the hole. Night is light over the stage's
- * ground; day is composed in the page's own terms and painted through the
- * curve (`Grounds`).
+ * The offscreen pass: the frame of the hole. Night is composed as the
+ * display shows it and painted through the stage's curve; day is an ink
+ * drawing in the page's own terms, painted the same way (`Grounds`).
  */
 export function warpFragment(
   u: WarpUniforms,
   { size }: OffscreenInputs,
-  { ground, page, paint }: Grounds,
+  { page, paint }: Grounds,
 ): V4 {
   const disc = discFn(u);
   return Fn(() => {
@@ -226,103 +271,47 @@ export function warpFragment(
       flat.x.mul(Math.cos(ROLL)).sub(flat.y.mul(Math.sin(ROLL))),
       flat.x.mul(Math.sin(ROLL)).add(flat.y.mul(Math.cos(ROLL))),
     );
-    const eye = vec3(
-      cos(u.inclination).mul(sin(u.azimuth)),
-      sin(u.inclination),
-      cos(u.inclination).mul(cos(u.azimuth)).negate(),
-    ).mul(DISTANCE);
-    const forward = normalize(eye.negate());
-    const right = normalize(cross(vec3(0, 1, 0), forward));
-    const up = cross(forward, right);
-    const ray = normalize(forward.mul(u.focal).add(right.mul(q.x)).add(up.mul(q.y))).toVar();
+    const { eye, forward, ray } = view(u);
+    // The pull: this pixel shows the point nearer the hole by its strength.
+    const pull = pullOf(eye, forward, ray(q)).toVar();
+    const pulled = ray(q.mul(float(1).sub(pull))).toVar();
+    const heat = disc(eye, pulled).toVar();
+    const opacity = clamp(heat, 0, 1);
+    // The hole's own point is empty: no star may sit where the whole shadow looks.
+    const empty = smoothstep(0.001, 0.005, length(q).mul(float(1).sub(pull)));
+    const starlight = stars(pulled).mul(empty).toVar();
+    // Typing dims the disk a little; a keystroke brightens it.
+    const fade = float(1).sub(u.calm.mul(0.3)).add(u.pulse.mul(0.25));
 
-    // Where the ray passes the hole, and how near.
-    const across = dot(eye, ray).negate();
-    const pass = eye.add(ray.mul(across)).toVar();
-    const b = length(pass).toVar();
-    // A texel, in the units of the hole's plane: the ring and the shadow's rim are this sharp.
-    const texel = float(DISTANCE).div(u.focal.mul(size.y));
-    const escaped = smoothstep(texel.mul(-0.7).add(SHADOW), texel.mul(0.7).add(SHADOW), b);
-
-    // First segment: the near side of the disk, in front of the hole.
-    const near = vec4(0, 0, 0, 0).toVar();
-    const t1 = eye.y.negate().div(ray.y);
-    If(t1.greaterThan(0).and(t1.lessThan(across)), () => {
-      const hit = eye.add(ray.mul(t1));
-      const r = length(vec2(hit.x, hit.z));
-      If(r.greaterThan(INNER * 0.98).and(r.lessThan(OUTER)), () => {
-        near.assign(disc(hit, ray));
-      });
-    });
-
-    // Second segment: turned toward the hole, on to the far side of the disk and the sky.
-    const turn = min(float(BEND).div(max(b, SHADOW)), MAX_BEND);
-    const bent = normalize(ray.mul(cos(turn)).sub(pass.div(max(b, 1e-4)).mul(sin(turn)))).toVar();
-    const far = vec4(0, 0, 0, 0).toVar();
-    const t2 = pass.y.negate().div(bent.y);
-    If(t2.greaterThan(0), () => {
-      const hit = pass.add(bent.mul(t2));
-      const r = length(vec2(hit.x, hit.z));
-      If(r.greaterThan(INNER * 0.98).and(r.lessThan(OUTER)), () => {
-        far.assign(disc(hit, bent));
-      });
-    });
-
-    // The photon ring: a hairline at the shadow's rim, beamed on the side that comes toward us.
-    const ringWidth = max(texel.mul(0.9), 0.006);
-    const offRing = b.sub(SHADOW + 0.022).div(ringWidth);
-    const side = dot(pass.div(max(b, 1e-4)), right);
-    const ring = exp(offRing.mul(offRing).negate())
-      .mul(mix(0.45, 1.25, smoothstep(0.8, -0.8, side)))
-      .mul(float(1).add(u.pulse.mul(0.4)));
-    // What lies behind the hole, bent: the deep field and the stars.
-    const field = haze(bent);
-    const starlight = stars(bent);
-    const dim = float(1).sub(exp(max(b.sub(SHADOW), 0).mul(-1.3)).mul(0.55));
-
-    // Night: light over the ground; the shadow a deep tint of it, never black.
-    const deep = ground.add(u.tail.mul(field.mul(field).mul(0.05)));
-    const sky = mix(ground.mul(0.45), deep.add(starlight).mul(dim), escaped);
-    // The lensed image is gathered toward the rim: the arch over the shadow burns brighter than the disk.
-    const gathered = exp(max(b.sub(SHADOW), 0).mul(-3))
-      .mul(1.5)
-      .add(1);
-    const behind = sky.mul(float(1).sub(far.a)).add(far.rgb.mul(gathered).mul(escaped));
-    const night = behind
-      .mul(float(1).sub(near.a))
-      .add(near.rgb)
-      .add(vec3(1, 0.82, 0.6).mul(ring.mul(2.2)).mul(escaped).mul(float(1).sub(near.a)));
+    // Night: as the display shows it, the gas over the stars over the sky. The ramp is what
+    // the display shows over the bare sky; the gas's own colour is what shows that at this
+    // opacity, so the stars behind the faint gas still glow through it.
+    const sky = shown(SKY).add(starlight);
+    const gas = ramp(heat)
+      .sub(shown(SKY).mul(float(1).sub(opacity)))
+      .div(max(opacity, 0.001));
+    const night = paint(mix(sky, gas.mul(fade), opacity));
 
     // GAP [[01M69N1WB5WSN86NWTBH0JEA93]] inks deeper than drawn: the stage fades a light page in linear light
-    // Day: an ink drawing on the page. The shadow an indigo wash, deepest at its
-    // rim, drawn round with the photon ring as a fine line; the gas inked by how
-    // solid it is: violet in the tail, rose in the body, gilt at the hot lip.
-    const washed = smoothstep(texel.mul(-1.5).add(SHADOW), SHADOW, b);
-    // Densest low in the disc, where the ink pooled, and thinning toward the rim the line draws.
-    const pooled = smoothstep(-0.9, 0.6, dot(pass, up).negate()).mul(
-      smoothstep(SHADOW, SHADOW * 0.55, b),
-    );
-    const wash = mix(vec3(0.17, 0.12, 0.34), vec3(0.03, 0.02, 0.1), pooled.mul(0.75).add(0.25));
-    const paper = page
-      .mul(float(1).sub(field.sub(0.45).mul(0.05)))
-      .mul(float(1).sub(length(starlight).mul(0.18)))
-      .mul(mix(vec3(1, 1, 1), vec3(0.8, 0.76, 0.9), dim.oneMinus().mul(0.6)));
-    const dayBehind = mix(wash.mul(page), paper, washed);
-    const gold = vec3(0.88, 0.52, 0.08);
-    const inkOf = (solid: F) =>
+    // Day: an ink drawing on the page. The shadow an indigo wash pooled where the
+    // pull is whole and thinning over the lens's whole reach, so it has no edge;
+    // the gas inked by its heat, so its streaks show: violet in its fringe, crimson
+    // in its body, orange where it runs hot and amber in its hottest streaks; the
+    // stars drawn out into fine ink arcs.
+    const wash = pull.mul(pull);
+    const paper = mix(page, vec3(0.05, 0.035, 0.14).mul(page), wash.mul(0.85));
+    const starInk = clamp(length(starlight).mul(0.8), 0, 0.85).mul(float(1).sub(wash));
+    const behind = mix(paper, vec3(0.2, 0.16, 0.3).mul(page), starInk);
+    const ink = mix(
       mix(
-        mix(vec3(0.34, 0.16, 0.62), vec3(0.78, 0.2, 0.32), smoothstep(0.12, 0.45, solid)),
-        gold,
-        smoothstep(0.62, 0.95, solid),
-      );
-    const layer = (under: V3, d: V4) => mix(under, inkOf(d.a).mul(page), clamp(d.a.mul(1.6), 0, 1));
-    const day = paint(
-      mix(
-        layer(layer(dayBehind, far.mul(washed)), near),
-        vec3(0.06, 0.045, 0.09).mul(page),
-        clamp(ring, 0, 1).mul(float(1).sub(near.a)),
+        mix(vec3(0.36, 0.1, 0.5), vec3(0.72, 0.1, 0.3), smoothstep(0.2, 0.6, heat)),
+        vec3(0.9, 0.42, 0.1),
+        smoothstep(0.7, 0.95, heat),
       ),
+      vec3(0.62, 0.26, 0.04),
+      smoothstep(1, 1.25, heat),
     );
+    const day = paint(mix(behind, ink.mul(page), clamp(heat.mul(1.3), 0, 1)));
     return vec4(mix(day, night, u.dark), 1);
   })();
 }
