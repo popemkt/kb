@@ -24,8 +24,8 @@ import { createTransientNode } from "./editing-writes";
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
-import { HandlerActions, HandlerPreview } from "./node-handler";
-import { useRowHandler } from "./row-handler";
+import { RowOpeningActions, RowPreview } from "./row-preview";
+import { useRowOpening } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { ViewToolbar } from "./view-toolbar";
@@ -116,7 +116,7 @@ export const NodeBlock = memo(function NodeBlock({
   const frameView = useFrameView(shown);
   const frameViewKey = frameView?.key ?? null;
   // The view the shown node's tag opens it in, offered on the row and previewed under it.
-  const handler = useRowHandler(shown);
+  const opening = useRowOpening(shown);
 
   if (!node || !shown) return null;
 
@@ -165,9 +165,9 @@ export const NodeBlock = memo(function NodeBlock({
             }
           />
         </div>
-        {handler !== null && (
+        {opening !== null && (
           <div className="shrink-0 pr-2">
-            <HandlerActions nodeId={shownId} node={shown} handler={handler} />
+            <RowOpeningActions nodeId={shownId} node={shown} opening={opening} />
           </div>
         )}
         {chrome.showToolbar && (
@@ -184,8 +184,8 @@ export const NodeBlock = memo(function NodeBlock({
         )}
       </div>
 
-      {handler !== null && (
-        <HandlerPreview nodeId={shownId} node={shown} handler={handler} depth={depth} />
+      {opening !== null && (
+        <RowPreview nodeId={shownId} node={shown} opening={opening} depth={depth} />
       )}
 
       {chrome.showsChildContainer && (

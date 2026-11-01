@@ -24,6 +24,7 @@ import { currentService, type PageEvents } from "./lib/plugins";
 import type { Appearance, Prefs } from "./lib/theme";
 import type { OutlineNode } from "./lib/types";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
+import type { KeyCatalog } from "./lib/tag-opening";
 
 /** A view node to make from settings: what `view.propose` checks. */
 export interface ViewProposal {
@@ -99,6 +100,11 @@ export interface BrowserHost extends NodeTextPort {
   readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
   /** Send a pane to a path. */
   readonly navigatePane: (pane: string, path: string) => void;
+  /**
+   * The page's view catalog now (DESIGN.md → the view catalog is a point):
+   * where a view's key is found by its id, as the resolver finds it.
+   */
+  readonly viewCatalog: () => KeyCatalog;
   /** The page's one write path: every write a surface makes to the graph. */
   readonly writes: PageWrites;
   /** Make one call through the browser's one invoke path and answer its receipt. */

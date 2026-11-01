@@ -31,12 +31,12 @@ export function CanvasListSurface() {
 }
 
 /**
- * One canvas: the live canvas on a page, and inline (a row's preview, under
+ * One canvas: the live canvas on a page, and as a preview (under the row of
  * the node it is shown for) its still picture.
  */
 export function CanvasSurface({ params, host }: ViewProps<CanvasParams>) {
   const { id, item } = params;
-  if (host.placement === "inline") return <CanvasPreview canvasId={id} />;
+  if (host.placement === "preview") return <CanvasPreview canvasId={id} />;
   return (
     <ViewErrorBoundary title="Canvas crashed" resetKey={id}>
       <CanvasPage canvasId={id} item={item} viewNode={host.viewNode} />

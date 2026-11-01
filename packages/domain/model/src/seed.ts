@@ -39,7 +39,9 @@ import {
  * the seed. Exported because it is a real invariant boundary: the generic
  * fill-absent pass does not apply to these, so the property test that asserts
  * the generic rule has to exclude exactly this set — reading it here instead of
- * restating it is what keeps the two from drifting.
+ * restating it is what keeps the two from drifting. `sys.tag` is one because
+ * it templates `view.default`: a seeded tag, opened before that field existed,
+ * gains it in its editor like a tag made since.
  */
 export const TEMPLATE_TAGS: readonly string[] = [
   SYSTEM_IDS.field,
@@ -357,8 +359,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
     },
   );
-  // A node's inline preview toggle (`previewShownOf`): the node's own choice, never drawn as a row.
-  const previewField = singleField(SYSTEM_IDS.previewField, "preview", "checkbox", HIDE);
   // A docs view's params beside its subject (`lens.query`): which template, written where.
   const viewTemplateField = singleField(SYSTEM_IDS.viewTemplateField, "view.template", "text");
   const viewOutputField = singleField(SYSTEM_IDS.viewOutputField, "view.output", "text");
@@ -576,7 +576,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewField,
     viewsField,
     viewDefaultField,
-    previewField,
     viewTemplateField,
     viewOutputField,
     viewSavedQueryField,

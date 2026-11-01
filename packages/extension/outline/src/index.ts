@@ -4,3 +4,4 @@
  * The browser half is `@kb/outline-ui`.
  */
 export { outlineExtension, outlinePlugin } from "./extension.ts";
+export { OUTLINE_IDS } from "./ids.ts";

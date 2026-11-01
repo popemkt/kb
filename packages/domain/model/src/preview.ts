@@ -1,12 +1,11 @@
 /**
- * Inline previews (DESIGN.md → View nodes → inline previews): a family that
- * declares `inlinePreview` draws a compact read-only rendering of a node its
- * tag opens in, under the node's row. Whether it does, whether a preview
- * starts open and how tall it stands are that family's settings — fields
- * the fold derives for it here, each configuring its node, so they are
- * edited where its other settings are. Whether one node's preview is open
- * is that node's `sys.f.preview`. This module is the one home of the
- * fields' ids, their defaults and how they are read.
+ * Previews (DESIGN.md → View nodes → a tag's view may preview its nodes): a
+ * view whose key says it draws a preview (`ViewKey.preview`) gets settings,
+ * derived by the fold as fields configuring the node of the family that
+ * provides it, so they are edited where its other settings are. This module
+ * is the one home of their ids, their defaults and how they are read; which
+ * node holds them is read off the fields themselves (`sys.f.configures`),
+ * never guessed from a name.
  */
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, type PropValue } from "./model.ts";
 import { seededField } from "./seed.ts";
@@ -16,38 +15,39 @@ interface Carrier {
   readonly props: Readonly<Record<string, readonly PropValue[]>>;
 }
 
-/** The preview settings' field ids for family `family`, derived from its name. */
-export function previewSettingIds(family: string): {
+/** The preview settings' field ids for the view `viewId`, derived from it. */
+export function previewSettingIds(viewId: string): {
   readonly shows: NodeId;
   readonly expanded: NodeId;
   readonly height: NodeId;
 } {
-  const base = `sys.f.${family}.preview`;
+  const base = `sys.f.preview.${viewId}`;
   return { shows: base, expanded: `${base}.expanded`, height: `${base}.height` };
 }
 
-/** A family's preview settings, as read: what each holds, else its default. */
+/** A view's preview settings, as read. */
 export interface PreviewSettings {
-  /** The family draws inline previews at all. Default: yes. */
+  /** The view draws previews at all. */
   readonly shows: boolean;
-  /** A node whose own toggle says nothing starts with its preview open. Default: no. */
+  /** A node whose own toggle says nothing starts with its preview open. */
   readonly expanded: boolean;
-  /** How tall a preview stands, CSS pixels: fixed, so it never shifts the outline. Default: 180. */
+  /** How tall a preview stands, CSS pixels: fixed, so it never shifts the outline. */
   readonly height: number;
 }
 
+/** What the fold seeds the settings with. */
 export const PREVIEW_DEFAULTS: PreviewSettings = { shows: true, expanded: false, height: 180 };
 
 /** The bounds a preview's height is held to, CSS pixels. */
 const HEIGHT_BOUNDS = { min: 60, max: 600 } as const;
 
 /**
- * The three setting fields the fold derives for a family that declares
- * `inlinePreview`, each one value and each configuring the family's node.
- * They are named for what they say under the family's own heading.
+ * The setting fields the fold derives for a view that previews, each one
+ * value and each configuring the node of `family`, the family that provides
+ * it. They are named for what they say under that family's heading.
  */
-export function previewSettingFields(family: string, at: string): KbNode[] {
-  const ids = previewSettingIds(family);
+export function previewSettingFields(viewId: string, family: string, at: string): KbNode[] {
+  const ids = previewSettingIds(viewId);
   const setting = {
     one: true,
     props: { [SYSTEM_IDS.configuresField]: [{ t: "ref" as const, v: extensionNodeId(family) }] },
@@ -64,8 +64,8 @@ export function previewSettingFields(family: string, at: string): KbNode[] {
  * defaults, so its settings show what is in effect, and a store seeded
  * before them is given them when it opens.
  */
-export function previewSettingValues(family: string): KbNode["props"] {
-  const ids = previewSettingIds(family);
+export function previewSettingValues(viewId: string): KbNode["props"] {
+  const ids = previewSettingIds(viewId);
   return {
     [ids.shows]: [{ t: "bool", v: PREVIEW_DEFAULTS.shows }],
     [ids.expanded]: [{ t: "bool", v: PREVIEW_DEFAULTS.expanded }],
@@ -78,13 +78,20 @@ function boolOf(node: Carrier | undefined, field: NodeId): boolean | undefined {
   return value?.t === "bool" ? value.v : undefined;
 }
 
-/** `family`'s preview settings, read from its node (`lookup` reads a node). */
+/**
+ * The preview settings of the view `viewId`, or null when the store holds
+ * none (its family is off, or the view draws no preview): read from the node
+ * its settings configure (`lookup` reads a node). A setting with no value
+ * reads as its default.
+ */
 export function previewSettingsOf(
-  family: string,
+  viewId: string,
   lookup: (id: NodeId) => Carrier | undefined,
-): PreviewSettings {
-  const ids = previewSettingIds(family);
-  const node = lookup(extensionNodeId(family));
+): PreviewSettings | null {
+  const ids = previewSettingIds(viewId);
+  const holder = lookup(ids.shows)?.props[SYSTEM_IDS.configuresField]?.[0];
+  if (holder?.t !== "ref") return null;
+  const node = lookup(holder.v);
   const height = node?.props[ids.height]?.[0];
   return {
     shows: boolOf(node, ids.shows) ?? PREVIEW_DEFAULTS.shows,
@@ -94,9 +101,4 @@ export function previewSettingsOf(
         ? Math.min(HEIGHT_BOUNDS.max, Math.max(HEIGHT_BOUNDS.min, Math.round(height.v)))
         : PREVIEW_DEFAULTS.height,
   };
-}
-
-/** Whether `node`'s preview is open: its own toggle, else the family's `expanded`. */
-export function previewShownOf(node: Carrier | undefined, settings: PreviewSettings): boolean {
-  return settings.shows && (boolOf(node, SYSTEM_IDS.previewField) ?? settings.expanded);
 }

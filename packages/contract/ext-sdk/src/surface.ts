@@ -295,6 +295,8 @@ export interface ViewKey<P> {
   readonly option: string;
   readonly config: ViewConfigCodec<P>;
   readonly events: readonly string[];
+  /** The view draws a preview of a node it opens, under the node's row in the outline. */
+  readonly preview: boolean;
 }
 
 /** How a view says itself on a surface that shows text, from the settings its key read. */
@@ -335,12 +337,6 @@ export interface ExtensionDeclaration {
    * already claims makes this one not fold, so it is refused as a unit.
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
-  /**
-   * It draws an inline preview of a node its tags open in (its page half
-   * offers that view at placement `inline`); its node gains the preview
-   * settings: shown, expanded, height.
-   */
-  readonly inlinePreview?: true;
   /**
    * The declared options it contributes, by kind (a design system, a
    * backdrop): each named by the id its page contribution answers to.
@@ -514,7 +510,7 @@ export declare function viewKey<P>(
   label: string,
   params: effect.Schema.Decoder<P>,
   config?: ViewConfigCodec<P>,
-  declares?: { readonly events?: readonly string[] },
+  declares?: { readonly events?: readonly string[]; readonly preview?: boolean },
 ): ViewKey<P>;
 export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
 export declare const NoParams: effect.Schema.Decoder<NoParams>;

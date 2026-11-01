@@ -47,10 +47,10 @@ const DATASCRIPT = /cljs\.core/;
  * 2 KB for the gallery's 3D seed in its declaration: the `made with`, `seen
  * in` and `how to` fields, three source kinds and ten 3D sources; the 3D
  * starter is the server's, and the art-direction export loads lazily. And
- * by 18 KB for a node's handler: the tag default in the resolver and the
+ * by 18 KB for a tag's opening: the tag default in the resolver and the
  * ways a node opens (`nodeOpenings`, moved from the pane switcher into
  * `@kb/views`), the node menu's "Open with" and preview rows, the outline
- * row's "Open in …" and preview box (`node-handler.tsx`), and the preview
+ * row's "Open in …" and preview box (`row-preview.tsx`), and the preview
  * settings' fields; the canvas's preview picture loads lazily, as its page
  * does.
  */

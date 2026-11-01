@@ -1,23 +1,24 @@
 /**
- * A row's preview (DESIGN-UI.md → Opening a node → a row's handler): the
- * handler's view at placement `inline`, in a box of the family's height,
- * drawn when the node's own toggle opens it — or, while the toggle says
- * nothing, when the family's settings open previews — and drawn when it is
- * opened after its row mounted, not only when it starts open.
+ * A row's preview (DESIGN-UI.md → Opening a node → a tag's opening): the
+ * opening's view at placement `preview`, which its key offers, in a box of
+ * its settings' height, drawn when the node's own toggle opens it — or,
+ * while the toggle says nothing, when the settings open previews — and drawn
+ * when it is opened after its row mounted, not only when it starts open.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Effect } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { PREVIEW_DEFAULTS, SYSTEM_IDS, type PreviewSettings } from "@kb/model";
+import { PREVIEW_DEFAULTS, type PreviewSettings } from "@kb/model";
+import { OUTLINE_IDS } from "@kb/outline";
 import { definePlugin } from "@kb/plugin";
 import { NoParams, viewKey } from "@kb/views";
 import { provideView, syncUiPlugins, ViewPoint, type OutlineNode } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { HandlerActions, HandlerPreview } from "./node-handler";
-import type { RowHandler } from "./row-handler";
+import { RowOpeningActions, RowPreview } from "./row-preview";
+import type { RowOpening } from "./row-opening";
 
-const PreviewedView = viewKey("test.previewed", "Board", NoParams);
+const PreviewedView = viewKey("test.previewed", "Board", NoParams, undefined, { preview: true });
 
 const previewPlugin = definePlugin({
   name: "test",
@@ -26,7 +27,7 @@ const previewPlugin = definePlugin({
       ctx.contribute(
         ViewPoint,
         provideView(PreviewedView, {
-          placements: ["page", "inline"],
+          placements: ["page"],
           sample: {},
           Component: () => createElement("span", { "data-test-preview": true }),
         }),
@@ -34,8 +35,9 @@ const previewPlugin = definePlugin({
     ),
 });
 
-function handler(preview: Partial<PreviewSettings> = {}): RowHandler {
+function opening(preview: Partial<PreviewSettings> = {}): RowOpening {
   return {
+    tag: "sys.tag.board",
     key: PreviewedView,
     picker: undefined,
     preview: { ...PREVIEW_DEFAULTS, ...preview },
@@ -48,7 +50,7 @@ function node(shown?: boolean): OutlineNode {
   return {
     id: "n.board",
     text: "Board",
-    props: shown === undefined ? {} : { [SYSTEM_IDS.previewField]: [{ t: "bool", v: shown }] },
+    props: shown === undefined ? {} : { [OUTLINE_IDS.previewField]: [{ t: "bool", v: shown }] },
     children: [],
   } as unknown as OutlineNode;
 }
@@ -84,10 +86,10 @@ describe("a row's preview", () => {
   async function draw(shown: boolean | undefined, settings: Partial<PreviewSettings> = {}) {
     await act(async () => {
       root.render(
-        createElement(HandlerPreview, {
+        createElement(RowPreview, {
           nodeId: "n.board",
           node: node(shown),
-          handler: handler(settings),
+          opening: opening(settings),
           depth: 0,
         }),
       );
@@ -119,7 +121,11 @@ describe("a row's preview", () => {
   it("offers its toggle and its view on the row, the toggle saying whether it is open", async () => {
     await act(async () => {
       root.render(
-        createElement(HandlerActions, { nodeId: "n.board", node: node(true), handler: handler() }),
+        createElement(RowOpeningActions, {
+          nodeId: "n.board",
+          node: node(true),
+          opening: opening(),
+        }),
       );
     });
     expect(container.querySelector("[aria-expanded]")?.getAttribute("aria-expanded")).toBe("true");

@@ -531,4 +531,4 @@ export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { placeOver, type PointerPlace, type PointerSource } from "./lib/pointer-over";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
-export { nodeHandlerOf, type NodeHandler } from "./lib/node-handler";
+export { tagOpeningOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";

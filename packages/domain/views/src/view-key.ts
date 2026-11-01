@@ -69,11 +69,24 @@ export interface ViewKey<P> {
    * selection and changes. Code run for the view hears these and no others.
    */
   readonly events: readonly string[];
+  /**
+   * The view draws a preview of a node it opens: a compact, read-only
+   * picture of it, which the editor shows under the node's row when a tag
+   * opens the node in this view (DESIGN.md → View nodes → a tag's view may
+   * preview its nodes). The one statement of it: the seed derives the
+   * view's preview settings from it, and a page contribution of the view
+   * offers placement `preview` because of it.
+   */
+  readonly preview: boolean;
 }
 
-/** What a key declares beyond its settings: the events it tells code run for it (`ViewKey.events`). */
+/**
+ * What a key declares beyond its settings: the events it tells code run for
+ * it (`ViewKey.events`), and whether it draws a preview (`ViewKey.preview`).
+ */
 export interface ViewDeclares {
   readonly events?: readonly string[];
+  readonly preview?: boolean;
 }
 
 /**
@@ -94,6 +107,9 @@ export interface ViewPage {
 
 /** Where a config reader sends a stored prop it had to ignore. */
 export type ConfigReport = (warning: string) => void;
+
+/** A report that goes nowhere: for a read whose warnings another read already tells. */
+export const ignoreReport: ConfigReport = () => {};
 
 /**
  * How a key stores its params on a view node (`ViewKey.config`).
@@ -135,7 +151,8 @@ export function viewKey<P>(
   declares: ViewDeclares = {},
 ): PlainViewKey<P> {
   const events = declares.events ?? [];
-  return { kind: "view", id, label, params, option: viewOptionId(id), config, events };
+  const preview = declares.preview ?? false;
+  return { kind: "view", id, label, params, option: viewOptionId(id), config, events, preview };
 }
 
 /**

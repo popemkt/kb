@@ -21,7 +21,13 @@ import {
 } from "@kb/model";
 import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
 import { HomeView, LayoutView, NodeReadView, NodeView, type NodeParams } from "./layout.ts";
-import { paramsFromProps, type ConfigReport, type ViewKey, type ViewPage } from "./view-key.ts";
+import {
+  ignoreReport,
+  paramsFromProps,
+  type ConfigReport,
+  type ViewKey,
+  type ViewPage,
+} from "./view-key.ts";
 
 /** What the resolver reads of a node: its props, and its text when it names a view. */
 interface Carrier {
@@ -366,11 +372,9 @@ export interface NodeOpening {
   readonly key?: ViewKey<unknown>;
   /** The tag whose default view type this is, for one a tag of the node names. */
   readonly tag?: NodeId;
-  /** This is what the node opens in by default. */
-  readonly default?: true;
+  /** Whether this is what the node opens in by default. */
+  readonly default: boolean;
 }
-
-const quiet: ConfigReport = () => {};
 
 /**
  * Whether `key` is a view a node is shown in: its settings read for a node
@@ -380,9 +384,9 @@ const quiet: ConfigReport = () => {};
  */
 function showsANode(key: ViewKey<unknown>, host: NodeId): boolean {
   if (key === NodeView || key === LayoutView || key.family !== undefined) return false;
-  const forHost = paramsFromProps(key, {}, host, quiet);
+  const forHost = paramsFromProps(key, {}, host, ignoreReport);
   if (Result.isFailure(forHost)) return false;
-  const forNone = paramsFromProps(key, {}, null, quiet);
+  const forNone = paramsFromProps(key, {}, null, ignoreReport);
   return (
     Result.isFailure(forNone) || canonicalJson(forNone.success) !== canonicalJson(forHost.success)
   );
@@ -420,7 +424,7 @@ export function nodeOpenings(
 ): NodeOpening[] {
   const node = lookup(host);
   if (node === undefined) return [];
-  const resolved = resolveNodeView({ node: host }, catalog, lookup, quiet);
+  const resolved = resolveNodeView({ node: host }, catalog, lookup, ignoreReport);
   const target = Result.isSuccess(resolved) ? resolved.success : null;
   const isDefault = (opening: Omit<NodeOpening, "default">): boolean =>
     target !== null &&
@@ -442,7 +446,7 @@ export function nodeOpenings(
     ...types.filter((opening) => opening.tag === undefined),
   ];
   return [
-    { label: "Default view" },
-    ...openings.map((opening) => (isDefault(opening) ? { ...opening, default: true } : opening)),
+    { label: "Default view", default: false },
+    ...openings.map((opening) => ({ ...opening, default: isDefault(opening) })),
   ];
 }

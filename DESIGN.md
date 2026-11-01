@@ -1087,34 +1087,41 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     `view.openings {node}` answers it for an agent or `kb action-invoke`,
     each opening with the `/node/<id>/<view>` path `ui.navigate` takes
     (`nodePath`, `@kb/views`).
-- **A tag's view may preview its nodes inline.** The view a node's tag opens
-  it in is that node's *handler* (`nodeHandlerOf`, the resolver's own rule
-  `heldTagDefaultOf` over the views a page draws as a page), and a family
-  whose view is a handler may also draw it at placement `inline`: a
-  compact, read-only rendering under the node's row in the outline. It is a
-  placement of the view the family already provides, never a second
-  renderer; the canvas's is a still picture of its board (`canvasSvg`, the
-  export's painter), which goes live only when the canvas is opened.
-  - **The family declares it, and its settings are the family's.** A
-    declaration that draws one says `inlinePreview`, and the fold derives
-    three settings for it (`previewSettingFields`, `@kb/model` `preview.ts`,
-    the one home of their ids and defaults): `sys.f.<family>.preview`
-    (whether it draws previews; default yes), `….preview.expanded` (whether
-    a node that says nothing starts with its open; default no) and
-    `….preview.height` (how tall one stands, CSS pixels, held to 60–600;
-    default 180). Each configures the family's node, so they are its
-    settings, drawn and edited with its other ones (Settings →
-    Extensions), and the fold seeds their defaults on that node, so the
-    rows show what is in effect. No tag carries a preview default: a
-    family's setting covers every tag it handles.
-  - **The node's toggle is a field.** `sys.f.preview` (checkbox, one,
-    hidden) on the node opens or closes its preview, and while it says
-    nothing the family's `expanded` decides (`previewShownOf`). A family
-    that draws no previews draws none whatever a node says. So
-    `node.update` (`kb set <id> sys.f.preview true`) opens one from the CLI
-    or MCP, and `kb set sys.extension.<family> sys.f.<family>.preview.height
-    240` changes a family's height, both without `force`.
-  - **Family off.** No handler, so no preview and no "Open in …": the
+- **A tag's view may preview its nodes.** The view a node's tag opens it
+  in is the node's *tag opening* (`tagOpeningOf`, `@kb/ui-sdk`: the
+  resolver's own rule `heldTagDefaultOf` over the page's view catalog, when
+  the page draws that view as a page). A view may also draw a *preview* of
+  a node it opens: a compact, read-only picture under the node's row in the
+  outline. It is a placement of the view the family already provides
+  (`preview`), never a second renderer; the canvas's is a still picture of
+  its board (`canvasSvg`, the export's painter), which goes live only when
+  the canvas is opened.
+  - **The view's key declares it, once.** `ViewKey.preview` (`viewKey(…,
+    { preview: true })`) is the one statement: the fold derives the view's
+    preview settings from it, and a page contribution of the view is
+    offered at placement `preview` because of it (`provideView`), never by
+    listing it. A view whose key says nothing draws none.
+  - **Its settings are its family's.** The fold derives them for each view
+    that previews (`previewSettingFields`, `@kb/model` `preview.ts`, the one
+    home of their ids and defaults), each configuring the node of the
+    family that provides the view: `sys.f.preview.<view>` (whether it
+    draws previews; seeded yes), `….expanded` (whether a node that says
+    nothing starts with its open; seeded no) and `….height` (how tall one
+    stands, CSS pixels, held to 60–600; seeded 180). They are drawn and
+    edited with the family's other settings (Settings → Extensions), and
+    the fold seeds their values on its node, so the rows show what is in
+    effect. They are read off the node their fields configure
+    (`previewSettingsOf`), so nothing guesses which family a view is from,
+    and a view whose settings the store does not hold has no preview.
+  - **The node's toggle is the editor's.** The outline family seeds
+    `sys.f.outline.preview` (checkbox, one, hidden): on a node, its toggle,
+    and while it says nothing the view's `expanded` decides. The editor
+    reads and writes it in one place (`row-opening.ts`, `@kb/outline-ui`),
+    and its node menu offers "Show preview" / "Hide preview" through
+    `CommandPoint`. `kb set <id> sys.f.outline.preview true` opens one, and
+    `kb set sys.extension.canvas sys.f.preview.canvas.page.height 240`
+    changes the canvas's height, both without `force`.
+  - **Family off.** No tag opening, so no preview and no "Open in …": the
     node is a row like any other, never an error.
 - **Placement is not stored yet.** Each view is shown at the placement its
   host offers. A stored placement arrives with the hosts that read it, in
@@ -3123,7 +3130,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, tagDefaultViews?, inlinePreview?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), for the one
   family that provides it, of the default view type, and of the tags whose
@@ -3276,8 +3283,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     tag naming the view type its one claimant declares (`tagDefaultViews`);
   - each declaration's own node, `sys.extension.<name>`, derived from it as
     a view's option is derived from its key: named by its label, holding
-    the defaults of the settings the fold derives for it (a family that
-    declares `inlinePreview`: its preview settings, View nodes), and filed
+    the defaults of the settings the fold derives for it (the preview
+    settings of each of its views that previews, View nodes), and filed
     under core's list node `sys.extensions` ("Extensions"), in declaration
     order, so every extension is a node of the graph, the hub its switch
     and its configuration hang off. Being one of that list's children is

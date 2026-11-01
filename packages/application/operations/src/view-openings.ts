@@ -21,7 +21,7 @@ const OpeningSchema = z.object({
   /** The tag whose default view type this is. */
   tag: z.string().optional(),
   /** What the node opens in by default. */
-  default: z.boolean().optional(),
+  default: z.boolean(),
   /** Where it opens: the location `ui.navigate` takes. */
   path: z.string(),
 });
@@ -50,7 +50,7 @@ export const viewOpeningsEffect = Effect.fn("view.openings")(function* (
       label,
       ...(key === undefined ? {} : { viewType: key.id }),
       ...(tag === undefined ? {} : { tag }),
-      ...(isDefault === true ? { default: true } : {}),
+      default: isDefault,
       path: nodePath(input.node, view),
     }),
   );

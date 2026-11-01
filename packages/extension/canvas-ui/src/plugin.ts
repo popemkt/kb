@@ -47,8 +47,8 @@ export const canvasUiPlugin = definePlugin({
         ctx.contribute(
           ViewPoint,
           provideView(CanvasView, {
-            // Inline it is a row's preview: a still picture of the canvas.
-            placements: ["page", "inline"],
+            // Its key draws a preview, so it is offered at `preview` too: a still picture.
+            placements: ["page"],
             picker: { order: 0, icon: SquareIcon },
             sample: { id: "canvas.contract-sample" },
             Component: CanvasSurface,

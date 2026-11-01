@@ -37,6 +37,12 @@ export interface SeedView {
   readonly id: string;
   readonly label: string;
   readonly family?: ViewFamily | undefined;
+  /**
+   * The view draws a preview of a node it opens (`ViewKey.preview`): the
+   * fold derives its preview settings (`previewSettingFields`) as settings
+   * of the source that provides it.
+   */
+  readonly preview?: boolean | undefined;
 }
 
 /**
@@ -74,12 +80,6 @@ export interface SeedSource {
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, SeedView>>;
   /**
-   * It draws inline previews of the nodes its tags open in: the fold derives
-   * its preview settings (`previewSettingFields`), each configuring its node,
-   * as its own seed nodes.
-   */
-  readonly inlinePreview?: true;
-  /**
    * The seeded ids it renamed or removed since a store could have been
    * seeded with them, each with what replaced it, if anything, and the
    * labels it changed: its rows of the retirement table (`SeedRetirement`),
@@ -96,7 +96,7 @@ export interface SeedSource {
 interface DefaultViewClaim {
   readonly on: NodeId;
   readonly view: SeedView;
-  readonly by: string;
+  readonly by: SeedSource;
 }
 
 /** Every default view type `sources` claim, in source order: the store's, then each tag's. */
@@ -104,11 +104,11 @@ function defaultViewClaims(sources: readonly SeedSource[]): DefaultViewClaim[] {
   return sources.flatMap((source) => [
     ...(source.defaultView === undefined
       ? []
-      : [{ on: SYSTEM_IDS.viewsRoot, view: source.defaultView, by: source.name }]),
+      : [{ on: SYSTEM_IDS.viewsRoot, view: source.defaultView, by: source }]),
     ...Object.entries(source.tagDefaultViews ?? {}).map(([on, view]) => ({
       on,
       view,
-      by: source.name,
+      by: source,
     })),
   ]);
 }
@@ -134,17 +134,17 @@ function defaultViewProps(
     if (claim === undefined) continue;
     if (second !== undefined) {
       throw new Error(
-        `the default view type of ${on} is provided twice (${claims.map((c) => c.by).join(", ")})`,
+        `the default view type of ${on} is provided twice (${claims.map((c) => c.by.name).join(", ")})`,
       );
     }
-    const provider = sources.find((source) => source.name === claim.by);
-    if (!(provider?.views ?? []).some(({ key }) => key.id === claim.view.id)) {
+    const by = claim.by.name;
+    if (!(claim.by.views ?? []).some(({ key }) => key.id === claim.view.id)) {
       throw new Error(
-        `${claim.by} names ${claim.view.id} the default view of ${on} but provides no such view`,
+        `${by} names ${claim.view.id} the default view of ${on} but provides no such view`,
       );
     }
     if (!seeded.has(on)) {
-      throw new Error(`${claim.by} names the default view of ${on}, which the seed does not hold`);
+      throw new Error(`${by} names the default view of ${on}, which the seed does not hold`);
     }
     props.set(on, {
       [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: viewOptionId(claim.view.id) }],
@@ -206,20 +206,25 @@ function declaredOptionNode(kind: DeclaredOptions, option: SeedOption, at: strin
   };
 }
 
+/** The views `source` provides that draw a preview of a node they open. */
+function previewing(source: SeedSource): SeedView[] {
+  return (source.views ?? []).map(({ key }) => key).filter((view) => view.preview === true);
+}
+
 /**
  * A source's own node, `sys.extension.<name>`, as the fold derives it: named
  * by its label and holding no switch, so an optional family's switch reads as
  * its declared default until someone switches it. It holds the defaults of
- * the settings the fold derives for the source (`previewSettingValues`), so
- * those show what is in effect. Being one of
- * `sys.extensions`' children is what it is, as a view's option is one of
- * `sys.views`'.
+ * the settings the fold derives for the source (`previewSettingValues`, one
+ * set per view of it that previews), so those show what is in effect. Being
+ * one of `sys.extensions`' children is what it is, as a view's option is one
+ * of `sys.views`'.
  */
 function extensionNode(source: SeedSource, at: string): KbNode {
   return {
     id: extensionNodeId(source.name),
     text: source.label,
-    props: source.inlinePreview === true ? previewSettingValues(source.name) : {},
+    props: Object.assign({}, ...previewing(source).map((view) => previewSettingValues(view.id))),
     children: [],
     createdAt: at,
     updatedAt: at,
@@ -353,7 +358,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     name: source.name,
     seed: [
       ...(source.seed?.(at) ?? []),
-      ...(source.inlinePreview === true ? previewSettingFields(source.name, at) : []),
+      ...previewing(source).flatMap((view) => previewSettingFields(view.id, source.name, at)),
     ],
     files: source.files,
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),

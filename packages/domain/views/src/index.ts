@@ -15,6 +15,7 @@ export {
   paramsFromProps,
   paramsIssues,
   issueText,
+  ignoreReport,
   viewKey,
   type ConfigReport,
   type ParamsOf,

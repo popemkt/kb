@@ -296,6 +296,5 @@ export {
   previewSettingValues,
   previewSettingIds,
   previewSettingsOf,
-  previewShownOf,
   type PreviewSettings,
 } from "./preview.ts";

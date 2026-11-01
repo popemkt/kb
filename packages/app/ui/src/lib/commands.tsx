@@ -44,7 +44,6 @@ import {
   isQueryNode,
   isViewNode,
   present,
-  previewShownOf,
   typeRefsOf,
   viewOptionOf,
 } from "@kb/model";
@@ -63,7 +62,6 @@ import {
   listOntologyItems,
   navigate,
   nodeAction,
-  nodeHandlerOf,
   type NodeCommandListing,
   nodePath,
   ontologyPath,
@@ -566,7 +564,7 @@ function openWithCommands(ctx: CommandContext): readonly Command[] {
         id: `open-with:${view}`,
         scope: "node",
         chrome: () => ({
-          label: `Open with: ${label}${isDefault === true ? " (default)" : ""}`,
+          label: `Open with: ${label}${isDefault ? " (default)" : ""}`,
           icon: Icon === undefined ? <ArrowSquareOutIcon size={14} /> : <Icon size={14} />,
         }),
         run: (c) => {
@@ -578,37 +576,6 @@ function openWithCommands(ctx: CommandContext): readonly Command[] {
   });
 }
 
-/**
- * "Show preview" / "Hide preview" for a target whose handler draws one
- * (`nodeHandlerOf`): the keyboard's way to the row's preview toggle, which
- * writes the node's own `sys.f.preview`.
- */
-function previewCommands(ctx: CommandContext): readonly Command[] {
-  const nodeId = ctx.target.nodeId;
-  if (nodeId === null) return [];
-  const byId = new Map(ctx.outline.wireNodes.map((n) => [n.id, n]));
-  const node = byId.get(nodeId);
-  const handler = nodeHandlerOf(node, currentContributions(ViewPoint), (id) => byId.get(id));
-  if (handler === null || handler.preview === null) return [];
-  const shown = previewShownOf(node, handler.preview);
-  return [
-    {
-      id: "toggle-preview",
-      scope: "node",
-      chrome: () => ({
-        label: `${shown ? "Hide" : "Show"} preview: ${handler.key.label}`,
-        icon: shown ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />,
-      }),
-      run: async (c) => {
-        c.palette.close();
-        await browserHost().writes.replaceField(nodeId, SYSTEM_IDS.previewField, [
-          { t: "bool", v: !shown },
-        ]);
-      },
-    },
-  ];
-}
-
 /** Every command, in order: the static ones, with the views' where they sit. */
 function commandsFor(ctx: CommandContext): readonly Command[] {
   const views = frameViewCommands(ctx);
@@ -617,7 +584,6 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
     ...views.global,
     ...NODE_COMMANDS,
     ...openWithCommands(ctx),
-    ...previewCommands(ctx),
     ...views.node,
     ...defaultViewCommands(ctx),
     ...currentContributions(CommandPoint).map(({ value }) => value),

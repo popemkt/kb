@@ -6,7 +6,8 @@
  * Where the view draws a preview, the menu also opens or closes the node's.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SYSTEM_IDS, present, type PropValue } from "@kb/model";
+import { SYSTEM_IDS, present, previewSettingIds, type PropValue } from "@kb/model";
+import { OUTLINE_IDS } from "@kb/outline";
 import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { canvasUiPlugin } from "@kb/canvas-ui";
@@ -111,7 +112,7 @@ describe("Open with…", () => {
 
 describe("the preview toggle in the node menu", () => {
   let dom: InstalledDom;
-  const previews = (nodeId: string) => offered(nodeId, "toggle-preview").map((c) => c.label);
+  const previews = (nodeId: string) => offered(nodeId, "outline.preview").map((c) => c.label);
   beforeEach(() => {
     dom = installDomGlobals();
     resetOutlineStore();
@@ -131,14 +132,18 @@ describe("the preview toggle in the node menu", () => {
     hydrate({
       "n.board": {
         ...tagged("sys.tag.canvas"),
-        [SYSTEM_IDS.previewField]: [{ t: "bool", v: true }],
+        [OUTLINE_IDS.previewField]: [{ t: "bool", v: true }],
       },
     });
     expect(previews("n.board")).toEqual(["Hide preview: Canvas"]);
   });
 
   it("offers none where the canvas family's settings show no previews", () => {
-    hydrate({ "sys.extension.canvas": { "sys.f.canvas.preview": [{ t: "bool", v: false }] } });
+    hydrate({
+      "sys.extension.canvas": {
+        [previewSettingIds("canvas.page").shows]: [{ t: "bool", v: false }],
+      },
+    });
     expect(previews("n.board")).toEqual([]);
   });
 });

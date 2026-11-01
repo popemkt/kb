@@ -153,7 +153,7 @@ function ways(graph: ReturnType<typeof graphOf>, node: string, on = catalog) {
 describe("the ways a node opens", () => {
   test("a canvas lists its tag's default first among the view types, marked the default", () => {
     const listed = ways(graphOf({ "n.board": tagged(CANVAS_TAG) }), "n.board");
-    expect(listed[0]).toEqual({ label: "Default view" });
+    expect(listed[0]).toEqual({ label: "Default view", default: false });
     expect(listed[1]).toEqual({
       view: viewOptionId(CANVAS_PAGE),
       label: "Canvas",
@@ -161,13 +161,17 @@ describe("the ways a node opens", () => {
       default: true,
     });
     const outline = listed.find(({ view }) => view === OutlineView.option);
-    expect(outline).toEqual({ view: OutlineView.option, label: OutlineView.label });
+    expect(outline).toEqual({
+      view: OutlineView.option,
+      label: OutlineView.label,
+      default: false,
+    });
   });
 
   test("with the canvas off, the outline is the default and no tag's is listed", () => {
     const listed = ways(graphOf({ "n.board": tagged(CANVAS_TAG) }), "n.board", canvasOff);
     expect(listed.filter(({ tag }) => tag !== undefined)).toEqual([]);
-    expect(listed.filter(({ default: d }) => d === true).map(({ view }) => view)).toEqual([
+    expect(listed.filter(({ default: d }) => d).map(({ view }) => view)).toEqual([
       OutlineView.option,
     ]);
   });

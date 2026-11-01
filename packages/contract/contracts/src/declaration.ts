@@ -71,13 +71,6 @@ export interface ExtensionDeclaration {
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
   /**
-   * It draws an inline preview of a node its tags open in, under the node's
-   * row: its page half offers that view at placement `inline`. The seed
-   * derives its preview settings (whether it shows them, whether one starts
-   * open, how tall; `previewSettingFields`) as settings of its node.
-   */
-  readonly inlinePreview?: true;
-  /**
    * The declared options the family contributes (DESIGN.md → Extension
    * families → Declared options), by kind: page-head backdrops
    * (`BACKDROP_OPTIONS`), design systems (`DESIGN_SYSTEM_OPTIONS`), or the

@@ -29,14 +29,14 @@ interface Openings {
     label: string;
     viewType?: string;
     tag?: string;
-    default?: boolean;
+    default: boolean;
     path: string;
   }[];
 }
 
 const defaultOf = async (node: string) =>
   ((await mustInvoke("view.openings", { node })) as Openings).openings.find(
-    (opening) => opening.default === true,
+    (opening) => opening.default,
   );
 
 beforeEach(async () => {
@@ -53,7 +53,7 @@ afterEach(async () => {
 describe("view.openings", () => {
   test("a canvas opens in its canvas by default, and can open in the outline", async () => {
     const { openings } = (await mustInvoke("view.openings", { node: "n.board" })) as Openings;
-    expect(openings[0]).toEqual({ label: "Default view", path: "/node/n.board" });
+    expect(openings[0]).toEqual({ label: "Default view", default: false, path: "/node/n.board" });
     expect(openings[1]).toEqual({
       view: "sys.view.canvas.page",
       label: "Canvas",
