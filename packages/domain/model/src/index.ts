@@ -1,7 +1,7 @@
 export { ACTORS } from "./actor.ts";
 export type { Actor } from "./actor.ts";
 export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
-export { byNodeId, canonicalJson, canonicalJsonl } from "./canonical.ts";
+export { byNodeId, canonicalJson, canonicalJsonl, canonicalJsonlOf } from "./canonical.ts";
 export {
   DomainError,
   domainError,
@@ -123,6 +123,7 @@ export {
 } from "./ontology.ts";
 export type { MemberReason, NodeLike, OntologyResolution } from "./ontology.ts";
 export { IndexedNodes, ScannedNodes } from "./node-graph.ts";
+export { StoreState } from "./store-state.ts";
 export type { NodeGraph } from "./node-graph.ts";
 export {
   compareRootOrder,
@@ -132,7 +133,7 @@ export {
   rankTx,
   siblingSlots,
 } from "./order.ts";
-export type { NodeRank, RankSlot, SiblingGroups, Slots } from "./order.ts";
+export type { NodeRank, RankBase, RankSlot, SiblingGroups, Slots } from "./order.ts";
 export { hasQueryDef, isQueryNode, queryDefOf, queryTextOf } from "./query-node.ts";
 export type { QueryNodeDef } from "./query-node.ts";
 export {

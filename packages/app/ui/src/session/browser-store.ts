@@ -6,7 +6,7 @@ import {
   type StoreFingerprint,
   type TxRecord,
 } from "@kb/contracts";
-import { rankTx, type DomainError, type KbNode, type StoreTx } from "@kb/model";
+import { rankTx, StoreState, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
 
 /** In-memory persistence side of the browser's replicated kb session. */
@@ -21,7 +21,7 @@ export class BrowserStore implements EffectStore {
    */
   readonly txTail = new MemoryTxTail();
 
-  private readonly byId = new Map<string, KbNode>();
+  private state = new StoreState();
   private generation = 0;
   readonly fingerprint = Effect.sync(() => String(this.generation));
   /**
@@ -32,7 +32,7 @@ export class BrowserStore implements EffectStore {
 
   constructor(nodes: readonly KbNode[]) {
     this.replace(nodes);
-    this.loadEffect = Effect.sync(() => [...this.byId.values()]);
+    this.loadEffect = Effect.sync(() => [...this.state.values()]);
   }
 
   commitEffect(
@@ -47,7 +47,7 @@ export class BrowserStore implements EffectStore {
       const base = String(this.generation);
       const stale = staleCommitError(expected, base);
       if (stale !== null) return Effect.fail(stale);
-      const applied = rankTx([...this.byId.values()], tx);
+      const applied = rankTx(this.state, tx);
       this.apply(applied);
       if (applied.upserts.length > 0 || applied.deletes.length > 0) {
         this.txTail.append(applied, record);
@@ -61,15 +61,13 @@ export class BrowserStore implements EffectStore {
    * as given: the server's store already settled its ranks.
    */
   apply(tx: StoreTx): void {
-    for (const id of tx.deletes) this.byId.delete(id);
-    for (const node of tx.upserts) this.byId.set(node.id, node);
+    this.state.apply(tx);
     this.generation += 1;
   }
 
   /** Replace the snapshot after an authoritative server snapshot. */
   replace(nodes: readonly KbNode[]): void {
-    this.byId.clear();
-    for (const node of nodes) this.byId.set(node.id, node);
+    this.state = StoreState.of(nodes);
     this.generation += 1;
   }
 }

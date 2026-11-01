@@ -14,5 +14,7 @@ export function openKb(root: string): Promise<KbContext> {
 }
 
 export function reload(ctx: KbContext): Promise<void> {
-  return Effect.runPromise(reloadEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))));
+  return Effect.runPromise(
+    reloadEffect(ctx).pipe(Effect.asVoid, Effect.provide(kbRuntimeLayer(ctx))),
+  );
 }

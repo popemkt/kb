@@ -231,7 +231,7 @@ export type { KbTxLog, TxPage, TxRecord, TxTail } from "./tx-log.ts";
 export { TemplateRegistry, renderText, templateRegistryLayer } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
-export { staleCommitError } from "./store.ts";
+export { KeptState, staleCommitError } from "./store.ts";
 export { STORE_CHANGES_POLL, directorySignals, fingerprintChanges } from "./store-changes.ts";
 export type { DirectoryWatcher, WatchDirectory } from "./store-changes.ts";
 export type { EffectStore, StoreCommit, StoreFingerprint } from "./store.ts";

@@ -84,6 +84,7 @@
 
 - 3D step 10 · formats: JSON Canvas export, GLB
 - 3D step 9 · connectors
+- Build the lens-warp black hole backdrop (a second black hole beside Gargantua) from docs/research/2026-10-31-3d-quality-bar.md §6
 - Canvas UX pass 2 (2026-10-25): what still falls short of tldraw for a human — remaining fixes, highest severity per effort first (study: popemkt/dotfiles docs/research/2026-10-25-canvas-ux-pass.md)
 - commander 15 (check the --no-* options)
 - Cordis-level plugin integration, maybe more: config as fields on sys.extension.<name> with re-apply; a graph-driven loader; a plugin view; hot reload; optional injects and lifecycle events. First a Sonnet survey, then an Opus plan (integration.md)

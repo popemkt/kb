@@ -746,7 +746,10 @@ current)` is the one derivation; it keeps a moved node's rank when it still
   committed without a rank therefore gets one, and two writers that appended
   from one read never leave two siblings on one rank: the second commit sees
   the first. Untouched groups are left exactly as stored. `storeContract`
-  holds all of this for every backend.
+  holds all of this for every backend. `rankTx` reads the state it settles
+  against through `RankBase` (a node by id, its parent, the roots in visible
+  order) with the transaction laid over it, so settling costs the groups it
+  touches — and the roots, when it touches them — not the store.
 - **A merge settles ranks like a commit.** `mergeNodeSets` ends with the same
   `rankTx`, so two branches that each appended a root from one read never
   merge into a tie ([Merge](#merge)).
@@ -1322,6 +1325,17 @@ That is a port promise, not an adapter habit: each adapter runs `rankTx` inside
 its exclusion and reports the result as `StoreCommit.tx`, which is what the
 tail records and what a session's index applies.
 
+**A commit reads what it lands on, not the whole store.** An adapter keeps the
+state it last read or wrote — a `StoreState` (`@kb/model`): the nodes, each
+node's parent and the roots, moved by the transactions it commits — under the
+fingerprint that names that state. A commit whose base is that fingerprint
+settles its ranks against the kept state instead of decoding every node; any
+other base — another writer's commit, a hand edit — is read as it always was,
+and a commit that fails keeps nothing. The kept state is never the truth: the
+fingerprint decides which state a commit lands on, so "a commit after another
+writer's merges into what it left and settles against it" is a contract
+property every adapter runs, and dropping the kept state costs one read.
+
 `storeBenchmark(name, makeStore)` sits beside it and is measured the same way:
 the 50k-node first write, cold load, datom build, query, `kb set`-shaped commit
 and interactive edit, printed and never asserted on — measured gates belong to
@@ -1361,7 +1375,12 @@ file is the format git already understands.
 - **Performance is a stated requirement**, and what the code does today is:
   read the whole file into one string, split on newlines, decode each line
   through `Schema`; single-pass datom build; durable whole-file replace
-  (below). Incremental file reading is a target owned by
+  (below). A commit reads and hashes the whole file, since its `base` must name
+  those bytes, and replaces it whole; when the bytes are the ones this store
+  last read or wrote, it merges into its kept state (above) and serialises only
+  the nodes it writes, each node's line kept beside that state. What is left
+  grows with the file's bytes, not its nodes: at 50k gallery visuals (42 MB),
+  hashing and rewriting the file is about 0.2 s of a 0.4 s commit. Incremental file reading is a target owned by
   `briefs/p1-persistence.md`, not a description of the current implementation.
   `.bak`, `nodes.jsonl.lock`, `nodes.jsonl.*.tmp`, and `.kb/cache/` are
   gitignored — only the live `nodes.jsonl` is committed.

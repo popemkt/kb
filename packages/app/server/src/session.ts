@@ -107,8 +107,22 @@ export function rowsHash(rows: unknown[][]): string {
  * connection it came from as its peer, and a close reaches every channel.
  * The hub knows no channel by name.
  */
+/**
+ * The graph as one state of a session sends it: the snapshot, its JSON, and
+ * the version that names it, unique across server processes (a restart
+ * starts generations over).
+ */
+export interface KeptGraph {
+  readonly snapshot: GraphSnapshot;
+  readonly json: string;
+  readonly version: string;
+}
+
 export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
+  /** This hub, among every hub a root has had: what keeps a version from naming two graphs. */
+  private readonly instance = crypto.randomUUID();
+  private kept: { readonly at: string; readonly graph: KeptGraph } | null = null;
   private ctx: KbContext;
   private readonly channels: ChannelDirectory;
   /** What an app that frames the page may have, which each connection is told. */
@@ -149,12 +163,28 @@ export class SubscriptionHub {
   }
 
   get snapshot(): GraphSnapshot {
-    return GraphSnapshotSchema.parse({
+    return this.graph.snapshot;
+  }
+
+  /**
+   * The graph as `GET /api/graph` sends it, built once per state of the
+   * session: the index's generation (which every change to the node set
+   * bumps, virtual nodes included) and the log's head (the `rev` it names).
+   * Nothing else moves it, so a reload, a second tab or a resync is answered
+   * from here, and its `version` is an entity tag a client can revalidate.
+   */
+  get graph(): KeptGraph {
+    const at = `${this.ctx.index.generation}.${this.ctx.log.head}`;
+    if (this.kept?.at === at) return this.kept.graph;
+    const snapshot = GraphSnapshotSchema.parse({
       rev: this.ctx.log.head,
       nodes: [...this.ctx.index.allNodes()]
         .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
         .map(toWireNode),
     });
+    const graph = { snapshot, json: JSON.stringify(snapshot), version: `${this.instance}.${at}` };
+    this.kept = { at, graph };
+    return graph;
   }
 
   /** Register `caller`'s client and greet it: `hello`, then who the server takes it to be. */

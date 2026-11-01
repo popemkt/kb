@@ -65,12 +65,44 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
   );
 }
 
-/** A read of the API: a `GET` that answers JSON. */
+/**
+ * JSON its owner keeps as text, at a version: sent as it is, naming the
+ * version as its entity tag, and revalidated on every use (`no-cache`), so a
+ * client that holds this version is answered `304` and one that does not
+ * gets the text without it being serialised again (`deliver` keeps its
+ * encoding).
+ */
+class KeptJson {
+  readonly json: string;
+  readonly version: string;
+
+  constructor(json: string, version: string) {
+    this.json = json;
+    this.version = version;
+  }
+}
+
+/** A read of the API: a `GET` that answers JSON, as a value or as text its owner keeps. */
 type JsonRead = (deps: UiHttpDeps) => Effect.Effect<unknown, never, ActionHandlerEnv>;
+
+function readResponse(body: unknown): HttpServerResponse.HttpServerResponse {
+  if (!(body instanceof KeptJson)) return jsonResponse(body);
+  return HttpServerResponse.text(body.json, {
+    contentType: JSON_CONTENT_TYPE,
+    headers: { etag: `"${body.version}"`, "cache-control": "no-cache" },
+  });
+}
 
 /** The API's reads, by path. */
 const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
-  ["/api/graph", ({ hub }) => Effect.succeed(hub.snapshot)],
+  [
+    "/api/graph",
+    ({ hub }) =>
+      Effect.sync(() => {
+        const { json, version } = hub.graph;
+        return new KeptJson(json, version);
+      }),
+  ],
   [
     "/api/manifest",
     ({ ctx }) =>
@@ -166,7 +198,7 @@ const handleHttpRequestEffect = (
 
     const read = req.method === "GET" ? JSON_READS.get(url.pathname) : undefined;
     if (read !== undefined) {
-      return jsonResponse(yield* read(deps));
+      return readResponse(yield* read(deps));
     }
 
     // The request guard (`guard.ts`) has already refused another site's

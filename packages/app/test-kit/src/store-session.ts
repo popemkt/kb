@@ -10,7 +10,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EffectStore, KbContext } from "@kb/contracts";
-import { canonicalJsonl, type DomainError, type StoreTx } from "@kb/model";
+import { canonicalJsonl, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import { persistEffect } from "@kb/operations";
 import { bunFileSystemLayer, kbRuntimeLayer, openKbEffect } from "@kb/runtime";
 
@@ -19,6 +19,11 @@ export type StoreFactory = (root: string) => EffectStore;
 
 /** The stamp every contract commit carries, so nothing reads the wall clock. */
 export const CONTRACT_AT = "2026-01-01T00:00:00.000Z";
+
+/** A node with nothing but its id and text, stamped {@link CONTRACT_AT}. */
+export function plainNode(id: string, text: string): KbNode {
+  return { id, text, props: {}, children: [], createdAt: CONTRACT_AT, updatedAt: CONTRACT_AT };
+}
 
 /** A fresh root, removed when the scope that acquired it closes. */
 export const scratchRoot = Effect.acquireRelease(
