@@ -9,6 +9,7 @@ import {
   STEP_SECONDS,
   TICK_PERIOD,
   ambient,
+  gleamAt,
   meshed,
   tickEase,
   trainClock,
@@ -135,6 +136,48 @@ describe("ambient", () => {
   it("is the same sky for the same seed", () => {
     expect(eventsOf(3)).toEqual(eventsOf(3));
     expect(eventsOf(3)).not.toEqual(eventsOf(4));
+  });
+});
+
+/** A gleam's life sampled at `n` even steps. */
+const lifeOf = (n: number) => Array.from({ length: n + 1 }, (_, i) => gleamAt(i / n));
+/** How far the gleam travels over the hundredth after `l`. */
+const stride = (l: number) => gleamAt(l + 0.01).travel - gleamAt(l).travel;
+
+describe("gleamAt", () => {
+  it("crosses once, gathering slowly, quickest at its strike, slowing as it leaves", () => {
+    const life = lifeOf(400);
+    for (let i = 1; i < life.length; i++) {
+      expect(life[i]?.travel ?? 0).toBeGreaterThanOrEqual(life[i - 1]?.travel ?? 0);
+    }
+    expect(gleamAt(0).travel).toBe(0);
+    expect(gleamAt(1).travel).toBeCloseTo(1);
+    expect(stride(0.05)).toBeLessThan(stride(0.4));
+    expect(stride(0.95)).toBeLessThan(stride(0.5));
+  });
+
+  it("is dark at both ends and brightest at its strike", () => {
+    expect(gleamAt(0).strength).toBe(0);
+    expect(gleamAt(1).strength).toBe(0);
+    const brightest = lifeOf(400).reduce((a, b) => (b.strength > a.strength ? b : a));
+    expect(brightest.travel).toBeCloseTo(0.5, 1);
+  });
+
+  it("splits its colours in two hard steps at the strike, then not at all", () => {
+    const splits = lifeOf(1000).map((g) => g.split);
+    expect(new Set(splits)).toEqual(new Set([0, 1, -1]));
+    const first = splits.indexOf(1);
+    const swapped = splits.indexOf(-1);
+    expect(first).toBeGreaterThan(0);
+    expect(swapped).toBeGreaterThan(first);
+    expect(splits.slice(swapped).includes(1)).toBe(false);
+  });
+
+  it("flashes at the strike and rings down with ZZZ's overshoot", () => {
+    const flashes = lifeOf(2000).map((g) => g.flash);
+    expect(Math.max(...flashes)).toBeCloseTo(1, 2);
+    expect(Math.min(...flashes)).toBeCloseTo(-0.42, 1);
+    expect(Math.abs(gleamAt(1).flash)).toBeLessThan(0.01);
   });
 });
 

@@ -13,7 +13,7 @@
  *   hairline (`hair`) at any size and angle; the turned rings in a
  *   wheel's face and what is cut into it (guilloché, scales, rings, a star
  *   chart, côtes, a hairspring) are inked the same. The walls are the ink
- *   lit or shaded by their turn to the key. A glint sweeps the lines now
+ *   lit or shaded by their turn to the key. A gleam sweeps the lines now
  *   and then (`sweep`). A part's depth behind the hero's plane is its
  *   haze, read per pixel from where it stands: the far halves of rings and
  *   orbits and the trains behind are drawn finer, cooler and dimmer, and
@@ -137,8 +137,8 @@ export function astralUniforms() {
     hair: uniform(1),
     /** The sky's graduated great circle: its centre and radius (frame units), and its tick pitch (radians). */
     arc: uniform(new Vector4(0, 0, 0, 0)),
-    /** The glint sweeping the metal: where across the view (frame units), and how strong. */
-    sweep: uniform(new Vector3(-9, 0, 0)),
+    /** The gleam sweeping the metal: where across the view (frame units), how strong, its colour split, its flash. */
+    sweep: uniform(new Vector4(-9, 0, 0, 0)),
     /** How far the hero's plane lies from the eye (world units): where the haze begins. */
     eye: uniform(4),
     /** The hub's flare at an event, 0–1. */
@@ -210,6 +210,43 @@ const HUB_LIGHT = vec3(0.006, 0.011, 0.026);
 const SHARP = 0.08;
 /** The steel blue a far part's ink cools to on a dark page. */
 const STEEL = vec3(0.16, 0.22, 0.36);
+
+/**
+ * The gleam's colours, after ZZZ's: a warm white core, cyan leading and
+ * magenta trailing it, split hard at the strike.
+ */
+const GLEAM_CORE = vec3(1, 0.94, 0.82);
+const GLEAM_CYAN = vec3(0.25, 0.83, 1);
+const GLEAM_MAGENTA = vec3(1, 0.24, 0.73);
+/** The band's half width, and its thin coloured edges' (frame units). */
+const GLEAM_WIDTH = 0.032;
+const GLEAM_EDGE = 0.01;
+
+/**
+ * The gleam (`sweep`: where, how strong, its split, its flash) on the lines
+ * at `at` (frame units across, leaning): a hard band, thin cyan and magenta
+ * edges either side of it, the split copies at the strike, and the flash
+ * lighting the lines broadly about it as it rings down.
+ */
+function gleamOn(sweep: V4, at: F): TslNode<"vec3"> {
+  const d = at.sub(sweep.x);
+  const strip = (off: F | number, half: number) => step(abs(d.sub(off)), half);
+  const core = strip(0, GLEAM_WIDTH);
+  const off = float(1).sub(core);
+  const edges = GLEAM_CYAN.mul(strip(GLEAM_WIDTH + GLEAM_EDGE, GLEAM_EDGE)).add(
+    GLEAM_MAGENTA.mul(strip(-(GLEAM_WIDTH + GLEAM_EDGE), GLEAM_EDGE)),
+  );
+  const split = GLEAM_CYAN.mul(strip(sweep.z, GLEAM_WIDTH))
+    .add(GLEAM_MAGENTA.mul(strip(sweep.z.negate(), GLEAM_WIDTH)))
+    .mul(off);
+  const ringing = GLEAM_CORE.mul(exp(d.div(0.45).pow(2).negate()).mul(sweep.w).mul(0.9));
+  return GLEAM_CORE.mul(core)
+    .mul(sweep.w.mul(0.3).add(1))
+    .add(edges.mul(off))
+    .add(split)
+    .mul(sweep.y)
+    .add(ringing.max(vec3(-0.15, -0.15, -0.15)));
+}
 
 /** A cut of width `w` (face units) at signed distance `d`: antialiased, thinned to a hairline below a pixel. */
 function cut(d: F, w: number): F {
@@ -488,11 +525,9 @@ export function partMaterial(
     const lit = cel(s.sub(0.32)).toVar();
     const shade = cel(s.negate().sub(0.5)).toVar();
     const turned = cel(dot(n, key).sub(0.12)).toVar();
-    // Where on the view the glint sweeps: frame units across (the view is orthographic), leaning.
+    // Where on the view the gleam sweeps: frame units across (the view is orthographic), leaning.
     const sweepAt = positionView.x.add(positionView.y.mul(0.35));
-    const glint = step(abs(sweepAt.sub(u.sweep.x)), 0.05)
-      .mul(u.sweep.y)
-      .toVar();
+    const gleam = gleamOn(u.sweep, sweepAt).toVar();
     // A part behind the instrument lies in its front parts' shadow.
     const shaded = finish.behind ? contact(u, frameAt()).toVar() : float(1);
     const shown = vec3(0, 0, 0).toVar();
@@ -512,8 +547,8 @@ export function partMaterial(
         .add(HUB_LIGHT.mul(pool).mul(face));
       const wall = ink.mul(mix(float(0.08), float(0.26), turned));
       const body = mix(wall, plate, face);
-      const night = mix(body, ink.mul(glint.mul(0.6).add(0.8)), lines)
-        .add(ink.mul(glint.mul(0.05)).mul(face))
+      const night = mix(body, ink.mul(0.8).add(gleam.mul(1.2)), lines)
+        .add(gleam.mul(0.04).mul(face))
         .mul(shaded.mul(0.5).add(0.5));
       shown.assign(
         mix(grounds.ground.add(night), grounds.ground.add(u.night.mul(1.2)), haze.mul(0.5)),

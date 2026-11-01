@@ -331,7 +331,7 @@ export const AMBIENT: Readonly<
   shootingStar: { gap: [28, 75], lasts: 1.3 },
   constellation: { gap: [55, 110], lasts: 21 },
   farTrain: { gap: [35, 85], lasts: 6 },
-  glint: { gap: [22, 50], lasts: 2.6 },
+  glint: { gap: [24, 75], lasts: 3.4 },
 };
 
 /** One event under way: its kind, when it began, its own draw (0–1) for where and which way. */
@@ -380,6 +380,55 @@ export function ambient(stream: (name: string) => Rng, start: number): Ambient {
 /** How far through its life an event is, 0–1. */
 export const lifeOf = (happening: Happening, time: number): number =>
   Math.min(1, Math.max(0, (time - happening.at) / AMBIENT[happening.kind].lasts));
+
+/** Where the gleam peaks (a share of its life), and how its flash rings down after (shares of its life). */
+const GLEAM = { peak: 0.46, hold: 0.035, swap: 0.06, decay: 0.09 } as const;
+/** The flash's first swing back, against its peak: the spring's overshoot, as in ZZZ's. */
+const SPRING_OVERSHOOT = 0.42;
+/** The spring's period: e^(-t/decay) has fallen to SPRING_OVERSHOOT by its half period. */
+const RING = 2 * GLEAM.decay * Math.log(1 / SPRING_OVERSHOOT);
+
+/** A gleam at one moment: how far across, how bright, its colour split (-1, 0 or 1) and its flash. */
+export interface Gleam {
+  readonly travel: number;
+  readonly strength: number;
+  readonly split: number;
+  readonly flash: number;
+}
+
+/**
+ * The gleam's life, 0–1, as a gesture rather than a swipe: it gathers
+ * (a faint creep at its start), builds (gaining speed and light toward the
+ * middle), strikes (a flash, and the colour split cyan and magenta for a
+ * held beat, then swapped, then gone: hard steps, never a fade) and dies
+ * away slowly as it leaves, the flash ringing down on an underdamped
+ * spring.
+ */
+export function gleamAt(life: number): Gleam {
+  const l = Math.min(1, Math.max(0, life));
+  const { peak, hold, swap, decay } = GLEAM;
+  const gather = 0.18;
+  const creep = 0.06;
+  let travel: number;
+  let strength: number;
+  if (l < gather) {
+    const k = l / gather;
+    travel = creep * k * k;
+    strength = 0.25 * k;
+  } else if (l < peak) {
+    const k = (l - gather) / (peak - gather);
+    travel = creep + (0.5 - creep) * k * k;
+    strength = 0.25 + 0.75 * k * k;
+  } else {
+    const k = (l - peak) / (1 - peak);
+    travel = 0.5 + 0.5 * (1 - (1 - k) * (1 - k));
+    strength = Math.exp(-3 * k) * (1 - k);
+  }
+  const since = l - peak;
+  const split = since < 0 ? 0 : since < hold ? 1 : since < swap ? -1 : 0;
+  const flash = since < 0 ? 0 : Math.exp(-since / decay) * Math.cos((2 * Math.PI * since) / RING);
+  return { travel, strength, split, flash };
+}
 
 /** Every part of `parts`, depth first, with its depth. */
 export function* walk(parts: readonly Part[]): Generator<Part> {

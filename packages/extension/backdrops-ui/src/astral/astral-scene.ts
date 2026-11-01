@@ -68,6 +68,7 @@ import {
   TICK_PERIOD,
   ambient,
   driveAngle,
+  gleamAt,
   isAstralVariant,
   lifeOf,
   trainClock,
@@ -123,6 +124,8 @@ const HAIR = 0.3;
 const BLOOM = 0.16;
 /** The far train ticks this often while engaged (s). */
 const FAR_PERIOD = 0.55;
+/** How far the gleam's colours split at its strike (frame units at scale 1). */
+const GLEAM_SPLIT = 0.012;
 /** How long the hub's flare takes to fade (s). */
 const FLARE_FADE = 0.7;
 /** The lamp's response to the pointer: quick to follow, slow to return (s). */
@@ -597,19 +600,23 @@ function poseLayer(
   mesh.instanceMatrix.needsUpdate = true;
 }
 
-/** The sky's rare events as the shader reads them: a glint sweep, a shooting star, a constellation. */
+/** The sky's rare events as the shader reads them: a gleam, a shooting star, a constellation. */
 function skyEvents(u: AstralUniforms, anchor: Anchor) {
   let formedAt = -1;
   let points: [number, number, number][] = [];
   const sweep = (glint: Happening | undefined, time: number) => {
     if (glint === undefined) {
-      u.sweep.value.set(-9, 0, 0);
+      u.sweep.value.set(-9, 0, 0, 0);
       return;
     }
-    const l = lifeOf(glint, time);
-    const span = 1.4 * anchor.scale;
-    const across = anchor.x - span + 2 * span * smooth(l);
-    u.sweep.value.set(across, Math.sin(Math.PI * l) ** 1.5, 0);
+    const gleam = gleamAt(lifeOf(glint, time));
+    const span = 0.8 * anchor.scale;
+    u.sweep.value.set(
+      anchor.x - span + 2 * span * gleam.travel,
+      gleam.strength,
+      gleam.split * GLEAM_SPLIT * anchor.scale,
+      gleam.flash,
+    );
   };
   const shoot = (shot: Happening | undefined, time: number) => {
     if (shot === undefined) {

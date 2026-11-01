@@ -4969,7 +4969,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   light page) and **Armillary** (great graduated rings round the hub
   star, the eye drifting round them). Its look is the owner's chosen
   concept stills: flat fills, hairline strokes, thin rings and tick
-  scales, gear teeth as line, needle stars, bokeh, a glowing hub.
+  scales, gear teeth as line, needle stars, a glowing hub.
   - **Compositions are data** (`astral.ts`, `compositions.ts`): a list of
     parts (a wheel, an arm, a rod, a star, a group), each in its parent's
     frame, turning by its drive; `astral-scene.ts` builds whatever a list
@@ -5026,16 +5026,20 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     two drift in and out of phase. The clock is elapsed time, so where a
     wheel stands is the same at any frame rate.
   - **Constellations.** The composition's constellation stands faint in
-    the open sky: four-point glints, each in a small hairline ring,
+    the open sky, in cool silver: four-point glints, each in a small hairline ring,
     joined by hairlines. A constellation drawing itself (below) is drawn
     by the same means, its links growing star to star.
   - **A sky that lives** (`ambient`): each on a clock of its own, a few a
     minute between them, a shooting star, a constellation drawing itself
     and fading, a far train engaging a while (in a composition with one),
-    a glint across the lines; a few bokeh orbs drift, each a lens's blur
-    of a far light (a soft disc of its own size, a little brighter toward
-    its rim, faintly tinted between ice and warm), the great circle turns
-    very slowly, the stars breathe.
+    a gleam across the lines; the great circle turns very slowly, the
+    stars breathe. The gleam is a gesture, not a swipe (`gleamAt`), after
+    bb's ZZZ theme: it gathers at the instrument's rim, builds speed and
+    light toward the hub, strikes (a flash on every line, and its colours
+    split cyan and magenta in two held steps, swapped, then gone), and
+    dies away as it leaves, the flash ringing down on an underdamped
+    spring (overshoot 0.42). A warm white band, thin cyan and magenta
+    edges either side, drawn on the lines alone, on a dark page.
   - **The owner.** A write, a move to another page or something noticed
     on the page ticks every train one notch at once and flares the hub
     star. The pointer is a lamp on an arm: the key swings toward it
