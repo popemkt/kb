@@ -127,9 +127,10 @@ export function provideView<P>(
 }
 
 /**
- * How the shell frames a page: `scroll` and `fixed` sit under the workspace
- * header in the one main region (a canvas owns its own viewport, so `fixed`
- * does not scroll); `full` takes the whole column, header and all (the graph).
+ * How a page is framed in its pane, under the shell's header, which every
+ * page is drawn under: `scroll`, a scroll region around it; `fixed`, a box
+ * of the pane's size (a canvas owns its own viewport, so it does not
+ * scroll); `full`, nothing, the page fills the pane and frames itself.
  */
 type RouteFrame = "scroll" | "fixed" | "full";
 
