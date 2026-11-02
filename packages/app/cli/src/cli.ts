@@ -354,7 +354,10 @@ function buildProgram(): Command {
                 opts.identityHeader === undefined
                   ? []
                   : [identityHeaderIdentity(opts.identityHeader)],
-              extensions: yield* hostExtensions(root),
+              extensions: yield* hostExtensions(
+                root,
+                opts.publicOrigin ?? `http://127.0.0.1:${opts.port ?? UI_DEFAULT_PORT}`,
+              ),
               openedBy: ACTION_INVOKE_WIRE,
             });
           }),

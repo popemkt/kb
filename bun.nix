@@ -674,6 +674,9 @@
   "@kb/plugin" = copyPathToStore ./packages/domain/plugin;
   "@kb/query" = copyPathToStore ./packages/domain/query;
   "@kb/render-tests" = copyPathToStore ./packages/test-support/render-tests;
+  "@kb/routines" = copyPathToStore ./packages/extension/routines;
+  "@kb/routines-gcal" = copyPathToStore ./packages/extension/routines-gcal;
+  "@kb/routines-host" = copyPathToStore ./packages/extension/routines-host;
   "@kb/runtime" = copyPathToStore ./packages/app/runtime;
   "@kb/sandbox" = copyPathToStore ./packages/contract/sandbox;
   "@kb/sandbox-quickjs" = copyPathToStore ./packages/infrastructure/sandbox-quickjs;
@@ -3443,6 +3446,10 @@
   "router@2.2.0" = fetchurl {
     url = "https://registry.npmjs.org/router/-/router-2.2.0.tgz";
     hash = "sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==";
+  };
+  "rrule@2.8.1" = fetchurl {
+    url = "https://registry.npmjs.org/rrule/-/rrule-2.8.1.tgz";
+    hash = "sha512-hM3dHSBMeaJ0Ktp7W38BJZ7O1zOgaFEsn41PDk+yHoEtfLV+PoJt9E9xAlZiWgf/iqEqionN0ebHFZIDAp+iGw==";
   };
   "run-applescript@7.0.0" = fetchurl {
     url = "https://registry.npmjs.org/run-applescript/-/run-applescript-7.0.0.tgz";

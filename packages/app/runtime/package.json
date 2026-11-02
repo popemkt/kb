@@ -49,6 +49,8 @@
   "devDependencies": {
     "@kb/canvas": "workspace:*",
     "@kb/locations": "workspace:*",
+    "@kb/routines": "workspace:*",
+    "@kb/routines-host": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
     "zod": "catalog:"

@@ -78,7 +78,13 @@ export {
 } from "./engine.ts";
 export { runGuest, type GuestHost, type GuestRun } from "./guest.ts";
 export { SCRIPT_WIRE, answerToolCall, type CapabilityHost, type RunScope } from "./capability.ts";
-export { codeDigest, extensionDigest, isCodeDigest, providerDigest } from "./digest.ts";
+export {
+  codeDigest,
+  extensionDigest,
+  isCodeDigest,
+  providerDigest,
+  trustDigest,
+} from "./digest.ts";
 export type { ExtensionClosure, ProviderBinding } from "./digest.ts";
 export {
   SANDBOX_DRAW_ID,

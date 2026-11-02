@@ -12,10 +12,13 @@
  * for the agent packages. A key a provider refers to is read from this
  * process's environment or the platform keychain (`systemSecrets`).
  */
-import { Effect } from "effect";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { Config, Effect } from "effect";
+import type { CalendarBinding, SyncError as RoutineSyncError } from "@kb/routines";
 import type { AgentAdapter } from "@kb/agent";
 import type { ExtensionEntry } from "@kb/contracts";
-import { childProcessEnv, systemSecrets } from "@kb/runtime";
+import { childProcessEnv, systemSecrets, systemSecretSink } from "@kb/runtime";
 
 /** The adapter for each of `AGENT_ADAPTERS`, running in `root`; the test holds it to every one. */
 export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function* (
@@ -31,13 +34,64 @@ export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function*
 
 export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
   root: string,
+  origin = "http://127.0.0.1:4321",
 ): Effect.fn.Return<readonly ExtensionEntry[]> {
   const { agentExtension, agentPlugin } = yield* Effect.promise(() => import("@kb/agent"));
   const adapters = yield* hostAgentAdapters(root);
+  const [
+    { routinesExtension, projectionFingerprint, SyncError },
+    { routinesPlugin, makeKbLedger },
+    { makeGoogleCalendar, makeGoogleTokens, beginGoogleConnect },
+    { SqliteStore },
+    { parseSecretRef },
+  ] = yield* Effect.promise(() =>
+    Promise.all([
+      import("@kb/routines"),
+      import("@kb/routines-host"),
+      import("@kb/routines-gcal"),
+      import("@kb/store-sqlite"),
+      import("@kb/model"),
+    ]),
+  );
+  const runner = crypto.randomUUID();
+  const secrets = systemSecrets();
+  const sink = (reference: string) => {
+    const parsed = parseSecretRef(reference);
+    if (parsed === null) throw new SyncError({ status: 401, code: "auth_needed" });
+    return systemSecretSink(parsed);
+  };
+  const oauth = (binding: CalendarBinding, trusted: Effect.Effect<boolean, RoutineSyncError>) => {
+    if (binding.account === null) throw new SyncError({ status: 401, code: "auth_needed" });
+    return { account: binding.account, trusted, secrets, sink };
+  };
   return [
     {
       declaration: agentExtension,
       entry: agentPlugin({ adapters, secrets: systemSecrets() }),
+    },
+    {
+      declaration: routinesExtension,
+      entry: routinesPlugin({
+        origin,
+        runner,
+        ledger: Effect.gen(function* () {
+          const namespace = yield* projectionFingerprint(root);
+          const stateRoot = yield* Config.string("XDG_STATE_HOME").pipe(
+            Config.withDefault(join(homedir(), ".local", "state")),
+            Effect.orDie,
+          );
+          const store = yield* Effect.acquireRelease(
+            Effect.sync(() => new SqliteStore(join(stateRoot, "kb", "ops", namespace))),
+            (opened) => Effect.sync(() => opened.close()),
+          );
+          return yield* makeKbLedger(store);
+        }),
+        client: (binding, trusted) =>
+          makeGoogleTokens(oauth(binding, trusted)).pipe(
+            Effect.map((tokens) => makeGoogleCalendar({ tokens, runner })),
+          ),
+        connect: (binding, trusted) => beginGoogleConnect(oauth(binding, trusted)),
+      }),
     },
   ];
 });
