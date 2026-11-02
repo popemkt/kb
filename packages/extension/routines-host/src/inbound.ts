@@ -10,7 +10,7 @@ import {
   type UnitRecord,
 } from "@kb/routines";
 import type { EngineContext } from "./context.ts";
-import { reportFailure } from "./failures.ts";
+import { reportFailure, transportFailure } from "./failures.ts";
 import type { CalendarSession } from "./session.ts";
 
 const Scan = Schema.Struct({
@@ -181,6 +181,32 @@ export class Inbound {
         }));
       }
   });
+  private readonly recover = Effect.fn("routines.inbound.recover")(function* (
+    this: Inbound,
+    calendar: string,
+    at: number,
+  ) {
+    const context = this.context;
+    const cursor = "offline:" + calendar;
+    if ((yield* context.options.ledger.cursor.get(cursor)) !== "yes") return;
+    // Consume the recorded transition before granting probes. A failed probe keeps
+    // its exhausted budget; ordinary successful polls cannot grant another.
+    yield* context.options.ledger.cursor.set(cursor, "");
+    for (const unit of yield* context.options.ledger.unit.all(calendar))
+      if (
+        unit.state === "failed" &&
+        unit.attempts >= 10 &&
+        unit.lastError !== null &&
+        transportFailure(unit.lastError)
+      ) {
+        const delay = retryDelay(unit.attempts, yield* Random.next, "transport");
+        yield* context.queue.mutate(unit.key, (current) => ({
+          ...current,
+          state: "retry",
+          nextAttemptAt: at + delay,
+        }));
+      }
+  });
   private readonly scanState = Effect.fn("routines.inbound.scanState")(function* (
     this: Inbound,
     calendar: string,
@@ -231,6 +257,8 @@ export class Inbound {
         yield* context.options.ledger.cursor.set("full:" + calendar, "");
         this.next.set(calendar, at);
       } else {
+        if (transportFailure(result.failure))
+          yield* context.options.ledger.cursor.set("offline:" + calendar, "yes");
         yield* reportFailure(context, session, result.failure);
         const attempt = (this.failures.get(calendar) ?? 0) + 1;
         this.failures.set(calendar, attempt);
@@ -272,6 +300,7 @@ export class Inbound {
       at,
       revision: context.revision,
     });
+    yield* this.recover(calendar, at);
     this.next.set(calendar, at + pollEvery(yield* context.options.host.attention(context.nodes)));
     return undefined;
   });

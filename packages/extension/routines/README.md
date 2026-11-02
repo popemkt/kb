@@ -80,7 +80,7 @@ Sync state lives in a separate local SQLite-backed kb store, at
 that directory with the server's application data. It holds no credential values.
 The storage port and adapters share one contract suite; the Calendar client and
 fake share another. Network recovery retains a write journal and conditional
-etags, with a ten-attempt cap; an edit or Sync now retries exhausted work. Successful polls preserve exhausted write retries while their input is unchanged. Auth and
+etags, with a ten-attempt cap; an edit or Sync now retries exhausted work. Ordinary successful polls preserve exhausted write retries while their input is unchanged. A recorded transport-failed poll followed by a completed successful poll grants one recovery probe after normal backoff, without resetting the attempt count. A failed probe remains exhausted until another recorded offline→online transition, an edit, or Sync now. Auth and
 permanent failures remain stopped.
 
 Unit tests use an in-memory Calendar fake and a loopback HTTP server which

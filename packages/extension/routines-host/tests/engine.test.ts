@@ -676,3 +676,54 @@ scenario("six removals behind 98 harmless changes are held before pagination and
     ).toHaveLength(0);
   }),
 );
+
+scenario("editing a still-exhausted unit resets its write budget", (f) =>
+  Effect.gen(function* () {
+    yield* f.engine.poll();
+    for (let index = 0; index < 10; index++) {
+      f.fake.inject("write", "before", new SyncError({ status: 503, code: "unavailable" }));
+      yield* TestClock.adjust("16 minutes");
+      yield* f.engine.push;
+    }
+    expect((yield* f.root).state).toBe("failed");
+    expect((yield* f.root).attempts).toBe(10);
+    yield* f.edit("routine", (current) => ({ ...current, text: "changed while failed" }));
+    expect((yield* f.root).state).toBe("dirty");
+    expect((yield* f.root).attempts).toBe(0);
+    yield* f.flush;
+    expect((yield* f.root).state).toBe("synced");
+  }),
+);
+for (const probeFails of [false, true])
+  scenario("recorded offline recovery grants one backed-off probe; failure=" + probeFails, (f) =>
+    Effect.gen(function* () {
+      yield* f.engine.poll();
+      for (let index = 0; index < 10; index++) {
+        f.fake.inject("write", "before", new SyncError({ status: 0, code: "offline" }));
+        yield* TestClock.adjust("16 minutes");
+        yield* f.engine.push;
+      }
+      expect((yield* f.root).state).toBe("failed");
+      f.fake.inject("list", "before", new SyncError({ status: 0, code: "offline" }));
+      yield* f.engine.poll(true);
+      yield* f.engine.poll(true);
+      const probing = yield* f.root;
+      expect(probing.state).toBe("retry");
+      expect(probing.attempts).toBe(10);
+      expect(probing.nextAttemptAt).toBeGreaterThan(yield* Clock.currentTimeMillis);
+      yield* f.engine.poll(true);
+      expect((yield* f.root).nextAttemptAt).toBe(probing.nextAttemptAt);
+      if (probeFails)
+        f.fake.inject("write", "before", new SyncError({ status: 0, code: "offline" }));
+      yield* TestClock.adjust("16 minutes");
+      yield* f.engine.push;
+      expect((yield* f.root).state).toBe(probeFails ? "failed" : "synced");
+      if (probeFails) {
+        expect((yield* f.root).attempts).toBe(11);
+        yield* f.engine.poll(true);
+        yield* f.flush;
+        expect((yield* f.root).state).toBe("failed");
+        expect((yield* f.root).attempts).toBe(11);
+      }
+    }),
+  );

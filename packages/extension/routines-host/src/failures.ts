@@ -3,6 +3,10 @@ import { retryDelay, type SyncError, type UnitRecord } from "@kb/routines";
 import type { EngineContext } from "./context.ts";
 import type { CalendarSession } from "./session.ts";
 
+export function transportFailure(error: Pick<SyncError, "status" | "code">): boolean {
+  return error.code !== "quota" && (error.status === 0 || error.status >= 500);
+}
+
 export const reportFailure = Effect.fn("routines.reportFailure")(function* (
   context: EngineContext,
   session: CalendarSession,
@@ -12,7 +16,7 @@ export const reportFailure = Effect.fn("routines.reportFailure")(function* (
   const at = yield* Clock.currentTimeMillis;
   const quota = error.status === 429 || error.code === "quota";
   const auth = error.status === 401 || error.code === "auth_needed";
-  const transient = quota || error.status === 0 || error.status >= 500;
+  const transient = quota || transportFailure(error);
   const attempt = (unit?.attempts ?? 0) + 1;
   const delay = retryDelay(
     attempt,
