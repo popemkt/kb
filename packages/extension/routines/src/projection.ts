@@ -1,5 +1,5 @@
-import { DateTime, Duration, Effect } from "effect";
-import { RRule } from "rrule";
+import { DateTime, Duration, Effect, Schema } from "effect";
+import * as recurrenceModule from "rrule";
 import { addDays, canonicalJson, conformsToType, formatDay, parseDay } from "@kb/model";
 import {
   SHARED_EVENT_FIELDS as SHARED,
@@ -9,6 +9,20 @@ import {
   type ProjectionTarget,
   type Routine,
 } from "./model.ts";
+
+// The library publishes ESM to bundlers and CommonJS to Node. Both resolve to one constructor.
+const RecurrenceExports = Schema.Struct({
+  RRule: Schema.declare<typeof recurrenceModule.RRule>(
+    (value): value is typeof recurrenceModule.RRule =>
+      typeof value === "function" &&
+      "fromString" in value &&
+      typeof value.fromString === "function",
+  ),
+});
+const loadedRecurrence = Schema.decodeSync(
+  Schema.Union([RecurrenceExports, Schema.Struct({ default: RecurrenceExports })]),
+)(recurrenceModule);
+const { RRule } = "default" in loadedRecurrence ? loadedRecurrence.default : loadedRecurrence;
 
 const RULE_KEYS = new Set([
   "FREQ",
