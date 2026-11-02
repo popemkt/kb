@@ -3,7 +3,7 @@
  * Cover load → mutate → durable replace so concurrent CLI/MCP/UI writers
  * cannot silently clobber each other (r4 Stage-0).
  *
- * Lock file: `<nodes.jsonl>.lock` with the holder pid. Stale locks (dead pid)
+ * Lock file: `<path>.lock` with the holder pid. Stale locks (dead pid)
  * are stolen after a short spin.
  *
  * Acquisition sleeps via Effect.sleep (never Bun.sleepSync) so concurrent

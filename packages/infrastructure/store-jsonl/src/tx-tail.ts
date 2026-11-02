@@ -215,7 +215,7 @@ export class JsonlTxTail implements TxTail {
   private write(records: readonly TailRecord[]): void {
     const body = records.map((record) => lineOf(record.tx, record.mark)).join("");
     try {
-      durableReplaceFile(this.path, this.backupPath, body);
+      durableReplaceFile({ path: this.path, backupPath: this.backupPath, body });
     } catch (err) {
       this.cache = null;
       throw err;

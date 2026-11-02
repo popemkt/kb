@@ -1,5 +1,6 @@
 import {
   CalendarBlankIcon,
+  ClockIcon,
   HashIcon,
   LinkSimpleIcon,
   PaletteIcon,
@@ -49,6 +50,7 @@ export const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
   text: { icon: TextTIcon, Surface: TextSurface },
   url: { icon: TextTIcon, Surface: UrlSurface },
   number: { icon: HashIcon, Surface: NumberSurface },
+  time: { icon: ClockIcon, Surface: TextSurface },
   date: { icon: CalendarBlankIcon, Surface: DateSurface },
   checkbox: { icon: CheckSquareIcon, Surface: CheckboxSurface },
   ref: { icon: LinkSimpleIcon, Surface: RefSurface },

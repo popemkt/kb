@@ -47,6 +47,19 @@ const valueArb: fc.Arbitrary<PropValue> = fc.oneof(
 
 const typeArb = fc.option(fc.constantFrom(...FIELD_TYPES), { nil: null });
 
+function expectedTime(value: string): boolean {
+  const [hour, minute, extra] = value.split(":");
+  return (
+    extra === undefined &&
+    hour?.length === 2 &&
+    minute?.length === 2 &&
+    /^\d+$/.test(hour) &&
+    /^\d+$/.test(minute) &&
+    Number(hour) <= 23 &&
+    Number(minute) <= 59
+  );
+}
+
 /** Whether `value` may be held by a field declared `type` (null: undeclared). */
 function expectedOk(type: FieldType | null, value: PropValue): boolean {
   if (!acceptsValueKind(type ?? "text", value)) return false;
@@ -56,6 +69,8 @@ function expectedOk(type: FieldType | null, value: PropValue): boolean {
   if (type === "date" && value.t === "str" && value.v !== "" && parseDay(value.v) === null) {
     return false;
   }
+  if (type === "time" && value.t === "str" && value.v !== "" && !expectedTime(value.v))
+    return false;
   // A secret is held only as a reference to where a key lives.
   if (
     type === "secret" &&

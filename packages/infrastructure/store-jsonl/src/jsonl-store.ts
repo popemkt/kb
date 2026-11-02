@@ -194,7 +194,7 @@ export class JsonlStore implements EffectStore {
         const fingerprint = contentMark(body);
 
         yield* Effect.try({
-          try: () => durableReplaceFile(path, backupPath, body),
+          try: () => durableReplaceFile({ path, backupPath, body }),
           catch: (err) => ensureDomainError(err),
         });
 

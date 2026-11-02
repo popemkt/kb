@@ -562,12 +562,14 @@ type PropValue =
   restrict which fields a node carries; a field's declared type does restrict
   what it holds. Each type accepts fixed value kinds (`acceptsValueKind` in
   `field-type.ts`, the one table the UI's mismatch hint also reads): text,
-  url and secret → `str`, number → `num`, checkbox → `bool`, ref → `ref`, and
+  time, url and secret → `str`, number → `num`, checkbox → `bool`, ref → `ref`, and
   date → `str` (a local `YYYY-MM-DD`; the legacy `{t:"date"}` carrier is
   rewritten on open). A value of the right kind must also be in its type's form
   (`field-value.ts`, the one statement of it: a url is a canonical link,
-  `normalizeUrl`; a secret is a reference to where a key lives, `env:NAME` or
-  `keychain:<service>[/<account>]` (`secret-ref.ts`), never the key, so a
+  `normalizeUrl`; a time is a local wall clock in strict `HH:MM` form
+  (00:00–23:59), without a date or zone; a secret is a reference to where a
+  key lives, `env:NAME`, `keychain:<service>[/<account>]` or
+  `dotenv:/absolute/path#KEY` (`secret-ref.ts`), never the key, so a
   pasted key is refused before it can reach a committed store; only the
   process that needs the key reads it, through its `SecretSource`, as
   [Agent packages](#agent-packages) → providers states), and every
@@ -4874,6 +4876,16 @@ The sidebar agent lives outside core, in packages that core never imports
 - `surfaceContract` runs the agent as one more surface (`agent`) over a
   scripted model. It covers the listing, every receipt, and an approved
   call made by the person.
+
+### Writable host secrets
+
+`dotenv:` references read their file on each use, with no shell expansion.
+Files must be private (0600) and regular, and symlinks are refused. A
+`SecretSink` is a capability bound to one file/key; a host constructs it
+only after checking the owning action binding's machine-local trust. Writes
+serialize through an exclusive lock, preserve other variables, and replace
+the file atomically with mode 0600, using the shared whole-file write primitives
+without a backup. Values and underlying filesystem errors never appear in errors.
 
 ## Locations
 

@@ -1,6 +1,7 @@
 import { Effect } from "effect";
-import { SecretError, type SecretSource } from "@kb/contracts";
+import { SecretError, type SecretSource, type SecretSink } from "@kb/contracts";
 import { secretRefLabel, type SecretRef } from "@kb/model";
+import { readDotenvSecret, dotenvSecretSink } from "./dotenv-secrets.ts";
 import { childProcessEnv } from "./child-env.ts";
 
 /** What one keychain lookup answered: its exit code and what it printed. */
@@ -70,7 +71,7 @@ const runProcess: RunLookup = (argv, signal) => {
 /**
  * The secret source a `kb ui` process binds (DESIGN.md → Data model → a
  * secret is a reference): an `env:` reference reads this process's
- * environment, and a `keychain:` one asks the macOS keychain (`security`) or
+ * environment, a `dotenv:` one reads its private file afresh, and a `keychain:` one asks the macOS keychain (`security`) or
  * the freedesktop secret service (`secret-tool`), killed if it has not
  * answered within `timeoutMs`. A reference that does not resolve fails with
  * what it names, never with a value.
@@ -92,9 +93,10 @@ export function systemSecrets(
     resolve: Effect.fn("kb.secrets.resolve")(function* (ref: SecretRef) {
       const missing = () => new SecretError({ message: `${secretRefLabel(ref)} is not set` });
       if (ref.kind === "env") {
-        const value = env[ref.name];
+        const value = Object.hasOwn(env, ref.name) ? env[ref.name] : undefined;
         return value === undefined || value === "" ? yield* missing() : value;
       }
+      if (ref.kind === "dotenv") return yield* readDotenvSecret(ref);
       const argv = keychainArgv(ref, platform);
       if (argv === null) {
         return yield* new SecretError({
@@ -121,5 +123,18 @@ export function systemSecrets(
       const value = answer.stdout.replace(/\r?\n$/, "");
       return answer.code !== 0 || value === "" ? yield* missing() : value;
     }),
+  };
+}
+
+/** A capability for one trusted reference; read-only sources refuse writes. */
+export function systemSecretSink(ref: SecretRef): SecretSink {
+  if (ref.kind === "dotenv") return dotenvSecretSink(ref);
+  return {
+    write: () =>
+      Effect.fail(
+        new SecretError({
+          message: `${secretRefLabel(ref)}: this source is read-only`,
+        }),
+      ),
   };
 }

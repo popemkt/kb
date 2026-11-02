@@ -13,7 +13,7 @@ export interface SecretSource {
   readonly resolve: (ref: SecretRef) => Effect.Effect<string, SecretError>;
 }
 
-/** A reference that does not resolve here: unset, not found, or no keychain to ask. */
+/** A reference that cannot be read or written here; failures never include values. */
 export class SecretError extends Schema.TaggedError<SecretError>()("Kb/SecretError", {
   message: Schema.String,
 }) {}
@@ -23,3 +23,12 @@ export const NO_SECRETS: SecretSource = {
   resolve: (ref) =>
     Effect.fail(new SecretError({ message: `${secretRefLabel(ref)}: this process reads no keys` })),
 };
+
+/**
+ * A write capability bound to exactly one trusted reference. Hosts obtain it
+ * only after checking the owning binding's machine-local trust. There is no
+ * destination argument: a connect action cannot redirect the write.
+ */
+export interface SecretSink {
+  readonly write: (value: string) => Effect.Effect<void, SecretError>;
+}

@@ -361,6 +361,7 @@ export function operandKindOf(type: FieldType): OperandKind {
       return "node";
     case "checkbox":
       return "checkbox";
+    case "time":
     case "text":
     case "url":
     case "secret":

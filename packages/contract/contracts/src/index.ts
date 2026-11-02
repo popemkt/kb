@@ -217,7 +217,7 @@ export type {
 } from "./screen.ts";
 export { KbCtx, KbStore, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { NO_SECRETS, SecretError } from "./secrets.ts";
-export type { SecretSource } from "./secrets.ts";
+export type { SecretSource, SecretSink } from "./secrets.ts";
 export { GraphWrites } from "./graph-writes.ts";
 export type { GraphPlan, GraphWritesPort } from "./graph-writes.ts";
 export {

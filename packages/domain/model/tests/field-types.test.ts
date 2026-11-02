@@ -234,6 +234,7 @@ describe("accepted value kinds", () => {
       checkbox: ["bool"],
       ref: ["ref"],
       secret: ["str"],
+      time: ["str"],
     });
   });
 });
