@@ -13,6 +13,7 @@
   "dependencies": {
     "@effect/platform-bun": "catalog:",
     "@kb/contracts": "workspace:*",
+    "@kb/file-write": "workspace:*",
     "@kb/model": "workspace:*",
     "effect": "catalog:"
   },

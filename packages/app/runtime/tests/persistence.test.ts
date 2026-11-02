@@ -258,7 +258,7 @@ describe("JsonlStore Effect persistence", () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
     await mkdir(join(root, ".kb"), { recursive: true });
-    const { lockPathFor } = await import("@kb/store-jsonl");
+    const { lockPathFor } = await import("@kb/file-write");
     await writeFile(lockPathFor(store.path), "999999999\n", "utf8");
 
     await commit(store, { upserts: [sampleNode("n.after-stale", "ok")], deletes: [] });

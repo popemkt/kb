@@ -1475,7 +1475,7 @@ file is the format git already understands.
   `.bak`, `nodes.jsonl.lock`, `nodes.jsonl.*.tmp`, and `.kb/cache/` are
   gitignored — only the live `nodes.jsonl` is committed.
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
-  in `@kb/store-jsonl`:
+  in `@kb/file-write`:
   - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
     pid wraps the _whole_ commit via `Effect.acquireRelease` inside
     `Effect.scoped`, so reload → merge → replace is one critical section and

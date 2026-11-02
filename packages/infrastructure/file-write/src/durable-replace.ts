@@ -1,5 +1,5 @@
 /**
- * Durable whole-file replace for nodes.jsonl (r4 Stage-0).
+ * Durable whole-file replace with a prior-generation backup.
  *
  * Protocol:
  * 1. write candidate to tmp via fd + fsync

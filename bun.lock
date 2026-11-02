@@ -139,6 +139,7 @@
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
+        "@kb/file-write": "workspace:*",
         "@kb/gallery-net": "workspace:*",
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
@@ -1160,6 +1161,17 @@
         "@types/react": "catalog:",
       },
     },
+    "packages/infrastructure/file-write": {
+      "name": "@kb/file-write",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/infrastructure/sandbox-quickjs": {
       "name": "@kb/sandbox-quickjs",
       "version": "0.0.0",
@@ -1192,6 +1204,7 @@
       "dependencies": {
         "@effect/platform-bun": "catalog:",
         "@kb/contracts": "workspace:*",
+        "@kb/file-write": "workspace:*",
         "@kb/model": "workspace:*",
         "effect": "catalog:",
       },
@@ -1727,6 +1740,8 @@
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
+
+    "@kb/file-write": ["@kb/file-write@workspace:packages/infrastructure/file-write"],
 
     "@kb/gallery": ["@kb/gallery@workspace:packages/extension/gallery"],
 

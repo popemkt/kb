@@ -33,7 +33,7 @@ import {
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
-import { durableReplaceFile } from "./durable-replace.ts";
+import { durableReplaceFile } from "@kb/file-write";
 import { contentMark, storeMark } from "./content-mark.ts";
 
 /** One line of `tx.jsonl`: a {@link KbTx} plus the store mark it was written at. */

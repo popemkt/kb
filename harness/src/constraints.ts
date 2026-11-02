@@ -38,7 +38,7 @@
 export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   domain: ["domain"],
   contract: ["domain", "contract"],
-  infrastructure: ["domain", "contract"],
+  infrastructure: ["domain", "contract", "infrastructure"],
   application: ["domain", "contract"],
   kit: ["domain", "contract", "kit"],
   // Of its own family only: familyEdgeViolation.
