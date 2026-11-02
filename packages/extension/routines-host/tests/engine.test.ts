@@ -593,3 +593,25 @@ scenario("edits during a max-wait flush begin a fresh settling window", (f) =>
     expect(f.fake.calls.filter((call) => call.method === "write")).toHaveLength(writes + 1);
   }),
 );
+scenario("a routine timezone override owns the deletion day even across calendar midnight", (f) =>
+  Effect.gen(function* () {
+    yield* f.edit("routine", (current) => ({
+      ...current,
+      props: {
+        ...current.props,
+        [F.timezone]: str("America/New_York"),
+        [F.starts]: str("2026-11-01"),
+      },
+    }));
+    yield* f.engine.poll();
+    yield* f.flush;
+    const root = yield* f.root;
+    yield* f.edit("routine", () => null);
+    yield* f.flush;
+    yield* f.engine.release([root.key]);
+    yield* f.flush;
+    expect((yield* f.fake.port.get(f.calendar, root.key)).fields?.recurrence[0]).toContain(
+      "UNTIL=20261102T045959Z",
+    );
+  }),
+);

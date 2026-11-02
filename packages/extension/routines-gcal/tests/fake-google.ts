@@ -1,10 +1,5 @@
 import { Result, Effect, Schema } from "effect";
-import {
-  makeFakeCalendar,
-  type SyncError,
-  type CalendarMutation,
-  type RemoteEvent,
-} from "@kb/routines";
+import { makeFakeCalendar, SyncError, type CalendarMutation, type RemoteEvent } from "@kb/routines";
 import { GoogleEvent, decodeTime, decodeEvent, encodeEvent, encodeTime } from "../src/wire.ts";
 
 function json(value: unknown, status = 200): Response {
@@ -153,6 +148,13 @@ export class FakeGoogle {
     const original = decodeTime(
       /^\d{4}-\d{2}-\d{2}$/.test(start) ? { date: start } : { dateTime: start, timeZone: zone },
     );
+    const parent = yield* this.fake.port.get(calendar, id);
+    if (
+      parent.fields !== null &&
+      (original.at !== parent.fields.start.at || original.zone !== parent.fields.start.zone)
+    ) {
+      return yield* new SyncError({ status: 400, code: "wrong_original_start" });
+    }
     const event = yield* this.fake.port.instance(calendar, id, original, zone);
     return event;
   });

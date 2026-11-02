@@ -124,41 +124,57 @@ function instanceContract(
   client: Effect.Effect<CalendarPort, SyncError, Scope.Scope>,
   assert: ContractAssertions,
 ) {
-  test(
-    "instance identity survives a move",
-    Effect.gen(function* () {
-      const port = yield* client;
-      const calendar = yield* port.create("kb routines", "Asia/Ho_Chi_Minh");
-      yield* port.write(calendar, [{ kind: "insert", id: "kb00001", fields: contractEvent() }]);
-      const instance = yield* port.instance(
-        calendar,
-        "kb00001",
-        { ...contractEvent().start, day: "2026-11-03" },
-        "Asia/Ho_Chi_Minh",
-      );
-      const fields = instance.fields;
-      if (fields === null) return yield* new SyncError({ status: 500, code: "contract_failed" });
-      yield* port.write(calendar, [
-        {
-          kind: "update",
-          id: instance.id,
-          etag: instance.etag,
-          fields: {
-            ...fields,
-            start: { ...fields.start, day: "2026-11-04" },
-            end: { ...fields.end, day: "2026-11-04" },
+  const cases = [
+    {
+      zone: "Asia/Ho_Chi_Minh",
+      at: "07:30",
+      endDay: "2026-11-02",
+      endAt: "08:00",
+      movedEnd: "2026-11-04",
+    },
+    {
+      zone: "America/New_York",
+      at: "23:30:17",
+      endDay: "2026-11-03",
+      endAt: "00:00:17",
+      movedEnd: "2026-11-05",
+    },
+  ];
+  for (const sample of cases)
+    test(
+      "instance identity survives a move in " + sample.zone,
+      Effect.gen(function* () {
+        const port = yield* client;
+        const calendar = yield* port.create("kb routines", "Asia/Ho_Chi_Minh");
+        const base = contractEvent();
+        const source = {
+          ...base,
+          start: { ...base.start, at: sample.at, zone: sample.zone },
+          end: { day: sample.endDay, at: sample.endAt, zone: sample.zone },
+        };
+        yield* port.write(calendar, [{ kind: "insert", id: "kb00001", fields: source }]);
+        const original = { ...source.start, day: "2026-11-03" };
+        const instance = yield* port.instance(calendar, "kb00001", original, "Asia/Ho_Chi_Minh");
+        assert.equal(instance.originalStart?.zone, sample.zone);
+        assert.equal(instance.originalStart?.at, sample.at);
+        const fields = instance.fields;
+        if (fields === null) return yield* new SyncError({ status: 500, code: "contract_failed" });
+        yield* port.write(calendar, [
+          {
+            kind: "update",
+            id: instance.id,
+            etag: instance.etag,
+            fields: {
+              ...fields,
+              start: { ...fields.start, day: "2026-11-04" },
+              end: { ...fields.end, day: sample.movedEnd },
+            },
           },
-        },
-      ]);
-      const same = yield* port.instance(
-        calendar,
-        "kb00001",
-        { ...contractEvent().start, day: "2026-11-03" },
-        "Asia/Ho_Chi_Minh",
-      );
-      assert.equal(same.id, instance.id);
-      assert.equal(same.fields?.start.day, "2026-11-04");
-      return undefined;
-    }),
-  );
+        ]);
+        const same = yield* port.instance(calendar, "kb00001", original, "Asia/Ho_Chi_Minh");
+        assert.equal(same.id, instance.id);
+        assert.equal(same.fields?.start.day, "2026-11-04");
+        return undefined;
+      }),
+    );
 }

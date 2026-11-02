@@ -33,7 +33,7 @@ export interface CalendarPort {
     calendar: string,
     series: string,
     original: EventTime,
-    zone: string,
+    calendarZone: string,
   ) => Effect.Effect<RemoteEvent, SyncError>;
   readonly list: (
     calendar: string,

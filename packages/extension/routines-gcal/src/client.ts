@@ -102,12 +102,13 @@ function calendarWriter(
 }
 
 function calendarInstances(http: ReturnType<typeof googleHttp>): CalendarPort["instance"] {
-  return (calendar, series, original, zone) =>
+  return (calendar, series, original, calendarZone) =>
     http.authorize((token) =>
       Effect.gen(function* () {
+        const zone = original.zone ?? calendarZone;
         const start = yield* Effect.try({
           try: () =>
-            DateTime.makeZonedUnsafe(original.day + "T" + (original.at ?? "00:00") + ":00", {
+            DateTime.makeZonedUnsafe(original.day + "T" + (original.at ?? "00:00"), {
               timeZone: zone,
               adjustForTimeZone: true,
             }),

@@ -89,9 +89,8 @@ export const queueOccurrences = Effect.fn("routines.queueOccurrences")(function*
   if (parent.kind !== "series" || parent.state === "ended" || !context.nodes.has(parent.routineId))
     return true;
   const at = yield* Clock.currentTimeMillis;
-  const today = DateTime.formatIsoDate(
-    DateTime.makeZonedUnsafe(at, { timeZone: session.binding.calendar.zone }),
-  );
+  const zone = parent.base?.start.zone ?? session.binding.calendar.zone;
+  const today = DateTime.formatIsoDate(DateTime.makeZonedUnsafe(at, { timeZone: zone }));
   const day = parseDay(today);
   if (day === null) return yield* new SyncError({ status: 400, code: "invalid_day" });
   const from = formatDay(addDays(day, -30));

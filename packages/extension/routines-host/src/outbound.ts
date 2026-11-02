@@ -45,10 +45,13 @@ export class Outbound {
     if (current === null || current.localRev !== unit.localRev || current.source !== unit.source)
       return null;
     const at = yield* Clock.currentTimeMillis;
+    const zone =
+      local?.start.zone ??
+      fetched.value?.fields?.start.zone ??
+      unit.base?.start.zone ??
+      session.binding.calendar.zone;
     const today = parseDay(
-      DateTime.formatIsoDate(
-        DateTime.makeZonedUnsafe(at, { timeZone: session.binding.calendar.zone }),
-      ),
+      DateTime.formatIsoDate(DateTime.makeZonedUnsafe(at, { timeZone: zone })),
     );
     if (today === null) return yield* new SyncError({ status: 400, code: "invalid_day" });
     return {
