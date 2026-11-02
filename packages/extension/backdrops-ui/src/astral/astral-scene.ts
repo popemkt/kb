@@ -447,7 +447,7 @@ function placeHero(
           distance: EYE - focus.at * unit,
           depth: focus.depth * unit,
           falloff: focus.falloff * unit,
-          radius: focus.radius,
+          radius: focus.radius * anchor.scale,
         },
   );
   built.hero.position.set(anchor.x, anchor.y, 0);

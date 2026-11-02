@@ -4977,7 +4977,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     (the night it pools to, its nebula the same colour thickened, its
     hub's glow), a graduated great circle behind it and where the stage
     focuses (`Mechanism.focus`: the plane, the depth kept sharp, the
-    falloff, in the instrument's units, and the widest blur), and names the constellation far behind it in open sky
+    falloff, in the instrument's units, and the widest blur, which scales with the hero, so a panel's smaller picture is no blurrier for its size), and names the constellation far behind it in open sky
     (`Constellation`: its stars and the links between them). Each load composes anew from its variation: ring and
     pointer counts, radii, ratios, where the wheels mesh (`meshed`, so
     teeth fall in gaps), where the stars stand.
@@ -5019,7 +5019,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     where its spikes and core cover (`starMark`), so the depth of field
     keeps it as sharp as its plane; the frame's bloom is small and close, so
     a glow never washes. On paper a star is printed: a crisp gilt or ink
-    silhouette.
+    silhouette. Ink does not fade as light does, so where a spike's light
+    thins toward its tip or runs on as a needle, the line is still printed,
+    and the hub's cross reads whole over a white face as it does over the
+    dark.
   - **Ticking.** The trains tick in eased steps with a little escapement
     recoil (`trainClock`, `tickEase`), every wheel by its ratio and some
     only every few ticks; a balance swings a little off the tick, so the
@@ -5046,7 +5049,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     (attack 0.3 s, release 0.55 s), so the light bands slide across the
     plates, and the stars near it glint; nothing else follows it.
   - **A light page** draws the same solids as a printed plate: the page
-    warmed to paper, a face washed in its metal, its shade band hatched,
+    warmed to paper (`PAPER`, one tint for the sky and every face, so a
+    face blurred by the depth of field melts into the paper rather than
+    fogging it), a face washed in its metal, its shade band hatched,
     its edges and cuts in ink a little heavier than light, gilt for the
     stars and the hub, and the instrument's shadow cast on the paper.
   - **A frame's passes**: the sky's slow fields (the nebula, the warmth

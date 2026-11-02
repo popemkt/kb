@@ -200,6 +200,8 @@ const WASHES: Readonly<Record<Metal, readonly [Rgb, number]>> = {
 };
 /** The ink and the gilt of the paper look (linear). */
 export const INK = vec3(0.011, 0.014, 0.03);
+/** The paper a light page is warmed to: the sky printed on it and every face washed on it. */
+export const PAPER = vec3(0.975, 0.94, 0.86);
 export const GILT = vec3(0.37, 0.2, 0.045);
 /** The dark sky a composition has unless it names its own (`Mechanism.sky`): ink-navy, a champagne warmth at the hub. */
 export const NIGHT: Rgb = [0.006, 0.012, 0.034];
@@ -555,7 +557,7 @@ export function partMaterial(
       );
     }).Else(() => {
       // Paper: the page in two bands, a shade band hatched, the edges and cuts in ink, the walls inked.
-      const page = grounds.page;
+      const page = grounds.page.mul(PAPER);
       const [tint, wash] = WASHES[finish.metal];
       const paper = mix(page, vec3(...tint), wash)
         .mul(mix(float(0.965), float(1.025), lit))
@@ -745,9 +747,17 @@ function starPixel(own: TslNode<"vec4">) {
  */
 const lights = (q: V2) => min(abs(q.x), abs(q.y)).lessThan(0.15).or(length(q).lessThan(1));
 
-/** How solidly a star covers its pixel: its spikes and its core, not its glow. */
+/**
+ * How solidly a star covers its pixel: its spikes and its core, not its
+ * glow. Ink does not fade as light does: where a spike's light thins
+ * toward its tip, or a needle runs on as a hairline, the line is still
+ * printed, so it reads over a white face as it reads over the dark.
+ */
+const INK_WEIGHT = 6;
 const starCover = (light: ReturnType<typeof starLight>, now: TslNode<"vec4">): F =>
-  light.spikes.add(light.core).min(1).mul(now.x.min(1));
+  float(1)
+    .sub(exp(light.spikes.add(light.core).mul(-INK_WEIGHT)))
+    .mul(now.x.min(1));
 
 /**
  * A star layer's depth, drawn where its spikes and core cover (no colour):

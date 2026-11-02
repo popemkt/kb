@@ -176,7 +176,8 @@ export interface Mechanism {
    * focal plane's depth from the hero (`at`, z in the instrument's units),
    * the band either side of it that stays sharp (`depth`), how much further
    * a part takes to blur fully (`falloff`), and that widest blur (`radius`,
-   * CSS pixels). None: every depth sharp.
+   * CSS pixels at the hero's wide size: it scales with the hero, so a smaller
+   * picture is no blurrier for its size). None: every depth sharp.
    */
   readonly focus?: {
     readonly at: number;

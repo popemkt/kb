@@ -46,6 +46,7 @@ import { CONSTELLATION_LINKS, CONSTELLATION_POINTS } from "./astral";
 import {
   GILT,
   INK,
+  PAPER,
   contact,
   frameAt,
   spike,
@@ -321,7 +322,7 @@ export function astralSky(
         .add(arc.mul(0.12))
         .mul(open)
         .min(0.9);
-      const paper = page.mul(vec3(0.975, 0.94, 0.86)).mul(shade);
+      const paper = page.mul(PAPER).mul(shade);
       const printed = mix(paper, INK.mul(1.6), ink);
       const gilded = mix(printed, GILT, streak.min(1).mul(0.85));
       shown.assign(paint(gilded));
