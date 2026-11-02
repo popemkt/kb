@@ -5016,7 +5016,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   light page) and **Armillary** (great graduated rings round the hub
   star, the eye drifting round them). Its look is the owner's chosen
   concept stills: flat fills, hairline strokes, thin rings and tick
-  scales, gear teeth as line, needle stars, bokeh, a glowing hub.
+  scales, gear teeth as line, needle stars, a glowing hub.
   - **Compositions are data** (`astral.ts`, `compositions.ts`): a list of
     parts (a wheel, an arm, a rod, a star, a group), each in its parent's
     frame, turning by its drive; `astral-scene.ts` builds whatever a list
@@ -5024,7 +5024,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     (the night it pools to, its nebula the same colour thickened, its
     hub's glow), a graduated great circle behind it and where the stage
     focuses (`Mechanism.focus`: the plane, the depth kept sharp, the
-    falloff, in the instrument's units, and the widest blur), and names the constellation far behind it in open sky
+    falloff, in the instrument's units, and the widest blur, which scales with the hero, so a panel's smaller picture is no blurrier for its size), and names the constellation far behind it in open sky
     (`Constellation`: its stars and the links between them). Each load composes anew from its variation: ring and
     pointer counts, radii, ratios, where the wheels mesh (`meshed`, so
     teeth fall in gaps), where the stars stand.
@@ -5066,30 +5066,39 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     where its spikes and core cover (`starMark`), so the depth of field
     keeps it as sharp as its plane; the frame's bloom is small and close, so
     a glow never washes. On paper a star is printed: a crisp gilt or ink
-    silhouette.
+    silhouette. Ink does not fade as light does, so where a spike's light
+    thins toward its tip or runs on as a needle, the line is still printed,
+    and the hub's cross reads whole over a white face as it does over the
+    dark.
   - **Ticking.** The trains tick in eased steps with a little escapement
     recoil (`trainClock`, `tickEase`), every wheel by its ratio and some
     only every few ticks; a balance swings a little off the tick, so the
     two drift in and out of phase. The clock is elapsed time, so where a
     wheel stands is the same at any frame rate.
   - **Constellations.** The composition's constellation stands faint in
-    the open sky: four-point glints, each in a small hairline ring,
+    the open sky, in cool silver: four-point glints, each in a small hairline ring,
     joined by hairlines. A constellation drawing itself (below) is drawn
     by the same means, its links growing star to star.
   - **A sky that lives** (`ambient`): each on a clock of its own, a few a
     minute between them, a shooting star, a constellation drawing itself
     and fading, a far train engaging a while (in a composition with one),
-    a glint across the lines; a few bokeh orbs drift, each a lens's blur
-    of a far light (a soft disc of its own size, a little brighter toward
-    its rim, faintly tinted between ice and warm), the great circle turns
-    very slowly, the stars breathe.
+    a gleam across the lines; the great circle turns very slowly, the
+    stars breathe. The gleam is a gesture, not a swipe (`gleamAt`), after
+    bb's ZZZ theme: it gathers at the instrument's rim, builds speed and
+    light toward the hub, strikes (a flash on every line, and its colours
+    split cyan and magenta in two held steps, swapped, then gone), and
+    dies away as it leaves, the flash ringing down on an underdamped
+    spring (overshoot 0.42). A warm white band, thin cyan and magenta
+    edges either side, drawn on the lines alone, on a dark page.
   - **The owner.** A write, a move to another page or something noticed
     on the page ticks every train one notch at once and flares the hub
     star. The pointer is a lamp on an arm: the key swings toward it
     (attack 0.3 s, release 0.55 s), so the light bands slide across the
     plates, and the stars near it glint; nothing else follows it.
   - **A light page** draws the same solids as a printed plate: the page
-    warmed to paper, a face washed in its metal, its shade band hatched,
+    warmed to paper (`PAPER`, one tint for the sky and every face, so a
+    face blurred by the depth of field melts into the paper rather than
+    fogging it), a face washed in its metal, its shade band hatched,
     its edges and cuts in ink a little heavier than light, gilt for the
     stars and the hub, and the instrument's shadow cast on the paper.
   - **A frame's passes**: the sky's slow fields (the nebula, the warmth
