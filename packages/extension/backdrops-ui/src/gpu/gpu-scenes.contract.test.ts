@@ -1,6 +1,6 @@
 /**
  * The scene contract (`sceneContract`, `@kb/ui-test-kit`) over the GPU
- * backdrops' scenes, Lens, each of Black hole's looks, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails and each of Astral's compositions, each on a dark
+ * backdrops' scenes, Lens, each of Black hole's looks, Toon sea, Silk, Floating geometry, Gradient orbs, Wolf medallion, Light trails, each of Astral's compositions and Disc field, each on a dark
  * page and a light one: each draws an offscreen pass (the nebula, the hole,
  * the sky, the silk), so the stand-in renderer counts those too, and a
  * hidden scene must still draw nothing.
@@ -75,6 +75,7 @@ const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
         ),
     ]),
   ),
+  "disc field": () => import("../disc-field/disc-field-scene").then((m) => m.mountDiscField),
 };
 
 sceneContract(
