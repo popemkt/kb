@@ -22,7 +22,7 @@ function unchanged(record: UnitRecord, source: string, touch: Touch): boolean {
   return (
     source === record.source &&
     touch.kind !== "sync-now" &&
-    record.pending === null &&
+    (record.pending === null || record.state === "failed") &&
     (touch.kind !== "reconcile" || ["failed", "held", "deleted", "ended"].includes(record.state))
   );
 }

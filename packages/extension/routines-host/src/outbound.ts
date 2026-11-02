@@ -28,10 +28,6 @@ export class Outbound {
     unit: UnitRecord,
   ) {
     const context = this.context;
-    const local = yield* Effect.try({
-      try: () => localProjection(context, unit, session.binding.calendar.zone),
-      catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
-    });
     const fetched = yield* session.call(1, () =>
       session.client.get(session.binding.calendar.calendarId, unit.key).pipe(
         Effect.catchIf(
@@ -44,10 +40,22 @@ export class Outbound {
     const current = yield* context.options.ledger.unit.get(unit.key);
     if (current === null || current.localRev !== unit.localRev || current.source !== unit.source)
       return null;
+    return yield* this.plan(session, current, fetched.value);
+  });
+  readonly plan = Effect.fn("routines.outbound.plan")(function* (
+    this: Outbound,
+    session: CalendarSession,
+    unit: UnitRecord,
+    remote: RemoteEvent | null,
+  ) {
+    const local = yield* Effect.try({
+      try: () => localProjection(this.context, unit, session.binding.calendar.zone),
+      catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
+    });
     const at = yield* Clock.currentTimeMillis;
     const zone =
       local?.start.zone ??
-      fetched.value?.fields?.start.zone ??
+      remote?.fields?.start.zone ??
       unit.base?.start.zone ??
       session.binding.calendar.zone;
     const today = parseDay(
@@ -55,9 +63,9 @@ export class Outbound {
     );
     if (today === null) return yield* new SyncError({ status: 400, code: "invalid_day" });
     return {
-      unit: current,
-      remote: fetched.value,
-      plan: planUnit(current, local, fetched.value, at, formatDay(addDays(today, -1))),
+      unit,
+      remote,
+      plan: planUnit(unit, local, remote, at, formatDay(addDays(today, -1))),
     };
   });
   readonly acknowledge = Effect.fn("routines.outbound.acknowledge")(function* (
@@ -182,10 +190,48 @@ export class Outbound {
       } else yield* reportFailure(context, session, outcome.error, item.ready.unit);
     }
   });
+  readonly guard = Effect.fn("routines.outbound.guard")(function* (
+    this: Outbound,
+    session: CalendarSession,
+  ) {
+    const context = this.context;
+    // Classify the entire pending operation before pagination or account admission.
+    const all = yield* context.options.ledger.unit.all(session.binding.calendar.id);
+    const pending: Ready[] = [];
+    for (const unit of all) {
+      if (!["dirty", "retry", "held"].includes(unit.state) || unit.base === null) continue;
+      const result = yield* Effect.result(
+        this.plan(session, unit, {
+          id: unit.key,
+          etag: unit.etag ?? "",
+          fields: unit.base,
+          deleted: false,
+          url: "",
+          ownedDrift: false,
+          runner: null,
+          seriesId: null,
+          originalStart: null,
+        }),
+      );
+      if (Result.isSuccess(result) && result.success.plan.destructive) pending.push(result.success);
+    }
+    const guarded =
+      pending.filter((item) => item.unit.kind === "series").length > 5 ||
+      pending.length >
+        all.filter((unit) => unit.kind !== "exception" && unit.state !== "ended").length * 0.2;
+    if (guarded)
+      for (const item of pending) {
+        const signature = canonicalJson(item.plan.mutation);
+        if ((yield* context.options.ledger.cursor.get("release:" + item.unit.key)) !== signature) {
+          yield* context.queue.mutate(item.unit.key, (current) => ({ ...current, state: "held" }));
+          yield* context.options.ledger.cursor.set("held:" + item.unit.key, signature);
+        }
+      }
+    return guarded;
+  });
   readonly flush = Effect.fn("routines.outbound.flush")(function* (this: Outbound) {
     const context = this.context;
     const at = yield* Clock.currentTimeMillis;
-    const due = yield* context.options.ledger.unit.due(at, 100);
     for (const { session } of context.sessions.values()) {
       if (
         (yield* context.options.ledger.cursor.get("initialized:" + session.binding.calendar.id)) !==
@@ -194,37 +240,31 @@ export class Outbound {
         continue;
       const scan = yield* context.options.ledger.cursor.get("scan:" + session.binding.calendar.id);
       if (scan !== null && scan !== "") continue;
-      const candidates = due.filter((unit) => unit.calendar === session.binding.calendar.id);
-      const ready: Ready[] = [];
+      const guarded = yield* this.guard(session);
+      const candidates = (yield* context.options.ledger.unit.due(at, 100)).filter(
+        (unit) => unit.calendar === session.binding.calendar.id,
+      );
+      // Finish each read/write pair before preparing more work: reads cannot consume
+      // the next tick's entire bucket ahead of already prepared writes.
       for (const unit of candidates) {
         const result = yield* Effect.result(this.prepare(session, unit));
         if (Result.isFailure(result)) {
           yield* reportFailure(context, session, result.failure, unit);
           continue;
         }
-        if (result.success !== null) ready.push(result.success);
-      }
-      const destructive = ready.filter((item) => item.plan.destructive);
-      const all = (yield* context.options.ledger.unit.all(session.binding.calendar.id)).filter(
-        (unit) => unit.kind !== "exception" && unit.state !== "ended",
-      );
-      const guarded =
-        destructive.filter((item) => item.unit.kind === "series").length > 5 ||
-        destructive.length > all.length * 0.2;
-      const accepted: Ready[] = [];
-      for (const item of ready) {
+        const item = result.success;
+        if (item === null) continue;
         const signature = canonicalJson(item.plan.mutation);
         const released = yield* context.options.ledger.cursor.get("release:" + item.unit.key);
         if (guarded && item.plan.destructive && released !== signature) {
-          yield* context.queue.mutate(item.unit.key, (unit) => ({
-            ...unit,
+          yield* context.queue.mutate(item.unit.key, (current) => ({
+            ...current,
             state: "held",
           }));
           yield* context.options.ledger.cursor.set("held:" + item.unit.key, signature);
         } else if (item.plan.mutation === null) yield* this.acknowledge(item, item.remote, null);
-        else accepted.push(item);
+        else yield* this.send(session, [item]);
       }
-      if (accepted.length !== 0) yield* this.send(session, accepted);
     }
   });
 }

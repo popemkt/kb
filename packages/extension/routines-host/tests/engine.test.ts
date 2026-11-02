@@ -339,29 +339,31 @@ scenario("412 re-reads the remote head and reports a conflict without overwritin
     expect((yield* f.root).state).toBe("conflict");
   }),
 );
-scenario(
-  "transport retry exhaustion recovers after a successful poll, while auth blocks the account",
-  (f) =>
-    Effect.gen(function* () {
-      yield* f.engine.poll();
-      for (let index = 0; index < 10; index++) {
-        f.fake.inject("get", "before", new SyncError({ status: 0, code: "offline" }));
-        yield* TestClock.adjust("16 minutes");
-        yield* f.engine.push;
-      }
-      expect((yield* f.root).attempts).toBe(10);
-      expect((yield* f.root).state).toBe("failed");
-      yield* f.engine.poll(true);
-      yield* f.flush;
-      expect((yield* f.root).state).toBe("synced");
-      yield* f.edit("routine", (current) => ({ ...current, text: "needs auth" }));
-      f.fake.inject("get", "before", new SyncError({ status: 401, code: "auth_needed" }));
-      yield* f.flush;
-      const calls = f.fake.calls.length;
-      yield* f.engine.poll(true);
-      yield* f.flush;
-      expect(f.fake.calls).toHaveLength(calls);
-    }),
+scenario("successful polls preserve write exhaustion; explicit retry and edits recover", (f) =>
+  Effect.gen(function* () {
+    yield* f.engine.poll();
+    for (let index = 0; index < 10; index++) {
+      f.fake.inject("write", "before", new SyncError({ status: 503, code: "write_unavailable" }));
+      yield* TestClock.adjust("16 minutes");
+      yield* f.engine.push;
+    }
+    expect((yield* f.root).attempts).toBe(10);
+    expect((yield* f.root).state).toBe("failed");
+    yield* f.engine.poll(true);
+    yield* f.flush;
+    expect((yield* f.root).state).toBe("failed");
+    expect((yield* f.root).attempts).toBe(10);
+    yield* f.engine.syncNow();
+    yield* f.flush;
+    expect((yield* f.root).state).toBe("synced");
+    yield* f.edit("routine", (current) => ({ ...current, text: "needs auth" }));
+    f.fake.inject("get", "before", new SyncError({ status: 401, code: "auth_needed" }));
+    yield* f.flush;
+    const calls = f.fake.calls.length;
+    yield* f.engine.poll(true);
+    yield* f.flush;
+    expect(f.fake.calls).toHaveLength(calls);
+  }),
 );
 scenario("410 rebuilds sync state; intermediate pages block outbound writes", (f) =>
   Effect.gen(function* () {
@@ -613,5 +615,64 @@ scenario("a routine timezone override owns the deletion day even across calendar
     expect((yield* f.fake.port.get(f.calendar, root.key)).fields?.recurrence[0]).toContain(
       "UNTIL=20261102T045959Z",
     );
+  }),
+);
+
+scenario("a sustained backlog progresses at the production one-second cadence", (f) =>
+  Effect.gen(function* () {
+    const original = f.nodes.get("routine");
+    if (original === undefined) throw new Error("missing routine");
+    for (let index = 0; index < 29; index++) {
+      const id = "backlog-" + index;
+      f.nodes.set(id, { ...original, id });
+    }
+    yield* f.edit("routine", (current) => ({ ...current, text: "backlog" }));
+    yield* f.engine.poll();
+    yield* TestClock.adjust("6 seconds");
+    for (let tick = 0; tick < 20; tick++) {
+      yield* f.engine.push;
+      yield* TestClock.adjust("1 second");
+    }
+    expect(f.fake.snapshot(f.calendar)).toHaveLength(30);
+  }),
+);
+scenario("six removals behind 98 harmless changes are held before pagination and admission", (f) =>
+  Effect.gen(function* () {
+    yield* f.engine.poll();
+    yield* f.flush;
+    const root = yield* f.root;
+    const event = yield* f.fake.port.get(f.calendar, root.key);
+    if (event.fields === null) throw new Error("missing fields");
+    for (let index = 0; index < 104; index++) {
+      const key = "guard" + index.toString().padStart(4, "0");
+      const routineId = "missing-" + index;
+      const fields = { ...event.fields, nodeId: index < 98 ? "routine" : routineId };
+      yield* f.fake.port.write(f.calendar, [{ kind: "insert", id: key, fields }]);
+      yield* f.ledger.unit.put(
+        {
+          ...root,
+          key,
+          routineId,
+          base: fields,
+          state: "dirty",
+          nextAttemptAt: 0,
+          version: 0,
+          // The first 98 project harmlessly to existing nodes.
+          ...(index < 98 ? { routineId: "routine", base: event.fields } : {}),
+        },
+        0,
+      );
+    }
+    yield* TestClock.adjust("6 seconds");
+    yield* f.engine.push;
+    const units = yield* f.ledger.unit.all("calendar");
+    expect(units.filter((unit) => unit.state === "held")).toHaveLength(6);
+    expect(
+      f.fake
+        .snapshot(f.calendar)
+        .filter(
+          (entry) => entry.fields?.recurrence.some((rule) => rule.includes("UNTIL=")) === true,
+        ),
+    ).toHaveLength(0);
   }),
 );

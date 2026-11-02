@@ -128,8 +128,8 @@ export class Inbound {
     yield* context.queue.mutate(unit.key, (current) => ({
       ...current,
       etag: event.etag,
-      state: "dirty",
-      nextAttemptAt: 0,
+      state: current.state === "failed" ? "failed" : "dirty",
+      nextAttemptAt: current.state === "failed" ? current.nextAttemptAt : 0,
       base: proven ? (current.pending?.base ?? current.base) : current.base,
       pending: proven ? null : current.pending,
     }));
@@ -178,25 +178,6 @@ export class Inbound {
           ...current,
           state: "ended",
           pending: null,
-        }));
-      }
-  });
-  readonly reconnected = Effect.fn("routines.inbound.reconnected")(function* (
-    this: Inbound,
-    calendar: string,
-    at: number,
-  ) {
-    const context = this.context;
-    for (const unit of yield* context.options.ledger.unit.all(calendar))
-      if (
-        unit.state === "failed" &&
-        (unit.lastError?.status === 0 || (unit.lastError !== null && unit.lastError.status >= 500))
-      ) {
-        yield* context.queue.mutate(unit.key, (current) => ({
-          ...current,
-          state: "dirty",
-          attempts: 0,
-          nextAttemptAt: at,
         }));
       }
   });
@@ -270,7 +251,6 @@ export class Inbound {
     const page = result.success.value;
     this.failures.delete(calendar);
     if (!(yield* session.owns())) return undefined;
-    yield* this.reconnected(calendar, at);
     for (const event of page.events.filter((entry) => entry.seriesId === null))
       yield* this.observe(session, event);
     const pending = [...state.pending, ...page.events.filter((entry) => entry.seriesId !== null)];
