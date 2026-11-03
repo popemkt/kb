@@ -152,9 +152,11 @@ each id that is still held keeping its local image.
 committed them, over one lane (`session/runtime.ts`), whichever writes they
 are; the server judges each against the graph the person saw when they made
 it. Typed text coalesces in the lane, not beside it: each keystroke commits
-to the replica at once, and its push lingers at the lane's end until a pause
-(`COALESCE_MS`) passes with no keystroke for that node, or any other write is
-pushed, which sends what lingers first (`invokeCoalesced`). So no write waits
+to the replica at once, and its push lingers as the lane's last write until a
+pause (`COALESCE_MS`) passes with no keystroke for that node, or any other
+write is pushed or lingers, which sends it first (`invokeCoalesced`). Only
+the last write lingers, so a keystroke joins only the push right before it,
+never one another write has followed. So no write waits
 on the network before it commits locally — Enter splits the row at once, and
 the next keystroke lands in the new one — and no text is pushed after a write
 that followed it, such as the undo or merge that deletes its node. A push the

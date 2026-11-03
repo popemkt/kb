@@ -243,10 +243,13 @@ function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
 }
 
 /**
- * A coalescing write at the lane's end, not yet sent: a later write of its key
- * replaces what it sends, and its hold takes that write's ids too.
+ * The lane's last write, when it coalesces and is not sent yet: the next
+ * write of its key replaces what it sends, and its hold takes that write's
+ * ids too. Only the last write lingers, so joining it never moves a write
+ * past one the tab committed after it.
  */
 interface Lingering {
+  readonly key: string;
   invocation: ActionRequest;
   readonly hold: Hold;
   timer: ReturnType<typeof setTimeout>;
@@ -258,26 +261,20 @@ interface Lingering {
 /** How long a coalescing write waits for the next of its key: a pause in typing. */
 const COALESCE_MS = 280;
 
-/** In the order their keys first lingered; only text of distinct nodes, so any order is theirs. */
-const lingering = new Map<string, Lingering>();
+let lingering: Lingering | null = null;
 
-/** Send the lingering write of `key` now, in its place in the lane. */
-function release(key: string): void {
-  const entry = lingering.get(key);
-  if (entry === undefined) return;
-  lingering.delete(key);
+/** Send the lingering write now, in its place in the lane, ahead of whatever is pushed next. */
+function release(): void {
+  const entry = lingering;
+  if (entry === null) return;
+  lingering = null;
   clearTimeout(entry.timer);
   entry.response.resolve(send(entry.invocation, entry.hold));
 }
 
-/** Every lingering write goes out ahead of whatever is pushed next. */
-function releaseAll(): void {
-  for (const key of lingering.keys()) release(key);
-}
-
 /** Push a write: everything committed before it is sent first, then it. */
 function pushInvocation(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
-  releaseAll();
+  release();
   return send(invocation, hold);
 }
 
@@ -288,8 +285,8 @@ export function waitForBrowserPushes(): Promise<void> {
 
 /** @internal Forget lingering writes and the lane's tail between tests. */
 export function resetPushLaneForTests(): void {
-  for (const entry of lingering.values()) clearTimeout(entry.timer);
-  lingering.clear();
+  if (lingering !== null) clearTimeout(lingering.timer);
+  lingering = null;
   pushTail = Promise.resolve();
 }
 
@@ -406,32 +403,33 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
  * {@link invokeSettled} for a write that coalesces: typed text, where each
  * keystroke is a local commit and the server needs only the last one of a
  * pause. It is committed now, and its push lingers at the lane's end until
- * {@link COALESCE_MS} pass with no write of the same `key`, or any other write
- * is pushed — which sends it first, in the order it was committed.
+ * {@link COALESCE_MS} pass with no further write of the same `key`, or any
+ * other write is pushed or lingers, which sends it first.
  */
 export async function invokeCoalesced(invocation: ActionRequest, key: string): Promise<Invoked> {
   const { receipt, touched } = await commitLocal(invocation);
   if (receipt.status === "failed") return done(receipt);
-  const waiting = lingering.get(key);
+  const waiting = lingering?.key === key ? lingering : null;
   const hold = requireSession().replica.hold(touched, waiting?.hold);
-  if (waiting !== undefined && waiting.hold === hold) {
+  if (waiting !== null && waiting.hold === hold) {
     clearTimeout(waiting.timer);
     waiting.invocation = invocation;
-    waiting.timer = setTimeout(() => release(key), COALESCE_MS);
+    waiting.timer = setTimeout(release, COALESCE_MS);
     return { receipt, settled: waiting.settled };
   }
-  // A hold the replica no longer has (a new session) is not joined: what
-  // lingered under it goes out as it was, and this write lingers on its own.
-  release(key);
+  // Whatever lingers was committed before this write, so it goes out first:
+  // another key's text, or this key's under a hold the replica no longer has.
+  release();
   const response = Promise.withResolvers<ActionResponse>();
   const settled = settledOf(invocation.id, response.promise, undefined);
-  lingering.set(key, {
+  lingering = {
+    key,
     invocation,
     hold,
-    timer: setTimeout(() => release(key), COALESCE_MS),
+    timer: setTimeout(release, COALESCE_MS),
     response,
     settled,
-  });
+  };
   return { receipt, settled };
 }
 
