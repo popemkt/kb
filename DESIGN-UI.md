@@ -258,13 +258,15 @@ be kept, never how it is sent.
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
 - **A tab outlives its build.** A release replaces `ui/dist`, and a tab
   opened before it keeps working: it reloads only when it cannot.
-  - *Earlier builds are still served.* Every file under `static/` is named
-    by its digest, so a server keeps the ones it serves in kb's cache
-    (`<cache>/ui-builds`, `KB_CACHE` or the platform's cache directory) when
-    it starts, with a record of which files each build loads, and keeps the
-    last eight builds. A digest-named file the current build lacks is served
-    from there; one no kept build has is `404`, never the page
-    (`server/src/build-archive.ts`). Nothing about this is in the package:
+  - *Earlier builds are still served.* When a server starts it keeps the
+    build it serves in kb's cache (`<cache>/ui-builds`, `KB_CACHE` or the
+    platform's cache directory): one directory per build, published whole,
+    of which the newest eight stay. Servers sharing that cache never remove
+    a build another has just kept, since a build is removed only whole and
+    only by a server that listed it. Every file under `static/` is named by
+    its digest, so one the current build lacks is served from whichever kept
+    build has it, and never from outside that build's own files; one no kept
+    build has is `404`, never the page (`server/src/build-archive.ts`). Nothing about this is in the package:
     whatever installs kb, the server keeps its own builds. The sandbox
     frame's script is not digest-named, so a tab gets the current one
     (GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]]).

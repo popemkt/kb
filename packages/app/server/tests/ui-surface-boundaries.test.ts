@@ -142,28 +142,8 @@ describe("who may frame the page", () => {
   });
 });
 
-describe("the build a page loads", () => {
-  test("is the module script the page's index.html loads, whatever its attributes' order", () => {
-    expect(
-      assets.entryScriptOf(
-        '<script>var a</script><script type="module" crossorigin src="/static/index-fENRSP5E.js"></script>',
-      ),
-    ).toBe("/static/index-fENRSP5E.js");
-    expect(assets.entryScriptOf("<script src='/s/x.js' type=module></script>")).toBe("/s/x.js");
-    expect(assets.entryScriptOf('<script src="/legacy.js"></script>')).toBeNull();
-    expect(assets.entryScriptOf("<p>no page</p>")).toBeNull();
-  });
-
-  test("is read from ui/dist each time, so a build replaced under the server is the one named", async () => {
-    const dist = await mkdtemp(join(tmpdir(), "kb-ui-build-"));
-    expect(assets.servedBuild(dist)).toBeNull();
-    await writeFile(join(dist, "index.html"), '<script type="module" src="/static/index-a.js">');
-    expect(assets.servedBuild(dist)).toBe("/static/index-a.js");
-    await writeFile(join(dist, "index.html"), '<script type="module" src="/static/index-b.js">');
-    expect(assets.servedBuild(dist)).toBe("/static/index-b.js");
-  });
-
-  test("is not what a connection is told: its hello names the wire protocol, whatever the build", async () => {
+describe("what a connection is told first", () => {
+  test("is the wire protocol the server speaks, whatever build it serves", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-ui-hello-"));
     await mkdir(join(root, ".kb"), { recursive: true });
     const ctx = await openKb(root);

@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { join, normalize, resolve } from "node:path";
 import { Effect, Option } from "effect";
 import { FileSystem, type File } from "effect/FileSystem";
@@ -6,6 +5,7 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { assetMediaType } from "@kb/model";
 import { containedFile, resolveAssetFile, assetsDir } from "@kb/workspace-fs";
 import { bunFileSystemLayer } from "@kb/runtime";
+import { DIGEST_NAMED_DIR, keptFile } from "./build-archive.ts";
 import { UI_DIST } from "./paths.ts";
 
 /** Resolve Content-Type for a kb asset path; unknown → octet-stream. */
@@ -77,13 +77,6 @@ export function serveKbAsset(kbRoot: string, pathname: string): Promise<Response
 export function frameAncestors(embedOrigins: readonly string[]): string {
   return `frame-ancestors ${["'self'", ...embedOrigins].join(" ")}`;
 }
-
-/**
- * Where the bundler writes its output inside `ui/dist` (the UI's Vite
- * `build.assetsDir`). Every file under it is named by its digest, so its
- * bytes never change under its name.
- */
-export const DIGEST_NAMED_DIR = "static/";
 
 /**
  * How long a client may keep a `ui/dist` file (DESIGN-UI.md → Delivery): a
@@ -158,47 +151,14 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
   // (`build-archive.ts`), else not found. Never the page: a module that
   // answers with HTML fails as a module that is broken, not as one missing.
   if (rel.startsWith(DIGEST_NAMED_DIR)) {
-    const kept = builds === null ? null : join(builds, rel);
-    const inArchive = builds !== null && kept?.startsWith(join(builds, DIGEST_NAMED_DIR));
-    if (kept !== null && inArchive === true && (yield* fs.exists(kept).pipe(Effect.orDie))) {
-      return served(kept, rel, yield* fs.stat(kept).pipe(Effect.orDie));
-    }
-    return plainStatus("not found", 404);
+    const kept = builds === null ? null : yield* keptFile(builds, rel);
+    return kept === null ? plainStatus("not found", 404) : served(kept.path, rel, kept.info);
   }
 
   // SPA fallback
   const index = yield* fs.stat(indexHtml).pipe(Effect.orDie);
   return served(indexHtml, "index.html", index);
 });
-
-/**
- * The build a page's `index.html` loads: the `src` of its module script,
- * whose digest names every chunk it may fetch. Null for a page with none.
- */
-export function entryScriptOf(html: string): string | null {
-  for (const [tag] of html.matchAll(/<script\b[^>]*>/g)) {
-    if (!/\btype=["']?module\b/.test(tag)) continue;
-    const src = /\bsrc=["']([^"']+)["']/.exec(tag)?.[1];
-    if (src !== undefined) return src;
-  }
-  return null;
-}
-
-/**
- * The build the server serves now (`hello.build`): read from `ui/dist`'s
- * `index.html` each time, as {@link serveStaticEffect} serves it, so a build
- * replaced under a running server is the one it names. Null when the UI has
- * not been built. Read synchronously, because the greeting it joins is a
- * connection's first frames: nothing the connection is answered may pass
- * them (a page's `index.html` is a few KB).
- */
-export function servedBuild(distDir: string = UI_DIST): string | null {
-  try {
-    return entryScriptOf(readFileSync(join(distDir, "index.html"), "utf8"));
-  } catch {
-    return null;
-  }
-}
 
 /** Promise facade for the WS-free HTTP path / tests. */
 export function serveStatic(pathname: string): Promise<Response | null> {

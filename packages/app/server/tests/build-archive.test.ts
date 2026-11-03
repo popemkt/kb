@@ -3,14 +3,14 @@
  * (DESIGN-UI.md → Delivery, "A tab outlives its build"; `build-archive.ts`).
  */
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { serveStaticEffect } from "../src/assets.ts";
-import { recordBuild } from "../src/build-archive.ts";
+import { entryScriptOf, recordBuild } from "../src/build-archive.ts";
 
 /** A `ui/dist` whose entry is `index-<name>.js`, with `chunks` beside it under `static/`. */
 async function build(dist: string, name: string, chunks: Record<string, string>): Promise<void> {
@@ -69,30 +69,75 @@ describe("the builds kept for open tabs", () => {
     expect((await serve(dist, null, "/node/abc")).body).toContain("index-a.js");
   });
 
-  test("keep the newest builds and forget the files only older ones had", async () => {
+  test("keep the newest builds, each whole, and forget the older ones", async () => {
     const at = await mkdtemp(join(tmpdir(), "kb-builds-"));
     const dist = join(at, "dist");
     const builds = join(at, "builds");
-    await build(dist, "a", { "shared-1.js": "shared", "only-a.js": "a" });
-    await record(builds, dist, 2);
-    await build(dist, "b", { "shared-1.js": "shared", "only-b.js": "b" });
-    await record(builds, dist, 2);
-    await build(dist, "c", { "shared-1.js": "shared", "only-c.js": "c" });
-    await record(builds, dist, 2);
+    for (const name of ["a", "b", "c"]) {
+      await build(dist, name, { "shared-1.js": "shared", [`only-${name}.js`]: name });
+      await record(builds, dist, 2);
+    }
 
-    expect((await readdir(join(builds, "static"))).toSorted()).toEqual([
-      "index-b.js",
-      "index-c.js",
-      "only-b.js",
-      "only-c.js",
-      "shared-1.js",
-    ]);
+    expect((await readdir(builds)).toSorted()).toEqual(["index-b.js", "index-c.js"]);
     expect((await serve(dist, builds, "/static/only-a.js")).status).toBe(404);
+    expect((await serve(dist, builds, "/static/only-b.js")).body).toBe("b");
+  });
+
+  test("count a build a server starts on again as new, without copying it again", async () => {
+    const at = await mkdtemp(join(tmpdir(), "kb-builds-"));
+    const builds = join(at, "builds");
+    const dists = { a: join(at, "a"), b: join(at, "b"), c: join(at, "c") };
+    for (const [name, dist] of Object.entries(dists)) await build(dist, name, {});
+    await record(builds, dists.a, 2);
+    await record(builds, dists.b, 2);
+    await record(builds, dists.a, 2);
+    await record(builds, dists.c, 2);
+
+    expect((await readdir(builds)).toSorted()).toEqual(["index-a.js", "index-c.js"]);
+  });
+
+  test("keep every build of servers that start at once on one archive", async () => {
+    const at = await mkdtemp(join(tmpdir(), "kb-builds-"));
+    const builds = join(at, "builds");
+    const names = ["a", "b", "c", "d", "e", "f"];
+    for (const name of names) await build(join(at, name), name, { [`only-${name}.js`]: name });
+    await Promise.all(names.map((name) => record(builds, join(at, name))));
+
+    expect((await readdir(builds)).toSorted()).toEqual(names.map((name) => `index-${name}.js`));
+    for (const name of names) {
+      expect((await serve(join(at, "a"), builds, `/static/only-${name}.js`)).body).toBe(name);
+    }
+  });
+
+  test("never serve a file outside a kept build's own files, whatever a link says", async () => {
+    const at = await mkdtemp(join(tmpdir(), "kb-builds-"));
+    const dist = join(at, "dist");
+    const builds = join(at, "builds");
+    await build(dist, "a", {});
+    await record(builds, dist);
+    await writeFile(join(at, "secret.txt"), "not a chunk");
+    await symlink(join(at, "secret.txt"), join(builds, "index-a.js", "static", "leak.js"));
+
+    expect((await serve(dist, builds, "/static/leak.js")).status).toBe(404);
+    expect((await serve(dist, builds, "/static/../build.json")).status).not.toBe(200);
   });
 
   test("record nothing for a dist with no built page, and never fail the server", async () => {
     const at = await mkdtemp(join(tmpdir(), "kb-builds-"));
     await record(join(at, "builds"), join(at, "no-dist"));
     expect(await readdir(at)).toEqual([]);
+  });
+});
+
+describe("the build a page loads", () => {
+  test("is the module script the page's index.html loads, whatever its attributes' order", () => {
+    expect(
+      entryScriptOf(
+        '<script>var a</script><script type="module" crossorigin src="/static/index-fENRSP5E.js"></script>',
+      ),
+    ).toBe("/static/index-fENRSP5E.js");
+    expect(entryScriptOf("<script src='/s/x.js' type=module></script>")).toBe("/s/x.js");
+    expect(entryScriptOf('<script src="/legacy.js"></script>')).toBeNull();
+    expect(entryScriptOf("<p>no page</p>")).toBeNull();
   });
 });
