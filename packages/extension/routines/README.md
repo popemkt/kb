@@ -2,8 +2,10 @@
 
 The canonical design is [routines → Google Calendar](../../../docs/research/2026-11-02-kb-routines-gcal.md)
 ([design PR #97](https://github.com/popemkt/kb/pull/97)).
-This family is hosted by `kb ui`, off by default. The engine has no frontend
-package: use ordinary outline fields and `ext.routines.*` actions. The month/week/agenda calendar view is a later frontend pass.
+This family is hosted by `kb ui`, off by default. Its browser half,
+`@kb/routines-ui`, is the month, week and agenda calendar at `/calendar`
+([DESIGN-UI.md → The routines calendar](../../../DESIGN-UI.md#the-routines-calendar));
+ordinary outline fields and `ext.routines.*` actions work as well.
 
 ## Owner setup (once per person)
 
@@ -73,7 +75,7 @@ The behavior and Calendar port contract are specified once in the
 [design's Simplified section](../../../docs/research/2026-11-02-kb-routines-gcal.md#simplified-2026-11-04).
 Status fields are native graph fields on routines and occurrences: **gcal status**
 (pending/synced/error), **gcal message**, **gcal link**, **gcal event id**, **synced at**.
-The calendar view can use those fields and the actions above directly.
+The calendar view reads those fields and calls the actions above.
 
 ## Validation and remaining acceptance
 

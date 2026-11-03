@@ -155,12 +155,14 @@ export interface BrowserExtension {
  * graph, canvas, code, chart, locations, backdrops, themes and each
  * whole theme: ZZZ, Transistor, YoRHa) loads
  * from the main bundle, and one off by default (the lab, the gallery) or hosted only by
- * `kb ui` (the agent) is its own chunk, fetched when it is first on. A family with no
+ * `kb ui` (the agent, the routines calendar) is its own chunk, fetched when it is first on. A family with no
  * browser half is listed too, as `null`, so a bundled family is never left
  * out by omission: the resolver's test holds every bundled family to an entry.
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
-  [routinesExtension.name]: null,
+  [routinesExtension.name]: {
+    load: () => import("@kb/routines-ui").then(({ routinesUiPlugin }) => routinesUiPlugin),
+  },
   [governanceExtension.name]: { load: () => Promise.resolve(governancePlugin) },
   [outlineExtension.name]: { load: () => Promise.resolve(outlineUiPlugin) },
   [collectionsExtension.name]: { load: () => Promise.resolve(collectionsUiPlugin) },

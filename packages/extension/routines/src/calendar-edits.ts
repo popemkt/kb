@@ -49,14 +49,11 @@ function update(id: string, written: Written, text?: string): NodeCall {
   };
 }
 
-/** What a new routine is made with. */
+/** What a new routine is made with: its id, its title and the settings it starts with. */
 export interface NewRoutine {
   readonly id: string;
   readonly title: string;
-  readonly place: Place;
-  readonly duration: number;
-  readonly calendar: string;
-  readonly rrule: string;
+  readonly settings: Partial<RoutineSettings>;
 }
 
 /** Make a routine: one node, tagged, with its settings, in one call. */
@@ -67,15 +64,7 @@ export function addRoutine(routine: NewRoutine): NodeCall {
       id: routine.id,
       text: routine.title,
       tags: [T.routine],
-      props: propsOf(
-        routineWrite({
-          starts: routine.place.day,
-          at: routine.place.at ?? "",
-          duration: routine.duration,
-          calendar: routine.calendar,
-          rrule: routine.rrule,
-        }),
-      ),
+      props: propsOf(routineWrite(routine.settings)),
     },
   };
 }

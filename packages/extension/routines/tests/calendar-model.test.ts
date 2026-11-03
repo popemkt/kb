@@ -320,10 +320,7 @@ describe("gestures", () => {
       addRoutine({
         id: "n",
         title: "Read",
-        place: { day: "2026-11-05", at: "21:15" },
-        duration: 45,
-        calendar: "",
-        rrule: "",
+        settings: { starts: "2026-11-05", at: "21:15", duration: 45, calendar: "", rrule: "" },
       }),
     ]);
     const made = only(graph, "2026-11-05");

@@ -310,6 +310,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
 
+### GAP: a one-off routine cannot be ticked done or skipped in the calendar
+
+- **expected** — Every instance the calendar shows, one-off or repeating, can be ticked done or skipped, and the engine sends it done (✅, grey, no reminders) or cancels it.
+- **current** — The engine keeps #occurrence facts only for series instances (projection reads them as exceptions to the rule), so the calendar offers done and skip only on a repeating routine; a one-off has neither in the agenda or its popover.
+- **impact** — A one-off reminder (a dentist visit) cannot be marked done from the calendar; deleting it is the only way to clear it.
+- **closes** — The engine projects a one-off routine's own fact (done or skipped) onto its single event, with the shared projection test, and the calendar drops its series guard on done and skip.
+- **node** — `01M6HGRGWW0WZ41V24SK89KXQY`
+
 ### GAP: a page's own backdrop has no gesture
 
 - **expected** — A page chooses its own backdrop with the ordinary field gesture.
