@@ -284,8 +284,10 @@ export function shiftRule(rrule: string, starts: string, days: number): string |
     if (turned === null) return null;
     if (turned !== undefined) next.set("BYDAY", turned);
   }
-  if (freq === "MONTHLY" || freq === "YEARLY") {
-    // Without a day of the month the start's is implied, and moves the same way.
+  // A day of the month moves whatever the frequency; without one a monthly or
+  // yearly rule implies the start's, which moves the same way.
+  const implied = monthDay === undefined && (freq === "MONTHLY" || freq === "YEARLY");
+  if (monthDay !== undefined || implied) {
     const moved = movedMonthDays((monthDay ?? String(start.day)).split(",").map(Number), days);
     if (moved === null) return null;
     if (monthDay !== undefined) next.set("BYMONTHDAY", moved);

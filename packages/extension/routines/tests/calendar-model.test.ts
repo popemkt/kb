@@ -405,6 +405,12 @@ describe("gestures", () => {
     // A month's implied day leaving the days every month has changes the months it falls in.
     expect(shiftRule("FREQ=MONTHLY", "2026-01-28", 1)).toBeNull();
     expect(shiftRule("FREQ=MONTHLY", "2026-01-10", 1)).toBe("FREQ=MONTHLY");
+    // A day of the month moves whatever the frequency.
+    const daily = must(shiftRule("FREQ=DAILY;BYMONTHDAY=1,15", "2026-11-01", 1));
+    expect(
+      seriesDays({ ...base, starts: "2026-11-02", rrule: daily }, "2026-11-01", "2026-12-31"),
+    ).toEqual(["2026-11-02", "2026-11-16", "2026-12-02", "2026-12-16"]);
+    expect(shiftRule("FREQ=DAILY;BYMONTHDAY=28", "2026-11-28", 1)).toBeNull();
   });
   test("a move to a place that is not a day and time is refused, not written", () => {
     const monday = only(start, "2026-11-02");

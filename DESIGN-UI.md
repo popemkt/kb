@@ -3496,7 +3496,7 @@ the page adds no storage of its own.
   and, on the week's grid (`data-calendar-timed`), the quarter hour it is
   in. A press that does not travel past the slop is a click. A drop, a
   resize's new end and a dragged slot are read as instants on the page's
-  clock (`instantAt`), so a span across a DST change lasts the time it
+  clock (`instantAfter`), so a span across a DST change lasts the time it
   shows. A timed instance dropped on a month day keeps the time it shows. Dragging a repeating
   instance asks "Just this one" or "The whole series". Done and skipped
   instances do not move. A click on an empty slot opens the editor on a

@@ -16,7 +16,7 @@ import {
 } from "@kb/routines";
 import { toast } from "@kb/ui-sdk";
 import type { Spot } from "./drag";
-import { elapsed, instantAt, placeAt } from "./layout";
+import { elapsed, instantAfter, placeAt } from "./layout";
 import type { CalendarModel } from "./model";
 import type { EditorTarget } from "./routine-editor";
 import { mintId, runCalls } from "./writes";
@@ -91,7 +91,8 @@ export function useCalendarActions(model: CalendarModel, zone: string) {
     /** Its end moved: it lasts the time from its start to there, as time passes. */
     resize: (entry: CalendarEntry, end: { readonly day: string; readonly minutes: number }) => {
       if (entry.start === null) return;
-      const duration = Math.round((instantAt(end.day, end.minutes, zone) - entry.start) / 60_000);
+      const ends = instantAfter(entry.start, end.day, end.minutes, zone);
+      const duration = Math.round((ends - entry.start) / 60_000);
       if (duration > 0) void runCalls(resizeEntry(entry, duration), "Could not resize it");
     },
     choose: (scope: "one" | "series") => {

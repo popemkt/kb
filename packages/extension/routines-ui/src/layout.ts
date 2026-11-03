@@ -102,14 +102,35 @@ export function minutesAt(y: number): number {
  * dragged slot mean, so a span across a DST change is measured in time, not
  * on the clock.
  */
-export function instantAt(day: string, minutes: number, zone: string): number {
+function instantAt(day: string, minutes: number, zone: string): number {
   const carry = Math.floor(minutes / 1440);
   return instantOf(shiftDay(day, carry), clockText(minutes - carry * 1440), zone);
 }
 
+/** How far either way a clock change can make one wall-clock time name another instant. */
+const CLOCK_SHIFTS = [-120, -60, -30, 0, 30, 60, 120].map((minutes) => minutes * 60_000);
+
+/**
+ * The first instant after `start` that `minutes` on displayed `day` names in
+ * `zone`. In the hour a clock repeats, the wall-clock time names two
+ * instants, and an end is the one after its start; a time a clock skips
+ * names none, and reads as the instant past the gap.
+ */
+export function instantAfter(start: number, day: string, minutes: number, zone: string): number {
+  const carry = Math.floor(minutes / 1440);
+  const target = { day: shiftDay(day, carry), minutes: minutes - carry * 1440 };
+  const first = instantAt(day, minutes, zone);
+  const named = CLOCK_SHIFTS.map((shift) => first + shift).filter((instant) => {
+    const clock = wallClock(instant, zone);
+    return instant > start && clock.day === target.day && clock.minutes === target.minutes;
+  });
+  return named.length === 0 ? first : Math.min(...named);
+}
+
 /** The minutes between two times on displayed `day`, as time passes in `zone`. */
 export function elapsed(day: string, from: number, to: number, zone: string): number {
-  return Math.round((instantAt(day, to, zone) - instantAt(day, from, zone)) / 60_000);
+  const start = instantAt(day, from, zone);
+  return Math.round((instantAfter(start, day, to, zone) - start) / 60_000);
 }
 
 /**

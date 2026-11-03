@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 import type { CalendarEntry } from "@kb/routines";
 import { instantOf } from "@kb/routines";
 import { daysOf, stepAnchor, titleOf, weekStartOf } from "./dates";
-import { minutesAt, placeAt, placeDay } from "./layout";
+import { elapsed, instantAfter, minutesAt, placeAt, placeDay } from "./layout";
 import { calendarPath, matchCalendar } from "./routes";
 
 describe("routes", () => {
@@ -86,6 +86,18 @@ describe("the week grid", () => {
     expect(minutesAt(48 * 9 + 5)).toBe(540);
     expect(minutesAt(48 * 9 + 20)).toBe(555);
     expect(minutesAt(-30)).toBe(0);
+  });
+  test("an end is the first time after its start the clock names, across either DST change", () => {
+    const NY = "America/New_York";
+    // Nov 1 2026, New York repeats 01:00–02:00. An instance at the second 01:30 ends at the second 01:45.
+    const second130 = Date.UTC(2026, 10, 1, 6, 30);
+    expect(instantAfter(second130, "2026-11-01", 105, NY)).toBe(Date.UTC(2026, 10, 1, 6, 45));
+    const first130 = Date.UTC(2026, 10, 1, 5, 30);
+    expect(instantAfter(first130, "2026-11-01", 105, NY)).toBe(Date.UTC(2026, 10, 1, 5, 45));
+    // Mar 8 2026 skips 02:00–03:00: 01:30 to 04:15 is 105 minutes.
+    expect(elapsed("2026-03-08", 90, 255, NY)).toBe(105);
+    expect(elapsed("2026-11-01", 60, 120, NY)).toBe(120);
+    expect(elapsed("2026-11-04", 23 * 60, 1440, ZONE)).toBe(60);
   });
   test("a drop on the page's clock is stored on the routine's", () => {
     expect(placeAt("2026-11-04", 9 * 60, "Europe/Berlin", ZONE)).toEqual({
