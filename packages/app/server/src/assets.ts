@@ -83,7 +83,7 @@ export function frameAncestors(embedOrigins: readonly string[]): string {
  * `build.assetsDir`). Every file under it is named by its digest, so its
  * bytes never change under its name.
  */
-const DIGEST_NAMED_DIR = "static/";
+export const DIGEST_NAMED_DIR = "static/";
 
 /**
  * How long a client may keep a `ui/dist` file (DESIGN-UI.md → Delivery): a
@@ -109,19 +109,29 @@ export function staticCacheHeaders(rel: string, info: File.Info): Record<string,
  */
 export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
   pathname: string,
-  embedOrigins: readonly string[] = [],
+  {
+    embedOrigins = [],
+    builds = null,
+    dist = UI_DIST,
+  }: {
+    /** Who else may frame the page ({@link frameAncestors}). */
+    readonly embedOrigins?: readonly string[];
+    /** Where earlier builds are kept (`build-archive.ts`); none when null. */
+    readonly builds?: string | null;
+    readonly dist?: string;
+  } = {},
 ) {
   const framing = { "Content-Security-Policy": frameAncestors(embedOrigins) };
   const fs = yield* FileSystem;
-  const indexHtml = join(UI_DIST, "index.html");
+  const indexHtml = join(dist, "index.html");
   // Platform I/O errors become defects; HTTP catchCause maps them to 500.
   if (!(yield* fs.exists(indexHtml).pipe(Effect.orDie))) {
     return null as HttpServerResponse.HttpServerResponse | null;
   }
 
   const rel = pathname === "/" ? "index.html" : pathname.replace(/^\//, "");
-  const candidate = normalize(join(UI_DIST, rel));
-  const distResolved = resolve(UI_DIST);
+  const candidate = normalize(join(dist, rel));
+  const distResolved = resolve(dist);
   if (candidate !== distResolved && !candidate.startsWith(distResolved + "/")) {
     return plainStatus("forbidden", 403);
   }
@@ -133,7 +143,7 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
     });
 
   if (yield* fs.exists(candidate).pipe(Effect.orDie)) {
-    const contained = yield* containedFile(UI_DIST, candidate);
+    const contained = yield* containedFile(dist, candidate);
     if (contained.kind === "ok") {
       return served(contained.path, rel, contained.info);
     }
@@ -141,6 +151,19 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
       return plainStatus("forbidden", 403);
     }
     // missing after exists: race / broken link — fall through to SPA
+  }
+
+  // A digest-named file this build does not have is an earlier build's,
+  // asked for by a tab of it: served from the builds kept for such tabs
+  // (`build-archive.ts`), else not found. Never the page: a module that
+  // answers with HTML fails as a module that is broken, not as one missing.
+  if (rel.startsWith(DIGEST_NAMED_DIR)) {
+    const kept = builds === null ? null : join(builds, rel);
+    const inArchive = builds !== null && kept?.startsWith(join(builds, DIGEST_NAMED_DIR));
+    if (kept !== null && inArchive === true && (yield* fs.exists(kept).pipe(Effect.orDie))) {
+      return served(kept, rel, yield* fs.stat(kept).pipe(Effect.orDie));
+    }
+    return plainStatus("not found", 404);
   }
 
   // SPA fallback

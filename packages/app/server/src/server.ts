@@ -27,7 +27,7 @@ import {
   writeErr,
 } from "@kb/runtime";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
-import { clearUiPresence, queriesDir, writeUiPresence } from "@kb/workspace-fs";
+import { clearUiPresence, currentCache, queriesDir, writeUiPresence } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import {
   UI_DEV_DEFAULT_PORT,
@@ -37,6 +37,7 @@ import {
   type UiDevSpawn,
 } from "./dev.ts";
 import { servedBuild } from "./assets.ts";
+import { recordBuild } from "./build-archive.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
@@ -103,6 +104,13 @@ export interface UiServerOptions {
    * test, a harness) registers nothing.
    */
   openedBy?: SurfaceWire;
+  /**
+   * Where the builds this server and earlier ones served are kept, so a tab
+   * of an earlier build is still served its chunks (`build-archive.ts`).
+   * Default: `ui-builds` in kb's cache, which a test run that names no cache
+   * has none of; `null` keeps none.
+   */
+  builds?: string | null;
 }
 
 export interface UiServerHandle {
@@ -241,6 +249,8 @@ function serveUi(deps: {
   hosted: HostedFamilies;
   /** The server's kernel, whose identity providers say who a request is. */
   kernel: Kernel;
+  /** Where earlier builds are kept ({@link UiServerOptions.builds}). */
+  builds: string | null;
 }): Bun.Server<WsData> {
   const { ctx, hub } = deps;
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
@@ -282,6 +292,7 @@ function serveUi(deps: {
         hub,
         hosted: deps.hosted,
         embedding: deps.embedding,
+        builds: deps.builds,
       });
     },
     websocket: {
@@ -401,6 +412,10 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     yield* fs.makeDirectory(savedDir, { recursive: true });
   }).pipe(Effect.ignoreCause);
 
+  const cache = yield* currentCache;
+  const builds =
+    opts.builds !== undefined ? opts.builds : cache === null ? null : join(cache, "ui-builds");
+
   // The listener first: a bind that fails throws here, before the lifetime
   // owns the server, so nothing is left running behind a server that never
   // came up.
@@ -416,8 +431,12 @@ export const startUi = Effect.fn("kb.startUi")(function* (
       hub,
       hosted,
       kernel,
+      builds,
     }),
   );
+  // Kept beside the server's start, not before it: the tabs it keeps them
+  // for are of earlier builds, which earlier starts kept.
+  if (builds !== null) yield* Effect.forkIn(recordBuild(builds, UI_DIST), lifetime);
 
   yield* Scope.addFinalizer(
     lifetime,
