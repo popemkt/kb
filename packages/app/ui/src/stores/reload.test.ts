@@ -51,6 +51,8 @@ function workspace(...ids: string[]): void {
 
 describe("the page a reload leaves and the one it lands on", () => {
   let dom: Window;
+  /** The page's pending frames, which end with it as a tab's do. */
+  const frames = new Set<ReturnType<typeof setTimeout>>();
   const activated: Array<[string, number | undefined, string | undefined]> = [];
   const editor = (active: { nodeId: string; instanceKey: string } | null): PageEditor => ({
     ...EMPTY_EDITOR,
@@ -70,10 +72,18 @@ describe("the page a reload leaves and the one it lands on", () => {
     vi.stubGlobal("HTMLElement", dom.HTMLElement);
     vi.stubGlobal("HTMLInputElement", dom.HTMLInputElement);
     vi.stubGlobal("HTMLTextAreaElement", dom.HTMLTextAreaElement);
-    vi.stubGlobal("requestAnimationFrame", (step: () => void) => setTimeout(step, 0));
+    vi.stubGlobal("requestAnimationFrame", (step: () => void) => {
+      const frame = setTimeout(() => {
+        frames.delete(frame);
+        step();
+      }, 0);
+      frames.add(frame);
+    });
     useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
   });
   afterEach(() => {
+    for (const frame of frames) clearTimeout(frame);
+    frames.clear();
     providePageEditor(EMPTY_EDITOR);
     vi.unstubAllGlobals();
   });
