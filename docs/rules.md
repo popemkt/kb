@@ -1197,18 +1197,10 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: routine background runner placement has no general job contract
 
 - **expected** — A general runner placement contract if multiple background families require one.
-- **current** — The routines design uses per-machine binding trust and a calendar lease.
+- **current** — The routines worker runs only on the trusted shared server, with no lease or sidecar. A general job contract remains deferred until another family needs it.
 - **impact** — No shared scheduler or host-selection mechanism exists.
 - **closes** — A second background family establishes the shared contract requirements.
 - **node** — `01M6EKEE8P040W6592ZZ3HDVGC`
-
-### GAP: routine live sync status has no ephemeral outline column
-
-- **expected** — A family can project transient field values without committing them.
-- **current** — Outline columns read persisted fields only; routine queue status needs a later view.
-- **impact** — Live settling and retry status cannot appear in the routine table.
-- **closes** — A shared ephemeral column contract used by projections.
-- **node** — `01M6EKDJK9Y45AY2Z33W1BSQPE`
 
 ### GAP: sandboxed third-party code has no distribution
 
@@ -2295,6 +2287,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The precedence between explicit and derived columns is implicit in statement order.
 - **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
 - **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
+
+### GAP: routine live sync status has no ephemeral outline column
+
+- **expected** — A family can project transient field values without committing them.
+- **current** — The simplified owner-approved model persists gcal status on the routine and occurrence nodes; an ephemeral outline column is no longer required.
+- **impact** — Live settling and retry status cannot appear in the routine table.
+- **closes** — A shared ephemeral column contract used by projections.
+- **node** — `01M6EKDJK9Y45AY2Z33W1BSQPE`
 
 ### GAP: routines need a native time-of-day field
 

@@ -62,7 +62,7 @@ or **moved**, and (for moves) **moved to** plus optional **at**. One fact per da
 Done days show ✅, grey, and no reminders; ordinary days use calendar defaults.
 
 - `ext.routines.preview {}` projects routines without contacting Google.
-- `ext.routines.status {}` and the `routines.status` channel return routine node fields.
+- `ext.routines.status {}` and the `routines.status` channel return routine/occurrence node fields and queued deletion IDs for release.
 - `ext.routines.sync {}` retries pending/failed work; unchanged synced routines are no-ops.
 - `ext.routines.release {"keys":["<routine-node-id>"]}` authorizes exact held deletions.
 - Calendar **sync** values **preview** and **paused** stop outbound requests.

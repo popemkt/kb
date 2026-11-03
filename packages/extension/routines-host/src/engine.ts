@@ -24,6 +24,8 @@ import {
   ROUTINE_TAGS as T,
   type CalendarBinding,
   type CalendarPort,
+  type CalendarResult,
+  type SyncStatus,
 } from "@kb/routines";
 import { calendarBindingDigest } from "./binding.ts";
 import { RoutineGraph, type RoutineHost } from "./graph.ts";
@@ -45,6 +47,22 @@ interface Work {
   readonly attempts: number;
   readonly due: number;
   readonly startup: boolean;
+}
+function syncedStatus(
+  work: Work,
+  node: NodeLike,
+  response: CalendarResult,
+  at: number,
+): SyncStatus {
+  return {
+    state: "synced",
+    message: "",
+    eventId: response.id,
+    url: response.url,
+    ...(work.startup && firstRef(F.status)(node.props) === F.status + ".synced"
+      ? {}
+      : { at: DateTime.formatIso(DateTime.makeUnsafe(at)) }),
+  };
 }
 const pushOne = Effect.fn("routines.engine.pushOne")(function* (
   options: EngineOptions,
@@ -98,23 +116,17 @@ const pushOne = Effect.fn("routines.engine.pushOne")(function* (
         instance.id,
         project(routine, backlink, 0, { kind: "instance", on: occurrence.on, occurrence: fact }),
       );
-      yield* options.host.status(child.id, {
-        state: "synced",
-        message: "",
-        eventId: response.id,
-        url: response.url,
-      });
+      if (queue.get(node.id) === work)
+        yield* options.host.status(
+          child.id,
+          syncedStatus(work, child, response, yield* Clock.currentTimeMillis),
+        );
     }
     if (queue.get(node.id) === work)
-      yield* options.host.status(node.id, {
-        state: "synced",
-        message: "",
-        eventId: parent.id,
-        url: parent.url,
-        ...(work.startup && firstRef(F.status)(node.props) === F.status + ".synced"
-          ? {}
-          : { at: DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis)) }),
-      });
+      yield* options.host.status(
+        node.id,
+        syncedStatus(work, node, parent, yield* Clock.currentTimeMillis),
+      );
   }
   applied.set(node.id, work);
   return true;
@@ -142,10 +154,7 @@ const pushQueue = Effect.fn("routines.engine.pushQueue")(function* (
 ) {
   const at = yield* Clock.currentTimeMillis;
   // Count the whole operation before taking due work. Held signatures include inputs.
-  const deletions = [...queue.values()].filter(
-    (work) =>
-      work.removed && readRoutine(work.node, work.binding.calendar.zone).routine.rrule !== "",
-  );
+  const deletions = [...queue.values()].filter((work) => work.removed);
   for (const [id, work] of queue) {
     if (work.attempts >= 10 || work.due > at) continue;
     const signature = canonicalJson([work.source, work.removed]);
@@ -269,9 +278,14 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   });
   const preview = previewNodes(options);
   const status = Effect.fn("routines.engine.status")(function* () {
-    return [...(yield* options.host.read).values()]
-      .filter((node) => typeRefsOf(node).includes(T.routine))
-      .map((node) => ({ id: node.id, props: node.props }));
+    return {
+      nodes: [...(yield* options.host.read).values()]
+        .filter(
+          (node) => typeRefsOf(node).includes(T.routine) || typeRefsOf(node).includes(T.occurrence),
+        )
+        .map((node) => ({ id: node.id, props: node.props })),
+      pendingDeletions: [...queue.entries()].filter(([, work]) => work.removed).map(([id]) => id),
+    };
   });
   const run = Effect.forkScoped(
     Effect.forever(

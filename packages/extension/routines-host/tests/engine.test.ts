@@ -168,6 +168,7 @@ scenario("done and skipped occurrence nodes push opaque instance IDs", (f) =>
     yield* f.engine.tail;
     yield* f.flush;
     expect(f.statuses.get("done")?.eventId).toContain("_2026-11-03");
+    expect(f.statuses.get("done")?.at).toBeDefined();
     expect([...f.fake.events.values()].some((fields) => fields.done)).toBe(true);
     expect([...f.fake.events.values()].some((fields) => fields.status === "cancelled")).toBe(true);
   }),
