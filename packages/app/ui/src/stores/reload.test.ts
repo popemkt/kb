@@ -5,6 +5,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { browserReplica } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 import { providePageEditor } from "@/stores/page-editor";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 import { carryPage, idleNow, restoreCarried } from "./reload";
 
 /** A tab's session storage, kept across the reload. */
@@ -27,6 +28,25 @@ function region(dom: Window, height: number, top = 0): HTMLElement {
   main.scrollTop = top;
   dom.document.body.append(main);
   return main as unknown as HTMLElement;
+}
+
+/** A pane's body, placed in the page (`usePaneBodies`). */
+function pane(dom: Window, id: string): void {
+  const body = dom.document.createElement("div");
+  body.dataset.pane = id;
+  dom.document.body.append(body);
+}
+
+/** This page's workspace: one pane per id, side by side. */
+function workspace(...ids: string[]): void {
+  const [first] = ids;
+  useWorkspaceStore.setState({
+    layout:
+      ids.length === 1
+        ? { tabs: [{ id: first ?? "main", path: "/" }] }
+        : { split: "row", children: ids.map((id) => ({ tabs: [{ id, path: "/" }] })) },
+    focused: first ?? "main",
+  });
 }
 
 describe("the page a reload leaves and the one it lands on", () => {
@@ -96,6 +116,8 @@ describe("the page a reload leaves and the one it lands on", () => {
     // The next page: the panes are drawn empty first, their rows a moment later.
     dom = new Window();
     vi.stubGlobal("document", dom.document);
+    workspace("main");
+    pane(dom, "main");
     const first = region(dom, 0);
     const second = region(dom, 900);
     restoreCarried(tab);
@@ -114,9 +136,38 @@ describe("the page a reload leaves and the one it lands on", () => {
     expect(activated).toEqual([["n.root-a", 0, "tree/n.root-a"]]);
   });
 
-  it("puts the caret back only once the page has every pane it was carried with", async () => {
+  it("puts the caret back only once every pane of this page is placed", async () => {
     const tab = storage();
-    region(dom, 2000);
+    const row = dom.document.createElement("div");
+    row.className = "kb-text";
+    row.contentEditable = "true";
+    dom.document.body.append(row);
+    row.focus();
+    providePageEditor(editor({ nodeId: "n.root-a", instanceKey: "tree/n.root-a" }));
+    carryPage(tab);
+
+    // The next page has two panes. It places the focused one first, rows and
+    // all, then moves it into the layout of two: a caret placed before that
+    // move would be lost with it.
+    dom = new Window();
+    vi.stubGlobal("document", dom.document);
+    workspace("main", "beside");
+    pane(dom, "main");
+    const drawn = dom.document.createElement("div");
+    drawn.setAttribute("data-instance-key", "tree/n.root-a");
+    dom.document.body.append(drawn);
+    restoreCarried(tab);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(activated).toEqual([]);
+
+    pane(dom, "beside");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(activated).toEqual([["n.root-a", 0, "tree/n.root-a"]]);
+  });
+
+  it("puts the caret back on a page with fewer panes than the one it left", async () => {
+    const tab = storage();
+    region(dom, 900);
     region(dom, 900);
     const row = dom.document.createElement("div");
     row.className = "kb-text";
@@ -126,19 +177,16 @@ describe("the page a reload leaves and the one it lands on", () => {
     providePageEditor(editor({ nodeId: "n.root-a", instanceKey: "tree/n.root-a" }));
     carryPage(tab);
 
-    // The next page draws its first pane, rows and all, before the layout of
-    // two replaces it: a caret placed now would be lost with that first draw.
+    // Another tab kept a layout of one meanwhile: this page has one pane.
     dom = new Window();
     vi.stubGlobal("document", dom.document);
-    region(dom, 2000);
+    workspace("main");
+    pane(dom, "main");
+    region(dom, 900);
     const drawn = dom.document.createElement("div");
     drawn.setAttribute("data-instance-key", "tree/n.root-a");
     dom.document.body.append(drawn);
     restoreCarried(tab);
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(activated).toEqual([]);
-
-    region(dom, 900);
     await new Promise((resolve) => setTimeout(resolve, 5));
     expect(activated).toEqual([["n.root-a", 0, "tree/n.root-a"]]);
   });
