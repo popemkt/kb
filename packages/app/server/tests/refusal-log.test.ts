@@ -11,23 +11,24 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 import { refusalLine } from "../src/invoke.ts";
 
 describe("refusalLine", () => {
-  test("names the action, the code, the session and the nodes, never the text written", () => {
+  test("names the action, the code, the session and the nodes, never the message", () => {
+    // The message quotes the graph, not the input: a stored title, over two lines.
     const line = refusalLine(
       {
-        id: "node.update",
-        input: { id: "01NODE", text: "my private diary entry" },
+        id: "ext.gallery.search",
+        input: { source: "01SOURCE", query: "cats" },
         session: "tab-1",
         actor: "human",
       },
       {
         status: "failed",
-        id: "node.update",
+        id: "ext.gallery.search",
         code: "invalid_input",
-        message: "invalid graph transaction: node 01NODE: my private diary entry is too long",
+        message: "My private diary\nsecond line is a link source, not a search source",
       },
     );
     expect(line).toBe(
-      "kb ui: refused node.update (invalid_input) session tab-1 nodes 01NODE: invalid graph transaction: node 01NODE: … is too long",
+      "kb ui: refused ext.gallery.search (invalid_input) session tab-1 nodes 01SOURCE",
     );
   });
 
@@ -46,9 +47,7 @@ describe("refusalLine", () => {
         details: { id: "01GONE" },
       },
     );
-    expect(line).toBe(
-      "kb ui: refused node.add (not_found) nodes 01NEW,01GONE: node not found: 01GONE",
-    );
+    expect(line).toBe("kb ui: refused node.add (not_found) nodes 01NEW,01GONE");
   });
 });
 
@@ -85,7 +84,7 @@ describe("the server's log", () => {
       stderr.mockRestore();
     }
     expect(written).toEqual([
-      "kb ui: refused node.update (not_found) session tab-b nodes 01DELETEDELSEWHERE: node not found: 01DELETEDELSEWHERE\n",
+      "kb ui: refused node.update (not_found) session tab-b nodes 01DELETEDELSEWHERE\n",
     ]);
   });
 });

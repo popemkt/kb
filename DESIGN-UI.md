@@ -162,7 +162,8 @@ the next keystroke lands in the new one — and no text is pushed after a write
 that followed it, such as the undo or merge that deletes its node. A push the
 server refuses is said once, as a change that was not saved, and its hold is
 dropped. The server writes every call it refuses to its log, by action,
-code, tab session and node ids, never the text written (`server/src/invoke.ts`).
+code, tab session and node ids, never the refusal's message, which may quote
+what was written or what the graph holds (`server/src/invoke.ts`).
 
 **What the table guarantees.**
 
