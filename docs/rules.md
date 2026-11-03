@@ -1614,6 +1614,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
 - **node** — `01M545PFJ3285JNXYHKVCM50Z7`
 
+### GAP: two tabs editing the same row overwrite each other silently
+
+- **expected** — a node.update carries the text it was edited from (its base), and the server refuses one whose node changed since; the tab then shows the row as changed elsewhere, takes the server's text, and the person's unsaved words are offered back, never lost silently
+- **current** — node.update is last-writer-wins, and a focused row does not take text that arrives while it is being edited (node-text-host keeps the DOM as the text). Two tabs with the caret in the same row each keep showing their own text; whichever types last overwrites the other on the server, and neither tab says so
+- **impact** — words typed in one tab are lost when another tab, still focused on the same row, types again; the two tabs disagree with each other and with the server until the row loses focus. A row deleted elsewhere is different: that push is refused and shown as Not saved
+- **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
+- **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
+
 ### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
 
 - **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
