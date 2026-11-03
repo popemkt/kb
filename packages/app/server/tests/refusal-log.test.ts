@@ -11,12 +11,18 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 import { refusalLine } from "../src/invoke.ts";
 
 describe("refusalLine", () => {
-  test("names the action, the code, the session and the nodes, never the message", () => {
+  test("names the action, the code, the session and the nodes, never the message or other strings", () => {
     // The message quotes the graph, not the input: a stored title, over two lines.
     const line = refusalLine(
       {
         id: "ext.gallery.search",
-        input: { source: "01SOURCE", query: "cats" },
+        input: {
+          source: "01JBZ8Y3K4M5N6P7Q8R9S0T1SR",
+          query: "cats",
+          // Free-form settings: a key named `id` holding anything at all.
+          spec: { usermeta: { id: "private customer information" } },
+          field: "sys.f.type",
+        },
         session: "tab-1",
         actor: "human",
       },
@@ -28,26 +34,32 @@ describe("refusalLine", () => {
       },
     );
     expect(line).toBe(
-      "kb ui: refused ext.gallery.search (invalid_input) session tab-1 nodes 01SOURCE",
+      "kb ui: refused ext.gallery.search (invalid_input) session tab-1 nodes 01JBZ8Y3K4M5N6P7Q8R9S0T1SR,sys.f.type",
     );
   });
 
-  test("reads node ids from the refusal's details and from placement keys", () => {
+  test("reads node ids from the refusal's details too, by their shape", () => {
     const line = refusalLine(
       {
         id: "node.add",
-        input: { id: "01NEW", text: "x", parent: "01GONE" },
+        input: {
+          id: "01JBZ8Y3K4M5N6P7Q8R9S0T1NW",
+          text: "x",
+          parent: "01JBZ8Y3K4M5N6P7Q8R9S0T1GN",
+        },
         actor: "human",
       },
       {
         status: "failed",
         id: "node.add",
         code: "not_found",
-        message: "node not found: 01GONE",
-        details: { id: "01GONE" },
+        message: "node not found: 01JBZ8Y3K4M5N6P7Q8R9S0T1GN",
+        details: { id: "01JBZ8Y3K4M5N6P7Q8R9S0T1GN" },
       },
     );
-    expect(line).toBe("kb ui: refused node.add (not_found) nodes 01NEW,01GONE");
+    expect(line).toBe(
+      "kb ui: refused node.add (not_found) nodes 01JBZ8Y3K4M5N6P7Q8R9S0T1NW,01JBZ8Y3K4M5N6P7Q8R9S0T1GN",
+    );
   });
 });
 
@@ -75,7 +87,7 @@ describe("the server's log", () => {
         headers: { "content-type": "application/json", origin: new URL(handle.url).origin },
         body: JSON.stringify({
           id: "node.update",
-          input: { id: "01DELETEDELSEWHERE", text: "typed after the delete" },
+          input: { id: "01JBZ8Y3K4M5N6P7Q8R9S0T1V2", text: "typed after the delete" },
           session: "tab-b",
         }),
       });
@@ -84,7 +96,7 @@ describe("the server's log", () => {
       stderr.mockRestore();
     }
     expect(written).toEqual([
-      "kb ui: refused node.update (not_found) session tab-b nodes 01DELETEDELSEWHERE\n",
+      "kb ui: refused node.update (not_found) session tab-b nodes 01JBZ8Y3K4M5N6P7Q8R9S0T1V2\n",
     ]);
   });
 });

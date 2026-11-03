@@ -1,6 +1,6 @@
 import { Effect, Predicate } from "effect";
 import type { ActionInvocation, ActionReceipt, KbContext } from "@kb/contracts";
-import type { DomainError } from "@kb/model";
+import { isNodeIdShaped, type DomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
 import { type ActionHandlerEnv, invokeReceiptEffect, writeErr } from "@kb/runtime";
 
@@ -28,16 +28,16 @@ export const serverInvoke = Effect.fn("kb.ui.invoke")(function* (
   return receipt;
 });
 
-/** Keys whose string values name nodes, in an input or a refusal's details. */
-const ID_KEY = /^(id|ids|parent|target|source|children)$|Id$|Ids$/;
-
-/** The node ids `value` names under an id key, added to `ids`. */
-function nodeIds(value: unknown, key: string, ids: Set<string>): void {
+/**
+ * Every string in `value`, at any depth, shaped like a node id. By shape,
+ * not by key: what sits under a key named `id` in free-form settings may be
+ * anything, and a node's id is a ULID or a `sys.` id wherever it sits.
+ */
+function nodeIds(value: unknown, ids: Set<string>): void {
   if (typeof value === "string") {
-    if (ID_KEY.test(key)) ids.add(value);
-  } else if (Array.isArray(value)) for (const item of value) nodeIds(item, key, ids);
-  else if (Predicate.isObject(value))
-    for (const [k, v] of Object.entries(value)) nodeIds(v, k, ids);
+    if (isNodeIdShaped(value)) ids.add(value);
+  } else if (Array.isArray(value)) for (const item of value) nodeIds(item, ids);
+  else if (Predicate.isObject(value)) for (const item of Object.values(value)) nodeIds(item, ids);
 }
 
 /**
@@ -52,8 +52,8 @@ export function refusalLine(
   receipt: Extract<ActionReceipt, { status: "failed" }>,
 ): string {
   const ids = new Set<string>();
-  nodeIds(invocation.input, "", ids);
-  nodeIds(receipt.details, "", ids);
+  nodeIds(invocation.input, ids);
+  nodeIds(receipt.details, ids);
   const session = invocation.session === undefined ? "" : ` session ${invocation.session}`;
   const nodes = ids.size === 0 ? "" : ` nodes ${[...ids].join(",")}`;
   return `kb ui: refused ${receipt.id} (${receipt.code})${session}${nodes}`;
