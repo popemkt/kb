@@ -1,5 +1,5 @@
 export { assetsLayer } from "./assets.ts";
-export { containedFile } from "./contained.ts";
+export { containedDirectory, containedFile } from "./contained.ts";
 export type { ContainedFile } from "./contained.ts";
 export { keepCapture } from "./captures.ts";
 export { cachePath, currentCache, currentHome } from "./home.ts";
