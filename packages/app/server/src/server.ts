@@ -36,7 +36,6 @@ import {
   type UiDevChild,
   type UiDevSpawn,
 } from "./dev.ts";
-import { servedBuild } from "./assets.ts";
 import { recordBuild } from "./build-archive.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
@@ -383,9 +382,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
 
   const ctx = yield* openKbEffect(opts.root);
   const kernel = makeKernel();
-  const hub = new SubscriptionHub(ctx, channelsOf(kernel), opts.embedding ?? NO_EMBEDDING, () =>
-    servedBuild(),
-  );
+  const hub = new SubscriptionHub(ctx, channelsOf(kernel), opts.embedding ?? NO_EMBEDDING);
   const hosted = yield* loadServerPlugins(
     kernel,
     ctx,

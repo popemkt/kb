@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Person } from "@kb/contracts";
 import type { WsStatus } from "@/api/ws";
-import { QUIET_ACTIVITY, setToastSink, type PageEvents } from "@kb/ui-sdk";
+import { QUIET_ACTIVITY, setToastSink, type PageEvents, type ReloadState } from "@kb/ui-sdk";
 
 export interface Toast {
   id: number;
@@ -39,11 +39,11 @@ interface UiState {
   person: Person | null | undefined;
   toasts: Toast[];
   /**
-   * The server serves a newer build than this tab's, and the tab was not
-   * reloaded into it (it held unsaved edits, or this build was reloaded for
-   * already): the header offers the reload (`@kb/ui-sdk` → `lib/stale-build`).
+   * Where a reload into a newer build stands, which the reload chip says:
+   * this tab needs one only when the server speaks another wire protocol or
+   * a chunk it asks for is gone (`@kb/ui-sdk` → `lib/stale-build`).
    */
-  newBuild: boolean;
+  reload: ReloadState;
   /**
    * The sidebar floating over a narrow viewport. Transient, like a popover:
    * the docked sidebar's open state is a device preference (`sidebarOpen`),
@@ -62,7 +62,7 @@ interface UiState {
 
   setWsStatus: (status: WsStatus) => void;
   setPerson: (person: Person | null) => void;
-  offerNewBuild: () => void;
+  setReload: (state: ReloadState) => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
   setNodePaletteOpen: (open: boolean) => void;
@@ -91,7 +91,7 @@ export const useUiStore = create<UiState>((set) => ({
   wsStatus: "idle",
   person: undefined,
   toasts: [],
-  newBuild: false,
+  reload: "none",
   sidebarOverlayOpen: false,
   globalPaletteOpen: false,
   nodePaletteOpen: false,
@@ -103,7 +103,7 @@ export const useUiStore = create<UiState>((set) => ({
   setWsStatus: (wsStatus) =>
     set(wsStatus === "open" ? { wsStatus } : { wsStatus, person: undefined }),
   setPerson: (person) => set({ person }),
-  offerNewBuild: () => set({ newBuild: true }),
+  setReload: (reload) => set({ reload }),
   setSidebarOverlayOpen: (sidebarOverlayOpen) => set({ sidebarOverlayOpen }),
   setGlobalPaletteOpen: (globalPaletteOpen) =>
     set((s) => ({

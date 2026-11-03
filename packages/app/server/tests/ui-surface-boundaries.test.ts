@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { openKb } from "@kb/runtime";
+import { WIRE_PROTOCOL } from "@kb/contracts";
 import * as assets from "../src/assets.ts";
 import { handleHttpRequest } from "../src/http.ts";
 import { UI_DIST } from "../src/paths.ts";
@@ -141,7 +142,7 @@ describe("who may frame the page", () => {
   });
 });
 
-describe("the build a connection is told", () => {
+describe("the build a page loads", () => {
   test("is the module script the page's index.html loads, whatever its attributes' order", () => {
     expect(
       assets.entryScriptOf(
@@ -162,14 +163,15 @@ describe("the build a connection is told", () => {
     expect(assets.servedBuild(dist)).toBe("/static/index-b.js");
   });
 
-  test("greets each connection in its hello, and says nothing when no page is built", async () => {
+  test("is not what a connection is told: its hello names the wire protocol, whatever the build", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-ui-hello-"));
     await mkdir(join(root, ".kb"), { recursive: true });
     const ctx = await openKb(root);
-    expect(
-      await hello(new SubscriptionHub(ctx, undefined, undefined, () => "/static/index-a.js")),
-    ).toEqual({ op: "hello", rev: ctx.log.head, build: "/static/index-a.js" });
-    expect(await hello(new SubscriptionHub(ctx))).toEqual({ op: "hello", rev: ctx.log.head });
+    expect(await hello(new SubscriptionHub(ctx))).toEqual({
+      op: "hello",
+      rev: ctx.log.head,
+      protocol: WIRE_PROTOCOL,
+    });
   });
 });
 
@@ -214,7 +216,11 @@ describe("ui session boundary", () => {
     expect(hub.clientCount).toBe(1);
     // rev 1, not 0: `rev` is the store's durable counter now, and opening a
     // fresh root seeds it — which is a recorded transaction like any other.
-    expect(JSON.parse(present(frames[0], "expected frames[0]"))).toEqual({ op: "hello", rev: 1 });
+    expect(JSON.parse(present(frames[0], "expected frames[0]"))).toEqual({
+      op: "hello",
+      rev: 1,
+      protocol: WIRE_PROTOCOL,
+    });
     // Then who the server takes the connection to be: a local program is nobody's.
     expect(JSON.parse(present(frames[1], "expected frames[1]"))).toEqual({
       op: "person",

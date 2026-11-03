@@ -8,6 +8,8 @@ import {
   useRoute,
   ViewErrorBoundary,
   WorkspaceBoundary,
+  reloadNow,
+  type ReloadState,
 } from "@kb/ui-sdk";
 import { fixturesForced, loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
@@ -73,25 +75,36 @@ function ConnectionDot() {
 }
 
 /**
- * The reload a newer build is waiting on, offered when the tab was not
- * reloaded into it by itself: it held unsaved edits, which a reload would
- * drop, or this build was reloaded for already.
+ * Where a reload into a newer build stands, as a small chip that blocks
+ * nothing (`stores/reload`): waiting for the page to be idle, reloading, or
+ * — when a reload would land on this same build — left to the person.
+ * Rare: a tab of an older build keeps working unless the wire changed.
  */
-function NewBuildNotice() {
-  const newBuild = useUiStore((s) => s.newBuild);
-  if (!newBuild) return null;
+function ReloadChip() {
+  const reload = useUiStore((s) => s.reload);
+  if (reload === "none") return null;
+  const words: Record<Exclude<ReloadState, "none">, string> = {
+    waiting: "kb was updated · reloads when you pause",
+    reloading: "Reloading into the new version…",
+    stuck: "kb was updated",
+  };
   return (
-    <span role="status" className="flex items-center gap-2 text-label text-muted-foreground">
-      kb was updated
-      <button
-        type="button"
-        onClick={() => location.reload()}
-        title="Reload into the new version. Edits not saved yet are lost."
-        className="rounded-md border border-foreground/10 bg-foreground/[0.04] px-2 py-0.5 text-label text-foreground/75 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/90"
-      >
-        Reload
-      </button>
-    </span>
+    <div
+      role="status"
+      className="kb-surface-enter fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-full border border-foreground/10 bg-popover px-3 py-1 text-label text-muted-foreground shadow-lifted"
+    >
+      {words[reload]}
+      {reload === "reloading" ? null : (
+        <button
+          type="button"
+          onClick={() => reloadNow()}
+          title="Reload into the new version now. Where you are is kept."
+          className="rounded-full px-1.5 text-label text-foreground/75 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/90"
+        >
+          Reload now
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -155,6 +168,7 @@ function SharedChrome() {
       <Overlays />
       <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />
+      <ReloadChip />
     </>
   );
 }
@@ -172,7 +186,6 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
         <span className="text-label text-faint-foreground">loading…</span>
       ) : null}
       <ConnectionDot />
-      <NewBuildNotice />
       <div className="flex-1" />
       <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
       <DockToggles />

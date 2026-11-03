@@ -432,6 +432,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
 - **node** — `01M68CQN0E7CMMEATHT0RDYV10`
 
+### GAP: a tab of an earlier build is served the current sandbox frame script
+
+- **expected** — The sandbox frame's script is kept per build like the page's chunks (digest-named, served from the build archive), or its page↔frame messages are part of the wire fingerprint, so a tab of an earlier build talks to a frame of its own protocol.
+- **current** — dist/sandbox/frame.js keeps one name and is served no-cache; a tab of an earlier build loads the current frame, and FrameMessage/PageMessage are not fingerprinted in server/tests/wire-protocol.test.ts.
+- **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
+- **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
+- **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
+
 ### GAP: a tag's template fields cannot be reordered
 
 - **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.

@@ -158,6 +158,7 @@ export {
   ServerIdentitySchema,
   ServerMessageSchema,
   UI_DEFAULT_PORT,
+  WIRE_PROTOCOL,
   WireNodeSchema,
 } from "./protocol.ts";
 export type {

@@ -1,28 +1,39 @@
 /**
  * A tab that outlived its build (DESIGN-UI.md → Delivery, "A tab outlives
- * its build"). A release replaces `ui/dist`, so the chunks an open tab was
- * built against are gone. The only cure is the new build's page, and this
- * module alone decides when the tab goes there.
+ * its build"). A release replaces `ui/dist`, and the server keeps serving
+ * the chunks of the builds before it, so a tab of an earlier build keeps
+ * working. It reloads only when it cannot: the server speaks another wire
+ * protocol, or a chunk it asks for is gone even so. This module alone
+ * decides when the tab goes to the new build.
  *
- * - **The rule: the server says which build it serves.** Every connection's
- *   `hello` names it ({@link followServerBuild}). A tab of another build
- *   reloads. With unsaved edits it offers to reload instead, because a
- *   reload would drop them.
- * - **The fallback: a chunk that did not arrive.** Some failures come before
- *   any hello says so: Vite's `vite:preloadError`, which every dynamic import
- *   of the bundle raises ({@link watchForNewBuild}, installed by the shell),
- *   and a view's error boundary, which asks ({@link reloadForNewBuild})
- *   before it shows a crash.
+ * - **The rule: the server says which protocol it speaks.** Every
+ *   connection's `hello` names it ({@link followServerProtocol}). A tab of
+ *   another protocol reloads.
+ * - **The fallback: a chunk that did not arrive.** Vite's
+ *   `vite:preloadError`, which every dynamic import of the bundle raises
+ *   ({@link watchForNewBuild}), and a view's error boundary, which asks
+ *   ({@link reloadForNewBuild}) before it shows a crash.
  *
- * The shell of a built page installs it ({@link watchForNewBuild}); a page
- * that is no build (the dev server's) installs nothing and follows none.
+ * Either way the reload waits until the page is idle — nothing it holds
+ * would be lost — and the page writes down what it comes back to (the
+ * route, where each pane is scrolled, the caret) before it goes, saying so
+ * meanwhile (`announce`). What idle, carrying and announcing mean is the
+ * shell's to say; this module only orders them.
+ *
  * Both reload through one guard: once per build. A build is the `src` of
- * the module script the page's `index.html` loads, whose digest changes
- * whenever any chunk it may fetch is renamed; the server names its own the
- * same way. The tab's session storage records the build it reloaded for, so
- * a reload that lands on the same build shows what is wrong rather than
- * reloading again.
+ * the module script the page's `index.html` loads. The tab's session
+ * storage records the build it reloaded for, so a reload that lands on the
+ * same build asks the person instead of reloading again (`stuck`). A page
+ * that is no build (the dev server's) follows none.
  */
+import { WIRE_PROTOCOL } from "@kb/contracts";
+
+/**
+ * Where a reload the page needs stands: none needed, `waiting` for the page
+ * to be idle, `reloading`, or `stuck` — reloading again would land on this
+ * same build, so the person is asked.
+ */
+export type ReloadState = "none" | "waiting" | "reloading" | "stuck";
 
 /** What reloading for a new build reads and does; the page's, once the shell installs it. */
 export interface BuildEnv {
@@ -30,12 +41,18 @@ export interface BuildEnv {
   readonly build: string | null;
   readonly storage: Pick<Storage, "getItem" | "setItem">;
   readonly reload: () => void;
+  /** Resolves once a reload would lose nothing the page holds. */
+  readonly idle: () => Promise<void>;
+  /** Write down what the page comes back to after the reload. */
+  readonly carry: () => void;
+  /** Tell the person where a reload stands. */
+  readonly announce: (state: ReloadState) => void;
 }
 
 const RELOADED_FOR = "kb.reloaded-for-build";
 
-/** The build a reload has been started for in this page, which every later failure waits on. */
-let reloading: string | null = null;
+/** The build a reload is under way for in this page, which every later need joins. */
+let pending: string | null = null;
 
 /** Each browser's words for a module, or a chunk's stylesheet, that did not arrive. */
 const CHUNK_MISSING = [
@@ -57,12 +74,19 @@ const NO_PAGE: BuildEnv = {
   build: null,
   storage: { getItem: () => null, setItem: () => {} },
   reload: () => {},
+  idle: () => Promise.resolve(),
+  carry: () => {},
+  announce: () => {},
 };
 
-/** The page's own build, its entry module script as `index.html` names it. */
-function browserEnv(): BuildEnv {
+/**
+ * The page's own build, its entry module script as `index.html` names it,
+ * reloaded at once with nothing carried: what the shell builds its own on.
+ */
+export function browserBuildEnv(): BuildEnv {
   const entry = document.querySelector<HTMLScriptElement>('script[type="module"][src]');
   return {
+    ...NO_PAGE,
     build: entry?.getAttribute("src") ?? null,
     storage: sessionStorage,
     reload: () => location.reload(),
@@ -72,53 +96,63 @@ function browserEnv(): BuildEnv {
 /** The page whose build is followed: none until the shell of a built page installs it. */
 let page: BuildEnv = NO_PAGE;
 
+/** Go now: record the build gone from, carry what the page comes back to, reload. */
+export function reloadNow(env: BuildEnv = page): void {
+  try {
+    if (env.build !== null) env.storage.setItem(RELOADED_FOR, env.build);
+  } catch {
+    // Storage refused: the person asked, so the reload goes unrecorded.
+  }
+  env.announce("reloading");
+  env.carry();
+  env.reload();
+}
+
 /**
- * The one guard: reload unless this build was reloaded for already, or
- * storage cannot record that it was. True when the page is reloading.
+ * The one guard: reload once the page is idle, unless this build was
+ * reloaded for already, or storage cannot say whether it was — then the
+ * person is asked. True while a reload is under way.
  */
-function reloadOnce(env: BuildEnv): boolean {
+function reloadWhenIdle(env: BuildEnv): boolean {
   const { build } = env;
   if (build === null) return false;
-  if (reloading === build) return true;
+  if (pending === build) return true;
   try {
-    if (env.storage.getItem(RELOADED_FOR) === build) return false;
-    env.storage.setItem(RELOADED_FOR, build);
+    if (env.storage.getItem(RELOADED_FOR) === build) {
+      env.announce("stuck");
+      return false;
+    }
   } catch {
     // Storage refused (private mode, quota): without the record a reload
-    // could loop, so what is wrong is shown instead.
+    // could loop, so the person is asked instead.
+    env.announce("stuck");
     return false;
   }
-  reloading = build;
-  env.reload();
+  pending = build;
+  env.announce("waiting");
+  void env.idle().then(() => {
+    if (pending === build && page === env) reloadNow(env);
+  });
   return true;
 }
 
 /**
- * What the tab does about the build a connection's `hello` names:
- * - `current`: it is this page's, or either side names none;
- * - `reloading`: the page is going to it;
- * - `offer`: the person is offered the reload, either because `unsaved`
- *   edits would be lost or because this build was reloaded for already.
+ * What the tab does about the protocol a connection's `hello` names: a
+ * server of this page's protocol, whatever its build, is followed as it is;
+ * one of another protocol is reloaded into once the page is idle.
  */
-export type BuildFollowing = "current" | "reloading" | "offer";
-
-export function followServerBuild(
-  served: string | undefined,
-  unsaved: boolean,
-  env: BuildEnv = page,
-): BuildFollowing {
-  if (served === undefined || env.build === null || served === env.build) return "current";
-  if (unsaved) return "offer";
-  return reloadOnce(env) ? "reloading" : "offer";
+export function followServerProtocol(served: number | undefined, env: BuildEnv = page): void {
+  if (served === undefined || env.build === null || served === WIRE_PROTOCOL) return;
+  reloadWhenIdle(env);
 }
 
 /**
- * Reloads the page when `error` is a missing chunk and this build has not
- * been reloaded for yet; true when it does, so the caller shows that the
- * page is being updated rather than that it crashed.
+ * Reloads the page, once it is idle, when `error` is a missing chunk and
+ * this build has not been reloaded for yet; true when it will, so the
+ * caller shows that the page is being updated rather than that it crashed.
  */
 export function reloadForNewBuild(error: unknown, env: BuildEnv = page): boolean {
-  return isMissingChunk(error) && reloadOnce(env);
+  return isMissingChunk(error) && reloadWhenIdle(env);
 }
 
 /**
@@ -130,9 +164,10 @@ export function reloadForNewBuild(error: unknown, env: BuildEnv = page): boolean
  */
 export function watchForNewBuild(
   target: Pick<Window, "addEventListener" | "removeEventListener"> = window,
-  env: BuildEnv = browserEnv(),
+  env: BuildEnv = browserBuildEnv(),
 ): () => void {
   page = env;
+  pending = null;
   const onPreloadError = (event: Event): void => {
     reloadForNewBuild((event as Event & { payload?: unknown }).payload, env);
   };
