@@ -2,13 +2,7 @@ import { Context, Layer, Result, DateTime, Effect, Schema } from "effect";
 import { z } from "zod";
 import { onWire, viaWithin, WireNodeSchema, type UiHostService } from "@kb/contracts";
 import { canonicalJson, type NodeLike, type PropValue } from "@kb/model";
-import {
-  routineOption,
-  ROUTINE_FIELDS as F,
-  ROUTINE_TAGS as T,
-  SyncError,
-  type SyncStatus,
-} from "@kb/routines";
+import { syncStatusProps, ROUTINE_TAGS as T, SyncError, type SyncStatus } from "@kb/routines";
 
 export interface TailChange {
   readonly at: number;
@@ -135,14 +129,7 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
       if (!result.success) return yield* unavailable();
       return result.data.trusted.includes(digest);
     }),
-    status: (id, status) =>
-      replace(id, {
-        [F.status]: { t: "ref", v: routineOption("status", status.state) },
-        [F.message]: status.message === "" ? null : { t: "str", v: status.message },
-        ...(status.eventId === undefined ? {} : { [F.eventId]: { t: "str", v: status.eventId } }),
-        ...(status.url === undefined ? {} : { [F.gcal]: { t: "str", v: status.url } }),
-        ...(status.at === undefined ? {} : { [F.syncedAt]: { t: "str", v: status.at } }),
-      }),
+    status: (id, status) => replace(id, syncStatusProps(status)),
   };
 }
 

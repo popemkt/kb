@@ -11,8 +11,9 @@ import {
   writeStr,
   type ConfigSlot,
   type NodeLike,
+  type PropValue,
 } from "@kb/model";
-import { SyncError, type Occurrence, type Routine } from "./model.ts";
+import { SyncError, type Occurrence, type Routine, type SyncStatus } from "./model.ts";
 import {
   optionsFor,
   readRoutineOption,
@@ -127,6 +128,22 @@ export function readOccurrence(node: NodeLike): Occurrence {
     at: read("at") || null,
   };
 }
+/** The occurrence facts under a routine, by their original day: one fact per day. */
+export function routineOccurrences(
+  node: NodeLike,
+  nodes: ReadonlyMap<string, NodeLike>,
+): ReadonlyMap<string, { readonly node: NodeLike; readonly occurrence: Occurrence }> {
+  const found = new Map<string, { node: NodeLike; occurrence: Occurrence }>();
+  for (const id of node.children) {
+    const child = nodes.get(id);
+    if (child === undefined || !typeRefsOf(child).includes(T.occurrence)) continue;
+    const occurrence = readOccurrence(child);
+    if (found.has(occurrence.on))
+      throw new SyncError({ status: 400, code: "duplicate_occurrence" });
+    found.set(occurrence.on, { node: child, occurrence });
+  }
+  return found;
+}
 export function readCalendar(node: NodeLike) {
   const read = decodeNodeConfig(CALENDAR, node.props, () => {
     throw invalid();
@@ -157,6 +174,21 @@ export function readAccount(node: NodeLike) {
   };
 }
 export type CalendarConfig = ReturnType<typeof readCalendar>;
+/** The zone a routine's times fall back to: its calendar's, else the default. */
+export function routineZone(node: NodeLike, nodes: ReadonlyMap<string, NodeLike>): string {
+  const calendar = nodes.get(firstRef(F.calendar)(node.props) ?? "");
+  return calendar === undefined ? DEFAULT_ROUTINE_ZONE : readCalendar(calendar).zone;
+}
+/** A sync status as the node fields it is stored in; null clears a field. */
+export function syncStatusProps(status: SyncStatus): Readonly<Record<string, PropValue | null>> {
+  return {
+    [F.status]: { t: "ref", v: routineOption("status", status.state) },
+    [F.message]: status.message === "" ? null : { t: "str", v: status.message },
+    ...(status.eventId === undefined ? {} : { [F.eventId]: { t: "str", v: status.eventId } }),
+    ...(status.url === undefined ? {} : { [F.gcal]: { t: "str", v: status.url } }),
+    ...(status.at === undefined ? {} : { [F.syncedAt]: { t: "str", v: status.at } }),
+  };
+}
 export type AccountConfig = ReturnType<typeof readAccount>;
 export interface CalendarBinding {
   readonly calendar: CalendarConfig;

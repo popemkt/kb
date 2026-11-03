@@ -1,11 +1,10 @@
 import { DateTime } from "effect";
-import { addDays, canonicalJson, formatDay, parseDay, typeRefsOf, type NodeLike } from "@kb/model";
+import { addDays, canonicalJson, formatDay, parseDay, type NodeLike } from "@kb/model";
 import {
   endSeries,
   project,
-  readOccurrence,
   readRoutine,
-  ROUTINE_TAGS as T,
+  routineOccurrences,
   SyncError,
   type CalendarBinding,
   type EventFields,
@@ -27,18 +26,6 @@ export interface PushOperation {
 }
 const destination = (snapshot: Snapshot) =>
   canonicalJson([snapshot.binding.calendar.id, snapshot.binding.calendar.calendarId]);
-function facts(snapshot: Snapshot) {
-  const found = new Map<string, { node: NodeLike; occurrence: Occurrence }>();
-  for (const id of snapshot.node.children) {
-    const node = snapshot.nodes.get(id);
-    if (node === undefined || !typeRefsOf(node).includes(T.occurrence)) continue;
-    const occurrence = readOccurrence(node);
-    if (found.has(occurrence.on))
-      throw new SyncError({ status: 400, code: "duplicate_occurrence" });
-    found.set(occurrence.on, { node, occurrence });
-  }
-  return found;
-}
 /** One plan owns retirement of previous remote identities and publication of current ones. */
 export function pushPlan(
   current: Snapshot,
@@ -80,11 +67,11 @@ export function pushPlan(
     node: current.node,
     retiresSeries: false,
   });
-  const desired = facts(current);
+  const desired = routineOccurrences(current.node, current.nodes);
   const old =
     previous === undefined || retire !== null
-      ? new Map<string, { node: NodeLike; occurrence: Occurrence }>()
-      : facts(previous);
+      ? new Map<string, { readonly node: NodeLike; readonly occurrence: Occurrence }>()
+      : routineOccurrences(previous.node, previous.nodes);
   for (const [day] of old) {
     if (desired.has(day)) continue;
     operations.push({

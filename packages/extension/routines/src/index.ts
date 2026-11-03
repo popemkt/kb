@@ -13,6 +13,14 @@ export { project, canonicalRule, eventId, projectionFingerprint, endSeries } fro
 export { settleAt, retryDelay } from "./scheduling.ts";
 export { makeFakeCalendar } from "./fake-calendar.ts";
 export { calendarContract, contractEvent } from "./calendar-contract.ts";
-export { readRoutine, readOccurrence, readCalendar, readAccount } from "./config.ts";
+export {
+  readRoutine,
+  readOccurrence,
+  readCalendar,
+  readAccount,
+  routineOccurrences,
+  routineZone,
+  syncStatusProps,
+} from "./config.ts";
 export type { CalendarConfig, AccountConfig, CalendarBinding } from "./config.ts";
 export { routineInputs, DEFAULT_ROUTINE_ZONE } from "./config.ts";
