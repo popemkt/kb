@@ -10,7 +10,6 @@ import {
   axesOf,
   axisStyles,
   chipsFor,
-  coverOf,
   eitherOrs,
   examplesOf,
   nearest,
@@ -18,36 +17,14 @@ import {
   type Chip,
   type Reflection,
 } from "@kb/gallery";
-import { assetSrcUrl, cn } from "@kb/ui-sdk";
+import { cn } from "@kb/ui-sdk";
 import { addDraftStyles, pinToDraft, toggleDraftStyle, updateDraft, useDraft } from "../draft";
 import type { ComposerFrame } from "../frame";
 import { addStyle } from "../styles-api";
+import { Thumb } from "../thumb";
 
 const SECTION = "flex flex-col gap-2";
 const HEADING = "text-label font-medium tracking-wide text-foreground/50 uppercase";
-
-/** A picture of `visual`'s cover at `size`, or nothing: a chip with no example is its words alone. */
-function Thumb({
-  frame,
-  visual,
-  size = "size-8",
-}: {
-  readonly frame: ComposerFrame;
-  readonly visual: string | undefined;
-  readonly size?: string;
-}) {
-  const node = visual === undefined ? undefined : frame.node(visual);
-  const cover = node === undefined ? null : coverOf(node);
-  if (cover === null) return null;
-  return (
-    <img
-      src={assetSrcUrl(cover)}
-      alt=""
-      loading="lazy"
-      className={cn(size, "shrink-0 rounded-md object-cover")}
-    />
-  );
-}
 
 function ChipButton({
   frame,
