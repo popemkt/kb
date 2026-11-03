@@ -4,6 +4,7 @@ import {
   SyncError,
   type EventFields,
   type EventTime,
+  type Occurrence,
   type ProjectionTarget,
   type Routine,
 } from "./model.ts";
@@ -184,17 +185,33 @@ function span(
   };
 }
 
+/**
+ * Where an instance falls: on its original day at the routine's time, unless
+ * its fact moved it. A done instance stays where it was moved to; a skipped one
+ * is cancelled wherever it was.
+ */
+export function instancePlace(
+  routine: Routine,
+  on: string,
+  occurrence: Occurrence | null,
+): { readonly day: string; readonly at: string | null } {
+  if (occurrence?.state === "moved" && occurrence.movedTo === null) throw invalid();
+  if (occurrence === null || occurrence.state === "skipped" || occurrence.movedTo === null)
+    return { day: on, at: routine.at };
+  return { day: occurrence.movedTo, at: occurrence.at ?? routine.at };
+}
+
 function occurrenceSpan(routine: Routine, target: ProjectionTarget) {
   const occurrence = target.kind === "instance" ? target.occurrence : (target.occurrence ?? null);
   if (target.kind === "parent" && occurrence !== null && routine.rrule.trim() !== "")
     throw invalid();
-  const moved = occurrence?.state === "moved";
-  if (moved && occurrence.movedTo === null) throw invalid();
-  const on = moved ? occurrence.movedTo : target.kind === "instance" ? target.on : routine.starts;
-  const at = moved ? (occurrence.at ?? routine.at) : routine.at;
-  if (on === null) throw invalid();
+  const place = instancePlace(
+    routine,
+    target.kind === "instance" ? target.on : routine.starts,
+    occurrence,
+  );
   if (occurrence !== null) day(occurrence.on);
-  return { occurrence, on, at };
+  return { occurrence, on: place.day, at: place.at };
 }
 
 /** Pure projection. Sparse occurrences preserve identity through their original day. */

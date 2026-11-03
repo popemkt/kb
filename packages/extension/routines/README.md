@@ -59,6 +59,8 @@ An empty RRULE is a one-off; an empty time is all-day. **repeats from** currentl
 supports **schedule** only. A completion-based rule reports an invalid rule.
 Add child `#occurrence` nodes with original **on** date, state **done**, **skipped**
 or **moved**, and (for moves) **moved to** plus optional **at**. One fact per day.
+A done fact keeps its **moved to**, so an instance moved and then ticked done stays
+where it was moved; a skipped one is cancelled wherever it was.
 Done days show ✅, grey, and no reminders; ordinary days use calendar defaults.
 
 - `ext.routines.preview {}` projects routines without contacting Google.

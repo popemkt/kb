@@ -24,3 +24,41 @@ export {
 } from "./config.ts";
 export type { CalendarConfig, AccountConfig, CalendarBinding } from "./config.ts";
 export { routineInputs, DEFAULT_ROUTINE_ZONE } from "./config.ts";
+export { routinesDeclarationPlugin } from "./seed.ts";
+export { routineSettings, routineWrite, occurrenceWrite, readSyncStatus } from "./config.ts";
+export type { RoutineSettings, OccurrenceSettings } from "./config.ts";
+export { instancePlace } from "./projection.ts";
+export {
+  calendarEntries,
+  seriesDays,
+  instantOf,
+  wallClock,
+  clockText,
+  clockMinutes,
+  knownZone,
+} from "./calendar.ts";
+export type { CalendarEntry, CalendarIssue, EntryState } from "./calendar.ts";
+export {
+  FREQUENCIES,
+  WEEKDAYS,
+  readRepeat,
+  repeatRule,
+  repeatPresets,
+  describeRepeat,
+  shiftRule,
+  shiftDay,
+  daysBetween,
+  weekdayOf,
+} from "./repeat.ts";
+export type { Frequency, Weekday, Repeat, RepeatPreset } from "./repeat.ts";
+export {
+  addRoutine,
+  editRoutine,
+  deleteNode,
+  setEntryState,
+  resizeEntry,
+  moveEntry,
+} from "./calendar-edits.ts";
+export type { NodeCall, Place, NewRoutine } from "./calendar-edits.ts";
+export { CALENDAR_MODES, CalendarParams, RoutinesCalendarView } from "./view.ts";
+export type { CalendarMode } from "./view.ts";

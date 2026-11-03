@@ -1039,6 +1039,8 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
         "effect": "catalog:",
         "rrule": "catalog:",
       },

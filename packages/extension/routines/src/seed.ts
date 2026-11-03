@@ -1,6 +1,8 @@
 import { Record } from "effect";
-import { defineExtension } from "@kb/contracts";
+import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
+import type { Plugin } from "@kb/plugin";
 import { seededField, seededTag, SYSTEM_IDS, type FieldType, type KbNode } from "@kb/model";
+import { RoutinesCalendarView } from "./view.ts";
 
 function field(
   label: string,
@@ -159,4 +161,10 @@ export const routinesExtension = defineExtension({
   tags: ["routine", "occurrence", "calendar", "google-account"],
   optional: { byDefault: "off" },
   seed: routinesSeed,
+  views: [viewDef(RoutinesCalendarView)],
 });
+
+/** The family's shared plugin: its declaration's view, which both hosts' entries load. */
+export function routinesDeclarationPlugin(): Plugin {
+  return declarationPlugin(routinesExtension);
+}

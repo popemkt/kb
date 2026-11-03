@@ -139,3 +139,17 @@ test("an RRULE's own DATE UNTIL uses the same timezone conversion as the until f
     project({ ...routine, at: null, rrule: "FREQ=DAILY;UNTIL=20261102T045959Z" }, "", 0),
   ).toThrow();
 });
+
+test("a done instance that was moved is sent where it was moved, marked done", () => {
+  const fields = project(routine, "", 0, {
+    kind: "instance",
+    on: "2026-03-09",
+    occurrence: { id: "o", on: "2026-03-09", state: "done", movedTo: "2026-03-10", at: "18:00" },
+  });
+  expect([fields.start.day, fields.start.at, fields.done, fields.status]).toEqual([
+    "2026-03-10",
+    "18:00",
+    true,
+    "confirmed",
+  ]);
+});

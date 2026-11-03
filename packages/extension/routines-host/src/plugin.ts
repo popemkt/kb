@@ -9,6 +9,7 @@ import {
 } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import {
+  routinesDeclarationPlugin,
   routinesExtension,
   type SyncError,
   type CalendarBinding,
@@ -44,6 +45,7 @@ export function routinesPlugin(options: RoutinesPluginOptions) {
     apply: (ctx) =>
       Effect.gen(function* () {
         const scope = yield* Effect.scope;
+        yield* ctx.plugin(routinesDeclarationPlugin());
         const ui = yield* ctx.get(UiHost);
         const graphLayer = RoutineGraph.layer(ui);
         const host = Context.get(yield* Layer.build(graphLayer), RoutineGraph);

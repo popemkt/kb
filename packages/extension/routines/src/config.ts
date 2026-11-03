@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import {
   decodeNodeConfig,
+  encodeNodeSetting,
   firstNum,
   firstRef,
   firstStr,
@@ -10,6 +11,8 @@ import {
   writeRef,
   writeStr,
   type ConfigSlot,
+  type ConfigSlots,
+  type Writable,
   type NodeLike,
   type PropValue,
 } from "@kb/model";
@@ -92,6 +95,64 @@ const ACCOUNT = {
   refreshToken: text("refreshToken"),
 };
 const invalid = () => new SyncError({ status: 400, code: "invalid_rule" });
+
+type SlotValues<S> = { readonly [K in keyof S]: S[K] extends ConfigSlot<infer V> ? V : never };
+/** A routine's settings, as its slots read them. */
+export type RoutineSettings = SlotValues<typeof ROUTINE>;
+/** An occurrence fact's settings, as its slots read them. */
+export type OccurrenceSettings = SlotValues<typeof OCCURRENCE>;
+
+/**
+ * A routine's settings with each malformed one at its fallback, and what was
+ * malformed: what an editor opens a routine the engine refuses with, so it can
+ * be mended.
+ */
+export function routineSettings(node: Pick<NodeLike, "props">): {
+  readonly settings: RoutineSettings;
+  readonly warnings: readonly string[];
+} {
+  const warnings: string[] = [];
+  const read = decodeNodeConfig(ROUTINE, node.props, (warning) => warnings.push(warning));
+  return {
+    settings: {
+      starts: read("starts"),
+      at: read("at"),
+      duration: read("duration"),
+      zone: read("zone"),
+      rrule: read("rrule"),
+      until: read("until"),
+      repeatsFrom: read("repeatsFrom"),
+      calendar: read("calendar"),
+    },
+    warnings,
+  };
+}
+
+/**
+ * The fields that store `changes`, each replaced whole by its slot; an empty
+ * text or reference clears its field, as a field no one filled reads.
+ */
+function slotWrite<T extends object>(
+  slots: ConfigSlots<T>,
+  changes: { readonly [K in keyof T]?: Writable<T[K]> },
+): Readonly<Record<string, readonly PropValue[]>> {
+  const written: Record<string, readonly PropValue[]> = {};
+  for (const key in slots) {
+    const value = changes[key];
+    if (value === undefined) continue;
+    for (const [field, values] of Object.entries(encodeNodeSetting(slots, key, value)))
+      written[field] = values.filter((entry) => !(entry.t !== "num" && entry.v === ""));
+  }
+  return written;
+}
+/** What storing `changes` to a routine writes, through the slots its readers decode. */
+export function routineWrite(changes: Partial<RoutineSettings>) {
+  return slotWrite(ROUTINE, changes);
+}
+/** What storing `changes` to an occurrence fact writes, through the slots its readers decode. */
+export function occurrenceWrite(changes: Partial<OccurrenceSettings>) {
+  return slotWrite(OCCURRENCE, changes);
+}
 
 export function readRoutine(node: NodeLike, zone: string): { routine: Routine; calendar: string } {
   const read = decodeNodeConfig(ROUTINE, node.props, () => {
@@ -178,6 +239,21 @@ export type CalendarConfig = ReturnType<typeof readCalendar>;
 export function routineZone(node: NodeLike, nodes: ReadonlyMap<string, NodeLike>): string {
   const calendar = nodes.get(firstRef(F.calendar)(node.props) ?? "");
   return calendar === undefined ? DEFAULT_ROUTINE_ZONE : readCalendar(calendar).zone;
+}
+/** A node's sync status as its fields hold it ({@link syncStatusProps}); null before any. */
+export function readSyncStatus(node: NodeLike): SyncStatus | null {
+  const state = readRoutineOption("status", firstRef(F.status)(node.props));
+  if (state === undefined) return null;
+  const eventId = firstStr(F.eventId)(node.props);
+  const url = firstStr(F.gcal)(node.props);
+  const at = firstStr(F.syncedAt)(node.props);
+  return {
+    state,
+    message: firstStr(F.message)(node.props) ?? "",
+    ...(eventId === undefined ? {} : { eventId }),
+    ...(url === undefined ? {} : { url }),
+    ...(at === undefined ? {} : { at }),
+  };
 }
 /** A sync status as the node fields it is stored in; null clears a field. */
 export function syncStatusProps(status: SyncStatus): Readonly<Record<string, PropValue | null>> {
