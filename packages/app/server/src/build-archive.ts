@@ -13,13 +13,15 @@
  *
  * A server keeps the build it serves when it starts, then removes the builds
  * beyond the newest {@link KEEP_BUILDS} of those it listed, each whole. So
- * servers sharing one archive never remove a build another just kept: it was
- * not in their listing, and a build is never removed in part. A digest-named
+ * servers sharing one archive never remove a build another just published:
+ * it was not in their listing, and a build is never removed in part. One a
+ * server restarts on while another prunes it can still go (the GAP at
+ * `prune`), costing its tabs a reload after the next release. A digest-named
  * file has the same bytes in every build that has it, so it is served from
  * whichever kept build has it. The archive is a cache: losing it costs a tab
  * of an older build a reload, nothing else.
  */
-import { basename, join } from "node:path";
+import { basename, join, normalize } from "node:path";
 import { Clock, Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { writeErr } from "@kb/runtime";
@@ -118,6 +120,7 @@ const publish = Effect.fn("kb.ui.builds.publish")(function* (
  * and the staging a stopped server left. A directory with no readable record
  * counts as the oldest build.
  */
+// GAP [[01M6H0QPT8K2YPY6XV6SM5WRYH]] a build another server refreshes after this listing can still be removed
 const prune = Effect.fn("kb.ui.builds.prune")(function* (archive: string, keep: number) {
   const fs = yield* FileSystem;
   const now = yield* Clock.currentTimeMillis;
@@ -167,19 +170,22 @@ export const recordBuild = Effect.fn("kb.ui.recordBuild")(
 /**
  * The kept copy of `rel`, a path under {@link DIGEST_NAMED_DIR}, from
  * whichever kept build has it; null when none does. Never a file outside the
- * digest-named files of the build that has it, whatever `rel` or a link in
- * the archive says.
+ * archive, whatever `rel` or a link in the archive says: `rel` must stay
+ * under the digest-named files as written, and the file must be inside the
+ * archive as resolved, so a build or its `static/` that links elsewhere
+ * serves nothing.
  */
 export const keptFile = Effect.fn("kb.ui.builds.keptFile")(function* (
   archive: string,
   rel: string,
 ) {
   const fs = yield* FileSystem;
+  const digestNamed = normalize(rel);
+  if (!digestNamed.startsWith(DIGEST_NAMED_DIR)) return null;
   const names = yield* fs.readDirectory(archive).pipe(Effect.orElseSucceed(() => []));
   for (const name of names) {
     if (name.startsWith(STAGING)) continue;
-    const build = join(archive, name);
-    const kept = yield* containedFile(join(build, DIGEST_NAMED_DIR), join(build, rel));
+    const kept = yield* containedFile(archive, join(archive, name, digestNamed));
     if (kept.kind === "ok") return kept;
   }
   return null;

@@ -1146,6 +1146,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Once all stores have been opened under the migration, drop the variant from PropValue and the schema.
 - **node** — `01M3KA3A2Q317N5EHFEF6TYVDE`
 
+### GAP: pruning the ui-builds archive can remove a build another server just refreshed
+
+- **expected** — recording and pruning the build archive run under one cross-process lock, the same exclusive lock the JSONL store takes, generalized out of store-jsonl into a shared file-lock mechanism
+- **current** — each build is published whole and pruning removes only builds it listed, which keeps a newly published build safe; but a server that lists an old build for removal can remove it after another server restarted on that same build and refreshed its record
+- **impact** — only when a server restarts on a build already beyond the newest eight while another prunes: that build's kept copy is lost, so its open tabs reload after the next release; nothing else is lost (the archive is a cache)
+- **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
+- **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
+
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows

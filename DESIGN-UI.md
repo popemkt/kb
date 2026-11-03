@@ -262,8 +262,10 @@ be kept, never how it is sent.
     build it serves in kb's cache (`<cache>/ui-builds`, `KB_CACHE` or the
     platform's cache directory): one directory per build, published whole,
     of which the newest eight stay. Servers sharing that cache never remove
-    a build another has just kept, since a build is removed only whole and
-    only by a server that listed it. Every file under `static/` is named by
+    a build another has just published, since a build is removed only whole
+    and only by a server that listed it; one a server restarts on while
+    another prunes it can still go (GAP [[01M6H0QPT8K2YPY6XV6SM5WRYH]]).
+    Every file under `static/` is named by
     its digest, so one the current build lacks is served from whichever kept
     build has it, and never from outside that build's own files; one no kept
     build has is `404`, never the page (`server/src/build-archive.ts`). Nothing about this is in the package:

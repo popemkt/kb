@@ -119,6 +119,17 @@ describe("the builds kept for open tabs", () => {
     await symlink(join(at, "secret.txt"), join(builds, "index-a.js", "static", "leak.js"));
 
     expect((await serve(dist, builds, "/static/leak.js")).status).toBe(404);
+
+    // A build whose `static/` is a link elsewhere, and a build that is one.
+    const outside = join(at, "outside");
+    await mkdir(join(outside, "static"), { recursive: true });
+    await writeFile(join(outside, "secret.js"), "not a chunk");
+    await writeFile(join(outside, "static", "secret2.js"), "not a chunk");
+    await mkdir(join(builds, "index-z.js"));
+    await symlink(outside, join(builds, "index-z.js", "static"));
+    await symlink(outside, join(builds, "index-y.js"));
+    expect((await serve(dist, builds, "/static/secret.js")).status).toBe(404);
+    expect((await serve(dist, builds, "/static/secret2.js")).status).toBe(404);
     expect((await serve(dist, builds, "/static/../build.json")).status).not.toBe(200);
   });
 
