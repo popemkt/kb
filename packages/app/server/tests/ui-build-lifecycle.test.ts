@@ -2,9 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   ensureUiBuilt,
   needsUiBuild,
@@ -110,7 +110,44 @@ describe("ui source fingerprint in a workspace", () => {
     expect(model).not.toBe(contracts);
 
     await writeFile(join(root, "bun.lock"), "lock 2\n");
-    expect(await fingerprint()).not.toBe(model);
+    const lock = await fingerprint();
+    expect(lock).not.toBe(model);
+
+    // What the bundler copies as it is: the UI's public files.
+    await mkdir(join(uiRoot, "public"), { recursive: true });
+    await writeFile(join(uiRoot, "public", "favicon.svg"), "<svg/>\n");
+    expect(await fingerprint()).not.toBe(lock);
+  });
+
+  test("reads nothing outside the workspace, whatever its globs or links say", async () => {
+    const { root, uiRoot } = await makeWorkspace();
+    const outside = await mkdtemp(join(tmpdir(), "kb-uiws-outside-"));
+    roots.push(outside);
+    const source = (dir: string) => join(outside, dir, "src", "index.ts");
+    for (const [dir, name] of [
+      ["far", "@kb/far"],
+      ["linked", "@kb/linked"],
+    ] as const) {
+      await mkdir(join(outside, dir, "src"), { recursive: true });
+      await writeFile(join(outside, dir, "package.json"), JSON.stringify({ name }));
+      await writeFile(source(dir), "export const v = 1;\n");
+    }
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ workspaces: ["packages/*/*", `../${basename(outside)}/*`] }),
+    );
+    await symlink(join(outside, "linked"), join(root, "packages", "app", "linked"));
+    await writeFile(
+      join(uiRoot, "package.json"),
+      JSON.stringify({
+        name: "@kb/ui",
+        dependencies: { "@kb/far": "workspace:*", "@kb/linked": "workspace:*" },
+      }),
+    );
+    const before = await run(uiSourceFingerprint(uiRoot));
+    await writeFile(source("far"), "export const v = 2;\n");
+    await writeFile(source("linked"), "export const v = 2;\n");
+    expect(await run(uiSourceFingerprint(uiRoot))).toBe(before);
   });
 });
 

@@ -2,6 +2,7 @@ import { Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { dirname, join, relative, resolve } from "node:path";
+import { containedDirectory } from "@kb/workspace-fs";
 
 /**
  * Fresh-checkout lifecycle for the built UI (`packages/app/ui/dist`).
@@ -77,7 +78,8 @@ const expandGlob = Effect.fnUntraced(function* (root: string, glob: string) {
 /**
  * The packages whose sources the built SPA is made of: the UI's own, and in
  * a workspace every package it depends on as `workspace:`, transitively, as
- * the workspace's manifests say. Outside a workspace, the UI alone.
+ * the workspace's manifests say, and never a package outside the workspace's
+ * root. Outside a workspace, the UI alone.
  */
 const bundledPackages = Effect.fnUntraced(function* (uiRoot: string) {
   const workspace = yield* workspaceAbove(uiRoot);
@@ -85,6 +87,9 @@ const bundledPackages = Effect.fnUntraced(function* (uiRoot: string) {
   const byName = new Map<string, string>();
   for (const glob of workspace.globs) {
     for (const dir of yield* expandGlob(workspace.root, glob)) {
+      // A glob that climbs out (`../x/*`) or a package that links out is not
+      // the workspace's: nothing outside the root is read.
+      if ((yield* containedDirectory(workspace.root, dir)) === null) continue;
       const name = (yield* manifestIn(dir))?.name;
       if (name !== undefined) byName.set(name, dir);
     }
@@ -121,9 +126,9 @@ function uiConfigInputs(uiRoot: string): string[] {
 
 /**
  * Deterministic hash over every source input that can change the built
- * bundle: the UI's build configuration, and the manifest and `src/` of every
- * package it bundles ({@link bundledPackages}), with the workspace's catalog
- * and lockfile. Paths are relative to the workspace root and contents are
+ * bundle: the UI's build configuration and `public/` files, and the manifest
+ * and `src/` of every package it bundles ({@link bundledPackages}), with the
+ * workspace's catalog and lockfile. Paths are relative to the workspace root and contents are
  * sorted before hashing, so the fingerprint is stable across runs and
  * machines. Anything that does not read as text — a directory, a file this
  * checkout does not have — is not an input.
@@ -134,13 +139,13 @@ export const uiSourceFingerprint = Effect.fn("kb.uiSourceFingerprint")(function*
   const fs = yield* FileSystem;
   const { base, packages, manifests } = yield* bundledPackages(uiRoot);
   const inputs = [...uiConfigInputs(uiRoot), ...manifests];
-  for (const dir of packages) {
-    inputs.push(join(dir, "package.json"));
-    const srcDir = join(dir, "src");
-    if (yield* pathExists(srcDir)) {
-      const entries = yield* fs.readDirectory(srcDir, { recursive: true });
-      inputs.push(...entries.map((entry) => join(srcDir, entry)));
-    }
+  // Each package's sources, and the files the bundler copies as they are (the UI's `public/`).
+  const trees = [...packages.map((dir) => join(dir, "src")), join(uiRoot, "public")];
+  inputs.push(...packages.map((dir) => join(dir, "package.json")));
+  for (const tree of trees) {
+    if (!(yield* pathExists(tree))) continue;
+    const entries = yield* fs.readDirectory(tree, { recursive: true });
+    inputs.push(...entries.map((entry) => join(tree, entry)));
   }
 
   const parts = yield* Effect.forEach(inputs, (path) =>
