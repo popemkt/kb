@@ -57,6 +57,63 @@ describe("ui source fingerprint", () => {
   });
 });
 
+/**
+ * A workspace like kb's: the UI bundles `@kb/contracts`, which bundles
+ * `@kb/model`; `@kb/server` is the workspace's too, but the UI bundles none of it.
+ */
+async function makeWorkspace(): Promise<{ root: string; uiRoot: string }> {
+  const root = await mkdtemp(join(tmpdir(), "kb-uiws-"));
+  roots.push(root);
+  const pkg = async (dir: string, manifest: object, source: string) => {
+    await mkdir(join(root, dir, "src"), { recursive: true });
+    await writeFile(join(root, dir, "package.json"), JSON.stringify(manifest));
+    await writeFile(join(root, dir, "src", "index.ts"), source);
+  };
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ workspaces: { packages: ["packages/*/*"], catalog: {} } }),
+  );
+  await writeFile(join(root, "bun.lock"), "lock 1\n");
+  await pkg(
+    "packages/app/ui",
+    { name: "@kb/ui", dependencies: { "@kb/contracts": "workspace:*", react: "catalog:" } },
+    "export const ui = 1;\n",
+  );
+  await pkg(
+    "packages/contract/contracts",
+    { name: "@kb/contracts", dependencies: { "@kb/model": "workspace:*" } },
+    "export const WIRE_PROTOCOL = 1;\n",
+  );
+  await pkg("packages/domain/model", { name: "@kb/model" }, "export const model = 1;\n");
+  await pkg("packages/app/server", { name: "@kb/server" }, "export const server = 1;\n");
+  return { root, uiRoot: join(root, "packages", "app", "ui") };
+}
+
+describe("ui source fingerprint in a workspace", () => {
+  test("moves with every workspace package the UI bundles, and only with those", async () => {
+    const { root, uiRoot } = await makeWorkspace();
+    const fingerprint = () => run(uiSourceFingerprint(uiRoot));
+    const before = await fingerprint();
+
+    await writeFile(join(root, "packages/app/server/src/index.ts"), "export const server = 2;\n");
+    expect(await fingerprint()).toBe(before);
+
+    await writeFile(
+      join(root, "packages/contract/contracts/src/index.ts"),
+      "export const WIRE_PROTOCOL = 2;\n",
+    );
+    const contracts = await fingerprint();
+    expect(contracts).not.toBe(before);
+
+    await writeFile(join(root, "packages/domain/model/src/index.ts"), "export const model = 2;\n");
+    const model = await fingerprint();
+    expect(model).not.toBe(contracts);
+
+    await writeFile(join(root, "bun.lock"), "lock 2\n");
+    expect(await fingerprint()).not.toBe(model);
+  });
+});
+
 describe("needsUiBuild decision", () => {
   test("missing index.html → missing; no marker → stale; matching marker → fresh", async () => {
     const { uiRoot, distDir } = await makeUi();

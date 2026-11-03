@@ -1,7 +1,7 @@
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 /**
  * Fresh-checkout lifecycle for the built UI (`packages/app/ui/dist`).
@@ -23,55 +23,126 @@ export class UiBuildError extends Schema.TaggedError<UiBuildError>()("Kb/UiBuild
   message: Schema.String,
 }) {}
 
-function uiRootBase(uiRoot: string): string {
-  return resolve(uiRoot, "..");
-}
+/** What a `package.json` says that decides what is bundled: its name, its dependencies, its workspaces. */
+const Manifest = Schema.Struct({
+  name: Schema.optional(Schema.String),
+  dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  workspaces: Schema.optional(
+    Schema.Union([
+      Schema.Array(Schema.String),
+      Schema.Struct({ packages: Schema.Array(Schema.String) }),
+    ]),
+  ),
+});
+const decodeManifest = Schema.decodeUnknownOption(Schema.fromJsonString(Manifest));
+
+const manifestIn = Effect.fnUntraced(function* (dir: string) {
+  const fs = yield* FileSystem;
+  const text = yield* fs
+    .readFileString(join(dir, "package.json"))
+    .pipe(Effect.orElseSucceed(() => ""));
+  return Option.getOrUndefined(decodeManifest(text));
+});
+
+/** The workspace `dir` is a package of: the nearest directory above it whose manifest names workspaces. */
+const workspaceAbove = Effect.fnUntraced(function* (dir: string) {
+  for (let at = dirname(dir); at !== dirname(at); at = dirname(at)) {
+    const workspaces = (yield* manifestIn(at))?.workspaces;
+    if (workspaces !== undefined) {
+      return { root: at, globs: "packages" in workspaces ? workspaces.packages : workspaces };
+    }
+  }
+  return null;
+});
+
+/** The directories a workspace glob such as `packages/*\/*` names, under `root`. */
+const expandGlob = Effect.fnUntraced(function* (root: string, glob: string) {
+  const fs = yield* FileSystem;
+  let dirs = [root];
+  for (const segment of glob.split("/")) {
+    if (segment !== "*") {
+      dirs = dirs.map((dir) => join(dir, segment));
+      continue;
+    }
+    const next: string[] = [];
+    for (const dir of dirs) {
+      const names = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => []));
+      next.push(...names.map((name) => join(dir, name)));
+    }
+    dirs = next;
+  }
+  return dirs;
+});
 
 /**
- * Top-level inputs that determine the built SPA: UI config/entry files plus
- * the shared backend sources the app aliases (`@kb/protocol`, `@kb/canvas`).
- * Missing inputs are simply skipped — a config file that does not exist yet
- * does not pin the fingerprint.
+ * The packages whose sources the built SPA is made of: the UI's own, and in
+ * a workspace every package it depends on as `workspace:`, transitively, as
+ * the workspace's manifests say. Outside a workspace, the UI alone.
  */
-function uiSourceInputs(uiRoot: string): string[] {
-  const base = uiRootBase(uiRoot);
-  return [
-    join(uiRoot, "index.html"),
-    join(uiRoot, "package.json"),
-    join(uiRoot, "vite.config.ts"),
-    join(uiRoot, "vite.sandbox.config.ts"),
-    join(uiRoot, "tsconfig.json"),
-    join(uiRoot, "bun.lock"),
-    join(uiRoot, "package-lock.json"),
-    join(base, "src", "surface", "protocol.ts"),
-    join(base, "src", "canvas", "doc.ts"),
-  ];
-}
+const bundledPackages = Effect.fnUntraced(function* (uiRoot: string) {
+  const workspace = yield* workspaceAbove(uiRoot);
+  if (workspace === null) return { base: resolve(uiRoot), packages: [uiRoot], manifests: [] };
+  const byName = new Map<string, string>();
+  for (const glob of workspace.globs) {
+    for (const dir of yield* expandGlob(workspace.root, glob)) {
+      const name = (yield* manifestIn(dir))?.name;
+      if (name !== undefined) byName.set(name, dir);
+    }
+  }
+  const packages = new Set([resolve(uiRoot)]);
+  for (const dir of packages) {
+    for (const [name, range] of Object.entries((yield* manifestIn(dir))?.dependencies ?? {})) {
+      const depDir = byName.get(name);
+      if (range.startsWith("workspace:") && depDir !== undefined) packages.add(resolve(depDir));
+    }
+  }
+  return {
+    base: workspace.root,
+    packages: [...packages],
+    // The catalog and the lockfile pin every external dependency's version.
+    manifests: [join(workspace.root, "package.json"), join(workspace.root, "bun.lock")],
+  };
+});
 
 const pathExists = Effect.fnUntraced(function* (path: string) {
   const fs = yield* FileSystem;
   return yield* fs.exists(path).pipe(Effect.orElseSucceed(() => false));
 });
 
+/** The UI's build configuration: what the bundler reads besides sources. */
+function uiConfigInputs(uiRoot: string): string[] {
+  return [
+    join(uiRoot, "index.html"),
+    join(uiRoot, "vite.config.ts"),
+    join(uiRoot, "vite.sandbox.config.ts"),
+    join(uiRoot, "tsconfig.json"),
+  ];
+}
+
 /**
  * Deterministic hash over every source input that can change the built
- * bundle. Paths are relative to the kb package root and contents are sorted
- * before hashing, so the fingerprint is stable across runs and machines.
- * Anything that does not read as text — a directory, a file this checkout
- * does not have — is not an input.
+ * bundle: the UI's build configuration, and the manifest and `src/` of every
+ * package it bundles ({@link bundledPackages}), with the workspace's catalog
+ * and lockfile. Paths are relative to the workspace root and contents are
+ * sorted before hashing, so the fingerprint is stable across runs and
+ * machines. Anything that does not read as text — a directory, a file this
+ * checkout does not have — is not an input.
  */
 export const uiSourceFingerprint = Effect.fn("kb.uiSourceFingerprint")(function* (
   uiRoot: string,
 ): Effect.fn.Return<string, PlatformError, FileSystem> {
   const fs = yield* FileSystem;
-  const inputs = [...uiSourceInputs(uiRoot)];
-  const srcDir = join(uiRoot, "src");
-  if (yield* pathExists(srcDir)) {
-    const entries = yield* fs.readDirectory(srcDir, { recursive: true });
-    inputs.push(...entries.map((entry) => join(srcDir, entry)));
+  const { base, packages, manifests } = yield* bundledPackages(uiRoot);
+  const inputs = [...uiConfigInputs(uiRoot), ...manifests];
+  for (const dir of packages) {
+    inputs.push(join(dir, "package.json"));
+    const srcDir = join(dir, "src");
+    if (yield* pathExists(srcDir)) {
+      const entries = yield* fs.readDirectory(srcDir, { recursive: true });
+      inputs.push(...entries.map((entry) => join(srcDir, entry)));
+    }
   }
 
-  const base = uiRootBase(uiRoot);
   const parts = yield* Effect.forEach(inputs, (path) =>
     fs.readFileString(path).pipe(
       Effect.map((text) => `${relative(base, path)}\u0000${text}`),
