@@ -275,8 +275,9 @@ be kept, never how it is sent.
     connection's `hello` names the server's `WIRE_PROTOCOL` (`@kb/contracts`
     → `protocol.ts`), and a tab of the same protocol keeps working whatever
     build the server serves. The wire's fingerprint — the socket's messages,
-    the action envelope and answer, the snapshot, and each action a page runs
-    on its replica — is recorded beside the version
+    the action envelope and answer, the snapshot, and the input and output
+    of every action the server offers, as its manifest lists them — is
+    recorded beside the version
     (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
     someone decides: still compatible (record the fingerprint), or not (bump
     the protocol).

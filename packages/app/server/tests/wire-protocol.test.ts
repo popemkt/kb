@@ -3,8 +3,9 @@
  * "A tab outlives its build"). A page of the previous build keeps working
  * against this server as long as `WIRE_PROTOCOL` is the same, so whatever
  * such a page sends or reads is fingerprinted here: the socket's messages,
- * the action envelope and its answer, the snapshot, and each action a page
- * runs on its own replica, by id, mode and input.
+ * the action envelope and its answer, the snapshot, and every action the
+ * server offers, which a page may call or run on its own replica, by id,
+ * mode, input and output, as the server's own manifest lists them.
  *
  * When this test fails, the wire changed. Decide which it is:
  * - a page of the previous build still works with it (a new optional field,
@@ -12,8 +13,12 @@
  * - it does not: bump `WIRE_PROTOCOL` in `@kb/contracts` and record both.
  *   Every open tab then reloads into the new build when it is idle.
  */
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect } from "effect";
 import {
   ActionRequestSchema,
   ActionResponseSchema,
@@ -23,11 +28,11 @@ import {
   WIRE_PROTOCOL,
 } from "@kb/contracts";
 import { schemaToJsonSchema } from "@kb/model";
-import { isomorphicActions } from "@kb/operations";
+import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const RECORDED = {
   protocol: 1,
-  fingerprint: "e66c529c0efd39cb459daa0ca5e17088fe09c9b649dde58edc59d89f552a1f91",
+  fingerprint: "bb4ba37611ff2fafb8cb54ec6ababd239eec0516718d30adbfeaaba92a39d151",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
@@ -39,29 +44,64 @@ function canonical(value: unknown): string {
   );
 }
 
+/** An action as the wire carries it: what a call sends and what its answer holds. */
+interface ManifestAction {
+  readonly id: string;
+  readonly mode: unknown;
+  readonly batchOf?: unknown;
+  readonly inputSchema: unknown;
+  readonly outputSchema: unknown;
+}
+
+/** Every action the server offers, as its manifest lists them, each by what a call to it carries. */
+async function offered(url: string): Promise<unknown[]> {
+  const res = await fetch(`${url}/api/action`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: new URL(url).origin },
+    body: JSON.stringify({ id: "kb.manifest", input: {} }),
+  });
+  const receipt = (await res.json()) as { output: { actions: ManifestAction[] } };
+  return receipt.output.actions
+    .map(({ id, mode, batchOf, inputSchema, outputSchema }) => ({
+      id,
+      mode,
+      batchOf,
+      input: inputSchema,
+      output: outputSchema,
+    }))
+    .toSorted((a, b) => (a.id < b.id ? -1 : 1));
+}
+
 /** Every shape as a parser reads it: the side a page and a server each accept. */
 // GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]] the sandbox frame's messages are not fingerprinted, and its script is not digest-named
-function wireFingerprint(): string {
+function wireFingerprint(actions: unknown[]): string {
   const wire = {
     client: schemaToJsonSchema(ClientMessageSchema, "input"),
     server: schemaToJsonSchema(ServerMessageSchema, "input"),
     request: schemaToJsonSchema(ActionRequestSchema, "input"),
     response: schemaToJsonSchema(ActionResponseSchema, "input"),
     snapshot: schemaToJsonSchema(GraphSnapshotSchema, "input"),
-    replicaActions: isomorphicActions
-      .map(({ def }) => ({
-        id: def.id,
-        mode: def.mode,
-        input: schemaToJsonSchema(def.inputSchema, "input"),
-      }))
-      .toSorted((a, b) => (a.id < b.id ? -1 : 1)),
+    actions,
   };
   return createHash("sha256").update(canonical(wire)).digest("hex");
 }
 
 describe("the wire protocol", () => {
-  test("is the version recorded with the wire it names", () => {
-    const now = { protocol: WIRE_PROTOCOL, fingerprint: wireFingerprint() };
+  let root = "";
+  let handle: UiServerHandle;
+  beforeAll(async () => {
+    root = await mkdtemp(join(tmpdir(), "kb-wire-"));
+    handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false, builds: null }));
+  });
+  afterAll(async () => {
+    await Effect.runPromise(handle.stop);
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("is the version recorded with the wire it names", async () => {
+    const actions = await offered(handle.url);
+    expect(actions.length).toBeGreaterThan(50);
+    const now = { protocol: WIRE_PROTOCOL, fingerprint: wireFingerprint(actions) };
     expect(now, "the wire changed: see the comment at the top of this file").toEqual(RECORDED);
   });
 });

@@ -22,8 +22,8 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
 /**
  * The version of this wire: what a page of one build and a server of
  * another must agree on to work together — these messages, the action
- * envelope and receipt, the snapshot, and the inputs of the actions a page
- * runs on its own replica. A build changes on every release; this changes
+ * envelope and receipt, the snapshot, and the input and output of every
+ * action the server offers. A build changes on every release; this changes
  * only when a page of the previous build could no longer talk to the
  * server. The wire's fingerprint is recorded beside it
  * (`packages/app/server/tests/wire-protocol.test.ts`), so a change to any
