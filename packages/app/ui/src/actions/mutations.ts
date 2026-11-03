@@ -56,8 +56,7 @@ import { isWritableField, typeRefsOf } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { invoke, invokeLocal, pushInvocation, writeLocal } from "@/session/runtime";
-import type { Hold } from "@/session/replica";
+import { invoke, invokeCoalesced, invokeLocal } from "@/session/runtime";
 
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
@@ -133,90 +132,23 @@ async function frameConfig(frameId: string): Promise<ViewConfig> {
   return frameConfigOf(shownNodes().get(frameId), schemaOf(useGraphStore.getState()));
 }
 
-/**
- * Typed text not yet pushed. Its local write is already committed and held
- * (DESIGN-UI.md → Replica sync → Holds); the coalesced flush is the push that
- * settles `hold`. In fixture mode nothing is pushed, so nothing is held.
- */
-type PendingContent = {
-  text: string;
-  timer: ReturnType<typeof setTimeout>;
-  hold: Hold | undefined;
-};
-
-const pendingContent = new Map<string, PendingContent>();
-
-async function flushContentRemote(id: string, pending: PendingContent): Promise<void> {
-  const store = useGraphStore.getState();
-  if (store.loadSource === "fixtures" || store.loadSource === null) return;
-
-  try {
-    const receipt = await pushInvocation(
-      { id: "node.update", input: { id, text: pending.text } },
-      pending.hold,
-    );
-    if (receipt.status === "failed") toast(receipt.message);
-  } catch (err) {
-    toast(err instanceof Error ? err.message : String(err));
-  }
-}
-
-/** Flush the current coalesced value, not the value from when its timer armed. */
-function flushPendingContent(id: string, pending: PendingContent): Promise<void> {
-  clearTimeout(pending.timer);
-  // A newer keystroke may already have replaced this entry.  Only the entry
-  // being flushed is removed; the newer one remains queued behind it.
-  if (pendingContent.get(id) === pending) pendingContent.delete(id);
-  return flushContentRemote(id, pending);
-}
-
-/**
- * Structural plans must be made only after the server has seen the text that
- * their offsets/merges operate on. Every pending text is flushed, including
- * that of a node about to be deleted: the one push lane orders the flush
- * before the structural write, and the flush is what settles its hold.
- */
-async function prepareStructuralMutation(): Promise<void> {
-  await Promise.all(
-    Array.from(pendingContent, ([id, pending]) => flushPendingContent(id, pending)),
-  );
-}
-
-/** @internal Clear debounce map between tests. */
-export function __resetPendingContentForTests(): void {
-  for (const pending of pendingContent.values()) clearTimeout(pending.timer);
-  pendingContent.clear();
-}
-
 export const mutations: PageWrites = {
   async updateNodeContent(id: string, content: string): Promise<void> {
     if (!guardSysWrite(id)) return;
 
     const store = useGraphStore.getState();
-    const prev = pendingContent.get(id);
     if (!store.wireNodes.some((node) => node.id === id)) return;
 
     const plan = planUpdateText(store.wireNodes, id, content);
     const action = plan.actions[0];
     if (action === undefined) return;
-    const { receipt, hold } =
+    // Each keystroke commits here; the lane pushes the last of a pause, in
+    // its place among this tab's writes (`invokeCoalesced`).
+    const receipt =
       store.loadSource === "api"
-        ? await writeLocal(action, prev?.hold)
-        : { receipt: await invokeLocal(action), hold: undefined };
-    if (receipt.status === "failed") {
-      toast(receipt.message);
-      return;
-    }
-
-    if (prev) clearTimeout(prev.timer);
-    pendingContent.set(id, {
-      text: content,
-      hold,
-      timer: setTimeout(() => {
-        const latest = pendingContent.get(id);
-        if (latest) void flushPendingContent(id, latest);
-      }, 280),
-    });
+        ? (await invokeCoalesced(action, `text:${id}`)).receipt
+        : await invokeLocal(action);
+    if (receipt.status === "failed") toast(receipt.message);
   },
 
   async createNodeAfter(afterId: string): Promise<void> {
@@ -330,7 +262,6 @@ export const mutations: PageWrites = {
 
   async splitNode(id: string, cursor: number | "end"): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await prepareStructuralMutation();
     // Expanded set from the page's rows drives Tana first-child splits.
     const expandedIds = new Set<string>();
     for (const n of pageRows().values()) {
@@ -341,13 +272,11 @@ export const mutations: PageWrites = {
 
   async deleteNode(id: string): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await prepareStructuralMutation();
     await applyPlan(planDelete(wire(), id));
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
     if (!guardSysWrite(thisId) || !guardSysWrite(nextId)) return;
-    await prepareStructuralMutation();
     const plan = planMergeInto(wire(), nextId, thisId);
     if (!plan) return;
     await applyPlan(plan);
@@ -355,7 +284,6 @@ export const mutations: PageWrites = {
 
   async mergeWithPrevious(id: string, previousId: string | null = null): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await prepareStructuralMutation();
     let plan: PlannedMutation | null = null;
     if (previousId !== null && previousId !== id) plan = planMergeInto(wire(), id, previousId);
     if (!plan) plan = planMergeWithPrevious(wire(), id);

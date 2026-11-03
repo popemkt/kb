@@ -19,7 +19,8 @@ import {
 import { OutlineEditor, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { mutations, __resetPendingContentForTests } from "@/actions/mutations";
+import { mutations } from "@/actions/mutations";
+import { resetPushLaneForTests } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -58,7 +59,7 @@ describe("the page title's edit", () => {
     useGraphStore
       .getState()
       .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
-    __resetPendingContentForTests();
+    resetPushLaneForTests();
     setPostAction(null);
     seen.length = 0;
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
