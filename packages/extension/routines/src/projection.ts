@@ -2,7 +2,6 @@ import { DateTime, Duration, Effect, Schema } from "effect";
 import * as recurrenceModule from "rrule";
 import { addDays, canonicalJson, conformsToType, formatDay, parseDay } from "@kb/model";
 import {
-  SHARED_EVENT_FIELDS as SHARED,
   SyncError,
   type EventFields,
   type EventTime,
@@ -132,18 +131,6 @@ export function canonicalRule(raw: string): string {
   } catch {
     throw invalid();
   }
-}
-
-export function normalizedRecurrence(lines: readonly string[]): readonly string[] {
-  return lines
-    .map((line) => {
-      try {
-        return canonicalRule(line);
-      } catch {
-        return line;
-      }
-    })
-    .toSorted();
 }
 
 function utcUntil(until: string, zone: string): string {
@@ -286,18 +273,6 @@ export const eventId = Effect.fn("routines.eventId")(function* (
   }
   return "kb" + encoded.slice(0, 30);
 });
-
-/** P1 reports remote changes; independent local changes still flow out. */
-export function mergeFields(base: EventFields, local: EventFields, remote: EventFields) {
-  const conflicts = SHARED.filter(
-    (key) =>
-      canonicalJson(remote[key]) !== canonicalJson(base[key]) &&
-      canonicalJson(local[key]) !== canonicalJson(remote[key]),
-  );
-  const fields = { ...local };
-  for (const key of conflicts) Object.assign(fields, { [key]: remote[key] });
-  return { fields, conflicts };
-}
 
 export function endSeries(fields: EventFields, yesterday: string): EventFields {
   const until =

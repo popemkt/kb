@@ -1,4 +1,4 @@
-import { Context, Layer, Predicate, Effect, type Scope } from "effect";
+import { Context, Layer, Effect, type Scope } from "effect";
 import {
   ActionPoint,
   ChannelPoint,
@@ -7,13 +7,12 @@ import {
   provideAction,
   extensionNamespace,
 } from "@kb/contracts";
-import { definePlugin, PluginError } from "@kb/plugin";
+import { definePlugin } from "@kb/plugin";
 import {
   routinesExtension,
   type SyncError,
   type CalendarBinding,
   type CalendarPort,
-  type SyncLedger,
 } from "@kb/routines";
 import { routineActions } from "./actions.ts";
 import { calendarBindingDigest } from "./binding.ts";
@@ -26,7 +25,6 @@ export interface ConnectStep {
   readonly finish: (pasted?: string) => Effect.Effect<void, SyncError>;
 }
 export interface RoutinesPluginOptions {
-  readonly ledger: Effect.Effect<SyncLedger, SyncError, Scope.Scope>;
   readonly client: (
     binding: CalendarBinding,
     trusted: Effect.Effect<boolean, SyncError>,
@@ -49,12 +47,10 @@ export function routinesPlugin(options: RoutinesPluginOptions) {
         const ui = yield* ctx.get(UiHost);
         const graphLayer = RoutineGraph.layer(ui);
         const host = Context.get(yield* Layer.build(graphLayer), RoutineGraph);
-        const ledger = yield* options.ledger;
         const engine = Context.get(
           yield* Layer.build(
             RoutineEngine.layer({
               ...options,
-              ledger,
               client: (binding) =>
                 options.client(
                   binding,
@@ -64,7 +60,7 @@ export function routinesPlugin(options: RoutinesPluginOptions) {
           ),
           RoutineEngine,
         );
-        const actions = routineActions(engine, connections(options, ui, host, ledger), scope);
+        const actions = routineActions(engine, connections(options, ui, host), scope);
         yield* ctx.plugin(
           definePlugin({
             name: "actions",
@@ -90,16 +86,6 @@ export function routinesPlugin(options: RoutinesPluginOptions) {
           },
         });
         yield* engine.run;
-      }).pipe(
-        Effect.mapError((error) =>
-          Predicate.isTagged(error, "Routines/SyncError")
-            ? new PluginError({
-                plugin: routinesExtension.name,
-                reason: "apply-failed",
-                message: error.code,
-              })
-            : error,
-        ),
-      ),
+      }),
   });
 }

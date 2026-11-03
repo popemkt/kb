@@ -7,7 +7,7 @@ export interface GoogleTokens {
 }
 export interface GoogleRequest {
   readonly url: string;
-  readonly method: "GET" | "POST" | "PATCH" | "DELETE";
+  readonly method: "GET" | "POST" | "PUT";
   readonly body?: string;
   readonly headers?: Readonly<Record<string, string>>;
 }

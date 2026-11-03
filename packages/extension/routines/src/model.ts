@@ -28,80 +28,17 @@ export const EventFields = Schema.Struct({
   done: Schema.Boolean,
 });
 export type EventFields = typeof EventFields.Type;
-export const SHARED_EVENT_FIELDS = [
-  "title",
-  "start",
-  "end",
-  "recurrence",
-  "status",
-] as const satisfies readonly (keyof EventFields)[];
-export const RemoteEvent = Schema.Struct({
-  id: Schema.String,
-  etag: Schema.String,
-  url: Schema.String,
-  fields: Schema.NullOr(EventFields),
-  deleted: Schema.Boolean,
-  runner: Schema.NullOr(Schema.String),
-  seriesId: Schema.NullOr(Schema.String),
-  originalStart: Schema.NullOr(EventTime),
-  ownedDrift: Schema.Boolean,
-});
-export type RemoteEvent = typeof RemoteEvent.Type;
-export const SyncConflict = Schema.Struct({
-  base: Schema.NullOr(EventFields),
-  local: Schema.NullOr(EventFields),
-  remote: Schema.NullOr(EventFields),
-});
-export type SyncConflict = typeof SyncConflict.Type;
-export const PendingWrite = Schema.Struct({
-  id: Schema.String,
-  fields: Schema.NullOr(EventFields),
-  base: Schema.NullOr(EventFields),
-  localRev: Schema.Int,
-  source: Schema.String,
-  outcome: Schema.Literals(["synced", "conflict", "ended"]),
-  conflict: Schema.NullOr(SyncConflict),
-});
-export const UnitRecord = Schema.Struct({
-  key: Schema.String,
-  routineId: Schema.String,
-  occurrenceId: Schema.NullOr(Schema.String),
-  day: Schema.NullOr(Schema.String),
-  calendar: Schema.String,
-  kind: Schema.Literals(["series", "one-off", "exception"]),
-  generation: Schema.Int,
-  base: Schema.NullOr(EventFields),
-  etag: Schema.NullOr(Schema.String),
-  state: Schema.Literals([
-    "dirty",
-    "pushing",
-    "synced",
-    "retry",
-    "conflict",
-    "deleted",
-    "failed",
-    "held",
-    "ended",
-  ]),
-  dirtySince: Schema.Finite,
-  lastTouch: Schema.Finite,
-  nextAttemptAt: Schema.Finite,
-  attempts: Schema.Int,
-  lastError: Schema.NullOr(SyncFailure),
-  conflict: Schema.NullOr(SyncConflict),
-  pending: Schema.NullOr(PendingWrite),
-  localRev: Schema.Int,
-  source: Schema.String,
-  inputs: Schema.Array(Schema.String),
-  version: Schema.Int,
-});
-export type UnitRecord = typeof UnitRecord.Type;
-export const LedgerLog = Schema.Struct({
-  at: Schema.Finite,
-  code: Schema.String,
-  key: Schema.NullOr(Schema.String),
-});
-export type LedgerLog = typeof LedgerLog.Type;
+export interface CalendarResult {
+  readonly id: string;
+  readonly url: string;
+}
+export interface SyncStatus {
+  readonly state: "pending" | "synced" | "error";
+  readonly message: string;
+  readonly eventId?: string;
+  readonly url?: string;
+  readonly at?: string;
+}
 export interface Routine {
   readonly id: string;
   readonly title: string;

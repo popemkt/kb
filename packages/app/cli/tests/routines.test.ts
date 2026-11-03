@@ -7,7 +7,6 @@ import { startUi } from "@kb/server";
 import { bunFileSystemLayer } from "@kb/runtime";
 import {
   makeFakeCalendar,
-  makeMemoryLedger,
   routinesExtension,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
@@ -31,7 +30,6 @@ test("routines is optional, outline fields preview through real actions, and unl
           entry: routinesPlugin({
             origin: "https://kb.test",
             runner: "host-test",
-            ledger: makeMemoryLedger(),
             client: () => Effect.succeed(fake.port),
             connect: (_binding, trusted) =>
               trusted.pipe(
@@ -89,6 +87,7 @@ test("routines is optional, outline fields preview through real actions, and unl
         text: "Morning",
         tags: [T.routine],
         props: [
+          { field: F.calendar, value: { t: "ref", v: "calendar" } },
           { field: F.starts, value: { t: "str", v: "2026-11-03" } },
           { field: F.at, value: { t: "str", v: "08:00" } },
           { field: F.rrule, value: { t: "str", v: "FREQ=DAILY" } },
@@ -100,12 +99,12 @@ test("routines is optional, outline fields preview through real actions, and unl
       status: "succeeded",
       output: [
         {
-          fields: { title: "Morning", start: { at: "08:00", zone: "Asia/Ho_Chi_Minh" } },
-          issue: null,
+          title: "Morning",
+          start: { at: "08:00", zone: "Asia/Ho_Chi_Minh" },
         },
       ],
     });
-    expect(fake.calls).toHaveLength(0);
+    expect(fake.events.size).toBe(0);
     expect((await call("ext.routines.connect", { calendar: "calendar" })).status).toBe("failed");
     const binding = Schema.decodeUnknownSync(Schema.Struct({ digest: Schema.String }))(
       (await call("ext.routines.binding", { calendar: "calendar" })).output,
@@ -121,7 +120,6 @@ test("routines is optional, outline fields preview through real actions, and unl
       status: "succeeded",
       output: { node: { props: { [F.calendarId]: [{ t: "str", v: "calendar-1" }] } } },
     });
-    expect(fake.calls.filter((entry) => entry.method === "create")).toHaveLength(1);
 
     expect(await call("extension.switch", { name: "routines", on: false })).toMatchObject({
       status: "succeeded",

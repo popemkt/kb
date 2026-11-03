@@ -1,19 +1,13 @@
 import { Context, Layer, Result, DateTime, Effect, Schema } from "effect";
 import { z } from "zod";
-import {
-  onWire,
-  ScreenListSchema,
-  viaWithin,
-  WireNodeSchema,
-  type UiHostService,
-} from "@kb/contracts";
-import { canonicalJson, typeRefsOf, type NodeLike, type PropValue } from "@kb/model";
+import { onWire, viaWithin, WireNodeSchema, type UiHostService } from "@kb/contracts";
+import { canonicalJson, type NodeLike, type PropValue } from "@kb/model";
 import {
   routineOption,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
   SyncError,
-  type RoutineOption,
+  type SyncStatus,
 } from "@kb/routines";
 
 export interface TailChange {
@@ -31,14 +25,7 @@ export interface RoutineHost {
   readonly read: Effect.Effect<ReadonlyMap<string, NodeLike>, SyncError>;
   readonly changes: (since: number) => Effect.Effect<TailPage, SyncError>;
   readonly trusted: (digest: string) => Effect.Effect<boolean, SyncError>;
-  readonly link: (id: string, url: string) => Effect.Effect<void, SyncError>;
-  readonly issue: (
-    id: string,
-    issue: RoutineOption<"issue"> | null,
-  ) => Effect.Effect<void, SyncError>;
-  readonly attention: (
-    nodes: ReadonlyMap<string, NodeLike>,
-  ) => Effect.Effect<"looking" | "open" | "absent", SyncError>;
+  readonly status: (id: string, status: SyncStatus) => Effect.Effect<void, SyncError>;
 }
 const Node = WireNodeSchema.pick({ id: true, text: true, props: true });
 const Tree = Node.extend({ children: z.array(Node).optional() });
@@ -78,22 +65,24 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
   });
   const replace = Effect.fn("routines.graph.replace")(function* (
     id: string,
-    field: string,
-    value: PropValue | null,
+    values: Readonly<Record<string, PropValue | null>>,
   ) {
     const current = yield* Effect.result(node(id));
     if (Result.isFailure(current)) {
       if (current.failure.status === 404) return undefined;
       return yield* current.failure;
     }
-    const values = value === null ? [] : [value];
-    if (canonicalJson(current.success.props[field] ?? []) !== canonicalJson(values)) {
+    const changed = Object.entries(values).filter(
+      ([field, value]) =>
+        canonicalJson(current.success.props[field] ?? []) !==
+        canonicalJson(value === null ? [] : [value]),
+    );
+    if (changed.length !== 0)
       yield* call("node.update", {
         id,
-        unsetProps: [{ field }],
-        setProps: values.map((entry) => ({ field, value: entry })),
+        unsetProps: changed.map(([field]) => ({ field })),
+        setProps: changed.flatMap(([field, value]) => (value === null ? [] : [{ field, value }])),
       });
-    }
     return undefined;
   });
   const read = Effect.fn("routines.graph.read")(function* () {
@@ -146,30 +135,14 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
       if (!result.success) return yield* unavailable();
       return result.data.trusted.includes(digest);
     }),
-    link: (id, url) => replace(id, F.gcal, { t: "str", v: url }),
-    issue: (id, issue) =>
-      replace(id, F.issue, issue === null ? null : { t: "ref", v: routineOption("issue", issue) }),
-    attention: Effect.fn("routines.graph.attention")(function* (nodes) {
-      const screens = ScreenListSchema.safeParse(yield* call("ui.screen", {}));
-      if (!screens.success) return yield* unavailable();
-      if (screens.data.tabs.length === 0) return "absent" as const;
-      const relevant = new Set(
-        [...nodes.values()]
-          .filter((entry) => typeRefsOf(entry).includes(T.routine))
-          .map((entry) => entry.id),
-      );
-      relevant.add(T.routine);
-      const looking = screens.data.tabs.some(
-        (tab) =>
-          tab.active &&
-          tab.panes.some(
-            (pane) =>
-              pane.view?.key.startsWith("routines.") === true ||
-              relevant.has(pane.view?.subject ?? pane.route.replace(/^\/node\//, "")),
-          ),
-      );
-      return looking ? ("looking" as const) : ("open" as const);
-    }),
+    status: (id, status) =>
+      replace(id, {
+        [F.status]: { t: "ref", v: routineOption("status", status.state) },
+        [F.message]: status.message === "" ? null : { t: "str", v: status.message },
+        ...(status.eventId === undefined ? {} : { [F.eventId]: { t: "str", v: status.eventId } }),
+        ...(status.url === undefined ? {} : { [F.gcal]: { t: "str", v: status.url } }),
+        ...(status.at === undefined ? {} : { [F.syncedAt]: { t: "str", v: status.at } }),
+      }),
   };
 }
 

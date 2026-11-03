@@ -5,11 +5,8 @@ import {
   canonicalRule,
   eventId,
   endSeries,
-  mergeFields,
   settleAt,
-  pollEvery,
   retryDelay,
-  RequestBucket,
   type Routine,
 } from "../src/index.ts";
 
@@ -106,30 +103,12 @@ test("event IDs are stable, calendar-scoped, generation-scoped base32hex", async
   expect(await Effect.runPromise(eventId("other", "routine", "series", 0))).not.toBe(first);
   expect(await Effect.runPromise(eventId("calendar", "routine", "series", 1))).not.toBe(first);
 });
-test("P1 reports remote edits while unrelated local fields still sync", () => {
-  const base = project(routine, "", 0);
-  const local = { ...base, end: { ...base.end, at: "08:30" }, done: true };
-  const remote = { ...base, title: "Google edit", done: false };
-  const result = mergeFields(base, local, remote);
-  expect(result.conflicts).toEqual(["title"]);
-  expect(result.fields.title).toBe("Google edit");
-  expect(result.fields.end.at).toBe("08:30");
-  expect(result.fields.done).toBe(true);
-  expect(endSeries(base, "2026-03-08").recurrence[0]).toContain("UNTIL=20260309T035959Z");
-});
 test("settling, cadence, retry caps and rate limiting are deterministic", () => {
   expect(settleAt(0, 4000)).toBe(9000);
   expect(settleAt(0, 29000)).toBe(30000);
-  expect(
-    ["looking", "open", "absent"].map((value) => pollEvery(value as "looking" | "open" | "absent")),
-  ).toEqual([20000, 60000, 300000]);
   expect(retryDelay(20, 1, "transport")).toBe(900000);
   expect(retryDelay(20, 1, "quota")).toBe(64000);
   expect(retryDelay(0, 0, "quota", 120000)).toBe(120000);
-  const bucket = new RequestBucket();
-  expect(bucket.take(0, 50)).toBe(20);
-  expect(bucket.take(0, 1)).toBe(0);
-  expect(bucket.take(1000, 10)).toBe(5);
 });
 test("ending a series never extends an existing UNTIL or exhausted COUNT", () => {
   const count = project({ ...routine, starts: "2026-01-01", rrule: "FREQ=DAILY;COUNT=3" }, "", 0);

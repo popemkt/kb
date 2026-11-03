@@ -1,11 +1,4 @@
-export {
-  GoogleEvent,
-  GoogleTime,
-  encodeEvent,
-  decodeEvent,
-  encodeTime,
-  decodeTime,
-} from "./wire.ts";
+export { encodeEvent, encodeTime } from "./wire.ts";
 export { makeGoogleCalendar } from "./client.ts";
 export type { GoogleTokens } from "./http.ts";
 export { makeGoogleTokens, beginGoogleConnect, CALENDAR_SCOPE } from "./oauth.ts";

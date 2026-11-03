@@ -3,8 +3,7 @@
 The canonical design is [routines → Google Calendar](../../../docs/research/2026-11-02-kb-routines-gcal.md)
 ([design PR #97](https://github.com/popemkt/kb/pull/97)).
 This family is hosted by `kb ui`, off by default. The engine has no frontend
-package: use ordinary outline fields and `ext.routines.*` actions. Agenda, sync
-dock and conflict cards are reserved for the frontend pass.
+package: use ordinary outline fields and `ext.routines.*` actions. The month/week/agenda calendar view is a later frontend pass.
 
 ## Owner setup (once per person)
 
@@ -62,30 +61,22 @@ Add child `#occurrence` nodes with original **on** date, state **done**, **skipp
 or **moved**, and (for moves) **moved to** plus optional **at**. One fact per day.
 Done days show ✅, grey, and no reminders; ordinary days use calendar defaults.
 
-- `ext.routines.preview {}` returns projected events without contacting Google.
-- `ext.routines.status {}` reads the local units, issues and bounded sync log.
-  The `routines.status` channel answers status requests without a dedicated view.
-- `ext.routines.sync {}` retries pending/failed work immediately. Paused/preview
-  calendars and untrusted bindings still make no requests.
-- `ext.routines.resolve {"key":"<unit-key>"}` explicitly resolves a conflict using
-  kb. Remote edits otherwise remain visible as conflicts; no automatic adoption.
-- `ext.routines.recreate {"key":"…"}` explicitly recreates an event deleted in
-  Google with a fresh generation. Editing the routine does not resurrect it.
-- `ext.routines.release {"keys":["…"]}` releases the exact held deletion plans
-  after inspection. Deleting a routine ends its series; more than five series or
-  more than 20% of active units requires release.
+- `ext.routines.preview {}` projects routines without contacting Google.
+- `ext.routines.status {}` and the `routines.status` channel return routine node fields.
+- `ext.routines.sync {}` retries pending/failed work; unchanged synced routines are no-ops.
+- `ext.routines.release {"keys":["<routine-node-id>"]}` authorizes exact held deletions.
+- Calendar **sync** values **preview** and **paused** stop outbound requests.
 
-Sync state lives in a separate local SQLite-backed kb store, at
-`$XDG_STATE_HOME/kb/ops/<SHA-256-of-root>/` (default `~/.local/state/kb/ops/…`), outside the source store and git. Back up
-that directory with the server's application data. It holds no credential values.
-The storage port and adapters share one contract suite; the Calendar client and
-fake share another. Network recovery retains a write journal and conditional
-etags, with a ten-attempt cap; an edit or Sync now retries exhausted work. Ordinary successful polls preserve exhausted write retries while their input is unchanged. A recorded transport-failed poll followed by a completed successful poll grants one recovery probe after normal backoff, without resetting the attempt count. A failed probe remains exhausted until another recorded offline→online transition, an edit, or Sync now. Auth and
-permanent failures remain stopped.
+The behavior and Calendar port contract are specified once in the
+[design's Simplified section](../../../docs/research/2026-11-02-kb-routines-gcal.md#simplified-2026-11-04).
+Status fields are native graph fields on routines and occurrences: **gcal status**
+(pending/synced/error), **gcal message**, **gcal link**, **gcal event id**, **synced at**.
+The calendar view can use those fields and the actions above directly.
 
-Unit tests use an in-memory Calendar fake and a loopback HTTP server which
-refuses external hosts. Live consent, actual Google expansion/notifications,
-phone display, account revocation and an hour-long real network outage still
-require owner acceptance testing. Polling uses 20 seconds while viewing routines,
-60 seconds with a kb tab open, and 5 minutes otherwise; a full reconciliation
-runs after 04:00 in the calendar zone.
+## Validation and remaining acceptance
+
+Unit tests use the fake Calendar adapter; the Google adapter joins its shared
+contract suite through a fake HTTP transport. No credentials or live Google calls
+are needed. Projection tests cover RRULEs, all-day events and DST boundaries.
+Live consent, Google exception retention across series updates, cancelled-instance
+restoration, mobile reminders and token revocation remain owner acceptance checks.

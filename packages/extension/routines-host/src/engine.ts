@@ -1,213 +1,289 @@
-import { Context, Layer, Clock, Effect, Semaphore } from "effect";
-import { typeRefsOf } from "@kb/model";
+import { Clock, Context, DateTime, Effect, Layer, Random, Semaphore } from "effect";
 import {
-  project,
-  readRoutine,
-  readCalendar,
-  DEFAULT_ROUTINE_ZONE,
-  ROUTINE_TAGS as T,
+  addDays,
+  canonicalJson,
+  firstRef,
+  formatDay,
+  parseDay,
+  typeRefsOf,
+  type NodeLike,
+} from "@kb/model";
+import {
   eventId,
+  endSeries,
+  project,
+  readAccount,
+  readCalendar,
+  readOccurrence,
+  readRoutine,
+  retryDelay,
+  routineInputs,
+  settleAt,
   SyncError,
-  type RoutineOption,
+  ROUTINE_FIELDS as F,
+  ROUTINE_TAGS as T,
+  type CalendarBinding,
+  type CalendarPort,
 } from "@kb/routines";
-import { RoutineGraph } from "./graph.ts";
-import { EngineContext, type EngineOptions } from "./context.ts";
-import { localProjection } from "./occurrences.ts";
-import { Inbound } from "./inbound.ts";
-import { Outbound } from "./outbound.ts";
+import { calendarBindingDigest } from "./binding.ts";
+import { RoutineGraph, type RoutineHost } from "./graph.ts";
 
-function diagnostics(context: EngineContext) {
-  const options = context.options;
-  const preview = Effect.fn("routines.engine.preview")(function* () {
-    const nodes = yield* options.host.read;
-    return [...nodes.values()]
-      .filter((node) => typeRefsOf(node).includes(T.routine))
-      .map((node) => {
-        try {
-          const first = readRoutine(node, DEFAULT_ROUTINE_ZONE);
-          const calendarNode = nodes.get(first.calendar);
-          const zone =
-            calendarNode === undefined ? DEFAULT_ROUTINE_ZONE : readCalendar(calendarNode).zone;
-          return {
-            id: node.id,
-            fields: project(
-              readRoutine(node, zone).routine,
-              options.origin + "/node/" + encodeURIComponent(node.id),
-              0,
-            ),
-            issue: null,
-          };
-        } catch {
-          return { id: node.id, fields: null, issue: "invalid_rule" };
-        }
-      });
-  });
-  const status = Effect.fn("routines.engine.status")(function* () {
-    const calendars = [];
-    for (const { session } of context.sessions.values()) {
-      const units = yield* options.ledger.unit.all(session.binding.calendar.id);
-      calendars.push({ id: session.binding.calendar.id, reason: session.reason, units });
-    }
-    return { calendars, log: yield* options.ledger.log.tail(100) };
-  });
-  const publish = Effect.fn("routines.engine.publish")(function* () {
-    const priority = [
-      "auth needed",
-      "deleted in Google",
-      "conflict",
-      "held",
-      "invalid rule",
-      "failed",
-    ] satisfies RoutineOption<"issue">[];
-    const issues = new Map<string, RoutineOption<"issue"> | null>();
-    for (const { session } of context.sessions.values())
-      for (const unit of yield* options.ledger.unit.all(session.binding.calendar.id)) {
-        const issue =
-          unit.state === "failed"
-            ? unit.lastError?.code === "invalid_rule"
-              ? "invalid rule"
-              : unit.lastError?.code === "auth_needed"
-                ? "auth needed"
-                : "failed"
-            : unit.state === "deleted"
-              ? "deleted in Google"
-              : unit.state === "conflict"
-                ? "conflict"
-                : unit.state === "held"
-                  ? "held"
-                  : null;
-        const previous = issues.get(unit.routineId) ?? null;
-        if (
-          !issues.has(unit.routineId) ||
-          (issue !== null &&
-            (previous === null || priority.indexOf(issue) < priority.indexOf(previous)))
-        )
-          issues.set(unit.routineId, issue);
-      }
-    for (const [id, issue] of issues) yield* options.host.issue(id, issue);
-  });
-  return { preview, status, publish };
+export interface EngineOptions {
+  readonly host: RoutineHost;
+  readonly client: (binding: CalendarBinding) => Effect.Effect<CalendarPort, SyncError>;
+  readonly origin: string;
+  readonly runner: string;
 }
+interface Work {
+  readonly node: NodeLike;
+  readonly nodes: ReadonlyMap<string, NodeLike>;
+  readonly binding: CalendarBinding;
+  readonly source: string;
+  readonly removed: boolean;
+  readonly first: number;
+  readonly last: number;
+  readonly attempts: number;
+  readonly due: number;
+  readonly startup: boolean;
+}
+const pushOne = Effect.fn("routines.engine.pushOne")(function* (
+  options: EngineOptions,
+  work: Work,
+  applied: Map<string, Work>,
+  queue: Map<string, Work>,
+) {
+  const { node, binding } = work;
+  if (binding.calendar.mode !== "on" || binding.calendar.calendarId === "") return false;
+  if (!(yield* options.host.trusted(yield* calendarBindingDigest(binding)))) return false;
+  const client = yield* options.client(binding);
+  const { routine } = yield* Effect.try({
+    try: () => readRoutine(node, binding.calendar.zone),
+    catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
+  });
+  const key = yield* eventId(binding.calendar.id, node.id, "series", 0);
+  const backlink = options.origin + "/node/" + encodeURIComponent(node.id);
+  let fields = yield* Effect.try({
+    try: () => project(routine, backlink, 0),
+    catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
+  });
+  if (work.removed) {
+    const now = yield* Clock.currentTimeMillis;
+    const today = parseDay(
+      DateTime.formatIsoDate(DateTime.makeZonedUnsafe(now, { timeZone: routine.zone })),
+    );
+    if (today === null) return yield* new SyncError({ status: 400, code: "invalid_rule" });
+    fields =
+      fields.recurrence.length === 0
+        ? { ...fields, status: "cancelled" }
+        : endSeries(fields, formatDay(addDays(today, -1)));
+  }
+  const parent = yield* client.put(binding.calendar.calendarId, key, fields);
+  if (!work.removed) {
+    for (const id of new Set([...node.children, ...(applied.get(node.id)?.node.children ?? [])])) {
+      const child = work.nodes.get(id) ?? applied.get(node.id)?.nodes.get(id);
+      if (child === undefined || !typeRefsOf(child).includes(T.occurrence)) continue;
+      const occurrence = yield* Effect.try({
+        try: () => readOccurrence(child),
+        catch: () => new SyncError({ status: 400, code: "invalid_occurrence" }),
+      });
+      const fact = node.children.includes(id) ? occurrence : null;
+      const instance = yield* client.instance(
+        binding.calendar.calendarId,
+        parent.id,
+        { day: occurrence.on, at: routine.at, zone: routine.zone },
+        binding.calendar.zone,
+      );
+      const response = yield* client.put(
+        binding.calendar.calendarId,
+        instance.id,
+        project(routine, backlink, 0, { kind: "instance", on: occurrence.on, occurrence: fact }),
+      );
+      yield* options.host.status(child.id, {
+        state: "synced",
+        message: "",
+        eventId: response.id,
+        url: response.url,
+      });
+    }
+    if (queue.get(node.id) === work)
+      yield* options.host.status(node.id, {
+        state: "synced",
+        message: "",
+        eventId: parent.id,
+        url: parent.url,
+        ...(work.startup && firstRef(F.status)(node.props) === F.status + ".synced"
+          ? {}
+          : { at: DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis)) }),
+      });
+  }
+  applied.set(node.id, work);
+  return true;
+});
 
+const previewNodes = Effect.fn("routines.previewNodes")(function* (options: EngineOptions) {
+  const nodes = yield* options.host.read;
+  return yield* Effect.try({
+    try: () =>
+      [...nodes.values()]
+        .filter((node) => typeRefsOf(node).includes(T.routine))
+        .map((node) => {
+          const calendar = nodes.get(firstRef(F.calendar)(node.props) ?? "");
+          const zone = calendar === undefined ? "Asia/Ho_Chi_Minh" : readCalendar(calendar).zone;
+          return project(readRoutine(node, zone).routine, options.origin + "/node/" + node.id, 0);
+        }),
+    catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
+  });
+});
+const pushQueue = Effect.fn("routines.engine.pushQueue")(function* (
+  options: EngineOptions,
+  queue: Map<string, Work>,
+  releases: Map<string, string>,
+  applied: Map<string, Work>,
+) {
+  const at = yield* Clock.currentTimeMillis;
+  // Count the whole operation before taking due work. Held signatures include inputs.
+  const deletions = [...queue.values()].filter(
+    (work) =>
+      work.removed && readRoutine(work.node, work.binding.calendar.zone).routine.rrule !== "",
+  );
+  for (const [id, work] of queue) {
+    if (work.attempts >= 10 || work.due > at) continue;
+    const signature = canonicalJson([work.source, work.removed]);
+    if (work.removed && deletions.length > 5 && releases.get(id) !== signature) {
+      yield* options.host.status(id, {
+        state: "error",
+        message: "Deletion held: release required",
+      });
+      continue;
+    }
+    yield* pushOne(options, work, applied, queue).pipe(
+      Effect.matchEffect({
+        onSuccess: (sent) =>
+          Effect.sync(() => {
+            if (sent && queue.get(id) === work) queue.delete(id);
+          }),
+        onFailure: Effect.fn("routines.engine.failure")(function* (error) {
+          if (queue.get(id) !== work) return;
+          const attempts = work.attempts + 1;
+          const transient = error.status === 0 || error.status === 429 || error.status >= 500;
+          queue.set(id, {
+            ...work,
+            attempts: transient ? attempts : 10,
+            due:
+              at +
+              retryDelay(
+                attempts,
+                yield* Random.next,
+                error.status === 429 ? "quota" : "transport",
+                error.retryAfter,
+              ),
+          });
+          yield* options.host.status(id, { state: "error", message: error.code });
+        }),
+      }),
+    );
+  }
+});
 export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   options: EngineOptions,
 ) {
-  const context = new EngineContext(options);
-  const inbound = new Inbound(context);
-  const outbound = new Outbound(context);
-  const pushLock = yield* Semaphore.make(1);
-  const pollLock = yield* Semaphore.make(1);
-  const start = context.start();
-  yield* Effect.addFinalizer(() => context.close().pipe(Effect.orElseSucceed(() => undefined)));
-  const { preview, status, publish } = diagnostics(context);
-  const push = pushLock.withPermit(outbound.flush().pipe(Effect.tap(publish)));
-  const poll = (force = false) => pollLock.withPermit(inbound.poll(force));
+  const queue = new Map<string, Work>();
+  const seen = new Map<string, Work>();
+  const applied = new Map<string, Work>();
+  const releases = new Map<string, string>();
+  let revision = 0;
+  let initialized = false;
+  const lock = yield* Semaphore.make(1);
+  const refresh = Effect.fn("routines.engine.refresh")(function* (retry: boolean) {
+    const nodes = yield* options.host.read;
+    const at = yield* Clock.currentTimeMillis;
+    const active = new Set<string>();
+    for (const node of nodes.values()) {
+      if (!typeRefsOf(node).includes(T.routine)) continue;
+      const calendar = nodes.get(firstRef(F.calendar)(node.props) ?? "");
+      if (calendar === undefined) continue;
+      const config = readCalendar(calendar);
+      const account = nodes.get(config.account);
+      const binding = {
+        calendar: config,
+        account: account === undefined ? null : readAccount(account),
+      };
+      active.add(node.id);
+      const source = canonicalJson([routineInputs(node, nodes, config.zone).value, binding]);
+      const previous = seen.get(node.id);
+      if (previous?.source === source && !previous.removed && (!retry || !queue.has(node.id)))
+        continue;
+      const pending = queue.get(node.id);
+      const first = pending?.first ?? at;
+      const work: Work = {
+        node,
+        nodes,
+        binding,
+        source,
+        removed: false,
+        first,
+        last: at,
+        attempts: 0,
+        due: retry ? at : settleAt(first, at),
+        startup: !initialized,
+      };
+      seen.set(node.id, work);
+      queue.set(node.id, work);
+      if (initialized || retry)
+        yield* options.host.status(node.id, { state: "pending", message: "" });
+    }
+    for (const [id, previous] of seen) {
+      if (active.has(id) || previous.removed) continue;
+      const work = {
+        ...previous,
+        removed: true,
+        first: at,
+        last: at,
+        attempts: 0,
+        due: settleAt(at, at),
+        startup: false,
+      };
+      seen.set(id, work);
+      queue.set(id, work);
+    }
+    initialized = true;
+  });
+  const tail = Effect.gen(function* () {
+    const page = yield* options.host.changes(revision);
+    if (!initialized || page.changes.length !== 0) yield* refresh(false);
+    revision = page.through;
+  });
+  const push = lock.withPermit(pushQueue(options, queue, releases, applied));
   const syncNow = Effect.fn("routines.engine.syncNow")(function* () {
-    yield* context.refresh({
-      kind: "sync-now",
-      at: yield* Clock.currentTimeMillis,
-      revision: context.revision,
-    });
-    yield* poll(true);
+    yield* refresh(true);
+    for (const [id, work] of queue) queue.set(id, { ...work, attempts: 0, due: 0 });
   });
   const release = Effect.fn("routines.engine.release")(function* (keys: readonly string[]) {
     for (const key of keys) {
-      const held = yield* options.ledger.cursor.get("held:" + key);
-      if (held === null) return yield* new SyncError({ status: 400, code: "not_held" });
-      yield* options.ledger.cursor.set("release:" + key, held);
-      yield* context.queue.mutate(key, (unit) => ({ ...unit, state: "dirty", nextAttemptAt: 0 }));
+      const work = queue.get(key);
+      if (work === undefined || !work.removed)
+        return yield* new SyncError({ status: 400, code: "not_held" });
+      releases.set(key, canonicalJson([work.source, work.removed]));
     }
     return undefined;
   });
-  const recreate = Effect.fn("routines.engine.recreate")(function* (key: string) {
-    const unit = yield* options.ledger.unit.get(key);
-    if (unit === null || unit.state !== "deleted" || unit.kind === "exception")
-      return yield* new SyncError({ status: 400, code: "not_deleted" });
-    const generation = unit.generation + 1;
-    const nextKey = yield* eventId(unit.calendar, unit.routineId, "series", generation);
-    yield* options.ledger.unit.put(
-      {
-        ...unit,
-        key: nextKey,
-        generation,
-        state: "dirty",
-        base: null,
-        etag: null,
-        pending: null,
-        conflict: null,
-        lastError: null,
-        nextAttemptAt: 0,
-        version: 0,
-      },
-      0,
-    );
-    yield* context.queue.mutate(key, (current) => ({ ...current, state: "ended" }));
-    return undefined;
-  });
-  const resolve = Effect.fn("routines.engine.keepKb")(function* (key: string) {
-    const unit = yield* options.ledger.unit.get(key);
-    if (unit === null) return yield* new SyncError({ status: 404, code: "not_found" });
-    const session = context.sessions.get(unit.calendar)?.session;
-    const local =
-      session === undefined
-        ? null
-        : yield* Effect.try({
-            try: () => localProjection(context, unit, session.binding.calendar.zone),
-            catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
-          });
-    const restoredBase =
-      unit.kind === "exception" && unit.state === "deleted" && local !== null
-        ? { ...local, status: "cancelled" as const }
-        : null;
-    yield* context.queue.mutate(key, (current) => ({
-      ...current,
-      base: restoredBase ?? current.conflict?.remote ?? current.base,
-      conflict: null,
-      state: "dirty",
-      nextAttemptAt: 0,
-    }));
-    return undefined;
+  const preview = previewNodes(options);
+  const status = Effect.fn("routines.engine.status")(function* () {
+    return [...(yield* options.host.read).values()]
+      .filter((node) => typeRefsOf(node).includes(T.routine))
+      .map((node) => ({ id: node.id, props: node.props }));
   });
   const run = Effect.forkScoped(
-    start.pipe(
-      Effect.andThen(
-        Effect.gen(function* () {
-          const safe = (effect: Effect.Effect<unknown, SyncError>) =>
-            effect.pipe(
-              Effect.catch((error) =>
-                options.ledger.log
-                  .append({ at: 0, key: null, code: error.code })
-                  .pipe(Effect.orElseSucceed(() => undefined)),
-              ),
-            );
-          yield* Effect.forkScoped(
-            Effect.forever(safe(context.tail()).pipe(Effect.andThen(Effect.sleep("1 second")))),
-          );
-          yield* Effect.forkScoped(
-            Effect.forever(safe(push).pipe(Effect.andThen(Effect.sleep("1 second")))),
-          );
-          yield* Effect.forkScoped(
-            Effect.forever(safe(poll()).pipe(Effect.andThen(Effect.sleep("1 second")))),
-          );
-        }),
+    Effect.forever(
+      tail.pipe(
+        Effect.andThen(push),
+        Effect.orElseSucceed(() => undefined),
+        Effect.andThen(Effect.sleep("1 second")),
       ),
     ),
   );
-  return {
-    start,
-    preview,
-    status,
-    tail: context.tail(),
-    push,
-    poll,
-    syncNow,
-    release,
-    recreate,
-    resolve,
-    run,
-  };
+  return { start: refresh(false), tail, push, syncNow, release, preview, status, run };
 });
-
 export class RoutineEngine extends Context.Service<
   RoutineEngine,
   Effect.Success<ReturnType<typeof makeRoutineEngine>>
@@ -216,8 +292,7 @@ export class RoutineEngine extends Context.Service<
     return Layer.effect(
       RoutineEngine,
       Effect.gen(function* () {
-        const host = yield* RoutineGraph;
-        return yield* makeRoutineEngine({ ...options, host });
+        return yield* makeRoutineEngine({ ...options, host: yield* RoutineGraph });
       }),
     );
   }

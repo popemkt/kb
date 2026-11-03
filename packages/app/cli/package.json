@@ -26,7 +26,6 @@
     "@kb/routines-host": "workspace:*",
     "@kb/runtime": "workspace:*",
     "@kb/server": "workspace:*",
-    "@kb/store-sqlite": "workspace:*",
     "commander": "catalog:",
     "effect": "catalog:"
   },

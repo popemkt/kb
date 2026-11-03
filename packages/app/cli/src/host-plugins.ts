@@ -12,9 +12,7 @@
  * for the agent packages. A key a provider refers to is read from this
  * process's environment or the platform keychain (`systemSecrets`).
  */
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { Config, Effect } from "effect";
+import { Effect } from "effect";
 import type { CalendarBinding, SyncError as RoutineSyncError } from "@kb/routines";
 import type { AgentAdapter } from "@kb/agent";
 import type { ExtensionEntry } from "@kb/contracts";
@@ -39,17 +37,15 @@ export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
   const { agentExtension, agentPlugin } = yield* Effect.promise(() => import("@kb/agent"));
   const adapters = yield* hostAgentAdapters(root);
   const [
-    { routinesExtension, projectionFingerprint, SyncError },
-    { routinesPlugin, makeKbLedger },
+    { routinesExtension, SyncError },
+    { routinesPlugin },
     { makeGoogleCalendar, makeGoogleTokens, beginGoogleConnect },
-    { SqliteStore },
     { parseSecretRef },
   ] = yield* Effect.promise(() =>
     Promise.all([
       import("@kb/routines"),
       import("@kb/routines-host"),
       import("@kb/routines-gcal"),
-      import("@kb/store-sqlite"),
       import("@kb/model"),
     ]),
   );
@@ -74,18 +70,6 @@ export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
       entry: routinesPlugin({
         origin,
         runner,
-        ledger: Effect.gen(function* () {
-          const namespace = yield* projectionFingerprint(root);
-          const stateRoot = yield* Config.string("XDG_STATE_HOME").pipe(
-            Config.withDefault(join(homedir(), ".local", "state")),
-            Effect.orDie,
-          );
-          const store = yield* Effect.acquireRelease(
-            Effect.sync(() => new SqliteStore(join(stateRoot, "kb", "ops", namespace))),
-            (opened) => Effect.sync(() => opened.close()),
-          );
-          return yield* makeKbLedger(store);
-        }),
         client: (binding, trusted) =>
           makeGoogleTokens(oauth(binding, trusted)).pipe(
             Effect.map((tokens) => makeGoogleCalendar({ tokens, runner })),

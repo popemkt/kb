@@ -79,7 +79,6 @@
         "@kb/routines-host": "workspace:*",
         "@kb/runtime": "workspace:*",
         "@kb/server": "workspace:*",
-        "@kb/store-sqlite": "workspace:*",
         "commander": "catalog:",
         "effect": "catalog:",
       },
@@ -171,8 +170,6 @@
       "devDependencies": {
         "@kb/canvas": "workspace:*",
         "@kb/locations": "workspace:*",
-        "@kb/routines": "workspace:*",
-        "@kb/routines-host": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",

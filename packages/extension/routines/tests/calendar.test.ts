@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
 import { Effect } from "effect";
 import { calendarContract, makeFakeCalendar } from "../src/index.ts";
-
+const fake = makeFakeCalendar();
 calendarContract(
-  (name, effect) => test("fake calendar: " + name, () => Effect.runPromise(Effect.scoped(effect))),
-  Effect.sync(() => makeFakeCalendar().port),
-  { equal: (a, b) => expect(a).toEqual(b), different: (a, b) => expect(a).not.toEqual(b) },
+  (name, effect) => test(name, () => Effect.runPromise(effect)),
+  fake.port,
+  (calendar, id) => Effect.sync(() => fake.events.get(calendar + "/" + id)),
+  (a, b) => expect(a).toEqual(b),
 );

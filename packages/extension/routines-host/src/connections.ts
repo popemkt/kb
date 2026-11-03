@@ -1,25 +1,12 @@
 import { Clock, Effect, type Scope } from "effect";
 import { onWire, type UiHostService } from "@kb/contracts";
-import {
-  readAccount,
-  readCalendar,
-  ROUTINE_FIELDS as F,
-  SyncError,
-  type SyncLedger,
-} from "@kb/routines";
+import { readAccount, readCalendar, ROUTINE_FIELDS as F, SyncError } from "@kb/routines";
 import { calendarBindingDigest } from "./binding.ts";
-import { SyncQueue } from "./queue.ts";
 import type { RoutineHost } from "./graph.ts";
 import type { ConnectStep, RoutinesPluginOptions } from "./plugin.ts";
 
-export function connections(
-  options: RoutinesPluginOptions,
-  ui: UiHostService,
-  host: RoutineHost,
-  ledger: SyncLedger,
-) {
+export function connections(options: RoutinesPluginOptions, ui: UiHostService, host: RoutineHost) {
   const connecting = new Map<string, { digest: string; step: ConnectStep; at: number }>();
-  const queue = new SyncQueue(ledger);
   const bindingFor = Effect.fn("routines.binding.read")(function* (id: string) {
     const nodes = yield* host.read;
     const node = nodes.get(id);
@@ -57,16 +44,6 @@ export function connections(
       return yield* new SyncError({ status: 403, code: "untrusted" });
     yield* pending.step.finish(redirect);
     connecting.delete(id);
-    yield* ledger.cursor.set("auth:" + binding.account?.id, "");
-    for (const unit of yield* ledger.unit.all(binding.calendar.id))
-      if (unit.state === "failed" && unit.lastError?.code === "auth_needed") {
-        yield* queue.mutate(unit.key, (current) => ({
-          ...current,
-          state: "dirty",
-          attempts: 0,
-          nextAttemptAt: 0,
-        }));
-      }
     const client = yield* options.client(binding, host.trusted(digest));
     if (binding.calendar.calendarId === "") {
       const calendarId = yield* client.create("kb routines", binding.calendar.zone);

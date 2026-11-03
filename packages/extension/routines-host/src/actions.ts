@@ -23,7 +23,6 @@ function action(
 const read: ActionMode = { kind: "read" };
 const write: ActionMode = { kind: "write", outsideRoot: true };
 const calendarInput = z.object({ calendar: z.string() });
-const keyInput = z.object({ key: z.string() });
 const emptyInput = z.object({});
 const ok = (work: Effect.Effect<unknown, SyncError>) => work.pipe(Effect.as({ ok: true }));
 export function routineActions(
@@ -32,8 +31,14 @@ export function routineActions(
   scope: Scope.Scope,
 ): ExtensionAction[] {
   const definitions = [
-    action("preview", "Preview projected events without Google", read, emptyInput, engine.preview),
-    action("status", "Read routine sync status and local log", read, emptyInput, engine.status),
+    action(
+      "preview",
+      "Preview projected events without Google",
+      read,
+      emptyInput,
+      () => engine.preview,
+    ),
+    action("status", "Read routine sync status", read, emptyInput, engine.status),
     action(
       "binding",
       "Read calendar binding trust digest",
@@ -67,20 +72,6 @@ export function routineActions(
       write,
       z.object({ keys: z.array(z.string()) }),
       ({ keys }: { keys: string[] }) => ok(engine.release(keys)),
-    ),
-    action(
-      "recreate",
-      "Recreate a deleted Google event",
-      write,
-      keyInput,
-      ({ key }: { key: string }) => ok(engine.recreate(key)),
-    ),
-    action(
-      "resolve",
-      "Resolve this conflict using kb",
-      write,
-      keyInput,
-      ({ key }: { key: string }) => ok(engine.resolve(key)),
     ),
   ];
   return definitions.map((definition) => ({
