@@ -22,7 +22,11 @@ comments on 2026-11-03. kb is the source of truth; Google is its outbound projec
   transport/server/quota failures with backoff, cap at ten, and use Sync now
   for an explicit retry. Authentication/validation failures stop immediately.
   There are no sync tokens, poller, ledger, sidecar adapter, lease or recovery probes.
-- Count the whole pending deletion operation before sending any of it. More
+- Compare previous and current remote identities while the worker runs. Changing
+  an occurrence day or removing its tag restores the retired instance to its
+  default projection. Changing a calendar reference or Google calendar ID ends
+  the previous series before publishing its replacement.
+- Count the whole pending deletion operation, including destination retirements, before sending any of it. More
   than five routine series are held until explicit release of their exact input
   signatures. End series at yesterday in the routine's timezone, retaining history.
 - Host only on the trusted shared server. Other copies stay paused/preview.

@@ -1,20 +1,10 @@
-import { Clock, Context, DateTime, Effect, Layer, Random, Semaphore } from "effect";
-import {
-  addDays,
-  canonicalJson,
-  firstRef,
-  formatDay,
-  parseDay,
-  typeRefsOf,
-  type NodeLike,
-} from "@kb/model";
+import { Clock, Result, Context, DateTime, Effect, Layer, Random, Semaphore } from "effect";
+import { canonicalJson, firstRef, typeRefsOf, type NodeLike } from "@kb/model";
 import {
   eventId,
-  endSeries,
   project,
   readAccount,
   readCalendar,
-  readOccurrence,
   readRoutine,
   retryDelay,
   routineInputs,
@@ -30,18 +20,15 @@ import {
 import { calendarBindingDigest } from "./binding.ts";
 import { RoutineGraph, type RoutineHost } from "./graph.ts";
 
+import { pushPlan, type Snapshot } from "./push-plan.ts";
 export interface EngineOptions {
   readonly host: RoutineHost;
   readonly client: (binding: CalendarBinding) => Effect.Effect<CalendarPort, SyncError>;
   readonly origin: string;
   readonly runner: string;
 }
-interface Work {
-  readonly node: NodeLike;
-  readonly nodes: ReadonlyMap<string, NodeLike>;
-  readonly binding: CalendarBinding;
+interface Work extends Snapshot {
   readonly source: string;
-  readonly removed: boolean;
   readonly first: number;
   readonly last: number;
   readonly attempts: number;
@@ -73,61 +60,35 @@ const pushOne = Effect.fn("routines.engine.pushOne")(function* (
   const { node, binding } = work;
   if (binding.calendar.mode !== "on" || binding.calendar.calendarId === "") return false;
   if (!(yield* options.host.trusted(yield* calendarBindingDigest(binding)))) return false;
-  const client = yield* options.client(binding);
-  const { routine } = yield* Effect.try({
-    try: () => readRoutine(node, binding.calendar.zone),
+  const now = yield* Clock.currentTimeMillis;
+  const operations = yield* Effect.try({
+    try: () => pushPlan(work, applied.get(node.id), now, options.origin),
     catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
   });
-  const key = yield* eventId(binding.calendar.id, node.id, "series", 0);
-  const backlink = options.origin + "/node/" + encodeURIComponent(node.id);
-  let fields = yield* Effect.try({
-    try: () => project(routine, backlink, 0),
-    catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
-  });
-  if (work.removed) {
-    const now = yield* Clock.currentTimeMillis;
-    const today = parseDay(
-      DateTime.formatIsoDate(DateTime.makeZonedUnsafe(now, { timeZone: routine.zone })),
-    );
-    if (today === null) return yield* new SyncError({ status: 400, code: "invalid_rule" });
-    fields =
-      fields.recurrence.length === 0
-        ? { ...fields, status: "cancelled" }
-        : endSeries(fields, formatDay(addDays(today, -1)));
+  const receipts: { node: NodeLike; response: CalendarResult }[] = [];
+  for (const operation of operations) {
+    const target = operation.snapshot.binding;
+    if (!(yield* options.host.trusted(yield* calendarBindingDigest(target)))) return false;
+    const client = yield* options.client(target);
+    const parent = yield* eventId(target.calendar.id, node.id, "series", 0);
+    const id =
+      operation.original === null
+        ? parent
+        : (yield* client.instance(
+            target.calendar.calendarId,
+            parent,
+            operation.original,
+            target.calendar.zone,
+          )).id;
+    const response = yield* client.put(target.calendar.calendarId, id, operation.fields);
+    if (operation.node !== null) receipts.push({ node: operation.node, response });
   }
-  const parent = yield* client.put(binding.calendar.calendarId, key, fields);
-  if (!work.removed) {
-    for (const id of new Set([...node.children, ...(applied.get(node.id)?.node.children ?? [])])) {
-      const child = work.nodes.get(id) ?? applied.get(node.id)?.nodes.get(id);
-      if (child === undefined || !typeRefsOf(child).includes(T.occurrence)) continue;
-      const occurrence = yield* Effect.try({
-        try: () => readOccurrence(child),
-        catch: () => new SyncError({ status: 400, code: "invalid_occurrence" }),
-      });
-      const fact = node.children.includes(id) ? occurrence : null;
-      const instance = yield* client.instance(
-        binding.calendar.calendarId,
-        parent.id,
-        { day: occurrence.on, at: routine.at, zone: routine.zone },
-        binding.calendar.zone,
-      );
-      const response = yield* client.put(
-        binding.calendar.calendarId,
-        instance.id,
-        project(routine, backlink, 0, { kind: "instance", on: occurrence.on, occurrence: fact }),
-      );
-      if (queue.get(node.id) === work)
-        yield* options.host.status(
-          child.id,
-          syncedStatus(work, child, response, yield* Clock.currentTimeMillis),
-        );
-    }
-    if (queue.get(node.id) === work)
+  if (queue.get(node.id) === work)
+    for (const receipt of receipts)
       yield* options.host.status(
-        node.id,
-        syncedStatus(work, node, parent, yield* Clock.currentTimeMillis),
+        receipt.node.id,
+        syncedStatus(work, receipt.node, receipt.response, yield* Clock.currentTimeMillis),
       );
-  }
   applied.set(node.id, work);
   return true;
 });
@@ -154,11 +115,21 @@ const pushQueue = Effect.fn("routines.engine.pushQueue")(function* (
 ) {
   const at = yield* Clock.currentTimeMillis;
   // Count the whole operation before taking due work. Held signatures include inputs.
-  const deletions = [...queue.values()].filter((work) => work.removed);
+  const destructive = new Set<string>();
+  for (const [id, work] of queue) {
+    const plan = yield* Effect.result(
+      Effect.try({
+        try: () => pushPlan(work, applied.get(id), at, options.origin),
+        catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
+      }),
+    );
+    if (Result.isSuccess(plan) && plan.success.some((operation) => operation.retiresSeries))
+      destructive.add(id);
+  }
   for (const [id, work] of queue) {
     if (work.attempts >= 10 || work.due > at) continue;
     const signature = canonicalJson([work.source, work.removed]);
-    if (work.removed && deletions.length > 5 && releases.get(id) !== signature) {
+    if (destructive.has(id) && destructive.size > 5 && releases.get(id) !== signature) {
       yield* options.host.status(id, {
         state: "error",
         message: "Deletion held: release required",
@@ -270,8 +241,7 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   const release = Effect.fn("routines.engine.release")(function* (keys: readonly string[]) {
     for (const key of keys) {
       const work = queue.get(key);
-      if (work === undefined || !work.removed)
-        return yield* new SyncError({ status: 400, code: "not_held" });
+      if (work === undefined) return yield* new SyncError({ status: 400, code: "not_held" });
       releases.set(key, canonicalJson([work.source, work.removed]));
     }
     return undefined;

@@ -197,3 +197,84 @@ scenario("six series removals are held before any writes and explicit release en
     ).toBe(true);
   }),
 );
+for (const change of ["day", "tag"] as const)
+  scenario("retired occurrence identity restores default after changing " + change, (f) =>
+    Effect.gen(function* () {
+      const parent = f.nodes.get("routine");
+      if (parent === undefined) throw new Error("missing routine");
+      f.nodes.set(parent.id, { ...parent, children: ["fact"] });
+      const fact = node("fact", T.occurrence, {
+        [F.on]: str("2026-11-03"),
+        [F.state]: ref(routineOption("state", "skipped")),
+      });
+      f.nodes.set(fact.id, fact);
+      yield* f.engine.tail;
+      yield* f.flush;
+      const before = [...f.fake.events].find(([key]) => key.endsWith("_2026-11-03"));
+      expect(before?.[1].status).toBe("cancelled");
+      f.nodes.set(fact.id, {
+        ...fact,
+        props: {
+          ...fact.props,
+          ...(change === "day" ? { [F.on]: str("2026-11-04") } : { [SYSTEM_IDS.typeField]: [] }),
+        },
+      });
+      yield* f.engine.tail;
+      yield* f.flush;
+      expect(before === undefined ? null : f.fake.events.get(before[0])?.status).toBe("confirmed");
+      if (change === "day")
+        expect([...f.fake.events].find(([key]) => key.endsWith("_2026-11-04"))?.[1].status).toBe(
+          "cancelled",
+        );
+    }),
+  );
+for (const change of ["reference", "google-id"] as const)
+  scenario("changing calendar " + change + " ends old series before publishing new", (f) =>
+    Effect.gen(function* () {
+      yield* f.flush;
+      const calendar = f.nodes.get("calendar");
+      const routine = f.nodes.get("routine");
+      if (calendar === undefined || routine === undefined) throw new Error("missing fixture");
+      const destination = {
+        ...calendar,
+        props: { ...calendar.props, [F.calendarId]: str("new-google") },
+      };
+      if (change === "google-id") f.nodes.set(calendar.id, destination);
+      else {
+        f.nodes.set("other-calendar", { ...destination, id: "other-calendar" });
+        f.nodes.set(routine.id, {
+          ...routine,
+          props: { ...routine.props, [F.calendar]: ref("other-calendar") },
+        });
+      }
+      yield* f.engine.tail;
+      yield* f.flush;
+      const old = [...f.fake.events].find(([key]) => key.startsWith("google/"));
+      const current = [...f.fake.events].find(([key]) => key.startsWith("new-google/"));
+      expect(old?.[1].recurrence[0]).toContain("UNTIL=");
+      expect(current?.[1].recurrence[0]).not.toContain("UNTIL=");
+      expect(current).toBeDefined();
+    }),
+  );
+scenario("moving six series destinations requires release before retirement or creation", (f) =>
+  Effect.gen(function* () {
+    const original = f.nodes.get("routine");
+    const calendar = f.nodes.get("calendar");
+    if (original === undefined || calendar === undefined) throw new Error("missing fixture");
+    for (let index = 0; index < 5; index++)
+      f.nodes.set("extra-" + index, { ...original, id: "extra-" + index });
+    yield* f.engine.tail;
+    yield* f.flush;
+    f.nodes.set(calendar.id, {
+      ...calendar,
+      props: { ...calendar.props, [F.calendarId]: str("new-google") },
+    });
+    yield* f.engine.tail;
+    yield* f.flush;
+    expect(f.calls()).toBe(6);
+    const ids = [...f.nodes.keys()].filter((id) => id !== "calendar");
+    yield* f.engine.release(ids);
+    yield* f.engine.push;
+    expect(f.calls()).toBe(18);
+  }),
+);
