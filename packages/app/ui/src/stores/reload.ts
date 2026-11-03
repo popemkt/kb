@@ -11,7 +11,7 @@
  * - **carry**: what the page comes back to. The route is the URL and the
  *   panes are the workspace's, which a reload keeps already; this writes
  *   down where each pane is scrolled and where the caret is.
- * - **announce**: the reload chip (`components/App.tsx`).
+ * - **announce**: the reload chip (`reload-chip.tsx`).
  */
 import { z } from "zod";
 import {

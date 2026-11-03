@@ -24,6 +24,8 @@ export function ReloadChip() {
       {reload === "reloading" ? null : (
         <button
           type="button"
+          // Pressed, it leaves the caret where it is, so the reload carries it.
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => reloadNow()}
           title="Reload into the new version now. Where you are is kept."
           className="rounded-full px-1.5 text-label text-foreground/75 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/90"
