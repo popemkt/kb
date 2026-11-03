@@ -112,8 +112,12 @@ function scrollBack(index: number, to: Carried["scroll"][number]): Putting {
   };
 }
 
-function caretBack(to: NonNullable<Carried["caret"]>): Putting {
+function caretBack(to: NonNullable<Carried["caret"]>, panes: number): Putting {
   return () => {
+    // Until every carried pane is drawn the page is still taking its shape:
+    // a row drawn in its first layout is drawn again in the last, and a caret
+    // placed in the first is lost with it.
+    if (document.querySelectorAll(SCROLL_REGIONS).length < panes) return false;
     const rows = document.querySelectorAll("[data-instance-key]");
     if (![...rows].some((row) => row.getAttribute("data-instance-key") === to.instanceKey)) {
       return false;
@@ -125,7 +129,8 @@ function caretBack(to: NonNullable<Carried["caret"]>): Putting {
 
 /**
  * Put the page back as the page before the reload carried it: each pane's
- * scroll once its content is tall enough, the caret once its row is drawn.
+ * scroll once its content is tall enough, the caret once every pane is drawn
+ * and its row is among them.
  * What is not back within {@link RESTORE_MS} is left. Carried state is read
  * once, so a later reload of this tab starts fresh.
  */
@@ -151,7 +156,7 @@ export function restoreCarried(
   const { scroll, caret } = carried.data;
   let putting: Putting[] = [
     ...scroll.map((to, index) => scrollBack(index, to)),
-    ...(caret === null ? [] : [caretBack(caret)]),
+    ...(caret === null ? [] : [caretBack(caret, scroll.length)]),
   ];
   const until = performance.now() + RESTORE_MS;
   const step = (): void => {

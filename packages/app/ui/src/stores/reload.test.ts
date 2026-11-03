@@ -113,4 +113,33 @@ describe("the page a reload leaves and the one it lands on", () => {
     expect(first.scrollTop).toBe(640);
     expect(activated).toEqual([["n.root-a", 0, "tree/n.root-a"]]);
   });
+
+  it("puts the caret back only once the page has every pane it was carried with", async () => {
+    const tab = storage();
+    region(dom, 2000);
+    region(dom, 900);
+    const row = dom.document.createElement("div");
+    row.className = "kb-text";
+    row.contentEditable = "true";
+    dom.document.body.append(row);
+    row.focus();
+    providePageEditor(editor({ nodeId: "n.root-a", instanceKey: "tree/n.root-a" }));
+    carryPage(tab);
+
+    // The next page draws its first pane, rows and all, before the layout of
+    // two replaces it: a caret placed now would be lost with that first draw.
+    dom = new Window();
+    vi.stubGlobal("document", dom.document);
+    region(dom, 2000);
+    const drawn = dom.document.createElement("div");
+    drawn.setAttribute("data-instance-key", "tree/n.root-a");
+    dom.document.body.append(drawn);
+    restoreCarried(tab);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(activated).toEqual([]);
+
+    region(dom, 900);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(activated).toEqual([["n.root-a", 0, "tree/n.root-a"]]);
+  });
 });
