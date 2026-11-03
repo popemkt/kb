@@ -52,6 +52,9 @@ const FRAME: ComposerFrame = {
   open: () => {},
 };
 
+/** The composer over a library with no styles, as a new one is. */
+const NO_STYLES: ComposerFrame = { ...FRAME, library: libraryOf([]) };
+
 const q = (selector: string) => document.querySelector<HTMLElement>(selector);
 const part = (label: string) => q(`[data-gallery-part="${label}"]`);
 const click = (el: HTMLElement | null) => act(() => el?.click());
@@ -101,6 +104,27 @@ describe("Scene", () => {
     expect(part("Lighting")?.textContent).toContain("Auto");
     expect(part("Composition")?.textContent).toContain("Auto");
     expect(part("References")?.textContent).toContain("None");
+  });
+
+  test("opens its menu on # alone, offering a style of each part to start from", () => {
+    type("a pagoda at dawn, #");
+    const offered = [...document.querySelectorAll("[data-gallery-suggestion]")].map((el) =>
+      el.getAttribute("data-gallery-suggestion"),
+    );
+    expect(offered).toEqual(["golden hour", "low angle"]);
+    expect(q('[role="listbox"]')?.textContent).toContain("type to find a style by name");
+  });
+
+  test("says the library has no styles yet, rather than nothing, on # in an empty one", () => {
+    act(() =>
+      root.render(
+        <ComposerFrameContext.Provider value={NO_STYLES}>
+          <SceneSurface params={{}} />
+        </ComposerFrameContext.Provider>,
+      ),
+    );
+    type("#");
+    expect(q('[role="listbox"]')?.textContent).toContain("No styles yet");
   });
 
   test("takes a style typed after # into the look, leaving the words around it", () => {

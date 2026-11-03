@@ -185,7 +185,10 @@ test("Scene fills its parts from the library's pictures, and its field takes a s
   await expect(lighting).toContainText("golden hour, blue hour");
   // The field is the look's brief; # takes a style into it.
   const field = page.getByRole("textbox", { name: "The scene", exact: true });
-  await field.fill("a pagoda on one pillar, #low ang");
+  // Typed key by key, as a person types: `#` alone opens the menu at once.
+  await field.pressSequentially("a pagoda on one pillar, #");
+  await expect(page.locator("[data-gallery-suggestion]").first()).toBeVisible();
+  await field.pressSequentially("low ang");
   await expect(page.locator('[data-gallery-suggestion="low angle"]')).toBeVisible();
   await field.press("Enter");
   await expect(page.locator('[data-look-style="low angle"]')).toBeVisible();

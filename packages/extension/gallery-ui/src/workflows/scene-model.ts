@@ -12,6 +12,7 @@ import {
   type Library,
   type StyleEntry,
 } from "@kb/gallery";
+import { complete } from "./complete";
 
 /** The parts a scene is composed of: every axis the library has styles for. */
 export function partsOf(library: Library): readonly Axis[] {
@@ -41,4 +42,22 @@ export function referenceOrder(library: Library, pinned: readonly string[]): rea
   const like = pinned.flatMap((id) => moreLike(library, id));
   const order = [...pinned, ...like, ...library.visuals.map((v) => v.id)];
   return [...new Set(order)];
+}
+
+/**
+ * What `#term` offers: the library's completion of the term (Compose's
+ * rule), or, before a letter is typed, a style of each part not in the look
+ * yet, so `#` alone opens a menu to start from. Nothing only in a library
+ * with no styles, which the field says.
+ */
+export function hashOffers(
+  library: Library,
+  term: string,
+  chosen: ReadonlySet<string>,
+): readonly StyleEntry[] {
+  if (term.trim() !== "") return complete(library, term, chosen);
+  return partsOf(library).flatMap((axis) => {
+    const next = axisStyles(library, axis).find((s) => !chosen.has(s.id));
+    return next === undefined ? [] : [next];
+  });
 }

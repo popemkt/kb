@@ -3334,7 +3334,9 @@ which also lists the workflows judged and not built.
     styles of an axis the look has nothing in (`eitherOrs`).
   - _Set up a scene_ (`scene`): a studio dock, and the scene is the look,
     nothing beside it. Its field is the look's brief, where `#` completes
-    a style as Compose does and takes it. Its parts are the library's axes
+    a style as Compose does and takes it; `#` alone offers a style of each
+    part to start from (`hashOffers`), and a library with no styles says
+    so, so the keystroke is never silent. Its parts are the library's axes
     (`axesOf`, the subject aside, since the field is the subject), plus
     References, the look's pins. Each part is a card showing what fills it
     with its example picture, or "Auto" while nothing does, which is no

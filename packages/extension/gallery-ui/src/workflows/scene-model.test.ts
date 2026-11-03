@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS, type PropValue } from "@kb/model";
 import { GALLERY_IDS, libraryOf, type GraphNode } from "@kb/gallery";
-import { filling, hashTermAt, partsOf, referenceOrder } from "./scene-model";
+import { filling, hashOffers, hashTermAt, partsOf, referenceOrder } from "./scene-model";
 
 const ref = (v: string): PropValue => ({ t: "ref", v });
 const n = (
@@ -71,6 +71,33 @@ describe("the scene's field", () => {
     expect(hashTermAt("#golden, a pagoda", 17)).toBeNull();
     expect(hashTermAt("a pagoda", 8)).toBeNull();
     expect(hashTermAt("#golden\nnext", 12)).toBeNull();
+  });
+});
+
+describe("what # offers", () => {
+  it("is something at once: a style of each part, before a letter is typed", () => {
+    expect(hashOffers(library, "", new Set()).map((s) => s.id)).toEqual([
+      "golden",
+      "wide",
+      "low",
+      "grain",
+    ]);
+    // A part's next style once its first is in the look; a filled part still offers.
+    expect(hashOffers(library, "", new Set(["golden"])).map((s) => s.id)).toEqual([
+      "noir",
+      "wide",
+      "low",
+      "grain",
+    ]);
+  });
+
+  it("is the library's completion once a letter is typed", () => {
+    expect(hashOffers(library, "gol", new Set()).map((s) => s.id)).toEqual(["golden"]);
+    expect(hashOffers(library, "gol", new Set(["golden"]))).toEqual([]);
+  });
+
+  it("is nothing in a library with no styles", () => {
+    expect(hashOffers(libraryOf([]), "", new Set())).toEqual([]);
   });
 });
 

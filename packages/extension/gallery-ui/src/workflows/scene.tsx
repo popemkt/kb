@@ -4,7 +4,9 @@
  * scene is described in, and its styles and pins fill the parts of the shot.
  *
  * - **The field.** The look's description. `#` in it completes a style
- *   from the library, as Compose completes a term, and takes it.
+ *   from the library, as Compose completes a term, and takes it; `#`
+ *   alone already offers a style of each part, so the keystroke is never
+ *   silent, and a library with no styles says so.
  * - **The parts.** One card per axis of the library (`axesOf`: camera,
  *   lighting, style, motion, …), each showing what fills it with its
  *   example picture, or "Auto" while nothing does: an empty part is left to
@@ -33,9 +35,8 @@ import { pinToDraft, toggleDraftStyle, updateDraft, useDraft } from "../draft";
 import { useComposer, type ComposerFrame } from "../frame";
 import { addStyle } from "../styles-api";
 import { Thumb } from "../thumb";
-import { complete } from "./complete";
 import { NoComposer } from "./no-composer";
-import { filling, hashTermAt, partsOf, referenceOrder } from "./scene-model";
+import { filling, hashOffers, hashTermAt, partsOf, referenceOrder } from "./scene-model";
 
 /** The part the look's pins fill: not an axis, since no facet holds a picture. */
 const REFERENCES = "references";
@@ -43,13 +44,21 @@ const REFERENCES = "references";
 const CARD =
   "flex w-36 shrink-0 flex-col items-start gap-1 rounded-lg border p-2 text-left hover:bg-foreground/5";
 
+/** What the field says when `#` offers nothing: why, and what to do instead. */
+function emptyOffer(frame: ComposerFrame, browsing: boolean): string {
+  if (frame.library.styles.size === 0) return "No styles yet: name one in a part below.";
+  if (browsing) return "Every part's styles are in the scene: type to find another by name.";
+  return "Not in the library: name it as a new style in one of the parts below.";
+}
+
 function SceneField({ frame }: { readonly frame: ComposerFrame }) {
   const draft = useDraft();
   const field = useRef<HTMLTextAreaElement>(null);
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
   const typing = hashTermAt(draft.description, caret);
-  const hits = typing === null ? [] : complete(frame.library, typing.term, new Set(draft.styles));
+  const hits = typing === null ? [] : hashOffers(frame.library, typing.term, new Set(draft.styles));
+  const browsing = typing !== null && typing.term.trim() === "";
   const take = (style: StyleEntry) => {
     if (typing === null) return;
     const text = draft.description;
@@ -90,8 +99,8 @@ function SceneField({ frame }: { readonly frame: ComposerFrame }) {
           }
         }}
       />
-      {typing !== null && typing.term.trim() !== "" && (
-        <div role="listbox" aria-label="Styles" className="flex flex-wrap gap-1 px-1">
+      {typing !== null && (
+        <div role="listbox" aria-label="Styles" className="flex flex-wrap items-center gap-1 px-1">
           {hits.map((s, i) => (
             <button
               key={s.id}
@@ -111,10 +120,11 @@ function SceneField({ frame }: { readonly frame: ComposerFrame }) {
               {s.text} <span className="text-label text-foreground/40">{facetText(s)}</span>
             </button>
           ))}
+          {browsing && hits.length > 0 && (
+            <span className="text-label text-foreground/45">or type to find a style by name</span>
+          )}
           {hits.length === 0 && (
-            <span className="text-label text-foreground/50">
-              Not in the library: name it as a new style in one of the parts below.
-            </span>
+            <span className="text-label text-foreground/50">{emptyOffer(frame, browsing)}</span>
           )}
         </div>
       )}
