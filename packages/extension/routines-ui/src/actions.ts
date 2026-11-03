@@ -10,12 +10,13 @@ import {
   moveEntry,
   resizeEntry,
   setEntryState,
+  wallClock,
   type CalendarEntry,
   type Place,
 } from "@kb/routines";
 import { toast } from "@kb/ui-sdk";
 import type { Spot } from "./drag";
-import { placeAt } from "./layout";
+import { elapsed, instantAt, placeAt } from "./layout";
 import type { CalendarModel } from "./model";
 import type { EditorTarget } from "./routine-editor";
 import { mintId, runCalls } from "./writes";
@@ -37,22 +38,22 @@ export function useCalendarActions(model: CalendarModel, zone: string) {
   const [pending, setPending] = useState<PendingMove | null>(null);
 
   const applyMove = (entry: CalendarEntry, to: Place, scope: "one" | "series") => {
-    const calls = moveEntry(entry, model.nodes, to, scope, mintId);
-    if (calls === null) {
-      toast("This repeat cannot move by days: change it in the routine instead");
-      return;
-    }
-    void runCalls(calls, "Could not move it");
+    const plan = moveEntry(entry, model.nodes, to, scope, mintId);
+    if ("refused" in plan) toast(plan.refused);
+    else void runCalls(plan.calls, "Could not move it");
   };
   const move = (entry: CalendarEntry, spot: Spot) => {
     if (entry.state === "done" || entry.state === "skipped") {
       toast(`It is ${entry.state}: take that back before moving it`);
       return;
     }
+    // A timed instance dropped on a day cell keeps the time it shows at, on the page's clock.
+    const minutes =
+      entry.start === null ? null : (spot.minutes ?? wallClock(entry.start, zone).minutes);
     const to =
-      spot.minutes === null || entry.start === null
+      minutes === null
         ? { day: spot.day, at: entry.at }
-        : placeAt(spot.day, spot.minutes, zone, entry.zone);
+        : placeAt(spot.day, minutes, zone, entry.zone);
     if (to.day === entry.day && to.at === entry.at) return;
     if (entry.series) setPending({ entry, to });
     else applyMove(entry, to, "series");
@@ -68,7 +69,7 @@ export function useCalendarActions(model: CalendarModel, zone: string) {
       settings: {
         starts: place.day,
         at: place.at ?? "",
-        duration: minutes === null ? 30 : minutes.to - minutes.from,
+        duration: minutes === null ? 30 : elapsed(day, minutes.from, minutes.to, zone),
       },
     });
   };
@@ -87,8 +88,12 @@ export function useCalendarActions(model: CalendarModel, zone: string) {
     create,
     closeEditor: () => setEditor(null),
     move,
-    resize: (entry: CalendarEntry, duration: number) =>
-      void runCalls(resizeEntry(entry, duration), "Could not resize it"),
+    /** Its end moved: it lasts the time from its start to there, as time passes. */
+    resize: (entry: CalendarEntry, end: { readonly day: string; readonly minutes: number }) => {
+      if (entry.start === null) return;
+      const duration = Math.round((instantAt(end.day, end.minutes, zone) - entry.start) / 60_000);
+      if (duration > 0) void runCalls(resizeEntry(entry, duration), "Could not resize it");
+    },
     choose: (scope: "one" | "series") => {
       if (pending !== null) applyMove(pending.entry, pending.to, scope);
       setPending(null);

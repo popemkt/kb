@@ -131,7 +131,13 @@ function utcUntil(until: string, zone: string): string {
     .replace(/\.\d+Z$/, "Z");
 }
 
-function recurrence(routine: Routine): readonly string[] {
+/**
+ * The recurrence a routine's event is sent with: its canonical rule, bounded
+ * by its until (the field, else a date-only UNTIL) as the end of that local
+ * day, a UTC instant for a timed routine. What the calendar shows expands
+ * this, so it cannot show an instance Google is not sent.
+ */
+export function recurrence(routine: Routine): readonly string[] {
   if (routine.rrule.trim() === "") {
     if (routine.until !== null) throw invalid();
     return [];

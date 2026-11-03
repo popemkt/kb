@@ -7,6 +7,7 @@ import {
   editRoutine,
   instantOf,
   moveEntry,
+  type MovePlan,
   readRepeat,
   readSyncStatus,
   repeatPresets,
@@ -27,6 +28,11 @@ import {
 } from "../src/index.ts";
 
 type Graph = Map<string, NodeLike>;
+/** The calls a move makes; a refused move fails the test with its reason. */
+function planned(plan: MovePlan): readonly NodeCall[] {
+  if ("refused" in plan) throw new Error(plan.refused);
+  return plan.calls;
+}
 function must<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("expected a value");
   return value;
@@ -143,6 +149,15 @@ describe("series expansion", () => {
         "2026-12-31",
       ),
     ).toEqual(["2026-11-02", "2026-11-03"]);
+  });
+  test("a UTC UNTIL cuts the series at its instant, as the event Google is sent does", () => {
+    // 01:00Z on Nov 3 is 08:00 in Ho Chi Minh City: Nov 3's 09:00 instance is past it.
+    const daily = { ...base, at: "09:00", rrule: "FREQ=DAILY;UNTIL=20261103T010000Z" };
+    expect(seriesDays(daily, "2026-11-01", "2026-12-31")).toEqual(["2026-11-02"]);
+    expect(seriesDays({ ...daily, at: "07:30" }, "2026-11-01", "2026-12-31")).toEqual([
+      "2026-11-02",
+      "2026-11-03",
+    ]);
   });
   test("a one-off is its start; nothing falls before the start", () => {
     expect(seriesDays({ ...base, rrule: "" }, "2026-11-01", "2026-11-30")).toEqual(["2026-11-02"]);
@@ -331,7 +346,7 @@ describe("gestures", () => {
     const monday = only(start, "2026-11-02");
     const moved = apply(
       start,
-      must(moveEntry(monday, start, { day: "2026-11-03", at: "08:00" }, "one", mint)),
+      planned(moveEntry(monday, start, { day: "2026-11-03", at: "08:00" }, "one", mint)),
     );
     expect(entriesIn(moved, "2026-11-02", "2026-11-02")).toEqual([]);
     const tuesday = only(moved, "2026-11-03");
@@ -339,7 +354,7 @@ describe("gestures", () => {
     expect(only(moved, "2026-11-04").state).toBe("scheduled");
     const back = apply(
       moved,
-      must(moveEntry(tuesday, moved, { day: "2026-11-02", at: "07:00" }, "one", mint)),
+      planned(moveEntry(tuesday, moved, { day: "2026-11-02", at: "07:00" }, "one", mint)),
     );
     expect(must(back.get("r")).children).toEqual([]);
     expect(only(back, "2026-11-02").state).toBe("scheduled");
@@ -349,7 +364,7 @@ describe("gestures", () => {
     const monday = only(done, "2026-11-02");
     const moved = apply(
       done,
-      must(moveEntry(monday, done, { day: "2026-11-03", at: "06:30" }, "series", mint)),
+      planned(moveEntry(monday, done, { day: "2026-11-03", at: "06:30" }, "series", mint)),
     );
     expect(entriesIn(moved, "2026-11-02", "2026-11-08").map((e) => [e.day, e.at, e.state])).toEqual(
       [
@@ -359,7 +374,7 @@ describe("gestures", () => {
     );
   });
   test("a series whose rule cannot move by days says so", () => {
-    expect(shiftRule("FREQ=MONTHLY;BYDAY=2WE", 1)).toBeNull();
+    expect(shiftRule("FREQ=MONTHLY;BYDAY=2WE", "2026-11-11", 1)).toBeNull();
     const monthly = graphOf(
       routineNode("m", {
         [F.starts]: [str("2026-11-11")],
@@ -374,8 +389,50 @@ describe("gestures", () => {
         "series",
         mint,
       ),
-    ).toBeNull();
-    expect(shiftRule("FREQ=MONTHLY;BYMONTHDAY=10", 2)).toBe("BYMONTHDAY=12;FREQ=MONTHLY");
+    ).toEqual({ refused: "This repeat cannot move by days: change it in the routine instead" });
+    expect(shiftRule("FREQ=MONTHLY;BYMONTHDAY=10", "2026-11-10", 2)).toBe(
+      "BYMONTHDAY=12;FREQ=MONTHLY",
+    );
+    // Every second week, a day turned past Sunday would land in a week the rule skips.
+    expect(shiftRule("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,SU", "2026-11-02", 1)).toBeNull();
+    expect(shiftRule("FREQ=WEEKLY;BYDAY=MO,SU", "2026-11-02", 1)).toBe("BYDAY=MO,TU;FREQ=WEEKLY");
+    expect(shiftRule("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE", "2026-11-02", 1)).toBe(
+      "BYDAY=TH,TU;FREQ=WEEKLY;INTERVAL=2",
+    );
+    expect(shiftRule("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,SU", "2026-11-02", 7)).toBe(
+      "BYDAY=MO,SU;FREQ=WEEKLY;INTERVAL=2",
+    );
+    // A month's implied day leaving the days every month has changes the months it falls in.
+    expect(shiftRule("FREQ=MONTHLY", "2026-01-28", 1)).toBeNull();
+    expect(shiftRule("FREQ=MONTHLY", "2026-01-10", 1)).toBe("FREQ=MONTHLY");
+  });
+  test("a move to a place that is not a day and time is refused, not written", () => {
+    const monday = only(start, "2026-11-02");
+    for (const to of [
+      { day: "", at: "08:00" },
+      { day: "2026-11-03", at: "" },
+      { day: "2026-11-03", at: "25:00" },
+    ])
+      expect(moveEntry(monday, start, to, "one", mint)).toEqual({
+        refused: "Choose a day and a time to move it to",
+      });
+  });
+  test("moving the series from a moved instance carries every moved one with it", () => {
+    const monday = only(start, "2026-11-02");
+    const moved = apply(
+      start,
+      planned(moveEntry(monday, start, { day: "2026-11-03", at: "08:00" }, "one", mint)),
+    );
+    const dragged = only(moved, "2026-11-03");
+    const series = apply(
+      moved,
+      planned(moveEntry(dragged, moved, { day: "2026-11-04", at: "09:00" }, "series", mint)),
+    );
+    // One day and one hour later: the series, its weekdays, and the moved instance alike.
+    expect(entriesIn(series, "2026-11-02", "2026-11-08").map((e) => [e.on, e.day, e.at])).toEqual([
+      ["2026-11-03", "2026-11-04", "09:00"],
+      ["2026-11-05", "2026-11-05", "08:00"],
+    ]);
   });
   test("resize changes the routine's duration", () => {
     const resized = apply(start, resizeEntry(only(start, "2026-11-02"), 90));
@@ -389,7 +446,7 @@ describe("gestures", () => {
     expect(must(cleared.get("r")).children).toEqual([]);
     const moved = apply(
       start,
-      must(moveEntry(monday, start, { day: "2026-11-03", at: "07:00" }, "one", mint)),
+      planned(moveEntry(monday, start, { day: "2026-11-03", at: "07:00" }, "one", mint)),
     );
     const done = apply(moved, setEntryState(only(moved, "2026-11-03"), moved, "done", mint));
     expect([only(done, "2026-11-03").state, only(done, "2026-11-03").on]).toEqual([

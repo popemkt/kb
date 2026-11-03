@@ -17,6 +17,7 @@ interface LayoutPresses {
   readonly pressEdge: (
     event: PointerEvent<HTMLElement>,
     entry: CalendarEntry,
+    day: string,
     top: number,
     height: number,
   ) => void;
@@ -92,7 +93,7 @@ function TimedEntry({
           aria-hidden
           data-resize={entry.key}
           className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize touch-none"
-          onPointerDown={(event) => presses.pressEdge(event, entry, top, placed.height)}
+          onPointerDown={(event) => presses.pressEdge(event, entry, day, top, placed.height)}
         />
       ) : null}
     </div>

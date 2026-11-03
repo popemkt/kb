@@ -3467,26 +3467,37 @@ family's, specified once in
 the page adds no storage of its own.
 
 - **One expansion.** What the page shows is `calendarEntries` in
-  `@kb/routines`, which reads each routine through the engine's own reader
-  and expands it with the same canonical rule the push sends (`seriesDays`),
-  so the calendar cannot show a day Google is not sent. A routine the engine
-  could not send is listed above the grid with its reason, and opens in the
-  editor.
+  `@kb/routines`. It reads each routine through the engine's own reader and
+  expands the recurrence the routine's event is sent with (`recurrence` in
+  `projection.ts`, via `seriesDays`), so the calendar cannot show an instance
+  Google is not sent. A date UNTIL bounds the day; a UTC UNTIL bounds each
+  instance's start. A routine the engine could not send is listed above the
+  grid with its reason, and opens in the editor.
 - **Every edit is a node write.** A gesture becomes `node.add`,
   `node.update` or `node.delete` calls (`calendar-edits.ts`), made in order
   through the page's invoke path; the engine sees the write and pushes it.
-  Moving one instance of a series writes its `#occurrence` (state moved,
-  moved to, at); moving the series, or a one-off, moves the routine's start,
-  rotates a weekly rule's days and shifts its occurrence facts with it. A
-  rule that cannot move by days (an ordinal weekday, `BYSETPOS`, `BYMONTH`)
-  is refused with a toast rather than rewritten. Resizing changes the
-  routine's duration, since an occurrence has none. Ticking done and
-  skipping write the instance's fact; taking either back restores a moved
-  fact to moved, and otherwise deletes it.
-- **Gestures.** One pointer controller (`drag.ts`) serves every layout: it
-  reads the day cell under the pointer (`data-calendar-day`) and, on the
-  week's grid (`data-calendar-timed`), the quarter hour it is in. A press
-  that does not travel past the slop is a click. Dragging a repeating
+  - Moving one instance of a series writes its `#occurrence` (state moved,
+    moved to, at).
+  - Moving the series, or a one-off, moves everything by the dragged
+    instance's displacement. That covers the routine's start and time, its
+    rule's weekdays, each fact's original day, and each moved instance's
+    place, so the dragged instance lands where it was dropped.
+  - A rule that cannot move by days is refused (`MovePlan`'s reason, shown
+    as a toast) rather than rewritten. That covers an ordinal weekday,
+    `BYSETPOS`, `BYMONTH`, an every-few-weeks rule whose days would cross a
+    week boundary, and a day of the month that would leave 1–28. A
+    destination that is not a day and time is refused the same way.
+  - Resizing changes the routine's duration, since an occurrence has none.
+  - Ticking done and skipping write the instance's fact. Taking either back
+    restores a moved fact to moved, and otherwise deletes it.
+- **Gestures.** One pointer controller (`drag.ts`) serves every layout. It
+  follows the one pointer that pressed, and drops the gesture when the page
+  goes away. It reads the day cell under the pointer (`data-calendar-day`)
+  and, on the week's grid (`data-calendar-timed`), the quarter hour it is
+  in. A press that does not travel past the slop is a click. A drop, a
+  resize's new end and a dragged slot are read as instants on the page's
+  clock (`instantAt`), so a span across a DST change lasts the time it
+  shows. A timed instance dropped on a month day keeps the time it shows. Dragging a repeating
   instance asks "Just this one" or "The whole series". Done and skipped
   instances do not move. A click on an empty slot opens the editor on a
   half-hour draft there, and a drag sets its length. Nothing is created

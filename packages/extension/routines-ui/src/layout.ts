@@ -4,7 +4,14 @@
  * they overlap. Times are shown on the wall clock of the person's zone; an
  * all-day instance keeps its own day, as a floating date does.
  */
-import { clockText, instantOf, wallClock, type CalendarEntry, type Place } from "@kb/routines";
+import {
+  clockText,
+  instantOf,
+  shiftDay,
+  wallClock,
+  type CalendarEntry,
+  type Place,
+} from "@kb/routines";
 
 /** How tall an hour of the week grid is, in pixels; every drag reads minutes off it. */
 export const HOUR_PX = 48;
@@ -90,10 +97,26 @@ export function minutesAt(y: number): number {
 }
 
 /**
+ * The instant `minutes` past midnight on displayed `day` names in `zone`
+ * (24:00 is the next day's midnight): what a drop, a resize's end and a
+ * dragged slot mean, so a span across a DST change is measured in time, not
+ * on the clock.
+ */
+export function instantAt(day: string, minutes: number, zone: string): number {
+  const carry = Math.floor(minutes / 1440);
+  return instantOf(shiftDay(day, carry), clockText(minutes - carry * 1440), zone);
+}
+
+/** The minutes between two times on displayed `day`, as time passes in `zone`. */
+export function elapsed(day: string, from: number, to: number, zone: string): number {
+  return Math.round((instantAt(day, to, zone) - instantAt(day, from, zone)) / 60_000);
+}
+
+/**
  * Where an instance dropped at `minutes` on displayed `day` goes, as its
  * routine stores it: the same instant, on the wall clock of its routine's zone.
  */
 export function placeAt(day: string, minutes: number, zone: string, routineZone: string): Place {
-  const local = wallClock(instantOf(day, clockText(minutes), zone), routineZone);
+  const local = wallClock(instantAt(day, minutes, zone), routineZone);
   return { day: local.day, at: clockText(local.minutes) };
 }

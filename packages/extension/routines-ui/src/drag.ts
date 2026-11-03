@@ -8,6 +8,7 @@
  */
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -33,6 +34,8 @@ export type Drag =
   | {
       readonly kind: "resize";
       readonly entry: CalendarEntry;
+      /** The displayed day its column shows. */
+      readonly day: string;
       readonly top: number;
       readonly bottom: number;
     }
@@ -42,7 +45,11 @@ export interface DragHandlers {
   /** A press on an instance that did not travel. */
   readonly click: (entry: CalendarEntry, element: HTMLElement) => void;
   readonly move: (entry: CalendarEntry, to: Spot) => void;
-  readonly resize: (entry: CalendarEntry, duration: number) => void;
+  /** An instance's lower edge let go: the displayed day and minute it now ends at. */
+  readonly resize: (
+    entry: CalendarEntry,
+    end: { readonly day: string; readonly minutes: number },
+  ) => void;
   /** An empty slot pressed: a day, with the minutes chosen when on the time grid. */
   readonly create: (
     day: string,
@@ -71,6 +78,8 @@ function spotAt(event: Pick<PointerEvent, "clientX" | "clientY" | "target">): Sp
 }
 
 interface Press {
+  /** The one pointer the gesture follows; another finger or pen is not it. */
+  readonly pointer: number;
   readonly x: number;
   readonly y: number;
   readonly element: HTMLElement;
@@ -98,7 +107,7 @@ function finish(press: Press, handlers: DragHandlers): void {
     if (press.travelled) handlers.move(drag.entry, drag.to);
     else handlers.click(drag.entry, press.element);
   } else if (drag.kind === "resize") {
-    if (press.travelled) handlers.resize(drag.entry, drag.bottom - drag.top);
+    if (press.travelled) handlers.resize(drag.entry, { day: drag.day, minutes: drag.bottom });
   } else {
     const from = Math.min(drag.from, drag.to);
     const to = Math.max(drag.from, drag.to) + SNAP_MINUTES;
@@ -116,18 +125,24 @@ export function useCalendarDrag(handlers: DragHandlers) {
   useLayoutEffect(() => {
     latest.current = handlers;
   });
+  // The gesture in progress, ended without committing when the page goes away.
+  const active = useRef<((commit: boolean) => void) | null>(null);
+  useEffect(() => () => active.current?.(false), []);
 
   const begin = useCallback((event: ReactPointerEvent<HTMLElement>, first: Drag) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || active.current !== null) return;
     event.stopPropagation();
     const press: Press = {
+      pointer: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       element: event.currentTarget,
       travelled: false,
       drag: first,
     };
+    const ours = (next: PointerEvent) => next.pointerId === press.pointer;
     const onMove = (next: PointerEvent) => {
+      if (!ours(next)) return;
       if (!press.travelled && Math.hypot(next.clientX - press.x, next.clientY - press.y) < SLOP)
         return;
       press.travelled = true;
@@ -138,11 +153,17 @@ export function useCalendarDrag(handlers: DragHandlers) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
+      active.current = null;
       setDrag(null);
       if (commit) finish(press, latest.current);
     };
-    const onUp = () => stop(true);
-    const onCancel = () => stop(false);
+    const onUp = (next: PointerEvent) => {
+      if (ours(next)) stop(true);
+    };
+    const onCancel = (next: PointerEvent) => {
+      if (ours(next)) stop(false);
+    };
+    active.current = stop;
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
@@ -162,8 +183,13 @@ export function useCalendarDrag(handlers: DragHandlers) {
   );
   /** Press an instance's lower edge on the grid: resize it. */
   const pressEdge = useCallback(
-    (event: ReactPointerEvent<HTMLElement>, entry: CalendarEntry, top: number, height: number) =>
-      begin(event, { kind: "resize", entry, top, bottom: top + height }),
+    (
+      event: ReactPointerEvent<HTMLElement>,
+      entry: CalendarEntry,
+      day: string,
+      top: number,
+      height: number,
+    ) => begin(event, { kind: "resize", entry, day, top, bottom: top + height }),
     [begin],
   );
   /** Press an empty slot: make an instance there, over the minutes dragged across. */

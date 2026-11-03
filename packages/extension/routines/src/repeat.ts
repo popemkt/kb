@@ -231,38 +231,64 @@ export function describeRepeat(rrule: string, until: string, starts: string): st
   return text + end;
 }
 
+/** A weekday's place in the week, Monday 0. */
+const weekIndex = (day: string): number => WEEKDAYS.findIndex((name) => name === day);
+
 /**
- * The rule a series has once every instance moves `days` days: the same rule
- * when the start carries its days, its weekdays turned for a weekly rule, its
- * day of the month moved while it stays inside every month; null when moving
- * by days changes what the rule says, which only an edit can decide.
+ * A weekly rule's days turned by `days`, or null when turning them breaks an
+ * interval's weeks: every second week, a day turned past Sunday lands in a
+ * week the rule skips, unless every day (and the start) crosses together.
  */
-export function shiftRule(rrule: string, days: number): string | null {
+function turnedWeek(
+  byDay: string | undefined,
+  interval: number,
+  start: LocalDate,
+  days: number,
+): string | null | undefined {
+  const turned = (byDay ?? "").split(",").filter((day) => day !== "");
+  const indexes = [...turned.map(weekIndex), weekIndex(weekdayOf(start))];
+  if (interval > 1 && new Set(indexes.map((index) => Math.floor((index + days) / 7))).size > 1)
+    return null;
+  if (byDay === undefined) return undefined;
+  return turned.map((day) => WEEKDAYS[(((weekIndex(day) + days) % 7) + 7) % 7]).join(",");
+}
+
+/**
+ * A month's day moved by `days`, or null when it leaves the days every month
+ * has (1…28): then moving by days changes which months it falls in.
+ */
+function movedMonthDays(monthDays: readonly number[], days: number): string | null {
+  const moved = monthDays.map((day) => day + days);
+  return [...monthDays, ...moved].some((day) => day < 1 || day > 28) ? null : moved.join(",");
+}
+
+/**
+ * The rule a series has once every instance moves `days` days from `starts`:
+ * the same rule when the start carries its days, its weekdays turned for a
+ * weekly rule, its day of the month moved while it stays inside every month;
+ * null when moving by days changes what the rule says, which only an edit can
+ * decide.
+ */
+export function shiftRule(rrule: string, starts: string, days: number): string | null {
   if (rrule.trim() === "" || days === 0) return rrule;
   const parts = entries(rrule);
   const freq = parts.get("FREQ");
   const byDay = parts.get("BYDAY");
   const monthDay = parts.get("BYMONTHDAY");
   if (parts.has("BYSETPOS") || parts.has("BYMONTH")) return null;
+  if (byDay !== undefined && freq !== "WEEKLY") return null;
+  const start = startDay(starts);
   const next = new Map(parts);
-  if (byDay !== undefined) {
-    if (freq !== "WEEKLY") return null;
-    next.set(
-      "BYDAY",
-      byDay
-        .split(",")
-        .map((day) => WEEKDAYS[(WEEKDAYS.findIndex((name) => name === day) + (days % 7) + 7) % 7])
-        .join(","),
-    );
+  if (freq === "WEEKLY") {
+    const turned = turnedWeek(byDay, Number(parts.get("INTERVAL") ?? "1"), start, days);
+    if (turned === null) return null;
+    if (turned !== undefined) next.set("BYDAY", turned);
   }
-  if (monthDay !== undefined) {
-    const moved = monthDay.split(",").map((day) => Number(day) + days);
-    if (
-      moved.some((day) => day < 1 || day > 28) ||
-      monthDay.split(",").some((day) => Number(day) < 1)
-    )
-      return null;
-    next.set("BYMONTHDAY", moved.join(","));
+  if (freq === "MONTHLY" || freq === "YEARLY") {
+    // Without a day of the month the start's is implied, and moves the same way.
+    const moved = movedMonthDays((monthDay ?? String(start.day)).split(",").map(Number), days);
+    if (moved === null) return null;
+    if (monthDay !== undefined) next.set("BYMONTHDAY", moved);
   }
   return canonicalRule([...next].map(([key, value]) => key + "=" + value).join(";")).replace(
     /^RRULE:/,

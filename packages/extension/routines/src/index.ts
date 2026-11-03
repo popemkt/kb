@@ -60,6 +60,6 @@ export {
   resizeEntry,
   moveEntry,
 } from "./calendar-edits.ts";
-export type { NodeCall, Place, NewRoutine } from "./calendar-edits.ts";
+export type { NodeCall, Place, NewRoutine, MovePlan } from "./calendar-edits.ts";
 export { CALENDAR_MODES, CalendarParams, RoutinesCalendarView } from "./view.ts";
 export type { CalendarMode } from "./view.ts";

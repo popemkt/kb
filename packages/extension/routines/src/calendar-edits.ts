@@ -5,8 +5,8 @@
  * instance or its series, resizing it, ticking or skipping an instance, and
  * saving an edit each make the fewest node calls that say it.
  */
-import { canonicalJson, type NodeLike, type PropValue } from "@kb/model";
-import type { CalendarEntry } from "./calendar.ts";
+import { canonicalJson, parseDay, type NodeLike, type PropValue } from "@kb/model";
+import { clockMinutes, clockText, type CalendarEntry } from "./calendar.ts";
 import {
   occurrenceWrite,
   readRoutine,
@@ -171,42 +171,75 @@ function moveOne(
   return [update(fact.id, occurrenceWrite({ movedTo: to.day, at }))];
 }
 
+/** `place` moved by `minutes`: a timed one on the clock, carrying days; an all-day one by whole days. */
+function displaced(place: Place, minutes: number): Place {
+  if (place.at === null) return { day: shiftDay(place.day, Math.floor(minutes / 1440)), at: null };
+  const total = clockMinutes(place.at) + minutes;
+  return {
+    day: shiftDay(place.day, Math.floor(total / 1440)),
+    at: clockText(((total % 1440) + 1440) % 1440),
+  };
+}
+
+/** Why a move is refused when the rule cannot carry it. */
+const CANNOT_SHIFT = "This repeat cannot move by days: change it in the routine instead";
+
 /**
- * Move a whole series by where one of its instances goes: its start (and so
- * every day) by the days between, its rule turned with it, its time to the
- * new time; each fact keyed by an original day moves with its day. Null when
- * the rule cannot be moved by days without changing what it says.
+ * Move a whole series by as much as one of its instances moves: its start
+ * and time by that much (so every day), its rule turned with it, each fact's
+ * original day by the days the series moved, and each moved instance's place
+ * by the same amount, so the instance dragged lands where it was dropped.
  */
 function moveSeries(
   entry: CalendarEntry,
   node: NodeLike,
   nodes: ReadonlyMap<string, NodeLike>,
   to: Place,
-): readonly NodeCall[] | null {
+): MovePlan {
   const { routine } = readRoutine(node, routineZone(node, nodes));
-  const days = daysBetween(entry.day, to.day);
-  const rrule = shiftRule(routine.rrule, days);
-  if (rrule === null) return null;
+  const minutes =
+    daysBetween(entry.day, to.day) * 1440 +
+    (entry.at === null || to.at === null ? 0 : clockMinutes(to.at) - clockMinutes(entry.at));
+  const series = displaced({ day: routine.starts, at: routine.at }, minutes);
+  const days = daysBetween(routine.starts, series.day);
+  const rrule = shiftRule(routine.rrule, routine.starts, days);
+  if (rrule === null) return { refused: CANNOT_SHIFT };
   const calls: NodeCall[] = [
     update(
       node.id,
       routineWrite({
-        starts: shiftDay(routine.starts, days),
-        at: to.at ?? "",
+        starts: series.day,
+        at: series.at ?? "",
         ...(rrule === routine.rrule ? {} : { rrule }),
       }),
     ),
   ];
-  if (days !== 0)
-    for (const [on, fact] of routineOccurrences(node, nodes))
-      calls.push(update(fact.node.id, occurrenceWrite({ on: shiftDay(on, days) })));
-  return calls;
+  for (const [on, fact] of routineOccurrences(node, nodes)) {
+    const { movedTo, at } = fact.occurrence;
+    const place =
+      movedTo === null ? null : displaced({ day: movedTo, at: at ?? routine.at }, minutes);
+    const write: Partial<OccurrenceSettings> = {
+      ...(days === 0 ? {} : { on: shiftDay(on, days) }),
+      ...(place === null
+        ? {}
+        : {
+            movedTo: place.day,
+            at: at === null || place.at === series.at ? "" : (place.at ?? ""),
+          }),
+    };
+    if (Object.keys(write).length > 0) calls.push(update(fact.node.id, occurrenceWrite(write)));
+  }
+  return { calls };
 }
+
+/** What a move writes, or why it is refused. */
+export type MovePlan = { readonly calls: readonly NodeCall[] } | { readonly refused: string };
 
 /**
  * Move an instance to `to`: just this one (`one`) or every one of its series
  * (`series`). A one-off's instance is the routine, so it moves the routine.
- * Null when the series cannot be moved that way and must be edited instead.
+ * Refused when `to` is not a day and time, or the series cannot move that way
+ * and must be edited instead.
  */
 export function moveEntry(
   entry: CalendarEntry,
@@ -214,11 +247,13 @@ export function moveEntry(
   to: Place,
   scope: "one" | "series",
   mint: () => string,
-): readonly NodeCall[] | null {
-  if (to.day === entry.day && to.at === entry.at) return [];
+): MovePlan {
+  if (parseDay(to.day) === null || (to.at !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(to.at)))
+    return { refused: "Choose a day and a time to move it to" };
+  if (to.day === entry.day && to.at === entry.at) return { calls: [] };
   const node = nodes.get(entry.routine);
-  if (node === undefined) return [];
+  if (node === undefined) return { calls: [] };
   if (!entry.series || scope === "series") return moveSeries(entry, node, nodes, to);
   const { routine } = readRoutine(node, routineZone(node, nodes));
-  return moveOne(entry, routine.at, factOf(entry, nodes), to, mint);
+  return { calls: moveOne(entry, routine.at, factOf(entry, nodes), to, mint) };
 }

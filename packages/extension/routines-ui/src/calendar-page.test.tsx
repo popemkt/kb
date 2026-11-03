@@ -142,13 +142,14 @@ const column = (day: string) => $(`[data-calendar-day="${day}"][data-calendar-ti
 const chip = (key: string) => $(`button[data-entry="${key}"]`);
 const y = (hours: number) => hours * HOUR_PX;
 
-function pointer(type: string, target: Element, clientY: number): void {
+function pointer(type: string, target: Element, clientY: number, pointerId = 1): void {
   const event = new window.PointerEvent(type, {
     bubbles: true,
     cancelable: true,
     button: 0,
     clientX: 10,
     clientY,
+    pointerId,
   });
   act(() => {
     target.dispatchEvent(event);
@@ -180,6 +181,8 @@ function button(name: string): HTMLButtonElement {
 function fill(label: string, value: string): void {
   const input = $(`input[aria-label="${label}"]`);
   act(() => {
+    // Typing goes to the focused field, and React hears it there.
+    input.focus();
     // Past React's own record of the value, as typing is.
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), "value")?.set?.call(input, value);
     // React-dom came in before this DOM did, so it hears typing by the keys, not `input`.
@@ -315,6 +318,50 @@ describe("moving and resizing", () => {
       ["15:00"],
     ]);
   });
+  test("a timed instance dropped on a month day keeps the time it shows, read back into its zone", async () => {
+    const late = routine("late", "Call", {
+      [F.timezone]: [str("America/Los_Angeles")],
+      [F.starts]: [str("2026-11-02")],
+      [F.at]: [str("23:00")],
+      [F.duration]: [num(30)],
+    });
+    open("/calendar/month/2026-11-04", [CALENDAR, late]);
+    // 23:00 in Los Angeles on Nov 2 shows at 14:00 on Nov 3 here; dropped on Nov 4 it is 14:00 then.
+    const day = (d: string) => $(`[data-calendar-day="${d}"]`);
+    expect(
+      chip("late/2026-11-02").closest("[data-calendar-day]")?.getAttribute("data-calendar-day"),
+    ).toBe("2026-11-03");
+    drag(chip("late/2026-11-02"), 5, day("2026-11-04"), 40);
+    await settle();
+    expect([propOf(writes()[0], F.starts), propOf(writes()[0], F.at)]).toEqual([
+      ["2026-11-03"],
+      ["23:00"],
+    ]);
+  });
+  test("a second pointer does not drive the gesture, and leaving the page mid-drag writes nothing", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    pointer("pointerdown", chip("gym/2026-11-02"), y(7) + 10, 1);
+    pointer("pointermove", column("2026-11-03"), y(9), 2);
+    pointer("pointerup", column("2026-11-03"), y(9), 2);
+    expect(document.querySelector('[data-testid="scope-prompt"]')).toBeNull();
+    pointer("pointermove", column("2026-11-03"), y(8) + 10, 1);
+    act(() => root.unmount());
+    pointer("pointerup", document.body, y(8) + 10, 1);
+    await settle();
+    expect(writes()).toEqual([]);
+    root = createRoot(document.body.appendChild(document.createElement("div")));
+  });
+  test("a move to a cleared day waits for a day", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    pointer("pointerdown", chip("gym/2026-11-02"), y(7) + 10);
+    pointer("pointerup", chip("gym/2026-11-02"), y(7) + 10);
+    await click(button("Move this one…"));
+    fill("Move to day", "");
+    const move = button("Move");
+    expect(move.disabled).toBe(true);
+    await click(move);
+    expect(writes()).toEqual([]);
+  });
   test("dragging an instance's lower edge changes how long the routine lasts", async () => {
     open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
     drag($('[data-resize="gym/2026-11-04"]'), y(8), column("2026-11-04"), y(8) + 20);
@@ -441,6 +488,20 @@ describe("sync status", () => {
 });
 
 describe("a DST week", () => {
+  test("a resize across spring forward lasts the time to its new end, not the clock's", async () => {
+    zone = "America/New_York";
+    const night = routine("night", "Night shift", {
+      [F.timezone]: [str("America/New_York")],
+      [F.starts]: [str("2026-03-08")],
+      [F.at]: [str("01:30")],
+      [F.duration]: [num(90)],
+    });
+    open("/calendar/week/2026-03-08", [CALENDAR, night]);
+    // Shown 01:30–04:00; its end dragged to 04:15 is 105 minutes after 01:30, an hour skipped.
+    drag($('[data-resize="night/2026-03-08"]'), y(4) - 2, column("2026-03-08"), y(4) + 5);
+    await settle();
+    expect(propOf(writes()[0], F.duration)).toEqual([105]);
+  });
   test("in New York a daily 09:00 keeps its row across spring forward, and 01:30 for 90 minutes ends at 04:00", () => {
     zone = "America/New_York";
     const ny = {

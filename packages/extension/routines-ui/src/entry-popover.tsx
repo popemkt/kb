@@ -39,12 +39,14 @@ function MoveForm({
 }) {
   const [day, setDay] = useState(entry.day);
   const [at, setAt] = useState(entry.at ?? "");
+  // A cleared field is no place to move to: Move waits for a day, and a time when it has one.
+  const ready = day !== "" && (entry.at === null || at !== "");
   return (
     <form
       className="flex flex-wrap items-center gap-1.5"
       onSubmit={(event) => {
         event.preventDefault();
-        onMove({ day, at: entry.at === null ? null : at });
+        if (ready) onMove({ day, at: entry.at === null ? null : at });
       }}
     >
       <input
@@ -64,7 +66,7 @@ function MoveForm({
           onChange={(event) => setAt(event.target.value)}
         />
       )}
-      <button type="submit" className={PRIMARY_BUTTON_CLASS}>
+      <button type="submit" className={PRIMARY_BUTTON_CLASS} disabled={!ready}>
         Move
       </button>
     </form>

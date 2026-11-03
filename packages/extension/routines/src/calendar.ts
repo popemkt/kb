@@ -7,10 +7,10 @@
  * would not.
  */
 import { DateTime, Option } from "effect";
-import { dayAt, firstRef, formatDay, parseDay, typeRefsOf, type NodeLike } from "@kb/model";
+import { firstRef, formatDay, parseDay, typeRefsOf, type NodeLike } from "@kb/model";
 import { readRoutine, readSyncStatus, routineOccurrences, routineZone } from "./config.ts";
 import { SyncError, type Occurrence, type Routine, type SyncStatus } from "./model.ts";
-import { canonicalRule, instancePlace, project } from "./projection.ts";
+import { instancePlace, project, recurrence } from "./projection.ts";
 import { RRule } from "./rrule.ts";
 import { ROUTINE_FIELDS as F, ROUTINE_TAGS as T } from "./seed.ts";
 
@@ -73,38 +73,36 @@ function floating(day: string, time = "00:00:00"): Date {
   return DateTime.toDateUtc(DateTime.makeUnsafe(day + "T" + time + "Z"));
 }
 
-/** The local day an RRULE UNTIL ends on: its date, or the day its UTC instant falls on in `zone`. */
-function untilDay(until: string, zone: string): string {
-  const match = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z)?$/.exec(until);
+/** The UTC instant an RRULE `UNTIL=…T…Z` names, as epoch ms. */
+function untilInstant(until: string): number {
+  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(until);
   if (match === null) throw invalid();
-  const date = match[1] + "-" + match[2] + "-" + match[3];
-  if (match[4] === undefined) return checkedDay(date);
-  const instant = DateTime.makeUnsafe(
-    date + "T" + match[4] + ":" + match[5] + ":" + match[6] + "Z",
+  return DateTime.toEpochMillis(
+    DateTime.makeUnsafe(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`),
   );
-  const local = dayAt(DateTime.toEpochMillis(instant), zone);
-  if (local === null) throw invalid();
-  return formatDay(local);
 }
 
 /**
  * The days in `from`…`to` (inclusive, local days) on which the routine's
- * series has an instance: its start for a one-off, else its rule's days from
- * its start, bounded by its until (the field, else the rule's UNTIL) and COUNT.
+ * series has an instance: its start for a one-off, else the days of the
+ * recurrence its event is sent with (`recurrence`), counted from its start.
+ * A date UNTIL bounds the day; a UTC one bounds each instance's start.
  */
 export function seriesDays(routine: Routine, from: string, to: string): readonly string[] {
   const starts = checkedDay(routine.starts);
-  if (routine.rrule.trim() === "") return starts >= from && starts <= to ? [starts] : [];
-  const body = canonicalRule(routine.rrule).replace(/^RRULE:/, "");
-  const parts = body.split(";");
-  const ruleUntil = parts.find((part) => part.startsWith("UNTIL="))?.slice("UNTIL=".length);
-  const until =
-    routine.until === null
-      ? ruleUntil === undefined
-        ? null
-        : untilDay(ruleUntil, routine.zone)
-      : checkedDay(routine.until);
-  const last = until !== null && until < to ? until : to;
+  const [sent] = recurrence(routine);
+  if (sent === undefined) return starts >= from && starts <= to ? [starts] : [];
+  const parts = sent.replace(/^RRULE:/, "").split(";");
+  const until = parts.find((part) => part.startsWith("UNTIL="))?.slice("UNTIL=".length);
+  const dayBound =
+    until === undefined
+      ? null
+      : /^\d{8}$/.test(until)
+        ? checkedDay(`${until.slice(0, 4)}-${until.slice(4, 6)}-${until.slice(6)}`)
+        : null;
+  const instantBound = until === undefined || dayBound !== null ? null : untilInstant(until);
+  const coarse = instantBound === null ? dayBound : wallClock(instantBound, routine.zone).day;
+  const last = coarse !== null && coarse < to ? coarse : to;
   const first = starts > from ? starts : from;
   if (last < first) return [];
   const rule = new RRule({
@@ -113,7 +111,12 @@ export function seriesDays(routine: Routine, from: string, to: string): readonly
   });
   return rule
     .between(floating(first), floating(last, "23:59:59"), true)
-    .map((date) => DateTime.formatIsoDateUtc(DateTime.makeUnsafe(date)));
+    .map((date) => DateTime.formatIsoDateUtc(DateTime.makeUnsafe(date)))
+    .filter(
+      (day) =>
+        instantBound === null ||
+        instantOf(day, routine.at ?? "00:00", routine.zone) <= instantBound,
+    );
 }
 
 /** The instant a local day and time name in `zone`; a time a DST gap skips moves past the gap. */
