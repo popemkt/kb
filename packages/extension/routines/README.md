@@ -63,6 +63,7 @@ Add child `#occurrence` nodes with original **on** date, state **done**, **skipp
 or **moved**, and (for moves) **moved to** plus optional **at**. One fact per day.
 A done fact keeps its **moved to**, so an instance moved and then ticked done stays
 where it was moved; a skipped one is cancelled wherever it was.
+A one-off takes a fact too, on its **starts** day: it is the one event's own state.
 Done days show ✅, grey, and no reminders; ordinary days use calendar defaults.
 
 - `ext.routines.preview {}` projects routines without contacting Google.

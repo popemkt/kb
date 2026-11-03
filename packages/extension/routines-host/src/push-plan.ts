@@ -60,14 +60,20 @@ export function pushPlan(
   if (current.removed) return operations;
   const routine = readRoutine(current.node, current.binding.calendar.zone).routine;
   const backlink = origin + "/node/" + encodeURIComponent(current.node.id);
+  const desired = routineOccurrences(current.node, current.nodes);
+  // A one-off's one instance is its event: the fact on its day is that event's own state.
+  const oneOff = routine.rrule.trim() === "";
   operations.push({
     snapshot: current,
-    fields: project(routine, backlink, 0),
+    fields: project(routine, backlink, 0, {
+      kind: "parent",
+      occurrence: oneOff ? (desired.get(routine.starts)?.occurrence ?? null) : null,
+    }),
     original: null,
     node: current.node,
     retiresSeries: false,
   });
-  const desired = routineOccurrences(current.node, current.nodes);
+  if (oneOff) return operations;
   const old =
     previous === undefined || retire !== null
       ? new Map<string, { readonly node: NodeLike; readonly occurrence: Occurrence }>()

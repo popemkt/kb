@@ -396,6 +396,28 @@ describe("occurrences", () => {
     expect($('li[data-entry="gym/2026-11-04"]').dataset["entryState"]).toBe("skipped");
     expect($('li[data-entry="gym/2026-11-02"]').dataset["entryState"]).toBe("scheduled");
   });
+  test("a one-off is ticked done and skipped on its one day, like an instance of a series", async () => {
+    const dentist = routine("dentist", "Dentist", {
+      [F.starts]: [str("2026-11-04")],
+      [F.at]: [str("14:00")],
+      [F.duration]: [num(30)],
+    });
+    open("/calendar/agenda/2026-11-02", [CALENDAR, dentist]);
+    const row = () => $('li[data-entry="dentist/2026-11-04"]');
+    await click(button("Mark Dentist done"));
+    const [add] = writes();
+    expect(add?.input["parent"]).toBe("dentist");
+    expect([propOf(add, F.on), propOf(add, F.state)]).toEqual([
+      ["2026-11-04"],
+      [routineOption("state", "done")],
+    ]);
+    expect(row().dataset["entryState"]).toBe("done");
+    await click(button("Mark Dentist not done"));
+    expect(writes()[1]?.id).toBe("node.delete");
+    await click(button("Skip Dentist"));
+    expect(propOf(writes()[2], F.state)).toEqual([routineOption("state", "skipped")]);
+    expect(row().dataset["entryState"]).toBe("skipped");
+  });
   test("a done instance in the week is drawn done and is not moved by a drag", async () => {
     const fact = outline("done-1", "2026-11-02", {
       [SYSTEM_IDS.typeField]: [ref(T.occurrence)],

@@ -1,5 +1,5 @@
 import { ArrowArcRightIcon, CheckIcon } from "@phosphor-icons/react";
-import { takesFacts, type CalendarEntry } from "@kb/routines";
+import type { CalendarEntry } from "@kb/routines";
 import { cn, IconButton } from "@kb/ui-sdk";
 import { longDay } from "./dates";
 import { displayTimes } from "./layout";
@@ -28,30 +28,25 @@ function AgendaRow({
   const times = displayTimes(entry, layout.zone);
   const done = entry.state === "done";
   const skipped = entry.state === "skipped";
-  const checkable = takesFacts(entry);
   return (
     <li
       data-entry={entry.key}
       data-entry-state={entry.state}
       className="flex min-h-11 items-center gap-2 border-b border-border/60 px-2 py-1"
     >
-      {checkable ? (
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={done}
-          aria-label={done ? `Mark ${entry.title} not done` : `Mark ${entry.title} done`}
-          onClick={() => actions.toggleDone(entry)}
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-foreground",
-            done ? "border-success bg-success/20" : "border-border hover:border-foreground/50",
-          )}
-        >
-          <CheckIcon size={12} weight="bold" className={done ? undefined : "invisible"} />
-        </button>
-      ) : (
-        <span className="h-5 w-5 shrink-0" aria-hidden />
-      )}
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={done}
+        aria-label={done ? `Mark ${entry.title} not done` : `Mark ${entry.title} done`}
+        onClick={() => actions.toggleDone(entry)}
+        className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-foreground",
+          done ? "border-success bg-success/20" : "border-border hover:border-foreground/50",
+        )}
+      >
+        <CheckIcon size={12} weight="bold" className={done ? undefined : "invisible"} />
+      </button>
       <span
         className={cn("h-8 w-1 shrink-0 rounded-full border-l-4", inkOf(calendar))}
         aria-hidden
@@ -79,16 +74,12 @@ function AgendaRow({
         </span>
       </button>
       <StatusDot status={entry.status} calendarMode={calendar?.mode} className="h-2 w-2" />
-      {checkable ? (
-        <IconButton
-          label={skipped ? `Bring back ${entry.title}` : `Skip ${entry.title}`}
-          icon={ArrowArcRightIcon}
-          size="md"
-          onClick={() => actions.toggleSkip(entry)}
-        />
-      ) : (
-        <span className="h-6 w-6 shrink-0" aria-hidden />
-      )}
+      <IconButton
+        label={skipped ? `Bring back ${entry.title}` : `Skip ${entry.title}`}
+        icon={ArrowArcRightIcon}
+        size="md"
+        onClick={() => actions.toggleSkip(entry)}
+      />
     </li>
   );
 }

@@ -36,7 +36,6 @@ export {
   clockText,
   clockMinutes,
   knownZone,
-  takesFacts,
 } from "./calendar.ts";
 export type { CalendarEntry, CalendarIssue, EntryState } from "./calendar.ts";
 export {

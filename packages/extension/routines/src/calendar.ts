@@ -45,14 +45,6 @@ export interface CalendarEntry {
   readonly status: SyncStatus | null;
 }
 
-/**
- * Whether an instance can be ticked done or skipped: whether it can hold an
- * `#occurrence` fact, which the engine projects only as an exception to a
- * series.
- */
-// GAP [[01M6HGRGWW0WZ41V24SK89KXQY]]: a one-off routine has no done or skip.
-export const takesFacts = (instance: CalendarEntry): boolean => instance.series;
-
 /** A routine the calendar cannot show, and why. */
 export interface CalendarIssue {
   readonly routine: string;

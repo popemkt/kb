@@ -3521,9 +3521,9 @@ the page adds no storage of its own.
 - **Keys.** `m`, `w`, `a` switch the layout; `t` goes to today; `→`/`j`/`n`
   and `←`/`k`/`p` step by the layout's span; `c` makes a routine. Keys are
   ignored in fields, dialogs and modifier chords.
-- **Done for one-offs is not offered.** The engine keeps instance
-  exceptions only for series, so a one-off routine has no done or skip;
-  `takesFacts`, GAP [[01M6HGRGWW0WZ41V24SK89KXQY]].
+- **One-offs tick like series.** A one-off's one instance is its event, so
+  its `#occurrence` on its start day is that event's own state: done sends
+  it ✅ and grey, skipped cancels it.
 
 ### Locations
 

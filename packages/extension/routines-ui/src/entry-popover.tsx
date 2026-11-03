@@ -5,13 +5,7 @@
  */
 import { useRef, useState } from "react";
 import { ArrowSquareOutIcon, XIcon } from "@phosphor-icons/react";
-import {
-  describeRepeat,
-  routineSettings,
-  takesFacts,
-  type CalendarEntry,
-  type Place,
-} from "@kb/routines";
+import { describeRepeat, routineSettings, type CalendarEntry, type Place } from "@kb/routines";
 import { IconButton, useAnchoredPosition, useDismiss, useOpenNode } from "@kb/ui-sdk";
 import { longDay } from "./dates";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
@@ -143,24 +137,20 @@ export function EntryPopover({
         </a>
       )}
       <div className="flex flex-wrap gap-1.5">
-        {takesFacts(entry) ? (
-          <>
-            <button
-              type="button"
-              className={done ? BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
-              onClick={() => actions.setState(entry, done ? null : "done")}
-            >
-              {done ? "Not done" : "Done"}
-            </button>
-            <button
-              type="button"
-              className={BUTTON_CLASS}
-              onClick={() => actions.setState(entry, skipped ? null : "skipped")}
-            >
-              {skipped ? "Bring back" : "Skip"}
-            </button>
-          </>
-        ) : null}
+        <button
+          type="button"
+          className={done ? BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
+          onClick={() => actions.setState(entry, done ? null : "done")}
+        >
+          {done ? "Not done" : "Done"}
+        </button>
+        <button
+          type="button"
+          className={BUTTON_CLASS}
+          onClick={() => actions.setState(entry, skipped ? null : "skipped")}
+        >
+          {skipped ? "Bring back" : "Skip"}
+        </button>
         {skipped ? null : (
           <button
             type="button"
