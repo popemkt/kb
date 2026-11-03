@@ -152,6 +152,31 @@ describe("a chunk that did not arrive", () => {
     expect(t.announced).toEqual(["stuck"]);
   });
 
+  it("asks the person when storage reads but will not keep the record, once", async () => {
+    const t = tab("/static/index-f.js");
+    const full: BuildEnv = {
+      ...t.env,
+      storage: {
+        getItem: () => null,
+        setItem: () => {
+          throw new Error("QuotaExceededError");
+        },
+      },
+    };
+    watchForNewBuild(new EventTarget(), full);
+    expect(reloadForNewBuild(missing(), full)).toBe(true);
+    t.becomeIdle();
+    await settle();
+    expect(t.did).toEqual([]);
+    expect(t.announced).toEqual(["waiting", "stuck"]);
+    // Asked once: a later need neither reloads nor asks again.
+    followServerProtocol(WIRE_PROTOCOL + 1, full);
+    expect(reloadForNewBuild(missing(), full)).toBe(false);
+    await settle();
+    expect(t.did).toEqual([]);
+    expect(t.announced).toEqual(["waiting", "stuck"]);
+  });
+
   it("is heard from Vite's failed preload, until unsubscribed", async () => {
     const target = new EventTarget();
     const t = tab("/static/index-c.js");

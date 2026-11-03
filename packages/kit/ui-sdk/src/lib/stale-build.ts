@@ -23,8 +23,10 @@
  * Both reload through one guard: once per build. A build is the `src` of
  * the module script the page's `index.html` loads. The tab's session
  * storage records the build it reloaded for, so a reload that lands on the
- * same build asks the person instead of reloading again (`stuck`). A page
- * that is no build (the dev server's) follows none.
+ * same build asks the person instead of reloading again (`stuck`). A reload
+ * goes by itself only once that record is kept; storage that will not keep
+ * it asks the person too. A page that is no build (the dev server's)
+ * follows none.
  */
 import { WIRE_PROTOCOL } from "@kb/contracts";
 
@@ -51,8 +53,11 @@ export interface BuildEnv {
 
 const RELOADED_FOR = "kb.reloaded-for-build";
 
-/** The build a reload is under way for in this page, which every later need joins. */
-let pending: string | null = null;
+/**
+ * What this page decided for its build, which every later need joins: to
+ * reload once idle, or that the person is asked (`stuck`).
+ */
+let decided: { readonly build: string; readonly stuck: boolean } | null = null;
 
 /** Each browser's words for a module, or a chunk's stylesheet, that did not arrive. */
 const CHUNK_MISSING = [
@@ -96,42 +101,65 @@ export function browserBuildEnv(): BuildEnv {
 /** The page whose build is followed: none until the shell of a built page installs it. */
 let page: BuildEnv = NO_PAGE;
 
-/** Go now: record the build gone from, carry what the page comes back to, reload. */
-export function reloadNow(env: BuildEnv = page): void {
+/**
+ * Record in the tab's session storage that it reloads for `build`; true only
+ * when storage kept it, read back. Without the record, a reload that lands
+ * on the same build would reload again.
+ */
+function recordReload(env: BuildEnv, build: string): boolean {
   try {
-    if (env.build !== null) env.storage.setItem(RELOADED_FOR, env.build);
+    env.storage.setItem(RELOADED_FOR, build);
+    return env.storage.getItem(RELOADED_FOR) === build;
   } catch {
-    // Storage refused: the person asked, so the reload goes unrecorded.
+    return false;
   }
+}
+
+function go(env: BuildEnv): void {
   env.announce("reloading");
   env.carry();
   env.reload();
 }
 
+/** Go now, as the person asked: recorded when storage allows, gone either way. */
+export function reloadNow(env: BuildEnv = page): void {
+  if (env.build !== null) recordReload(env, env.build);
+  go(env);
+}
+
+/** Leave the reload to the person: reloading by itself could loop. */
+function askPerson(env: BuildEnv, build: string): void {
+  decided = { build, stuck: true };
+  env.announce("stuck");
+}
+
 /**
  * The one guard: reload once the page is idle, unless this build was
- * reloaded for already, or storage cannot say whether it was — then the
+ * reloaded for already, or storage cannot record that it is — then the
  * person is asked. True while a reload is under way.
  */
 function reloadWhenIdle(env: BuildEnv): boolean {
   const { build } = env;
   if (build === null) return false;
-  if (pending === build) return true;
+  if (decided?.build === build) return !decided.stuck;
+  let reloadedFor: string | null = null;
   try {
-    if (env.storage.getItem(RELOADED_FOR) === build) {
-      env.announce("stuck");
-      return false;
-    }
+    reloadedFor = env.storage.getItem(RELOADED_FOR);
   } catch {
-    // Storage refused (private mode, quota): without the record a reload
-    // could loop, so the person is asked instead.
-    env.announce("stuck");
+    // Storage refused (private mode): unrecorded, a reload could loop.
+    askPerson(env, build);
     return false;
   }
-  pending = build;
+  if (reloadedFor === build) {
+    askPerson(env, build);
+    return false;
+  }
+  decided = { build, stuck: false };
   env.announce("waiting");
   void env.idle().then(() => {
-    if (pending === build && page === env) reloadNow(env);
+    if (decided?.build !== build || decided.stuck || page !== env) return;
+    if (recordReload(env, build)) go(env);
+    else askPerson(env, build);
   });
   return true;
 }
@@ -167,7 +195,7 @@ export function watchForNewBuild(
   env: BuildEnv = browserBuildEnv(),
 ): () => void {
   page = env;
-  pending = null;
+  decided = null;
   const onPreloadError = (event: Event): void => {
     reloadForNewBuild((event as Event & { payload?: unknown }).payload, env);
   };

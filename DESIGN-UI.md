@@ -292,7 +292,8 @@ be kept, never how it is sent.
     reloads when you pause", with "Reload now". Both causes go through one
     guard, once per build: the tab's session storage records the build it
     reloaded for, so a reload that lands on the same build leaves the chip
-    to the person instead of looping. A page that is not a build (the dev
+    to the person instead of looping, and a reload goes by itself only once
+    that record is kept. A page that is not a build (the dev
     server's) follows none (`@kb/ui-sdk` → `lib/stale-build.ts`).
 - **Compressed when it is text.** A `200` whose type is script, style,
   markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
