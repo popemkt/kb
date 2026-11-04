@@ -8,6 +8,7 @@ import {
   readRoutine,
   retryDelay,
   routineInputs,
+  routineZone,
   settleAt,
   SyncError,
   ROUTINE_FIELDS as F,
@@ -99,11 +100,13 @@ const previewNodes = Effect.fn("routines.previewNodes")(function* (options: Engi
     try: () =>
       [...nodes.values()]
         .filter((node) => typeRefsOf(node).includes(T.routine))
-        .map((node) => {
-          const calendar = nodes.get(firstRef(F.calendar)(node.props) ?? "");
-          const zone = calendar === undefined ? "Asia/Ho_Chi_Minh" : readCalendar(calendar).zone;
-          return project(readRoutine(node, zone).routine, options.origin + "/node/" + node.id, 0);
-        }),
+        .map((node) =>
+          project(
+            readRoutine(node, routineZone(node, nodes)).routine,
+            options.origin + "/node/" + node.id,
+            0,
+          ),
+        ),
     catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
   });
 });

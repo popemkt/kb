@@ -1,11 +1,10 @@
 import { DateTime } from "effect";
-import { addDays, canonicalJson, formatDay, parseDay, typeRefsOf, type NodeLike } from "@kb/model";
+import { addDays, canonicalJson, formatDay, parseDay, type NodeLike } from "@kb/model";
 import {
   endSeries,
   project,
-  readOccurrence,
   readRoutine,
-  ROUTINE_TAGS as T,
+  routineOccurrences,
   SyncError,
   type CalendarBinding,
   type EventFields,
@@ -27,18 +26,6 @@ export interface PushOperation {
 }
 const destination = (snapshot: Snapshot) =>
   canonicalJson([snapshot.binding.calendar.id, snapshot.binding.calendar.calendarId]);
-function facts(snapshot: Snapshot) {
-  const found = new Map<string, { node: NodeLike; occurrence: Occurrence }>();
-  for (const id of snapshot.node.children) {
-    const node = snapshot.nodes.get(id);
-    if (node === undefined || !typeRefsOf(node).includes(T.occurrence)) continue;
-    const occurrence = readOccurrence(node);
-    if (found.has(occurrence.on))
-      throw new SyncError({ status: 400, code: "duplicate_occurrence" });
-    found.set(occurrence.on, { node, occurrence });
-  }
-  return found;
-}
 /** One plan owns retirement of previous remote identities and publication of current ones. */
 export function pushPlan(
   current: Snapshot,
@@ -73,18 +60,24 @@ export function pushPlan(
   if (current.removed) return operations;
   const routine = readRoutine(current.node, current.binding.calendar.zone).routine;
   const backlink = origin + "/node/" + encodeURIComponent(current.node.id);
+  const desired = routineOccurrences(current.node, current.nodes);
+  // A one-off's one instance is its event: the fact on its day is that event's own state.
+  const oneOff = routine.rrule.trim() === "";
   operations.push({
     snapshot: current,
-    fields: project(routine, backlink, 0),
+    fields: project(routine, backlink, 0, {
+      kind: "parent",
+      occurrence: oneOff ? (desired.get(routine.starts)?.occurrence ?? null) : null,
+    }),
     original: null,
     node: current.node,
     retiresSeries: false,
   });
-  const desired = facts(current);
+  if (oneOff) return operations;
   const old =
     previous === undefined || retire !== null
-      ? new Map<string, { node: NodeLike; occurrence: Occurrence }>()
-      : facts(previous);
+      ? new Map<string, { readonly node: NodeLike; readonly occurrence: Occurrence }>()
+      : routineOccurrences(previous.node, previous.nodes);
   for (const [day] of old) {
     if (desired.has(day)) continue;
     operations.push({

@@ -677,6 +677,7 @@
   "@kb/routines" = copyPathToStore ./packages/extension/routines;
   "@kb/routines-gcal" = copyPathToStore ./packages/extension/routines-gcal;
   "@kb/routines-host" = copyPathToStore ./packages/extension/routines-host;
+  "@kb/routines-ui" = copyPathToStore ./packages/extension/routines-ui;
   "@kb/runtime" = copyPathToStore ./packages/app/runtime;
   "@kb/sandbox" = copyPathToStore ./packages/contract/sandbox;
   "@kb/sandbox-quickjs" = copyPathToStore ./packages/infrastructure/sandbox-quickjs;

@@ -173,6 +173,37 @@ scenario("done and skipped occurrence nodes push opaque instance IDs", (f) =>
     expect([...f.fake.events.values()].some((fields) => fields.status === "cancelled")).toBe(true);
   }),
 );
+scenario("a one-off's fact on its day is its one event's own state", (f) =>
+  Effect.gen(function* () {
+    const parent = f.nodes.get("routine");
+    if (parent === undefined) throw new Error("missing routine");
+    const { [F.rrule]: _rule, ...props } = parent.props;
+    f.nodes.set(parent.id, { ...parent, props, children: ["fact"] });
+    const fact = (state: "done" | "skipped") =>
+      f.nodes.set(
+        "fact",
+        node("fact", T.occurrence, {
+          [F.on]: str("2026-11-03"),
+          [F.state]: ref(routineOption("state", state)),
+        }),
+      );
+    const event = Effect.gen(function* () {
+      yield* f.engine.tail;
+      yield* f.flush;
+      const events = [...f.fake.events.values()];
+      expect(events).toHaveLength(1);
+      return events[0];
+    });
+    fact("done");
+    expect(yield* event).toMatchObject({ unit: "one-off", recurrence: [], done: true });
+    fact("skipped");
+    expect(yield* event).toMatchObject({ status: "cancelled", done: false });
+    f.nodes.delete("fact");
+    f.nodes.set(parent.id, { ...parent, props, children: [] });
+    expect(yield* event).toMatchObject({ status: "confirmed", done: false });
+    expect(f.statuses.get("routine")?.state).toBe("synced");
+  }),
+);
 scenario("six series removals are held before any writes and explicit release ends them", (f) =>
   Effect.gen(function* () {
     const original = f.nodes.get("routine");

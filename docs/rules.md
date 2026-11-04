@@ -1811,6 +1811,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
 - **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
 
+### GAP: a one-off routine cannot be ticked done or skipped in the calendar
+
+- **expected** — Every instance the calendar shows, one-off or repeating, can be ticked done or skipped, and the engine sends it done (✅, grey, no reminders) or cancels it.
+- **current** — The engine keeps #occurrence facts only for series instances (projection reads them as exceptions to the rule), so the calendar offers done and skip only on a repeating routine; a one-off has neither in the agenda or its popover.
+- **impact** — A one-off reminder (a dentist visit) cannot be marked done from the calendar; deleting it is the only way to clear it.
+- **closes** — The engine projects a one-off routine's own fact (done or skipped) onto its single event, with the shared projection test, and the calendar drops its series guard on done and skip.
+- **node** — `01M6HGRGWW0WZ41V24SK89KXQY`
+
 ### GAP: a proposed graph view cannot set its query or mappings
 
 - **expected** — view.propose can set a graph view's query, focus and mappings like its renderer settings

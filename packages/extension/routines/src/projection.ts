@@ -1,27 +1,14 @@
-import { DateTime, Duration, Effect, Schema } from "effect";
-import * as recurrenceModule from "rrule";
+import { DateTime, Duration, Effect } from "effect";
 import { addDays, canonicalJson, conformsToType, formatDay, parseDay } from "@kb/model";
 import {
   SyncError,
   type EventFields,
   type EventTime,
+  type Occurrence,
   type ProjectionTarget,
   type Routine,
 } from "./model.ts";
-
-// The library publishes ESM to bundlers and CommonJS to Node. Both resolve to one constructor.
-const RecurrenceExports = Schema.Struct({
-  RRule: Schema.declare<typeof recurrenceModule.RRule>(
-    (value): value is typeof recurrenceModule.RRule =>
-      typeof value === "function" &&
-      "fromString" in value &&
-      typeof value.fromString === "function",
-  ),
-});
-const loadedRecurrence = Schema.decodeSync(
-  Schema.Union([RecurrenceExports, Schema.Struct({ default: RecurrenceExports })]),
-)(recurrenceModule);
-const { RRule } = "default" in loadedRecurrence ? loadedRecurrence.default : loadedRecurrence;
+import { RRule } from "./rrule.ts";
 
 const RULE_KEYS = new Set([
   "FREQ",
@@ -144,7 +131,13 @@ function utcUntil(until: string, zone: string): string {
     .replace(/\.\d+Z$/, "Z");
 }
 
-function recurrence(routine: Routine): readonly string[] {
+/**
+ * The recurrence a routine's event is sent with: its canonical rule, bounded
+ * by its until (the field, else a date-only UNTIL) as the end of that local
+ * day, a UTC instant for a timed routine. What the calendar shows expands
+ * this, so it cannot show an instance Google is not sent.
+ */
+export function recurrence(routine: Routine): readonly string[] {
   if (routine.rrule.trim() === "") {
     if (routine.until !== null) throw invalid();
     return [];
@@ -198,17 +191,33 @@ function span(
   };
 }
 
+/**
+ * Where an instance falls: on its original day at the routine's time, unless
+ * its fact moved it. A done instance stays where it was moved to; a skipped one
+ * is cancelled wherever it was.
+ */
+export function instancePlace(
+  routine: Routine,
+  on: string,
+  occurrence: Occurrence | null,
+): { readonly day: string; readonly at: string | null } {
+  if (occurrence?.state === "moved" && occurrence.movedTo === null) throw invalid();
+  if (occurrence === null || occurrence.state === "skipped" || occurrence.movedTo === null)
+    return { day: on, at: routine.at };
+  return { day: occurrence.movedTo, at: occurrence.at ?? routine.at };
+}
+
 function occurrenceSpan(routine: Routine, target: ProjectionTarget) {
   const occurrence = target.kind === "instance" ? target.occurrence : (target.occurrence ?? null);
   if (target.kind === "parent" && occurrence !== null && routine.rrule.trim() !== "")
     throw invalid();
-  const moved = occurrence?.state === "moved";
-  if (moved && occurrence.movedTo === null) throw invalid();
-  const on = moved ? occurrence.movedTo : target.kind === "instance" ? target.on : routine.starts;
-  const at = moved ? (occurrence.at ?? routine.at) : routine.at;
-  if (on === null) throw invalid();
+  const place = instancePlace(
+    routine,
+    target.kind === "instance" ? target.on : routine.starts,
+    occurrence,
+  );
   if (occurrence !== null) day(occurrence.on);
-  return { occurrence, on, at };
+  return { occurrence, on: place.day, at: place.at };
 }
 
 /** Pure projection. Sparse occurrences preserve identity through their original day. */

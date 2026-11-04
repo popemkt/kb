@@ -3510,6 +3510,76 @@ which also lists the workflows judged and not built.
   links over https, each as a request would be sent. A search drops a
   result that breaks it, and a save refuses one before it fetches.
 
+### The routines calendar
+
+The routines family's browser half (`@kb/routines-ui`, `/calendar`) draws
+every `#routine`'s instances as a calendar: a month, a week or an agenda of
+the next two weeks, open at the day the URL names
+(`/calendar/<mode>/<day>`). A narrow screen opens on the agenda, and the
+week is the default elsewhere. The model and its Google sync are the
+family's, specified once in
+[docs/research/2026-11-02-kb-routines-gcal.md](docs/research/2026-11-02-kb-routines-gcal.md);
+the page adds no storage of its own.
+
+- **One expansion.** What the page shows is `calendarEntries` in
+  `@kb/routines`. It reads each routine through the engine's own reader and
+  expands the recurrence the routine's event is sent with (`recurrence` in
+  `projection.ts`, via `seriesDays`), so the calendar cannot show an instance
+  Google is not sent. A date UNTIL bounds the day; a UTC UNTIL bounds each
+  instance's start. A routine the engine could not send is listed above the
+  grid with its reason, and opens in the editor.
+- **Every edit is a node write.** A gesture becomes `node.add`,
+  `node.update` or `node.delete` calls (`calendar-edits.ts`), made in order
+  through the page's invoke path; the engine sees the write and pushes it.
+  - Moving one instance of a series writes its `#occurrence` (state moved,
+    moved to, at).
+  - Moving the series, or a one-off, moves everything by the dragged
+    instance's displacement. That covers the routine's start and time, its
+    rule's weekdays, each fact's original day, and each moved instance's
+    place, so the dragged instance lands where it was dropped.
+  - A rule that cannot move by days is refused (`MovePlan`'s reason, shown
+    as a toast) rather than rewritten. That covers an ordinal weekday,
+    `BYSETPOS`, `BYMONTH`, an every-few-weeks rule whose days would cross a
+    week boundary, and a day of the month that would leave 1–28. A
+    destination that is not a day and time is refused the same way.
+  - Resizing changes the routine's duration, since an occurrence has none.
+  - Ticking done and skipping write the instance's fact. Taking either back
+    restores a moved fact to moved, and otherwise deletes it.
+- **Gestures.** One pointer controller (`drag.ts`) serves every layout. It
+  follows the one pointer that pressed, and drops the gesture when the page
+  goes away. It reads the day cell under the pointer (`data-calendar-day`)
+  and, on the week's grid (`data-calendar-timed`), the quarter hour it is
+  in. A press that does not travel past the slop is a click. A drop, a
+  resize's new end and a dragged slot are read as instants on the page's
+  clock (`instantAfter`), so a span across a DST change lasts the time it
+  shows. A timed instance dropped on a month day keeps the time it shows. Dragging a repeating
+  instance asks "Just this one" or "The whole series". Done and skipped
+  instances do not move. A click on an empty slot opens the editor on a
+  half-hour draft there, and a drag sets its length. Nothing is created
+  until Save.
+- **The editor.** Title, date, time or all day, duration, the repeat
+  (presets read back from the rule, a custom frequency, interval, weekdays
+  and monthly by day or weekday, ends never, on a day or after a count, and
+  the raw rule) and the calendar. It also shows the routine's sync state,
+  Open in Google Calendar and Sync now. A draft the engine could not send
+  is said before Save.
+- **Sync status.** Every instance carries a dot for its routine's status,
+  or its occurrence's own when it has one: synced, pending or error, with
+  the message as its tooltip. A calendar in preview or paused says it is not
+  sent. The toolbar's Sync now (`ext.routines.sync`) carries the worst state
+  showing.
+- **Time zones.** Instances are drawn on the browser's clock, and a drop is
+  converted back to the routine's zone, so a routine in Berlin dragged on a
+  page in Ho Chi Minh City keeps its meaning. Across a DST change a
+  routine keeps its wall-clock time; a span across the gap is drawn to its
+  wall-clock end.
+- **Keys.** `m`, `w`, `a` switch the layout; `t` goes to today; `→`/`j`/`n`
+  and `←`/`k`/`p` step by the layout's span; `c` makes a routine. Keys are
+  ignored in fields, dialogs and modifier chords.
+- **One-offs tick like series.** A one-off's one instance is its event, so
+  its `#occurrence` on its start day is that event's own state: done sends
+  it ✅ and grey, skipped cancels it.
+
 ### Locations
 
 The locations family's browser half (`@kb/locations-ui`; the model is

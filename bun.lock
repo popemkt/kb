@@ -259,6 +259,7 @@
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/routines": "workspace:*",
+        "@kb/routines-ui": "workspace:*",
         "@kb/sandbox": "workspace:*",
         "@kb/sandbox-quickjs": "workspace:*",
         "@kb/sandbox-worker": "workspace:*",
@@ -1039,6 +1040,8 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
         "effect": "catalog:",
         "rrule": "catalog:",
       },
@@ -1073,6 +1076,29 @@
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/routines-ui": {
+      "name": "@kb/routines-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/routines": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "ulid": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/ui-test-kit": "workspace:*",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "react-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/extension/themes": {
@@ -1834,6 +1860,8 @@
     "@kb/routines-gcal": ["@kb/routines-gcal@workspace:packages/extension/routines-gcal"],
 
     "@kb/routines-host": ["@kb/routines-host@workspace:packages/extension/routines-host"],
+
+    "@kb/routines-ui": ["@kb/routines-ui@workspace:packages/extension/routines-ui"],
 
     "@kb/runtime": ["@kb/runtime@workspace:packages/app/runtime"],
 
