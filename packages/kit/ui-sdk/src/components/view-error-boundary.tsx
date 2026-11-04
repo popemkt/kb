@@ -78,9 +78,9 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    // A view of a build the server no longer has is not a crash: the page
-    // reloads into the new one (`lib/stale-build`). When this build was
-    // reloaded for already, the failure is shown as one.
+    // A view of a build the server no longer keeps is not a crash: the page
+    // reloads into the new one once it is idle (`lib/stale-build`). When
+    // this build was reloaded for already, the failure is shown as one.
     if (reloadForNewBuild(error)) return;
     if (this.state.updating) this.setState({ updating: false });
     logError("ViewErrorBoundary caught", error, info.componentStack);
@@ -96,7 +96,12 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
 
   override render(): ReactNode {
     if (this.state.error && this.state.updating)
-      return <ViewError title="kb was updated" message="Loading the new version…" />;
+      return (
+        <ViewError
+          title="kb was updated"
+          message="This view opens in the new version once your edits are saved."
+        />
+      );
     if (this.state.error) {
       const { fallback } = this.props;
       if (fallback !== undefined && fallback !== null) return fallback;

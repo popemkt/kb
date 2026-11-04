@@ -19,6 +19,18 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
  * served read-only from GET /assets/* → .kb/assets/ (W6a).
  */
 
+/**
+ * The version of this wire: what a page of one build and a server of
+ * another must agree on to work together — these messages, the action
+ * envelope and receipt, the snapshot, and the input and output of every
+ * action the server offers. A build changes on every release; this changes
+ * only when a page of the previous build could no longer talk to the
+ * server. The wire's fingerprint is recorded beside it
+ * (`packages/app/server/tests/wire-protocol.test.ts`), so a change to any
+ * of those shapes is a decision: still compatible, or the next protocol.
+ */
+export const WIRE_PROTOCOL = 2;
+
 /** A prop value as the wire carries it. */
 export const PropValueSchema = z.union([
   z.object({ t: z.literal("str"), v: z.string() }),
@@ -140,13 +152,16 @@ export const NO_EMBEDDING: Embedding = { origins: [], scripts: [] };
 
 export const ServerMessageSchema = z.discriminatedUnion("op", [
   /**
-   * First message after connect. `build` is the page the server serves now:
-   * the `src` of the module script its `index.html` loads, whose digest
-   * names the build. Absent when it serves no built page. A tab built
-   * otherwise is out of date (DESIGN-UI.md → Delivery, "A tab outlives its
-   * build").
+   * First message after connect. `protocol` is the {@link WIRE_PROTOCOL} the
+   * server speaks. A tab of another build keeps working while it speaks the
+   * same one; a tab of another protocol reloads, once it is idle
+   * (DESIGN-UI.md → Delivery, "A tab outlives its build").
    */
-  z.object({ op: z.literal("hello"), rev: z.number().int(), build: z.string().optional() }),
+  z.object({
+    op: z.literal("hello"),
+    rev: z.number().int(),
+    protocol: z.number().int().optional(),
+  }),
   /**
    * Who the server takes this connection to be, sent after `hello`: the
    * person, as the deployment's authentication named them, or nobody

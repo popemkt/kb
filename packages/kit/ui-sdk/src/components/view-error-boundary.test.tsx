@@ -106,7 +106,7 @@ describe("ViewErrorBoundary", () => {
     expect(container.querySelector('[data-testid="view-error"]')).toBeNull();
   });
 
-  it("reloads into the new build once, saying so, when its view's chunk is gone", () => {
+  it("reloads into the new build once, saying so, when its view's chunk is gone", async () => {
     const storage = new Map<string, string>();
     let reloads = 0;
     /** The page as the shell installs it, of `build`, in a tab whose storage outlives its reloads. */
@@ -118,6 +118,9 @@ describe("ViewErrorBoundary", () => {
           setItem: (key, value) => void storage.set(key, value),
         },
         reload: () => void reloads++,
+        idle: () => Promise.resolve(),
+        carry: () => {},
+        announce: () => {},
       });
     const gallery = (key: string) =>
       createElement(ViewErrorBoundary, {
@@ -130,6 +133,8 @@ describe("ViewErrorBoundary", () => {
     act(() => {
       root.render(gallery("first"));
     });
+    // Once the page is idle: here at once.
+    await Promise.resolve();
     expect(reloads).toBe(1);
     expect(container.textContent).toContain("kb was updated");
     expect(container.textContent).not.toContain("Gallery crashed");

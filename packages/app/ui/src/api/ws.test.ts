@@ -32,10 +32,10 @@ class MockServer {
     return present(this.sockets.at(-1), "latest socket");
   }
 
-  /** Accept the connection and send the protocol hello, naming the build served when there is one. */
-  accept(rev: number, build?: string): void {
+  /** Accept the connection and send the hello, naming the wire protocol when the server does. */
+  accept(rev: number, protocol?: number): void {
     this.socket.accept();
-    this.push(build === undefined ? { op: "hello", rev } : { op: "hello", rev, build });
+    this.push(protocol === undefined ? { op: "hello", rev } : { op: "hello", rev, protocol });
   }
 
   push(msg: ServerMessage): void {
@@ -72,24 +72,24 @@ interface Harness {
   client: KbWsClient;
   graph: GraphMessage[];
   errors: Array<{ id?: string; code: string; message: string }>;
-  builds: Array<string | undefined>;
+  protocols: Array<number | undefined>;
 }
 
 function makeHarness(): Harness {
   const server = new MockServer();
   const graph: GraphMessage[] = [];
   const errors: Array<{ id?: string; code: string; message: string }> = [];
-  const builds: Array<string | undefined> = [];
+  const protocols: Array<number | undefined> = [];
   const client = new KbWsClient({
     url: "ws://test/ws",
     makeSocket: server.makeSocket,
     onGraph: (msg) => graph.push(msg),
     onServerError: (err) => errors.push(err),
-    onBuild: (build) => builds.push(build),
+    onProtocol: (protocol) => protocols.push(protocol),
     backoffInitialMs: 100,
     backoffMaxMs: 1000,
   });
-  return { server, client, graph, errors, builds };
+  return { server, client, graph, errors, protocols };
 }
 
 describe("KbWsClient", () => {
@@ -126,17 +126,17 @@ describe("KbWsClient", () => {
     expect(h.server.received("since")).toEqual([]);
   });
 
-  it("tells the build the server serves on every connect, the one after a release included", () => {
+  it("tells the protocol the server speaks on every connect, the one after a release included", () => {
     const h = makeHarness();
     h.client.connect();
-    h.server.accept(4, "/static/index-old.js");
+    h.server.accept(4, 1);
     h.server.drop();
     vi.advanceTimersByTime(100);
-    h.server.accept(4, "/static/index-new.js");
+    h.server.accept(4, 2);
     h.server.drop();
     vi.advanceTimersByTime(200);
     h.server.accept(4);
-    expect(h.builds).toEqual(["/static/index-old.js", "/static/index-new.js", undefined]);
+    expect(h.protocols).toEqual([1, 2, undefined]);
   });
 
   it("asks since on the replica's behalf", () => {
