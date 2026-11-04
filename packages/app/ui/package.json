@@ -52,6 +52,7 @@
     "@kb/outline-ui": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
+    "@kb/routines": "workspace:*",
     "@kb/sandbox": "workspace:*",
     "@kb/sandbox-quickjs": "workspace:*",
     "@kb/sandbox-worker": "workspace:*",

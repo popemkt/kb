@@ -81,7 +81,8 @@
       "vite-plus": "0.2.8",
       "vitest": "4.1.10",
       "zod": "^4.4.3",
-      "zustand": "^5.0.9"
+      "zustand": "^5.0.9",
+      "rrule": "2.8.1"
     }
   },
   "type": "module",

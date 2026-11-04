@@ -67,7 +67,24 @@ const ALLOWED: Record<string, Set<string>> = {
 
 const tokens = Object.keys(ALLOWED);
 
+/** Match a call name, rather than a suffix such as DateTime.formatIsoDate. */
+function hasCallToken(source: string, token: string): boolean {
+  const escaped = token
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replaceAll(" ", "\\s+")
+    .replace("\\(", "\\s*\\(");
+  return new RegExp("(?:^|[^\\w$])" + escaped).test(source);
+}
+
 describe("determinism seam guard", () => {
+  test("call tokens do not confuse deterministic date formatting with the global clock", () => {
+    for (const token of tokens)
+      expect(hasCallToken("DateTime.formatIsoDate(value)", token)).toBe(false);
+    for (const source of ["Date(0)", "Date (0)", "globalThis.Date(0)", "new Date(0)"])
+      expect(hasCallToken(source, "Date(")).toBe(true);
+    expect(hasCallToken("Date.now()", "Date.now(")).toBe(true);
+    expect(hasCallToken("Math.random()", "Math.random(")).toBe(true);
+  });
   test("no store-reachable file reads time/randomness outside the seam owner", () => {
     const violations: string[] = [];
     for (const { dir, name, manifest } of workspacePackages()) {
@@ -83,7 +100,7 @@ describe("determinism seam guard", () => {
         const body = readFileSync(file, "utf8");
         const where = at(name, relative(root, file).split(sep).join("/"));
         for (const token of tokens) {
-          if (!body.includes(token)) continue;
+          if (!hasCallToken(body, token)) continue;
           const allowed = present(ALLOWED[token], "expected ALLOWED[token]");
           if (allowed.has(where)) continue;
           violations.push(`${token} in ${where} (allowed only in: ${[...allowed].join(", ")})`);

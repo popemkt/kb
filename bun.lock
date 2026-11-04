@@ -48,6 +48,7 @@
         "@kb/operations": "workspace:*",
         "@kb/outline": "workspace:*",
         "@kb/query": "workspace:*",
+        "@kb/routines": "workspace:*",
         "@kb/themes": "workspace:*",
         "@kb/transistor": "workspace:*",
         "@kb/yorha": "workspace:*",
@@ -73,6 +74,9 @@
         "@kb/mcp": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
+        "@kb/routines": "workspace:*",
+        "@kb/routines-gcal": "workspace:*",
+        "@kb/routines-host": "workspace:*",
         "@kb/runtime": "workspace:*",
         "@kb/server": "workspace:*",
         "commander": "catalog:",
@@ -254,6 +258,7 @@
         "@kb/outline-ui": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
+        "@kb/routines": "workspace:*",
         "@kb/sandbox": "workspace:*",
         "@kb/sandbox-quickjs": "workspace:*",
         "@kb/sandbox-worker": "workspace:*",
@@ -1028,6 +1033,48 @@
         "vitest": "catalog:",
       },
     },
+    "packages/extension/routines": {
+      "name": "@kb/routines",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+        "rrule": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/routines-gcal": {
+      "name": "@kb/routines-gcal",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/routines": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/routines-host": {
+      "name": "@kb/routines-host",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/routines": "workspace:*",
+        "@kb/sandbox": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/extension/themes": {
       "name": "@kb/themes",
       "version": "0.0.0",
@@ -1416,6 +1463,7 @@
     "quickjs-emscripten-core": "0.32.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "rrule": "2.8.1",
     "sigma": "^3.0.3",
     "storybook": "^10.5.10",
     "tailwind-merge": "^3.4.0",
@@ -1780,6 +1828,12 @@
     "@kb/query": ["@kb/query@workspace:packages/domain/query"],
 
     "@kb/render-tests": ["@kb/render-tests@workspace:packages/test-support/render-tests"],
+
+    "@kb/routines": ["@kb/routines@workspace:packages/extension/routines"],
+
+    "@kb/routines-gcal": ["@kb/routines-gcal@workspace:packages/extension/routines-gcal"],
+
+    "@kb/routines-host": ["@kb/routines-host@workspace:packages/extension/routines-host"],
 
     "@kb/runtime": ["@kb/runtime@workspace:packages/app/runtime"],
 
@@ -2926,6 +2980,8 @@
     "robust-predicates": ["robust-predicates@3.0.3", "", {}, "sha512-NS3levdsRIUOmiJ8FZWCP7LG3QpJyrs/TE0Zpf1yvZu8cAJJ6QMW92H1c7kWpdIHo8RvmLxN/o2JXTKHp74lUA=="],
 
     "router": ["router@2.2.0", "", { "dependencies": { "debug": "^4.4.0", "depd": "^2.0.0", "is-promise": "^4.0.0", "parseurl": "^1.3.3", "path-to-regexp": "^8.0.0" } }, "sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ=="],
+
+    "rrule": ["rrule@2.8.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-hM3dHSBMeaJ0Ktp7W38BJZ7O1zOgaFEsn41PDk+yHoEtfLV+PoJt9E9xAlZiWgf/iqEqionN0ebHFZIDAp+iGw=="],
 
     "run-applescript": ["run-applescript@7.0.0", "", {}, "sha512-9by4Ij99JUr/MCFBUkDKLWK3G9HVXmabKz9U5MlIAIuvuzkiOicRYs8XJLxX+xahD+mLiiCYDqF9dKAgtzKP1A=="],
 

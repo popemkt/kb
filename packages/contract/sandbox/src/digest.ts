@@ -17,7 +17,9 @@ const EXTENSION_FORMAT = "kb.extension/2";
 const PROVIDER_FORMAT = "kb.provider/1";
 
 /** `sha256:` and 64 hex digits of `payload`, canonically encoded. */
-const digestOf = Effect.fnUntraced(function* (payload: unknown): Effect.fn.Return<string> {
+export const trustDigest = Effect.fnUntraced(function* (
+  payload: unknown,
+): Effect.fn.Return<string> {
   const bytes = new TextEncoder().encode(canonicalJson(payload));
   const hash = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", bytes));
   const hex = Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0"));
@@ -29,7 +31,7 @@ export const codeDigest = Effect.fn("sandbox.codeDigest")(function* (
   code: string,
   grant: CodeGrant,
 ): Effect.fn.Return<string> {
-  return yield* digestOf({ format: DIGEST_FORMAT, code, grant });
+  return yield* trustDigest({ format: DIGEST_FORMAT, code, grant });
 });
 
 /**
@@ -53,7 +55,11 @@ export interface ExtensionClosure {
 export const extensionDigest = Effect.fn("sandbox.extensionDigest")(function* (
   closure: ExtensionClosure,
 ): Effect.fn.Return<string> {
-  return yield* digestOf({ format: EXTENSION_FORMAT, server: closure.server, page: closure.page });
+  return yield* trustDigest({
+    format: EXTENSION_FORMAT,
+    server: closure.server,
+    page: closure.page,
+  });
 });
 
 /** What an agent provider binds when its turns run, as its node writes it. */
@@ -76,7 +82,7 @@ export const providerDigest = Effect.fn("sandbox.providerDigest")(function* (
   binding: ProviderBinding,
 ): Effect.fn.Return<string> {
   const { adapter, endpoint, credential, executable } = binding;
-  return yield* digestOf({ format: PROVIDER_FORMAT, adapter, endpoint, credential, executable });
+  return yield* trustDigest({ format: PROVIDER_FORMAT, adapter, endpoint, credential, executable });
 });
 
 /** Whether `text` is a digest {@link codeDigest} could have made. */

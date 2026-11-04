@@ -13,9 +13,10 @@
  * process's environment or the platform keychain (`systemSecrets`).
  */
 import { Effect } from "effect";
+import type { CalendarBinding, SyncError as RoutineSyncError } from "@kb/routines";
 import type { AgentAdapter } from "@kb/agent";
 import type { ExtensionEntry } from "@kb/contracts";
-import { childProcessEnv, systemSecrets } from "@kb/runtime";
+import { childProcessEnv, systemSecrets, systemSecretSink } from "@kb/runtime";
 
 /** The adapter for each of `AGENT_ADAPTERS`, running in `root`; the test holds it to every one. */
 export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function* (
@@ -31,13 +32,50 @@ export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function*
 
 export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
   root: string,
+  origin = "http://127.0.0.1:4321",
 ): Effect.fn.Return<readonly ExtensionEntry[]> {
   const { agentExtension, agentPlugin } = yield* Effect.promise(() => import("@kb/agent"));
   const adapters = yield* hostAgentAdapters(root);
+  const [
+    { routinesExtension, SyncError },
+    { routinesPlugin },
+    { makeGoogleCalendar, makeGoogleTokens, beginGoogleConnect },
+    { parseSecretRef },
+  ] = yield* Effect.promise(() =>
+    Promise.all([
+      import("@kb/routines"),
+      import("@kb/routines-host"),
+      import("@kb/routines-gcal"),
+      import("@kb/model"),
+    ]),
+  );
+  const runner = crypto.randomUUID();
+  const secrets = systemSecrets();
+  const sink = (reference: string) => {
+    const parsed = parseSecretRef(reference);
+    if (parsed === null) throw new SyncError({ status: 401, code: "auth_needed" });
+    return systemSecretSink(parsed);
+  };
+  const oauth = (binding: CalendarBinding, trusted: Effect.Effect<boolean, RoutineSyncError>) => {
+    if (binding.account === null) throw new SyncError({ status: 401, code: "auth_needed" });
+    return { account: binding.account, trusted, secrets, sink };
+  };
   return [
     {
       declaration: agentExtension,
       entry: agentPlugin({ adapters, secrets: systemSecrets() }),
+    },
+    {
+      declaration: routinesExtension,
+      entry: routinesPlugin({
+        origin,
+        runner,
+        client: (binding, trusted) =>
+          makeGoogleTokens(oauth(binding, trusted)).pipe(
+            Effect.map((tokens) => makeGoogleCalendar({ tokens, runner })),
+          ),
+        connect: (binding, trusted) => beginGoogleConnect(oauth(binding, trusted)),
+      }),
     },
   ];
 });

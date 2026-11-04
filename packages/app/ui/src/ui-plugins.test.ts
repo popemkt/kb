@@ -227,7 +227,7 @@ describe("the resolver", () => {
     const serverOnly = Object.entries(BROWSER_EXTENSIONS)
       .filter(([, extension]) => extension === null)
       .map(([name]) => name);
-    expect(serverOnly.toSorted()).toEqual(["check", "docs"]);
+    expect(serverOnly.toSorted()).toEqual(["check", "docs", "routines"]);
   });
 
   it("names nothing beyond the families kb declares", () => {

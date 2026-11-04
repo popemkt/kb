@@ -15,6 +15,7 @@
  * the offline graph and the UI's fixtures are seeded from it. So a bundled
  * family declares itself in its shared package, never its server one.
  */
+import { routinesExtension } from "@kb/routines";
 import { agentExtension } from "@kb/agent";
 import { backdropsExtension } from "@kb/backdrops";
 import { canvasExtension } from "@kb/canvas";
@@ -70,7 +71,7 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
  * fold's, so every store holds the nodes their settings are written with,
  * whichever process opens it.
  */
-export const HOSTED_FAMILIES: readonly ExtensionDeclaration[] = [agentExtension];
+export const HOSTED_FAMILIES: readonly ExtensionDeclaration[] = [agentExtension, routinesExtension];
 
 /** Core's declaration first, then each bundled family's, then each hosted one's: what the seed folds. */
 export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [

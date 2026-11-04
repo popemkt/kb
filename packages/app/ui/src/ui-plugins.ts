@@ -23,6 +23,7 @@ import { ulid } from "ulid";
 import { Effect } from "effect";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
 import type { AgentPorts, Standing } from "@kb/agent-ui";
+import { routinesExtension } from "@kb/routines";
 import { backdropsExtension } from "@kb/backdrops";
 import { backdropsUiPlugin } from "@kb/backdrops-ui";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
@@ -159,6 +160,7 @@ export interface BrowserExtension {
  * out by omission: the resolver's test holds every bundled family to an entry.
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
+  [routinesExtension.name]: null,
   [governanceExtension.name]: { load: () => Promise.resolve(governancePlugin) },
   [outlineExtension.name]: { load: () => Promise.resolve(outlineUiPlugin) },
   [collectionsExtension.name]: { load: () => Promise.resolve(collectionsUiPlugin) },
