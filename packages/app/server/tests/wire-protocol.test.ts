@@ -31,8 +31,8 @@ import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const RECORDED = {
-  protocol: 1,
-  fingerprint: "bb4ba37611ff2fafb8cb54ec6ababd239eec0516718d30adbfeaaba92a39d151",
+  protocol: 2,
+  fingerprint: "ed15a2906bec3a5a43f9fe5abb8293de8473023bac6a204306b16c579522a76e",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
