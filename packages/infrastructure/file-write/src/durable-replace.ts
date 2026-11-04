@@ -1,5 +1,5 @@
 /**
- * Durable whole-file replace for nodes.jsonl (r4 Stage-0).
+ * Durable whole-file replace with a prior-generation backup.
  *
  * Protocol:
  * 1. write candidate to tmp via fd + fsync
@@ -58,10 +58,17 @@ function fsyncDir(dir: string): void {
 }
 
 /**
- * Atomically replace `path` with `body`, keeping `backupPath` as the prior
- * live contents when a prior file existed.
+ * Atomically replace `path` with `body`, optionally keeping `backupPath` as
+ * the prior live contents. `mode` applies when the candidate file is created.
  */
-export function durableReplaceFile(path: string, backupPath: string, body: string): void {
+interface FileReplacement {
+  readonly path: string;
+  readonly body: string;
+  readonly backupPath?: string;
+  readonly mode?: number;
+}
+
+export function durableReplaceFile({ path, backupPath, body, mode }: FileReplacement): void {
   const dir = dirname(path);
   try {
     mkdirSync(dir, { recursive: true });
@@ -71,7 +78,7 @@ export function durableReplaceFile(path: string, backupPath: string, body: strin
 
   const tmp = `${path}.${process.pid}.${tmpSeq++}.tmp`;
   try {
-    const fd = openSync(tmp, "w");
+    const fd = openSync(tmp, "wx", mode);
     try {
       writeSync(fd, body, 0, "utf8");
       fsyncSync(fd);
@@ -79,7 +86,7 @@ export function durableReplaceFile(path: string, backupPath: string, body: strin
       closeSync(fd);
     }
 
-    if (existsSync(path)) {
+    if (backupPath !== undefined && existsSync(path)) {
       try {
         copyFileSync(path, backupPath);
         fsyncPath(backupPath);

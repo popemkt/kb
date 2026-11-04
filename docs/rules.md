@@ -1210,6 +1210,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
+### GAP: routine background runner placement has no general job contract
+
+- **expected** — A general runner placement contract if multiple background families require one.
+- **current** — The routines design uses per-machine binding trust and a calendar lease.
+- **impact** — No shared scheduler or host-selection mechanism exists.
+- **closes** — A second background family establishes the shared contract requirements.
+- **node** — `01M6EKEE8P040W6592ZZ3HDVGC`
+
+### GAP: routine live sync status has no ephemeral outline column
+
+- **expected** — A family can project transient field values without committing them.
+- **current** — Outline columns read persisted fields only; routine queue status needs a later view.
+- **impact** — Live settling and retry status cannot appear in the routine table.
+- **closes** — A shared ephemeral column contract used by projections.
+- **node** — `01M6EKDJK9Y45AY2Z33W1BSQPE`
+
 ### GAP: sandboxed third-party code has no distribution
 
 - **expected** — Code views and scripts (nodes under a CodeGrant) can be installed from a source as an outline, their grants said in words by grantSentence and each untrusted until its digest is trusted; a component engine runs non-JavaScript guests under the same grant (docs/research/2026-10-31-plugin-sources.md §5).
@@ -2111,6 +2127,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNJHCH2Q5HCKQNEKVQGKD`
 
+### GAP: headless connect needs writable secret references
+
+- **expected** — A trusted connect binding can persist a secret to its dotenv reference and reads observe rotation.
+- **current** — dotenv references resolve live and a bound SecretSink writes one private file/key.
+- **impact** — No token needs to enter the graph or the ledger.
+- **closes** — Dotenv rotation, file mode and refusal tests.
+- **node** — `01M6EKFSVWFZQTWABBHQJ86CJ8`
+
 ### GAP: import graph misses package-entry bypasses
 
 - **expected** — One import resolver maps every supported specifier to its owning package, rejects relative imports across package roots and @kb package subpaths, and explicitly governs every JavaScript-family source extension.
@@ -2303,6 +2327,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The precedence between explicit and derived columns is implicit in statement order.
 - **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
 - **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
+
+### GAP: routines need a native time-of-day field
+
+- **expected** — Core time fields accept local HH:MM strings through every write path.
+- **current** — Implemented by the time field option and shared parser and conformance check.
+- **impact** — Routines can express wall-clock times without plugin-specific validation.
+- **closes** — Core parser, outline editor and conformance tests.
+- **node** — `01M6EKFPAH4GCDKM3SBXFFQREJ`
 
 ### GAP: rule enforcement is hand-typed instead of derived
 

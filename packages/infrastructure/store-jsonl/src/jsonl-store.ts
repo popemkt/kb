@@ -16,7 +16,11 @@ import {
   type StoreTx,
 } from "@kb/model";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
-import { durableReplaceFile } from "./durable-replace.ts";
+import {
+  durableReplaceFile,
+  acquireFileWriteLockEffect,
+  releaseFileWriteLock,
+} from "@kb/file-write";
 import {
   fingerprintChanges,
   KeptState,
@@ -26,7 +30,6 @@ import {
   type StoreFingerprint,
   type TxRecord,
 } from "@kb/contracts";
-import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
 import { JsonlTxTail, txTailPath } from "./tx-tail.ts";
 import { contentMark, storeMark } from "./content-mark.ts";
 
@@ -163,8 +166,8 @@ export class JsonlStore implements EffectStore {
     const keeping = this.#kept;
     return Effect.scoped(
       Effect.gen(function* () {
-        yield* Effect.acquireRelease(acquireNodesWriteLockEffect(path), (lockPath) =>
-          Effect.sync(() => releaseNodesWriteLock(lockPath)),
+        yield* Effect.acquireRelease(acquireFileWriteLockEffect(path), (lockPath) =>
+          Effect.sync(() => releaseFileWriteLock(lockPath)),
         );
 
         // Under the lock, and from the one read the merge absorbs: `base` names
@@ -191,7 +194,7 @@ export class JsonlStore implements EffectStore {
         const fingerprint = contentMark(body);
 
         yield* Effect.try({
-          try: () => durableReplaceFile(path, backupPath, body),
+          try: () => durableReplaceFile({ path, backupPath, body }),
           catch: (err) => ensureDomainError(err),
         });
 

@@ -74,6 +74,7 @@ export const SYSTEM_IDS = {
   ftText: "sys.ft.text",
   ftNumber: "sys.ft.number",
   ftDate: "sys.ft.date",
+  ftTime: "sys.ft.time",
   ftUrl: "sys.ft.url",
   ftCheckbox: "sys.ft.checkbox",
   ftRef: "sys.ft.ref",

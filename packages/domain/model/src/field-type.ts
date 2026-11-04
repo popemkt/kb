@@ -30,6 +30,7 @@ export const FIELD_TYPE_OPTION_IDS = {
   text: SYSTEM_IDS.ftText,
   number: SYSTEM_IDS.ftNumber,
   date: SYSTEM_IDS.ftDate,
+  time: SYSTEM_IDS.ftTime,
   url: SYSTEM_IDS.ftUrl,
   checkbox: SYSTEM_IDS.ftCheckbox,
   ref: SYSTEM_IDS.ftRef,
@@ -46,6 +47,7 @@ export const FIELD_TYPES: readonly FieldType[] = [
   "text",
   "number",
   "date",
+  "time",
   "url",
   "checkbox",
   "ref",
@@ -81,6 +83,7 @@ const FIELD_VALUE_KINDS: Record<FieldType, readonly PropValue["t"][]> = {
   // that still hold the legacy `{t:"date"}` are rewritten on open
   // (`migrateDateValues`).
   date: ["str"],
+  time: ["str"],
   url: ["str"],
   checkbox: ["bool"],
   ref: ["ref"],
@@ -98,6 +101,7 @@ const SHOWS_REFUSED_VALUE: Record<FieldType, boolean> = {
   text: true,
   number: true,
   date: true,
+  time: true,
   url: true,
   checkbox: true,
   ref: true,

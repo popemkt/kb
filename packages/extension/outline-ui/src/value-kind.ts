@@ -146,6 +146,14 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
     layout: "stack",
     follow: nowhere,
   },
+  time: {
+    editor: "caret",
+    text: asText,
+    parse: (text) => parseTypedValue(text, "time"),
+    isBlank: isBlankScalar,
+    layout: "stack",
+    follow: nowhere,
+  },
   date: {
     editor: "calendar",
     text: (value) => (value.t === "str" ? value.v : ""),

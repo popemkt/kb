@@ -52,6 +52,7 @@ const nodes: NodeMap = new Map([
 const FILLED: Record<FieldType, PropValue> = {
   text: { t: "str", v: "hello" },
   number: { t: "num", v: 42 },
+  time: { t: "str", v: "07:30" },
   date: { t: "str", v: "2026-03-04" },
   url: { t: "str", v: "https://example.com" },
   checkbox: { t: "bool", v: true },
@@ -100,6 +101,7 @@ const EDITOR_MARKER: Record<FieldType, string> = {
   text: 'data-editable-text="true"',
   number: 'data-editable-text="true"',
   url: 'data-editable-text="true"',
+  time: 'data-editable-text="true"',
   date: 'data-value-slot="date"',
   checkbox: 'aria-checked="true"',
   ref: 'data-node-row="true"',
@@ -107,9 +109,9 @@ const EDITOR_MARKER: Record<FieldType, string> = {
 };
 
 describe("every declared type routes to one editor (display)", () => {
-  it("covers all seven declared types", () => {
+  it("covers all declared types", () => {
     expect([...FIELD_TYPES].toSorted()).toEqual(
-      ["checkbox", "date", "number", "ref", "secret", "text", "url"].toSorted(),
+      ["checkbox", "date", "number", "ref", "secret", "text", "time", "url"].toSorted(),
     );
   });
 
@@ -180,6 +182,7 @@ describe("the empty slot of each type", () => {
     text: 'data-empty-placeholder="true"',
     number: ">0<",
     url: 'data-empty-placeholder="true"',
+    time: 'data-empty-placeholder="true"',
     date: 'data-empty-placeholder="true"',
     checkbox: 'aria-checked="false"',
     ref: 'data-ref-slot="closed"',

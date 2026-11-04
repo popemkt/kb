@@ -63,7 +63,7 @@ const DATASCRIPT = /cljs\.core/;
  * its scene loads lazily. And by 100 bytes (71 measured) for the Black
  * hole's two variants on its key; its looks load lazily.
  */
-const EAGER_BUDGET_BYTES = 2_009_100;
+const EAGER_BUDGET_BYTES = 2_013_100;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

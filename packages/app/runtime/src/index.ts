@@ -21,7 +21,7 @@ export {
 } from "./registry.ts";
 export type { ActionHandlerEnv, RegisteredTemplate } from "./registry.ts";
 export { RootNotFoundError, resolveRootEffect } from "./root.ts";
-export { systemSecrets } from "./secrets.ts";
+export { systemSecrets, systemSecretSink } from "./secrets.ts";
 export type { LookupResult, RunLookup } from "./secrets.ts";
 export { STORE_BACKENDS, createStore, migrateStore, selectStore } from "./store-selection.ts";
 export type { StoreBackend, StoreMigration } from "./store-selection.ts";

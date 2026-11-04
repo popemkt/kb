@@ -155,6 +155,7 @@ interface FieldTypeSpec {
 const FIELD_TYPE_SPEC: Record<FieldType, FieldTypeSpec> = {
   text: { empty: { t: "str", v: "" } },
   number: { empty: { t: "num", v: 0 } },
+  time: { empty: { t: "str", v: "" } },
   date: { empty: { t: "str", v: "" } },
   url: { empty: { t: "str", v: "" } },
   checkbox: { empty: { t: "bool", v: false } },

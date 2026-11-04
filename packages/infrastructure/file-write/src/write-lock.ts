@@ -1,9 +1,9 @@
 /**
- * Exclusive write lock for JSONL commits.
+ * Exclusive write lock for whole-file commits.
  * Cover load → mutate → durable replace so concurrent CLI/MCP/UI writers
  * cannot silently clobber each other (r4 Stage-0).
  *
- * Lock file: `<nodes.jsonl>.lock` with the holder pid. Stale locks (dead pid)
+ * Lock file: `<path>.lock` with the holder pid. Stale locks (dead pid)
  * are stolen after a short spin.
  *
  * Acquisition sleeps via Effect.sleep (never Bun.sleepSync) so concurrent
@@ -26,8 +26,8 @@ const LOCK_SUFFIX = ".lock";
 const SPIN_MS = 25;
 const MAX_WAIT_MS = 15_000;
 
-export function lockPathFor(nodesPath: string): string {
-  return `${nodesPath}${LOCK_SUFFIX}`;
+export function lockPathFor(filePath: string): string {
+  return `${filePath}${LOCK_SUFFIX}`;
 }
 
 /** The `code` of a thrown node fs/process error, when it carries one. */
@@ -88,10 +88,10 @@ function ensureLockDir(lockPath: string): void {
 }
 
 /** Effectful acquire — yields while spinning so other fibers can run. */
-export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(function* (
-  nodesPath: string,
+export const acquireFileWriteLockEffect = Effect.fn("kb.acquireWriteLock")(function* (
+  filePath: string,
 ): Effect.fn.Return<string, DomainError> {
-  const lockPath = lockPathFor(nodesPath);
+  const lockPath = lockPathFor(filePath);
   yield* Effect.try({
     try: () => ensureLockDir(lockPath),
     catch: (err) =>
@@ -132,8 +132,8 @@ export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(func
   }
 });
 
-/** Release a lock acquired by {@link acquireNodesWriteLockEffect} (best-effort). */
-export function releaseNodesWriteLock(lockPath: string): void {
+/** Release a lock acquired by {@link acquireFileWriteLockEffect} (best-effort). */
+export function releaseFileWriteLock(lockPath: string): void {
   try {
     const pid = readLockPid(lockPath);
     if (pid === process.pid || pid === null) unlinkSync(lockPath);

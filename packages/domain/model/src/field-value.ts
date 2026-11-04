@@ -20,7 +20,7 @@ import { parseSecretRef } from "./secret-ref.ts";
 
 /** Why a secret field refuses what it was handed: it holds where a key is, not a key. */
 const NOT_A_SECRET_REF =
-  "is not a secret reference (env:NAME or keychain:service[/account]); a key is never stored";
+  "is not a secret reference (env:NAME, dotenv:/absolute/path#KEY or keychain:service[/account]); a key is never stored";
 
 /** The schemes a url value may carry: the ones a link in kb may open. */
 const LINK_SCHEME = /^(https?:\/\/|mailto:)/i;
@@ -52,6 +52,8 @@ export function normalizeUrl(raw: string): string | null {
 
 /** Raw input read as a value, or why it cannot be one. */
 export type ParsedValue = { ok: true; value: PropValue } | { ok: false; reason: string };
+
+const LOCAL_TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 const CHECKBOX_VALUES: Readonly<Record<string, boolean>> = { true: true, false: false };
 
@@ -120,6 +122,12 @@ export function parseTypedValue(
       const date = parseDateInput(raw, today);
       return date === null ? refuse(`not a date: ${raw}`) : ok({ t: "str", v: date });
     }
+    case "time": {
+      const time = raw.trim();
+      return time === "" || LOCAL_TIME.test(time)
+        ? ok({ t: "str", v: time })
+        : refuse("expected HH:MM (00:00–23:59)");
+    }
     case "text":
       return ok({ t: "str", v: raw });
     case "secret": {
@@ -141,6 +149,9 @@ export function parseTypedValue(
  * may be unset.
  */
 function valueFormError(type: FieldType, value: PropValue): string | null {
+  if (type === "time" && value.t === "str" && value.v !== "" && !LOCAL_TIME.test(value.v)) {
+    return "is not a local time (HH:MM)";
+  }
   if (type === "date" && value.t === "str" && value.v !== "" && parseDay(value.v) === null) {
     const date = parseDateInput(value.v);
     return date === null ? "is not a date" : `is not in date form (${date})`;
