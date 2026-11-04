@@ -49,7 +49,7 @@ implementation modules under `packages/app/server/src/` split by concern:
 | `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown          |
 | `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback       |
 | `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
-| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core      |
+| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core; logs each refusal |
 | `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)        |
 | `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)  |
 | `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                       |
@@ -146,10 +146,24 @@ each id that is still held keeping its local image.
 - Releasing a hold shows the server image, including an absence, for each of
   its ids that no other hold still holds.
 - Typed text is a write too. The node's first keystroke opens a hold, later
-  keystrokes join it, and the coalesced flush is the push that settles it. A
-  structural write flushes every pending text first, and the one push lane
-  keeps them in order, so no text is discarded, including that of a node
-  about to be deleted.
+  keystrokes join it, and the coalesced push settles it.
+
+**Push lane.** A tab's writes reach the server in the order the tab
+committed them, over one lane (`session/runtime.ts`), whichever writes they
+are; the server judges each against the graph the person saw when they made
+it. Typed text coalesces in the lane, not beside it: each keystroke commits
+to the replica at once, and its push lingers as the lane's last write until a
+pause (`COALESCE_MS`) passes with no keystroke for that node, or any other
+write is pushed or lingers, which sends it first (`invokeCoalesced`). Only
+the last write lingers, so a keystroke joins only the push right before it,
+never one another write has followed. So no write waits
+on the network before it commits locally — Enter splits the row at once, and
+the next keystroke lands in the new one — and no text is pushed after a write
+that followed it, such as the undo or merge that deletes its node. A push the
+server refuses is said once, as a change that was not saved, and its hold is
+dropped. The server writes every call it refuses to its log, by action,
+code, tab session and node ids, never the refusal's message, which may quote
+what was written or what the graph holds (`server/src/invoke.ts`).
 
 **What the table guarantees.**
 
@@ -256,23 +270,48 @@ be kept, never how it is sent.
   one round trip and gets `304` when it has not changed
   (`staticCacheHeaders`, `assets.ts`). A repository extension's page half
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
-- **A tab outlives its build.** A release replaces `ui/dist`, so a tab
-  opened before it asks for chunks the server no longer has. A build is
-  the `src` of the module script `index.html` loads, whose digest changes
-  whenever any chunk it may fetch is renamed. The rule is a handshake:
-  every connection's `hello` names the build the server serves now
-  (`build`, read from the `index.html` it serves, so a build replaced under
-  a running server is the one named). A tab of another build reloads into
-  it. If the tab holds edits the server has not confirmed yet, which a
-  reload would drop, the header offers the reload instead ("kb was
-  updated · Reload"). The fallback is a chunk that does not arrive before
-  any hello says so (Vite's `vite:preloadError`, or a view's error
-  boundary catching it): it reloads the same way, and the boundary says
-  "kb was updated" meanwhile. Both go through one guard, once per build.
-  The tab's session storage records the build it reloaded for, so a
-  reload that lands on the same build is offered or shown instead of
-  looping. A page that is not a build (the dev server's) follows none
-  (`@kb/ui-sdk` → `lib/stale-build.ts`).
+- **A tab outlives its build.** A release replaces `ui/dist`, and a tab
+  opened before it keeps working: it reloads only when it cannot.
+  - *Earlier builds are still served.* When a server starts it keeps the
+    build it serves in kb's cache (`<cache>/ui-builds`, `KB_CACHE` or the
+    platform's cache directory): one directory per build, published whole,
+    of which the newest eight stay. Servers sharing that cache never remove
+    a build another has just published, since a build is removed only whole
+    and only by a server that listed it; one a server restarts on while
+    another prunes it can still go (GAP [[01M6H0QPT8K2YPY6XV6SM5WRYH]]).
+    Every file under `static/` is named by
+    its digest, so one the current build lacks is served from whichever kept
+    build has it, and never from outside that build's own files; one no kept
+    build has is `404`, never the page (`server/src/build-archive.ts`). Nothing about this is in the package:
+    whatever installs kb, the server keeps its own builds. The sandbox
+    frame's script is not digest-named, so a tab gets the current one
+    (GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]]).
+  - *A build is not a protocol.* A build changes with every release; the
+    wire a page and a server must agree on changes rarely. Every
+    connection's `hello` names the server's `WIRE_PROTOCOL` (`@kb/contracts`
+    → `protocol.ts`), and a tab of the same protocol keeps working whatever
+    build the server serves. The wire's fingerprint — the socket's messages,
+    the action envelope and answer, the snapshot, and the input and output
+    of every action the server offers, as its manifest lists them — is
+    recorded beside the version
+    (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
+    someone decides: still compatible (record the fingerprint), or not (bump
+    the protocol).
+  - *A reload waits, keeps the page, and says so.* A tab reloads when the
+    server speaks another protocol, or as a fallback when a chunk it asks
+    for is gone even so (Vite's `vite:preloadError`, or a view's error
+    boundary, which says "kb was updated" meanwhile). It waits until the page
+    is idle: no write the server has not confirmed, no draft open in a field,
+    and a pause in typing and clicking. Before it goes, it writes down where
+    each pane is scrolled and where the caret is; the route and the panes
+    survive a reload already, and the next page puts the rest back
+    (`stores/reload.ts`). Meanwhile a small chip says "kb was updated ·
+    reloads when you pause", with "Reload now". Both causes go through one
+    guard, once per build: the tab's session storage records the build it
+    reloaded for, so a reload that lands on the same build leaves the chip
+    to the person instead of looping, and a reload goes by itself only once
+    that record is kept. A page that is not a build (the dev
+    server's) follows none (`@kb/ui-sdk` → `lib/stale-build.ts`).
 - **Compressed when it is text.** A `200` whose type is script, style,
   markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
   or gzip, whichever the request's `Accept-Encoding` weighs highest (its
@@ -3374,6 +3413,22 @@ which also lists the workflows judged and not built.
     its styles), refuse (offer less like it) or take one axis from (its
     styles on that axis, pinned with that note), and either/or cards, two
     styles of an axis the look has nothing in (`eitherOrs`).
+  - _Set up a scene_ (`scene`): a studio dock, and the scene is the look,
+    nothing beside it. Its field is the look's brief, where `#` completes
+    a style as Compose does and takes it; `#` alone offers a style of each
+    part to start from (`hashOffers`), and a library with no styles says
+    so, so the keystroke is never silent. Its parts are the library's axes
+    (`axesOf`, the subject aside, since the field is the subject), plus
+    References, the look's pins. Each part is a card showing what fills it
+    with its example picture, or "Auto" while nothing does, which is no
+    stored value: the prompt leaves an empty facet to the model, as it
+    always does. A part opens one picker: its facets as tabs, their
+    styles as picture cards with their descriptions, which toggle and
+    leave it open, and a first tile that names a new style under the
+    tab's facet (`addStyle`). References offers the library's visuals,
+    the pinned first, then those most like them (`moreLike`). Above the
+    dock, the scene so far as pictures. Its prompt and exports are the
+    look panel's.
   - _I have a picture_ (`reference`): one visual (`from`), picked or
     dropped in; its styles as chips, the model's reading of the picture
     (read as it opens when the person's model sees, which the completion

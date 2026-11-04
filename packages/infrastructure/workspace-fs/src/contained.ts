@@ -34,3 +34,21 @@ export const containedFile = Effect.fn("kb.fs.containedFile")(function* (
   if (Option.isNone(info) || info.value.type !== "File") return { kind: "forbidden" };
   return { kind: "ok", path: fileReal.value, info: info.value };
 });
+
+/**
+ * {@link containedFile}'s question of a directory: `candidate`'s real path
+ * when it stays under `rootDir`'s and names a directory, else null. A link
+ * out of the directory, or a path that climbs out of it, is not contained.
+ */
+export const containedDirectory = Effect.fn("kb.fs.containedDirectory")(function* (
+  rootDir: string,
+  candidate: string,
+): Effect.fn.Return<string | null, never, FileSystem> {
+  const fs = yield* FileSystem;
+  const rootReal = yield* fs.realPath(rootDir).pipe(Effect.option);
+  const dirReal = yield* fs.realPath(candidate).pipe(Effect.option);
+  if (Option.isNone(rootReal) || Option.isNone(dirReal)) return null;
+  if (!isPathInside(rootReal.value, dirReal.value)) return null;
+  const info = yield* fs.stat(dirReal.value).pipe(Effect.option);
+  return Option.isSome(info) && info.value.type === "Directory" ? dirReal.value : null;
+});

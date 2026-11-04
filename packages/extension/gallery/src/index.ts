@@ -19,6 +19,7 @@ export {
   NodeWorkflow,
   ReferenceWorkflow,
   RemixWorkflow,
+  SceneWorkflow,
   WorkflowParams,
   isWorkflowKey,
   workflowKey,

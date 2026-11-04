@@ -29,6 +29,7 @@ interface AxisSpec {
 }
 
 /** The axes, in the order an art director walks them; the subject has no facet. */
+// GAP [[01M6BYQEZ6BC91MBTXM9NF1ZVX]]: axes are named here, not read from the Styles outline.
 const AXIS_SPECS: readonly AxisSpec[] = [
   { id: "subject", label: "Subject", facets: [] },
   { id: "mood", label: "Mood", facets: ["mood"] },

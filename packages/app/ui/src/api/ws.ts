@@ -77,11 +77,11 @@ export interface KbWsClientOptions {
    */
   onPerson?: (person: Person | null, embedding: Embedding) => void;
   /**
-   * The build the server serves, told in every connection's `hello`
-   * (`undefined` when it serves no built page): what a tab of another
-   * build follows (`@kb/ui-sdk` → `lib/stale-build`).
+   * The wire protocol the server speaks, told in every connection's `hello`
+   * (`undefined` from a server that names none): what a tab of another
+   * protocol reloads for (`@kb/ui-sdk` → `lib/stale-build`).
    */
-  onBuild?: (build: string | undefined) => void;
+  onProtocol?: (protocol: number | undefined) => void;
   /**
    * A command the server asks this tab to carry out; the answer goes back
    * with {@link KbWsClient.answerScreenCommand} under the same id.
@@ -279,9 +279,9 @@ export class KbWsClient {
     else this.opts.onServerError?.(err);
   }
 
-  /** A graph-stream message, to the replica; a hello's build, to whoever follows it. */
+  /** A graph-stream message, to the replica; a hello's protocol, to whoever follows it. */
   private graph(msg: GraphMessage): void {
-    if (msg.op === "hello") this.opts.onBuild?.(msg.build);
+    if (msg.op === "hello") this.opts.onProtocol?.(msg.protocol);
     this.opts.onGraph(msg);
   }
 

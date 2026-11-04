@@ -2,9 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   ensureUiBuilt,
   needsUiBuild,
@@ -54,6 +54,100 @@ describe("ui source fingerprint", () => {
     await writeFile(join(uiRoot, "src", "main.ts"), "export const v = 2;\n");
     const c = await run(uiSourceFingerprint(uiRoot));
     expect(c).not.toBe(a);
+  });
+});
+
+/**
+ * A workspace like kb's: the UI bundles `@kb/contracts`, which bundles
+ * `@kb/model`; `@kb/server` is the workspace's too, but the UI bundles none of it.
+ */
+async function makeWorkspace(): Promise<{ root: string; uiRoot: string }> {
+  const root = await mkdtemp(join(tmpdir(), "kb-uiws-"));
+  roots.push(root);
+  const pkg = async (dir: string, manifest: object, source: string) => {
+    await mkdir(join(root, dir, "src"), { recursive: true });
+    await writeFile(join(root, dir, "package.json"), JSON.stringify(manifest));
+    await writeFile(join(root, dir, "src", "index.ts"), source);
+  };
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ workspaces: { packages: ["packages/*/*"], catalog: {} } }),
+  );
+  await writeFile(join(root, "bun.lock"), "lock 1\n");
+  await pkg(
+    "packages/app/ui",
+    { name: "@kb/ui", dependencies: { "@kb/contracts": "workspace:*", react: "catalog:" } },
+    "export const ui = 1;\n",
+  );
+  await pkg(
+    "packages/contract/contracts",
+    { name: "@kb/contracts", dependencies: { "@kb/model": "workspace:*" } },
+    "export const WIRE_PROTOCOL = 1;\n",
+  );
+  await pkg("packages/domain/model", { name: "@kb/model" }, "export const model = 1;\n");
+  await pkg("packages/app/server", { name: "@kb/server" }, "export const server = 1;\n");
+  return { root, uiRoot: join(root, "packages", "app", "ui") };
+}
+
+describe("ui source fingerprint in a workspace", () => {
+  test("moves with every workspace package the UI bundles, and only with those", async () => {
+    const { root, uiRoot } = await makeWorkspace();
+    const fingerprint = () => run(uiSourceFingerprint(uiRoot));
+    const before = await fingerprint();
+
+    await writeFile(join(root, "packages/app/server/src/index.ts"), "export const server = 2;\n");
+    expect(await fingerprint()).toBe(before);
+
+    await writeFile(
+      join(root, "packages/contract/contracts/src/index.ts"),
+      "export const WIRE_PROTOCOL = 2;\n",
+    );
+    const contracts = await fingerprint();
+    expect(contracts).not.toBe(before);
+
+    await writeFile(join(root, "packages/domain/model/src/index.ts"), "export const model = 2;\n");
+    const model = await fingerprint();
+    expect(model).not.toBe(contracts);
+
+    await writeFile(join(root, "bun.lock"), "lock 2\n");
+    const lock = await fingerprint();
+    expect(lock).not.toBe(model);
+
+    // What the bundler copies as it is: the UI's public files.
+    await mkdir(join(uiRoot, "public"), { recursive: true });
+    await writeFile(join(uiRoot, "public", "favicon.svg"), "<svg/>\n");
+    expect(await fingerprint()).not.toBe(lock);
+  });
+
+  test("reads nothing outside the workspace, whatever its globs or links say", async () => {
+    const { root, uiRoot } = await makeWorkspace();
+    const outside = await mkdtemp(join(tmpdir(), "kb-uiws-outside-"));
+    roots.push(outside);
+    const source = (dir: string) => join(outside, dir, "src", "index.ts");
+    for (const [dir, name] of [
+      ["far", "@kb/far"],
+      ["linked", "@kb/linked"],
+    ] as const) {
+      await mkdir(join(outside, dir, "src"), { recursive: true });
+      await writeFile(join(outside, dir, "package.json"), JSON.stringify({ name }));
+      await writeFile(source(dir), "export const v = 1;\n");
+    }
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ workspaces: ["packages/*/*", `../${basename(outside)}/*`] }),
+    );
+    await symlink(join(outside, "linked"), join(root, "packages", "app", "linked"));
+    await writeFile(
+      join(uiRoot, "package.json"),
+      JSON.stringify({
+        name: "@kb/ui",
+        dependencies: { "@kb/far": "workspace:*", "@kb/linked": "workspace:*" },
+      }),
+    );
+    const before = await run(uiSourceFingerprint(uiRoot));
+    await writeFile(source("far"), "export const v = 2;\n");
+    await writeFile(source("linked"), "export const v = 2;\n");
+    expect(await run(uiSourceFingerprint(uiRoot))).toBe(before);
   });
 });
 

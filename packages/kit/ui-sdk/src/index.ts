@@ -485,7 +485,14 @@ export {
   replacePath,
   subscribePath,
 } from "./lib/router";
-export { type BuildFollowing, followServerBuild, watchForNewBuild } from "./lib/stale-build";
+export {
+  type BuildEnv,
+  type ReloadState,
+  browserBuildEnv,
+  followServerProtocol,
+  reloadNow,
+  watchForNewBuild,
+} from "./lib/stale-build";
 export {
   djb2Hash,
   hashTagColor,

@@ -13,7 +13,8 @@ import { present } from "@kb/model";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
-import { mutations, __resetPendingContentForTests } from "@/actions/mutations";
+import { mutations } from "@/actions/mutations";
+import { resetPushLaneForTests } from "@/session/runtime";
 import { planInsertSibling } from "@/actions/plan";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -34,7 +35,7 @@ function seed() {
   useGraphStore
     .getState()
     .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
-  __resetPendingContentForTests();
+  resetPushLaneForTests();
   setPostAction(null);
 }
 
@@ -76,7 +77,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     act(() => root.unmount());
     container.remove();
     setPostAction(null);
-    __resetPendingContentForTests();
+    resetPushLaneForTests();
   });
 
   it("F1/B1: clicking the '+' strip mints exactly one node (glyph bubble-safe)", async () => {

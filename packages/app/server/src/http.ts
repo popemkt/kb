@@ -36,6 +36,8 @@ export interface UiHttpDeps {
   hosted?: HostedFamilies;
   /** What an app that frames the page may have (`UiServerOptions.embedding`); nothing when absent. */
   embedding?: Embedding;
+  /** Where the builds served before this one are kept (`build-archive.ts`); none when absent. */
+  builds?: string | null;
 }
 
 function jsonResponse(
@@ -230,7 +232,10 @@ const handleHttpRequestEffect = (
       return plainStatus("not found", 404);
     }
 
-    const staticResp = yield* assets.serveStaticEffect(url.pathname, deps.embedding?.origins ?? []);
+    const staticResp = yield* assets.serveStaticEffect(url.pathname, {
+      embedOrigins: deps.embedding?.origins ?? [],
+      builds: deps.builds ?? null,
+    });
     if (staticResp) return staticResp;
 
     return jsonResponse(
