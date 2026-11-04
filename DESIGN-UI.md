@@ -49,7 +49,7 @@ implementation modules under `packages/app/server/src/` split by concern:
 | `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown          |
 | `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback       |
 | `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
-| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core      |
+| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core; logs each refusal |
 | `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)        |
 | `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)  |
 | `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                       |
@@ -146,10 +146,24 @@ each id that is still held keeping its local image.
 - Releasing a hold shows the server image, including an absence, for each of
   its ids that no other hold still holds.
 - Typed text is a write too. The node's first keystroke opens a hold, later
-  keystrokes join it, and the coalesced flush is the push that settles it. A
-  structural write flushes every pending text first, and the one push lane
-  keeps them in order, so no text is discarded, including that of a node
-  about to be deleted.
+  keystrokes join it, and the coalesced push settles it.
+
+**Push lane.** A tab's writes reach the server in the order the tab
+committed them, over one lane (`session/runtime.ts`), whichever writes they
+are; the server judges each against the graph the person saw when they made
+it. Typed text coalesces in the lane, not beside it: each keystroke commits
+to the replica at once, and its push lingers as the lane's last write until a
+pause (`COALESCE_MS`) passes with no keystroke for that node, or any other
+write is pushed or lingers, which sends it first (`invokeCoalesced`). Only
+the last write lingers, so a keystroke joins only the push right before it,
+never one another write has followed. So no write waits
+on the network before it commits locally — Enter splits the row at once, and
+the next keystroke lands in the new one — and no text is pushed after a write
+that followed it, such as the undo or merge that deletes its node. A push the
+server refuses is said once, as a change that was not saved, and its hold is
+dropped. The server writes every call it refuses to its log, by action,
+code, tab session and node ids, never the refusal's message, which may quote
+what was written or what the graph holds (`server/src/invoke.ts`).
 
 **What the table guarantees.**
 

@@ -13,7 +13,7 @@ import { ulid } from "ulid";
  * (tests/dst/guard.test.ts) fails if any call site bypasses this seam.
  */
 
-/** Node identity: ULID, or reserved `sys.*` system ids. */
+/** Node identity: ULID, or a reserved system id ({@link SYSTEM_IDS}: `sys.*`, and two list roots). */
 export type NodeId = string;
 
 /**
@@ -294,6 +294,21 @@ export const SYSTEM_IDS = {
 /** Any reserved / seeded id under the `sys.` prefix (browse yes, break no). */
 export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
+}
+
+/** A ULID as {@link freshId} mints one: 26 Crockford base-32 characters. */
+const ULID_SHAPE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+/** A reserved id under `sys.`: dot-separated words, nothing prose has between them. */
+const SYS_SHAPE = /^sys\.[\w.-]+$/;
+const RESERVED: ReadonlySet<string> = new Set(Object.values(SYSTEM_IDS));
+
+/**
+ * Whether `text` has the shape of a {@link NodeId}: a ULID {@link freshId}
+ * mints, a `sys.` id, or one of the {@link SYSTEM_IDS}. Shape only: whether
+ * such a node exists is the store's to say.
+ */
+export function isNodeIdShaped(text: string): boolean {
+  return ULID_SHAPE.test(text) || SYS_SHAPE.test(text) || RESERVED.has(text);
 }
 
 /**
