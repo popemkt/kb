@@ -192,6 +192,7 @@ export function NodeTextHost({
     if (editing && editorRef.current && placement) {
       const el = editorRef.current;
 
+      // GAP [[01M6HA0JJJDSFSJ3FPW8M8QC5K]] text another tab wrote while this row is focused is not taken, and is overwritten by the next keystroke
       // While editing, the DOM is the text. It is built from `content` when
       // the editor mounts (empty), and again only when `content` moved on its
       // own — a merge wrote this row — never from a `content` that has not

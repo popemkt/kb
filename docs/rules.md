@@ -432,6 +432,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
 - **node** — `01M68CQN0E7CMMEATHT0RDYV10`
 
+### GAP: a tab of an earlier build is served the current sandbox frame script
+
+- **expected** — The sandbox frame's script is kept per build like the page's chunks (digest-named, served from the build archive), or its page↔frame messages are part of the wire fingerprint, so a tab of an earlier build talks to a frame of its own protocol.
+- **current** — dist/sandbox/frame.js keeps one name and is served no-cache; a tab of an earlier build loads the current frame, and FrameMessage/PageMessage are not fingerprinted in server/tests/wire-protocol.test.ts.
+- **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
+- **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
+- **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
+
 ### GAP: a tag's template fields cannot be reordered
 
 - **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
@@ -1138,6 +1146,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Once all stores have been opened under the migration, drop the variant from PropValue and the schema.
 - **node** — `01M3KA3A2Q317N5EHFEF6TYVDE`
 
+### GAP: pruning the ui-builds archive can remove a build another server just refreshed
+
+- **expected** — recording and pruning the build archive run under one cross-process lock, the same exclusive lock the JSONL store takes, generalized out of store-jsonl into a shared file-lock mechanism
+- **current** — each build is published whole and pruning removes only builds it listed, which keeps a newly published build safe; but a server that lists an old build for removal can remove it after another server restarted on that same build and refreshed its record
+- **impact** — only when a server restarts on a build already beyond the newest eight while another prunes: that build's kept copy is lost, so its open tabs reload after the next release; nothing else is lost (the archive is a cache)
+- **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
+- **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
+
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
@@ -1364,6 +1380,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Transistor's functions concept is not built; the palette looks like every other theme's apart from colour and faces
 - **closes** — a command presentation slot on the palette, contributed with a design system and falling back to the default row
 - **node** — `01M5S0J1FVEGHTYJVY4HRS857S`
+
+### GAP: the composer's axes are named in code, not read from the Styles outline
+
+- **expected** — An axis (what an idea is broken into, and what a scene is composed of) is a reading of the Styles outline, as a style's facet is: a #facet that holds facets (Camera over Shot size, Camera angle, Lens), or a lone facet. Reordering or regrouping facets regroups Articulate's Reflect, Remix's rows and Scene's parts at once.
+- **current** — AXIS_SPECS in @kb/gallery articulate.ts names nine axes and the lower-case facet names each reads (camera and lens = lens, film stock; composition = shot size, camera angle). A facet no axis names is an axis of its own, so the 3D facets (3D style, Presentation, Projection, Rendering technique) and any facet a person renames stand alone.
+- **impact** — A person cannot group facets into the parts Scene shows or the axes Reflect asks for. Renaming a facet silently moves it out of its axis. The axis ids are also the model's JSON keys in Reflect.
+- **closes** — axesOf reads facets of facets from the library (a facet's nearest #facet ancestor), the starter groups its facets that way, AXIS_SPECS is deleted, and Reflect keys its JSON by an axis's name. Articulate, Remix and Scene keep calling axesOf, so all three follow.
+- **node** — `01M6BYQEZ6BC91MBTXM9NF1ZVX`
 
 ### GAP: the date editor's Enter and Tab skip the value keymap
 
@@ -1613,6 +1637,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
 - **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
 - **node** — `01M545PFJ3285JNXYHKVCM50Z7`
+
+### GAP: two tabs editing the same row overwrite each other silently
+
+- **expected** — a node.update carries the text it was edited from (its base), and the server refuses one whose node changed since; the tab then shows the row as changed elsewhere, takes the server's text, and the person's unsaved words are offered back, never lost silently
+- **current** — node.update is last-writer-wins, and a focused row does not take text that arrives while it is being edited (node-text-host keeps the DOM as the text). Two tabs with the caret in the same row each keep showing their own text; whichever types last overwrites the other on the server, and neither tab says so
+- **impact** — words typed in one tab are lost when another tab, still focused on the same row, types again; the two tabs disagree with each other and with the server until the row loses focus. A row deleted elsewhere is different: that push is refused and shown as Not saved
+- **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
+- **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
 
 ### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
 

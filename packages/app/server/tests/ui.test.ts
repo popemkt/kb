@@ -4,10 +4,9 @@ import { addDocsView, pointHomeAt } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import type { ServerMessage } from "@kb/contracts";
+import { WIRE_PROTOCOL, type ServerMessage } from "@kb/contracts";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { servingUi } from "@kb/workspace-fs";
-import { servedBuild } from "../src/assets.ts";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
@@ -52,11 +51,6 @@ function waitFor(
 }
 
 /** What a hello says of the page this checkout serves: its build, or nothing when none is built. */
-function builtPage(): { build?: string } {
-  const build = servedBuild();
-  return build === null ? {} : { build };
-}
-
 describe("kb ui server", () => {
   let root: string;
   let handle: UiServerHandle | null = null;
@@ -191,7 +185,7 @@ describe("kb ui server", () => {
     });
 
     const hello = await waitFor(ws, (m) => m.op === "hello");
-    expect(hello).toEqual({ op: "hello", rev: 1, ...builtPage() });
+    expect(hello).toEqual({ op: "hello", rev: 1, protocol: WIRE_PROTOCOL });
 
     const subQuery = '[:find ?id :where [?e :node/id ?id] [?e :node/text "ui-live-node"]]';
     ws.send(JSON.stringify({ op: "subscribe", id: "s1", query: subQuery }));
@@ -373,7 +367,7 @@ describe("kb ui server", () => {
       ws.addEventListener("error", () => reject(new Error("ws open failed")));
     });
     const hello = await waitFor(ws, (m) => m.op === "hello");
-    expect(hello).toEqual({ op: "hello", rev: 1, ...builtPage() });
+    expect(hello).toEqual({ op: "hello", rev: 1, protocol: WIRE_PROTOCOL });
 
     const closed = new Promise<void>((resolve) => {
       ws.addEventListener("close", () => resolve());

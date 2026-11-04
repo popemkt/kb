@@ -216,10 +216,12 @@ function requireSession(): BrowserSession {
 }
 
 /**
- * One ordered network lane for browser mutations. A push that carries a hold
- * settles it with its receipt (DESIGN-UI.md → Replica sync → Holds).
+ * The one ordered network lane for this tab's writes (DESIGN-UI.md → Replica
+ * sync → Push lane). The server is handed the writes in the order the tab
+ * committed them, so it judges each against the graph the person saw when
+ * they made it. A push that carries a hold settles it with its receipt.
  */
-export function pushInvocation(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
+function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
   const result = pushTail.catch(() => undefined).then(() => postAction(invocation));
   pushTail = result.then(
     () => undefined,
@@ -240,9 +242,52 @@ export function pushInvocation(invocation: ActionRequest, hold?: Hold): Promise<
   );
 }
 
+/**
+ * The lane's last write, when it coalesces and is not sent yet: the next
+ * write of its key replaces what it sends, and its hold takes that write's
+ * ids too. Only the last write lingers, so joining it never moves a write
+ * past one the tab committed after it.
+ */
+interface Lingering {
+  readonly key: string;
+  invocation: ActionRequest;
+  readonly hold: Hold;
+  timer: ReturnType<typeof setTimeout>;
+  readonly response: PromiseWithResolvers<ActionResponse>;
+  /** Its server answer, read once, whichever of the writes it carries asks. */
+  readonly settled: Promise<ActionReceipt>;
+}
+
+/** How long a coalescing write waits for the next of its key: a pause in typing. */
+const COALESCE_MS = 280;
+
+let lingering: Lingering | null = null;
+
+/** Send the lingering write now, in its place in the lane, ahead of whatever is pushed next. */
+function release(): void {
+  const entry = lingering;
+  if (entry === null) return;
+  lingering = null;
+  clearTimeout(entry.timer);
+  entry.response.resolve(send(entry.invocation, entry.hold));
+}
+
+/** Push a write: everything committed before it is sent first, then it. */
+function pushInvocation(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
+  release();
+  return send(invocation, hold);
+}
+
 /** Wait until the ordered push lane drains. Test-only observation seam. */
 export function waitForBrowserPushes(): Promise<void> {
   return pushTail;
+}
+
+/** @internal Forget lingering writes and the lane's tail between tests. */
+export function resetPushLaneForTests(): void {
+  if (lingering !== null) clearTimeout(lingering.timer);
+  lingering = null;
+  pushTail = Promise.resolve();
 }
 
 /**
@@ -269,28 +314,45 @@ export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
   });
 }
 
-/**
- * A local write that will be pushed: commit it, and hold every id the commit
- * touched until the push settles. `into` joins an open hold (typed text).
- */
-export async function writeLocal(
+/** Commit `invocation` to the replica; on success, the ids the commit touched. */
+async function commitLocal(
   invocation: ActionRequest,
-  into?: Hold,
-): Promise<{ receipt: ActionReceipt; hold?: Hold }> {
+): Promise<{ receipt: ActionReceipt; touched: string[] }> {
   const current = requireSession();
   const before = current.store.txTail.head();
   const receipt = await invokeLocal(invocation);
-  if (receipt.status === "failed") return { receipt };
+  if (receipt.status === "failed") return { receipt, touched: [] };
   const touched = current.store.txTail
     .entries()
     .flatMap((tx) =>
       tx.rev > before ? [...tx.ops.upserts.map((node) => node.id), ...tx.ops.deletes] : [],
     );
-  return { receipt, hold: current.replica.hold(touched, into) };
+  return { receipt, touched };
 }
 
-function surfacePushFailure(receipt: ActionReceipt): void {
-  if (receipt.status === "failed") toast(receipt.message);
+/**
+ * What became of a pushed write on the server, as its caller reads it. A
+ * refusal is said once, here, as a change that was not saved: the replica has
+ * already gone back to the server's image (`BrowserReplica.drop`).
+ */
+function settledOf(
+  id: string,
+  push: Promise<ActionResponse>,
+  context: Readonly<Record<string, FilledInput>> | undefined,
+): Promise<ActionReceipt> {
+  return push.then(
+    (response): ActionReceipt => {
+      if (response.status === "failed") toast(`Not saved: ${response.message}`);
+      return response.status === "succeeded" && context !== undefined
+        ? { ...response, context }
+        : response;
+    },
+    (error: unknown): ActionReceipt => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast(`Not saved: ${message}`);
+      return failed(id, "internal", message);
+    },
+  );
 }
 
 /** An action's outcome: what the caller can act on now, and what became of it on the server. */
@@ -324,25 +386,50 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
   const local = localActions.get(id);
   if (local === undefined) return done(await pushInvocation(invocation));
   if (local.def.mode.kind === "read") return done(await invokeLocal(invocation));
-  const { receipt, hold } = await writeLocal(invocation);
+  const { receipt, touched } = await commitLocal(invocation);
   if (receipt.status === "failed") return done(receipt);
+  const hold = requireSession().replica.hold(touched);
   // What the local commit filled from this tab's screen is pushed as given,
   // so the server fills nothing and commits what the replica did; its
   // receipt says what was filled, as the local one does.
   const { context } = receipt;
-  const settled = pushInvocation(asFilled(invocation, context), hold).then(
-    (response): ActionReceipt => {
-      surfacePushFailure(response);
-      return response.status === "succeeded" && context !== undefined
-        ? { ...response, context }
-        : response;
-    },
-    (error: unknown): ActionReceipt => {
-      const message = error instanceof Error ? error.message : String(error);
-      toast(message);
-      return failed(id, "internal", message);
-    },
-  );
+  return {
+    receipt,
+    settled: settledOf(id, pushInvocation(asFilled(invocation, context), hold), context),
+  };
+}
+
+/**
+ * {@link invokeSettled} for a write that coalesces: typed text, where each
+ * keystroke is a local commit and the server needs only the last one of a
+ * pause. It is committed now, and its push lingers at the lane's end until
+ * {@link COALESCE_MS} pass with no further write of the same `key`, or any
+ * other write is pushed or lingers, which sends it first.
+ */
+export async function invokeCoalesced(invocation: ActionRequest, key: string): Promise<Invoked> {
+  const { receipt, touched } = await commitLocal(invocation);
+  if (receipt.status === "failed") return done(receipt);
+  const waiting = lingering?.key === key ? lingering : null;
+  const hold = requireSession().replica.hold(touched, waiting?.hold);
+  if (waiting !== null && waiting.hold === hold) {
+    clearTimeout(waiting.timer);
+    waiting.invocation = invocation;
+    waiting.timer = setTimeout(release, COALESCE_MS);
+    return { receipt, settled: waiting.settled };
+  }
+  // Whatever lingers was committed before this write, so it goes out first:
+  // another key's text, or this key's under a hold the replica no longer has.
+  release();
+  const response = Promise.withResolvers<ActionResponse>();
+  const settled = settledOf(invocation.id, response.promise, undefined);
+  lingering = {
+    key,
+    invocation,
+    hold,
+    timer: setTimeout(release, COALESCE_MS),
+    response,
+    settled,
+  };
   return { receipt, settled };
 }
 

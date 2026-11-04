@@ -11,8 +11,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { createLiveClient } from "@/api/live";
 import type { KbWsClient } from "@/api/ws";
-import { __resetPendingContentForTests, mutations } from "@/actions/mutations";
-import { invoke } from "@/session/runtime";
+import { mutations } from "@/actions/mutations";
+import { invoke, resetPushLaneForTests } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 import { FakeWsSocket } from "@/test-support/ws";
 
@@ -376,7 +376,7 @@ describe("browser replica sync scenarios", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    __resetPendingContentForTests();
+    resetPushLaneForTests();
   });
 
   afterEach(() => {
@@ -384,7 +384,7 @@ describe("browser replica sync scenarios", () => {
     harness = null;
     setPostAction(null);
     setFetchGraphSnapshot(null);
-    __resetPendingContentForTests();
+    resetPushLaneForTests();
     vi.useRealTimers();
   });
 

@@ -72,6 +72,7 @@ export {
   extensionNodeId,
   isExtensionNodeId,
   freshId,
+  isNodeIdShaped,
   isSysPrefixed,
   nowIso,
 } from "./model.ts";
