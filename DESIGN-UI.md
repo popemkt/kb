@@ -270,23 +270,48 @@ be kept, never how it is sent.
   one round trip and gets `304` when it has not changed
   (`staticCacheHeaders`, `assets.ts`). A repository extension's page half
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
-- **A tab outlives its build.** A release replaces `ui/dist`, so a tab
-  opened before it asks for chunks the server no longer has. A build is
-  the `src` of the module script `index.html` loads, whose digest changes
-  whenever any chunk it may fetch is renamed. The rule is a handshake:
-  every connection's `hello` names the build the server serves now
-  (`build`, read from the `index.html` it serves, so a build replaced under
-  a running server is the one named). A tab of another build reloads into
-  it. If the tab holds edits the server has not confirmed yet, which a
-  reload would drop, the header offers the reload instead ("kb was
-  updated · Reload"). The fallback is a chunk that does not arrive before
-  any hello says so (Vite's `vite:preloadError`, or a view's error
-  boundary catching it): it reloads the same way, and the boundary says
-  "kb was updated" meanwhile. Both go through one guard, once per build.
-  The tab's session storage records the build it reloaded for, so a
-  reload that lands on the same build is offered or shown instead of
-  looping. A page that is not a build (the dev server's) follows none
-  (`@kb/ui-sdk` → `lib/stale-build.ts`).
+- **A tab outlives its build.** A release replaces `ui/dist`, and a tab
+  opened before it keeps working: it reloads only when it cannot.
+  - *Earlier builds are still served.* When a server starts it keeps the
+    build it serves in kb's cache (`<cache>/ui-builds`, `KB_CACHE` or the
+    platform's cache directory): one directory per build, published whole,
+    of which the newest eight stay. Servers sharing that cache never remove
+    a build another has just published, since a build is removed only whole
+    and only by a server that listed it; one a server restarts on while
+    another prunes it can still go (GAP [[01M6H0QPT8K2YPY6XV6SM5WRYH]]).
+    Every file under `static/` is named by
+    its digest, so one the current build lacks is served from whichever kept
+    build has it, and never from outside that build's own files; one no kept
+    build has is `404`, never the page (`server/src/build-archive.ts`). Nothing about this is in the package:
+    whatever installs kb, the server keeps its own builds. The sandbox
+    frame's script is not digest-named, so a tab gets the current one
+    (GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]]).
+  - *A build is not a protocol.* A build changes with every release; the
+    wire a page and a server must agree on changes rarely. Every
+    connection's `hello` names the server's `WIRE_PROTOCOL` (`@kb/contracts`
+    → `protocol.ts`), and a tab of the same protocol keeps working whatever
+    build the server serves. The wire's fingerprint — the socket's messages,
+    the action envelope and answer, the snapshot, and the input and output
+    of every action the server offers, as its manifest lists them — is
+    recorded beside the version
+    (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
+    someone decides: still compatible (record the fingerprint), or not (bump
+    the protocol).
+  - *A reload waits, keeps the page, and says so.* A tab reloads when the
+    server speaks another protocol, or as a fallback when a chunk it asks
+    for is gone even so (Vite's `vite:preloadError`, or a view's error
+    boundary, which says "kb was updated" meanwhile). It waits until the page
+    is idle: no write the server has not confirmed, no draft open in a field,
+    and a pause in typing and clicking. Before it goes, it writes down where
+    each pane is scrolled and where the caret is; the route and the panes
+    survive a reload already, and the next page puts the rest back
+    (`stores/reload.ts`). Meanwhile a small chip says "kb was updated ·
+    reloads when you pause", with "Reload now". Both causes go through one
+    guard, once per build: the tab's session storage records the build it
+    reloaded for, so a reload that lands on the same build leaves the chip
+    to the person instead of looping, and a reload goes by itself only once
+    that record is kept. A page that is not a build (the dev
+    server's) follows none (`@kb/ui-sdk` → `lib/stale-build.ts`).
 - **Compressed when it is text.** A `200` whose type is script, style,
   markup, JSON or SVG and whose body is at least 1 KiB goes out in brotli
   or gzip, whichever the request's `Accept-Encoding` weighs highest (its

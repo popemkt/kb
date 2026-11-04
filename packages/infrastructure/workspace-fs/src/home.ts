@@ -54,3 +54,28 @@ export const currentHome: Effect.Effect<string> = Effect.sync(() =>
   // oxlint-disable-next-line node/no-process-env -- kb's one read of where the person's home store lives
   homePath(process.env, process.platform, homedir()),
 );
+
+/**
+ * The directory kb keeps what it can rebuild in: `KB_CACHE` when it is set,
+ * else the platform's place for an application's caches. Losing it costs
+ * nothing kb cannot make again. A test run (`NODE_ENV=test`) that names none
+ * has none: null, so a test never writes into the person's cache.
+ */
+export function cachePath(
+  env: Readonly<Record<string, string | undefined>>,
+  platform: string,
+  home: string,
+): string | null {
+  const set = env.KB_CACHE;
+  if (set !== undefined && set !== "") return resolve(set);
+  if (env.NODE_ENV === "test") return null;
+  if (platform === "darwin") return join(home, "Library", "Caches", "kb");
+  const cache = env.XDG_CACHE_HOME;
+  return join(cache !== undefined && cache !== "" ? cache : join(home, ".cache"), "kb");
+}
+
+/** kb's cache directory now, read as {@link currentHome} reads the home. */
+export const currentCache: Effect.Effect<string | null> = Effect.sync(() =>
+  // oxlint-disable-next-line node/no-process-env -- kb's one read of where its cache lives
+  cachePath(process.env, process.platform, homedir()),
+);

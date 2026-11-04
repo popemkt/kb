@@ -1,10 +1,10 @@
-import { watchForNewBuild } from "@kb/ui-sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@/components/App";
 import { initScrollbarManager } from "@/lib/scrollbar-manager";
 import { startDesignSystems } from "@/stores/design-system.store";
 import { initPrefs } from "@/stores/prefs.store";
+import { followPageBuild, restoreCarried } from "@/stores/reload";
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import "./index.css";
 
@@ -23,9 +23,12 @@ function preloadInterLatin() {
 }
 
 preloadInterLatin();
-// A tab left open across a release follows the server into the new build
-// (`@kb/ui-sdk` → `lib/stale-build`). The dev server's page is no build.
-if (!import.meta.env.DEV) watchForNewBuild();
+// A tab left open across a release keeps working; it reloads only when the
+// server speaks another wire protocol or a chunk is gone, once idle, and
+// comes back where it was (`stores/reload`). The dev server's page is no
+// build.
+if (!import.meta.env.DEV) followPageBuild();
+restoreCarried();
 initPrefs();
 startDesignSystems();
 // The motion painter paints once the graph has arrived, so it loads with
