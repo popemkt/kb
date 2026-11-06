@@ -14,6 +14,7 @@ import {
   backdropOptionId,
   backdropVariantOptions,
   declaredOptionId,
+  drawVariant,
   shownVariants,
   type KbNode,
   type SeedBackdrop,
@@ -161,5 +162,27 @@ describe("backdrop variants", () => {
   test("another backdrop's pins are none of this one's; a backdrop without variants shows none", () => {
     expect(shownVariants(SKY, ["backdrops.lens.far"], "dark")).toEqual(["dusk", "night"]);
     expect(shownVariants({ id: "backdrops.plain", label: "Plain" }, [], "dark")).toEqual([]);
+  });
+});
+
+describe("drawVariant", () => {
+  const SHOWN = ["dusk", "night", "noon"] as const;
+
+  test("draws one of the shown by the seed, the same every time for one load", () => {
+    const drawn = drawVariant(42, SHOWN, null);
+    expect(SHOWN.some((variant) => variant === drawn)).toBe(true);
+    expect(drawVariant(42, SHOWN, null)).toBe(drawn);
+    const seen = new Set(Array.from({ length: 40 }, (_, seed) => drawVariant(seed, SHOWN, null)));
+    expect(seen.size).toBe(SHOWN.length);
+  });
+
+  test("keeps the one shown while it is still among them, and draws again when it is not", () => {
+    expect(drawVariant(42, ["night", "noon"], "night")).toBe("night");
+    expect(drawVariant(42, ["noon"], "night")).toBe("noon");
+  });
+
+  test("is none for a backdrop with no variants", () => {
+    expect(drawVariant(42, [], null)).toBeNull();
+    expect(drawVariant(42, [], "night")).toBeNull();
   });
 });

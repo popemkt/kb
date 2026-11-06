@@ -44,7 +44,7 @@ export interface GpuLook {
   readonly direction: BackdropDirection;
   /** The URL of the art to draw in place of the scene's own (`BackdropProps.art`, read by `loadBackdropArt`); null, its own. */
   readonly art: string | null;
-  /** The variant this load shows (`drawVariant`), by its local id; null for a backdrop with none. */
+  /** The variant this load shows (`BackdropProps.variant`), by its local id; null for a backdrop with none. */
   readonly variant: string | null;
 }
 

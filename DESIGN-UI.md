@@ -4328,12 +4328,14 @@ A PR for a backdrop reports a score against each criterion.
     this one's); of those, the ones made for the page's scheme. Where none
     of the pinned ones is made for it, the pinned ones still, each drawn in
     its look for the other scheme: a pin is the owner's word, so it is kept
-    over the scheme. The component hears them by local id
-    (`BackdropProps.variants`; empty for a backdrop with none).
+    over the scheme.
   - **One drawn per load.** The backdrop shows one of them, drawn by the
     load's seed (Variation, below), so every load may show another and the
-    cards and the head of one load agree; the GPU host draws it for its
-    scenes (`drawVariant`, `GpuLook.variant`). The draw is the load's under
+    cards and the head of one load agree. The frame draws it, beside
+    deciding which it may show (`drawVariant`, in `BackdropFrame`), and the
+    component hears the one drawn by local id (`BackdropProps.variant`,
+    null for a backdrop with none; the GPU host hands it its scenes as
+    `GpuLook.variant`). The draw is the load's under
     reduced motion too, so a still is composed at random as well. A change
     of scheme keeps the one shown while it is still among those the head may
     show, and draws again, in the running scene, when it is not.
@@ -4373,10 +4375,11 @@ starts. The variation is the art direction's, never dice: each way a
 backdrop may differ is a named draw within a range that still reads as its
 picture.
 
-- **One seed a load** (`scene/seed.ts`, `useBackdropSeed`), for the 2D
-  stage and the GPU one alike: a backdrop mounted again in the same load
-  (Settings' cards, the head) shows the same variation. Reduced motion
-  shows the one curated still.
+- **One seed a load** (`useLoadSeed`, `@kb/ui-sdk`), from which the frame
+  draws the variant, and the scenes their variation (`scene/seed.ts`,
+  `useBackdropSeed`), the 2D stage and the GPU one alike: a backdrop
+  mounted again in the same load (Settings' cards, the head) shows the same
+  variant and variation. Reduced motion shows the one curated still.
 - **Draws by name** (`variation(seed)`): `range`, `pick`, `sign`, `phase`,
   and a `stream` for a layout that draws many. Each name has a stream of its
   own, so adding a draw never moves another, and a fixed seed draws the same

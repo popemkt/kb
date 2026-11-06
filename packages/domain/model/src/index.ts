@@ -165,6 +165,7 @@ export {
   backdropChoice,
   backdropOptionId,
   backdropVariantOptions,
+  drawVariant,
   shownVariants,
   type BackdropChoice,
   type BackdropVariant,

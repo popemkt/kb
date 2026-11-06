@@ -1,7 +1,8 @@
-import { useCallback, type CSSProperties, type Ref } from "react";
-import { shownVariants } from "@kb/model";
+import { useCallback, useState, type CSSProperties, type Ref } from "react";
+import { drawVariant, shownVariants } from "@kb/model";
 import { useAppearance, usePageActivity, usePageBackdrop } from "../hooks";
 import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
+import { useLoadSeed } from "../lib/load-seed";
 import { cn } from "../lib/cn";
 import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/plugins";
 import { usePointerOver } from "../lib/pointer-over";
@@ -13,9 +14,11 @@ import type { OutlineNode } from "../lib/types";
  * is and which way it faces. Where the frame stands is its host's
  * (`placement`, and a class that places it): a page head centres it under
  * the head or spans the scroll region with it, a card scales it into the
- * card. Of the variants its settings pin, it tells the component those it
- * may show on this page's scheme (`shownVariants`), the one place that is
- * decided.
+ * card. It decides what the component shows, in one place: of the variants
+ * its settings pin, those it may show on this page's scheme
+ * (`shownVariants`), the one the load's seed draws of them (`drawVariant`,
+ * kept while it is still among them), and the presentation's opacity at
+ * the strength.
  */
 export function BackdropFrame({
   id,
@@ -25,7 +28,7 @@ export function BackdropFrame({
   frameRef,
   pinned,
   ...props
-}: Omit<BackdropProps, "variants"> & {
+}: Omit<BackdropProps, "variant" | "opacity"> & {
   readonly id: string;
   readonly backdrop: Backdrop;
   readonly placement: CSSProperties;
@@ -35,7 +38,11 @@ export function BackdropFrame({
   readonly pinned: readonly string[];
 }) {
   const { dark } = useAppearance();
-  const variants = shownVariants(key, pinned, dark ? "dark" : "light");
+  const shown = shownVariants(key, pinned, dark ? "dark" : "light");
+  const seed = useLoadSeed();
+  const [drawn, setDrawn] = useState(() => drawVariant(seed, shown, null));
+  const variant = drawVariant(seed, shown, drawn);
+  if (variant !== drawn) setDrawn(variant);
   return (
     <div
       ref={frameRef}
@@ -51,7 +58,7 @@ export function BackdropFrame({
       aria-hidden="true"
       data-header-wash="true"
     >
-      <Component {...props} variants={variants} />
+      <Component {...props} variant={variant} opacity={presentation.opacity[props.strength]} />
     </div>
   );
 }
@@ -119,7 +126,6 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
         direction={direction}
         art={art}
         pinned={variants}
-        opacity={presentation.opacity[strength]}
         activity={activity}
         pointer={pointer}
       />

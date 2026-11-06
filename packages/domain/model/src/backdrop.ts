@@ -105,6 +105,22 @@ export function shownVariants(
   return (suited.length === 0 ? set : suited).map((variant) => variant.id);
 }
 
+/**
+ * The variant a head shows of the ones it may (`shownVariants`), by local
+ * id: `current` while it is still among them, so a change of scheme that
+ * keeps it never redraws; otherwise the one the load's `seed` draws, so
+ * every frame of one load (the head, Settings' cards) shows the same. Null
+ * for a backdrop with none.
+ */
+export function drawVariant(
+  seed: number,
+  shown: readonly string[],
+  current: string | null,
+): string | null {
+  if (current !== null && shown.includes(current)) return current;
+  return shown[seed % shown.length] ?? null;
+}
+
 export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
 export type BackdropStrength = (typeof BACKDROP_STRENGTHS)[number];
 export const BACKDROP_DIRECTIONS = ["down", "up"] as const;
