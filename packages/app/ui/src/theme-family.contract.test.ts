@@ -37,7 +37,13 @@ import {
   type KbNode,
 } from "@kb/model";
 import { definePlugin, makeKernel, syncPlugins, type Plugin } from "@kb/plugin";
-import { BackdropPoint, DesignSystemPoint, provideBackdrop, provideDesignSystem } from "@kb/ui-sdk";
+import {
+  BACKDROP_BUDGETS,
+  BackdropPoint,
+  DesignSystemPoint,
+  provideBackdrop,
+  provideDesignSystem,
+} from "@kb/ui-sdk";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";
 
 /** A theme family of the test's own, declared and contributed as the bundled ones are. */
@@ -84,6 +90,7 @@ const probeUiPlugin = definePlugin({
               offset: -10,
               opacity: { subtle: 0.72, soft: 0.86, vivid: 1 },
             },
+            budget: BACKDROP_BUDGETS.dom,
             Component: Nothing,
           }),
         ),

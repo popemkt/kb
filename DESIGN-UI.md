@@ -3098,6 +3098,13 @@ principles below it applies, and two to four live parameters:
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes                                                                                                                                                                   | tone mapping, PBR/matcap, AO, key angle      |
 | Motion | staggered critically damped springs against an eased tween                                                                                                                                                                     | settle, stagger, drive, overlap              |
 
+A study's parameters are knobs: `Knob` (`@kb/model`'s `knob.ts`, a number
+in a range and step, a boolean or one of an enum's options, each with its
+default) drawn by the one `KnobControl` (`@kb/ui-sdk`). It is the same
+schema and the same control a page-head backdrop's knobs are (Page-head
+backdrops → Knobs), so a parameter is declared, labelled and reached by
+keyboard one way wherever a panel lists it.
+
 Embers keeps its theme rather than forcing a dark stage: on a light ground
 the heat ramp moves from the emissive into the surface (`heatAlbedo`: pale
 ash warming through the accent's ember to the accent), and only the hot
@@ -4116,11 +4123,20 @@ backdrop or theme is held beside
 ([`docs/research/2026-10-31-3d-quality-bar.md`](docs/research/2026-10-31-3d-quality-bar.md)).
 A PR for a backdrop reports a score against each criterion.
 
-- **The point.** `BackdropPoint` (`ui.backdrops`, `@kb/ui-sdk`, beside
-  `ViewPoint`, `DockPoint` and `OverlayPoint`) holds one `Backdrop` per
-  contribution: its `key`, its `presentation` and its `Component`.
-  - The key is the backdrop as its family declares it: an id
-    (`<family>.<local id>`) and a label. `provideBackdrop` contributes it
+- **The point is the surface.** `BackdropPoint` (`ui.backdrops`,
+  `@kb/ui-sdk`, beside `ViewPoint`, `DockPoint` and `OverlayPoint`) holds
+  one `Backdrop` per contribution: its `key`, its `presentation`, its
+  `budget` and its `Component`. Any family contributes to it: the backdrops
+  family ships kb's own and its studio (Backdrop Studio, below), and the
+  themes bring theirs. It lives in the kit, not in the backdrops family,
+  because a family may import no other family (the family fence), so the
+  one surface every plugin can reach is the kit's
+  (docs/research/2026-11-06-backdrop-studio.md).
+  - The key is the backdrop as its family declares it (`SeedBackdrop`,
+    `@kb/model`): an id (`<family>.<local id>`), a label, whose work it is
+    drawn after (`credit`), the strength it is shown at where no setting
+    chooses one (`strength`; **Its own strength**, below), its knobs
+    (**Knobs**, below) and its variants. `provideBackdrop` contributes it
     under the key's local id, so the contribution answers to the declared
     id, as a view answers to its key.
   - The presentation is how a head frames it: the breathing room it
@@ -4131,10 +4147,21 @@ A PR for a backdrop reports a score against each criterion.
     at most `maxWidth` wide (`reach: "content"`), or across the whole
     scroll region behind it (`reach: "region"`), so a wider window or the
     full content width adds field at its sides.
-  - The component receives what the head knows (`BackdropProps`): its
-    colour (the shown node's tag colour, else the accent), the node it shows
-    if any, the strength, the direction, the opacity at that strength, what
-    the owner is doing (`activity`) and where the pointer is (`pointer`).
+  - The budget is what it may spend drawing a frame (`BackdropBudget`,
+    `frameMs`): the page head's frame budget by what draws it
+    (`BACKDROP_BUDGETS`), 6 ms of the GPU's time for a GPU scene, 2 ms of
+    the main thread for a canvas scene, 1 ms for one the page's CSS draws.
+    A contribution names the one that applies, or less. The GPU host and
+    the 2D stage meter their frames against it (Cost, below); a backdrop
+    the page's CSS or a vendor runtime draws is not metered (GAP
+    [[01M6RT9R6AXGVYZWCSTG26EET8]]).
+  - The component is its scene: the one factory the slot instantiates
+    wherever the backdrop is drawn, in a head, a card or the studio. It
+    receives what the head knows (`BackdropProps`): its colour (the shown
+    node's tag colour, else the accent), the node it shows if any, the
+    strength, the direction, the opacity at that strength, its knobs'
+    values (`knobs`), its budget, what the owner is doing (`activity`) and
+    where the pointer is (`pointer`).
   - **Activity is a declared input, not a listener.** `PageActivity` is
     whether a node's text is being edited (`editing`, the host's read of the
     page editor), how many writes the graph has taken (`writes`, the
@@ -4349,13 +4376,31 @@ A PR for a backdrop reports a score against each criterion.
     one shown while it is still among those the head may show, and draws
     again, in the running scene, when it is not.
   - **Its own strength.** Where no setting chooses a strength, the frame
-    shows the drawn variant at the one it declares, else the default
-    (`shownStrength`): Warp declares `vivid`, the owner's pick. A strength
-    a setting chooses holds over the variant's.
+    shows the drawn variant at the one it declares, else at its backdrop's,
+    else the default (`shownStrength`): Warp declares `vivid`, the owner's
+    pick. A strength a setting chooses holds over the declared ones.
   - Set them in Settings → Appearance (the `variants` row under Page head),
     or `kb set sys.extension.core sys.f.backdrop.variant
     sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
     another pins a second, and `kb unset` takes one back out.
+- **Knobs.** A backdrop's knobs are its live parameters, declared on its
+  key, each with its default: `Knob` (`@kb/model`'s `knob.ts`), the one
+  schema the lab's study parameters use too (The lab), drawn by the one
+  `KnobControl` (`@kb/ui-sdk`). A knob is a `number` in a range and step
+  (with a unit), a `boolean`, an `enum` of options, a `color` (`#rrggbb`),
+  or a `seed`: a whole number pins the backdrop's variation (Variation,
+  below), none draws a new one each load. A backdrop has at most one seed.
+  - **Per backdrop and per variant.** A knob on the backdrop's key is
+    shown whatever variant is drawn. A variant's own knobs
+    (`BackdropVariant.knobs`) are shown only with it, after its backdrop's
+    (`knobsOf`).
+  - **Well formed where declared.** `knobSchemaError` refuses a schema
+    with an id twice, a default its own knob does not accept (out of its
+    range, off its step, none of its options, not `#rrggbb`, a seed that is
+    not whole), or a second seed.
+  - **Handed to the scene.** The frame resolves the knobs it shows with
+    the variant drawn and hands their values to the component
+    (`BackdropProps.knobs`), each its default where nothing sets it.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -4366,6 +4411,11 @@ A PR for a backdrop reports a score against each criterion.
   every contributed backdrop: the page's families' backdrops and one from a
   test plugin.
   - Each backdrop answers to its declared id.
+  - Each declares a well-formed knob schema, its variants' with it, and a
+    budget within the page head's frame budget (6 ms).
+  - The slot hands each its budget and its knobs' values, its drawn
+    variant's with them, and a strength its backdrop declares where nothing
+    chooses one.
   - The seed holds each backdrop's option, labelled, under the backdrop
     field.
   - The slot shows each backdrop, framed by its presentation, at every
@@ -4428,7 +4478,7 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
 - **The stage** (`stage.ts`) owns the canvas, a time-based loop (`dt`
   clamped, so any frame rate moves the same and a stall resumes without a
   leap), the pause (`watchPlayback`), the declared pointer and activity, and
-  a frame-cost meter: over its 2 ms budget it lowers detail rather than
+  a frame-cost meter: over its budget (`Backdrop.budget`, 2 ms for Sky and Roost) it lowers detail rather than
   costing the page. Under reduced motion it draws one still composition.
 - **Reactions** are eased signals (`reactions.ts`): the pointer scatters
   fliers locally and they regather; typing calms the scene; a write is a
@@ -4600,7 +4650,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   in its panel composition. Below a frame about 1000px wide the glass is
   slid in and made smaller to stay whole.
 - **Cost.** It runs only while the tab is shown and the frame is in view
-  (`watchPlayback`). Each frame's GPU time is metered against 6 ms; while it
+  (`watchPlayback`). Each frame's GPU time is metered against its budget
+  (`Backdrop.budget`, 6 ms for every GPU backdrop kb ships); while it
   runs over, the backdrop steps its quality down (the offscreen pass's
   resolution; a ray's steps are never cut, or the photon ring goes first). On WebGPU the meter reads
   the stage's `gpuMs` (queue completion; gap 01M5STYVVX474T8WBT4FY341CM); on

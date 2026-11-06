@@ -6,9 +6,6 @@ import { readPalette } from "./tokens";
 import { useTellOwner } from "./owner";
 import { createStage, type Look, type Stage } from "./stage";
 
-/** One frame's scene is allowed about this much of the main thread. */
-const BUDGET_MS = 2;
-
 /**
  * Hosts a composition (`composition.ts`) on a canvas that fills its frame:
  * decorative, with no hit targets, drawn only while visible and motion is
@@ -28,7 +25,7 @@ export function SceneStage({
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
   const seed = useBackdropSeed(reducedMotion);
-  const { color, direction, strength, opacity, activity, node, pointer } = backdrop;
+  const { color, direction, strength, opacity, activity, node, pointer, budget } = backdrop;
   const nodeId = node?.id;
   const { editing } = activity;
   // What a stage made later starts from: the page as it is now.
@@ -46,7 +43,7 @@ export function SceneStage({
     const made = createStage(element, factory(seed), {
       reducedMotion,
       pointer,
-      budgetMs: BUDGET_MS,
+      budgetMs: budget.frameMs,
     });
     stage.current = made;
     made.reactions.setEditing(latest.current.editing);
@@ -55,7 +52,7 @@ export function SceneStage({
       made.dispose();
       stage.current = null;
     };
-  }, [factory, reducedMotion, seed, pointer]);
+  }, [factory, reducedMotion, seed, pointer, budget]);
 
   useEffect(() => {
     stage.current?.look({

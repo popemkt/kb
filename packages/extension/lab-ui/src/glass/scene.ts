@@ -10,10 +10,10 @@
  * `absorption` Beer–Lambert's density. On arrival the blobs grow in one by
  * one.
  */
+import { knobNumber, type KnobValue } from "@kb/model";
 import { Vector3 } from "three/webgpu";
 import { float, uniform } from "three/tsl";
-import type { LabControlValue, LabSceneInit, LabScene } from "../kit/contract";
-import { numberOf } from "../kit/contract";
+import type { LabSceneInit, LabScene } from "../kit/contract";
 import { OrbitControl } from "../kit/orbit";
 import { PointerField, type SceneStage } from "@kb/scene-gpu";
 import { Entrance } from "../kit/entrance";
@@ -27,10 +27,10 @@ const DRIFT = 0.02;
 
 function glass(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
   const u = {
-    blend: uniform(numberOf(init.values, "blend", 0.7)),
-    ior: uniform(numberOf(init.values, "ior", 1.45)),
-    dispersion: uniform(numberOf(init.values, "dispersion", 0.03)),
-    density: uniform(numberOf(init.values, "density", 0.6)),
+    blend: uniform(knobNumber(init.values, "blend", 0.7)),
+    ior: uniform(knobNumber(init.values, "ior", 1.45)),
+    dispersion: uniform(knobNumber(init.values, "dispersion", 0.03)),
+    density: uniform(knobNumber(init.values, "density", 0.6)),
   };
   const entrance = new Entrance(init.timing);
   const blobs = blobUniforms();
@@ -74,7 +74,7 @@ function glass(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
         if (blob !== undefined) blobs.values[i]?.set(blob.x, blob.y, blob.z, blob.radius);
       }
     },
-    setControl: (id, value: LabControlValue) => {
+    setControl: (id, value: KnobValue) => {
       if (typeof value !== "number") return;
       if (id === "blend") u.blend.value = value;
       if (id === "ior") u.ior.value = value;

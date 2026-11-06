@@ -167,6 +167,7 @@ export {
   backdropVariantOptions,
   DEFAULT_BACKDROP_STRENGTH,
   drawVariant,
+  knobsOf,
   shownStrength,
   shownVariants,
   type BackdropChoice,
@@ -176,6 +177,22 @@ export {
   type BackdropDirection,
   type BackdropStrength,
 } from "./backdrop.ts";
+export {
+  KNOB_COLOR,
+  knobDefaults,
+  knobNumber,
+  knobSchemaError,
+  type BooleanKnob,
+  type ColorKnob,
+  type EnumKnob,
+  type Knob,
+  type KnobKind,
+  type KnobOption,
+  type KnobValue,
+  type KnobValues,
+  type NumberKnob,
+  type SeedKnob,
+} from "./knob.ts";
 export {
   MAX_BACKDROP_GLYPHS,
   OWN_ART,

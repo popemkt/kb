@@ -107,6 +107,8 @@ export {
   THEME_GESTURE_MAX_MS,
   type ThemeArtPlane,
   type BackdropPresentation,
+  BACKDROP_BUDGETS,
+  type BackdropBudget,
   type BackdropProps,
   type PageActivity,
   type PageEvents,
@@ -160,6 +162,7 @@ export { EdnEditor } from "./components/edn-editor";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
 export { IconButton } from "./components/icon-button";
+export { KnobControl } from "./components/knob-control";
 export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeRow } from "./components/node-row";
 export {

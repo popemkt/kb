@@ -12,6 +12,7 @@
  * Move the pointer through the water to stir a vortex; orbit to see the
  * channel in depth. On a light ground the water is ink, on a dark one light.
  */
+import { knobNumber, type KnobValue } from "@kb/model";
 import { Sprite, SpriteNodeMaterial, Vector3 } from "three/webgpu";
 import {
   atan,
@@ -28,8 +29,7 @@ import {
   vec2,
   vec4,
 } from "three/tsl";
-import type { LabControlValue, LabSceneInit, LabScene } from "../kit/contract";
-import { numberOf } from "../kit/contract";
+import type { LabSceneInit, LabScene } from "../kit/contract";
 import { OrbitControl } from "../kit/orbit";
 import { PointerField, type PaletteUniforms, type SceneStage, type TslNode } from "@kb/scene-gpu";
 import { Entrance } from "../kit/entrance";
@@ -86,10 +86,10 @@ function streaks(
 function river(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
   const flow = riverFlow();
   const { u } = flow;
-  u.speed.value = numberOf(init.values, "speed", 1);
-  u.scale.value = numberOf(init.values, "scale", 0.45);
-  u.turbulence.value = numberOf(init.values, "turbulence", 1);
-  const streak = uniform(numberOf(init.values, "streak", 0.035));
+  u.speed.value = knobNumber(init.values, "speed", 1);
+  u.scale.value = knobNumber(init.values, "scale", 0.45);
+  u.turbulence.value = knobNumber(init.values, "turbulence", 1);
+  const streak = uniform(knobNumber(init.values, "streak", 0.035));
   const dark = uniform(init.dark ? 1 : 0);
   const clock = uniform(0);
   const entrance = new Entrance(init.timing);
@@ -136,7 +136,7 @@ function river(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
       u.time.value = elapsed;
       void stage.renderer.compute(flow.pass);
     },
-    setControl: (id, value: LabControlValue) => {
+    setControl: (id, value: KnobValue) => {
       if (typeof value !== "number") return;
       if (id === "speed") u.speed.value = value;
       if (id === "scale") u.scale.value = value;

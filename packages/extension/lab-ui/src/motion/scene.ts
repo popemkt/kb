@@ -8,6 +8,7 @@
  * the pointer rests, a slow ambient source wanders the field over the
  * ambient period (M4) so the study is never dead, and never busy.
  */
+import type { KnobValue } from "@kb/model";
 import {
   DynamicDrawUsage,
   InstancedBufferAttribute,
@@ -25,7 +26,7 @@ import {
   uniform,
   vec3,
 } from "three/tsl";
-import type { LabControlValue, LabSceneInit, LabScene } from "../kit/contract";
+import type { LabSceneInit, LabScene } from "../kit/contract";
 import { createRig, finishMaterial, PointerField, type SceneStage } from "@kb/scene-gpu";
 import { mountStudy, type StudyContext, type StudyParts } from "../kit/study";
 import { TileField } from "./field";
@@ -117,7 +118,7 @@ function motion(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
       }
       state.needsUpdate = true;
     },
-    setControl: (id, value: LabControlValue) => {
+    setControl: (id, value: KnobValue) => {
       if (id === "settle" && typeof value === "number") field.settle = value / 1000;
       if (id === "stagger" && typeof value === "number") field.stagger = value / 1000;
       if (id === "drive" && (value === "spring" || value === "ease")) field.drive = value;

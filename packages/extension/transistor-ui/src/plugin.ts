@@ -10,6 +10,7 @@ import {
   transistorPlugin,
 } from "@kb/transistor";
 import {
+  BACKDROP_BUDGETS,
   BackdropPoint,
   DesignSystemPoint,
   provideBackdrop,
@@ -30,6 +31,7 @@ import transistor from "./transistor.css?raw";
 
 /** Transistor's head: a painted dusk whose skyline the title stands under. */
 const cloudbank: Omit<Backdrop, "key"> = {
+  budget: BACKDROP_BUDGETS.dom,
   presentation: {
     space: 160,
     directions: [],
@@ -64,7 +66,10 @@ export const transistorUiPlugin = definePlugin({
           }),
         ),
         ctx.contribute(BackdropPoint, provideBackdrop(CLOUDBANK_BACKDROP, cloudbank)),
-        ctx.contribute(BackdropPoint, provideBackdrop(OVC_BACKDROP, band(OvcBackdrop))),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(OVC_BACKDROP, band(OvcBackdrop, BACKDROP_BUDGETS.dom)),
+        ),
       ],
       { discard: true },
     ),

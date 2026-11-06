@@ -20,7 +20,7 @@ import {
 } from "@kb/backdrops";
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
-import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
+import { BACKDROP_BUDGETS, BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
 import {
   AstralBackdrop,
   BlackHoleBackdrop,
@@ -49,6 +49,7 @@ const gradient: Omit<Backdrop, "key"> = {
     offset: -40,
     opacity: { subtle: 0.5, soft: 0.75, vivid: 1 },
   },
+  budget: BACKDROP_BUDGETS.dom,
   Component: GradientBackdrop,
 };
 
@@ -62,6 +63,8 @@ const unicorn: Omit<Backdrop, "key"> = {
     offset: -8,
     opacity: { subtle: 0.35, soft: 0.5, vivid: 0.75 },
   },
+  // GAP [[01M6RT9R6AXGVYZWCSTG26EET8]] a vendor runtime's frames are not metered against its budget
+  budget: BACKDROP_BUDGETS.gpu,
   Component: UnicornWashBackdrop,
 };
 
@@ -75,6 +78,7 @@ const sky: Omit<Backdrop, "key"> = {
     offset: -10,
     opacity: { subtle: 0.45, soft: 0.68, vivid: 0.88 },
   },
+  budget: BACKDROP_BUDGETS.canvas,
   Component: SkyBackdrop,
 };
 
@@ -88,6 +92,7 @@ const roost: Omit<Backdrop, "key"> = {
     offset: -10,
     opacity: { subtle: 0.5, soft: 0.7, vivid: 0.9 },
   },
+  budget: BACKDROP_BUDGETS.canvas,
   Component: RoostBackdrop,
 };
 
@@ -97,7 +102,7 @@ const roost: Omit<Backdrop, "key"> = {
  * direction. Their presence starts higher than a canvas scene's: the scene's
  * own ground is the page, so a lower presence only greys its light.
  */
-const gpuFrame: Omit<Backdrop, "key" | "Component">["presentation"] = {
+const gpuFrame: Backdrop["presentation"] = {
   space: 120,
   directions: [],
   height: 360,
@@ -107,26 +112,42 @@ const gpuFrame: Omit<Backdrop, "key" | "Component">["presentation"] = {
 };
 
 /** A dark star drifting through a nebula, bending its light. */
-const lens: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: LensBackdrop };
+const lens: Omit<Backdrop, "key"> = {
+  presentation: gpuFrame,
+  budget: BACKDROP_BUDGETS.gpu,
+  Component: LensBackdrop,
+};
 
 /** Gargantua, its gas disk streaming round it. */
-const blackHole: Omit<Backdrop, "key"> = { presentation: gpuFrame, Component: BlackHoleBackdrop };
+const blackHole: Omit<Backdrop, "key"> = {
+  presentation: gpuFrame,
+  budget: BACKDROP_BUDGETS.gpu,
+  Component: BlackHoleBackdrop,
+};
 
 /**
  * A whole painted scene's frame: a strength barely veils it, since a veil
  * over a high-key picture is a wash that takes its colour (the scene keeps
  * its own quiet: its scrim under the text, its framing by width).
  */
-const sceneFrame: Omit<Backdrop, "key" | "Component">["presentation"] = {
+const sceneFrame: Backdrop["presentation"] = {
   ...gpuFrame,
   opacity: { subtle: 0.95, soft: 0.98, vivid: 1 },
 };
 
 /** A cel-shaded sea under anime-game clouds. */
-const toonSea: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: ToonSeaBackdrop };
+const toonSea: Omit<Backdrop, "key"> = {
+  presentation: sceneFrame,
+  budget: BACKDROP_BUDGETS.gpu,
+  Component: ToonSeaBackdrop,
+};
 
 /** Silk ribbons in three depths on a stage before a faint cosmos. */
-const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkBackdrop };
+const silk: Omit<Backdrop, "key"> = {
+  presentation: sceneFrame,
+  budget: BACKDROP_BUDGETS.gpu,
+  Component: SilkBackdrop,
+};
 
 /**
  * A web of glass facets on deep navy, gold light where they meet. Its field
@@ -135,6 +156,7 @@ const silk: Omit<Backdrop, "key"> = { presentation: sceneFrame, Component: SilkB
  */
 const floatingGeometry: Omit<Backdrop, "key"> = {
   presentation: { ...gpuFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
   Component: FloatingGeometryBackdrop,
 };
 
@@ -145,6 +167,7 @@ const floatingGeometry: Omit<Backdrop, "key"> = {
  */
 const gradientOrbs: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
   Component: GradientOrbsBackdrop,
 };
 
@@ -154,6 +177,7 @@ const gradientOrbs: Omit<Backdrop, "key"> = {
  */
 const wolfMedallion: Omit<Backdrop, "key"> = {
   presentation: { ...gpuFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
   Component: WolfMedallionBackdrop,
 };
 
@@ -163,6 +187,7 @@ const wolfMedallion: Omit<Backdrop, "key"> = {
  */
 const lightTrails: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
   Component: LightTrailsBackdrop,
 };
 
@@ -172,6 +197,7 @@ const lightTrails: Omit<Backdrop, "key"> = {
  */
 const astral: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
   Component: AstralBackdrop,
 };
 
@@ -182,6 +208,7 @@ const astral: Omit<Backdrop, "key"> = {
  */
 const discField: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
+  budget: BACKDROP_BUDGETS.gpu,
   Component: DiscFieldBackdrop,
 };
 

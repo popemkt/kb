@@ -3,6 +3,7 @@ import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { band } from "@kb/theme-art";
 import {
+  BACKDROP_BUDGETS,
   BackdropPoint,
   DesignSystemPoint,
   provideBackdrop,
@@ -28,6 +29,7 @@ import zzz from "./zzz.css?raw";
 
 /** ZZZ's head: the panel stack and its TV, wholly above the title. */
 const broadcast: Omit<Backdrop, "key"> = {
+  budget: BACKDROP_BUDGETS.dom,
   presentation: {
     space: 160,
     directions: [],
@@ -58,7 +60,10 @@ export const zzzUiPlugin = definePlugin({
           provideDesignSystem(ZZZ_DESIGN_SYSTEM, { stylesheet: zzz, Art: ZzzArt }),
         ),
         ctx.contribute(BackdropPoint, provideBackdrop(BROADCAST_BACKDROP, broadcast)),
-        ctx.contribute(BackdropPoint, provideBackdrop(HOLLOW_BACKDROP, band(HollowBackdrop))),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(HOLLOW_BACKDROP, band(HollowBackdrop, BACKDROP_BUDGETS.dom)),
+        ),
       ],
       { discard: true },
     ),
