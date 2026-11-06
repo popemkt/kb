@@ -38,7 +38,8 @@ jobs:
           if [ "$EVENT" = pull_request ]; then
             # Only prose is exempt. Data, assets, workflows, toolchain and all
             # packages can affect runtime and keep every suite selected.
-            if ! git diff --name-only "$BASE" "$HEAD" | grep -qvE '^(docs/.*\.md|README\.md)$'; then
+            changed=$(git diff --name-only "$BASE" "$HEAD")
+            if ! printf '%s\n' "$changed" | grep -qvE '^(docs/.*\.md|README\.md)$'; then
               runtime=false
             fi
           fi

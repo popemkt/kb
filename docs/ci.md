@@ -119,8 +119,8 @@ PRs without a paid merge-queue dependency or repository-setting changes.
 
 Sample: the latest 30 repository runs at 15:57 UTC, IDs 41698279061 through
 42247804627, obtained with `gh run list --limit 30 --json ...`, then
-`gh run view <id> --json jobs,attempt` and attempt logs. This includes 21
-Validate and 9 Nightly runs; pending and cancelled jobs are excluded from
+`gh run view <id> --json jobs,attempt` and attempt logs. This includes 20
+Validate and 10 Nightly runs; pending and cancelled jobs are excluded from
 successful-job medians. Start delay is job start minus workflow creation,
 so it includes scheduler/dependency delay, not just runner allocation.
 Durations include setup and cache post-steps. Times are minutes.
@@ -152,7 +152,19 @@ its log endpoint returns 404. No test identity can be inferred from a
 28-minute cancelled job. No available UI log records an assertion failure.
 41795515320 failed core's `the wire protocol > is the version recorded with
 the wire it names` once; this is a version-consistency assertion, not evidence
-of a timing flake. The other failed runs are retained in the baseline sample.
+of a timing flake. 41792737026 failed render's `every design system paints the page it is chosen
+for (dark)` once: the selected swatch was yorha while the root still painted
+transistor after 5 seconds. 41698279061 failed seed-golden and seed-migration
+assertions (11 core tests). Each failure occurred in one of the 20 sampled
+Validate runs; none demonstrates a same-commit assertion failure followed by
+a passing retry. These remain strict failures; root-cause changes to UI are
+outside this pipeline-only change.
+
+Available attempt-1 logs show Nix flake snapshot hits in 17 Ubuntu jobs and
+17 macOS jobs. Both were already warm in the latest successful main run.
+Bun and Chromium had no configured cache, so no hit rate existed. Installer
+cache hits are distinct from flake-store hits. Cancelled/missing logs prevent
+claiming a complete cache denominator.
 No test has been quarantined or retried into green. Manual reruns remain
 visible in GitHub's attempt history. Missing logs are missing evidence,
 not zero failures.
