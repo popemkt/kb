@@ -39,8 +39,11 @@ import {
   declaredOptionId,
   extensionNodeId,
   foldSeed,
+  backdropVariantOptionId,
+  knobFieldId,
   knobSchemaError,
   knobsOf,
+  type Knob,
   type BackdropDirection,
   type BackdropStrength,
   type KbNode,
@@ -364,6 +367,58 @@ describe("every contributed page-head backdrop", () => {
     expect(plain()?.getAttribute("data-budget")).toBe("1");
     useGraphStore.getState().hydrateFromWire(graphWith(pinning("calm")), 1, "fixtures");
     expect(JSON.parse(plain()?.getAttribute("data-knobs") ?? "null")).toEqual({ size: 2 });
+  });
+
+  it("hands its component the knob values its node holds, held to their range, the variant's from the variant's node", () => {
+    const backdropNode = backdropOptionId(PLAIN_KEY.id);
+    const variantNode = backdropVariantOptionId(PLAIN_KEY.id, "loud");
+    const holding = (values: Record<string, KbNode["props"]>): WireNode[] =>
+      graphWith({
+        [SYSTEM_IDS.backdropField]: [choosing(PLAIN_KEY.id)],
+        [SYSTEM_IDS.backdropVariantField]: [{ t: "ref", v: variantNode }],
+      }).map((node) => {
+        const props = values[node.id];
+        return props === undefined ? node : { ...node, props: { ...node.props, ...props } };
+      });
+    const knobs = () =>
+      JSON.parse(slot()?.querySelector("[data-plain]")?.getAttribute("data-knobs") ?? "null");
+    useGraphStore.getState().hydrateFromWire(
+      holding({
+        [backdropNode]: { [knobFieldId(backdropNode, "size")]: [{ t: "num", v: 3.5 }] },
+        [variantNode]: { [knobFieldId(variantNode, "shout")]: [{ t: "bool", v: false }] },
+      }),
+      1,
+      "fixtures",
+    );
+    expect(knobs()).toEqual({ size: 3.5, shout: false });
+    useGraphStore
+      .getState()
+      .hydrateFromWire(
+        holding({ [backdropNode]: { [knobFieldId(backdropNode, "size")]: [{ t: "num", v: 40 }] } }),
+        1,
+        "fixtures",
+      );
+    expect(knobs()).toEqual({ size: 4, shout: true });
+  });
+
+  it("has one field per knob in the seed, configuring the node its values sit on", () => {
+    for (const { value } of backdrops()) {
+      const { key } = value;
+      const holders: [string, readonly Knob[]][] = [
+        [backdropOptionId(key.id), key.knobs ?? []],
+        ...(key.variants ?? []).map((variant): [string, readonly Knob[]] => [
+          backdropVariantOptionId(key.id, variant.id),
+          variant.knobs ?? [],
+        ]),
+      ];
+      for (const [holder, knobs] of holders) {
+        for (const knob of knobs) {
+          const field = SEED.find((node) => node.id === knobFieldId(holder, knob.id));
+          expect(field, `${key.id} ${knob.id}`).toBeDefined();
+          expect(field?.props[SYSTEM_IDS.configuresField]).toEqual([{ t: "ref", v: holder }]);
+        }
+      }
+    }
   });
 
   it("hands its component what the owner is doing: no editing, and the writes the graph has taken", () => {

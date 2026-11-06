@@ -311,6 +311,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
+### GAP: a number knob's range is the declaration's, not data on its field node
+
+- **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.
+- **current** — The range lives on the declared Knob in code. A write accepts any number into a number knob field; knobValues holds it to the range and step when it is read, so the scene never sees it, but the store keeps the out-of-range value.
+- **impact** — kb set reports success for a value the backdrop will not show as written; a reader of the raw store sees a value the knob does not accept.
+- **closes** — Range fields (min, max, step) on number field nodes, read by the write check (valueFormError) and seeded on knob fields by knobFields.
+- **node** — `01M6RVVZTP0BF2364BF8J1BFQB`
+
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.

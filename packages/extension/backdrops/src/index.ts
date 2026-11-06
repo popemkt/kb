@@ -22,3 +22,4 @@ export {
   backdropsExtension,
   backdropsPlugin,
 } from "./extension.ts";
+export { MOVING_KNOBS, SEED_KNOB, SPEED_KNOB } from "./knobs.ts";

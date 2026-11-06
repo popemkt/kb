@@ -4400,9 +4400,53 @@ A PR for a backdrop reports a score against each criterion.
     with an id twice, a default its own knob does not accept (out of its
     range, off its step, none of its options, not `#rrggbb`, a seed that is
     not whole), or a second seed.
-  - **Handed to the scene.** The frame resolves the knobs it shows with
-    the variant drawn and hands their values to the component
-    (`BackdropProps.knobs`), each its default where nothing sets it.
+  - **Values are fields on the backdrop's own node.** The fold derives one
+    field per knob a declared option declares (`SeedOption.knobs`,
+    `knob-fields.ts`), `<option node>.knob.<knob id>`, a child of that
+    option's node: typed by its kind (a number or a seed is `number`, a
+    boolean `checkbox`, a colour `text`, an enum a `ref` to its options,
+    which are the field's children, `<field>.<option id>`), holding one
+    value, and configuring that node (`sys.f.configures`), so its values
+    are a person's to write (DESIGN.md → write protection). A backdrop's
+    values sit on `sys.backdrop.<id>`, a variant's own on
+    `sys.backdrop-variant.<id>.<variant>`. The fold seeds no value: an
+    absent value is the knob's default, and taking it out resets it.
+  - **Read against the knob.** `knobValues` reads each held value as its
+    knob accepts it: a number held to its range and on its step, a colour
+    lower-cased, a seed whole, an enum by its option's ref; anything else
+    reads as the default. A number knob's range is not data on its field,
+    so a write accepts a number outside it, which reads held to the range
+    (GAP [[01M6RVVZTP0BF2364BF8J1BFQB]]).
+  - **Live.** The frame reads them from the backdrop's node and the drawn
+    variant's (`useBackdropKnobs`, live, one object while nothing it reads
+    changes) and hands them to the component (`BackdropProps.knobs`). The
+    GPU host passes them on through `setLook`, which reaches the running
+    scene, so a value written anywhere (the studio, the CLI, an agent)
+    changes every head and card that shows it with no reload. A scene reads
+    its own by the knob itself (`knobValue`), so a default is stated once.
+    A pinned seed is a new composition: the scene mounts again with it.
+  - **Set them from the CLI or an agent.** A knob is a field like any
+    setting:
+
+    ```bash
+    kb set sys.backdrop.backdrops.black-hole sys.backdrop.backdrops.black-hole.knob.speed 1.5
+    kb set sys.backdrop.backdrops.black-hole sys.backdrop.backdrops.black-hole.knob.seed 42
+    kb unset sys.backdrop.backdrops.black-hole sys.backdrop.backdrops.black-hole.knob.speed
+    ```
+
+    An enum knob takes its option's id
+    (`<field>.<option id>`); a variant's own knob is set on the variant's
+    node. Over MCP it is `node.update` with the same node and field (a
+    `{t:"num"}`, `{t:"bool"}`, `{t:"str"}` or `{t:"ref"}` value by the
+    knob's kind), and `kb unset` is its `unset`. A field holds one value,
+    so a second `set` replaces the first.
+  - **Speed and seed.** Every moving backdrop of the backdrops family
+    lists the family's two knobs first (`MOVING_KNOBS`, `@kb/backdrops`):
+    `speed` scales the picture's time, 0 a held frame (`sceneClock`, the one
+    clock both hosts read; the reactions to the owner keep their own time),
+    and `seed` pins the variation its composition is drawn from
+    (`backdropSeed`: a pin holds moving or still). Each is implemented once,
+    by the family's GPU host and its 2D stage.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -4416,8 +4460,10 @@ A PR for a backdrop reports a score against each criterion.
   - Each declares a well-formed knob schema, its variants' with it, and a
     budget within the page head's frame budget (6 ms).
   - The slot hands each its budget and its knobs' values, its drawn
-    variant's with them, and a strength its backdrop declares where nothing
-    chooses one.
+    variant's with them, as their nodes hold them (held to their range),
+    and a strength its backdrop declares where nothing chooses one.
+  - The seed holds one field per knob of each backdrop and each variant,
+    configuring the node its values sit on.
   - The seed holds each backdrop's option, labelled, under the backdrop
     field.
   - The slot shows each backdrop, framed by its presentation, at every
