@@ -570,8 +570,9 @@ describe("every contributed page-head backdrop", () => {
         const drawn = host.querySelector<HTMLElement>("[data-plain]");
         expect(drawn?.closest('[data-motion="reduced"]')).not.toBeNull();
         expect(drawn?.dataset.still).toBe("true");
-        // Core chooses no strength here: the card shows the variant it drew at that variant's own.
-        const strength = drawn?.dataset.variant === "loud" ? "vivid" : "subtle";
+        // Core chooses no strength here: the card shows the variant it drew at that variant's
+        // own, and Calm, which declares none, at its backdrop's.
+        const strength = drawn?.dataset.variant === "loud" ? "vivid" : "soft";
         expect(drawn?.dataset.plain).toBe(
           `var(--primary) ${strength} down ${PLAIN_OPACITY[strength]}`,
         );
