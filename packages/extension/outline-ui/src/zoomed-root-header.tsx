@@ -146,7 +146,7 @@ export function ZoomedRootHeader({
       <div className="relative pl-7 pt-1">
         <PageBackdrop color={washColor ?? "var(--primary)"} node={node} />
 
-        <div className="group/header relative flex min-h-9 items-start justify-between gap-2">
+        <div className="group/header flex min-h-9 items-start justify-between gap-2">
           <EditableTitle node={node} />
           {isSysPrefixed(node.id) && (
             <span
@@ -176,7 +176,7 @@ export function ZoomedRootHeader({
         </div>
 
         {node.tags.length > 0 && (
-          <div className="relative flex items-center gap-1 pb-2">
+          <div className="flex items-center gap-1 pb-2">
             <TagChipGroup
               tags={node.tags}
               onTagClick={(tag, e) => {
@@ -188,12 +188,7 @@ export function ZoomedRootHeader({
         )}
       </div>
 
-      {/* Positioned, as the title and tag rows are: the page-head backdrop's
-          frame is absolute and reaches down here, and an unpositioned row
-          paints under it (its field labels vanished behind the scene). */}
-      <div className="relative">
-        <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
-      </div>
+      <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
     </div>
   );
 }
