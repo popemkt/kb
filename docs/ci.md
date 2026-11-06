@@ -87,23 +87,31 @@ Every main push runs every gate before publication. PRs whose entire diff is
 Markdown under `docs/` or `README.md` run verify (including rule-home audits)
 and generated-doc checks only. All other paths conservatively select all
 suites: shared graph packages, extensions, assets and build configuration can
-all affect browser rendering. Unknown paths select everything. No workflow
-path filter can leave a required workflow pending. Skipped runtime jobs are
+all affect browser rendering. Unknown paths select everything. The final `validate` job is the single required check. It reads every job
+result, accepts skipped runtime jobs only for prose-only PRs, and fails for
+failed or cancelled gates. Skipped runtime jobs are
 intentional only for prose; verify remains unconditional.
 
-Core runs on Ubuntu, freeing a macOS slot for a second render shard. Both
-UI shards and both render shards retain isolated runners and the existing
-per-runner concurrency. Render has no dependency on Nix checks. Five macOS
-jobs fit the account's five slots; concurrent PRs can still queue globally.
+Core and UI run on Ubuntu, leaving three macOS jobs per run: the two
+render shards and the Nix package check. Core passed there in run
+42249947516; UI's first Linux result is recorded in the performance record.
+Each backdrop option is a separate isolated render test. Playwright shards
+individual tests with `fullyParallel: true` and `workers: 1`, keeping the
+per-runner load fixed and avoiding a partition tied to file order.
 Superseded PR runs cancel; publishing is serialized and never cancelled.
 
 The setup action owns Nix installation and dependency setup, including the
-flake-check store snapshot and Bun download cache. Chromium is cached by OS,
+flake-check store snapshot. Chromium is cached by OS,
 architecture and lockfile; installation still runs to verify its presence.
 Dev shells continue to use Nix's binary substituter: a previous snapshot
 experiment took 67 seconds versus 45 seconds to substitute, so restoring a
 large store in every job would slow this pipeline. Cache misses never bypass
-an install, build or test. Cache timings must be reassessed after real runs.
+an install, build or test. Bun downloads remain uncached: a hit plus install took 16.2s versus
+10.3s for an uncached install (saving the cache added 14s). Chromium cache
+hit plus install took 6.5s versus 11s on a miss, so it remains enabled.
+
+The [dated performance record](research/2026-11-06-ci-baseline.md) holds
+baseline and after-run numbers, cache evidence, and the failure audit.
 
 ## Batches
 
@@ -114,60 +122,6 @@ body `Batch:` with the included changes and validation. Avoid merging partial
 stacks one PR at a time: every main merge correctly triggers full validation
 and publication. Unrelated changes remain separate PRs. This uses ordinary
 PRs without a paid merge-queue dependency or repository-setting changes.
-
-## Measurement: 2026-11-06 baseline
-
-Sample: the latest 30 repository runs at 15:57 UTC, IDs 41698279061 through
-42247804627, obtained with `gh run list --limit 30 --json ...`, then
-`gh run view <id> --json jobs,attempt` and attempt logs. This includes 20
-Validate and 10 Nightly runs; pending and cancelled jobs are excluded from
-successful-job medians. Start delay is job start minus workflow creation,
-so it includes scheduler/dependency delay, not just runner allocation.
-Durations include setup and cache post-steps. Times are minutes.
-
-| Job | Successful samples | Median start delay | Median execution | Maximum finish since trigger |
-|---|---:|---:|---:|---:|
-| verify | 20 | 0.05 | 4.95 | 7.15 |
-| nix Ubuntu | 20 | 0.05 | 2.25 | 4.15 |
-| nix macOS | 17 | 0.32 | 6.12 | 23.18 |
-| core | 17 | 0.22 | 5.28 | 20.10 |
-| ui 1/2 | 17 | 0.70 | 7.37 | 18.67 |
-| ui 2/2 | 16 | 0.53 | 6.98 | 24.77 |
-| render | 16 | 0.58 | 13.96 | 23.97 |
-| nightly prepare | 3 | 0.05 | 0.52 | 0.65 |
-| bundle | 3 | 0.60 | 0.68 | 1.52 |
-| smoke macOS | 2 | 1.29 | 2.21 | 3.53 |
-| publish | 2 | 3.54 | 0.23 | 3.80 |
-
-Render is the normal critical path. Main run 42242547817 finished in 24.77
-minutes, with UI 2/2 finishing last after queueing. There was already no
-`needs: nix` on render: runner contention explains the apparent dependency.
-Green-main workflow publication also already existed; the schedule previously
-only pruned. It now retries publication of main through the same green gate.
-`validate-green` accepts only a successful **push on main**, so a selectively
-validated PR can never authorize publication.
-
-Flake audit: 42242587247 attempt 1 records UI 2/2 as cancelled, not failed;
-its log endpoint returns 404. No test identity can be inferred from a
-28-minute cancelled job. No available UI log records an assertion failure.
-41795515320 failed core's `the wire protocol > is the version recorded with
-the wire it names` once; this is a version-consistency assertion, not evidence
-of a timing flake. 41792737026 failed render's `every design system paints the page it is chosen
-for (dark)` once: the selected swatch was yorha while the root still painted
-transistor after 5 seconds. 41698279061 failed seed-golden and seed-migration
-assertions (11 core tests). Each failure occurred in one of the 20 sampled
-Validate runs; none demonstrates a same-commit assertion failure followed by
-a passing retry. These remain strict failures; root-cause changes to UI are
-outside this pipeline-only change.
-
-Available attempt-1 logs show Nix flake snapshot hits in 17 Ubuntu jobs and
-17 macOS jobs. Both were already warm in the latest successful main run.
-Bun and Chromium had no configured cache, so no hit rate existed. Installer
-cache hits are distinct from flake-store hits. Cancelled/missing logs prevent
-claiming a complete cache denominator.
-No test has been quarantined or retried into green. Manual reruns remain
-visible in GitHub's attempt history. Missing logs are missing evidence,
-not zero failures.
 
 ## kb-mutation
 
@@ -197,8 +151,7 @@ gh api -X PUT repos/popemkt/kb/branches/main/protection \
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["nix (macos-15)", "nix (ubuntu-24.04)", "verify", "core",
-                 "ui (1/2)", "ui (2/2)", "render (1/2)", "render (2/2)"]
+    "contexts": ["validate"]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": null,

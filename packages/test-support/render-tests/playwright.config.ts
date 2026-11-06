@@ -15,7 +15,8 @@ const chromiumGpuArgs = [
 export default defineConfig({
   testDir: "./tests-render",
   testMatch: "**/*.e2e.ts",
-  fullyParallel: false,
+  fullyParallel: true,
+  workers: 1,
   forbidOnly: process.env.CI !== undefined && process.env.CI !== "",
   // A retry would hide exactly the order and timing faults this suite exists
   // to surface; a flaky spec is fixed, never retried into green.

@@ -3,7 +3,7 @@ description: >-
   Nix with the flake's dev shell and, unless turned off, the workspace's
   dependencies. With `flake-store`, the Nix store `nix flake check` builds is
   restored from, and saved to, the Actions cache. The one setup every
-  Validate job shares.
+  validation and release job shares.
 
 inputs:
   flake-store:
@@ -15,6 +15,9 @@ inputs:
     description: Run `bun install --frozen-lockfile`.
     default: "true"
 
+# Bun cache restore measured 12.5s plus 3.7s install, versus 10.3s without
+# the cache (and 14s to save). Keep downloads uncached. Dev-shell snapshots
+# measured 67s to restore versus 45s to substitute from cache.nixos.org.
 runs:
   using: composite
   steps:
@@ -34,14 +37,6 @@ runs:
       with:
         primary-key: nix-flake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}-${{ hashFiles('bun.nix', 'nix/**') }}
         restore-prefixes-first-match: nix-flake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}-
-
-    - name: Cache Bun downloads
-      if: inputs.install == 'true'
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-      with:
-        path: ~/.bun/install/cache
-        key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-${{ hashFiles('bun.lock') }}
-        restore-keys: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-
 
     - name: Install dependencies
       if: inputs.install == 'true'
