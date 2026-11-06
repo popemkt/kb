@@ -177,6 +177,18 @@ export {
   type BackdropStrength,
 } from "./backdrop.ts";
 export {
+  knobDefaults,
+  knobNumber,
+  type BooleanKnob,
+  type EnumKnob,
+  type Knob,
+  type KnobKind,
+  type KnobOption,
+  type KnobValue,
+  type KnobValues,
+  type NumberKnob,
+} from "./knob.ts";
+export {
   MAX_BACKDROP_GLYPHS,
   OWN_ART,
   backdropArtOf,

@@ -13,6 +13,7 @@
  * set against a matcap painted from the same palette), occlusion on and off,
  * and the key's angle.
  */
+import type { KnobValue } from "@kb/model";
 import {
   Group,
   Mesh,
@@ -23,7 +24,7 @@ import {
   type Material,
 } from "three/webgpu";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import type { LabControlValue, LabSceneInit, LabScene } from "../kit/contract";
+import type { LabSceneInit, LabScene } from "../kit/contract";
 import type { ScenePalette } from "@kb/scene";
 import {
   createRig,
@@ -141,7 +142,7 @@ function light(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
       pan.frame(dt, context.reduced());
       turn.rotation.y = pan.pan.yaw;
     },
-    setControl: (id, value: LabControlValue) => {
+    setControl: (id, value: KnobValue) => {
       if (id === "tone" && (value === "agx" || value === "aces" || value === "none")) {
         stage.setToneMapping(value satisfies SceneToneMapping);
       }

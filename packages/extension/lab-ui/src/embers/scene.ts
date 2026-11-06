@@ -25,9 +25,10 @@
  * lab's backdrop pools warm light and rises as heat haze, and ash drifts
  * through the air (`ash.ts`). On arrival the cloud grows out from its core.
  */
+import type { KnobValue } from "@kb/model";
 import { PointLight, SphereGeometry, Vector3 } from "three/webgpu";
 import { float, instanceIndex, length, uniform } from "three/tsl";
-import type { LabControlValue, LabSceneInit, LabScene } from "../kit/contract";
+import type { LabSceneInit, LabScene } from "../kit/contract";
 import { createRig, PointerField, type SceneStage } from "@kb/scene-gpu";
 import { Entrance } from "../kit/entrance";
 import { seededRandom } from "../kit/seeded";
@@ -157,7 +158,7 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
       core.position.copy(u.center.value);
       void stage.renderer.compute(sim.passes);
     },
-    setControl: (id, value: LabControlValue) => {
+    setControl: (id, value: KnobValue) => {
       if (id === "look" && isEmberLook(value)) void looks.show(value);
       if (typeof value !== "number") return;
       if (id === "gain") u.gain.value = value;
