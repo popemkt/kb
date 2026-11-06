@@ -15,14 +15,6 @@ inputs:
     description: Run `bun install --frozen-lockfile`.
     default: "true"
 
-# Only the flake check's store is cached, because only it pays. Measured on
-# this repository's runners: the dev shell alone substitutes from
-# cache.nixos.org in about 45 s on macOS, and restoring it from the Actions
-# cache took 67 s (most of it untarring 0.5 GB into /nix); Bun's package
-# cache restored in 13 s for an install that takes 2 to 8 s without it. The
-# flake check builds one derivation per npm package, about 3,700, none of
-# them substitutable: 410 s on macOS without the snapshot, 19 s with it,
-# after a restore of about 100 s.
 runs:
   using: composite
   steps:
@@ -42,6 +34,14 @@ runs:
       with:
         primary-key: nix-flake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}-${{ hashFiles('bun.nix', 'nix/**') }}
         restore-prefixes-first-match: nix-flake-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}-
+
+    - name: Cache Bun downloads
+      if: inputs.install == 'true'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-${{ hashFiles('bun.lock') }}
+        restore-keys: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-
 
     - name: Install dependencies
       if: inputs.install == 'true'

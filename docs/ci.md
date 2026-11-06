@@ -8,7 +8,7 @@ release it.
 | `validate.yml` | PR, push to `main` | Is the repo green? |
 | `kb-mutation.yml` | Weekly (Mon 04:00 UTC, incremental), monthly (full), manual | Which mutants does the test suite fail to kill? |
 | `release.yml` (Release) | Manual with a bump, or a hand-pushed `v<major.minor.patch>` tag | Cut a stable release: version, CHANGELOG, commit and tag, then publish |
-| `nightly.yml` (Nightly) | Validate green on a push to `main`, manual; daily 03:00 UTC prunes only | Publish that commit as a `-nightly.<UTC YYYYMMDDHHMMSS>` prerelease, unless a nightly holds it |
+| `nightly.yml` (Nightly) | Validate green on a push to `main`, manual; daily 03:00 UTC retries green main and prunes | Publish that commit as a `-nightly.<UTC YYYYMMDDHHMMSS>` prerelease, unless a nightly holds it |
 | `publish.yml` (Publish) | Called by Release and Nightly only | Build, smoke-test, attest and publish one release |
 
 `validate.yml` is the single answer to "does this change land". Its jobs run
@@ -26,7 +26,7 @@ the pre-commit hook and `packages.kb` use — are the flake's.
 - **`core`** — `bun run test` and `bun run test:dst`.
 - **`ui (1/2)`, `ui (2/2)`** — `bun run test:ui`, each shard half of every
   browser package's files.
-- **`render`** — `bun run test:render`.
+- **`render (1/2)`, `render (2/2)`** — `bun run test:render`, split by file.
 
 ## Pre-commit: the same questions, one commit earlier
 
@@ -81,54 +81,81 @@ workflows.
 A fresh clone without `bun install` fails the hook with the command to run,
 rather than passing on checks it could not make.
 
-## Why the jobs look the way they do
+## Scheduling and selection
 
-- **One job per question, sharded where one is slow.** Before the split the
-  suites ran one after another in a single job, about 18 minutes; now the
-  longest job is the render suite. The UI suite, the slowest, is sharded
-  across two runners rather than parallelised on one: Vitest already forks a
-  worker per core within a package, and the suite has gone red under load
-  before (the timing gaps in `docs/rules.md`), so each shard keeps the load
-  a single run had. `test:ui` still runs one package at a time
-  (`--parallel=1`), and the shard is Vitest's own `--shard`, passed through
-  nx to each package.
-- **Five macOS jobs, no more.** An account runs at most five macOS jobs at
-  once: `nix (macos-15)`, `core`, the two UI shards and `render`. A sixth would
-  wait for one of Validate's own to finish, which is why the render suite,
-  shorter than the UI suite, stays one job.
-- **Only the flake check's store is cached.** The macOS `nix flake check`
-  builds one derivation per npm package, about 3,700, none of them
-  substitutable: about seven minutes. `nix-community/cache-nix-action`
-  restores them from the repository's Actions cache, no secret involved, and
-  only kb itself builds. The dev shell and Bun's package cache are not
-  cached, because measured they do not pay: the dev shell substitutes from
-  cache.nixos.org faster than its snapshot untars, and `bun install` takes
-  seconds. The setup action states the numbers.
-- **It calls `bun run verify`, not its constituent tools.** `verify` is the one
-  name for the complete toolchain gate; what it runs is its definition in
-  `package.json`, and is stated nowhere else.
-- **`verify` checks out the full history.** The harness's warn ratchet holds
-  the committed baseline to the one at the fork point with `main` (on `main`
-  itself, the previous commit), so a regenerated snapshot cannot raise it; a
-  shallow clone has no fork point to read. No other job reads history.
-- **The render suite runs, with no retries.** `bun run test:render` builds the
-  UI in Vite's `test-render` mode and gives every test its own server over a
-  fresh fixture store (`tests-render/harness-test.ts`), so no test can see
-  another's writes. It runs Chromium's new headless mode with WebGPU enabled.
-  Each spec that draws a scene asserts the backend it expects: WebGPU where
-  Chromium offers an adapter, WebGL2 where it does not, so a silent fall back
-  is red. The WebGPU-only specs (the Embers study) skip on a runner with no
-  adapter, each under the gap that names that lane.
-- **The suites run on `macos-15`, not `ubuntu-latest`.** They have only ever
-  run on Darwin. Linux would be faster and cheaper, but a first-ever Linux run
-  would mix real regressions with portability noise. Moving them is a
-  worthwhile follow-up on its own. The package build already runs on Linux,
-  in the `nix` job, and `verify` runs there: it is static analysis, and the
-  pre-commit hook runs it on Linux checkouts for every commit. That also
-  keeps it out of the five macOS slots.
-- **The DST sweep runs 25 extra seeds.** `bun test` already runs the committed
-  seeds; the sweep is the only thing that exercises replay determinism on
-  seeds nobody has looked at. It is pure and in-memory, so it is nearly free.
+Every main push runs every gate before publication. PRs whose entire diff is
+Markdown under `docs/` or `README.md` run verify (including rule-home audits)
+and generated-doc checks only. All other paths conservatively select all
+suites: shared graph packages, extensions, assets and build configuration can
+all affect browser rendering. Unknown paths select everything. No workflow
+path filter can leave a required workflow pending. Skipped runtime jobs are
+intentional only for prose; verify remains unconditional.
+
+Core runs on Ubuntu, freeing a macOS slot for a second render shard. Both
+UI shards and both render shards retain isolated runners and the existing
+per-runner concurrency. Render has no dependency on Nix checks. Five macOS
+jobs fit the account's five slots; concurrent PRs can still queue globally.
+Superseded PR runs cancel; publishing is serialized and never cancelled.
+
+The setup action owns Nix installation and dependency setup, including the
+flake-check store snapshot and Bun download cache. Chromium is cached by OS,
+architecture and lockfile; installation still runs to verify its presence.
+Dev shells continue to use Nix's binary substituter: a previous snapshot
+experiment took 67 seconds versus 45 seconds to substitute, so restoring a
+large store in every job would slow this pipeline. Cache misses never bypass
+an install, build or test. Cache timings must be reassessed after real runs.
+
+## Batches
+
+Use one PR per related, reviewable batch, with separate commits for structural
+refactors and behavior additions (Rule 1). Agents stack work on that batch
+branch, run local admission, then push a completed batch together. Mark its
+body `Batch:` with the included changes and validation. Avoid merging partial
+stacks one PR at a time: every main merge correctly triggers full validation
+and publication. Unrelated changes remain separate PRs. This uses ordinary
+PRs without a paid merge-queue dependency or repository-setting changes.
+
+## Measurement: 2026-11-06 baseline
+
+Sample: the latest 30 repository runs at 15:57 UTC, IDs 41698279061 through
+42247804627, obtained with `gh run list --limit 30 --json ...`, then
+`gh run view <id> --json jobs,attempt` and attempt logs. This includes 21
+Validate and 9 Nightly runs; pending and cancelled jobs are excluded from
+successful-job medians. Start delay is job start minus workflow creation,
+so it includes scheduler/dependency delay, not just runner allocation.
+Durations include setup and cache post-steps. Times are minutes.
+
+| Job | Successful samples | Median start delay | Median execution | Maximum finish since trigger |
+|---|---:|---:|---:|---:|
+| verify | 20 | 0.05 | 4.95 | 7.15 |
+| nix Ubuntu | 20 | 0.05 | 2.25 | 4.15 |
+| nix macOS | 17 | 0.32 | 6.12 | 23.18 |
+| core | 17 | 0.22 | 5.28 | 20.10 |
+| ui 1/2 | 17 | 0.70 | 7.37 | 18.67 |
+| ui 2/2 | 16 | 0.53 | 6.98 | 24.77 |
+| render | 16 | 0.58 | 13.96 | 23.97 |
+| nightly prepare | 3 | 0.05 | 0.52 | 0.65 |
+| bundle | 3 | 0.60 | 0.68 | 1.52 |
+| smoke macOS | 2 | 1.29 | 2.21 | 3.53 |
+| publish | 2 | 3.54 | 0.23 | 3.80 |
+
+Render is the normal critical path. Main run 42242547817 finished in 24.77
+minutes, with UI 2/2 finishing last after queueing. There was already no
+`needs: nix` on render: runner contention explains the apparent dependency.
+Green-main workflow publication also already existed; the schedule previously
+only pruned. It now retries publication of main through the same green gate.
+`validate-green` accepts only a successful **push on main**, so a selectively
+validated PR can never authorize publication.
+
+Flake audit: 42242587247 attempt 1 records UI 2/2 as cancelled, not failed;
+its log endpoint returns 404. No test identity can be inferred from a
+28-minute cancelled job. No available UI log records an assertion failure.
+41795515320 failed core's `the wire protocol > is the version recorded with
+the wire it names` once; this is a version-consistency assertion, not evidence
+of a timing flake. The other failed runs are retained in the baseline sample.
+No test has been quarantined or retried into green. Manual reruns remain
+visible in GitHub's attempt history. Missing logs are missing evidence,
+not zero failures.
 
 ## kb-mutation
 
@@ -159,7 +186,7 @@ gh api -X PUT repos/popemkt/kb/branches/main/protection \
   "required_status_checks": {
     "strict": true,
     "contexts": ["nix (macos-15)", "nix (ubuntu-24.04)", "verify", "core",
-                 "ui (1/2)", "ui (2/2)", "render"]
+                 "ui (1/2)", "ui (2/2)", "render (1/2)", "render (2/2)"]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": null,

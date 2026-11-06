@@ -18,7 +18,7 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
-  # Retention is by age, so pruning runs daily whether or not anything merged.
+  # Retention is by age, so pruning runs daily whether or not anything merged; also retries publication of green main.
   schedule:
     - cron: "0 3 * * *"
 
@@ -38,7 +38,7 @@ jobs:
     # A Validate run on main's push that passed, not one on a pull request
     # from a branch that happens to be called main.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.conclusion == 'success')
@@ -116,7 +116,7 @@ jobs:
       prerelease: true
       notes-since: ${{ needs.prepare.outputs.since }}
 
-  # Runs whether or not a nightly was published, and alone on the schedule.
+  # Runs whether or not a nightly was published, including on the schedule.
   prune:
     needs: publish
     if: ${{ !cancelled() }}
