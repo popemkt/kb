@@ -19,7 +19,8 @@
  *   same without typing's share) in its frame. A scene is mounted once for
  *   its head: its clock (`clock`) only moves forward.
  * - **Its cost.** The frame-cost meter (`../scene/meter`) over the GPU's own
- *   time where the backend reports it (`gpuMs`), else over the frame
+ *   time where the backend reports it (`gpuMs`), against the budget its
+ *   contribution declares (`Backdrop.budget`), else over the frame
  *   interval; over budget, quality steps down and the backdrop spends less.
  *   The canvas carries what it measured (`data-gpu-ms`, `data-quality`) and
  *   its clock (`data-clock`).
@@ -30,7 +31,7 @@
 import type { BackdropDirection } from "@kb/model";
 import type { SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, type SceneStage, type StageOptions, type TslNode } from "@kb/scene-gpu";
-import type { PointerSource, Timing } from "@kb/ui-sdk";
+import type { BackdropBudget, PointerSource, Timing } from "@kb/ui-sdk";
 import { meterOf } from "../scene/meter";
 import { startReactions, type PageEventKind, type Reactions } from "../scene/reactions";
 import { anchorIn, framingAt, type Anchor, type Composition, type ContentBox } from "./framing";
@@ -56,6 +57,8 @@ export interface GpuBackdropInit extends GpuLook {
   readonly pointer: PointerSource;
   /** Where the head's content lies across the frame as it mounts. */
   readonly content: ContentBox;
+  /** GPU time it may take a frame (`Backdrop.budget`). */
+  readonly budget: BackdropBudget;
 }
 
 /** A mounted GPU backdrop, as its React host drives it. */
@@ -146,8 +149,6 @@ export type BackdropStageOptions = Pick<
 /** How the frame's sides, top and bottom fade into the page's ground (shares of the frame). */
 const FRAME_FEATHER = { sides: 0.12, top: 0.08, bottom: 0.5 } as const;
 
-/** GPU time a backdrop may take per frame (ms): a third of a 60 Hz frame, the rest is the page's. */
-const GPU_BUDGET_MS = 6;
 /** Without GPU time, a frame interval past this (ms) means the page is paying. */
 const INTERVAL_BUDGET_MS = 1000 / 48;
 const MIN_QUALITY = 0.4;
@@ -176,7 +177,7 @@ export async function mountBackdrop(
   build: (stage: SceneStage, init: GpuBackdropInit) => BackdropParts,
 ): Promise<GpuBackdropScene> {
   const reactions = startReactions();
-  const gpuMeter = meterOf(GPU_BUDGET_MS);
+  const gpuMeter = meterOf(init.budget.frameMs);
   const intervalMeter = meterOf(INTERVAL_BUDGET_MS);
   let look: GpuLook = init;
   let width = 0;

@@ -107,6 +107,8 @@ export {
   THEME_GESTURE_MAX_MS,
   type ThemeArtPlane,
   type BackdropPresentation,
+  BACKDROP_BUDGETS,
+  type BackdropBudget,
   type BackdropProps,
   type PageActivity,
   type PageEvents,

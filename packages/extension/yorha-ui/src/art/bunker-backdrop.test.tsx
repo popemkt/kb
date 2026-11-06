@@ -2,7 +2,12 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { QUIET_ACTIVITY, type BackdropProps, type PageActivity } from "@kb/ui-sdk";
+import {
+  BACKDROP_BUDGETS,
+  QUIET_ACTIVITY,
+  type BackdropProps,
+  type PageActivity,
+} from "@kb/ui-sdk";
 import { BunkerBackdrop } from "./bunker-backdrop";
 
 beforeAll(() => {
@@ -22,6 +27,8 @@ function props(activity: PageActivity): BackdropProps {
     opacity: 0.7,
     activity,
     pointer: { now: () => null },
+    knobs: {},
+    budget: BACKDROP_BUDGETS.dom,
   };
 }
 
