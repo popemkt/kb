@@ -10,6 +10,8 @@
  *
  * Pure, so the layout and the drift are tested without a GPU.
  */
+import { ORBS_GLOW_KNOB, ORBS_HUE_KNOB, ORBS_SIZE_KNOB } from "@kb/backdrops";
+import { knobValue, type KnobValues } from "@kb/model";
 import type { Rng } from "../scene/rng";
 import { TAU } from "../scene/math";
 
@@ -87,6 +89,33 @@ export function layoutOrbs(rng: Rng): readonly Orb[] {
     },
   ];
 }
+
+/**
+ * What the owner's knobs set (DESIGN-UI.md → Page-head backdrops → Knobs):
+ * how far the hue is turned past the load's own (radians), how large the
+ * orbs are against their layout, and how brightly they glow at rest.
+ */
+export interface OrbsLook {
+  readonly hue: number;
+  readonly size: number;
+  readonly glow: number;
+}
+
+export function orbsLook(knobs: KnobValues): OrbsLook {
+  return {
+    hue: (knobValue(knobs, ORBS_HUE_KNOB) * Math.PI) / 180,
+    size: knobValue(knobs, ORBS_SIZE_KNOB),
+    glow: knobValue(knobs, ORBS_GLOW_KNOB),
+  };
+}
+
+/** The orbs at `size` of their layout's: each where it rests, its radius and its glow's reach scaled alike. */
+export function sizedOrbs(orbs: readonly Orb[], size: number): readonly Orb[] {
+  return orbs.map((orb) => ({ ...orb, r: orb.r * size, halo: orb.halo * size }));
+}
+
+/** How bright the orbs' glow is: the owner's level, lifted by their writes (`impulse`, 0–1). */
+export const glowAt = (level: number, impulse: number): number => level * (1 + 0.6 * impulse);
 
 /** Where the composition puts its centre, how large the whole is, and how far the eye has moved off it. */
 export interface OrbFrame {

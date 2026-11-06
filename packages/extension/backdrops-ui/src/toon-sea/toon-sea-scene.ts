@@ -10,6 +10,9 @@
  * glints, as many and as bright as it is high. Nothing is ever restarted:
  * the rings run on one clock that only runs forward, and the activity only
  * scales them.
+ *
+ * Its knobs (`toon-sea-tuning.ts`), live: the swell's height, how high the
+ * cumulus towers, and how much foam breaks.
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
@@ -24,6 +27,7 @@ import {
   groundsOf,
 } from "../gpu/gpu-scene";
 import { SPLASHES, seaFrame, skyFragment, toonSeaUniforms } from "./toon-sea-shader";
+import { toonSeaTuning } from "./toon-sea-tuning";
 
 /** The horizon, as a share of the frame's height from its bottom. */
 const HORIZON = 0.6;
@@ -81,6 +85,10 @@ function toonSea(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       return anchor;
     },
     setLook: (look: GpuLook) => {
+      const tuned = toonSeaTuning(look.knobs);
+      u.swell.value = tuned.swell;
+      u.clouds.value = tuned.clouds;
+      u.foam.value = tuned.foam;
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.22 : 0.12);
       sinceSky = Infinity;

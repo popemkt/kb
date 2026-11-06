@@ -5,7 +5,7 @@
  * out, advance by `dt`, paint. Sky and Roost differ in layout, actors and
  * behaviour, and in nothing else.
  */
-import type { BackdropDirection, BackdropStrength } from "@kb/model";
+import type { BackdropDirection, BackdropStrength, KnobValues } from "@kb/model";
 import type { ScenePalette } from "./palette.ts";
 import type { Reactions } from "./reactions.ts";
 
@@ -21,6 +21,8 @@ export interface SceneConfig {
   /** How present the scene is, 0..1: the head's opacity at this strength, folded into the feather. */
   readonly presence: number;
   readonly palette: ScenePalette;
+  /** Its own knobs' values (the stage's speed and seed are not among them): read each by the knob (`knobValue`). */
+  readonly knobs: KnobValues;
   /** 1 at full detail; the stage lowers it when frames run over budget. */
   readonly quality: number;
 }

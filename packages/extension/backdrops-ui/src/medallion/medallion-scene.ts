@@ -40,7 +40,7 @@ import { textScrim } from "../gpu/text-scrim";
 import { OWN_ART, type BackdropGlyph } from "@kb/model";
 import { loadBackdropArt } from "../gpu/art";
 import { glyphAtlas, type GlyphAtlas, type GlyphPaint } from "../gpu/glyph-atlas";
-import { RUNES, TURN_SECONDS, swingOn, type Swing } from "./medallion";
+import { RUNES, TURN_SECONDS, medallionLook, swingOn, type Swing } from "./medallion";
 import { medallionFrame, medallionUniforms } from "./medallion-shader";
 import { SIGIL_BAIL, bakedRelief, loadReliefArt, type BakedRelief, type ReliefArt } from "./relief";
 
@@ -208,6 +208,10 @@ function wolfMedallion(stage: SceneStage, init: GpuBackdropInit): BackdropParts 
     ready,
     setLook: (look: GpuLook) => {
       void chosen.choose(look.art);
+      const own = medallionLook(look.knobs);
+      u.emberCut.value = own.emberCut;
+      u.smoke.value = own.smoke;
+      u.circle.value = own.glyphs;
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.35 : 0);
     },

@@ -64,6 +64,7 @@ import type { Grounds } from "../gpu/gpu-scene";
 import { darkGrade } from "../gpu/dark-grade";
 import { textScrim } from "../gpu/text-scrim";
 import { fbm4, hash, hash2, pnoise } from "../gpu/noise";
+import { toonSeaTuning } from "./toon-sea-tuning";
 
 type F = TslNode<"float">;
 type V2 = TslNode<"vec2">;
@@ -74,6 +75,7 @@ export const SPLASHES = 3;
 
 /** Everything the CPU sets: one set of uniforms both passes read. */
 export function toonSeaUniforms() {
+  const tuned = toonSeaTuning({});
   return {
     time: uniform(30),
     dark: uniform(1),
@@ -95,6 +97,13 @@ export function toonSeaUniforms() {
     size: uniform(new Vector2(1280, 360)),
     /** The head's text block, to keep the glints out from under it and lay a scrim there. */
     scrim: textScrim(),
+    // The sea's knobs (`toonSeaTuning`).
+    /** The swell's amplitude, scaled. */
+    swell: uniform(tuned.swell),
+    /** The cumulus bank's towers, scaled. */
+    clouds: uniform(tuned.clouds),
+    /** Added to the foam's thresholds: below 0, more foam breaks. */
+    foam: uniform(tuned.foam),
   };
 }
 export type ToonSeaUniforms = ReturnType<typeof toonSeaUniforms>;
@@ -145,7 +154,7 @@ const bump = (x: F, centre: F | number, width: number): F =>
 function puffTopOf(u: ToonSeaUniforms) {
   const fn = Fn(([x]: readonly [F]) => {
     const ar = u.aspect;
-    const k = clamp(ar.div(2.4), 0.6, 1);
+    const k = clamp(ar.div(2.4), 0.6, 1).mul(u.clouds);
     const roll = gnoise(vec2(x.mul(1.3), 1.7))
       .mul(0.65)
       .add(gnoise(vec2(x.mul(2.9), 4.1)).mul(0.35));
@@ -498,7 +507,7 @@ function star(f: V2, s: number): F {
 /** The swell at `wp`: five peaked waves filtered by the pixel's footprint `fp`, and the fine normal near us. */
 function swell(u: ToonSeaUniforms, wp: V2, fp: F) {
   const t = u.time;
-  const amp = float(1).sub(u.calm.mul(0.55));
+  const amp = float(1).sub(u.calm.mul(0.55)).mul(u.swell);
   let h: F = float(0);
   let grad: V2 = vec2(0, 0);
   let crest: F = float(1);
@@ -623,8 +632,8 @@ function foamOn(
       .mul(0.3),
   );
   const farFade = float(1).sub(smoothstep(0.02, 0.09, fp));
-  const foam = aastep(u.calm.mul(0.1).add(0.42), cap).mul(farFade);
-  const trail = aastep(0.33, cap)
+  const foam = aastep(u.calm.mul(0.1).add(0.42).add(u.foam), cap).mul(farFade);
+  const trail = aastep(u.foam.add(0.33), cap)
     .mul(float(1).sub(foam))
     .mul(farFade)
     .mul(smoothstep(0.45, 0.7, gnoise(wp.mul(vec2(1.3, 3)).add(5))));

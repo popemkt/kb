@@ -21,11 +21,16 @@
  *
  * Pure, so the layout and the curve are tested without a GPU.
  */
+import { TRAILS_FAN_KNOB, TRAILS_KNOT_KNOB, TRAILS_STRANDS_KNOB } from "@kb/backdrops";
+import { knobValue, type KnobValues } from "@kb/model";
 import type { Rng } from "../scene/rng";
 import { TAU } from "../scene/math";
 
-/** How many strands the shader reads: near hairlines, mid strands and far sheens. */
-export const STRANDS = 25;
+/**
+ * How many strands the shader reads: near hairlines, mid strands and far
+ * sheens. The most the owner's strands knob shows, so it is that knob's.
+ */
+export const STRANDS = TRAILS_STRANDS_KNOB.max;
 const NEAR = 12;
 const MID = 9;
 
@@ -139,4 +144,40 @@ export function strandAt(strand: Strand, u: number, t: number): number {
     strand.fan * spread(u) +
     amp * Math.sin(freq * u + phase + t * speed)
   );
+}
+
+/**
+ * What the owner's knobs set (DESIGN-UI.md → Page-head backdrops → Knobs):
+ * how many strands are shown (`strandsShown`), how far they fan against
+ * their layout's fan, and how bright the knot burns against its own.
+ */
+export interface TrailsLook {
+  readonly strands: number;
+  readonly fan: number;
+  readonly knot: number;
+}
+
+export function trailsLook(knobs: KnobValues): TrailsLook {
+  return {
+    strands: knobValue(knobs, TRAILS_STRANDS_KNOB),
+    fan: knobValue(knobs, TRAILS_FAN_KNOB),
+    knot: knobValue(knobs, TRAILS_KNOT_KNOB),
+  };
+}
+
+/** The golden ratio's fraction: stepping by it spreads any run of indices evenly over [0, 1). */
+const GOLDEN = (Math.sqrt(5) - 1) / 2;
+
+/**
+ * Which strands show when `count` of them do: each strand's place in a
+ * low-discrepancy order over the layout's indices (near, mid and far lie in
+ * runs of them), so the bundle thins evenly through every depth, and a
+ * strand shown at a count is shown at every count above it.
+ */
+export function strandsShown(count: number): readonly boolean[] {
+  const order = Array.from({ length: STRANDS }, (_, i) => i).toSorted(
+    (a, b) => ((a * GOLDEN) % 1) - ((b * GOLDEN) % 1),
+  );
+  const rank = new Map(order.map((i, place) => [i, place]));
+  return Array.from({ length: STRANDS }, (_, i) => (rank.get(i) ?? STRANDS) < count);
 }

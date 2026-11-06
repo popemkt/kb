@@ -7,26 +7,18 @@
  * that lowers detail before a busy page feels the scene. It knows nothing of
  * bats, and a composition (`composition.ts`) knows nothing of the clock.
  */
-import type { BackdropDirection, BackdropStrength } from "@kb/model";
 import type { PointerSource } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback.ts";
 import type { Composition, SceneConfig } from "./composition.ts";
 import { clamp } from "./math.ts";
 import { sceneClock } from "./clock.ts";
+import { sameLook, type Look } from "./look.ts";
 import { meterOf } from "./meter.ts";
-import type { ScenePalette } from "./palette.ts";
 import { startReactions, type Reactions } from "./reactions.ts";
-
-/** What the page tells the stage about how to paint. */
-export interface Look {
-  readonly palette: ScenePalette;
-  readonly direction: BackdropDirection;
-  readonly strength: BackdropStrength;
-  readonly presence: number;
-}
 
 export interface Stage {
   readonly reactions: Reactions;
+  /** What the page says now (`look.ts`): laid out again only where it differs from the look drawn. */
   readonly look: (look: Look) => void;
   /** The owner's speed (the speed knob): the picture's time scaled, the reactions' kept. */
   readonly setSpeed: (speed: number) => void;
@@ -140,6 +132,7 @@ export function createStage(
   return {
     reactions,
     look: (look) => {
+      if (sameLook(current, look)) return;
       current = look;
       configure();
     },

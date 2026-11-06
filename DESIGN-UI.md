@@ -4447,6 +4447,18 @@ A PR for a backdrop reports a score against each criterion.
     and `seed` pins the variation its composition is drawn from
     (`backdropSeed`: a pin holds moving or still). Each is implemented once,
     by the family's GPU host and its 2D stage.
+  - **Each its own.** After those two, each moving backdrop declares the
+    knobs of its own picture (`packages/extension/backdrops/src/knobs/`):
+    what its art direction lets vary, a lens's star mass, a sea's wave
+    height, a sky's flock. A backdrop's knobs at their defaults draw it as
+    it was drawn before it had any, and none raises what a frame does
+    beyond that (no more steps, samples or instances than its default
+    draws), so its budget holds across its range. A scene reads its knobs
+    where it reads the rest of its look: a GPU scene in its `setLook` (a
+    uniform or a value its frame reads, never a new shader), a 2D scene's
+    composition in `configure` (`SceneConfig.knobs`, the backdrop's values
+    but speed and seed, which the stage keeps), so a change lays the scene
+    out again as a resize does and a look equal to the one drawn does not.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the

@@ -59,6 +59,7 @@ import { Vector2 } from "three/webgpu";
 import type { OffscreenInputs, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
 import { blackbody, fbm4, pnoise } from "../gpu/noise";
+import { gargantuaTuning } from "./hole-tuning";
 import { starsOf } from "./stars";
 
 type F = TslNode<"float">;
@@ -75,6 +76,7 @@ const DISTANCE = 40;
 const ROLL = -0.06;
 
 export function blackHoleUniforms() {
+  const tuned = gargantuaTuning({});
   return {
     time: uniform(0),
     dark: uniform(1),
@@ -95,6 +97,11 @@ export function blackHoleUniforms() {
     pulse: uniform(0),
     flarePhase: uniform(0),
     calm: uniform(0),
+    // The look's knobs (`gargantuaTuning`).
+    /** How much of the Doppler factor's cube the gas's light takes. */
+    beaming: uniform(tuned.beaming),
+    /** The gas's temperature, scaled. */
+    heat: uniform(tuned.heat),
   };
 }
 export type BlackHoleUniforms = ReturnType<typeof blackHoleUniforms>;
@@ -233,14 +240,14 @@ function throughSlab({
       const g = sqrt(float(1).sub(dot(velocity, velocity)))
         .div(float(1).sub(dot(velocity, toward)))
         .mul(sqrt(float(1).sub(float(1).div(cr))));
-      const beam = mix(1, g.mul(g).mul(g), 0.75);
+      const beam = mix(1, g.mul(g).mul(g), u.beaming);
       const angle = u.flarePhase.add(omega(float(5)).mul(u.time));
       const toFlare = vec2(c.x, c.z).sub(vec2(cos(angle), sin(angle)).mul(5));
       const flare = vec3(1, 0.85, 0.65)
         .mul(exp(dot(toFlare, toFlare).mul(-1.4)))
         .mul(u.flare)
         .mul(7);
-      const emitted = blackbody(heat.mul(g).mul(2.7).add(1.5))
+      const emitted = blackbody(heat.mul(g).mul(2.7).add(1.5).mul(u.heat))
         .mul(pow(heat, 3.5).mul(2.1).add(0.05))
         .add(flare)
         .mul(beam)

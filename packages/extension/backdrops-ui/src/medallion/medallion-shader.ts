@@ -188,6 +188,14 @@ export function medallionUniforms(field: FarField, glyphs: GlyphAtlas) {
     glow: uniform(0.2),
     /** The colour of what happened, which the eyes and the halo take. */
     tint: uniform(new Vector3(1, 0.55, 0.2)),
+    /**
+     * The owner's knobs, as the scene sets them from the look before its
+     * first frame (`medallionLook`): the hash an ember cell must pass to
+     * hold a spark, the smoke's thickness, and how present the circle is.
+     */
+    emberCut: uniform(1),
+    smoke: uniform(1),
+    circle: uniform(1),
   };
 }
 export type MedallionUniforms = ReturnType<typeof medallionUniforms>;
@@ -196,12 +204,13 @@ export type MedallionUniforms = ReturnType<typeof medallionUniforms>;
 type Standing = (centre: V2, own: F) => F;
 
 /**
- * Sparks rising on a grid of `cells` per frame height at `speed`: their
- * light at `p`, each spark as present as `standing` says of it, whole.
+ * Sparks rising on a grid of `cells` per frame height at `speed`, in the
+ * cells whose hash passes `cut`: their light at `p`, each spark as present
+ * as `standing` says of it, whole.
  */
 function embers(
   p: V2,
-  time: F,
+  { time, cut }: { readonly time: F; readonly cut: F },
   [cells, speed, seed]: readonly [number, number, number],
   standing: Standing,
 ): F {
@@ -224,7 +233,7 @@ function embers(
     home.x.add(at.x).div(cells),
     home.y.add(at.y).div(cells).add(time.mul(speed)),
   );
-  return step(0.74, own)
+  return step(cut, own)
     .mul(smoothstep(size, 0.0, d).add(exp(d.mul(d).div(size.mul(size)).mul(-1.2)).mul(0.25)))
     .mul(size.mul(14).add(0.3))
     .mul(flicker)
@@ -430,7 +439,11 @@ function fieldAt(
   const left = dissolve(u.reach, p, u.time.mul(0.01)).toVar();
   const farther = farSmoke(p, u.time, 0.06);
   const across = left.max(banksAt(u.field, p, u.time).mul(FAR_SMOKE));
-  const dense = smoke(p, u.time, 0.11).mul(left).add(farther.mul(0.55).mul(across)).toVar();
+  const dense = smoke(p, u.time, 0.11)
+    .mul(left)
+    .add(farther.mul(0.55).mul(across))
+    .mul(u.smoke)
+    .toVar();
   const far = glyphHaze(u, p);
   const clear = float(1).sub(quiet);
   const haze = { amount: far.amount.mul(clear).toVar(), tint: far.tint.mul(clear).toVar() };
@@ -438,8 +451,9 @@ function fieldAt(
     left.max(u.field.standing(centre, own).mul(step(own, FAR_SPARKS)));
   // The sparks are read where the pointer's gust has blown them from: pushed away from it and swirled.
   const blown = stirred(u.air, p).toVar();
-  const sparks = embers(blown, u.time, [9, 0.08, 0], standing)
-    .add(embers(blown, u.time, [15, 0.12, 31], standing).mul(0.6))
+  const rising = { time: u.time, cut: u.emberCut };
+  const sparks = embers(blown, rising, [9, 0.08, 0], standing)
+    .add(embers(blown, rising, [15, 0.12, 31], standing).mul(0.6))
     .mul(low.mul(0.8).add(0.2))
     .toVar();
   return { left, dense, haze, sparks };
@@ -584,6 +598,7 @@ export function medallionFrame(
     const kept = float(1)
       .sub(quiet)
       .mul(smoothstep(-0.48, -0.2, p.y))
+      .mul(u.circle)
       .toVar();
     const runes = circle.glyphs.mul(kept).toVar();
     const rings = circle.rings.mul(kept).toVar();

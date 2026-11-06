@@ -156,6 +156,8 @@ export function astralUniforms() {
     /** On paper: each disc casting a shadow, x y r strength (frame units). */
     casts: shadows,
     shadows: uniformArray<"vec4">(shadows, "vec4"),
+    /** How brightly the sky's tiny stars and glints show, 0 none (`AstralTuning.stars`). */
+    stars: uniform(1),
     /** The detail the sky spends, 0–1 (`BackdropLayout.quality`). */
     detail: uniform(1),
   };

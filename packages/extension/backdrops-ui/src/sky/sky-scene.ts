@@ -25,10 +25,8 @@ import { paintFlier, type Lit } from "../scene/paint-flier";
 import type { Reactions } from "../scene/reactions";
 import type { Rng } from "../scene/rng";
 import { variation } from "../scene/seed";
+import { flockSize, moteCount, skyLayout } from "./sky-layout";
 
-/** Fliers at each strength, before quality scales them. */
-const FLOCK = { subtle: 4, soft: 6, vivid: 9 } as const;
-const MOTES = { subtle: 14, soft: 22, vivid: 30 } as const;
 const WISP_WIDTH = 380;
 const WISP_HEIGHT = 64;
 /** Depths the flock is spread over: three layers, nearest to farthest. */
@@ -60,25 +58,6 @@ interface Sky {
   readonly drift: Drift;
   world: World | null;
   time: number;
-}
-
-function skyLayout(config: SceneConfig): GlowSpec {
-  const { width, height, direction, palette } = config;
-  const scale = Math.min(1, width / 800);
-  return {
-    x: width * 0.63,
-    y: height * (direction === "down" ? 0.34 : 0.66),
-    reach: Math.min(width * 0.52, height * 1.25),
-    disc: (palette.dark ? 34 : 38) * scale,
-    squash: 1,
-    power: palette.dark ? 4.2 : 3,
-    intensity: palette.dark ? 1 : 1.4,
-    washFrom: direction === "down" ? "top" : "bottom",
-  };
-}
-
-function flockSize(config: SceneConfig): number {
-  return Math.max(3, Math.round(FLOCK[config.strength] * config.quality));
 }
 
 function spawnFlock(rng: Rng, config: SceneConfig, glow: GlowSpec, count: number): Flier[] {
@@ -117,13 +96,11 @@ function buildWorld(rng: Rng, config: SceneConfig, before: World | null): World 
       paintWisp(rng, palette.body, WISP_WIDTH, WISP_HEIGHT, dpr),
       paintWisp(rng, palette.body, WISP_WIDTH * 0.62, WISP_HEIGHT * 0.7, dpr),
     ],
-    motes: scatterMotes(
-      rng,
-      Math.round(MOTES[config.strength] * config.quality),
-      config.width,
-      config.height,
-      { x: glow.x, y: glow.y, r: glow.reach * 0.3 },
-    ),
+    motes: scatterMotes(rng, moteCount(config), config.width, config.height, {
+      x: glow.x,
+      y: glow.y,
+      r: glow.reach * 0.3,
+    }),
     fliers: fliersFor(rng, config, glow, before),
   };
 }

@@ -15,7 +15,12 @@
  * The cloud is shuffled, so any prefix of it is a uniform subset: a frame
  * that must spend less draws fewer discs (`DiscCloud`), never a corner of
  * the lane.
+ *
+ * How the discs are painted is the owner's to tune (`discTuning`): their
+ * size, how wide the painting's spray is, how much the leaves stir.
  */
+import { DISC_FIELD_SIZE_KNOB, DISC_FIELD_SPRAY_KNOB, DISC_FIELD_WIND_KNOB } from "@kb/backdrops";
+import { knobValue, type KnobValues } from "@kb/model";
 import type { Rng } from "../scene/rng";
 import type { Variation } from "../scene/seed";
 
@@ -411,4 +416,37 @@ export function bakeVineyard(vary: Variation, total: number): DiscCloud {
   details(cloud, rng, plant, Math.round(total * SHARE.details));
   ground(cloud, rng, plant, Math.round(total * SHARE.ground));
   return cloud.build(rng);
+}
+
+/** A disc's least and greatest diameter (world units) and how strongly the draw favours small ones. */
+type DiscSize = readonly [least: number, most: number, bias: number];
+/** Where the spray starts (silhouette radii), its width, how many specks lie past it, and how far noise warps it. */
+type DiscEdge = readonly [start: number, width: number, specks: number, warp: number];
+
+const SIZE: DiscSize = [0.024, 0.3, 3.1];
+const EDGE: DiscEdge = [0.84, 0.32, 0.45, 0.42];
+
+/** How the discs are painted, as the shader reads it (`DiscUniforms`). */
+export interface DiscTuning {
+  readonly size: DiscSize;
+  readonly edge: DiscEdge;
+  /** How much the leaves stir on their own; a write's wind comes through whatever it is. */
+  readonly wind: number;
+}
+
+/**
+ * The painting `values` tune: every disc's size scaled, as often small; the
+ * spray widened or narrowed inward from an outer rim that stays where it
+ * was, so the painting never reaches further toward the frame's sides, its
+ * specks as many more or fewer; the leaves' own stir.
+ */
+export function discTuning(values: KnobValues): DiscTuning {
+  const size = knobValue(values, DISC_FIELD_SIZE_KNOB);
+  const spray = knobValue(values, DISC_FIELD_SPRAY_KNOB);
+  const [start, width, specks, warp] = EDGE;
+  return {
+    size: [SIZE[0] * size, SIZE[1] * size, SIZE[2]],
+    edge: [start - width * (spray - 1), width * spray, Math.min(1, specks * spray), warp],
+    wind: knobValue(values, DISC_FIELD_WIND_KNOB),
+  };
 }

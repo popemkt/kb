@@ -31,10 +31,11 @@ import { paintFigure, paintFlier, type Lit } from "../scene/paint-flier";
 import type { Reactions } from "../scene/reactions";
 import type { Rng } from "../scene/rng";
 import { variation } from "../scene/seed";
-import { houseOf, type Faded, type House } from "./house";
+import { houseOf, windowGlow, type Faded, type House } from "./house";
 import {
   HANG_TILT,
   advance,
+  batCount,
   hangPlace,
   letGo,
   shiverOf,
@@ -44,7 +45,6 @@ import {
   type RoostWorld,
 } from "./roosters";
 
-const BATS = { subtle: 4, soft: 7, vivid: 10 } as const;
 const MOTES = { subtle: 14, soft: 24, vivid: 34 } as const;
 
 interface World {
@@ -68,10 +68,6 @@ interface Roost {
   sawNavigate: number;
 }
 
-function batCount(config: SceneConfig): number {
-  return Math.max(3, Math.round(BATS[config.strength] * config.quality));
-}
-
 /** `count` places along the eave, evenly spread and then nudged, none closer than a bat is wide. */
 function slotsAlong(rng: Rng, house: House, count: number): number[] {
   const { from, to } = house.eave;
@@ -83,7 +79,7 @@ function buildWorld(rng: Rng, config: SceneConfig, before: World | null, now: nu
   const { palette, dpr } = config;
   const house = houseOf(config.width, config.height, config.direction, palette.dark);
   const feather = featherOf(config.width, config.height, config.direction, config.presence);
-  const count = batCount(config);
+  const count = batCount(config.strength, config.quality, config.knobs);
   const keep = before !== null && before.config.palette.dark === palette.dark;
   const roosters =
     keep && before.roosters.length === count
@@ -273,7 +269,7 @@ function drawHouse(ctx: CanvasRenderingContext2D, world: World, lit: Lit): void 
 function drawWindow(ctx: CanvasRenderingContext2D, world: World, time: number, lit: Lit): void {
   if (!lit.palette.dark) return;
   const { x, y, width, height } = world.house.window;
-  const glow = 0.82 + 0.1 * Math.sin(time * 0.9) + 0.05 * Math.sin(time * 2.3 + 1);
+  const glow = windowGlow(time, world.config.knobs);
   const fade = world.feather.at(x + width / 2, y + height / 2);
   const cx = x + width / 2;
   const cy = y + height / 2;

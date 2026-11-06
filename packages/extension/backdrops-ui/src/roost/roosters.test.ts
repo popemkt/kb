@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { ROOST_BATS_KNOB } from "@kb/backdrops";
 import { seededRng } from "../scene/rng";
 import { startReactions } from "../scene/reactions";
 import { stepFliers } from "../scene/flock";
 import {
   advance,
+  batCount,
   beatValue,
   hangPlace,
   letGo,
@@ -135,5 +137,20 @@ describe("roosters", () => {
     expect(peak).toBeGreaterThan(0.01);
     expect(peak).toBeLessThan(0.1);
     expect(shiverOf(r, 7)).toBe(0);
+  });
+});
+
+describe("batCount", () => {
+  it("at its default hangs the strength's bats, fewer as quality falls", () => {
+    expect(batCount("subtle", 1, {})).toBe(4);
+    expect(batCount("soft", 1, {})).toBe(7);
+    expect(batCount("vivid", 1, {})).toBe(10);
+    expect(batCount("vivid", 0.55, {})).toBe(6);
+  });
+
+  it("hangs fewer with the bats knob, never fewer than three nor more than the strength's", () => {
+    expect(batCount("vivid", 1, { [ROOST_BATS_KNOB.id]: 0.5 })).toBe(5);
+    expect(batCount("soft", 1, { [ROOST_BATS_KNOB.id]: ROOST_BATS_KNOB.min })).toBe(3);
+    expect(batCount("vivid", 1, { [ROOST_BATS_KNOB.id]: ROOST_BATS_KNOB.max })).toBe(10);
   });
 });
