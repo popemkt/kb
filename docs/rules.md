@@ -109,6 +109,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a render-target readback
 - **node** — `01M42Q9HYATJ1XEZNJGXAGMAKC`
 
+### GAP: a backdrop drawn by the page's CSS or a vendor runtime declares a frame budget no host meters
+
+- **expected** — Every backdrop is held to its declared budget (Backdrop.budget) by the host that draws it, as the GPU host and the 2D stage hold theirs: over budget, quality steps down, and the frame reports what it spent.
+- **current** — The gradient wash, the theme heads drawn in CSS and the Unicorn Studio runtime declare a budget (BACKDROP_BUDGETS.dom, .gpu) that the contract checks and the studio shows, but nothing measures them.
+- **impact** — Such a backdrop could cost the page more than it declares and nothing would say so; the studio shows its readout as not metered.
+- **closes** — A frame meter over the DOM backdrops (a PerformanceObserver over long animation frames under the head) and over the Unicorn runtime's loop, reporting data-frame-ms as the GPU host does.
+- **node** — `01M6RT9R6AXGVYZWCSTG26EET8`
+
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
 - **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents

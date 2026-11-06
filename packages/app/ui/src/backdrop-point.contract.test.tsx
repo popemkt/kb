@@ -39,6 +39,8 @@ import {
   declaredOptionId,
   extensionNodeId,
   foldSeed,
+  knobSchemaError,
+  knobsOf,
   type BackdropDirection,
   type BackdropStrength,
   type KbNode,
@@ -82,6 +84,8 @@ function PlainBackdrop({
   activity,
   pointer,
   variant,
+  knobs,
+  budget,
 }: BackdropProps) {
   const place = pointer.now();
   const still = useReducedMotion();
@@ -89,6 +93,8 @@ function PlainBackdrop({
     <i
       data-plain={`${color} ${strength} ${direction} ${opacity}`}
       data-variant={variant ?? "none"}
+      data-knobs={JSON.stringify(knobs)}
+      data-budget={budget.frameMs}
       data-still={String(still)}
       data-editing={String(activity.editing)}
       data-writes={activity.writes}
@@ -101,15 +107,29 @@ function PlainBackdrop({
 }
 /** The last pointer source the plain backdrop was handed: polled by the test, as a backdrop polls it. */
 let pointerNow: () => { x: number; y: number } | null = () => null;
-/** Two variants: one at the default strength, one that declares its own. */
+/**
+ * Two variants: one at the backdrop's own default strength, one that
+ * declares its own; a knob of the backdrop's, and one only the loud variant
+ * has.
+ */
 const PLAIN_KEY: SeedBackdrop = {
   id: "plain.plain",
   label: "Plain",
+  credit: "The test's own",
+  strength: "soft",
+  knobs: [{ kind: "number", id: "size", label: "Size", min: 0, max: 4, step: 0.5, default: 2 }],
   variants: [
     { id: "calm", label: "Calm" },
-    { id: "loud", label: "Loud", strength: "vivid" },
+    {
+      id: "loud",
+      label: "Loud",
+      strength: "vivid",
+      knobs: [{ kind: "boolean", id: "shout", label: "Shout", default: true }],
+    },
   ],
 };
+/** The page-head frame budget no backdrop may exceed (DESIGN-UI.md → GPU scenes → Cost). */
+const PAGE_HEAD_FRAME_MS = 6;
 const PLAIN_OPACITY = { subtle: 0.1, soft: 0.2, vivid: 0.3 };
 /** A family of the test's own: it declares its backdrop, and its page plugin contributes it. */
 const plainExtension = defineExtension({
@@ -137,6 +157,7 @@ const plainPlugin = definePlugin({
               offset: 0,
               opacity: PLAIN_OPACITY,
             },
+            budget: { frameMs: 1 },
             Component: PlainBackdrop,
           }),
         ),
@@ -303,7 +324,8 @@ describe("every contributed page-head backdrop", () => {
     useGraphStore.getState().hydrateFromWire(graphWith(pinning("loud")), 1, "fixtures");
     expect(shown()).toBe(`loud: red vivid down ${PLAIN_OPACITY.vivid}`);
     useGraphStore.getState().hydrateFromWire(graphWith(pinning("calm")), 1, "fixtures");
-    expect(shown()).toBe(`calm: red subtle down ${PLAIN_OPACITY.subtle}`);
+    // Calm declares no strength of its own, so it shows at its backdrop's.
+    expect(shown()).toBe(`calm: red soft down ${PLAIN_OPACITY.soft}`);
     useGraphStore.getState().hydrateFromWire(
       graphWith({
         ...pinning("loud"),
@@ -313,6 +335,35 @@ describe("every contributed page-head backdrop", () => {
       "fixtures",
     );
     expect(shown()).toBe(`loud: red soft down ${PLAIN_OPACITY.soft}`);
+  });
+
+  it("declares a well-formed knob schema, its variants' too, and a budget within the page head's", () => {
+    for (const { value } of backdrops()) {
+      const { key, budget } = value;
+      for (const variant of [null, ...(key.variants ?? []).map(({ id }) => id)]) {
+        expect(knobSchemaError(knobsOf(key, variant)), `${key.id} ${variant}`).toBeNull();
+      }
+      expect(budget.frameMs, key.id).toBeGreaterThan(0);
+      expect(budget.frameMs, key.id).toBeLessThanOrEqual(PAGE_HEAD_FRAME_MS);
+    }
+  });
+
+  it("hands its component its budget and its knobs' defaults, the drawn variant's with them", () => {
+    const pinning = (variant: string): KbNode["props"] => ({
+      [SYSTEM_IDS.backdropField]: [choosing(PLAIN_KEY.id)],
+      [SYSTEM_IDS.backdropVariantField]: [
+        { t: "ref", v: declaredOptionId(BACKDROP_VARIANT_OPTIONS, `${PLAIN_KEY.id}.${variant}`) },
+      ],
+    });
+    const plain = () => slot()?.querySelector("[data-plain]");
+    useGraphStore.getState().hydrateFromWire(graphWith(pinning("loud")), 1, "fixtures");
+    expect(JSON.parse(plain()?.getAttribute("data-knobs") ?? "null")).toEqual({
+      size: 2,
+      shout: true,
+    });
+    expect(plain()?.getAttribute("data-budget")).toBe("1");
+    useGraphStore.getState().hydrateFromWire(graphWith(pinning("calm")), 1, "fixtures");
+    expect(JSON.parse(plain()?.getAttribute("data-knobs") ?? "null")).toEqual({ size: 2 });
   });
 
   it("hands its component what the owner is doing: no editing, and the writes the graph has taken", () => {

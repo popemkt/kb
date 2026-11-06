@@ -96,10 +96,18 @@ function initNow(
   el: HTMLElement,
   look: GpuLook,
   latest: Latest,
-  pointer: BackdropProps["pointer"],
+  { pointer, budget }: Pick<BackdropProps, "pointer" | "budget">,
 ): GpuBackdropInit {
   const { reducedMotion, seed } = latest;
-  return { ...look, reducedMotion, seed, timing: readTiming(), pointer, content: contentOf(el) };
+  return {
+    ...look,
+    reducedMotion,
+    seed,
+    timing: readTiming(),
+    pointer,
+    content: contentOf(el),
+    budget,
+  };
 }
 
 export default function GpuBackdrop({
@@ -115,7 +123,7 @@ export default function GpuBackdrop({
   const reducedMotion = useReducedMotion();
   const seed = useBackdropSeed(reducedMotion);
   const [state, setState] = useState<SceneState>("loading");
-  const { color, direction, art, opacity, activity, node, pointer, variant } = backdrop;
+  const { color, direction, art, opacity, activity, node, pointer, variant, budget } = backdrop;
   const nodeId = node?.id;
   const { editing } = activity;
   // A load mounts its scene once: a change of look, motion or editing reaches
@@ -149,7 +157,7 @@ export default function GpuBackdrop({
       apply();
     });
     const pending = SCENES[id]().then((mount) =>
-      mount(el, initNow(el, look, latest.current, pointer)),
+      mount(el, initNow(el, look, latest.current, { pointer, budget })),
     );
     const unwatch = watchContent(el, (content) => scene?.setContent(content));
     const detach = attachScene(
@@ -185,7 +193,7 @@ export default function GpuBackdrop({
       detach();
       mounted.current = null;
     };
-  }, [id, pointer]);
+  }, [id, pointer, budget]);
 
   useEffect(() => {
     // The seed is the next mount's; the scene already mounted keeps its own.
