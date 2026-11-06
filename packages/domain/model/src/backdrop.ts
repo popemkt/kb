@@ -52,7 +52,6 @@ export interface BackdropVariant {
 export interface SeedBackdrop extends SeedOption {
   readonly credit?: string;
   readonly strength?: BackdropStrength;
-  readonly knobs?: readonly Knob[];
   readonly variants?: readonly BackdropVariant[];
 }
 
@@ -101,6 +100,7 @@ export function backdropVariantOptions(backdrops: readonly SeedBackdrop[]): Seed
       id: variantId(backdrop, variant),
       label: `${backdrop.label} · ${variant.label}`,
       chooses: [{ kind: BACKDROP_OPTIONS, id: backdrop.id }],
+      ...(variant.knobs === undefined ? {} : { knobs: variant.knobs }),
     })),
   );
 }
