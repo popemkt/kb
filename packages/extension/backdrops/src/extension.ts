@@ -37,14 +37,15 @@ export const LENS_BACKDROP: SeedBackdrop = { id: "backdrops.lens", label: "Lens"
  * Gargantua, whose thick gas disk streams round it, its far side bent over
  * the shadow; and Warp, a streaked disk seen almost edge on and pulled
  * toward the hole into an arch and an echo (after the black hole of Bruno
- * Simon's Awwwards 2022 workshop). Both are made for either page.
+ * Simon's Awwwards 2022 workshop). Both are made for either page. Warp is
+ * shown vivid where no setting chooses a strength: the owner's pick.
  */
 export const BLACK_HOLE_BACKDROP: SeedBackdrop = {
   id: "backdrops.black-hole",
   label: "Black hole",
   variants: [
     { id: "gargantua", label: "Gargantua" },
-    { id: "warp", label: "Warp" },
+    { id: "warp", label: "Warp", strength: "vivid" },
   ],
 };
 

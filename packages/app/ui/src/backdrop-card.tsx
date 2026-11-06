@@ -61,7 +61,6 @@ export default function BackdropCard({ id }: { readonly id: string }) {
   const [box, setBox] = useState<HTMLSpanElement | null>(null);
   const { seen, width } = useSeen(box);
   if (backdrop === undefined) return null;
-  const { presentation } = backdrop.value;
   return (
     <span
       ref={setBox}
@@ -88,7 +87,6 @@ export default function BackdropCard({ id }: { readonly id: string }) {
             direction={direction}
             art={art}
             pinned={variants}
-            opacity={presentation.opacity[strength]}
             activity={QUIET_ACTIVITY}
             pointer={NO_POINTER}
           />

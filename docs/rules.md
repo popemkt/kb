@@ -394,7 +394,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: a store has no identity of its own, so a backdrop cannot be unique per store
 
 - **expected** — Each kb store carries a stable identity (a system node or store-level field) that a backdrop's variation mixes into its seed, so two stores open on two different skies while one store keeps its own across loads (the owner's ask for Astral: a sky unique to each store).
-- **current** — A backdrop's variation is drawn from the load's seed alone (variation(seed), useLoadSeed in @kb/backdrops-ui scene/seed.ts); nothing names the store, so every store draws from the same space and none keeps a sky of its own.
+- **current** — A backdrop's variant and variation are drawn from the load's seed alone (useLoadSeed in @kb/ui-sdk, which the frame's drawVariant and the scenes' variation(seed) read); nothing names the store, so every store draws from the same space and none keeps a sky of its own.
 - **impact** — Astral and every seeded backdrop look alike across stores; a per-store sky would have to invent an ad-hoc id (a path hash), which breaks for a moved or cloned store.
 - **closes** — A store identity in the model (a system node created once per store and kept by merge), exposed to the UI and mixed into useLoadSeed as a store salt, with the store contract proving it stable across open, merge and move.
 - **node** — `01M69H8012T55AXMZBJ45Q1PVC`

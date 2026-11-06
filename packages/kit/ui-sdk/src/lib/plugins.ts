@@ -352,12 +352,12 @@ export interface BackdropProps {
    */
   readonly art: string | null;
   /**
-   * The variants it may show, by the local ids its key declares
-   * (`SeedBackdrop.variants`): those its settings pin, or all, that suit
-   * the page's scheme (`shownVariants`). It shows one of them, drawn by its
-   * seed for the load; empty for a backdrop with no variants.
+   * The variant it shows, by the local id its key declares
+   * (`SeedBackdrop.variants`): of those its settings pin, or all, that suit
+   * the page's scheme (`shownVariants`), the one the load's seed draws
+   * (`drawVariant`); null for a backdrop with no variants.
    */
-  readonly variants: readonly string[];
+  readonly variant: string | null;
   /** The presentation's opacity at `strength`. */
   readonly opacity: number;
   /** What the owner is doing on the page now. */

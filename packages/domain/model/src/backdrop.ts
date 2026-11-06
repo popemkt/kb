@@ -28,12 +28,14 @@ export type ColorScheme = "dark" | "light";
 /**
  * One of a backdrop's variants (DESIGN-UI.md → Page-head backdrops →
  * Variants): a composition of the same backdrop, named by an id local to
- * it, and the schemes it is made for (both, unless it says).
+ * it, the schemes it is made for (both, unless it says), and the strength
+ * it is shown at where no setting chooses one (the default, unless it says).
  */
 export interface BackdropVariant {
   readonly id: string;
   readonly label: string;
   readonly schemes?: readonly ColorScheme[];
+  readonly strength?: BackdropStrength;
 }
 
 /**
@@ -105,8 +107,45 @@ export function shownVariants(
   return (suited.length === 0 ? set : suited).map((variant) => variant.id);
 }
 
+/**
+ * The variant a head shows of the ones it may (`shownVariants`), by local
+ * id: `current` while it is still among them, so a change of scheme that
+ * keeps it never redraws; otherwise the one the load's `seed` draws, so
+ * every frame of one load (the head, Settings' cards) shows the same. Null
+ * for a backdrop with none.
+ */
+export function drawVariant(
+  seed: number,
+  shown: readonly string[],
+  current: string | null,
+): string | null {
+  if (current !== null && shown.includes(current)) return current;
+  return shown[seed % shown.length] ?? null;
+}
+
 export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
 export type BackdropStrength = (typeof BACKDROP_STRENGTHS)[number];
+
+/** The strength a head shows where neither a setting nor its variant chooses one. */
+export const DEFAULT_BACKDROP_STRENGTH: BackdropStrength = "subtle";
+
+/**
+ * The strength a head shows `backdrop` at, its variant `variant` drawn
+ * (`drawVariant`; null, none): the one its settings choose (`chosen`,
+ * `BackdropChoice.strength`), else the one the variant declares, else the
+ * default. A setting is the owner's word, so it is kept over the variant's.
+ */
+export function shownStrength(
+  chosen: BackdropStrength | null,
+  backdrop: SeedBackdrop,
+  variant: string | null,
+): BackdropStrength {
+  return (
+    chosen ??
+    backdrop.variants?.find(({ id }) => id === variant)?.strength ??
+    DEFAULT_BACKDROP_STRENGTH
+  );
+}
 export const BACKDROP_DIRECTIONS = ["down", "up"] as const;
 export type BackdropDirection = (typeof BACKDROP_DIRECTIONS)[number];
 
@@ -128,7 +167,8 @@ export const BACKDROP_DIRECTION_OPTION_IDS: Readonly<Record<BackdropDirection, N
 export interface BackdropChoice {
   /** A contributed backdrop's id; null, the first contributed. */
   readonly backdrop: string | null;
-  readonly strength: BackdropStrength;
+  /** The strength chosen; null, none (`shownStrength` resolves it once a variant is drawn). */
+  readonly strength: BackdropStrength | null;
   readonly direction: BackdropDirection;
   /**
    * A file of kb's own assets (`assets/…`) naming the art the backdrop draws
@@ -158,9 +198,10 @@ function optionOf<V extends string>(
  * The backdrop `sources` choose, nearest first (the page's own node, then
  * core's), among the backdrops contributed (`contributed`, by id): each
  * setting is the first one that holds a value it reads as one of its
- * options, and the first contributed backdrop, `subtle` and `down` where
- * none does. A backdrop nobody contributes now (its plugin unloaded, its
- * declaration gone) is no option, so it falls through as an unknown
+ * options; where none does, the first contributed backdrop, `down`, and no
+ * strength (its variant may declare one, `shownStrength`). A backdrop
+ * nobody contributes now (its plugin unloaded, its declaration gone) is no
+ * option, so it falls through as an unknown
  * strength does; so does art that names no image or art manifest of kb's
  * assets.
  */
@@ -180,7 +221,7 @@ export function backdropChoice(
           BACKDROP_STRENGTH_OPTION_IDS,
           firstRef(SYSTEM_IDS.backdropStrengthField)(props),
         ),
-      ) ?? "subtle",
+      ) ?? null,
     direction:
       first((props) =>
         optionOf(

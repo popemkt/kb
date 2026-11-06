@@ -63,13 +63,14 @@ export function useNode(id: string | undefined): OutlineNode | undefined {
 
 /**
  * A page head's backdrop: the contribution it shows (null, none
- * contributed), its strength and direction, the URL of the art it draws
+ * contributed), the strength chosen (null, none: its variant's, else the
+ * default, `shownStrength`), its direction, the URL of the art it draws
  * in place of its own (null, its own), and the variants pinned, by
  * declared id (none, all: `shownVariants`).
  */
 export interface PageBackdropChoice {
   readonly backdrop: Contribution<Backdrop> | null;
-  readonly strength: BackdropStrength;
+  readonly strength: BackdropStrength | null;
   readonly direction: BackdropDirection;
   readonly art: string | null;
   readonly variants: readonly string[];
