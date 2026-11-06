@@ -1,5 +1,11 @@
 # Plugin sources: installing extensions from outside the repo (research, for the owner to read)
 
+> **Superseded in part (2026-11-06).** The build spec
+> [`2026-11-06-plugin-install-plan.md`](2026-11-06-plugin-install-plan.md)
+> replaces §3's "vendored, not cached" and the lock's location with a
+> per-user tree store, three lock scopes and one ordered discovery list, by
+> the owner's choice. The rest stands.
+
 Date: 2026-10-31. Base: `main` at `a756efee`. This record surveys and
 proposes. Nothing in it is built except the gap nodes it files (§8). It links
 to the specs that own each mechanism and does not restate them:
