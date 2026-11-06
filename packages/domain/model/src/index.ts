@@ -164,6 +164,7 @@ export {
   BACKDROP_VARIANT_OPTIONS,
   backdropChoice,
   backdropOptionId,
+  backdropVariantId,
   backdropVariantOptionId,
   backdropVariantOptions,
   DEFAULT_BACKDROP_STRENGTH,

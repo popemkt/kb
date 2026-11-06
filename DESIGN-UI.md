@@ -850,7 +850,8 @@ core's design-system plugin previews a design system with its swatch and,
 at card size, a small page its sheet paints with what the theme brings
 under it (its extension, the backdrop it pairs, its motion preset); and
 a backdrop with its theme's swatch at chip size and, at card size, the
-backdrop itself (`BackdropCard`): its own renderer in the frame the head
+backdrop itself (`BackdropCard`, the kit's, the one card every gallery
+of backdrops draws): its own renderer in the frame the head
 draws (`BackdropFrame`), laid out at a side panel's width and scaled into
 the card, at the strength and direction in force, hearing no owner, and
 held still (`HoldStill`, Motion options), mounted once the card is on
