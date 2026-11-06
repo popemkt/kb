@@ -154,6 +154,7 @@ export {
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
 export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
+export { BackdropCard } from "./components/backdrop-card";
 export { HoldStill } from "./components/hold-still";
 export { ThemeArt } from "./components/theme-art";
 
