@@ -3098,6 +3098,13 @@ principles below it applies, and two to four live parameters:
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes                                                                                                                                                                   | tone mapping, PBR/matcap, AO, key angle      |
 | Motion | staggered critically damped springs against an eased tween                                                                                                                                                                     | settle, stagger, drive, overlap              |
 
+A study's parameters are knobs: `Knob` (`@kb/model`'s `knob.ts`, a number
+in a range and step, a boolean or one of an enum's options, each with its
+default) drawn by the one `KnobControl` (`@kb/ui-sdk`). It is the same
+schema and the same control a page-head backdrop's knobs are (Page-head
+backdrops → Knobs), so a parameter is declared, labelled and reached by
+keyboard one way wherever a panel lists it.
+
 Embers keeps its theme rather than forcing a dark stage: on a light ground
 the heat ramp moves from the emissive into the surface (`heatAlbedo`: pale
 ash warming through the accent's ember to the accent), and only the hot

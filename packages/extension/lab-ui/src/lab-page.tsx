@@ -16,7 +16,8 @@ import {
   useContributions,
   WorkspaceState,
 } from "@kb/ui-sdk";
-import { initialValues, type LabControlValue, type LabHover, type LabStudy } from "./kit/contract";
+import { knobDefaults, type KnobValue } from "@kb/model";
+import type { LabHover, LabStudy } from "./kit/contract";
 import { LabStudyPoint } from "./kit/study-point";
 import { InfoCard } from "./kit/info-card";
 import type { SceneBackend } from "@kb/scene";
@@ -112,11 +113,11 @@ function Study({
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
   const timing = useMemo(() => readTiming(), []);
-  const [values, setValues] = useState(() => initialValues(study.controls));
+  const [values, setValues] = useState(() => knobDefaults(study.controls));
   const [hover, setHover] = useState<LabHover | null>(null);
   const [error, setError] = useState<string | null>(null);
   const onChange = useCallback(
-    (id: string, value: LabControlValue) => setValues((current) => ({ ...current, [id]: value })),
+    (id: string, value: KnobValue) => setValues((current) => ({ ...current, [id]: value })),
     [],
   );
   const onOpen = useCallback((id: string) => browserHost().zoomTo(id), []);

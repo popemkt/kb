@@ -4,8 +4,9 @@
  * visibility and disposal, and hands the study what only a study is told —
  * graph, theme, reduced motion and control values.
  */
+import type { KnobValues } from "@kb/model";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { LabControlValues, LabHover, LabScene, LabStudy } from "./contract";
+import type { LabHover, LabScene, LabStudy } from "./contract";
 import { readLabPalette } from "./palette";
 import { attachScene, type SceneBackend } from "@kb/scene";
 import { readTiming, type Appearance } from "@kb/ui-sdk";
@@ -17,7 +18,7 @@ export interface SceneHostProps {
   /** The palette is re-read from the tokens whenever the appearance changes. */
   readonly appearance: Appearance;
   readonly reducedMotion: boolean;
-  readonly values: LabControlValues;
+  readonly values: KnobValues;
   readonly onHover: (hover: LabHover | null) => void;
   readonly onOpen: (id: string) => void;
   /** The scene is on screen, drawn by this backend. */
@@ -27,8 +28,8 @@ export interface SceneHostProps {
 }
 
 /** Hand each changed control value to the scene, once. */
-function useControlValues(scene: LabScene | null, values: LabControlValues): void {
-  const sent = useRef<LabControlValues>(values);
+function useControlValues(scene: LabScene | null, values: KnobValues): void {
+  const sent = useRef<KnobValues>(values);
   useEffect(() => {
     if (scene === null) return;
     for (const [id, value] of Object.entries(values)) {
