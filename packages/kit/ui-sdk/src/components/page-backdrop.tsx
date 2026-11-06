@@ -93,9 +93,14 @@ function placementOf({ span, offset }: BackdropPresentation): {
 
 /**
  * The one page-head slot (DESIGN-UI.md → Page-head backdrops): the chosen
- * backdrop, framed by its presentation, painted behind the head's content.
- * Every page head renders this, with its colour and the node it shows, and
- * names no backdrop; with none contributed it renders nothing. Which one,
+ * backdrop, framed by its presentation, painted behind the page's content.
+ * Behind is a paint layer, not a position: the slot's space stands in the
+ * negative layer of the page's paint root (the scroll region, `PageFrame`),
+ * so every box of the page paints over the frame, however far below the
+ * head it reaches and whether or not the box is positioned, and the frame
+ * still paints over the shell's ground. Every page head renders this, with
+ * its colour and the node it shows, and names no backdrop; with none
+ * contributed it renders nothing. Which one,
  * how strong and which way are settings (`usePageBackdrop`): the node's own,
  * then core's. The outline's heads render it; canvas and graph pages have
  * no head yet, so nothing renders it there. GAP [[01M54CEKJJXNDPYNT55AR6KEV8]]
@@ -121,7 +126,7 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
   const { presentation } = chosen.value;
   return (
     <div
-      className="kb-header-backdrop-space relative pointer-events-none"
+      className="kb-header-backdrop-space pointer-events-none relative -z-1"
       style={{ height: `min(${presentation.space}px, 24vw)` }}
       aria-hidden="true"
     >

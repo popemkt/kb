@@ -4167,8 +4167,15 @@ A PR for a backdrop reports a score against each criterion.
     frame (`usePointerOver`'s `attach`), so a frame that mounts late is
     followed from the moment it attaches.
 - **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot.
-  It frames the chosen backdrop by its presentation, behind the head's
-  content, and renders nothing when nothing is contributed. Any page head
+  It frames the chosen backdrop by its presentation, behind the page's
+  content, and renders nothing when nothing is contributed. Behind is a
+  paint layer, not a position: the slot stands in the negative layer of the
+  page's paint root, the scroll region (`PageFrame`, `isolation: isolate`),
+  so every box of the page, positioned or not, paints over the frame at
+  full opacity wherever the frame reaches below the head, and the frame
+  still paints over the shell's ground. A head's rows need no positioning of
+  their own to stay above it (`backdrop-stacking.e2e.ts` holds it for every
+  backdrop, page kind, scheme and strength). Any page head
   renders it with its colour and its node. The outline's home head and its
   zoomed head are the heads that render it today; canvas and graph pages
   have no head yet, so nothing renders it there

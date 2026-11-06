@@ -27,6 +27,11 @@ const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
  * have left it short (nothing inside a scroller paints under its own
  * scrollbar). Fixing it here is what keeps every downstream element free of
  * compensating offsets.
+ *
+ * It is the page's paint root (`isolate`): what a page paints behind its
+ * content, a page head's backdrop (`PageBackdrop`), stands in the region's
+ * negative layer, under every box of the page and over the shell's ground,
+ * and is never carried under a background an ancestor paints.
  */
 function ScrollRegion({
   scroll,
@@ -42,7 +47,7 @@ function ScrollRegion({
       <main
         ref={region}
         className={cn(
-          "min-h-0 flex-1",
+          "isolate min-h-0 flex-1",
           scroll ? "overflow-x-auto overflow-y-auto" : "overflow-hidden",
         )}
         data-main-region={scroll ? "scroll" : "fixed"}
