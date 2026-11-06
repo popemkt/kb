@@ -15,6 +15,7 @@ import {
   backdropVariantOptions,
   declaredOptionId,
   drawVariant,
+  shownStrength,
   shownVariants,
   type KbNode,
   type SeedBackdrop,
@@ -33,10 +34,10 @@ const art = (v: string): KbNode["props"] => ({
 });
 
 describe("backdropChoice", () => {
-  test("with no settings: the first contributed, subtle, facing down", () => {
+  test("with no settings: the first contributed, no strength chosen, facing down", () => {
     expect(backdropChoice([undefined, {}], CONTRIBUTED)).toEqual({
       backdrop: null,
-      strength: "subtle",
+      strength: null,
       direction: "down",
       art: null,
       variants: [],
@@ -184,5 +185,28 @@ describe("drawVariant", () => {
   test("is none for a backdrop with no variants", () => {
     expect(drawVariant(42, [], null)).toBeNull();
     expect(drawVariant(42, [], "night")).toBeNull();
+  });
+});
+
+describe("shownStrength", () => {
+  const HOLE: SeedBackdrop = {
+    id: "backdrops.hole",
+    label: "Hole",
+    variants: [
+      { id: "plain", label: "Plain" },
+      { id: "loud", label: "Loud", strength: "vivid" },
+    ],
+  };
+
+  test("with none chosen: the drawn variant's own, else the default", () => {
+    expect(shownStrength(null, HOLE, "loud")).toBe("vivid");
+    expect(shownStrength(null, HOLE, "plain")).toBe("subtle");
+    expect(shownStrength(null, HOLE, null)).toBe("subtle");
+    expect(shownStrength(null, { id: "backdrops.flat", label: "Flat" }, null)).toBe("subtle");
+  });
+
+  test("a strength chosen holds over the variant's", () => {
+    expect(shownStrength("soft", HOLE, "loud")).toBe("soft");
+    expect(shownStrength("subtle", HOLE, "loud")).toBe("subtle");
   });
 });

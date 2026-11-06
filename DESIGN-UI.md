@@ -4235,8 +4235,9 @@ A PR for a backdrop reports a score against each criterion.
   from the node shown first, then from core's node (`backdropChoice` in
   `@kb/model`, `usePageBackdrop` in `@kb/ui-sdk`).
   - Where neither says, the head shows the backdrop the shown design
-    system pairs with (Themes), else the first contributed, `subtle`,
-    facing `down`.
+    system pairs with (Themes), else the first contributed, at the
+    strength its variant declares, else `subtle` (`shownStrength`), facing
+    `down`.
   - A choice whose backdrop nobody contributes (its plugin not loaded, its
     declaration gone) is no choice: it falls through to the next node, as
     an unknown strength does, so a page's stale choice shows core's.
@@ -4310,8 +4311,9 @@ A PR for a backdrop reports a score against each criterion.
   Gargantua and Warp. Each head shows one of them
   for the load, drawn at random from the ones it may show.
   - **Declared on the key.** A backdrop's key lists its variants
-    (`SeedBackdrop.variants`: a local id, a label, and the schemes it is
-    made for, both unless it says). Its family declares them as options of
+    (`SeedBackdrop.variants`: a local id, a label, the schemes it is made
+    for, both unless it says, and the strength it is shown at where no
+    setting chooses one, the default unless it says). Its family declares them as options of
     the variant kind (`backdropVariantOptions`, `BACKDROP_VARIANT_OPTIONS`),
     so the seed derives one option per variant under
     `sys.f.backdrop.variant`, `sys.backdrop-variant.<backdrop>.<variant>`,
@@ -4335,10 +4337,14 @@ A PR for a backdrop reports a score against each criterion.
     deciding which it may show (`drawVariant`, in `BackdropFrame`), and the
     component hears the one drawn by local id (`BackdropProps.variant`,
     null for a backdrop with none; the GPU host hands it its scenes as
-    `GpuLook.variant`). The draw is the load's under
-    reduced motion too, so a still is composed at random as well. A change
-    of scheme keeps the one shown while it is still among those the head may
-    show, and draws again, in the running scene, when it is not.
+    `GpuLook.variant`). The draw is the load's under reduced motion too,
+    so a still is composed at random as well. A change of scheme keeps the
+    one shown while it is still among those the head may show, and draws
+    again, in the running scene, when it is not.
+  - **Its own strength.** Where no setting chooses a strength, the frame
+    shows the drawn variant at the one it declares, else the default
+    (`shownStrength`): Warp declares `vivid`, the owner's pick. A strength
+    a setting chooses holds over the variant's.
   - Set them in Settings → Appearance (the `variants` row under Page head),
     or `kb set sys.extension.core sys.f.backdrop.variant
     sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so

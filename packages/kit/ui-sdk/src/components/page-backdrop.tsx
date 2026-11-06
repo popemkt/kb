@@ -1,5 +1,5 @@
 import { useCallback, useState, type CSSProperties, type Ref } from "react";
-import { drawVariant, shownVariants } from "@kb/model";
+import { drawVariant, shownStrength, shownVariants, type BackdropStrength } from "@kb/model";
 import { useAppearance, usePageActivity, usePageBackdrop } from "../hooks";
 import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
 import { useLoadSeed } from "../lib/load-seed";
@@ -17,8 +17,9 @@ import type { OutlineNode } from "../lib/types";
  * card. It decides what the component shows, in one place: of the variants
  * its settings pin, those it may show on this page's scheme
  * (`shownVariants`), the one the load's seed draws of them (`drawVariant`,
- * kept while it is still among them), and the presentation's opacity at
- * the strength.
+ * kept while it is still among them), the strength it shows that variant
+ * at (`shownStrength`: the one chosen, else the variant's own, else the
+ * default), and the presentation's opacity at that strength.
  */
 export function BackdropFrame({
   id,
@@ -27,8 +28,9 @@ export function BackdropFrame({
   className,
   frameRef,
   pinned,
+  strength: chosen,
   ...props
-}: Omit<BackdropProps, "variant" | "opacity"> & {
+}: Omit<BackdropProps, "variant" | "opacity" | "strength"> & {
   readonly id: string;
   readonly backdrop: Backdrop;
   readonly placement: CSSProperties;
@@ -36,6 +38,8 @@ export function BackdropFrame({
   readonly frameRef?: Ref<HTMLDivElement>;
   /** The variants pinned, by declared id (`PageBackdropChoice.variants`). */
   readonly pinned: readonly string[];
+  /** The strength chosen; null, none (`PageBackdropChoice.strength`). */
+  readonly strength: BackdropStrength | null;
 }) {
   const { dark } = useAppearance();
   const shown = shownVariants(key, pinned, dark ? "dark" : "light");
@@ -43,6 +47,7 @@ export function BackdropFrame({
   const [drawn, setDrawn] = useState(() => drawVariant(seed, shown, null));
   const variant = drawVariant(seed, shown, drawn);
   if (variant !== drawn) setDrawn(variant);
+  const strength = shownStrength(chosen, key, variant);
   return (
     <div
       ref={frameRef}
@@ -58,7 +63,12 @@ export function BackdropFrame({
       aria-hidden="true"
       data-header-wash="true"
     >
-      <Component {...props} variant={variant} opacity={presentation.opacity[props.strength]} />
+      <Component
+        {...props}
+        variant={variant}
+        strength={strength}
+        opacity={presentation.opacity[strength]}
+      />
     </div>
   );
 }

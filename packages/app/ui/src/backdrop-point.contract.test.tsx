@@ -32,8 +32,11 @@ import {
   BACKDROP_DIRECTION_OPTION_IDS,
   BACKDROP_STRENGTHS,
   BACKDROP_STRENGTH_OPTION_IDS,
+  BACKDROP_VARIANT_OPTIONS,
   SYSTEM_IDS,
   backdropOptionId,
+  backdropVariantOptions,
+  declaredOptionId,
   extensionNodeId,
   foldSeed,
   type BackdropDirection,
@@ -71,12 +74,21 @@ const AT = "2026-01-01T00:00:00.000Z";
 const CORE = extensionNodeId("core");
 
 /** A plugin's own backdrop: it shows what it was handed, so the slot's props can be read back. */
-function PlainBackdrop({ color, strength, direction, opacity, activity, pointer }: BackdropProps) {
+function PlainBackdrop({
+  color,
+  strength,
+  direction,
+  opacity,
+  activity,
+  pointer,
+  variant,
+}: BackdropProps) {
   const place = pointer.now();
   const still = useReducedMotion();
   return (
     <i
       data-plain={`${color} ${strength} ${direction} ${opacity}`}
+      data-variant={variant ?? "none"}
       data-still={String(still)}
       data-editing={String(activity.editing)}
       data-writes={activity.writes}
@@ -89,13 +101,24 @@ function PlainBackdrop({ color, strength, direction, opacity, activity, pointer 
 }
 /** The last pointer source the plain backdrop was handed: polled by the test, as a backdrop polls it. */
 let pointerNow: () => { x: number; y: number } | null = () => null;
-const PLAIN_KEY: SeedBackdrop = { id: "plain.plain", label: "Plain" };
+/** Two variants: one at the default strength, one that declares its own. */
+const PLAIN_KEY: SeedBackdrop = {
+  id: "plain.plain",
+  label: "Plain",
+  variants: [
+    { id: "calm", label: "Calm" },
+    { id: "loud", label: "Loud", strength: "vivid" },
+  ],
+};
 const PLAIN_OPACITY = { subtle: 0.1, soft: 0.2, vivid: 0.3 };
 /** A family of the test's own: it declares its backdrop, and its page plugin contributes it. */
 const plainExtension = defineExtension({
   name: "plain",
   label: "Plain",
-  declaredOptions: [{ kind: BACKDROP_OPTIONS, options: [PLAIN_KEY] }],
+  declaredOptions: [
+    { kind: BACKDROP_OPTIONS, options: [PLAIN_KEY] },
+    { kind: BACKDROP_VARIANT_OPTIONS, options: backdropVariantOptions([PLAIN_KEY]) },
+  ],
 });
 const plainPlugin = definePlugin({
   name: "plain",
@@ -264,6 +287,32 @@ describe("every contributed page-head backdrop", () => {
         `red ${strength} up ${PLAIN_OPACITY[strength]}`,
       );
     }
+  });
+
+  it("with no strength chosen, hands its component the drawn variant's own, and a chosen one over it", () => {
+    const pinning = (variant: string): KbNode["props"] => ({
+      [SYSTEM_IDS.backdropField]: [choosing(PLAIN_KEY.id)],
+      [SYSTEM_IDS.backdropVariantField]: [
+        { t: "ref", v: declaredOptionId(BACKDROP_VARIANT_OPTIONS, `${PLAIN_KEY.id}.${variant}`) },
+      ],
+    });
+    const shown = () => {
+      const plain = slot()?.querySelector("[data-plain]");
+      return `${plain?.getAttribute("data-variant")}: ${plain?.getAttribute("data-plain")}`;
+    };
+    useGraphStore.getState().hydrateFromWire(graphWith(pinning("loud")), 1, "fixtures");
+    expect(shown()).toBe(`loud: red vivid down ${PLAIN_OPACITY.vivid}`);
+    useGraphStore.getState().hydrateFromWire(graphWith(pinning("calm")), 1, "fixtures");
+    expect(shown()).toBe(`calm: red subtle down ${PLAIN_OPACITY.subtle}`);
+    useGraphStore.getState().hydrateFromWire(
+      graphWith({
+        ...pinning("loud"),
+        [SYSTEM_IDS.backdropStrengthField]: [{ t: "ref", v: BACKDROP_STRENGTH_OPTION_IDS.soft }],
+      }),
+      1,
+      "fixtures",
+    );
+    expect(shown()).toBe(`loud: red soft down ${PLAIN_OPACITY.soft}`);
   });
 
   it("hands its component what the owner is doing: no editing, and the writes the graph has taken", () => {
@@ -470,7 +519,11 @@ describe("every contributed page-head backdrop", () => {
         const drawn = host.querySelector<HTMLElement>("[data-plain]");
         expect(drawn?.closest('[data-motion="reduced"]')).not.toBeNull();
         expect(drawn?.dataset.still).toBe("true");
-        expect(drawn?.dataset.plain).toBe(`var(--primary) subtle down ${PLAIN_OPACITY.subtle}`);
+        // Core chooses no strength here: the card shows the variant it drew at that variant's own.
+        const strength = drawn?.dataset.variant === "loud" ? "vivid" : "subtle";
+        expect(drawn?.dataset.plain).toBe(
+          `var(--primary) ${strength} down ${PLAIN_OPACITY[strength]}`,
+        );
         expect([drawn?.dataset.editing, drawn?.dataset.writes, drawn?.dataset.pointer]).toEqual([
           "false",
           "0",
