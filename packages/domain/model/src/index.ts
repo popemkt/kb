@@ -164,6 +164,7 @@ export {
   BACKDROP_VARIANT_OPTIONS,
   backdropChoice,
   backdropOptionId,
+  backdropVariantOptionId,
   backdropVariantOptions,
   DEFAULT_BACKDROP_STRENGTH,
   drawVariant,
@@ -178,10 +179,18 @@ export {
   type BackdropStrength,
 } from "./backdrop.ts";
 export {
+  backdropKnobValues,
+  knobFieldId,
+  knobFields,
+  knobOptionId,
+  knobValues,
+} from "./knob-fields.ts";
+export {
   KNOB_COLOR,
   knobDefaults,
   knobNumber,
   knobSchemaError,
+  knobValue,
   type BooleanKnob,
   type ColorKnob,
   type EnumKnob,

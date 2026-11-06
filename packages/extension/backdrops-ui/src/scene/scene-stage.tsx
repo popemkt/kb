@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
+import { SEED_KNOB, SPEED_KNOB } from "@kb/backdrops";
+import { knobValue } from "@kb/model";
 import { useAppearance, useReducedMotion, type BackdropProps } from "@kb/ui-sdk";
 import type { CompositionFactory } from "./composition";
 import { useBackdropSeed } from "./seed";
@@ -24,16 +26,18 @@ export function SceneStage({
   const stage = useRef<Stage | null>(null);
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
-  const seed = useBackdropSeed(reducedMotion);
-  const { color, direction, strength, opacity, activity, node, pointer, budget } = backdrop;
+  const { color, direction, strength, opacity, activity, node, pointer, budget, knobs } = backdrop;
+  const seed = useBackdropSeed(reducedMotion, knobValue(knobs, SEED_KNOB));
+  const speed = knobValue(knobs, SPEED_KNOB);
   const nodeId = node?.id;
   const { editing } = activity;
   // What a stage made later starts from: the page as it is now.
-  const latest = useRef({ look: null as Look | null, editing });
+  const latest = useRef({ look: null as Look | null, editing, speed });
   useEffect(() => {
     latest.current = {
       look: { palette: readPalette(appearance, color), direction, strength, presence: opacity },
       editing,
+      speed,
     };
   });
 
@@ -47,6 +51,7 @@ export function SceneStage({
     });
     stage.current = made;
     made.reactions.setEditing(latest.current.editing);
+    made.setSpeed(latest.current.speed);
     if (latest.current.look !== null) made.look(latest.current.look);
     return () => {
       made.dispose();
@@ -62,6 +67,8 @@ export function SceneStage({
       presence: opacity,
     });
   }, [appearance, color, direction, strength, opacity]);
+
+  useEffect(() => stage.current?.setSpeed(speed), [speed]);
 
   const hears = useCallback(() => stage.current?.reactions ?? null, []);
   useTellOwner(hears, activity, nodeId);

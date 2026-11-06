@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { turnHue, variation } from "./seed";
+import { backdropSeed, turnHue, variation } from "./seed";
 
 function draw(seed: number) {
   const vary = variation(seed);
@@ -50,5 +50,17 @@ describe("turnHue", () => {
     const turned = turnHue(rgb, 0.7);
     expect(turned.reduce((a, b) => a + b)).toBeCloseTo(1.3, 9);
     turnHue(rgb, Math.PI * 2).forEach((c, i) => expect(c).toBeCloseTo(rgb[i] ?? 0, 9));
+  });
+});
+
+describe("backdropSeed", () => {
+  it("is the load's, or the curated still's under reduced motion", () => {
+    expect(backdropSeed(123, false, null)).toBe(123);
+    expect(backdropSeed(123, true, null)).toBe(backdropSeed(456, true, null));
+  });
+
+  it("is the seed the owner pinned (the seed knob), moving or still", () => {
+    expect(backdropSeed(123, false, 42)).toBe(42);
+    expect(backdropSeed(123, true, 42)).toBe(42);
   });
 });

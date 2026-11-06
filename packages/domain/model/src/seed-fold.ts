@@ -25,6 +25,7 @@ import {
   nowIso,
 } from "./model.ts";
 import { displaySettingFields, displaySettingValues } from "./display.ts";
+import { knobFields } from "./knob-fields.ts";
 import type { SeedRetirement } from "./seed-retirement.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
@@ -194,16 +195,34 @@ function declaredOf(source: SeedSource, kind: DeclaredOptions, at: string): KbNo
     .flatMap((set) => set.options.map((option) => declaredOptionNode(kind, option, at)));
 }
 
-/** The option node that names the declared `option` among `kind`'s, a child of its field. */
+/**
+ * The option node that names the declared `option` among `kind`'s, a child
+ * of its field, its knobs' fields its own children (`knobFields`).
+ */
 function declaredOptionNode(kind: DeclaredOptions, option: SeedOption, at: string): KbNode {
+  const id = declaredOptionId(kind, option.id);
   return {
-    id: declaredOptionId(kind, option.id),
+    id,
     text: option.label,
     props: { ...option.props, ...chosenProps(option) },
-    children: [],
+    children: knobFieldsOf(kind, option, at)
+      .filter((node) => node.props[SYSTEM_IDS.configuresField] !== undefined)
+      .map((node) => node.id),
     createdAt: at,
     updatedAt: at,
   };
+}
+
+/** The fields the knobs of the declared `option` derive on its option node (DESIGN-UI.md → Knobs). */
+function knobFieldsOf(kind: DeclaredOptions, option: SeedOption, at: string): KbNode[] {
+  return knobFields(declaredOptionId(kind, option.id), option.label, option.knobs ?? [], at);
+}
+
+/** Every knob field `source` declares, over every kind, in its order. */
+function knobsOf(source: SeedSource, at: string): KbNode[] {
+  return (source.declaredOptions ?? []).flatMap((set) =>
+    set.options.flatMap((option) => knobFieldsOf(set.kind, option, at)),
+  );
 }
 
 /** The views `source` claims as a tag's default view, each once: the ones its display settings are for. */
@@ -363,6 +382,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     files: source.files,
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
     declared: kinds.map((kind) => declaredOf(source, kind, at)),
+    knobs: knobsOf(source, at),
     own: extensionNode(source, at),
   }));
   const withViews = fileUnder(
@@ -383,7 +403,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     withViews,
   );
   const folded = fileUnder(
-    withDeclared,
+    [...withDeclared, ...parts.flatMap((part) => part.knobs)],
     SYSTEM_IDS.extensionsRoot,
     parts.map((part) => part.own),
   );
@@ -403,7 +423,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     }),
     owners: new Map(
       parts.flatMap((part) =>
-        [...part.seed, ...part.options, ...part.declared.flat(), part.own].map(
+        [...part.seed, ...part.options, ...part.declared.flat(), ...part.knobs, part.own].map(
           (node) => [node.id, part.name] as const,
         ),
       ),

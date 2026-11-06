@@ -11,13 +11,16 @@
  * three (`UI_LAZY_ONLY`): the plugin imports it with `lazy()`, and it
  * imports each scene, which is three's, with `import()`.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { SEED_KNOB } from "@kb/backdrops";
+import { knobValue } from "@kb/model";
 import { attachScene } from "@kb/scene";
 import {
   logWarn,
   readTiming,
   useAppearance,
   useReducedMotion,
+  type Appearance,
   type BackdropProps,
 } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback";
@@ -85,7 +88,6 @@ type SceneState = "loading" | "ready" | "unavailable";
 
 /** What a scene mounted later starts from: the page as it is now. */
 interface Latest {
-  look: GpuLook | null;
   editing: boolean;
   reducedMotion: boolean;
   seed: number;
@@ -110,6 +112,34 @@ function initNow(
   };
 }
 
+/**
+ * Keep the scene given the page's look (`GpuLook`): the palette from the
+ * tokens and the head's colour, the scheme, the strength's opacity, the
+ * direction, the art, the variant and the knobs, each change reaching the
+ * scene already mounted (`setLook`), and the latest kept for a later mount.
+ */
+function useLook(
+  mounted: RefObject<GpuBackdropScene | null>,
+  { color, opacity, direction, art, variant, knobs }: BackdropProps,
+  appearance: Appearance,
+): RefObject<GpuLook | null> {
+  const latest = useRef<GpuLook | null>(null);
+  useEffect(() => {
+    const look: GpuLook = {
+      palette: readStagePalette(color),
+      dark: appearance.dark,
+      presence: opacity,
+      direction,
+      art,
+      variant,
+      knobs,
+    };
+    latest.current = look;
+    mounted.current?.setLook(look);
+  }, [mounted, appearance, art, color, direction, opacity, variant, knobs]);
+  return latest;
+}
+
 export default function GpuBackdrop({
   scene: id,
   backdrop,
@@ -121,30 +151,29 @@ export default function GpuBackdrop({
   const mounted = useRef<GpuBackdropScene | null>(null);
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
-  const seed = useBackdropSeed(reducedMotion);
+  const { color, opacity, activity, node, pointer, budget, knobs } = backdrop;
+  // A pinned seed is a composition of its own: a new pin mounts the scene again.
+  const pinned = knobValue(knobs, SEED_KNOB);
+  const seed = useBackdropSeed(reducedMotion, pinned);
   const [state, setState] = useState<SceneState>("loading");
-  const { color, direction, art, opacity, activity, node, pointer, variant, budget } = backdrop;
   const nodeId = node?.id;
   const { editing } = activity;
   // A load mounts its scene once: a change of look, motion or editing reaches
   // the scene it mounted, and never mounts another (only another backdrop does).
-  const latest = useRef<Latest>({ look: null, editing, reducedMotion, seed });
+  const latest = useRef<Latest>({ editing, reducedMotion, seed });
+  const looked = useLook(mounted, backdrop, appearance);
+
   useEffect(() => {
-    const look: GpuLook = {
-      palette: readStagePalette(color),
-      dark: appearance.dark,
-      presence: opacity,
-      direction,
-      art,
-      variant,
-    };
-    latest.current.look = look;
-    mounted.current?.setLook(look);
-  }, [appearance, art, color, direction, opacity, variant]);
+    // The seed is the next mount's; the scene already mounted keeps its own. Set before the
+    // mount below runs, so a new pin mounts with it.
+    latest.current.seed = seed;
+    latest.current.reducedMotion = reducedMotion;
+    mounted.current?.setReducedMotion(reducedMotion);
+  }, [reducedMotion, seed]);
 
   useEffect(() => {
     const el = host.current;
-    const look = latest.current.look;
+    const look = looked.current;
     if (el === null || look === null) return undefined;
     setState("loading");
     // Running needs both: the tab shown (the scene host's) and the frame in view (`watchPlayback`).
@@ -157,7 +186,19 @@ export default function GpuBackdrop({
       apply();
     });
     const pending = SCENES[id]().then((mount) =>
-      mount(el, initNow(el, look, latest.current, { pointer, budget })),
+      // A pin is the mount's seed whatever the load's (`backdropSeed`).
+      mount(
+        el,
+        initNow(
+          el,
+          look,
+          { ...latest.current, seed: pinned ?? latest.current.seed },
+          {
+            pointer,
+            budget,
+          },
+        ),
+      ),
     );
     const unwatch = watchContent(el, (content) => scene?.setContent(content));
     const detach = attachScene(
@@ -176,7 +217,7 @@ export default function GpuBackdrop({
         onReady: (made) => {
           mounted.current = made;
           // The page may have changed while the scene loaded.
-          if (latest.current.look !== null) made.setLook(latest.current.look);
+          if (looked.current !== null) made.setLook(looked.current);
           made.setReducedMotion(latest.current.reducedMotion);
           made.setEditing(latest.current.editing);
           setState("ready");
@@ -193,14 +234,7 @@ export default function GpuBackdrop({
       detach();
       mounted.current = null;
     };
-  }, [id, pointer, budget]);
-
-  useEffect(() => {
-    // The seed is the next mount's; the scene already mounted keeps its own.
-    latest.current.seed = seed;
-    latest.current.reducedMotion = reducedMotion;
-    mounted.current?.setReducedMotion(reducedMotion);
-  }, [reducedMotion, seed]);
+  }, [id, pointer, budget, pinned, looked]);
 
   useEffect(() => {
     latest.current.editing = editing;

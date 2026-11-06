@@ -37,6 +37,7 @@ export {
   useNodeTextBinding,
   useOpenNode,
   usePageActivity,
+  useBackdropKnobs,
   usePageBackdrop,
   useShownDesignSystem,
   type PageBackdropChoice,
