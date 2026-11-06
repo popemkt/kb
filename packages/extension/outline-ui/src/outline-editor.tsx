@@ -135,9 +135,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
     <div className="outline-editor px-2 pb-40">
       <div className="relative">
         <PageBackdrop color="var(--primary)" />
-        <div className="relative">
-          <Breadcrumbs root={rootProp} />
-        </div>
+        <Breadcrumbs root={rootProp} />
       </div>
 
       {rootRows}
