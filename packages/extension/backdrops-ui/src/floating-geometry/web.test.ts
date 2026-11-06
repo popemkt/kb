@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { GEOMETRY_CRUMPLE_KNOB, GEOMETRY_GOLD_KNOB, GEOMETRY_SWEEP_KNOB } from "@kb/backdrops";
 import { seededRng } from "../scene/rng";
-import { SHEETS, fitPiece, layoutWeb, pieceBounds, placeSheets } from "./web";
+import {
+  LAMP_STRENGTH,
+  SHEETS,
+  fitPiece,
+  glassLook,
+  lampStrengths,
+  layoutWeb,
+  pieceBounds,
+  placeSheets,
+} from "./web";
 
 const AT = { x: 0.4, y: 0.05, scale: 1, lean: [0, 0] } as const;
 
@@ -121,5 +131,36 @@ describe("placeSheets", () => {
     const [whole] = placeSheets(sheets, 0, AT);
     const [half] = placeSheets(sheets, 0, { ...AT, scale: 0.5 });
     expect(half?.cell).toBeCloseTo((whole?.cell ?? 0) * 0.5, 9);
+  });
+});
+
+describe("the owner's knobs", () => {
+  it("at their defaults are the glass as it was: its own crumple, its lamps and its sweep", () => {
+    expect(glassLook({})).toEqual({ crumple: 1, gold: 1, sweep: 1 });
+    expect(lampStrengths(1)).toEqual(LAMP_STRENGTH);
+    expect(LAMP_STRENGTH).toEqual([1, 0.85, 0.42]);
+  });
+
+  it("fold the glass deeper or flatter", () => {
+    expect(glassLook({ crumple: GEOMETRY_CRUMPLE_KNOB.max }).crumple).toBeGreaterThan(1);
+    expect(glassLook({ crumple: GEOMETRY_CRUMPLE_KNOB.min }).crumple).toBeLessThan(1);
+    expect(glassLook({ crumple: GEOMETRY_CRUMPLE_KNOB.min }).crumple).toBeGreaterThan(0);
+  });
+
+  it("burn every lamp hotter or cooler alike, the main one still the hottest", () => {
+    const { gold } = glassLook({ gold: GEOMETRY_GOLD_KNOB.max });
+    const hot = lampStrengths(gold);
+    const cool = lampStrengths(glassLook({ gold: GEOMETRY_GOLD_KNOB.min }).gold);
+    hot.forEach((strength, k) => {
+      expect(strength).toBeGreaterThan(LAMP_STRENGTH[k] ?? 0);
+      expect(cool[k]).toBeLessThan(LAMP_STRENGTH[k] ?? 0);
+      expect(cool[k]).toBeGreaterThan(0);
+    });
+    expect(Math.max(...hot)).toBe(hot[0]);
+  });
+
+  it("glint the sweep brighter, or not at all", () => {
+    expect(glassLook({ sweep: GEOMETRY_SWEEP_KNOB.max }).sweep).toBeGreaterThan(1);
+    expect(glassLook({ sweep: 0 }).sweep).toBe(0);
   });
 });

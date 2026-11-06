@@ -12,6 +12,9 @@
  * little, so typing is a gentle sustained pulse; a write outside typing
  * lights a supernova just beside it, lensed into two images, which a further
  * write brightens rather than starts again.
+ *
+ * Its knobs (`lens-tuning.ts`), live: the star's mass, the nebula's hue
+ * turned from the palette drawn, and how many stars shine behind it.
  */
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
@@ -26,6 +29,7 @@ import {
   groundsOf,
 } from "../gpu/gpu-scene";
 import { lensFrame, lensUniforms, nebulaFragment } from "./lens-shader";
+import { lensTuning } from "./lens-tuning";
 
 /** Curated palettes: [gas core, gas rim, filament], linear. */
 type Palette = readonly (readonly [number, number, number])[];
@@ -71,14 +75,11 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const palette = vary.pick("palette", PALETTES);
   const u = lensUniforms();
   const [core, rim, filament] = palette;
-  if (core !== undefined) u.core.value.setRGB(...core);
-  if (rim !== undefined) u.rim.value.setRGB(...rim);
-  if (filament !== undefined) u.filament.value.setRGB(...filament);
   u.offset.value.set(vary.range("nebula.x", 0, 100), vary.range("nebula.y", 0, 100));
   u.spin.value = vary.sign("spin") * vary.range("spin.rate", 0.0012, 0.002); // ~4–7° a minute
   u.warp.value = vary.range("warp", 3, 4.5);
   u.density.value = vary.range("density", 0.92, 1.04);
-  u.starCut.value = vary.range("stars", 0.93, 0.96);
+  const starCut = vary.range("stars", 0.93, 0.96);
   /** Where the star rests, as shares of the composition's reach (`layout`). */
   const rest = { x: vary.range("rest.x", -0.35, 0.35), y: vary.range("rest.y", -0.3, 0.3) };
   u.time.value = vary.range("clock", 0, 400);
@@ -95,6 +96,7 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   let orbit = 0;
   let sinceNebula = Infinity;
   let settled = false;
+  let tuned = lensTuning(init.knobs);
 
   return {
     // In a panel the star rests high and right, small and quiet; wide, right of the title.
@@ -122,6 +124,11 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       return { x: home.x, y: home.y, scale };
     },
     setLook: (look: GpuLook) => {
+      tuned = lensTuning(look.knobs);
+      if (core !== undefined) u.core.value.setRGB(...tuned.dye(core));
+      if (rim !== undefined) u.rim.value.setRGB(...tuned.dye(rim));
+      if (filament !== undefined) u.filament.value.setRGB(...tuned.dye(filament));
+      u.starCut.value = tuned.starCut(starCut);
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.32 : 0);
       sinceNebula = Infinity;
@@ -144,7 +151,7 @@ function lens(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         position.y += velocity.y * dt;
       }
       u.lens.value.set(position.x, position.y);
-      u.einstein.value = 0.15 * scale;
+      u.einstein.value = tuned.einstein * scale;
       // Typing calms the star, barely; the owner's writes swell it.
       u.mass.value = (1 - 0.1 * reactions.calm) * (1 + 0.15 * reactions.impulse);
       // A supernova lights where the star is when one starts from dark, and is then carried on.

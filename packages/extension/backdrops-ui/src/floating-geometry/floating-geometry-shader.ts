@@ -191,6 +191,8 @@ export function glassUniforms(field: FarField) {
     heat: uniform(1),
     /** Where the sweeping band of light is, along `SWEEP` (frame units from the centre). */
     sweep: uniform(-9),
+    /** How brightly the band glints in the seams it crosses: 1 as drawn, 0 none (the owner's sweep knob). */
+    glint: uniform(1),
     /** How large the composition is: the lamps' reach scales with it. */
     scale: uniform(1),
     /** The frame the glass pass covers: x0, y0, x1, y1. */
@@ -699,7 +701,7 @@ function pixelAt(u: GlassUniforms, texel: F): Pixel {
   warmth.assign(warmth.min(1));
   // The sweeping band: every seam it crosses glints.
   const across = dot(p, SWEEP).sub(u.sweep).div(BAND);
-  const band = exp(across.mul(across).negate()).toVar();
+  const band = exp(across.mul(across).negate()).mul(u.glint).toVar();
   // The lit air dissolves into the page softly over a long reach, its rim ragged.
   const left = dissolve(u.reach, p, u.time.mul(0.004)).toVar();
   // How near a far glint: its light pools in the web and the air round it.

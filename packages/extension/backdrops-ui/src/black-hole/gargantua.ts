@@ -5,6 +5,7 @@
  * The owner (through the shared rig, `hole-rig.ts`): the pointer tilts and
  * swings the camera; typing dims the disk a little and each keystroke
  * breathes into it; a write outside typing sets a hot flare orbiting in it.
+ * Its own knobs (`hole-tuning.ts`), live: the gas's beaming and its heat.
  *
  * Cost: the hole is drawn offscreen, and what the meter trades is its
  * resolution and nothing else (`holeDensity`). A ray's steps are never cut
@@ -23,6 +24,7 @@ import {
 } from "../gpu/gpu-scene";
 import { blackHoleFragment, blackHoleUniforms } from "./black-hole-shader";
 import { flareOrbit, holeDensity, holeDolly, sharpened, type HoleLook } from "./hole-rig";
+import { gargantuaTuning } from "./hole-tuning";
 
 /**
  * How much of each new frame enters the picture; the rest is the frames
@@ -78,6 +80,10 @@ export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variat
       return anchor;
     },
     setLook: (look: GpuLook) => {
+      dolly.tune(look.knobs);
+      const tuned = gargantuaTuning(look.knobs);
+      u.beaming.value = tuned.beaming;
+      u.heat.value = tuned.heat;
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.18 : 0.06);
       stage.setLens(GARGANTUA_LENS);

@@ -67,12 +67,15 @@ import {
   CONSTELLATION_POINTS,
   TICK_PERIOD,
   ambient,
+  astralTuning,
   driveAngle,
   gleamAt,
   isAstralVariant,
   lifeOf,
+  sized,
   trainClock,
   type AmbientKind,
+  type AstralTuning,
   type AstralVariant,
   type Drive,
   type Happening,
@@ -118,8 +121,6 @@ const EYE = 4;
 
 /** A composition that names no focus: every depth sharp. */
 const UNFOCUSED: StageFocus = { distance: EYE, depth: 0, falloff: 1, radius: 0 };
-/** A hairline, in CSS pixels: every inked line is this wide at any pixel ratio. */
-const HAIR = 0.3;
 /** The bloom on a dark page: small, so a glow is a tight core and never a wash. */
 const BLOOM = 0.16;
 /** The far train ticks this often while engaged (s). */
@@ -691,6 +692,17 @@ function ownerEvents() {
   };
 }
 
+/**
+ * What the owner tuned, onto what the shaders read: the ink's hairline (CSS
+ * pixels at any pixel ratio) and the sky's stars. Its size is the
+ * composition's (`sized`). Applied as the hero is laid out, which the host
+ * does again after every look, so a knob reaches the frame with no mount.
+ */
+function tune(u: AstralUniforms, tuning: AstralTuning, pixelRatio: number) {
+  u.hair.value = tuning.hair * pixelRatio;
+  u.stars.value = tuning.stars;
+}
+
 /** The sky's slow fields (`slowSky`): soft, a texel about every other CSS pixel, drawn again a few times a second and on a new layout. */
 function slowFields(stage: SceneStage, u: AstralUniforms) {
   const pass = offscreenPass(stage.renderer, () => slowSky(u), { history: false });
@@ -725,6 +737,7 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   stage.camera.lookAt(0, 0, 0);
 
   let dark = init.dark;
+  let tuning = astralTuning(init.knobs);
   const variantOf = (look: GpuLook): AstralVariant =>
     isAstralVariant(look.variant) ? look.variant : vary.pick("variant", ASTRAL_VARIANTS);
   const make = (variant: AstralVariant) => {
@@ -771,10 +784,10 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   return {
     // In a panel the instrument is smaller, high and right, quieter; wide, right of the title.
     get panel() {
-      return { ...built.mechanism.panel, presence: 0.9 };
+      return { ...sized(built.mechanism.panel, tuning.size), presence: 0.9 };
     },
     get wide() {
-      return { ...built.mechanism.wide, presence: 1 };
+      return { ...sized(built.mechanism.wide, tuning.size), presence: 1 };
     },
     layout: (layout: BackdropLayout) => {
       size = { width: layout.width, height: layout.height };
@@ -782,7 +795,7 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       events.follow(anchor);
       place();
       u.detail.value = layout.quality;
-      u.hair.value = HAIR * stage.renderer.getPixelRatio();
+      tune(u, tuning, stage.renderer.getPixelRatio());
       slow.layout(layout);
       scrim.layout(layout);
       pose(0, null);
@@ -790,6 +803,7 @@ function astral(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     },
     setLook: (look: GpuLook) => {
       dark = look.dark;
+      tuning = astralTuning(look.knobs);
       u.dark.value = dark ? 1 : 0;
       stage.setBloom(dark ? BLOOM : 0.03);
       const variant = variantOf(look);

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { TRAILS_FAN_KNOB, TRAILS_KNOT_KNOB, TRAILS_STRANDS_KNOB } from "@kb/backdrops";
 import { seededRng } from "../scene/rng";
-import { STRANDS, bundle, layoutTrails, spread, strandAt } from "./trails";
+import {
+  STRANDS,
+  bundle,
+  layoutTrails,
+  spread,
+  strandAt,
+  strandsShown,
+  trailsLook,
+} from "./trails";
 
 describe("layoutTrails", () => {
   it("is the seed's, and lays out exactly the strands the shader reads", () => {
@@ -56,5 +65,42 @@ describe("the curve", () => {
         expect(moved).toBeLessThanOrEqual(2 * strand.wave[0] + 1e-9);
       }
     }
+  });
+});
+
+describe("the owner's knobs", () => {
+  it("at their defaults are the bundle as it was: every strand, fanned as laid out, the knot at its own light", () => {
+    expect(trailsLook({})).toEqual({ strands: STRANDS, fan: 1, knot: 1 });
+    expect(TRAILS_STRANDS_KNOB.max).toBe(STRANDS);
+    expect(strandsShown(STRANDS).every(Boolean)).toBe(true);
+  });
+
+  it("show as many strands as asked, one more each step, thinning near, mid and far alike", () => {
+    const strands = layoutTrails(seededRng(5));
+    for (let count = TRAILS_STRANDS_KNOB.min; count <= STRANDS; count++) {
+      const shown = strandsShown(count);
+      expect(shown).toHaveLength(STRANDS);
+      expect(shown.filter(Boolean)).toHaveLength(count);
+      // Each step adds a strand and takes none away.
+      if (count > TRAILS_STRANDS_KNOB.min) {
+        const fewer = strandsShown(count - 1);
+        fewer.forEach((was, i) => {
+          if (was) expect(shown[i]).toBe(true);
+        });
+      }
+    }
+    const fewest = strandsShown(TRAILS_STRANDS_KNOB.min);
+    const kept = strands.filter((_, i) => fewest[i] === true);
+    expect(kept.filter((s) => s.depth < 0.2).length).toBeGreaterThan(2);
+    expect(kept.some((s) => s.depth > 0.15 && s.depth < 0.5)).toBe(true);
+    expect(kept.some((s) => s.depth > 0.8)).toBe(true);
+  });
+
+  it("open or close the fan, and brighten or quiet the knot", () => {
+    expect(trailsLook({ fan: TRAILS_FAN_KNOB.max }).fan).toBeGreaterThan(1);
+    expect(trailsLook({ fan: TRAILS_FAN_KNOB.min }).fan).toBeLessThan(1);
+    expect(trailsLook({ knot: TRAILS_KNOT_KNOB.max }).knot).toBeGreaterThan(1);
+    expect(trailsLook({ knot: TRAILS_KNOT_KNOB.min }).knot).toBeGreaterThan(0);
+    expect(trailsLook({ strands: 12 }).strands).toBe(12);
   });
 });

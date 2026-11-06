@@ -13,7 +13,8 @@
  * the geometry and the swing are tested without a GPU.
  */
 
-import type { BackdropGlyph } from "@kb/model";
+import { MEDALLION_EMBERS_KNOB, MEDALLION_GLYPHS_KNOB, MEDALLION_SMOKE_KNOB } from "@kb/backdrops";
+import { knobValue, type BackdropGlyph, type KnobValues } from "@kb/model";
 
 export type Point = readonly [number, number];
 /** One straight stroke: from, to. */
@@ -283,4 +284,27 @@ export function swingOn(swing: Swing, dt: number, time: number, pushed: number):
   const torque = airOn(time) - w * w * swing.angle - 2 * HANGING.damping * w * swing.speed;
   const speed = swing.speed + torque * step + pushed * HANGING.push;
   return { angle: swing.angle + speed * step, speed };
+}
+
+/** The share of the ember grids' cells that hold a spark, as the scene was drawn before it had a knob. */
+const EMBER_SHARE = 0.26;
+
+/**
+ * What the owner's knobs set (DESIGN-UI.md → Page-head backdrops → Knobs):
+ * the hash a cell of the ember grids must pass to hold a spark (`emberCut`;
+ * 1, none), how thick the smoke is against its own, and how present the
+ * circle of glyphs is against its own.
+ */
+export interface MedallionLook {
+  readonly emberCut: number;
+  readonly smoke: number;
+  readonly glyphs: number;
+}
+
+export function medallionLook(knobs: KnobValues): MedallionLook {
+  return {
+    emberCut: Math.max(0, 1 - EMBER_SHARE * knobValue(knobs, MEDALLION_EMBERS_KNOB)),
+    smoke: knobValue(knobs, MEDALLION_SMOKE_KNOB),
+    glyphs: knobValue(knobs, MEDALLION_GLYPHS_KNOB),
+  };
 }

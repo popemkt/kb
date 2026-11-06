@@ -8,7 +8,8 @@
  * upward and the wall and post dissolve away from it, so nothing ends in a
  * straight line. Pure geometry, in the frame's CSS pixels.
  */
-import type { BackdropDirection } from "@kb/model";
+import { ROOST_WINDOW_KNOB } from "@kb/backdrops";
+import { knobValue, type BackdropDirection, type KnobValues } from "@kb/model";
 import type { Poly } from "../scene/figure";
 import type { GlowSpec } from "../scene/glow";
 
@@ -125,4 +126,10 @@ export function houseOf(
       washFrom: direction === "down" ? "top" : "bottom",
     },
   };
+}
+
+/** How brightly the night's window glows at `time`: softly breathing, by the window knob (0, dark). */
+export function windowGlow(time: number, knobs: KnobValues): number {
+  const breath = 0.82 + 0.1 * Math.sin(time * 0.9) + 0.05 * Math.sin(time * 2.3 + 1);
+  return breath * knobValue(knobs, ROOST_WINDOW_KNOB);
 }
