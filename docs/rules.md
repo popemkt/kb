@@ -1033,14 +1033,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — window management design on top of the layout view type (docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md decision 12)
 - **node** — `01M3Q5DP9TQF0E9DZMHAKHMGWD`
 
-### GAP: no public fixture repo for the extension install E2E
-
-- **expected** — popemkt/kb-plugins-sample holds extensions/hello, extensions/aurora and kb-marketplace.json, with synthetic content only.
-- **current** — No fixture exists.
-- **impact** — The end-to-end acceptance has nothing real to run against.
-- **closes** — Step S of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR6Q4KFJZ4Z59QE62TYJQ`
-
 ### GAP: no scene is pre-compiled; every scene compiles on the hidden first frame
 
 - **expected** — Every study's pipelines, including the GTAO two-target pass and the shadow pass, are compiled before the first frame is drawn (Lab principle P2).
@@ -1049,14 +1041,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Compile ahead of the first frame, for the scene pass's own target, once three builds a layout function's uniforms per material (mrdoob/three.js#33666, open) or a pre-compile no longer builds a material twice; include the occlusion and shadow passes.
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
-
-### GAP: no SourceReader port reads a pinned GitHub tree
-
-- **expected** — A SourceReader port resolves github:owner/repo/path@ref to a full sha and reads its regular files under the T1 refusals, with files (kb.source/1); a git adapter and an in-memory one meet one contract suite.
-- **current** — Nothing in kb reads code from outside the root.
-- **impact** — Install, update and marketplaces have nothing to stand on.
-- **closes** — Step 3 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR59A4JRD5MPZDVGXADDQ`
 
 ### GAP: no staged edit to preview, so Turn() cannot be a plan mode
 

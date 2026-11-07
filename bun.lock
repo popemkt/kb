@@ -377,6 +377,17 @@
         "typescript": "catalog:",
       },
     },
+    "packages/contract/extension-source": {
+      "name": "@kb/extension-source",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/contract/sandbox": {
       "name": "@kb/sandbox",
       "version": "0.0.0",
@@ -1277,6 +1288,18 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/infrastructure/source-git": {
+      "name": "@kb/source-git",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/child-process": "workspace:*",
+        "@kb/extension-source": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/infrastructure/store-jsonl": {
       "name": "@kb/store-jsonl",
       "version": "0.0.0",
@@ -1824,6 +1847,8 @@
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
 
+    "@kb/extension-source": ["@kb/extension-source@workspace:packages/contract/extension-source"],
+
     "@kb/file-write": ["@kb/file-write@workspace:packages/infrastructure/file-write"],
 
     "@kb/gallery": ["@kb/gallery@workspace:packages/extension/gallery"],
@@ -1885,6 +1910,8 @@
     "@kb/scene-gpu": ["@kb/scene-gpu@workspace:packages/kit/scene-gpu"],
 
     "@kb/server": ["@kb/server@workspace:packages/app/server"],
+
+    "@kb/source-git": ["@kb/source-git@workspace:packages/infrastructure/source-git"],
 
     "@kb/store-jsonl": ["@kb/store-jsonl@workspace:packages/infrastructure/store-jsonl"],
 

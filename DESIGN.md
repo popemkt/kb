@@ -2818,6 +2818,28 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   contained: contained folders reject any bundle input outside their real
   directory, checked from Bun's input inventory. The root supplies its own
   `.kb/extensions/` folder with ordinary package and link resolution.
+- **Pinned extension sources.** `SourceReader` (`@kb/extension-source`) resolves
+  GitHub sources to full 40-hex commits and reads regular files from that pin.
+  Paths are bounded by `SOURCE_LIMITS` in the source grammar (bytes, segment
+  bytes and depth), before prefix/collision validation or local copying.
+  A pasted GitHub tree URL normalizes to the same source. Abbreviated commit
+  ids are refused. The git and memory adapters keep one shared contract.
+  Git reads objects in a scratch bare repository, never a checkout or archive.
+  Every pin must be a commit reachable from the named repository's own branch
+  or tag; an object merely served through a fork network is refused. Metadata
+  fetches request blobless filtering. Paths, modes and counts are checked before fetching
+  only the selected blobs, whose combined bytes remain bounded; one batch
+  reader consumes them. Child git processes have file/output budgets and a
+  deadline, and cannot prompt or fetch objects implicitly. All git commands,
+  including ref discovery, run in a private bare repository and never read
+  the caller root's git configuration.
+  All selected paths must be relative, free of traversal and unique under
+  NFC/case folding; symlinks and submodules are refused. Limits are 512 files
+  and 8 MiB. Exactly one top-level server entry determines the name; only its
+  page half, helper subtree, README and licenses are retained. Other files
+  are reported as ignored. The `kb.source/1` digest frames each sorted path,
+  mode and byte sequence; it hashes files, never transport bytes. Source
+  transport disables hooks and restricts protocols; it never installs packages.
 - **Repository extensions** run as owner code, on the server and in the
   page, like a DeepSeek Harness plugin, so a root's extension runs only once
   a person has trusted it on this machine. What a person trusts is its
