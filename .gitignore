@@ -87,3 +87,6 @@ playwright-report
 
 # direnv
 .direnv/
+
+# Per-machine extension selections; shared selections live in extensions.lock.json.
+.kb/extensions.local.json

@@ -2824,8 +2824,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   (`installHostModules`). The bundle carries no comment and no whitespace,
   so the closure is its files and nothing of where the process runs. Its
   digest is `extensionDigest` (`@kb/sandbox`, both halves in a format of
-  its own), and trust is the root's code trust, the one record sandboxed
-  code is trusted in (`CodeTrust`, `.kb/trust.json`; [Sandbox](#sandbox) →
+  its own), and trust is the user's code trust, the one record sandboxed
+  code is trusted in (`CodeTrust`; [Sandbox](#sandbox) →
   Trust), granted by the same gesture, `sandbox.trust`. An untrusted
   extension is skipped and reported with its digest; an edit to any file of
   its closure, either half, is new code, untrusted until trusted again. So
@@ -4548,8 +4548,7 @@ The sidebar agent lives outside core, in packages that core never imports
     whichever process opens it. The kind and each of its fields configure
     the agent (`sys.f.configures`), so a provider, its settings wherever
     they are written, and the selection are configuration
-    (`writesConfiguration`), which the governance family's approval guard
-    would keep to the owner; it is not contributed for now
+    metadata. Configuration policy evaluation is deferred
     ([Action registry](#action-registry) → Current stance).
   - The selection is a setting of the agent's own node:
     `sys.f.agent.provider`, a ref to a provider, which configures
@@ -4869,9 +4868,12 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   rebind. A started server binds any free port (`kb ui --port 0`) and its
   presence records the port it bound, which is how a starter reads its URL
   back.
-- **The home store** is `$KB_HOME` when set, else
-  `~/Library/Application Support/kb/home` on macOS and
-  `${XDG_DATA_HOME:-~/.local/share}/kb/home` elsewhere. It is a full root,
+- **The per-user data directory**, owned by `dataPath` in `@kb/workspace-fs`,
+  is `$KB_DATA`, else `~/Library/Application Support/kb` on macOS, else
+  `${XDG_DATA_HOME:-~/.local/share}/kb`. A test run must name `KB_DATA`;
+  there is no fallback to the person's data. Trust and installed extension
+  state belong here.
+- **The home store** is `$KB_HOME` when set, else `<data>/home`. It is a full root,
   seeded with the bundled fold like any store, so opening it gives tables,
   boards and queries over the locations with nothing of its own; opened, it
   lists itself, as any root does. It is state produced by use, so it is
@@ -5184,9 +5186,12 @@ sends it more than 400 messages a second.
   guest; one changed character, or a wider grant, is code nobody trusted.
 - `sandbox.trust` (write, declaring approval required), `sandbox.untrust` (write) and
   `sandbox.trusted` (read) reach the `CodeTrust` port (`@kb/contracts`),
-  whose adapter (`@kb/workspace-fs`) keeps `.kb/trust.json`: gitignored,
-  backed up by Mackup, each record naming its machine and only this
-  machine's honoured (`docs/backup-strategy.md` → kb Code Trust).
+  whose adapter (`@kb/workspace-fs`) keeps `<data>/trust.json`, shared by
+  every root for this user. Each record names its machine; only this machine's
+  records count. Reads migrate a root's legacy `.kb/trust.json`: under the shared
+  file write lock, merge this machine's records by digest, durably write the
+  shared record, then remove the legacy file. Other machines' records grant
+  nothing here. The backed-up trust path moves from each root to `<data>/trust.json`.
 - Trust requires a person (Action registry → Current stance). A script cannot
   trust, since the action declares no `targets` and so is no code's to call
   (Grants). Trust changes the engine and
@@ -5219,12 +5224,10 @@ system, one runner, one trust.
   (`@kb/code` `script.ts`). The `#script` tag and `sys.f.scripts` both
   configure the code family (`sys.f.configures`), so minting, editing or
   untagging a script, and attaching one to a node or taking it off, is
-  configuration (`writesConfiguration`), which the governance family's
-  approval guard would keep to the owner, attaching as much as writing,
-  since trust is per digest: a script a person trusted for one board would
-  otherwise act, with its grant, on any node an agent attached it to. That
-  guard is not contributed for now (Action registry → Current stance,
-  `// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`), so any caller attaches one.
+  configuration metadata. Configuration policy evaluation remains deferred
+  (Action registry → Current stance, `// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`),
+  so any caller can attach a trusted script to another node. Declared required
+  approval on execution does not restrict editing or attachment.
 - **A view declares what it tells a script** (`ViewKey.events`) and emits
   it on a channel (`createViewEvents`, `@kb/ui-sdk`); it mounts
   `ViewScripts` for the nodes it shows. The family that keeps scripts

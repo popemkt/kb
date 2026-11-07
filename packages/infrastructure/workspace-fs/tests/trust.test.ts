@@ -1,6 +1,6 @@
 /**
- * `.kb/trust.json`: trust is kept per digest and per machine, beside the
- * store and never in it, and a file kb did not write trusts nothing.
+ * Per-user trust is kept per digest and per machine, outside every
+ * store, and a file kb did not write trusts nothing.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -10,7 +10,7 @@ import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
 import { Effect, Layer } from "effect";
 import { CodeTrust } from "@kb/contracts";
 import type { DomainError } from "@kb/model";
-import { codeTrustLayer } from "../src/index.ts";
+import { currentData, codeTrustLayer } from "../src/index.ts";
 
 const A = `sha256:${"a".repeat(64)}`;
 const B = `sha256:${"b".repeat(64)}`;
@@ -42,10 +42,43 @@ describe("code trust on disk", () => {
     await on("mac-1", (t) => t.trust(A));
     await on("mac-1", (t) => t.trust(A));
     expect(await on("mac-1", (t) => t.trusted([A, B]))).toEqual([A]);
-    const file = JSON.parse(await readFile(join(root, ".kb", "trust.json"), "utf8")) as {
+    const file = JSON.parse(
+      await readFile(join(await Effect.runPromise(currentData), "trust.json"), "utf8"),
+    ) as {
       trusted: unknown[];
     };
     expect(file.trusted).toHaveLength(1);
+  });
+
+  test("trust is shared across roots and legacy migration is machine-bound", async () => {
+    await writeFile(
+      join(root, ".kb", "trust.json"),
+      JSON.stringify({
+        version: 1,
+        trusted: [
+          { digest: A, machine: "mac-1", at: "2026-11-07T00:00:00Z" },
+          { digest: B, machine: "mac-2", at: "2026-11-07T00:00:00Z" },
+        ],
+      }),
+    );
+    expect(await on("mac-1", (t) => t.trusted([A, B]))).toEqual([A]);
+    expect(await Bun.file(join(root, ".kb", "trust.json")).exists()).toBe(false);
+    const original = root;
+    root = join(root, "other");
+    try {
+      expect(await on("mac-1", (t) => t.trusted([A, B]))).toEqual([A]);
+    } finally {
+      root = original;
+    }
+  });
+
+  test("concurrent writers retain every approved digest", async () => {
+    const digests = Array.from(
+      { length: 12 },
+      (_, i) => `sha256:${i.toString(16).padStart(64, "0")}`,
+    );
+    await Promise.all(digests.map((digest) => on("mac-1", (t) => t.trust(digest))));
+    expect((await on("mac-1", (t) => t.trusted(digests))).toSorted()).toEqual(digests.toSorted());
   });
 
   test("a record made on another machine trusts nothing here", async () => {

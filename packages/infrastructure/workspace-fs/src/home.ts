@@ -13,15 +13,15 @@ import { Effect, Schema } from "effect";
  * A test run that named no home store of its own. Never caught: the fix is
  * the test's, which must name one (`KB_HOME`) for itself and its children.
  */
-export class TestRunHomeUnnamed extends Schema.TaggedError<TestRunHomeUnnamed>()(
-  "Kb/TestRunHomeUnnamed",
+export class TestRunPathUnnamed extends Schema.TaggedError<TestRunPathUnnamed>()(
+  "Kb/TestRunPathUnnamed",
   { message: Schema.String },
 ) {}
 
 /**
  * The home store's directory, for an environment on a platform.
  *
- * @throws TestRunHomeUnnamed when `env` is a test run's and names no home.
+ * @throws TestRunPathUnnamed when `env` is a test run's and names no home.
  */
 export function homePath(
   env: Readonly<Record<string, string | undefined>>,
@@ -31,19 +31,36 @@ export function homePath(
   const set = env.KB_HOME;
   if (set !== undefined && set !== "") return resolve(set);
   if (env.NODE_ENV === "test") {
-    throw new TestRunHomeUnnamed({
+    throw new TestRunPathUnnamed({
       message:
         "a test run (NODE_ENV=test) must name its home store in KB_HOME; it never falls back to the person's",
     });
   }
-  if (platform === "darwin") return join(home, "Library", "Application Support", "kb", "home");
-  const data = env.XDG_DATA_HOME;
-  return join(
-    data !== undefined && data !== "" ? data : join(home, ".local", "share"),
-    "kb",
-    "home",
-  );
+  return join(dataPath(env, platform, home), "home");
 }
+
+/** The one per-user persistent data directory (DESIGN.md → Locations). */
+export function dataPath(
+  env: Readonly<Record<string, string | undefined>>,
+  platform: string,
+  home: string,
+): string {
+  const set = env.KB_DATA;
+  if (set !== undefined && set !== "") return resolve(set);
+  if (env.NODE_ENV === "test")
+    throw new TestRunPathUnnamed({
+      message:
+        "a test run (NODE_ENV=test) must name KB_DATA; it never falls back to the person's data",
+    });
+  if (platform === "darwin") return join(home, "Library", "Application Support", "kb");
+  const data = env.XDG_DATA_HOME;
+  return join(data !== undefined && data !== "" ? data : join(home, ".local", "share"), "kb");
+}
+
+export const currentData: Effect.Effect<string> = Effect.sync(() =>
+  // oxlint-disable-next-line node/no-process-env -- the one read of the user's persistent data directory
+  dataPath(process.env, process.platform, homedir()),
+);
 
 /**
  * The home store's directory now. The environment is read each time this

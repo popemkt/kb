@@ -4,9 +4,8 @@
  * over them; and `sys.f.scripts`, which names a node's scripts. Both the tag
  * and the field configure the family (`sys.f.configures`), metadata that
  * says minting, editing or attaching a script is configuration, since it
- * decides what code runs where. Core enforces nothing by it: a guard may
- * (the governance family's `writesConfiguration`), and none that ships does
- * for now (DESIGN.md → Action registry → Current stance,
+ * decides what code runs where. Core does not interpret this metadata; configuration
+ * policy evaluation remains deferred (DESIGN.md → Action registry → Current stance,
  * GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]). Declared the
  * way core declares its own. The bundled seed folds it after core's nodes
  * (DESIGN.md → Extension families → the seed is the bundled fold).
