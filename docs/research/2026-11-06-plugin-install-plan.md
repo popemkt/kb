@@ -676,8 +676,12 @@ decision Q1).
       `.env` value and run the preload when the flags are left out, so the
       test can't pass vacuously;
     - a raw `bun cli.js` without the launch flags exits 78 before it
-      creates `nodes.jsonl`. With an extra flag it also exits 78;
-    - an install check runs the built Nix artifact;
+      creates `nodes.jsonl`, and so does one with the flags plus an extra
+      `--preload`;
+    - `nix/package.nix`'s install check (`doInstallCheck`) runs the same
+      suite against the installed `$out/bin/kb` (`KB_NIX_TEST_BIN`). The
+      test is "built nix artifact: repository dotenv and bunfig preload
+      cannot configure kb", and both Nix CI jobs run it;
   - `.gitignore` is updated, and the PR tells the owner which backup path
     moved.
 
