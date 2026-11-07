@@ -8,7 +8,8 @@
  * Its own knobs (`hole-tuning.ts`), live: the gas's beaming and its heat.
  *
  * Cost: the hole is drawn offscreen, and what the meter trades is its
- * resolution and nothing else (`holeDensity`). A ray's steps are never cut
+ * resolution and nothing else (`holeDensity`); a frame taller than a head
+ * draws it no finer than a head does (`pastHead`). A ray's steps are never cut
  * short (`STEP_CAP`): the rays that wind round the hole take the most, and
  * they are the photon ring. One jittered sample a step; the frames before it
  * fill in what one frame's samples leave out. A sample reads the gas's noise
@@ -18,6 +19,7 @@
 import { offscreenPass, type SceneStage, type StageLens } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
 import type { Variation } from "../scene/seed";
+import { pastHead } from "../gpu/framing";
 import {
   type BackdropLayout,
   type GpuBackdropInit,
@@ -101,7 +103,9 @@ export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variat
       // The shader reads the hole's centre as shares of the frame, y up.
       u.center.value.set(0.5 + anchor.x / (w / h), 0.5 + anchor.y);
       u.focal.value = 2.3 * anchor.scale;
-      const density = holeDensity(quality, DENSITY);
+      // A frame taller than a head shows the hole larger, never finer: it is drawn with a
+      // head's texels and scaled up, so its cost (rays, and their steps) is a head's.
+      const density = holeDensity(quality, DENSITY) / pastHead(h);
       hole.setSize(w * density, h * density);
       u.steps.value = STEP_CAP;
       // A still frame has no frames before it to settle its samples.

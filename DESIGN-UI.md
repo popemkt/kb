@@ -4779,7 +4779,10 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - Crisp first: the hole is drawn at 1.5 texels a CSS pixel at full
     quality and never under 1, however long frames run, and a ray's
     steps are never cut short (the rays that wind round the hole are the
-    photon ring). Each frame's rays leave from a new point in their texel,
+    photon ring). A frame taller than a head (the studio's, full-size)
+    shows the hole larger, never finer: it is drawn with a head's texels
+    and scaled up (`pastHead`), so its cost is a head's, whatever its
+    size on screen. Each frame's rays leave from a new point in their texel,
     so the history antialiases the ring and the filaments' edges; a step
     through the slab near the inner edge takes three samples, so the ring's
     thin crossings are not missed. The upscale is sharpened

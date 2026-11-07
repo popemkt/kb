@@ -46,6 +46,7 @@ import {
   ToonSeaBackdrop,
   WolfMedallionBackdrop,
 } from "./gpu/backdrops";
+import { HEAD_HEIGHT } from "./gpu/framing";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
 import { matchStudio, studioPath } from "./studio/routes";
@@ -120,7 +121,7 @@ const roost: Omit<Backdrop, "key"> = {
 const gpuFrame: Backdrop["presentation"] = {
   space: 120,
   directions: [],
-  height: 360,
+  height: HEAD_HEIGHT,
   span: { reach: "content", maxWidth: 1040 },
   offset: -10,
   opacity: { subtle: 0.7, soft: 0.85, vivid: 1 },

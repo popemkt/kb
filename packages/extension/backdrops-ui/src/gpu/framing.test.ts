@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { anchorIn, framingAt, PANEL_WIDTH, WIDE_WIDTH, type Composition } from "./framing";
+import {
+  HEAD_HEIGHT,
+  anchorIn,
+  framingAt,
+  pastHead,
+  PANEL_WIDTH,
+  WIDE_WIDTH,
+  type Composition,
+} from "./framing";
 
 const panel: Composition = { x: 0.28, y: 0.22, scale: 0.6, presence: 0.5 };
 const wide: Composition = { x: 0.2, y: 0.4, scale: 1, presence: 1 };
@@ -46,5 +54,13 @@ describe("anchorIn", () => {
   it("follows content that stands off the frame's centre", () => {
     const anchor = anchorIn(wide, { width: 1440, height: 360 }, { left: 0, width: 720 });
     expect(anchor.x).toBeCloseTo(-1 + 0.2, 9);
+  });
+});
+
+describe("pastHead", () => {
+  it("is 1 for a head, however short, and grows only with a frame taller than one", () => {
+    expect(pastHead(HEAD_HEIGHT)).toBe(1);
+    expect(pastHead(120)).toBe(1);
+    expect(pastHead(HEAD_HEIGHT * 1.75)).toBeCloseTo(1.75, 9);
   });
 });

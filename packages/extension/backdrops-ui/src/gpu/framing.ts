@@ -46,6 +46,16 @@ export interface Anchor {
   readonly scale: number;
 }
 
+/** How tall a GPU backdrop's head is (`gpuFrame`), whatever its width. */
+export const HEAD_HEIGHT = 360;
+
+/**
+ * How much larger than in a head a frame `height` tall shows its hero: 1
+ * for a head, more only in a taller frame (the studio's, full-size), which
+ * shows the same composition larger.
+ */
+export const pastHead = (height: number): number => Math.max(1, height / HEAD_HEIGHT);
+
 /** At or below this width the panel composition holds; at or above `WIDE`, the wide one. */
 export const PANEL_WIDTH = 480;
 export const WIDE_WIDTH = 900;
