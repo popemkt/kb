@@ -4788,7 +4788,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     where it is round the disk and how far out (its stream only moves
     where it is read), so it is baked once as the look is built, periodic
     round the disk (`bakedGas`), and a sample reads it rather than
-    computing it.
+    computing it. Past the disk (r > 15) space is all but flat and holds
+    no gas, so a ray crosses it in one step, its bend added in closed form
+    (the weak field's first order on the way in and out, and
+    Schwarzschild's second to infinity); a ray that passes wide of it
+    never marches. Within it the march runs as ever.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
 - **Black hole · Warp.** The lens-warp black hole after the demo in Bruno

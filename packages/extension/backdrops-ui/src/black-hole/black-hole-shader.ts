@@ -19,7 +19,8 @@
  *   scene lowers when frames run long; each frame jitters where along its
  *   steps it samples and blends into the frames before it (`history`), so
  *   one sample a step converges to a smooth disk. The gas's noise is read
- *   from a bake.
+ *   from a bake, and a ray crosses the flat space past the disk in one
+ *   closed-form step (`FAR`).
  * - **Dark** pages see it as light on black; **light** pages as an eclipse
  *   by day: a high-key sky, a charcoal shadow, the disk as amber dust lit
  *   from the front, only its hot inner edge burning gold.
@@ -330,6 +331,75 @@ function throughSlab({
   });
 }
 
+/**
+ * Beyond this radius space is all but flat and holds no gas (the slab ends
+ * at `OUTER`): a ray crosses it in one step, its bend added in closed form,
+ * rather than marching. Within it the march runs as ever, so all the disk,
+ * its arch, the ring and the shadow are traced in full; marched, half a
+ * ray's steps would fall out here.
+ */
+const FAR = OUTER + 2;
+/** A march step where a ray enters `FAR`: the span its entry is jittered over, as the march's start was. */
+const FAR_STEP = FAR * 0.04 - 0.02;
+
+/** s − s³/3: how much a straight ray has bent by where it stands, s = sin θ = l / r along it. */
+const bent = (s: F): F => s.sub(s.mul(s).mul(s).div(3));
+
+/**
+ * The straight line through `p` along the unit `d`: how far along it `p`
+ * stands from where it passes nearest the hole (`l`), how near that is
+ * (`b`), and the way out from the hole to there (`out`).
+ */
+function lineOf(p: V3, d: V3) {
+  const l = dot(p, d);
+  const nearest = p.sub(d.mul(l));
+  const b = max(length(nearest), 1e-4);
+  return { l, b, nearest, out: nearest.div(b) };
+}
+
+/**
+ * A ray from `p` along the unit `d`, carried in to radius `to`: where it
+ * stands there and its velocity. The bend over the way, to first order
+ * (the weak field's), in closed form: the force `−3/2·h²·r̂/r⁴` integrated
+ * along the straight line, for both the velocity and the way it drifts.
+ */
+function flightIn(p: V3, d: V3, to: F) {
+  const { l, b, nearest, out } = lineOf(p, d);
+  const r1 = length(p);
+  const s1 = l.div(r1);
+  const l2 = sqrt(max(to.mul(to).sub(b.mul(b)), 0)).negate();
+  const s2 = l2.div(to);
+  const along = l2.sub(l);
+  const b2 = b.mul(b);
+  const r1Cubed = r1.mul(r1).mul(r1);
+  const kick = out
+    .mul(bent(s2).sub(bent(s1)).mul(-1.5).div(b))
+    .add(d.mul(b2.mul(0.5).mul(float(1).div(to.mul(to).mul(to)).sub(float(1).div(r1Cubed)))));
+  const swept = (r: F): F => r.mul(r).mul(2).sub(b2).div(r.mul(3));
+  const drift = out
+    .mul(swept(to).sub(swept(r1)).sub(bent(s1).mul(along)).mul(-1.5).div(b))
+    .add(d.mul(s2.sub(s1).mul(0.5).sub(b2.mul(0.5).div(r1Cubed).mul(along))));
+  return { at: nearest.add(d.mul(l2)).add(drift), velocity: d.add(kick) };
+}
+
+/**
+ * Where a ray from `p` along the unit `d` is headed once it has left for
+ * good: its bend from there to infinity, the weak field's first order and
+ * Schwarzschild's second (`15π/16b²` over a whole pass), the share of a
+ * whole pass that is still ahead of it.
+ */
+function flightOut(p: V3, d: V3): V3 {
+  const { l, b, out } = lineOf(p, d);
+  const r = length(p);
+  const ahead = float(2 / 3).sub(bent(l.div(r)));
+  const bend = ahead.mul(
+    float(1.5)
+      .div(b)
+      .add(float(((15 * Math.PI) / 16) * 0.75).div(b.mul(b))),
+  );
+  return d.sub(out.mul(bend)).sub(d.mul(b.mul(b).mul(0.5).div(r.mul(r).mul(r))));
+}
+
 /** The camera, on a sphere round the hole, and its ray through this frame's point in the texel at `at`. */
 function cameraRay(u: BlackHoleUniforms, at: TslNode<"vec2">, size: TslNode<"vec2">) {
   const aspect = size.x.div(size.y);
@@ -380,24 +450,29 @@ export function blackHoleFragment(
         .mul(52.9829189)
         .add(u.frame.mul(0.618034)),
     );
-    // The march starts a jittered part of a step along: the steps of a ray that winds
-    // round the hole land somewhere new each frame, and the history draws the photon
-    // ring whole instead of in dashes. Space is flat out here, so the ray is unbent.
-    const p = vec3(eye)
-      .add(v.mul(jitter.mul(1.2)))
-      .toVar();
+    // The ray flies in to `FAR` and the march starts a jittered part of a step inside
+    // it: the steps of a ray that winds round the hole land somewhere new each frame,
+    // and the history draws the photon ring whole instead of in dashes. A ray that
+    // passes wide of `FAR` never marches: it flies by.
+    const enter = jitter.mul(FAR_STEP).add(FAR);
+    const passing = lineOf(eye, v);
+    const marches = passing.b.lessThan(enter);
+    const flown = flightIn(eye, v, enter);
+    const p = vec3(flown.at).toVar();
+    v.assign(select(marches, flown.velocity, flightOut(eye, v)));
     const angular = cross(p, v);
     const h2 = dot(angular, angular);
     const light = vec3(0, 0, 0).toVar();
     const dust = vec3(0, 0, 0).toVar();
     const through = float(1).toVar();
     const swallowed = float(0).toVar();
-    const nearest = float(99).toVar();
+    const nearest = select(marches, float(99), passing.b).toVar();
     const sigmaScale = mix(8, 3.2, u.dark);
     // Typing dims the disk a little and each keystroke breathes into it; a write flares.
     const fade = float(1).sub(u.calm.mul(0.35)).add(u.pulse.mul(0.4));
 
-    Loop({ start: 0, end: u.steps, type: "int", condition: "<" }, () => {
+    const steps = select(marches, u.steps, int(0));
+    Loop({ start: 0, end: steps, type: "int", condition: "<" }, () => {
       const r2 = dot(p, p);
       const r = sqrt(r2);
       nearest.assign(min(nearest, r));
@@ -405,7 +480,9 @@ export function blackHoleFragment(
         swallowed.assign(1);
         Break();
       });
-      If(r.greaterThan(55).and(dot(p, v).greaterThan(0)), () => {
+      // Out past `FAR` and leaving: the rest of its way is a flight.
+      If(r.greaterThan(FAR).and(dot(p, v).greaterThan(0)), () => {
+        v.assign(flightOut(p, normalize(v)));
         Break();
       });
       const dt = clamp(r.mul(0.04).sub(0.02), 0.02, 1.2).toVar();
