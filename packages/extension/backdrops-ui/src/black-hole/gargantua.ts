@@ -11,7 +11,9 @@
  * resolution and nothing else (`holeDensity`). A ray's steps are never cut
  * short (`STEP_CAP`): the rays that wind round the hole take the most, and
  * they are the photon ring. One jittered sample a step; the frames before it
- * fill in what one frame's samples leave out.
+ * fill in what one frame's samples leave out. A sample reads the gas's noise
+ * from its bake (`bakedGas`), drawn once as the look is built: computed at
+ * every sample, it was most of a frame's cost.
  */
 import { offscreenPass, type SceneStage, type StageLens } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
@@ -22,7 +24,15 @@ import {
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { blackHoleFragment, blackHoleUniforms } from "./black-hole-shader";
+import {
+  GAS_BILLOWS,
+  GAS_STREAMS,
+  blackHoleFragment,
+  blackHoleUniforms,
+  gasBillowsFragment,
+  gasStreamsFragment,
+  type BakedGas,
+} from "./black-hole-shader";
 import { flareOrbit, holeDensity, holeDolly, sharpened, type HoleLook } from "./hole-rig";
 import { gargantuaTuning } from "./hole-tuning";
 
@@ -45,13 +55,33 @@ export const GARGANTUA_LENS: StageLens = { aberration: 0.012, streak: 0.3, grain
  */
 const STEP_CAP = 300;
 
+/** The gas's noise, baked once, periodic round the disk (`BakedGas`); `dispose` gives it back. */
+function bakedGas(renderer: SceneStage["renderer"]): BakedGas & { readonly dispose: () => void } {
+  const periodic = { history: false, periodic: true } as const;
+  const streams = offscreenPass(renderer, gasStreamsFragment, periodic);
+  const billows = offscreenPass(renderer, gasBillowsFragment, periodic);
+  streams.setSize(GAS_STREAMS.width, GAS_STREAMS.height);
+  billows.setSize(GAS_BILLOWS.width, GAS_BILLOWS.height);
+  streams.render();
+  billows.render();
+  return {
+    streams: streams.picture,
+    billows: billows.picture,
+    dispose: () => {
+      streams.dispose();
+      billows.dispose();
+    },
+  };
+}
+
 export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variation): HoleLook {
   const flare = flareOrbit(vary);
   const u = blackHoleUniforms();
   u.time.value = 120 + vary.range("clock", 0, 60);
+  const gas = bakedGas(stage.renderer);
   const hole = offscreenPass(
     stage.renderer,
-    (inputs) => blackHoleFragment(u, inputs, groundsOf(stage)),
+    (inputs) => blackHoleFragment(u, gas, inputs, groundsOf(stage)),
     {
       history: true,
     },
@@ -104,6 +134,9 @@ export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variat
       hole.render();
       fresh = false;
     },
-    dispose: hole.dispose,
+    dispose: () => {
+      hole.dispose();
+      gas.dispose();
+    },
   };
 }

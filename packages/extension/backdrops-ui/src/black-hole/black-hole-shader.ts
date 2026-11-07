@@ -18,7 +18,8 @@
  * - **Cheap.** It is drawn offscreen (`offscreenPass`) at a resolution the
  *   scene lowers when frames run long; each frame jitters where along its
  *   steps it samples and blends into the frames before it (`history`), so
- *   one sample a step converges to a smooth disk.
+ *   one sample a step converges to a smooth disk. The gas's noise is read
+ *   from a bake.
  * - **Dark** pages see it as light on black; **light** pages as an eclipse
  *   by day: a high-key sky, a charcoal shadow, the disk as amber dust lit
  *   from the front, only its hot inner edge burning gold.
@@ -56,7 +57,7 @@ import {
   vec4,
 } from "three/tsl";
 import { Vector2 } from "three/webgpu";
-import type { OffscreenInputs, TslNode } from "@kb/scene-gpu";
+import type { OffscreenInputs, PictureSampler, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
 import { blackbody, fbm4, pnoise } from "../gpu/noise";
 import { gargantuaTuning } from "./hole-tuning";
@@ -117,40 +118,105 @@ const FLOW = 14;
 /** The slab's scale height, growing outward. */
 const heightAt = (r: F): F => r.mul(0.022).add(0.05);
 
+/** The radius a baked field covers, from `from` to `to`. */
+interface BakedRadii {
+  readonly from: number;
+  readonly to: number;
+}
+
+/**
+ * The gas's noise, baked once (`bakedGas` in `gargantua.ts`): each field is a fixed function of
+ * where it is round the disk (in turns) and its radius, so the march reads
+ * it rather than computing it at every sample. Time only moves where a field
+ * is read (the stream carries it round), never the field itself.
+ *
+ * - **Streams** (r, g): the filaments of the two crossfading copies (the
+ *   copies differ by their seed), long and fine: a coarse octave of 14 cells
+ *   round and a fine one of 40.
+ * - **Billows** (r, g, b): the copies' wisps, which rise into the slab's
+ *   thickness (read where a point's height shifts them), and the slab's
+ *   billowing top and bottom; all coarse.
+ *
+ * Each is periodic round the disk, so it is baked periodic across (one
+ * turn), and fine enough that a read between its texels is the noise there
+ * to a few thousandths.
+ */
+export const GAS_STREAMS = { width: 640, height: 1280 } as const;
+export const GAS_BILLOWS = { width: 256, height: 384 } as const;
+/** The streams' radii: the gas's whole extent, outside which it is nothing (`densityFn`'s `radial`). */
+const STREAM_RADII: BakedRadii = { from: INNER * 0.9, to: OUTER };
+/** The billows' radii: the gas's extent and as far as a wisp's height shifts its read. */
+const BILLOW_RADII: BakedRadii = { from: 0, to: 16 };
+/** Where the two copies' seeds put them in the noise. */
+const COPY_SEEDS = [0, 53] as const;
+/** How far a point's height (in scale heights) shifts its wisp's read: round, in turns, and out. */
+const WISP_ROUND = 0.35 / 9;
+const WISP_OUT = 0.9 / 1.4;
+
+const radiusAt = (at: F, { from, to }: BakedRadii): F => at.mul(to - from).add(from);
+const readAt = (turns: F, r: F, { from, to }: BakedRadii): TslNode<"vec2"> =>
+  vec2(turns, r.sub(from).div(to - from));
+
+/** One copy's filaments at `turns` round and radius `r`. */
+const filaments = (turns: F, r: F, seed: number): F =>
+  pnoise(vec2(turns.mul(14), r.mul(5).add(seed)), 14)
+    .mul(0.55)
+    .add(pnoise(vec2(turns.mul(40), r.mul(15).add(7 + seed)), 40).mul(0.45));
+
+/** The streams' bake: a texel's turns across, its radius up. */
+export function gasStreamsFragment(): TslNode<"vec4"> {
+  return Fn(() => {
+    const at = uv();
+    const r = radiusAt(at.y, STREAM_RADII);
+    const [a, b] = COPY_SEEDS;
+    return vec4(filaments(at.x, r, a), filaments(at.x, r, b), 0, 1);
+  })();
+}
+
+/** The billows' bake: a texel's turns across, its radius up. */
+export function gasBillowsFragment(): TslNode<"vec4"> {
+  return Fn(() => {
+    const at = uv();
+    const r = radiusAt(at.y, BILLOW_RADII);
+    const wisps = (seed: number) => pnoise(vec2(at.x.mul(9), r.mul(1.4).add(20 + seed)), 9);
+    const [a, b] = COPY_SEEDS;
+    const billow = pnoise(vec2(at.x.mul(7), r.mul(1.1).add(40)), 7);
+    return vec4(wisps(a), wisps(b), billow, 1);
+  })();
+}
+
+/** The gas's baked fields, as the march reads them (`gasStreamsFragment`, `gasBillowsFragment`). */
+export interface BakedGas {
+  readonly streams: PictureSampler;
+  readonly billows: PictureSampler;
+}
+
 /** The gas at `c` (radius `r`): its density, and how near the midplane it is (1 at it). */
-function densityFn(u: BlackHoleUniforms) {
+function densityFn(u: BlackHoleUniforms, { streams, billows }: BakedGas) {
   const fn = Fn(([c, r]: readonly [V3, F]) => {
     const angle = atan(c.z, c.x);
     const y = c.y.div(heightAt(r));
-    const copy = (carried: F, seed: number) => {
+    // A copy is its channel of each field: the first copy's the first, the second's the second.
+    const copy = (carried: F, channel: "x" | "y") => {
       const turns = angle.sub(omega(r).mul(carried)).div(6.2832);
-      const filaments = pnoise(vec2(turns.mul(14), r.mul(5).add(seed)), 14)
-        .mul(0.55)
-        .add(pnoise(vec2(turns.mul(40), r.mul(15).add(7 + seed)), 40).mul(0.45));
-      const wisps = pnoise(
-        vec2(
-          turns.mul(9).add(y.mul(0.35)),
-          r
-            .mul(1.4)
-            .add(y.mul(0.9))
-            .add(20 + seed),
-        ),
-        9,
-      );
-      return filaments.mul(1.35).sub(0.32).add(wisps.sub(0.5).mul(0.6));
+      const filament = streams(readAt(turns, r, STREAM_RADII))[channel];
+      const wisps = billows(
+        readAt(turns.add(y.mul(WISP_ROUND)), r.add(y.mul(WISP_OUT)), BILLOW_RADII),
+      )[channel];
+      return filament.mul(1.35).sub(0.32).add(wisps.sub(0.5).mul(0.6));
     };
     const a = fract(u.time.div(FLOW));
     const b = fract(u.time.div(FLOW).add(0.5));
     const weight = float(1).sub(a.mul(2).sub(1).abs());
-    const gas = copy(a.mul(FLOW), 0)
+    const gas = copy(a.mul(FLOW), "x")
       .mul(weight)
-      .add(copy(b.mul(FLOW), 53).mul(float(1).sub(weight)))
+      .add(copy(b.mul(FLOW), "y").mul(float(1).sub(weight)))
       .clamp(0, 1.5);
     // The slab's top and bottom billow on a slow, rigid turn: no shear to wind them.
     const turns = angle.sub(u.time.mul(0.25)).div(6.2832);
     const billow = float(1).add(
-      pnoise(vec2(turns.mul(7), r.mul(1.1).add(40)), 7)
-        .sub(0.5)
+      billows(readAt(turns, r, BILLOW_RADII))
+        .z.sub(0.5)
         .mul(1.1),
     );
     const vertical = exp(y.mul(y).div(billow.mul(billow).mul(0.9)).negate());
@@ -299,10 +365,11 @@ function cameraRay(u: BlackHoleUniforms, at: TslNode<"vec2">, size: TslNode<"vec
  */
 export function blackHoleFragment(
   u: BlackHoleUniforms,
+  gas: BakedGas,
   { history, size }: OffscreenInputs,
   { ground, page, paint }: Grounds,
 ): TslNode<"vec4"> {
-  const density = densityFn(u);
+  const density = densityFn(u, gas);
   return Fn(() => {
     const at = uv();
     const { eye, v } = cameraRay(u, at, size);

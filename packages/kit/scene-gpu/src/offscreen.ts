@@ -19,6 +19,10 @@
  *   derivatives of where they read): a scene's frame is its background, and
  *   three reads every texture there at the background's fixed level, which
  *   would read the chain's finest level at every size.
+ * - **Periodic across.** With `periodic`, a read past the picture's right
+ *   edge goes on from its left, and is filtered across the seam as anywhere
+ *   else: a field baked round a disk, its angle across, has no seam where
+ *   the angle wraps.
  *
  * One TSL graph on one quad (T1); `history` is the picture before this one,
  * and `size` the target's size in pixels. Disposing gives back both targets
@@ -30,6 +34,7 @@ import {
   NodeMaterial,
   QuadMesh,
   RenderTarget,
+  RepeatWrapping,
   Vector2,
   type WebGPURenderer,
 } from "three/webgpu";
@@ -58,18 +63,24 @@ export interface OffscreenPass {
   readonly dispose: () => void;
 }
 
-/** How a pass's target is kept: its last picture handed to the next (`history`), and its mip chain (`mipmapped`). */
+/**
+ * How a pass's target is kept: its last picture handed to the next
+ * (`history`), its mip chain (`mipmapped`), and whether it is read as
+ * repeating across (`periodic`).
+ */
 export interface OffscreenOptions {
   readonly history: boolean;
   readonly mipmapped?: boolean;
+  readonly periodic?: boolean;
 }
 
 /** A half-float target with no depth, resized by the pass, with its mip chain where it is read smaller. */
-function offscreenTarget(mipmapped: boolean): RenderTarget {
+function offscreenTarget({ mipmapped = false, periodic = false }: OffscreenOptions): RenderTarget {
   const target = new RenderTarget(1, 1, {
     depthBuffer: false,
     type: HalfFloatType,
     ...(mipmapped ? { generateMipmaps: true, minFilter: LinearMipmapLinearFilter } : {}),
+    ...(periodic ? { wrapS: RepeatWrapping } : {}),
   });
   target.texture.name = "offscreen";
   return target;
@@ -81,8 +92,8 @@ export function offscreenPass(
   options: OffscreenOptions,
 ): OffscreenPass {
   const mipmapped = options.mipmapped ?? false;
-  let write = offscreenTarget(mipmapped);
-  let read = options.history ? offscreenTarget(mipmapped) : write;
+  let write = offscreenTarget(options);
+  let read = options.history ? offscreenTarget(options) : write;
   const size = uniform(new Vector2(1, 1));
   const history = texture(read.texture);
   const picture = texture(write.texture);

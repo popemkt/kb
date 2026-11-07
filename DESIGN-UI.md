@@ -4784,6 +4784,11 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
     through the slab near the inner edge takes three samples, so the ring's
     thin crossings are not missed. The upscale is sharpened
     (contrast-adaptive), and the stage adds fine grain.
+  - Cheap where nothing changes. The gas's noise is a fixed field of
+    where it is round the disk and how far out (its stream only moves
+    where it is read), so it is baked once as the look is built, periodic
+    round the disk (`bakedGas`), and a sample reads it rather than
+    computing it.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
 - **Black hole · Warp.** The lens-warp black hole after the demo in Bruno
