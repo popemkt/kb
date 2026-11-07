@@ -76,8 +76,9 @@ otherwise.
   untrusted.
 - **Trust is the one gate,** and only a person can open it: the page's
   Trust button, the agent dock's approval card, or a TTY prompt on the CLI.
-  Step 0 makes `approval: "required"` enforced, so an agent's
-  `sandbox.trust` is answered `approval_required`.
+  The invoke core enforces `approval: "required"` in every governance mode
+  (step 0, kb#110). So an agent cannot trust: MCP does not list
+  `sandbox.trust`, and the CLI with no TTY answers `approval_required`.
 - **Bytes are built locally from source at the pinned sha** by the existing
   closure bundler. Nothing runs at install. An import the tree cannot
   resolve is refused.
@@ -354,22 +355,31 @@ store that loads the same digest. This is no weaker than per-store trust:
 
 **Only a person trusts (step 0).**
 
-- **Governance enforces declared approval.** It contributes `approvalGuard`
-  for one rule only: an action that declares `approval: "required"` is
-  answered `approval_required` unless `hasPerson` holds. Today that is
-  `sandbox.trust` and `script.run`. There are no policy nodes and no
-  `delegated` handling; the rest of `01M5E2DAVRH5CWKM27BVDYW19T` stays open.
+- **Core enforces declared approval, in every deployment.** The invoke core
+  answers an action that declares `approval: "required"` (or a batch with
+  such a part) `approval_required` unless `hasPerson` holds. It does this
+  for invoking and for listing alike, and depends on no governance guard,
+  so `kb --governance off` drops policy, never this. Today the
+  approval-required actions are `sandbox.trust`, `ext.code.script.run` and
+  `ext.canvas.run`. Graph policies, `delegated` and `force` stay deferred
+  under `01M5E2DAVRH5CWKM27BVDYW19T`. Built in kb#110; DESIGN.md → Action
+  registry → Current stance is the canonical statement.
 - **Which surfaces carry approval:**
   - the page's wire carries it (`PAGE_WIRE`);
   - the agent dock's approval card sets `approved` when the person clicks;
-  - MCP never carries it;
-  - the CLI sets `approved` only after a TTY prompt. Any CLI call answered
-    `approval_required` asks `Approve <action> <summary>? [y/N]` on
-    `/dev/tty` and retries with `approved`. With no TTY, it is refused.
+  - MCP never carries it, so MCP does not list approval-required tools at
+    all;
+  - the CLI's JSON envelope never carries it. A CLI call answered
+    `approval_required` asks on `/dev/tty`, showing the actor, title and
+    input; it accepts `y` or `yes` and declines after 120 s. With no TTY, it
+    is refused.
+  - an approved call passes its approval to the calls it makes inside; an
+    inner call cannot create approval, and entering a script drops it.
 - **What this stops, honestly.** It stops an agent that follows kb's
-  surface, and calls driven by prompt injection. It does not stop an agent
-  with a shell that writes `trust.json` itself. DESIGN.md already says
-  governance is not a security boundary, and Unix accounts are.
+  surface, and calls driven by prompt injection. It does not stop a process
+  with a shell, which can allocate a fake pty, forge the page's `Origin`, or
+  write `trust.json`. Governance is not a security boundary; accounts are
+  (DESIGN.md → Sandbox → The threat model).
 
 **What the person sees, from the kb page.** Settings → Extensions shows an
 untrusted row with "Review & trust", which opens a sheet:
@@ -399,9 +409,10 @@ every load).
 - **The agent shows the review.** In bb, it moves the kb tab to that row
   (`kb_call ui.navigate`), so the sheet is beside the thread. Elsewhere it
   prints the link, or the line `kb ext trust aurora` for a terminal.
-- **If the agent tries to trust,** `sandbox.trust` answers
-  `approval_required` with the same link. The person clicks Trust in the
-  sheet, or answers the TTY prompt in their own terminal.
+- **The agent cannot trust.** Over MCP, `sandbox.trust` is not listed as a
+  tool. Over the CLI or `kb_call`, it answers `approval_required`. Either
+  way, the person clicks Trust in the sheet, or answers the TTY prompt in
+  their own terminal.
 - **In kb's own agent dock,** the approval card shows the same review lines,
   and the person's click there is the approval.
 
@@ -499,7 +510,7 @@ shows that nothing about them is special.
 | T1 | **Unpacking.** A symlink, submodule, `..`, absolute path, or case/Unicode collision writes outside the tree (CVE-2026-27800, CVE-2026-27976; the sources record §2.1). | Git objects are read, not checked out. Only modes 100644 and 100755 are accepted; 120000 and 160000 are refused. Only the allowed path set (§2) is written, with no `..` and no absolute path, and paths must be unique under NFC plus case folding. There are caps (proposed: 512 files, 8 MiB). Files are created exclusively in `tmp/`, then renamed. | `SourceReader` contract suite (step 3) |
 | T2 | **Moving refs.** A tag or branch is re-pointed after review. | Only a full 40-hex sha is fetched. Refs are resolved only at `install`/`update` and recorded in `original`. A marketplace entry must pin a sha, or be relative to the index's pinned rev. `files` is checked again on every load. | contract suite; lock tests (step 4); index tests (step 9) |
 | T3 | **Auto-update** (Nx Console, GlassWorm; the sources record §2.3). | There is no auto-update and no background apply. `outdated` only reads. `update` never trusts, and a new digest is untrusted. | step 7 acceptance |
-| T4 | **An agent completes install → trust.** | Step 0's guard, MCP carrying no approval, and the TTY prompt. Honest limit: a shell-capable agent can write `trust.json` itself (§4). | surface contract property re-added (step 0) |
+| T4 | **An agent completes install → trust.** | Core's required-approval invariant, in every governance mode; MCP neither carrying approval nor listing such tools; the TTY prompt. Honest limit: a shell can fake a pty, forge `Origin` or write `trust.json` (§4). | surface contract property under `required` and `off`; CLI approval test (step 0, kb#110) |
 | T5 | **Name squatting and shadowing.** | Bundled names are refused. Nearest wins, and shadows are listed. Each index holds one name per source, and an ambiguous bare name is refused. | steps 2, 4, 9 |
 | T6 | **Shared-trust downgrade.** | gc retires trust no lock references. `list` shows what a store enables. | step 10 |
 | T7 | **A tree is tampered with in the store.** | Trees are read-only, `files` is checked on every load, and a mismatch is refused as `tampered`. | step 4 |
@@ -535,15 +546,19 @@ Parent gaps:
 **Step 0. Declared approval is enforced** (`01M6RTR1775DH21W4KB26W3ZXV`; child of
 `01M5E2DAVRH5CWKM27BVDYW19T`).
 
-- Governance contributes `approvalGuard` for `approval: "required"` only.
+Built in kb#110, which also removes its gap.
+
+- The invoke core enforces `approval: "required"` in every governance mode.
 - A CLI call answered `approval_required` prompts on the TTY.
 - **Acceptance:**
-  - over MCP, `sandbox.trust` and `script.run` answer `approval_required`;
-  - the page wire succeeds;
-  - the CLI with no TTY is refused, and with a TTY and `y` succeeds;
+  - MCP does not list `sandbox.trust`, `ext.code.script.run` or
+    `ext.canvas.run`;
+  - the page wire succeeds, and an explicit `approved: false` is refused;
+  - the CLI with no TTY is refused, also under `--governance off`, and with
+    a TTY and `y` succeeds;
   - the sandbox runner's run still works;
-  - the surface contract property "approval required needs a person" is
-    back in `surfaceContract`.
+  - the surface contract property "approval required needs a person" runs
+    under both `required` and `off`.
 
 **Step 1. One per-user data dir; trust is per user** (`01M6RTR2WM61SX5PPZWTZC5X2T`; child of G1;
 decision Q1).
@@ -722,7 +737,8 @@ B, with a scratch `KB_DATA` and `KB_HOME`, and stops at the first failure:
    For a repeatable run, the script pushes the bump to a scratch branch
    and installs from `@<that branch>`.
 4. **Trust.**
-   - over MCP, `sandbox.trust` answers `approval_required`;
+   - MCP does not list `sandbox.trust`, and the CLI with no TTY answers
+     `approval_required`;
    - the script then trusts on a TTY it owns (a pty) and answers `y`;
    - `kb action-invoke ext.hello.greet '{"name":"kb"}'` answers
      `hello, kb`.
