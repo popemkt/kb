@@ -96,6 +96,7 @@ describe("the gizmo bridge", () => {
     expect(layer.press(top, size, around(60, 0))).toBe(false);
   });
 
+  // GAP [[01M6VQFVG8FPA7KPZHD3J99NGX]] a sweep that outgrows Vitest's 5 s budget when CPU is contended
   test("its reach holds every point where its picking finds a handle, in either lens and every mode", () => {
     const oblique = { ...presetView(top, "oblique"), fov: PERSPECTIVE_FOV };
     for (const view of [top, oblique]) {
