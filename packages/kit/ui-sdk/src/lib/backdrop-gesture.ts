@@ -12,8 +12,9 @@
  * - not one that selected the text under the pointer (a double-click
  *   selects a word before `dblclick` fires). A browser double-clicked in
  *   empty space may select the nearest word, beside the pointer, not
- *   under it: that one is still the backdrop's, and its selection is left
- *   as the browser made it;
+ *   under it: that one is still the backdrop's, and the word it selected
+ *   is let go. A selection that stood before the double-click began (its
+ *   first press) is the person's, and stays;
  * - not one the page already handled (`defaultPrevented`).
  *
  * The listener is passive in effect: it never takes the default, so a
@@ -44,12 +45,38 @@ function selectedUnder(selection: Selection | null, at: { x: number; y: number }
   return [...selection.getRangeAt(0).getClientRects()].some((box) => placeOver(box, at) !== null);
 }
 
-/** Call `onDouble` for each double-click over `frame` that is the backdrop's, until stopped. */
+/** Where `selection` stands: its first range's ends, or null where it holds no text. */
+function standing(selection: Selection | null): readonly unknown[] | null {
+  if (selection === null || selection.isCollapsed || selection.rangeCount === 0) return null;
+  const { startContainer, startOffset, endContainer, endOffset } = selection.getRangeAt(0);
+  return [startContainer, startOffset, endContainer, endOffset];
+}
+
+const sameStanding = (a: readonly unknown[] | null, b: readonly unknown[] | null): boolean =>
+  a === b || (a !== null && b !== null && a.every((end, i) => end === b[i]));
+
+/**
+ * Call `onDouble` for each double-click over `frame` that is the
+ * backdrop's, until stopped; a selection the double-click made on its way
+ * (one that was not there at its first press) is let go.
+ */
 export function watchBackdropDoubleClick(frame: HTMLElement, onDouble: () => void): () => void {
   const page = frame.ownerDocument;
-  const heard = (event: MouseEvent) => {
-    if (isBackdrops(event, frame)) onDouble();
+  let before: readonly unknown[] | null = null;
+  // Heard in the capture phase, before the browser's default changes the selection for this press.
+  const pressed = (event: MouseEvent) => {
+    if (event.detail <= 1) before = standing(page.getSelection());
   };
+  const heard = (event: MouseEvent) => {
+    if (!isBackdrops(event, frame)) return;
+    const selection = page.getSelection();
+    if (!sameStanding(standing(selection), before)) selection?.removeAllRanges();
+    onDouble();
+  };
+  page.addEventListener("mousedown", pressed, { capture: true, passive: true });
   page.addEventListener("dblclick", heard, { passive: true });
-  return () => page.removeEventListener("dblclick", heard);
+  return () => {
+    page.removeEventListener("mousedown", pressed, { capture: true });
+    page.removeEventListener("dblclick", heard);
+  };
 }
