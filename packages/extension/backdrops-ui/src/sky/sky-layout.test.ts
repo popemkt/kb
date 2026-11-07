@@ -52,8 +52,11 @@ describe("flockSize", () => {
     expect(flockSize(frame({}, { strength: "vivid", quality: 0.45 }))).toBe(4);
   });
 
-  it("flies more or fewer with the flock knob, never fewer than three", () => {
-    expect(flockSize(frame({ [SKY_FLOCK_KNOB.id]: SKY_FLOCK_KNOB.max }))).toBe(9);
+  it("flies fewer with the flock knob, never more than its default flies and never fewer than three", () => {
+    for (const strength of ["subtle", "soft", "vivid"] as const)
+      expect(flockSize(frame({ [SKY_FLOCK_KNOB.id]: SKY_FLOCK_KNOB.max }, { strength }))).toBe(
+        flockSize(frame({}, { strength })),
+      );
     expect(flockSize(frame({ [SKY_FLOCK_KNOB.id]: 0.7 }))).toBe(4);
     expect(flockSize(frame({ [SKY_FLOCK_KNOB.id]: SKY_FLOCK_KNOB.min }))).toBe(3);
   });
@@ -65,8 +68,11 @@ describe("moteCount", () => {
     expect(moteCount(frame({}, { strength: "vivid", quality: 0.7 }))).toBe(21);
   });
 
-  it("scatters more or fewer with the motes knob, none at 0", () => {
-    expect(moteCount(frame({ [SKY_MOTES_KNOB.id]: SKY_MOTES_KNOB.max }))).toBe(33);
+  it("scatters fewer with the motes knob, never more than its default, none at 0", () => {
+    for (const strength of ["subtle", "soft", "vivid"] as const)
+      expect(moteCount(frame({ [SKY_MOTES_KNOB.id]: SKY_MOTES_KNOB.max }, { strength }))).toBe(
+        moteCount(frame({}, { strength })),
+      );
     expect(moteCount(frame({ [SKY_MOTES_KNOB.id]: 0.5 }))).toBe(11);
     expect(moteCount(frame({ [SKY_MOTES_KNOB.id]: 0 }))).toBe(0);
   });

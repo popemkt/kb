@@ -5,13 +5,17 @@
  */
 import type { Knob, NumberKnob } from "@kb/model";
 
-/** How many fly, against the strength's flock: never fewer than three. */
+/**
+ * How many fly, against the strength's flock: never fewer than three, and
+ * never more than the strength flies, so a frame draws no more fliers than
+ * its default does (Knobs → Each its own).
+ */
 export const SKY_FLOCK_KNOB: NumberKnob = {
   kind: "number",
   id: "flock",
   label: "Flock size",
   min: 0.5,
-  max: 1.5,
+  max: 1,
   step: 0.1,
   default: 1,
   unit: "×",
@@ -29,13 +33,13 @@ export const SKY_GLOW_KNOB: NumberKnob = {
   unit: "×",
 };
 
-/** How many stars by night, or motes of dust by day, against the strength's; 0 none. */
+/** How many stars by night, or motes of dust by day, against the strength's; 0 none, and never more than its default. */
 export const SKY_MOTES_KNOB: NumberKnob = {
   kind: "number",
   id: "motes",
   label: "Stars and dust",
   min: 0,
-  max: 1.5,
+  max: 1,
   step: 0.1,
   default: 1,
   unit: "×",
