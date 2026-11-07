@@ -5,7 +5,8 @@
  * contributes it; one backdrop's page runs that scene alone, draws its
  * knobs and its variant's with labelled controls, and writes a value as a
  * setting on the node that holds it, through the page's writes, as one
- * write once a control settles; a reset takes it out; and "Use as my page
+ * write when a control is let go; a reset takes it out, or drops one not
+ * yet let go; and "Use as my page
  * backdrop" writes core's backdrop setting, as Settings does.
  */
 import { Effect } from "effect";
@@ -108,13 +109,22 @@ interface Written {
 }
 
 const HOLE = backdropOptionId(PROBE.id);
-const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 220)));
+/** A pause longer than any a write might wait for. */
+const pause = () => act(() => new Promise((resolve) => setTimeout(resolve, 300)));
 
-/** Set an input's value as a person does, so React hears the change. */
+/** Move an input to `value` as a person's drag or typing does, so React hears the change. */
 function enter(input: HTMLInputElement, value: string) {
   // Through the prototype's setter, as a person's input does, so React sees a change.
   Reflect.set(Object.getPrototypeOf(input) as object, "value", value, input);
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** Let go of the input (a slider released, a field left): its value is settled, and the DOM says so with `change`. */
+async function release(input: HTMLInputElement) {
+  await act(async () => {
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+  });
 }
 
 function labelled(text: string): HTMLInputElement {
@@ -185,27 +195,45 @@ describe("Backdrop Studio", () => {
     expect(document.querySelectorAll("[data-probe]")).toHaveLength(1);
   });
 
-  test("its knobs and its variant's are labelled controls; a value settles into one write on its holder", async () => {
+  test("its knobs and its variant's are labelled controls; a drag is one write on its holder, made when it is let go", async () => {
     act(() => root.render(<StudioPage backdrop={PROBE.id} />));
     act(() => button("Warp").click());
     expect(document.querySelector("[data-probe]")?.getAttribute("data-variant")).toBe("warp");
     const mass = labelled("Mass");
     act(() => enter(mass, "1.5"));
+    // A drag that rests a while, still held, writes nothing yet.
+    await pause();
     act(() => enter(mass, "2"));
     expect(written).toEqual([]);
-    await settle();
+    expect(mass.value).toBe("2");
+    await release(mass);
     expect(written).toEqual([
       { op: "set", node: HOLE, field: knobFieldId(HOLE, "mass"), value: { t: "num", v: 2 } },
     ]);
     const warp = backdropVariantOptionId(PROBE.id, "warp");
-    act(() => enter(labelled("Pull"), "1"));
-    await settle();
+    const pull = labelled("Pull");
+    act(() => enter(pull, "1"));
+    await release(pull);
     expect(written.at(-1)).toEqual({
       op: "set",
       node: warp,
       field: knobFieldId(warp, "pull"),
       value: { t: "num", v: 1 },
     });
+    expect(written).toHaveLength(2);
+  });
+
+  test("a value moved and not yet let go can be reset, alone or with all", async () => {
+    act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+    const all = button("Reset all");
+    expect(all.disabled).toBe(true);
+    act(() => enter(labelled("Mass"), "2"));
+    expect(all.disabled).toBe(false);
+    expect(button("Reset Mass to its default").disabled).toBe(false);
+    act(() => all.click());
+    expect(labelled("Mass").value).toBe("1");
+    await pause();
+    expect(written).toEqual([]);
   });
 
   test("a value held is the control's, and its reset takes it out", () => {

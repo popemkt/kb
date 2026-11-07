@@ -5,9 +5,16 @@
  * (`knobValues`): what the panel writes is what every page head shows.
  */
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
-import { knobFieldId, knobValues, type Knob, type KnobValue, type NodeId } from "@kb/model";
+import {
+  knobFieldId,
+  knobValues,
+  type KbNode,
+  type Knob,
+  type KnobValue,
+  type NodeId,
+} from "@kb/model";
 import { KnobControl, useNode, useNodes } from "@kb/ui-sdk";
-import { useSettlingKnobs } from "./knob-writes";
+import { useKnobDrafts } from "./knob-writes";
 
 /** A run of knobs and the node that holds their values: a backdrop's own, or its variant's. */
 export interface KnobGroup {
@@ -16,7 +23,20 @@ export interface KnobGroup {
   readonly knobs: readonly Knob[];
 }
 
-type Settling = ReturnType<typeof useSettlingKnobs>;
+type Drafts = ReturnType<typeof useKnobDrafts>;
+
+/**
+ * Whether `field` on `holder` holds a value of its own: one stored, or one
+ * moved and not yet stored (a draft). A knob's reset and the panel's reset
+ * all read this one answer.
+ */
+function holds(
+  props: KbNode["props"] | undefined,
+  drafts: Drafts["drafts"],
+  field: NodeId,
+): boolean {
+  return props?.[field] !== undefined || field in drafts;
+}
 
 function ResetButton({
   label,
@@ -41,7 +61,7 @@ function ResetButton({
   );
 }
 
-function GroupRows({ group, settling }: { group: KnobGroup; settling: Settling }) {
+function GroupRows({ group, drafts }: { group: KnobGroup; drafts: Drafts }) {
   const props = useNode(group.holder)?.props;
   const values = knobValues(group.knobs, group.holder, props);
   return (
@@ -49,20 +69,21 @@ function GroupRows({ group, settling }: { group: KnobGroup; settling: Settling }
       <legend className="mb-1 text-label font-medium text-foreground/45">{group.title}</legend>
       {group.knobs.map((knob) => {
         const field = knobFieldId(group.holder, knob.id);
-        const draft: KnobValue | undefined = settling.drafts[field];
+        const draft: KnobValue | undefined = drafts.drafts[field];
         return (
           <div key={knob.id} className="flex items-center gap-1" data-knob={knob.id}>
             <div className="min-w-0 flex-1">
               <KnobControl
                 knob={knob}
                 value={draft === undefined ? values[knob.id] : draft}
-                onChange={(value) => settling.set(group.holder, knob, value)}
+                onChange={(value) => drafts.move(group.holder, knob, value)}
+                onCommit={(value) => drafts.settle(group.holder, knob, value)}
               />
             </div>
             <ResetButton
               label={knob.label}
-              held={props?.[field] !== undefined || draft !== undefined}
-              onReset={() => settling.reset(group.holder, knob)}
+              held={holds(props, drafts.drafts, field)}
+              onReset={() => drafts.reset(group.holder, knob)}
             />
           </div>
         );
@@ -71,17 +92,17 @@ function GroupRows({ group, settling }: { group: KnobGroup; settling: Settling }
   );
 }
 
-/** Whether any of `groups`' knobs holds a value of its own. */
-function useAnyHeld(groups: readonly KnobGroup[]): boolean {
+/** Whether any of `groups`' knobs holds a value of its own (`holds`). */
+function useAnyHeld(groups: readonly KnobGroup[], drafts: Drafts["drafts"]): boolean {
   const nodes = useNodes();
   return groups.some(({ holder, knobs }) =>
-    knobs.some(({ id }) => nodes.get(holder)?.props[knobFieldId(holder, id)] !== undefined),
+    knobs.some(({ id }) => holds(nodes.get(holder)?.props, drafts, knobFieldId(holder, id))),
   );
 }
 
 export function KnobPanel({ groups }: { readonly groups: readonly KnobGroup[] }) {
-  const settling = useSettlingKnobs();
-  const anyHeld = useAnyHeld(groups);
+  const drafts = useKnobDrafts();
+  const anyHeld = useAnyHeld(groups, drafts.drafts);
   const shown = groups.filter(({ knobs }) => knobs.length > 0);
   return (
     <section
@@ -96,7 +117,7 @@ export function KnobPanel({ groups }: { readonly groups: readonly KnobGroup[] })
           disabled={!anyHeld}
           onClick={() => {
             for (const { holder, knobs } of shown)
-              for (const knob of knobs) settling.reset(holder, knob);
+              for (const knob of knobs) drafts.reset(holder, knob);
           }}
         >
           Reset all
@@ -105,7 +126,7 @@ export function KnobPanel({ groups }: { readonly groups: readonly KnobGroup[] })
       {shown.length === 0 ? (
         <p className="text-foreground/50">This backdrop has no knobs.</p>
       ) : (
-        shown.map((group) => <GroupRows key={group.holder} group={group} settling={settling} />)
+        shown.map((group) => <GroupRows key={group.holder} group={group} drafts={drafts} />)
       )}
       <p className="text-label leading-snug text-foreground/40">
         Saved for every page that shows it. Agents set the same values with <code>kb set</code>.
