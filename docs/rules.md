@@ -932,9 +932,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: installed extensions cannot be removed, and the tree store is never collected
 
 - **expected** — extension.remove drops the lock entry and keeps the nodes; extension.gc deletes trees and retires provenance trust that no registered location's lock, nor the user lock, names.
-- **current** — Nothing removes an install or collects the store.
+- **current** — Nothing removes an install or collects the store. A publisher killed mid-copy may leave a read-only extensions/tmp/tree-* stage; normal completion and failures clean theirs, but crashed stages are not swept.
 - **impact** — Trees and stale trust records pile up, including old trusted versions a hostile store could select.
-- **closes** — Step 10 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **closes** — Step 10 of docs/research/2026-11-06-plugin-install-plan.md, including cleanup of abandoned publication stages under the same mutation lock as collection, without removing a live publisher stage.
 - **node** — `01M6RTRFDBKDPS8MKVYR9GS61R`
 
 ### GAP: kb cannot be edited offline and merged later; devices meet only through git
@@ -1033,14 +1033,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — window management design on top of the layout view type (docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md decision 12)
 - **node** — `01M3Q5DP9TQF0E9DZMHAKHMGWD`
 
-### GAP: no public fixture repo for the extension install E2E
-
-- **expected** — popemkt/kb-plugins-sample holds extensions/hello, extensions/aurora and kb-marketplace.json, with synthetic content only.
-- **current** — No fixture exists.
-- **impact** — The end-to-end acceptance has nothing real to run against.
-- **closes** — Step S of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR6Q4KFJZ4Z59QE62TYJQ`
-
 ### GAP: no scene is pre-compiled; every scene compiles on the hidden first frame
 
 - **expected** — Every study's pipelines, including the GTAO two-target pass and the shadow pass, are compiled before the first frame is drawn (Lab principle P2).
@@ -1049,14 +1041,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Compile ahead of the first frame, for the scene pass's own target, once three builds a layout function's uniforms per material (mrdoob/three.js#33666, open) or a pre-compile no longer builds a material twice; include the occlusion and shadow passes.
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
-
-### GAP: no SourceReader port reads a pinned GitHub tree
-
-- **expected** — A SourceReader port resolves github:owner/repo/path@ref to a full sha and reads its regular files under the T1 refusals, with files (kb.source/1); a git adapter and an in-memory one meet one contract suite.
-- **current** — Nothing in kb reads code from outside the root.
-- **impact** — Install, update and marketplaces have nothing to stand on.
-- **closes** — Step 3 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR59A4JRD5MPZDVGXADDQ`
 
 ### GAP: no staged edit to preview, so Turn() cannot be a plan mode
 
@@ -1073,14 +1057,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
 - **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
-
-### GAP: no tree store, no extension locks, no install
-
-- **expected** — extension.install writes a read-only, content-addressed tree to <data>/extensions/store and an entry to the scope's lock (store, local or user); with no source it fetches what the locks name; installed trees are contained; validate checks the locks without running them.
-- **current** — Extensions arrive only as files placed in .kb/extensions by hand.
-- **impact** — No install, no provenance, and no reuse across stores.
-- **closes** — Step 4 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR7Q326WF4C6S4RV0JJTW`
 
 ### GAP: node-config decode warnings reach the browser log, not the UI
 

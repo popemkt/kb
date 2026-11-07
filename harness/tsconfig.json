@@ -1,4 +1,4 @@
 {
   "extends": "../tsconfig.bun.json",
-  "include": ["src", "tests", "lint", "../vite.config.ts"]
+  "include": ["src", "tests", "lint", "e2e", "../vite.config.ts"]
 }

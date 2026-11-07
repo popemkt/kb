@@ -1,3 +1,5 @@
+import type { SourceReader } from "@kb/extension-source";
+import type { ExtensionStorage, ExtensionCompiler } from "./extension-install.ts";
 import { Context, Predicate, type Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
@@ -124,6 +126,9 @@ export type ActionHandlerEnv =
   | SavedQueries
   | LegacyDocsViews
   | Assets
+  | SourceReader
+  | ExtensionStorage
+  | ExtensionCompiler
   | CodeTrust
   | LegacyTrust
   | KbRoots

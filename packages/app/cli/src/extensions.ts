@@ -13,6 +13,8 @@ import type { Command } from "commander";
 import { Effect } from "effect";
 import { z } from "zod";
 import {
+  DEFAULT_EXTENSION_SCOPE,
+  EXTENSION_SCOPES,
   type ActionReceipt,
   ExtensionReportSchema,
   ExtensionSettingsSchema,
@@ -217,12 +219,41 @@ const validate = (globals: GlobalOpts) =>
     return report(receipt, globals, () => ["kb extensions: all admitted"]);
   });
 
+function installCommand(ext: Command): void {
+  ext
+    .command("install")
+    .description(
+      "Install a GitHub source, or restore trees from this kb's locks; never trusts code",
+    )
+    .argument("[source]", "github:owner/repo[/path][@ref]")
+    .option(
+      "--scope <scope>",
+      `${EXTENSION_SCOPES.join(", ")} (default: ${DEFAULT_EXTENSION_SCOPE})`,
+    )
+    .action(
+      kbAction((ctx, globals, [source, opts]: [string | undefined, { scope?: string }]) =>
+        invokeCliEffect(
+          ctx,
+          onWire(ACTION_INVOKE_WIRE, {
+            id: "extension.install",
+            input: {
+              ...(source === undefined ? {} : { source }),
+              ...(opts.scope === undefined ? {} : { scope: opts.scope }),
+            },
+          }),
+        ).pipe(
+          Effect.map((receipt) => report(receipt, globals, (output) => [JSON.stringify(output)])),
+        ),
+      ),
+    );
+}
+
 export function extensionCommands(program: Command): void {
   const ext = program.command("ext").description("Extension operations");
   ext
     .command("list")
     .description(
-      "List the extensions (bundled + .kb/extensions), each on or off, and the actions of those loaded",
+      "List bundled, owned and selected extensions, each on or off, and the actions of those loaded",
     )
     .action(
       kbAction((ctx, globals) =>
@@ -293,6 +324,7 @@ export function extensionCommands(program: Command): void {
         ),
       ),
     );
+  installCommand(ext);
   settingsCommand(ext);
   ext
     .command("validate")

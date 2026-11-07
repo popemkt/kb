@@ -1,0 +1,25 @@
+{
+  "name": "@kb/extension-source",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared"
+    ]
+  }
+}

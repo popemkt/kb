@@ -1,3 +1,5 @@
+import { validateInstallLocks } from "./installed-extensions.ts";
+import { extensionStorageLayer } from "@kb/workspace-fs";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
@@ -548,7 +550,8 @@ export const admitExtensions = Effect.fn("kb.admitExtensions")(function* (
         const { families, failures } = yield* vouchedFamilies(root);
         const registry = yield* buildRegistry(families, families, failures, requiredFamilies());
         yield* registry.lifetime.retire;
-        return registry.failures;
+        const locks = yield* validateInstallLocks(root).pipe(Effect.provide(extensionStorageLayer));
+        return [...registry.failures, ...locks];
       }),
     (held) =>
       Effect.sync(() => {

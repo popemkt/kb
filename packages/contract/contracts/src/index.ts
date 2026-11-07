@@ -253,3 +253,23 @@ export type {
   LegacyDocsViewsPort,
   SavedQueriesPort,
 } from "./workspace.ts";
+
+export {
+  CachedSourceSchema,
+  ExtensionStorage,
+  ExtensionCompiler,
+  EXTENSION_SCOPES,
+  DEFAULT_EXTENSION_SCOPE,
+  ExtensionScopeSchema,
+  ExtensionNameSchema,
+  SourceHashSchema,
+  LockedSourceSchema,
+  ExtensionSelectionSchema,
+  ExtensionLockSchema,
+} from "./extension-install.ts";
+export type {
+  ExtensionScope,
+  ExtensionLock,
+  ExtensionSelection,
+  CachedExtension,
+} from "./extension-install.ts";

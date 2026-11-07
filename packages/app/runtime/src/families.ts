@@ -1,3 +1,4 @@
+import { installedFolders, resetInstalledSelections } from "./installed-extensions.ts";
 /**
  * The families a root composes (DESIGN.md → Extension families): every
  * bundled one, then each repository extension its `.kb/extensions` holds,
@@ -21,7 +22,7 @@ import {
 } from "@kb/contracts";
 import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
-import { codeTrustLayer } from "@kb/workspace-fs";
+import { extensionStorageLayer, codeTrustLayer } from "@kb/workspace-fs";
 import { deploys, governanceMode } from "./deployment.ts";
 import {
   importClosures,
@@ -112,10 +113,12 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
   if (root === null) return { ...deployed(), failures: [] };
-  let reading = closureCache.get(root);
+  const selected = yield* installedFolders(root).pipe(Effect.provide(extensionStorageLayer));
+  const cacheKey = [root, ...selected.folders.map(({ dir }) => dir)].join("\0");
+  let reading = closureCache.get(cacheKey);
   if (reading === undefined) {
-    reading = yield* Effect.cached(readClosures([ownExtensionFolder(root)]));
-    closureCache.set(root, reading);
+    reading = yield* Effect.cached(readClosures([ownExtensionFolder(root), ...selected.folders]));
+    closureCache.set(cacheKey, reading);
   }
   const read = yield* reading;
   // The user's shared record decides which closures this root may load.
@@ -129,7 +132,10 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
     familiesCache.set(key, composed);
   }
   const families = yield* composed;
-  return { ...families, failures: [...read.failures, ...untrusted, ...families.failures] };
+  return {
+    ...families,
+    failures: [...selected.failures, ...read.failures, ...untrusted, ...families.failures],
+  };
 });
 
 /**
@@ -196,6 +202,7 @@ export const servedPage = Effect.fn("kb.servedPage")(function* (
 
 /** Test hook: forget every root's closures and families, so a fresh root is discovered again. */
 export function resetRootFamilies(): void {
+  resetInstalledSelections();
   closureCache.clear();
   familiesCache.clear();
 }

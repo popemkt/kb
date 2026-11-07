@@ -99,6 +99,19 @@ test("kb trust import needs a terminal and imports only the displayed machine's 
   ];
   try {
     await mkdir(join(root, ".kb"));
+    const empty = Bun.spawn(cmd, {
+      env,
+      detached: true,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(JSON.parse(await new Response(empty.stdout).text())).toMatchObject({
+      status: "succeeded",
+      output: { imported: [] },
+    });
+    expect(await empty.exited).toBe(0);
+    expect(await Bun.file(join(root, "data", "trust.json")).exists()).toBe(false);
     await writeFile(legacy, body);
     const refused = Bun.spawn(cmd, {
       env,

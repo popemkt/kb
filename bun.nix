@@ -642,6 +642,7 @@
   "@kb/chart-ui" = copyPathToStore ./packages/extension/chart-ui;
   "@kb/chart-vega" = copyPathToStore ./packages/extension/chart-vega;
   "@kb/check" = copyPathToStore ./packages/extension/check;
+  "@kb/child-process" = copyPathToStore ./packages/infrastructure/child-process;
   "@kb/cli" = copyPathToStore ./packages/app/cli;
   "@kb/client" = copyPathToStore ./packages/app/client;
   "@kb/code" = copyPathToStore ./packages/extension/code;
@@ -654,6 +655,7 @@
   "@kb/ext-check" = copyPathToStore ./packages/extension/ext-check;
   "@kb/ext-docs" = copyPathToStore ./packages/extension/ext-docs;
   "@kb/ext-sdk" = copyPathToStore ./packages/contract/ext-sdk;
+  "@kb/extension-source" = copyPathToStore ./packages/contract/extension-source;
   "@kb/file-write" = copyPathToStore ./packages/infrastructure/file-write;
   "@kb/gallery" = copyPathToStore ./packages/extension/gallery;
   "@kb/gallery-net" = copyPathToStore ./packages/extension/gallery-net;
@@ -685,6 +687,7 @@
   "@kb/scene" = copyPathToStore ./packages/kit/scene;
   "@kb/scene-gpu" = copyPathToStore ./packages/kit/scene-gpu;
   "@kb/server" = copyPathToStore ./packages/app/server;
+  "@kb/source-git" = copyPathToStore ./packages/infrastructure/source-git;
   "@kb/store-jsonl" = copyPathToStore ./packages/infrastructure/store-jsonl;
   "@kb/store-sqlite" = copyPathToStore ./packages/infrastructure/store-sqlite;
   "@kb/test-kit" = copyPathToStore ./packages/app/test-kit;
