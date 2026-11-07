@@ -7,7 +7,7 @@
  * family does. The page loading that half is `@kb/ui`'s
  * `repository-extension.acceptance.test.tsx`.
  */
-import { afterAll, describe, expect, test } from "bun:test";
+import { beforeEach, afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,6 +33,9 @@ async function exampleRoot(): Promise<{ root: string; digest: string }> {
 
 const { root: ROOT, digest: DIGEST } = await exampleRoot();
 afterAll(() => rm(ROOT, { recursive: true, force: true }));
+beforeEach(async () => {
+  await writeTrustedExample(ROOT);
+});
 
 const discovered = await Effect.runPromise(
   rootFamilies(ROOT).pipe(Effect.provide(bunFileSystemLayer)),

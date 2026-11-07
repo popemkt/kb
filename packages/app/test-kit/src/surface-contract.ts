@@ -361,11 +361,12 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
   [
     "approval required needs a person",
     (set) =>
-      overSurfaces(set, ({ name, surface, via }) =>
+      overSurfaces(set, ({ name, surface, via, root }) =>
         Effect.gen(function* () {
           const calls = [
             { id: APPROVAL_ACTION, input: {} },
             { id: "sandbox.trust", input: { digest: `sha256:${"a".repeat(64)}` } },
+            { id: "sandbox.trust.import", input: { root, digests: [] } },
             { id: "ext.code.script.run", input: { script: "missing", subject: "missing" } },
           ];
           for (const call of calls) {

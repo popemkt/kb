@@ -41,7 +41,7 @@ const trustedHere = (file: string) =>
     Effect.gen(function* () {
       const { digest } = yield* closureOf(root, file);
       return yield* (yield* CodeTrust).trusted([digest]);
-    }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provideMerge(bunFileSystemLayer)))),
+    }).pipe(Effect.provide(codeTrustLayer().pipe(Layer.provideMerge(bunFileSystemLayer)))),
   );
 
 describe("admitting a root's repository extensions", () => {
@@ -152,7 +152,7 @@ describe("admitting a root's repository extensions", () => {
     const dir = join(root, ".kb", "extensions");
     await chmod(dir, 0o000);
     try {
-      expect((await admit()).map(({ file }) => file)).toEqual([".kb/extensions"]);
+      expect((await admit()).map(({ file }) => file)).toEqual([dir]);
     } finally {
       await chmod(dir, 0o755);
     }

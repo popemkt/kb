@@ -239,6 +239,7 @@ export type { EffectStore, StoreCommit, StoreFingerprint } from "./store.ts";
 export {
   Assets,
   CodeTrust,
+  LegacyTrust,
   LegacyDocsViews,
   SavedQueries,
   isValidWorkspaceName,

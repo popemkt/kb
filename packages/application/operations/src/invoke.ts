@@ -39,6 +39,8 @@ import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { fillFromSession, withContextHint } from "./context-fill.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
+  sandboxImportLegacyDef,
+  sandboxImportLegacyEffect,
   sandboxTrustDef,
   sandboxTrustEffect,
   sandboxTrustedDef,
@@ -167,6 +169,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(uiSelectDef, uiSelectEffect),
   coreNative(uiCaptureDef, uiCaptureEffect),
   coreNative(sandboxTrustDef, sandboxTrustEffect),
+  coreNative(sandboxImportLegacyDef, sandboxImportLegacyEffect),
   coreNative(sandboxUntrustDef, sandboxUntrustEffect),
   coreNative(sandboxTrustedDef, sandboxTrustedEffect),
 ];

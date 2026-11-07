@@ -80,15 +80,28 @@ export class Assets extends Context.Service<Assets, AssetsPort>()("kb/Assets") {
 
 /**
  * Which code a person has trusted on this machine (DESIGN.md → Sandbox →
- * Trust): content digests, kept as local state beside the store and never
- * in it, so trust is never committed, merged or pulled in from elsewhere.
+ * Trust): content digests, kept as local state outside every store and never
+ * in one, so trust is never committed, merged or pulled in from elsewhere.
  * The adapter decides where the record lives and whose machine it is.
  */
 export interface CodeTrustPort {
-  /** Which of `digests` a person has trusted on this machine. */
+  /**
+   * Which of `digests` a person has trusted on this machine. Read-only: never
+   * imports repository records or writes state. Undecodable records grant nothing.
+   */
   trusted(digests: readonly string[]): Effect.Effect<readonly string[], DomainError>;
+  /** Trust changes refuse an undecodable existing record, preserving its bytes. */
   trust(digest: string): Effect.Effect<void, DomainError>;
   untrust(digest: string): Effect.Effect<void, DomainError>;
 }
 
 export class CodeTrust extends Context.Service<CodeTrust, CodeTrustPort>()("kb/CodeTrust") {}
+
+/** Review-only access to a root-controlled legacy file; it grants no trust. */
+export class LegacyTrust extends Context.Service<
+  LegacyTrust,
+  {
+    readonly digests: (root: string) => Effect.Effect<readonly string[], DomainError>;
+    readonly present: (root: string) => Effect.Effect<boolean, DomainError>;
+  }
+>()("kb/LegacyTrust") {}

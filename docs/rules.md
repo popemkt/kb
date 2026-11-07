@@ -831,14 +831,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
-### GAP: extension discovery reads one folder
-
-- **expected** — readClosures reads an ordered list of extension folders (own, then local, store and user links and installs); the nearest name wins and the rest are listed as shadowed.
-- **current** — readClosures reads <root>/.kb/extensions only.
-- **impact** — Installed trees and linked folders have no way into discovery without a second path.
-- **closes** — Step 2 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR435JMY23NN9M18X72Q0`
-
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.

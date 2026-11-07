@@ -21,6 +21,7 @@ import { z } from "zod";
 import {
   ExtensionCatalog,
   ExtensionFailures,
+  LegacyTrust,
   ExtensionReportSchema,
   ExtensionSettingsSchema,
   FamilyKernels,
@@ -175,8 +176,8 @@ export const extensionListDef = {
  */
 export const extensionListEffect = Effect.fn("extension.list")(function* (): Effect.fn.Return<
   z.infer<typeof extensionListDef.outputSchema>,
-  never,
-  ExtensionCatalog | ExtensionFailures | FamilyKernels
+  DomainError,
+  ExtensionCatalog | ExtensionFailures | FamilyKernels | LegacyTrust | KbCtx
 > {
   const kernels = yield* FamilyKernels;
   return {
@@ -185,7 +186,17 @@ export const extensionListEffect = Effect.fn("extension.list")(function* (): Eff
       ...organisationOf(row.name, kernels),
     })),
     points: orderedPoints(kernels),
-    failures: [...(yield* ExtensionFailures)],
+    failures: [
+      ...(yield* ExtensionFailures),
+      ...((yield* (yield* LegacyTrust).present((yield* KbCtx).root))
+        ? [
+            {
+              file: ".kb/trust.json",
+              error: "legacy .kb/trust.json is ignored; trust again or use kb trust import",
+            },
+          ]
+        : []),
+    ],
   };
 });
 

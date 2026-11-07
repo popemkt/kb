@@ -30,11 +30,11 @@ import {
 import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
-// Canvas run now uses the existing required-approval mode; old pages already
-// understand this field and approval receipts. No envelope/schema change.
+// Legacy import adds an action; old pages do not need it. Existing envelopes,
+// modes and receipts remain compatible, so the protocol stays unchanged.
 const RECORDED = {
   protocol: 2,
-  fingerprint: "2721fd4256740ccc340b48c83ebe9d0cfb1b20d657ec4520fbee2251837237a1",
+  fingerprint: "2ecd44d78797b1bec6a22bf226888f7832224c32805cba6a2fedea6def570fcb",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

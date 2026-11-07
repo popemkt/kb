@@ -92,7 +92,7 @@ export const trustExtensionEffect = Effect.fn("test.trustExtension")(function* (
   );
   yield* Effect.gen(function* () {
     yield* (yield* CodeTrust).trust(digest);
-  }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer))));
+  }).pipe(Effect.provide(codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer))));
   return digest;
 });
 

@@ -120,7 +120,7 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   const read = yield* reading;
   // The user's shared record decides which closures this root may load.
   const { trusted, failures: untrusted } = yield* trustedOf(read.closures).pipe(
-    Effect.provide(codeTrustLayer(root)),
+    Effect.provide(codeTrustLayer()),
   );
   const key = [governanceMode(), root, ...trusted.map(({ closure }) => closure.digest)].join("\0");
   let composed = familiesCache.get(key);

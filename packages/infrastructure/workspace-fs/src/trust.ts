@@ -8,11 +8,11 @@ import {
   durableReplaceFile,
 } from "@kb/file-write";
 import { currentData } from "./home.ts";
-import { CodeTrust } from "@kb/contracts";
-import { currentIso, ensureDomainError } from "@kb/model";
+import { CodeTrust, LegacyTrust } from "@kb/contracts";
+import { currentIso, domainError, ensureDomainError } from "@kb/model";
 import { internal, isNotFound } from "./errors.ts";
 
-/** Shared trust and legacy migration: DESIGN.md → Sandbox → Trust. */
+/** Shared trust and explicit legacy review: DESIGN.md → Sandbox → Trust. */
 const TrustRecord = Schema.Struct({
   digest: Schema.String,
   machine: Schema.String,
@@ -25,9 +25,8 @@ const decodeTrustFile = Schema.decodeUnknownOption(Schema.fromJsonString(TrustFi
 
 const EMPTY: TrustFile = { version: 1, trusted: [] };
 
-/** Shared trust, migrating the legacy record under root; machine defaults to this host. */
+/** Per-user trust has no repository input; machine defaults to this host. */
 export function codeTrustLayer(
-  root: string,
   machine: string = hostname(),
 ): Layer.Layer<CodeTrust, never, FileSystem> {
   return Layer.effect(
@@ -35,13 +34,12 @@ export function codeTrustLayer(
     Effect.gen(function* () {
       const fs = yield* FileSystem;
       const file = join(yield* currentData, "trust.json");
-      const legacy = resolve(root, ".kb", "trust.json");
 
       const readFile = Effect.fn("kb.trust.readFile")(function* (path: string) {
         return yield* fs.readFileString(path).pipe(
-          Effect.map((text) => Option.getOrElse(decodeTrustFile(text), () => EMPTY)),
+          Effect.map((text) => decodeTrustFile(text)),
           Effect.catch((err) =>
-            isNotFound(err) ? Effect.succeed(EMPTY) : Effect.fail(internal("read trust", err)),
+            isNotFound(err) ? Effect.succeedSome(EMPTY) : Effect.fail(internal("read trust", err)),
           ),
         );
       });
@@ -59,26 +57,13 @@ export function codeTrustLayer(
           catch: ensureDomainError,
         });
       });
-      const read = Effect.gen(function* () {
-        const current = yield* readFile(file);
-        const exists = yield* fs
-          .exists(legacy)
-          .pipe(Effect.mapError((err) => internal("read legacy trust", err)));
-        if (!exists) return current;
-        const records = new Map(
-          current.trusted.map((record) => [`${record.machine}\0${record.digest}`, record]),
-        );
-        for (const record of (yield* readFile(legacy)).trusted) {
-          if (record.machine === machine && !records.has(`${machine}\0${record.digest}`))
-            records.set(`${machine}\0${record.digest}`, record);
-        }
-        const merged: TrustFile = { version: 1, trusted: [...records.values()] };
-        yield* write(merged);
-        yield* fs
-          .remove(legacy)
-          .pipe(Effect.mapError((err) => internal("remove migrated trust", err)));
-        return merged;
-      });
+      const read = readFile(file).pipe(
+        Effect.flatMap((decoded) =>
+          Effect.fromOption(decoded, () =>
+            domainError("internal", `${file} is not a version-1 trust file; move it aside`),
+          ),
+        ),
+      );
       const locked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         Effect.acquireUseRelease(
           acquireFileWriteLockEffect(file),
@@ -88,16 +73,13 @@ export function codeTrustLayer(
 
       return CodeTrust.of({
         trusted: Effect.fn("kb.trust.trusted")(function* (digests: readonly string[]) {
-          return yield* locked(
-            Effect.gen(function* () {
-              const mine = new Set(
-                (yield* read).trusted
-                  .filter((record) => record.machine === machine)
-                  .map((record) => record.digest),
-              );
-              return digests.filter((digest) => mine.has(digest));
-            }),
+          const current = Option.getOrElse(yield* readFile(file), () => EMPTY);
+          const mine = new Set(
+            current.trusted
+              .filter((record) => record.machine === machine)
+              .map((record) => record.digest),
           );
+          return digests.filter((digest) => mine.has(digest));
         }),
         trust: Effect.fn("kb.trust.trust")(function* (digest: string) {
           return yield* locked(
@@ -120,6 +102,49 @@ export function codeTrustLayer(
               yield* write({ version: 1, trusted: kept });
             }),
           );
+        }),
+      });
+    }),
+  );
+}
+
+/** Root-controlled bytes are visible only to the explicit legacy review/import surface. */
+export function legacyTrustLayer(
+  machine: string = hostname(),
+): Layer.Layer<LegacyTrust, never, FileSystem> {
+  return Layer.effect(
+    LegacyTrust,
+    Effect.gen(function* () {
+      const fs = yield* FileSystem;
+      const digests = Effect.fn("kb.legacyTrust.digests")(function* (root: string) {
+        const file = resolve(root, ".kb", "trust.json");
+        const text = yield* fs
+          .readFileString(file)
+          .pipe(
+            Effect.catch((error) =>
+              isNotFound(error)
+                ? Effect.succeed(null)
+                : Effect.fail(internal("read legacy trust", error)),
+            ),
+          );
+        if (text === null) return [];
+        const decoded = decodeTrustFile(text);
+        if (Option.isNone(decoded))
+          return yield* domainError("invalid_input", `${file} is not a version-1 trust file`);
+        return [
+          ...new Set(
+            decoded.value.trusted
+              .filter((record) => record.machine === machine)
+              .map((record) => record.digest),
+          ),
+        ];
+      });
+      return LegacyTrust.of({
+        digests,
+        present: Effect.fn("kb.legacyTrust.present")(function* (root: string) {
+          return yield* fs
+            .exists(resolve(root, ".kb", "trust.json"))
+            .pipe(Effect.mapError((error) => internal("inspect legacy trust", error)));
         }),
       });
     }),

@@ -2808,7 +2808,13 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   a sub-scope with its own implementation of a name, kb does not have; it
   is a later design if something needs it.
 - Discovery reads an ordered list of extension folders, each with a directory
-  and origin. The root supplies its own `.kb/extensions/` folder.
+  and origin, nearest first. A nearer server entry reserves its name before
+  bundling and trust; farther entries with the same name are reported as
+  shadowed, including when the nearer entry is untrusted or broken. Failures
+  name their folder and origin. A folder also declares whether resolution is
+  contained: contained folders reject any bundle input outside their real
+  directory, checked from Bun's input inventory. The root supplies its own
+  `.kb/extensions/` folder with ordinary package and link resolution.
 - **Repository extensions** run as owner code, on the server and in the
   page, like a DeepSeek Harness plugin, so a root's extension runs only once
   a person has trusted it on this machine. What a person trusts is its
@@ -5190,10 +5196,19 @@ sends it more than 400 messages a second.
   `sandbox.trusted` (read) reach the `CodeTrust` port (`@kb/contracts`),
   whose adapter (`@kb/workspace-fs`) keeps `<data>/trust.json`, shared by
   every root for this user. Each record names its machine; only this machine's
-  records count. Reads migrate a root's legacy `.kb/trust.json`: under the shared
-  file write lock, merge this machine's records by digest, durably write the
-  shared record, then remove the legacy file. Other machines' records grant
-  nothing here. The backed-up trust path moves from each root to `<data>/trust.json`.
+  records count. **Legacy `.kb/trust.json` is ignored by normal trust lookup.**
+  Repository bytes are never a source of authority: `CodeTrust` has no root
+  parameter, reads only the per-user file, and a read never writes or deletes.
+  `extension.list` reports the old file as ignored when present.
+  `kb trust import [root]` reviews that root's digests for this machine;
+  `sandbox.trust.import {root, digests}` declares required approval, displays that
+  explicit digest list in the approval request and rechecks membership before
+  trusting only that list. Import never modifies or removes the legacy file,
+  including other machines' records. This is the opt-in path for existing
+  approvals. The backup path is now `<data>/trust.json`.
+  An undecodable shared file trusts nothing on reads; every trust/untrust write
+  refuses it with its path and leaves its bytes unchanged. Writers serialize
+  across processes; readers observe complete atomically replaced snapshots.
 - Trust requires a person (Action registry → Current stance). A script cannot
   trust, since the action declares no `targets` and so is no code's to call
   (Grants). Trust changes the engine and
@@ -5228,7 +5243,7 @@ system, one runner, one trust.
   untagging a script, and attaching one to a node or taking it off, is
   configuration metadata. Configuration policy evaluation remains deferred
   (Action registry → Current stance, `// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`),
-  so any caller can attach a trusted script to another node. Declared required
+  so any caller can attach a trusted script to any node in any store on this machine. Declared required
   approval on execution does not restrict editing or attachment.
 - **A view declares what it tells a script** (`ViewKey.events`) and emits
   it on a channel (`createViewEvents`, `@kb/ui-sdk`); it mounts

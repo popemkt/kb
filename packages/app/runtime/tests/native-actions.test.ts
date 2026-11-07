@@ -27,6 +27,7 @@ import { remoteScreensLayer } from "../src/screens.ts";
 import {
   assetsLayer,
   codeTrustLayer,
+  legacyTrustLayer,
   legacyDocsViewsLayer,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
@@ -262,7 +263,8 @@ describe("Effect-native action registry", () => {
             savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             legacyDocsViewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
-            codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
+            codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
+            legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
             remoteScreensLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
             graphWritesLayer.pipe(

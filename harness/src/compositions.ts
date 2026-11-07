@@ -45,6 +45,8 @@ const { mkdtemp } = await import("node:fs/promises");
 const { tmpdir } = await import("node:os");
 const { join } = await import("node:path");
 const root = await mkdtemp(join(tmpdir(), "kb-composition-"));
+process.env.KB_DATA = join(root, "data");
+process.env.KB_HOME = join(root, "home");
 `;
 
 const PROBES: Readonly<Record<CompositionName, { cwd: string; code: string }>> = {

@@ -16,5 +16,5 @@ export {
 } from "./ui-presence.ts";
 export type { UiPresence } from "./ui-presence.ts";
 export { legacyDocsViewsLayer, readLegacyDocsViews } from "./views.ts";
-export { codeTrustLayer } from "./trust.ts";
+export { codeTrustLayer, legacyTrustLayer } from "./trust.ts";
 export { isNotFound } from "./errors.ts";
