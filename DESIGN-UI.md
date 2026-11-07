@@ -3103,7 +3103,9 @@ in a range and step, a boolean or one of an enum's options, each with its
 default) drawn by the one `KnobControl` (`@kb/ui-sdk`). It is the same
 schema and the same control a page-head backdrop's knobs are (Page-head
 backdrops → Knobs), so a parameter is declared, labelled and reached by
-keyboard one way wherever a panel lists it.
+keyboard one way wherever a panel lists it. Only a panel draws it, so the
+kit exports it deferred (`deferred`), and its code loads with the first
+panel that does, never with the page.
 
 Embers keeps its theme rather than forcing a dark stage: on a light ground
 the heat ramp moves from the emissive into the surface (`heatAlbedo`: pale
