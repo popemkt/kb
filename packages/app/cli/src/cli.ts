@@ -56,6 +56,7 @@ import {
   type GlobalOpts,
 } from "./command.ts";
 import { filledLines, formatReceipt } from "./format.ts";
+import { trustCommands } from "./trust.ts";
 import { extensionCommands } from "./extensions.ts";
 import { gateCommands } from "./gates.ts";
 import { locationCommands } from "./locations.ts";
@@ -710,6 +711,7 @@ function buildProgram(): Command {
     );
 
   extensionCommands(program);
+  trustCommands(program);
   locationCommands(program);
   relationCommands(program);
   gateCommands(program);

@@ -7,7 +7,7 @@
  * read on every request: untrusted in the running server, the extension's
  * action and its page half are gone; trusted again, both are back.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { beforeEach, afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,6 +25,9 @@ beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-extension-page-"));
   digest = await writeTrustedExample(root);
   handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
+});
+beforeEach(async () => {
+  await trustExtension(root, "example.ts");
 });
 afterAll(async () => {
   await Effect.runPromise(handle.stop);

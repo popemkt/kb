@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { beforeEach } from "bun:test";
 /**
  * Every `bun test` run has its own home store (DESIGN.md → Locations): `kb
  * init` and `kb ui` register the root they open in the person's home store,
@@ -15,3 +17,12 @@ import { join } from "node:path";
 import { pointHomeAt } from "./home-env.ts";
 
 pointHomeAt(mkdtempSync(join(tmpdir(), "kb-test-home-")));
+
+// Trust is shared between roots inside a test, and isolated between tests.
+const dataRoot = mkdtempSync(join(tmpdir(), "kb-test-data-"));
+// oxlint-disable-next-line node/no-process-env -- this preload owns the test run's data environment
+const env = process.env;
+env.KB_DATA = join(dataRoot, "setup");
+beforeEach(() => {
+  env.KB_DATA = join(dataRoot, randomUUID());
+});

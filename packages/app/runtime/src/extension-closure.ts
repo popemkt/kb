@@ -1,3 +1,6 @@
+import { realpathSync } from "node:fs";
+import { isAbsolute, relative, resolve } from "node:path";
+import type { ExtensionFolder } from "./extension-folder.ts";
 /**
  * A repository extension's closure (DESIGN.md → Core boundary & extensions
  * → repository extensions): each half, the server entry `<name>.ts` and the
@@ -97,12 +100,15 @@ function unseenCode(code: string, half: ExtensionHalf): string | null {
 const bundleHalf = Effect.fn("kb.bundleExtensionHalf")(function* (
   entry: string,
   half: ExtensionHalf,
-  root: string,
+  folder: ExtensionFolder,
 ): Effect.fn.Return<string, string> {
+  // Bun reports metafile inputs relative to the cwd at build start.
+  const buildCwd = process.cwd();
   const built = yield* Effect.promise(() =>
     Bun.build({
       entrypoints: [entry],
-      root,
+      root: folder.dir,
+      metafile: folder.contained,
       target: TARGETS[half],
       format: "esm",
       // No whitespace and no comments: Bun names each module by its path from
@@ -118,6 +124,23 @@ const bundleHalf = Effect.fn("kb.bundleExtensionHalf")(function* (
   if (!built.success || output === undefined || built.outputs.length !== 1) {
     const why = built.logs.map((log) => log.message).join("; ");
     return yield* Effect.fail(`its ${half} half does not bundle: ${why}`);
+  }
+  if (folder.contained) {
+    const refusal = yield* Effect.try({
+      try: () => {
+        if (built.metafile === undefined) return "bundle has no input inventory";
+        const base = realpathSync(resolve(buildCwd, folder.dir));
+        for (const input of Object.keys(built.metafile.inputs)) {
+          if (input.startsWith("kb-host:")) continue;
+          const path = relative(base, realpathSync(resolve(buildCwd, input)));
+          if (path === ".." || path.startsWith("../") || isAbsolute(path))
+            return `input escapes its folder: ${input}`;
+        }
+        return null;
+      },
+      catch: (error) => String(error),
+    });
+    if (refusal !== null) return yield* Effect.fail(refusal);
   }
   const code = yield* Effect.promise(() => output.text());
   const unseen = unseenCode(code, half);
@@ -136,13 +159,13 @@ export interface DigestedClosure extends ExtensionClosure {
  * extensions directory), with its digest; or why it cannot run.
  */
 export const extensionClosure = Effect.fn("kb.extensionClosure")(function* (
-  root: string,
+  folder: ExtensionFolder,
   server: string,
   page: string | null,
 ): Effect.fn.Return<DigestedClosure, string> {
   const closure: ExtensionClosure = {
-    server: yield* bundleHalf(server, "server", root),
-    page: page === null ? null : yield* bundleHalf(page, "page", root),
+    server: yield* bundleHalf(server, "server", folder),
+    page: page === null ? null : yield* bundleHalf(page, "page", folder),
   };
   return { ...closure, digest: yield* extensionDigest(closure) };
 });

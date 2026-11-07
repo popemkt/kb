@@ -44,6 +44,10 @@ function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
 }
 
+import { ownExtensionFolder, type ExtensionFolder } from "./extension-folder.ts";
+export { ownExtensionFolder } from "./extension-folder.ts";
+export type { ExtensionFolder } from "./extension-folder.ts";
+
 const NAME_RE = /^[\w][\w.-]*$/;
 const PAGE_ENTRIES = [".page.tsx", ".page.ts"];
 
@@ -122,10 +126,11 @@ const importClosure = Effect.fn("kb.importClosure")(function* (
 
 /** The closure of each named extension; each that cannot be closed over is a failure. */
 const closed = Effect.fn("kb.extensionClosures")(function* (
-  dir: string,
+  folder: ExtensionFolder,
   entries: readonly string[],
   failures: ExtensionFailure[],
 ): Effect.fn.Return<ClosedExtension[]> {
+  const { dir } = folder;
   const result: ClosedExtension[] = [];
   const servers = entries.filter(isServerEntry).toSorted();
   for (const file of servers) {
@@ -137,7 +142,7 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
     const page = entries.find((entry) => pageOf(entry) === name);
     const path = join(dir, file);
     const closure = yield* extensionClosure(
-      dir,
+      folder,
       path,
       page === undefined ? null : join(dir, page),
     ).pipe(Effect.result);
@@ -203,7 +208,7 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
   const name = file.slice(0, -".ts".length);
   const failures: ExtensionFailure[] = [];
   const own = entries.filter((entry) => entry === file || pageOf(entry) === name);
-  const [found] = yield* closed(dir, own, failures);
+  const [found] = yield* closed(ownExtensionFolder(root), own, failures);
   if (found !== undefined) return found.closure;
   return yield* Effect.fail(
     failures.map(({ error }) => error).join("; ") || `no extension ${file}`,
@@ -211,24 +216,48 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
 });
 
 /**
- * The closures of `root`'s extensions, each bundled now; each that cannot
+ * The closures in the ordered folders, each bundled now; each that cannot
  * be closed over is a failure. Nothing of them has run.
  */
 export const readClosures = Effect.fn("kb.readClosures")(function* (
-  root: string,
+  folders: readonly ExtensionFolder[],
 ): Effect.fn.Return<
   { readonly closures: readonly ClosedExtension[]; readonly failures: readonly ExtensionFailure[] },
   never,
   FileSystem
 > {
-  const dir = extensionsDir(root);
-  const entries = yield* entriesOf(dir).pipe(Effect.result);
-  if (Result.isFailure(entries)) {
-    return { closures: [], failures: [{ file: ".kb/extensions", error: entries.failure }] };
-  }
-  if (entries.success === null) return { closures: [], failures: [] };
+  const closures: ClosedExtension[] = [];
   const failures: ExtensionFailure[] = [];
-  return { closures: yield* closed(dir, entries.success, failures), failures };
+  const selected = new Map<string, string>();
+  for (const folder of folders) {
+    const { dir, origin } = folder;
+    const entries = yield* entriesOf(dir).pipe(Effect.result);
+    if (Result.isFailure(entries)) {
+      failures.push({ file: dir, error: entries.failure });
+      continue;
+    }
+    if (entries.success === null) continue;
+    const visible = entries.success.filter((file) => {
+      const name = isServerEntry(file) ? file.slice(0, -3) : pageOf(file);
+      const winner = name === null ? undefined : selected.get(name);
+      if (winner === undefined) return true;
+      if (isServerEntry(file))
+        failures.push({
+          file: join(dir, file),
+          error: `shadowed by ${winner}; hidden from ${origin}`,
+        });
+      return false;
+    });
+    // Reserve names before bundling or trust: a broken or untrusted nearer entry still wins.
+    for (const file of visible.filter(isServerEntry))
+      selected.set(file.slice(0, -3), join(dir, file));
+    const local: ExtensionFailure[] = [];
+    closures.push(...(yield* closed(folder, visible, local)));
+    failures.push(
+      ...local.map(({ file, error }) => ({ file: join(dir, file), error: `${origin}: ${error}` })),
+    );
+  }
+  return { closures, failures };
 });
 
 /**

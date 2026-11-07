@@ -154,8 +154,6 @@ beforeAll(async () => {
       { field: CODE_IDS.codeGrantField, value: { t: "str", v: canonicalJson(ASK_GRANT) } },
     ],
   });
-  // Trusted, so it runs in a Worker as a person's script does: trust widens its engine, never its grant.
-  await done("sandbox.trust", { digest: await Effect.runPromise(codeDigest(ASK, ASK_GRANT)) });
   await done("node.add", {
     id: "n.asker",
     text: "Asks the model",
@@ -241,6 +239,8 @@ describe("ext.canvas.run with the agent's model", () => {
     expect(built).toHaveLength(from);
   });
   test("a script a run performs cannot ask the model, whatever its grant names", async () => {
+    // Each test has its own user trust record; approve the script this test runs.
+    await done("sandbox.trust", { digest: await Effect.runPromise(codeDigest(ASK, ASK_GRANT)) });
     const from = built.length;
     const out = await done(RUN, { canvasId: "n.coded" });
     expect(outcome(out, "asker")).toMatchObject({

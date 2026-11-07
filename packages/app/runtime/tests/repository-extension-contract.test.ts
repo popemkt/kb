@@ -5,7 +5,7 @@
  * switch and its setting are that store's nodes, seeded from its
  * declaration.
  */
-import { afterAll, describe, expect, test } from "bun:test";
+import { beforeEach, afterAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,6 +16,7 @@ import {
   extensionModule,
   writeExtension,
   writeTrustedExtension,
+  trustExtension,
   type SwitchingHost,
 } from "@kb/test-kit";
 import { rootFamilies } from "../src/families.ts";
@@ -86,7 +87,12 @@ const repositoryHost: SwitchingHost = {
     ),
 };
 
-extensionContract(fixture.declaration, fixture.entry, repositoryHost);
+describe("trusted repository fixture contract", () => {
+  beforeEach(async () => {
+    await trustExtension(FIXTURE_ROOT, "fixture.ts");
+  });
+  extensionContract(fixture.declaration, fixture.entry, repositoryHost);
+});
 
 describe("a repository extension's node", () => {
   test("is its store's: seeded with its setting, switched and configured like a bundled family's", async () => {

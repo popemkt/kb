@@ -26,6 +26,7 @@ import { quickjsEngine } from "@kb/sandbox-quickjs";
 import {
   assetsLayer,
   codeTrustLayer,
+  legacyTrustLayer,
   legacyDocsViewsLayer,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
@@ -85,7 +86,8 @@ export function kbRuntimeLayer(
     Layer.succeed(QueryEngineService, engineOf(ctx.index)),
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    codeTrustLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
+    legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
     screens,

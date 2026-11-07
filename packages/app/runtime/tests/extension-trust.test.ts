@@ -50,6 +50,13 @@ import { closureOf, importClosures, readClosures, trustedOf } from "../src/exten
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 
+const untrust = (digest: string) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      yield* (yield* CodeTrust).untrust(digest);
+    }).pipe(Effect.provide(codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)))),
+  );
+
 const HELLO = extensionModule("hello", {
   actions: `[{
   id: "hello",
@@ -165,7 +172,7 @@ describe("a root's repository extensions", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         yield* (yield* CodeTrust).untrust(digest);
-      }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)))),
+      }).pipe(Effect.provide(codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)))),
     );
     expect(await live()).toBe(false);
   });
@@ -194,12 +201,6 @@ export default definePlugin({
     const compose = (nodeOf: NodeLookup = NO_SWITCHES) =>
       Effect.runPromise(registryFor(root, nodeOf).pipe(Effect.provide(bunFileSystemLayer)));
     const lifetime = async () => (await readFile(mark, "utf8")).trim();
-    const untrust = (digest: string) =>
-      Effect.runPromise(
-        Effect.gen(function* () {
-          yield* (yield* CodeTrust).untrust(digest);
-        }).pipe(Effect.provide(codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)))),
-      );
 
     await compose();
     expect(await lifetime()).toBe("");
@@ -369,7 +370,9 @@ export default definePlugin({
       );
       const { failures } = await registry();
       expect(await loads()).toBe(false);
-      expect(failures).toEqual([{ file: "hello.ts", error: expect.stringMatching(why) }]);
+      expect(failures).toEqual([
+        { file: join(root, ".kb", "extensions", "hello.ts"), error: expect.stringMatching(why) },
+      ]);
       expect(existsSync(mark)).toBe(false);
     });
 
@@ -378,7 +381,10 @@ export default definePlugin({
       await writeExtension(root, "hello.ts", HELLO);
       const { failures } = await registry();
       expect(failures).toEqual([
-        { file: "hello.ts", error: expect.stringMatching(/^its page half mentions eval/) },
+        {
+          file: join(root, ".kb", "extensions", "hello.ts"),
+          error: expect.stringMatching(/^own: its page half mentions eval/),
+        },
       ]);
     });
 
@@ -386,7 +392,10 @@ export default definePlugin({
       await writeExtension(root, "stray.page.tsx", "export default {};\n");
       const { failures } = await registry();
       expect(failures).toEqual([
-        { file: "stray.page.tsx", error: "a page entry of stray, which has no stray.ts" },
+        {
+          file: join(root, ".kb", "extensions", "stray.page.tsx"),
+          error: "own: a page entry of stray, which has no stray.ts",
+        },
       ]);
     });
 
@@ -435,7 +444,9 @@ export default definePlugin({
       const swapped = HELLO.replace("hello: true", "hello: false");
       const discovered = await Effect.runPromise(
         Effect.gen(function* () {
-          const { closures } = yield* readClosures(root);
+          const { closures } = yield* readClosures([
+            { dir: join(root, ".kb", "extensions"), origin: "own", contained: false },
+          ]);
           return yield* importClosures((yield* trustedOf(closures)).trusted);
         }).pipe(
           Effect.provideService(CodeTrust, {

@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { TestRunHomeUnnamed, homePath } from "../src/home.ts";
+import { TestRunPathUnnamed, homePath, dataPath } from "../src/home.ts";
 
 describe("the home store's place", () => {
   test("KB_HOME names it, resolved to an absolute path", () => {
@@ -27,9 +27,15 @@ describe("the home store's place", () => {
   });
 
   test("a test run with no KB_HOME is refused, never pointed at the person's", () => {
-    expect(() => homePath({ NODE_ENV: "test" }, "darwin", "/Users/me")).toThrow(TestRunHomeUnnamed);
+    expect(() => homePath({ NODE_ENV: "test" }, "darwin", "/Users/me")).toThrow(TestRunPathUnnamed);
     expect(homePath({ NODE_ENV: "test", KB_HOME: "/tmp/run/home" }, "darwin", "/Users/me")).toBe(
       "/tmp/run/home",
     );
   });
+});
+
+test("persistent data is explicit in tests and owns the default home", () => {
+  expect(() => dataPath({ NODE_ENV: "test" }, "linux", "/home/me")).toThrow(TestRunPathUnnamed);
+  expect(dataPath({ KB_DATA: "/scratch/data" }, "linux", "/home/me")).toBe("/scratch/data");
+  expect(homePath({ KB_DATA: "/scratch/data" }, "linux", "/home/me")).toBe("/scratch/data/home");
 });

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const DIGEST = `sha256:${"b".repeat(64)}`;
@@ -74,5 +74,76 @@ test("CLI trust rejects JSON approval without a terminal and accepts only a term
     }
   } finally {
     await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test("kb trust import needs a terminal and imports only the displayed machine's digests", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kb-import-"));
+  const other = `sha256:${"c".repeat(64)}`;
+  const env = { ...process.env, KB_HOME: join(root, "home"), KB_DATA: join(root, "data") };
+  const legacy = join(root, ".kb", "trust.json");
+  const body = JSON.stringify({
+    version: 1,
+    trusted: [
+      { digest: DIGEST, machine: hostname(), at: "2026-11-07T00:00:00Z" },
+      { digest: other, machine: "other-machine", at: "2026-11-07T00:00:00Z" },
+    ],
+  });
+  const cmd = [
+    process.execPath,
+    join(import.meta.dir, "../src/main.ts"),
+    "--json",
+    "trust",
+    "import",
+    root,
+  ];
+  try {
+    await mkdir(join(root, ".kb"));
+    await writeFile(legacy, body);
+    const refused = Bun.spawn(cmd, {
+      env,
+      detached: true,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(JSON.parse(await new Response(refused.stdout).text())).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+    });
+    expect(await refused.exited).toBe(1);
+    expect(await Bun.file(join(root, "data", "trust.json")).exists()).toBe(false);
+    let output = "";
+    let answered = false;
+    const accepted = Bun.spawn(cmd, {
+      env,
+      terminal: {
+        cols: 120,
+        rows: 30,
+        data(terminal, bytes) {
+          output += new TextDecoder().decode(bytes);
+          if (!answered && output.includes("[y/N]")) {
+            answered = true;
+            terminal.write("y\n");
+          }
+        },
+      },
+    });
+    try {
+      expect(await accepted.exited).toBe(0);
+      expect(answered).toBe(true);
+      expect(output).toContain(DIGEST);
+      expect(output).not.toContain(other);
+      const record = JSON.parse(await readFile(join(root, "data", "trust.json"), "utf8")) as {
+        trusted: { digest: string }[];
+      };
+      expect(record.trusted.map(({ digest }) => digest)).toEqual([DIGEST]);
+      expect(await readFile(legacy, "utf8")).toBe(body);
+    } finally {
+      accepted.kill();
+      accepted.terminal?.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });

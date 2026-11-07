@@ -831,14 +831,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
-### GAP: extension discovery reads one folder
-
-- **expected** — readClosures reads an ordered list of extension folders (own, then local, store and user links and installs); the nearest name wins and the rest are listed as shadowed.
-- **current** — readClosures reads <root>/.kb/extensions only.
-- **impact** — Installed trees and linked folders have no way into discovery without a second path.
-- **closes** — Step 2 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR435JMY23NN9M18X72Q0`
-
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -960,14 +952,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No live shared editing across machines; the owner's Cloudflare/Turso setup has nothing to talk to.
 - **closes** — The prototype of docs/research/2026-10-31-online-stores.md §7: the port, the mirror store, the DO authority, the two-process sync test.
 - **node** — `01M6950VPS4MH8NWDWB4ZF9CP1`
-
-### GAP: kb has no per-user data directory, and code trust is per root
-
-- **expected** — dataPath (KB_DATA, else the platform's data dir for kb) owns kb's per-user data; CodeTrust keeps one record at <data>/trust.json, per machine and per digest, shared by every store; legacy .kb/trust.json is folded in.
-- **current** — Trust lives in each root's .kb/trust.json; a digest trusted in one store is untrusted in another.
-- **impact** — One installed extension used by N stores needs N approvals of the same bytes.
-- **closes** — Step 1 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR2WM61SX5PPZWTZC5X2T`
 
 ### GAP: kb mutation skips saving its baseline when the merge step fails
 
@@ -2200,10 +2184,10 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: governance's policy vocabulary, resolver and seed still live in core packages
 
-- **expected** — @kb/governance owns the approval-policy vocabulary (option ids, policy reader and builder, delegatedDecision), the resolver (resolveApproval, approvalRefusal, writesConfiguration) and its seed (the #approval-policy tag, fields, options, query, view, pin and default policies), so a composition without the family has no policy nodes and core ships no policy
-- **current** — The governance family owns the behaviour (its guards on ActionGuardPoint, the force rule, the deployment switch) but reads the vocabulary and resolver from @kb/model and @kb/contracts, and the policy seed, ExtensionDeclaration.policies and SYSTEM_IDS approval entries are still folded by core's seed (model/seed.ts, seed-fold.ts)
+- **expected** — Governance owns its policy vocabulary and seed; core owns declared required approval. See DESIGN.md → Action registry → Current stance.
+- **current** — Governance owns the policy vocabulary and seed. The unused policy resolver was removed; graph policy evaluation remains deferred under gap 01M5E2DAVRH5CWKM27BVDYW19T.
 - **impact** — Core packages still carry policy code and every store still seeds policy nodes, whether or not governance is composed; with --governance off the nodes are inert
-- **closes** — Move approval-policy.ts, the resolver half of approval.ts and writesConfiguration into @kb/governance; seed the policy nodes from the governance declaration (seed-fold filing them under pins and views by id); move the policy option ids out of SYSTEM_IDS; repoint test-kit's surface contract to read decisions through kb.manifest instead of resolveApproval
+- **closes** — Keep policy vocabulary and seed in the governance family; evaluate future policy through the core interception contract.
 - **node** — `01M5C3YK8P5FWDKFD7D7ERFXDH`
 
 ### GAP: graph themes are a closed set, not a declared kind

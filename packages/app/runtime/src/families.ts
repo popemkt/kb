@@ -26,6 +26,7 @@ import { deploys, governanceMode } from "./deployment.ts";
 import {
   importClosures,
   readClosures,
+  ownExtensionFolder,
   trustedOf,
   type ClosedExtension,
 } from "./extension-loader.ts";
@@ -101,7 +102,7 @@ const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
  * The families `root` composes; with no root, the bundled ones alone, as
  * the deployment composes them (`deployed`). Its
  * closures are read once per root, and which of them a person trusted is
- * read from the root's record on every call, so `sandbox.trust` and
+ * read from the user's record on every call, so `sandbox.trust` and
  * `sandbox.untrust` take effect in the process that runs them: a newly
  * trusted closure is imported, an untrusted one is not a family of the
  * root, so the registry and the page server drop it as they drop a family
@@ -113,13 +114,13 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   if (root === null) return { ...deployed(), failures: [] };
   let reading = closureCache.get(root);
   if (reading === undefined) {
-    reading = yield* Effect.cached(readClosures(root));
+    reading = yield* Effect.cached(readClosures([ownExtensionFolder(root)]));
     closureCache.set(root, reading);
   }
   const read = yield* reading;
-  // Which of the root's own extensions a person trusted is the root's record.
+  // The user's shared record decides which closures this root may load.
   const { trusted, failures: untrusted } = yield* trustedOf(read.closures).pipe(
-    Effect.provide(codeTrustLayer(root)),
+    Effect.provide(codeTrustLayer()),
   );
   const key = [governanceMode(), root, ...trusted.map(({ closure }) => closure.digest)].join("\0");
   let composed = familiesCache.get(key);
@@ -155,7 +156,7 @@ const composedOf = (closures: readonly ClosedExtension[]): Effect.Effect<RootFam
 
 /**
  * The families `root` composes when every closure it holds is vouched for
- * by the caller rather than by the root's trust record: what admission
+ * by the caller rather than by the user's trust record: what admission
  * (`admitExtensions`) checks. Read fresh and cached nowhere, so a gate
  * sees the files as they are; the trust record is neither read nor
  * written. It imports, so runs, every extension the root holds: only a
@@ -165,7 +166,7 @@ const composedOf = (closures: readonly ClosedExtension[]): Effect.Effect<RootFam
 export const vouchedFamilies = Effect.fn("kb.vouchedFamilies")(function* (
   root: string,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
-  const read = yield* readClosures(root);
+  const read = yield* readClosures([ownExtensionFolder(root)]);
   const families = yield* composedOf(read.closures);
   return { ...families, failures: [...read.failures, ...families.failures] };
 });
