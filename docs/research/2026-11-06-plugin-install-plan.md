@@ -665,13 +665,19 @@ decision Q1).
   - two processes trusting at once keep every digest;
   - another machine's records still count for nothing;
   - a test run without `KB_DATA` fails;
-  - the shared `KB startup contract` suite runs over the checkout, release
-    and Nix-style launchers. In a hostile working directory:
-    - a `.env` setting `KB_DATA` doesn't reach kb's environment;
-    - a `bunfig.toml` preload doesn't run;
-    - repo-local selection files grant nothing;
-    - a raw `bun cli.js` with no launch flags, or with an extra one, exits
-      78 before opening a store;
+  - the `KB startup contract` suite
+    (`packages/app/cli/tests/startup-contract.test.ts`) builds the real CLI
+    bundle, extracts the real release launcher and uses the shipped flag
+    file. From a hostile working directory:
+    - for each of the checkout, release and Nix launchers, a `.env` setting
+      `KB_DATA` doesn't reach kb, a `bunfig.toml` preload doesn't run, and
+      repo-local selection files grant nothing;
+    - a negative control shows the same directory really does load the
+      `.env` value and run the preload when the flags are left out, so the
+      test can't pass vacuously;
+    - a raw `bun cli.js` without the launch flags exits 78 before it
+      creates `nodes.jsonl`. With an extra flag it also exits 78;
+    - an install check runs the built Nix artifact;
   - `.gitignore` is updated, and the PR tells the owner which backup path
     moved.
 
