@@ -61,10 +61,14 @@ const DATASCRIPT = /cljs\.core/;
  * `BackdropFrame`'s pinned set and its row in Settings.
  * And by 1 KB for Astral's declaration, its key and its four variants;
  * its scene loads lazily. And by 100 bytes (71 measured) for the Black
- * hole's two variants on its key; its looks load lazily.
+ * hole's two variants on its key; its looks load lazily. And by 7.4 KB
+ * (7,367 bytes measured) for the backdrops' knobs: each moving backdrop's
+ * declared knobs (3.6 KB over fourteen), their fold into the seed's fields
+ * and a page head's values (`knob-fields`, 1.7 KB), and what Sky, drawn
+ * with the page, reads of its own (1 KB); the knob control loads lazily.
  */
 // The routines family adds its native field/tag vocabulary; its worker remains server-side.
-const EAGER_BUDGET_BYTES = 2_015_100;
+const EAGER_BUDGET_BYTES = 2_022_500;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
