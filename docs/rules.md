@@ -36,7 +36,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Domain typing — parse unknown at the boundary | DESIGN.md#domain-typing--effect-schema | repo | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | lint | — |
 | Abstraction before addition (Rule 1) | AGENTS.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Admission gate | AGENTS.md#gate-run-first | repo | Every commit is admitted through the one pre-commit gate; a missing tool is restored, never worked around. | prose | — |
-| Batch related changes in one reviewable PR | docs/ci.md#batches | repository | Related changes land together, with separate structural and behavior commits. | prose | Human review of the PR batch scope |
+| Batch related changes in one reviewable PR | docs/ci.md#batches | repo | Related changes land together, with separate structural and behavior commits. | prose | — |
 | Canonical statements | AGENTS.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
 | Domain typing — discriminator over optional | DESIGN.md#domain-typing--effect-schema | repo | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | DESIGN.md#domain-typing--effect-schema | repo | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |

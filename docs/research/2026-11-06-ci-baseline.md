@@ -66,3 +66,19 @@ Playwright test sharding with one worker per runner. Core passed on Ubuntu in 3m
 Nix Ubuntu 2m10s. A competing Validate run held macOS slots during this run.
 No target claim is based on subtracting that queue.
 
+
+## First Linux UI run
+
+[Run 42255674628](https://github.com/popemkt/kb/actions/runs/42255674628)
+on `820a9e14` passed both Ubuntu UI shards in **4m14s and 4m19s**,
+compared with the macOS baseline medians of 7.37 and 6.98 minutes.
+Verify took 4m40s, core 2m40s and Nix Ubuntu 2m09s. Every Ubuntu job
+finished within 4.7 minutes of the trigger.
+
+The run failed because render 2/2 waited 42 minutes for a macOS runner
+and was abandoned without executing a step. The aggregate failed closed.
+Nix macOS waited 7.3 minutes and executed for 4m54s. Render 1/2 waited
+10.2 minutes and executed for 10m57s (8.7 minutes of tests). All 60
+backdrop cases fell in its contiguous test-count slice; the remaining
+shard's estimated test time was 6.3 minutes from earlier timings. This
+run proves Linux UI compatibility, not either end-to-end timing target.

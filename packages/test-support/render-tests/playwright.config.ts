@@ -7,6 +7,8 @@ import { defineConfig } from "playwright/test";
 // WebGPU and for ANGLE's WebGL alike; without these it draws in SwiftShader
 // even where a GPU is present. A Linux host with no GPU still falls back to
 // SwiftShader. macOS needs none of them: Metal is the default there.
+const isCI = process.env.CI !== undefined && process.env.CI !== "";
+
 const chromiumGpuArgs = [
   "--enable-unsafe-webgpu",
   ...(process.platform === "linux" ? ["--enable-features=Vulkan", "--use-angle=vulkan"] : []),
@@ -16,8 +18,8 @@ export default defineConfig({
   testDir: "./tests-render",
   testMatch: "**/*.e2e.ts",
   fullyParallel: true,
-  workers: 1,
-  forbidOnly: process.env.CI !== undefined && process.env.CI !== "",
+  workers: isCI ? 1 : undefined,
+  forbidOnly: isCI,
   // A retry would hide exactly the order and timing faults this suite exists
   // to surface; a flaky spec is fixed, never retried into green.
   retries: 0,

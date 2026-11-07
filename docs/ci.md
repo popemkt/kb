@@ -26,7 +26,8 @@ the pre-commit hook and `packages.kb` use — are the flake's.
 - **`core`** — `bun run test` and `bun run test:dst`.
 - **`ui (1/2)`, `ui (2/2)`** — `bun run test:ui`, each shard half of every
   browser package's files.
-- **`render (1/2)`, `render (2/2)`** — `bun run test:render`, split by file.
+- **`render (1/2)`, `render (2/2)`** — `bun run test:render`, split by test count.
+- **`validate`** — aggregate result of every selected gate; the single required check.
 
 ## Pre-commit: the same questions, one commit earlier
 
@@ -96,8 +97,11 @@ Core and UI run on Ubuntu, leaving three macOS jobs per run: the two
 render shards and the Nix package check. Core passed there in run
 42249947516; UI's first Linux result is recorded in the performance record.
 Each backdrop option is a separate isolated render test. Playwright shards
-individual tests with `fullyParallel: true` and `workers: 1`, keeping the
-per-runner load fixed and avoiding a partition tied to file order.
+individual tests by count with `fullyParallel: true`, taking contiguous
+slices in file order. All 60 backdrop tests currently land in shard 1:
+about 8.7 minutes of tests against an estimated 6.3 minutes in shard 2.
+This balances count, not duration, and remains sensitive to file order.
+CI pins `workers: 1` to keep per-runner load fixed; local runs use the default.
 Superseded PR runs cancel; publishing is serialized and never cancelled.
 
 The setup action owns Nix installation and dependency setup, including the
