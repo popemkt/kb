@@ -46,7 +46,7 @@ import {
   ToonSeaBackdrop,
   WolfMedallionBackdrop,
 } from "./gpu/backdrops";
-import { HEAD_HEIGHT } from "./gpu/framing";
+import { HEAD_HEIGHT } from "./gpu/head";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
 import { matchStudio, studioPath } from "./studio/routes";

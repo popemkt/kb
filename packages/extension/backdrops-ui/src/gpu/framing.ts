@@ -17,6 +17,7 @@
  * hero is smaller, higher and further right, and quieter, so it is calm
  * behind the content.
  */
+import { HEAD_HEIGHT } from "./head";
 
 /** One composition of a hero, against the frame's height. */
 export interface Composition {
@@ -45,9 +46,6 @@ export interface Anchor {
   readonly y: number;
   readonly scale: number;
 }
-
-/** How tall a GPU backdrop's head is (`gpuFrame`), whatever its width. */
-export const HEAD_HEIGHT = 360;
 
 /**
  * How much larger than in a head a frame `height` tall shows its hero: 1

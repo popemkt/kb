@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  HEAD_HEIGHT,
   anchorIn,
   framingAt,
   pastHead,
@@ -8,6 +7,7 @@ import {
   WIDE_WIDTH,
   type Composition,
 } from "./framing";
+import { HEAD_HEIGHT } from "./head";
 
 const panel: Composition = { x: 0.28, y: 0.22, scale: 0.6, presence: 0.5 };
 const wide: Composition = { x: 0.2, y: 0.4, scale: 1, presence: 1 };
