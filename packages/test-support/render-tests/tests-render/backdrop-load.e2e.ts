@@ -12,6 +12,7 @@
 import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
 import type { APIRequestContext, BrowserContext } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
+import { backdropOptions } from "./backdrop-options.ts";
 
 /** What one load did, as the page recorded it. */
 interface LoadRecord {
@@ -133,29 +134,24 @@ async function load(context: BrowserContext, url: string): Promise<LoadRecord | 
   return { ...record, state };
 }
 
-test("every GPU backdrop loads once: one context, at its size, revealed once", async ({
-  context,
-  request,
-  harness,
-  gpu,
-}) => {
-  // Every contributed backdrop, each loaded in its own tab.
-  test.setTimeout(300_000);
-  // GAP [[01M3E6QH4WZFJQTQM96NBZ7VVA]]
-  test.skip(!gpu.webgpu, "the load is recorded through WebGPU's own calls");
-  const field = await action(request, "node.get", { id: SYSTEM_IDS.backdropField });
-  const options = (field.output.node.children as ReadonlyArray<{ id: string }>).map(
-    (child) => child.id,
-  );
-  const tried: string[] = [];
-  for (const option of options) {
+for (const option of backdropOptions) {
+  test(`load ${option}: every GPU backdrop loads once: one context, at its size, revealed once`, async ({
+    context,
+    request,
+    harness,
+    gpu,
+  }) => {
+    // Every contributed backdrop, each loaded in its own tab.
+    test.setTimeout(300_000);
+    // GAP [[01M3E6QH4WZFJQTQM96NBZ7VVA]]
+    test.skip(!gpu.webgpu, "the load is recorded through WebGPU's own calls");
     await action(request, "node.update", {
       id: "sys.extension.core",
       setProps: [{ field: SYSTEM_IDS.backdropField, value: { t: "ref", v: option } }],
     });
     const record = await load(context, harness.url);
-    if (record === null) continue;
-    tried.push(option);
+    if (option === backdropOptionId("backdrops.lens")) expect(record).not.toBeNull();
+    if (record === null) return;
     expect.soft(record.state, option).toBe("ready");
     expect.soft(record.adapters, `${option}: GPU adapters per load`).toBe(1);
     expect.soft(record.canvases, `${option}: canvases per load`).toBe(1);
@@ -167,7 +163,5 @@ test("every GPU backdrop loads once: one context, at its size, revealed once", a
     expect.soft(record.washes, `${option}: the wash shown while it loaded`).toBe(0);
     expect.soft(record.ready, `${option}: scene marked ready`).toBe(1);
     expect.soft(record.reveals, `${option}: canvas faded in`).toBe(1);
-  }
-  expect(tried.length, "no GPU backdrop was tried").toBeGreaterThan(0);
-  expect(tried).toContain(backdropOptionId("backdrops.lens"));
-});
+  });
+}

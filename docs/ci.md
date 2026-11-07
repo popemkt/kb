@@ -8,7 +8,7 @@ release it.
 | `validate.yml` | PR, push to `main` | Is the repo green? |
 | `kb-mutation.yml` | Weekly (Mon 04:00 UTC, incremental), monthly (full), manual | Which mutants does the test suite fail to kill? |
 | `release.yml` (Release) | Manual with a bump, or a hand-pushed `v<major.minor.patch>` tag | Cut a stable release: version, CHANGELOG, commit and tag, then publish |
-| `nightly.yml` (Nightly) | Validate green on a push to `main`, manual; daily 03:00 UTC prunes only | Publish that commit as a `-nightly.<UTC YYYYMMDDHHMMSS>` prerelease, unless a nightly holds it |
+| `nightly.yml` (Nightly) | Validate green on a push to `main`, manual; daily 03:00 UTC retries green main and prunes | Publish that commit as a `-nightly.<UTC YYYYMMDDHHMMSS>` prerelease, unless a nightly holds it |
 | `publish.yml` (Publish) | Called by Release and Nightly only | Build, smoke-test, attest and publish one release |
 
 `validate.yml` is the single answer to "does this change land". Its jobs run
@@ -26,7 +26,8 @@ the pre-commit hook and `packages.kb` use — are the flake's.
 - **`core`** — `bun run test` and `bun run test:dst`.
 - **`ui (1/2)`, `ui (2/2)`** — `bun run test:ui`, each shard half of every
   browser package's files.
-- **`render`** — `bun run test:render`.
+- **`render (1/2)`, `render (2/2)`** — `bun run test:render`, split by test count.
+- **`validate`** — aggregate result of every selected gate; the single required check.
 
 ## Pre-commit: the same questions, one commit earlier
 
@@ -81,54 +82,50 @@ workflows.
 A fresh clone without `bun install` fails the hook with the command to run,
 rather than passing on checks it could not make.
 
-## Why the jobs look the way they do
+## Scheduling and selection
 
-- **One job per question, sharded where one is slow.** Before the split the
-  suites ran one after another in a single job, about 18 minutes; now the
-  longest job is the render suite. The UI suite, the slowest, is sharded
-  across two runners rather than parallelised on one: Vitest already forks a
-  worker per core within a package, and the suite has gone red under load
-  before (the timing gaps in `docs/rules.md`), so each shard keeps the load
-  a single run had. `test:ui` still runs one package at a time
-  (`--parallel=1`), and the shard is Vitest's own `--shard`, passed through
-  nx to each package.
-- **Five macOS jobs, no more.** An account runs at most five macOS jobs at
-  once: `nix (macos-15)`, `core`, the two UI shards and `render`. A sixth would
-  wait for one of Validate's own to finish, which is why the render suite,
-  shorter than the UI suite, stays one job.
-- **Only the flake check's store is cached.** The macOS `nix flake check`
-  builds one derivation per npm package, about 3,700, none of them
-  substitutable: about seven minutes. `nix-community/cache-nix-action`
-  restores them from the repository's Actions cache, no secret involved, and
-  only kb itself builds. The dev shell and Bun's package cache are not
-  cached, because measured they do not pay: the dev shell substitutes from
-  cache.nixos.org faster than its snapshot untars, and `bun install` takes
-  seconds. The setup action states the numbers.
-- **It calls `bun run verify`, not its constituent tools.** `verify` is the one
-  name for the complete toolchain gate; what it runs is its definition in
-  `package.json`, and is stated nowhere else.
-- **`verify` checks out the full history.** The harness's warn ratchet holds
-  the committed baseline to the one at the fork point with `main` (on `main`
-  itself, the previous commit), so a regenerated snapshot cannot raise it; a
-  shallow clone has no fork point to read. No other job reads history.
-- **The render suite runs, with no retries.** `bun run test:render` builds the
-  UI in Vite's `test-render` mode and gives every test its own server over a
-  fresh fixture store (`tests-render/harness-test.ts`), so no test can see
-  another's writes. It runs Chromium's new headless mode with WebGPU enabled.
-  Each spec that draws a scene asserts the backend it expects: WebGPU where
-  Chromium offers an adapter, WebGL2 where it does not, so a silent fall back
-  is red. The WebGPU-only specs (the Embers study) skip on a runner with no
-  adapter, each under the gap that names that lane.
-- **The suites run on `macos-15`, not `ubuntu-latest`.** They have only ever
-  run on Darwin. Linux would be faster and cheaper, but a first-ever Linux run
-  would mix real regressions with portability noise. Moving them is a
-  worthwhile follow-up on its own. The package build already runs on Linux,
-  in the `nix` job, and `verify` runs there: it is static analysis, and the
-  pre-commit hook runs it on Linux checkouts for every commit. That also
-  keeps it out of the five macOS slots.
-- **The DST sweep runs 25 extra seeds.** `bun test` already runs the committed
-  seeds; the sweep is the only thing that exercises replay determinism on
-  seeds nobody has looked at. It is pure and in-memory, so it is nearly free.
+Every main push runs every gate before publication. PRs whose entire diff is
+Markdown under `docs/` or `README.md` run verify (including rule-home audits)
+and generated-doc checks only. All other paths conservatively select all
+suites: shared graph packages, extensions, assets and build configuration can
+all affect browser rendering. Unknown paths select everything. The final `validate` job is the single required check. It reads every job
+result, accepts skipped runtime jobs only for prose-only PRs, and fails for
+failed or cancelled gates. Skipped runtime jobs are
+intentional only for prose; verify remains unconditional.
+
+Core and UI run on Ubuntu, leaving three macOS jobs per run: the two
+render shards and the Nix package check. Core passed there in run
+42249947516; UI's first Linux result is recorded in the performance record.
+Each backdrop option is a separate isolated render test. Playwright shards
+individual tests by count with `fullyParallel: true`, taking contiguous
+slices in file order. All 60 backdrop tests currently land in shard 1:
+about 8.7 minutes of tests against an estimated 6.3 minutes in shard 2.
+This balances count, not duration, and remains sensitive to file order.
+CI pins `workers: 1` to keep per-runner load fixed; local runs use the default.
+Superseded PR runs cancel; publishing is serialized and never cancelled.
+
+The setup action owns Nix installation and dependency setup, including the
+flake-check store snapshot. Chromium is cached by OS,
+architecture and lockfile; installation still runs to verify its presence.
+Dev shells continue to use Nix's binary substituter: a previous snapshot
+experiment took 67 seconds versus 45 seconds to substitute, so restoring a
+large store in every job would slow this pipeline. Cache misses never bypass
+an install, build or test. Bun downloads remain uncached: a hit plus install took 16.2s versus
+10.3s for an uncached install (saving the cache added 14s). Chromium cache
+hit plus install took 6.5s versus 11s on a miss, so it remains enabled.
+
+The [dated performance record](research/2026-11-06-ci-baseline.md) holds
+baseline and after-run numbers, cache evidence, and the failure audit.
+
+## Batches
+
+Use one PR per related, reviewable batch, with separate commits for structural
+refactors and behavior additions (Rule 1). Agents stack work on that batch
+branch, run local admission, then push a completed batch together. Mark its
+body `Batch:` with the included changes and validation. Avoid merging partial
+stacks one PR at a time: every main merge correctly triggers full validation
+and publication. Unrelated changes remain separate PRs. This uses ordinary
+PRs without a paid merge-queue dependency or repository-setting changes.
 
 ## kb-mutation
 
@@ -158,8 +155,7 @@ gh api -X PUT repos/popemkt/kb/branches/main/protection \
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["nix (macos-15)", "nix (ubuntu-24.04)", "verify", "core",
-                 "ui (1/2)", "ui (2/2)", "render"]
+    "contexts": ["validate"]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": null,

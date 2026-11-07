@@ -3,7 +3,7 @@ description: >-
   Nix with the flake's dev shell and, unless turned off, the workspace's
   dependencies. With `flake-store`, the Nix store `nix flake check` builds is
   restored from, and saved to, the Actions cache. The one setup every
-  Validate job shares.
+  validation and release job shares.
 
 inputs:
   flake-store:
@@ -15,14 +15,9 @@ inputs:
     description: Run `bun install --frozen-lockfile`.
     default: "true"
 
-# Only the flake check's store is cached, because only it pays. Measured on
-# this repository's runners: the dev shell alone substitutes from
-# cache.nixos.org in about 45 s on macOS, and restoring it from the Actions
-# cache took 67 s (most of it untarring 0.5 GB into /nix); Bun's package
-# cache restored in 13 s for an install that takes 2 to 8 s without it. The
-# flake check builds one derivation per npm package, about 3,700, none of
-# them substitutable: 410 s on macOS without the snapshot, 19 s with it,
-# after a restore of about 100 s.
+# Bun cache restore measured 12.5s plus 3.7s install, versus 10.3s without
+# the cache (and 14s to save). Keep downloads uncached. Dev-shell snapshots
+# measured 67s to restore versus 45s to substitute from cache.nixos.org.
 runs:
   using: composite
   steps:

@@ -4,7 +4,7 @@ name: Nightly
 # v<next patch>-nightly.<UTC YYYYMMDDHHMMSS of the commit>
 # (bin/release-version nightly), built, smoke-tested, attested and published
 # by publish.yml like a stable release. It is published when Validate
-# completes green on a push to main, or on demand for main's tip, and only
+# completes green on a push to main, or on demand or schedule for main's tip, and only
 # for a commit no nightly holds yet; it is marked prerelease, so GitHub's
 # latest release — what the dotfiles' nvfetcher resolves — stays the last
 # stable one. Its version is derived and stamped into the build; nothing is
@@ -18,7 +18,7 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
-  # Retention is by age, so pruning runs daily whether or not anything merged.
+  # Daily retention and a fallback publication attempt for green main.
   schedule:
     - cron: "0 3 * * *"
 
@@ -38,7 +38,7 @@ jobs:
     # A Validate run on main's push that passed, not one on a pull request
     # from a branch that happens to be called main.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.conclusion == 'success')
@@ -66,8 +66,10 @@ jobs:
           # The tags, to find the last nightly.
           fetch-depth: 0
           persist-credentials: false
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - name: Set up
+        uses: ./.github/actions/setup
+        with:
+          install: false
 
       - name: Decide
         id: decide
@@ -116,7 +118,7 @@ jobs:
       prerelease: true
       notes-since: ${{ needs.prepare.outputs.since }}
 
-  # Runs whether or not a nightly was published, and alone on the schedule.
+  # Runs whether or not a nightly was published, including on the schedule.
   prune:
     needs: publish
     if: ${{ !cancelled() }}

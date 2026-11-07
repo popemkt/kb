@@ -52,10 +52,8 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Set up
+        uses: ./.github/actions/setup
 
       # package.json's version is the one source of a stable version; a stable
       # release that disagrees with it would ship one version under another's

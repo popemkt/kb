@@ -10,9 +10,10 @@
 // canvas reports (`data-hero`, heights from the content's centre) holds, the
 // frame always spans the region without scrolling the page sideways, the
 // canvas is never replaced and no frame it shows is blank.
-import { SYSTEM_IDS } from "@kb/model";
+import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
+import { backdropOptions } from "./backdrop-options.ts";
 
 /** Window widths at which a page head is wide (its frame past `WIDE_WIDTH` with the sidebar open). */
 const WIDE_WINDOWS = [1280, 1440, 1920, 2560] as const;
@@ -113,21 +114,16 @@ async function expectSpansRegion(page: Page, label: string) {
     .toEqual({ short: 0, sideways: 0 });
 }
 
-test("a backdrop that spans the region holds its hero whatever the width", async ({
-  browser,
-  request,
-  harness,
-  gpu,
-}) => {
-  test.setTimeout(300_000);
-  // GAP [[01M3E6QH4WZFJQTQM96NBZ7VVA]]
-  test.skip(!gpu.webgpu, "the hero is reported by a running GPU scene");
-  const field = await action(request, "node.get", { id: SYSTEM_IDS.backdropField });
-  const options = (field.output.node.children as ReadonlyArray<{ id: string }>).map(
-    (child) => child.id,
-  );
-  const tried: string[] = [];
-  for (const option of options) {
+for (const option of backdropOptions) {
+  test(`width ${option}: a backdrop that spans the region holds its hero whatever the width`, async ({
+    browser,
+    request,
+    harness,
+    gpu,
+  }) => {
+    test.setTimeout(300_000);
+    // GAP [[01M3E6QH4WZFJQTQM96NBZ7VVA]]
+    test.skip(!gpu.webgpu, "the hero is reported by a running GPU scene");
     await action(request, "node.update", {
       id: "sys.extension.core",
       setProps: [{ field: SYSTEM_IDS.backdropField, value: { t: "ref", v: option } }],
@@ -146,11 +142,11 @@ test("a backdrop that spans the region holds its hero whatever the width", async
       .catch(() => false);
     const spans =
       isGpu && (await page.locator(FRAME).evaluate((el) => el.classList.contains("kb-breakout")));
+    if (option === backdropOptionId("backdrops.floating-geometry")) expect(spans).toBe(true);
     if (!spans) {
       await context.close();
-      continue;
+      return;
     }
-    tried.push(option);
     await expect(host).toHaveAttribute("data-scene-state", "ready", { timeout: 20_000 });
     const first = await heroOf(page);
     expect(first.length, `${option}: the canvas reports its hero`).toBe(3);
@@ -189,6 +185,5 @@ test("a backdrop that spans the region holds its hero whatever the width", async
     expect.soft(removed, `${option}: canvases removed while it ran`).toBe(0);
     await expect(host).toHaveAttribute("data-scene-state", "ready");
     await context.close();
-  }
-  expect(tried.length, "no backdrop spans the region").toBeGreaterThan(0);
-});
+  });
+}

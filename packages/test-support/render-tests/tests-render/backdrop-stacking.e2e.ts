@@ -19,6 +19,7 @@ import {
 } from "@kb/model";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
+import { backdropOptions } from "./backdrop-options.ts";
 
 const CORE = "sys.extension.core";
 const TAG = "render.fixture.tag";
@@ -161,42 +162,37 @@ async function coveredOn(
   return failures;
 }
 
-test("a page-head backdrop never covers the page's content", async ({
-  browser,
-  request,
-  harness,
-}, testInfo) => {
-  test.setTimeout(900_000);
-  // A tag with a field of its own, so its page shows the Fields section with a row in it.
-  await action(request, "node.add", {
-    id: "stacking.f.status",
-    text: "status",
-    parent: "render.fixture.root",
-    props: [{ field: "sys.f.type", value: ref("sys.field") }],
-  });
-  await action(request, "node.update", {
-    id: TAG,
-    setProps: [{ field: "sys.f.fields", value: ref("stacking.f.status") }],
-  });
-  // The Black hole shows Warp, the look the owner's page shows.
-  await action(request, "node.update", {
-    id: CORE,
-    setProps: [{ field: SYSTEM_IDS.backdropVariantField, value: ref(WARP) }],
-  });
-  const field = await action(request, "node.get", { id: SYSTEM_IDS.backdropField });
-  const options = (field.output.node.children as ReadonlyArray<{ id: string }>).map(
-    (child) => child.id,
-  );
-  expect(options.length, "no backdrop is contributed").toBeGreaterThan(0);
+for (const option of backdropOptions) {
+  test(`stacking ${option}: a page-head backdrop never covers the page's content`, async ({
+    browser,
+    request,
+    harness,
+  }, testInfo) => {
+    test.setTimeout(900_000);
+    // A tag with a field of its own, so its page shows the Fields section with a row in it.
+    await action(request, "node.add", {
+      id: "stacking.f.status",
+      text: "status",
+      parent: "render.fixture.root",
+      props: [{ field: "sys.f.type", value: ref("sys.field") }],
+    });
+    await action(request, "node.update", {
+      id: TAG,
+      setProps: [{ field: "sys.f.fields", value: ref("stacking.f.status") }],
+    });
+    // The Black hole shows Warp, the look the owner's page shows.
+    await action(request, "node.update", {
+      id: CORE,
+      setProps: [{ field: SYSTEM_IDS.backdropVariantField, value: ref(WARP) }],
+    });
 
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 900 },
-    reducedMotion: "reduce",
-  });
-  const page = await context.newPage();
-  const failures: string[] = [];
-  try {
-    for (const option of options) {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    const failures: string[] = [];
+    try {
       await action(request, "node.update", {
         id: CORE,
         setProps: [{ field: SYSTEM_IDS.backdropField, value: ref(option) }],
@@ -209,9 +205,9 @@ test("a page-head backdrop never covers the page's content", async ({
             : null;
         failures.push(...(await coveredOn(page, request, `${option} ${name}`, shot)));
       }
+    } finally {
+      await context.close();
     }
-  } finally {
-    await context.close();
-  }
-  expect(failures, "content text the backdrop paints over").toEqual([]);
-});
+    expect(failures, "content text the backdrop paints over").toEqual([]);
+  });
+}
