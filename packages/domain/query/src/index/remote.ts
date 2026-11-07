@@ -15,9 +15,9 @@
  */
 import type { KbNode, StoreTx } from "@kb/model";
 import { answerOf, type QueryAnswer, type QueryRequest, type QueryTransport } from "./answer.ts";
-import { DatascriptIndex, type IndexOptions } from "./datascript-index.ts";
+import { DatascriptIndex } from "./datascript-index.ts";
 import type { DerivedRef } from "./derived.ts";
-import type { NodeIndex } from "./index.ts";
+import type { NodeIndex, IndexOptions } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
 
 /** What the host tells the engine. Every mutation carries the generation the host numbers it with. */

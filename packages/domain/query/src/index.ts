@@ -2,7 +2,7 @@ export { DatalogError } from "./datalog-error.ts";
 export { datascriptExecutor, pull, query, queryRows, runIr } from "./datascript.ts";
 export type { ClockSampler, EdnExecutor } from "./datascript.ts";
 export { DatascriptIndex } from "./index/datascript-index.ts";
-export type { IndexOptions } from "./index/datascript-index.ts";
+export type { IndexOptions } from "./index/index.ts";
 export { derivedWith, nodeMentions } from "./index/derived.ts";
 export type { DerivedRef, DerivedSources, FieldRefCarrier } from "./index/derived.ts";
 export { KbIndexService } from "./index/index.ts";

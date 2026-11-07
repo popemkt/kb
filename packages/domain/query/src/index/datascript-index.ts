@@ -13,7 +13,7 @@ import type { Ir } from "../ir/ir.ts";
 import { parseEdn } from "../ir/parse.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
-import type { DatalogAnswer, KbIndex } from "./index.ts";
+import type { DatalogAnswer, KbIndex, IndexOptions } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
 import { readSetOf, touches, type ChangedDatom, type ReadSet } from "./read-set.ts";
 
@@ -42,26 +42,6 @@ type TxOp =
 /** An answer the index remembers: its rows, until when they hold, and what the run that made them read. */
 interface Kept extends DatalogAnswer {
   readonly reads: ReadSet;
-}
-
-/** How an index is built beyond its nodes. */
-export interface IndexOptions {
-  /**
-   * The derived ref attributes it builds: what the host's families declare
-   * (`bundledDerived`, `derivedOf`), or the core table alone
-   * (`derivedWith({})`). Required, so no host drops a family's references by
-   * leaving it out.
-   */
-  readonly derived: readonly DerivedRef[];
-  /**
-   * Where a run's clock sample comes from: the `Clock` and zone of the host
-   * that builds the index (`clockSampler` in `@kb/model`), sampled once by a
-   * run that calls a clocked kb function (`kb/today`, …) and never by any
-   * other run, and by a remembered clocked answer to learn whether it still
-   * holds. Without one, such a query fails naming the function; the index
-   * never falls back to a wall clock of its own.
-   */
-  readonly clock?: ClockSampler;
 }
 
 /**

@@ -1836,6 +1836,9 @@ same lane. One path to a client, whatever a node's provenance.
   worker — hands its EDN to `runDatalog` on a `DatascriptIndex`, which is
   `compile(parseEdn(edn))` then DataScript. The subset `parseEdn` understands becomes the kb IR
   (`@kb/query`'s `ir.ts`); anything else passes through as `raw`, unchanged.
+- The index definition (`IndexOptions`: derived references and clock) belongs
+  to the query port. Adapters and hosts read that one type. Session seed
+  reconciliation belongs to the runtime, shared by every session opener.
 - **Two halves, one owner.** An index is its node set and point reads
   (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, the text scan, the
   generation), and the datalog engine over them (`KbIndex extends
@@ -2867,7 +2870,9 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   trees are refused and a source-less install repairs them from their pins.
   `extension.install` resolves/fetches, stores, compiles without importing,
   refuses bundled names and escaping/unresolved imports, then writes its lock.
-  It never trusts. Existing processes keep their lock selection until restart
+  It never trusts. One root owns its lock-selection snapshot and compiled file
+  readings, which are invalidated together; immutable imports stay keyed by digest.
+  Existing processes keep their lock selection until restart
   (live reload is step 12). Admission imports only own code; it checks lock
   schemas, bundled names, store-relative links and present tree integrity
   without fetching, importing or executing installed/linked code.

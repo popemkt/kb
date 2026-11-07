@@ -1,4 +1,5 @@
-import { installedFolders, resetInstalledSelections } from "./installed-extensions.ts";
+import { rootExtensionState, resetRootExtensionStates } from "./extension-state.ts";
+import { installedFolders } from "./installed-extensions.ts";
 /**
  * The families a root composes (DESIGN.md → Extension families): every
  * bundled one, then each repository extension its `.kb/extensions` holds,
@@ -94,11 +95,6 @@ function admitted(extensions: readonly LoadedExtension[]): {
   return { extensions: accepted, failures };
 }
 
-/** Each root's closures: bundled once, for the process lifetime (an extension changed on disk needs a restart). */
-const closureCache = new Map<
-  string,
-  Effect.Effect<Effect.Success<ReturnType<typeof readClosures>>, never, FileSystem>
->();
 /** Each root's families, per set of closures trusted there: importing one runs its module code. */
 const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
 
@@ -116,12 +112,13 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
   if (root === null) return { ...deployed(), failures: [] };
-  const selected = yield* installedFolders(root).pipe(Effect.provide(extensionStorageLayer));
+  const state = rootExtensionState(root);
+  const selected = yield* installedFolders(state).pipe(Effect.provide(extensionStorageLayer));
   const cacheKey = JSON.stringify([root, selected.folders]);
-  let reading = closureCache.get(cacheKey);
+  let reading = state.closures.get(cacheKey);
   if (reading === undefined) {
     reading = yield* Effect.cached(readClosures([ownExtensionFolder(root), ...selected.folders]));
-    closureCache.set(cacheKey, reading);
+    state.closures.set(cacheKey, reading);
   }
   const read = yield* reading;
   // The user's shared record decides which closures this root may load.
@@ -134,10 +131,10 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
       (row) => row.source === fallback.candidate && row.shadowed === undefined,
     );
     if (candidate === undefined || active.some((entry) => entry.name === candidate.name)) continue;
-    let previous = closureCache.get(fallback.folder.dir);
+    let previous = state.closures.get(fallback.folder.dir);
     if (previous === undefined) {
       previous = yield* Effect.cached(readClosures([fallback.folder]));
-      closureCache.set(fallback.folder.dir, previous);
+      state.closures.set(fallback.folder.dir, previous);
     }
     active.push(
       ...(yield* trustedOf((yield* previous).closures).pipe(Effect.provide(codeTrustLayer())))
@@ -230,7 +227,6 @@ export const servedPage = Effect.fn("kb.servedPage")(function* (
 
 /** Test hook: forget every root's closures and families, so a fresh root is discovered again. */
 export function resetRootFamilies(): void {
-  resetInstalledSelections();
-  closureCache.clear();
+  resetRootExtensionStates();
   familiesCache.clear();
 }
