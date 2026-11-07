@@ -2,15 +2,14 @@
  * Writing a backdrop's knobs from the studio (DESIGN-UI.md → Backdrop
  * Studio): a value is a setting on its holder's node (`knobFieldId`), so it
  * is written as any setting is, through the page's writes, and undone as
- * one. A control that moves continuously (a slider dragged) settles first,
- * so a drag is one write, and one undo, not one per frame.
+ * one. A control's moves are drafts, shown at once and written nowhere;
+ * the value it settles on (`KnobControl`'s `onCommit`: a slider let go, a
+ * field left) is the one write, so a drag is one write and one undo
+ * however long it rests on the way.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { knobFieldId, knobPropValue, type Knob, type KnobValue, type NodeId } from "@kb/model";
 import { browserHost } from "@kb/ui-sdk";
-
-/** How long a knob rests before its value is written. */
-const SETTLE_MS = 150;
 
 /** Write `value` of `knob` to its field on `holder`; a value it holds none for (a seed each load) takes it out. */
 function writeKnob(holder: NodeId, knob: Knob, value: KnobValue): Promise<void> {
@@ -30,58 +29,58 @@ function resetKnob(holder: NodeId, knob: Knob): Promise<void> {
   return host.writes.removeProp(holder, field);
 }
 
+interface Draft {
+  readonly holder: NodeId;
+  readonly knob: Knob;
+  readonly value: KnobValue;
+}
+
+const without = <V>(record: Readonly<Record<NodeId, V>>, field: NodeId) => {
+  if (!(field in record)) return record;
+  const { [field]: _gone, ...rest } = record;
+  return rest;
+};
+
 /**
- * The values being set and not yet written, by field; `set`, which shows a
- * value at once and writes it once it settles; and `reset`, which drops
- * one still settling before it takes the value out. Leaving the studio
- * writes what is still settling.
+ * The values moved and not yet settled, by field (`drafts`); `move`, which
+ * shows a value at once; `settle`, which writes it; and `reset`, which
+ * drops a draft and takes the value out. A draft still unsettled when the
+ * studio closes (a field typed in and never left) is written then.
  */
-export function useSettlingKnobs(): {
+export function useKnobDrafts(): {
   readonly drafts: Readonly<Record<NodeId, KnobValue>>;
-  readonly set: (holder: NodeId, knob: Knob, value: KnobValue) => void;
+  readonly move: (holder: NodeId, knob: Knob, value: KnobValue) => void;
+  readonly settle: (holder: NodeId, knob: Knob, value: KnobValue) => void;
   readonly reset: (holder: NodeId, knob: Knob) => void;
 } {
   const [drafts, setDrafts] = useState<Readonly<Record<NodeId, KnobValue>>>({});
-  const pending = useRef(new Map<NodeId, { timer: number; write: () => void }>());
+  const unsettled = useRef(new Map<NodeId, Draft>());
   useEffect(() => {
-    const settling = pending.current;
+    const open = unsettled.current;
     return () => {
-      for (const { timer, write } of settling.values()) {
-        window.clearTimeout(timer);
-        write();
-      }
-      settling.clear();
+      for (const { holder, knob, value } of open.values()) void writeKnob(holder, knob, value);
+      open.clear();
     };
   }, []);
-  const set = useCallback((holder: NodeId, knob: Knob, value: KnobValue) => {
+  const move = useCallback((holder: NodeId, knob: Knob, value: KnobValue) => {
     const field = knobFieldId(holder, knob.id);
+    unsettled.current.set(field, { holder, knob, value });
     setDrafts((current) => ({ ...current, [field]: value }));
-    const settling = pending.current;
-    const before = settling.get(field);
-    if (before !== undefined) window.clearTimeout(before.timer);
-    const write = () => {
-      settling.delete(field);
-      void writeKnob(holder, knob, value).finally(() =>
-        setDrafts((current) => {
-          if (current[field] !== value) return current;
-          const { [field]: _written, ...rest } = current;
-          return rest;
-        }),
-      );
-    };
-    settling.set(field, { timer: window.setTimeout(write, SETTLE_MS), write });
+  }, []);
+  const settle = useCallback((holder: NodeId, knob: Knob, value: KnobValue) => {
+    const field = knobFieldId(holder, knob.id);
+    unsettled.current.delete(field);
+    setDrafts((current) => ({ ...current, [field]: value }));
+    // The draft stays until the write lands, so the control never shows the old value between.
+    void writeKnob(holder, knob, value).finally(() =>
+      setDrafts((current) => (current[field] === value ? without(current, field) : current)),
+    );
   }, []);
   const reset = useCallback((holder: NodeId, knob: Knob) => {
     const field = knobFieldId(holder, knob.id);
-    const before = pending.current.get(field);
-    if (before !== undefined) window.clearTimeout(before.timer);
-    pending.current.delete(field);
-    setDrafts((current) => {
-      if (!(field in current)) return current;
-      const { [field]: _dropped, ...rest } = current;
-      return rest;
-    });
+    unsettled.current.delete(field);
+    setDrafts((current) => without(current, field));
     void resetKnob(holder, knob);
   }, []);
-  return { drafts, set, reset };
+  return { drafts, move, settle, reset };
 }

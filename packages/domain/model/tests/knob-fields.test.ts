@@ -208,6 +208,7 @@ describe("a knob's value read back", () => {
     expect(read(0.15)).toBe(0.15);
     expect(read(0.17)).toBe(0.15);
     expect(read(0.95)).toBe(0.95);
+    expect(knobPropValue(OFFSET, field, 0.15)).toEqual({ t: "num", v: 0.15 });
   });
 
   test("an enum's option by its ref, a colour lower-cased, a whole seed, a checkbox", () => {
