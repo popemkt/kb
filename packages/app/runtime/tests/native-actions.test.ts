@@ -3,35 +3,12 @@ import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
 import { present } from "@kb/model";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { Effect, Exit, Fiber, Layer, Stream } from "effect";
+import { Effect, Exit, Fiber, Stream } from "effect";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { openKb } from "../src/session.ts";
-import {
-  ActionCatalog,
-  ExtensionCatalog,
-  ExtensionFailures,
-  FamilyKernels,
-  KbCtx,
-  KbStore,
-  ViewCatalog,
-  onWire,
-  templateRegistryLayer,
-  type ActionEffectHandler,
-  type EffectStore,
-} from "@kb/contracts";
-import { viewCatalogOf } from "@kb/views";
+import { onWire, type ActionEffectHandler, type EffectStore } from "@kb/contracts";
 import { bunFileSystemLayer } from "../src/platform.ts";
-import { kbRootsLayer } from "../src/roots.ts";
-import { remoteScreensLayer } from "../src/screens.ts";
-import {
-  assetsLayer,
-  codeTrustLayer,
-  legacyTrustLayer,
-  legacyDocsViewsLayer,
-  savedQueriesLayer,
-} from "@kb/workspace-fs";
-import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
 import { IN_PROCESS_WIRE, invoke } from "../src/invoke.ts";
 import {
   invokeReceiptEffect,
@@ -41,7 +18,6 @@ import {
 } from "../src/registry.ts";
 import type { StoreTx } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
-import { graphWritesLayer } from "@kb/operations";
 
 /** Under tests/ so fixture extensions resolve zod via the workspace's node_modules. */
 async function tempRoot(): Promise<string> {
@@ -246,35 +222,7 @@ describe("Effect-native action registry", () => {
           id: "node.add",
           input: { text: "via-substituted-store", id: "n.layer-sub" },
         }),
-      ).pipe(
-        Effect.provideService(KbCtx, ctx),
-        Effect.provideService(KbStore, fakeStore),
-        Effect.provideService(KbIndexService, ctx.index),
-        Effect.provideService(QueryEngineService, engineOf(ctx.index)),
-        Effect.provide(
-          Layer.mergeAll(
-            bunFileSystemLayer,
-            templateRegistryLayer(new Map()),
-            Layer.succeed(ActionCatalog, []),
-            Layer.succeed(ViewCatalog, viewCatalogOf([])),
-            Layer.succeed(ExtensionCatalog, []),
-            Layer.succeed(FamilyKernels, []),
-            Layer.succeed(ExtensionFailures, []),
-            savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
-            legacyDocsViewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
-            assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
-            codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
-            legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
-            remoteScreensLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
-            kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
-            graphWritesLayer.pipe(
-              Layer.provide(
-                Layer.merge(Layer.succeed(KbCtx, ctx), Layer.succeed(KbStore, fakeStore)),
-              ),
-            ),
-          ),
-        ),
-      ),
+      ).pipe(Effect.provide(kbRuntimeLayer({ ...ctx, store: fakeStore }))),
     );
     expect(receipt.status).toBe("succeeded");
     expect(commits.length).toBe(1);

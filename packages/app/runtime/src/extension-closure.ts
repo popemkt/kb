@@ -104,22 +104,23 @@ const bundleHalf = Effect.fn("kb.bundleExtensionHalf")(function* (
 ): Effect.fn.Return<string, string> {
   // Bun reports metafile inputs relative to the cwd at build start.
   const buildCwd = process.cwd();
-  const built = yield* Effect.promise(() =>
-    Bun.build({
-      entrypoints: [entry],
-      root: folder.dir,
-      metafile: folder.contained,
-      target: TARGETS[half],
-      format: "esm",
-      // No whitespace and no comments: Bun names each module by its path from
-      // the process's working directory, which is no part of what runs.
-      minify: { whitespace: true, syntax: false, identifiers: false },
-      throw: false,
-      jsx: { runtime: "automatic", importSource: "react", development: false },
-      define: half === "page" ? { "process.env.NODE_ENV": JSON.stringify("production") } : {},
-      plugins: [hostModules(half)],
-    }),
-  );
+  const configuration: Bun.BuildConfig & { readonly macros: false } = {
+    // Supported by the runtime; the pinned older Bun typings omit this capability.
+    macros: false,
+    entrypoints: [entry],
+    root: folder.dir,
+    metafile: folder.contained,
+    target: TARGETS[half],
+    format: "esm",
+    // No whitespace and no comments: Bun names each module by its path from
+    // the process's working directory, which is no part of what runs.
+    minify: { whitespace: true, syntax: false, identifiers: false },
+    throw: false,
+    jsx: { runtime: "automatic", importSource: "react", development: false },
+    define: half === "page" ? { "process.env.NODE_ENV": JSON.stringify("production") } : {},
+    plugins: [hostModules(half)],
+  };
+  const built = yield* Effect.promise(() => Bun.build(configuration));
   const [output] = built.outputs;
   if (!built.success || output === undefined || built.outputs.length !== 1) {
     const why = built.logs.map((log) => log.message).join("; ");

@@ -1,5 +1,6 @@
 import { coreNative, type RegisteredAction } from "./invoke.ts";
 import { isomorphicActions } from "./isomorphic-actions.ts";
+import { extensionInstallDef, extensionInstallEffect } from "./extension-install.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
   sandboxImportLegacyDef,
@@ -53,6 +54,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(renderViewsDef, renderViewsActionEffect),
   coreNative(kbManifestDef, kbManifestEffect),
   coreNative(extensionSwitchDef, extensionSwitchEffect),
+  coreNative(extensionInstallDef, extensionInstallEffect),
   coreNative(extensionFootprintDef, extensionFootprintEffect),
   coreNative(extensionListDef, extensionListEffect),
   coreNative(extensionSettingsDef, extensionSettingsEffect),

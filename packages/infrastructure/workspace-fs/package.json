@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/extension-source": "workspace:*",
     "@kb/file-write": "workspace:*",
     "@kb/model": "workspace:*",
     "effect": "catalog:"

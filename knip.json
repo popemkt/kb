@@ -4,17 +4,14 @@
     ".": {
       "entry": [
         "harness/tests/*.test.ts",
+        "harness/e2e/*.ts",
         "harness/lint/*/index.ts",
         "harness/lint/*/effect/index.ts",
         "harness/lint/**/*.rule-cases.ts"
       ]
     },
     "packages/contract/ext-sdk": {
-      "entry": [
-        "scripts/generate.ts",
-        "src/page-surface.ts",
-        "tests/*.test.ts"
-      ]
+      "entry": ["scripts/generate.ts", "src/page-surface.ts", "tests/*.test.ts"]
     },
     "packages/test-support/render-tests": {
       "entry": [
@@ -25,17 +22,10 @@
       ]
     },
     "packages/app/ui": {
-      "entry": [
-        "vite.sandbox.config.ts",
-        "src/sandbox/frame.ts"
-      ]
+      "entry": ["vite.sandbox.config.ts", "src/sandbox/frame.ts"]
     },
     "packages/app/test-kit": {
-      "entry": [
-        "tests/*.test.ts",
-        "tests/run-many.ts",
-        "tests/gen-example-page.ts"
-      ]
+      "entry": ["tests/*.test.ts", "tests/run-many.ts", "tests/gen-example-page.ts"]
     }
   },
   "ignore": [
@@ -43,9 +33,7 @@
     "packages/contract/ext-sdk/src/surface.ts",
     "packages/app/ui/public/vendor/**"
   ],
-  "ignoreFiles": [
-    "packages/app/ui/src/api/queries.ts"
-  ],
+  "ignoreFiles": ["packages/app/ui/src/api/queries.ts"],
   "ignoreDependencies": [
     "graphology-communities-louvain",
     "graphology-layout",

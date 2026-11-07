@@ -2818,6 +2818,25 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   contained: contained folders reject any bundle input outside their real
   directory, checked from Bun's input inventory. The root supplies its own
   `.kb/extensions/` folder with ordinary package and link resolution.
+- **Installed extension state.** `ExtensionStorage` owns one lock schema in
+  three scopes: `.kb/extensions.lock.json` (store, default),
+  `.kb/extensions.local.json` (local, ignored) and `<data>/extensions/lock.json`
+  (user). Discovery order is own, local links/installs, store links/installs,
+  user links/installs. Store links are relative and must resolve inside their
+  repository, including through symlinks; only local/user links may reach
+  siblings or outside paths. The lock reader enforces this for every consumer. Locks record original sources and full pinned commits
+  with file-set hashes. Scope updates serialize and merge under a file lock.
+  Trees live at `<data>/extensions/store/<hash-first-32>-<name>`, copied into
+  private temporary directories using exclusive regular-file writes, made
+  read-only and renamed into place. A version-1 pin index reuses verified trees without
+  a second download. Every load rechecks the file-set hash; missing/tampered
+  trees are refused and a source-less install repairs them from their pins.
+  `extension.install` resolves/fetches, stores, compiles without importing,
+  refuses bundled names and escaping/unresolved imports, then writes its lock.
+  It never trusts. Existing processes keep their lock selection until restart
+  (live reload is step 12). Admission imports only own code; it checks lock
+  schemas, bundled names, store-relative links and present tree integrity
+  without fetching, importing or executing installed/linked code.
 - **Pinned extension sources.** `SourceReader` (`@kb/extension-source`) resolves
   GitHub sources to full 40-hex commits and reads regular files from that pin.
   Paths are bounded by `SOURCE_LIMITS` in the source grammar (bytes, segment
@@ -2845,7 +2864,9 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   a person has trusted it on this machine. What a person trusts is its
   **closure**: each half (the server entry `<name>.ts`, and the page entry
   `<name>.page.tsx` when it has one) bundled from its files into one module
-  by Bun's own bundler (`extensionClosure`, `app/runtime`), so every file it
+  by Bun's own bundler (`extensionClosure`, `app/runtime`). The compiler
+  disables Bun macros before any module is parsed, for own and installed
+  folders alike: closure compilation never executes source code. So every file it
   loads at any depth is inlined, however it is reached: a relative import, a
   literal `require` or `import()`, a tsconfig path or a package import the
   root configures, a package in the root's `node_modules` or outside the
@@ -5225,7 +5246,8 @@ sends it more than 400 messages a second.
   Repository bytes are never a source of authority: `CodeTrust` has no root
   parameter, reads only the per-user file, and a read never writes or deletes.
   `extension.list` reports the old file as ignored when present.
-  `kb trust import [root]` reviews that root's digests for this machine;
+  `kb trust import [root]` reviews that root's digests for this machine and
+  returns without prompting when there are none;
   `sandbox.trust.import {root, digests}` declares required approval, displays that
   explicit digest list in the approval request and rechecks membership before
   trusting only that list. Import never modifies or removes the legacy file,

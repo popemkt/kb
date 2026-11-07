@@ -30,11 +30,11 @@ import {
 import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
-// Legacy import adds an action; old pages do not need it. Existing envelopes,
+// Extension install adds an action; old pages do not need it. Existing envelopes,
 // modes and receipts remain compatible, so the protocol stays unchanged.
 const RECORDED = {
   protocol: 2,
-  fingerprint: "2ecd44d78797b1bec6a22bf226888f7832224c32805cba6a2fedea6def570fcb",
+  fingerprint: "13f36586e9b244d5701c5a6e5afce4262fb9646bde63246ecd29fdf82f1e208a",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

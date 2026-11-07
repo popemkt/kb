@@ -11,3 +11,8 @@ export interface ExtensionFolder {
 export function ownExtensionFolder(root: string): ExtensionFolder {
   return { dir: join(root, ".kb", "extensions"), origin: "own", contained: false };
 }
+
+/** Installed bytes resolve only within their verified source tree. */
+export function installedExtensionFolder(dir: string, origin: string): ExtensionFolder {
+  return { dir, origin, contained: true };
+}

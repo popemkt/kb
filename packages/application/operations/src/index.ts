@@ -102,5 +102,7 @@ export { callWithin, readableNodes, readableQuery } from "./script-reach.ts";
 export { interceptionFrom, interceptionOf } from "./interception.ts";
 export type { InterceptionOptions } from "./interception.ts";
 
+export { extensionInstallDef, extensionInstallEffect } from "./extension-install.ts";
+
 export { coreActions } from "./core-actions.ts";
 export { isomorphicActions } from "./isomorphic-actions.ts";

@@ -1,3 +1,6 @@
+import { SourceReader } from "@kb/extension-source";
+import { gitSourceReader } from "@kb/source-git";
+import { extensionCompilerLayer } from "./installed-extensions.ts";
 import { Cause, Effect, Layer } from "effect";
 import { bunFileSystemLayer } from "./platform.ts";
 import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
@@ -26,6 +29,7 @@ import { quickjsEngine } from "@kb/sandbox-quickjs";
 import {
   assetsLayer,
   codeTrustLayer,
+  extensionStorageLayer,
   legacyTrustLayer,
   legacyDocsViewsLayer,
   savedQueriesLayer,
@@ -79,6 +83,9 @@ export function kbRuntimeLayer(
   const registry = sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
     bunFileSystemLayer,
+    extensionStorageLayer.pipe(Layer.provide(bunFileSystemLayer)),
+    extensionCompilerLayer,
+    Layer.succeed(SourceReader, gitSourceReader()),
     kbStoreLayer(ctx.store),
     kbCtxLayer(ctx),
     graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),

@@ -144,6 +144,7 @@
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
+        "@kb/extension-source": "workspace:*",
         "@kb/file-write": "workspace:*",
         "@kb/gallery-net": "workspace:*",
         "@kb/governance": "workspace:*",
@@ -157,6 +158,7 @@
         "@kb/query": "workspace:*",
         "@kb/sandbox": "workspace:*",
         "@kb/sandbox-quickjs": "workspace:*",
+        "@kb/source-git": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "@kb/store-sqlite": "workspace:*",
         "@kb/themes": "workspace:*",
@@ -333,6 +335,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/extension-source": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -349,6 +352,7 @@
       "name": "@kb/contracts",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/extension-source": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -1345,6 +1349,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/extension-source": "workspace:*",
         "@kb/file-write": "workspace:*",
         "@kb/model": "workspace:*",
         "effect": "catalog:",

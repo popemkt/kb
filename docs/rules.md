@@ -932,9 +932,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: installed extensions cannot be removed, and the tree store is never collected
 
 - **expected** — extension.remove drops the lock entry and keeps the nodes; extension.gc deletes trees and retires provenance trust that no registered location's lock, nor the user lock, names.
-- **current** — Nothing removes an install or collects the store.
+- **current** — Nothing removes an install or collects the store. A publisher killed mid-copy may leave a read-only extensions/tmp/tree-* stage; normal completion and failures clean theirs, but crashed stages are not swept.
 - **impact** — Trees and stale trust records pile up, including old trusted versions a hostile store could select.
-- **closes** — Step 10 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **closes** — Step 10 of docs/research/2026-11-06-plugin-install-plan.md, including cleanup of abandoned publication stages under the same mutation lock as collection, without removing a live publisher stage.
 - **node** — `01M6RTRFDBKDPS8MKVYR9GS61R`
 
 ### GAP: kb cannot be edited offline and merged later; devices meet only through git
@@ -1057,14 +1057,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
 - **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
-
-### GAP: no tree store, no extension locks, no install
-
-- **expected** — extension.install writes a read-only, content-addressed tree to <data>/extensions/store and an entry to the scope's lock (store, local or user); with no source it fetches what the locks name; installed trees are contained; validate checks the locks without running them.
-- **current** — Extensions arrive only as files placed in .kb/extensions by hand.
-- **impact** — No install, no provenance, and no reuse across stores.
-- **closes** — Step 4 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR7Q326WF4C6S4RV0JJTW`
 
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
