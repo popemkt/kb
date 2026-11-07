@@ -184,6 +184,7 @@ export {
   knobFieldId,
   knobFields,
   knobOptionId,
+  knobPropValue,
   knobValues,
 } from "./knob-fields.ts";
 export {

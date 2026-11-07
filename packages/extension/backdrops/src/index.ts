@@ -79,3 +79,4 @@ export {
   ASTRAL_STARS_KNOB,
   ASTRAL_KNOBS,
 } from "./knobs/astral.ts";
+export { BackdropStudioParams, BackdropStudioView } from "./view.ts";

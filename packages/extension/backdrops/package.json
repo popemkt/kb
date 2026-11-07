@@ -12,7 +12,9 @@
   "dependencies": {
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
-    "@kb/plugin": "workspace:*"
+    "@kb/plugin": "workspace:*",
+    "@kb/views": "workspace:*",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

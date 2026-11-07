@@ -15,12 +15,22 @@ import {
   TOON_SEA_BACKDROP,
   UNICORN_BACKDROP,
   WOLF_MEDALLION_BACKDROP,
+  BackdropStudioView,
   backdropsExtension,
   backdropsPlugin,
 } from "@kb/backdrops";
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
-import { BACKDROP_BUDGETS, BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
+import {
+  BACKDROP_BUDGETS,
+  BackdropPoint,
+  provideBackdrop,
+  provideRoute,
+  provideView,
+  RoutePoint,
+  ViewPoint,
+  type Backdrop,
+} from "@kb/ui-sdk";
 import {
   AstralBackdrop,
   BlackHoleBackdrop,
@@ -35,6 +45,8 @@ import {
 } from "./gpu/backdrops";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
+import { matchStudio } from "./studio/routes";
+import { StudioSurface } from "./studio/surfaces";
 import { GradientBackdrop } from "./tint-backdrop";
 import { UnicornWashBackdrop } from "./unicorn-backdrop";
 import "./backdrops.css";
@@ -215,7 +227,9 @@ const discField: Omit<Backdrop, "key"> = {
 /**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
- * choice is made), with the family's shared plugin as a child.
+ * choice is made), Backdrop Studio's view and its route (`/backdrops`, the
+ * gallery; `/backdrops/<id>`, one backdrop), with the family's shared
+ * plugin as a child, which brings the studio's key to the page's catalog.
  */
 export const backdropsUiPlugin = definePlugin({
   name: backdropsExtension.name,
@@ -241,6 +255,24 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(LIGHT_TRAILS_BACKDROP, lightTrails)),
         ctx.contribute(BackdropPoint, provideBackdrop(ASTRAL_BACKDROP, astral)),
         ctx.contribute(BackdropPoint, provideBackdrop(DISC_FIELD_BACKDROP, discField)),
+        ctx.contribute(
+          ViewPoint,
+          provideView(BackdropStudioView, {
+            placements: ["page"],
+            sample: {},
+            Component: StudioSurface,
+          }),
+        ),
+        ctx.contribute(
+          RoutePoint,
+          provideRoute({
+            view: BackdropStudioView,
+            match: matchStudio,
+            entry: "/backdrops",
+            frame: () => "full",
+            pendingTitle: () => "Opening Backdrop Studio…",
+          }),
+        ),
       ],
       { discard: true },
     ),
