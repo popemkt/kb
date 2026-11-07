@@ -3734,8 +3734,8 @@ kb ships six; the last three are whole themes (Themes, below):
   `yorha.arena`), with `themeSystem` and `themeBackdrop` (`@kb/model`), so
   every theme's options have one shape; its browser half holds its sheet
   (`src/<family>.css`), its faces and its art (`src/art/`), drawn with the
-  art kit `@kb/theme-art` (`useBeat`, `useGesture`, `deferred`, `band`),
-  which knows no theme. Switched off, a family takes its systems and heads
+  art kit `@kb/theme-art` (`useBeat`, `useGesture`, `ART_FRAME`, `band`),
+  which knows no theme, and the kit's `deferred` (`@kb/ui-sdk`). Switched off, a family takes its systems and heads
   and nothing else; the page offers the default and whatever another
   family contributes.
   - **The themes were one family's once.** ZZZ, Transistor and YoRHa were
@@ -3990,8 +3990,8 @@ above). What each of kb's themes is after, and where each idea lives, is
   `prefers-reduced-motion` no gesture is drawn (the shell hides the veil,
   `motion-reduce:hidden`, and the art hides its own in the ground and the
   heads), and the global rule stops every ambient loop: a cut, never a
-  frame of a flash. The art's code loads when first drawn (`deferred`, a
-  frame drawn at once), so it costs the page's eager bundle nothing; a
+  frame of a flash. The art's code loads when first drawn (the kit's `deferred`,
+  with `ART_FRAME` drawn at once), so it costs the page's eager bundle nothing; a
   sheet is in it, so `vite.config.ts` drops a sheet's comments, spare
   whitespace and leading zeros (`compactRawSheets`).
 

@@ -154,6 +154,7 @@ export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
 export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
 export { HoldStill } from "./components/hold-still";
+export { deferred, type DeferredOptions } from "./components/deferred";
 export { ThemeArt } from "./components/theme-art";
 
 // The primitives.
