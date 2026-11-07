@@ -26,6 +26,7 @@ import {
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
+  type ServerMessage,
 } from "@kb/contracts";
 import type { GraphMessage } from "@/session/replica";
 
@@ -304,7 +305,11 @@ export class KbWsClient {
       });
       return;
     }
-    const msg = parsed.data;
+    this.dispatch(parsed.data);
+  }
+
+  /** Route a decoded protocol message to the capability that owns it. */
+  private dispatch(msg: ServerMessage): void {
     switch (msg.op) {
       case "hello":
       case "tx":

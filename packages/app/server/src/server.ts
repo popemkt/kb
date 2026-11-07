@@ -42,7 +42,7 @@ import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
 import { listen, type BindOptions } from "./listener.ts";
 import { handleHttpRequest } from "./http.ts";
-import { channelsOf, loadServerPlugins } from "./plugins.ts";
+import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import { ClientGone, SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
@@ -363,6 +363,20 @@ const takeOpenedRoot = Effect.fn("kb.takeOpenedRoot")(function* (served: {
   if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
 });
 
+/** One observer follows the extension switches written to this session. */
+const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
+  ctx: KbContext,
+  hosted: HostedExtensions,
+) {
+  // A switch written anywhere reaches this session's log; the server composes what it says.
+  const fork = Effect.runForkWith(yield* Effect.context());
+  const unsubscribe = ctx.log.subscribe((tx) => {
+    const ids = [...tx.ops.upserts.map(({ id }) => id), ...tx.ops.deletes];
+    if (ids.some((id) => hosted.switches.has(id))) fork(hosted.converge);
+  });
+  return { unsubscribe };
+});
+
 /**
  * Start the `kb ui` HTTP+WS server.
  *
@@ -390,12 +404,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     opts.extensions ?? [],
     opts.identity ?? [],
   );
-  // A switch written anywhere reaches this session's log; the server composes what it says.
-  const fork = Effect.runForkWith(yield* Effect.context());
-  const unsubscribeSwitches = ctx.log.subscribe((tx) => {
-    const ids = [...tx.ops.upserts.map(({ id }) => id), ...tx.ops.deletes];
-    if (ids.some((id) => hosted.switches.has(id))) fork(hosted.converge);
-  });
+  const observation = yield* observeExtensions(ctx, hosted);
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
@@ -443,7 +452,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     }),
   );
   // Each plugin's scope closes with the server's: what it forked stops with it.
-  yield* Scope.addFinalizer(lifetime, Effect.sync(unsubscribeSwitches));
+  yield* Scope.addFinalizer(lifetime, Effect.sync(observation.unsubscribe));
   yield* Scope.addFinalizer(lifetime, kernel.shutdown);
 
   // The store says when it moved; the server never names its files. The first
