@@ -44,6 +44,7 @@ import {
 import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import {
   bunFileSystemLayer,
+  deployGovernance,
   invoke,
   invokeReceiptEffect,
   kbRuntimeLayer,
@@ -358,6 +359,37 @@ function asMadeOn(surface: ActionSurface, call: ActionRequest): ActionRequest {
 
 const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
   [
+    "approval required needs a person",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          const calls = [
+            { id: APPROVAL_ACTION, input: {} },
+            { id: "sandbox.trust", input: { digest: `sha256:${"a".repeat(64)}` } },
+            { id: "ext.code.script.run", input: { script: "missing", subject: "missing" } },
+          ];
+          for (const call of calls) {
+            const refused = yield* via(call);
+            if (refused !== null)
+              expect({ name, receipt: refused }).toMatchObject({
+                name,
+                receipt:
+                  surface.wire.actor === "human"
+                    ? { status: call.id === "ext.code.script.run" ? "failed" : "succeeded" }
+                    : { status: "failed", code: "approval_required" },
+              });
+          }
+          const declined = yield* via({ id: APPROVAL_ACTION, input: {}, approved: false });
+          if (declined !== null)
+            expect(declined).toMatchObject({ status: "failed", code: "approval_required" });
+          const approved = yield* via({ id: APPROVAL_ACTION, input: {}, approved: true });
+          if (approved !== null)
+            expect(approved.status).toBe(surface.wire.carriesApproval ? "succeeded" : "failed");
+        }),
+      ),
+  ],
+
+  [
     "every surface lists the action ids of what it reaches (the registry's, and on a kb ui " +
       "what it hosts) with their declared modes, " +
       "leaving out only what is denied to its actor or asks where its wire cannot approve",
@@ -379,9 +411,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
           expect(actions.map(({ id }) => id)).toEqual([...registry.map(({ id }) => id), ...hosted]);
           const callable = actions.filter((entry) => listedOn(surface.wire, entry.decision));
           const listed = yield* Effect.promise(() => surface.list());
-          // While nothing asks, an action that declares approval is listed even on a wire
-          // that cannot carry it, and such a wire need not say it does (WebMCP's hints
-          // cannot). GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+          // Wires without approval omit that detail from their hints.
           const stated = (entries: readonly ListedAction[]) =>
             surface.wire.carriesApproval ? entries : entries.map(withoutApproval);
           expect({ name, listed: byId(stated(listed)) }).toEqual({
@@ -610,10 +640,25 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
  */
 export function surfaceContract(set: SurfaceSet): void {
   const names = Object.keys(set.surfaces).join(", ");
-  for (const listener of Object.values(LISTENER_KINDS)) {
-    const run: OnListener = { ...set, listener };
-    describe(`action surfaces (${names}) on a ${listener} kb ui — one registry contract`, () => {
-      for (const [title, property] of PROPERTIES) test(title, () => property(run));
-    });
+  for (const mode of ["required", "off"] as const) {
+    for (const listener of Object.values(LISTENER_KINDS)) {
+      const run: OnListener = { ...set, listener };
+      describe(`action surfaces (${names}) on ${listener}, governance ${mode}`, () => {
+        for (const [title, property] of PROPERTIES)
+          test(
+            title,
+            () =>
+              Effect.runPromise(
+                Effect.acquireUseRelease(
+                  Effect.sync(() => deployGovernance(mode)),
+                  () => Effect.promise(() => property(run)),
+                  () => Effect.sync(() => deployGovernance("required")),
+                ),
+              ),
+            // Every property drives all transports, including many detached CLI processes.
+            120_000,
+          );
+      });
+    }
   }
 }

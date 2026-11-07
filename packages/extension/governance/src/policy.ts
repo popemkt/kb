@@ -2,33 +2,11 @@
  * The vocabulary of approval policies (DESIGN.md → Governance): the
  * `#approval-policy` nodes that decide about a call, the option nodes they
  * name an actor and a decision by, and what a write to them is. The
- * governance family's own: its seed writes them and its guard reads them,
+ * governance family's own: its seed writes them; enforcement is deferred,
  * so a composition without the family has neither.
  */
-import {
-  ACTORS,
-  SYSTEM_IDS,
-  type Actor,
-  type KbNode,
-  type NodeId,
-  type NodeWrite,
-} from "@kb/model";
+import { ACTORS, SYSTEM_IDS, type Actor, type KbNode, type NodeId } from "@kb/model";
 import { APPROVAL_DECISIONS, type ApprovalDecision } from "@kb/contracts";
-
-/**
- * The actors a policy treats as the store's owner: a person's gesture, and
- * the command line, which runs with the owner's own shell, so whoever runs it
- * already holds what the owner holds. An agent and sandboxed code act for the
- * owner and never hold the owner's capabilities: they may not set `force`,
- * and the policies decide what else they may do for the owner.
- */
-export type OwnerActor = "human" | "cli";
-const OWNER_ACTORS: ReadonlySet<Actor> = new Set<OwnerActor>(["human", "cli"]);
-
-/** Whether a call by `actor` acts as the owner: it is the person, or their own command line. */
-export function actsAsOwner(actor: Actor): actor is OwnerActor {
-  return OWNER_ACTORS.has(actor);
-}
 
 /**
  * The governance family's node ids (DESIGN.md → Extension families → Ids
@@ -58,31 +36,6 @@ export const GOVERNANCE_IDS = {
   policiesView: "view.approval.policies",
   policiesPin: "pin.approval.policies",
 } as const;
-
-/**
- * What a governing write needs from a caller acting for the owner: an agent
- * asks the owner first, and sandboxed code, which runs what no person wrote
- * for this, never makes it.
- */
-const DELEGATED: Readonly<Record<Exclude<Actor, "human" | "cli">, ApprovalDecision>> = {
-  agent: "ask",
-  script: "deny",
-};
-
-/**
- * What a governing write needs, by who makes it: a write to configuration
- * (what the code runs with), or one that reaches past the store's root. The
- * owner's own actors make it as any write, and a caller acting for them as
- * `DELEGATED` says.
- */
-export function delegatedDecision(actor: Actor): ApprovalDecision {
-  return actsAsOwner(actor) ? "allow" : DELEGATED[actor];
-}
-
-/** The stricter of two decisions. */
-export function stricterDecision(a: ApprovalDecision, b: ApprovalDecision): ApprovalDecision {
-  return APPROVAL_DECISIONS.indexOf(a) >= APPROVAL_DECISIONS.indexOf(b) ? a : b;
-}
 
 /**
  * The option nodes a policy's `actor` and `decision` refer to: the children
@@ -148,28 +101,7 @@ export function approvalPoliciesOf(nodes: Iterable<KbNode>): ApprovalPolicy[] {
   return policies;
 }
 
-/** The tag, the fields and the option nodes every policy is written in. */
-const APPROVAL_VOCABULARY: ReadonlySet<NodeId> = new Set([
-  GOVERNANCE_IDS.policyTag,
-  GOVERNANCE_IDS.matchField,
-  GOVERNANCE_IDS.actorField,
-  GOVERNANCE_IDS.decisionField,
-  ...Object.values(ACTOR_OPTION_IDS),
-  ...Object.values(DECISION_OPTION_IDS),
-]);
-
-/**
- * Whether a write changes what the policies decide: it writes a policy (one
- * tagged before or after, so tagging and untagging count), or the vocabulary
- * every policy is written in.
- */
-export function writesApprovalPolicy(write: NodeWrite): boolean {
-  const id = write.after?.id ?? write.before?.id;
-  if (id !== undefined && APPROVAL_VOCABULARY.has(id)) return true;
-  return [write.before, write.after].some((node) => node !== undefined && isPolicyNode(node));
-}
-
-/** The datalog query for every `#approval-policy` node, as a query node runs it. */
+/** Query over the policy vocabulary, whose enforcement remains deferred. */
 export const APPROVAL_POLICIES_QUERY = `[:find ?id :where [?n :f/${SYSTEM_IDS.typeField} ?t] [?t :node/id "${GOVERNANCE_IDS.policyTag}"] [?n :node/id ?id]]`;
 
 /** A policy node, as the seed writes its defaults. */

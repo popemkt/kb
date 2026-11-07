@@ -10,6 +10,7 @@ import type { NodeIndex } from "@kb/query";
 import { Option, Schema } from "effect";
 import {
   madeBy,
+  hasPerson,
   madeByScript,
   type ActionDefinition,
   type ActionInvocation,
@@ -26,8 +27,9 @@ const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
  * `request` as a call made while `outer` runs, as an action calls another
  * through its host (`CoreInvoke`): a call a script's call makes is that
  * script's, with its reach, whatever it says, so the grant follows the call
- * down; one already made on a wire keeps who made it, and a bare request
- * is made by its caller. Null for a bare request made while nothing runs: no
+ * down; an inner call retains its wire's attribution, but only its caller's approval
+ * can authorize it, even when it labels itself human. Entering
+ * a script narrows the call to the script's grant and strips approval. Null for a bare request made while nothing runs: no
  * one makes it. A call made inside another is made in the outer call's tab
  * session, and for its `via`: a script's always, any other's unless it names
  * its own.
@@ -42,25 +44,40 @@ export function callWithin(
   request: ActionRequest | ActionInvocation,
 ): ActionInvocation | null {
   const caller = outer?.invocation;
-  if (caller !== undefined && madeByScript(caller)) {
-    const { approved: _ignored, session: _stated, via: _label, ...rest } = request;
-    return {
-      ...rest,
-      actor: "script",
-      ...(caller.session === undefined ? {} : { session: caller.session }),
-      ...(caller.via === undefined ? {} : { via: caller.via }),
-      ...(caller.script === undefined ? {} : { script: caller.script }),
-    };
+  if (caller !== undefined && (madeByScript(caller) || madeBy(request) === "script")) {
+    return scriptWithin(caller, request);
   }
   const actor = madeBy(request) ?? caller?.actor;
   if (actor === undefined) return null;
   const session = request.session ?? caller?.session;
   const via = request.via ?? caller?.via;
+  const { approved: statedApproval, ...requestData } = request;
+  const approved =
+    caller === undefined ? statedApproval : statedApproval === false ? false : hasPerson(caller);
   return {
-    ...request,
+    ...requestData,
     actor,
+    ...(approved === undefined ? {} : { approved }),
     ...(session === undefined ? {} : { session }),
     ...(via === undefined ? {} : { via }),
+  };
+}
+
+/** Enter or continue a script scope: preserve its grant and drop inherited approval. */
+function scriptWithin(
+  caller: ActionInvocation,
+  request: ActionRequest | ActionInvocation,
+): ActionInvocation {
+  const scope = madeByScript(caller) ? caller : request;
+  const { approved: _ignored, session: _stated, via: _label, ...rest } = request;
+  return {
+    ...rest,
+    actor: "script",
+    ...((scope.session ?? caller.session) === undefined
+      ? {}
+      : { session: scope.session ?? caller.session }),
+    ...((scope.via ?? caller.via) === undefined ? {} : { via: scope.via ?? caller.via }),
+    ...(scope.script === undefined ? {} : { script: scope.script }),
   };
 }
 

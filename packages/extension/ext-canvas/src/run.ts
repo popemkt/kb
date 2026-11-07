@@ -271,7 +271,7 @@ export const RUN_VERB: ExtensionAction = {
     "(ext.agent.complete; where no agent is hosted, it fails by name). Each output is written " +
     "to its node's output field as it is made. A component after one that failed is skipped. A flow that " +
     "loops runs `rounds` rounds, at most 8.",
-  mode: { kind: "write" },
+  mode: { kind: "write", approval: "required" },
   // It runs scripts and spends a model: no code's to call.
   inputSchema: runInput,
   outputSchema: runOutput,

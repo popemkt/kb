@@ -2328,7 +2328,7 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     - A `deny` is final: no guard after it is asked (Cordis's `bail`).
     - Otherwise the first `ask` holds, and the call runs only with a person
       behind it (`hasPerson`).
-    - With no guard, every call proceeds.
+    - With no contributed guard, core invariants still decide the call.
     - Both refusals carry `details.decidedBy: {plugin, rule}` beside what
       the guard said.
     - `kb.manifest` lists each action by the same guards' answer about the
@@ -2381,7 +2381,7 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   The invoke core owns this invariant for invocation and listing, with no
   dependency on governance or contributed guards. `--governance off` omits
   policy, never declared required approval. An approved call passes approval
-  to its inner calls; an inner call cannot mint approval or elevate its actor,
+  to its inner calls; an inner call cannot mint approval, even by labelling itself human,
   and entering a script narrows authority and strips approval.
   The CLI JSON envelope cannot approve. The CLI asks on `/dev/tty`, showing
   actor, title and input, accepts `y` or `yes`, and declines after 120 seconds.

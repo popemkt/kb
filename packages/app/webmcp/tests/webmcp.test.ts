@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import {
+  requiresApproval,
   failed,
   type ActionInvocation,
   type ActionReceipt,
@@ -15,7 +16,6 @@ import { makeKernel } from "@kb/plugin";
 import { FakeModelContext } from "@kb/test-kit";
 import {
   ToolCallFailed,
-  WEBMCP_WIRE,
   modelContextOf,
   startWebMcp,
   webMcpPlugin,
@@ -23,7 +23,6 @@ import {
   type ModelContext,
   type WebMcpOptions,
 } from "../src/index.ts";
-import { declaredDecision } from "@kb/governance";
 
 function entry(id: string, mode: ManifestEntry["mode"]): ManifestEntry {
   return {
@@ -56,7 +55,7 @@ function host(initial: readonly ManifestEntry[]) {
     if (invocation.id === "kb.manifest") {
       const decided = actions.map((action) => ({
         ...action,
-        decision: declaredDecision(action.mode, WEBMCP_WIRE.actor),
+        decision: requiresApproval(action.mode) ? "ask" : "allow",
       }));
       return Promise.resolve({
         status: "succeeded",

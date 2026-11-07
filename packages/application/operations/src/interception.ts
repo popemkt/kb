@@ -24,6 +24,7 @@ import {
   ActionInterceptorPoint,
   DEFAULT_BUDGET_MS,
   hasPerson,
+  requiresApproval,
   type ActionGuard,
   type ActionInterceptor,
   type ActionInvocation,
@@ -322,13 +323,28 @@ function frozen<T extends { readonly invocation: object; readonly action: object
   });
 }
 
-/** What the guards decide about a call about to run, or about listing it (`phase`). */
+/** Core required approval plus policy guards, for invocation and listing alike. */
 export function guardBefore(
   interception: Interception,
   call: Omit<GuardCall, "signal">,
 ): Effect.Effect<GuardOutcome> {
   return askGuards(interception, call.action, ({ before }) =>
     before === undefined ? null : (signal) => before(frozen({ ...call, signal })),
+  ).pipe(
+    Effect.map((outcome): GuardOutcome => {
+      if (outcome.decision !== "allow") return outcome;
+      if (
+        !requiresApproval(call.action.mode) &&
+        call.action.batchOf?.some((part) => requiresApproval(part.mode)) !== true
+      )
+        return outcome;
+      return {
+        decision: "ask",
+        plugin: "core",
+        rule: "required-approval",
+        message: `action ${call.action.id} requires approval; this call has none`,
+      };
+    }),
   );
 }
 

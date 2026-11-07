@@ -4,11 +4,16 @@
  * wire every command invokes actions on. Every command module builds on
  * these, so none of them is a copy.
  */
+import { openSync } from "node:fs";
+import { ReadStream, WriteStream } from "node:tty";
+import { createInterface } from "node:readline/promises";
 import { type Command, CommanderError } from "commander";
-import { Cause, Effect } from "effect";
+import { Cause, Effect, Option } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { ActionReceipt, KbContext, SurfaceWire } from "@kb/contracts";
+import type { ActionReceipt, ActionInvocation, KbContext, SurfaceWire } from "@kb/contracts";
 import {
+  invokeReceiptEffect,
+  manifest,
   kbRuntimeLayer,
   openKbEffect,
   processVia,
@@ -131,15 +136,10 @@ export function kbAction<A extends readonly unknown[], E>(
   );
 }
 
-/**
- * The CLI's wire: `kb action-invoke`'s JSON argument is the whole invocation
- * envelope, so it carries `approved`, and its listing (`kb.manifest`) is the
- * whole registry. Every call on it, and every call a verb (`kb add`, `kb rm`,
- * …) plans, is recorded as the command line's, labelled with the `KB_VIA`
- * the command was run with when it states no `via` of its own.
- */
+/** The JSON envelope cannot approve, so listing on this wire omits asks.
+ * The CLI can approve through a controlling-terminal confirmation, owned by invokeCliEffect. */
 export const ACTION_INVOKE_WIRE: SurfaceWire = {
-  carriesApproval: true,
+  carriesApproval: false,
   actor: "cli",
   ...processVia,
 };
@@ -163,5 +163,49 @@ export function report(
   return EXIT_OK;
 }
 
-/** The CLI owns its invocation edge across every command. */
-export { invokeReceiptEffect as invokeCliEffect } from "@kb/runtime";
+/** Invoke through the CLI; only a terminal confirmation can approve a call. */
+export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
+  ctx: KbContext,
+  invocation: ActionInvocation,
+) {
+  const { approved: _approved, ...call } = invocation;
+  const receipt = yield* invokeReceiptEffect(ctx, call);
+  if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;
+  return yield* Effect.acquireUseRelease(
+    Effect.sync(() => {
+      let input: ReadStream | undefined;
+      let output: WriteStream | undefined;
+      try {
+        input = new ReadStream(openSync("/dev/tty", "r"));
+        output = new WriteStream(openSync("/dev/tty", "w"));
+        const terminal = createInterface({ input, output });
+        return { terminal, input, output };
+      } catch {
+        input?.destroy();
+        output?.destroy();
+        return null;
+      }
+    }),
+    (tty) =>
+      Effect.gen(function* () {
+        if (tty === null) return receipt;
+        const title =
+          (yield* manifest(ctx.root)).find((entry) => entry.id === call.id)?.title ?? call.id;
+        tty.output.write(
+          `${call.actor}: ${title} (${call.id}) ${JSON.stringify(call.input)}\n${receipt.message}\n`,
+        );
+        const answer = yield* Effect.promise(() =>
+          tty.terminal.question("Approve this call? [y/N] "),
+        ).pipe(Effect.timeoutOption(120_000));
+        return Option.isSome(answer) && /^(y|yes)$/i.test(answer.value.trim())
+          ? yield* invokeReceiptEffect(ctx, { ...call, approved: true })
+          : receipt;
+      }),
+    (tty) =>
+      Effect.sync(() => {
+        tty?.terminal.close();
+        tty?.input.destroy();
+        tty?.output.destroy();
+      }),
+  );
+});
