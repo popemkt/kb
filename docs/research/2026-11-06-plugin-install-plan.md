@@ -99,7 +99,7 @@ home store (`<data>/home`). One function owns it (`dataPath`, beside
 |---|---|---|---|
 | Own extensions | `<root>/.kb/extensions/` | yes | files, as today |
 | Store lock | `<root>/.kb/extensions.lock.json` | yes | installs, marketplaces, links that resolve inside the repo |
-| Local lock | `<root>/.kb/extensions.local.json` | no (gitignored) | the same schema: this machine's installs and links for this store, links anywhere |
+| Local lock | `<data>/extensions/local/<key>.json`, `key` = SHA-256 of the canonical root | no (per-user state, outside every repo; backed up) | the same schema plus the `root` it belongs to: this machine's installs and links for this store, links anywhere |
 | User lock | `<data>/extensions/lock.json` | no (backed up) | the same schema: "enabled in every kb on this machine" |
 | Trees | `<data>/extensions/store/<files>-<name>/` | no (refetchable) | immutable, read-only source trees |
 | Trust | `<data>/trust.json` | no (backed up) | `{digest, machine, at, name?, files?}` records |
@@ -107,6 +107,19 @@ home store (`<data>/home`). One function owns it (`dataPath`, beside
 
 One schema covers three scopes, as Claude Code's settings have user,
 project and local scopes. `--scope store|local|user` picks the file.
+
+**The local lock lives outside the repo.** Its links may point anywhere,
+so only this machine's person may write it, and a file inside the root
+can't promise that. A gitignored file can still be force-added and
+committed, cloned, or shipped in an archive. The lock is therefore kept
+under `<data>`, keyed by the root's canonical path (`canonicalRoot`, with
+symlinks resolved), and it records that `root`. A file whose `root` does not
+match its key is ignored. A root that moves starts with an empty local
+lock; `kb ext gc` lists local locks whose root no longer exists.
+A selection file inside the repo (`<root>/.kb/extensions.local.json`) is
+never read. When one is present, `extension.list` says once that it is
+ignored (T14), as with the old trust file (§4). There is no migration;
+re-add with `--scope local`.
 
 **The search list, nearest first.** Discovery reads an ordered list of
 *extension folders*, each laid out like `.kb/extensions/`. An installed
@@ -233,7 +246,8 @@ two branches that each add one entry do not collide on a shared last line.
   root, with no absolute path and no `..` that leaves the root. Where the
   folder exists, its real path (symlinks followed) must also lie inside the
   root's real path. Links to sibling stores or anywhere else belong in the
-  local or user lock, which only this machine's person writes.
+  local or user lock, which live in per-user state outside the repo
+  (§1), so only this machine's person writes them.
   `extension.link` refuses an outside path in the store scope. `validate`
   reports one in a committed lock, and discovery skips it with a failure
   row instead of loading it.
@@ -561,7 +575,7 @@ shows that nothing about them is special.
 | T11 | **Gates run a stranger's code.** | `kb ext validate` runs only the root's own `.kb/extensions/`, and checks the locks without running or fetching anything (§1). | step 4 |
 | T12 | **Forged trust from a repository.** A committed or shipped `.kb/trust.json` names this hostname and a hostile digest. | kb never reads a root's trust file as trust. Import is an approval-required gesture that shows its digests and imports this machine's records only. Reads never write (§4). | step 1 |
 | T13 | **Imposter commit.** `github:trusted-org/x@<sha>` names a commit pushed only to a fork, which GitHub serves through the parent's URL. | `read` refuses a `rev` not reachable from a ref of the named repo (§3, Transport), on install, restore and update. | contract suite (step 3) |
-| T14 | **A committed link reaches outside the repo.** A clone's store lock links `../notes/.kb/extensions`, and shared trust runs what you trusted there inside the clone. | A store-scope link must resolve inside the repo, symlinks included. Outside links live only in the local and user locks (§2, Links). | steps 4 and 8 |
+| T14 | **A repository links outside itself.** A clone's store lock links `../notes/.kb/extensions`, or a force-added or archived `.kb/extensions.local.json` carries a local-scope link there. Shared trust then runs what you trusted in that sibling store inside the clone (found reviewing kb#120). | A store-scope link must resolve inside the repo, symlinks included (§2, Links). Outside links live only in the local and user locks, and both sit in per-user state under `<data>`, never in the root. A selection file inside the repo is ignored and reported, because gitignore is not an authority boundary (§1). | steps 4 and 8 |
 
 ## 9. What not to build
 
@@ -678,6 +692,14 @@ G1; a restructure).
   - an escaping import is refused;
   - a store-lock link that leaves the repo (absolute, `..` out of the
     root, or a symlink out) fails `validate` and is not loaded;
+  - a committed or archived `<root>/.kb/extensions.local.json` with an
+    outside link selects nothing in that root. A sibling store's trusted
+    extension does not load, and `extension.list` reports the file as
+    ignored;
+  - `--scope local` writes `<data>/extensions/local/<key>.json` and
+    nothing in the root. Two paths to one root (one through a symlink)
+    share one local lock. A file whose recorded `root` does not match its
+    key is ignored;
   - `validate` never imports installed code (a tree that would
     `process.exit` on import does not stop it).
 
