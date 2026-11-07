@@ -40,6 +40,14 @@ describe("a child process's environment", () => {
     expect(env.DBUS_SESSION_BUS_ADDRESS).toBeUndefined();
   });
 
+  test("a kb child of a test run is a test run too, so without a home of its own it never reaches the person's", () => {
+    // `bun test` gives the run NODE_ENV=test; a child kb that lost it would resolve the person's
+    // home store wherever the run named none (DESIGN.md → Locations).
+    expect(process.env.NODE_ENV).toBe("test");
+    expect(childProcessEnv("kb").NODE_ENV).toBe("test");
+    expect(childProcessEnv("lookup").NODE_ENV).toBeUndefined();
+  });
+
   test("a lookup gets the base and the session bus, and nothing of kb's", () => {
     const env = childProcessEnv("lookup");
     expect(env.DBUS_SESSION_BUS_ADDRESS).toBe("unix:path=/tmp/bus");

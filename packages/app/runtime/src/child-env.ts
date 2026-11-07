@@ -8,8 +8,11 @@
  * - `kb`: a kb process over a root, such as the `kb ui` a location's open
  *   starts. It gets what any program needs to run (the base) and kb's own
  *   settings (`KB_*`, and `XDG_*` where the home store lives on Linux), and
- *   nothing else: a root someone else wrote may name an `env:` credential,
- *   so no key of this process's reaches a server over it.
+ *   whether this is a test run (`NODE_ENV`), so a kb child of a test run
+ *   that names no home of its own fails as its parent would rather than
+ *   resolve the person's (DESIGN.md → Locations); and nothing else: a root
+ *   someone else wrote may name an `env:` credential, so no key of this
+ *   process's reaches a server over it.
  * - `lookup`: a keychain or secret-service lookup. The base, and the session
  *   bus the freedesktop secret service answers on.
  * - `agent`: the agent runtime kb hosts for the person (Claude Code, under
@@ -30,7 +33,7 @@ const BASE_PREFIXES = ["LC_"];
 const KEEPS: Readonly<
   Record<Exclude<ChildKind, "tool">, { names: readonly string[]; prefixes: readonly string[] }>
 > = {
-  kb: { names: BASE, prefixes: [...BASE_PREFIXES, "KB_", "XDG_"] },
+  kb: { names: [...BASE, "NODE_ENV"], prefixes: [...BASE_PREFIXES, "KB_", "XDG_"] },
   lookup: {
     names: [...BASE, "DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"],
     prefixes: BASE_PREFIXES,
