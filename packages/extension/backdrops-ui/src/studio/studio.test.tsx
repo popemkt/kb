@@ -12,7 +12,7 @@
 import { Effect } from "effect";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   SYSTEM_IDS,
   backdropOptionId,
@@ -134,6 +134,14 @@ function labelled(text: string): HTMLInputElement {
   return input as HTMLInputElement;
 }
 
+/** The knob controls load when first drawn (the kit's `deferred`): wait until they have. */
+async function knobsDrawn() {
+  await vi.waitFor(async () => {
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    labelled("Mass");
+  });
+}
+
 const button = (name: string): HTMLButtonElement => {
   const found = [...document.querySelectorAll("button")].find(
     (b) => b.getAttribute("aria-label") === name || b.textContent.trim() === name,
@@ -199,6 +207,7 @@ describe("Backdrop Studio", () => {
     act(() => root.render(<StudioPage backdrop={PROBE.id} />));
     act(() => button("Warp").click());
     expect(document.querySelector("[data-probe]")?.getAttribute("data-variant")).toBe("warp");
+    await knobsDrawn();
     const mass = labelled("Mass");
     act(() => enter(mass, "1.5"));
     // A drag that rests a while, still held, writes nothing yet.
@@ -225,6 +234,7 @@ describe("Backdrop Studio", () => {
 
   test("a value moved and not yet let go can be reset, alone or with all", async () => {
     act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+    await knobsDrawn();
     const all = button("Reset all");
     expect(all.disabled).toBe(true);
     act(() => enter(labelled("Mass"), "2"));
@@ -236,12 +246,13 @@ describe("Backdrop Studio", () => {
     expect(written).toEqual([]);
   });
 
-  test("a value held is the control's, and its reset takes it out", () => {
+  test("a value held is the control's, and its reset takes it out", async () => {
     host.setNodes([
       node(HOLE, { [knobFieldId(HOLE, "mass")]: [{ t: "num", v: 0.5 }] }),
       node(extensionNodeId("core")),
     ]);
     act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+    await knobsDrawn();
     expect(labelled("Mass").value).toBe("0.5");
     expect(
       JSON.parse(document.querySelector("[data-probe]")?.getAttribute("data-knobs") ?? "{}"),
