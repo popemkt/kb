@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MEDALLION_EMBERS_KNOB, MEDALLION_GLYPHS_KNOB, MEDALLION_SMOKE_KNOB } from "@kb/backdrops";
 import {
   CIRCLE,
   ENGRAVING,
@@ -7,6 +8,7 @@ import {
   HANGING,
   MASK,
   RUNES,
+  medallionLook,
   swingOn,
   type Point,
   type Swing,
@@ -121,5 +123,26 @@ describe("swingOn", () => {
     const coarse = settle({ angle: 0.03, speed: 0 }, 30, 1 / 10);
     expect(coarse.most).toBeLessThan(0.04);
     expect(Math.abs(coarse.swing.angle - fine.swing.angle)).toBeLessThan(0.01);
+  });
+});
+
+describe("the owner's knobs", () => {
+  it("at their defaults are the scene as it was: a spark in a quarter of the cells past 0.74, its smoke, its circle", () => {
+    expect(medallionLook({})).toEqual({ emberCut: 0.74, smoke: 1, glyphs: 1 });
+  });
+
+  it("raise more embers or fewer, a cell's chance always a share of one", () => {
+    const more = medallionLook({ embers: MEDALLION_EMBERS_KNOB.max }).emberCut;
+    const none = medallionLook({ embers: MEDALLION_EMBERS_KNOB.min }).emberCut;
+    expect(more).toBeLessThan(0.74);
+    expect(more).toBeGreaterThanOrEqual(0);
+    expect(none).toBe(1);
+  });
+
+  it("thicken or clear the smoke, and brighten or quiet the circle", () => {
+    expect(medallionLook({ smoke: MEDALLION_SMOKE_KNOB.max }).smoke).toBeGreaterThan(1);
+    expect(medallionLook({ smoke: 0 }).smoke).toBe(0);
+    expect(medallionLook({ glyphs: MEDALLION_GLYPHS_KNOB.max }).glyphs).toBeGreaterThan(1);
+    expect(medallionLook({ glyphs: 0 }).glyphs).toBe(0);
   });
 });

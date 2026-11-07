@@ -7,26 +7,21 @@
  * that lowers detail before a busy page feels the scene. It knows nothing of
  * bats, and a composition (`composition.ts`) knows nothing of the clock.
  */
-import type { BackdropDirection, BackdropStrength } from "@kb/model";
 import type { PointerSource } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback.ts";
 import type { Composition, SceneConfig } from "./composition.ts";
 import { clamp } from "./math.ts";
+import { sceneClock } from "./clock.ts";
+import { sameLook, type Look } from "./look.ts";
 import { meterOf } from "./meter.ts";
-import type { ScenePalette } from "./palette.ts";
 import { startReactions, type Reactions } from "./reactions.ts";
-
-/** What the page tells the stage about how to paint. */
-export interface Look {
-  readonly palette: ScenePalette;
-  readonly direction: BackdropDirection;
-  readonly strength: BackdropStrength;
-  readonly presence: number;
-}
 
 export interface Stage {
   readonly reactions: Reactions;
+  /** What the page says now (`look.ts`): laid out again only where it differs from the look drawn. */
   readonly look: (look: Look) => void;
+  /** The owner's speed (the speed knob): the picture's time scaled, the reactions' kept. */
+  readonly setSpeed: (speed: number) => void;
   readonly dispose: () => void;
 }
 
@@ -51,6 +46,7 @@ export function createStage(
   const reactions = startReactions();
   const context = canvas.getContext("2d");
   const meter = meterOf(options.budgetMs);
+  const clock = sceneClock();
   let current: Look | null = null;
   let quality = 1;
   let width = 0;
@@ -77,6 +73,7 @@ export function createStage(
     canvas.height = Math.round(height * dpr);
     const config: SceneConfig = { width, height, dpr, quality, ...current };
     composition.configure(config);
+    canvas.dataset.quality = quality.toFixed(2);
     if (options.reducedMotion) composition.settle(reactions);
     if (options.reducedMotion || !running) paint();
   };
@@ -96,7 +93,7 @@ export function createStage(
     const began = performance.now();
     feedPointer();
     reactions.update(dt);
-    composition.step(dt, reactions);
+    composition.step(clock.advance(dt), reactions);
     paint();
     const verdict = meter.record(performance.now() - began);
     if (verdict !== null) {
@@ -135,9 +132,11 @@ export function createStage(
   return {
     reactions,
     look: (look) => {
+      if (sameLook(current, look)) return;
       current = look;
       configure();
     },
+    setSpeed: clock.setSpeed,
     dispose: () => {
       disposed = true;
       if (raf !== 0) cancelAnimationFrame(raf);

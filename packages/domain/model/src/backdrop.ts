@@ -52,7 +52,6 @@ export interface BackdropVariant {
 export interface SeedBackdrop extends SeedOption {
   readonly credit?: string;
   readonly strength?: BackdropStrength;
-  readonly knobs?: readonly Knob[];
   readonly variants?: readonly BackdropVariant[];
 }
 
@@ -89,6 +88,11 @@ export const BACKDROP_VARIANT_OPTIONS: DeclaredOptions = {
 const variantId = (backdrop: SeedBackdrop, variant: BackdropVariant): string =>
   `${backdrop.id}.${variant.id}`;
 
+/** The option node that names the variant `variant` of the backdrop `backdrop` under `sys.f.backdrop.variant`. */
+export function backdropVariantOptionId(backdrop: string, variant: string): NodeId {
+  return declaredOptionId(BACKDROP_VARIANT_OPTIONS, `${backdrop}.${variant}`);
+}
+
 /**
  * The variants of `backdrops` as declared options of their kind, each
  * choosing the backdrop it is a variant of: what a family declares, so the
@@ -101,6 +105,7 @@ export function backdropVariantOptions(backdrops: readonly SeedBackdrop[]): Seed
       id: variantId(backdrop, variant),
       label: `${backdrop.label} · ${variant.label}`,
       chooses: [{ kind: BACKDROP_OPTIONS, id: backdrop.id }],
+      ...(variant.knobs === undefined ? {} : { knobs: variant.knobs }),
     })),
   );
 }

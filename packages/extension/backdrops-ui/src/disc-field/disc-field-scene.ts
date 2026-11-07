@@ -30,7 +30,7 @@ import {
 } from "../gpu/gpu-scene";
 import type { Anchor } from "../gpu/framing";
 import { textScrim } from "../gpu/text-scrim";
-import { bakeVineyard } from "./disc-field";
+import { bakeVineyard, discTuning } from "./disc-field";
 import { discGround, discSprite, discUniforms } from "./disc-field-shader";
 
 /** The discs a full-quality frame draws; a frame over budget draws a fair subset. */
@@ -113,6 +113,10 @@ function discField(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
     },
     setLook: (look: GpuLook) => {
       u.dark.value = look.dark ? 1 : 0;
+      const tuned = discTuning(look.knobs);
+      u.size.value.set(...tuned.size);
+      u.edge.value.set(...tuned.edge);
+      u.wind.value = tuned.wind;
       stage.setBloom(0);
     },
     frame: (dt: number, reactions: Reactions) => {

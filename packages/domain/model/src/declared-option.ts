@@ -7,6 +7,7 @@
  * a kind is owned by whoever seeds its field, and every kind is read the
  * same way, so a stale choice falls through the same way for each.
  */
+import type { Knob } from "./knob.ts";
 import { firstRef } from "./node-config.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import type { SeedRetirement } from "./seed-retirement.ts";
@@ -37,6 +38,11 @@ export interface SeedOption {
    * core's node sets none (DESIGN-UI.md → Motion options).
    */
   readonly props?: KbNode["props"];
+  /**
+   * Its live parameters, each with its default (`Knob`): a backdrop's, or a
+   * backdrop variant's own (DESIGN-UI.md → Page-head backdrops → Knobs).
+   */
+  readonly knobs?: readonly Knob[];
 }
 
 /** A declared thing of `kind`, by its declared id. */

@@ -28,10 +28,12 @@
  * This module imports three (through `@kb/scene-gpu`), so only the GPU
  * host's own lazy import reaches it (`gpu-backdrop.tsx`).
  */
-import type { BackdropDirection } from "@kb/model";
+import { SPEED_KNOB } from "@kb/backdrops";
+import { knobValue, type BackdropDirection, type KnobValues } from "@kb/model";
 import type { SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, type SceneStage, type StageOptions, type TslNode } from "@kb/scene-gpu";
 import type { BackdropBudget, PointerSource, Timing } from "@kb/ui-sdk";
+import { sceneClock } from "../scene/clock";
 import { meterOf } from "../scene/meter";
 import { startReactions, type PageEventKind, type Reactions } from "../scene/reactions";
 import { anchorIn, framingAt, type Anchor, type Composition, type ContentBox } from "./framing";
@@ -47,6 +49,8 @@ export interface GpuLook {
   readonly art: string | null;
   /** The variant this load shows (`BackdropProps.variant`), by its local id; null for a backdrop with none. */
   readonly variant: string | null;
+  /** Its knobs' values now (`BackdropProps.knobs`): a scene reads its own by the knob (`knobValue`). */
+  readonly knobs: KnobValues;
 }
 
 export interface GpuBackdropInit extends GpuLook {
@@ -184,7 +188,8 @@ export async function mountBackdrop(
   let height = 0;
   let content = init.content;
   let quality = 1;
-  let elapsed = 0;
+  // The scene's time at the owner's speed; the reactions and the meter keep the frame's own.
+  const clock = sceneClock(knobValue(init.knobs, SPEED_KNOB));
 
   const { stage, parts, handle } = await mountScene(
     host,
@@ -233,10 +238,10 @@ export async function mountBackdrop(
           if (at === null) reactions.clearPointer();
           else reactions.setPointer(at.x, at.y);
           reactions.update(dt);
-          elapsed += dt;
+          const moved = clock.advance(dt);
           // What a spec reads to see the scene carry on (`clock`), never start over.
-          canvas.dataset.clock = elapsed.toFixed(3);
-          backdrop.frame(dt, reactions);
+          canvas.dataset.clock = clock.elapsed().toFixed(3);
+          backdrop.frame(moved, reactions);
           if (dt > 0) measure(dt);
           return true;
         },
@@ -253,6 +258,7 @@ export async function mountBackdrop(
   const { backdrop, relayout } = parts;
   const setLook = (next: GpuLook) => {
     look = next;
+    clock.setSpeed(knobValue(next.knobs, SPEED_KNOB));
     stage.setPalette(next.palette);
     backdrop.setLook(next);
     relayout();
@@ -282,6 +288,6 @@ export async function mountBackdrop(
       relayout();
       stage.invalidate();
     },
-    clock: () => elapsed,
+    clock: () => clock.elapsed(),
   };
 }

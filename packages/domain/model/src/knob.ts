@@ -75,6 +75,31 @@ export function knobNumber(values: KnobValues, id: string, fallback: number): nu
   return typeof value === "number" ? value : fallback;
 }
 
+/**
+ * The value `values` hold for `knob`, typed as its kind's, or its default
+ * where they hold none of that kind: how a scene reads the knob it
+ * declared, by the knob itself, so its default is stated once.
+ */
+export function knobValue(values: KnobValues, knob: NumberKnob): number;
+export function knobValue(values: KnobValues, knob: BooleanKnob): boolean;
+export function knobValue(values: KnobValues, knob: EnumKnob | ColorKnob): string;
+export function knobValue(values: KnobValues, knob: SeedKnob): number | null;
+export function knobValue(values: KnobValues, knob: Knob): KnobValue {
+  const value = values[knob.id];
+  switch (knob.kind) {
+    case "number":
+      return typeof value === "number" ? value : knob.default;
+    case "seed":
+      return typeof value === "number" ? value : knob.default;
+    case "boolean":
+      return typeof value === "boolean" ? value : knob.default;
+    case "enum":
+    case "color":
+    default:
+      return typeof value === "string" ? value : knob.default;
+  }
+}
+
 /** A colour as a colour knob holds it. */
 export const KNOB_COLOR = /^#[0-9a-f]{6}$/i;
 

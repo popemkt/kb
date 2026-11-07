@@ -17,6 +17,19 @@ import {
   type SeedBackdrop,
 } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
+import { MOVING_KNOBS } from "./knobs.ts";
+import { LENS_KNOBS } from "./knobs/lens.ts";
+import { TOON_SEA_KNOBS } from "./knobs/toon-sea.ts";
+import { SILK_KNOBS } from "./knobs/silk.ts";
+import { FLOATING_GEOMETRY_KNOBS } from "./knobs/floating-geometry.ts";
+import { GRADIENT_ORBS_KNOBS } from "./knobs/gradient-orbs.ts";
+import { WOLF_MEDALLION_KNOBS } from "./knobs/wolf-medallion.ts";
+import { LIGHT_TRAILS_KNOBS } from "./knobs/light-trails.ts";
+import { DISC_FIELD_KNOBS } from "./knobs/disc-field.ts";
+import { SKY_KNOBS } from "./knobs/sky.ts";
+import { ROOST_KNOBS } from "./knobs/roost.ts";
+import { BLACK_HOLE_KNOBS, GARGANTUA_KNOBS, WARP_KNOBS } from "./knobs/black-hole.ts";
+import { ASTRAL_KNOBS } from "./knobs/astral.ts";
 
 /** The Unicorn Studio scene over the tag/accent wash: the one a head shows while none is chosen. */
 export const UNICORN_BACKDROP: SeedBackdrop = { id: "backdrops.unicorn", label: "Unicorn" };
@@ -24,13 +37,25 @@ export const UNICORN_BACKDROP: SeedBackdrop = { id: "backdrops.unicorn", label: 
 export const GRADIENT_BACKDROP: SeedBackdrop = { id: "backdrops.gradient", label: "Gradient" };
 
 /** Bats against a moon glow by night, swallows against a sun glow by day: the open sky. */
-export const SKY_BACKDROP: SeedBackdrop = { id: "backdrops.sky", label: "Sky" };
+export const SKY_BACKDROP: SeedBackdrop = {
+  id: "backdrops.sky",
+  label: "Sky",
+  knobs: [...MOVING_KNOBS, ...SKY_KNOBS],
+};
 
 /** A house with bats hanging under its eaves: asleep by day, stirring and flying at night. */
-export const ROOST_BACKDROP: SeedBackdrop = { id: "backdrops.roost", label: "Roost" };
+export const ROOST_BACKDROP: SeedBackdrop = {
+  id: "backdrops.roost",
+  label: "Roost",
+  knobs: [...MOVING_KNOBS, ...ROOST_KNOBS],
+};
 
 /** A dark star drifting through a seeded nebula and bending its light; a write is a lensed supernova. */
-export const LENS_BACKDROP: SeedBackdrop = { id: "backdrops.lens", label: "Lens" };
+export const LENS_BACKDROP: SeedBackdrop = {
+  id: "backdrops.lens",
+  label: "Lens",
+  knobs: [...MOVING_KNOBS, ...LENS_KNOBS],
+};
 
 /**
  * A black hole right of the title, in one of two looks, one drawn a load:
@@ -43,40 +68,53 @@ export const LENS_BACKDROP: SeedBackdrop = { id: "backdrops.lens", label: "Lens"
 export const BLACK_HOLE_BACKDROP: SeedBackdrop = {
   id: "backdrops.black-hole",
   label: "Black hole",
+  knobs: [...MOVING_KNOBS, ...BLACK_HOLE_KNOBS],
   variants: [
-    { id: "gargantua", label: "Gargantua" },
-    { id: "warp", label: "Warp", strength: "vivid" },
+    { id: "gargantua", label: "Gargantua", knobs: GARGANTUA_KNOBS },
+    { id: "warp", label: "Warp", strength: "vivid", knobs: WARP_KNOBS },
   ],
 };
 
 /** A cel-shaded sea under anime-game clouds; the pointer ripples it, the owner's activity splashes and glints. */
-export const TOON_SEA_BACKDROP: SeedBackdrop = { id: "backdrops.toon-sea", label: "Toon sea" };
+export const TOON_SEA_BACKDROP: SeedBackdrop = {
+  id: "backdrops.toon-sea",
+  label: "Toon sea",
+  knobs: [...MOVING_KNOBS, ...TOON_SEA_KNOBS],
+};
 
 /** Layered silk ribbons on a stage before a faint cosmos; the owner's activity runs a shimmer along them. */
-export const SILK_BACKDROP: SeedBackdrop = { id: "backdrops.silk", label: "Silk" };
+export const SILK_BACKDROP: SeedBackdrop = {
+  id: "backdrops.silk",
+  label: "Silk",
+  knobs: [...MOVING_KNOBS, ...SILK_KNOBS],
+};
 
 /** A web of low-poly glass facets on a deep navy field, gold light gathering where they meet. */
 export const FLOATING_GEOMETRY_BACKDROP: SeedBackdrop = {
   id: "backdrops.floating-geometry",
   label: "Floating geometry",
+  knobs: [...MOVING_KNOBS, ...FLOATING_GEOMETRY_KNOBS],
 };
 
 /** Two great orbs floating in front of a deep blue field, lit violet, pink and cream. */
 export const GRADIENT_ORBS_BACKDROP: SeedBackdrop = {
   id: "backdrops.gradient-orbs",
   label: "Gradient orbs",
+  knobs: [...MOVING_KNOBS, ...GRADIENT_ORBS_KNOBS],
 };
 
 /** kb's own steel wolf medallion over smoke and embers, a circle of five glyphs turning behind it; it trembles when something happens. */
 export const WOLF_MEDALLION_BACKDROP: SeedBackdrop = {
   id: "backdrops.wolf-medallion",
   label: "Wolf medallion",
+  knobs: [...MOVING_KNOBS, ...WOLF_MEDALLION_KNOBS],
 };
 
 /** Long-exposure light streaking across a deep navy field, gathering in a white-hot knot. */
 export const LIGHT_TRAILS_BACKDROP: SeedBackdrop = {
   id: "backdrops.light-trails",
   label: "Light trails",
+  knobs: [...MOVING_KNOBS, ...LIGHT_TRAILS_KNOBS],
 };
 
 /**
@@ -87,6 +125,7 @@ export const LIGHT_TRAILS_BACKDROP: SeedBackdrop = {
 export const ASTRAL_BACKDROP: SeedBackdrop = {
   id: "backdrops.astral",
   label: "Astral",
+  knobs: [...MOVING_KNOBS, ...ASTRAL_KNOBS],
   variants: [
     { id: "movement", label: "Movement", schemes: ["dark"] },
     { id: "orrery", label: "Orrery", schemes: ["dark"] },
@@ -99,6 +138,7 @@ export const ASTRAL_BACKDROP: SeedBackdrop = {
 export const DISC_FIELD_BACKDROP: SeedBackdrop = {
   id: "backdrops.disc-field",
   label: "Disc field",
+  knobs: [...MOVING_KNOBS, ...DISC_FIELD_KNOBS],
 };
 
 /** Every backdrop the family declares, in the order its options are listed. */

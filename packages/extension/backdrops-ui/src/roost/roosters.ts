@@ -6,6 +6,8 @@
  * flying (`hangState`), blended by `hold`, so letting go and taking hold are
  * the one body at every point between, never a swap.
  */
+import { ROOST_BATS_KNOB } from "@kb/backdrops";
+import { knobValue, type BackdropStrength, type KnobValues } from "@kb/model";
 import { newFlier, type Flier } from "../scene/flier";
 import { damp, envelope, lerp } from "../scene/math";
 import type { Reactions } from "../scene/reactions";
@@ -43,6 +45,14 @@ export interface Rooster {
   /** When an outing ends; and when a ripple of the owner's navigation reaches this bat. */
   outUntil: number;
   rippleAt: number;
+}
+
+/** Bats at each strength, before quality and the bats knob thin them: as many as the eave holds. */
+const BATS = { subtle: 4, soft: 7, vivid: 10 } as const;
+
+/** How many roost: the strength's, at the detail the stage affords, by the bats knob; never fewer than three. */
+export function batCount(strength: BackdropStrength, quality: number, knobs: KnobValues): number {
+  return Math.max(3, Math.round(BATS[strength] * quality * knobValue(knobs, ROOST_BATS_KNOB)));
 }
 
 /** How far below the eave a hanging bat's centre sits, in body lengths. */

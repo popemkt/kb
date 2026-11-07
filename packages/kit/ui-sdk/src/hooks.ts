@@ -8,10 +8,15 @@ import type { WireNode } from "@kb/contracts";
 import {
   assetUrl,
   backdropChoice,
+  backdropKnobValues,
+  backdropOptionId,
+  backdropVariantOptionId,
   designSystemOptionId,
   extensionNodeId,
   type BackdropDirection,
   type BackdropStrength,
+  type KnobValues,
+  type SeedBackdrop,
 } from "@kb/model";
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
@@ -112,6 +117,26 @@ export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
     art: choice.art === null ? null : assetUrl(choice.art),
     variants: choice.variants,
   };
+}
+
+/**
+ * The values of the knobs `backdrop` shows with `variant` drawn (null,
+ * none), as its option node and its variant's hold them (DESIGN-UI.md →
+ * Page-head backdrops → Knobs): read live, so a value written anywhere (the
+ * studio, `kb set`, an agent) reaches every frame that shows it.
+ */
+export function useBackdropKnobs(backdrop: SeedBackdrop, variant: string | null): KnobValues {
+  const own = useNode(backdropOptionId(backdrop.id));
+  const variants = useNode(
+    variant === null ? undefined : backdropVariantOptionId(backdrop.id, variant),
+  );
+  const ownProps = own?.props;
+  const variantProps = variants?.props;
+  // One object while nothing it reads changes, so a frame hears a change only when there is one.
+  return useMemo(
+    () => backdropKnobValues(backdrop, variant, ownProps, variantProps),
+    [backdrop, variant, ownProps, variantProps],
+  );
 }
 
 /** Every node of the live graph. */

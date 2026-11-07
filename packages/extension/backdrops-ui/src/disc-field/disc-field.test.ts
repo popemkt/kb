@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { DISC_FIELD_SIZE_KNOB, DISC_FIELD_SPRAY_KNOB, DISC_FIELD_WIND_KNOB } from "@kb/backdrops";
 import { variation } from "../scene/seed";
-import { FOLIAGE, bakeVineyard, groundAt, rampAt, type DiscCloud } from "./disc-field";
+import { FOLIAGE, bakeVineyard, discTuning, groundAt, rampAt, type DiscCloud } from "./disc-field";
 
 const TOTAL = 20_000;
 const bake = (seed: number) => bakeVineyard(variation(seed), TOTAL);
@@ -56,5 +57,43 @@ describe("bakeVineyard", () => {
     for (const share of [0.55, 0.8]) {
       expect(onGround(discs.slice(0, Math.round(discs.length * share)))).toBeCloseTo(whole, 1);
     }
+  });
+});
+
+describe("discTuning", () => {
+  it("at the knobs' defaults is the painting as it was drawn before it had a knob", () => {
+    expect(discTuning({})).toEqual({
+      size: [0.024, 0.3, 3.1],
+      edge: [0.84, 0.32, 0.45, 0.42],
+      wind: 1,
+    });
+  });
+
+  it("paints every disc larger or smaller with the size knob, as often small", () => {
+    const [least, most, bias] = discTuning({ [DISC_FIELD_SIZE_KNOB.id]: 1.3 }).size;
+    expect(least).toBeCloseTo(0.024 * 1.3);
+    expect(most).toBeCloseTo(0.3 * 1.3);
+    expect(bias).toBe(3.1);
+    expect(discTuning({ [DISC_FIELD_SIZE_KNOB.id]: 0.7 }).size[1]).toBeCloseTo(0.3 * 0.7);
+  });
+
+  it("widens the spray inward, its outer rim where it was, leaving more specks", () => {
+    const [start, width, specks, warp] = discTuning({}).edge;
+    for (const spray of [DISC_FIELD_SPRAY_KNOB.min, DISC_FIELD_SPRAY_KNOB.max]) {
+      const edge = discTuning({ [DISC_FIELD_SPRAY_KNOB.id]: spray }).edge;
+      expect(edge[1]).toBeCloseTo(width * spray);
+      expect(edge[0] + edge[1]).toBeCloseTo(start + width);
+      expect(edge[2]).toBeCloseTo(specks * spray);
+      expect(edge[2]).toBeLessThanOrEqual(1);
+      expect(edge[3]).toBe(warp);
+    }
+    const wide = discTuning({ [DISC_FIELD_SPRAY_KNOB.id]: DISC_FIELD_SPRAY_KNOB.max }).edge;
+    // The body inside the spray still stands: the painting dissolves, never vanishes.
+    expect(wide[0]).toBeGreaterThan(0.5);
+  });
+
+  it("stirs the leaves more or less with the wind knob, still at 0", () => {
+    expect(discTuning({ [DISC_FIELD_WIND_KNOB.id]: 2 }).wind).toBe(2);
+    expect(discTuning({ [DISC_FIELD_WIND_KNOB.id]: 0 }).wind).toBe(0);
   });
 });

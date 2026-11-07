@@ -55,7 +55,7 @@ import type { Grounds } from "../gpu/gpu-scene";
 import { darkGrade } from "../gpu/dark-grade";
 import { gnoise } from "../gpu/noise";
 import type { textScrim } from "../gpu/text-scrim";
-import type { DiscCloud } from "./disc-field";
+import { discTuning, type DiscCloud } from "./disc-field";
 
 type F = TslNode<"float">;
 type V2 = TslNode<"vec2">;
@@ -65,12 +65,16 @@ type V3 = TslNode<"vec3">;
 const WASH = [0.97, 0.9, 0.74] as const;
 
 export function discUniforms() {
+  // The painting as it is untuned; the scene tunes it from the knobs (`discTuning`).
+  const { size, edge, wind } = discTuning({});
   return {
     time: uniform(0),
     /** 1 while it moves, 0 for the still. */
     motion: uniform(1),
     /** A write's breath of wind through the leaves, 0–1. */
     gust: uniform(0),
+    /** How much the leaves stir on their own (`DiscTuning.wind`). */
+    wind: uniform(wind),
     dark: uniform(0),
     /** The frame's width over its height. */
     aspect: uniform(1),
@@ -79,9 +83,9 @@ export function discUniforms() {
     /** The silhouette's radii, in heights at scale 1. */
     shape: uniform(new Vector2(0.9, 0.36)),
     /** Where the spray starts (`e`), its width, how many specks lie past it, and how far noise warps it. */
-    edge: uniform(new Vector4(0.84, 0.32, 0.45, 0.42)),
+    edge: uniform(new Vector4(...edge)),
     /** A disc's least and greatest diameter (world units) and how strongly the draw favours small ones. */
-    size: uniform(new Vector3(0.024, 0.3, 3.1)),
+    size: uniform(new Vector3(...size)),
     /** Device pixels per world unit at distance 1, the least disc and the greatest (device pixels). */
     pixels: uniform(new Vector3(1000, 1.9, 64)),
     /** The frame's height in device pixels. */
@@ -129,10 +133,10 @@ export function discSprite(
     new InstancedBufferAttribute(cloud.colour.map(linear), 3),
   );
 
-  // The leaves stir: a few slow, unrelated motions per disc, deeper while a write's wind passes.
+  // The leaves stir: a few slow, unrelated motions per disc, by the wind, deeper while a write's passes.
   const phase = draw.w.mul(Math.PI * 2);
   const t = u.time;
-  const stir = sway.mul(u.motion).mul(u.gust.mul(2.2).add(1));
+  const stir = sway.mul(u.motion).mul(u.gust.mul(2.2).add(u.wind));
   const moved = place.add(
     vec3(
       sin(t.mul(0.9).add(place.z.mul(0.7)).add(phase)).mul(0.05),

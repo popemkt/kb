@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { ORBS_GLOW_KNOB, ORBS_HUE_KNOB, ORBS_SIZE_KNOB } from "@kb/backdrops";
 import { seededRng } from "../scene/rng";
-import { ORBS, layoutOrbs, litToward, placeOrbs } from "./orbs";
+import { ORBS, glowAt, layoutOrbs, litToward, orbsLook, placeOrbs, sizedOrbs } from "./orbs";
 
 const AT = { x: 0.4, y: 0.05, scale: 1, lean: [0, 0] } as const;
 const CENTRE = { x: 0, y: 0, scale: 1, lean: [0, 0] } as const;
@@ -104,5 +105,49 @@ describe("litToward", () => {
     const [, low] = litToward(great, { x: great.x + 1, y: great.y - 0.5 });
     const [, high] = litToward(great, { x: great.x + 1, y: great.y + 0.5 });
     expect(high).toBeGreaterThan(low);
+  });
+});
+
+describe("the owner's knobs", () => {
+  it("at their defaults are the picture as it was: no hue past the load's, the orbs' own size, the glow at rest", () => {
+    expect(orbsLook({})).toEqual({ hue: 0, size: 1, glow: 1 });
+    const orbs = layoutOrbs(seededRng(4));
+    expect(sizedOrbs(orbs, 1)).toEqual(orbs);
+    for (const impulse of [0, 0.4, 1]) expect(glowAt(1, impulse)).toBe(1 + 0.6 * impulse);
+  });
+
+  it("turn the hue by the knob's degrees, either way", () => {
+    expect(orbsLook({ hue: 30 }).hue).toBeCloseTo(Math.PI / 6, 9);
+    expect(orbsLook({ hue: ORBS_HUE_KNOB.min }).hue).toBeLessThan(0);
+  });
+
+  it("shrink every orb and its glow alike, the great one still largest and still cut by the frame's top", () => {
+    const size = ORBS_SIZE_KNOB.min;
+    expect(orbsLook({ size }).size).toBe(size);
+    for (let seed = 1; seed < 40; seed++) {
+      const orbs = layoutOrbs(seededRng(seed));
+      const small = sizedOrbs(orbs, size);
+      small.forEach((orb, i) => {
+        expect(orb.r).toBeCloseTo((orbs[i]?.r ?? 0) * size, 9);
+        expect(orb.halo).toBeCloseTo((orbs[i]?.halo ?? 0) * size, 9);
+        expect(orb.x).toBe(orbs[i]?.x);
+      });
+      for (let t = 0; t < 120; t += 2.3) {
+        const [great, second] = placeOrbs(small, t, { x: 0, y: 0, scale: 1, lean: [1, 0.5] }, 1);
+        if (great === undefined || second === undefined) throw new Error("an orb went missing");
+        expect(great.r).toBeGreaterThan(second.r);
+        for (const orb of [great, second]) {
+          expect(orb.y - orb.r).toBeGreaterThan(-0.45);
+          expect(orb.y + orb.r).toBeGreaterThan(0.5);
+        }
+      }
+    }
+  });
+
+  it("brighten the glow with the knob, the owner's writes still lifting it", () => {
+    expect(orbsLook({ glow: ORBS_GLOW_KNOB.max }).glow).toBe(ORBS_GLOW_KNOB.max);
+    expect(glowAt(ORBS_GLOW_KNOB.max, 0)).toBeGreaterThan(glowAt(1, 0));
+    expect(glowAt(ORBS_GLOW_KNOB.min, 0)).toBeLessThan(glowAt(1, 0));
+    expect(glowAt(ORBS_GLOW_KNOB.min, 1)).toBeGreaterThan(glowAt(ORBS_GLOW_KNOB.min, 0));
   });
 });

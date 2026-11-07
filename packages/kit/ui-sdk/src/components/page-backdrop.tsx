@@ -1,13 +1,6 @@
 import { useCallback, useState, type CSSProperties, type Ref } from "react";
-import {
-  drawVariant,
-  knobDefaults,
-  knobsOf,
-  shownStrength,
-  shownVariants,
-  type BackdropStrength,
-} from "@kb/model";
-import { useAppearance, usePageActivity, usePageBackdrop } from "../hooks";
+import { drawVariant, shownStrength, shownVariants, type BackdropStrength } from "@kb/model";
+import { useAppearance, useBackdropKnobs, usePageActivity, usePageBackdrop } from "../hooks";
 import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
 import { useLoadSeed } from "../lib/load-seed";
 import { cn } from "../lib/cn";
@@ -26,8 +19,9 @@ import type { OutlineNode } from "../lib/types";
  * (`shownVariants`), the one the load's seed draws of them (`drawVariant`,
  * kept while it is still among them), the strength it shows that variant
  * at (`shownStrength`: the one chosen, else the variant's own, else the
- * default), the presentation's opacity at that strength, and the knobs
- * it shows with that variant (`knobsOf`).
+ * default), the presentation's opacity at that strength, and the values
+ * of the knobs it shows with that variant, as their nodes hold them
+ * (`useBackdropKnobs`).
  */
 export function BackdropFrame({
   id,
@@ -56,6 +50,7 @@ export function BackdropFrame({
   const variant = drawVariant(seed, shown, drawn);
   if (variant !== drawn) setDrawn(variant);
   const strength = shownStrength(chosen, key, variant);
+  const knobs = useBackdropKnobs(key, variant);
   return (
     <div
       ref={frameRef}
@@ -76,7 +71,7 @@ export function BackdropFrame({
         variant={variant}
         strength={strength}
         opacity={presentation.opacity[strength]}
-        knobs={knobDefaults(knobsOf(key, variant))}
+        knobs={knobs}
         budget={budget}
       />
     </div>

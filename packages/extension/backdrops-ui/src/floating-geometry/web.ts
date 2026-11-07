@@ -18,6 +18,8 @@
  *
  * Pure, so the layout and the motion are tested without a GPU.
  */
+import { GEOMETRY_CRUMPLE_KNOB, GEOMETRY_GOLD_KNOB, GEOMETRY_SWEEP_KNOB } from "@kb/backdrops";
+import { knobValue, type KnobValues } from "@kb/model";
 import type { Rng } from "../scene/rng";
 import { TAU } from "../scene/math";
 
@@ -197,3 +199,34 @@ export function placeSheets(sheets: readonly Sheet[], t: number, frame: WebFrame
     };
   });
 }
+
+/**
+ * What the owner's knobs set (DESIGN-UI.md → Page-head backdrops → Knobs):
+ * how far the glass folds against its layout's crumple, how hot its lamps
+ * burn against their own (`lampStrengths`), and how brightly the sweeping
+ * band glints in its seams.
+ */
+export interface GlassLook {
+  readonly crumple: number;
+  readonly gold: number;
+  readonly sweep: number;
+}
+
+export function glassLook(knobs: KnobValues): GlassLook {
+  return {
+    crumple: knobValue(knobs, GEOMETRY_CRUMPLE_KNOB),
+    gold: knobValue(knobs, GEOMETRY_GOLD_KNOB),
+    sweep: knobValue(knobs, GEOMETRY_SWEEP_KNOB),
+  };
+}
+
+/** Each lamp's strength: the main one, the hot point; a second behind the next knot, nearly as hot, a second warm core; a quieter third, a glint. */
+export const LAMP_STRENGTH = [1, 0.85, 0.42] as const;
+export type LampStrengths = readonly [number, number, number];
+
+/** The lamps' strengths at the owner's `gold`: every one hotter or cooler alike, so the main one stays the hot point. */
+export const lampStrengths = (gold: number): LampStrengths => [
+  LAMP_STRENGTH[0] * gold,
+  LAMP_STRENGTH[1] * gold,
+  LAMP_STRENGTH[2] * gold,
+];

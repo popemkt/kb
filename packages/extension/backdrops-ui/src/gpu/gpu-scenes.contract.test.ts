@@ -42,6 +42,7 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
   pointer: { now: () => null },
   content: { left: 0, width: 720 },
   budget: BACKDROP_BUDGETS.gpu,
+  knobs: {},
 });
 
 const mounts: Record<string, () => Promise<GpuBackdropMount>> = {
