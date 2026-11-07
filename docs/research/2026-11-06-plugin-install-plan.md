@@ -346,12 +346,30 @@ store that loads the same digest. This is no weaker than per-store trust:
 - **Code views and scripts move with it,** because `CodeTrust` is one port
   with one record (Rule 1), and the argument is the same: a shared digest
   is code and grant you read.
-- **Migration.** On first read in a root, the trust adapter folds that
-  root's legacy `.kb/trust.json` records for this machine into
-  `<data>/trust.json`, then removes the file. The backup entry (Mackup's
-  `kb` application, which today names each root's `.kb/trust.json`) moves
-  to `<data>/trust.json`. That entry lives in the owner's dotfiles, not in
-  this repo.
+- **No automatic migration; the old file is ignored.** A root's
+  `.kb/trust.json` is a file the repository controls. It can be committed
+  or shipped in an archive, and its `machine` field is only a hostname. So
+  kb never reads it as trust, in its own root or any other. Folding it in
+  on open would let a hostile clone's forged records become trusted in
+  every store; this was found reviewing kb#115 (T12). When the file exists,
+  `extension.list` says once that it is ignored and that the person trusts
+  again.
+- **Import is optional, and a person's gesture.**
+  `sandbox.trust.import {root, digests}` is an action that declares `approval: "required"` and `outsideRoot`. The
+  CLI's `kb trust import [root]` reads that root's legacy file and fills
+  `digests` with its records for **this machine only**, so the approval
+  prompt shows exactly what will be trusted. The handler adds each listed
+  digest that the file holds for this machine, and nothing else. It never
+  deletes or rewrites the old file. Approval works as for any required
+  action, so MCP doesn't list it and an agent can't complete it.
+- **Reads never write, and an unreadable record is never overwritten.** A
+  trust read only reads. A `<data>/trust.json` that can't be decoded (it is
+  corrupt, or a newer kb's `version`) trusts nothing. `trust`, `untrust`
+  and import then refuse with an error naming the file, and leave its bytes
+  unchanged.
+- **Backup.** The backup entry (Mackup's `kb` application, which today
+  names each root's `.kb/trust.json`) moves to `<data>/trust.json`. That
+  entry lives in the owner's dotfiles, not in this repo.
 
 **Only a person trusts (step 0).**
 
@@ -518,6 +536,7 @@ shows that nothing about them is special.
 | T9 | **A compromised marketplace** re-points a name. | That is only a change through `marketplace update` or `update`. It arrives as a new digest, which is untrusted and has a reviewable diff. | step 9 |
 | T10 | **Install-time code.** | Nothing runs. Bundling only reads files, as `bunfig.toml`'s empty `trustedDependencies` keeps it. | step 4 |
 | T11 | **Gates run a stranger's code.** | `kb ext validate` runs only the root's own `.kb/extensions/`, and checks the locks without running or fetching anything (§1). | step 4 |
+| T12 | **Forged trust from a repository.** A committed or shipped `.kb/trust.json` names this hostname and a hostile digest. | kb never reads a root's trust file as trust. Import is an approval-required gesture that shows its digests and imports this machine's records only. Reads never write (§4). | step 1 |
 
 ## 9. What not to build
 
@@ -564,11 +583,21 @@ Built in kb#110, which also removes its gap.
 decision Q1).
 
 - `dataPath`, `KB_DATA`, with the test preload naming it.
-- `codeTrustLayer` reads and writes `<data>/trust.json` and migrates a
-  root's legacy file.
+- `codeTrustLayer` reads and writes `<data>/trust.json` only. A root's
+  legacy `.kb/trust.json` is ignored (§4).
+- Optional: `sandbox.trust.import` and `kb trust import [root]`,
+  approval-required, import this machine's records only (§4).
 - **Acceptance:**
   - trusting in root A makes `sandbox.trusted` true in root B;
-  - a legacy `.kb/trust.json` is folded in and removed;
+  - a legacy `.kb/trust.json`, committed or not, grants nothing in its own
+    root or any other. Opening that root leaves `<data>/trust.json`
+    byte-identical, and `extension.list` reports the file as ignored;
+  - if import is built, `kb trust import` with a TTY "y" adds exactly
+    this machine's digests from the file and leaves the file in place. Over MCP the action is not
+    listed; on the CLI with no TTY it answers `approval_required`;
+  - a corrupt or `version: 2` `<data>/trust.json` trusts nothing, and
+    `trust`, `untrust` and import refuse, with the file byte-identical;
+  - two processes trusting at once keep every digest;
   - another machine's records still count for nothing;
   - a test run without `KB_DATA` fails;
   - `.gitignore` is updated, and the PR tells the owner which backup path
