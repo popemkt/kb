@@ -47,6 +47,17 @@ function extensionsDir(root: string): string {
 const NAME_RE = /^[\w][\w.-]*$/;
 const PAGE_ENTRIES = [".page.tsx", ".page.ts"];
 
+/** A discovery location, ordered nearest first. */
+export interface ExtensionFolder {
+  readonly dir: string;
+  readonly origin: string;
+}
+
+/** The root's own extension folder. */
+export function ownExtensionFolder(root: string): ExtensionFolder {
+  return { dir: extensionsDir(root), origin: "own" };
+}
+
 /** An extension whose closure was read: its file, its name, its server entry's path, its closure. */
 export interface ClosedExtension {
   readonly file: string;
@@ -211,24 +222,27 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
 });
 
 /**
- * The closures of `root`'s extensions, each bundled now; each that cannot
+ * The closures in the ordered folders, each bundled now; each that cannot
  * be closed over is a failure. Nothing of them has run.
  */
 export const readClosures = Effect.fn("kb.readClosures")(function* (
-  root: string,
+  folders: readonly ExtensionFolder[],
 ): Effect.fn.Return<
   { readonly closures: readonly ClosedExtension[]; readonly failures: readonly ExtensionFailure[] },
   never,
   FileSystem
 > {
-  const dir = extensionsDir(root);
-  const entries = yield* entriesOf(dir).pipe(Effect.result);
-  if (Result.isFailure(entries)) {
-    return { closures: [], failures: [{ file: ".kb/extensions", error: entries.failure }] };
-  }
-  if (entries.success === null) return { closures: [], failures: [] };
+  const closures: ClosedExtension[] = [];
   const failures: ExtensionFailure[] = [];
-  return { closures: yield* closed(dir, entries.success, failures), failures };
+  for (const { dir } of folders) {
+    const entries = yield* entriesOf(dir).pipe(Effect.result);
+    if (Result.isFailure(entries)) {
+      failures.push({ file: dir, error: entries.failure });
+      continue;
+    }
+    if (entries.success !== null) closures.push(...(yield* closed(dir, entries.success, failures)));
+  }
+  return { closures, failures };
 });
 
 /**

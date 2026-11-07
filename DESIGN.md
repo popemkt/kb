@@ -2807,6 +2807,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   another's service (identity, and the guard and interceptor points). **Isolation**,
   a sub-scope with its own implementation of a name, kb does not have; it
   is a later design if something needs it.
+- Discovery reads an ordered list of extension folders, each with a directory
+  and origin. The root supplies its own `.kb/extensions/` folder.
 - **Repository extensions** run as owner code, on the server and in the
   page, like a DeepSeek Harness plugin, so a root's extension runs only once
   a person has trusted it on this machine. What a person trusts is its

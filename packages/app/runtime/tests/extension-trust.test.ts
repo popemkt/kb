@@ -435,7 +435,9 @@ export default definePlugin({
       const swapped = HELLO.replace("hello: true", "hello: false");
       const discovered = await Effect.runPromise(
         Effect.gen(function* () {
-          const { closures } = yield* readClosures(root);
+          const { closures } = yield* readClosures([
+            { dir: join(root, ".kb", "extensions"), origin: "own" },
+          ]);
           return yield* importClosures((yield* trustedOf(closures)).trusted);
         }).pipe(
           Effect.provideService(CodeTrust, {

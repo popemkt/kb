@@ -26,6 +26,7 @@ import { deploys, governanceMode } from "./deployment.ts";
 import {
   importClosures,
   readClosures,
+  ownExtensionFolder,
   trustedOf,
   type ClosedExtension,
 } from "./extension-loader.ts";
@@ -113,7 +114,7 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   if (root === null) return { ...deployed(), failures: [] };
   let reading = closureCache.get(root);
   if (reading === undefined) {
-    reading = yield* Effect.cached(readClosures(root));
+    reading = yield* Effect.cached(readClosures([ownExtensionFolder(root)]));
     closureCache.set(root, reading);
   }
   const read = yield* reading;
@@ -165,7 +166,7 @@ const composedOf = (closures: readonly ClosedExtension[]): Effect.Effect<RootFam
 export const vouchedFamilies = Effect.fn("kb.vouchedFamilies")(function* (
   root: string,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
-  const read = yield* readClosures(root);
+  const read = yield* readClosures([ownExtensionFolder(root)]);
   const families = yield* composedOf(read.closures);
   return { ...families, failures: [...read.failures, ...families.failures] };
 });
