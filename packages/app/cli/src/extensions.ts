@@ -28,14 +28,9 @@ import { ensureDomainError } from "@kb/model";
 import type { RegisteredAction } from "@kb/operations";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { canonicalRoot } from "@kb/workspace-fs";
+import { admitExtensions, resolveRootEffect, sessionRegistry, writeOut } from "@kb/runtime";
 import {
-  admitExtensions,
-  invokeReceiptEffect,
-  resolveRootEffect,
-  sessionRegistry,
-  writeOut,
-} from "@kb/runtime";
-import {
+  invokeCliEffect,
   ACTION_INVOKE_WIRE,
   EXIT_OK,
   cliAction,
@@ -55,7 +50,7 @@ function footprintRows(output: unknown): readonly FootprintRow[] {
 
 /** Every extension's footprint, by the CLI's wire. */
 const footprint = (ctx: KbContext, name?: string) =>
-  invokeReceiptEffect(
+  invokeCliEffect(
     ctx,
     onWire(ACTION_INVOKE_WIRE, {
       id: "extension.footprint",
@@ -169,7 +164,7 @@ function settingsCommand(ext: Command): void {
     .argument("[name]", "extension name, as `kb ext list` prints it, or core")
     .action(
       kbAction((ctx, globals, [name]: [string | undefined]) =>
-        invokeReceiptEffect(
+        invokeCliEffect(
           ctx,
           onWire(ACTION_INVOKE_WIRE, {
             id: "extension.settings",
@@ -235,7 +230,7 @@ export function extensionCommands(program: Command): void {
           const registry = yield* sessionRegistry(ctx);
           const receipt = yield* footprint(ctx);
           const rows = footprintRows(receipt.status === "succeeded" ? receipt.output : null);
-          const listing = yield* invokeReceiptEffect(
+          const listing = yield* invokeCliEffect(
             ctx,
             onWire(ACTION_INVOKE_WIRE, { id: "extension.list", input: {} }),
           );

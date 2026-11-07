@@ -10,8 +10,8 @@ import { resolve } from "node:path";
 import type { Command } from "commander";
 import { Effect, Predicate } from "effect";
 import { onWire, type ActionReceipt, type KbContext } from "@kb/contracts";
-import { invokeReceiptEffect, writeErr, type ActionHandlerEnv } from "@kb/runtime";
-import { kbAction, ACTION_INVOKE_WIRE, report } from "./command.ts";
+import { writeErr, type ActionHandlerEnv } from "@kb/runtime";
+import { invokeCliEffect, kbAction, ACTION_INVOKE_WIRE, report } from "./command.ts";
 
 /** One location row as printed: its fields read loosely, since the action's schema is the family's. */
 interface PrintedRow {
@@ -63,7 +63,7 @@ function rowLine(row: PrintedRow): string {
 }
 
 const call = (ctx: KbContext, id: string, input: unknown) =>
-  invokeReceiptEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
+  invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
 
 /**
  * The location `target` names: its id, else its one label, else its path.

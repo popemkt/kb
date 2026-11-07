@@ -128,7 +128,7 @@ export const PAGE_WIRE: SurfaceWire = { carriesApproval: true, actor: "human", r
  */
 // GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]
 export function hasPerson(invocation: ActionInvocation): boolean {
-  return invocation.approved === true || invocation.actor === "human";
+  return invocation.approved ?? invocation.actor === "human";
 }
 
 /**

@@ -586,14 +586,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a thread/message node model the bridge writes, and resume from it
 - **node** — `01M40WSVNKVH3ZY8QE0GN5DY8X`
 
-### GAP: an action that declares approval required runs without a person
-
-- **expected** — The governance family contributes approvalGuard for actions declaring approval: "required": such a call is answered approval_required unless hasPerson holds; the CLI asks on the TTY and retries with approved; MCP never carries approval.
-- **current** — No guard is contributed; sandbox.trust and script.run run for any caller, an agent's included.
-- **impact** — An agent can install an extension and then trust it, which completes a remote-code path with no person.
-- **closes** — Step 0 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTR1775DH21W4KB26W3ZXV`
-
 ### GAP: an approval-required action cannot be invoked over MCP
 
 - **expected** — an MCP caller can obtain approval and then invoke an approval-required write
@@ -879,14 +871,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
 
-### GAP: governance ships no rules that bite — policies empty, guards uncontributed, actors only recorded
-
-- **expected** — The governance family contributes its approval and force guards on the invoke core's guard point, and seeds default policies (an agent asks before deleting, switching an extension, rewriting the store; never trusts code), so a caller that is not the person is asked or refused.
-- **current** — governancePlugin contributes no guard and governanceSeedNodes seeds no policy; approvalGuard, forceGuard and resolveApproval are defined but nothing loads them; every call runs whoever makes it, and its actor is only recorded on the tx record. The enforcement tests (approval policies, force, configuration writes, the surface contract's approval properties) were deleted rather than kept skipped, so nothing describes enforcement that no longer exists.
-- **impact** — An agent (MCP, the sidebar, WebMCP) or any local program reaching kb ui can delete nodes, switch extensions, write configuration, trust code and set force with no prompt. Governance is not a security boundary here; tailnet grants and Unix accounts are.
-- **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
-- **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
-
 ### GAP: GPU backdrops paint an opaque frame over the page's flat ground
 
 - **expected** — The scene stage has an alpha mode: a backdrop's canvas is transparent where its scene is absent (the feather, the veil), so the page's own ground, flat or a theme's ground art, shows through around it.
@@ -902,6 +886,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No relation labels in 3D.
 - **closes** — force3d draws label sprites and declares the setting.
 - **node** — `01M545DCC35V9CCSQQKYF80VKQ`
+
+### GAP: graph policies, delegated approval and force governance remain deferred
+
+- **expected** — The governance family contributes its approval and force guards on the invoke core's guard point, and seeds default policies (an agent asks before deleting, switching an extension, rewriting the store; never trusts code), so a caller that is not the person is asked or refused.
+- **current** — Core enforces declared required approval in every deployment, including governance off. Governance retains policy vocabulary only; its unread resolver and guards have been removed. Policies, delegated approval and force remain deferred.
+- **impact** — An agent (MCP, the sidebar, WebMCP) or any local program reaching kb ui can delete nodes, switch extensions, write configuration, trust code and set force with no prompt. Governance is not a security boundary here; tailnet grants and Unix accounts are.
+- **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
+- **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
 
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 

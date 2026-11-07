@@ -1,5 +1,5 @@
 /**
- * `#approval-policy` nodes as the resolver reads them, and the defaults the
+ * `#approval-policy` nodes as the vocabulary reader reads them, and the defaults the
  * seed writes (DESIGN.md → Action registry → Approval).
  */
 import { describe, expect, test } from "bun:test";

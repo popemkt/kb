@@ -9,12 +9,18 @@
 import type { Command } from "commander";
 import { Effect, Predicate } from "effect";
 import { onWire, type KbContext } from "@kb/contracts";
-import { invokeReceiptEffect, writeErr } from "@kb/runtime";
+import { writeErr } from "@kb/runtime";
 import { toInt } from "./arguments.ts";
-import { ACTION_INVOKE_WIRE, kbAction, report, type GlobalOpts } from "./command.ts";
+import {
+  invokeCliEffect,
+  ACTION_INVOKE_WIRE,
+  kbAction,
+  report,
+  type GlobalOpts,
+} from "./command.ts";
 
 const call = (ctx: KbContext, id: string, input: unknown) =>
-  invokeReceiptEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
+  invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
 
 /** `--kinds mention,prop:<field>`: the comma list as the action's kinds; the action holds each to an edge kind. */
 function kindsInput(kinds: string | undefined): { kinds?: string[] } {

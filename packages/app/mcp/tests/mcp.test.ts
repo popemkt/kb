@@ -1,3 +1,4 @@
+import { requiresApproval } from "@kb/contracts";
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { present } from "@kb/model";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -67,11 +68,13 @@ describe("MCP surface", () => {
     const listed = await client.listTools();
     const names = new Set(listed.tools.map((t) => t.name));
     expect(names.has("kb_manifest")).toBe(true);
-    // Nothing asks an agent while policies are deferred, so every action is
-    // a tool, even one that declares approval. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+    // A tool cannot carry a person's approval.
     for (const entry of await run(manifest(root))) {
       const tool = entry.id.replaceAll(".", "_");
-      expect({ tool, listed: names.has(tool) }).toEqual({ tool, listed: true });
+      expect({ tool, listed: names.has(tool) }).toEqual({
+        tool,
+        listed: !requiresApproval(entry.mode),
+      });
     }
 
     const nodeAddTool = listed.tools.find((t) => t.name === "node_add");
