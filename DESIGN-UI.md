@@ -4458,6 +4458,31 @@ A PR for a backdrop reports a score against each criterion.
     composition in `configure` (`SceneConfig.knobs`, the backdrop's values
     but speed and seed, which the stage keeps), so a change lays the scene
     out again as a resize does and a look equal to the one drawn does not.
+- **Its actions.** A double-click on the backdrop's own area shows what
+  it offers, in a small corner of the head (`BackdropCorner`, top right):
+  each action contributed to `BackdropActionPoint` (a label, an icon, and
+  what it does for the backdrop shown), as Backdrop Studio contributes
+  _Open in Studio_. The slot owns the gesture and the corner and names no
+  action; with none contributed a double-click shows nothing.
+  - **Never the page's double-click.** The frame takes no pointer events,
+    so the slot hears the double-click on what covers it, as it hears the
+    pointer (`watchBackdropDoubleClick`), and it is the backdrop's only
+    over the frame and where the page has no use for it: not on anything
+    editable, a control, a link or a label, not one that selected the text
+    under the pointer (a word is selected before the double-click is
+    heard), and not one the page already handled. It never takes the
+    default. A browser double-clicked in empty space may select the
+    nearest word, beside the pointer: that double-click is still the
+    backdrop's, and the word it selected is let go. A selection that stood
+    before the double-click began is the person's, and stays.
+  - **Clear of the title.** The corner stands inside the frame's top edge
+    (`cornerTop`), unless that would bring it down on the title, as for a
+    backdrop with little or no breathing room; then it is lifted until it
+    clears the title, above it.
+  - **Asks for nothing.** The corner fades after a few seconds unless the
+    pointer or focus is on it, Escape dismisses it, it takes no focus, and
+    running an action closes it. It is a positioned layer beside the
+    frame's, not in it, so it paints and is clicked above the page.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -5456,6 +5481,8 @@ it as kb's own are, and a family switched off takes its backdrops out.
     its canvas (`data-gpu-ms`, else `data-frame-ms`; `data-quality`;
     `data-backend`), against the budget its contribution declares; a
     backdrop no host meters says so (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]).
+- **Reached** from a page head: a double-click on its backdrop offers
+  _Open in Studio_ (Its actions, above), which opens the backdrop shown.
 - **Lazy.** The page's module and everything under it load only when the
   studio is opened, and a scene's own code only when it is shown.
 

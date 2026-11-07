@@ -21,7 +21,7 @@ export interface PointerSource {
 }
 
 /** The nearest ancestor of `frame` whose box covers the frame's own, else the document element. */
-function coveringAncestor(frame: HTMLElement): HTMLElement {
+export function coveringAncestor(frame: HTMLElement): HTMLElement {
   const box = frame.getBoundingClientRect();
   for (let up = frame.parentElement; up !== null; up = up.parentElement) {
     const outer = up.getBoundingClientRect();
