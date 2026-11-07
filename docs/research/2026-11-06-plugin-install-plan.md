@@ -95,6 +95,31 @@ home store (`<data>/home`). One function owns it (`dataPath`, beside
 `homePath` derives from it. A test run must name `KB_DATA`, as it must name
 `KB_HOME`.
 
+**The directory kb starts in has no say over it.** Bun auto-loads `.env` and
+`bunfig.toml` from the working directory. A clone's `.env` could set
+`KB_DATA` to a forged trust ledger, and a `bunfig.toml` `preload` runs code
+before kb's entry does (T15). So kb is launched with exactly the flags in
+`packages/infrastructure/child-process/src/kb-launch-flags.txt`, shipped
+verbatim as `lib/kb/launch-flags`: `--no-env-file` and `--config=/dev/null`
+(an explicit empty config, for macOS and Linux delivery).
+
+- **One adapter applies them.** `bin/kb-bun` reads the file and executes
+  Bun. The checkout's `bin/kb`, the release launcher and the repo's Nix
+  packaging all go through it. A wrapper that calls Bun directly, such as
+  the owner's dotfiles Nix wrapper, must pass exactly those flags before
+  `$out/lib/kb/cli.js`. The file is the release contract that such a
+  wrapper reads.
+- **The entry fails closed.** `cli.js` compares `process.execArgv` with the
+  same embedded file: order does not matter, but no flag may be missing or
+  extra. On a mismatch it exits 78 with `kb: unsafe Bun launch; …`, before
+  it imports the CLI or runtime, so no store is opened.
+- **The honest limit.** A `bunfig.toml` preload runs before any entry
+  code, so the entry check cannot undo one, and it cannot vouch for process
+  state that hostile code has already touched. The flags are what prevents
+  it; the check only catches an ordinary unprotected launch. kb ships
+  Bun-target JS only. A standalone `--compile` binary would need its own
+  rule.
+
 | What | Where | Committed? | Holds |
 |---|---|---|---|
 | Own extensions | `<root>/.kb/extensions/` | yes | files, as today |
@@ -576,6 +601,7 @@ shows that nothing about them is special.
 | T12 | **Forged trust from a repository.** A committed or shipped `.kb/trust.json` names this hostname and a hostile digest. | kb never reads a root's trust file as trust. Import is an approval-required gesture that shows its digests and imports this machine's records only. Reads never write (§4). | step 1 |
 | T13 | **Imposter commit.** `github:trusted-org/x@<sha>` names a commit pushed only to a fork, which GitHub serves through the parent's URL. | `read` refuses a `rev` not reachable from a ref of the named repo (§3, Transport), on install, restore and update. | contract suite (step 3) |
 | T14 | **A repository links outside itself.** A clone's store lock links `../notes/.kb/extensions`, or a force-added or archived `.kb/extensions.local.json` carries a local-scope link there. Shared trust then runs what you trusted in that sibling store inside the clone (found reviewing kb#120). | A store-scope link must resolve inside the repo, symlinks included (§2, Links). Outside links live only in the local and user locks, and both sit in per-user state under `<data>`, never in the root. A selection file inside the repo is ignored and reported, because gitignore is not an authority boundary (§1). | steps 4 and 8 |
+| T15 | **The working directory configures the runtime.** Starting kb inside a clone lets Bun auto-load its `.env` (`KB_DATA` pointing at a forged trust ledger) and its `bunfig.toml` (a `preload` runs before kb). | kb is launched only with `--no-env-file --config=/dev/null`, from one shipped flag file, through `bin/kb-bun` or a wrapper that passes the same flags. `cli.js` exits 78 when its `execArgv` doesn't match. A preload can't be undone after the fact, so the flags are the defence (§1). | step 1 (`KB startup contract`) |
 
 ## 9. What not to build
 
@@ -639,6 +665,13 @@ decision Q1).
   - two processes trusting at once keep every digest;
   - another machine's records still count for nothing;
   - a test run without `KB_DATA` fails;
+  - the shared `KB startup contract` suite runs over the checkout, release
+    and Nix-style launchers. In a hostile working directory:
+    - a `.env` setting `KB_DATA` doesn't reach kb's environment;
+    - a `bunfig.toml` preload doesn't run;
+    - repo-local selection files grant nothing;
+    - a raw `bun cli.js` with no launch flags, or with an extra one, exits
+      78 before opening a store;
   - `.gitignore` is updated, and the PR tells the owner which backup path
     moved.
 
