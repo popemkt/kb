@@ -170,6 +170,43 @@ describe("a knob's value read back", () => {
     expect(read(1.3)).toBe(1.25);
   });
 
+  test("a number on a step written in exponent notation keeps its decimals", () => {
+    // String(1e-7) is "1e-7": seven decimals, though it holds no point.
+    const FINE: Knob = {
+      kind: "number",
+      id: "fine",
+      label: "Fine",
+      min: 0,
+      max: 0.000001,
+      step: 1e-7,
+      default: 5e-7,
+    };
+    const field = knobFieldId(HOLE_NODE, "fine");
+    const read = (v: number) => knobValues([FINE], HOLE_NODE, { [field]: [{ t: "num", v }] }).fine;
+    expect(read(5e-7)).toBe(5e-7);
+    expect(read(5.4e-7)).toBe(5e-7);
+    expect(read(1.5e-6)).toBe(0.000001);
+  });
+
+  test("a number on a step whose origin is not whole stays on its step", () => {
+    // Steps of 0.1 counted from 0.05: 0.15 is a step, 0.2 is not.
+    const OFFSET: Knob = {
+      kind: "number",
+      id: "offset",
+      label: "Offset",
+      min: 0.05,
+      max: 0.95,
+      step: 0.1,
+      default: 0.15,
+    };
+    const field = knobFieldId(HOLE_NODE, "offset");
+    const read = (v: number) =>
+      knobValues([OFFSET], HOLE_NODE, { [field]: [{ t: "num", v }] }).offset;
+    expect(read(0.15)).toBe(0.15);
+    expect(read(0.17)).toBe(0.15);
+    expect(read(0.95)).toBe(0.95);
+  });
+
   test("an enum's option by its ref, a colour lower-cased, a whole seed, a checkbox", () => {
     const look = knobFieldId(HOLE_NODE, "look");
     expect(
