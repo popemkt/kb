@@ -150,5 +150,7 @@ describe("lint-warn-ratchet", () => {
       ...ratchetMismatches(baseline.lanes.knip, knip.findings, "knip"),
     ];
     expect(mismatches, mismatches.join("\n")).toEqual([]);
-  }, 120000);
+    // This collector starts a compiler per project. Budget for a nice-15 shared
+    // host with bounded workers; the assertions and diagnostic scope are unchanged.
+  }, 300000);
 });
