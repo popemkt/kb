@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  BackdropFrame,
-  BackdropPoint,
-  HoldStill,
-  useContributions,
-  usePageBackdrop,
-  QUIET_ACTIVITY,
-  type PointerSource,
-} from "@kb/ui-sdk";
+import { usePageBackdrop } from "../hooks";
+import { BackdropPoint, QUIET_ACTIVITY, useContributions } from "../lib/plugins";
+import type { PointerSource } from "../lib/pointer-over";
+import { HoldStill } from "./hold-still";
+import { BackdropFrame } from "./page-backdrop";
 
 /** The width a card draws its backdrop's frame at, then scales into the card: a side panel's, the narrowest a head is drawn. */
 const FRAME_WIDTH = 480;
@@ -51,11 +47,13 @@ function useSeen(box: HTMLElement | null): { readonly seen: boolean; readonly wi
 /**
  * A backdrop's card window: its own renderer, drawn in its own frame at a
  * side panel's width and scaled into the card, as a still (`HoldStill`), at
- * the strength and direction the page is set to (`BackdropPreview` sets it
- * over the theme it belongs to). The frame mounts when the card is first
- * on screen, so a gallery costs what it shows.
+ * the strength and direction the page is set to. The frame mounts when the
+ * card is first on screen, so a gallery costs what it shows. Every gallery
+ * of backdrops draws its cards with it: Settings' backdrop field (its
+ * option preview, which sets it over the theme it belongs to) and the
+ * backdrops' own studio.
  */
-export default function BackdropCard({ id }: { readonly id: string }) {
+export function BackdropCard({ id }: { readonly id: string }) {
   const backdrop = useContributions(BackdropPoint).find(({ value }) => value.key.id === id);
   const { strength, direction, art, variants } = usePageBackdrop();
   const [box, setBox] = useState<HTMLSpanElement | null>(null);

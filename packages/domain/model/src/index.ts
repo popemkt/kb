@@ -164,6 +164,7 @@ export {
   BACKDROP_VARIANT_OPTIONS,
   backdropChoice,
   backdropOptionId,
+  backdropVariantId,
   backdropVariantOptionId,
   backdropVariantOptions,
   DEFAULT_BACKDROP_STRENGTH,
@@ -183,6 +184,7 @@ export {
   knobFieldId,
   knobFields,
   knobOptionId,
+  knobPropValue,
   knobValues,
 } from "./knob-fields.ts";
 export {

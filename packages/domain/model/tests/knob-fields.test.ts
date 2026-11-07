@@ -22,8 +22,11 @@ import {
   foldSeed,
   knobFieldId,
   knobOptionId,
+  knobPropValue,
   knobValues,
   type Knob,
+  type KnobValue,
+  type KnobValues,
   type KbNode,
   type PropValue,
   type SeedBackdrop,
@@ -205,6 +208,7 @@ describe("a knob's value read back", () => {
     expect(read(0.15)).toBe(0.15);
     expect(read(0.17)).toBe(0.15);
     expect(read(0.95)).toBe(0.95);
+    expect(knobPropValue(OFFSET, field, 0.15)).toEqual({ t: "num", v: 0.15 });
   });
 
   test("an enum's option by its ref, a colour lower-cased, a whole seed, a checkbox", () => {
@@ -244,5 +248,40 @@ describe("a knob's value read back", () => {
       spin: -1,
     });
     expect(backdropKnobValues(HOLE, "plain", backdrop, undefined)).not.toHaveProperty("spin");
+  });
+});
+
+describe("a knob's value written", () => {
+  const written = (knob: Knob, value: KnobValue) =>
+    knobPropValue(knob, knobFieldId(HOLE_NODE, knob.id), value);
+
+  test("reads back as the value it was written from, for every kind", () => {
+    const values: KnobValues = {
+      speed: 1.5,
+      look: "ink",
+      tint: "#00aaff",
+      seed: 42,
+      grain: false,
+    };
+    const props = Object.fromEntries(
+      (HOLE.knobs ?? []).flatMap((knob) => {
+        const value = written(knob, values[knob.id] ?? knob.default);
+        return value === null ? [] : [[knobFieldId(HOLE_NODE, knob.id), [value]]];
+      }),
+    );
+    expect(knobValues(HOLE.knobs ?? [], HOLE_NODE, props)).toEqual(values);
+  });
+
+  test("an enum's value is the ref to its option, a number its step", () => {
+    const look = knobFieldId(HOLE_NODE, "look");
+    expect(written(LOOK, "ink")).toEqual({ t: "ref", v: knobOptionId(look, "ink") });
+    expect(written(SPEED, 1.3)).toEqual({ t: "num", v: 1.25 });
+  });
+
+  test("is none where it holds none, a seed left to each load, or one its knob refuses", () => {
+    expect(written(SEED, null)).toBeNull();
+    expect(written(LOOK, "chrome")).toBeNull();
+    expect(written(TINT, "orange")).toBeNull();
+    expect(written(GRAIN, 1)).toBeNull();
   });
 });

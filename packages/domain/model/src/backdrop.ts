@@ -84,13 +84,17 @@ export const BACKDROP_VARIANT_OPTIONS: DeclaredOptions = {
   prefix: "sys.backdrop-variant.",
 };
 
-/** A variant's declared id: its backdrop's, then its own. */
+/** The declared id of the variant `variant` (its local id) of the backdrop `backdrop`: its backdrop's, then its own. */
+export function backdropVariantId(backdrop: string, variant: string): string {
+  return `${backdrop}.${variant}`;
+}
+
 const variantId = (backdrop: SeedBackdrop, variant: BackdropVariant): string =>
-  `${backdrop.id}.${variant.id}`;
+  backdropVariantId(backdrop.id, variant.id);
 
 /** The option node that names the variant `variant` of the backdrop `backdrop` under `sys.f.backdrop.variant`. */
 export function backdropVariantOptionId(backdrop: string, variant: string): NodeId {
-  return declaredOptionId(BACKDROP_VARIANT_OPTIONS, `${backdrop}.${variant}`);
+  return declaredOptionId(BACKDROP_VARIANT_OPTIONS, backdropVariantId(backdrop, variant));
 }
 
 /**

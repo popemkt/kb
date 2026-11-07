@@ -154,6 +154,7 @@ export {
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
 export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
+export { BackdropCard } from "./components/backdrop-card";
 export { HoldStill } from "./components/hold-still";
 export { ThemeArt } from "./components/theme-art";
 
@@ -547,7 +548,12 @@ export {
 export { setToastSink, toast } from "./lib/toast";
 export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
-export { placeOver, type PointerPlace, type PointerSource } from "./lib/pointer-over";
+export {
+  placeOver,
+  usePointerOver,
+  type PointerPlace,
+  type PointerSource,
+} from "./lib/pointer-over";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
 export { tagOpeningOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";

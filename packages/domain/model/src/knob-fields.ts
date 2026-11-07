@@ -7,8 +7,8 @@
  * an agent's `node.update`. The fold seeds no value: an absent one is the
  * knob's default, and taking a value out (`kb unset`) resets it.
  *
- * This module is the one home of the fields' ids, their types and how a
- * value held reads back against its knob.
+ * This module is the one home of the fields' ids, their types, and how a
+ * value is written to its field and read back against its knob.
  */
 import { backdropOptionId, backdropVariantOptionId, type SeedBackdrop } from "./backdrop.ts";
 import { KNOB_COLOR, type Knob, type KnobValue, type KnobValues } from "./knob.ts";
@@ -108,6 +108,36 @@ function readHeld(knob: Knob, field: NodeId, held: PropValue | undefined): KnobV
       const option = knob.options.find(({ id }) => knobOptionId(field, id) === held.v);
       return option?.id;
     }
+  }
+}
+
+/**
+ * The value `field` holds for `value` of `knob`: what reads back as it
+ * (`knobValues`), a number on its step, an enum's option as the ref to its
+ * option node. Null where it holds none: a seed left to each load, or a
+ * value its knob does not accept.
+ */
+export function knobPropValue(knob: Knob, field: NodeId, value: KnobValue): PropValue | null {
+  switch (knob.kind) {
+    case "number":
+      return typeof value === "number" && Number.isFinite(value)
+        ? { t: "num", v: stepped(knob, value) }
+        : null;
+    case "seed":
+      return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+        ? { t: "num", v: value }
+        : null;
+    case "boolean":
+      return typeof value === "boolean" ? { t: "bool", v: value } : null;
+    case "color":
+      return typeof value === "string" && KNOB_COLOR.test(value)
+        ? { t: "str", v: value.toLowerCase() }
+        : null;
+    case "enum":
+    default:
+      return typeof value === "string" && knob.options.some(({ id }) => id === value)
+        ? { t: "ref", v: knobOptionId(field, value) }
+        : null;
   }
 }
 

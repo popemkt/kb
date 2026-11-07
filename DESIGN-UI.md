@@ -850,7 +850,8 @@ core's design-system plugin previews a design system with its swatch and,
 at card size, a small page its sheet paints with what the theme brings
 under it (its extension, the backdrop it pairs, its motion preset); and
 a backdrop with its theme's swatch at chip size and, at card size, the
-backdrop itself (`BackdropCard`): its own renderer in the frame the head
+backdrop itself (`BackdropCard`, the kit's, the one card every gallery
+of backdrops draws): its own renderer in the frame the head
 draws (`BackdropFrame`), laid out at a side panel's width and scaled into
 the card, at the strength and direction in force, hearing no owner, and
 held still (`HoldStill`, Motion options), mounted once the card is on
@@ -5418,6 +5419,45 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   fields row too, or it paints under the scene.
 - **The contract.** `@kb/backdrops-ui` runs the scene contract over every
   GPU scene, each on a dark page and a light one.
+
+#### Backdrop Studio
+
+The backdrops family's one view (`BackdropStudioView`, `backdrops.studio`),
+where each backdrop is a scene of its own, as each of the lab's studies is
+(The lab). It is every backdrop's, not the family's own: it lists what
+`BackdropPoint` holds now, so a backdrop another family contributes is in
+it as kb's own are, and a family switched off takes its backdrops out.
+
+- **Routes.** `/backdrops` is the gallery, `/backdrops/<id>` one backdrop
+  by its declared id (`matchStudio`, `studioPath`); a full-frame page. An
+  id nothing contributes now says so.
+- **The gallery** draws each backdrop with the card Settings draws
+  (`BackdropCard`, Option previews): a still, mounted once it is on
+  screen, under its name, its credit, its count of knobs, and whether it
+  is the one the owner's pages show.
+- **One backdrop** is its scene full-size in the frame every head draws
+  (`BackdropFrame`, its placement the whole page under a thin header), so
+  what the studio shows is what a head shows, and it is the only scene
+  running: the gallery is not mounted under it.
+  - The header: back to the gallery, its name and credit, a variant
+    switcher (it pins the one shown; the studio opens on the variant a
+    head would draw now), a strength preview (the studio's own, written
+    nowhere), the perf readout, and **Use as my page backdrop**, which
+    writes core's backdrop setting as Settings does.
+  - The **knob panel** draws the backdrop's knobs and the shown variant's
+    with the one knob control (`KnobControl`), each labelled and reached by
+    keyboard, each with a reset to its default, and a reset for all. A
+    value is a setting on its holder's node (Knobs, above), written
+    through the page's writes (`knobPropValue`, the inverse of reading it
+    back): it reaches every head that shows it, and a control that moves
+    continuously settles first, so a drag is one write and one undo.
+    Leaving the studio writes what is still settling.
+  - The **perf readout** is what the scene's own meter measured, read off
+    its canvas (`data-gpu-ms`, else `data-frame-ms`; `data-quality`;
+    `data-backend`), against the budget its contribution declares; a
+    backdrop no host meters says so (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]).
+- **Lazy.** The page's module and everything under it load only when the
+  studio is opened, and a scene's own code only when it is shown.
 
 ### Type scale
 
