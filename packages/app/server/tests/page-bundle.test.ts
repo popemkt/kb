@@ -66,9 +66,14 @@ const DATASCRIPT = /cljs\.core/;
  * declared knobs (3.6 KB over fourteen), their fold into the seed's fields
  * and a page head's values (`knob-fields`, 1.7 KB), and what Sky, drawn
  * with the page, reads of its own (1 KB); the knob control loads lazily.
+ * And by 3 KB (3,000 bytes measured) for Backdrop Studio: a backdrop's card
+ * is the kit's, which every gallery of backdrops draws (1.4 KB; deferred, it
+ * split the kit's eager chunks and cost 2.1 KB more), and the Studio's route,
+ * surface and view option, which the page reads to route (0.9 KB); the
+ * Studio's page and scenes load lazily.
  */
 // The routines family adds its native field/tag vocabulary; its worker remains server-side.
-const EAGER_BUDGET_BYTES = 2_022_500;
+const EAGER_BUDGET_BYTES = 2_025_500;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
