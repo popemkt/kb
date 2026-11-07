@@ -21,9 +21,12 @@ import {
 } from "@kb/backdrops";
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
+import { SlidersHorizontalIcon } from "@phosphor-icons/react";
 import {
   BACKDROP_BUDGETS,
+  BackdropActionPoint,
   BackdropPoint,
+  navigate,
   provideBackdrop,
   provideRoute,
   provideView,
@@ -45,7 +48,7 @@ import {
 } from "./gpu/backdrops";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
-import { matchStudio } from "./studio/routes";
+import { matchStudio, studioPath } from "./studio/routes";
 import { StudioSurface } from "./studio/surfaces";
 import { GradientBackdrop } from "./tint-backdrop";
 import { UnicornWashBackdrop } from "./unicorn-backdrop";
@@ -228,7 +231,8 @@ const discField: Omit<Backdrop, "key"> = {
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
  * choice is made), Backdrop Studio's view and its route (`/backdrops`, the
- * gallery; `/backdrops/<id>`, one backdrop), with the family's shared
+ * gallery; `/backdrops/<id>`, one backdrop), and "Open in Studio" among a
+ * head's backdrop actions (`BackdropActionPoint`), with the family's shared
  * plugin as a child, which brings the studio's key to the page's catalog.
  */
 export const backdropsUiPlugin = definePlugin({
@@ -273,6 +277,14 @@ export const backdropsUiPlugin = definePlugin({
             pendingTitle: () => "Opening Backdrop Studio…",
           }),
         ),
+        ctx.contribute(BackdropActionPoint, {
+          id: "studio",
+          value: {
+            label: "Open in Studio",
+            icon: SlidersHorizontalIcon,
+            run: (backdrop) => navigate(studioPath(backdrop)),
+          },
+        }),
       ],
       { discard: true },
     ),

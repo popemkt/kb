@@ -97,6 +97,8 @@ export {
   currentView,
   currentService,
   type Backdrop,
+  type BackdropAction,
+  BackdropActionPoint,
   BackdropPoint,
   chosenDeclared,
   provideDeclared,

@@ -425,6 +425,21 @@ export interface Backdrop {
 export const BackdropPoint = Point<Backdrop>()("ui.backdrops");
 
 /**
+ * Something a page head's backdrop offers where its owner double-clicks it
+ * (DESIGN-UI.md → Page-head backdrops → Its actions): the slot owns the
+ * gesture and the corner it shows them in, and names none; a family
+ * contributes what it offers, as Backdrop Studio offers "Open in Studio".
+ */
+export interface BackdropAction {
+  readonly label: string;
+  readonly icon: Icon;
+  /** Do it for the backdrop the head shows, by its declared id (`SeedBackdrop.id`). */
+  readonly run: (backdrop: string) => void;
+}
+
+export const BackdropActionPoint = Point<BackdropAction>()("ui.backdrop-actions");
+
+/**
  * The backdrop its family declares as `key`, as its page plugin contributes
  * it: under the key's local id, so in the family's namespace it answers to
  * the declared id, as a view answers to its key (`provideView`).

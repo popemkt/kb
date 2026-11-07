@@ -17,7 +17,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { prerender } from "react-dom/static";
 import { Effect } from "effect";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import {
   NO_SWITCHES,
@@ -222,6 +222,13 @@ function slot(node?: OutlineNode): HTMLElement | null {
     createElement(PageBackdrop, { color: "red", ...(node === undefined ? {} : { node }) }),
   );
   return host.querySelector<HTMLElement>(".kb-header-backdrop");
+}
+
+/** Escape, as a person presses it anywhere on the page. */
+function escape() {
+  act(() => {
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+  });
 }
 
 describe("every contributed page-head backdrop", () => {
@@ -551,6 +558,73 @@ describe("every contributed page-head backdrop", () => {
         }),
       );
       expect(writes()).toBeGreaterThan(before);
+    });
+
+    describe("double-clicked", () => {
+      const corner = () => container.querySelector("[data-backdrop-corner]");
+      /** A double-click at `x, y`, landing where the slot listens: on what covers its frame. */
+      const doubleClick = (x: number, y: number) => {
+        const frame = container.querySelector<HTMLElement>(".kb-header-backdrop");
+        const cover = frame?.parentElement ?? null;
+        if (frame === null || cover === null) throw new Error("the slot drew no frame");
+        frame.getBoundingClientRect = () =>
+          ({ left: 100, top: 40, width: 300, height: 120, right: 400, bottom: 160 }) as DOMRect;
+        const event = new window.MouseEvent("dblclick", {
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+        });
+        act(() => {
+          cover.dispatchEvent(event);
+        });
+        return event;
+      };
+      const action = (label: string) => {
+        const found = [...(corner()?.querySelectorAll("button") ?? [])].find(
+          (button) => button.textContent === label,
+        );
+        if (found === undefined) throw new Error(`the corner offers no ${label}`);
+        return found;
+      };
+
+      it("on its own area, shows its actions in the corner, taking no default; Escape dismisses them", () => {
+        expect(corner()).toBeNull();
+        expect(doubleClick(200, 80).defaultPrevented).toBe(false);
+        expect(corner()?.getAttribute("data-backdrop-corner")).toBe(PLAIN_KEY.id);
+        escape();
+        expect(corner()).toBeNull();
+      });
+
+      it("outside its frame, shows nothing", () => {
+        doubleClick(600, 80);
+        expect(corner()).toBeNull();
+      });
+
+      it("offers Backdrop Studio, which opens the backdrop shown", () => {
+        doubleClick(200, 80);
+        act(() => action("Open in Studio").click());
+        expect(window.location.pathname).toBe(`/backdrops/${PLAIN_KEY.id}`);
+        expect(corner()).toBeNull();
+        act(() => window.history.pushState(null, "", "/"));
+      });
+
+      it("fades on its own after a few seconds", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+          doubleClick(200, 80);
+          act(() => {
+            vi.advanceTimersByTime(3000);
+          });
+          expect(corner()).not.toBeNull();
+          act(() => {
+            vi.advanceTimersByTime(2000);
+          });
+          expect(corner()).toBeNull();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
     });
   });
 
