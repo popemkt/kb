@@ -2259,11 +2259,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   `outsideRoot: true`: the action reaches past its kb root, to another
   store on this machine or a process it starts. Without it, an action
   touches only its root, and a write that reaches outside counts as
-  `delegated`. **Core decides nothing by a declaration.** It is what a
-  guard may read: the governance family's resolver turns it into a
-  decision for the caller (`declaredDecision`), and that family contributes
-  no guard for now (Current stance, below), so every call runs
-  whatever its mode declares. The manifest publishes the
+  `delegated`. **Core enforces declared required approval**, including a batch's
+  parts, in every deployment; no deployment turns it off. Governance may add
+  policy on top (Current stance below). The manifest publishes the
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
   - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is
@@ -2379,37 +2377,29 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       under the runtime is therefore guarded whoever planned it.
     - The page provides its own listeners for local calls.
     - Without a provider, a call has no listeners.
-- **Current stance: policies empty; actors recorded; enforcement deferred.**
-  The governance family ships no rule that bites. Its plugin contributes no
-  guard (`approvalGuard` and `forceGuard` are defined and loaded by
-  nothing), its seed holds the policy vocabulary, table and pin but no
-  policy, and neither the wire nor the invoke core refuses or asks on its
-  own. So every call runs, whoever makes it, and no surface shows an
-  approval prompt. Who made each call is still known (the wire's actor,
-  below) and recorded on its transaction
-  ([The transaction tail](#the-transaction-tail--the-store-records-what-changed-in-order)),
-  for later use only. Governance is not a security boundary here: who can
-  reach a `kb ui` at all is (tailnet grants, the host's Unix accounts, the
-  request guard). The guard point, the governance family's vocabulary,
-  resolver and guards stay, so policies come back by contributing the
-  guards again (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]` in
-  `governance/src/extension.ts`); the tests of what they enforce are
-  written again with them.
+- **Current stance: core enforces required approval; graph policies are deferred.**
+  The invoke core owns this invariant for invocation and listing, with no
+  dependency on governance or contributed guards. `--governance off` omits
+  policy, never declared required approval. An approved call passes approval
+  to its inner calls; an inner call cannot mint approval or elevate its actor,
+  and entering a script narrows authority and strips approval.
+  The CLI JSON envelope cannot approve. The CLI asks on `/dev/tty`, showing
+  actor, title and input, accepts `y` or `yes`, and declines after 120 seconds.
+  An explicit decline overrides a human gesture. MCP carries no approval.
+  This stops an agent that follows kb's surface and prompt-injected calls;
+  it does not stop a process with a shell, which can allocate a fake pty,
+  forge the page's Origin or write `trust.json`. Governance is not a security
+  boundary; accounts are. GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]
 - **Approval** is the answer to a guard that asks. A call a guard answers
   `ask` runs only with a person behind it (`hasPerson`): it carries
-  `approved: true`, or its actor is `human`, a person's own gesture.
+  `approved: true`, or its actor is `human`, a person's own gesture,
+  with no explicit decline (`approved: false`).
   Otherwise it fails `approval_required`, and a denied call fails
-  `forbidden`. No guard that ships asks for now; the code family's own
+  `forbidden`. The code family's own
   guard denies a script's run of a script (Sandbox → Scripts).
-  - **The governance family** (`@kb/governance`) holds what policies would
-    decide by, uncontributed: the `#approval-policy` vocabulary
-    (`approval.match`, `approval.actor`, `approval.decision` and their
-    options), the resolver (`resolveApproval`, which reads each action's
-    declared approval, Mode above) and its two guards (`approvalGuard`;
-    `forceGuard`, which keeps `force` to the owner's actors,
-    `actsAsOwner`). Their rules are stated with them, in the family's
-    `policy.ts`, `resolve.ts` and `approval.ts`, and return to this
-    document when the guards are contributed again.
+  - **The governance family** holds the policy vocabulary. Its interpreter
+    and policy guards are deferred under GAP [[01M5E2DAVRH5CWKM27BVDYW19T]];
+    no unread resolver or guard implementation is retained.
   - **Policies are managed in a saved table, pinned in the sidebar; there is
     no settings page.** The family seeds no policy. Its query node
     `approval.policies` ("Approval policies") lists every
@@ -2651,8 +2641,7 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     two places a person answers a call a guard asks about: the agent
     sidebar's approval card, which makes the call as the agent's with the
     person's answer (DESIGN-UI.md → Docks), and a code view's, for a call
-    its script made ([Sandbox](#sandbox)). Neither shows while no guard
-    asks.
+    its script made ([Sandbox](#sandbox)). They show when a guard asks.
 - **A batch is decided as what it batches.** An action whose every call is a
   batch of another action's calls declares the parts' ids (`batchOf` on its
   definition; `node.addTree` is a batch of `node.add`). A part's mode is stated once, on the part's own definition:
@@ -3004,22 +2993,10 @@ from "kb-ext-sdk"`. Types are generated from
 
 #### Governance
 
-Approval is policy, and core ships mechanism only, so governance is a
-family: `@kb/governance`, a required bundled family. It defines two guards
-for the guard point ([Action registry](#action-registry) → Interception),
-and its one plugin, the same on the server and in the page, contributes
-neither for now (Action registry → Current stance,
-`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`):
-
-- **`approval`** (`approvalGuard`): the policies and each action's
-  declared mode, through `resolveApproval`, before a call runs and again
-  before it commits;
-- **`force`** (`forceGuard`): the owner's override of the `sys.*` write
-  guard, denied to a call whose actor does not act as the owner
-  (`actsAsOwner`).
-
-Core contributes no guard either. With none that asks or denies, every
-call the core's invariants admit proceeds.
+Declared required approval is a core invariant (Action registry → Current
+stance). Governance is the required bundled policy family `@kb/governance`.
+Its vocabulary remains available, but its policy interpreter and guards
+remain deferred. It currently contributes no guard.
 
 **Whether calls are governed is the deployment's, never the graph's.**
 
@@ -3032,30 +3009,14 @@ call the core's invariants admit proceeds.
   refuses it as it refuses every required family.
 - `kb --governance off` leaves the family out of the composition, its seed
   included, so a store it opens holds none of its nodes. It is meant for a
-  single-user tool where every caller is the owner anyway. While the
-  family contributes no guard, the two modes run the same calls.
+  single-user tool where every caller is the owner anyway. Declared required approval remains enforced by core.
 - The setting is process-wide, set by the CLI before any registry is
   composed (`deployGovernance`, `app/runtime/src/deployment.ts`).
 
-**The family owns all of it.** Its guards, and what they read: the policy
-vocabulary (`GOVERNANCE_IDS`, the actor and decision option ids, the
-policy reader, who acts as the owner, `policy.ts`), the resolver
-(`resolveApproval`, `approvalRefusal`, `writesConfiguration`,
-`resolve.ts`) and the policy seed (the `#approval-policy` tag and its
-fields, their options, the query node, its table and its pin, `seed.ts`),
-which the fold files among core's Views and Pinned lists by the
-declaration's `files`. Core keeps only what every call has whoever governs
-it: who made it, the author its transaction records (`Actor`,
-`@kb/model`), what a guard can decide about it and whether a person stands
-behind it (`APPROVAL_DECISIONS`, `hasPerson`, `@kb/contracts`). No core
-package and no contract suite names a policy: the surface contract reads
-what is decided about each caller through the invoke core's own
-`kb.manifest`. A deployment that leaves the
-family out leaves out its seed too (`deploys`, `deployment.ts`; read by
-`rootFamilies`, which both the registry and the seed compose from), so a
-store opened under `--governance off` holds no policy node. One opened
-earlier with governance keeps the nodes it was seeded with, as a store
-keeps every node: they decide nothing while no guard reads them.
+**The family owns policy vocabulary** (`GOVERNANCE_IDS`, actor and decision
+option ids, policy reader and policy seed). Leaving it out omits that seed;
+existing nodes remain ordinary graph data. Policy enforcement is deferred,
+not a parallel implementation of core's declared-approval invariant.
 
 **The approval card** is drawn where a person answers a call a guard asks
 about: the agent dock and the sandbox runner. It answers any guard's ask,
@@ -5226,11 +5187,9 @@ sends it more than 400 messages a second.
   whose adapter (`@kb/workspace-fs`) keeps `.kb/trust.json`: gitignored,
   backed up by Mackup, each record naming its machine and only this
   machine's honoured (`docs/backup-strategy.md` → kb Code Trust).
-- Who may trust is a policy's to say, and none ships for now: an agent's
-  `sandbox.trust` runs as a person's does, so code can be trusted that no
-  person has seen (Action registry → Current stance,
-  `// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`). A script's cannot, since the
-  action declares no `targets` and so is no code's to call (Grants). Trust changes the engine and
+- Trust requires a person (Action registry → Current stance). A script cannot
+  trust, since the action declares no `targets` and so is no code's to call
+  (Grants). Trust changes the engine and
   its limits, never the capabilities: a trusted run has the same API and
   the same grant.
 - **What trust approves.** Trusting a digest approves the behaviour of
@@ -5312,9 +5271,7 @@ system, one runner, one trust.
 - **Once, on request** (tldraw's exec): `ext.code.script.run` runs a
   trusted `#script` against a node until it is quiet (`snapshotRun`, with
   `CoreInvoke` as `write`), on the host's engine, each call the script's.
-  It declares approval required, which no guard that ships enforces for
-  now (Action registry → Current stance), so a person's run and an
-  agent's both run; an untrusted script is refused before anything runs.
+  It declares required approval (Action registry → Current stance); an untrusted script is refused before anything runs.
   The scripts panel's Run once is the person's. Code never starts a run:
   the code family's guard denies it to `script` (`script-run`), so code
   cannot chain runs.
@@ -5364,6 +5321,8 @@ Each threat, the fences against it, and the tests that pin them.
 | Prompt-injected writes | The grant names every action the code may call; each call is made as `script` and meets its grant at the call and at the commit; the guest cannot set `approved` or its actor; a snapshot refuses every write                                       | contract: outside the grant never reaches the invoke core, approval cannot be self-granted; `capability.test.ts`; `view-render.test.ts` (a snapshot's write is forbidden) |
 | Denial of service      | Turn deadline (interrupt, watchdog), heap and stack caps in QuickJS, message rate and size, waiting-call bound, drawing bound, the page's own rate limit on the frame                                                                                                                      | contract: infinite loop, loop in a handler, memory bomb, flood, oversized, waiting calls; QuickJS heap and stack tests; `sandbox-host.test.ts` (flood)                                                  |
 | Trust spoofing         | The digest is over exactly what runs, computed by the host from the code it runs; trust is local state, per machine, never committed; trusting is a call to `sandbox.trust`, which no guest can reach                                                                                                                          | `capability.test.ts` (digest covers every character and the grant); `trust.test.ts` (per machine)      |
+| Trust by a non-person | Core refuses unapproved required actions even with governance off. A shell can allocate a fake pty or write trust.json directly; accounts bound that power. GAP [[01M413SP3QSSQJMKKDK3W3J6G8]] | surfaceContract; CLI approval test |
+| Forged page Origin | Origin alone selects the person's page wire. A local process can forge it; this is a known limit, not browser authentication. GAP [[01M413SP3QSSQJMKKDK3W3J6G8]] | server/guard.ts; page-wire surface contract |
 
 What the sandbox does not promise: `approved` and the actor are declared,
 not proven (GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]); a Worker's heap is not

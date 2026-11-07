@@ -162,3 +162,6 @@ export function report(
   for (const line of lines(receipt.output)) writeOut(line);
   return EXIT_OK;
 }
+
+/** The CLI owns its invocation edge across every command. */
+export { invokeReceiptEffect as invokeCliEffect } from "@kb/runtime";
