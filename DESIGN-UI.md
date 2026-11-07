@@ -4475,6 +4475,10 @@ A PR for a backdrop reports a score against each criterion.
     nearest word, beside the pointer: that double-click is still the
     backdrop's, and the word it selected is let go. A selection that stood
     before the double-click began is the person's, and stays.
+  - **Clear of the title.** The corner stands inside the frame's top edge
+    (`cornerTop`), unless that would bring it down on the title, as for a
+    backdrop with little or no breathing room; then it is lifted until it
+    clears the title, above it.
   - **Asks for nothing.** The corner fades after a few seconds unless the
     pointer or focus is on it, Escape dismisses it, it takes no focus, and
     running an action closes it. It is a positioned layer beside the

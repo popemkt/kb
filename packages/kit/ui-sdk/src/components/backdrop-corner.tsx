@@ -2,11 +2,13 @@
  * The corner a page head's backdrop shows its actions in (DESIGN-UI.md →
  * Page-head backdrops → Its actions), once its owner double-clicks it
  * (`watchBackdropDoubleClick`): each action offered at
- * `BackdropActionPoint`, a small button in the head's top-right corner.
+ * `BackdropActionPoint`, a small button in the head's top-right corner,
+ * at `top` (`cornerTop`: inside the frame, clear of the title).
  * It asks for nothing: it fades after a few seconds unless the pointer or
  * focus is on it, Escape dismisses it, and it never takes focus.
  */
 import { useEffect, useState } from "react";
+import { CORNER_HEIGHT } from "../lib/backdrop-corner-place";
 import { cn } from "../lib/cn";
 import { BackdropActionPoint, useContributions } from "../lib/plugins";
 
@@ -17,10 +19,13 @@ const FADE_MS = 300;
 
 export function BackdropCorner({
   backdrop,
+  top,
   onClose,
 }: {
   /** The declared id of the backdrop the head shows. */
   readonly backdrop: string;
+  /** Its top, in px from the top of the head's breathing room. */
+  readonly top: number;
   readonly onClose: () => void;
 }) {
   const actions = useContributions(BackdropActionPoint);
@@ -50,9 +55,10 @@ export function BackdropCorner({
   return (
     <div
       className={cn(
-        "pointer-events-auto absolute top-2 right-2 z-10 flex gap-1 transition-opacity duration-300 motion-reduce:transition-none",
+        "pointer-events-auto absolute right-2 z-10 flex gap-1 transition-opacity duration-300 motion-reduce:transition-none",
         fading ? "opacity-0" : "opacity-100",
       )}
+      style={{ top }}
       data-backdrop-corner={backdrop}
       onPointerEnter={() => setPointed(true)}
       onPointerLeave={() => setPointed(false)}
@@ -63,7 +69,8 @@ export function BackdropCorner({
         <button
           key={id}
           type="button"
-          className="flex h-7 items-center gap-1.5 rounded-md border border-foreground/10 bg-popover/85 px-2.5 text-meta text-foreground/75 shadow-lifted backdrop-blur-md hover:text-foreground focus-visible:outline focus-visible:outline-primary"
+          style={{ height: CORNER_HEIGHT }}
+          className="flex items-center gap-1.5 rounded-md border border-foreground/10 bg-popover/85 px-2.5 text-meta text-foreground/75 shadow-lifted backdrop-blur-md hover:text-foreground focus-visible:outline focus-visible:outline-primary"
           onClick={() => {
             onClose();
             run(backdrop);
