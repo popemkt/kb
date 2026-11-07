@@ -4470,7 +4470,13 @@ A PR for a backdrop reports a score against each criterion.
     so the slot hears the double-click on what covers it, as it hears the
     pointer (`watchBackdropDoubleClick`), and it is the backdrop's only
     over the frame and where the page has no use for it: not on anything
-    editable, a control, a link or a label, not one that selected the text under the pointer (a word is selected before the double-click is heard; one a browser selects beside the pointer, from empty space, leaves the double-click the backdrop's), and not one the page already handled. It never takes the default.
+    editable, a control, a link or a label, not one that selected the text
+    under the pointer (a word is selected before the double-click is
+    heard), and not one the page already handled. It never takes the
+    default. A browser double-clicked in empty space may select the
+    nearest word, beside the pointer: that double-click is still the
+    backdrop's, and the word it selected is let go. A selection that stood
+    before the double-click began is the person's, and stays.
   - **Asks for nothing.** The corner fades after a few seconds unless the
     pointer or focus is on it, Escape dismisses it, it takes no focus, and
     running an action closes it. It is a positioned layer beside the

@@ -55,6 +55,8 @@ function dblclick(target: Element, x: number, y: number): MouseEvent {
   return event;
 }
 
+const selected = () => document.getSelection()?.toString() ?? "";
+
 describe("a double-click over a page-head backdrop", () => {
   let opened: number;
   let stop: () => void;
@@ -100,10 +102,26 @@ describe("a double-click over a page-head backdrop", () => {
     expect(opened).toBe(0);
   });
 
-  test("one beside a word the browser selected (the nearest, from empty space) is the backdrop's", () => {
+  /** The press that starts a double-click (`detail` 1): the browser has not yet changed the selection for it. */
+  const press = (x: number, y: number) =>
+    byId("empty").dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, clientX: x, clientY: y, detail: 1 }),
+    );
+
+  test("one beside a word the browser selected (the nearest, from empty space) is the backdrop's, and the stray word is let go", () => {
+    press(400, 60);
     select(rect(80, 140, 120, 20));
     dblclick(byId("empty"), 400, 60);
     expect(opened).toBe(1);
+    expect(selected()).toBe("");
+  });
+
+  test("a selection made before the double-click is the person's, and stays", () => {
+    select(rect(80, 140, 120, 20));
+    press(400, 60);
+    dblclick(byId("empty"), 400, 60);
+    expect(opened).toBe(1);
+    expect(selected()).toBe("Some words");
   });
 
   test("one the page already handled is the page's", () => {
