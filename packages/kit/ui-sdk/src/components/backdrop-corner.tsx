@@ -24,7 +24,10 @@ export function BackdropCorner({
   readonly onClose: () => void;
 }) {
   const actions = useContributions(BackdropActionPoint);
-  const [held, setHeld] = useState(false);
+  // Two holds, each released by its own: the pointer leaving lets go of the pointer's, not focus's.
+  const [pointed, setPointed] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const held = pointed || focused;
   const [fading, setFading] = useState(false);
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
@@ -51,10 +54,10 @@ export function BackdropCorner({
         fading ? "opacity-0" : "opacity-100",
       )}
       data-backdrop-corner={backdrop}
-      onPointerEnter={() => setHeld(true)}
-      onPointerLeave={() => setHeld(false)}
-      onFocus={() => setHeld(true)}
-      onBlur={() => setHeld(false)}
+      onPointerEnter={() => setPointed(true)}
+      onPointerLeave={() => setPointed(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => setFocused(event.currentTarget.contains(event.relatedTarget))}
     >
       {actions.map(({ id, value: { label, icon: Glyph, run } }) => (
         <button
