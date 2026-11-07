@@ -90,12 +90,13 @@ describe("UI datalog on DatascriptIndex", () => {
       // options (+2), the Settings page's view option (+1), and the
       // Extensions panel's retired into Settings (-1); the gallery's view
       // options, its library and eight workflows, and the workflow view
-      // family (+10); the routines calendar's view option (+1).
-      ["queries.list-all", 95],
+      // family (+10); the routines calendar's view option (+1); Backdrop
+      // Studio's view option (+1).
+      ["queries.list-all", 96],
       ["queries.list-fields", 30],
       ["queries.list-tags", 2],
       ["queries.backlinks-n.root-a", 0],
-      ["query-node.default", 95],
+      ["query-node.default", 96],
       ["schema-zoom.tagged-todo", 2],
       ["schema-zoom.field-status", 2],
       ["graph-lens.todo-via-id", 2],
