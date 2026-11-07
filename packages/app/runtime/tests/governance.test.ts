@@ -5,9 +5,7 @@
  * about a call. The deployment, never the graph, says whether it is
  * composed (`deployGovernance`, the CLI's `--governance`): required, no
  * store can switch it off; off, no policy node is in the store it opens.
- * For now it ships no rule that bites (DESIGN.md → Approval → Current
- * stance): composed, it contributes no guard and seeds no policy, so every
- * call runs, whoever makes it.
+ * Required approval is enforced; graph policies remain deferred.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -44,7 +42,7 @@ const remove = (id: string) => ({
 });
 
 describe("governance, required", () => {
-  test("its plugin is loaded and, while policies are deferred, contributes no guard", async () => {
+  test("its plugin contributes no policy guard while core enforces required approval", async () => {
     const registry = await Effect.runPromise(
       registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
@@ -53,7 +51,7 @@ describe("governance, required", () => {
     expect(guards).toEqual([]);
   });
 
-  test("nothing bites: an agent deletes, sets force, switches an extension and trusts code, and every action is listed as allowed", async () => {
+  test("required approval refuses agent trust while other policy remains deferred", async () => {
     const ctx = await openKb(root);
     await invoke(ctx, { id: "node.add", input: { id: "n.a", text: "a" } });
     expect(await invoke(ctx, remove("n.a"))).toMatchObject({ status: "succeeded" });
@@ -70,7 +68,7 @@ describe("governance, required", () => {
         input: { digest: `sha256:${"0".repeat(64)}` },
         actor: "agent",
       }),
-    ).toMatchObject({ status: "succeeded" });
+    ).toMatchObject({ status: "failed", code: "approval_required" });
     const listed = await invoke(ctx, { id: "kb.manifest", input: {}, actor: "agent" });
     const decisions = new Set(
       (listed.status === "succeeded"
@@ -78,7 +76,7 @@ describe("governance, required", () => {
         : []
       ).map(({ decision }) => decision),
     );
-    expect([...decisions]).toEqual(["allow"]);
+    expect(decisions).toEqual(new Set(["allow", "ask"]));
   });
 
   test("while its plugin is gone from the registry, every call is denied rather than run unguarded", async () => {
@@ -156,6 +154,6 @@ describe("governance, off by the deployment", () => {
         : []
       ).map(({ decision }) => decision),
     );
-    expect([...decisions]).toEqual(["allow"]);
+    expect(decisions).toEqual(new Set(["allow", "ask"]));
   });
 });

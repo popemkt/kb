@@ -8,7 +8,7 @@
 /**
  * Whether calls are governed: `required`, the governance family is
  * composed and every call is denied while its guards are not there; `off`,
- * it is left out, and with no guard every call proceeds.
+ * it is left out. Core declared required approval remains enforced.
  */
 export type GovernanceMode = "required" | "off";
 

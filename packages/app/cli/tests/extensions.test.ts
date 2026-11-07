@@ -256,7 +256,7 @@ describe("kb ext list", () => {
     expect(tagsOf("governance")).toEqual(["governance"]);
     expect(tagsOf("canvas")).toEqual(["canvas"]);
     const guards = output.points.find(({ point }) => point === "action/guard")?.listeners;
-    // Governance contributes no guard while policies are deferred. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
+    // Core owns required approval; governance contributes no policy guard.
     expect(guards?.map(({ id }) => id)).toEqual(["ext.code.script-run"]);
 
     resetRegistryCache();

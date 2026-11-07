@@ -224,12 +224,20 @@ describe("ext.canvas.run with the agent's model", () => {
   });
   test("no sandboxed code may start a run, so none reaches the model through one", async () => {
     const from = built.length;
-    const receipt = await call(
-      RUN,
-      { canvasId: "n.computer" },
-      { script: { subject: "n.computer", grant: { reads: "graph", actions: [RUN] } } },
-    );
-    expect(receipt).toMatchObject({ status: "failed", code: "forbidden" });
+    for (const approved of [false, true]) {
+      const receipt = await call(
+        RUN,
+        { canvasId: "n.computer" },
+        {
+          approved,
+          script: { subject: "n.computer", grant: { reads: "graph", actions: [RUN] } },
+        },
+      );
+      expect(receipt).toMatchObject({
+        status: "failed",
+        code: approved ? "forbidden" : "approval_required",
+      });
+    }
     expect(built).toHaveLength(from);
   });
   test("a script a run performs cannot ask the model, whatever its grant names", async () => {

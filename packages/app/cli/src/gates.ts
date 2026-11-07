@@ -12,12 +12,19 @@
 import type { Command } from "commander";
 import { Effect, Predicate } from "effect";
 import { onWire, type ActionReceipt, type KbContext } from "@kb/contracts";
-import { invokeReceiptEffect, writeErr } from "@kb/runtime";
-import { ACTION_INVOKE_WIRE, EXIT_FAILED, kbAction, report, type GlobalOpts } from "./command.ts";
+import { writeErr } from "@kb/runtime";
+import {
+  invokeCliEffect,
+  ACTION_INVOKE_WIRE,
+  EXIT_FAILED,
+  kbAction,
+  report,
+  type GlobalOpts,
+} from "./command.ts";
 import { readTextArgEffect } from "./input.ts";
 
 const call = (ctx: KbContext, id: string, input: unknown) =>
-  invokeReceiptEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
+  invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
 
 function listOf(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value) ? value.filter(Predicate.isObject) : [];

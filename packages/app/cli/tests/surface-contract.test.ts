@@ -16,6 +16,7 @@ import { Effect } from "effect";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
+  PAGE_WIRE,
   ActionReceiptSchema,
   ActionResponseSchema,
   DecidedEntrySchema,
@@ -24,13 +25,14 @@ import {
   listedOn,
   onWire,
   type ActionRequest,
+  type SurfaceWire,
   type ActionReceipt,
   type UiListener,
   uiAddressOf,
   SESSION_META_KEY,
 } from "@kb/contracts";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
-import { bunFileSystemLayer } from "@kb/runtime";
+import { bunFileSystemLayer, governanceMode } from "@kb/runtime";
 import { HTTP_WIRE, startUi } from "@kb/server";
 import {
   AGENT_CHANNEL,
@@ -55,7 +57,6 @@ import {
 import { ToolCallFailed, WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
 import { requestUi } from "@kb/workspace-fs";
 import { z } from "zod";
-import { main } from "../src/cli.ts";
 import { ACTION_INVOKE_WIRE } from "../src/command.ts";
 
 /** What a listing must say of each action; the mode is decoded by the contracts' own schema. */
@@ -65,31 +66,47 @@ const ManifestOutputSchema = z.object({
 });
 
 /** The CLI's listing: what `kb.manifest` lists to it, less what its wire could never call. */
-function manifestOf(receipt: ActionReceipt): ListedAction[] {
+function manifestOf(
+  receipt: ActionReceipt,
+  wire: SurfaceWire = ACTION_INVOKE_WIRE,
+): ListedAction[] {
   if (receipt.status !== "succeeded") throw new Error(`kb.manifest failed: ${receipt.message}`);
   return ManifestOutputSchema.parse(receipt.output)
-    .actions.filter((entry) => listedOn(ACTION_INVOKE_WIRE, entry.decision))
+    .actions.filter((entry) => listedOn(wire, entry.decision))
     .map(({ id, mode }) => ({ id, mode }));
 }
 
-/** Run `kb` in-process and capture stdout; `--json` makes it a receipt. */
+/** Run the actual CLI without a controlling terminal; approval belongs to the TTY suite. */
 async function kb(root: string, args: string[]): Promise<string> {
-  const chunks: string[] = [];
-  const write = process.stdout.write.bind(process.stdout);
-  process.stdout.write = (chunk: string | Uint8Array) => {
-    chunks.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
-    return true;
-  };
-  try {
-    await main(["bun", "kb", "--root", root, "--json", ...args]);
-    return chunks.join("");
-  } finally {
-    process.stdout.write = write;
-    process.exitCode = 0;
-  }
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      join(import.meta.dir, "../src/main.ts"),
+      "--governance",
+      governanceMode(),
+      "--root",
+      root,
+      "--json",
+      ...args,
+    ],
+    {
+      detached: true,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+      // preserve this test run's isolated home and toolchain
+      env: process.env,
+    },
+  );
+  const [output] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  return output;
 }
 
-/** `kb action-invoke`: the envelope is the JSON argument, so it carries approval. */
+/** CLI JSON never carries approval. */
 const cli: SurfaceFactory = async (root) => {
   const invokeCli = async (invocation: ActionRequest) =>
     ActionReceiptSchema.parse(
@@ -271,6 +288,17 @@ const http: SurfaceFactory = async (_root, ui) => ({
   close: async () => undefined,
 });
 
+/** Origin is the only page assertion; a local shell can forge it (DESIGN.md → Sandbox threats). */
+const pageWire: SurfaceFactory = async (_root, ui) => ({
+  wire: PAGE_WIRE,
+  session: "stated",
+  host: "ui",
+  list: async () =>
+    manifestOf(await postAction(ui.at, { id: "kb.manifest", input: {} }, "page"), PAGE_WIRE),
+  invoke: (call) => postAction(ui.at, call, "page"),
+  close: async () => undefined,
+});
+
 /** A tool's mode, read back from the hints alone, as a WebMCP agent sees it. */
 function modeOf(tool: ModelContextTool): ListedAction["mode"] {
   const { readOnlyHint, consequentialHint, openWorldHint } = tool.annotations ?? {};
@@ -383,4 +411,4 @@ const agent: SurfaceFactory = async (_root, ui) => {
   } satisfies ActionSurface;
 };
 
-surfaceContract({ serve, surfaces: { cli, mcp, http, webmcp, agent } });
+surfaceContract({ serve, surfaces: { cli, mcp, http, page: pageWire, webmcp, agent } });

@@ -18,12 +18,12 @@ import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { webMcpUiPlugin } from "@/webmcp";
-import { declaredDecision } from "@kb/governance";
+import { requiresApproval } from "@kb/contracts";
 
 /** An action as `kb.manifest` lists it to an agent on a root with no policies: its mode decides. */
 function entry(id: string, mode: ManifestEntry["mode"]): DecidedEntry {
   const base = { id, title: id, description: id, mode, inputSchema: {}, outputSchema: {} };
-  return { ...base, decision: declaredDecision(mode, "agent") };
+  return { ...base, decision: requiresApproval(mode) ? "ask" : "allow" };
 }
 
 const MANIFEST = [

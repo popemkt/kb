@@ -18,7 +18,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@kb/governance": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"
   },

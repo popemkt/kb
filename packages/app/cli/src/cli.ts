@@ -7,7 +7,6 @@ import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt, onWire } from "@kb
 import {
   kbRuntimeLayer,
   openKbEffect,
-  invokeReceiptEffect,
   registerOpenedRoot,
   type ActionHandlerEnv,
   resolveRootEffect,
@@ -47,6 +46,7 @@ import {
   toSessionMode,
 } from "./arguments.ts";
 import {
+  invokeCliEffect,
   ACTION_INVOKE_WIRE,
   EXIT_FAILED,
   EXIT_OK,
@@ -133,7 +133,7 @@ function ensureFieldsEffect(
         ),
       );
       if (outcome !== "missing") continue;
-      const receipt = yield* invokeReceiptEffect(
+      const receipt = yield* invokeCliEffect(
         ctx,
         onWire(ACTION_INVOKE_WIRE, { id: "field.define", input: { name } }),
       );
@@ -157,7 +157,7 @@ export function runPlanEffect(
       return EXIT_FAILED;
     }
 
-    const receipt = yield* invokeReceiptEffect(
+    const receipt = yield* invokeCliEffect(
       ctx,
       onWire(ACTION_INVOKE_WIRE, { id: plan.id, input: plan.input }),
     );
@@ -258,7 +258,7 @@ function buildProgram(): Command {
     .option("--root <path>", "repo root containing .kb/")
     .option(
       "--governance <mode>",
-      "required: every call is put to the governance family's guards, and refused while they are not loaded; off: no guard, every call runs",
+      "required: every call is put to the governance family's guards, and refused while they are not loaded; off: no governance policy; declared required approval always applies",
       toGovernance,
       "required",
     )
@@ -724,7 +724,7 @@ function buildProgram(): Command {
         Effect.gen(function* () {
           const raw = yield* readActionJsonEffect(jsonArg);
           const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw));
-          const receipt = yield* invokeReceiptEffect(ctx, invocation);
+          const receipt = yield* invokeCliEffect(ctx, invocation);
           if (globals.json !== true) for (const line of filledLines(receipt)) writeErr(line);
           writeOut(formatReceipt(receipt, { json: globals.json === true }));
           return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;

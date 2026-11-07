@@ -75,7 +75,7 @@ describe("running a script once", () => {
       await invoke(ctx, { id: "sandbox.trust", input: { digest }, actor: "human" }),
     ).toMatchObject({ status: "succeeded" });
 
-    const ran = await invoke(ctx, run({ actor: "agent" }));
+    const ran = await invoke(ctx, run({ actor: "agent", approved: true }));
     expect(ran).toMatchObject({ status: "succeeded" });
     expect(items()).toEqual(["from-script"]);
   });

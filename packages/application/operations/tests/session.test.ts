@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   PAGE_WIRE,
+  hasPerson,
   envelopeOf,
   onWire,
   type ActionInvocation,
@@ -40,6 +41,7 @@ describe("the tab session a call is made in", () => {
       id: "node.get",
       input: {},
       actor: "cli",
+      approved: false,
     });
   });
 
@@ -54,5 +56,28 @@ describe("the tab session a call is made in", () => {
     const call = callWithin(run, { id: "node.get", input: {}, session: "tab.b" });
     expect(call?.actor).toBe("script");
     expect(call?.session).toBe("tab.a");
+  });
+});
+
+describe("approval on inner calls", () => {
+  test("inherits approval, keeps declines, and never mints approval", () => {
+    const request = { id: "sandbox.trust", input: {}, approved: true };
+    const unapproved = running({ id: "outer", input: {}, actor: "agent" });
+    expect(callWithin(unapproved, request)?.approved).toBe(false);
+    expect(hasPerson(callWithin(unapproved, { ...request, actor: "human" }))).toBe(false);
+    const approved = running({ ...unapproved.invocation, approved: true });
+    expect(callWithin(approved, { id: request.id, input: {} })?.approved).toBe(true);
+    expect(callWithin(approved, { ...request, approved: false })?.approved).toBe(false);
+    const declined = running({ id: "outer", input: {}, actor: "human", approved: false });
+    expect(callWithin(declined, request)?.approved).toBe(false);
+    const script = running({ ...approved.invocation, actor: "script" });
+    expect(callWithin(script, request)?.approved).toBeUndefined();
+    const guest = callWithin(approved, {
+      ...request,
+      actor: "script",
+      script: { subject: null, grant: {} },
+    });
+    expect(guest.actor).toBe("script");
+    expect(guest.approved).toBeUndefined();
   });
 });

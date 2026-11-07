@@ -123,7 +123,19 @@ const outputOf = (ctx: Kb, id: string) =>
 describe("ext.canvas.run", () => {
   test("constants say their words, a script runs on its inputs, and an instruction without a model fails by name", async () => {
     const ctx = await computerKb();
-    const out = output(await invoke(ctx, { id: "ext.canvas.run", input: { canvasId: "n.board" } }));
+    const before = canonicalJson(ctx.nodes);
+    expect(
+      await invoke(ctx, { id: "ext.canvas.run", actor: "agent", input: { canvasId: "n.board" } }),
+    ).toMatchObject({ status: "failed", code: "approval_required" });
+    expect(canonicalJson(ctx.nodes)).toBe(before);
+    const out = output(
+      await invoke(ctx, {
+        id: "ext.canvas.run",
+        actor: "agent",
+        approved: true,
+        input: { canvasId: "n.board" },
+      }),
+    );
     expect(out).toMatchObject({
       order: ["a", "b", "sum", "double"],
       rounds: 1,
@@ -155,14 +167,61 @@ describe("ext.canvas.run", () => {
   test("from runs one component and what it reaches; a canvas with no flow is refused", async () => {
     const ctx = await computerKb();
     const out = output(
-      await invoke(ctx, { id: "ext.canvas.run", input: { canvasId: "n.board", from: "b" } }),
+      await invoke(ctx, {
+        id: "ext.canvas.run",
+        actor: "agent",
+        approved: true,
+        input: { canvasId: "n.board", from: "b" },
+      }),
     );
     expect(out.order).toEqual(["b", "sum"]);
     await invoke(ctx, {
       id: "node.add",
       input: { text: "Empty", id: "n.empty", tags: ["canvas"] },
     });
-    const empty = await invoke(ctx, { id: "ext.canvas.run", input: { canvasId: "n.empty" } });
+    const empty = await invoke(ctx, {
+      id: "ext.canvas.run",
+      actor: "agent",
+      approved: true,
+      input: { canvasId: "n.empty" },
+    });
     expect(empty.status === "failed" ? empty.message : "").toMatch(/has no flow/);
   });
+});
+
+test("a terminal-approved non-human canvas run performs its script components", async () => {
+  const ctx = await computerKb();
+  let transcript = "";
+  let answered = false;
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      join(import.meta.dir, "../../cli/src/main.ts"),
+      "--root",
+      ctx.root,
+      "--json",
+      "action-invoke",
+      JSON.stringify({ id: "ext.canvas.run", input: { canvasId: "n.board" } }),
+    ],
+    {
+      env: process.env,
+      terminal: {
+        data(terminal, bytes) {
+          transcript += new TextDecoder().decode(bytes);
+          if (!answered && transcript.includes("[y/N]")) {
+            answered = true;
+            terminal.write("yes\n");
+          }
+        },
+      },
+    },
+  );
+  try {
+    expect(await child.exited).toBe(0);
+    expect(answered).toBe(true);
+    expect(transcript).toContain('"output": "42"');
+  } finally {
+    child.kill();
+    child.terminal?.close();
+  }
 });

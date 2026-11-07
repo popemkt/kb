@@ -30,9 +30,7 @@ import type { KbRoots } from "./roots.ts";
  * the workspace, or what a UI tab shows. A write can also declare approval:
  * `"required"`, a person must approve each call, or `"delegated"`, the
  * owner's own calls need no approval and anyone acting for them does. Core
- * decides nothing by it: a declaration is what a guard may read (the
- * governance family's `declaredDecision`), and while that family contributes
- * no guard every call runs (DESIGN.md → Action registry → Current stance).
+ * enforces required approval in every deployment (DESIGN.md → Action registry → Current stance).
  * Every surface still shows it ({@link requiresApproval}). Approval exists
  * only on a write, so it is part of the write arm and not a flag beside the
  * mode.
@@ -185,7 +183,7 @@ export interface ActionDefinition<
   /**
    * The ids of the actions every call of this one is a batch of: it writes
    * what they write, so approval decides it as each of them as well as
-   * itself, and the stricter decision holds (`resolveApproval`). Only ids:
+   * itself, and required approval is enforced by core. Only ids:
    * each part's mode is its own definition's, and the registry resolves it
    * ({@link batchPartsOf}). Declared by the action, never inferred.
    */
