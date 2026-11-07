@@ -74,12 +74,19 @@ export function knobFields(
   });
 }
 
+/** How many decimals `n` is written with, its exponent counted (`1e-7` is written with seven). */
+function decimalsOf(n: number): number {
+  const [mantissa = "", exponent = "0"] = String(n).split("e");
+  return Math.max(0, (mantissa.split(".")[1] ?? "").length - Number(exponent));
+}
+
 /** A number held to `knob`'s range, on its nearest step. */
 function stepped(knob: Extract<Knob, { kind: "number" }>, value: number): number {
   const steps = Math.round((value - knob.min) / knob.step);
   const on = knob.min + steps * knob.step;
-  // Rounded to the step's own decimals, so 0.1 steps read 0.3, not 0.30000000000000004.
-  const decimals = (String(knob.step).split(".")[1] ?? "").length;
+  // Rounded to the decimals of the step and of its origin, so 0.1 steps read 0.3, not
+  // 0.30000000000000004, and 0.1 steps from 0.05 read 0.15, not 0.2.
+  const decimals = Math.max(decimalsOf(knob.step), decimalsOf(knob.min));
   return Math.min(knob.max, Math.max(knob.min, Number(on.toFixed(decimals))));
 }
 
