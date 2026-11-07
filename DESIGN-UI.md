@@ -853,7 +853,10 @@ a backdrop with its theme's swatch at chip size and, at card size, the
 backdrop itself (`BackdropCard`, the kit's, the one card every gallery
 of backdrops draws): its own renderer in the frame the head
 draws (`BackdropFrame`), laid out at a side panel's width and scaled into
-the card, at the strength and direction in force, hearing no owner, and
+the card, looking at the band of it a head's picture is composed round (a
+backdrop that faces a way, the line the head's content begins on, from
+the side it faces; one with no direction, its top), at the direction in
+force and the strength in force or one the gallery shows, hearing no owner, and
 held still (`HoldStill`, Motion options), mounted once the card is on
 screen, so a gallery costs what it shows. A graph theme would fill the
 same slot. A preview draws nothing for a thing nobody
@@ -5473,7 +5476,13 @@ it as kb's own are, and a family switched off takes its backdrops out.
 - **The gallery** draws each backdrop with the card Settings draws
   (`BackdropCard`, Option previews): a still, mounted once it is on
   screen, under its name, its credit, its count of knobs, and whether it
-  is the one the owner's pages show.
+  is the one the owner's pages show. A card shows its backdrop vivid,
+  whatever the page's strength: the gallery shows what each one is, where
+  Settings' card previews what its setting sets. On a dark page a card is
+  exposed (`GalleryExposure`): what a backdrop lays over the card's ground
+  counts four times over, so a wash or a dusk scene, made to sit quietly
+  behind a page's text, reads as itself; a scene that paints its own
+  ground is opaque and shows as it is. Pages never see it.
 - **One backdrop** is its scene full-size in the frame every head draws
   (`BackdropFrame`, its placement the whole page under a thin header), so
   what the studio shows is what a head shows, and it is the only scene

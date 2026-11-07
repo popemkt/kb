@@ -59,9 +59,16 @@ const OTHER: SeedBackdrop = { id: "elsewhere.wash", label: "Wash" };
 let mounts: string[] = [];
 
 function probeScene(id: string) {
-  return function ProbeScene({ knobs, variant }: BackdropProps) {
+  return function ProbeScene({ knobs, variant, strength }: BackdropProps) {
     if (!mounts.includes(id)) mounts.push(id);
-    return <div data-probe={id} data-variant={variant ?? ""} data-knobs={JSON.stringify(knobs)} />;
+    return (
+      <div
+        data-probe={id}
+        data-variant={variant ?? ""}
+        data-strength={strength}
+        data-knobs={JSON.stringify(knobs)}
+      />
+    );
   };
 }
 
@@ -195,6 +202,35 @@ describe("Backdrop Studio", () => {
     );
     expect(names).toEqual([PROBE.id, OTHER.id]);
     expect(document.body.textContent).toContain("After a probe");
+  });
+
+  test("the gallery shows each backdrop at its fullest, vivid, whatever the page's strength", () => {
+    const Observer = globalThis.IntersectionObserver;
+    // A card mounts its frame once it is on screen: here, at once.
+    globalThis.IntersectionObserver = class {
+      readonly seen: IntersectionObserverCallback;
+      constructor(seen: IntersectionObserverCallback) {
+        this.seen = seen;
+      }
+      observe(target: Element) {
+        this.seen([{ isIntersecting: true, target } as IntersectionObserverEntry], this as never);
+      }
+      disconnect() {}
+      unobserve() {}
+    } as unknown as typeof IntersectionObserver;
+    try {
+      act(() => root.render(<StudioPage />));
+      const strengths = [...document.querySelectorAll<HTMLElement>("[data-probe]")].map(
+        (probe) => probe.dataset.strength,
+      );
+      expect(strengths).toEqual(["vivid", "vivid"]);
+      // A dark gallery's exposure is the gallery's own filter.
+      expect(
+        document.querySelector("[data-studio-gallery] filter#kb-gallery-exposure"),
+      ).not.toBeNull();
+    } finally {
+      globalThis.IntersectionObserver = Observer;
+    }
   });
 
   test("one backdrop's page runs its scene alone", () => {

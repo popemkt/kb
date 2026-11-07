@@ -100,3 +100,8 @@
   position: absolute;
   inset: 0;
 }
+
+/* The studio's gallery exposure (`GalleryExposure`, studio-gallery.tsx): a dark gallery's card frames only. */
+.dark [data-studio-gallery] .kb-header-backdrop {
+  filter: url(#kb-gallery-exposure);
+}
