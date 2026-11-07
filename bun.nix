@@ -642,6 +642,7 @@
   "@kb/chart-ui" = copyPathToStore ./packages/extension/chart-ui;
   "@kb/chart-vega" = copyPathToStore ./packages/extension/chart-vega;
   "@kb/check" = copyPathToStore ./packages/extension/check;
+  "@kb/child-process" = copyPathToStore ./packages/infrastructure/child-process;
   "@kb/cli" = copyPathToStore ./packages/app/cli;
   "@kb/client" = copyPathToStore ./packages/app/client;
   "@kb/code" = copyPathToStore ./packages/extension/code;

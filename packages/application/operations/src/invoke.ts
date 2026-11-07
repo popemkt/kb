@@ -4,7 +4,6 @@ import {
   type ActionDefinition,
   type ActionEffectHandler,
   type ActionHandlerEnv,
-  type IsomorphicActionEnv,
   type ActionInvocation,
   type ActionReceipt,
   failed,
@@ -37,78 +36,12 @@ import {
 } from "./interception.ts";
 import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { fillFromSession, withContextHint } from "./context-fill.ts";
-import { assetUploadDef, assetUploadEffect } from "./assets.ts";
-import {
-  sandboxImportLegacyDef,
-  sandboxImportLegacyEffect,
-  sandboxTrustDef,
-  sandboxTrustEffect,
-  sandboxTrustedDef,
-  sandboxTrustedEffect,
-  sandboxUntrustDef,
-  sandboxUntrustEffect,
-} from "./trust.ts";
-import {
-  fieldDefineDef,
-  fieldDefineEffect,
-  graphQueryDef,
-  graphQueryEffect,
-  graphRunDef,
-  graphRunEffect,
-  graphSearchDef,
-  graphSearchEffect,
-  graphChangesDef,
-  graphChangesEffect,
-  nodeAddDef,
-  nodeAddEffect,
-  nodeDeleteDef,
-  nodeDeleteEffect,
-  nodeGetDef,
-  nodeGetEffect,
-  nodeUpdateDef,
-  nodeUpdateEffect,
-  tagDefineDef,
-  tagDefineEffect,
-} from "./actions.ts";
-import {
-  extensionFootprintDef,
-  extensionFootprintEffect,
-  extensionListDef,
-  extensionListEffect,
-  extensionSettingsDef,
-  extensionSettingsEffect,
-  extensionSwitchDef,
-  extensionSwitchEffect,
-} from "./extensions.ts";
-import { nodeAddTreeDef, nodeAddTreeEffect } from "./node-add-tree.ts";
-import { kbManifestDef, kbManifestEffect } from "./manifest.ts";
-import { viewsMigrateDef, viewsMigrateEffect } from "./views-migrate.ts";
-import { viewProposeDef, viewProposeEffect } from "./view-propose.ts";
-import { viewOpeningsDef, viewOpeningsEffect } from "./view-openings.ts";
-import { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
-import {
-  renderViewActionEffect,
-  renderViewDef,
-  renderViewsActionEffect,
-  renderViewsDef,
-} from "./render.ts";
-import {
-  uiCaptureDef,
-  uiCaptureEffect,
-  uiNavigateDef,
-  uiNavigateEffect,
-  uiScreenDef,
-  uiScreenEffect,
-  uiSelectDef,
-  uiSelectEffect,
-} from "./ui.ts";
-
 /**
  * The invoke core: one registered-action shape, the core actions
  * paired with their handlers beside the definitions that own them, and the
  * one place a parsed input meets a handler and a failure becomes a receipt.
  * Runtime (server, CLI, MCP) composes this over its discovered registry; the
- * browser composes it over `coreActions` alone. Neither owns a second copy.
+ * browser composes it over `isomorphicActions` alone. Neither owns a second copy.
  */
 export interface RegisteredAction<R = ActionHandlerEnv> {
   def: ActionDefinition;
@@ -127,54 +60,12 @@ export interface RegisteredAction<R = ActionHandlerEnv> {
   aliases: readonly string[];
 }
 
-function coreNative<R>(def: ActionDefinition, effect: ActionEffectHandler<R>): RegisteredAction<R> {
+export function coreNative<R>(
+  def: ActionDefinition,
+  effect: ActionEffectHandler<R>,
+): RegisteredAction<R> {
   return { def, effect, source: "core", aliases: [] };
 }
-
-/** The actions every runtime can run from its own store and index. */
-export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[] = [
-  coreNative(nodeAddDef, nodeAddEffect),
-  coreNative(nodeAddTreeDef, nodeAddTreeEffect),
-  coreNative(nodeUpdateDef, nodeUpdateEffect),
-  coreNative(nodeDeleteDef, nodeDeleteEffect),
-  coreNative(nodeGetDef, nodeGetEffect),
-  coreNative(fieldDefineDef, fieldDefineEffect),
-  coreNative(tagDefineDef, tagDefineEffect),
-  coreNative(graphQueryDef, graphQueryEffect),
-  coreNative(graphSearchDef, graphSearchEffect),
-  coreNative(graphChangesDef, graphChangesEffect),
-  coreNative(ontologyMembersDef, ontologyMembersEffect),
-  coreNative(viewProposeDef, viewProposeEffect),
-  coreNative(viewOpeningsDef, viewOpeningsEffect),
-];
-
-/**
- * The actions that reach a service only the invoke tip's composition root can
- * provide: a workspace port (saved queries, views, assets, code trust), the registry's
- * own catalogs (actions, views, extensions), or the screens of the UI tabs.
- */
-const portActions: readonly RegisteredAction[] = [
-  coreNative(graphRunDef, graphRunEffect),
-  coreNative(assetUploadDef, assetUploadEffect),
-  coreNative(renderViewDef, renderViewActionEffect),
-  coreNative(renderViewsDef, renderViewsActionEffect),
-  coreNative(kbManifestDef, kbManifestEffect),
-  coreNative(extensionSwitchDef, extensionSwitchEffect),
-  coreNative(extensionFootprintDef, extensionFootprintEffect),
-  coreNative(extensionListDef, extensionListEffect),
-  coreNative(extensionSettingsDef, extensionSettingsEffect),
-  coreNative(viewsMigrateDef, viewsMigrateEffect),
-  coreNative(uiScreenDef, uiScreenEffect),
-  coreNative(uiNavigateDef, uiNavigateEffect),
-  coreNative(uiSelectDef, uiSelectEffect),
-  coreNative(uiCaptureDef, uiCaptureEffect),
-  coreNative(sandboxTrustDef, sandboxTrustEffect),
-  coreNative(sandboxImportLegacyDef, sandboxImportLegacyEffect),
-  coreNative(sandboxUntrustDef, sandboxUntrustEffect),
-  coreNative(sandboxTrustedDef, sandboxTrustedEffect),
-];
-
-export const coreActions: readonly RegisteredAction[] = [...isomorphicActions, ...portActions];
 
 /** Extensions shipped with kb itself; loaded like repo extensions. */
 

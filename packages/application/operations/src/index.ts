@@ -91,8 +91,6 @@ export {
 } from "./session.ts";
 export { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
 export {
-  coreActions,
-  isomorphicActions,
   MAX_CALL_DEPTH,
   invokeReceiptWith,
   invokeWith,
@@ -103,3 +101,6 @@ export type { RegisteredAction } from "./invoke.ts";
 export { callWithin, readableNodes, readableQuery } from "./script-reach.ts";
 export { interceptionFrom, interceptionOf } from "./interception.ts";
 export type { InterceptionOptions } from "./interception.ts";
+
+export { coreActions } from "./core-actions.ts";
+export { isomorphicActions } from "./isomorphic-actions.ts";

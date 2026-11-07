@@ -290,6 +290,9 @@ package's `src/`, with nothing carved out of it.
 
 ## Supply chain
 
+Child process environments are owned by `@kb/child-process`; runtime and
+source transport derive their environments from that one mechanism.
+
 - Every internal dependency is `workspace:*`; every external dependency is
   `catalog:`. The catalog in the root `package.json` is the only file that
   names a version, with no exceptions; the vite alias twin lives in the catalog

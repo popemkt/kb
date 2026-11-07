@@ -136,6 +136,7 @@
         "@kb/backdrops": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/chart-vega": "workspace:*",
+        "@kb/child-process": "workspace:*",
         "@kb/code": "workspace:*",
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
@@ -1232,6 +1233,13 @@
         "@types/react": "catalog:",
       },
     },
+    "packages/infrastructure/child-process": {
+      "name": "@kb/child-process",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/infrastructure/file-write": {
       "name": "@kb/file-write",
       "version": "0.0.0",
@@ -1789,6 +1797,8 @@
     "@kb/chart-vega": ["@kb/chart-vega@workspace:packages/extension/chart-vega"],
 
     "@kb/check": ["@kb/check@workspace:packages/extension/check"],
+
+    "@kb/child-process": ["@kb/child-process@workspace:packages/infrastructure/child-process"],
 
     "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
 
