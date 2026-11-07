@@ -79,7 +79,7 @@ describe("the example extension's server half", () => {
       registryFor(ROOT).pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(registry.views.entries().map(({ id }) => id)).toContain("example.board");
-    expect(registry.families.find(({ name }) => name === EXAMPLE)).toEqual({
+    expect(registry.families.find(({ name }) => name === EXAMPLE)).toMatchObject({
       name: EXAMPLE,
       label: "Example",
       optional: true,
@@ -87,6 +87,9 @@ describe("the example extension's server half", () => {
       source: join(ROOT, ".kb", "extensions", "example.ts"),
       page: extensionPagePath(DIGEST),
       digest: DIGEST,
+      origin: { kind: "own" },
+      trusted: true,
+      reach: { page: true },
     });
   });
 

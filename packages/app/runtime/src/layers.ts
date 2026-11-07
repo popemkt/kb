@@ -1,3 +1,4 @@
+import { registeredLocationPaths } from "./bundled.ts";
 import { SourceReader } from "@kb/extension-source";
 import { gitSourceReader } from "@kb/source-git";
 import { extensionCompilerLayer } from "./installed-extensions.ts";
@@ -98,7 +99,7 @@ export function kbRuntimeLayer(
     legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
     ignoredRootFilesLayer.pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
+    kbRootsLayer(registeredLocationPaths).pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),

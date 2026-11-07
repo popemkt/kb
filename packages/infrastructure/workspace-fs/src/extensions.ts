@@ -10,7 +10,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve, relative } from "node:path";
 import { Effect, Layer, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { containedPath } from "./contained.ts";
@@ -157,29 +157,39 @@ const checkedLock = Effect.fn("extensions.lock.check")(function* (
     try: () => ExtensionLockSchema.parse(value),
     catch: () => domainError("invalid_input", "invalid extension lock schema"),
   });
-  if (scope === "store")
-    for (const path of lock.links) {
-      if (isAbsolute(path) || (yield* containedPath(root, resolve(root, path))) === null)
-        return yield* domainError(
-          "invalid_input",
-          `store extension link must be relative and resolve inside the repository: ${path}`,
-        );
-    }
-  return lock;
+  const failures: { file: string; error: string }[] = [];
+  const links: string[] = [];
+  for (const path of lock.links) {
+    const safe =
+      scope !== "store" ||
+      (!isAbsolute(path) && (yield* containedPath(root, resolve(root, path))) !== null);
+    if (safe) links.push(path);
+    else
+      failures.push({
+        file: path,
+        error: `store extension link must be relative and resolve inside the repository: ${path}`,
+      });
+  }
+  return { lock: { ...lock, links }, failures };
 });
-const readLock = Effect.fn("extensions.lock.read")(function* (
+const declaredLock = Effect.fn("extensions.lock.declared")(function* (
   data: string,
   root: string,
   scope: ExtensionScope,
 ) {
   const path = lockPath(data, root, scope);
   const text = yield* maybeRead(path);
-  if (text === null) return emptyLock();
-  const value = yield* Effect.try({
-    try: () => JSON.parse(text) as unknown,
+  return yield* Effect.try({
+    try: () => ExtensionLockSchema.parse(text === null ? emptyLock() : JSON.parse(text)),
     catch: () => domainError("invalid_input", `invalid extension lock: ${path}`),
   });
-  return yield* checkedLock(root, scope, value);
+});
+const readLock = Effect.fn("extensions.lock.read")(function* (
+  data: string,
+  root: string,
+  scope: ExtensionScope,
+) {
+  return yield* checkedLock(root, scope, yield* declaredLock(data, root, scope));
 });
 const updateLock = Effect.fn("extensions.lock.update")(function* (
   data: string,
@@ -191,9 +201,15 @@ const updateLock = Effect.fn("extensions.lock.update")(function* (
   yield* locked(
     path,
     Effect.gen(function* () {
-      const held = yield* readLock(data, root, scope);
+      const held = yield* declaredLock(data, root, scope);
       const changed = yield* Effect.try({ try: () => change(held), catch: ensureDomainError });
-      const next = yield* checkedLock(root, scope, changed);
+      const checked = yield* checkedLock(root, scope, changed);
+      if (checked.failures.length !== 0)
+        return yield* domainError(
+          "invalid_input",
+          checked.failures.map(({ error }) => error).join("; "),
+        );
+      const next = checked.lock;
       yield* disk(() => mkdir(dirname(path), { recursive: true }));
       yield* Effect.try({
         try: () => durableReplaceFile({ path, body: sorted(next), mode: 0o600 }),
@@ -252,7 +268,6 @@ const publishTree = Effect.fn("extensions.publish")(function* (
 ) {
   yield* disk(() => mkdir(dirname(dir), { recursive: true }));
   yield* disk(() => mkdir(join(data, "tmp"), { recursive: true }));
-  // GAP [[01M6RTRFDBKDPS8MKVYR9GS61R]] GC must sweep stages abandoned by a crashed publisher.
   const temp = yield* disk(() => mkdtemp(join(data, "tmp", "tree-")));
   yield* Effect.acquireUseRelease(
     Effect.succeed(temp),
@@ -337,6 +352,76 @@ const storeSource = Effect.fn("extensions.store")(function* (
   });
   return { ...key, dir, ignored: source.ignored, source: checked } satisfies CachedTree;
 });
+const directoryNames = Effect.fn("extensions.directoryNames")(function* (path: string) {
+  const info = yield* fileInfo(path);
+  if (info === null) return [];
+  if (info.isSymbolicLink() || !info.isDirectory())
+    return yield* domainError("invalid_input", `tampered cache directory: ${path}`);
+  return yield* disk(() => readdir(path));
+});
+/** Capture references before any deletion; the caller retires provenance before applying sweep. */
+const collection = Effect.fn("extensions.collection")(function* (
+  data: string,
+  roots: readonly string[],
+) {
+  const retained = new Map<string, SourceAddress>();
+  const include = (lock: ExtensionLock) => {
+    for (const [name, selection] of Object.entries(lock.extensions)) {
+      for (const pin of [
+        selection.locked,
+        ...(selection.previous === undefined ? [] : [selection.previous]),
+      ]) {
+        const key = { kind: "extension" as const, name, files: pin.files };
+        retained.set(address(data, key), key);
+      }
+    }
+    for (const [name, selection] of Object.entries(lock.marketplaces)) {
+      const key = { kind: "marketplace" as const, name, files: selection.locked.files };
+      retained.set(address(data, key), key);
+    }
+  };
+  include((yield* readLock(data, "", "user")).lock);
+  for (const root of new Set(roots))
+    for (const scope of ["store", "local"] as const)
+      include((yield* readLock(data, root, scope)).lock);
+  const sweep = Effect.gen(function* () {
+    const trees: string[] = [];
+    const stages: string[] = [];
+    for (const name of yield* directoryNames(join(data, "store"))) {
+      const path = join(data, "store", name);
+      if (retained.has(path)) continue;
+      yield* writable(path);
+      yield* disk(() => rm(path, { recursive: true, force: true }));
+      trees.push(name);
+    }
+    for (const name of yield* directoryNames(join(data, "refs"))) {
+      const path = join(data, "refs", name);
+      const info = yield* fileInfo(path);
+      if (info !== null && info.isFile() && !info.isSymbolicLink()) {
+        const text = yield* maybeRead(path);
+        const entry = CachedSourceSchema.safeParse(
+          text === null
+            ? null
+            : yield* Effect.try({ try: () => JSON.parse(text), catch: ensureDomainError }).pipe(
+                Effect.orElseSucceed(() => null),
+              ),
+        );
+        if (entry.success && retained.has(address(data, entry.data))) continue;
+      }
+      yield* disk(() => rm(path, { recursive: true, force: true }));
+    }
+    // The global mutation lock excludes live publishers; every remaining stage was abandoned.
+    for (const name of yield* directoryNames(join(data, "tmp"))) {
+      if (!name.startsWith("tree-")) continue;
+      const path = join(data, "tmp", name);
+      yield* writable(path);
+      yield* disk(() => rm(path, { recursive: true, force: true }));
+      stages.push(name);
+    }
+    return { trees, stages };
+  });
+  return { retained: [...retained.values()], sweep };
+});
 export const extensionStorageLayer = Layer.effect(
   ExtensionStorage,
   Effect.gen(function* () {
@@ -346,6 +431,27 @@ export const extensionStorageLayer = Layer.effect(
       update: (root, scope, change) =>
         updateLock(data, root, scope, change).pipe(Effect.provideService(FileSystem, fs)),
       store: storeSource.bind(null, data),
+      collection: (roots) => collection(data, roots).pipe(Effect.provideService(FileSystem, fs)),
+      links: Effect.fn("extensions.links")(function* (
+        root: string,
+        scope: ExtensionScope,
+        edit: { readonly add: string } | { readonly remove: string },
+      ) {
+        const input = "add" in edit ? edit.add : edit.remove;
+        const absolute = resolve(root, input.replace(/^path:/, ""));
+        const stored = scope === "store" ? relative(root, absolute) || "." : absolute;
+        yield* updateLock(data, root, scope, (held) => ({
+          ...held,
+          links:
+            "add" in edit
+              ? [...new Set([...held.links, stored])]
+              : held.links.filter(
+                  (path) =>
+                    resolve(scope === "user" ? resolve(data, "..") : root, path) !== absolute,
+                ),
+        })).pipe(Effect.provideService(FileSystem, fs));
+        return stored;
+      }),
     };
     return ExtensionStorage.of({
       read: (root, scope) =>

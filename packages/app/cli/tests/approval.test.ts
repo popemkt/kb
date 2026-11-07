@@ -153,3 +153,61 @@ test("kb trust import needs a terminal and imports only the displayed machine's 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("kb ext trust prints the compiled review and uses the terminal approval edge", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kb-ext-trust-"));
+  const env = { ...process.env, KB_HOME: join(root, "home"), KB_DATA: join(root, "data") };
+  const cmd = [
+    process.execPath,
+    join(import.meta.dir, "../src/main.ts"),
+    "--root",
+    root,
+    "--json",
+    "ext",
+    "trust",
+    "hello",
+  ];
+  try {
+    await mkdir(join(root, ".kb", "extensions"), { recursive: true });
+    await writeFile(
+      join(root, ".kb", "extensions", "hello.ts"),
+      'import {defineExtension} from "kb-ext-sdk";export const declaration=defineExtension({name:"hello",label:"Hello"});',
+    );
+    const refused = Bun.spawn(cmd, { env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const [out, review] = await Promise.all([
+      new Response(refused.stdout).text(),
+      new Response(refused.stderr).text(),
+    ]);
+    expect(await refused.exited).toBe(1);
+    expect(JSON.parse(out)).toMatchObject({ status: "failed", code: "approval_required" });
+    expect(review).toContain('"reach"');
+    expect(review).toContain('"hello.ts"');
+    expect(await Bun.file(join(root, "data", "trust.json")).exists()).toBe(false);
+    let output = "";
+    let answered = false;
+    const approved = Bun.spawn(cmd, {
+      env,
+      terminal: {
+        cols: 120,
+        rows: 30,
+        data(terminal, bytes) {
+          output += new TextDecoder().decode(bytes);
+          if (!answered && output.includes("[y/N]")) {
+            answered = true;
+            terminal.write("y\n");
+          }
+        },
+      },
+    });
+    try {
+      expect(await approved.exited).toBe(0);
+      expect(answered).toBe(true);
+      expect(output).toContain('"trusted": true');
+    } finally {
+      approved.kill();
+      approved.terminal?.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

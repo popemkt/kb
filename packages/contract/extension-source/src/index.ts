@@ -1,4 +1,12 @@
 export {
+  artifactName,
+  MarketplaceIndexSchema,
+  marketplaceTree,
+  marketplaceEntryPin,
+  marketplaceName,
+} from "./marketplace.ts";
+export type { MarketplaceIndex } from "./marketplace.ts";
+export {
   SOURCE_LIMITS,
   SourceError,
   SourceReader,

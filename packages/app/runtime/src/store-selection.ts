@@ -128,6 +128,17 @@ export const selectStore = Effect.fn("kb.selectStore")(function* (
   return BACKENDS[name].open(root).store;
 });
 
+/** A raw snapshot releases the selected adapter and never composes or seeds families. */
+export const storeSnapshot = Effect.fn("kb.storeSnapshot")(function* (root: string) {
+  const name = yield* storeBackendAt(root);
+  if (name === null) return [];
+  return yield* Effect.acquireUseRelease(
+    Effect.sync(() => BACKENDS[name].open(root)),
+    (opened) => opened.store.loadEffect,
+    (opened) => Effect.sync(opened.release),
+  );
+});
+
 /**
  * Make an empty store of `name` under a root that has none — what
  * `kb init --store` does before the session opens and seeds. A root that

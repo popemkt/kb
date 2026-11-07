@@ -95,10 +95,9 @@ test("concurrent selection writes preserve entries in each scope", async () => {
             ),
             { concurrency: 2 },
           );
-          expect(Object.keys((yield* storage.read(root, scope)).extensions).toSorted()).toEqual([
-            "one",
-            "two",
-          ]);
+          expect(
+            Object.keys((yield* storage.read(root, scope)).lock.extensions).toSorted(),
+          ).toEqual(["one", "two"]);
         }
       }).pipe(Effect.provide(storageLayer)),
     );
@@ -159,6 +158,7 @@ test("one process holds publication and selection together against a second muta
         const storage=yield* ExtensionStorage;
         const mutation=storage.mutate((tx)=>Effect.gen(function*(){
           yield* Effect.sync(()=>writeFileSync(root+"/entered-"+name,""));
+          if(name==="b"){const plan=yield* tx.collection([root]);yield* plan.sweep;}
           const pin={repo:"owner/repo",path:name,rev:"a".repeat(40)};
           const source=yield* checkedExtensionTree([{path:name+".ts",mode:"100644",bytes:new TextEncoder().encode("export const value=42;")}]);
           const stored=yield* tx.store({kind:"extension",pin},source);
@@ -197,7 +197,7 @@ test("one process holds publication and selection together against a second muta
         return yield* (yield* ExtensionStorage).read(root, "store");
       }).pipe(Effect.provide(storageLayer)),
     );
-    expect(Object.keys(lock.extensions)).toEqual(["a", "b"]);
+    expect(Object.keys(lock.lock.extensions)).toEqual(["a", "b"]);
   } finally {
     for (const child of children) child.kill();
     await Promise.allSettled(children.map((child) => child.exited));
@@ -308,7 +308,9 @@ test("store links stay inside the repo, including missing paths through symlink 
       await Effect.runPromise(
         Effect.gen(function* () {
           const storage = yield* ExtensionStorage;
-          expect(Exit.isFailure(yield* Effect.exit(storage.read(root, "store")))).toBe(true);
+          const read = yield* storage.read(root, "store");
+          expect(read.lock.links).toEqual([]);
+          expect(read.failures).toHaveLength(1);
           expect(
             Exit.isFailure(
               yield* Effect.exit(storage.mutate((tx) => tx.update(root, "store", (held) => held))),
@@ -330,12 +332,15 @@ test("store links stay inside the repo, including missing paths through symlink 
     await Effect.runPromise(
       Effect.gen(function* () {
         const storage = yield* ExtensionStorage;
-        expect((yield* storage.read(root, "store")).links).toEqual(["alias", "inside/missing"]);
+        expect((yield* storage.read(root, "store")).lock.links).toEqual([
+          "alias",
+          "inside/missing",
+        ]);
         for (const scope of ["local", "user"] as const) {
           yield* storage.mutate((tx) =>
             tx.update(root, scope, (held) => ({ ...held, links: [sibling] })),
           );
-          expect((yield* storage.read(root, scope)).links).toEqual([sibling]);
+          expect((yield* storage.read(root, scope)).lock.links).toEqual([sibling]);
         }
       }).pipe(Effect.provide(storageLayer)),
     );

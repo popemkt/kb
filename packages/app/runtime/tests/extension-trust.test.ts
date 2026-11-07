@@ -450,6 +450,8 @@ export default definePlugin({
           return yield* importClosures((yield* trustedOf(closures)).trusted);
         }).pipe(
           Effect.provideService(CodeTrust, {
+            records: Effect.succeed([]),
+            retain: () => Effect.void,
             // The file changes after its closure is read, before it is imported.
             trusted: (digests) =>
               Effect.sync(() => {

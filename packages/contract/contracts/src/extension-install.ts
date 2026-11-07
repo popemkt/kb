@@ -2,17 +2,19 @@ import { Context, type Effect } from "effect";
 import { z } from "zod";
 import {
   pinnedSchema,
+  artifactName,
   type PinnedSource,
   type SelectedSource,
   type SourceTree,
 } from "@kb/extension-source";
+import type { ExtensionFailure } from "./extension.ts";
 import type { DomainError } from "@kb/model";
 
 export const EXTENSION_SCOPES = ["local", "store", "user"] as const;
 export const DEFAULT_EXTENSION_SCOPE = "store" as const;
 export const ExtensionScopeSchema = z.enum(EXTENSION_SCOPES);
 export type ExtensionScope = z.infer<typeof ExtensionScopeSchema>;
-export const ExtensionNameSchema = z.string().regex(/^[\w][\w.-]*$/);
+export const ExtensionNameSchema = artifactName;
 export const SourceHashSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/);
 export const SourceKindSchema = z.enum(["extension", "marketplace"]);
 export const SourceAddressSchema = z.object({
@@ -34,6 +36,7 @@ export const CachedSourceSchema = SourceAddressSchema.extend({
 export const ExtensionSelectionSchema = z.object({
   original: z.string(),
   locked: LockedSourceSchema,
+  previous: LockedSourceSchema.optional(),
 });
 export const ExtensionLockSchema = z.object({
   version: z.literal(1),
@@ -43,13 +46,30 @@ export const ExtensionLockSchema = z.object({
 });
 export type ExtensionLock = z.infer<typeof ExtensionLockSchema>;
 export type ExtensionSelection = z.infer<typeof ExtensionSelectionSchema>;
+export interface ExtensionLockRead {
+  readonly lock: ExtensionLock;
+  readonly failures: readonly ExtensionFailure[];
+}
 export interface CachedTree extends SourceAddress {
   readonly dir: string;
   readonly ignored: readonly string[];
   readonly source: SourceTree;
 }
 /** Write capabilities exist inside one cross-process installation-state mutation. */
+export interface ExtensionCollection {
+  readonly retained: readonly SourceAddress[];
+  readonly sweep: Effect.Effect<
+    { trees: readonly string[]; stages: readonly string[] },
+    DomainError
+  >;
+}
 export interface ExtensionTransaction {
+  collection(roots: readonly string[]): Effect.Effect<ExtensionCollection, DomainError>;
+  links(
+    root: string,
+    scope: ExtensionScope,
+    edit: { readonly add: string } | { readonly remove: string },
+  ): Effect.Effect<string, DomainError>;
   update(
     root: string,
     scope: ExtensionScope,
@@ -61,7 +81,7 @@ export interface ExtensionTransaction {
 export class ExtensionStorage extends Context.Service<
   ExtensionStorage,
   {
-    read(root: string, scope: ExtensionScope): Effect.Effect<ExtensionLock, DomainError>;
+    read(root: string, scope: ExtensionScope): Effect.Effect<ExtensionLockRead, DomainError>;
     cached(selection: SourceSelection): Effect.Effect<CachedTree | null, DomainError>;
     tree(address: SourceAddress): Effect.Effect<CachedTree | null, DomainError>;
     mutate<A, E, R>(

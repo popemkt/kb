@@ -9,7 +9,14 @@
  */
 import { Effect } from "effect";
 import { z } from "zod";
-import { CodeTrust, LegacyTrust, type ActionDefinition } from "@kb/contracts";
+import {
+  CodeTrust,
+  LegacyTrust,
+  ExtensionCatalog,
+  ExtensionNameSchema,
+  SourceHashSchema,
+  type ActionDefinition,
+} from "@kb/contracts";
 import { domainError, type DomainError } from "@kb/model";
 import { isCodeDigest } from "@kb/sandbox";
 
@@ -21,7 +28,10 @@ export const sandboxTrustDef = {
   description:
     "Trust, on this machine, by the digest of exactly what it covers: sandboxed code and its grant (it then runs in a Worker instead of QuickJS), a repository extension's source (it then runs with the server's reach, and so does what it loads or evaluates when it runs), or an agent provider's binding (the key it sends, the endpoint it sends it to, the executable it starts). Declared required approval is enforced by the invoke core in every deployment. It is never written to the graph.",
   mode: { kind: "write", approval: "required" } as const,
-  inputSchema: z.object({ digest: Digest }),
+  inputSchema: z.object({
+    digest: Digest,
+    extension: z.object({ name: ExtensionNameSchema, files: SourceHashSchema }).optional(),
+  }),
   outputSchema: z.object({ digest: z.string(), trusted: z.literal(true) }),
 } satisfies ActionDefinition;
 
@@ -46,8 +56,26 @@ export const sandboxTrustedDef = {
 
 export const sandboxTrustEffect = Effect.fn("sandbox.trust")(function* (
   input: z.infer<typeof sandboxTrustDef.inputSchema>,
-): Effect.fn.Return<z.infer<typeof sandboxTrustDef.outputSchema>, DomainError, CodeTrust> {
-  yield* (yield* CodeTrust).trust(input.digest);
+): Effect.fn.Return<
+  z.infer<typeof sandboxTrustDef.outputSchema>,
+  DomainError,
+  CodeTrust | ExtensionCatalog
+> {
+  const selected = (yield* ExtensionCatalog).find(
+    (row) =>
+      row.digest === input.digest && row.origin?.kind === "install" && row.shadowed === undefined,
+  );
+  if (
+    input.extension !== undefined &&
+    (selected?.name !== input.extension.name || selected.files !== input.extension.files)
+  )
+    return yield* domainError(
+      "invalid_input",
+      "extension provenance does not match the current review; list and review it again",
+    );
+  const provenance =
+    selected?.files === undefined ? undefined : { name: selected.name, files: selected.files };
+  yield* (yield* CodeTrust).trust(input.digest, provenance);
   return { digest: input.digest, trusted: true };
 });
 

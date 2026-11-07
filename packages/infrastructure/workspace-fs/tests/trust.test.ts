@@ -78,6 +78,7 @@ describe("code trust on disk", () => {
       for (const change of [
         (t: CodeTrust["Service"]) => t.trust(A),
         (t: CodeTrust["Service"]) => t.untrust(A),
+        (t: CodeTrust["Service"]) => t.retain([]),
       ]) {
         const exit = await on("mac-1", (trust) => change(trust).pipe(Effect.exit));
         expect(Exit.isFailure(exit)).toBe(true);
@@ -152,4 +153,16 @@ describe("code trust on disk", () => {
     await writeFile(join(root, ".kb", "trust.json"), '{"trusted": ["everything"]}');
     expect(await on("mac-1", (t) => t.trusted([A]))).toEqual([]);
   });
+});
+
+test("provenance retirement preserves bare approvals and other machines' records", async () => {
+  const files = `sha256:${"d".repeat(64)}`;
+  await on("mac-1", (trust) => trust.trust(A, { name: "hello", files }));
+  await on("mac-1", (trust) => trust.trust(B));
+  await on("mac-2", (trust) => trust.trust(A, { name: "hello", files }));
+  await on("mac-1", (trust) => trust.retain([files]));
+  expect(await on("mac-1", (trust) => trust.trusted([A, B]))).toEqual([A, B]);
+  await on("mac-1", (trust) => trust.retain([]));
+  expect(await on("mac-1", (trust) => trust.trusted([A, B]))).toEqual([B]);
+  expect(await on("mac-2", (trust) => trust.trusted([A]))).toEqual([A]);
 });

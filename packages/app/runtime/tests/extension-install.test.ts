@@ -192,7 +192,7 @@ test("admission checks locks without importing an installed process.exit module"
     await Effect.runPromise(admitExtensions(ctx.root).pipe(Effect.provide(bunFileSystemLayer))),
   ).toEqual([
     {
-      file: "store extensions lock",
+      file: "/absolute/store/link",
       error: expect.stringContaining("relative and resolve inside"),
     },
   ]);
@@ -256,14 +256,22 @@ test("a hostile committed store lock cannot select a sibling's trusted extension
   const clone = await openKb(join(root, "clone"));
   const file = join(clone.root, ".kb", "extensions.lock.json");
   await symlink(join(sibling, ".kb", "extensions"), join(clone.root, "alias"));
+  await writeTrustedExtension(join(clone.root, "inside"), "good.ts", extensionModule("good"));
+  const installed = successful(await install({ source: "github:owner/repo@main" }, clone));
+  const originalLock = JSON.parse(await readFile(file, "utf8"));
   for (const path of ["../sibling/.kb/extensions", "alias"]) {
     await writeFile(
       file,
-      JSON.stringify({ version: 1, extensions: {}, marketplaces: {}, links: [path] }),
+      JSON.stringify({ ...originalLock, links: [path, "inside/.kb/extensions"] }),
     );
     resetRegistryCache();
     const receipt = await invoke(clone, { id: "extension.list", input: {} });
     expect(JSON.stringify(receipt)).toContain("relative and resolve inside");
+    expect(receipt).toMatchObject({
+      status: "succeeded",
+      output: { extensions: expect.arrayContaining([expect.objectContaining({ name: "good" })]) },
+    });
+    expect(JSON.stringify(receipt)).toContain(installed.installed[0]?.digest ?? "missing digest");
     expect(await Bun.file(marker).exists()).toBe(false);
   }
   await writeFile(

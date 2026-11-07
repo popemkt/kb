@@ -2825,7 +2825,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   (user). Discovery order is own, local links/installs, store links/installs,
   user links/installs. Store links are relative and must resolve inside their
   repository, including through symlinks; only local/user links may reach
-  siblings or outside paths. The lock reader enforces this for every consumer. Locks record original sources and full pinned commits
+  siblings or outside paths. The lock reader returns valid links and a failure for each rejected link, so one bad link never hides other links, installs or marketplaces in that lock. Writers validate the complete proposed lock before replacing it. Locks record original sources and full pinned commits
   with file-set hashes. `ExtensionStorage.mutate` gives one cross-process
   mutation capability for publishing source trees and changing scope locks,
   held through the lock write so another mutation cannot collect a newly
@@ -2855,9 +2855,10 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   fetches request blobless filtering. Paths, modes and counts are checked before fetching
   only the selected blobs, whose combined bytes remain bounded; one batch
   reader consumes them. Child git processes have file/output budgets and a
-  deadline, and cannot prompt or fetch objects implicitly. All git commands,
-  including ref discovery, run in a private bare repository and never read
-  the caller root's git configuration.
+  deadline, and cannot prompt or fetch objects implicitly. A non-tip ancestry
+  proof that exceeds its 32 MiB metadata budget is refused with a suggestion to
+  pin a branch or tag tip. All commands, including ref discovery, run in a private
+  bare repository and never read the caller root's git configuration.
   All selected paths must be relative, free of traversal and unique under
   NFC/case folding; symlinks and submodules are refused. Limits are 512 files
   and 8 MiB. Exactly one top-level server entry determines the name; only its
@@ -2865,6 +2866,46 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   are reported as ignored. The `kb.source/1` digest frames each sorted path,
   mode and byte sequence; it hashes files, never transport bytes. Source
   transport disables hooks and restricts protocols; it never installs packages.
+- **Explicit lifecycle actions.** `extension.outdated` resolves original sources
+  without changing cache, locks or trust; `extension.update` stages checked new
+  bytes and rewrites the selected lock. With no name it updates every entry in
+  the scopes in effect; an explicit scope restricts it. An update retains the
+  last approved source as `previous` while its replacement is untrusted. Discovery
+  reports the candidate and the running digest in one row, and continues to run
+  only the previously approved closure until the replacement is approved. Both
+  sources stay referenced for collection. Reverting the lock restores that pin.
+  `extension.link`/`unlink` edit the same locks: local/user links may reach outside
+  the root; store links must resolve inside it. Linking discloses that shared
+  trust enables code already approved in another store.
+- **Collection is explicit and serialized with installation.** `extension.gc`
+  reads the user lock and the store/local locks for the current root and every
+  registered location in the home graph. That snapshot is read without composing
+  families or seeding stores; unreadable lock schemas stop collection. It retains
+  candidate, previous and marketplace file sets. Under the same cross-process
+  mutation lock it first retires this machine's unreferenced provenance trust,
+  then sweeps unreferenced cache trees, pin indexes and abandoned publication
+  stages. Records without provenance and other machines' records stay. Source
+  symlinks are never followed during collection. Nodes are never removed.
+- **Marketplaces are pinned source projections.** A strict version-1
+  `kb-marketplace.json` has one name per entry; it is cached through the same
+  source/cache contract as extensions. Relative entries resolve inside the
+  index directory at its commit; external GitHub entries must name full commits.
+  Locked indexes are read offline for listing and installation by name. Bare
+  names offered by multiple indexes are refused with qualified alternatives.
+  Installing a name writes its index pin beside its canonical `name@index`
+  source. Updates refresh that index from its original source before resolving
+  the entry. Adding, updating and removing indexes are explicit actions; nothing
+  grants trust or executes install scripts.
+- **Review is part of the extension catalog.** Discovery reserves each selected name
+  before reading bytes, including missing installed trees. The catalog reports
+  visible and shadowed entries without importing them: origin and scope, original
+  source and pin, file-set hash, closure digest, trust, and the bundler's file/size,
+  host-module and builtin inventory for both halves. Hidden entries never load.
+  `extension.diff` compares the locked source with this machine's latest trusted
+  provenance for that name, entirely offline. `kb ext trust` prints that review
+  and invokes the ordinary required-approval `sandbox.trust`; installed provenance
+  is derived from that catalog's digest and selected file set; an explicit review
+  identity must still match when approval arrives.
 - **Repository extensions** run as owner code, on the server and in the
   page, like a DeepSeek Harness plugin, so a root's extension runs only once
   a person has trusted it on this machine. What a person trusts is its
@@ -5259,6 +5300,9 @@ sends it more than 400 messages a second.
   trusting only that list. Import never modifies or removes the legacy file,
   including other machines' records. This is the opt-in path for existing
   approvals. The backup path is now `<data>/trust.json`.
+  Installed trust records additionally name their extension and file-set hash.
+  The trust port exposes this machine's records for offline review and collection;
+  records without provenance retain their ordinary meaning.
   An undecodable shared file trusts nothing on reads; every trust/untrust write
   refuses it with its path and leaves its bytes unchanged. Writers serialize
   across processes; readers observe complete atomically replaced snapshots.

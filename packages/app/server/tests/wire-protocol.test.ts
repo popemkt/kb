@@ -30,11 +30,11 @@ import {
 import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
-// Extension install adds an action; old pages do not need it. Existing envelopes,
+// Lifecycle adds actions and optional selection/running fields. Existing envelopes,
 // modes and receipts remain compatible, so the protocol stays unchanged.
 const RECORDED = {
   protocol: 2,
-  fingerprint: "13f36586e9b244d5701c5a6e5afce4262fb9646bde63246ecd29fdf82f1e208a",
+  fingerprint: "75ea80e149cd8e28ee5ebfe094726e3e81f0893a4d7d40febed76dd8840d64fc",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

@@ -6,6 +6,7 @@ import { Effect, Exit, Result } from "effect";
 import {
   checkedTree,
   extensionTree,
+  marketplaceTree,
   parseSource,
   type SourceReader,
   type ObjectFile,
@@ -107,6 +108,10 @@ const valid = [
   file("README.md", "fixture"),
   file("package.json", "{}"),
 ];
+const indexOnly = commit(
+  [file("kb-marketplace.json", JSON.stringify({ version: 1, name: "sample", extensions: [] }))],
+  "index-only",
+);
 const original = commit(valid, "main");
 point("original", original);
 git(["symbolic-ref", "HEAD", "refs/heads/main"]);
@@ -183,6 +188,15 @@ const largeRevision = commit(
   "large-path",
 );
 function sourceContract(name: string, reader: SourceReader["Service"]): void {
+  test(`${name}: raw transport accepts an index with no extension server`, async () => {
+    const raw = await Effect.runPromise(
+      reader.read({ repo: "owner/repo", path: "", rev: indexOnly }),
+    );
+    expect((await Effect.runPromise(marketplaceTree(raw))).index.name).toBe("sample");
+    expect(Exit.isFailure(await Effect.runPromise(extensionTree(raw).pipe(Effect.exit)))).toBe(
+      true,
+    );
+  });
   test(`${name}: ancestry may be anchored only by a tag`, async () => {
     expect(
       (await Effect.runPromise(reader.resolve(parseSource(`github:owner/repo@${tagAncestor}`))))

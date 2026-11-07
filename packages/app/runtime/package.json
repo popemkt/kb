@@ -29,6 +29,7 @@
     "@kb/governance": "workspace:*",
     "@kb/graph": "workspace:*",
     "@kb/lab": "workspace:*",
+    "@kb/locations": "workspace:*",
     "@kb/locations-fs": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
@@ -51,7 +52,6 @@
   },
   "devDependencies": {
     "@kb/canvas": "workspace:*",
-    "@kb/locations": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
     "zod": "catalog:"

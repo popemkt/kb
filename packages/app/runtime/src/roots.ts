@@ -11,11 +11,11 @@ import { resolve } from "node:path";
 import { Effect, Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { KbRoots, uiAddressOf, type RootProbe } from "@kb/contracts";
-import { ensureDomainError, type DomainError } from "@kb/model";
+import { ensureDomainError, type DomainError, type KbNode } from "@kb/model";
 import { canonicalRoot, currentHome, servingUi } from "@kb/workspace-fs";
 import { openKbEffect } from "./open.ts";
 import { oneStartPerRoot, selfLaunch, serveRoot } from "./serve.ts";
-import { createStore, storeBackendAt } from "./store-selection.ts";
+import { createStore, storeBackendAt, storeSnapshot } from "./store-selection.ts";
 
 /** The store a new root is made with: the default `kb init` makes. */
 const NEW_ROOT_BACKEND = "jsonl";
@@ -53,25 +53,35 @@ const createRoot = Effect.fn("kb.roots.create")(function* (
   yield* createStore(root, NEW_ROOT_BACKEND);
 });
 
-export const kbRootsLayer: Layer.Layer<KbRoots, never, FileSystem> = Layer.effect(
-  KbRoots,
-  Effect.gen(function* () {
-    const context = yield* Effect.context<FileSystem>();
-    const launch = selfLaunch();
-    const serve = oneStartPerRoot((root) => serveRoot(root, launch).pipe(Effect.provide(context)));
-    return KbRoots.of({
-      home: currentHome,
-      probe: (path) => probeRoot(path).pipe(Effect.provide(context)),
-      served: (root) =>
-        servingUi(root).pipe(
-          Effect.map((at) => (at === null ? null : uiAddressOf(at))),
-          Effect.provide(context),
-        ),
-      create: (root) => createRoot(root).pipe(Effect.provide(context)),
-      // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: the store opened here is never
-      // released, as no selected store is; a sqlite root keeps its connection.
-      open: (root) => openKbEffect(root).pipe(Effect.provide(context)),
-      serve,
-    });
-  }),
-);
+export function kbRootsLayer(
+  registeredPaths: (nodes: readonly KbNode[]) => readonly string[],
+): Layer.Layer<KbRoots, never, FileSystem> {
+  return Layer.effect(
+    KbRoots,
+    Effect.gen(function* () {
+      const context = yield* Effect.context<FileSystem>();
+      const launch = selfLaunch();
+      const serve = oneStartPerRoot((root) =>
+        serveRoot(root, launch).pipe(Effect.provide(context)),
+      );
+      return KbRoots.of({
+        home: currentHome,
+        registered: Effect.gen(function* () {
+          const nodes = yield* storeSnapshot(yield* currentHome);
+          return [...new Set(registeredPaths(nodes))];
+        }).pipe(Effect.provide(context)),
+        probe: (path) => probeRoot(path).pipe(Effect.provide(context)),
+        served: (root) =>
+          servingUi(root).pipe(
+            Effect.map((at) => (at === null ? null : uiAddressOf(at))),
+            Effect.provide(context),
+          ),
+        create: (root) => createRoot(root).pipe(Effect.provide(context)),
+        // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: the store opened here is never
+        // released, as no selected store is; a sqlite root keeps its connection.
+        open: (root) => openKbEffect(root).pipe(Effect.provide(context)),
+        serve,
+      });
+    }),
+  );
+}
