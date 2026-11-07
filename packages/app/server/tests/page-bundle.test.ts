@@ -70,10 +70,14 @@ const DATASCRIPT = /cljs\.core/;
  * is the kit's, which every gallery of backdrops draws (1.4 KB; deferred, it
  * split the kit's eager chunks and cost 2.1 KB more), and the Studio's route,
  * surface and view option, which the page reads to route (0.9 KB); the
- * Studio's page and scenes load lazily.
+ * Studio's page and scenes load lazily. And by 3.5 KB (3,442 bytes
+ * measured) for a page head's backdrop offering "Open in Studio": the
+ * gesture that hears a double-click on the head (1.3 KB), the corner it
+ * opens (1.5 KB; deferred, it split the kit's eager chunks and cost 0.95 KB
+ * more) and the head's hold of it (0.4 KB).
  */
 // The routines family adds its native field/tag vocabulary; its worker remains server-side.
-const EAGER_BUDGET_BYTES = 2_025_500;
+const EAGER_BUDGET_BYTES = 2_029_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
