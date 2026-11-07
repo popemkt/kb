@@ -625,6 +625,34 @@ describe("every contributed page-head backdrop", () => {
           vi.useRealTimers();
         }
       });
+
+      it("stays while focus is on it, though the pointer passed over and left", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+          doubleClick(200, 80);
+          const studio = action("Open in Studio");
+          act(() => studio.focus());
+          const pointer = (type: string, related: EventTarget | null) =>
+            act(() => {
+              studio.dispatchEvent(
+                new window.PointerEvent(type, { bubbles: true, relatedTarget: related }),
+              );
+            });
+          pointer("pointerover", container);
+          pointer("pointerout", container);
+          act(() => {
+            vi.advanceTimersByTime(10_000);
+          });
+          expect(corner()).not.toBeNull();
+          act(() => studio.blur());
+          act(() => {
+            vi.advanceTimersByTime(5000);
+          });
+          expect(corner()).toBeNull();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
     });
   });
 
