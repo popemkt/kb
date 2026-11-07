@@ -26,10 +26,12 @@ export interface SourceFile {
   readonly bytes: Uint8Array;
 }
 export interface SourceTree {
-  readonly name: string;
   readonly files: readonly SourceFile[];
-  readonly ignored: readonly string[];
   readonly hash: string;
+}
+export interface SelectedSource extends SourceTree {
+  readonly name: string;
+  readonly ignored: readonly string[];
 }
 export class SourceReader extends Context.Service<
   SourceReader,

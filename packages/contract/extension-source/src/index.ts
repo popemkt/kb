@@ -9,6 +9,12 @@ export {
   pinSource,
   isRepositoryRef,
 } from "./model.ts";
-export type { GithubSource, PinnedSource, SourceFile, SourceTree } from "./model.ts";
-export { checkedTree, checkSourceEntries } from "./tree.ts";
+export type {
+  GithubSource,
+  PinnedSource,
+  SourceFile,
+  SourceTree,
+  SelectedSource,
+} from "./model.ts";
+export { checkedTree, extensionTree, checkedExtensionTree, checkSourceEntries } from "./tree.ts";
 export type { ObjectFile } from "./tree.ts";

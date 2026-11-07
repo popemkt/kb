@@ -32,6 +32,8 @@ bun build packages/app/cli/src/main.ts --outdir "$out/cli" --target=bun --source
 
 mkdir -p "$stage/bin" "$stage/lib/kb/packages/app/ui"
 cp "$out/cli/main.js" "$stage/lib/kb/cli.js"
+cp bin/kb-bun "$stage/lib/kb/launch"
+cp packages/infrastructure/child-process/src/kb-launch-flags.txt "$stage/lib/kb/launch-flags"
 cp -R packages/app/ui/dist "$stage/lib/kb/packages/app/ui/dist"
 for f in README.md LICENSE; do
   if [ -f "$f" ]; then cp "$f" "$stage/"; fi
@@ -51,13 +53,14 @@ while [ -L "$self" ]; do
   esac
 done
 root=$(cd "$(dirname "$self")/.." && pwd)
-if ! command -v bun >/dev/null 2>&1; then
+runtime=${KB_BUN:-bun}
+if ! command -v "$runtime" >/dev/null 2>&1; then
   echo "kb: bun is not on PATH; kb runs on bun (https://bun.sh)" >&2
   exit 127
 fi
 KB_PKG_ROOT="$root/lib/kb"
 export KB_PKG_ROOT
-exec bun "$root/lib/kb/cli.js" "$@"
+exec "$root/lib/kb/launch" "$runtime" "$root/lib/kb/launch-flags" "$root/lib/kb/cli.js" "$@"
 LAUNCHER
 chmod +x "$stage/bin/kb"
 

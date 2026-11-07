@@ -46,6 +46,7 @@ import {
   type ScriptStep,
 } from "@kb/agent";
 import {
+  KB_SOURCE_BIN,
   FakeModelContext,
   FakeTab,
   surfaceContract,
@@ -79,16 +80,7 @@ function manifestOf(
 /** Run the actual CLI without a controlling terminal; approval belongs to the TTY suite. */
 async function kb(root: string, args: string[]): Promise<string> {
   const child = Bun.spawn(
-    [
-      process.execPath,
-      join(import.meta.dir, "../src/main.ts"),
-      "--governance",
-      governanceMode(),
-      "--root",
-      root,
-      "--json",
-      ...args,
-    ],
+    [KB_SOURCE_BIN, "--governance", governanceMode(), "--root", root, "--json", ...args],
     {
       detached: true,
       stdin: "ignore",

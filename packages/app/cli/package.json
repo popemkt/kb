@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "kb": "./src/main.ts"
+    "kb": "./bin/kb"
   },
   "type": "module",
   "exports": {},

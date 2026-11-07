@@ -66,9 +66,11 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$out/lib/kb/packages/app/ui" "$out/bin"
     cp -a "$TMPDIR/bundle/main.js" "$out/lib/kb/cli.js"
     cp -a packages/app/ui/dist "$out/lib/kb/packages/app/ui/dist"
-    makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
+    cp bin/kb-bun "$out/lib/kb/launch"
+    cp packages/infrastructure/child-process/src/kb-launch-flags.txt "$out/lib/kb/launch-flags"
+    makeBinaryWrapper "$out/lib/kb/launch" "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
-      --add-flags "$out/lib/kb/cli.js"
+      --add-flags "${lib.getExe bun} $out/lib/kb/launch-flags $out/lib/kb/cli.js"
     runHook postInstall
   '';
 

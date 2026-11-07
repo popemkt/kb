@@ -1,3 +1,4 @@
+import { extensionTree } from "@kb/extension-source";
 import { resolve } from "node:path";
 import { lstat } from "node:fs/promises";
 import { Effect, Layer, Result } from "effect";
@@ -76,6 +77,19 @@ const readSelection = Effect.fn("extensions.selection")(function* (root: string)
   }
   return { links, installed, failures };
 });
+const installedTree = Effect.fn("extensions.installedTree")(function* (
+  name: string,
+  files: string,
+) {
+  const held = yield* (yield* ExtensionStorage).tree({ kind: "extension", name, files });
+  if (held === null) return null;
+  const source = yield* extensionTree(held.source).pipe(
+    Effect.mapError((error) => domainError("invalid_input", error.message)),
+  );
+  if (source.name !== name || source.hash !== files)
+    return yield* domainError("invalid_input", `invalid installed extension layout: ${name}`);
+  return held;
+});
 /** No installed/linked module is imported here, including for admission. */
 export const installedFolders = Effect.fn("extensions.folders")(function* (root: string) {
   let snapshot = selections.get(root);
@@ -90,7 +104,6 @@ export const installedFolders = Effect.fn("extensions.folders")(function* (root:
     selections.set(root, snapshot);
   }
   const selected = yield* snapshot;
-  const storage = yield* ExtensionStorage;
   const folders: ExtensionFolder[] = [];
   const failures = [...selected.failures];
   for (const scope of EXTENSION_SCOPES) {
@@ -106,7 +119,7 @@ export const installedFolders = Effect.fn("extensions.folders")(function* (root:
     for (const { name, entry, origin } of selected.installed.filter(
       (item) => item.origin === `${scope} install`,
     )) {
-      const tree = yield* storage.tree(name, entry.locked.files).pipe(Effect.result);
+      const tree = yield* installedTree(name, entry.locked.files).pipe(Effect.result);
       if (Result.isFailure(tree)) failures.push({ file: name, error: tree.failure.message });
       else if (tree.success === null)
         failures.push({ file: name, error: "not fetched; run kb ext install" });
@@ -120,11 +133,10 @@ export function resetInstalledSelections(): void {
 }
 /** Admission reads every lock afresh, checks present trees, and never follows links to execute code. */
 export const validateInstallLocks = Effect.fn("extensions.validateLocks")(function* (root: string) {
-  const storage = yield* ExtensionStorage;
   const selected = yield* readSelection(root);
   const failures = [...selected.failures];
   for (const { name, entry } of selected.installed) {
-    const tree = yield* storage.tree(name, entry.locked.files).pipe(Effect.result);
+    const tree = yield* installedTree(name, entry.locked.files).pipe(Effect.result);
     if (Result.isFailure(tree)) failures.push({ file: name, error: tree.failure.message });
   }
   return failures;

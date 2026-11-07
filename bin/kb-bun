@@ -1,0 +1,15 @@
+#!/bin/sh
+# The shared Bun startup adapter. Flags are trusted release data, one argument per line.
+set -eu
+runtime=$1
+flags=$2
+entry=$3
+shift 3
+set -f
+set -- "$entry" "$@"
+argument=
+while IFS= read -r argument || [ -n "$argument" ]; do
+  [ -n "$argument" ] || continue
+  set -- "$argument" "$@"
+done < "$flags"
+exec "$runtime" "$@"

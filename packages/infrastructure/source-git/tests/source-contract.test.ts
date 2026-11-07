@@ -3,7 +3,13 @@ import { mkdir, mkdtemp, readFile, readdir, stat, writeFile, rm } from "node:fs/
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit, Result } from "effect";
-import { checkedTree, parseSource, type SourceReader, type ObjectFile } from "@kb/extension-source";
+import {
+  checkedTree,
+  extensionTree,
+  parseSource,
+  type SourceReader,
+  type ObjectFile,
+} from "@kb/extension-source";
 import { childProcessEnv } from "@kb/child-process";
 import { gitSourceReader, memorySourceReader } from "../src/index.ts";
 import { gitTransport } from "../src/transport.ts";
@@ -183,8 +189,13 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
         .rev,
     ).toBe(tagAncestor);
     expect(
-      (await Effect.runPromise(reader.read({ repo: "owner/repo", path: "", rev: tagAncestor })))
-        .name,
+      (
+        await Effect.runPromise(
+          reader
+            .read({ repo: "owner/repo", path: "", rev: tagAncestor })
+            .pipe(Effect.flatMap(extensionTree)),
+        )
+      ).name,
     ).toBe("hello");
   });
   test(`${name}: the same object is installable when it names its actual fork`, async () => {
@@ -192,7 +203,13 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
       (await Effect.runPromise(reader.resolve(parseSource("github:fork/repo@fork-only")))).rev,
     ).toBe(imposter);
     expect(
-      (await Effect.runPromise(reader.read({ repo: "fork/repo", path: "", rev: imposter }))).name,
+      (
+        await Effect.runPromise(
+          reader
+            .read({ repo: "fork/repo", path: "", rev: imposter })
+            .pipe(Effect.flatMap(extensionTree)),
+        )
+      ).name,
     ).toBe("hello");
   });
   test(`${name}: an out-of-path large blob is outside the source budget`, async () => {
@@ -206,7 +223,13 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
       (await Effect.runPromise(reader.resolve(parseSource(`github:owner/repo@${ancestor}`)))).rev,
     ).toBe(ancestor);
     expect(
-      (await Effect.runPromise(reader.read({ repo: "owner/repo", path: "", rev: ancestor }))).name,
+      (
+        await Effect.runPromise(
+          reader
+            .read({ repo: "owner/repo", path: "", rev: ancestor })
+            .pipe(Effect.flatMap(extensionTree)),
+        )
+      ).name,
     ).toBe("hello");
   });
   test(`${name}: rejects an accessible object that exists only off the repository's refs`, async () => {
@@ -238,7 +261,8 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
     const source = parseSource("github:owner/repo@main");
     const pinned = await Effect.runPromise(reader.resolve(source));
     expect(pinned).toEqual({ repo: "owner/repo", path: "", rev: original });
-    const read = await Effect.runPromise(reader.read(pinned));
+    const raw = await Effect.runPromise(reader.read(pinned));
+    const read = await Effect.runPromise(extensionTree(raw));
     expect(read.name).toBe("hello");
     expect(read.ignored).toEqual(["package.json"]);
     expect(read.files.map(({ path, mode }) => [path, mode])).toEqual([
@@ -249,7 +273,7 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
     const moved = commit([file("hello.ts", "export const value = 43;")], `moved-${name}`);
     git(["update-ref", "refs/heads/main", moved]);
     refs.set("refs/heads/main", moved);
-    expect((await Effect.runPromise(reader.read(pinned))).hash).toBe(read.hash);
+    expect((await Effect.runPromise(reader.read(pinned))).hash).toBe(raw.hash);
     expect((await Effect.runPromise(reader.resolve(source))).rev).toBe(moved);
     git(["update-ref", "refs/heads/main", original]);
     refs.set("refs/heads/main", original);
@@ -258,7 +282,13 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
     test(`${name}: refuses ${kind}`, async () => {
       expect(
         Exit.isFailure(
-          await Effect.runPromise(Effect.exit(reader.read({ repo: "owner/repo", path: "", rev }))),
+          await Effect.runPromise(
+            Effect.exit(
+              reader
+                .read({ repo: "owner/repo", path: "", rev })
+                .pipe(Effect.flatMap(extensionTree)),
+            ),
+          ),
         ),
       ).toBe(true);
     });

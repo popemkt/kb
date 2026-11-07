@@ -1,3 +1,4 @@
+import { KB_SOURCE_BIN } from "@kb/test-kit";
 import { expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
@@ -10,8 +11,7 @@ test("CLI trust rejects JSON approval without a terminal and accepts only a term
   // child inherits the toolchain and receives isolated stores
   const env = { ...process.env, KB_HOME: join(scratch, "home"), KB_DATA: join(scratch, "data") };
   const cmd = [
-    process.execPath,
-    join(import.meta.dir, "../src/main.ts"),
+    KB_SOURCE_BIN,
     "--root",
     scratch,
     "--json",
@@ -26,7 +26,7 @@ test("CLI trust rejects JSON approval without a terminal and accepts only a term
   try {
     for (const mode of ["required", "off"]) {
       for (const via of ["argument", "stdin"]) {
-        const args = [...cmd.slice(0, 2), "--governance", mode, ...cmd.slice(2)];
+        const args = [...cmd.slice(0, 1), "--governance", mode, ...cmd.slice(1)];
         if (via === "stdin") args[args.length - 1] = "-";
         const refused = Bun.spawn(args, {
           env,
@@ -89,14 +89,7 @@ test("kb trust import needs a terminal and imports only the displayed machine's 
       { digest: other, machine: "other-machine", at: "2026-11-07T00:00:00Z" },
     ],
   });
-  const cmd = [
-    process.execPath,
-    join(import.meta.dir, "../src/main.ts"),
-    "--json",
-    "trust",
-    "import",
-    root,
-  ];
+  const cmd = [KB_SOURCE_BIN, "--json", "trust", "import", root];
   try {
     await mkdir(join(root, ".kb"));
     const empty = Bun.spawn(cmd, {

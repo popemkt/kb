@@ -31,6 +31,7 @@ import {
   codeTrustLayer,
   extensionStorageLayer,
   legacyTrustLayer,
+  ignoredRootFilesLayer,
   legacyDocsViewsLayer,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
@@ -95,6 +96,7 @@ export function kbRuntimeLayer(
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
     legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
+    ignoredRootFilesLayer.pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
     screens,

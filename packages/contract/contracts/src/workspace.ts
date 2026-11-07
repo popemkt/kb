@@ -102,6 +102,15 @@ export class LegacyTrust extends Context.Service<
   LegacyTrust,
   {
     readonly digests: (root: string) => Effect.Effect<readonly string[], DomainError>;
-    readonly present: (root: string) => Effect.Effect<boolean, DomainError>;
   }
 >()("kb/LegacyTrust") {}
+
+/** Presence-only diagnostics; ignored repository files never supply authority. */
+export class IgnoredRootFiles extends Context.Service<
+  IgnoredRootFiles,
+  {
+    readonly notices: (
+      root: string,
+    ) => Effect.Effect<readonly { file: string; error: string }[], DomainError>;
+  }
+>()("kb/IgnoredRootFiles") {}

@@ -141,11 +141,6 @@ export function legacyTrustLayer(
       });
       return LegacyTrust.of({
         digests,
-        present: Effect.fn("kb.legacyTrust.present")(function* (root: string) {
-          return yield* fs
-            .exists(resolve(root, ".kb", "trust.json"))
-            .pipe(Effect.mapError((error) => internal("inspect legacy trust", error)));
-        }),
       });
     }),
   );

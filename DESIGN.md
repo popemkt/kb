@@ -291,7 +291,8 @@ package's `src/`, with nothing carved out of it.
 ## Supply chain
 
 Child process environments are owned by `@kb/child-process`; runtime and
-source transport derive their environments from that one mechanism.
+source transport derive their environments from that one mechanism. Bun startup
+arguments likewise have one file, read by the shared source/release/Nix adapter.
 
 - Every internal dependency is `workspace:*`; every external dependency is
   `catalog:`. The catalog in the root `package.json` is the only file that
@@ -2825,7 +2826,10 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   user links/installs. Store links are relative and must resolve inside their
   repository, including through symlinks; only local/user links may reach
   siblings or outside paths. The lock reader enforces this for every consumer. Locks record original sources and full pinned commits
-  with file-set hashes. Scope updates serialize and merge under a file lock.
+  with file-set hashes. `ExtensionStorage.mutate` gives one cross-process
+  mutation capability for publishing source trees and changing scope locks,
+  held through the lock write so another mutation cannot collect a newly
+  published tree before it is selected. Reads never acquire or write it.
   Trees live at `<data>/extensions/store/<hash-first-32>-<name>`, copied into
   private temporary directories using exclusive regular-file writes, made
   read-only and renamed into place. A version-1 pin index reuses verified trees without
@@ -2839,6 +2843,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   without fetching, importing or executing installed/linked code.
 - **Pinned extension sources.** `SourceReader` (`@kb/extension-source`) resolves
   GitHub sources to full 40-hex commits and reads regular files from that pin.
+  The reader returns a checked, sorted file set independent of product
+  layouts; `extensionTree` derives an extension projection from those bytes.
   Paths are bounded by `SOURCE_LIMITS` in the source grammar (bytes, segment
   bytes and depth), before prefix/collision validation or local copying.
   A pasted GitHub tree URL normalizes to the same source. Abbreviated commit
