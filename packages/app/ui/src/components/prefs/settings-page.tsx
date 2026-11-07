@@ -6,6 +6,7 @@
  * composes are drawn in its section; a filter reads across every part.
  */
 import {
+  DEFAULT_BACKDROP_STRENGTH,
   MOTION_EFFECTS,
   MOTION_FIELD_IDS,
   MOTION_OPTION_SETTINGS,
@@ -32,6 +33,7 @@ import {
   type ThemePref,
   useGraphRead,
   usePageBackdrop,
+  type PageBackdropChoice,
   useShownDesignSystem,
   type WidthPref,
 } from "@kb/ui-sdk";
@@ -361,6 +363,19 @@ function Note({
  */
 type CoreRowOf = (row: CoreRow) => Row | null;
 
+/**
+ * The strengths a head shows where no setting chooses one: the default, and
+ * each variant of the shown backdrop that declares its own (`shownStrength`).
+ */
+function strengthsOwn(head: PageBackdropChoice): string {
+  const own = (head.backdrop?.value.key.variants ?? []).flatMap(({ label, strength }) =>
+    strength === undefined ? [] : [`${label} ${strength}`],
+  );
+  return own.length === 0
+    ? DEFAULT_BACKDROP_STRENGTH
+    : `${DEFAULT_BACKDROP_STRENGTH} (${own.join(", ")})`;
+}
+
 function useCoreRow(graph: GraphRead, settings: readonly Setting[]): CoreRowOf {
   const choice = useMotionStore((s) => s.choice);
   const core = graph.schema.get(CORE);
@@ -374,7 +389,7 @@ function useCoreRow(graph: GraphRead, settings: readonly Setting[]): CoreRowOf {
   // theme's pairing or the default, as the head resolves it.
   const headInForce: ReadonlyMap<NodeId, string> = new Map([
     [SYSTEM_IDS.backdropField, head.backdrop?.value.key.label ?? "none"],
-    [SYSTEM_IDS.backdropStrengthField, head.strength],
+    [SYSTEM_IDS.backdropStrengthField, head.strength ?? strengthsOwn(head)],
     [SYSTEM_IDS.backdropDirectionField, head.direction],
     [SYSTEM_IDS.backdropArtField, head.art ?? "its own"],
     [SYSTEM_IDS.backdropVariantField, "any, one per load"],

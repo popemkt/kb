@@ -5,42 +5,22 @@
  * its motion starts. Each way it may differ is a named draw within a range
  * its art direction allows, so every variation still reads as the picture.
  *
- * - The seed is one per load of the page: a scene mounted again (the head
- *   remounting, Settings' cards) shows the same variation as before.
+ * - The seed is the load's (`useLoadSeed`, `@kb/ui-sdk`): a scene mounted
+ *   again (the head remounting, Settings' cards) shows the same variation
+ *   as before, and `?backdrop-seed=<n>` pins it; a test passes its own.
  * - Reduced motion always shows the one curated still; which of a
- *   backdrop's variants a load shows is drawn from the load's seed even so
- *   (`drawVariant`), so a still is composed at random as every load is.
- * - `?backdrop-seed=<n>` in the page's address pins the seed, so a
- *   screenshot shows the same variation each time; a test passes its own.
+ *   backdrop's variants a load shows is the slot's draw from the load's
+ *   seed even so (`BackdropProps.variant`), so a still is composed at
+ *   random as every load is.
  * - `variation(seed)` draws by name. Each name has a stream of its own, so a
  *   draw added or removed never moves another, and a name drawn twice is the
  *   same value.
  */
-import { useState } from "react";
+import { useLoadSeed } from "@kb/ui-sdk";
 import { seededRng, type Rng } from "./rng";
 
 /** A still is curated: reduced motion always shows the same composition. */
 const STILL_SEED = 7;
-
-/** The seed `?backdrop-seed=` pins, if the page's address carries one. */
-function pinnedSeed(): number | null {
-  const search = typeof location === "undefined" ? "" : location.search;
-  const pinned = new URLSearchParams(search).get("backdrop-seed");
-  return pinned !== null && /^\d+$/.test(pinned) ? Number(pinned) : null;
-}
-
-/** This load's seed, drawn when a backdrop first asks for it. */
-let loadSeed: number | null = null;
-
-/** This load's seed, whatever the motion setting: the same for every backdrop that asks. */
-export function useLoadSeed(): number {
-  const [seed] = useState(() => {
-    // GAP [[01M69H8012T55AXMZBJ45Q1PVC]]: no store identity to salt it with, so no sky is a store's own.
-    loadSeed ??= pinnedSeed() ?? Math.floor(Math.random() * 2 ** 31);
-    return loadSeed;
-  });
-  return seed;
-}
 
 /** The seed a backdrop's scene is made from: this load's, or under reduced motion the curated still. */
 export function useBackdropSeed(reducedMotion: boolean): number {
@@ -80,22 +60,6 @@ export function variation(seed: number): Variation {
     phase: (name) => unit(name) * Math.PI * 2,
     stream,
   };
-}
-
-/**
- * The variant a backdrop shows of the ones it may (`BackdropProps.variants`):
- * `current` while it is still among them, so a change of scheme that keeps
- * it never redraws; otherwise one drawn by `seed`, so every scene of one
- * load (the head, Settings' cards) draws the same. Null when it has none.
- */
-export function drawVariant(
-  seed: number,
-  shown: readonly string[],
-  current: string | null,
-): string | null {
-  if (current !== null && shown.includes(current)) return current;
-  const [first, ...rest] = shown;
-  return first === undefined ? null : variation(seed).pick("variant", [first, ...rest]);
 }
 
 /**

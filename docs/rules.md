@@ -359,6 +359,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
 - **node** — `01M6950XSKGDE356Q8RK622WKQ`
 
+### GAP: a repository extension cannot contribute a backdrop
+
+- **expected** — kb-ext-sdk/page exports BackdropPoint, provideBackdrop and the Knob types; kb-ext-sdk exports the backdrop declared-option kind; a third-party backdrop passes the shared backdrop contract suite.
+- **current** — The page SDK exports DesignSystemPoint but no backdrop surface.
+- **impact** — Backdrops, the first thing a third party would ship, cannot be shipped.
+- **closes** — Step 11 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTRGPNHP3MD7DF6G0EAPE8`
+
+### GAP: a running kb ui does not see a lock change
+
+- **expected** — kb ui watches the lock files it composed from and re-reads closures when one changes, so an update shows as an untrusted row with no restart.
+- **current** — Closures are read once per process (closureCache).
+- **impact** — After an update from an agent thread, the person must restart kb ui before trusting.
+- **closes** — Step 12 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTRHC3PXK31QCQ0M81CDGB`
+
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
 - **expected** — a guest's graph.query has a deadline in the query layer
@@ -392,10 +408,18 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — upgrade to three r187, which fixes GTAO with MSAA depth (mrdoob/three.js#34598, #34609), and drop the single-sample branch
 - **node** — `01M416DT1SEWS5P3J28JT4R6YG`
 
+### GAP: a store cannot point at another extension folder
+
+- **expected** — extension.link and extension.unlink add a folder (a shared one, or another store's .kb/extensions) to a scope's links; it is relative in the store lock and may be absolute in the local and user locks.
+- **current** — Only the store's own .kb/extensions is read.
+- **impact** — Shared extensions are copied between stores by hand.
+- **closes** — Step 8 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTRCD4WSEE50X92YJ2Y5C9`
+
 ### GAP: a store has no identity of its own, so a backdrop cannot be unique per store
 
 - **expected** — Each kb store carries a stable identity (a system node or store-level field) that a backdrop's variation mixes into its seed, so two stores open on two different skies while one store keeps its own across loads (the owner's ask for Astral: a sky unique to each store).
-- **current** — A backdrop's variation is drawn from the load's seed alone (variation(seed), useLoadSeed in @kb/backdrops-ui scene/seed.ts); nothing names the store, so every store draws from the same space and none keeps a sky of its own.
+- **current** — A backdrop's variant and variation are drawn from the load's seed alone (useLoadSeed in @kb/ui-sdk, which the frame's drawVariant and the scenes' variation(seed) read); nothing names the store, so every store draws from the same space and none keeps a sky of its own.
 - **impact** — Astral and every seeded backdrop look alike across stores; a per-store sky would have to invent an ad-hoc id (a path hash), which breaks for a moved or cloned store.
 - **closes** — A store identity in the model (a system node created once per store and kept by merge), exposed to the UI and mixed into useLoadSeed as a store salt, with the store contract proving it stable across open, merge and move.
 - **node** — `01M69H8012T55AXMZBJ45Q1PVC`
@@ -422,7 +446,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — Before sandbox.trust, a person sees where the closure came from, its files and sizes, the host modules and Node/Bun builtins it imports, and on update the diff against the locked rev, on the one extension.list report (docs/research/2026-10-31-plugin-sources.md §5).
 - **current** — kb ext list shows the closure digest, and the untrusted failure names it. The declaration is code, so nothing static says what an extension does or reaches.
 - **impact** — Trusting an installed extension means reading every file by hand; a reach disclosure is a disclosure, not containment, and an extension is owner code once trusted.
-- **closes** — P0 of docs/research/2026-10-31-plugin-sources.md: from and reach on extension.list.
+- **closes** — Steps 5 and 6 of docs/research/2026-11-06-plugin-install-plan.md, each its own child gap.
 - **node** — `01M68NF9WGE31RYX3VB9EWHC8M`
 
 ### GAP: a style's how-to names its tool in text, not by a node
@@ -563,6 +587,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a thread/message node model the bridge writes, and resume from it
 - **node** — `01M40WSVNKVH3ZY8QE0GN5DY8X`
 
+### GAP: an action that declares approval required runs without a person
+
+- **expected** — The governance family contributes approvalGuard for actions declaring approval: "required": such a call is answered approval_required unless hasPerson holds; the CLI asks on the TTY and retries with approved; MCP never carries approval.
+- **current** — No guard is contributed; sandbox.trust and script.run run for any caller, an agent's included.
+- **impact** — An agent can install an extension and then trust it, which completes a remote-code path with no person.
+- **closes** — Step 0 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTR1775DH21W4KB26W3ZXV`
+
 ### GAP: an approval-required action cannot be invoked over MCP
 
 - **expected** — an MCP caller can obtain approval and then invoke an approval-required write
@@ -589,11 +621,19 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: an extension cannot be installed from a pinned source, and nothing records where one came from
 
-- **expected** — An extension's bytes can come from a git source pinned to a full commit sha: install vendors the tree into .kb/extensions/, a committed .kb/extensions.lock.json records original and locked (rev, files digest), and kb ext validate fails files that differ from the lock (docs/research/2026-10-31-plugin-sources.md §3, §4).
+- **expected** — An extension's bytes can come from a GitHub path pinned to a full commit sha: they are fetched once per machine into a read-only, content-addressed tree store under kb's per-user data directory, each store's committed lock (with local and user scopes beside it) records original and locked (rev, files), and discovery reads one ordered list of extension folders (docs/research/2026-11-06-plugin-install-plan.md §1, §2).
 - **current** — Bytes arrive only as files already in the root, put there by hand or by git. There is no update path and no provenance.
 - **impact** — Taking an extension from outside the repo is a manual copy; an update is a hand edit, and nothing says what it came from or whether it was altered after.
-- **closes** — P0 of docs/research/2026-10-31-plugin-sources.md: extension.install, extension.update, extension.remove, the lock, and the lock check in admission.
+- **closes** — Steps 1-4, S, 7, 8, 10, 11 and 12 of docs/research/2026-11-06-plugin-install-plan.md, each its own child gap.
 - **node** — `01M68NF91SD1D15C00TYDTPQXE`
+
+### GAP: an installed extension cannot be checked or updated
+
+- **expected** — extension.outdated reads upstream revs; extension.update writes a new tree and lock entry, never trusts, and keeps the old digest trusted for rollback.
+- **current** — There is no update path.
+- **impact** — Updates are hand copies, with no diff and no rollback.
+- **closes** — Step 7 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTRBA9E2WMJSDPVY9A7YPH`
 
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
@@ -799,6 +839,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
+### GAP: extension discovery reads one folder
+
+- **expected** — readClosures reads an ordered list of extension folders (own, then local, store and user links and installs); the nearest name wins and the rest are listed as shadowed.
+- **current** — readClosures reads <root>/.kb/extensions only.
+- **impact** — Installed trees and linked folders have no way into discovery without a second path.
+- **closes** — Step 2 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTR435JMY23NN9M18X72Q0`
+
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -897,6 +945,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
 
+### GAP: installed extensions cannot be removed, and the tree store is never collected
+
+- **expected** — extension.remove drops the lock entry and keeps the nodes; extension.gc deletes trees and retires provenance trust that no registered location's lock, nor the user lock, names.
+- **current** — Nothing removes an install or collects the store.
+- **impact** — Trees and stale trust records pile up, including old trusted versions a hostile store could select.
+- **closes** — Step 10 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTRFDBKDPS8MKVYR9GS61R`
+
 ### GAP: kb cannot be edited offline and merged later; devices meet only through git
 
 - **expected** — A SyncAgent in the style of git: pull the authority, mergeNodeSets(base, local, remote), commit the result locally, push one compare-and-swap append of what differs from the base (docs/research/2026-10-31-offline-first.md §3).
@@ -912,6 +968,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No live shared editing across machines; the owner's Cloudflare/Turso setup has nothing to talk to.
 - **closes** — The prototype of docs/research/2026-10-31-online-stores.md §7: the port, the mirror store, the DO authority, the two-process sync test.
 - **node** — `01M6950VPS4MH8NWDWB4ZF9CP1`
+
+### GAP: kb has no per-user data directory, and code trust is per root
+
+- **expected** — dataPath (KB_DATA, else the platform's data dir for kb) owns kb's per-user data; CodeTrust keeps one record at <data>/trust.json, per machine and per digest, shared by every store; legacy .kb/trust.json is folded in.
+- **current** — Trust lives in each root's .kb/trust.json; a digest trusted in one store is untrusted in another.
+- **impact** — One installed extension used by N stores needs N approvals of the same bytes.
+- **closes** — Step 1 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTR2WM61SX5PPZWTZC5X2T`
 
 ### GAP: kb mutation skips saving its baseline when the merge step fails
 
@@ -966,8 +1030,16 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — An index repo of entries {name, repo, path, sha} merged by PR, whose CI installs each into a clean root and runs kb ext validate and the reach report; name@index as the install spelling; indexes pinned in the same lock (docs/research/2026-10-31-plugin-sources.md §8).
 - **current** — A source must be spelled out in full; there is nothing to browse or search.
 - **impact** — Discovery is word of mouth, and a name has no single owner, so two sources can claim one extension namespace.
-- **closes** — P1 of docs/research/2026-10-31-plugin-sources.md.
+- **closes** — Step 9 of docs/research/2026-11-06-plugin-install-plan.md, its child gap.
 - **node** — `01M68NFAXME4CJ8EQT36HKB9ED`
+
+### GAP: no marketplaces: install by name has nothing to resolve through
+
+- **expected** — kb-marketplace.json indexes are pinned in a lock like sources; extension.marketplace.add, .remove, .update and .list; install name[@marketplace] resolves; an ambiguous name and a ref-pinned entry are refused.
+- **current** — A source must be typed in full.
+- **impact** — There is no discovery, and no single owner per name.
+- **closes** — Step 9 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTRE3ARGNQ6JEP4NWQ8FJ8`
 
 ### GAP: no one coverage property holds every family to all three hosts
 
@@ -985,6 +1057,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — window management design on top of the layout view type (docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md decision 12)
 - **node** — `01M3Q5DP9TQF0E9DZMHAKHMGWD`
 
+### GAP: no public fixture repo for the extension install E2E
+
+- **expected** — popemkt/kb-plugins-sample holds extensions/hello, extensions/aurora and kb-marketplace.json, with synthetic content only.
+- **current** — No fixture exists.
+- **impact** — The end-to-end acceptance has nothing real to run against.
+- **closes** — Step S of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTR6Q4KFJZ4Z59QE62TYJQ`
+
 ### GAP: no scene is pre-compiled; every scene compiles on the hidden first frame
 
 - **expected** — Every study's pipelines, including the GTAO two-target pass and the shadow pass, are compiled before the first frame is drawn (Lab principle P2).
@@ -993,6 +1073,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Compile ahead of the first frame, for the scene pass's own target, once three builds a layout function's uniforms per material (mrdoob/three.js#33666, open) or a pre-compile no longer builds a material twice; include the occlusion and shadow passes.
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
+
+### GAP: no SourceReader port reads a pinned GitHub tree
+
+- **expected** — A SourceReader port resolves github:owner/repo/path@ref to a full sha and reads its regular files under the T1 refusals, with files (kb.source/1); a git adapter and an in-memory one meet one contract suite.
+- **current** — Nothing in kb reads code from outside the root.
+- **impact** — Install, update and marketplaces have nothing to stand on.
+- **closes** — Step 3 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTR59A4JRD5MPZDVGXADDQ`
 
 ### GAP: no staged edit to preview, so Turn() cannot be a plan mode
 
@@ -1009,6 +1097,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
 - **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
+
+### GAP: no tree store, no extension locks, no install
+
+- **expected** — extension.install writes a read-only, content-addressed tree to <data>/extensions/store and an entry to the scope's lock (store, local or user); with no source it fetches what the locks name; installed trees are contained; validate checks the locks without running them.
+- **current** — Extensions arrive only as files placed in .kb/extensions by hand.
+- **impact** — No install, no provenance, and no reuse across stores.
+- **closes** — Step 4 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTR7Q326WF4C6S4RV0JJTW`
 
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
@@ -1413,6 +1509,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the coupling that exists cannot be seen in one place; a reviewer cannot ask what depends on canvas
 - **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
+
+### GAP: the extension list shows no source or reach, and there is no diff or CLI trust review
+
+- **expected** — extension.list rows carry source, scope, rev, files, reach and shadowed; extension.diff compares the last trusted tree with the locked one; kb ext trust prints the review and asks on the TTY.
+- **current** — The list shows a digest only.
+- **impact** — A person trusts a stranger's code without seeing where it came from, what it reaches or what changed.
+- **closes** — Step 5 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTR8XJZ6JJMBHBYK5X68FW`
+
+### GAP: the Extensions settings page cannot add, review, trust, update or remove an installed extension
+
+- **expected** — Settings → Extensions has Add from GitHub, and a Review & trust sheet (source, files, reach, diff, digest); Trust loads the family with no restart; Update and Remove are on the row.
+- **current** — The page lists and switches families only.
+- **impact** — Trusting from an agent thread has nowhere to send the person.
+- **closes** — Step 6 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
+- **node** — `01M6RTRA612RSR06HZC7DQ5S6J`
 
 ### GAP: the graph legend overlays a renderer that cannot pan
 
