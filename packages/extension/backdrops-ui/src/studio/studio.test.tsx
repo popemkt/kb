@@ -445,12 +445,13 @@ const plugged = definePlugin({
 
 /**
  * A repository extension built against an older SDK: its Ember says nothing
- * of what it answers (`interactions` came later), and its Smoke says it in
- * a shape the contract never had. Contributed as its page half's bytes
+ * of what it answers (`interactions` came later), its Smoke says it in a
+ * shape the contract never had, and its Ash's variants are not a list. Contributed as its page half's bytes
  * would be, untyped.
  */
 const EMBER: SeedBackdrop = { id: "lagging.ember", label: "Ember" };
 const SMOKE: SeedBackdrop = { id: "lagging.smoke", label: "Smoke" };
+const ASH: SeedBackdrop = { id: "lagging.ash", label: "Ash" };
 const lagging = definePlugin({
   name: "lagging",
   apply: (ctx) => {
@@ -468,11 +469,23 @@ const lagging = definePlugin({
       Component: probeScene(SMOKE.id),
     });
     Reflect.set(smoke.value, "interactions", "it swirls");
-    return Effect.all(
-      [ctx.contribute(BackdropPoint, ember), ctx.contribute(BackdropPoint, smoke)],
+    const ash = provideBackdrop(
+      { ...ASH },
       {
-        discard: true,
+        presentation,
+        budget: BACKDROP_BUDGETS.canvas,
+        interactions: [],
+        Component: probeScene(ASH.id),
       },
+    );
+    Reflect.set(ash.value.key, "variants", {});
+    return Effect.all(
+      [
+        ctx.contribute(BackdropPoint, ember),
+        ctx.contribute(BackdropPoint, smoke),
+        ctx.contribute(BackdropPoint, ash),
+      ],
+      { discard: true },
     );
   },
 });
@@ -656,7 +669,9 @@ describe("Backdrop Studio, from plugins", () => {
       expect(refused?.textContent).toContain("Smoke");
       expect(refused?.textContent).toContain("can't be shown");
       expect(refused?.textContent).toContain("from lagging");
-      expect(refused?.textContent).toContain("its interactions are not a list");
+      expect(refused?.textContent).toContain('Expected array at ["interactions"]');
+      const ash = document.querySelector(`[data-studio-refused="${ASH.id}"]`);
+      expect(ash?.textContent).toContain('["key"]["variants"]');
       expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toEqual(
         expect.arrayContaining([PLUGGED.id, EMBER.id]),
       );

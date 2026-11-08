@@ -4555,8 +4555,12 @@ A PR for a backdrop reports a score against each criterion.
   reads it through one check (`useBackdrops`, `decodeBackdrop`). A list
   the contract has since required and a contribution left out is its
   empty value (`interactions`, none). Anything else that is not what the
-  contract says (a field missing or of the wrong shape) refuses that one
-  backdrop, with why, and leaves every other drawn. A page head whose
+  contract says (a field missing or of the wrong shape, its key's variants,
+  knobs and credit with them) refuses that one backdrop, with where and
+  why, and leaves every other drawn. The check is a `Schema` of the
+  contract; a component is any React draws, a function or a `memo` or
+  `forwardRef`. Reading a page half's value may run its code (a getter):
+  what that throws refuses it too, and what the page keeps is a copy. A page head whose
   choice was refused falls through as for one nobody contributes, and the
   studio shows it as a card that says it can't be shown, and why. kb's
   own backdrops pass the same check, and the contract holds them to it.

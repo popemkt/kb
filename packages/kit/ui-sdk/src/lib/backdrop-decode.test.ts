@@ -1,3 +1,4 @@
+import { forwardRef, memo } from "react";
 import { describe, expect, test } from "vitest";
 import { decodeBackdrop, readBackdrops } from "./backdrop-decode";
 import { BACKDROP_BUDGETS } from "./plugins";
@@ -44,22 +45,74 @@ describe("a backdrop as the page reads it", () => {
     expect(read.ok && read.backdrop.interactions).toEqual([]);
   });
 
-  test("one that is not what the contract says is refused, with why", () => {
-    expect(why(backdrop({ interactions: "it swirls" }))).toBe("its interactions are not a list");
+  test("one that is not what the contract says is refused, with where and why", () => {
+    expect(why(backdrop({ interactions: "it swirls" }))).toBe('Expected array at ["interactions"]');
     expect(why(backdrop({ interactions: [{ cue: "wind", does: "it sways" }] }))).toContain(
-      'cue "wind"',
+      'Expected one of pointer, editing, writes, navigation, arrivals, errors, turns at ["interactions"][0]["cue"]',
     );
+    expect(why(backdrop({ interactions: [{ cue: 1n, does: "it sways" }] }))).toContain('["cue"]');
     expect(why(backdrop({ interactions: [{ cue: "pointer", does: "a\nb" }] }))).toContain(
       "in one line",
     );
-    expect(why(without("Component"))).toBe("its Component is not a component");
-    expect(why(without("presentation"))).toBe("its presentation is not an object");
+    expect(why(backdrop({ Component: {} }))).toContain("Expected a component");
+    expect(why(without("presentation"))).toContain('["presentation"]');
     expect(why(backdrop({ presentation: { ...presentation, directions: ["left"] } }))).toContain(
-      "directions",
+      '["presentation"]["directions"][0]',
     );
-    expect(why(backdrop({ budget: { frameMs: 0 } }))).toContain("frameMs");
-    expect(why(backdrop({ key: { id: "plug.glow" } }))).toBe("its key has no id and label");
-    expect(why(null)).toBe("it is not an object");
+    expect(why(backdrop({ budget: { frameMs: 0 } }))).toContain('["budget"]["frameMs"]');
+    expect(why(backdrop({ key: { id: "plug.glow" } }))).toContain('["key"]["label"]');
+    expect(why(null)).toBe("Expected object");
+  });
+
+  test("its key is checked as every reader reads it: its variants, knobs and credit", () => {
+    const key = (more: Record<string, unknown>) =>
+      backdrop({ key: { id: "plug.glow", label: "Glow", ...more } });
+    expect(why(key({ variants: {} }))).toContain('["key"]["variants"]');
+    expect(why(key({ variants: [{ id: "warm" }] }))).toContain('["key"]["variants"][0]["label"]');
+    expect(why(key({ credit: { by: "someone" } }))).toContain('["key"]["credit"]');
+    expect(why(key({ knobs: [{ kind: "dial", id: "x", label: "X" }] }))).toContain(
+      '["key"]["knobs"][0]',
+    );
+    expect(
+      why(
+        key({
+          variants: [
+            {
+              id: "warm",
+              label: "Warm",
+              knobs: [{ kind: "boolean", id: "b", label: "B", default: true }],
+            },
+          ],
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  test("a component React draws as an object (memo, forwardRef) is a component", () => {
+    expect(why(backdrop({ Component: memo(Scene) }))).toBeNull();
+    expect(why(backdrop({ Component: forwardRef(Scene) }))).toBeNull();
+  });
+
+  test("one whose reading throws is refused with what it threw, and is read as a copy", () => {
+    const throwing = Object.defineProperty(backdrop(), "budget", {
+      enumerable: true,
+      get: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(why(throwing)).toBe("reading it threw: boom");
+    let reads = 0;
+    const counted = Object.defineProperty(backdrop(), "budget", {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return BACKDROP_BUDGETS.canvas;
+      },
+    });
+    const read = decodeBackdrop(counted);
+    const before = reads;
+    expect(read.ok && read.backdrop.budget).toEqual(BACKDROP_BUDGETS.canvas);
+    expect(reads).toBe(before);
   });
 
   test("a point's list is read one contribution at a time: a refused one leaves the rest", () => {
@@ -70,10 +123,31 @@ describe("a backdrop as the page reads it", () => {
         backdrop({ key: { id: "plug.smoke", label: "Smoke" }, interactions: 3 }),
       ),
       contribution("plug.ember", without("interactions")),
+      contribution(
+        "plug.boom",
+        Object.defineProperty({}, "key", {
+          get: () => {
+            throw new Error("boom");
+          },
+        }),
+      ),
     ]);
     expect(shown.map(({ id }) => id)).toEqual(["plug.glow", "plug.ember"]);
     expect(refused).toEqual([
-      { id: "plug.smoke", owner: "plug", label: "Smoke", why: "its interactions are not a list" },
+      {
+        id: "plug.smoke",
+        owner: "plug",
+        label: "Smoke",
+        why: 'Expected array at ["interactions"]',
+      },
+      { id: "plug.boom", owner: "plug", label: null, why: "reading it threw: boom" },
     ]);
+  });
+
+  test("a contribution read again, in a new list, is the same value", () => {
+    const glow = contribution("plug.glow", backdrop());
+    const [first] = readBackdrops([glow]).shown;
+    const [again] = readBackdrops([contribution("plug.other", backdrop()), glow]).shown.slice(1);
+    expect(again).toBe(first);
   });
 });
