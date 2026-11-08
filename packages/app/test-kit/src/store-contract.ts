@@ -58,6 +58,7 @@ import {
   familyViewOrderOnOpening,
   goldenSeedOpensUnwritten,
   openingNeverWrites,
+  providerRolesReachEarlierStoreOnce,
   unfoldedSeedNodesSurviveOpening,
   viewTypeOrderSurvivesOpening,
 } from "./seed-opening-contract.ts";
@@ -208,6 +209,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     openingNeverWrites,
   ],
   ["a store written by an earlier kb's seed opens without a write", goldenSeedOpensUnwritten],
+  [
+    "a store seeded before provider roles gains them in one write, then opens unwritten",
+    providerRolesReachEarlierStoreOnce,
+  ],
   [
     "a store seeded before the default view type gains it on one write, then opens unwritten",
     defaultViewTypeReachesEarlierStoreOnce,

@@ -44,6 +44,7 @@ describe("kinds, roles and options", () => {
       "look",
       "occurrence",
       "ontology",
+      "role",
       "routine",
       "script",
       "style",

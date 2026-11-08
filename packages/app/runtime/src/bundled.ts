@@ -52,7 +52,7 @@ export function serverEntriesFor(
       throw new Error(`family ${declaration.name} has no server entry`);
     }
     unmatched.delete(declaration.name);
-    return { declaration, entry: bundledPlugin(declaration, entry) };
+    return { declaration, entry };
   });
   if (unmatched.size > 0) {
     throw new Error(`server entries ${[...unmatched.keys()].join(", ")} name no family`);
@@ -78,7 +78,7 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   transistorPlugin(),
   yorhaPlugin(),
   galleryServerPlugin(),
-]);
+]).map(({ declaration, entry }) => ({ declaration, entry: bundledPlugin(declaration, entry) }));
 
 /** The locations family's graph projection, selected at the server composition root. */
 export function registeredLocationPaths(nodes: readonly KbNode[]): readonly string[] {

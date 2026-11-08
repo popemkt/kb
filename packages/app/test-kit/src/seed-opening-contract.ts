@@ -9,7 +9,7 @@
 import { expect } from "bun:test";
 import { Effect } from "effect";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
-import { SYSTEM_IDS, fieldTypeValue, viewOptionId, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, viewOptionId, roleNodeId, type KbNode } from "@kb/model";
 import { seedGoldenNodes } from "./seed-golden.ts";
 import {
   CONTRACT_AT,
@@ -69,6 +69,38 @@ export function goldenSeedOpensUnwritten(makeStore: StoreFactory): Promise<void>
           { upserts: seedGoldenNodes(), deletes: [] },
           { at: AT },
         );
+        yield* opensWithoutWriting(makeStore, root);
+      }),
+    ),
+  );
+}
+
+/** The role schema and owner nodes reach an older store through the ordinary seed pass, once. */
+export function providerRolesReachEarlierStoreOnce(makeStore: StoreFactory): Promise<void> {
+  const additions = [
+    SYSTEM_IDS.roleTag,
+    SYSTEM_IDS.providerField,
+    ...BUNDLED_DECLARATIONS.flatMap(({ roles }) =>
+      (roles ?? []).map(({ role }) => roleNodeId(role)),
+    ),
+  ];
+  const earlier = seedGoldenNodes().filter((node) => !additions.includes(node.id));
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        yield* makeStore(root).commitEffect({ upserts: earlier, deletes: [] }, { at: AT });
+        const before = makeStore(root).txTail.entries().length;
+        yield* openSession(root);
+        const after = makeStore(root).txTail.entries();
+        expect(after.length).toBe(before + 1);
+        expect(
+          after
+            .at(-1)
+            ?.ops.upserts.map(({ id }) => id)
+            .toSorted(),
+        ).toEqual(additions.toSorted());
+        expect(after.at(-1)?.ops.deletes).toEqual([]);
         yield* opensWithoutWriting(makeStore, root);
       }),
     ),
