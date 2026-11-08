@@ -522,7 +522,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a tokens field on design-system option nodes (layer-1 token to value, typed per token kind), a painter that writes the sheet from the node, the contracts reading the node; today's sheets become the seed's values
 - **node** — `01M5SNSPSGYCF6AKWVXQS2GJQJ`
 
-### GAP: a view host is placement-only, and Placement is only page
+### GAP: a view host hands placement, view node and row only; size, appearance and reduced motion wait
 
 - **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
 - **current** — Placement is page | inline | preview | row. ViewHost carries placement, the view node a host draws from (viewNode), and at row the row it draws (RowSubject: the node, its markdown, its text as the outline drew it). ViewSlot counts embeds by an exact (view, subject) ancestor chain plus MAX_VIEW_DEPTH=32 (slotRenders in lib/view-key.ts), and the keyboard walk asks the same rule. view-contract mounts each view at each placement it offers, a row view with a sample row.

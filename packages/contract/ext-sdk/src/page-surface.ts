@@ -52,14 +52,16 @@ export interface RowSubject {
   readonly text: ReactNode;
 }
 
+/** Where a host draws a view, with what it hands the view there: at `row`, the row it draws; elsewhere, no row. */
+export type Drawn =
+  | { readonly placement: "row"; readonly row: RowSubject }
+  | { readonly placement: Exclude<Placement, "row">; readonly row?: undefined };
+
 /** What a host guarantees a view: never a store. */
-export interface ViewHost {
-  readonly placement: Placement;
+export type ViewHost = Drawn & {
   /** The view node the host draws the view from, when it draws one. */
   readonly viewNode?: string;
-  /** The row it draws: present exactly at placement `row`. */
-  readonly row?: RowSubject;
-}
+};
 
 export interface ViewProps<P> {
   readonly params: P;

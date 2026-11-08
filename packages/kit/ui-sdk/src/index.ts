@@ -152,6 +152,7 @@ export {
   useService,
   useRoute,
   ViewPoint,
+  type Drawn,
   type RowSubject,
   type ViewProps,
 } from "./lib/plugins";

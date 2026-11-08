@@ -87,18 +87,24 @@ export interface RowSubject {
   readonly text: ReactNode;
 }
 
+/**
+ * Where a host draws a view, with what it hands the view there: at `row`,
+ * the row it draws; at every other placement, no row. One union, so a slot
+ * at `row` without its row, or a row handed to a page, does not type.
+ */
+export type Drawn =
+  | { readonly placement: "row"; readonly row: RowSubject }
+  | { readonly placement: Exclude<Placement, "row">; readonly row?: undefined };
+
 /** What a host guarantees a view: never a store, never `ctx`. */
-export interface ViewHost {
-  readonly placement: Placement;
+export type ViewHost = Drawn & {
   /**
    * The view node the host draws the view from, when it draws one (the node
    * route opening a view node): where a view that edits its own settings
    * writes them. Absent for a view drawn from a view type or from code.
    */
   readonly viewNode?: string;
-  /** The row it draws: present exactly at placement `row`. */
-  readonly row?: RowSubject;
-}
+};
 
 export interface ViewProps<P> {
   readonly params: P;

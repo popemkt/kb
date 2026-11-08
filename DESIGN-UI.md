@@ -2326,7 +2326,12 @@ a separate point that only points at it.
   its row; a contribution never lists it — `provideView` offers it because
   the view's key says `preview`, the one statement of it) or `row` (the
   view draws a node's row in place of its text, for the nodes of a tag
-  that names it; the host hands it the row as `row`, see Row views below), and, when the host draws the view from a view node, that node
+  that names it; the host hands it the row as `row`, see Row views below).
+  The placement and what comes with it are one union (`Drawn`): a host at
+  `row` hands a row, and a host anywhere else hands none, so neither a
+  slot at `row` without a row nor a row at a page types, and a slot that
+  untyped code hands one anyway shows its fallback at `row` and drops the
+  row elsewhere. And, when the host draws the view from a view node, that node
   (`viewNode`, which the slot takes and the node route passes): where a view
   that edits its own settings writes them (the chart's spec editor). A view
   drawn from a view type or from code has none. The rest of the host contract (size, appearance, reduced motion,
