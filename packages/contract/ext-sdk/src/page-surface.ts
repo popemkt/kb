@@ -185,6 +185,70 @@ export interface Command {
 
 export declare const CommandPoint: PointKey<Command>;
 
+/**
+ * A key as a binding states it: a key name as `KeyboardEvent.key` names
+ * it (or several, or a test of the name), and the modifiers it asks about.
+ * A modifier left out is not asked about. `mod` is ⌘ or Ctrl.
+ */
+export interface Chord {
+  key?: string | readonly string[] | ((key: string) => boolean);
+  mod?: boolean;
+  meta?: boolean;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+}
+
+/**
+ * Where a key means something: the outline's row being edited, or its
+ * selection (a row selected, none edited).
+ */
+export type KeyContextId = "outline.editing" | "outline.selection";
+
+/**
+ * What a key runs: one of its context's intents by name (`outline.editing`:
+ * `split`, `indent`, `move-up`, `line-down`, …; `outline.selection`: `up`,
+ * `move-down`, `create-after`, `zoom`, …), or an action through the page's
+ * invoke path, with the row's node as its input's `id`.
+ */
+export type KeyRun =
+  | { readonly intent: string }
+  | { readonly action: string; readonly input?: Readonly<Record<string, unknown>> };
+
+/** A key in a context, and what it runs; the binding whose held chord it takes, if any. */
+export interface Keybinding {
+  readonly context: string;
+  readonly chord: Chord;
+  readonly run: KeyRun;
+  readonly replaces?: string;
+}
+
+/**
+ * Every key of the outline's contexts. One binding per chord per context:
+ * the outline's own are held first (`outline.editing.split`,
+ * `outline.selection.up`, …). A binding over a held chord is refused, and
+ * the person told why, unless it names the holder in `replaces`; it then
+ * takes exactly its own chord, and the holder keeps the rest. `Escape`,
+ * ⌘Z, ⌘⇧Z and ⌘K are never a binding's.
+ */
+export declare const KeybindingPoint: PointKey<Keybinding>;
+
+/**
+ * The {@link KeybindingPoint} contribution for a binding written as data:
+ * its chord as text, modifiers then the key, joined by `-` (`Alt-ArrowUp`,
+ * `Mod-Shift-k`), exact, so a modifier it does not name must be up. `Mod`
+ * is ⌘ or Ctrl; a letter matches in either case, Shift being its flag.
+ */
+export declare function provideKeybinding(
+  id: string,
+  binding: {
+    readonly context: KeyContextId;
+    readonly chord: string;
+    readonly run: KeyRun;
+    readonly replaces?: string;
+  },
+): ContributionEntry<Keybinding>;
+
 /** A declared thing's key: the id its option node is named by, and its label. */
 export interface SeedOption {
   readonly id: string;

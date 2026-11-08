@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { admitKeybindings } from "@kb/ui-sdk";
+import { admitKeybindings, provideKeybinding } from "@kb/ui-sdk";
 import { EDITING_BINDINGS, EDITING_CONTEXT } from "./editing-keymap";
 import { SELECTION_BINDINGS, SELECTION_CONTEXT } from "./selection-keymap";
 import { outlineKeybindings } from "./test-support/keybindings";
@@ -26,7 +26,9 @@ describe("the outline's keybindings", () => {
       [EDITING_CONTEXT, EDITING_BINDINGS],
       [SELECTION_CONTEXT, SELECTION_BINDINGS],
     ] as const) {
-      for (const { value } of bindings) expect(context.intents).toContain(value.run.intent);
+      for (const { value } of bindings) {
+        expect("intent" in value.run && context.intents.includes(value.run.intent)).toBe(true);
+      }
     }
   });
 
@@ -74,11 +76,91 @@ describe("the outline's keybindings", () => {
     expect(keymap.refused).toEqual([
       {
         id: "keys.down",
-        reason: "Alt-ArrowDown in outline.selection is held by outline.selection.down",
+        reason:
+          'Alt-ArrowDown in outline.selection is held by outline.selection.down; a binding that takes it says replaces: "outline.selection.down"',
       },
       { id: "keys.quit", reason: "Escape is reserved in outline.selection" },
       { id: "keys.nothing", reason: 'outline.selection has no intent "fly"' },
     ]);
     expect(keymap.resolve({ key: "j", ctrlKey: true })?.id).toBe("keys.next");
+  });
+});
+
+describe("a binding that replaces a held one", () => {
+  const moveWithAlt = {
+    name: "keys",
+    bindings: [
+      provideKeybinding("move-up", {
+        context: "outline.selection",
+        chord: "Alt-ArrowUp",
+        run: { intent: "move-up" },
+        replaces: "outline.selection.up",
+      }),
+    ],
+  };
+
+  it("takes exactly its own chord, and the holder keeps the rest", () => {
+    const keymap = admitKeybindings(SELECTION_CONTEXT, outlineKeybindings(moveWithAlt));
+    expect(keymap.refused).toEqual([]);
+    expect(keymap.resolve({ key: "ArrowUp", altKey: true })?.id).toBe("keys.move-up");
+    expect(keymap.resolve({ key: "ArrowUp" })?.id).toBe("outline.selection.up");
+    expect(keymap.resolve({ key: "ArrowUp", altKey: true, shiftKey: true })?.id).toBe(
+      "outline.selection.up",
+    );
+  });
+
+  it("is refused when it names no holder of its chord, or a second takes the same chord", () => {
+    const keymap = admitKeybindings(
+      SELECTION_CONTEXT,
+      outlineKeybindings(moveWithAlt, {
+        name: "more",
+        bindings: [
+          provideKeybinding("again", {
+            context: "outline.selection",
+            chord: "Alt-ArrowUp",
+            run: { intent: "zoom" },
+            replaces: "outline.selection.up",
+          }),
+          provideKeybinding("stray", {
+            context: "outline.selection",
+            chord: "Mod-j",
+            run: { intent: "down" },
+            replaces: "outline.selection.up",
+          }),
+        ],
+      }),
+    );
+    expect(keymap.refused).toEqual([
+      {
+        id: "more.again",
+        reason:
+          'Alt-ArrowUp in outline.selection is held by keys.move-up; a binding that takes it says replaces: "keys.move-up"',
+      },
+      {
+        id: "more.stray",
+        reason:
+          "it replaces outline.selection.up, which holds no chord overlapping Mod-j in outline.selection",
+      },
+    ]);
+  });
+
+  it("may not take a reserved chord, even by replacing its holder", () => {
+    const keymap = admitKeybindings(
+      EDITING_CONTEXT,
+      outlineKeybindings({
+        name: "keys",
+        bindings: [
+          provideKeybinding("stay", {
+            context: "outline.editing",
+            chord: "Escape",
+            run: { intent: "split" },
+            replaces: "outline.editing.select",
+          }),
+        ],
+      }),
+    );
+    expect(keymap.refused).toEqual([
+      { id: "keys.stay", reason: "Escape is reserved in outline.editing" },
+    ]);
   });
 });

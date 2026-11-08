@@ -1,5 +1,6 @@
 import { CommandPoint } from "./lib/command-point";
 import { meterFrames } from "./lib/frame-meter";
+import { KeybindingPoint, provideKeybinding } from "./lib/keybindings";
 import { useReducedMotion } from "./lib/motion";
 import {
   BACKDROP_BUDGETS,
@@ -31,6 +32,8 @@ export const PAGE_EXTENSION_SDK = {
   DockPoint,
   OverlayPoint,
   CommandPoint,
+  KeybindingPoint,
+  provideKeybinding,
   DesignSystemPoint,
   provideDesignSystem,
   BACKDROP_BUDGETS,

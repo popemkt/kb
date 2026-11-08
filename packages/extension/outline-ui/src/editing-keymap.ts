@@ -25,6 +25,7 @@ import {
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
+import { runActionOf, type RunAction } from "./key-action";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {
@@ -101,7 +102,8 @@ export type EditingIntent =
     }
   | { type: "select"; nodeId: string; instanceKey: string }
   /** Onto a row's field values: its first going down, its last coming up. */
-  | { type: "enterFields"; instanceKey: string; which: "first" | "last" };
+  | { type: "enterFields"; instanceKey: string; which: "first" | "last" }
+  | RunAction;
 
 /** An intent as its binding runs it: what it means on this row, or null to leave the key native. */
 type IntentOf = (ctx: EditingKeyContext) => EditingIntent | null;
@@ -327,5 +329,7 @@ export function mapEditingKey(
 ): EditingIntent | null {
   const binding = keymap.resolve(ev);
   if (binding === undefined) return null;
-  return EDITING_INTENTS.get(binding.value.run.intent)?.(ctx) ?? null;
+  const { run } = binding.value;
+  if ("action" in run) return runActionOf(run, ctx.nodeId);
+  return EDITING_INTENTS.get(run.intent)?.(ctx) ?? null;
 }

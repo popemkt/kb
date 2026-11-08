@@ -459,13 +459,36 @@ decides a context's keys, and its rule is the point's `combine`:
   ⌘K (`PALETTE_CHORD`), so no binding can trap a person in a row;
 - the owner's bindings are held first, then the rest in load order;
 - **no two held chords overlap** (`chordsOverlap`: a common key, and a state
-  of the four modifiers both admit). So the order bindings are listed in
+  of the four modifiers both admit), but for a replacement and its holder. So the order bindings are listed in
   means nothing, and each says exactly what it claims: the outline's split is
   `Enter` without Shift, its bare arrows are `mod: false`, and typing over a
   selected row is any printable key the selection's other bindings leave;
-- a binding over a held or reserved chord, or naming an intent its context
-  lacks, is refused. Each refusal is told once a page session, naming the
-  binding, the chord and its holder.
+- a binding over a held chord is refused unless it names the holder in
+  `replaces` (the record's §9 default 7: an occupied chord is never taken
+  silently). A replacement takes exactly its own chord, and the holder keeps
+  the rest: `Alt-ArrowUp` replacing `outline.selection.up` moves the row,
+  and a bare ↑ still selects the row above. A chord one replacement holds
+  is held, so a second must replace the first;
+- a binding over a reserved chord is refused, even as a replacement, and so
+  is one that replaces nothing it overlaps, or names an intent its context
+  lacks. The outline reads both keymaps whenever the page kernel moves, so a
+  refusal is told when the binding arrives, once a page session, naming the
+  binding, the chord and its holder. The kernel admits a binding by its id
+  alone, so a refused one stays contributed and inert:
+  GAP [[01M6Y9H5FD9GVMK9N9QBT5DNTN]].
+
+A binding runs an intent of its context, or an **action**
+(`{ action, input }`), invoked through the page's one invoke path with the
+row's node as its input's `id`, so a key meets the guards every call meets
+and a failed call is told. Through `kb-ext-sdk/page` a binding is data, its
+T0 form: `provideKeybinding(id, { context, chord: "Alt-ArrowUp", run,
+replaces })`, the chord written as text (`parseChord`: modifiers, then the
+key as `KeyboardEvent.key` names it, joined by `-`; exact, so a modifier it
+does not name must be up; a letter matches in either case, since macOS
+reports ⌘⇧S as `s`). Only the outline's two contexts exist; the
+page's own ⌘K and the canvas's keymap are not contexts yet:
+GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]. A run naming a command waits for the
+T0 command form.
 
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),

@@ -23,6 +23,7 @@ import type { SelectionKeyAction } from "./selection-keymap";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { enterFields } from "./value-slot-nav";
 import { openFromRow } from "./outline-hosts";
+import { invokeKeyAction } from "./key-action";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 
@@ -126,6 +127,7 @@ const SELECTION_STEPS: SelectionSteps = {
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
   append,
   delete: deleteRow,
+  runAction: invokeKeyAction,
 };
 
 /**

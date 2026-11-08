@@ -22,6 +22,7 @@ import { outlineSource, useOutlineStore } from "./outline.store";
 import type { EditingIntent } from "./editing-keymap";
 import { enterFields } from "./value-slot-nav";
 import { openFromRow } from "./outline-hosts";
+import { invokeKeyAction } from "./key-action";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
 
@@ -116,6 +117,7 @@ const EDITING_STEPS: EditingSteps = {
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),
   enterFields: ({ instanceKey, which }) => void enterFields(instanceKey, which),
+  runAction: invokeKeyAction,
 };
 
 /**

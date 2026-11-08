@@ -245,6 +245,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Frame views that offer the page placement, or a core frame page that lays the frame out through its first frame view, chosen by the resolver when the outline is not held.
 - **node** — `01M5MWXPDDZGG2PFEGMG95HMBY`
 
+### GAP: a keybinding over a held chord is refused by the page keymap, not the kernel
+
+- **expected** — The kernel refuses a ui.keybindings contribution whose chord overlaps a held one in its context (contribution-conflict), unless it replaces the holder, so the plugin fails to apply as a unit and Settings shows the failure with its family, as for any conflict (extensibility parity record §3.3, §4.1).
+- **current** — The kernel admits every binding by id; admitKeybindings in @kb/ui-sdk decides overlap, reservation and replaces, leaves a refused binding inert, and tells the person by toast once a page session.
+- **impact** — A refused binding still shows in the family footprint as contributed; the refusal is a toast, not a load failure Settings can list.
+- **closes** — Cell claims in the kernel: step 5 declared point slots plus step 7 replaceable cells, with the overlap relation stated in the point spec, read by contributeErased.
+- **node** — `01M6Y9H5FD9GVMK9N9QBT5DNTN`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -1098,6 +1106,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — shapes stay unpromotable
 - **closes** — shapes show their node
 - **node** — `01M42Q9H3RA1FHZYYYP2M9QJ4V`
+
+### GAP: only the outline keymaps are keybinding contexts; the global Mod-K and the canvas keymap are fixed tables
+
+- **expected** — Every page surface whose keys mean something is a context on ui.keybindings (the parity record §3.3 names a global context), so a binding can rebind or extend it and the conflict rule covers it.
+- **current** — matchGlobalShortcut decides Mod-K in code, and canvas-ui reads its own CANVAS keymap table; both only reserve or ignore ui.keybindings.
+- **impact** — An extension cannot add a global key or a canvas key, and two mechanisms answer which key means what.
+- **closes** — A global context owned by the shell and a canvas context owned by canvas-ui, each with intents and reserved chords, read through currentKeymap.
+- **node** — `01M6Y9H6R5D9Y8TQKZJZVWX8PB`
 
 ### GAP: only view.propose checks a view node's settings against its key
 

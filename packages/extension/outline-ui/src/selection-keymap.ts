@@ -16,6 +16,7 @@ import {
   type Keymap,
 } from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
+import { runActionOf, type RunAction } from "./key-action";
 
 /** Selection mode reads the same event shape every keymap reads. */
 export type SelectionKeyEvent = KeyChordEvent;
@@ -39,7 +40,8 @@ export type SelectionKeyAction =
   | { type: "delete"; nodeId: string; instanceKey: string }
   | { type: "append"; nodeId: string; instanceKey: string; char: string }
   /** Onto a row's field values: its first going down, its last coming up. */
-  | { type: "enterFields"; instanceKey: string; which: "first" | "last" };
+  | { type: "enterFields"; instanceKey: string; which: "first" | "last" }
+  | RunAction;
 
 export interface SelectionNodeInfo {
   collapsed: boolean;
@@ -225,7 +227,9 @@ export function mapSelectionKey(
 
   const binding = keymap.resolve(ev);
   if (binding === undefined) return null;
-  const intent = SELECTION_INTENTS.get(binding.value.run.intent);
+  const { run } = binding.value;
+  if ("action" in run) return runActionOf(run, selectedNodeId);
+  const intent = SELECTION_INTENTS.get(run.intent);
   if (intent === undefined) return null;
   return intent({
     ctx,

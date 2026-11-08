@@ -132,6 +132,51 @@ export function chordsOverlap(a: Chord, b: Chord): boolean {
   );
 }
 
+const MODIFIER_TOKENS = ["Mod", "Meta", "Ctrl", "Shift", "Alt"] as const;
+type ModifierToken = (typeof MODIFIER_TOKENS)[number];
+
+function isModifierToken(token: string): token is ModifierToken {
+  return MODIFIER_TOKENS.some((name) => name === token);
+}
+
+/**
+ * A chord written as data, `Mod-Shift-ArrowUp`: modifiers, then a key as
+ * `KeyboardEvent.key` names it, joined by `-` (the key `-` itself is
+ * written last, `Ctrl--`). The chord is exact: a modifier it does not name
+ * must be up, so `Alt-ArrowUp` is not `Alt-Shift-ArrowUp`. `Mod` is the
+ * platform's command modifier (⌘ or Ctrl). A letter matches in either
+ * case, since the case an event carries with a modifier held differs by
+ * platform (⌘⇧S arrives as `s` on macOS): Shift is its flag, never its
+ * case. Null for text that is not a chord: an unknown or repeated
+ * modifier, or no key.
+ */
+export function parseChord(text: string): Chord | null {
+  const keyPart = text.endsWith("--") ? "-" : text.slice(text.lastIndexOf("-") + 1);
+  const modifierPart = text.slice(0, text.length - keyPart.length);
+  const tokens = modifierPart === "" ? [] : modifierPart.slice(0, -1).split("-");
+  if (keyPart === "" || !tokens.every(isModifierToken)) return null;
+  if (new Set(tokens).size !== tokens.length) return null;
+  const has = (token: ModifierToken): boolean => tokens.includes(token);
+  if (has("Mod") && (has("Meta") || has("Ctrl"))) return null;
+  const shift = has("Shift");
+  const lower = keyPart.toLowerCase();
+  const upper = keyPart.toUpperCase();
+  const key = keyPart.length === 1 && lower !== upper ? [lower, upper] : keyPart;
+  return has("Mod")
+    ? { key, mod: true, shift, alt: has("Alt") }
+    : { key, meta: has("Meta"), ctrl: has("Ctrl"), shift, alt: has("Alt") };
+}
+
+/** A key match as a person reads it: a letter matched in either case reads as the letter. */
+function keyName(key: KeyMatch | undefined): string {
+  if (key === undefined) return "any key";
+  if (typeof key === "function") return "a typed character";
+  const names = [key].flat();
+  const [first, second] = names;
+  if (names.length === 2 && first !== undefined && first.toUpperCase() === second) return first;
+  return names.join("/");
+}
+
 /** A chord as a person reads it in a message: its constraints, `Mod-Shift-ArrowUp`. */
 export function describeChord(chord: Chord): string {
   const flags: string[] = [];
@@ -140,14 +185,7 @@ export function describeChord(chord: Chord): string {
   if (chord.ctrl === true) flags.push("Ctrl");
   if (chord.shift === true) flags.push("Shift");
   if (chord.alt === true) flags.push("Alt");
-  const key = chord.key;
-  const named =
-    key === undefined
-      ? "any key"
-      : typeof key === "function"
-        ? "a typed character"
-        : [key].flat().join("/");
-  return [...flags, named].join("-");
+  return [...flags, keyName(chord.key)].join("-");
 }
 
 /**

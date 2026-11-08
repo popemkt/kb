@@ -10,6 +10,7 @@ import { OutlineSnippet } from "./outline-snippet";
 import {
   BrowserHostService,
   CommandPoint,
+  currentKeymap,
   FieldEditorService,
   KeybindingPoint,
   OverlayPoint,
@@ -18,6 +19,7 @@ import {
   PageProjectionService,
   provideView,
   SidebarSectionPoint,
+  subscribeUiKernel,
   SYSTEM_IDS,
   ViewPoint,
 } from "@kb/ui-sdk";
@@ -26,10 +28,16 @@ import { NodeField } from "./fields-section";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 import { OUTLINE_STEPS } from "./outline-steps";
-import { EDITING_BINDINGS } from "./editing-keymap";
-import { SELECTION_BINDINGS } from "./selection-keymap";
+import { EDITING_BINDINGS, EDITING_CONTEXT } from "./editing-keymap";
+import { SELECTION_BINDINGS, SELECTION_CONTEXT } from "./selection-keymap";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
+
+/** Read both of the outline's keymaps, which tells any refusal (`currentKeymap`). */
+function readKeymaps(): void {
+  currentKeymap(EDITING_CONTEXT);
+  currentKeymap(SELECTION_CONTEXT);
+}
 
 /**
  * The outline's views: its page, its list frame view — shown inline, under
@@ -116,6 +124,13 @@ export const outlineUiPlugin = definePlugin({
           // like any other plugin's, which the page's keymap holds first.
           ...[...EDITING_BINDINGS, ...SELECTION_BINDINGS].map((binding) =>
             ctx.contribute(KeybindingPoint, binding),
+          ),
+          // It reads its two keymaps whenever the page kernel moves, so a
+          // binding another plugin brings that its keymaps refuse is told
+          // then, not at the first key pressed in its context.
+          Effect.acquireRelease(
+            Effect.sync(() => subscribeUiKernel(readKeymaps)),
+            (unsubscribe) => Effect.sync(unsubscribe),
           ),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",

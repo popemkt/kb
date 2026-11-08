@@ -469,6 +469,7 @@ export {
   lookupChord,
   matchesChord,
   PALETTE_CHORD,
+  parseChord,
   TEXT_HISTORY_CHORD,
 } from "./lib/keychord";
 export {
@@ -480,6 +481,7 @@ export {
   KeybindingPoint,
   type Keymap,
   type KeyRun,
+  provideKeybinding,
   type RefusedBinding,
 } from "./lib/keybindings";
 export { logError, logWarn } from "./lib/log";
