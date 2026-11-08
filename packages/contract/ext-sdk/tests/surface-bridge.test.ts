@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionMode, EXTENSION_SDK, ExtensionDeclaration } from "@kb/contracts";
-import type { FailureCode } from "@kb/model";
+import type { FailureCode, Knob, SeedBackdrop } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 import type * as Surface from "../src/surface.ts";
 
@@ -15,6 +15,9 @@ type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 const modes: Same<Surface.ActionMode, ActionMode> = true;
 const codes: Same<Surface.FailureCode, FailureCode> = true;
+/** A backdrop's key and its knobs, as an author declares them, are the model's own. */
+const knobs: Same<Surface.Knob, Knob> = true;
+const backdrops: [Surface.SeedBackdrop] extends [SeedBackdrop] ? true : false = true;
 /**
  * What an author writes is what kb reads: every SDK declaration is a
  * contracts declaration, and every SDK plugin a plugin the kernel loads.
@@ -61,6 +64,10 @@ describe("extension SDK surface", () => {
 
   test("declares an extension and its plugin in shapes the contracts read", () => {
     expect([declarations, plugins]).toEqual([true, true]);
+  });
+
+  test("declares a backdrop and its knobs in the model's shapes", () => {
+    expect([knobs, backdrops]).toEqual([true, true]);
   });
 
   test("declares exactly the values the host serves as kb-ext-sdk", () => {

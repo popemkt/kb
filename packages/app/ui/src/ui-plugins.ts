@@ -247,7 +247,7 @@ function installPageModules(): void {
  * the closure a person trusted, which run in the page with the page's
  * power (DESIGN.md → Core boundary & extensions → repository extensions).
  */
-async function importPageHalf(path: string): Promise<Plugin> {
+export async function importPageHalf(path: string): Promise<Plugin> {
   installPageModules();
   const module: unknown = await import(/* @vite-ignore */ path);
   const entry =

@@ -374,10 +374,115 @@ export interface DeclaredOptions {
   readonly prefix: string;
 }
 
+/** A declared thing of `kind`, by its declared id. */
+export interface DeclaredRef {
+  readonly kind: DeclaredOptions;
+  readonly id: string;
+}
+
+/**
+ * A declared thing as its declaration names it: its id, `<name>.<local id>`
+ * in its family's namespace (discovery refuses one outside it), the id its
+ * page contribution answers to, and the label its option node carries.
+ */
+export interface SeedOption {
+  readonly id: string;
+  readonly label: string;
+  /** Declared things of other kinds its option node chooses. */
+  readonly chooses?: readonly DeclaredRef[];
+  /** Settings its option node holds as its own. */
+  readonly props?: Record<NodeId, PropValue[]>;
+  /** Its live parameters, each with its default: a backdrop's, or a backdrop variant's own. */
+  readonly knobs?: readonly Knob[];
+}
+
 /** The things of one kind a declaration names: the kind, and each thing's key, in order. */
 export interface DeclaredOptionSet {
   readonly kind: DeclaredOptions;
-  readonly options: readonly { readonly id: string; readonly label: string }[];
+  readonly options: readonly SeedOption[];
+}
+
+/** One choice of an enum knob: its id, the value the knob takes, and its label. */
+export interface KnobOption {
+  readonly id: string;
+  readonly label: string;
+}
+
+/**
+ * A knob: one typed, live parameter of a scene, as whatever draws it
+ * declares it. Its value is a field on the node of what declares it, which
+ * the seed derives, so the studio, `kb set` and an agent all set it. A
+ * schema must be well formed (each id once, each default one its own knob
+ * accepts, at most one seed), or discovery refuses the module.
+ */
+export type Knob =
+  | {
+      readonly kind: "number";
+      readonly id: string;
+      readonly label: string;
+      readonly min: number;
+      readonly max: number;
+      readonly step: number;
+      readonly default: number;
+      readonly unit?: string;
+    }
+  | {
+      readonly kind: "boolean";
+      readonly id: string;
+      readonly label: string;
+      readonly default: boolean;
+    }
+  | {
+      readonly kind: "enum";
+      readonly id: string;
+      readonly label: string;
+      readonly options: readonly KnobOption[];
+      readonly default: string;
+    }
+  /** A colour, `#rrggbb`. */
+  | {
+      readonly kind: "color";
+      readonly id: string;
+      readonly label: string;
+      readonly default: string;
+    }
+  /** The seed a scene's variation is drawn from: a whole number pins one; null draws one each load. */
+  | {
+      readonly kind: "seed";
+      readonly id: string;
+      readonly label: string;
+      readonly default: number | null;
+    };
+
+export type KnobValue = Knob["default"];
+export type KnobValues = Readonly<Record<string, KnobValue>>;
+
+export type ColorScheme = "dark" | "light";
+export type BackdropStrength = "subtle" | "soft" | "vivid";
+export type BackdropDirection = "down" | "up";
+
+/** One of a backdrop's variants: a composition of it, by a local id. */
+export interface BackdropVariant {
+  readonly id: string;
+  readonly label: string;
+  /** The schemes it is made for; both unless it says. */
+  readonly schemes?: readonly ColorScheme[];
+  /** The strength it is shown at where no setting chooses one; its backdrop's unless it says. */
+  readonly strength?: BackdropStrength;
+  readonly knobs?: readonly Knob[];
+}
+
+/**
+ * A backdrop as a declaration names it: a declared option of the backdrop
+ * kind ({@link BACKDROP_OPTIONS}), whose work it is drawn after (`credit`),
+ * the strength it is shown at where no setting chooses one, its knobs and
+ * its variants. Its page half contributes it under the same key
+ * (`kb-ext-sdk/page`'s `provideBackdrop`).
+ */
+export interface SeedBackdrop extends SeedOption {
+  readonly credit?: string;
+  readonly strength?: BackdropStrength;
+  readonly variants?: readonly BackdropVariant[];
 }
 
 /** An action as a plugin contributes it to {@link ActionPoint}: the id is the contribution's. */
@@ -521,3 +626,9 @@ export declare function viewKey<P>(
 ): PlainViewKey<P>;
 export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
 export declare const NoParams: effect.Schema.Decoder<NoParams>;
+/** The backdrops' kind: what a declaration lists its backdrops' keys under. */
+export declare const BACKDROP_OPTIONS: DeclaredOptions;
+/** The backdrops' variants' kind (`backdropVariantOptions` names them). */
+export declare const BACKDROP_VARIANT_OPTIONS: DeclaredOptions;
+/** The variants of `backdrops` as options of {@link BACKDROP_VARIANT_OPTIONS}, each choosing its backdrop. */
+export declare function backdropVariantOptions(backdrops: readonly SeedBackdrop[]): SeedOption[];

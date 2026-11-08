@@ -296,6 +296,7 @@
         "zustand": "catalog:",
       },
       "devDependencies": {
+        "@kb/ext-sdk": "workspace:*",
         "@kb/ui-test-kit": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/react-vite": "catalog:",

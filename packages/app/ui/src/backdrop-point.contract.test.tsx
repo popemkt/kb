@@ -1,7 +1,7 @@
 /**
  * The page-head backdrop contract (DESIGN-UI.md → Page-head backdrops):
- * every backdrop contributed to `BackdropPoint`, the page's families' and a
- * plugin's own, is declared, so the seed holds its option under
+ * every backdrop contributed to `BackdropPoint`, the page's families', a
+ * plugin's own and a repository extension's, is declared, so the seed holds its option under
  * `sys.f.backdrop`, the one list Settings picks from; it is shown by the
  * one slot (`PageBackdrop`) for every strength and direction core's
  * settings choose, framed by its own presentation; Settings draws it as a
@@ -74,6 +74,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { providePageEditor } from "@/stores/page-editor";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";
+import { loadExamplePageHalf } from "@/test-support/example-page-half";
 
 const AT = "2026-01-01T00:00:00.000Z";
 const CORE = extensionNodeId("core");
@@ -176,8 +177,15 @@ const PAGE_FAMILIES = await Promise.all(
   ),
 );
 
-/** The seed of the bundled families and the test's own. */
-const SEED = foldSeed([...BUNDLED_DECLARATIONS, plainExtension], AT).nodes;
+/**
+ * The example repository extension's page half, bundled from its files and
+ * loaded as the page loads a trusted one, and the declaration its server
+ * half seeds: a plugin's backdrop, held to the contract as kb's own are.
+ */
+const EXAMPLE = await loadExamplePageHalf();
+
+/** The seed of the bundled families, the test's own and the example's. */
+const SEED = foldSeed([...BUNDLED_DECLARATIONS, plainExtension, EXAMPLE.declaration], AT).nodes;
 
 /** That seed, with core's node holding `settings`. */
 function graphWith(settings: KbNode["props"]): WireNode[] {
@@ -238,7 +246,7 @@ describe("every contributed page-head backdrop", () => {
     installed = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
     // Core's previews come with the page: the backdrop field's card is one.
-    syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES, plainPlugin]);
+    syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES, plainPlugin, EXAMPLE.plugin]);
   });
   afterAll(() => {
     syncUiPlugins([]);
@@ -246,9 +254,10 @@ describe("every contributed page-head backdrop", () => {
     installed.restore();
   });
 
-  it("counts the page's families' backdrops and a plugin's own", () => {
+  it("counts the page's families' backdrops, a plugin's own and a repository extension's", () => {
     const ids = backdrops().map(({ value }) => value.key.id);
     expect(ids).toContain(PLAIN_KEY.id);
+    expect(ids).toContain("example.glow");
     expect(ids.length).toBeGreaterThan(1);
   });
 
