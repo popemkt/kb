@@ -23,9 +23,10 @@
  * sky through, as a daytime moon does (P5). Arriving, the stars kindle in a
  * seeded order and the bodies brighten in.
  */
+import type { KnobValue } from "@kb/model";
 import { Group, Vector3, type Object3D } from "three/webgpu";
 import { float, uniform, vec3 } from "three/tsl";
-import type { LabControlValue, LabSceneInit, LabScene } from "../kit/contract";
+import type { LabSceneInit, LabScene } from "../kit/contract";
 import type { LabGraph } from "../lab-graph";
 import { OrbitControl } from "../kit/orbit";
 import { Entrance } from "../kit/entrance";
@@ -171,7 +172,7 @@ function sky(stage: SceneStage, init: LabSceneInit, context: StudyContext): Stud
         },
       );
     },
-    setControl: (id, value: LabControlValue) => {
+    setControl: (id, value: KnobValue) => {
       if (id === "spikes" && typeof value === "number") u.spikes.value = value;
       if (id === "nebula" && typeof value === "number") u.nebula.value = value;
       if (id === "earthshine" && typeof value === "number") u.earthshine.value = value;

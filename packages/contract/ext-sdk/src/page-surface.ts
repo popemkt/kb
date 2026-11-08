@@ -5,8 +5,9 @@
  * it imports (DESIGN-UI.md → Extension UI halves); these are the types of
  * the UI points the shell renders, restated for an author, as
  * `surface.ts` restates the plugin model. React's own types are React's.
+ * `@kb/ui-sdk`'s `page-surface-bridge.test.ts` holds the restatement to the
+ * values the page serves.
  */
-// GAP [[01M579MH4HKXE7H51ZA7DRDMNP]] the page surface restates @kb/ui-sdk's point types with nothing holding them equal
 import type {
   ComponentPropsWithoutRef,
   ComponentType,
@@ -16,10 +17,26 @@ import type {
   ReactNode,
   RefAttributes,
 } from "react";
-import type { ContributionEntry, PointKey, ViewKey } from "./surface.ts";
+import type {
+  BackdropDirection,
+  BackdropStrength,
+  ContributionEntry,
+  KnobValues,
+  PlainViewKey,
+  PointKey,
+  SeedBackdrop,
+  ViewKey,
+} from "./surface.ts";
 
-/** Where a host renders a view: filling the page's box, or inline in the outline's flow. */
-export type Placement = "page" | "inline";
+/**
+ * Where a host renders a view: filling the page's box, inline in the
+ * outline's flow, or as a compact read-only preview under a node's row,
+ * which a view draws exactly when its key says so (`ViewKey.preview`).
+ */
+export type Placement = "page" | "inline" | "preview";
+
+/** The placements a contribution lists itself: `preview` is its key's to say. */
+export type ListedPlacement = Exclude<Placement, "preview">;
 
 /** What a host guarantees a view: never a store. */
 export interface ViewHost {
@@ -46,9 +63,9 @@ export declare const ViewPoint: PointKey<ProvidedView>;
 
 /** The {@link ViewPoint} contribution drawing `key`, under the key's local id. */
 export declare function provideView<P>(
-  key: ViewKey<P>,
+  key: PlainViewKey<P>,
   view: {
-    readonly placements: readonly Placement[];
+    readonly placements: readonly ListedPlacement[];
     /** The params the view contract mounts this view with. */
     readonly sample: P;
     readonly Component: FunctionComponent<ViewProps<P>>;
@@ -187,3 +204,157 @@ export declare function provideDesignSystem(
   key: SeedOption,
   system: { readonly stylesheet: string },
 ): ContributionEntry<DesignSystem>;
+
+/**
+ * How far across the page a backdrop's frame reaches: centred under the
+ * head's content and at most `maxWidth` wide, or across the whole scroll
+ * region behind it.
+ */
+export type BackdropSpan =
+  | { readonly reach: "content"; readonly maxWidth: number }
+  | { readonly reach: "region" };
+
+/**
+ * How a page head frames a backdrop: the breathing room it reserves above
+ * the head's content, its frame's height, span and vertical offset, the
+ * directions it can face (none, when it has no direction), and how opaque
+ * it is at each strength.
+ */
+export interface BackdropPresentation {
+  readonly space: number;
+  readonly height: number;
+  readonly span: BackdropSpan;
+  readonly offset: number;
+  readonly directions: readonly BackdropDirection[];
+  readonly opacity: Readonly<Record<BackdropStrength, number>>;
+}
+
+/** What a backdrop may spend drawing one frame, in ms: of the GPU's time, or the main thread's. */
+export interface BackdropBudget {
+  readonly frameMs: number;
+}
+
+/**
+ * The page head's frame budget, by what draws a backdrop: 6 ms of the
+ * GPU's time for a GPU scene, 2 ms of the main thread for a canvas scene,
+ * 1 ms for one the page's CSS draws. A contribution names the one that
+ * applies, or less, never more.
+ */
+export declare const BACKDROP_BUDGETS: {
+  readonly gpu: { readonly frameMs: 6 };
+  readonly canvas: { readonly frameMs: 2 };
+  readonly dom: { readonly frameMs: 1 };
+};
+
+/** What has happened on the page, counted since it loaded. */
+export interface PageEvents {
+  /** Changes made elsewhere it has been shown. */
+  readonly arrivals: number;
+  /** Errors it has told the owner of. */
+  readonly errors: number;
+  /** Turns the sidebar's agent has finished with an answer. */
+  readonly turns: number;
+}
+
+/**
+ * What the owner is doing on the page: whether a node's text is being
+ * edited, how many writes the graph has taken, and what has happened. A
+ * backdrop compares a count with the one it last saw.
+ */
+export interface PageActivity extends PageEvents {
+  readonly editing: boolean;
+  readonly writes: number;
+}
+
+/** The pointer over a backdrop's own frame, polled in its own loop. */
+export interface PointerSource {
+  /** Where the pointer is, in CSS pixels from the frame's corner; null when it is not over it. */
+  readonly now: () => { readonly x: number; readonly y: number } | null;
+}
+
+/**
+ * What a page head hands the backdrop it shows: what every backdrop is
+ * handed. The node it shows is declared by its id, which is what a
+ * backdrop that answers navigation reads.
+ */
+// GAP [[01M6WVFMGB5PP2AANF0E5R921V]] a trusted backdrop has the page's power; these types confine nothing
+export interface BackdropProps {
+  /** The head's colour: the shown node's tag colour, else the accent. */
+  readonly color: string;
+  /** The node the head shows, when it shows one. */
+  readonly node: { readonly id: string } | undefined;
+  readonly strength: BackdropStrength;
+  readonly direction: BackdropDirection;
+  /** The file of kb's assets naming art to draw in place of its own; null, its own. */
+  readonly art: string | null;
+  /** The variant it shows, by local id; null for a backdrop with none. */
+  readonly variant: string | null;
+  /** The presentation's opacity at `strength`. */
+  readonly opacity: number;
+  /** Its knobs' values, by id: each knob's default where nothing sets it. */
+  readonly knobs: KnobValues;
+  /** What it may spend a frame. */
+  readonly budget: BackdropBudget;
+  /** What the owner is doing on the page now. */
+  readonly activity: PageActivity;
+  readonly pointer: PointerSource;
+}
+
+/**
+ * A page-head backdrop: its key (the backdrop its declaration names), how
+ * a head frames it, what it may spend a frame, and its scene, the
+ * component the slot draws wherever it is shown (a head, a card, the
+ * studio).
+ */
+export interface Backdrop {
+  readonly key: SeedBackdrop;
+  readonly presentation: BackdropPresentation;
+  readonly budget: BackdropBudget;
+  /** A function component: what the slot hands it may be more than its props declare. */
+  readonly Component: FunctionComponent<BackdropProps>;
+}
+
+/** Every backdrop a page head can show. */
+export declare const BackdropPoint: PointKey<Backdrop>;
+
+/**
+ * The backdrop its family declares as `key`, as its page half contributes
+ * it: under the key's local id, so it answers to the declared id.
+ */
+export declare function provideBackdrop(
+  key: SeedBackdrop,
+  backdrop: Omit<Backdrop, "key">,
+): ContributionEntry<Backdrop>;
+
+/**
+ * What one recorded cost measures: the main thread's time drawing the
+ * frame, the GPU's, or the interval since the last frame.
+ */
+export type FrameCost = "frame" | "gpu" | "interval";
+
+/** A backdrop's frames held to its budget, and the detail it draws at. */
+export interface FrameMeter {
+  /** 1 at full detail, down to the floor while frames run over budget. */
+  readonly quality: () => number;
+  /** Record one frame's cost in ms (`frame` unless it says): true when quality just stepped down. */
+  readonly record: (ms: number, cost?: FrameCost) => boolean;
+}
+
+export interface FrameMeterOptions {
+  /** The lowest quality it steps down to (by default 0.45). */
+  readonly floor?: number;
+}
+
+/**
+ * Meter `canvas`'s frames against `budget`, as every metered backdrop is:
+ * over budget for long enough, quality steps down, and the canvas carries
+ * what was measured, which Backdrop Studio's readout reads.
+ */
+export declare function meterFrames(
+  canvas: HTMLCanvasElement,
+  budget: BackdropBudget,
+  options?: FrameMeterOptions,
+): FrameMeter;
+
+/** Whether the owner asks for reduced motion: a backdrop then draws one still frame. */
+export declare function useReducedMotion(): boolean;

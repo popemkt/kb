@@ -17,15 +17,19 @@ export function EnumSelect<T extends string>({
   onChange,
   className,
   testId,
+  id,
 }: {
   value: T;
   options: readonly EnumOption<T>[];
   onChange: (next: T) => void;
   className?: string;
   testId?: string;
+  /** The element's id, so a `<label htmlFor>` names it. */
+  id?: string;
 }) {
   return (
     <select
+      id={id}
       className={className}
       value={value}
       data-testid={testId}

@@ -237,6 +237,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     viewCatalog: () => ({ keyOf: () => null }),
     writes: INERT_WRITES,
     invoke: (id) => noCall(id),
+    subscribeManifest: () => () => {},
     screen: {
       report: (pane, owner, report, carryOut) => held.set(pane, { pane, owner, report, carryOut }),
       release: (pane, owner) => {

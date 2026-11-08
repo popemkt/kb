@@ -13,7 +13,8 @@
  * pointer it rests, breathing. Writes are an impulse, never a restart:
  * typing dims the disk a little and each keystroke breathes into it; a
  * write outside typing sets a hot flare orbiting in it, which a further
- * write brightens rather than starts again.
+ * write brightens rather than starts again. The backdrop's tilt is the
+ * rig's, so it holds for either look; each look reads its own knobs.
  *
  * One stage holds whichever look is shown: a pin that changes while the
  * page is open swaps the look in place, never the scene.

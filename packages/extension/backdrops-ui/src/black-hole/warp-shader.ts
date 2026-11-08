@@ -54,6 +54,7 @@ import { Vector2 } from "three/webgpu";
 import type { OffscreenInputs, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
 import { pnoise } from "../gpu/noise";
+import { WARP_HORIZON, warpTuning } from "./hole-tuning";
 import { starsOf } from "./stars";
 
 type F = TslNode<"float">;
@@ -63,9 +64,6 @@ type V4 = TslNode<"vec4">;
 
 /** The camera's distance from the hole: the unit everything else is measured in is a tenth of it. */
 const DISTANCE = 10;
-/** Within `HORIZON` of the hole the pull is whole; beyond `REACH` there is none. */
-const HORIZON = 0.8;
-const REACH = 2;
 /** The disk's plane carries the pull out to `SHEET`, fading from `SHEET_FADE`. */
 const SHEET = 6;
 const SHEET_FADE = 4.8;
@@ -74,8 +72,6 @@ const INNER = 1.5;
 const OUTER = 6;
 /** An authored roll: the disk's line falls to the right. */
 const ROLL = 0.2;
-/** How far the turbulence pushes the ramp: the streaks' contrast. */
-const STREAKS = 0.4;
 /**
  * The turbulence's octaves: cells round the ring and across it, and how fast
  * each drifts (turns a second round it, ring-widths a second inward). The
@@ -125,6 +121,7 @@ const shown = (c: readonly [number, number, number]) =>
   vec3(linear(c[0]), linear(c[1]), linear(c[2]));
 
 export function warpUniforms() {
+  const tuned = warpTuning({});
   return {
     time: uniform(0),
     dark: uniform(1),
@@ -141,6 +138,11 @@ export function warpUniforms() {
     flarePhase: uniform(0),
     pulse: uniform(0),
     calm: uniform(0),
+    // The look's knobs (`warpTuning`).
+    /** How far the turbulence pushes the ramp: the streaks' contrast. */
+    streaks: uniform(tuned.streaks),
+    /** Within `WARP_HORIZON` of the hole the pull is whole; beyond this there is none. */
+    reach: uniform(tuned.reach),
   };
 }
 export type WarpUniforms = ReturnType<typeof warpUniforms>;
@@ -171,22 +173,22 @@ function view(u: WarpUniforms) {
 }
 
 /**
- * The pull at a ray: how near the hole it passes, as 1 inside `HORIZON`
- * falling to 0 at `REACH`. It is measured on the sheet square to the view
+ * The pull at a ray: how near the hole it passes, as 1 inside `WARP_HORIZON`
+ * falling to 0 at `reach`. It is measured on the sheet square to the view
  * through the hole and, where the disk's plane lies in front of that sheet,
  * on the plane too, which covers the sheet's measure out to `SHEET` and fades
  * from `SHEET_FADE` to it, so the near side's measure gives way to the
  * sheet's past the disk and folds the echo there.
  */
-function pullOf(eye: V3, forward: V3, ray: V3): F {
+function pullOf(eye: V3, forward: V3, ray: V3, reach: F): F {
   const facing = forward.negate();
   const tSheet = dot(eye, facing).negate().div(dot(ray, facing));
-  const across = smoothstep(REACH, HORIZON, length(eye.add(ray.mul(tSheet))));
+  const across = smoothstep(reach, WARP_HORIZON, length(eye.add(ray.mul(tSheet))));
   const tPlane = eye.y.negate().div(ray.y);
   const onPlane = length(eye.add(ray.mul(tPlane)));
   const inFront = tPlane.greaterThan(0).and(tPlane.lessThan(tSheet));
   const cover = select(inFront, smoothstep(SHEET, SHEET_FADE, onPlane), float(0));
-  return mix(across, smoothstep(REACH, HORIZON, onPlane), cover);
+  return mix(across, smoothstep(reach, WARP_HORIZON, onPlane), cover);
 }
 
 /**
@@ -223,7 +225,7 @@ function discFn(u: WarpUniforms) {
       const at = u.flarePhase.add(u.time.mul(0.35));
       const toFlare = vec2(hit.x, hit.z).sub(vec2(cos(at), sin(at)).mul(FLARE_RADIUS));
       const knot = exp(dot(toFlare, toFlare).mul(-1.6)).mul(u.flare).mul(0.6);
-      const contrast = float(STREAKS).add(u.pulse.mul(0.15));
+      const contrast = u.streaks.add(u.pulse.mul(0.15));
       out.assign(across.add(turbulence.mul(contrast)).add(knot).mul(falloff));
     });
     return out;
@@ -273,7 +275,7 @@ export function warpFragment(
     );
     const { eye, forward, ray } = view(u);
     // The pull: this pixel shows the point nearer the hole by its strength.
-    const pull = pullOf(eye, forward, ray(q)).toVar();
+    const pull = pullOf(eye, forward, ray(q), u.reach).toVar();
     const pulled = ray(q.mul(float(1).sub(pull))).toVar();
     const heat = disc(eye, pulled).toVar();
     const opacity = clamp(heat, 0, 1);

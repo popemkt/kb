@@ -37,6 +37,7 @@ export {
   useNodeTextBinding,
   useOpenNode,
   usePageActivity,
+  useBackdropKnobs,
   usePageBackdrop,
   useShownDesignSystem,
   type PageBackdropChoice,
@@ -96,6 +97,8 @@ export {
   currentView,
   currentService,
   type Backdrop,
+  type BackdropAction,
+  BackdropActionPoint,
   BackdropPoint,
   chosenDeclared,
   provideDeclared,
@@ -107,6 +110,8 @@ export {
   THEME_GESTURE_MAX_MS,
   type ThemeArtPlane,
   type BackdropPresentation,
+  BACKDROP_BUDGETS,
+  type BackdropBudget,
   type BackdropProps,
   type PageActivity,
   type PageEvents,
@@ -142,6 +147,14 @@ export {
   type ViewProps,
 } from "./lib/plugins";
 export {
+  type FrameCost,
+  type FrameMeter,
+  type FrameMeterOptions,
+  type FrameMeterReading,
+  meterFrames,
+  readFrameMeter,
+} from "./lib/frame-meter";
+export {
   type FamilyView,
   MAX_VIEW_DEPTH,
   type SlotChain,
@@ -151,7 +164,9 @@ export {
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
 export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
+export { BackdropCard } from "./components/backdrop-card";
 export { HoldStill } from "./components/hold-still";
+export { deferred, type DeferredOptions } from "./components/deferred";
 export { ThemeArt } from "./components/theme-art";
 
 // The primitives.
@@ -160,6 +175,7 @@ export { EdnEditor } from "./components/edn-editor";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
 export { IconButton } from "./components/icon-button";
+export { KnobControl } from "./components/deferred-parts";
 export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeRow } from "./components/node-row";
 export {
@@ -543,7 +559,12 @@ export {
 export { setToastSink, toast } from "./lib/toast";
 export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
-export { placeOver, type PointerPlace, type PointerSource } from "./lib/pointer-over";
+export {
+  placeOver,
+  usePointerOver,
+  type PointerPlace,
+  type PointerSource,
+} from "./lib/pointer-over";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
 export { tagOpeningOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";

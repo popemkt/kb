@@ -188,6 +188,7 @@ describe("hit-testing", () => {
     expect(hitTest([asItem({ ...solid, shape: "sphere" })], front, size, at(50, 50))).toBe("s");
   });
 
+  // GAP [[01M6VQFVG8FPA7KPZHD3J99NGX]] a sweep that outgrows Vitest's 5 s budget when CPU is contended
   test("every volume is hit exactly where a march along the ray first enters it", () => {
     // An independent statement of each volume, in the box's unit space.
     const inside: Record<string, (u: number, v: number, w: number) => boolean> = {

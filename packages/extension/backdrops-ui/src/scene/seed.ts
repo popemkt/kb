@@ -8,7 +8,9 @@
  * - The seed is the load's (`useLoadSeed`, `@kb/ui-sdk`): a scene mounted
  *   again (the head remounting, Settings' cards) shows the same variation
  *   as before, and `?backdrop-seed=<n>` pins it; a test passes its own.
- * - Reduced motion always shows the one curated still; which of a
+ * - A seed the owner pins (the seed knob) is the scene's whatever else
+ *   holds, moving or still.
+ * - Reduced motion otherwise shows the one curated still; which of a
  *   backdrop's variants a load shows is the slot's draw from the load's
  *   seed even so (`BackdropProps.variant`), so a still is composed at
  *   random as every load is.
@@ -22,10 +24,19 @@ import { seededRng, type Rng } from "./rng";
 /** A still is curated: reduced motion always shows the same composition. */
 const STILL_SEED = 7;
 
-/** The seed a backdrop's scene is made from: this load's, or under reduced motion the curated still. */
-export function useBackdropSeed(reducedMotion: boolean): number {
-  const seed = useLoadSeed();
-  return reducedMotion ? STILL_SEED : seed;
+/**
+ * The seed a backdrop's scene is made from: the one the owner pinned (its
+ * seed knob, `SEED_KNOB`; null, none), else this load's (`load`), or under
+ * reduced motion the curated still. A pin is the owner's word, so it holds
+ * moving or still.
+ */
+export function backdropSeed(load: number, reducedMotion: boolean, pinned: number | null): number {
+  return pinned ?? (reducedMotion ? STILL_SEED : load);
+}
+
+/** The seed a backdrop's scene is made from now (`backdropSeed`). */
+export function useBackdropSeed(reducedMotion: boolean, pinned: number | null): number {
+  return backdropSeed(useLoadSeed(), reducedMotion, pinned);
 }
 
 /** The ways a backdrop's scene may differ from one load to the next, each drawn by name. */

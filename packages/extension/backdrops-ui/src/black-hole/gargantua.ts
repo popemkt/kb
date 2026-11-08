@@ -5,24 +5,38 @@
  * The owner (through the shared rig, `hole-rig.ts`): the pointer tilts and
  * swings the camera; typing dims the disk a little and each keystroke
  * breathes into it; a write outside typing sets a hot flare orbiting in it.
+ * Its own knobs (`hole-tuning.ts`), live: the gas's beaming and its heat.
  *
  * Cost: the hole is drawn offscreen, and what the meter trades is its
- * resolution and nothing else (`holeDensity`). A ray's steps are never cut
+ * resolution and nothing else (`holeDensity`); a frame taller than a head
+ * draws it no finer than a head does (`pastHead`). A ray's steps are never cut
  * short (`STEP_CAP`): the rays that wind round the hole take the most, and
  * they are the photon ring. One jittered sample a step; the frames before it
- * fill in what one frame's samples leave out.
+ * fill in what one frame's samples leave out. A sample reads the gas's noise
+ * from its bake (`bakedGas`), drawn once as the look is built: computed at
+ * every sample, it was most of a frame's cost.
  */
 import { offscreenPass, type SceneStage, type StageLens } from "@kb/scene-gpu";
 import type { Reactions } from "../scene/reactions";
 import type { Variation } from "../scene/seed";
+import { pastHead } from "../gpu/framing";
 import {
   type BackdropLayout,
   type GpuBackdropInit,
   type GpuLook,
   groundsOf,
 } from "../gpu/gpu-scene";
-import { blackHoleFragment, blackHoleUniforms } from "./black-hole-shader";
+import {
+  GAS_BILLOWS,
+  GAS_STREAMS,
+  blackHoleFragment,
+  blackHoleUniforms,
+  gasBillowsFragment,
+  gasStreamsFragment,
+  type BakedGas,
+} from "./black-hole-shader";
 import { flareOrbit, holeDensity, holeDolly, sharpened, type HoleLook } from "./hole-rig";
+import { gargantuaTuning } from "./hole-tuning";
 
 /**
  * How much of each new frame enters the picture; the rest is the frames
@@ -43,13 +57,33 @@ export const GARGANTUA_LENS: StageLens = { aberration: 0.012, streak: 0.3, grain
  */
 const STEP_CAP = 300;
 
+/** The gas's noise, baked once, periodic round the disk (`BakedGas`); `dispose` gives it back. */
+function bakedGas(renderer: SceneStage["renderer"]): BakedGas & { readonly dispose: () => void } {
+  const periodic = { history: false, periodic: true } as const;
+  const streams = offscreenPass(renderer, gasStreamsFragment, periodic);
+  const billows = offscreenPass(renderer, gasBillowsFragment, periodic);
+  streams.setSize(GAS_STREAMS.width, GAS_STREAMS.height);
+  billows.setSize(GAS_BILLOWS.width, GAS_BILLOWS.height);
+  streams.render();
+  billows.render();
+  return {
+    streams: streams.picture,
+    billows: billows.picture,
+    dispose: () => {
+      streams.dispose();
+      billows.dispose();
+    },
+  };
+}
+
 export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variation): HoleLook {
   const flare = flareOrbit(vary);
   const u = blackHoleUniforms();
   u.time.value = 120 + vary.range("clock", 0, 60);
+  const gas = bakedGas(stage.renderer);
   const hole = offscreenPass(
     stage.renderer,
-    (inputs) => blackHoleFragment(u, inputs, groundsOf(stage)),
+    (inputs) => blackHoleFragment(u, gas, inputs, groundsOf(stage)),
     {
       history: true,
     },
@@ -69,7 +103,9 @@ export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variat
       // The shader reads the hole's centre as shares of the frame, y up.
       u.center.value.set(0.5 + anchor.x / (w / h), 0.5 + anchor.y);
       u.focal.value = 2.3 * anchor.scale;
-      const density = holeDensity(quality, DENSITY);
+      // A frame taller than a head shows the hole larger, never finer: it is drawn with a
+      // head's texels and scaled up, so its cost (rays, and their steps) is a head's.
+      const density = holeDensity(quality, DENSITY) / pastHead(h);
       hole.setSize(w * density, h * density);
       u.steps.value = STEP_CAP;
       // A still frame has no frames before it to settle its samples.
@@ -78,6 +114,10 @@ export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variat
       return anchor;
     },
     setLook: (look: GpuLook) => {
+      dolly.tune(look.knobs);
+      const tuned = gargantuaTuning(look.knobs);
+      u.beaming.value = tuned.beaming;
+      u.heat.value = tuned.heat;
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.18 : 0.06);
       stage.setLens(GARGANTUA_LENS);
@@ -98,6 +138,9 @@ export function gargantua(stage: SceneStage, init: GpuBackdropInit, vary: Variat
       hole.render();
       fresh = false;
     },
-    dispose: hole.dispose,
+    dispose: () => {
+      hole.dispose();
+      gas.dispose();
+    },
   };
 }

@@ -18,8 +18,9 @@
  *   write, keystrokes gently, merged and throttled) or `reactions.stir` (the
  *   same without typing's share) in its frame. A scene is mounted once for
  *   its head: its clock (`clock`) only moves forward.
- * - **Its cost.** The frame-cost meter (`../scene/meter`) over the GPU's own
- *   time where the backend reports it (`gpuMs`), else over the frame
+ * - **Its cost.** The frame meter (`meterFrames`, `@kb/ui-sdk`) over the GPU's own
+ *   time where the backend reports it (`gpuMs`), against the budget its
+ *   contribution declares (`Backdrop.budget`), else over the frame
  *   interval; over budget, quality steps down and the backdrop spends less.
  *   The canvas carries what it measured (`data-gpu-ms`, `data-quality`) and
  *   its clock (`data-clock`).
@@ -27,11 +28,12 @@
  * This module imports three (through `@kb/scene-gpu`), so only the GPU
  * host's own lazy import reaches it (`gpu-backdrop.tsx`).
  */
-import type { BackdropDirection } from "@kb/model";
+import { SPEED_KNOB } from "@kb/backdrops";
+import { knobValue, type BackdropDirection, type KnobValues } from "@kb/model";
 import type { SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, type SceneStage, type StageOptions, type TslNode } from "@kb/scene-gpu";
-import type { PointerSource, Timing } from "@kb/ui-sdk";
-import { meterOf } from "../scene/meter";
+import { meterFrames, type BackdropBudget, type PointerSource, type Timing } from "@kb/ui-sdk";
+import { sceneClock } from "../scene/clock";
 import { startReactions, type PageEventKind, type Reactions } from "../scene/reactions";
 import { anchorIn, framingAt, type Anchor, type Composition, type ContentBox } from "./framing";
 
@@ -46,6 +48,8 @@ export interface GpuLook {
   readonly art: string | null;
   /** The variant this load shows (`BackdropProps.variant`), by its local id; null for a backdrop with none. */
   readonly variant: string | null;
+  /** Its knobs' values now (`BackdropProps.knobs`): a scene reads its own by the knob (`knobValue`). */
+  readonly knobs: KnobValues;
 }
 
 export interface GpuBackdropInit extends GpuLook {
@@ -56,6 +60,8 @@ export interface GpuBackdropInit extends GpuLook {
   readonly pointer: PointerSource;
   /** Where the head's content lies across the frame as it mounts. */
   readonly content: ContentBox;
+  /** GPU time it may take a frame (`Backdrop.budget`). */
+  readonly budget: BackdropBudget;
 }
 
 /** A mounted GPU backdrop, as its React host drives it. */
@@ -146,12 +152,7 @@ export type BackdropStageOptions = Pick<
 /** How the frame's sides, top and bottom fade into the page's ground (shares of the frame). */
 const FRAME_FEATHER = { sides: 0.12, top: 0.08, bottom: 0.5 } as const;
 
-/** GPU time a backdrop may take per frame (ms): a third of a 60 Hz frame, the rest is the page's. */
-const GPU_BUDGET_MS = 6;
-/** Without GPU time, a frame interval past this (ms) means the page is paying. */
-const INTERVAL_BUDGET_MS = 1000 / 48;
 const MIN_QUALITY = 0.4;
-const QUALITY_STEP = 0.15;
 
 /**
  * What a spec reads to see the hero hold its place and size whatever the
@@ -176,14 +177,12 @@ export async function mountBackdrop(
   build: (stage: SceneStage, init: GpuBackdropInit) => BackdropParts,
 ): Promise<GpuBackdropScene> {
   const reactions = startReactions();
-  const gpuMeter = meterOf(GPU_BUDGET_MS);
-  const intervalMeter = meterOf(INTERVAL_BUDGET_MS);
   let look: GpuLook = init;
   let width = 0;
   let height = 0;
   let content = init.content;
-  let quality = 1;
-  let elapsed = 0;
+  // The scene's time at the owner's speed; the reactions and the meter keep the frame's own.
+  const clock = sceneClock(knobValue(init.knobs, SPEED_KNOB));
 
   const { stage, parts, handle } = await mountScene(
     host,
@@ -204,25 +203,21 @@ export async function mountBackdrop(
       backdrop.setLook(init);
       const canvas = on.renderer.domElement;
       canvas.dataset.backend = on.backend;
+      const meter = meterFrames(canvas, init.budget, { floor: MIN_QUALITY });
       const relayout = () => {
         if (width < 2 || height < 2) return;
         const composition = framingAt(width, backdrop.panel, backdrop.wide);
         on.setPresence(look.presence * composition.presence);
         const anchor = anchorIn(composition, { width, height }, content);
-        const hero = backdrop.layout({ width, height, quality, anchor, content });
-        canvas.dataset.quality = quality.toFixed(2);
+        const hero = backdrop.layout({ width, height, quality: meter.quality(), anchor, content });
         reportHero(canvas, hero, { width, height, content });
       };
       const measure = (dt: number) => {
         const gpu = on.gpuMs();
-        const verdict = gpu === null ? intervalMeter.record(dt * 1000) : gpuMeter.record(gpu);
-        if (verdict === null) return;
-        if (gpu !== null) canvas.dataset.gpuMs = verdict.spent.toFixed(2);
+        const lowered =
+          gpu === null ? meter.record(dt * 1000, "interval") : meter.record(gpu, "gpu");
         // Lower detail while frames run over budget: the scene's cost to hold, not the page's to pay.
-        if (verdict.lower && quality > MIN_QUALITY) {
-          quality = Math.max(MIN_QUALITY, quality - QUALITY_STEP);
-          relayout();
-        }
+        if (lowered) relayout();
       };
       return {
         backdrop,
@@ -232,10 +227,10 @@ export async function mountBackdrop(
           if (at === null) reactions.clearPointer();
           else reactions.setPointer(at.x, at.y);
           reactions.update(dt);
-          elapsed += dt;
+          const moved = clock.advance(dt);
           // What a spec reads to see the scene carry on (`clock`), never start over.
-          canvas.dataset.clock = elapsed.toFixed(3);
-          backdrop.frame(dt, reactions);
+          canvas.dataset.clock = clock.elapsed().toFixed(3);
+          backdrop.frame(moved, reactions);
           if (dt > 0) measure(dt);
           return true;
         },
@@ -252,6 +247,7 @@ export async function mountBackdrop(
   const { backdrop, relayout } = parts;
   const setLook = (next: GpuLook) => {
     look = next;
+    clock.setSpeed(knobValue(next.knobs, SPEED_KNOB));
     stage.setPalette(next.palette);
     backdrop.setLook(next);
     relayout();
@@ -281,6 +277,6 @@ export async function mountBackdrop(
       relayout();
       stage.invalidate();
     },
-    clock: () => elapsed,
+    clock: () => clock.elapsed(),
   };
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ASTRAL_LINE_KNOB, ASTRAL_SIZE_KNOB, ASTRAL_STARS_KNOB } from "@kb/backdrops";
 import { TAU } from "../scene/math";
 import { variation } from "../scene/seed";
 import {
@@ -9,8 +10,10 @@ import {
   STEP_SECONDS,
   TICK_PERIOD,
   ambient,
+  astralTuning,
   gleamAt,
   meshed,
+  sized,
   tickEase,
   trainClock,
   walk,
@@ -212,5 +215,29 @@ describe("compose", () => {
         expect(constellation.stars[to]).toBeDefined();
       }
     }
+  });
+});
+
+describe("astralTuning", () => {
+  it("at the knobs' defaults is the instrument as it was drawn before it had a knob", () => {
+    expect(astralTuning({})).toEqual({ size: 1, hair: 0.3, stars: 1 });
+    for (const variant of ASTRAL_VARIANTS) {
+      const { panel, wide } = compose(variant, variation(2));
+      expect(sized(panel, astralTuning({}).size)).toEqual(panel);
+      expect(sized(wide, astralTuning({}).size)).toEqual(wide);
+    }
+  });
+
+  it("draws the instrument larger or smaller where it stood, its ink heavier or finer, its sky's stars brighter or gone", () => {
+    const { wide } = compose("movement", variation(2));
+    const big = sized(wide, astralTuning({ [ASTRAL_SIZE_KNOB.id]: ASTRAL_SIZE_KNOB.max }).size);
+    const small = sized(wide, astralTuning({ [ASTRAL_SIZE_KNOB.id]: ASTRAL_SIZE_KNOB.min }).size);
+    expect(big.scale).toBeCloseTo(wide.scale * ASTRAL_SIZE_KNOB.max);
+    expect(small.scale).toBeCloseTo(wide.scale * ASTRAL_SIZE_KNOB.min);
+    expect([big.x, big.y]).toEqual([wide.x, wide.y]);
+    expect(astralTuning({ [ASTRAL_LINE_KNOB.id]: 2 }).hair).toBeCloseTo(0.6);
+    expect(astralTuning({ [ASTRAL_LINE_KNOB.id]: ASTRAL_LINE_KNOB.min }).hair).toBeLessThan(0.3);
+    expect(astralTuning({ [ASTRAL_STARS_KNOB.id]: 1.5 }).stars).toBe(1.5);
+    expect(astralTuning({ [ASTRAL_STARS_KNOB.id]: 0 }).stars).toBe(0);
   });
 });

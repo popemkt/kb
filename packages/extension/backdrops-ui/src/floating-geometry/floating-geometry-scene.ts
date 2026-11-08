@@ -47,7 +47,16 @@ import {
   pieceFragment,
   type GlassUniforms,
 } from "./floating-geometry-shader";
-import { fitPiece, layoutWeb, pieceBounds, placeSheets, type PieceBounds } from "./web";
+import {
+  fitPiece,
+  glassLook,
+  lampStrengths,
+  layoutWeb,
+  pieceBounds,
+  placeSheets,
+  type LampStrengths,
+  type PieceBounds,
+} from "./web";
 import type { Anchor } from "../gpu/framing";
 
 /** How strongly the light blooms on a dark page: the glints and the seams that meet there carry the frame. */
@@ -78,8 +87,6 @@ const SWEEP_DIR = { x: 0.894, y: -0.447 };
  */
 const AIR = { x: 0.5, y: 0.55, grow: 0.8 } as const;
 const SOLID = 0.08;
-/** Each lamp's strength: the main one, the hot point; a second behind the next knot, nearly as hot, a second warm core; a quieter third, a glint. */
-const LAMP_STRENGTH = [1, 0.85, 0.42] as const;
 /**
  * The frame's feather (shares of its width and height): none at the sides,
  * which are the scroll region's own (the haze is full-bleed and the far web
@@ -95,21 +102,24 @@ const FEATHER = { sides: 0, top: 0.02, bottom: 0.03 } as const;
 const SIDE_SHARE = 0.03;
 const EDGE_ROOM = 0.04;
 const BAND = { top: 0.04, bottom: 0.08 } as const;
-/** The main lamp where it is, and the others at their knots, each breathing a little on a clock of its own. */
+/**
+ * The main lamp where it is, and the others at their knots, each at its
+ * strength (`lampStrengths`) and breathing a little on a clock of its own.
+ */
 function writeLamps(
   u: GlassUniforms,
   lamp: { readonly x: number; readonly y: number },
   others: readonly { readonly x: number; readonly y: number }[],
   hub: { readonly x: number; readonly y: number; readonly scale: number },
-  wander: number,
+  { wander, strengths }: { readonly wander: number; readonly strengths: LampStrengths },
 ) {
-  u.lamp[0]?.set(lamp.x, lamp.y, LAMP_STRENGTH[0], 0);
+  u.lamp[0]?.set(lamp.x, lamp.y, strengths[0], 0);
   others.forEach((knot, k) => {
     const turn = wander * (0.7 + 0.2 * k) + k * 2;
     u.lamp[k + 1]?.set(
       hub.x + (knot.x + 0.03 * Math.sin(turn)) * hub.scale,
       hub.y + (knot.y + 0.02 * Math.cos(turn * 1.3)) * hub.scale,
-      (LAMP_STRENGTH[k + 1] ?? 0.5) * (0.85 + 0.15 * Math.sin(turn * 0.6)),
+      (strengths[k + 1] ?? 0.5) * (0.85 + 0.15 * Math.sin(turn * 0.6)),
       0,
     );
   });
@@ -209,12 +219,14 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
   let sweepClock = init.reducedMotion ? SWEEP_PERIOD * 0.55 : 0;
   const lean = { x: 0, y: 0 };
   let span = 1;
+  // What the owner's knobs set (`glassLook`): as the scene mounts, and again with each look.
+  let own = glassLook(init.knobs);
 
   const place = () => {
     const placed = placeSheets(sheets, time, { ...hub, lean: [lean.x, lean.y] });
     placed.forEach((sheet, n) => {
       u.sheet[n * 2]?.set(sheet.x, sheet.y, sheet.cell, sheet.angle);
-      u.sheet[n * 2 + 1]?.set(sheet.seed, sheet.crumple * (1 + fold), sheet.depth, 0);
+      u.sheet[n * 2 + 1]?.set(sheet.seed, sheet.crumple * own.crumple * (1 + fold), sheet.depth, 0);
     });
     // The piece lives on the near sheet: its knots slide with it, so its facets never change.
     const [dx, dy] = placed[0]?.slid ?? [0, 0];
@@ -250,6 +262,8 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       return hub;
     },
     setLook: (look: GpuLook) => {
+      own = glassLook(look.knobs);
+      u.glint.value = own.sweep;
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? BLOOM : 0);
     },
@@ -288,7 +302,7 @@ function floatingGeometry(stage: SceneStage, init: GpuBackdropInit): BackdropPar
       fold += (0.5 * reactions.stir + 0.35 * reactions.ripple - fold) * Math.min(1, dt * 1.5);
       u.heat.value = 1 + 0.55 * reactions.impulse;
       u.time.value = time;
-      writeLamps(u, lamp, others, hub, wander);
+      writeLamps(u, lamp, others, hub, { wander, strengths: lampStrengths(own.gold) });
       place();
       passes.render();
     },

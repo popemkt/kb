@@ -10,7 +10,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { FIELD_TYPE_OPTION_IDS, SYSTEM_IDS, extensionNodeId } from "@kb/model";
+import {
+  BACKDROP_OPTIONS,
+  FIELD_TYPE_OPTION_IDS,
+  SYSTEM_IDS,
+  backdropOptionId,
+  extensionNodeId,
+} from "@kb/model";
 import {
   extensionContract,
   extensionModule,
@@ -50,6 +56,12 @@ const FIXTURE = extensionModule("fixture", {
 }`,
   templates: `[{ id: "hello", template: () => "hello" }]`,
 });
+
+/** A module named `name` declaring one backdrop, `id`, with the knobs `knobs`. */
+const declaring = (name: string, id: string, knobs = "[]") =>
+  extensionModule(name, {
+    declaration: `{ name: ${JSON.stringify(name)}, label: "Mine", declaredOptions: [{ kind: ${JSON.stringify(BACKDROP_OPTIONS)}, options: [{ id: ${JSON.stringify(id)}, label: "Mine", knobs: ${knobs} }] }] }`,
+  });
 
 /** A fresh root whose `.kb/extensions` holds `modules`, by file name, each trusted here. */
 async function rootWith(modules: Record<string, string>): Promise<string> {
@@ -196,6 +208,58 @@ describe("a repository extension's node", () => {
       ]);
       const ctx = await openKb(root);
       expect(ctx.index.getNode(extensionNodeId("graph"))?.text).toBe("Graph");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a module whose options are not its own to declare, or whose knobs are malformed, is refused, and kb's backdrop stays kb's", async () => {
+    resetRegistryCache();
+    const root = await rootWith({
+      "squat.ts": declaring("squat", "backdrops.sky"),
+      "bare.ts": declaring("bare", "glow"),
+      "knobs.ts": declaring(
+        "knobs",
+        "knobs.glow",
+        '[{ kind: "number", id: "speed", label: "Speed", min: 0, max: 1, step: 0.5, default: 2 }]',
+      ),
+      "noopts.ts": declaring(
+        "noopts",
+        "noopts.glow",
+        '[{ kind: "enum", id: "mode", label: "Mode", default: "a" }]',
+      ),
+      "nobool.ts": declaring(
+        "nobool",
+        "nobool.glow",
+        '[{ kind: "boolean", id: "on", label: "On", default: "yes" }]',
+      ),
+      "fine.ts": declaring(
+        "fine",
+        "fine.glow",
+        '[{ kind: "number", id: "speed", label: "Speed", min: 0, max: 2, step: 0.5, default: 1 }]',
+      ),
+    });
+    try {
+      const { families, failures } = await Effect.runPromise(
+        rootFamilies(root).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(
+        families
+          .filter(({ source }) => source !== "bundled")
+          .map(({ declaration }) => declaration.name),
+      ).toEqual(["fine"]);
+      expect(Object.fromEntries(failures.map(({ file, error }) => [file, error]))).toEqual({
+        "bare.ts": expect.stringContaining("its option glow must be named bare.<id>"),
+        "knobs.ts": expect.stringContaining("the knob speed: its default is out of range"),
+        // A knob missing what its kind carries, or carrying the wrong type, is refused by its shape.
+        "nobool.ts": expect.stringContaining("default"),
+        "noopts.ts": expect.stringContaining("options"),
+        "squat.ts": expect.stringContaining("its option backdrops.sky must be named squat.<id>"),
+      });
+      const ctx = await openKb(root);
+      expect(ctx.index.getNode(backdropOptionId("backdrops.sky"))?.text).toBe("Sky");
+      expect(ctx.index.getNode(backdropOptionId("fine.glow"))?.text).toBe("Mine");
+      expect(ctx.index.getNode(`${backdropOptionId("fine.glow")}.knob.speed`)).toBeDefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

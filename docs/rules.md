@@ -109,6 +109,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a render-target readback
 - **node** — `01M42Q9HYATJ1XEZNJGXAGMAKC`
 
+### GAP: a backdrop drawn by the page's CSS or a vendor runtime declares a frame budget no host meters
+
+- **expected** — Every backdrop is held to its declared budget (Backdrop.budget) by the host that draws it, as the GPU host and the 2D stage hold theirs: over budget, quality steps down, and the frame reports what it spent.
+- **current** — The gradient wash, the theme heads drawn in CSS and the Unicorn Studio runtime declare a budget (BACKDROP_BUDGETS.dom, .gpu) that the contract checks and the studio shows, but nothing measures them.
+- **impact** — Such a backdrop could cost the page more than it declares and nothing would say so; the studio shows its readout as not metered.
+- **closes** — A frame meter over the DOM backdrops (a PerformanceObserver over long animation frames under the head) and over the Unicorn runtime's loop, reporting data-frame-ms as the GPU host does.
+- **node** — `01M6RT9R6AXGVYZWCSTG26EET8`
+
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
 - **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents
@@ -303,6 +311,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
+### GAP: a number knob's range is the declaration's, not data on its field node
+
+- **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.
+- **current** — The range lives on the declared Knob in code. A write accepts any number into a number knob field; knobValues holds it to the range and step when it is read, so the scene never sees it, but the store keeps the out-of-range value.
+- **impact** — kb set reports success for a value the backdrop will not show as written; a reader of the raw store sees a value the knob does not accept.
+- **closes** — Range fields (min, max, step) on number field nodes, read by the write check (valueFormError) and seeded on knob fields by knobFields.
+- **node** — `01M6RVVZTP0BF2364BF8J1BFQB`
+
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
@@ -335,6 +351,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
+### GAP: a plugin backdrop runs with the page's power; nothing confines it to its canvas and its knobs
+
+- **expected** — A repository extension's backdrop is handed only its canvas (or GPU context) and its knob values, and can read no kb data: its scene runs in an isolated host (a sandboxed frame or a worker drawing to an OffscreenCanvas) that the slot feeds
+- **current** — Once trusted, its page half is owner code with the page's power, as every repository extension is; kb-ext-sdk/page declares BackdropProps.node by its id alone, which states what a backdrop is for and enforces nothing
+- **impact** — A trusted backdrop can read the graph through the page's host API like any trusted page half; trust is the only fence
+- **closes** — An isolated backdrop host behind BackdropPoint for repository extensions, with the frame meter and knob values passed across, held by the shared backdrop contract
+- **node** — `01M6WVFMGB5PP2AANF0E5R921V`
+
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -358,14 +382,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No offline start; a DO daily-quota block or a Turso BLOCKED leaves nothing to read after a restart.
 - **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
 - **node** — `01M6950XSKGDE356Q8RK622WKQ`
-
-### GAP: a repository extension cannot contribute a backdrop
-
-- **expected** — kb-ext-sdk/page exports BackdropPoint, provideBackdrop and the Knob types; kb-ext-sdk exports the backdrop declared-option kind; a third-party backdrop passes the shared backdrop contract suite.
-- **current** — The page SDK exports DesignSystemPoint but no backdrop surface.
-- **impact** — Backdrops, the first thing a third party would ship, cannot be shipped.
-- **closes** — Step 11 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTRGPNHP3MD7DF6G0EAPE8`
 
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
@@ -692,6 +708,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
+### GAP: canvas-ui's two heaviest tests time out under CPU contention
+
+- **expected** — A test's time budget fits its work: the canvas camera's hit-test march and the gizmo's reach property, each a sweep that takes about 2.2 s alone at nice 15 on 4 workers, pass whatever else the machine runs
+- **current** — Both run under Vitest's default 5 s timeout and fail with "Test timed out in 5000ms" when CPU is contended (reproduced: canvas-ui pinned to one core, 8.2 s and 8.5 s; every other canvas-ui test passes). On a quiet machine and on CI they pass
+- **impact** — test:ui goes red on a loaded shared host for a reason that is not a defect, so a reader learns to rerun it, and a real failure there reads as noise
+- **closes** — Size the work, not the clock: give the two sweeps a timeout of their own, as bunfig gives bun test its 30 s, or bound their sample count; or make test:ui's per-test budget the CI runner's measure, as bun test's is
+- **node** — `01M6VQFVG8FPA7KPZHD3J99NGX`
+
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -896,14 +920,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — in 3D, an edge to a label or standing billboard runs to the floor beneath it
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
-
-### GAP: installed extension distribution awaits the SDK backdrop acceptance
-
-- **expected** — Installed-extension distribution meets the accepted plugin-install plan; the remaining SDK acceptance is GAP: a repository extension cannot contribute a backdrop.
-- **current** — The CLI lifecycle, marketplaces and live reload are implemented (DESIGN.md, Core boundary & extensions). Step 11 waits for owner approval of #107 and the SDK backdrop exports.
-- **impact** — The sample's third-party backdrop cannot be accepted in the Studio until #107 and the SDK exports land.
-- **closes** — Step 11 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M68NF91SD1D15C00TYDTPQXE`
 
 ### GAP: kb cannot be edited offline and merged later; devices meet only through git
 
@@ -1509,14 +1525,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a root with repository extensions, nodes those extensions seed have an owner on the server but not on the page or in clients, and fields they declare as refCarriers feed References on the server only.
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
-
-### GAP: the page surface restates @kb/ui-sdk's point types with nothing holding them equal
-
-- **expected** — kb-ext-sdk/page's types are held to @kb/ui-sdk's by a type bridge, as surface-bridge holds kb-ext-sdk's to EXTENSION_SDK and the plugin model
-- **current** — page-surface.ts restates the UI points' value types by hand; only the example extension's page half, type-checked against the emitted sdk-page.d.ts and run in the page, exercises them
-- **impact** — a change to a UI point's type can leave the page surface describing a shape the page no longer reads, so an author's page half type-checks and still fails in the page
-- **closes** — move @kb/ext-sdk to scope:shared (writeSdkDts into the CLI) so a browser package's test holds page-surface.ts to @kb/ui-sdk's values and types
-- **node** — `01M579MH4HKXE7H51ZA7DRDMNP`
 
 ### GAP: the page's offline family list reads only the bundled families
 

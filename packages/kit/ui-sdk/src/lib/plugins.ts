@@ -46,7 +46,13 @@ import {
   type ViewKey,
 } from "@kb/views";
 import { toast } from "./toast";
-import type { BackdropDirection, BackdropStrength, SeedBackdrop, SeedOption } from "@kb/model";
+import type {
+  BackdropDirection,
+  BackdropStrength,
+  KnobValues,
+  SeedBackdrop,
+  SeedOption,
+} from "@kb/model";
 import type { OutlineNode } from "./types";
 
 /**
@@ -299,6 +305,29 @@ export interface BackdropPresentation {
 }
 
 /**
+ * What a backdrop may spend drawing one frame (DESIGN-UI.md → Page-head
+ * backdrops → The surface): milliseconds of the GPU's time for a GPU scene,
+ * of the main thread's for a canvas one. A host that meters its frames
+ * holds the backdrop to it, stepping its quality down while it runs over.
+ */
+export interface BackdropBudget {
+  readonly frameMs: number;
+}
+
+/**
+ * The page head's frame budget, by what draws a backdrop: a third of a 60 Hz
+ * frame of the GPU's time for a GPU scene, 2 ms of the main thread for a
+ * canvas scene, and 1 ms for one the page's own layout and CSS draw, which
+ * no host meters (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]). A contribution names the one that
+ * applies; one that needs less may declare less, never more.
+ */
+export const BACKDROP_BUDGETS = {
+  gpu: { frameMs: 6 },
+  canvas: { frameMs: 2 },
+  dom: { frameMs: 1 },
+} as const satisfies Record<string, BackdropBudget>;
+
+/**
  * What has happened on the page, counted since it loaded: changes made
  * elsewhere that it has been shown (another tab, the CLI, the agent's
  * writes), errors it has told the owner of, and turns the sidebar's agent
@@ -360,6 +389,13 @@ export interface BackdropProps {
   readonly variant: string | null;
   /** The presentation's opacity at `strength`. */
   readonly opacity: number;
+  /**
+   * Its knobs' values, by id (`knobsOf`: its own and its variant's): each
+   * knob's default where nothing sets it.
+   */
+  readonly knobs: KnobValues;
+  /** What it may spend a frame (`Backdrop.budget`). */
+  readonly budget: BackdropBudget;
   /** What the owner is doing on the page now. */
   readonly activity: PageActivity;
   /**
@@ -373,15 +409,35 @@ export interface BackdropProps {
  * A page-head backdrop: the ambience painted behind a page's head
  * (DESIGN-UI.md → Page-head backdrops). Every page head renders the chosen
  * one through one slot (`PageBackdrop`) and names none. Its `key` is the
- * backdrop its family declares, whose option node choosing it refers to.
+ * backdrop its family declares, whose option node choosing it refers to:
+ * its label, credit, variants, default strength and knobs. Its
+ * contribution adds how a head frames it, what it may spend a frame, and
+ * its scene, the component the slot instantiates wherever it is drawn (a
+ * head, a card, the studio).
  */
 export interface Backdrop {
   readonly key: SeedBackdrop;
   readonly presentation: BackdropPresentation;
+  readonly budget: BackdropBudget;
   readonly Component: ComponentType<BackdropProps>;
 }
 
 export const BackdropPoint = Point<Backdrop>()("ui.backdrops");
+
+/**
+ * Something a page head's backdrop offers where its owner double-clicks it
+ * (DESIGN-UI.md → Page-head backdrops → Its actions): the slot owns the
+ * gesture and the corner it shows them in, and names none; a family
+ * contributes what it offers, as Backdrop Studio offers "Open in Studio".
+ */
+export interface BackdropAction {
+  readonly label: string;
+  readonly icon: Icon;
+  /** Do it for the backdrop the head shows, by its declared id (`SeedBackdrop.id`). */
+  readonly run: (backdrop: string) => void;
+}
+
+export const BackdropActionPoint = Point<BackdropAction>()("ui.backdrop-actions");
 
 /**
  * The backdrop its family declares as `key`, as its page plugin contributes

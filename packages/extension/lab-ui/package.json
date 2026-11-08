@@ -13,6 +13,7 @@
   "dependencies": {
     "@kb/contracts": "workspace:*",
     "@kb/lab": "workspace:*",
+    "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/scene": "workspace:*",
     "@kb/scene-gpu": "workspace:*",

@@ -80,6 +80,7 @@ import {
   type V2,
   type V3,
 } from "./silk-stage";
+import { SILK_FILM_MIX, silkTuning } from "./silk-tuning";
 
 type I = TslNode<"int">;
 type V4 = TslNode<"vec4">;
@@ -139,6 +140,8 @@ export function silkUniforms() {
     puffs: Array.from({ length: PUFFS }, () => uniform(new Vector4())),
     puffAges: Array.from({ length: PUFFS }, () => uniform(99)),
     puffCount: uniform(0),
+    /** The film's share of the sheen, scaled (`silkTuning`). */
+    iridescence: uniform(silkTuning({}).iridescence),
   };
 }
 export type SilkUniforms = ReturnType<typeof silkUniforms>;
@@ -387,7 +390,7 @@ function shadeSilk(
   const irid = mix(
     vec3(1, 1, 1),
     irid0.div(dot(irid0, vec3(1 / 3, 1 / 3, 1 / 3)).add(1e-4)),
-    byPage(0.72, 0.62, dark),
+    byPage(SILK_FILM_MIX.light, SILK_FILM_MIX.dark, dark).mul(u.iridescence),
   );
   const swept = lights
     .sweepBand(q, depth)

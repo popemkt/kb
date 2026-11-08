@@ -118,6 +118,8 @@ export function trailUniforms() {
     pixel: uniform(1 / 360),
     /** How strongly the light packets run: the owner's writes lift it. */
     pulse: uniform(0),
+    /** How bright the knot burns against its own (the owner's knot knob, `trailsLook`). */
+    flare: uniform(1),
     time: uniform(0),
     /** This load's few degrees of hue (`hueTurn`). */
     turn: uniform(new Matrix3()),
@@ -239,7 +241,7 @@ function glowLeft(u: TrailUniforms, p: V2): F {
   return smoothstep(GLOW_LOW[0], GLOW_LOW[1], p.y.add(smoke.sub(0.5).mul(0.26)));
 }
 
-/** The knot's light at `k` (frame units from it): its core, its bloom and its lens streaks. */
+/** The knot's light at `k` (frame units from it): its core, its bloom and its lens streaks, at the owner's `flare`. */
 function knotLight(
   u: TrailUniforms,
   k: V2,
@@ -255,12 +257,14 @@ function knotLight(
   return {
     core: exp(r.div(0.0055).pow(2).negate())
       .mul(5)
-      .add(exp(r.div(-0.012)).mul(1.4)),
+      .add(exp(r.div(-0.012)).mul(1.4))
+      .mul(u.flare),
     // Its wide bloom is a gaussian, so it is gone well short of the frame's bottom.
     bloom: exp(r.div(-0.05))
       .mul(0.28)
-      .add(exp(r.div(0.16).pow(2).negate()).mul(0.08)),
-    streak: hair.mul(1.1).add(soft.mul(0.3)),
+      .add(exp(r.div(0.16).pow(2).negate()).mul(0.08))
+      .mul(u.flare),
+    streak: hair.mul(1.1).add(soft.mul(0.3)).mul(u.flare),
   };
 }
 

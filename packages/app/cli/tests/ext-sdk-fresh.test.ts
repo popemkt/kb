@@ -5,7 +5,8 @@ import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
+import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION } from "@kb/ext-sdk";
+import { writeSdkDts } from "../src/sdk-files.ts";
 import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } from "@kb/runtime";
 import { main } from "../src/cli.ts";
 

@@ -7,6 +7,8 @@
  * A look owns its picture; this owns the rig it is seen through.
  */
 import { max, min, screenUV, vec2 } from "three/tsl";
+import { BLACK_HOLE_TILT_KNOB } from "@kb/backdrops";
+import { knobValue, type KnobValues } from "@kb/model";
 import type { OffscreenPass, SceneStage } from "@kb/scene-gpu";
 import type { BackdropParts, GpuBackdropInit } from "../gpu/gpu-scene";
 import type { Reactions } from "../scene/reactions";
@@ -34,13 +36,20 @@ const FOLLOW = 2.2;
  * The camera's dolly: with the pointer over the frame it tilts with the
  * pointer's height and swings with its place across; with none it rests at
  * `rest`, breathing on two unrelated slow periods. Either way it eases
- * there on elapsed time, so the path is the same at any frame rate.
+ * there on elapsed time, so the path is the same at any frame rate. The
+ * backdrop's tilt (`BLACK_HOLE_TILT_KNOB`, set by `tune`) scales how far
+ * above the disk it looks down, at once, wherever it is.
  */
 export function holeDolly(rest: HoleView) {
   let inclination = rest.inclination;
   let azimuth = rest.azimuth;
   let elapsed = 0;
+  let tilt = BLACK_HOLE_TILT_KNOB.default;
   return {
+    /** Take the backdrop's knobs as they are now. */
+    tune: (knobs: KnobValues) => {
+      tilt = knobValue(knobs, BLACK_HOLE_TILT_KNOB);
+    },
     follow: (
       dt: number,
       reactions: Reactions,
@@ -61,7 +70,7 @@ export function holeDolly(rest: HoleView) {
       const k = 1 - Math.exp(-dt * FOLLOW);
       inclination += (aim.inclination - inclination) * k;
       azimuth += (aim.azimuth - azimuth) * k;
-      return { inclination, azimuth };
+      return { inclination: inclination * tilt, azimuth };
     },
   };
 }

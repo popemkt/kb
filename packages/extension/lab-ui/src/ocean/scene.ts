@@ -9,10 +9,10 @@
  * pinch. Orbit to look along the glitter path or away from it. Arriving, the
  * sea rises from calm.
  */
+import { knobNumber, type KnobValue } from "@kb/model";
 import { Vector3 } from "three/webgpu";
 import { float, uniform, vec3 } from "three/tsl";
-import type { LabControlValue, LabSceneInit, LabScene } from "../kit/contract";
-import { numberOf } from "../kit/contract";
+import type { LabSceneInit, LabScene } from "../kit/contract";
 import { OrbitControl } from "../kit/orbit";
 import { Entrance } from "../kit/entrance";
 import type { SceneStage } from "@kb/scene-gpu";
@@ -36,11 +36,11 @@ function sunDirection(degrees: number, out: Vector3): Vector3 {
 
 function ocean(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
   const state = {
-    height: numberOf(init.values, "height", 0.55),
-    wavelength: numberOf(init.values, "wavelength", 14),
+    height: knobNumber(init.values, "height", 0.55),
+    wavelength: knobNumber(init.values, "wavelength", 14),
   };
   const time = uniform(0);
-  const sun = uniform(sunDirection(numberOf(init.values, "sun", 6), new Vector3()));
+  const sun = uniform(sunDirection(knobNumber(init.values, "sun", 6), new Vector3()));
   const foam = uniform(init.values["foam"] === false ? 0 : 1);
   const entrance = new Entrance(init.timing);
   const waves = waveUniforms();
@@ -73,7 +73,7 @@ function ocean(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
       dome.position.copy(stage.camera.position);
       time.value = elapsed;
     },
-    setControl: (id, value: LabControlValue) => {
+    setControl: (id, value: KnobValue) => {
       if (id === "foam" && typeof value === "boolean") foam.value = value ? 1 : 0;
       if (typeof value !== "number") return;
       if (id === "sun") sunDirection(value, sun.value);

@@ -19,6 +19,7 @@ import {
 } from "./declared-option.ts";
 import { isAssetPath } from "./asset.ts";
 import { isBackdropArt } from "./backdrop-art.ts";
+import type { Knob } from "./knob.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
 import { firstRef, firstStr } from "./node-config.ts";
 
@@ -29,22 +30,38 @@ export type ColorScheme = "dark" | "light";
  * One of a backdrop's variants (DESIGN-UI.md → Page-head backdrops →
  * Variants): a composition of the same backdrop, named by an id local to
  * it, the schemes it is made for (both, unless it says), and the strength
- * it is shown at where no setting chooses one (the default, unless it says).
+ * it is shown at where no setting chooses one (its backdrop's, unless it
+ * says), and the knobs only it has (Knobs).
  */
 export interface BackdropVariant {
   readonly id: string;
   readonly label: string;
   readonly schemes?: readonly ColorScheme[];
   readonly strength?: BackdropStrength;
+  readonly knobs?: readonly Knob[];
 }
 
 /**
- * A backdrop as a declaration names it: a declared option, whose id its
- * contribution answers to in the page's backdrop point, and its variants,
- * if it has any.
+ * A backdrop as a declaration names it (DESIGN-UI.md → Page-head backdrops
+ * → The surface): a declared option, whose id its contribution answers to
+ * in the page's backdrop point; whose work it is drawn after (`credit`);
+ * the strength it is shown at where no setting chooses one (the default,
+ * unless it says); its knobs, each with its default; and its variants, if
+ * it has any.
  */
 export interface SeedBackdrop extends SeedOption {
+  readonly credit?: string;
+  readonly strength?: BackdropStrength;
   readonly variants?: readonly BackdropVariant[];
+}
+
+/**
+ * The knobs `backdrop` shows with its variant `variant` drawn (null, none):
+ * its own, then the ones only that variant has.
+ */
+export function knobsOf(backdrop: SeedBackdrop, variant: string | null): readonly Knob[] {
+  const own = backdrop.variants?.find(({ id }) => id === variant)?.knobs ?? [];
+  return [...(backdrop.knobs ?? []), ...own];
 }
 
 /** The backdrops' options: the children of `sys.f.backdrop`. */
@@ -67,9 +84,18 @@ export const BACKDROP_VARIANT_OPTIONS: DeclaredOptions = {
   prefix: "sys.backdrop-variant.",
 };
 
-/** A variant's declared id: its backdrop's, then its own. */
+/** The declared id of the variant `variant` (its local id) of the backdrop `backdrop`: its backdrop's, then its own. */
+export function backdropVariantId(backdrop: string, variant: string): string {
+  return `${backdrop}.${variant}`;
+}
+
 const variantId = (backdrop: SeedBackdrop, variant: BackdropVariant): string =>
-  `${backdrop.id}.${variant.id}`;
+  backdropVariantId(backdrop.id, variant.id);
+
+/** The option node that names the variant `variant` of the backdrop `backdrop` under `sys.f.backdrop.variant`. */
+export function backdropVariantOptionId(backdrop: string, variant: string): NodeId {
+  return declaredOptionId(BACKDROP_VARIANT_OPTIONS, backdropVariantId(backdrop, variant));
+}
 
 /**
  * The variants of `backdrops` as declared options of their kind, each
@@ -83,6 +109,7 @@ export function backdropVariantOptions(backdrops: readonly SeedBackdrop[]): Seed
       id: variantId(backdrop, variant),
       label: `${backdrop.label} · ${variant.label}`,
       chooses: [{ kind: BACKDROP_OPTIONS, id: backdrop.id }],
+      ...(variant.knobs === undefined ? {} : { knobs: variant.knobs }),
     })),
   );
 }
@@ -126,14 +153,15 @@ export function drawVariant(
 export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
 export type BackdropStrength = (typeof BACKDROP_STRENGTHS)[number];
 
-/** The strength a head shows where neither a setting nor its variant chooses one. */
+/** The strength a head shows where neither a setting, its variant nor its backdrop chooses one. */
 export const DEFAULT_BACKDROP_STRENGTH: BackdropStrength = "subtle";
 
 /**
  * The strength a head shows `backdrop` at, its variant `variant` drawn
  * (`drawVariant`; null, none): the one its settings choose (`chosen`,
  * `BackdropChoice.strength`), else the one the variant declares, else the
- * default. A setting is the owner's word, so it is kept over the variant's.
+ * backdrop's own, else the default. A setting is the owner's word, so it is
+ * kept over the declared ones, and a variant is nearer than its backdrop.
  */
 export function shownStrength(
   chosen: BackdropStrength | null,
@@ -143,6 +171,7 @@ export function shownStrength(
   return (
     chosen ??
     backdrop.variants?.find(({ id }) => id === variant)?.strength ??
+    backdrop.strength ??
     DEFAULT_BACKDROP_STRENGTH
   );
 }

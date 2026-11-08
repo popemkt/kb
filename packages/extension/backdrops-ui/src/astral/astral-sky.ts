@@ -269,11 +269,11 @@ export function astralSky(
     const t = u.time;
     // The instrument's shadow on the sky: the ground of a dark page, the paper of a light one.
     const lit = contact(u, p).toVar();
-    const tiny = tinyStars(p, px, t).toVar();
-    // The glints are the detail a slow frame gives up first.
+    const tiny = tinyStars(p, px, t).mul(u.stars).toVar();
+    // The glints are the detail a slow frame gives up first, and an empty sky draws none.
     const glints = float(0).toVar();
-    If(u.detail.greaterThan(0.72), () => {
-      glints.assign(glintField(u, p, px, t));
+    If(u.detail.greaterThan(0.72).and(u.stars.greaterThan(0)), () => {
+      glints.assign(glintField(u, p, px, t).mul(u.stars));
     });
     const drawn = figureAt(u.figure, p, px)
       .add(figureAt(u.forming, p, px))

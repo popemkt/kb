@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
-import type { BackdropProps, ThemeArtProps } from "@kb/ui-sdk";
-import { deferred } from "@kb/theme-art";
+import { deferred, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
+import { ART_FRAME } from "@kb/theme-art";
 
 /*
  * What the Transistor family contributes for its theme's art, each piece
@@ -9,19 +9,17 @@ import { deferred } from "@kb/theme-art";
  * GAP [[01M5SNSQ4Y11AHAHDA43PCV5D6]] the art's words and gestures are code
  */
 
-const CloudbankGround = deferred(
-  () => import("./transistor-art").then((m) => m.CloudbankGround),
-  true,
-);
+const CloudbankGround = deferred(() => import("./transistor-art").then((m) => m.CloudbankGround), {
+  frame: ART_FRAME,
+});
 const JauntVeil = deferred(() => import("./transistor-art").then((m) => m.JauntVeil));
 const CloudbankHead = deferred<BackdropProps>(
   () => import("./cloudbank-backdrop").then((m) => m.CloudbankBackdrop),
-  true,
+  { frame: ART_FRAME },
 );
-const OvcHead = deferred<BackdropProps>(
-  () => import("./ovc-backdrop").then((m) => m.OvcBackdrop),
-  true,
-);
+const OvcHead = deferred<BackdropProps>(() => import("./ovc-backdrop").then((m) => m.OvcBackdrop), {
+  frame: ART_FRAME,
+});
 
 /** Transistor's art (DESIGN-UI.md → Themes): Cloudbank under the page, Jaunt() over a pane. */
 export function TransistorArt({ plane, activity, path }: ThemeArtProps): ReactElement | null {

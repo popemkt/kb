@@ -7,6 +7,8 @@
  * The owner, through the shared rig (`hole-rig.ts`), as for every look: the
  * pointer tilts and swings the camera; typing dims the disk and each
  * keystroke breathes into its streaks; a write sets a hot knot orbiting.
+ * Its own knobs (`hole-tuning.ts`), live: the streaks' contrast and how far
+ * the pull reaches.
  *
  * Seeded: where the camera rests (a little higher or lower, a little
  * round), the streaks' place in the noise and the clock they start at.
@@ -25,6 +27,7 @@ import {
   groundsOf,
 } from "../gpu/gpu-scene";
 import { flareOrbit, holeDensity, holeDolly, sharpened, type HoleLook } from "./hole-rig";
+import { warpTuning } from "./hole-tuning";
 import { warpFragment, warpUniforms } from "./warp-shader";
 
 /** The hole's texels per CSS pixel at full quality: the screen's own, where it has two. */
@@ -71,6 +74,10 @@ export function warp(stage: SceneStage, _init: GpuBackdropInit, vary: Variation)
       return anchor;
     },
     setLook: (look: GpuLook) => {
+      dolly.tune(look.knobs);
+      const tuned = warpTuning(look.knobs);
+      u.streaks.value = tuned.streaks;
+      u.reach.value = tuned.reach;
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.015 : 0.02);
       stage.setLens(look.dark ? LENS : LIGHT_LENS);

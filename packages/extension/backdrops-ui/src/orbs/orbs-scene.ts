@@ -28,7 +28,7 @@ import {
 import { farField, glowAbout, type FieldReach } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import { orbFrame, orbUniforms } from "./orbs-shader";
-import { layoutOrbs, litToward, placeOrbs } from "./orbs";
+import { glowAt, layoutOrbs, litToward, orbsLook, placeOrbs, sizedOrbs } from "./orbs";
 
 /** The lamp's spring (ω, rad/s): slow, so the light swings round the orbs rather than snapping. */
 const FOLLOW = 1.6;
@@ -51,10 +51,11 @@ const HUE_PERIOD = 48;
 
 function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
-  const orbs = layoutOrbs(vary.stream("orbs"));
+  const laid = layoutOrbs(vary.stream("orbs"));
+  /** This load's few degrees of hue; the owner's hue knob turns the picture on past it. */
+  const hue = vary.range("hue", -0.1, 0.1);
   const scrim = textScrim();
   const u = orbUniforms(farField(scrim, FIELD));
-  u.turn.value.set(...hueTurn(vary.range("hue", -0.1, 0.1)));
   stage.scene.backgroundNode = orbFrame(u, scrim, groundsOf(stage));
 
   let width = 1;
@@ -66,6 +67,9 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   let time = vary.range("clock", 0, 120);
   let wander = vary.phase("wander");
   const lean = { x: 0, y: 0 };
+  // What the owner's knobs set (`orbsLook`): as the scene mounts, and again with each look.
+  let own = orbsLook(init.knobs);
+  let orbs = sizedOrbs(laid, own.size);
 
   return {
     // In a panel the orbs are small and high, the great one whole in the top right corner, off
@@ -88,6 +92,9 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       return frame;
     },
     setLook: (look: GpuLook) => {
+      own = orbsLook(look.knobs);
+      orbs = sizedOrbs(laid, own.size);
+      u.turn.value.set(...hueTurn(hue + own.hue));
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.3 : 0);
     },
@@ -111,7 +118,7 @@ function gradientOrbs(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
         lamp.y += velocity.y * dt;
       }
       u.lamp.value.set(lamp.x, lamp.y, LAMP_HEIGHT);
-      u.glow.value = 1 + 0.6 * reactions.impulse;
+      u.glow.value = glowAt(own.glow, reactions.impulse);
       u.time.value = time;
       u.hue.value = 0.5 - 0.5 * Math.cos((Math.PI * 2 * time) / HUE_PERIOD);
       // The eye leans toward the pointer, and drifts a little of its own accord without one.

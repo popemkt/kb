@@ -16,6 +16,9 @@
  * (`reactions.impulse`) brightens a shimmer that runs along every ribbon
  * without end (the film thickens as it passes), and a stir lifts their
  * flutter. Nothing is ever restarted: the clocks only run forward.
+ *
+ * Its knobs (`silk-tuning.ts`), live: the dyes' hue, turned past the seed's
+ * few degrees, and how much of the thin film plays in the sheen.
  */
 import { DataTexture, DataUtils, HalfFloatType, LinearFilter, RGFormat } from "three/webgpu";
 import { offscreenPass, type SceneStage } from "@kb/scene-gpu";
@@ -42,6 +45,7 @@ import {
   type SilkUniforms,
 } from "./silk-shader";
 import { COSMOS_MARGIN } from "./silk-stage";
+import { silkTuning } from "./silk-tuning";
 
 type Rgb = readonly [number, number, number];
 
@@ -411,11 +415,14 @@ function silk(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   stage.scene.backgroundNode = silkFrame(u, picture.picture, grounds);
   const frameSize = { width: 1, height: 1 };
   const applyLook = (look: GpuLook) => {
+    const tuned = silkTuning(look.knobs);
+    u.iridescence.value = tuned.iridescence;
     u.dark.value = look.dark ? 1 : 0;
     const face = look.dark ? 0 : 1;
+    const turn = hue + tuned.hue;
     RIBBON_SET.forEach((r, i) => {
-      u.ribbon.front[i]?.set(...turnHue(r.front[face], hue), 0);
-      u.ribbon.back[i]?.set(...turnHue(r.back[face], hue), 0);
+      u.ribbon.front[i]?.set(...turnHue(r.front[face], turn), 0);
+      u.ribbon.back[i]?.set(...turnHue(r.back[face], turn), 0);
     });
   };
   applyLook(init);

@@ -8,7 +8,7 @@
 import { expect, it, vi } from "vitest";
 import { BLACK_HOLE_BACKDROP } from "@kb/backdrops";
 import type { ScenePalette } from "@kb/scene";
-import { TIMING_FALLBACK } from "@kb/ui-sdk";
+import { BACKDROP_BUDGETS, TIMING_FALLBACK } from "@kb/ui-sdk";
 import { sceneContract } from "@kb/ui-test-kit";
 import type * as ThreeWebGpu from "three/webgpu";
 import { ASTRAL_VARIANTS } from "../astral/astral";
@@ -41,6 +41,8 @@ const init = (dark: boolean, reducedMotion: boolean): GpuBackdropInit => ({
   seed: 7,
   pointer: { now: () => null },
   content: { left: 0, width: 720 },
+  budget: BACKDROP_BUDGETS.gpu,
+  knobs: {},
 });
 
 const mounts: Record<string, () => Promise<GpuBackdropMount>> = {

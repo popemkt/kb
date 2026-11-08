@@ -5,9 +5,9 @@
  * exactly on time and stops; the spring has no end point, only a tail — and
  * it is the one that survives being retargeted mid-flight.
  */
+import { knobNumber, type KnobValues } from "@kb/model";
 import { useEffect, useRef } from "react";
-import type { LabControlValues } from "../kit/contract";
-import { numberOf } from "../kit/contract";
+
 import { readLabPalette } from "../kit/palette";
 import type { ScenePalette } from "@kb/scene";
 import { easeAt, springRate, springResponse, useReducedMotion, type Timing } from "@kb/ui-sdk";
@@ -63,9 +63,9 @@ function draw({ ctx, palette, settle, timing }: Chart, at: number | null): void 
   }
 }
 
-export function CurvePanel({ values, timing }: { values: LabControlValues; timing: Timing }) {
+export function CurvePanel({ values, timing }: { values: KnobValues; timing: Timing }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const settle = numberOf(values, "settle", timing.follow * 1000) / 1000;
+  const settle = knobNumber(values, "settle", timing.follow * 1000) / 1000;
   const reduced = useReducedMotion();
   useEffect(() => {
     const el = canvas.current;
