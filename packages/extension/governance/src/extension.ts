@@ -12,7 +12,7 @@ import { GOVERNANCE_FILES, governanceSeedNodes } from "./seed.ts";
 export const governanceExtension = defineExtension({
   name: "governance",
   label: "Governance",
-  description: "The vocabulary for approval policies; every call passes its guard.",
+  manifest: { description: "The vocabulary for approval policies; every call passes its guard." },
   tags: ["governance"],
   required:
     "Every call passes through it: while it is missing kb refuses calls rather than run them unguarded.",

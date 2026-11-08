@@ -421,6 +421,7 @@ describe("Settings' Extensions (acceptance)", () => {
               trusted: false,
               failures: [],
               files: FILES,
+              manifest: { author: "Ada", capabilities: { network: { hosts: [] } } },
               origin: {
                 kind: "install" as const,
                 scope: "local" as const,
@@ -506,9 +507,8 @@ describe("Settings' Extensions (acceptance)", () => {
     expect(card("hello").querySelector("[data-extension-status]")?.textContent).toBe(
       "Needs approval",
     );
-    expect(card("hello").querySelector("[data-extension-source]")?.textContent).toContain(
-      "sample marketplace",
-    );
+    const source = card("hello").querySelector("[data-extension-source]")?.textContent;
+    expect(source).toMatch(/^by Ada.*sample marketplace/);
     const pin = present(card("hello").querySelector<HTMLAnchorElement>("a[title]"), "pin");
     expect(pin.textContent).toBe("a".repeat(7));
     expect(pin.href).toBe(
@@ -539,6 +539,9 @@ describe("Settings' Extensions (acceptance)", () => {
     expect(container.textContent).toContain("export const synthetic = true");
     expect(container.textContent).toContain("File set digest");
     expect(container.textContent).toContain("Files and static reach");
+    // What it says about itself, in words; what it leaves out reads "not declared".
+    const said = [...container.querySelectorAll("[data-capability]")].map((l) => l.textContent);
+    expect(said.slice(0, 2)).toEqual(["Networkno network access", "Storagenot declared"]);
     // Opening the sheet trusts nothing.
     expect(asked.some(({ id }) => id === "sandbox.trust")).toBe(false);
     await act(async () => buttonIn(container, "Trust this digest").click());

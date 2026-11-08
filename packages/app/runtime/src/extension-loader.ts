@@ -7,6 +7,7 @@ import {
   CodeTrust,
   EXTENSION_SDK,
   installHostModules,
+  MANIFEST_SUFFIX,
   type ExtensionFailure,
   type ExtensionOrigin,
   type LoadedExtension,
@@ -148,11 +149,15 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
       continue;
     }
     const page = entries.find((entry) => pageOf(entry) === name);
+    const manifest = entries.includes(`${name}${MANIFEST_SUFFIX}`)
+      ? join(dir, `${name}${MANIFEST_SUFFIX}`)
+      : null;
     const path = join(dir, file);
     const closure = yield* extensionClosure(
       folder,
       path,
       page === undefined ? null : join(dir, page),
+      manifest,
     ).pipe(Effect.result);
     if (Result.isFailure(closure)) failures.push({ file, error: closure.failure });
     else
@@ -168,6 +173,12 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
     const name = pageOf(file);
     if (name !== null && !servers.includes(`${name}.ts`)) {
       failures.push({ file, error: `a page entry of ${name}, which has no ${name}.ts` });
+    }
+    const described = file.endsWith(MANIFEST_SUFFIX)
+      ? file.slice(0, -MANIFEST_SUFFIX.length)
+      : null;
+    if (described !== null && !servers.includes(`${described}.ts`)) {
+      failures.push({ file, error: `the manifest of ${described}, which has no ${described}.ts` });
     }
     if (strayCode(file)) {
       failures.push({
@@ -222,7 +233,9 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
   const entries = (yield* entriesOf(dir)) ?? [];
   const name = file.slice(0, -".ts".length);
   const failures: ExtensionFailure[] = [];
-  const own = entries.filter((entry) => entry === file || pageOf(entry) === name);
+  const own = entries.filter(
+    (entry) => entry === file || pageOf(entry) === name || entry === `${name}${MANIFEST_SUFFIX}`,
+  );
   const [found] = yield* closed(ownExtensionFolder(root), own, failures);
   if (found !== undefined) return found.closure;
   return yield* Effect.fail(
@@ -316,7 +329,12 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
       const found = closures.find((entry) => entry.path === row.source);
       return found === undefined
         ? row
-        : { ...row, digest: found.closure.digest, reach: found.closure.reach };
+        : {
+            ...row,
+            digest: found.closure.digest,
+            reach: found.closure.reach,
+            ...(found.closure.about === null ? {} : { manifest: found.closure.about }),
+          };
     }),
   };
 });

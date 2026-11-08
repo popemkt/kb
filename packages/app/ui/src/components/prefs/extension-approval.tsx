@@ -1,5 +1,5 @@
-/** The pinned extension evidence shared by every approval surface. */
-import type { ExtensionReportRow } from "@kb/contracts";
+/** The pinned extension evidence shared by every approval surface, and what an extension says about itself. */
+import { capabilityLines, type ExtensionManifest, type ExtensionReportRow } from "@kb/contracts";
 import { extensionSourceLabel } from "@/lib/extension-report";
 import type { ExtensionLineDiff } from "@/lib/extension-line-diff";
 
@@ -56,6 +56,50 @@ function SourceChanges({ diff }: { readonly diff: ExtensionLineDiff }) {
   );
 }
 
+/** One fact an extension states: its value, a link where it is one, or "not declared". */
+function Stated({ value, link }: { readonly value: string | undefined; readonly link?: boolean }) {
+  if (value === undefined) return <dd className="text-faint-foreground">not declared</dd>;
+  return (
+    <dd className="min-w-0 break-all">
+      {link === true ? (
+        <a className="underline underline-offset-2" href={value} target="_blank" rel="noreferrer">
+          {value.replace(/^https:\/\//, "")}
+        </a>
+      ) : (
+        value
+      )}
+    </dd>
+  );
+}
+
+/**
+ * What an extension says about itself (its manifest, docs/extensions/README.md):
+ * who wrote it, its licence, where it lives, then each capability in plain
+ * words, every one it leaves out as "not declared". The same on the review
+ * sheet and in a card's Details.
+ */
+export function ExtensionAbout({ manifest }: { readonly manifest: ExtensionManifest | undefined }) {
+  return (
+    <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1" data-extension-about>
+      <dt className="text-foreground/60">Author</dt>
+      <Stated value={manifest?.author} />
+      <dt className="text-foreground/60">License</dt>
+      <Stated value={manifest?.license} />
+      <dt className="text-foreground/60">Homepage</dt>
+      <Stated value={manifest?.homepage} link />
+      <dt className="text-foreground/60">Repository</dt>
+      <Stated value={manifest?.repository} link />
+      <dt className="col-span-2 mt-1 font-medium text-foreground/80">What it says it reaches</dt>
+      {capabilityLines(manifest).map(({ label, text, said }) => (
+        <div key={label} className="contents" data-capability={label} data-said={said}>
+          <dt className="text-foreground/60">{label}</dt>
+          <dd className={said ? "min-w-0" : "text-faint-foreground"}>{text}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function ExtensionEvidence({
   row,
   diff,
@@ -67,10 +111,20 @@ export function ExtensionEvidence({
   return (
     <div className="mt-2 space-y-3 text-label">
       <p className="text-ui font-medium">Review {row.label}</p>
+      {row.manifest?.description !== undefined && (
+        <p className="text-foreground/80">{row.manifest.description}</p>
+      )}
       <p className="text-foreground/70">
         This code runs with your account's access and may be attached in any store on this machine.
         Only trust code you have reviewed.
       </p>
+      <ExtensionAbout manifest={row.manifest} />
+      {row.reach?.page === true && (
+        <p className="text-foreground/70">
+          Its page half runs in the page with the page's full power today, whatever page tier it
+          declares: what it says it reaches is its author's word, not a boundary.
+        </p>
+      )}
       <dl className="space-y-1">
         <dt className="text-foreground/60">Source · {extensionSourceLabel(row)}</dt>
         <dd className="break-all font-mono">{row.source}</dd>

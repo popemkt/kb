@@ -14,7 +14,7 @@ import { agentSeedNodes } from "./provider.ts";
 export const agentExtension = defineExtension({
   name: "agent",
   label: "Agent",
-  description: "kb's own agent dock, hosted by kb ui.",
+  manifest: { description: "kb's own agent dock, hosted by kb ui." },
   tags: ["agent"],
   optional: { byDefault: "on" },
   seed: agentSeedNodes,

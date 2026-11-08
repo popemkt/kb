@@ -2950,21 +2950,32 @@ the settings. The record of why is
     and _Remove…_, which asks first, saying the lock entry
     goes, its nodes stay, and its code stays cached until `kb ext gc`.
     Nothing on the card trusts; every review opens the sheet below.
-  - **Under the heading**, its one line (the declaration's `description`,
-    else a marketplace entry's), where an installed one came from (its
+  - **Under the heading**, its one line (its manifest's `description`,
+    else a marketplace entry's), who wrote it (_by_ its manifest's
+    `author`), where an installed one came from (its
     marketplace, the GitHub path, the pin as a short sha linked to that
     tree, and the lock's scope; a link or own folder by path), and why a
     required one is required. Then its settings, exactly what
     `settingsOf` reads for its node, each drawn with the page's field
     editor; core's card says its settings are in Appearance and General
     instead. Then why any of its plugins failed, on the server or in the
-    page, and _Details_, closed by default: what it adds, in words per
+    page, and _Details_, closed by default: what its manifest says about
+    it (`ExtensionAbout`, below); what it adds, in words per
     kind (a point's word, a seeded node's type) with its own namespace
     left off, or why it adds nothing yet; its bundle and file-set digests
     as twelve hex to copy, the whole in the title and on the review sheet;
     the approved digest that runs while an update waits; where it is
     loaded from; its tags; what it injects and from whom, and what it
     provides. Same-name sources the catalog hides follow, folded.
+  - **What an extension says about itself** (`ExtensionAbout`, the
+    same on the card's Details and on the review sheet): its author,
+    licence, homepage and repository, then one plain line per capability
+    (`capabilityLines`, `@kb/contracts`: network, storage, secrets, kb
+    data, page, background, approvals). A field its manifest leaves out
+    reads _not declared_, never blank and never "none": declaring nothing
+    and saying nothing are different answers. It is what the extension
+    says, not what kb confines it to, and the review sheet says so beside
+    a page half's full page power.
   - An installed node the server no longer reports says its nodes
     remain, and offers each marketplace that lists it.
   The switch is a load decision: switched off, the extension's actions,

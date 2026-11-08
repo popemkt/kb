@@ -2968,7 +2968,16 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   a person has trusted it on this machine. What a person trusts is its
   **closure**: each half (the server entry `<name>.ts`, and the page entry
   `<name>.page.tsx` when it has one) bundled from its files into one module
-  by Bun's own bundler (`extensionClosure`, `app/runtime`). The compiler
+  by Bun's own bundler (`extensionClosure`, `app/runtime`), and its
+  manifest, `<name>.manifest.json` when it keeps one. The manifest is data:
+  kb reads and validates it without running anything, so its row shows what
+  the extension says about itself before anyone trusts it; a manifest that
+  does not parse, or whose page tier contradicts whether the extension ships
+  a page half, refuses the extension, and one with no `<name>.ts` beside it
+  is a failure. Its bytes are part of the closure, so an edited manifest is
+  new code to trust. A repository declaration that says these things in
+  code (`description`, `manifest`) is refused, so the file is their one
+  home; an install carries it from the source with the code. The compiler
   disables Bun macros before any module is parsed, for own and installed
   folders alike: closure compilation never executes source code. So every file it
   loads at any depth is inlined, however it is reached: a relative import, a
@@ -3268,8 +3277,11 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-description?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
-  of the one line that says what it adds (`description`, which Settings shows under its label),
+manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
+  of what it says about itself (`manifest`, `ExtensionManifestSchema` in
+  `@kb/contracts`: the one line Settings shows under its label, its author,
+  links, licence and capabilities; what each field means is
+  [docs/extensions](docs/extensions/README.md)),
   of how it starts (`optional: {byDefault: "on" | "off"}`, its state in a
   store where no one has switched it; `on` when it says nothing), and of
   whether it is required (`required`: why kb cannot run without it, in the
@@ -3289,7 +3301,7 @@ description?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews
   declaration, so every bundled family declares itself in its shared
   package. The server resolves each one's entry by the name the entry takes
   from it (`BUNDLED_EXTENSIONS`, `app/runtime`), and fails at load on a
-  family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, description?, required?,
+  family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, manifest?, required?,
 enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `host`, the store's `own` folder, a `link`, or an `install`
   with its selection, through which a marketplace's name is read: `installMarketplace`), so no reader infers it from `source`. The `kb ui` server adds the host plugins it loaded,
   such as the agent, to the same report. The browser loads the browser

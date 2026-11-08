@@ -10,7 +10,12 @@
  * contract, as a bundled family's are.
  */
 import { Predicate, Result, Schema } from "effect";
-import { declarationPlugin, type ExtensionDeclaration, type ExtensionEntry } from "@kb/contracts";
+import {
+  declarationPlugin,
+  MANIFEST_SUFFIX,
+  type ExtensionDeclaration,
+  type ExtensionEntry,
+} from "@kb/contracts";
 import { KbNodeSchema } from "@kb/model";
 import { isPlugin } from "@kb/plugin";
 
@@ -34,7 +39,6 @@ const DeclarationData = Schema.Struct({
     ),
   ),
   label: Schema.String,
-  description: Schema.optional(Schema.String),
   optional: Schema.optional(Schema.Struct({ byDefault: Schema.Literals(["on", "off"]) })),
 });
 
@@ -58,7 +62,9 @@ function isDeclaration(value: unknown): value is ExtensionDeclaration {
  * name): its `declaration` export, whose name must be the file's, and its
  * default export, the server entry, a plugin. A declaration that says it
  * is `required` is refused: only kb's build may make that claim, so every
- * repository extension can be switched. A module that exports no
+ * repository extension can be switched. So is one that carries what it
+ * says about itself (`manifest`, `description`): that is its manifest
+ * file's, readable before its code is trusted. A module that exports no
  * entry is a family with no server-only package, so its entry is its
  * declaration's plugin, as a bundled family's is. Its seed is called by
  * the fold, and each node it returns is checked then, so a seed that
@@ -77,6 +83,11 @@ export function decodeExtensionModule(
   if (declared.required !== undefined) {
     return Result.fail(
       "declaration: required is kb's own build's claim; an extension from a repository, a link or an install can always be switched off",
+    );
+  }
+  if (declared.manifest !== undefined || Predicate.hasProperty(declared, "description")) {
+    return Result.fail(
+      `declaration: what an extension says about itself belongs in ${name}${MANIFEST_SUFFIX}, beside it, which kb reads before anyone trusts the code`,
     );
   }
   const { seed } = declared;

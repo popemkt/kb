@@ -6,7 +6,7 @@
  * declaration.
  */
 import { beforeEach, afterAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -86,6 +86,19 @@ const repositoryHost: SwitchingHost = {
       Effect.provide(bunFileSystemLayer),
     ),
 };
+
+const MANIFEST = { description: "Greets", author: "Ada", capabilities: { page: "none" } };
+const inventoryOf = async (root: string) =>
+  Effect.runPromise(rootFamilies(root).pipe(Effect.provide(bunFileSystemLayer)));
+/** A root holding `hello`, untrusted, with `manifest` beside it when it is not null. */
+async function untrusted(manifest: string | null): Promise<string> {
+  resetRegistryCache();
+  const root = await mkdtemp(join(tmpdir(), "kb-repository-extension-"));
+  await writeExtension(root, "hello.ts", extensionModule("hello"));
+  if (manifest !== null)
+    await writeFile(join(root, ".kb", "extensions", "hello.manifest.json"), manifest);
+  return root;
+}
 
 describe("trusted repository fixture contract", () => {
   beforeEach(async () => {
@@ -210,6 +223,103 @@ describe("a repository extension's node", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  describe("what it says about itself, its manifest", () => {
+    test("is read before anyone trusts the code, and its bytes are in the digest", async () => {
+      const bare = await untrusted(null);
+      const said = await untrusted(JSON.stringify(MANIFEST));
+      try {
+        const plain = (await inventoryOf(bare)).inventory.find(({ name }) => name === "hello");
+        const row = (await inventoryOf(said)).inventory.find(({ name }) => name === "hello");
+        expect(row).toMatchObject({ trusted: false, manifest: MANIFEST });
+        expect(row?.reach?.files.map(({ path }) => path)).toContain("hello.manifest.json");
+        expect(plain?.manifest).toBeUndefined();
+        expect(row?.digest).not.toBe(plain?.digest);
+      } finally {
+        await rm(bare, { recursive: true, force: true });
+        await rm(said, { recursive: true, force: true });
+      }
+    });
+
+    test.each([
+      ["not JSON", "{ description: nope", "is not JSON"],
+      ["a field it does not know", '{"licence":"MIT"}', "does not match the manifest's shape"],
+      [
+        "a page tier its files contradict",
+        '{"capabilities":{"page":"full"}}',
+        "page tier is full, but it ships no page half",
+      ],
+    ])("with %s, refuses the extension and says why", async (_case, manifest, why) => {
+      const root = await untrusted(manifest);
+      try {
+        const { inventory, failures } = await inventoryOf(root);
+        expect(inventory.find(({ name }) => name === "hello")?.digest).toBeUndefined();
+        expect(failures).toContainEqual({
+          file: expect.stringContaining("hello.ts"),
+          error: expect.stringContaining(why),
+        });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
+    test("a manifest with no extension beside it is a failure, not a file nobody read", async () => {
+      resetRegistryCache();
+      const root = await mkdtemp(join(tmpdir(), "kb-repository-extension-"));
+      try {
+        await writeExtension(root, "hello.ts", extensionModule("hello"));
+        await writeFile(join(root, ".kb", "extensions", "stray.manifest.json"), "{}");
+        const { failures } = await inventoryOf(root);
+        expect(failures).toContainEqual({
+          file: expect.stringContaining("stray.manifest.json"),
+          error: expect.stringContaining("which has no stray.ts"),
+        });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
+    test("trusted, the extension loads with it, and its row reports it", async () => {
+      resetRegistryCache();
+      const root = await mkdtemp(join(tmpdir(), "kb-repository-extension-"));
+      try {
+        await writeExtension(root, "hello.ts", extensionModule("hello"));
+        await writeFile(
+          join(root, ".kb", "extensions", "hello.manifest.json"),
+          JSON.stringify(MANIFEST),
+        );
+        await trustExtension(root, "hello.ts");
+        const registry = await Effect.runPromise(
+          registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
+        );
+        expect(registry.families.find(({ name }) => name === "hello")).toMatchObject({
+          enabled: true,
+          trusted: true,
+          manifest: MANIFEST,
+        });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
+    test("a declaration that says it in code is refused: the manifest file is its one home", async () => {
+      resetRegistryCache();
+      const root = await rootWith({
+        "teller.ts": extensionModule("teller", {
+          declaration: '{ name: "teller", label: "Teller", description: "in code" }',
+        }),
+      });
+      try {
+        const { failures } = await inventoryOf(root);
+        expect(failures).toContainEqual({
+          file: "teller.ts",
+          error: expect.stringContaining("belongs in teller.manifest.json"),
+        });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
   });
 
   test("a module whose declaration does not fold is refused, and the store still opens", async () => {

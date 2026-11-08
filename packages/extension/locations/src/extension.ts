@@ -11,7 +11,9 @@ import { locationsSeedNodes } from "./seed.ts";
 export const locationsExtension = defineExtension({
   name: "locations",
   label: "Locations",
-  description: "The kb stores on this machine, in the sidebar and the command palette.",
+  manifest: {
+    description: "The kb stores on this machine, in the sidebar and the command palette.",
+  },
   tags: ["locations"],
   optional: { byDefault: "on" },
   seed: locationsSeedNodes,

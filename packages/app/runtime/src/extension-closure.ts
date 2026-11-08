@@ -23,9 +23,12 @@ import type { ExtensionFolder } from "./extension-folder.ts";
 import { builtinModules } from "node:module";
 import { Effect } from "effect";
 import {
+  ExtensionManifestSchema,
   HOST_MODULES,
   HOST_MODULES_KEY,
+  PAGE_CODE_TIERS,
   type ExtensionHalf,
+  type ExtensionManifest,
   type ExtensionReach,
 } from "@kb/contracts";
 import { extensionDigest, type ExtensionClosure } from "@kb/sandbox";
@@ -178,30 +181,85 @@ const bundleHalf = Effect.fn("kb.bundleExtensionHalf")(function* (
   };
 });
 
-/** A closure, with the digest a person trusts it by. */
+/** A closure, with the digest a person trusts it by and what its manifest says. */
 export interface DigestedClosure extends ExtensionClosure {
   readonly digest: string;
   readonly reach: ExtensionReach;
+  readonly about: ExtensionManifest | null;
 }
+
+/**
+ * The manifest at `path`, read as data and checked against the manifest's
+ * schema and against what the closure ships (a page half where it says
+ * none, or none where it says page code); or why it cannot be.
+ */
+const readManifest = Effect.fn("kb.readExtensionManifest")(function* (
+  path: string,
+  page: boolean,
+): Effect.fn.Return<{ readonly text: string; readonly about: ExtensionManifest }, string> {
+  const text = yield* Effect.tryPromise({
+    try: () => Bun.file(path).text(),
+    catch: (error) => `its manifest cannot be read: ${String(error)}`,
+  });
+  const json = yield* Effect.try({
+    try: (): unknown => JSON.parse(text),
+    catch: (error) => `its manifest is not JSON: ${String(error)}`,
+  });
+  const parsed = ExtensionManifestSchema.safeParse(json);
+  if (!parsed.success) {
+    const why = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "(manifest)"}: ${issue.message}`)
+      .join("; ");
+    return yield* Effect.fail(`its manifest does not match the manifest's shape: ${why}`);
+  }
+  const tier = parsed.data.capabilities?.page;
+  if (tier !== undefined && PAGE_CODE_TIERS.includes(tier) !== page) {
+    return yield* Effect.fail(
+      page
+        ? `its manifest says its page tier is ${tier}, but it ships a page half`
+        : `its manifest says its page tier is ${tier}, but it ships no page half`,
+    );
+  }
+  return { text, about: parsed.data };
+});
 
 /**
  * The closure of the extension whose server entry is `server` and whose page
  * entry, when it has one, is `page`, each bundled relative to `root` (its
- * extensions directory), with its digest; or why it cannot run.
+ * extensions directory), with the manifest file `manifest` when it keeps
+ * one, and its digest; or why it cannot run.
  */
 export const extensionClosure = Effect.fn("kb.extensionClosure")(function* (
   folder: ExtensionFolder,
   server: string,
   page: string | null,
+  manifest: string | null,
 ): Effect.fn.Return<DigestedClosure, string> {
   const serverHalf = yield* bundleHalf(server, "server", folder);
   const pageHalf = page === null ? null : yield* bundleHalf(page, "page", folder);
-  const closure: ExtensionClosure = { server: serverHalf.code, page: pageHalf?.code ?? null };
+  const stated = manifest === null ? null : yield* readManifest(manifest, page !== null);
+  const closure: ExtensionClosure = {
+    server: serverHalf.code,
+    page: pageHalf?.code ?? null,
+    manifest: stated?.text ?? null,
+  };
   const files = new Map(
-    [...serverHalf.files, ...(pageHalf?.files ?? [])].map((file) => [file.path, file]),
+    [
+      ...serverHalf.files,
+      ...(pageHalf?.files ?? []),
+      ...(manifest === null || stated === null
+        ? []
+        : [
+            {
+              path: relative(folder.dir, manifest),
+              bytes: new TextEncoder().encode(stated.text).length,
+            },
+          ]),
+    ].map((file) => [file.path, file]),
   );
   return {
     ...closure,
+    about: stated?.about ?? null,
     digest: yield* extensionDigest(closure),
     reach: {
       files: [...files.values()].toSorted((a, b) => a.path.localeCompare(b.path)),

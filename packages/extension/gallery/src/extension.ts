@@ -14,7 +14,7 @@ import { GALLERY_WORKFLOWS, GalleryView } from "./view.ts";
 export const galleryExtension = defineExtension({
   name: "gallery",
   label: "Gallery",
-  description: "A visual composer over your own library of image references.",
+  manifest: { description: "A visual composer over your own library of image references." },
   tags: ["gallery"],
   optional: { byDefault: "off" },
   seed: gallerySeedNodes,

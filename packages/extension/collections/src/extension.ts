@@ -15,7 +15,9 @@ import { CollectionBoardView, CollectionCardsView, CollectionTableView } from ".
 export const collectionsExtension = defineExtension({
   name: "collections",
   label: "Collections",
-  description: "Table, board and card views of a node's children, inside the outline.",
+  manifest: {
+    description: "Table, board and card views of a node's children, inside the outline.",
+  },
   tags: ["collections"],
   optional: { byDefault: "on" },
   views: [viewDef(CollectionTableView), viewDef(CollectionBoardView), viewDef(CollectionCardsView)],

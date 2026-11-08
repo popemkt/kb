@@ -25,7 +25,7 @@ export const TERMINAL_DESIGN_SYSTEM: SeedOption = { id: "themes.terminal", label
 export const themesExtension = defineExtension({
   name: "themes",
   label: "Themes",
-  description: "The Paper and Terminal design systems.",
+  manifest: { description: "The Paper and Terminal design systems." },
   tags: ["themes"],
   optional: { byDefault: "on" },
   declaredOptions: [

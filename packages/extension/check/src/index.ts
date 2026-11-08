@@ -8,7 +8,7 @@ import { defineExtension } from "@kb/contracts";
 export const checkExtension = defineExtension({
   name: "check",
   label: "Check",
-  description: "The rule audit: every rule's check exists and runs where it says.",
+  manifest: { description: "The rule audit: every rule's check exists and runs where it says." },
   tags: ["core"],
   required:
     "It runs the rule audit the gates rely on, so no gate can read clean because it was switched off.",

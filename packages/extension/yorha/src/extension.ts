@@ -41,7 +41,7 @@ export const ARENA_BACKDROP = themeBackdrop("yorha.arena", "Arena", YORHA_DESIGN
 export const yorhaExtension = defineExtension({
   name: "yorha",
   label: "YoRHa",
-  description: "The YoRHa theme, after NieR:Automata, with two page-head backdrops.",
+  manifest: { description: "The YoRHa theme, after NieR:Automata, with two page-head backdrops." },
   tags: ["themes"],
   optional: { byDefault: "on" },
   declaredOptions: [

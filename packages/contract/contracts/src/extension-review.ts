@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { marketplaceName } from "@kb/extension-source";
 import { ExtensionScopeSchema, ExtensionSelectionSchema } from "./extension-install.ts";
+import { ExtensionManifestSchema } from "./extension-manifest.ts";
 
 /**
  * How a family came to be composed: kb's build, the `kb ui` host, the
@@ -49,4 +50,6 @@ export const ExtensionReviewSchema = z.object({
   shadowed: z.string().optional(),
   running: z.object({ digest: z.string(), source: z.string() }).optional(),
   reach: ExtensionReachSchema.optional(),
+  /** What it says about itself: a repository extension's manifest file, a bundled family's declaration. */
+  manifest: ExtensionManifestSchema.optional(),
 });

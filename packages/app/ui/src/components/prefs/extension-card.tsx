@@ -28,6 +28,7 @@ import {
   type PanelExtensionGroup,
 } from "@/lib/extension-report";
 import { BUTTON, PRIMARY_BUTTON, SCOPES, useExtensionAction } from "./extension-actions";
+import { ExtensionAbout } from "./extension-approval";
 import { Disclosure } from "./settings-fold";
 
 /**
@@ -152,13 +153,17 @@ function Pin({ repo, path, rev }: { repo: string; path: string; rev: string }) {
 }
 
 /**
- * Where an installed extension came from, in one line: the marketplace that
- * offered it, the GitHub path it is pinned to and the pin, and the lock that
- * holds the selection; a link or the store's own folder by its path.
+ * Where an installed extension came from, in one line: who wrote it where it
+ * says, the marketplace that offered it, the GitHub path it is pinned to and
+ * the pin, and the lock that holds the selection; a link or the store's own
+ * folder by its path.
  */
 export function SourceLine({ row }: { readonly row: ExtensionReportRow }) {
   const { origin } = row;
-  const parts: { readonly key: string; readonly node: ReactNode }[] = [];
+  const parts: { readonly key: string; readonly node: ReactNode }[] =
+    row.manifest?.author === undefined
+      ? []
+      : [{ key: "author", node: `by ${row.manifest.author}` }];
   if (origin.kind === "install") {
     const { repo, path, rev } = origin.selection.locked;
     const market = installMarketplace(origin);
@@ -459,8 +464,8 @@ function Detail({ term, children }: { readonly term: string; readonly children: 
 /**
  * Why its plugins failed, then its details, folded: what it adds, in words;
  * its code (digests to copy, where it is loaded from, what it is running
- * while an update waits); its services and tags; and any same-name source
- * the catalog hides.
+ * while an update waits); its services and tags; what it says about itself
+ * (`ExtensionAbout`); and any same-name source the catalog hides.
  */
 export function ExtensionDetails({
   nodeId,
@@ -527,6 +532,9 @@ export function ExtensionDetails({
             {row.tags.length > 0 && <Detail term="Tags">{row.tags.join(", ")}</Detail>}
             {services.length > 0 && <Detail term="Services">{services.join("; ")}</Detail>}
           </dl>
+          <div className="mt-2 text-meta text-muted-foreground">
+            <ExtensionAbout manifest={row.manifest} />
+          </div>
         </Disclosure>
       )}
       {group.hidden.length === 0 ? null : (

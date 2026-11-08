@@ -325,8 +325,8 @@ export interface ExtensionDeclaration {
   /** The module's file name without `.ts`: its `ext.<name>` namespace and its node's name. */
   readonly name: string;
   readonly label: string;
-  /** What it adds, in one line: what Settings shows under its label. */
-  readonly description?: string;
+  // What it says about itself (its one line, author, capabilities) is its `<name>.manifest.json`'s,
+  // beside this module: kb reads it before anyone trusts the code (docs/extensions/README.md).
   readonly optional?: { readonly byDefault: "on" | "off" };
   /** Its labels, the one home of them: each of its plugins carries them ({@link familyTags}). */
   readonly tags?: readonly string[];

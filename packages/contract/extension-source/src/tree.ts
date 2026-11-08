@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import {
+  MANIFEST_SUFFIX,
   SOURCE_LIMITS,
   SourceError,
   sourcePath,
@@ -66,6 +67,7 @@ function selectedFiles(objects: readonly SourceFile[]): Omit<SelectedSource, "ha
       file.path === `${name}.ts` ||
       file.path === `${name}.page.ts` ||
       file.path === `${name}.page.tsx` ||
+      file.path === `${name}${MANIFEST_SUFFIX}` ||
       file.path.startsWith(`${name}/`) ||
       file.path === "README.md" ||
       /^LICENSE[^/]*$/.test(file.path)

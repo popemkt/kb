@@ -3,6 +3,7 @@ import {
   ExtensionReviewSchema,
   type ExtensionOrigin,
 } from "./extension-review.ts";
+import type { ExtensionManifest } from "./extension-manifest.ts";
 /**
  * A family declares itself once (DESIGN.md → Extension families): its name,
  * how it is labelled, the system nodes it seeds and the views it provides.
@@ -24,8 +25,13 @@ export interface ExtensionDeclaration {
   /** The family's name: the one home of it, which its plugins and its manifest row read. */
   readonly name: string;
   readonly label: string;
-  /** What the family adds, in one line: what Settings shows under its label. */
-  readonly description?: string;
+  /**
+   * What the family says about itself (`ExtensionManifest`): its one line,
+   * and what it reaches beyond the graph. Only kb's build declares it here;
+   * a repository extension keeps it in its manifest file, which kb reads
+   * before anyone trusts the code.
+   */
+  readonly manifest?: ExtensionManifest;
   /**
    * How the family starts in a store where no one has switched it: `on`
    * when it says nothing. Every family can be switched unless it declares
@@ -181,7 +187,6 @@ export const ExtensionRowSchema = z.object({
   origin: ExtensionOriginSchema,
   name: z.string(),
   label: z.string(),
-  description: z.string().optional(),
   required: z.string().optional(),
   enabled: z.boolean(),
   source: z.string(),
@@ -210,6 +215,13 @@ export function extensionFrom(from: ExtensionFrom): {
   return typeof from === "string" ? { source: from, origin: { kind: from } } : from;
 }
 
+/** Who ships kb's own families, and under what licence. */
+const KB_BUILD: ExtensionManifest = {
+  author: "kb",
+  repository: "https://github.com/popemkt/kb",
+  license: "MIT",
+};
+
 /**
  * A declaration's row, as the host that composes it `from` reports it,
  * with the path its page half is served at when it has one the page's
@@ -224,10 +236,15 @@ export function extensionRow(
   digest?: string,
 ): ExtensionRow {
   const { source, origin } = extensionFrom(from);
+  // kb's build is the author of what it ships: said once here, under what each family declares.
+  const manifest =
+    origin.kind === "bundled" || origin.kind === "host"
+      ? { ...KB_BUILD, ...declaration.manifest }
+      : declaration.manifest;
   return {
     name: declaration.name,
     label: declaration.label,
-    ...(declaration.description === undefined ? {} : { description: declaration.description }),
+    ...(manifest === undefined ? {} : { manifest }),
     ...(declaration.required === undefined ? {} : { required: declaration.required }),
     enabled,
     source,

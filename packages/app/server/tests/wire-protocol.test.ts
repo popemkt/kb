@@ -36,7 +36,7 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // into a build that reads them.
 const RECORDED = {
   protocol: 4,
-  fingerprint: "3c30b86fff36eea7f6eb49fd4b5f1e570f95c132d8f160bea65385d54dc1441c",
+  fingerprint: "b6231d6f4fc92d016ab95dc2eeb541eac708f73d17be3d5a5fb3b7028a3706fc",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

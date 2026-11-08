@@ -635,7 +635,7 @@ function cardWords(
     .flatMap((market) => market.entries)
     .find((entry) => entry.name === name)?.description;
   return {
-    description: row?.description ?? bundled?.description ?? offered,
+    description: row?.manifest?.description ?? bundled?.manifest?.description ?? offered,
     required: row?.required ?? bundled?.required,
   };
 }

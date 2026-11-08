@@ -5,6 +5,19 @@ export {
   installMarketplace,
 } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
+export {
+  ExtensionCapabilitiesSchema,
+  ExtensionManifestSchema,
+  MANIFEST_SUFFIX,
+  PAGE_CODE_TIERS,
+  PAGE_TIERS,
+  capabilityLines,
+  listingMissing,
+  type CapabilityLine,
+  type ExtensionCapabilities,
+  type ExtensionManifest,
+  type PageTier,
+} from "./extension-manifest.ts";
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
 export {
   ActionCatalog,

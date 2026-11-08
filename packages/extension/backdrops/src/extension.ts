@@ -122,7 +122,7 @@ const BACKDROPS: readonly SeedBackdrop[] = [
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
-  description: "The page-head backdrops kb ships, such as Unicorn.",
+  manifest: { description: "The page-head backdrops kb ships, such as Unicorn." },
   tags: ["backdrops"],
   optional: { byDefault: "on" },
   declaredOptions: [
