@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { durableCreateFile } from "@kb/file-write";
 import { Effect, Result } from "effect";
 import { aesGcmCipher, sealedSecrets, systemdCredsCipher } from "../src/index.ts";
 import { sealedContract } from "./sealed-contract.ts";
@@ -75,6 +76,60 @@ describe("aes-256-gcm", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  test("a key is created only where none is: a second writer gets false and the first key stays", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-sealed-once-"));
+    const path = join(root, "key");
+    try {
+      expect(durableCreateFile({ path, body: "first\n", mode: 0o600 })).toBe(true);
+      expect(durableCreateFile({ path, body: "second\n", mode: 0o600 })).toBe(false);
+      expect(await readFile(path, "utf8")).toBe("first\n");
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+      expect(await readdir(root)).toEqual(["key"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("first seals from separate processes agree on one key", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-sealed-procs-"));
+    const dir = join(root, "secrets");
+    const script = join(root, "seal.ts");
+    // Each process seals its own name into the one store, all started at once.
+    await writeFile(
+      script,
+      `import { Effect } from "effect";
+import { aesGcmCipher, sealedSecrets } from ${JSON.stringify(join(import.meta.dir, "../src/index.ts"))};
+const dir = process.argv[2], name = process.argv[3];
+const store = sealedSecrets({ dir: () => dir, ciphers: [aesGcmCipher(() => dir + "/key")] });
+await Effect.runPromise(store.sink({ kind: "sealed", name }).write("value-" + name));
+`,
+    );
+    const names = ["p1", "p2", "p3", "p4"];
+    try {
+      const codes = await Promise.all(
+        names.map(
+          (name) =>
+            Bun.spawn([process.execPath, script, dir, name], {
+              cwd: import.meta.dir,
+              stdout: "ignore",
+              stderr: "inherit",
+            }).exited,
+        ),
+      );
+      expect(codes).toEqual([0, 0, 0, 0]);
+      const store = sealedSecrets({
+        dir: () => dir,
+        ciphers: [aesGcmCipher(() => join(dir, "key"))],
+      });
+      for (const name of names)
+        expect(await Effect.runPromise(store.resolve({ kind: "sealed", name }))).toBe(
+          `value-${name}`,
+        );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   test("a creation cut short leaves no key, and a malformed key is refused, never replaced", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-sealed-cut-"));

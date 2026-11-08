@@ -31,6 +31,7 @@ import { join } from "node:path";
 import { Effect, Predicate, Result } from "effect";
 import {
   acquireFileWriteLockEffect,
+  durableCreateFile,
   durableReplaceFile,
   releaseFileWriteLock,
 } from "@kb/file-write";
@@ -178,12 +179,13 @@ function readKeyFile(path: string): Uint8Array {
 }
 
 /**
- * The key at `path`, made on the first seal when there is none. It is made
- * under the key file's own lock and checked again there, so two writers
- * agree on one key, and published whole (written and synced beside it, then
- * renamed into place, the directory synced), so a reader never sees part of
- * one and a crash leaves no key rather than a broken one. An existing key is
- * never replaced: what it sealed would no longer open.
+ * The key at `path`, made on the first seal when there is none. A new key
+ * is published whole and only where none is (`durableCreateFile`: written
+ * and synced beside it, then linked into place, which never replaces), so
+ * of two writers making one at once exactly one key wins and both use it, a
+ * reader never sees part of one, and a crash leaves no key rather than a
+ * broken one. An existing key, even a malformed one, is never replaced:
+ * what it sealed would no longer open.
  */
 const keyBytes = Effect.fn("kb.secrets.aes.key")(function* (path: string, create: boolean) {
   const read = Effect.try({
@@ -193,20 +195,15 @@ const keyBytes = Effect.fn("kb.secrets.aes.key")(function* (path: string, create
   const first = yield* Effect.result(read);
   if (Result.isSuccess(first)) return first.success;
   if (!create || first.failure !== "missing") return yield* unreadableKey();
-  yield* Effect.acquireRelease(
-    acquireFileWriteLockEffect(path).pipe(Effect.mapError(unreadableKey)),
-    (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
-  );
-  const again = yield* Effect.result(read);
-  if (Result.isSuccess(again)) return again.success;
-  if (again.failure !== "missing") return yield* unreadableKey();
   const key = crypto.getRandomValues(new Uint8Array(KEY_BYTES));
-  yield* Effect.try({
-    try: () => durableReplaceFile({ path, body: `${toBase64(key)}\n`, mode: 0o600 }),
+  const created = yield* Effect.try({
+    try: () => durableCreateFile({ path, body: `${toBase64(key)}\n`, mode: 0o600 }),
     catch: unreadableKey,
   });
-  return key;
-}, Effect.scoped);
+  if (created) return key;
+  // Another writer's key won: use it.
+  return yield* read.pipe(Effect.mapError(unreadableKey));
+});
 
 /**
  * AES-256-GCM with a random key kept in `keyPath` (0600, made on the first
