@@ -163,6 +163,8 @@ export { EdnEditor } from "./components/edn-editor";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
 export { IconButton } from "./components/icon-button";
+export { MENU_ROW, MENU_SURFACE, useMenuKeys, type MenuKeys } from "./components/menu";
+export { MenuSeparator } from "./components/menu-separator";
 export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeRow } from "./components/node-row";
 export {

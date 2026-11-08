@@ -1641,8 +1641,8 @@ manipulation feel professional rather than merely functional.
   right-click on words being typed keeps the browser's own menu. The header's zoom
   readout is a button that opens the zoom menu, drawn the same way
   (`CommandMenu`, `canvas-menu.tsx`, which keeps a menu opened at a point inside the stage): in, out, 100%, frame all and the
-  selection. The view menu shares their surface, rows and keys
-  (`use-canvas-menu.ts`).
+  selection. The view menu shares their surface, rows and keys, which are
+  the kit's (`menu.ts`, `@kb/ui-sdk`: every menu in kb is drawn from it).
 - **Floating selection toolbar** with Group / Ungroup / Delete /
   Bring-to-front / Send-to-back. Items paint by the height of their top
   (`z + depth`), then in document order, and the two buttons reorder the
