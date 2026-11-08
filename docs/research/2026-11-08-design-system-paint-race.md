@@ -30,8 +30,10 @@ The measurement contract lives in `paint` in
 The gallery can reflect a graph write before the browser invokes the native
 snapshot's DOM-update callback. The old helper could finish a computed-style
 read in that interval, returning a new gallery choice and an older root theme.
-Its polling deadline was racing the asynchronous capture rather than observing
-its completion.
+An early read alone could not fail the old poll: it would retry for five
+seconds. The historical failures therefore imply that the DOM-update callback
+was delayed more than five seconds after the click. The cause of that delay
+has not been traced.
 
 A controlled regression holds the native callback behind a promise, without
 adding a timer. The gallery selects a new system while the root still names
@@ -50,21 +52,23 @@ transition, then checks the IDs and computed tokens immediately after the
 update. It does not wait for the crossfade to finish, so the following choice
 can still interrupt an animation. Callback errors propagate as test failures.
 
-The global test timeout remains unchanged. There are no retries, fixed
-sleeps, longer timeout values, production behavior changes, or narrowed CI
-gates in the final change.
+The effective wait bound changes from the poll's five seconds to the existing
+60-second test timeout: the test now waits for the update event. No configured
+timeout value increases, but the operation being waited on uses a wider bound.
+Postconditions are checked immediately after completion. There are no retries,
+fixed sleeps, production behavior changes, or narrowed CI gates.
 
 ## Additional diagnostics and limits
 
 Temporary diagnostics did not reproduce the original intermittent CI failure:
 
-| Diagnostic                                                                                | Result                                                                    |
-| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| main, Linux Vulkan, CPU throttled fourfold                                                | 20/20 passed                                                              |
-| main, Linux software path, CPU throttled fourfold                                         | 20/20 passed                                                              |
-| main, Linux, WebGL2 canvas → WebGPU canvas → light/dark choices, three rounds, one worker | 12/12 passed                                                              |
-| first instrumented macOS run, main and #125                                               | 20/20 design-system cases passed on each                                  |
-| ordered buffered macOS run, main and #125, two jobs per revision                          | 80/80 cases passed on each, including 40 design-system cases per revision |
+| Diagnostic                                                                                                | Result                                                                    |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| main, Linux Vulkan, CPU throttled fourfold                                                                | 20/20 passed                                                              |
+| main, Linux software path, CPU throttled fourfold                                                         | 20/20 passed                                                              |
+| main, Linux, forced-WebGL2 canvas → default-backend canvas → light/dark choices, three rounds, one worker | 12/12 passed                                                              |
+| first instrumented macOS run, main and #125                                                               | 20/20 design-system cases passed on each                                  |
+| ordered buffered macOS run, main and #125, two jobs per revision                                          | 80/80 cases passed on each, including 40 design-system cases per revision |
 
 The first macOS instrumentation changed the native API overload and shard
 boundaries. The ordered run preserved the overload, buffered its trace without
@@ -75,6 +79,12 @@ All temporary instrumentation and workflow changes are removed.
 The historical failing macOS attempt was not traced directly. The controlled
 regression proves the premature-measurement ordering; the zero-failure
 baselines cannot demonstrate a statistical reduction in the original flake.
+The cause of the more-than-five-second callback delay remains untraced.
+
+The remaining latency question is whether CI frame starvation caused those
+delays, or whether a person on a slow machine could also see a stale theme for
+seconds. This change establishes a completion-based test oracle; it does not
+establish the cause of that latency or claim a production responsiveness fix.
 
 ## Final validation
 

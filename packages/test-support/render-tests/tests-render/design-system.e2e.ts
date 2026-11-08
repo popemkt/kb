@@ -31,6 +31,8 @@ async function cards(page: Page) {
  * Read a completed paint. The gallery can commit before the native snapshot
  * invokes the painter; style reads belong after that update, including when
  * the visual transition is skipped. Callback failures remain test failures.
+ * Relies on transitionTheme starting synchronously from the graph subscription,
+ * before React can show the gallery choice.
  */
 async function paint(page: Page) {
   await page.evaluate(() => document.activeViewTransition?.updateCallbackDone);
