@@ -27,8 +27,13 @@ async function cards(page: Page) {
   return found;
 }
 
-/** The tokens as the root computes them, and as the chosen card's sample computes them. */
+/**
+ * Read a completed paint. The gallery can commit before the native snapshot
+ * invokes the painter; style reads belong after that update, including when
+ * the visual transition is skipped. Callback failures remain test failures.
+ */
 async function paint(page: Page) {
+  await page.evaluate(() => document.activeViewTransition?.updateCallbackDone);
   return page.evaluate(
     ({ tokens, gallery }) => {
       const read = (el: Element) =>
@@ -64,14 +69,13 @@ for (const scheme of ["light", "dark"] as const) {
 
     const painted = new Map<string, string>();
     for (const id of ids) {
-      await (
-        await cards(page)
-      )
-        .filter({ has: page.locator(`[data-option-preview="${id}"]`) })
-        .click();
-      // GAP [[01M6W4HV113Y6WKXZT1XN8B07E]] — paint measurement can precede the native update callback.
-      await expect.poll(() => paint(page).then((p) => [p.theme, p.swatchOf])).toEqual([id, id]);
+      const choice = (await cards(page)).filter({
+        has: page.locator(`[data-option-preview="${id}"]`),
+      });
+      await choice.click();
+      await expect(choice).toHaveAttribute("aria-checked", "true");
       const now = await paint(page);
+      expect([now.theme, now.swatchOf]).toEqual([id, id]);
       expect(
         now.root.every((value) => value !== ""),
         `${id}: tokens resolve`,
@@ -89,5 +93,59 @@ for (const scheme of ["light", "dark"] as const) {
     await expect
       .poll(() => page.evaluate(() => document.documentElement.getAttribute("data-theme")))
       .toBe(last);
+  });
+}
+
+type PaintControlWindow = Window & { releaseThemePaint?: () => void };
+
+for (const presentation of ["animated", "skipped"] as const) {
+  test(`a selected design system is measured after its native snapshot update (${presentation})`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/settings/appearance");
+    await cards(page);
+    const unchosen = page
+      .locator(`${GALLERY} [role="radio"][aria-checked="false"]:has([data-option-preview])`)
+      .first();
+    const id = await unchosen.locator("[data-option-preview]").getAttribute("data-option-preview");
+    const choice = (await cards(page)).filter({
+      has: page.locator(`[data-option-preview="${id}"]`),
+    });
+    const before = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+    await page.evaluate(() => {
+      const native = document.startViewTransition.bind(document);
+      const gate = Promise.withResolvers<void>();
+      (window as PaintControlWindow).releaseThemePaint = () => gate.resolve();
+      document.startViewTransition = (update) => {
+        if (typeof update !== "function") return native(update);
+        return native(async () => {
+          await gate.promise;
+          return update();
+        });
+      };
+    });
+    await choice.click();
+    await expect(choice).toHaveAttribute("aria-checked", "true");
+    expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe(
+      before,
+    );
+    if (presentation === "skipped") {
+      await page.evaluate(() => document.activeViewTransition?.skipTransition());
+    }
+    let measured = false;
+    const measurement = paint(page).then((value) => {
+      measured = true;
+      return value;
+    });
+    await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+    try {
+      expect(measured, "a pending snapshot must not be measured as a completed paint").toBe(false);
+    } finally {
+      await page.evaluate(() => (window as PaintControlWindow).releaseThemePaint?.());
+    }
+    const after = await measurement;
+    expect([after.theme, after.swatchOf]).toEqual([id, id]);
+    expect(after.root).toEqual(after.swatch);
   });
 }
