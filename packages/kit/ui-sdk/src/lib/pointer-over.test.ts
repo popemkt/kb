@@ -20,6 +20,10 @@ describe("placeOver", () => {
       expect(placeOver(BOX, client)).toBeNull();
     }
   });
+  it("is in the frame's own pixels where a transform scales it on screen", () => {
+    expect(placeOver(BOX, { x: 130, y: 90 }, { x: 2, y: 2 })).toEqual({ x: 15, y: 20 });
+    expect(placeOver(BOX, { x: 130, y: 90 }, { x: 0.5, y: 0.25 })).toEqual({ x: 60, y: 160 });
+  });
   it("counts the frame's own edge as over it", () => {
     expect(placeOver(BOX, { x: 100, y: 50 })).toEqual({ x: 0, y: 0 });
     expect(placeOver(BOX, { x: 500, y: 250 })).toEqual({ x: 400, y: 200 });

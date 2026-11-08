@@ -10,7 +10,7 @@
 import { useState } from "react";
 
 export interface PointerPlace {
-  /** CSS pixels from the frame's top-left corner. */
+  /** The frame's own CSS pixels from its top-left corner, however a transform above it scales it on screen. */
   readonly x: number;
   readonly y: number;
 }
@@ -37,14 +37,40 @@ export function coveringAncestor(frame: HTMLElement): HTMLElement {
   return frame.ownerDocument.documentElement;
 }
 
-/** The place `client` has over `box`, or null outside it. */
+/** A pointer never over the frame: what a frame that hears no owner is handed (a card, a studio not interacting). */
+export const NO_POINTER: PointerSource = { now: () => null };
+
+/** How many screen pixels one of the frame's own CSS pixels is, on each axis. */
+export interface FrameScale {
+  readonly x: number;
+  readonly y: number;
+}
+
+const UNSCALED: FrameScale = { x: 1, y: 1 };
+
+/**
+ * The place `client` has over `box`, or null outside it, in the frame's own
+ * pixels: a frame a transform scales (Backdrop Studio's zoom) is drawn at
+ * its own size, so its scene reads the pointer at that size too.
+ */
 export function placeOver(
   box: Pick<DOMRect, "left" | "top" | "width" | "height">,
   client: { readonly x: number; readonly y: number },
+  scale: FrameScale = UNSCALED,
 ): PointerPlace | null {
   const x = client.x - box.left;
   const y = client.y - box.top;
-  return x < 0 || y < 0 || x > box.width || y > box.height ? null : { x, y };
+  return x < 0 || y < 0 || x > box.width || y > box.height
+    ? null
+    : { x: x / scale.x, y: y / scale.y };
+}
+
+/** The scale a transform above `frame` draws it at: its box on screen over its own size. */
+function scaleOf(frame: HTMLElement, box: DOMRect): FrameScale {
+  const { offsetWidth, offsetHeight } = frame;
+  return offsetWidth > 0 && offsetHeight > 0 && box.width > 0 && box.height > 0
+    ? { x: box.width / offsetWidth, y: box.height / offsetHeight }
+    : UNSCALED;
 }
 
 /** A pointer source that is followed until it is stopped. */
@@ -64,9 +90,11 @@ export interface PointerTracker extends PointerSource {
 export function trackPointerOver(frame: HTMLElement): PointerTracker {
   let client: { x: number; y: number } | null = null;
   let box = frame.getBoundingClientRect();
+  let scale = scaleOf(frame, box);
   let cover: HTMLElement | null = null;
   const measure = () => {
     box = frame.getBoundingClientRect();
+    scale = scaleOf(frame, box);
   };
   const move = (event: PointerEvent) => {
     client = { x: event.clientX, y: event.clientY };
@@ -103,7 +131,7 @@ export function trackPointerOver(frame: HTMLElement): PointerTracker {
   const view = frame.ownerDocument.defaultView;
   view?.addEventListener("scroll", measure, { capture: true, passive: true });
   return {
-    now: () => (client === null ? null : placeOver(box, client)),
+    now: () => (client === null ? null : placeOver(box, client, scale)),
     stop: () => {
       observer?.disconnect();
       view?.removeEventListener("scroll", measure, { capture: true });

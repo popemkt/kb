@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
 import type { BackdropStrength } from "@kb/model";
-import { usePageBackdrop } from "../hooks";
+import { useBackdrops, usePageBackdrop } from "../hooks";
 import { cardWindowTop } from "../lib/backdrop-card-window";
-import { BackdropPoint, QUIET_ACTIVITY, useContributions } from "../lib/plugins";
-import type { PointerSource } from "../lib/pointer-over";
+import { QUIET_ACTIVITY } from "../lib/plugins";
+import { NO_POINTER } from "../lib/pointer-over";
 import { HoldStill } from "./hold-still";
 import { BackdropFrame } from "./page-backdrop";
 
 /** The width a card draws its backdrop's frame at, then scales into the card: a side panel's, the narrowest a head is drawn. */
 const FRAME_WIDTH = 480;
-/** A sample hears no owner: nothing is being typed or written (`QUIET_ACTIVITY`), and no pointer is over it. */
-const NO_POINTER: PointerSource = { now: () => null };
-
 /** The card's size in CSS pixels. */
 interface CardSize {
   readonly width: number;
@@ -76,7 +73,7 @@ export function BackdropCard({
   /** The strength the card shows; by default the one in force (a setting's preview shows what it sets). */
   readonly strength?: BackdropStrength;
 }) {
-  const backdrop = useContributions(BackdropPoint).find(({ value }) => value.key.id === id);
+  const backdrop = useBackdrops().shown.find(({ value }) => value.key.id === id);
   const { strength: inForce, direction, art, variants } = usePageBackdrop();
   const strength = shown ?? inForce;
   const [box, setBox] = useState<HTMLSpanElement | null>(null);

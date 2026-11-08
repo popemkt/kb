@@ -38,6 +38,10 @@ const broadcast: Omit<Backdrop, "key"> = {
     offset: -6,
     opacity: { subtle: 0.72, soft: 0.86, vivid: 1 },
   },
+  interactions: [
+    { cue: "editing", does: "the REC lamp lights" },
+    { cue: "writes", does: "a burst of static crosses the screen" },
+  ],
   Component: BroadcastBackdrop,
 };
 
@@ -62,7 +66,13 @@ export const zzzUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(BROADCAST_BACKDROP, broadcast)),
         ctx.contribute(
           BackdropPoint,
-          provideBackdrop(HOLLOW_BACKDROP, band(HollowBackdrop, BACKDROP_BUDGETS.dom)),
+          provideBackdrop(
+            HOLLOW_BACKDROP,
+            band(HollowBackdrop, BACKDROP_BUDGETS.dom, [
+              { cue: "editing", does: "sparks wake around the rift's eye" },
+              { cue: "writes", does: "the lit screen steps on and a surge leaves the rift" },
+            ]),
+          ),
         ),
       ],
       { discard: true },

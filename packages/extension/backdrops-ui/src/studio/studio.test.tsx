@@ -33,6 +33,7 @@ import {
   syncUiPlugins,
   type BackdropProps,
   type OutlineNode,
+  type PointerSource,
 } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin, type TestBrowserHost } from "@kb/ui-test-kit";
 import { budgetWarning } from "./budget-warning";
@@ -61,20 +62,32 @@ const OTHER: SeedBackdrop = { id: "elsewhere.wash", label: "Wash" };
 
 /** Every mount of a probe's scene, by its backdrop's id: the studio runs the one it shows. */
 let mounts: string[] = [];
+/** Every pointer source a probe's scene was handed, in order. */
+let pointers: PointerSource[] = [];
 
 function probeScene(id: string) {
-  return function ProbeScene({ knobs, variant, strength }: BackdropProps) {
+  return function ProbeScene({ knobs, variant, strength, activity, node, pointer }: BackdropProps) {
     if (!mounts.includes(id)) mounts.push(id);
+    if (pointers.at(-1) !== pointer) pointers.push(pointer);
     return (
       <div
         data-probe={id}
         data-variant={variant ?? ""}
         data-strength={strength}
         data-knobs={JSON.stringify(knobs)}
+        data-activity={JSON.stringify(activity)}
+        data-node={node?.id ?? ""}
       />
     );
   };
 }
+
+/** What the probe answers: the pointer, typing and a change from elsewhere, as the studio lists and tries them. */
+const PROBE_INTERACTIONS = [
+  { cue: "pointer", does: "a dot follows the cursor" },
+  { cue: "editing", does: "the dot slows" },
+  { cue: "arrivals", does: "the dot blinks" },
+] as const;
 
 const presentation = {
   space: 100,
@@ -96,6 +109,7 @@ const probes = definePlugin({
           provideBackdrop(PROBE, {
             presentation,
             budget: BACKDROP_BUDGETS.gpu,
+            interactions: PROBE_INTERACTIONS,
             Component: probeScene(PROBE.id),
           }),
         ),
@@ -104,6 +118,7 @@ const probes = definePlugin({
           provideBackdrop(OTHER, {
             presentation,
             budget: BACKDROP_BUDGETS.dom,
+            interactions: [],
             Component: probeScene(OTHER.id),
           }),
         ),
@@ -161,6 +176,15 @@ const button = (name: string): HTMLButtonElement => {
   return found;
 };
 
+/** The probe's scene, and the activity the studio hands it. */
+const probe = () => document.querySelector("[data-probe]");
+const activity = () =>
+  JSON.parse(probe()?.getAttribute("data-activity") ?? "{}") as Record<string, unknown>;
+/** The studio's stage, and the size its scene is laid out at. */
+const stage = () => document.querySelector("[data-studio-stage]");
+const size = () =>
+  document.querySelector("[data-studio-scene-size]")?.getAttribute("data-studio-scene-size");
+
 const node = (id: string, props: OutlineNode["props"] = {}): OutlineNode =>
   ({ id, text: id, props, children: [] }) as unknown as OutlineNode;
 
@@ -174,6 +198,7 @@ describe("Backdrop Studio", () => {
   });
   beforeEach(() => {
     mounts = [];
+    pointers = [];
     written = [];
     const base = testBrowserHost();
     host = testBrowserHost({
@@ -225,7 +250,7 @@ describe("Backdrop Studio", () => {
     try {
       act(() => root.render(<StudioPage />));
       const strengths = [...document.querySelectorAll<HTMLElement>("[data-probe]")].map(
-        (probe) => probe.dataset.strength,
+        (scene) => scene.dataset.strength,
       );
       expect(strengths).toEqual(["vivid", "vivid"]);
       // A dark gallery's exposure is the gallery's own filter.
@@ -314,6 +339,87 @@ describe("Backdrop Studio", () => {
     ]);
   });
 
+  test("it lists what the backdrop answers, each cue said in words, and says when it answers nothing", () => {
+    act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+    const rows = [...document.querySelectorAll("[data-studio-cue]")];
+    expect(rows.map((cue) => cue.getAttribute("data-studio-cue"))).toEqual([
+      "pointer",
+      "editing",
+      "arrivals",
+    ]);
+    expect(rows[0]?.textContent).toContain("Pointer");
+    expect(rows[0]?.textContent).toContain("a dot follows the cursor");
+    expect(rows[1]?.textContent).toContain("Typing");
+    act(() => root.render(<StudioPage backdrop={OTHER.id} />));
+    expect(document.querySelector("[data-studio-interactions]")?.textContent).toContain(
+      "It answers nothing",
+    );
+  });
+
+  test("Interact hands the scene the person's pointer, and acts out each cue as a page's owner would", () => {
+    act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+    // Outside Interact, the pointer is the studio's (it pans): the scene's answers none, and nothing can be tried.
+    expect(pointers.at(-1)?.now()).toBeNull();
+    expect(document.querySelector('[aria-label^="Try:"]')).toBeNull();
+    act(() => button("Interact with the scene").click());
+    expect(button("Stop interacting").getAttribute("aria-pressed")).toBe("true");
+    act(() => button("Stop interacting").click());
+    act(() => button("Interact with the scene").click());
+    // Switching hands the scene nothing new: one pointer source for its life, so nothing set up around it restarts.
+    expect(pointers).toHaveLength(1);
+    expect(mounts).toEqual([PROBE.id]);
+    act(() => button("Try: A change from elsewhere").click());
+    expect(activity()).toMatchObject({ arrivals: 1, editing: false });
+    vi.useFakeTimers();
+    try {
+      act(() => button("Try: Typing").click());
+      expect(button("Try: Typing").disabled).toBe(true);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(activity()).toMatchObject({ editing: true });
+      act(() => {
+        vi.runAllTimers();
+      });
+      expect(activity()).toMatchObject({ editing: false, arrivals: 1 });
+      expect(activity()["writes"]).toBeGreaterThan(0);
+      expect(button("Try: Typing").disabled).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("the scene is framed as a page head's strip, the full page or an aspect, fitted, and zooms to 1:1 and back", () => {
+    const sizes = { clientWidth: 1000, clientHeight: 500 };
+    const restore = Object.entries(sizes).map(([key, value]) => {
+      const was = Object.getOwnPropertyDescriptor(HTMLElement.prototype, key);
+      Object.defineProperty(HTMLElement.prototype, key, { configurable: true, get: () => value });
+      return () => {
+        if (was !== undefined) Object.defineProperty(HTMLElement.prototype, key, was);
+      };
+    });
+    try {
+      act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+      expect(size()).toBe("1000x500");
+      expect(stage()?.getAttribute("data-studio-zoom")).toBe("1.00");
+      act(() => button("Page head").click());
+      expect(size()).toBe(`1000x${presentation.height}`);
+      act(() => button("Aspect").click());
+      act(() => button("9:16").click());
+      expect(size()).toBe("1000x1778");
+      // Fitted, the whole of it shows.
+      expect(Number(stage()?.getAttribute("data-studio-zoom"))).toBeCloseTo(500 / 1778, 2);
+      act(() => button("Its own size, 1:1").click());
+      expect(stage()?.getAttribute("data-studio-zoom")).toBe("1.00");
+      act(() => button("Zoom in").click());
+      expect(stage()?.getAttribute("data-studio-zoom")).toBe("1.25");
+      act(() => button("Reset the view").click());
+      expect(Number(stage()?.getAttribute("data-studio-zoom"))).toBeCloseTo(500 / 1778, 2);
+    } finally {
+      for (const undo of restore) undo();
+    }
+  });
+
   test("a backdrop nothing contributes says so", () => {
     act(() => root.render(<StudioPage backdrop="gone.away" />));
     expect(document.body.textContent).toContain("No such backdrop");
@@ -331,9 +437,57 @@ const plugged = definePlugin({
       provideBackdrop(PLUGGED, {
         presentation,
         budget: BACKDROP_BUDGETS.canvas,
+        interactions: [{ cue: "pointer", does: "a lamp follows the cursor" }],
         Component: probeScene(PLUGGED.id),
       }),
     ),
+});
+
+/**
+ * A repository extension built against an older SDK: its Ember says nothing
+ * of what it answers (`interactions` came later), its Smoke says it in a
+ * shape the contract never had, and its Ash's variants are not a list. Contributed as its page half's bytes
+ * would be, untyped.
+ */
+const EMBER: SeedBackdrop = { id: "lagging.ember", label: "Ember" };
+const SMOKE: SeedBackdrop = { id: "lagging.smoke", label: "Smoke" };
+const ASH: SeedBackdrop = { id: "lagging.ash", label: "Ash" };
+const lagging = definePlugin({
+  name: "lagging",
+  apply: (ctx) => {
+    const ember = provideBackdrop(EMBER, {
+      presentation,
+      budget: BACKDROP_BUDGETS.canvas,
+      interactions: [],
+      Component: probeScene(EMBER.id),
+    });
+    Reflect.deleteProperty(ember.value, "interactions");
+    const smoke = provideBackdrop(SMOKE, {
+      presentation,
+      budget: BACKDROP_BUDGETS.canvas,
+      interactions: [],
+      Component: probeScene(SMOKE.id),
+    });
+    Reflect.set(smoke.value, "interactions", "it swirls");
+    const ash = provideBackdrop(
+      { ...ASH },
+      {
+        presentation,
+        budget: BACKDROP_BUDGETS.canvas,
+        interactions: [],
+        Component: probeScene(ASH.id),
+      },
+    );
+    Reflect.set(ash.value.key, "variants", {});
+    return Effect.all(
+      [
+        ctx.contribute(BackdropPoint, ember),
+        ctx.contribute(BackdropPoint, smoke),
+        ctx.contribute(BackdropPoint, ash),
+      ],
+      { discard: true },
+    );
+  },
 });
 
 const REACH = { files: [], host: { server: [], page: [] }, builtins: [] };
@@ -394,6 +548,7 @@ const manifestReaders = new Set<() => void>();
 
 describe("Backdrop Studio, from plugins", () => {
   let root: Root;
+  let pluginHost: TestBrowserHost;
 
   beforeAll(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -402,7 +557,7 @@ describe("Backdrop Studio, from plugins", () => {
     mounts = [];
     served = REPORT;
     manifestReaders.clear();
-    const host = testBrowserHost({
+    pluginHost = testBrowserHost({
       invoke: (id) =>
         Promise.resolve(
           id === "extension.list"
@@ -414,8 +569,8 @@ describe("Backdrop Studio, from plugins", () => {
         return () => manifestReaders.delete(listener);
       },
     });
-    host.setNodes([node(HOLE), node(extensionNodeId("core"))]);
-    syncUiPlugins([testHostPlugin(host), probes, plugged]);
+    pluginHost.setNodes([node(HOLE), node(extensionNodeId("core"))]);
+    syncUiPlugins([testHostPlugin(pluginHost), probes, plugged]);
     root = createRoot(document.body.appendChild(document.createElement("div")));
   });
   afterEach(() => {
@@ -480,6 +635,55 @@ describe("Backdrop Studio, from plugins", () => {
     await shown(<StudioPage backdrop={PLUGGED.id} />);
     expect(mounts).toEqual([PLUGGED.id]);
     expect(document.querySelector("[data-studio-from]")?.textContent).toBe("from plugged");
+  });
+
+  describe("built against an older SDK", () => {
+    beforeEach(() => {
+      served = {
+        ...REPORT,
+        extensions: [
+          ...REPORT.extensions,
+          row("lagging", {
+            origin: { kind: "own" },
+            trusted: true,
+            reach: { ...REACH, page: true },
+          }),
+        ],
+      };
+      syncUiPlugins([testHostPlugin(pluginHost), probes, plugged, lagging]);
+    });
+
+    test("a backdrop that says nothing of what it answers is drawn, answering nothing", async () => {
+      await shown(<StudioPage />);
+      expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toContain(EMBER.id);
+      await shown(<StudioPage backdrop={EMBER.id} />);
+      expect(mounts).toContain(EMBER.id);
+      expect(document.querySelector("[data-studio-interactions]")?.textContent).toContain(
+        "It answers nothing",
+      );
+    });
+
+    test("a malformed one is refused on its own card, with why, and every other is drawn", async () => {
+      await shown(<StudioPage />);
+      const refused = document.querySelector(`[data-studio-refused="${SMOKE.id}"]`);
+      expect(refused?.textContent).toContain("Smoke");
+      expect(refused?.textContent).toContain("can't be shown");
+      expect(refused?.textContent).toContain("from lagging");
+      expect(refused?.textContent).toContain('Expected array at ["interactions"]');
+      const ash = document.querySelector(`[data-studio-refused="${ASH.id}"]`);
+      expect(ash?.textContent).toContain('["key"]["variants"]');
+      expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toEqual(
+        expect.arrayContaining([PLUGGED.id, EMBER.id]),
+      );
+      expect(cardsIn(document.querySelector("[data-studio-gallery]")).slice(0, 2)).toEqual([
+        PROBE.id,
+        OTHER.id,
+      ]);
+      expect(mounts).not.toContain(SMOKE.id);
+      await shown(<StudioPage backdrop={SMOKE.id} />);
+      expect(document.body.textContent).toContain("This backdrop can't be shown");
+      expect(mounts).not.toContain(SMOKE.id);
+    });
   });
 
   test("kb's own backdrop is from no extension", async () => {

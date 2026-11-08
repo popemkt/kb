@@ -1075,6 +1075,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
 - **node** — `01M6950YQJFX3TYG608GNVHRX4`
 
+### GAP: only BackdropPoint checks what a repository extension contributes; the page's other points trust its types
+
+- **expected** — Every page point a repository extension can contribute to reads each contribution through a check owned by its point (as useBackdrops reads BackdropPoint), so one malformed contribution is refused alone and never throws in a reader
+- **current** — BackdropPoint is read through decodeBackdrop; ViewPoint, RoutePoint, SidebarSectionPoint, DockPoint, OverlayPoint, CommandPoint and DesignSystemPoint hand readers what the kernel holds as the plugin typed it (asKeyType)
+- **impact** — A page half built against an older SDK, or malformed, can throw in the shell's readers of those points (a view, a route, a command) instead of being refused on its own
+- **closes** — A point key carries its check (a decoder the kernel or its one reader applies), with refusals recorded per contribution and shown where the point is drawn; backdrops move onto that mechanism
+- **node** — `01M6XKP09V8E144HJBXMBV0MFK`
+
 ### GAP: only text cards can be promoted to nodes
 
 - **expected** — shapes promotable
@@ -1687,6 +1695,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the sidebar agent and remote hosts cannot see the capture
 - **closes** — mcpToolResult sends image content
 - **node** — `01M42Q9HJJ0H5GDGXKJ2CW5HEC`
+
+### GAP: Unicorn reads its cursor position from the window, not the pointer source
+
+- **expected** — Every backdrop that answers the pointer reads it from BackdropProps.pointer (frame-local, in the frame's own pixels, correct under a CSS scale such as Studio's zoom)
+- **current** — The vendored Unicorn Studio runtime listens to window mouse events itself and places the cursor in screen pixels; kb only gates whether it follows (interactivity.mouse.disabled from pointer.now()), so outside Interact or off the frame it is still, but under a Studio zoom other than 1:1 its cursor lands off by the zoom
+- **impact** — In Backdrop Studio at a zoom other than 1:1, Unicorn's nebula drifts toward a point offset from the cursor; page heads (unscaled) are unaffected
+- **closes** — The runtime takes its cursor from kb (an input hook, or a scene we draw ourselves), or kb writes the vendor scene's mouse state from the pointer source with interactivity.mouse.disabled held on
+- **node** — `01M6XGS4KEXS9321E2JXHRYRK5`
 
 ### GAP: untrusted sandbox code runs on the frame's main thread
 

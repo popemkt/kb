@@ -4525,14 +4525,45 @@ A PR for a backdrop reports a score against each criterion.
     nearest word, beside the pointer: that double-click is still the
     backdrop's, and the word it selected is let go. A selection that stood
     before the double-click began is the person's, and stays.
-  - **Clear of the title.** The corner stands inside the frame's top edge
-    (`cornerTop`), unless that would bring it down on the title, as for a
-    backdrop with little or no breathing room; then it is lifted until it
-    clears the title, above it.
+  - **Clear of the title, and of the header.** The corner stands inside
+    the frame's top edge (`cornerTop`), unless that would bring it down on
+    the title, as for a backdrop with little or no breathing room; then it
+    is lifted until it clears the title, above it. It never stands above
+    the breathing room's own top, inset: a frame that starts higher, behind
+    the page's header, would otherwise put it under the header's edge.
+    Where the room is too short for both, the inset wins.
   - **Asks for nothing.** The corner fades after a few seconds unless the
     pointer or focus is on it, Escape dismisses it, it takes no focus, and
     running an action closes it. It is a positioned layer beside the
     frame's, not in it, so it paints and is clicked above the page.
+- **Its interactions.** A backdrop's contribution says what it answers
+  (`Backdrop.interactions`): each a cue and a line on what it does when
+  the cue moves ("birds scatter from the cursor"). A cue is the pointer
+  over its frame, a move to another page, or one of the things its
+  activity says the owner does (`PageActivity`: typing is `editing`; a
+  write; a change from elsewhere, an error, an agent's turn), so the
+  activity's fields name them (`BackdropCue`), and one table names each
+  for a person (`BACKDROP_CUE_LABELS`). It is stated for every backdrop,
+  empty for one that answers nothing, kb's, a theme's and a plugin's
+  alike; the contract holds each to a known cue, said in one line.
+  Backdrop Studio lists them and lets a person try them (Backdrop Studio
+  → Interact).
+- **Read once, checked.** A repository extension's page half is
+  third-party code built against whichever SDK it was, and will lag the
+  contract. So the page never draws what `BackdropPoint` holds as the
+  kernel holds it: every reader (a head, a card, Settings, the studio)
+  reads it through one check (`useBackdrops`, `decodeBackdrop`). A list
+  the contract has since required and a contribution left out is its
+  empty value (`interactions`, none). Anything else that is not what the
+  contract says (a field missing or of the wrong shape, its key's variants,
+  knobs and credit with them) refuses that one backdrop, with where and
+  why, and leaves every other drawn. The check is a `Schema` of the
+  contract; a component is any React draws, a function or a `memo` or
+  `forwardRef`. Reading a page half's value may run its code (a getter):
+  what that throws refuses it too, and what the page keeps is a copy. A page head whose
+  choice was refused falls through as for one nobody contributes, and the
+  studio shows it as a card that says it can't be shown, and why. kb's
+  own backdrops pass the same check, and the contract holds them to it.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -5531,6 +5562,10 @@ it as kb's own are, and a family switched off takes its backdrops out.
     read again whenever the page reads the server's manifest again
     (`BrowserHost.subscribeManifest`), so installing, trusting, switching
     or removing one is drawn, even when no plugin of the page moves.
+  - **Refused.** A backdrop the page's check refused (Page-head
+    backdrops → Read once, checked) is a card with no picture where its
+    own would be: its name, its extension, and why, so one malformed
+    backdrop is a warning on its own card only; its page says the same.
   - **Needing approval.** Each repository extension that has a page half
     and is not trusted is listed in that section as a card with no
     picture: its name, its source, and that kb runs none of its code until
@@ -5544,10 +5579,10 @@ it as kb's own are, and a family switched off takes its backdrops out.
   counts four times over, so a wash or a dusk scene, made to sit quietly
   behind a page's text, reads as itself; a scene that paints its own
   ground is opaque and shows as it is. Pages never see it.
-- **One backdrop** is its scene full-size in the frame every head draws
-  (`BackdropFrame`, its placement the whole page under a thin header), so
-  what the studio shows is what a head shows, and it is the only scene
-  running: the gallery is not mounted under it.
+- **One backdrop** is its scene in the frame every head draws
+  (`BackdropFrame`), under a thin header and the framing bar, so what the
+  studio shows is what a head shows, and it is the only scene running: the
+  gallery is not mounted under it.
   - The header: back to the gallery, its name and credit, a variant
     switcher (it pins the one shown; the studio opens on the variant a
     head would draw now), a strength preview (the studio's own, written
@@ -5568,6 +5603,32 @@ it as kb's own are, and a family switched off takes its backdrops out.
     A scene over its budget is warned of in words, not in colour alone:
     _over budget_, and _over budget at its lowest quality_ once its meter
     has nothing left to step down.
+  - **Framing.** The scene is laid out at its own size and scaled on
+    screen (`framing.ts`), so at 1:1 a pixel of it is a pixel of a page
+    and its meter measures what a page would pay. Its size is a
+    preview: the **page head**'s strip (the studio's width at its
+    presentation's height), the **full page** (the studio's viewport, as
+    it opens), or an **aspect** of chosen proportions across the width.
+    Its zoom is **Fit** (the whole scene, whatever the viewport's size,
+    below the smallest step if that is what it takes; how it opens),
+    **1:1**, or a step in or out, about the viewport's centre; a scene larger than the viewport is panned by dragging it,
+    held so no edge comes inside, and **Reset** fits and centres it
+    again. Choosing a preview fits it. The panels over the scene are
+    never scaled, and a press on one is the panel's, not a pan.
+  - **Interact.** The backdrop's interactions (Its interactions, above)
+    are a panel over the scene, each its cue in words and its line. The
+    **Interact** switch hands the scene the person's pointer: outside it
+    the scene's pointer answers none, and dragging pans. It is one pointer
+    source for the scene's life (`gatedPointer`), so switching restarts
+    nothing set up around it. A scene whose runtime reads the mouse itself
+    is held to that source too (Unicorn, `followPointer`). In it, each cue that is
+    not the pointer can be tried: the studio stands in for the page's
+    owner (`useStudioActivity`), so **Try** on a write or one of the
+    page's events counts it once more in the activity the scene is
+    handed, on typing plays a burst of keystrokes (editing, a write each,
+    then a pause and no longer editing), and on another page hands it a
+    page of its own, so a scene hears a move. The scene reads them as it
+    reads a page's, so what it does here is what a page would make it do.
 - **Reached** from a page head: a double-click on its backdrop offers
   _Open in Studio_ (Its actions, above), which opens the backdrop shown.
 - **Lazy.** The page's module and everything under it load only when the

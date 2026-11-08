@@ -306,10 +306,25 @@ export interface BackdropProps {
  * component the slot draws wherever it is shown (a head, a card, the
  * studio).
  */
+/**
+ * What a backdrop can be seen to answer: the pointer over its frame, a
+ * move to another page, or one of the things its activity says the owner
+ * does (`PageActivity`: typing in a node is `editing`).
+ */
+export type BackdropCue = "pointer" | "navigation" | keyof PageActivity;
+
+/** One thing a backdrop does when its cue moves, said in a line ("ripples follow the cursor"). */
+export interface BackdropInteraction {
+  readonly cue: BackdropCue;
+  readonly does: string;
+}
+
 export interface Backdrop {
   readonly key: SeedBackdrop;
   readonly presentation: BackdropPresentation;
   readonly budget: BackdropBudget;
+  /** What it answers, as Backdrop Studio lists them and lets a person try them; none, for one that answers nothing. */
+  readonly interactions: readonly BackdropInteraction[];
   /** A function component: what the slot hands it may be more than its props declare. */
   readonly Component: FunctionComponent<BackdropProps>;
 }

@@ -61,6 +61,16 @@ const dropsBudget: Declares<
   Omit<DataOf<Contributed<Page["BackdropPoint"]>>, "budget">
 > = false;
 
+/**
+ * What a backdrop says it answers is held exactly, not as a contribution
+ * is: a contribution may declare a part, so a cue the surface dropped from
+ * `BackdropCue` would still be one the page reads, and an author would
+ * lose it with nothing red. The witness: a surface missing a cue fails.
+ */
+const cues: Same<UiSdk.BackdropCue, PageSurface.BackdropCue> = true;
+const interactions: Same<UiSdk.BackdropInteraction, PageSurface.BackdropInteraction> = true;
+const dropsACue: Same<UiSdk.BackdropCue, Exclude<PageSurface.BackdropCue, "navigation">> = false;
+
 describe("the page SDK surface", () => {
   it("declares only what the page serves, exactly, in shapes the page reads", () => {
     expect([served, points, pointData, providers, values, dropsBudget]).toEqual([
@@ -71,5 +81,9 @@ describe("the page SDK surface", () => {
       true,
       false,
     ]);
+  });
+
+  it("names the cues a backdrop answers exactly as the page does", () => {
+    expect([cues, interactions, dropsACue]).toEqual([true, true, false]);
   });
 });

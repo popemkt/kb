@@ -13,11 +13,11 @@ import type { Contribution } from "@kb/plugin";
 import type { ExtensionReportRow } from "@kb/contracts";
 import {
   BackdropCard,
-  BackdropPoint,
   navigate,
-  useContributions,
+  useBackdrops,
   usePageBackdrop,
   type Backdrop,
+  type RefusedBackdrop,
 } from "@kb/ui-sdk";
 import { familyOf, sourceOf, type PluginExtensions } from "./plugin-extensions";
 import { studioPath } from "./routes";
@@ -88,6 +88,38 @@ function GalleryCard({
 }
 
 /**
+ * A contribution kb would not draw (`useBackdrops`' refused): no picture,
+ * its name if it gave one, whose it is, and why, so one malformed backdrop
+ * is a warning on its own card and every other card is as it was.
+ */
+function RefusedCard({
+  refused,
+  from,
+}: {
+  readonly refused: RefusedBackdrop;
+  readonly from: string | null;
+}) {
+  return (
+    <li
+      data-studio-refused={refused.id}
+      className="flex flex-col gap-2 rounded-lg border border-dashed border-warning/40 p-3"
+    >
+      <span className="flex items-baseline gap-2">
+        <span className="text-ui font-medium text-foreground/80">
+          {refused.label ?? refused.id}
+        </span>
+        <span className="text-label text-warning">can't be shown</span>
+      </span>
+      {from === null ? null : <span className="text-label text-foreground/50">from {from}</span>}
+      <span className="text-label text-foreground/55">
+        kb refused what it contributes: {refused.why}. Its other backdrops are unaffected; an update
+        to its extension may fix it.
+      </span>
+    </li>
+  );
+}
+
+/**
  * A repository extension no one has trusted here: kb runs none of its code,
  * so it draws no picture and names no backdrop, only that it waits on a
  * person, and how they trust it.
@@ -117,9 +149,9 @@ function AwaitingCard({ row }: { readonly row: ExtensionReportRow }) {
 }
 
 export function StudioGallery({ plugins }: { readonly plugins: PluginExtensions }) {
-  const backdrops = useContributions(BackdropPoint);
+  const { shown: backdrops, refused } = useBackdrops();
   const page = usePageBackdrop();
-  const fromOf = ({ owner }: Contribution<Backdrop>): string | null => {
+  const fromOf = ({ owner }: { readonly owner: string }): string | null => {
     const family = familyOf(owner);
     return plugins.rows.has(family) ? family : null;
   };
@@ -131,8 +163,13 @@ export function StudioGallery({ plugins }: { readonly plugins: PluginExtensions 
       yours={page.backdrop?.value.key.id === backdrop.value.key.id}
     />
   );
+  const refusedCard = (backdrop: RefusedBackdrop) => (
+    <RefusedCard key={backdrop.id} refused={backdrop} from={fromOf(backdrop)} />
+  );
   const own = backdrops.filter((backdrop) => fromOf(backdrop) === null);
   const plugged = backdrops.filter((backdrop) => fromOf(backdrop) !== null);
+  const ownRefused = refused.filter((backdrop) => fromOf(backdrop) === null);
+  const pluggedRefused = refused.filter((backdrop) => fromOf(backdrop) !== null);
   return (
     <div className="h-full overflow-y-auto" data-studio-gallery="">
       <GalleryExposure />
@@ -144,12 +181,18 @@ export function StudioGallery({ plugins }: { readonly plugins: PluginExtensions 
             its knobs.
           </p>
         </header>
-        <ul className={GRID}>{own.map(card)}</ul>
-        {plugged.length === 0 && plugins.awaiting.length === 0 ? null : (
+        <ul className={GRID}>
+          {own.map(card)}
+          {ownRefused.map(refusedCard)}
+        </ul>
+        {plugged.length === 0 &&
+        pluggedRefused.length === 0 &&
+        plugins.awaiting.length === 0 ? null : (
           <section className="flex flex-col gap-3" data-studio-plugins="">
             <h2 className="text-ui font-medium text-foreground/70">From plugins</h2>
             <ul className={GRID}>
               {plugged.map(card)}
+              {pluggedRefused.map(refusedCard)}
               {plugins.awaiting.map((row) => (
                 <AwaitingCard key={row.name} row={row} />
               ))}
