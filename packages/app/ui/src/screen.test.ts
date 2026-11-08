@@ -22,7 +22,13 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@kb/canvas-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
-import { getPath, navigate, syncUiPlugins, type PaneCarryOut } from "@kb/ui-sdk";
+import {
+  paletteStepsPlugin,
+  getPath,
+  navigate,
+  syncUiPlugins,
+  type PaneCarryOut,
+} from "@kb/ui-sdk";
 import { SCREEN_PUBLISH_MS, screenPlugin } from "@/screen";
 import { useGraphStore } from "@/stores/graph.store";
 import { useScreenStore } from "@/stores/screen.store";
@@ -108,7 +114,14 @@ describe("the tab's screen", () => {
 
   it("publishes the route and its view on start, then each change once, throttled", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      canvasUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(published).toHaveLength(1);
     expect(published[0]).toMatchObject({
       route: "/",
@@ -134,7 +147,13 @@ describe("the tab's screen", () => {
 
   it("carries what the open view reports: its subject, focus and selection", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     report();
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
     expect(published.at(-1)?.panes).toEqual([
@@ -151,13 +170,26 @@ describe("the tab's screen", () => {
   it("names no view on a path no view owns", () => {
     navigate("/nowhere");
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(published[0]?.panes[0]?.view).toBeNull();
   });
 
   it("navigates to a route a view owns, and refuses one no view owns", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      canvasUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(carryOut({ kind: "navigate", to: { route: "/canvas" } })).toEqual({
       outcome: "applied",
     });
@@ -171,7 +203,14 @@ describe("the tab's screen", () => {
 
   it("opens a node at its node route, in its default view, and refuses one it does not have", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      canvasUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     navigate("/canvas");
     expect(carryOut({ kind: "navigate", to: { node: "n.root-a" } })).toEqual({
       outcome: "applied",
@@ -185,7 +224,14 @@ describe("the tab's screen", () => {
 
   it("publishes every pane, the focused one active, and carries a command to the pane it names", () => {
     const { plugin, published, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      canvasUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     const right = useWorkspaceStore.getState().openBeside("main", "/node/n.root-b");
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
     expect(published.at(-1)).toMatchObject({
@@ -234,6 +280,7 @@ describe("the tab's screen", () => {
     // The view a node opens in is named through the page's catalog: core's
     // declared views and the graph family's.
     syncUiPlugins([
+      paletteStepsPlugin,
       browserHostUiPlugin,
       declarationPlugin(coreExtension),
       graphPlugin(),
@@ -251,7 +298,13 @@ describe("the tab's screen", () => {
 
   it("hands a select to the open view, whose answer is the tab's", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(carryOut({ kind: "select", selection: [] })).toEqual({
       outcome: "rejected",
       reason: "the open view takes no selection",
@@ -270,7 +323,14 @@ describe("the tab's screen", () => {
 
   it("hands a camera target to the open view, or to the one a navigate opens once it reports", async () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      canvasUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     const look = vi.fn((): ScreenAck => ({ outcome: "applied" }));
     report(look);
     expect(carryOut({ kind: "navigate", camera: { preset: "front" } })).toEqual({
@@ -298,7 +358,13 @@ describe("the tab's screen", () => {
 
   it("refuses a pane it does not have", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(carryOut({ kind: "navigate", pane: "right", to: { route: "/" } })).toEqual({
       outcome: "rejected",
       reason: "no pane right; this tab has main",
@@ -307,7 +373,13 @@ describe("the tab's screen", () => {
 
   it("picks a fresh id and publishes again when its id is refused", () => {
     const { plugin, ids, refused } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(ids).toEqual(["tab.first"]);
     // A refusal for an id it no longer uses changes nothing.
     refused("tab.other");
@@ -319,7 +391,13 @@ describe("the tab's screen", () => {
 
   it("retries a screen it could not read on the next tick, without another change", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     // A subject no record holds, as a view part-way through an update might report.
     const midUpdate = { subject: "", focused: null, selection: [] };
     useScreenStore.setState({
@@ -340,7 +418,7 @@ describe("the tab's screen", () => {
 
   it("serves its own screen to the page's calls, as its person's and under the id it publishes as", () => {
     const { plugin, served } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, plugin]);
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, outlineUiPlugin, plugin]);
     report();
     useUiStore.setState({ person: { name: "A" } });
     const screens = served();
@@ -366,22 +444,34 @@ describe("the tab's screen", () => {
       ),
     );
     expect(exit._tag).toBe("Failure");
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin]);
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, outlineUiPlugin]);
     expect(served()).toBeNull();
   });
 
   it("does nothing where there is no page", () => {
     const { plugin, published, installed } = tab(() => null);
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(published).toEqual([]);
     expect(installed()).toBe(false);
   });
 
   it("stops publishing and carrying out commands when it unloads", () => {
     const { plugin, published, installed } = tab();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
     expect(installed()).toBe(true);
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin]);
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, outlineUiPlugin]);
     expect(installed()).toBe(false);
     navigate("/canvas");
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);

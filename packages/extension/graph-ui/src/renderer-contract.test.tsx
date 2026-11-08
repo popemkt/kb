@@ -27,7 +27,7 @@ import { EmphasisFade } from "./graph-fade";
 import { CONTRIBUTED_GRAPH_THEMES } from "./contributed-themes";
 import type { Force3dScene } from "./force3d-scene";
 import type { GraphFrame } from "./graph-frame";
-import type { Appearance } from "@kb/ui-sdk";
+import { paletteStepsPlugin, type Appearance } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
 import { buildTreeForest, type LensEdge, type LensPerspective, type LensTheme } from "@kb/graph";
 import type * as UiSdk from "@kb/ui-sdk";
@@ -137,6 +137,7 @@ const DARK: Appearance = { designSystem: "kb", dark: true, key: "kb:dark" };
 const RENDERERS = (() => {
   const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(hostPlugin));
+  Effect.runSync(kernel.load(paletteStepsPlugin));
   Effect.runSync(kernel.load(graphUiPlugin));
   const renderers = familyViews(kernel.contributions(ViewPoint), isRendererKey);
   return new Map(renderers.map(({ key }) => [localIdOf(key), key]));
@@ -243,7 +244,7 @@ describe("graph renderer contract", () => {
   const saved = new Map<string, unknown>();
 
   beforeAll(() => {
-    syncUiPlugins([hostPlugin, graphUiPlugin]);
+    syncUiPlugins([paletteStepsPlugin, hostPlugin, graphUiPlugin]);
     dom = new Window();
     const globals: Record<string, unknown> = {
       window: dom,

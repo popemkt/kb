@@ -94,6 +94,7 @@ export {
   type PaletteStepGraph,
   type PaletteStepPick,
   PaletteStepPoint,
+  paletteStepsPlugin,
   type PaletteSurface,
 } from "./lib/command-point";
 export {

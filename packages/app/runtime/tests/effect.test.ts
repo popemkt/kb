@@ -2,7 +2,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Result, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { runWithKb, kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
@@ -266,6 +266,27 @@ describe("Standard Schema v1 seam", () => {
     expect(Effect.runPromise(parseBySchema(schema, { n: "x" }))).rejects.toThrow(/expected/);
     // Non-zod vendors emit a permissive JSON Schema for manifests.
     expect(schemaToJsonSchema(schema, "input")).toEqual({ type: "object" });
+  });
+
+  test("Effect Standard Schema values use the same action contract", async () => {
+    const schema = Schema.toStandardSchemaV1(Schema.String);
+    expect(await Effect.runPromise(parseBySchema(schema, "kb"))).toBe("kb");
+    const failure = await Effect.runPromise(Effect.result(parseBySchema(schema, 1)));
+    expect(Result.isFailure(failure)).toBe(true);
+    if (Result.isFailure(failure)) expect(failure.failure).toBeInstanceOf(ActionSchemaError);
+  });
+
+  test("a Standard Schema failure remains a failure without issue details", async () => {
+    const schema = {
+      "~standard": {
+        version: 1 as const,
+        vendor: "test",
+        validate: () => ({ issues: [] }),
+      },
+    };
+    const failure = await Effect.runPromise(Effect.result(parseBySchema(schema, "kb")));
+    expect(Result.isFailure(failure)).toBe(true);
+    if (Result.isFailure(failure)) expect(failure.failure).toBeInstanceOf(ActionSchemaError);
   });
 
   test("parse-only (legacy) schemas still work", async () => {

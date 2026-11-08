@@ -24,7 +24,7 @@ import {
   type LensTheme,
 } from "@kb/graph";
 import type { SeedOption } from "@kb/model";
-import { definePlugin, Point, type Contribution } from "@kb/plugin";
+import { definePlugin, PointName, type PointSpec, type Contribution } from "@kb/plugin";
 import { chosenDeclared, provideDeclared, toRenderableColor, useContributions } from "@kb/ui-sdk";
 import type { GraphLabelStyle } from "./graph-label-paint";
 import type { NodeSurface } from "./force3d-light";
@@ -308,12 +308,13 @@ const CUBE: GraphTheme = {
  * graph's theme kind (`GRAPH_THEME_OPTIONS`), so its option and its
  * contribution are one id. Any family's page plugin may contribute one.
  */
-export const GraphThemePoint = Point<GraphTheme>()("graph.themes", {
+export const GraphThemePoint = PointName<GraphTheme>()("graph.themes");
+const GRAPH_THEME_POINT_SPEC: PointSpec = {
   cardinality: "keyed",
   combine: "lookup by contribution id",
   kernel: "page",
   tier: "T3",
-});
+};
 
 /** The default theme: the graph family's own matte, contributed first. */
 export const DEFAULT_GRAPH_THEME: GraphTheme = MATTE;
@@ -327,12 +328,15 @@ export const graphThemesPlugin = definePlugin({
   name: "graph-themes",
   namespace: GRAPH_NAMESPACE,
   apply: (ctx) =>
-    Effect.all(
-      [MATTE, CEL, FRESNEL, GLASS, BULLET, CUBE].map((theme) =>
-        ctx.contribute(GraphThemePoint, provideDeclared(theme)),
-      ),
-      { discard: true },
-    ),
+    Effect.gen(function* () {
+      const point = yield* ctx.declare(GraphThemePoint, GRAPH_THEME_POINT_SPEC);
+      yield* Effect.all(
+        [MATTE, CEL, FRESNEL, GLASS, BULLET, CUBE].map((theme) =>
+          ctx.contribute(point, provideDeclared(theme)),
+        ),
+        { discard: true },
+      );
+    }),
 });
 
 /**

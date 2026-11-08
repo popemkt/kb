@@ -1,4 +1,5 @@
 import {
+  paletteStepsPlugin,
   applyViewFilters,
   familyViews,
   frameConfigOf,
@@ -37,6 +38,7 @@ import { collectionsUiPlugin } from "@kb/collections-ui";
 const FRAME_VIEWS = (() => {
   const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(browserHostUiPlugin));
+  Effect.runSync(kernel.load(paletteStepsPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   Effect.runSync(kernel.load(collectionsUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);

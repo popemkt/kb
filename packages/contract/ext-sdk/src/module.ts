@@ -12,12 +12,13 @@
 import { Predicate, Result, Schema } from "effect";
 import {
   declarationPlugin,
+  extensionNamespace,
   MANIFEST_SUFFIX,
   type ExtensionDeclaration,
   type ExtensionEntry,
 } from "@kb/contracts";
 import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
-import { isPlugin } from "@kb/plugin";
+import { bindPointNamespace, isPlugin, type Plugin } from "@kb/plugin";
 
 /** A family's name: its `ext.<name>` namespace and its node's. */
 const NAME_RE = /^[\w][\w.-]*$/;
@@ -130,9 +131,29 @@ export function decodeExtensionModule(
     seed === undefined ? declared : { ...declared, seed: (at) => decodeSeedNodes(seed(at)) };
   const entry = Predicate.hasProperty(module, "default") ? module.default : undefined;
   if (entry === undefined)
-    return Result.succeed({ declaration, entry: declarationPlugin(declaration) });
-  if (!isPlugin(entry)) {
-    return Result.fail("default export must be its server entry: a plugin ({ name, apply })");
+    return Result.succeed({
+      declaration,
+      entry: bindPointNamespace(declarationPlugin(declaration), extensionNamespace(name)),
+    });
+  return Result.map(decodeExtensionPlugin(entry, name), (plugin) => ({
+    declaration,
+    entry: plugin,
+  }));
+}
+
+/** Bind repository and installed roots to the identity verified by their host. */
+export function decodeExtensionPlugin(entry: unknown, name: string): Result.Result<Plugin, string> {
+  if (!isPlugin(entry)) return Result.fail("default export must be a plugin ({ name, apply })");
+  if (entry.name !== name)
+    return Result.fail(`entry name ${entry.name} must be its extension's, ${name}`);
+  const namespace = extensionNamespace(name);
+  if (
+    entry.namespace !== undefined &&
+    entry.namespace !== "" &&
+    entry.namespace !== name &&
+    entry.namespace !== namespace
+  ) {
+    return Result.fail(`entry namespace must be ${namespace}`);
   }
-  return Result.succeed({ declaration, entry });
+  return Result.succeed(bindPointNamespace({ ...entry, name }, namespace));
 }

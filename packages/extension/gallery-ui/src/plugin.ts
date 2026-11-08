@@ -10,8 +10,8 @@ import {
   SidebarSectionPoint,
   ViewPoint,
 } from "@kb/ui-sdk";
-import { galleryModelPlugin } from "./model";
-import { galleryMoodboardPlugin } from "./moodboard";
+import { galleryModelPlugin, ComposerModelPoint, COMPOSER_MODEL_POINT_SPEC } from "./model";
+import { galleryMoodboardPlugin, MoodboardPoint, MOODBOARD_POINT_SPEC } from "./moodboard";
 import { GALLERY_WORKFLOW_SURFACES } from "./workflows";
 import { matchGallery, GALLERY_PATH } from "./routes";
 import { GallerySection, GallerySurface } from "./surfaces";
@@ -36,45 +36,49 @@ export const galleryUiPlugin = definePlugin({
   tags: familyTags(galleryExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
-    Effect.all(
-      [
-        ctx.plugin(galleryPlugin()),
-        ctx.plugin(galleryModelPlugin),
-        ctx.plugin(galleryMoodboardPlugin),
-        ...GALLERY_WORKFLOW_SURFACES.map(({ key, Component }, order) =>
+    Effect.gen(function* () {
+      yield* ctx.declare(ComposerModelPoint, COMPOSER_MODEL_POINT_SPEC);
+      yield* ctx.declare(MoodboardPoint, MOODBOARD_POINT_SPEC);
+      yield* Effect.all(
+        [
+          ctx.plugin(galleryPlugin()),
+          ctx.plugin(galleryModelPlugin),
+          ctx.plugin(galleryMoodboardPlugin),
+          ...GALLERY_WORKFLOW_SURFACES.map(({ key, Component }, order) =>
+            ctx.contribute(
+              ViewPoint,
+              provideView(key, {
+                placements: ["inline"],
+                sample: {},
+                picker: { order },
+                Component,
+              }),
+            ),
+          ),
           ctx.contribute(
             ViewPoint,
-            provideView(key, {
-              placements: ["inline"],
+            provideView(GalleryView, {
+              placements: ["page"],
               sample: {},
-              picker: { order },
-              Component,
+              Component: GallerySurface,
             }),
           ),
-        ),
-        ctx.contribute(
-          ViewPoint,
-          provideView(GalleryView, {
-            placements: ["page"],
-            sample: {},
-            Component: GallerySurface,
+          ctx.contribute(
+            RoutePoint,
+            provideRoute({
+              view: GalleryView,
+              match: matchGallery,
+              entry: GALLERY_PATH,
+              frame: () => "full",
+              pendingTitle: () => "Opening the gallery…",
+            }),
+          ),
+          ctx.contribute(SidebarSectionPoint, {
+            id: "section",
+            value: { order: 35, Component: GallerySection },
           }),
-        ),
-        ctx.contribute(
-          RoutePoint,
-          provideRoute({
-            view: GalleryView,
-            match: matchGallery,
-            entry: GALLERY_PATH,
-            frame: () => "full",
-            pendingTitle: () => "Opening the gallery…",
-          }),
-        ),
-        ctx.contribute(SidebarSectionPoint, {
-          id: "section",
-          value: { order: 35, Component: GallerySection },
-        }),
-      ],
-      { discard: true },
-    ),
+        ],
+        { discard: true },
+      );
+    }),
 });

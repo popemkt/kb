@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { LAB_SCENE_IDS, LabView, labExtension, labPlugin, type LabSceneId } from "@kb/lab";
-import { LabStudyPoint } from "./kit/study-point";
+import { LabStudyPoint, LAB_STUDY_POINT_SPEC } from "./kit/study-point";
 import { matchLab } from "./routes";
 import { LAB_STUDIES } from "./studies";
 import { LabSection, LabSurface } from "./surfaces";
@@ -30,11 +30,15 @@ function studies(readsGraph: boolean) {
 const labGraphStudies = definePlugin({
   name: "graph-studies",
   inject: [NodeLinkGraphService],
+  uses: [LabStudyPoint.name],
   apply: (ctx) =>
-    Effect.all(
-      studies(true).map((entry) => ctx.contribute(LabStudyPoint, entry)),
-      { discard: true },
-    ),
+    Effect.gen(function* () {
+      const point = yield* ctx.point(LabStudyPoint);
+      yield* Effect.all(
+        studies(true).map((entry) => ctx.contribute(point, entry)),
+        { discard: true },
+      );
+    }),
 });
 
 /**
@@ -56,34 +60,37 @@ export const labUiPlugin = definePlugin({
   tags: familyTags(labExtension, "ui"),
   inject: [BrowserHostService],
   apply: (ctx) =>
-    Effect.all(
-      [
-        ctx.plugin(labPlugin()),
-        ctx.plugin(labGraphStudies),
-        ...studies(false).map((entry) => ctx.contribute(LabStudyPoint, entry)),
-        ctx.contribute(
-          ViewPoint,
-          provideView(LabView, {
-            placements: ["page"],
-            sample: { scene: LAB_SCENE_IDS[0] },
-            Component: LabSurface,
+    Effect.gen(function* () {
+      const point = yield* ctx.declare(LabStudyPoint, LAB_STUDY_POINT_SPEC);
+      yield* Effect.all(
+        [
+          ctx.plugin(labPlugin()),
+          ctx.plugin(labGraphStudies),
+          ...studies(false).map((entry) => ctx.contribute(point, entry)),
+          ctx.contribute(
+            ViewPoint,
+            provideView(LabView, {
+              placements: ["page"],
+              sample: { scene: LAB_SCENE_IDS[0] },
+              Component: LabSurface,
+            }),
+          ),
+          ctx.contribute(
+            RoutePoint,
+            provideRoute({
+              view: LabView,
+              match: matchLab,
+              entry: "/lab",
+              frame: () => "full",
+              pendingTitle: () => "Opening the lab…",
+            }),
+          ),
+          ctx.contribute(SidebarSectionPoint, {
+            id: "section",
+            value: { order: 40, Component: LabSection },
           }),
-        ),
-        ctx.contribute(
-          RoutePoint,
-          provideRoute({
-            view: LabView,
-            match: matchLab,
-            entry: "/lab",
-            frame: () => "full",
-            pendingTitle: () => "Opening the lab…",
-          }),
-        ),
-        ctx.contribute(SidebarSectionPoint, {
-          id: "section",
-          value: { order: 40, Component: LabSection },
-        }),
-      ],
-      { discard: true },
-    ),
+        ],
+        { discard: true },
+      );
+    }),
 });

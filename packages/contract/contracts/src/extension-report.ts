@@ -15,8 +15,18 @@ import { KERNEL_HOSTS, POINT_CARDINALITIES, POINT_TIERS, type PointKey } from "@
 import { ExtensionRowSchema } from "./declaration.ts";
 import type { ExtensionFailure } from "./extension.ts";
 import { FOOTPRINT_SOURCES, type FamilyKernel } from "./footprint.ts";
+const PointSpecSchema = z.object({
+  cardinality: z.enum(POINT_CARDINALITIES),
+  combine: z.string(),
+  kernel: z.union([z.enum(KERNEL_HOSTS), z.array(z.enum(KERNEL_HOSTS)).readonly()]),
+  tier: z.enum(POINT_TIERS),
+  keyBy: z.string().optional(),
+});
+
 const ExtensionReportRowSchema = ExtensionRowSchema.extend({
   tags: z.array(z.string()),
+  declares: z.array(z.object({ point: z.string(), spec: PointSpecSchema })),
+  uses: z.array(z.object({ point: z.string(), from: z.string().nullable() })),
   /** Each service its plugins inject, and the plugin that provides it; null while nobody does. */
   injects: z.array(z.object({ service: z.string(), from: z.string().nullable() })),
   provides: z.array(z.string()),
@@ -26,13 +36,8 @@ const ExtensionReportRowSchema = ExtensionRowSchema.extend({
 
 const OrderedPointSchema = z.object({
   point: z.string(),
-  spec: z.object({
-    cardinality: z.enum(POINT_CARDINALITIES),
-    combine: z.string(),
-    kernel: z.union([z.enum(KERNEL_HOSTS), z.array(z.enum(KERNEL_HOSTS)).readonly()]),
-    tier: z.enum(POINT_TIERS),
-    keyBy: z.string().optional(),
-  }),
+  owner: z.string().nullable(),
+  spec: PointSpecSchema,
   source: z.enum(FOOTPRINT_SOURCES).exclude(["seed"]),
   /** In the order the host asks them; `match` is the calls a listener is asked about, where it names them. */
   listeners: z.array(z.object({ owner: z.string(), id: z.string(), match: z.string().optional() })),
@@ -63,25 +68,42 @@ const ownedBy = (family: string) => (name: string) =>
 export function organisationOf(
   family: string,
   kernels: readonly FamilyKernel[],
-): Pick<ExtensionReportRow, "tags" | "injects" | "provides" | "failures"> {
+): Pick<ExtensionReportRow, "tags" | "injects" | "provides" | "failures" | "declares" | "uses"> {
   const own = ownedBy(family);
   const held = kernels.map(({ kernel }) => ({
     kernel,
     plugins: kernel.plugins().filter((plugin) => own(plugin.name)),
   }));
   const plugins = held.flatMap(({ plugins: mine }) => mine);
+  const requirements = held.flatMap(({ plugins: mine }) => {
+    const needs = mine.flatMap((plugin) => plugin.requirements);
+    return [
+      ...needs.filter(({ from }) => from !== null),
+      ...needs.filter(({ from }) => from === null),
+    ];
+  });
   return {
     tags: [...new Set(plugins.flatMap((plugin) => plugin.tags))],
-    injects: held.flatMap(({ kernel, plugins: mine }) => [
-      ...kernel
-        .dependencies()
-        .filter((edge) => own(edge.from))
-        .map(({ service, to }) => ({ service, from: to })),
-      ...mine.flatMap((plugin) => plugin.missing.map((service) => ({ service, from: null }))),
-    ]),
+    declares: held.flatMap(({ kernel }) =>
+      kernel
+        .points()
+        .filter(({ owner }) => owner !== null && own(owner))
+        .map(({ key }) => ({ point: key.name, spec: describeSpec(key) })),
+    ),
+    uses: requirements
+      .filter(({ kind }) => kind === "point")
+      .map(({ name, from }) => ({ point: name, from })),
+    injects: requirements
+      .filter(({ kind }) => kind === "service")
+      .map(({ name, from }) => ({ service: name, from })),
     provides: plugins.flatMap((plugin) => plugin.provides),
     failures: plugins.flatMap((plugin) => (plugin.error === null ? [] : [plugin.error.message])),
   };
+}
+
+function describeSpec(point: PointKey<unknown>): z.infer<typeof PointSpecSchema> {
+  const { cardinality, combine, kernel, tier, keyBy } = point.spec;
+  return { cardinality, combine, kernel, tier, ...(keyBy === undefined ? {} : { keyBy }) };
 }
 
 function listenersAt(
@@ -98,20 +120,15 @@ function listenersAt(
 /** Each ordered point a kernel of `kernels` has listeners at, in that kernel's order. */
 export function orderedPoints(kernels: readonly FamilyKernel[]): OrderedPoint[] {
   return kernels.flatMap(({ source, kernel }) =>
-    kernel.points().flatMap((point) => {
+    kernel.points().flatMap(({ key: point, owner }) => {
       const listeners = listenersAt(kernel, point);
-      return listeners.length === 0
+      return listeners.length === 0 && owner === null
         ? []
         : [
             {
               point: point.name,
-              spec: {
-                ...point.spec,
-                kernel:
-                  typeof point.spec.kernel === "string"
-                    ? point.spec.kernel
-                    : [...point.spec.kernel],
-              },
+              owner,
+              spec: describeSpec(point),
               source,
               listeners,
             },

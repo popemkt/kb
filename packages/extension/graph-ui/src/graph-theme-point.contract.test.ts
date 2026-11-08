@@ -35,14 +35,18 @@ const plainExtension = defineExtension({
 const NEON: GraphTheme = { ...contributedTheme("cel"), key: NEON_KEY };
 const plainPlugin = definePlugin({
   name: "plain",
+  uses: [GraphThemePoint.name],
   apply: (ctx) =>
-    Effect.all(
-      [
-        ctx.plugin(declarationPlugin(plainExtension)),
-        ctx.contribute(GraphThemePoint, provideDeclared(NEON)),
-      ],
-      { discard: true },
-    ),
+    Effect.gen(function* () {
+      const point = yield* ctx.point(GraphThemePoint);
+      yield* Effect.all(
+        [
+          ctx.plugin(declarationPlugin(plainExtension)),
+          ctx.contribute(point, provideDeclared(NEON)),
+        ],
+        { discard: true },
+      );
+    }),
 });
 
 /** The themes `plugins` contribute, read from a kernel of their own. */

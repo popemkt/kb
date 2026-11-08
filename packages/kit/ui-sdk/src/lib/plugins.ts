@@ -32,7 +32,7 @@ import {
   type ContributionEntry,
   type Kernel,
   type Plugin,
-  type PointKey,
+  type PointReference,
   type ServiceKey,
 } from "@kb/plugin";
 import { usePath } from "./router";
@@ -676,7 +676,7 @@ export function pageFootprint(family: string, kernel: Kernel = uiKernel): readon
  * `useSyncExternalStore` compares snapshots by identity, and the kernel hands
  * out a fresh array per read.
  */
-export function pointReader<C>(point: PointKey<C>): () => readonly Contribution<C>[] {
+export function pointReader<C>(point: PointReference<C>): () => readonly Contribution<C>[] {
   let version = -1;
   let items: readonly Contribution<C>[] = [];
   return () => {
@@ -700,7 +700,7 @@ export const uiKernelReader: Pick<Kernel, "contributions" | "plugins" | "version
 };
 
 /** A point's contributions now, for a reader outside React (a port the shell wires). */
-export function currentContributions<C>(point: PointKey<C>): readonly Contribution<C>[] {
+export function currentContributions<C>(point: PointReference<C>): readonly Contribution<C>[] {
   return uiKernel.contributions(point);
 }
 
@@ -744,7 +744,7 @@ export function useService<S>(key: ServiceKey<S>): S | undefined {
 }
 
 /** A point's contributions, re-read whenever the kernel changes. */
-export function useContributions<C>(point: PointKey<C>): readonly Contribution<C>[] {
+export function useContributions<C>(point: PointReference<C>): readonly Contribution<C>[] {
   const read = useMemo(() => pointReader(point), [point]);
   return useSyncExternalStore(uiKernel.subscribe, read, read);
 }

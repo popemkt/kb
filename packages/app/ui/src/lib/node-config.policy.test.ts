@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { VIEW_FAMILY_VALUES } from "@kb/model";
 import {
+  paletteStepsPlugin,
   familyViews,
   frameViewOf,
   getViewConfig,
@@ -33,6 +34,7 @@ import { GRAPH_IDS } from "@kb/graph";
 const FRAME_VIEWS = (() => {
   const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(browserHostUiPlugin));
+  Effect.runSync(kernel.load(paletteStepsPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
 })();

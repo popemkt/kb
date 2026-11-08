@@ -7,16 +7,17 @@
  * it needs while it does not.
  */
 import { Effect } from "effect";
-import { definePlugin, Point } from "@kb/plugin";
+import { definePlugin, PointName, type PointSpec } from "@kb/plugin";
 import { BoardService, type Board } from "@kb/ui-sdk";
 
 /** Where the gallery's `moodboard` child offers the page's board. */
-export const MoodboardPoint = Point<Board>()("gallery.moodboard", {
+export const MoodboardPoint = PointName<Board>()("gallery.moodboard");
+export const MOODBOARD_POINT_SPEC: PointSpec = {
   cardinality: "keyed",
   combine: "lookup by contribution id",
   kernel: "page",
   tier: "T3",
-});
+};
 
 /** What the look panel says the moodboard needs while none is offered. */
 export const MOODBOARD_NEEDS =
@@ -24,10 +25,12 @@ export const MOODBOARD_NEEDS =
 
 export const galleryMoodboardPlugin = definePlugin({
   name: "moodboard",
+  uses: [MoodboardPoint.name],
   inject: [BoardService],
   apply: (ctx) =>
     Effect.gen(function* () {
+      const point = yield* ctx.point(MoodboardPoint);
       const board = yield* ctx.get(BoardService);
-      yield* ctx.contribute(MoodboardPoint, { id: "board", value: board });
+      yield* ctx.contribute(point, { id: "board", value: board });
     }),
 });

@@ -8,6 +8,7 @@
  * `ModelCompletionService`, so these tests provide a stand-in for it, beside
  * the gallery's real `model` child, never a model.
  */
+import { Effect } from "effect";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
@@ -31,7 +32,19 @@ import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { updateDraft } from "./draft";
 import type { ComposerFrame } from "./frame";
 import { LookPanel } from "./look-panel";
-import { ComposerModelPoint, MODEL_NEEDS, galleryModelPlugin } from "./model";
+import {
+  ComposerModelPoint,
+  COMPOSER_MODEL_POINT_SPEC,
+  type ComposerModel,
+  MODEL_NEEDS,
+  galleryModelPlugin,
+} from "./model";
+const galleryPoints = definePlugin({
+  name: "gallery-points",
+  namespace: "gallery",
+  apply: (ctx) =>
+    ctx.declare<ComposerModel>("model", COMPOSER_MODEL_POINT_SPEC).pipe(Effect.asVoid),
+});
 
 const ENHANCE_NEEDS = `Enhance ${MODEL_NEEDS}`;
 const CINEMATIC: StyleEntry = {
@@ -106,7 +119,11 @@ describe("the look's Enhance", () => {
   });
   /** The page's plugins, with or without a family that provides a completion. */
   const provided = (on: boolean) =>
-    act(() => syncUiPlugins(on ? [model, galleryModelPlugin] : [galleryModelPlugin]));
+    act(() =>
+      syncUiPlugins(
+        on ? [galleryPoints, model, galleryModelPlugin] : [galleryPoints, galleryModelPlugin],
+      ),
+    );
   beforeEach(() => {
     calls = [];
     toasts = [];

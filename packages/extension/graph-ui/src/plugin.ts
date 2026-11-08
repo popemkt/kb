@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
-import { definePlugin } from "@kb/plugin";
+import { definePlugin, type PluginContext } from "@kb/plugin";
 import { matchGraph } from "./routes";
 import {
   ClusterRendererView,
@@ -69,14 +69,15 @@ export const graphUiPlugin = definePlugin({
   name: graphExtension.name,
   tags: familyTags(graphExtension, "ui"),
   inject: [BrowserHostService],
-  apply: (ctx) =>
-    Effect.all(
+  uses: [PaletteStepPoint.name],
+  apply: Effect.fn("graph.ui")(function* (ctx: PluginContext) {
+    yield* Effect.all(
       [
         ctx.plugin(graphPlugin()),
         ctx.plugin(graphThemesPlugin),
         ctx.provide(NodeLinkGraphService, lensGraphs),
         ctx.contribute(CommandPoint, TYPE_REFERENCE_COMMAND),
-        ctx.contribute(PaletteStepPoint, TYPE_REFERENCE_STEP),
+        ctx.contribute(yield* ctx.point(PaletteStepPoint), TYPE_REFERENCE_STEP),
         ctx.contribute(
           ViewPoint,
           provideView(GraphView, { placements: ["page"], sample: {}, Component: GraphSurface }),
@@ -187,5 +188,6 @@ export const graphUiPlugin = definePlugin({
         }),
       ],
       { discard: true },
-    ),
+    );
+  }),
 });

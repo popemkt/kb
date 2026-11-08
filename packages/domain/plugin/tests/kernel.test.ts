@@ -352,7 +352,7 @@ describe("organisation: tags and derived dependencies", () => {
 
     const provider = run(kernel.load(counterProvider));
     expect(kernel.dependencies()).toEqual([
-      { from: "user", to: "counter", service: "test.counter" },
+      { from: "user", to: "counter", kind: "service", name: "test.counter" },
     ]);
     expect(kernel.plugins().find((p) => p.name === "counter")?.provides).toEqual(["test.counter"]);
 

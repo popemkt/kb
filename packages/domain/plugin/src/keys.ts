@@ -1,13 +1,16 @@
 /**
  * The two kinds of name a plugin can share with another: a service it
  * provides or injects, and a point it contributes to. A key is a name plus a type the name stands for; the type
- * lives only in the compiler (`~type` is never set), so a key is plain data.
+ * lives only in the compiler (`~type` is never set). Point instances are
+ * frozen host capabilities; copying their shape cannot mint a key.
  *
  * Keys are compared by identity, not by name: two keys spelled alike but
  * created apart are a conflict the kernel reports, never a silent alias. So a
  * key is created once, by the package that owns the concept, and imported by
- * everyone who uses it — which is also what makes the phantom type honest.
+ * everyone who uses it, or resolved through the kernel by a declared name.
  */
+import type { StandardSchemaV1 } from "effect/StandardSchema";
+
 export interface Key<Kind extends string, T> {
   readonly kind: Kind;
   readonly name: string;
@@ -33,10 +36,13 @@ export interface PointSpec {
   readonly tier: (typeof POINT_TIERS)[number];
   /** Dot-separated member path; absent means contribution id. */
   readonly keyBy?: string;
+  readonly contract?: StandardSchemaV1;
 }
 
 export interface PointKey<C> extends Key<"point", C> {
   readonly spec: PointSpec;
+  /** Set only on a kernel-owned declaration; the key retires with this plugin. */
+  readonly declarer: string | null;
 }
 
 /** Any key, whatever it stands for — for lists such as a plugin's `inject`. */
@@ -47,7 +53,7 @@ export function Service<S>(): (name: string) => ServiceKey<S> {
 }
 
 export function Point<C>(): (name: string, spec: PointSpec) => PointKey<C> {
-  return (name, spec) => ({ kind: "point", name, spec });
+  return (name, spec) => pointKey(name, spec);
 }
 
 /**
@@ -55,10 +61,41 @@ export function Point<C>(): (name: string, spec: PointSpec) => PointKey<C> {
  *
  * The kernel keeps services and contributions in maps of
  * `unknown`, because one map holds every key's values. What makes the read
- * sound is that the only writes are typed by the same key object, checked by
- * identity on the way in — so this is the one place that trust is spent.
+ * sound for static keys is that writes are typed by the same key object,
+ * checked by identity. Named types are the author's claim, validated by the
+ * declaring contract when supplied. This module owns both type assertions.
  */
 export function asKeyType<T>(_key: Key<string, T>, value: unknown): T {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kernel's one trust: every write under this key was typed by this same key object
   return value as T;
+}
+
+/** A typed name that resolves to a kernel-owned point, never a second key. */
+export type PointName<C> = Key<"point-name", C>;
+export type PointReference<C> = PointKey<C> | PointName<C>;
+export function PointName<C>(): (name: string) => PointName<C> {
+  return (name) => ({ kind: "point-name", name });
+}
+
+/** Installed contributors restate a type; the declaring contract validates their values. */
+export function asPointKey<C>(key: PointKey<unknown>): PointKey<C> {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- named point types are a contributor's promise, checked by the declaring contract when supplied
+  return key as PointKey<C>;
+}
+
+const pointKeys = new WeakSet<object>();
+
+/** The one point-key constructor; only host code and the kernel can mint keys. */
+export function pointKey<C>(name: string, spec: PointSpec, declarer?: string): PointKey<C> {
+  const key: PointKey<C> = Object.freeze({
+    kind: "point",
+    name,
+    spec,
+    declarer: declarer ?? null,
+  });
+  pointKeys.add(key);
+  return key;
+}
+export function isPointKey(key: PointKey<unknown>): boolean {
+  return pointKeys.has(key);
 }

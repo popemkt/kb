@@ -163,7 +163,6 @@ export const EXTENSION_SDK = {
   declarationPlugin,
   familyTags,
   extensionNamespace,
-  Point,
   Service,
   ActionPoint,
   ActionGuardPoint,

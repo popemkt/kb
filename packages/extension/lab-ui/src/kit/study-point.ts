@@ -5,7 +5,7 @@
  * which injects the graph's `NodeLinkGraphService`, so that study waits, pending,
  * while the graph is off, and every other study shows.
  */
-import { Point } from "@kb/plugin";
+import { PointName, type PointSpec } from "@kb/plugin";
 import type { LabSceneId } from "@kb/lab";
 import type { LabStudy } from "./contract";
 
@@ -14,10 +14,11 @@ export interface LabStudyEntry {
   readonly study: LabStudy;
 }
 
-export const LabStudyPoint = Point<LabStudyEntry>()("lab.studies", {
+export const LabStudyPoint = PointName<LabStudyEntry>()("lab.studies");
+export const LAB_STUDY_POINT_SPEC: PointSpec = {
   cardinality: "keyed",
   combine: "lookup by scene",
   kernel: "page",
   tier: "T3",
   keyBy: "scene",
-});
+};

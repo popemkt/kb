@@ -162,7 +162,7 @@ export const extensionListDef = {
   id: "extension.list",
   title: "List the extensions",
   description:
-    "Every extension this kb composes, on or off (as kb.manifest lists them), each with its tags, the services its plugins inject and from whom, what they provide and why any failed; the points whose listeners run in turn (identity providers, interceptors, guards), each in that order; and the repository extensions refused, an untrusted one with its digest",
+    "Every extension this kb composes, on or off, with its tags, service and declared-point requirements, what it provides and declares, and why any failed; each live point with its spec, owner and contributors in order; and refused repository extensions, an untrusted one with its digest",
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: ExtensionReportSchema,
