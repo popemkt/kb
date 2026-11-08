@@ -8,7 +8,13 @@
  * shows here is what a page would make it show.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { QUIET_ACTIVITY, type BackdropCue, type OutlineNode, type PageActivity } from "@kb/ui-sdk";
+import {
+  QUIET_ACTIVITY,
+  type BackdropCue,
+  type OutlineNode,
+  type PageActivity,
+  type PointerSource,
+} from "@kb/ui-sdk";
 
 /** The cues the studio acts out; the pointer is the person's own. */
 export type ActedCue = Exclude<BackdropCue, "pointer">;
@@ -40,6 +46,29 @@ export function typingBurst(): readonly TypingStep[] {
   }));
   const end = (TYPING_KEYSTROKES - 1) * TYPING_EVERY_MS + TYPING_PAUSE_MS;
   return [...keystrokes, { at: end, step: (activity) => ({ ...activity, editing: false }) }];
+}
+
+/** The person's pointer as the scene is handed it, and the switch that opens it. */
+export interface GatedPointer {
+  /** `source` while open, else no pointer at all. */
+  readonly pointer: PointerSource;
+  readonly open: (open: boolean) => void;
+}
+
+/**
+ * The person's pointer behind Interact's switch: one source, whatever the
+ * switch says, so turning Interact on or off hands the scene nothing new.
+ * A scene that sets itself up around its pointer (`GpuBackdrop`) keeps
+ * running, and only what `now()` answers changes. Closed until opened.
+ */
+export function gatedPointer(source: PointerSource): GatedPointer {
+  let open = false;
+  return {
+    pointer: { now: () => (open ? source.now() : null) },
+    open: (next) => {
+      open = next;
+    },
+  };
 }
 
 /** A page the studio shows instead of none, so moving to another is a page change a scene hears. */

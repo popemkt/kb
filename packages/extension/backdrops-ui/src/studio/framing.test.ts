@@ -36,7 +36,11 @@ describe("the studio's framing", () => {
     expect(fitScale({ width: 1000, height: 1778 }, viewport)).toBeCloseTo(600 / 1778);
     expect(fitScale({ width: 1000, height: 240 }, viewport)).toBe(1);
     expect(fitScale({ width: 10, height: 10 }, viewport)).toBe(MAX_ZOOM);
-    expect(fitScale({ width: 100_000, height: 10 }, viewport)).toBe(MIN_ZOOM);
+    // Below the smallest step a person zooms to, when that is what the whole scene takes.
+    expect(fitScale({ width: 1000, height: 1778 }, { width: 1000, height: 150 })).toBeCloseTo(
+      150 / 1778,
+    );
+    expect(fitScale({ width: 100_000, height: 10 }, viewport)).toBe(0.01);
     expect(fitScale({ width: 0, height: 0 }, viewport)).toBe(1);
     expect(scaleOf("fit", viewport, viewport)).toBe(1);
     expect(scaleOf(1, { width: 1000, height: 1778 }, viewport)).toBe(1);
@@ -49,6 +53,25 @@ describe("the studio's framing", () => {
     expect(zoomOut(0.34)).toBe(0.33);
     expect(zoomIn(MAX_ZOOM)).toBe(MAX_ZOOM);
     expect(zoomOut(MIN_ZOOM)).toBe(MIN_ZOOM);
+    // From a fit below every step, out goes nowhere and in goes to the first step.
+    expect(zoomOut(0.05)).toBe(0.05);
+    expect(zoomIn(0.05)).toBe(MIN_ZOOM);
+  });
+
+  test("a short viewport still fits the whole of a tall scene", () => {
+    const scene = sceneSize(
+      { kind: "aspect", aspect: "9:16" },
+      { width: 1000, height: 150 },
+      presentation,
+    );
+    const scale = scaleOf("fit", scene, { width: 1000, height: 150 });
+    expect(scene.height * scale).toBeLessThanOrEqual(150 + 1e-6);
+    expect(
+      canPan(
+        { width: scene.width * scale, height: scene.height * scale },
+        { width: 1000, height: 150 },
+      ),
+    ).toBe(false);
   });
 
   test("a scene that fits is centred whatever the pan; one larger than the viewport is held so no edge comes inside", () => {

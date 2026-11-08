@@ -1688,6 +1688,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — mcpToolResult sends image content
 - **node** — `01M42Q9HJJ0H5GDGXKJ2CW5HEC`
 
+### GAP: Unicorn reads its cursor position from the window, not the pointer source
+
+- **expected** — Every backdrop that answers the pointer reads it from BackdropProps.pointer (frame-local, in the frame's own pixels, correct under a CSS scale such as Studio's zoom)
+- **current** — The vendored Unicorn Studio runtime listens to window mouse events itself and places the cursor in screen pixels; kb only gates whether it follows (interactivity.mouse.disabled from pointer.now()), so outside Interact or off the frame it is still, but under a Studio zoom other than 1:1 its cursor lands off by the zoom
+- **impact** — In Backdrop Studio at a zoom other than 1:1, Unicorn's nebula drifts toward a point offset from the cursor; page heads (unscaled) are unaffected
+- **closes** — The runtime takes its cursor from kb (an input hook, or a scene we draw ourselves), or kb writes the vendor scene's mouse state from the pointer source with interactivity.mouse.disabled held on
+- **node** — `01M6XGS4KEXS9321E2JXHRYRK5`
+
 ### GAP: untrusted sandbox code runs on the frame's main thread
 
 - **expected** — untrusted QuickJS runs off the sandbox frame's main thread

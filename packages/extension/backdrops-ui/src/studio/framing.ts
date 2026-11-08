@@ -53,7 +53,7 @@ export function sceneSize(
   };
 }
 
-/** How far it zooms out and in. */
+/** How far a person zooms out and in; a fit may go further out (`fitScale`). */
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 4;
 /** The steps zooming in and out stops at. */
@@ -65,11 +65,15 @@ const ZOOM_STEPS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4] as 
  */
 export type Zoom = "fit" | number;
 
-/** The scale that shows the whole scene in the viewport. */
+/**
+ * The scale that shows the whole scene in the viewport: never above
+ * `MAX_ZOOM`, and below `MIN_ZOOM` when that is what the whole scene
+ * takes, since a fit that crops is not one.
+ */
 export function fitScale(scene: Size, viewport: Size): number {
-  if (scene.width <= 0 || scene.height <= 0) return 1;
-  const scale = Math.min(viewport.width / scene.width, viewport.height / scene.height);
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale));
+  if (scene.width <= 0 || scene.height <= 0 || viewport.width <= 0 || viewport.height <= 0)
+    return 1;
+  return Math.min(MAX_ZOOM, viewport.width / scene.width, viewport.height / scene.height);
 }
 
 /** The scale `zoom` draws at, for `scene` in `viewport`. */
@@ -82,9 +86,9 @@ export function zoomIn(scale: number): number {
   return ZOOM_STEPS.find((step) => step > scale + 1e-6) ?? MAX_ZOOM;
 }
 
-/** The next step out from `scale`: the last below it. */
+/** The next step out from `scale`: the last below it, or `scale` itself where none is (a fit below every step). */
 export function zoomOut(scale: number): number {
-  return ZOOM_STEPS.findLast((step) => step < scale - 1e-6) ?? MIN_ZOOM;
+  return ZOOM_STEPS.findLast((step) => step < scale - 1e-6) ?? scale;
 }
 
 /** One axis of `placeScene`: centred where it fits, else held inside. */

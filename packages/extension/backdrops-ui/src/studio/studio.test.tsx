@@ -29,11 +29,11 @@ import { definePlugin } from "@kb/plugin";
 import {
   BACKDROP_BUDGETS,
   BackdropPoint,
-  NO_POINTER,
   provideBackdrop,
   syncUiPlugins,
   type BackdropProps,
   type OutlineNode,
+  type PointerSource,
 } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin, type TestBrowserHost } from "@kb/ui-test-kit";
 import { budgetWarning } from "./budget-warning";
@@ -62,10 +62,13 @@ const OTHER: SeedBackdrop = { id: "elsewhere.wash", label: "Wash" };
 
 /** Every mount of a probe's scene, by its backdrop's id: the studio runs the one it shows. */
 let mounts: string[] = [];
+/** Every pointer source a probe's scene was handed, in order. */
+let pointers: PointerSource[] = [];
 
 function probeScene(id: string) {
   return function ProbeScene({ knobs, variant, strength, activity, node, pointer }: BackdropProps) {
     if (!mounts.includes(id)) mounts.push(id);
+    if (pointers.at(-1) !== pointer) pointers.push(pointer);
     return (
       <div
         data-probe={id}
@@ -74,7 +77,6 @@ function probeScene(id: string) {
         data-knobs={JSON.stringify(knobs)}
         data-activity={JSON.stringify(activity)}
         data-node={node?.id ?? ""}
-        data-pointing={String(pointer !== NO_POINTER)}
       />
     );
   };
@@ -196,6 +198,7 @@ describe("Backdrop Studio", () => {
   });
   beforeEach(() => {
     mounts = [];
+    pointers = [];
     written = [];
     const base = testBrowserHost();
     host = testBrowserHost({
@@ -355,12 +358,16 @@ describe("Backdrop Studio", () => {
 
   test("Interact hands the scene the person's pointer, and acts out each cue as a page's owner would", () => {
     act(() => root.render(<StudioPage backdrop={PROBE.id} />));
-    // Outside Interact, the pointer is the studio's (it pans) and nothing can be tried.
-    expect(probe()?.getAttribute("data-pointing")).toBe("false");
+    // Outside Interact, the pointer is the studio's (it pans): the scene's answers none, and nothing can be tried.
+    expect(pointers.at(-1)?.now()).toBeNull();
     expect(document.querySelector('[aria-label^="Try:"]')).toBeNull();
     act(() => button("Interact with the scene").click());
     expect(button("Stop interacting").getAttribute("aria-pressed")).toBe("true");
-    expect(probe()?.getAttribute("data-pointing")).toBe("true");
+    act(() => button("Stop interacting").click());
+    act(() => button("Interact with the scene").click());
+    // Switching hands the scene nothing new: one pointer source for its life, so nothing set up around it restarts.
+    expect(pointers).toHaveLength(1);
+    expect(mounts).toEqual([PROBE.id]);
     act(() => button("Try: A change from elsewhere").click());
     expect(activity()).toMatchObject({ arrivals: 1, editing: false });
     vi.useFakeTimers();

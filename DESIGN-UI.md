@@ -5589,16 +5589,19 @@ it as kb's own are, and a family switched off takes its backdrops out.
     preview: the **page head**'s strip (the studio's width at its
     presentation's height), the **full page** (the studio's viewport, as
     it opens), or an **aspect** of chosen proportions across the width.
-    Its zoom is **Fit** (the whole scene, whatever the viewport's size;
-    how it opens), **1:1**, or a step in or out, about the viewport's
-    centre; a scene larger than the viewport is panned by dragging it,
+    Its zoom is **Fit** (the whole scene, whatever the viewport's size,
+    below the smallest step if that is what it takes; how it opens),
+    **1:1**, or a step in or out, about the viewport's centre; a scene larger than the viewport is panned by dragging it,
     held so no edge comes inside, and **Reset** fits and centres it
     again. Choosing a preview fits it. The panels over the scene are
     never scaled, and a press on one is the panel's, not a pan.
   - **Interact.** The backdrop's interactions (Its interactions, above)
     are a panel over the scene, each its cue in words and its line. The
     **Interact** switch hands the scene the person's pointer: outside it
-    the scene sees no pointer, and dragging pans. In it, each cue that is
+    the scene's pointer answers none, and dragging pans. It is one pointer
+    source for the scene's life (`gatedPointer`), so switching restarts
+    nothing set up around it. A scene whose runtime reads the mouse itself
+    is held to that source too (Unicorn, `followPointer`). In it, each cue that is
     not the pointer can be tried: the studio stands in for the page's
     owner (`useStudioActivity`), so **Try** on a write or one of the
     page's events counts it once more in the activity the scene is

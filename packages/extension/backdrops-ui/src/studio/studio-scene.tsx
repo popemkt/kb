@@ -8,7 +8,7 @@
  * one every head draws (`BackdropFrame`), so what the studio shows is what a
  * page head shows.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowLeftIcon, CheckIcon } from "@phosphor-icons/react";
 import {
   BACKDROP_STRENGTHS,
@@ -26,7 +26,6 @@ import {
   BackdropFrame,
   browserHost,
   navigate,
-  NO_POINTER,
   useAppearance,
   useLoadSeed,
   useNode,
@@ -35,7 +34,7 @@ import {
   type Backdrop,
 } from "@kb/ui-sdk";
 import { KnobPanel, type KnobGroup } from "./knob-panel";
-import { useStudioActivity } from "./interact";
+import { gatedPointer, useStudioActivity } from "./interact";
 import { PerfReadout } from "./perf-readout";
 import { studioPath } from "./routes";
 import { Segments } from "./segments";
@@ -189,6 +188,9 @@ export function StudioScene({
   const framing = useFraming(backdrop.presentation);
   const owner = useStudioActivity();
   const [interacting, setInteracting] = useState(false);
+  // The scene's pointer is one source for the scene's life; Interact opens and closes it.
+  const [gate] = useState(() => gatedPointer(pointer));
+  useEffect(() => gate.open(interacting), [gate, interacting]);
   const frameRef = useCallback(
     (el: HTMLDivElement | null) => {
       setFrame(el);
@@ -236,7 +238,7 @@ export function StudioScene({
           art={page.art}
           pinned={shown.variant === null ? [] : [backdropVariantId(key.id, shown.variant)]}
           activity={owner.activity}
-          pointer={interacting ? pointer : NO_POINTER}
+          pointer={gate.pointer}
         />
       </StudioStage>
     </div>
