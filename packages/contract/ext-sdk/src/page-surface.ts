@@ -5,8 +5,9 @@
  * it imports (DESIGN-UI.md → Extension UI halves); these are the types of
  * the UI points the shell renders, restated for an author, as
  * `surface.ts` restates the plugin model. React's own types are React's.
+ * `@kb/ui-sdk`'s `page-surface-bridge.test.ts` holds the restatement to the
+ * values the page serves.
  */
-// GAP [[01M579MH4HKXE7H51ZA7DRDMNP]] the page surface restates @kb/ui-sdk's point types with nothing holding them equal
 import type {
   ComponentPropsWithoutRef,
   ComponentType,
@@ -16,10 +17,17 @@ import type {
   ReactNode,
   RefAttributes,
 } from "react";
-import type { ContributionEntry, PointKey, ViewKey } from "./surface.ts";
+import type { ContributionEntry, PlainViewKey, PointKey, ViewKey } from "./surface.ts";
 
-/** Where a host renders a view: filling the page's box, or inline in the outline's flow. */
-export type Placement = "page" | "inline";
+/**
+ * Where a host renders a view: filling the page's box, inline in the
+ * outline's flow, or as a compact read-only preview under a node's row,
+ * which a view draws exactly when its key says so (`ViewKey.preview`).
+ */
+export type Placement = "page" | "inline" | "preview";
+
+/** The placements a contribution lists itself: `preview` is its key's to say. */
+export type ListedPlacement = Exclude<Placement, "preview">;
 
 /** What a host guarantees a view: never a store. */
 export interface ViewHost {
@@ -46,9 +54,9 @@ export declare const ViewPoint: PointKey<ProvidedView>;
 
 /** The {@link ViewPoint} contribution drawing `key`, under the key's local id. */
 export declare function provideView<P>(
-  key: ViewKey<P>,
+  key: PlainViewKey<P>,
   view: {
-    readonly placements: readonly Placement[];
+    readonly placements: readonly ListedPlacement[];
     /** The params the view contract mounts this view with. */
     readonly sample: P;
     readonly Component: FunctionComponent<ViewProps<P>>;

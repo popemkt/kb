@@ -41,7 +41,8 @@ import {
   marketplaceListDef,
   type RegisteredAction,
 } from "@kb/operations";
-import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
+import { KB_SDK_VERSION } from "@kb/ext-sdk";
+import { readEmbeddedSdkDts, writeSdkDts } from "./sdk-files.ts";
 import { canonicalRoot } from "@kb/workspace-fs";
 import {
   admitExtensions,

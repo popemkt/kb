@@ -1534,14 +1534,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
 
-### GAP: the page surface restates @kb/ui-sdk's point types with nothing holding them equal
-
-- **expected** — kb-ext-sdk/page's types are held to @kb/ui-sdk's by a type bridge, as surface-bridge holds kb-ext-sdk's to EXTENSION_SDK and the plugin model
-- **current** — page-surface.ts restates the UI points' value types by hand; only the example extension's page half, type-checked against the emitted sdk-page.d.ts and run in the page, exercises them
-- **impact** — a change to a UI point's type can leave the page surface describing a shape the page no longer reads, so an author's page half type-checks and still fails in the page
-- **closes** — move @kb/ext-sdk to scope:shared (writeSdkDts into the CLI) so a browser package's test holds page-surface.ts to @kb/ui-sdk's values and types
-- **node** — `01M579MH4HKXE7H51ZA7DRDMNP`
-
 ### GAP: the page's offline family list reads only the bundled families
 
 - **expected** — The rows the page follows while no server answers come from one list of every family source, each hosted family reported as not hosted.

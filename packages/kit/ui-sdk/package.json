@@ -24,6 +24,7 @@
     "tailwind-merge": "catalog:"
   },
   "devDependencies": {
+    "@kb/ext-sdk": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

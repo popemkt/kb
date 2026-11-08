@@ -3137,10 +3137,15 @@ from "kb-ext-sdk"`. Types are generated from
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
   views, routes, sidebar sections, docks, overlays, commands, design
-  systems — and React's own types), written beside it; nothing yet holds
-  that restatement to `@kb/ui-sdk` but the example extension's page half,
-  type-checked against it and run in the page.
-  GAP [[01M579MH4HKXE7H51ZA7DRDMNP]]
+  systems — and React's own types), written beside it. Its values are the
+  page's `@kb/ui-sdk`, so `@kb/ui-sdk`'s `page-surface-bridge.test.ts`
+  holds the restatement to them as `surface-bridge.test.ts` holds
+  `kb-ext-sdk`'s: the surface declares only what the page serves, an
+  author's contribution and a provider's arguments are what the page
+  reads, and every other value the page serves is one the surface
+  describes. That is why `@kb/ext-sdk` is `scope:shared`, the strings and
+  the surfaces alone; writing them into a root is the CLI's
+  (`sdk-files.ts`).
   Schemas may be zod, Standard Schema v1, or a bare `{ parse }`.
   **Migrating to kb 0.2.0:** replace `mode: "read"` with `mode: { kind: "read" }`
   and `mode: "apply"` with `mode: { kind: "write" }` (add

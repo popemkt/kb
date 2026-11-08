@@ -299,6 +299,13 @@ export interface ViewKey<P> {
   readonly preview: boolean;
 }
 
+/**
+ * A key no host chooses between by config: the kind {@link viewKey} makes,
+ * and the kind a page half contributes a view for (`kb-ext-sdk/page`'s
+ * `provideView`).
+ */
+export type PlainViewKey<P> = ViewKey<P> & { readonly family?: undefined };
+
 /** How a view says itself on a surface that shows text, from the settings its key read. */
 export interface ViewText<P> {
   body(ctx: KbContext, params: P, host: KbNode | null): readonly string[];
@@ -511,6 +518,6 @@ export declare function viewKey<P>(
   params: effect.Schema.Decoder<P>,
   config?: ViewConfigCodec<P>,
   declares?: { readonly events?: readonly string[]; readonly preview?: boolean },
-): ViewKey<P>;
+): PlainViewKey<P>;
 export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
 export declare const NoParams: effect.Schema.Decoder<NoParams>;
