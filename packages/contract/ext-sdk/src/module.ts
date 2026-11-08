@@ -134,20 +134,10 @@ export function decodeExtensionModule(
   const declaration: ExtensionDeclaration =
     seed === undefined ? declared : { ...declared, seed: (at) => decodeSeedNodes(seed(at)) };
   const entry = Predicate.hasProperty(module, "default") ? module.default : undefined;
-  if (entry === undefined)
-    return Result.succeed({
-      declaration,
-      entry: bindPluginAuthority(declarationPlugin(declaration), {
-        pointNamespace: extensionNamespace(name),
-        source: "extension",
-        replacements: [],
-        defaults: [],
-      }),
-    });
-  return Result.map(decodeExtensionPlugin(entry, name), (plugin) => ({
-    declaration,
-    entry: plugin,
-  }));
+  return Result.map(
+    decodeExtensionPlugin(entry === undefined ? declarationPlugin(declaration) : entry, name),
+    (plugin) => ({ declaration, entry: plugin }),
+  );
 }
 
 /** Bind repository and installed roots to the identity verified by their host. */

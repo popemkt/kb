@@ -19,6 +19,7 @@ export {
   Point,
   Service,
   asKeyType,
+  kernelHosts,
   KERNEL_HOSTS,
   POINT_CARDINALITIES,
   POINT_TIERS,

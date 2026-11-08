@@ -10,6 +10,7 @@
  * of the root's extensions would be skipped, so a gate can refuse one.
  */
 import type { Command } from "commander";
+import { kernelHosts } from "@kb/plugin";
 import { Effect } from "effect";
 import { z } from "zod";
 import {
@@ -132,7 +133,7 @@ function reportOf(output: unknown): ExtensionReport {
 /** Each ordered point's listeners, in the order a host asks them. */
 function pointLines(points: ExtensionReport["points"]): string[] {
   return points.flatMap(({ point, source, spec, listeners }) => [
-    `${point} (${source}): ${spec.cardinality}, ${spec.tier}, ${typeof spec.kernel === "string" ? spec.kernel : spec.kernel.join("/")}; ${spec.combine}`,
+    `${point} (${source}): ${spec.cardinality}, ${spec.tier}, ${kernelHosts(spec).join("/")}; ${spec.combine}`,
     ...listeners.map(
       ({ owner, id, match }, at) =>
         `  ${at + 1}. ${id} (${owner})${match === undefined ? "" : ` on ${match}`}`,

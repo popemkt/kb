@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { KernelSpec, PointSpec, KernelHost } from "./keys.ts";
+import { kernelHosts, type KernelSpec, type PointSpec, type KernelHost } from "./keys.ts";
 import { refusal } from "./state.ts";
 
 export const checkHost = Effect.fnUntraced(function* (
@@ -7,7 +7,7 @@ export const checkHost = Effect.fnUntraced(function* (
   spec: KernelSpec,
   host: KernelHost,
 ) {
-  const hosts = typeof spec.kernel === "string" ? [spec.kernel] : spec.kernel;
+  const hosts = kernelHosts(spec);
   if (!hosts.includes(host)) {
     return yield* refusal(
       owner,

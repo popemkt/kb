@@ -1,3 +1,5 @@
+import { Result } from "effect";
+import { replacementClaim } from "./authority.ts";
 import { elect, type Cell, type Registration } from "./cells.ts";
 import { asKeyType, type AnyServiceKey, type PointKey, type RoleKey } from "./keys.ts";
 import { changed, refusal, visible, type Entry, type State, type PointValue } from "./state.ts";
@@ -165,21 +167,15 @@ export function registration<T>(
   conflict: PluginErrorReason,
 ) {
   const root = rootEntry(state, entry);
-  const approval = root.authority.replacements.find((claim) => claim.role === role);
+  const checked = replacementClaim(root.authority, role);
+  if (Result.isFailure(checked)) throw refusal(entry.name, conflict, checked.failure);
+  const approval = checked.success;
   const owns = root.authority.defaults.some(
     (claim) => claim.role === role && claim.provider === root.name,
   );
   if (role !== null && approval === undefined && (root.authority.source !== "bundled" || !owns))
     throw refusal(entry.name, conflict, `role ${role} requires host-approved provider authority`);
-  if (
-    approval !== undefined &&
-    root.authority.source === "extension" &&
-    root.authority.digest === undefined
-  )
-    throw refusal(entry.name, conflict, `role ${role} requires authority for trusted code`);
-  const priority = approval === undefined ? 100 : (approval.priority ?? 50);
-  if (!Number.isFinite(priority))
-    throw refusal(entry.name, conflict, `role ${role} requires a finite priority`);
+  const priority = approval?.priority ?? 100;
   return {
     owner: entry.name,
     provider: root.name,

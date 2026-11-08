@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import type { Plugin } from "./kernel.ts";
 
 /** Candidate approval is a host capability, never a field supplied by a plugin. */
@@ -38,4 +39,19 @@ export function bindPluginAuthority(plugin: Plugin, authority: PluginAuthority):
 
 export function authorityOf(plugin: Plugin): PluginAuthority | undefined {
   return authorities.get(plugin);
+}
+
+/** The host-bound claim is the one authority used by registration and inspection. */
+export function replacementClaim(
+  authority: PluginAuthority,
+  role: string | null,
+): Result.Result<(RoleApproval & { readonly priority: number }) | undefined, string> {
+  const claim = authority.replacements.find((entry) => entry.role === role);
+  if (claim === undefined) return Result.succeed(undefined);
+  if (authority.source === "extension" && authority.digest === undefined)
+    return Result.fail(`role ${role} requires authority for trusted code`);
+  const priority = claim.priority ?? 50;
+  return Number.isFinite(priority)
+    ? Result.succeed({ ...claim, priority })
+    : Result.fail(`role ${role} requires a finite priority`);
 }

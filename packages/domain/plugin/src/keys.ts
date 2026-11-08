@@ -36,6 +36,11 @@ export interface KernelSpec {
   readonly tier: (typeof POINT_TIERS)[number];
 }
 
+/** The canonical host set of a specification, whether it names one host or several. */
+export function kernelHosts(spec: KernelSpec): readonly KernelHost[] {
+  return typeof spec.kernel === "string" ? [spec.kernel] : spec.kernel;
+}
+
 export interface RolePolicy {
   readonly replaceable?: boolean;
   /** The name before a keyed cell's colon; defaults to the point name. */
@@ -148,7 +153,7 @@ export function roleKeyAt(name: string, key: object, host: KernelHost): boolean 
 export function Role<C>(key: ServiceKey<C> | PointKey<C>, cell?: string): RoleKey<C> {
   const name = roleName(key, cell ?? null);
   if (key.spec?.replaceable === true) {
-    const hosts = typeof key.spec.kernel === "string" ? [key.spec.kernel] : key.spec.kernel;
+    const hosts = kernelHosts(key.spec);
     for (const host of hosts) {
       const names = nativeRoles.get(host) ?? new Map<string, WeakSet<object>>();
       const keys = names.get(name) ?? new WeakSet<object>();
