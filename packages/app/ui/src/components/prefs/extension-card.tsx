@@ -20,6 +20,7 @@ import {
 import {
   contributionGroups,
   extensionSourceLabel,
+  extensionPower,
   extensionStatus,
   switchExtension,
   type ExtensionStatus,
@@ -354,12 +355,14 @@ export function ExtensionActions({
   const waiting = STATUS[status].review;
   const review: MenuItem = { label: waiting ?? "Review code", run: onReview };
   // On or off is the row's, whatever its status leads with: one off with an update to review
-  // still turns on, back to the approved digest.
-  const power: MenuItem | null = !switchable
-    ? null
-    : row.enabled
-      ? { label: "Turn off", run: () => void switchExtension(row.name, false) }
-      : { label: "Turn on", run: () => void switchExtension(row.name, true) };
+  // still turns on, back to the approved digest; one no host has built has no switch to read.
+  const on = switchable ? extensionPower(row) : null;
+  const power: MenuItem | null =
+    on === null
+      ? null
+      : on
+        ? { label: "Turn off", run: () => void switchExtension(row.name, false) }
+        : { label: "Turn on", run: () => void switchExtension(row.name, true) };
   // The one its status asks for: a review waiting, else turning an off one on; the menu holds the rest.
   const primary = waiting !== null ? review : status === "off" ? power : null;
   const reviews: MenuItem[] = row.digest !== undefined && primary !== review ? [review] : [];

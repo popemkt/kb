@@ -2945,7 +2945,9 @@ the settings. The record of why is
     asks for, _Review & trust_, _Review update_ or _Turn on_, and keep the
     rest in one menu (`MENU_SURFACE`, `useMenuKeys`): _Review code_,
     _Check for updates_ (`extension.outdated`) and _Update_ for an install,
-    _Turn off_, and _Remove…_, which asks first, saying the lock entry
+    _Turn off_ or _Turn on_ by the row's `enabled` (none while it awaits its
+    first approval: no host built it, so its row cannot say its switch),
+    and _Remove…_, which asks first, saying the lock entry
     goes, its nodes stay, and its code stays cached until `kb ext gc`.
     Nothing on the card trusts; every review opens the sheet below.
   - **Under the heading**, its one line (the declaration's `description`,

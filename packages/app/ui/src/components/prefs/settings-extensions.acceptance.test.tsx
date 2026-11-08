@@ -529,6 +529,11 @@ describe("Settings' Extensions (acceptance)", () => {
     await act(async () => jump.click());
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
 
+    // No host has built it, so its menu has no switch to offer.
+    const more = present(card("hello").querySelector<HTMLButtonElement>("[aria-haspopup]"), "");
+    await act(async () => more.click());
+    expect(container.querySelector('[role="menu"]')?.textContent).not.toMatch(/Turn (on|off)/);
+    await act(async () => more.click());
     await act(async () => buttonIn(card("hello"), "Review & trust").click());
     await until(() => container.textContent.includes("Trust this digest"));
     expect(container.textContent).toContain("export const synthetic = true");

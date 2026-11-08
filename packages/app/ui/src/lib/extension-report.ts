@@ -214,6 +214,16 @@ export function extensionStatus(row: PanelExtension["row"]): ExtensionStatus {
   return row.digest === undefined ? "on" : "trusted";
 }
 
+/**
+ * Whether an extension is switched on, as far as its row says: `enabled` is
+ * "the host holds it loaded", which is its switch for a row the host built,
+ * and nothing for one awaiting its first approval, which no host built.
+ */
+// GAP [[01M6XAQX9VXDK3M0ZMXMQ33DFY]] the row should report the switch itself, for every row.
+export function extensionPower(row: PanelExtension["row"]): boolean | null {
+  return extensionStatus(row) === "approval" ? null : row.enabled;
+}
+
 /** What a contribution to each point is, in a word, for the points a person meets. */
 // GAP [[01M6X9T7NPWVGP1W29FDPG6TPE]] the word belongs on each Point declaration, not in a table here.
 const POINT_WORDS: Readonly<Record<string, string>> = {

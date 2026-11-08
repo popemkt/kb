@@ -587,6 +587,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Each system's sheet moves to the family's shared package (designSystems carrying the sheet), so the server reads core's setting and resolves the tokens.
 - **node** — `01M54QTGRJYJZ7W5SXDP4356QW`
 
+### GAP: an extension row reports whether it is loaded, not its switch, so an unloaded row's switch is unknown
+
+- **expected** — ExtensionRow carries the switch (on or off, as familyOn reads it) beside enabled (the host holds it loaded), for every row including one the host never loaded, so a caller can offer Turn on or Turn off for any switchable extension.
+- **current** — enabled is documented as loaded; an inventory row (untrusted, failed or shadowed) always reports enabled: false. Settings therefore offers no power action for an extension awaiting its first approval (extensionPower in packages/app/ui/src/lib/extension-report.ts).
+- **impact** — A person cannot switch off an untrusted extension from Settings before reviewing it (kb action-invoke extension.switch still can), and the CLI and the page cannot show an unloaded extension's switch.
+- **closes** — Report the switch on every row (familyOn over the switch node and the default for a non-bundled family), bump WIRE_PROTOCOL, and derive the UI's power action from it.
+- **node** — `01M6XAQX9VXDK3M0ZMXMQ33DFY`
+
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
 - **expected** — a family switched off keeps its seeded nodes (the data outlives the code, DESIGN.md → seed) but the tag and field pickers offer only the vocabulary of loaded families, or mark an off family's as such, as a view of an off family opens as 'cannot be shown here'
