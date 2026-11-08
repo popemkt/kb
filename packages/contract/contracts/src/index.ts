@@ -4,6 +4,7 @@ export {
   ExtensionReviewSchema,
   installMarketplace,
   isKbOrigin,
+  replacesWithoutApproval,
 } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
 export {

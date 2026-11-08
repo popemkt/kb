@@ -12,8 +12,11 @@ import {
 } from "./selection-keymap";
 import type { VisibleInstance } from "./visible-instances";
 
+/** A host that approves every owner replacing what another holds. */
+const ANYONE = () => true;
+
 /** The selection's keymap as the page holds it with the outline alone loaded. */
-const keymap = admitKeybindings(SELECTION_CONTEXT, outlineKeybindings());
+const keymap = admitKeybindings(SELECTION_CONTEXT, outlineKeybindings(), ANYONE);
 
 function mapSelectionKey(ev: SelectionKeyEvent, context: SelectionKeyContext) {
   return mapUnder(ev, context, keymap);

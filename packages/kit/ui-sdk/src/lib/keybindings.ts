@@ -10,13 +10,15 @@
  * is decided here, once, for every context: the owner's bindings first,
  * then the rest in the order they were contributed. A binding whose chord
  * overlaps one already held is refused, unless it says it `replaces` that
- * holder; a reserved chord is the owner's alone. A refusal is told to the
- * person, by name, once a page session.
+ * holder and the host approves its owner replacing (`replacementApproved`);
+ * a reserved chord is the owner's alone. A refusal is told to the person,
+ * by name, once a page session.
  */
 import type { ContributionEntry, Contribution } from "@kb/plugin";
 import { Point } from "@kb/plugin";
 import { chordsOverlap, describeChord, matchesChord, parseChord } from "./keychord";
 import type { Chord, KeyChordEvent } from "./keychord";
+import { browserHost } from "../host";
 import { pointReader } from "./plugins";
 import { toast } from "./toast";
 
@@ -120,6 +122,7 @@ function refusal(
   context: KeyContext,
   held: readonly Contribution<Keybinding>[],
   { owner, value }: Contribution<Keybinding>,
+  approved: (owner: string) => boolean,
 ): string | null {
   const chord = describeChord(value.chord);
   if ("intent" in value.run && !context.intents.includes(value.run.intent)) {
@@ -127,6 +130,10 @@ function refusal(
   }
   if (owner !== context.owner && context.reserved.some((r) => chordsOverlap(r, value.chord))) {
     return `${chord} is reserved in ${context.id}`;
+  }
+  // GAP [[01M6YFRJGV8MAF2AM34N567MBQ]] the host approves a replacement by its owner's origin.
+  if (value.replaces !== undefined && !approved(owner)) {
+    return `it replaces ${value.replaces}, which waits for replacement approval: ${owner} may bind free chords, and taking a held one needs a person to approve it`;
   }
   const overlapping = held.filter((other) => chordsOverlap(other.value.chord, value.chord));
   if (value.replaces !== undefined && !overlapping.some(({ id }) => id === value.replaces)) {
@@ -157,6 +164,7 @@ function refusal(
 export function admitKeybindings(
   context: KeyContext,
   contributions: readonly Contribution<Keybinding>[],
+  approved: (owner: string) => boolean,
 ): Keymap {
   const named = contributions.filter(({ value }) => value.context === context.id);
   const ordered = [
@@ -166,7 +174,7 @@ export function admitKeybindings(
   const held: Contribution<Keybinding>[] = [];
   const refused: RefusedBinding[] = [];
   for (const binding of ordered) {
-    const reason = refusal(context, held, binding);
+    const reason = refusal(context, held, binding, approved);
     if (reason === null) held.push(binding);
     else refused.push({ id: binding.id, reason });
   }
@@ -191,7 +199,9 @@ export function currentKeymap(context: KeyContext): Keymap {
   keymaps.set(bindings, byContext);
   const cached = byContext.get(context.id);
   if (cached !== undefined) return cached;
-  const keymap = admitKeybindings(context, bindings);
+  const keymap = admitKeybindings(context, bindings, (owner) =>
+    browserHost().replacementApproved(owner),
+  );
   byContext.set(context.id, keymap);
   for (const { id, reason } of keymap.refused) {
     const line = `Keybinding ${id} refused: ${reason}`;

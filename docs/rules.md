@@ -619,6 +619,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Report the switch on every row (familyOn over the switch node and the default for a non-bundled family), bump WIRE_PROTOCOL, and derive the UI's power action from it.
 - **node** — `01M6XAQX9VXDK3M0ZMXMQ33DFY`
 
+### GAP: an installed or linked extension cannot replace a held key, since no one can approve the replacement yet
+
+- **expected** — A binding that names what it replaces is admitted when a person approved that replacement, checked where the kernel admits a contribution and shown on the extension trust sheet (parity step 8); bundled, host and repository-root code is approved by being there.
+- **current** — admitKeybindings honours replaces only from an owner whose family the host approves (BrowserHost.replacementApproved: kb's own origins and the repository's own folder, replacesWithoutApproval); a linked or installed extension's binding that names replaces is refused and told that it waits for replacement approval.
+- **impact** — An installed extension cannot rebind a key the outline or another extension holds, even once its code is trusted; it can only bind free chords.
+- **closes** — Parity step 8: replacement approval on the trust sheet, checked at kernel admission through the role cell Sol is building (step 7), then replacementApproved reads that approval and the origin rule goes.
+- **node** — `01M6YFRJGV8MAF2AM34N567MBQ`
+
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
 - **expected** — a family switched off keeps its seeded nodes (the data outlives the code, DESIGN.md → seed) but the tag and field pickers offer only the vocabulary of loaded families, or mark an off family's as such, as a view of an off family opens as 'cannot be shown here'

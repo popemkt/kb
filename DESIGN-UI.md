@@ -478,6 +478,13 @@ decides a context's keys, and its rule is the point's `combine`:
   furthest down its chain. A replacement whose holder leaves is refused
   until it names the binding that holds the chord then, so a key never
   moves to a binding no one chose for it;
+- a replacement is the host's to approve (`BrowserHost.replacementApproved`).
+  kb's own code and the repository's own folder are approved by being
+  there (`replacesWithoutApproval`, read from the origin the server reports
+  for the owner's family); a linked or installed extension may bind free
+  chords, and its replacement is refused, told that it waits for
+  replacement approval, until a person can approve it on its trust sheet:
+  GAP [[01M6YFRJGV8MAF2AM34N567MBQ]];
 - a binding over a reserved chord is refused, even as a replacement, and so
   is one that replaces a binding holding no chord it overlaps, or names an
   intent its context lacks. The outline reads both keymaps whenever the page kernel moves, so a

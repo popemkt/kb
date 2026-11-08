@@ -25,6 +25,9 @@ beforeAll(() => {
 });
 afterAll(() => syncUiPlugins([]));
 
+/** A host that approves every owner replacing what another holds. */
+const ANYONE = () => true;
+
 const keymap = admitKeybindings(
   SELECTION_CONTEXT,
   outlineKeybindings({
@@ -42,6 +45,7 @@ const keymap = admitKeybindings(
       }),
     ],
   }),
+  ANYONE,
 );
 
 const selected = {
