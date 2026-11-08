@@ -45,7 +45,7 @@ function UnicornBackdrop({ opacity, pointer }: Pick<BackdropProps, "opacity" | "
       });
     return () => {
       disposed = true;
-      cancelAnimationFrame(frame);
+      if (frame !== 0) cancelAnimationFrame(frame);
       controller.abort();
       watch.dispose();
       scene?.destroy();
