@@ -1,4 +1,6 @@
 /** Global keyboard shortcut dispatch (DESIGN-RESKIN W8 feel). */
+import { matchesChord, PALETTE_CHORD } from "@kb/ui-sdk";
+
 export type GlobalShortcutAction = "global-search" | "node-palette";
 
 /**
@@ -13,7 +15,6 @@ export function matchGlobalShortcut(
   e: { metaKey: boolean; ctrlKey: boolean; key: string },
   context: { rowAnchored: boolean },
 ): GlobalShortcutAction | null {
-  if (!e.metaKey && !e.ctrlKey) return null;
-  if (e.key.toLowerCase() !== "k") return null;
+  if (!matchesChord(e, PALETTE_CHORD)) return null;
   return context.rowAnchored ? "node-palette" : "global-search";
 }

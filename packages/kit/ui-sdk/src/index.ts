@@ -460,7 +460,28 @@ export {
 } from "./lib/graph-label";
 export { guideLineStyle, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
-export { type Chord, isPrintableKey, type KeyChordEvent, lookupChord } from "./lib/keychord";
+export {
+  type Chord,
+  chordsOverlap,
+  describeChord,
+  isPrintableKey,
+  type KeyChordEvent,
+  lookupChord,
+  matchesChord,
+  PALETTE_CHORD,
+  TEXT_HISTORY_CHORD,
+} from "./lib/keychord";
+export {
+  admitKeybindings,
+  currentKeymap,
+  type KeyContext,
+  type KeyContextId,
+  type Keybinding,
+  KeybindingPoint,
+  type Keymap,
+  type KeyRun,
+  type RefusedBinding,
+} from "./lib/keybindings";
 export { logError, logWarn } from "./lib/log";
 export {
   getCaretSerializedOffset,

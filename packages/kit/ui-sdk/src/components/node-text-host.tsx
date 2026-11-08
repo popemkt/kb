@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
+import { matchesChord, TEXT_HISTORY_CHORD } from "../lib/keychord";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 import {
   getCaretSerializedOffset,
@@ -97,7 +98,7 @@ function seatCaret(el: HTMLElement, at: CaretAt, length: number): number {
 
 /** The text-history step a chord asks for: ⌘Z undoes, ⇧⌘Z redoes. */
 function historyChord(e: React.KeyboardEvent): "undo" | "redo" | null {
-  if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "z") return null;
+  if (!matchesChord(e, TEXT_HISTORY_CHORD)) return null;
   return e.shiftKey ? "redo" : "undo";
 }
 

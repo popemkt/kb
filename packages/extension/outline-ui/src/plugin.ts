@@ -11,6 +11,7 @@ import {
   BrowserHostService,
   CommandPoint,
   FieldEditorService,
+  KeybindingPoint,
   OverlayPoint,
   PageEditorService,
   PaletteStepPoint,
@@ -25,6 +26,8 @@ import { NodeField } from "./fields-section";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 import { OUTLINE_STEPS } from "./outline-steps";
+import { EDITING_BINDINGS } from "./editing-keymap";
+import { SELECTION_BINDINGS } from "./selection-keymap";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
 
@@ -65,7 +68,7 @@ const OUTLINE_VIEWS = [
 /**
  * The outline: its views, the Pinned sidebar section, its expand-all and
  * collapse-all commands, its node-palette steps (add a tag, a field, a
- * reference), and the page overlay that hosts a frame's filter popover. It
+ * reference), its editing and selection keys, and the page overlay that hosts a frame's filter popover. It
  * owns no route: the page's home (`/`, `/outline/<id>`) is core's
  * (`HomeView`), shown in the store's default view type, which the outline
  * provides, so while it is loaded the home is the outline at the page's zoom.
@@ -109,6 +112,11 @@ export const outlineUiPlugin = definePlugin({
             ctx.contribute(CommandPoint, { id: command.id, value: command }),
           ),
           ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
+          // Its two keymaps, the editing row's and the selection's: bindings
+          // like any other plugin's, which the page's keymap holds first.
+          ...[...EDITING_BINDINGS, ...SELECTION_BINDINGS].map((binding) =>
+            ctx.contribute(KeybindingPoint, binding),
+          ),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",
             value: { order: 0, Component: ViewSettingsPopoverHost },

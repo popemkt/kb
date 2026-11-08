@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
+import { admitKeybindings } from "@kb/ui-sdk";
+import { outlineKeybindings } from "./test-support/keybindings";
 import {
-  mapSelectionKey,
+  mapSelectionKey as mapUnder,
+  SELECTION_CONTEXT,
   type SelectionKeyAction,
+  type SelectionKeyContext,
   type SelectionKeyEvent,
   type SelectionNodeInfo,
 } from "./selection-keymap";
 import type { VisibleInstance } from "./visible-instances";
+
+/** The selection's keymap as the page holds it with the outline alone loaded. */
+const keymap = admitKeybindings(SELECTION_CONTEXT, outlineKeybindings());
+
+function mapSelectionKey(ev: SelectionKeyEvent, context: SelectionKeyContext) {
+  return mapUnder(ev, context, keymap);
+}
 
 const instances: VisibleInstance[] = [
   { nodeId: "a", instanceKey: "tree/a" },

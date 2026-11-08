@@ -425,10 +425,10 @@ this session is never pruned, so committed content cannot evaporate.
 **Two keymaps, one row.** The authoritative tables are r1-editor.md §3.2; the
 split is what matters here:
 
-| Mode                                             | When                         | Owner                                                                           |
-| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------- |
-| **A — active edit** (caret inside node text)     | typing                       | `outline-ui/src/use-node-keydown.ts`                                            |
-| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
+| Mode                                             | When                         | Context             | Owner                                                                           |
+| ------------------------------------------------ | ---------------------------- | ------------------- | ------------------------------------------------------------------------------- |
+| **A — active edit** (caret inside node text)     | typing                       | `outline.editing`   | `outline-ui/src/editing-keymap.ts` + `outline-ui/src/use-node-keydown.ts`       |
+| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline.selection` | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
@@ -437,6 +437,35 @@ create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
 re-entry into Mode A. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
+
+**Keybindings.** Each mode is a _context_, and its keys are contributions to
+`ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s `lib/keybindings`), the
+outline's as any plugin's. A binding is data: a context, a chord, and what it
+runs, one of the context's _intents_ by name (`split`, `indent`, `move-up`,
+`line-down`, …; the selection's `up`, `create-after`, `append`, …). An intent
+answers which of a key's meanings applies on this row (the caret, the row's
+shape); the chord that runs it is its binding's, so a built-in has an id
+(`outline.editing.split`, `outline.selection.up`) another binding can name.
+The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
+the guard that keeps a query-result row from being restructured is part of
+each structural intent, so it holds whatever chord runs it.
+
+The page's one keymap (`admitKeybindings`, read live as `currentKeymap`)
+decides a context's keys, and its rule is the point's `combine`:
+
+- a context's owner states it (`KeyContext`): its intents, and the chords
+  only it may bind (`reserved`). The outline reserves `Escape`, the text
+  host's history chord (`TEXT_HISTORY_CHORD`, ⌘Z and ⌘⇧Z) and the palette's
+  ⌘K (`PALETTE_CHORD`), so no binding can trap a person in a row;
+- the owner's bindings are held first, then the rest in load order;
+- **no two held chords overlap** (`chordsOverlap`: a common key, and a state
+  of the four modifiers both admit). So the order bindings are listed in
+  means nothing, and each says exactly what it claims: the outline's split is
+  `Enter` without Shift, its bare arrows are `mod: false`, and typing over a
+  selected row is any printable key the selection's other bindings leave;
+- a binding over a held or reserved chord, or naming an intent its context
+  lacks, is refused. Each refusal is told once a page session, naming the
+  binding, the chord and its holder.
 
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),

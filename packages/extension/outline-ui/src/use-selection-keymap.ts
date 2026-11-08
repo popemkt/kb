@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { browserHost, shownNode } from "@kb/ui-sdk";
-import { isEditableTarget, mapSelectionKey } from "./selection-keymap";
+import { browserHost, currentKeymap, shownNode } from "@kb/ui-sdk";
+import { isEditableTarget, mapSelectionKey, SELECTION_CONTEXT } from "./selection-keymap";
 import { useOutlineStore, outlineNodes } from "./outline.store";
 import { applySelectionAction } from "./selection-actions";
 import { fieldSlotCount } from "./value-slot-nav";
@@ -31,6 +31,7 @@ export function useSelectionKeymap(): void {
           metaKey: e.metaKey,
           ctrlKey: e.ctrlKey,
           shiftKey: e.shiftKey,
+          altKey: e.altKey,
         },
         {
           selectedNodeId: store.selectedNodeId,
@@ -50,6 +51,7 @@ export function useSelectionKeymap(): void {
             };
           },
         },
+        currentKeymap(SELECTION_CONTEXT),
       );
       if (!action) return;
       e.preventDefault();
