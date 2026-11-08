@@ -251,26 +251,19 @@ export interface Picked {
 /** The value a picker step's pick replaces, wherever it stands in the input. */
 export declare const PICKED: Picked;
 
-/** An icon a form names: one of the shell's. */
+/** An icon a form names: one the shell's own rows draw. */
 export type IconName =
   | "arrow-right"
-  | "bell"
-  | "bookmark"
-  | "calendar"
   | "check"
-  | "flag"
-  | "folder"
+  | "eye"
   | "hash"
   | "link"
   | "magnifying-glass"
-  | "note"
-  | "pencil"
-  | "plus"
   | "pin"
-  | "sparkle"
+  | "plus"
   | "star"
-  | "tag"
-  | "user";
+  | "text"
+  | "trash";
 
 /**
  * The {@link CommandPoint} contribution for a node command written as

@@ -99,6 +99,8 @@ export const declaration = defineExtension({
     viewDef(BoardView, { body: () => ["An example board."] }),
     viewDef(NoteView, { body: () => ["An example note."] }),
   ],
+  // Its query nodes are filed under its own node, out of the outline's home.
+  files: { "sys.extension.example": [NOTES, UNNOTED] },
   tagRowViews: { [NOTED]: NoteView },
   declaredOptions: [{ kind: BACKDROP_OPTIONS, options: [Glow] }],
 });

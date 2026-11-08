@@ -179,9 +179,10 @@ describe("node command palette", () => {
    * The command set a node offers, in order (closed gaps
    * [[01M1MGCF0ECBDEPTHPKMSQ4YFD]] / [[01M1MGCRNVNBE5HW27Z83PK67B]]).
    *
-   * Pinned as whole ordered lists rather than `toContain` checks: assembly by
-   * splice makes position a function of which conditions fired, and that
-   * ordering is the part a registry has to reproduce.
+   * Pinned as whole ordered lists rather than `toContain` checks: the order
+   * is the menu's groups, then each command's order in its group
+   * (DESIGN-UI.md → The node menu), and a row a condition drops must leave
+   * the rest where they were.
    */
   it("lists every command a plain node offers, in order", async () => {
     await open("n.plain");
@@ -193,18 +194,18 @@ describe("node command palette", () => {
       "Make supertag",
       "Search everything… ⌘S",
       "Open in panel",
+      "Open with: Outline",
+      "Open with: Chart",
       "Indent",
       "Outdent",
       "Pin",
       "Show debug fields",
-      "Delete node",
-      "Open with: Outline",
-      "Open with: Chart",
       "View as: List",
       "View as: Table",
       "View as: Board",
       "View as: Cards",
       "Filter…",
+      "Delete node",
     ]);
   });
 
@@ -217,18 +218,18 @@ describe("node command palette", () => {
       "Add field",
       "Search everything… ⌘S",
       "Open in panel",
+      "Open with: Outline",
+      "Open with: Chart",
       "Indent",
       "Outdent",
       "Pin",
       "Show debug fields",
-      "Delete node",
-      "Open with: Outline",
-      "Open with: Chart",
       "View as: List",
       "View as: Table",
       "View as: Board",
       "View as: Cards",
       "Filter…",
+      "Delete node",
     ]);
   });
 

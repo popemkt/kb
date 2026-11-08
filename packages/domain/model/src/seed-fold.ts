@@ -65,10 +65,12 @@ export interface SeedSource {
   readonly seed?: (at: string) => readonly KbNode[];
   readonly views?: readonly { readonly key: SeedView }[];
   /**
-   * Its own seed nodes it files under another source's list node, by that
-   * list's id: the fold appends each id to the list's children, after those
-   * it already has, in source order. A pin among the Pinned, a view node
-   * among the Views. The nodes stay this source's.
+   * Its own seed nodes it files under a list node, by that list's id: the
+   * fold appends each id to the list's children, after those it already
+   * has, in source order. A pin among the Pinned, a view node among the
+   * Views, or a node only the source reads (a query its commands ask)
+   * under its own node, `extensionNodeId(name)`, so the outline's home
+   * does not show it. The nodes stay this source's.
    */
   readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   /** The declared options it contributes, by kind; the fold derives each one's option node. */
@@ -435,11 +437,14 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     knobs: knobsOf(source, at),
     own: extensionNode(source, at),
   }));
+  // A source's own node is a list its `files` may name, so it is filed with the rest.
+  const owns = new Set(parts.map((part) => part.own.id));
+  const filed = withFiled(
+    [...parts.flatMap((part) => part.seed), ...parts.map((part) => part.own)],
+    parts,
+  );
   const withViews = fileUnder(
-    withFiled(
-      parts.flatMap((part) => part.seed),
-      parts,
-    ),
+    filed.filter((node) => !owns.has(node.id)),
     SYSTEM_IDS.viewsRoot,
     parts.flatMap((part) => part.options),
   );
@@ -455,7 +460,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   const folded = fileUnder(
     [...withDeclared, ...parts.flatMap((part) => part.knobs)],
     SYSTEM_IDS.extensionsRoot,
-    parts.map((part) => part.own),
+    filed.filter((node) => owns.has(node.id)),
   );
   const seen = new Map<NodeId, string>();
   for (const node of folded) {

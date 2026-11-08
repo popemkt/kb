@@ -2328,7 +2328,8 @@ a step's anchor and pick). The T0 form is data, which the page interprets,
 so no author code runs when a person picks (`lib/command-forms`):
 
 - `provideCommand(id, { label, icon, group, order, when, run })`. `icon`
-  is a name from the shell's set (`IconName`). `when` is a query node, by
+  names one of the icons the shell's own rows draw (`IconName`), so a
+  name costs the page nothing it does not already carry. `when` is a query node, by
   id: the command is offered on the rows whose id is in its answer's
   first column, once the replica has answered it (`savedQueryIds`), and
   absent, on every row. `run` is an action about the row, or a step to

@@ -64,9 +64,9 @@ export interface ExtensionDeclaration {
    */
   readonly seed?: (at: string) => readonly KbNode[];
   /**
-   * Its own seed nodes it files under core's list nodes, by the list's id
+   * Its own seed nodes it files under a list node, by the list's id
    * (`SeedSource.files`): a pin among the Pinned, a view node among the
-   * Views.
+   * Views, or a node only it reads under its own node.
    */
   readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   /** The views the family provides; the seed derives each one's option node from its key. */

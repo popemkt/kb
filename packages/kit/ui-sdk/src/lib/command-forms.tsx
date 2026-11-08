@@ -9,23 +9,16 @@
 import type { ReactNode } from "react";
 import {
   ArrowRightIcon,
-  BellIcon,
-  BookmarkSimpleIcon,
-  CalendarBlankIcon,
   CheckIcon,
-  FlagIcon,
-  FolderIcon,
+  EyeIcon,
   HashIcon,
   LinkSimpleIcon,
   MagnifyingGlassIcon,
-  NoteIcon,
-  PencilSimpleIcon,
   PlusIcon,
   PushPinIcon,
-  SparkleIcon,
   StarIcon,
-  TagIcon,
-  UserIcon,
+  TextTIcon,
+  TrashIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import type { ContributionEntry } from "@kb/plugin";
@@ -43,26 +36,22 @@ import {
 import type { PickerCandidate } from "./picker";
 import { savedQueryIds } from "./saved-query";
 
-/** The icons a form names, by name. */
+/**
+ * The icons a form names, by name: the ones the shell's own rows already
+ * draw, so a name costs the page nothing it does not carry.
+ */
 const FORM_ICONS = {
   "arrow-right": ArrowRightIcon,
-  bell: BellIcon,
-  bookmark: BookmarkSimpleIcon,
-  calendar: CalendarBlankIcon,
   check: CheckIcon,
-  flag: FlagIcon,
-  folder: FolderIcon,
+  eye: EyeIcon,
   hash: HashIcon,
   link: LinkSimpleIcon,
   "magnifying-glass": MagnifyingGlassIcon,
-  note: NoteIcon,
-  pencil: PencilSimpleIcon,
-  plus: PlusIcon,
   pin: PushPinIcon,
-  sparkle: SparkleIcon,
+  plus: PlusIcon,
   star: StarIcon,
-  tag: TagIcon,
-  user: UserIcon,
+  text: TextTIcon,
+  trash: TrashIcon,
 } as const satisfies Record<string, Icon>;
 
 /** An icon a form names: one of the shell's, drawn as the shell draws its own. */

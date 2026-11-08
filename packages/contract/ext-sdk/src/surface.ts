@@ -360,6 +360,13 @@ export interface ExtensionDeclaration {
   /** Its system nodes under frozen ids, stamped `at`. */
   readonly seed?: (at: string) => readonly KbNode[];
   /** The views it provides; its entries contribute exactly these (`declarationPlugin`). */
+  /**
+   * Its own seed nodes it files under a list node, by the list's id: a pin
+   * among the Pinned, a view among the Views, or a node only it reads (a
+   * query its commands ask) under its own node, `sys.extension.<name>`, so
+   * the outline's home does not show it.
+   */
+  readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   readonly views?: readonly ViewDef<unknown>[];
   /**
    * The tags whose nodes open in one of its own `views` before the store's
