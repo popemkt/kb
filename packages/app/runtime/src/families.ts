@@ -96,14 +96,17 @@ function admitted(extensions: readonly LoadedExtension[]): {
   return { extensions: accepted, failures };
 }
 
-/** Each root's families, per set of closures trusted there: importing one runs its module code. */
-const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
+/** One current composed family set per root; importing a trusted closure runs its module code. */
+const familiesCache = new Map<
+  string,
+  { readonly key: string; readonly composed: Effect.Effect<RootFamilies> }
+>();
 
 /**
  * The families `root` composes; with no root, the bundled ones alone, as
  * the deployment composes them (`deployed`). Its
- * closures are read once per root, and which of them a person trusted is
- * read from the user's record on every call, so `sandbox.trust` and
+ * closures are read once per root selection generation. Trust is read from
+ * the user's record on every call, so `sandbox.trust` and
  * `sandbox.untrust` take effect in the process that runs them: a newly
  * trusted closure is imported, an untrusted one is not a family of the
  * root, so the registry and the page server drop it as they drop a family
@@ -145,11 +148,12 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
         .trusted,
     );
   }
-  const key = [governanceMode(), root, ...active.map(({ closure }) => closure.digest)].join("\0");
-  let composed = familiesCache.get(key);
+  const key = [governanceMode(), ...active.map(({ closure }) => closure.digest)].join("\0");
+  const held = familiesCache.get(root);
+  let composed = held?.key === key ? held.composed : undefined;
   if (composed === undefined) {
     composed = yield* Effect.cached(composedOf(active));
-    familiesCache.set(key, composed);
+    familiesCache.set(root, { key, composed });
   }
   const families = yield* composed;
   return {

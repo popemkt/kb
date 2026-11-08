@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { extensionNodeId } from "@kb/model";
+import { extensionNodeId, present } from "@kb/model";
 import { GraphSnapshotSchema, type ServerMessage } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import { childProcessEnv } from "@kb/runtime";
@@ -13,6 +13,8 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const OWNER_QUERY =
   '[:find ?owner :where [?n :node/id "live.seed"] [?n :node/owner ?o] [?o :node/id ?owner]]';
+const actions = (version: number) =>
+  `[{id:"version",title:"Version",description:"Synthetic",mode:{kind:"read"},inputSchema:{parse:x=>x},outputSchema:{parse:x=>x},handler:async()=>({version:${version}})}]`;
 async function child(argv: string[]): Promise<string> {
   const proc = Bun.spawn(argv, {
     cwd: new URL("..", import.meta.url).pathname,
@@ -71,14 +73,9 @@ for (const backend of ["jsonl", "sqlite"] as const)
     let client: Awaited<ReturnType<typeof watching>> | undefined;
     try {
       await child([KB_SOURCE_BIN, "--root", root, "init", "--store", backend, "--bare"]);
-      await writeExtension(
-        source,
-        "live.ts",
-        extensionModule("live", {
-          declaration: `{name:"live",label:"Live fixture",seed:at=>[{id:"live.seed",text:"Synthetic seed",props:{},children:[],createdAt:at,updatedAt:at}]}`,
-          actions: `[{id:"version",title:"Version",description:"Synthetic",mode:{kind:"read"},inputSchema:{parse:x=>x},outputSchema:{parse:x=>x},handler:async()=>({version:1})}]`,
-        }),
-      );
+      const declaration = `{name:"live",label:"Live fixture",seed:at=>[{id:"live.seed",text:"Synthetic seed",props:{},children:[],createdAt:at,updatedAt:at}]}`;
+      const v1 = extensionModule("live", { declaration, actions: actions(1) });
+      await writeExtension(source, "live.ts", v1);
       handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
       client = await watching(handle.url);
       const cli = (...args: string[]) => child([KB_SOURCE_BIN, "--root", root, "ext", ...args]);
@@ -111,6 +108,93 @@ for (const backend of ["jsonl", "sqlite"] as const)
         status: "succeeded",
         output: { version: 1 },
       });
+      const digest = present(
+        untrusted.extensions.find((row) => row.name === "live")?.digest,
+        "live digest",
+      );
+
+      // A ledger write in another process drops an already-running family.
+      client.frames.length = 0;
+      await child([
+        process.execPath,
+        "--no-env-file",
+        "--config=/dev/null",
+        "--eval",
+        `import {Effect,Layer} from "effect";
+         import {CodeTrust} from "@kb/contracts";
+         import {codeTrustLayer} from "@kb/workspace-fs";
+         import {bunFileSystemLayer} from "@kb/runtime";
+         await Effect.runPromise(Effect.flatMap(CodeTrust,t=>t.untrust(${JSON.stringify(digest)})).pipe(Effect.provide(codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)))));`,
+      ]);
+      await frame(client.frames, (message) => message.op === "manifest-changed");
+      expect(await invoke(handle, "ext.live.version")).toMatchObject({
+        status: "failed",
+        code: "unknown_action",
+      });
+      client.frames.length = 0;
+      await child([
+        process.execPath,
+        "--no-env-file",
+        "--config=/dev/null",
+        "--eval",
+        `import {trustExtension} from "@kb/test-kit";await trustExtension(${JSON.stringify(source)},"live.ts");`,
+      ]);
+      await frame(client.frames, (message) => message.op === "manifest-changed");
+      expect(await invoke(handle, "ext.live.version")).toMatchObject({
+        status: "succeeded",
+        output: { version: 1 },
+      });
+
+      // Linked bytes are not watched. A stable lock change exposes the new,
+      // untrusted digest, but neither its module nor its action may run.
+      const marker = join(at, "untrusted-ran");
+      const v2 = extensionModule("live", {
+        declaration,
+        actions: actions(2),
+        prelude: `import {writeFileSync} from "node:fs";writeFileSync(${JSON.stringify(marker)},"ran");`,
+      });
+      await writeExtension(source, "live.ts", v2);
+      expect(await invoke(handle, "ext.live.version")).toMatchObject({
+        status: "succeeded",
+        output: { version: 1 },
+      });
+      client.frames.length = 0;
+      const extra = join(at, "extra-folder");
+      await cli("link", extra, "--scope", "local");
+      await frame(client.frames, (message) => message.op === "manifest-changed");
+      const pending = kbManifestDef.outputSchema.parse(
+        (await invoke(handle, "kb.manifest")).output,
+      );
+      const candidate = present(
+        pending.extensions.find((row) => row.name === "live"),
+        "updated live source",
+      );
+      expect(candidate.trusted).toBe(false);
+      expect(candidate.digest).toBeDefined();
+      expect(candidate.digest).not.toBe(digest);
+      expect(await invoke(handle, "ext.live.version")).toMatchObject({
+        status: "failed",
+        code: "unknown_action",
+      });
+      expect(await Bun.file(marker).exists()).toBe(false);
+
+      // Restoring the original bytes and changing the lock rolls back live.
+      await writeExtension(source, "live.ts", v1);
+      client.frames.length = 0;
+      await cli("unlink", extra, "--scope", "local");
+      await frame(client.frames, (message) => message.op === "manifest-changed");
+      const restored = kbManifestDef.outputSchema.parse(
+        (await invoke(handle, "kb.manifest")).output,
+      );
+      expect(restored.extensions.find((row) => row.name === "live")).toMatchObject({
+        digest,
+        trusted: true,
+      });
+      expect(await invoke(handle, "ext.live.version")).toMatchObject({
+        status: "succeeded",
+        output: { version: 1 },
+      });
+      expect(await Bun.file(marker).exists()).toBe(false);
       client.frames.length = 0;
       await cli("unlink", join(source, ".kb", "extensions"), "--scope", "local");
       await frame(client.frames, (message) => message.op === "manifest-changed");
