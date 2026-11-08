@@ -36,17 +36,20 @@ export const codeDigest = Effect.fn("sandbox.codeDigest")(function* (
 
 /**
  * A repository extension's closure: each half bundled from its files into
- * one module, every file it loads inlined, its declaration included. The
- * page half is null for an extension without one.
+ * one module, every file it loads inlined, its declaration included, and
+ * the bytes of its manifest file. The page half is null for an extension
+ * without one, and the manifest null for one that keeps none.
  */
 export interface ExtensionClosure {
   readonly server: string;
   readonly page: string | null;
+  readonly manifest: string | null;
 }
 
 /**
  * The digest of a repository extension (`.kb/extensions/<name>.ts`): its
- * closure, every byte of both halves, in a format of its own so it can
+ * closure, every byte of both halves and of its manifest, so what a person
+ * read about it is what they trusted, in a format of its own so it can
  * never be taken for a sandboxed run's. A host runs either half only once a
  * person has trusted this digest on the machine, through the same trust as
  * sandboxed code, and what it runs is exactly those bytes (DESIGN.md → Core
@@ -55,10 +58,13 @@ export interface ExtensionClosure {
 export const extensionDigest = Effect.fn("sandbox.extensionDigest")(function* (
   closure: ExtensionClosure,
 ): Effect.fn.Return<string> {
+  // The manifest is hashed only where there is one, so a closure without one keeps the
+  // digest it was trusted at before manifests existed.
   return yield* trustDigest({
     format: EXTENSION_FORMAT,
     server: closure.server,
     page: closure.page,
+    ...(closure.manifest === null ? {} : { manifest: closure.manifest }),
   });
 });
 

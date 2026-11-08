@@ -20,7 +20,7 @@ export const PART_WORDS: Readonly<Record<SettingsPart, { label: string; lede: st
   },
   extensions: {
     label: "Extensions",
-    lede: "Each extension's switch, its settings and what it composes. Off, its actions, views and MCP tools leave, on every tab.",
+    lede: "What kb is built from, and what you have added. Turn one off and its actions, views and MCP tools leave every tab; its nodes stay.",
   },
   advanced: {
     label: "Advanced",

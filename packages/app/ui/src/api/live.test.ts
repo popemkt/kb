@@ -217,7 +217,11 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
 
 it("a server catalog notification refreshes the page manifest without a graph write", async () => {
   const before = globalThis.fetch;
-  const row = extensionRow({ name: "live-update", label: "Live update" }, "fixture", false);
+  const row = extensionRow(
+    { name: "live-update", label: "Live update" },
+    { source: "fixture", origin: { kind: "own" } },
+    false,
+  );
   globalThis.fetch = async () =>
     new Response(
       JSON.stringify({

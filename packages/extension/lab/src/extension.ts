@@ -14,6 +14,7 @@ import { LabView } from "./view.ts";
 export const labExtension = defineExtension({
   name: "lab",
   label: "Lab",
+  manifest: { description: "A sketchbook of experimental scenes, off until you switch it on." },
   tags: ["lab"],
   optional: { byDefault: "off" },
   views: [viewDef(LabView)],

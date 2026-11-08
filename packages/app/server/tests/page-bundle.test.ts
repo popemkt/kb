@@ -75,9 +75,16 @@ const DATASCRIPT = /cljs\.core/;
  * gesture that hears a double-click on the head (1.3 KB), the corner it
  * opens (1.5 KB; deferred, it split the kit's eager chunks and cost 0.95 KB
  * more) and the head's hold of it (0.4 KB).
+ * And by 10.7 KB (10,633 bytes measured) for reviewing and trusting
+ * extensions wherever an approval appears, since a trust card can come up on
+ * any page: the review evidence and its line diff (#125, 4.7 KB); the menu
+ * surface the kit now owns, an extension row's origin and status words
+ * (3.5 KB); what an extension says about itself, its manifest's shape and
+ * capabilities in words on that card (2.3 KB); and the merge's own 0.1 KB.
+ * Settings itself loads lazily.
  */
 // The routines family adds its native field/tag vocabulary; its worker remains server-side.
-const EAGER_BUDGET_BYTES = 2_029_000;
+const EAGER_BUDGET_BYTES = 2_039_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

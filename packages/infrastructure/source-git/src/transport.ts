@@ -78,6 +78,7 @@ export function gitTransport(base: string) {
           }
           if ((yield* Effect.promise(() => child.exited)) !== 0)
             return yield* new SourceError({
+              // GAP [[01M6WXNJH2JJD9956VC408R386]] — preserve a sanitized failure classification instead of conflating unavailable sources with budgets.
               message: "git source operation failed within its transfer limits",
             });
           return new Uint8Array(Buffer.concat(chunks));

@@ -3,7 +3,14 @@ import { coreExtension } from "@kb/operations";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { SETTINGS_NAMESPACE, SettingsView } from "@kb/views";
-import { provideRoute, provideView, RoutePoint, SETTINGS_PATH, ViewPoint } from "@kb/ui-sdk";
+import {
+  ActionReviewPoint,
+  provideRoute,
+  provideView,
+  RoutePoint,
+  SETTINGS_PATH,
+  ViewPoint,
+} from "@kb/ui-sdk";
 import { LazySettingsPage } from "@/components/prefs/settings-lazy";
 import { PART_WORDS, settingsPartOf } from "@/lib/settings-parts";
 
@@ -19,6 +26,16 @@ export const settingsUiPlugin = definePlugin({
   apply: (ctx) =>
     Effect.all(
       [
+        ctx.contribute(ActionReviewPoint, {
+          id: "sandbox.trust",
+          value: {
+            action: "sandbox.trust",
+            read: (invocation) =>
+              import("./extension-approval-read").then(({ readExtensionApproval }) =>
+                readExtensionApproval(invocation),
+              ),
+          },
+        }),
         ctx.contribute(
           ViewPoint,
           provideView(SettingsView, {

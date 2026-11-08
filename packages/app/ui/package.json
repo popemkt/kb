@@ -72,6 +72,7 @@
     "@kb/zzz-ui": "workspace:*",
     "@phosphor-icons/react": "catalog:",
     "@tailwindcss/vite": "catalog:",
+    "diff": "catalog:",
     "dockview-react": "catalog:",
     "effect": "catalog:",
     "graphology-communities-louvain": "catalog:",

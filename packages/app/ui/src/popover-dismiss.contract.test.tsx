@@ -1,7 +1,8 @@
 /**
  * The shell's popovers, each run through the dismiss contract
  * (`dismissContract`, DESIGN-UI.md → Cross-surface polish → Popovers dismiss
- * one way): the add-a-ref picker and the pane switcher; and
+ * one way): the add-a-ref picker, the pane switcher and an extension's
+ * menu; and
  * those the shell hosts for its kits and families, which need its stores
  * to open: the ontology picker and the outline's frame filter.
  */
@@ -11,6 +12,7 @@ import { OntologyPicker } from "@kb/ui-sdk";
 import { dismissContract, renderPopover } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { PaneSwitcher } from "@/components/layout/pane-switcher";
+import { ExtensionActions } from "@/components/prefs/extension-card";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -38,6 +40,31 @@ dismissContract({
       <PaneSwitcher path="/" title="Home" onChoose={noop} />,
       find('[role="menu"][aria-label="Show in this pane"]'),
       trigger('button[aria-haspopup="menu"]'),
+    ),
+  "packages/app/ui/src/components/prefs/extension-card.tsx": (host) =>
+    renderPopover(
+      host,
+      <ExtensionActions
+        extension={{
+          row: {
+            name: "hello",
+            label: "Hello",
+            enabled: true,
+            source: "/repo/.kb/extensions/hello.ts",
+            origin: { kind: "own" },
+            digest: `sha256:${"ab".repeat(32)}`,
+            tags: [],
+            injects: [],
+            provides: [],
+            failures: [],
+          },
+          contributions: new Map(),
+          seeded: [],
+        }}
+        onReview={noop}
+      />,
+      find('[role="menu"][aria-label="More for Hello"]'),
+      trigger('button[aria-label="More for Hello"]'),
     ),
   "packages/kit/ui-sdk/src/components/ontology-picker.tsx": (host) =>
     renderPopover(

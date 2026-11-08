@@ -179,7 +179,10 @@ describe("the families the page loads", () => {
   });
 
   it("leave out a family the page has no browser entry for", () => {
-    const rows = [...reported(() => true), extensionRow({ name: "remote", label: "R" }, "x", true)];
+    const rows = [
+      ...reported(() => true),
+      extensionRow({ name: "remote", label: "R" }, { source: "x", origin: { kind: "own" } }, true),
+    ];
     expect(familiesToLoad(rows)).toEqual([
       "governance",
       "outline",

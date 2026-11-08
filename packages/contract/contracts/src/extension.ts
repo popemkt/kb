@@ -12,6 +12,7 @@ import {
   type ExtensionEntry,
 } from "./declaration.ts";
 import type { ExtensionTemplate, TemplateFn } from "./template.ts";
+import type { ExtensionOrigin } from "./extension-review.ts";
 import { ViewKeyPoint, viewDef } from "./view-catalog.ts";
 import { ActionGuardPoint, ActionInterceptorPoint, guardAction, onAction } from "./interception.ts";
 
@@ -47,9 +48,10 @@ export type ExtensionAction = ActionDefinition & {
       }
   );
 
-/** A family as a root composes it: its declaration, its entry, and `bundled` or its module's path. */
+/** A family as a root composes it: its declaration, its entry, `bundled` or its module's path, and how it came to be composed. */
 export interface LoadedExtension extends ExtensionEntry {
   readonly source: string;
+  readonly origin: ExtensionOrigin;
   /** A repository extension's closure digest: what a person trusted, and what addresses its page half. */
   readonly digest?: string;
   /** A repository extension's page half, the bundled module; a bundled family's is in the page's own build. */

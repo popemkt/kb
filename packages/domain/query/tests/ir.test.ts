@@ -472,6 +472,7 @@ describe("property 3: printing keeps the answer", () => {
       { numRuns: 100 },
     );
     // Equal errors, or equal empty answers, on both sides prove little: a share of the runs must answer rows.
+    // GAP [[01M6WV8JS4GPF0TRYDZY948C40]] — independent samples do not guarantee this coverage quota.
     expect(answered).toBeGreaterThanOrEqual(8);
   });
 });

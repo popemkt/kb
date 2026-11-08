@@ -444,10 +444,10 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 
-  const rows: ExtensionRow[] = families.map(({ declaration, source, digest, page }) =>
+  const rows: ExtensionRow[] = families.map(({ declaration, source, origin, digest, page }) =>
     extensionRow(
       declaration,
-      source,
+      { source, origin },
       sources.get(declaration.name) === source,
       page === undefined || digest === undefined ? undefined : extensionPagePath(digest),
       digest,
@@ -535,7 +535,6 @@ const registryOf = Effect.fn("kb.registryOf")(function* (
                   ...row,
                   ...candidate,
                   label: row.label,
-                  optional: row.optional,
                   enabled: row.enabled,
                   page: row.page,
                   ...(row.digest !== undefined && row.digest !== candidate.digest

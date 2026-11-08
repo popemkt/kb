@@ -30,7 +30,7 @@ export const extensionDiffEffect = Effect.fn("extension.diff")(function* (
   const row = (yield* ExtensionCatalog).find(
     (candidate) => candidate.name === input.name && candidate.shadowed === undefined,
   );
-  if (row?.origin?.kind !== "install" || row.files === undefined)
+  if (row?.origin.kind !== "install" || row.files === undefined)
     return yield* domainError("invalid_input", `no installed extension named ${input.name}`);
   const storage = yield* ExtensionStorage;
   const current = yield* storage.tree({ kind: "extension", name: row.name, files: row.files });

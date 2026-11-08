@@ -23,12 +23,11 @@ import {
   type CanvasView,
 } from "./canvas-camera";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
-import { cn, useDismiss } from "@kb/ui-sdk";
+import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
 import { fullscreenAvailable, inFullscreen } from "./canvas-fullscreen";
-import { MenuHint, MenuSeparator } from "./canvas-menu";
-import { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./use-canvas-menu";
+import { MenuHint } from "./canvas-menu";
 import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
 
 export interface CanvasViewWidgetProps extends ShownCameraProps {

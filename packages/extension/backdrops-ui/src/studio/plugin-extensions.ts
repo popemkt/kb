@@ -1,13 +1,13 @@
 /**
  * The repository extensions Backdrop Studio speaks of (DESIGN-UI.md →
  * Backdrop Studio → From plugins): the server's report (`extension.list`),
- * every row of which with an `origin` is one, its own, linked or
- * installed. It is read again whenever the page reads the server's
+ * every row whose origin is not kb's own (`isKbOrigin`) is one, its own,
+ * linked or installed. It is read again whenever the page reads the server's
  * manifest again (`BrowserHost.subscribeManifest`), as installing,
  * trusting, switching or removing one makes it.
  */
 import { useEffect, useState } from "react";
-import { ExtensionReportSchema, type ExtensionReportRow } from "@kb/contracts";
+import { ExtensionReportSchema, isKbOrigin, type ExtensionReportRow } from "@kb/contracts";
 import { browserHost } from "@kb/ui-sdk";
 
 export interface PluginExtensions {
@@ -27,7 +27,7 @@ const NONE: PluginExtensions = { rows: new Map(), awaiting: [] };
 function pluginExtensionsOf(report: unknown): PluginExtensions {
   const parsed = ExtensionReportSchema.safeParse(report);
   if (!parsed.success) return NONE;
-  const plugins = parsed.data.extensions.filter((row) => row.origin !== undefined);
+  const plugins = parsed.data.extensions.filter((row) => !isKbOrigin(row.origin));
   return {
     rows: new Map(plugins.map((row) => [row.name, row])),
     awaiting: plugins.filter((row) => row.trusted === false && row.reach?.page !== false),
@@ -42,7 +42,7 @@ export function familyOf(owner: string): string {
 /** Where the report says an extension comes from: what was installed, else its kind of folder. */
 export function sourceOf(row: ExtensionReportRow): string {
   const { origin } = row;
-  if (origin === undefined) return row.source;
+  if (isKbOrigin(origin)) return row.source;
   if (origin.kind === "install") return origin.selection.original;
   if (origin.kind === "link") return `a folder linked in the ${origin.scope} scope`;
   return "this kb's own .kb/extensions";

@@ -2972,7 +2972,16 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   a person has trusted it on this machine. What a person trusts is its
   **closure**: each half (the server entry `<name>.ts`, and the page entry
   `<name>.page.tsx` when it has one) bundled from its files into one module
-  by Bun's own bundler (`extensionClosure`, `app/runtime`). The compiler
+  by Bun's own bundler (`extensionClosure`, `app/runtime`), and its
+  manifest, `<name>.manifest.json` when it keeps one. The manifest is data:
+  kb reads and validates it without running anything, so its row shows what
+  the extension says about itself before anyone trusts it; a manifest that
+  does not parse, or whose page tier contradicts whether the extension ships
+  a page half, refuses the extension, and one with no `<name>.ts` beside it
+  is a failure. Its bytes are part of the closure, so an edited manifest is
+  new code to trust. A repository declaration that says these things in
+  code (`description`, `manifest`) is refused, so the file is their one
+  home; an install carries it from the source with the code. The compiler
   disables Bun macros before any module is parsed, for own and installed
   folders alike: closure compilation never executes source code. So every file it
   loads at any depth is inlined, however it is reached: a relative import, a
@@ -2993,7 +3002,14 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   its closure, either half, is new code, untrusted until trusted again. So
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
-  untrusted extension's declaration is neither seeded nor loaded.
+  untrusted extension's declaration is neither seeded nor loaded. Its own
+  node, `sys.extension.<name>`, named by the name it is selected under and
+  holding nothing, is seeded all the same, as for every extension the root
+  selects (one failing to load too): the switch is a setting of that node,
+  so `extension.switch` turns an extension off before anyone has trusted it,
+  and the off holds once it is trusted. Trusted later, its declaration seeds
+  the rest; the node keeps its text, as the seed never rewrites a seeded
+  node's text, so a surface names an extension by its row's label.
   - **Approved means owner code.** The digest guarantees that the static
     closure kb imports is exactly the approved bytes: no static import it
     does not hash, no file read again between the check and the import (the
@@ -3282,9 +3298,15 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name
-  and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
-  its state in a store where no one has switched it), for the one
+manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
+  of what it says about itself (`manifest`, `ExtensionManifestSchema` in
+  `@kb/contracts`: the one line Settings shows under its label, its author,
+  links, licence and capabilities; what each field means is
+  [docs/extensions](docs/extensions/README.md)),
+  of how it starts (`optional: {byDefault: "on" | "off"}`, its state in a
+  store where no one has switched it; `on` when it says nothing), and of
+  whether it is required (`required`: why kb cannot run without it, in the
+  words Settings shows beside its lock), for the one
   family that provides it, of the default view type, and of the tags whose
   nodes open in one of its views (View nodes):
   - every entry plugin takes its `name` from the declaration;
@@ -3300,8 +3322,9 @@ optional?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declared
   declaration, so every bundled family declares itself in its shared
   package. The server resolves each one's entry by the name the entry takes
   from it (`BUNDLED_EXTENSIONS`, `app/runtime`), and fails at load on a
-  family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, optional,
-enabled, source}`. The `kb ui` server adds the host plugins it loaded,
+  family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, manifest?, required?,
+enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `host`, the store's `own` folder, a `link`, or an `install`
+  with its selection, through which a marketplace's name is read: `installMarketplace`), so no reader infers it from `source`. The `kb ui` server adds the host plugins it loaded,
   such as the agent, to the same report. The browser loads the browser
   entry of each family the manifest reports as enabled, through a resolver
   keyed by family name ([DESIGN-UI → Extension UI halves](DESIGN-UI.md#extension-ui-halves)).
@@ -3309,12 +3332,16 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   loaded by its host, so its actions and views leave the registry, the
   catalog, MCP's tools and the agent's, and the page drops its browser
   half. There is never a second switch in the browser.
-  - **Which families can be switched.** The outline, the collections (the
+  - **Which families can be switched.** Every family but a required one.
+    The outline, the collections (the
     table, board and cards frame views), canvas, chart, code, the page-head
     backdrops (DESIGN-UI.md → Page-head backdrops), the themes (DESIGN-UI.md
     → Design tokens → Design systems) and the agent are
-    optional and on by default; the lab and the gallery
-    (DESIGN-UI.md → The gallery) are optional and off by default. Docs and check are required. The outline is the default
+    on by default; the lab and the gallery
+    (DESIGN-UI.md → The gallery) are off by default. Core, governance, docs and check are required, each saying why.
+    **Required is kb's own claim:** a repository extension, whether the store's own, linked or installed, can always be
+    switched off, and one whose declaration says `required` is refused (`decodeExtensionModule`). Switched off, it
+    contributes nothing; its lock entry and its trust stay, so switching it on again needs no new approval. The outline is the default
     editing mode and provides the default view type, the view a node opens
     in when it names none; switched off, a node is read in core's read view
     instead (View nodes → core's read view is the floor), and the home is
@@ -3328,7 +3355,7 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     switch: the server's entry, the `kb ui` host's entry and the browser
     half. A family depends only on its own packages (the family fence), so
     switching one off never breaks another.
-  - **The switch is a node.** An optional family is on while the store's
+  - **The switch is a node.** A family that is not required is on while the store's
     `sys.extension.<name>` node carries `true` in the checkbox field
     `sys.f.extension.enabled`, and by its declared default where the node
     holds no switch (`familyOn`, `@kb/contracts`). The node is seeded for
@@ -4241,7 +4268,7 @@ answers `{canvasId, items, edges, reported}`.
 | `view.openings`                                                              | read  | every way a node opens, in order (its default, its view nodes, view types with its tags' defaults first), the default marked, each with its `ui.navigate` path                                                                                                                                                                                                                                                                                                                              |
 | `views.migrate`                                                              | write | rewrite a store written before view nodes to them and import `.kb/views` ([View nodes](#view-nodes))                                                                                                                                                                                                                                                                                                                                                                                        |
 | `kb.manifest`                                                                | read  | list every registered action as its manifest entry (MCP's `kb_manifest`), the view catalog and the extensions ([Extension families](#extension-families))                                                                                                                                                                                                                                                                                                                                   |
-| `extension.switch`                                                           | write | turn an optional extension on or off for this kb: the registry loads it, or leaves it out, from the next call ([Extension families](#extension-families))                                                                                                                                                                                                                                                                                                                                   |
+| `extension.switch`                                                           | write | turn an extension that is not required on or off for this kb: the registry loads it, or leaves it out, from the next call ([Extension families](#extension-families))                                                                                                                                                                                                                                                                                                                                   |
 | `ext.docs.materialize` (alias `docs.materialize`)                            | write | render the docs views → write md (bundled extension)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `ext.docs.check` (alias `docs.check`)                                        | read  | materialize to memory, diff vs disk (bundled extension)                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `ext.canvas.tx.apply`                                                        | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared                                                                                                                                                                                                                                                                                                                                                                              |

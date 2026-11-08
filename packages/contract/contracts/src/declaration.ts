@@ -1,4 +1,10 @@
-import { ExtensionReviewSchema } from "./extension-review.ts";
+import {
+  ExtensionOriginSchema,
+  ExtensionReviewSchema,
+  isKbOrigin,
+  type ExtensionOrigin,
+} from "./extension-review.ts";
+import type { ExtensionManifest } from "./extension-manifest.ts";
 /**
  * A family declares itself once (DESIGN.md → Extension families): its name,
  * how it is labelled, the system nodes it seeds and the views it provides.
@@ -21,14 +27,30 @@ export interface ExtensionDeclaration {
   readonly name: string;
   readonly label: string;
   /**
-   * The family can be switched, and is `byDefault` in a store where no one
-   * has switched it. Whether it is on is the server's decision, never the
-   * browser's: a host loads an optional family only while it is on
-   * (`familyOn`), and `kb.manifest.extensions` reports it either way. A
-   * family without it is required: on wherever it is composed, whatever its
-   * switch node says.
+   * What the family says about itself (`ExtensionManifest`): its one line,
+   * and what it reaches beyond the graph. Only kb's build declares it here;
+   * a repository extension keeps it in its manifest file, which kb reads
+   * before anyone trusts the code.
+   */
+  readonly manifest?: ExtensionManifest;
+  /**
+   * How the family starts in a store where no one has switched it: `on`
+   * when it says nothing. Every family can be switched unless it declares
+   * {@link required}. Whether it is on is the server's decision, never the
+   * browser's: a host loads a family only while it is on (`familyOn`), and
+   * `kb.manifest.extensions` reports it either way.
    */
   readonly optional?: { readonly byDefault: "on" | "off" };
+  /**
+   * Why kb cannot run without the family, in plain words: what Settings
+   * shows beside its lock. A family that declares it is on wherever it is
+   * composed, whatever its switch node says, and `extension.switch` refuses
+   * it. Being required is a claim only kb's own build makes about itself:
+   * a repository extension that declares it is refused
+   * (`decodeExtensionModule`), so anything installed or linked can be
+   * switched off. It never comes with {@link optional}.
+   */
+  readonly required?: string;
   /**
    * The family's labels (DESIGN.md → Plugin organisation), the one home of
    * them: every plugin of the family carries them (`familyTags`), and the
@@ -156,13 +178,17 @@ export interface ExtensionEntry {
 /**
  * One extension as a host reports it (`kb.manifest.extensions`): what the
  * page follows. `enabled` says the host holds it loaded; `source` is
- * `bundled`, `host` (composed by `kb ui`) or a repository extension's path.
+ * `bundled`, `host` (composed by `kb ui`) or a repository extension's path,
+ * and `origin` is how it came to be composed, so no reader infers it from
+ * `source`. `required` is its declaration's reason, present only for a
+ * family no store can switch off.
  */
 export const ExtensionRowSchema = z.object({
   ...ExtensionReviewSchema.shape,
+  origin: ExtensionOriginSchema,
   name: z.string(),
   label: z.string(),
-  optional: z.boolean(),
+  required: z.string().optional(),
   enabled: z.boolean(),
   source: z.string(),
   /** Where the page imports a repository extension's page half from (`extensionPagePath`). */
@@ -174,24 +200,55 @@ export const ExtensionRowSchema = z.object({
 export type ExtensionRow = z.infer<typeof ExtensionRowSchema>;
 
 /**
- * A declaration's row, as the host that composes it from `source` reports
- * it, with the path its page half is served at when it has one the page's
+ * Where a host composes a family from: kb's build (`bundled`), the `kb ui`
+ * host (`host`), or a module path with the origin that selected it.
+ */
+export type ExtensionFrom =
+  | "bundled"
+  | "host"
+  | { readonly source: string; readonly origin: ExtensionOrigin };
+
+/** A family's source and origin, from where a host composes it. */
+export function extensionFrom(from: ExtensionFrom): {
+  readonly source: string;
+  readonly origin: ExtensionOrigin;
+} {
+  return typeof from === "string" ? { source: from, origin: { kind: from } } : from;
+}
+
+/** Who ships kb's own families, and under what licence. */
+const KB_BUILD: ExtensionManifest = {
+  author: "kb",
+  repository: "https://github.com/popemkt/kb",
+  license: "MIT",
+};
+
+/**
+ * A declaration's row, as the host that composes it `from` reports it,
+ * with the path its page half is served at when it has one the page's
  * build does not hold, and the digest it was trusted at when it is a
  * repository extension.
  */
 export function extensionRow(
   declaration: ExtensionDeclaration,
-  source: string,
+  from: ExtensionFrom,
   enabled: boolean,
   page?: string,
   digest?: string,
 ): ExtensionRow {
+  const { source, origin } = extensionFrom(from);
+  // kb's build is the author of what it ships: said once here, under what each family declares.
+  const manifest = isKbOrigin(origin)
+    ? { ...KB_BUILD, ...declaration.manifest }
+    : declaration.manifest;
   return {
     name: declaration.name,
     label: declaration.label,
-    optional: declaration.optional !== undefined,
+    ...(manifest === undefined ? {} : { manifest }),
+    ...(declaration.required === undefined ? {} : { required: declaration.required }),
     enabled,
     source,
+    origin,
     ...(page === undefined ? {} : { page }),
     ...(digest === undefined ? {} : { digest }),
   };

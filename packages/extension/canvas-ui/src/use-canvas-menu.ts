@@ -1,12 +1,10 @@
 /**
- * What every canvas menu is made of (the view menu, the context menu): its
- * surface, its row, and its keys — the arrows, Home and End move through
- * its rows, and none of them reaches the canvas's own keys (nudge, escape)
- * while it is open — and where the context menu opens. Dismissal is
- * `useDismiss`'s, as every popover's; the pieces drawn are `canvas-menu.tsx`.
+ * Where the canvas's context menu opens, and which of its commands apply.
+ * What a menu is made of (its surface, rows and keys) is the kit's
+ * (`menu.ts`, `@kb/ui-sdk`); the pieces drawn are `canvas-menu.tsx`.
  */
-import { useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
-import { cn, isTyping } from "@kb/ui-sdk";
+import { useState, type MouseEvent } from "react";
+import { isTyping } from "@kb/ui-sdk";
 import { cardIdAt, edgeIdAt } from "./card-pointer";
 import { isGroupNode, itemLead, type CanvasNode } from "@kb/canvas";
 import {
@@ -17,43 +15,6 @@ import {
 } from "./canvas-keymap";
 import { hasEditor } from "./canvas-face-overlay";
 import { selectForMenu, selectionEmpty, soleItem, type CanvasSelection } from "./canvas-selection";
-
-/** A menu's look: a floating surface over the stage. */
-export const MENU_SURFACE =
-  "kb-surface-enter z-30 w-56 rounded-lg border border-border bg-popover p-1 text-ui text-popover-foreground shadow-overlay";
-
-/** A menu row's look. */
-export const MENU_ROW = cn(
-  "flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left outline-none",
-  "hover:bg-foreground/[0.06] focus-visible:bg-foreground/[0.06] disabled:opacity-40",
-);
-
-/** A menu's element and what its keys do. */
-interface MenuKeys {
-  ref: RefObject<HTMLDivElement | null>;
-  onKeyDown: (e: KeyboardEvent) => void;
-}
-
-/** A menu's element and its keys: the arrows, Home and End move the focus through its enabled rows. */
-export function useMenuKeys(): MenuKeys {
-  const ref = useRef<HTMLDivElement>(null);
-  const onKeyDown = (e: KeyboardEvent) => {
-    const all = [
-      ...(ref.current?.querySelectorAll<HTMLButtonElement>("[role^=menuitem]:not(:disabled)") ??
-        []),
-    ];
-    const at = all.findIndex((item) => item === document.activeElement);
-    const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-    if (step !== 0) all[(at + step + all.length) % all.length]?.focus();
-    else if (e.key === "Home") all[0]?.focus();
-    else if (e.key === "End") all.at(-1)?.focus();
-    else return;
-    // The canvas's own keys (nudge, escape) stay out of an open menu.
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  return { ref, onKeyDown };
-}
 
 interface Spot {
   readonly x: number;

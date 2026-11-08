@@ -22,6 +22,7 @@ import { CanvasListView, CanvasView } from "./view.ts";
 export const canvasExtension = defineExtension({
   name: "canvas",
   label: "Canvas",
+  manifest: { description: "Free-form canvases of cards, links and frames." },
   tags: ["canvas"],
   optional: { byDefault: "on" },
   seed: canvasSeedNodes,

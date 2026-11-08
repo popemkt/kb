@@ -33,7 +33,11 @@ export const KB_DESIGN_SYSTEM: SeedOption = { id: "kb", label: "kb" };
 export const coreExtension = defineExtension({
   name: "core",
   label: "Core",
+  manifest: {
+    description: "The graph itself: nodes, fields, tags, search, views and these settings.",
+  },
   tags: ["core"],
+  required: "Everything else is built on it; without it there is no graph to extend.",
   seed: systemSeedNodes,
   views: [
     viewDef(OntologyListView),

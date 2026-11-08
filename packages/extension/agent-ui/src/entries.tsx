@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   CaretRightIcon,
   CheckIcon,
@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ToolEntry, TranscriptEntry } from "@kb/agent";
 import type { ApprovalAsk } from "@kb/contracts";
-import { cn, MdView, useFollow, useRefInk } from "@kb/ui-sdk";
+import { ActionApproval, cn, MdView, useFollow, useRefInk } from "@kb/ui-sdk";
 
 /** A value as the cards show it: JSON, two-space indented. */
 function shown(value: unknown): string {
@@ -151,6 +151,10 @@ function ApprovalCard({
   entry: ToolEntry;
   decide: (call: string, approved: boolean) => void;
 }) {
+  const invocation = useMemo(
+    () => ({ id: entry.action, actor: "agent" as const, input: entry.input }),
+    [entry.action, entry.input],
+  );
   return (
     <div
       className="rounded-md border border-primary/30 bg-primary/[0.05] px-3 py-2.5"
@@ -165,26 +169,8 @@ function ApprovalCard({
         The agent wants to run <code className="font-mono">{entry.action}</code>, which needs your
         approval.
       </p>
-      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-foreground/[0.04] px-2 py-1.5 font-mono text-caption text-foreground/65">
-        {shown(entry.input)}
-      </pre>
       <RunsWith configuration={entry.ask?.configuration ?? []} />
-      <div className="mt-2.5 flex items-center gap-2">
-        <button
-          type="button"
-          className="rounded-md bg-primary px-3 py-1 text-meta font-medium text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/60"
-          onClick={() => decide(entry.id, true)}
-        >
-          Approve
-        </button>
-        <button
-          type="button"
-          className="rounded-md px-3 py-1 text-meta text-foreground/60 outline-none hover:bg-foreground/5 hover:text-foreground/80 focus-visible:ring-2 focus-visible:ring-primary/60"
-          onClick={() => decide(entry.id, false)}
-        >
-          Decline
-        </button>
-      </div>
+      <ActionApproval invocation={invocation} answer={(approved) => decide(entry.id, approved)} />
     </div>
   );
 }

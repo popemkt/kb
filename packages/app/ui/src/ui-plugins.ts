@@ -72,7 +72,7 @@ import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import * as uiSdk from "@kb/ui-sdk";
-import { logWarn, syncUiPlugins } from "@kb/ui-sdk";
+import { latestRead, logWarn, syncUiPlugins } from "@kb/ui-sdk";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
 import { invokeSettled } from "@/session/runtime";
@@ -313,21 +313,14 @@ async function loadEntry(row: ExtensionRow): Promise<Plugin | null> {
   }
 }
 
-let generation = 0;
 /** The latest convergence, done once the kernel holds what it was started for. */
 let settling: Promise<void> = Promise.resolve();
 
-/**
- * Converge the kernel on the core plugins plus the entries for `rows`. The
- * entries load first, so the kernel moves once; a newer convergence that
- * starts meanwhile wins, and this one is dropped.
- */
-async function converge(rows: readonly ExtensionRow[]): Promise<void> {
-  const mine = ++generation;
-  const entries = await Promise.all(loadable(rows).map(loadEntry));
-  if (mine !== generation) return;
-  syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]);
-}
+/** Resolve entries first; only the latest requested set may replace the page kernel. */
+const converge = latestRead(
+  (rows: readonly ExtensionRow[]) => Promise.all(loadable(rows).map(loadEntry)),
+  (entries) => syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]),
+);
 
 /**
  * Done once the kernel holds the plugins for the extensions the page follows
