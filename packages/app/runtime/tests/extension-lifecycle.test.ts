@@ -151,7 +151,6 @@ async function listing(on = ctx) {
   return ExtensionReportSchema.parse(await call("extension.list", {}, on)).extensions;
 }
 async function trust(name: string, on = ctx) {
-  resetRegistryCache();
   const row = (await listing(on)).find(
     (candidate) => candidate.name === name && candidate.shadowed === undefined,
   );
@@ -209,7 +208,6 @@ test("outdated is read-only; update refreshes the index and keeps approved bytes
   await call("extension.marketplace.add", { source: "github:owner/repo@main" });
   await call("extension.install", { source: "hello" });
   const old = await trust("hello");
-  ctx = await openKb(ctx.root);
   expect(await call("ext.hello.version")).toEqual({ version: 1 });
   const oldLock = await readFile(join(ctx.root, ".kb", "extensions.lock.json"), "utf8");
   const data = await Effect.runPromise(currentData);
@@ -229,8 +227,6 @@ test("outdated is read-only; update refreshes the index and keeps approved bytes
   ]);
   expect((await lock()).marketplaces.sample.locked.rev).toBe(sha(2));
   expect((await lock()).extensions.hello.previous.files).toBe(old.files);
-  resetRegistryCache();
-  ctx = await openKb(ctx.root);
   const pending = (await listing()).find((row) => row.name === "hello");
   expect(pending).toMatchObject({ trusted: false, running: { digest: old.digest }, enabled: true });
   expect(await call("ext.hello.version")).toEqual({ version: 1 });
@@ -242,8 +238,6 @@ test("outdated is read-only; update refreshes the index and keeps approved bytes
   expect(current.digest).not.toBe(old.digest);
   expect(await call("ext.hello.version")).toEqual({ version: 2 });
   await writeFile(join(ctx.root, ".kb", "extensions.lock.json"), oldLock);
-  resetRegistryCache();
-  ctx = await openKb(ctx.root);
   expect(await call("ext.hello.version")).toEqual({ version: 1 });
 });
 test("links preserve scope policy, shared trust, edited untrusted bytes, and missing-folder failures", async () => {

@@ -7,8 +7,8 @@
  * (`extension.switch`), the server loads the lab and reports it, and the row
  * and `/lab` appear; switched off again, both leave live — no reload — and
  * `/lab` is not found. Nothing is kept in the browser's preferences. A switch written
- * elsewhere (another tab, the CLI) reaches the page's graph, and the page
- * follows it live. And until the server has answered, the page holds its
+ * elsewhere (another tab, the CLI) changes the server's catalog, whose
+ * notification the page follows live. And until the server has answered, the page holds its
  * workspace rather than show the lab as missing on the way. Switched off
  * while its page is open, unloading tears that page down where it stands.
  *
@@ -21,9 +21,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
-import { extensionRow, type ActionRequest, type GraphSnapshot, type WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
+import { WIRE_PROTOCOL, extensionRow, type ActionRequest, type GraphSnapshot } from "@kb/contracts";
 import { viewCatalogOf } from "@kb/views";
+import { FakeWsSocket } from "@/test-support/ws";
 import type { LabScene } from "@kb/lab-ui";
 
 const scene = vi.hoisted(() => ({ mounted: 0, disposed: 0 }));
@@ -52,19 +52,8 @@ const { setFetchGraphSnapshot } = await import("@/api/graph");
 const { setPostAction } = await import("@/api/action");
 const { navigate } = await import("@kb/ui-sdk");
 const { servedManifest } = await import("@/lib/manifest");
-const { useGraphStore } = await import("@/stores/graph.store");
 
 const ISO = "2026-09-24T00:00:00.000Z";
-
-/** The lab's switch node as another tab or the CLI writes it, reaching the page's graph as any write does. */
-const switchNode = (on: boolean, at: string): WireNode => ({
-  id: extensionNodeId("lab"),
-  text: "Lab",
-  props: { [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: on }] },
-  children: [],
-  createdAt: ISO,
-  updatedAt: at,
-});
 
 function snapshot(): GraphSnapshot {
   return {
@@ -81,6 +70,11 @@ const server = {
   lab: false,
   switches: [] as unknown[],
   hold: null as Promise<void> | null,
+  socket: null as FakeWsSocket | null,
+  changeLab(on: boolean) {
+    this.lab = on;
+    this.socket?.deliver({ op: "manifest-changed" });
+  },
 };
 
 function loaded(name: string): boolean {
@@ -125,7 +119,7 @@ async function answer(invocation: ActionRequest) {
   if (invocation.id === "extension.switch") {
     server.switches.push(invocation.input);
     const { on } = invocation.input as { name: string; on: boolean };
-    server.lab = on;
+    server.changeLab(on);
     return { status: "succeeded" as const, id: invocation.id, output: invocation.input, rev: 1 };
   }
   return {
@@ -183,11 +177,15 @@ describe("lab plugin, switched on the server (acceptance)", () => {
       observe(): void {}
       disconnect(): void {}
     };
-    g.WebSocket = class {
-      close(): void {}
-      send(): void {}
-      addEventListener(): void {}
-      removeEventListener(): void {}
+    g.WebSocket = class extends FakeWsSocket {
+      constructor() {
+        super();
+        server.socket = this;
+        queueMicrotask(() => {
+          this.accept();
+          this.deliver({ op: "hello", rev: 1, protocol: WIRE_PROTOCOL });
+        });
+      }
     };
     setFetchGraphSnapshot(() => Promise.resolve(snapshot()));
     setPostAction(answer);
@@ -311,18 +309,14 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     await boot();
     expect(labRow()).toBeUndefined();
     // Another tab, or the CLI, switches the lab on: the server loads it, and
-    // the switch node reaches this page's graph as any write does.
-    server.lab = true;
-    act(() => useGraphStore.getState().applyTx([switchNode(true, "2026-09-24T00:00:01.000Z")], []));
+    // the server announces its changed catalog without needing a graph frame.
+    act(() => server.changeLab(true));
     await until(() => labRow() !== undefined);
     expect(reportedLab()).toBe(true);
     expect(labRow()).toBeDefined();
     expect(server.switches).toEqual([]);
 
-    server.lab = false;
-    act(() =>
-      useGraphStore.getState().applyTx([switchNode(false, "2026-09-24T00:00:02.000Z")], []),
-    );
+    act(() => server.changeLab(false));
     await until(() => labRow() === undefined);
     expect(reportedLab()).toBe(false);
     expect(labRow()).toBeUndefined();
@@ -372,10 +366,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(study()).not.toBeNull();
 
     // Another tab, or the CLI, switches it off: the page stays on /lab.
-    server.lab = false;
-    act(() =>
-      useGraphStore.getState().applyTx([switchNode(false, "2026-09-24T00:00:03.000Z")], []),
-    );
+    act(() => server.changeLab(false));
     await until(() => labRow() === undefined);
     await settle();
     expect(dom.location.pathname).toBe("/lab");

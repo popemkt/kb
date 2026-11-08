@@ -1,4 +1,4 @@
-import { Context, type Effect } from "effect";
+import { Context, type Effect, type Stream } from "effect";
 import { z } from "zod";
 import {
   pinnedSchema,
@@ -12,6 +12,8 @@ import type { DomainError } from "@kb/model";
 
 export const EXTENSION_SCOPES = ["local", "store", "user"] as const;
 export const DEFAULT_EXTENSION_SCOPE = "store" as const;
+/** Running surfaces follow lock and trust changes without a restart. */
+export const EXTENSION_RELOAD = "live" as const;
 export const ExtensionScopeSchema = z.enum(EXTENSION_SCOPES);
 export type ExtensionScope = z.infer<typeof ExtensionScopeSchema>;
 export const ExtensionNameSchema = artifactName;
@@ -85,6 +87,10 @@ export interface ExtensionTransaction {
 export class ExtensionStorage extends Context.Service<
   ExtensionStorage,
   {
+    /** Opaque content state of the effective locks; reading never creates state. */
+    fingerprint(root: string): Effect.Effect<string>;
+    /** Initial armed state, then lock changes from any process; read-only and bounded by STORE_CHANGES_POLL. */
+    changes(root: string): Stream.Stream<void>;
     read(root: string, scope: ExtensionScope): Effect.Effect<ExtensionLockRead, DomainError>;
     cached(selection: SourceSelection): Effect.Effect<CachedTree | null, DomainError>;
     tree(address: SourceAddress): Effect.Effect<CachedTree | null, DomainError>;

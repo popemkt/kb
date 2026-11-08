@@ -8,6 +8,7 @@ import {
   KbCtx,
   KbRoots,
   DEFAULT_EXTENSION_SCOPE,
+  EXTENSION_RELOAD,
   ExtensionScopeSchema,
   ExtensionNameSchema,
   type ActionDefinition,
@@ -87,7 +88,7 @@ export const extensionUpdateDef = {
     "Explicitly refresh selected sources and marketplaces. With no name update every entry in the scopes in effect. New bytes remain untrusted; the previous approved source keeps running until replacement approval.",
   mode: { kind: "write", outsideRoot: true } as const,
   inputSchema: NamedScope,
-  outputSchema: z.object({ updated: z.array(Change), reload: z.literal("restart kb ui") }),
+  outputSchema: z.object({ updated: z.array(Change), reload: z.literal(EXTENSION_RELOAD) }),
 } satisfies ActionDefinition;
 export const extensionUpdateEffect = Effect.fn("extension.update")(function* (
   input: z.infer<typeof extensionUpdateDef.inputSchema>,
@@ -179,7 +180,7 @@ export const extensionUpdateEffect = Effect.fn("extension.update")(function* (
           marketplaces: Object.fromEntries(marketplaces),
         });
       }
-      return { updated, reload: "restart kb ui" as const };
+      return { updated, reload: EXTENSION_RELOAD };
     }),
   );
 });

@@ -14,7 +14,7 @@ export function codeTrustLayer(
   return Layer.effect(
     CodeTrust,
     Effect.gen(function* () {
-      const { file, readFile, read, write, locked } = yield* trustLedger;
+      const { file, readFile, read, write, locked, changes } = yield* trustLedger;
       const recordEvidence = Effect.fn("kb.trust.recordEvidence")(function* (
         current: TrustFile,
         digest: string,
@@ -41,6 +41,7 @@ export function codeTrustLayer(
         return current.trusted.filter((record) => record.machine === machine);
       });
       return CodeTrust.of({
+        changes,
         records,
         trusted: Effect.fn("kb.trust.trusted")(function* (digests: readonly string[]) {
           const mine = new Set((yield* records).map((record) => record.digest));

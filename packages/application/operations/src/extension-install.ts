@@ -14,6 +14,7 @@ import {
   ExtensionStorage,
   KbCtx,
   DEFAULT_EXTENSION_SCOPE,
+  EXTENSION_RELOAD,
   ExtensionScopeSchema,
   type ActionDefinition,
   type ExtensionTransaction,
@@ -57,7 +58,7 @@ export const extensionInstallDef = {
           .optional(),
       }),
     ),
-    reload: z.literal("restart kb ui"),
+    reload: z.literal(EXTENSION_RELOAD),
   }),
 } satisfies ActionDefinition;
 export const extensionInstallEffect = Effect.fn("extension.install")(function* (
@@ -135,7 +136,7 @@ export const extensionInstallEffect = Effect.fn("extension.install")(function* (
               : { [request.marketplace.name]: request.marketplace.selection }),
           },
         });
-        return { installed, reload: "restart kb ui" as const };
+        return { installed, reload: EXTENSION_RELOAD };
       }),
     );
   }
@@ -172,7 +173,7 @@ export const extensionInstallEffect = Effect.fn("extension.install")(function* (
       for (const { pin, plan } of indexes)
         yield* tx.store({ kind: "marketplace", pin }, plan.source);
       for (const plan of extensions) yield* record(tx, plan);
-      return { installed, reload: "restart kb ui" as const };
+      return { installed, reload: EXTENSION_RELOAD };
     }),
   );
 });

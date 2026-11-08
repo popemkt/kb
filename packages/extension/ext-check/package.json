@@ -19,6 +19,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@kb/query": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {

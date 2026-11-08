@@ -1836,6 +1836,12 @@ same lane. One path to a client, whatever a node's provenance.
   worker — hands its EDN to `runDatalog` on a `DatascriptIndex`, which is
   `compile(parseEdn(edn))` then DataScript. The subset `parseEdn` understands becomes the kb IR
   (`@kb/query`'s `ir.ts`); anything else passes through as `raw`, unchanged.
+- The index definition (`IndexOptions`: derived references and clock) belongs
+  to the query port. Adapters and hosts read that one type. A full query
+  index can replace its derived references with `setDerived`: it preserves
+  stored/virtual nodes and ids, rebuilds facts and point reads, advances its
+  generation and forgets cached answers. Session seed reconciliation belongs
+  to the runtime, shared by opening and refreshing a running session.
 - **Two halves, one owner.** An index is its node set and point reads
   (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, the text scan, the
   generation), and the datalog engine over them (`KbIndex extends
@@ -2860,6 +2866,19 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   published tree before it is selected. Fetching happens before the mutation;
   publication rechecks its source-selection snapshot and refuses a conflict.
   Reads never acquire or write the mutation lock.
+  `ExtensionStorage.changes(root)` announces its armed state, then changes to
+  the three effective locks from any process, including locks created after
+  subscription. It shares `STORE_CHANGES_POLL` with the store change contract,
+  never creates directories/files, and does not watch linked folders. The
+  shared trust ledger has the same read-only change capability. A running
+  runtime keys root readings by the lock fingerprint on every call, so all
+  surfaces notice another process's selection. A server also follows changes
+  proactively, reconciles its trusted schema and
+  registry from one family snapshot, and announces that its manifest changed; old registries retire
+  only after their in-flight calls settle. Pages refresh the manifest on
+  connection and on that notification, then converge their plugin families.
+  Only the latest requested catalog may replace the current one. Install and
+  update receipts report the live reload policy (`EXTENSION_RELOAD`).
   Trees live at `<data>/extensions/store/<hash-first-32>-<name>`, copied into
   private temporary directories using exclusive regular-file writes, made
   read-only and renamed into place. A version-1 pin index reuses verified trees without
@@ -2867,8 +2886,9 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   trees are refused and a source-less install repairs them from their pins.
   `extension.install` resolves/fetches, stores, compiles without importing,
   refuses bundled names and escaping/unresolved imports, then writes its lock.
-  It never trusts. Existing processes keep their lock selection until restart
-  (live reload is step 12). Admission imports only own code; it checks lock
+  It never trusts. One root owns its lock-selection snapshot and compiled file
+  readings, which are invalidated together; immutable imports stay keyed by digest.
+  Admission imports only own code; it checks lock
   schemas, bundled names, store-relative links and present tree integrity
   without fetching, importing or executing installed/linked code.
 - **Pinned extension sources.** `SourceReader` (`@kb/extension-source`) resolves
@@ -2916,7 +2936,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   mutation lock it first retires this machine's unreferenced provenance trust,
   then sweeps unreferenced cache trees, pin indexes and abandoned publication
   stages. Its output lists every approval record retired. It lists orphaned local
-  locks whose recorded root no longer exists,
+  locks whose roots no longer resolve to their recorded canonical identity,
   leaving those records for the person to review. Records without provenance and other machines' records stay. Source
   symlinks are never followed during collection. Nodes are never removed.
 - **Marketplaces are pinned source projections.** A strict version-1
@@ -3100,8 +3120,6 @@ where, how rows become markdown, repo-specific output of any kind — lives in
 - The canvas document format is extension-owned (`@kb/canvas`,
   `packages/extension/canvas`) even though it is shared between the backend
   plugin and the browser. It does not belong to the core node model.
-- Extensions are loaded once per process; changing one requires restarting
-  long-lived surfaces (`kb ui`, `kb mcp`).
 - The registry's kernel is not the only host. The browser page and the
   `kb ui` server each run their own kernel of the same `@kb/plugin`, loaded
   by their composition root ([Plugin channels](#plugin-channels)). This is

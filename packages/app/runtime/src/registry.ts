@@ -1,3 +1,4 @@
+import { reconcileSessionSchema } from "./session-schema.ts";
 import { validateInstallLocks } from "./installed-extensions.ts";
 import { extensionStorageLayer } from "@kb/workspace-fs";
 import { Effect } from "effect";
@@ -47,7 +48,7 @@ import {
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { GOVERNANCE_FAMILY, governanceMode } from "./deployment.ts";
-import { resetRootFamilies, rootFamilies, vouchedFamilies } from "./families.ts";
+import { resetRootFamilies, rootFamilies, vouchedFamilies, type RootFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
@@ -494,7 +495,16 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
   nodeOf: NodeLookup = NO_SWITCHES,
 ): Effect.fn.Return<Registry, never, FileSystem> {
-  const { families, failures, inventory } = yield* rootFamilies(root);
+  return yield* registryOf(root, yield* rootFamilies(root), nodeOf);
+});
+
+/** Compile a registry from a root's already-read family snapshot. */
+const registryOf = Effect.fn("kb.registryOf")(function* (
+  root: string | null,
+  snapshot: RootFamilies,
+  nodeOf: NodeLookup,
+): Effect.fn.Return<Registry, never, FileSystem> {
+  const { families, failures, inventory } = snapshot;
   const unread: string[] = [];
   const on = families.filter(({ declaration }) =>
     familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
@@ -622,7 +632,10 @@ function requiredFamilies(): readonly string[] {
 
 /** The registry a session runs in: its root's, as its own store switches the families. */
 export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, FileSystem> {
-  return registryFor(ctx.root, (id) => ctx.index.getNode(id));
+  return reconcileSessionSchema(ctx).pipe(
+    Effect.orDie,
+    Effect.flatMap((families) => registryOf(ctx.root, families, (id) => ctx.index.getNode(id))),
+  );
 }
 
 /**

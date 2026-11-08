@@ -1,3 +1,4 @@
+import type { RootExtensionState, RootSelection } from "./extension-state.ts";
 import { extensionTree } from "@kb/extension-source";
 import { resolve } from "node:path";
 import { lstat } from "node:fs/promises";
@@ -9,8 +10,6 @@ import {
   ExtensionCompiler,
   ExtensionStorage,
   type ExtensionFailure,
-  type ExtensionSelection,
-  type ExtensionScope,
 } from "@kb/contracts";
 import { extensionStorageLayer, currentData } from "@kb/workspace-fs";
 import { domainError } from "@kb/model";
@@ -46,23 +45,11 @@ export const extensionCompilerLayer = Layer.succeed(
     }),
   }),
 );
-interface Selection {
-  readonly links: readonly ExtensionFolder[];
-  readonly installed: readonly {
-    name: string;
-    entry: ExtensionSelection;
-    origin: string;
-    scope: ExtensionScope;
-  }[];
-  readonly failures: readonly ExtensionFailure[];
-}
-/** A selection snapshot preserves the pre-live-reload process contract; integrity is checked every load. */
-const selections = new Map<string, Effect.Effect<Selection>>();
 const readSelection = Effect.fn("extensions.selection")(function* (root: string) {
   const storage = yield* ExtensionStorage;
   const data = yield* currentData;
   const links: ExtensionFolder[] = [];
-  const installed: Selection["installed"][number][] = [];
+  const installed: RootSelection["installed"][number][] = [];
   const failures: ExtensionFailure[] = [];
   for (const scope of EXTENSION_SCOPES) {
     const held = yield* storage.read(root, scope).pipe(Effect.result);
@@ -84,7 +71,7 @@ const readSelection = Effect.fn("extensions.selection")(function* (root: string)
         failures.push({ file: name, error: "installed name is a bundled extension" });
         continue;
       }
-      installed.push({ name, entry, origin: `${scope} install`, scope });
+      installed.push({ name, entry, scope });
     }
   }
   return { links, installed, failures };
@@ -103,8 +90,11 @@ const installedTree = Effect.fn("extensions.installedTree")(function* (
   return held;
 });
 /** No installed/linked module is imported here, including for admission. */
-export const installedFolders = Effect.fn("extensions.folders")(function* (root: string) {
-  let snapshot = selections.get(root);
+export const installedFolders = Effect.fn("extensions.folders")(function* (
+  state: RootExtensionState,
+) {
+  const { root } = state;
+  let snapshot = state.selection;
   if (snapshot === undefined) {
     const fs = yield* FileSystem;
     snapshot = yield* Effect.cached(
@@ -113,7 +103,7 @@ export const installedFolders = Effect.fn("extensions.folders")(function* (root:
         Effect.provideService(FileSystem, fs),
       ),
     );
-    selections.set(root, snapshot);
+    state.selection = snapshot;
   }
   const selected = yield* snapshot;
   const folders: ExtensionCandidate[] = [];
@@ -131,9 +121,10 @@ export const installedFolders = Effect.fn("extensions.folders")(function* (root:
         failures.push({ file: link.dir, error: "linked extension folder is missing" });
       else folders.push(link);
     }
-    for (const { name, entry, origin, scope: entryScope } of selected.installed.filter(
+    for (const { name, entry, scope: entryScope } of selected.installed.filter(
       (item) => item.scope === scope,
     )) {
+      const origin = `${entryScope} install`;
       const tree = yield* installedTree(name, entry.locked.files).pipe(Effect.result);
       const provenance = { kind: "install" as const, scope: entryScope, selection: entry };
       if (Result.isFailure(tree) || tree.success === null)
@@ -159,9 +150,6 @@ export const installedFolders = Effect.fn("extensions.folders")(function* (root:
   }
   return { folders, failures, fallbacks };
 });
-export function resetInstalledSelections(): void {
-  selections.clear();
-}
 /** Admission reads every lock afresh, checks present trees, and never follows links to execute code. */
 export const validateInstallLocks = Effect.fn("extensions.validateLocks")(function* (root: string) {
   const selected = yield* readSelection(root);

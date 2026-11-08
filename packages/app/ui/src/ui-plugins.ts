@@ -59,7 +59,6 @@ import { graphUiPlugin } from "@kb/graph-ui";
 import { labExtension } from "@kb/lab";
 import { locationsUiPlugin } from "@kb/locations-ui";
 import { outlineExtension } from "@kb/outline";
-import { extensionNodeId } from "@kb/model";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension } from "@kb/operations";
 import { isPlugin, PluginError, type Plugin } from "@kb/plugin";
@@ -74,10 +73,9 @@ import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import * as uiSdk from "@kb/ui-sdk";
 import { logWarn, syncUiPlugins } from "@kb/ui-sdk";
-import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
+import { servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
 import { invokeSettled } from "@/session/runtime";
-import { shownNodes, useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { webMcpUiPlugin } from "@/webmcp";
 
@@ -332,18 +330,6 @@ async function converge(rows: readonly ExtensionRow[]): Promise<void> {
 }
 
 /**
- * Where the page's graph has the switch node of each optional family it
- * follows now: its version, joined.
- */
-function switchVersions(): string {
-  const nodes = shownNodes();
-  return followedExtensions()
-    .filter((row) => row.optional)
-    .map((row) => nodes.get(extensionNodeId(row.name))?.updatedAt ?? "")
-    .join("\n");
-}
-
-/**
  * Done once the kernel holds the plugins for the extensions the page follows
  * now: the latest convergence, and any started while it ran.
  */
@@ -356,25 +342,13 @@ export async function extensionsSettled(): Promise<void> {
 /**
  * Load the UI's plugins, then keep the kernel in step with the server's
  * report: a family the report drops is unloaded, and its pages and sidebar
- * section leave with it, without a reload. A switch written anywhere (another
- * tab, the CLI) reaches this page's graph, and the page reads the server's
- * report again. Returns the unsubscribe.
+ * section leave with it, without a reload. The live connection refreshes the
+ * server's report when its catalog changes. Returns the unsubscribe.
  */
 export function startUiPlugins(): () => void {
   const sync = () => {
     settling = converge(followedExtensions());
   };
   sync();
-  const unsubscribeManifest = subscribeManifest(sync);
-  let switches = switchVersions();
-  const unsubscribeGraph = useGraphStore.subscribe(() => {
-    const next = switchVersions();
-    if (next === switches) return;
-    switches = next;
-    if (servedManifest() !== null) void loadManifest();
-  });
-  return () => {
-    unsubscribeManifest();
-    unsubscribeGraph();
-  };
+  return subscribeManifest(sync);
 }
