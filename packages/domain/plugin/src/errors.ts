@@ -13,6 +13,8 @@ export const PluginErrorReason = Schema.Literals([
   "contribution-conflict",
   /** Two different key objects share one name. */
   "key-mismatch",
+  "wrong-kernel",
+  "invalid-point",
   /** `get` of a service the plugin did not declare in `inject`. */
   "not-injected",
   /** The plugin's own `apply` failed. */

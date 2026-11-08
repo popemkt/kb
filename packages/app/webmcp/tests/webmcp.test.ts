@@ -354,7 +354,7 @@ describe("WebMCP adapter", () => {
 
   test("as a plugin, it registers on load and unregisters on unload", async () => {
     const page = new FakeModelContext();
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     Effect.runSync(
       kernel.load(webMcpPlugin({ modelContext: () => page, invoke: host([READ]).invoke })),
     );

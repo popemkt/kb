@@ -390,3 +390,7 @@ because of it; then how much it costs to fix.
 15. **Gap, low — no telemetry or scheduling sink.** Spans exist (`kb.guard`,
     `kb.interceptor`, `interception.ts:178,292`) but no exporter point, and timers are
     Effect's. *Direction:* leave; Effect covers both.
+
+## Implementation follow-up: 2026-11-09
+
+Findings 3 and 11 are closed by PointSpec: every point declares its host and combination rule; the kernel refuses wrong-host contributions and duplicate keyed members (including lab scenes and option-preview fields). The extension report enumerates live points with their specs and contribution order. The tables above remain the dated review of their stated base.

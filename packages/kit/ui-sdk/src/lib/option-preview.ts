@@ -32,7 +32,13 @@ export interface OptionPreview {
   readonly Preview: ComponentType<{ readonly id: string; readonly size: PreviewSize }>;
 }
 
-export const OptionPreviewPoint = Point<OptionPreview>()("ui.option-previews");
+export const OptionPreviewPoint = Point<OptionPreview>()("ui.option-previews", {
+  cardinality: "keyed",
+  combine: "lookup by option field",
+  kernel: "page",
+  tier: "T3",
+  keyBy: "kind.field",
+});
 
 /**
  * How each option of `fieldId` is previewed at `size`, by its option

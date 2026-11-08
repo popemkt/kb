@@ -18,7 +18,7 @@ const AT = "2026-01-01T00:00:00.000Z";
 function contributed() {
   return Effect.runSync(
     Effect.gen(function* () {
-      const kernel = makeKernel();
+      const kernel = makeKernel({ host: "registry" });
       yield* kernel.load(codePlugin());
       const views = kernel.contributions(ViewKeyPoint).map(({ id, value }) => ({ id, value }));
       yield* kernel.shutdown;

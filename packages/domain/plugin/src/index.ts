@@ -12,7 +12,14 @@ export type {
   PluginStatus,
   PointContribution,
 } from "./kernel.ts";
-export { Point, Service, asKeyType } from "./keys.ts";
+export {
+  Point,
+  Service,
+  asKeyType,
+  KERNEL_HOSTS,
+  POINT_CARDINALITIES,
+  POINT_TIERS,
+} from "./keys.ts";
 export { syncPlugins } from "./sync.ts";
 export type { SyncFailure } from "./sync.ts";
-export type { AnyServiceKey, Key, PointKey, ServiceKey } from "./keys.ts";
+export type { AnyServiceKey, Key, PointKey, PointSpec, KernelHost, ServiceKey } from "./keys.ts";

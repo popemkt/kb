@@ -124,7 +124,7 @@ interface Harness {
 function harness(script: (text: string) => readonly ScriptStep[]): Harness {
   const invoked: ActionInvocation[] = [];
   const runtime = scriptedRuntime((turn) => script(turn.message.text));
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "server" });
   Effect.runSync(
     kernel.load(
       definePlugin({ name: "host", apply: (ctx) => ctx.provide(UiHost, fakeHost(invoked)) }),

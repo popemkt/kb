@@ -39,7 +39,12 @@ export function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P> {
 }
 
 /** Every view a loaded plugin provides, by view id. */
-export const ViewKeyPoint = Point<ViewDef<unknown>>()("kb.views");
+export const ViewKeyPoint = Point<ViewDef<unknown>>()("kb.views", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: ["registry", "server", "page"],
+  tier: "T3",
+});
 
 /** The views the host's loaded plugins provide: what `view.propose`, `render.view` and `kb.manifest` read. */
 export class ViewCatalog extends Context.Service<ViewCatalog, ViewCatalogOf<ViewDef<unknown>>>()(

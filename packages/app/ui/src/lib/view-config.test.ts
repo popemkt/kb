@@ -35,7 +35,7 @@ import { collectionsUiPlugin } from "@kb/collections-ui";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   Effect.runSync(kernel.load(collectionsUiPlugin));

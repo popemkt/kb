@@ -31,7 +31,7 @@ import { GRAPH_IDS } from "@kb/graph";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);

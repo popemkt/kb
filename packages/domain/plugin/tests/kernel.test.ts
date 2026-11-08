@@ -10,7 +10,12 @@ import {
   PluginError,
 } from "../src/index.ts";
 
-const Greetings = Point<string>()("test.greetings");
+const Greetings = Point<string>()("test.greetings", {
+  cardinality: "list",
+  combine: "all in contribution order",
+  kernel: "registry",
+  tier: "T0",
+});
 const Counter = Service<{ readonly next: () => number }>()("test.counter");
 
 function greeter(name: string, ...words: string[]): Plugin {
@@ -61,7 +66,7 @@ function statusOf(kernel: Kernel, name: string): string | undefined {
 
 describe("loading and unloading", () => {
   test("a plugin's contributions exist exactly while it is loaded, namespaced by it", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     let notified = 0;
     kernel.subscribe(() => notified++);
     const handle = run(kernel.load(greeter("hello", "a", "b")));
@@ -78,7 +83,7 @@ describe("loading and unloading", () => {
   });
 
   test("the root namespace leaves ids bare; aliases are taken as written", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(
       kernel.load(
         definePlugin({
@@ -94,14 +99,14 @@ describe("loading and unloading", () => {
   });
 
   test("two plugins cannot share a name", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(greeter("dup", "a")));
     expect(failure(kernel.load(greeter("dup", "b")))?.reason).toBe("name-taken");
     expect(ids(kernel)).toEqual(["dup.a"]);
   });
 
   test("resources acquired in apply are released on unload", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const log: string[] = [];
     const handle = run(
       kernel.load(
@@ -121,7 +126,7 @@ describe("loading and unloading", () => {
   });
 
   test("shutdown unloads everything, newest first", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const log: string[] = [];
     const tracked = (name: string): Plugin =>
       definePlugin({
@@ -138,7 +143,7 @@ describe("loading and unloading", () => {
 
 describe("failure is atomic", () => {
   test("a clashing contribution fails the plugin and undoes what it registered first", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(greeter("owner", "x")));
     const clashing = definePlugin({
       name: "clash",
@@ -158,7 +163,7 @@ describe("failure is atomic", () => {
   });
 
   test("a defect in apply is a failed plugin, not a crashed kernel", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const broken = definePlugin({
       name: "broken",
       apply: (ctx) =>
@@ -175,7 +180,7 @@ describe("failure is atomic", () => {
 
 describe("services and injection", () => {
   test("a plugin waits for what it injects, and runs once it is provided", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(counterUser));
     expect(statusOf(kernel, "user")).toBe("pending");
     expect(kernel.plugins().find((p) => p.name === "user")?.missing).toEqual(["test.counter"]);
@@ -187,7 +192,7 @@ describe("services and injection", () => {
   });
 
   test("losing a provider sends dependents back to pending; its return brings them back", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const provider = run(kernel.load(counterProvider));
     run(kernel.load(counterUser));
     expect(ids(kernel)).toEqual(["user.count"]);
@@ -202,14 +207,14 @@ describe("services and injection", () => {
   });
 
   test("one provider per service", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(counterProvider));
     const second = definePlugin({ ...counterProvider, name: "counter2" });
     expect(failure(kernel.load(second))?.reason).toBe("service-conflict");
   });
 
   test("get of a service not declared in inject is refused", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(counterProvider));
     const sneaky = definePlugin({
       name: "sneaky",
@@ -219,7 +224,7 @@ describe("services and injection", () => {
   });
 
   test("two different keys with one name are a conflict, not an alias", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(counterProvider));
     const Impostor = Service<{ readonly next: () => number }>()("test.counter");
     const impostor = definePlugin({
@@ -233,7 +238,7 @@ describe("services and injection", () => {
 
 describe("composition", () => {
   test("children share the parent's namespace and unload with it", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const parent = definePlugin({
       name: "canvas",
       namespace: "ext.canvas",
@@ -260,8 +265,13 @@ describe("composition", () => {
   });
 
   test("a plugin's contributions, at every point, are its children's too, and only while loaded", () => {
-    const Farewells = Point<string>()("test.farewells");
-    const kernel = makeKernel();
+    const Farewells = Point<string>()("test.farewells", {
+      cardinality: "list",
+      combine: "all in contribution order",
+      kernel: "registry",
+      tier: "T0",
+    });
+    const kernel = makeKernel({ host: "registry" });
     const parent = definePlugin({
       name: "canvas",
       apply: Effect.fnUntraced(function* (ctx) {
@@ -284,7 +294,7 @@ describe("composition", () => {
 
 describe("a plugin's contributions appear and go as one", () => {
   test("none is visible while its apply runs; all are once it has applied", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const seen: string[][] = [];
     const halfway = definePlugin({
       name: "halfway",
@@ -300,7 +310,7 @@ describe("a plugin's contributions appear and go as one", () => {
   });
 
   test("none is visible once it starts to unload, while its finalizers still run", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const seen: string[][] = [];
     const going = definePlugin({
       name: "going",
@@ -318,7 +328,7 @@ describe("a plugin's contributions appear and go as one", () => {
   });
 
   test("a child's contributions wait for the plugin that loaded it", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const seen: string[][] = [];
     const parent = definePlugin({
       name: "parent",
@@ -335,7 +345,7 @@ describe("a plugin's contributions appear and go as one", () => {
 
 describe("organisation: tags and derived dependencies", () => {
   test("dependencies are inject joined to provide, and follow the provider", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(counterUser));
     // Injected but unprovided is the plugin's `missing`, not an edge.
     expect(kernel.dependencies()).toEqual([]);
@@ -351,14 +361,14 @@ describe("organisation: tags and derived dependencies", () => {
   });
 
   test("contributing to a point is no dependency on whoever reads it", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     run(kernel.load(greeter("a", "hi")));
     run(kernel.load(greeter("b", "yo")));
     expect(kernel.dependencies()).toEqual([]);
   });
 
   test("tags are reported as given, a child's defaulting to its parent's, and change nothing", () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const parent = definePlugin({
       name: "parent",
       tags: ["core"],
@@ -379,4 +389,68 @@ describe("organisation: tags and derived dependencies", () => {
     expect(tagsOf("untagged")).toEqual([]);
     expect(ids(kernel)).toEqual(["parent.x", "parent.y", "untagged.z"]);
   });
+});
+
+describe("point specifications", () => {
+  test("rejects the wrong host atomically", () => {
+    const point = Point<string>()("page.only", {
+      cardinality: "list",
+      combine: "all",
+      kernel: "page",
+      tier: "T3",
+    });
+    const kernel = makeKernel({ host: "registry" });
+    const result = Effect.runSyncExit(
+      kernel.load(
+        definePlugin({
+          name: "wrong",
+          apply: (ctx) => ctx.contribute(point, { id: "one", value: "one" }).pipe(Effect.asVoid),
+        }),
+      ),
+    );
+    expect(Exit.isFailure(result)).toBe(true);
+    expect(kernel.plugins()[0]?.error?.reason).toBe("wrong-kernel");
+    expect(kernel.points()).toEqual([]);
+  });
+
+  test.each(["single", "keyed"] as const)(
+    "%s conflicts and releases its cell on unload",
+    (cardinality) => {
+      const point = Point<{ scene: string }>()("test.cells", {
+        cardinality,
+        combine: "lookup",
+        kernel: "registry",
+        tier: "T0",
+        ...(cardinality === "keyed" ? { keyBy: "scene" } : {}),
+      });
+      const kernel = makeKernel({ host: "registry" });
+      const plugin = (name: string) =>
+        definePlugin({
+          name,
+          apply: (ctx) =>
+            ctx.contribute(point, { id: "cell", value: { scene: "shared" } }).pipe(Effect.asVoid),
+        });
+      run(kernel.load(plugin("first")));
+      expect(Exit.isFailure(Effect.runSyncExit(kernel.load(plugin("second"))))).toBe(true);
+      expect(kernel.plugins()[1]?.error?.reason).toBe("contribution-conflict");
+      run(kernel.unload("first"));
+      run(kernel.load(plugin("third")));
+      expect(kernel.contributions(point).map((item) => item.owner)).toEqual(["third"]);
+    },
+  );
+});
+
+test("an old point key without a spec is refused clearly", () => {
+  const kernel = makeKernel({ host: "registry" });
+  // @ts-expect-error old extension code can call the runtime without the required spec
+  const point = Point<string>()("legacy.point");
+  Effect.runSyncExit(
+    kernel.load(
+      definePlugin({
+        name: "legacy",
+        apply: (ctx) => ctx.contribute(point, { id: "one", value: "one" }).pipe(Effect.asVoid),
+      }),
+    ),
+  );
+  expect(kernel.plugins()[0]?.error?.reason).toBe("invalid-point");
 });

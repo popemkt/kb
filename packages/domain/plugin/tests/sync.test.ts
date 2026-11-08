@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { Point, definePlugin, makeKernel, syncPlugins, type Plugin } from "../src/index.ts";
 
-const Names = Point<string>()("test.names");
+const Names = Point<string>()("test.names", {
+  cardinality: "list",
+  combine: "all in contribution order",
+  kernel: "registry",
+  tier: "T0",
+});
 
 /** A plugin contributing its own name, with `child` loaded under it when given. */
 function named(name: string, child?: Plugin): Plugin {
@@ -22,7 +27,7 @@ describe("syncPlugins", () => {
   test("loads what is listed and unloads what is not, with everything it registered", () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         expect(yield* syncPlugins(kernel, [named("a"), named("b", named("b-child"))])).toEqual([]);
         expect(kernel.contributions(Names).map(({ value }) => value)).toEqual([
           "a",
@@ -38,7 +43,7 @@ describe("syncPlugins", () => {
   test("a plugin already held is left as it is, so a converged kernel does not move", () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         const plugins = [named("a"), named("b")];
         yield* syncPlugins(kernel, plugins);
         const version = kernel.version();
@@ -50,7 +55,7 @@ describe("syncPlugins", () => {
   test("a plugin listed as another value than the one held under its name replaces it", () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         const failing = definePlugin({ name: "a", apply: () => Effect.die(new Error("boom")) });
         expect((yield* syncPlugins(kernel, [failing])).map(({ verb }) => verb)).toEqual(["load"]);
         expect(kernel.plugins().map(({ status }) => status)).toEqual(["failed"]);
@@ -68,7 +73,7 @@ describe("syncPlugins", () => {
   test("what counts is the value the kernel holds now, however it came to hold it", () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         const first = named("a");
         const second = named("a");
         yield* syncPlugins(kernel, [first]);
@@ -78,7 +83,7 @@ describe("syncPlugins", () => {
         yield* syncPlugins(kernel, [first]);
         expect(kernel.holds(first)).toBe(true);
         // Loaded outside syncPlugins first: a different listed value still replaces it.
-        const other = makeKernel();
+        const other = makeKernel({ host: "registry" });
         yield* other.load(first);
         yield* syncPlugins(other, [second]);
         expect(other.holds(second)).toBe(true);
@@ -88,7 +93,7 @@ describe("syncPlugins", () => {
   test("a plugin that fails is returned, and the rest still converge", () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         const failures = yield* syncPlugins(kernel, [broken, named("a")]);
         expect(failures.map(({ name, verb }) => ({ name, verb }))).toEqual([
           { name: "broken", verb: "load" },

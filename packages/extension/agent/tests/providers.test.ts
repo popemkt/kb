@@ -114,7 +114,7 @@ function rig(
       return runtime;
     },
   };
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "server" });
   kernels.push(kernel);
   const host = {
     root: "/tmp/fake-root",

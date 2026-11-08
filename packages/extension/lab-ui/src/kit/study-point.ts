@@ -14,4 +14,10 @@ export interface LabStudyEntry {
   readonly study: LabStudy;
 }
 
-export const LabStudyPoint = Point<LabStudyEntry>()("lab.studies");
+export const LabStudyPoint = Point<LabStudyEntry>()("lab.studies", {
+  cardinality: "keyed",
+  combine: "lookup by scene",
+  kernel: "page",
+  tier: "T3",
+  keyBy: "scene",
+});

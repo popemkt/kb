@@ -32,7 +32,7 @@ const CONTRIBUTED_IDS = [...SHEETS.systems.keys()];
 
 /** The graph themes the page holds, read from a kernel of their own. */
 const THEMES: readonly GraphTheme[] = (() => {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(syncPlugins(kernel, [graphThemesPlugin]));
   return kernel.contributions(GraphThemePoint).map(({ value }) => value);
 })();

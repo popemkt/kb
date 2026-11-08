@@ -402,7 +402,7 @@ const buildRegistry = Effect.fnUntraced(function* (
   refused: readonly ExtensionFailure[],
   required: readonly string[],
 ): Effect.fn.Return<Registry> {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "registry" });
   const failures: ExtensionFailure[] = [...refused];
   const sources = new Map<string, string>();
 

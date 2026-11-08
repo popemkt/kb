@@ -42,7 +42,7 @@ function plugin(
 /** Load `plugins` (the first is core), apply the rule, and report what is left. */
 function check(...plugins: ReturnType<typeof plugin>[]) {
   return Effect.gen(function* () {
-    const kernel: Kernel = makeKernel();
+    const kernel: Kernel = makeKernel({ host: "registry" });
     const sources = new Map<string, string>();
     const failures: ExtensionFailure[] = [];
     for (const p of plugins) {
@@ -124,7 +124,7 @@ describe("a batch's parts are registered actions that are not batches", () => {
   });
 
   test("a plugin that will not unload ends the check loudly instead of looping", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const stubborn: Kernel = { ...kernel, unload: () => Effect.void };
     const exit = await run(
       Effect.gen(function* () {

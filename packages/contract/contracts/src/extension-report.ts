@@ -11,24 +11,10 @@
  */
 import { Context } from "effect";
 import { z } from "zod";
-import type { PointKey } from "@kb/plugin";
+import { KERNEL_HOSTS, POINT_CARDINALITIES, POINT_TIERS, type PointKey } from "@kb/plugin";
 import { ExtensionRowSchema } from "./declaration.ts";
 import type { ExtensionFailure } from "./extension.ts";
 import { FOOTPRINT_SOURCES, type FamilyKernel } from "./footprint.ts";
-import { ActionGuardPoint, ActionInterceptorPoint } from "./interception.ts";
-import { IdentityPoint } from "./person.ts";
-
-/**
- * The points a host asks its listeners at in turn, so their order is what
- * they do: who a request is (the first answer holds), then what a call runs
- * with, then whether it may run.
- */
-const ORDERED_POINTS: readonly PointKey<unknown>[] = [
-  IdentityPoint,
-  ActionInterceptorPoint,
-  ActionGuardPoint,
-];
-
 const ExtensionReportRowSchema = ExtensionRowSchema.extend({
   tags: z.array(z.string()),
   /** Each service its plugins inject, and the plugin that provides it; null while nobody does. */
@@ -40,6 +26,13 @@ const ExtensionReportRowSchema = ExtensionRowSchema.extend({
 
 const OrderedPointSchema = z.object({
   point: z.string(),
+  spec: z.object({
+    cardinality: z.enum(POINT_CARDINALITIES),
+    combine: z.string(),
+    kernel: z.union([z.enum(KERNEL_HOSTS), z.array(z.enum(KERNEL_HOSTS)).readonly()]),
+    tier: z.enum(POINT_TIERS),
+    keyBy: z.string().optional(),
+  }),
   source: z.enum(FOOTPRINT_SOURCES).exclude(["seed"]),
   /** In the order the host asks them; `match` is the calls a listener is asked about, where it names them. */
   listeners: z.array(z.object({ owner: z.string(), id: z.string(), match: z.string().optional() })),
@@ -105,9 +98,24 @@ function listenersAt(
 /** Each ordered point a kernel of `kernels` has listeners at, in that kernel's order. */
 export function orderedPoints(kernels: readonly FamilyKernel[]): OrderedPoint[] {
   return kernels.flatMap(({ source, kernel }) =>
-    ORDERED_POINTS.flatMap((point) => {
+    kernel.points().flatMap((point) => {
       const listeners = listenersAt(kernel, point);
-      return listeners.length === 0 ? [] : [{ point: point.name, source, listeners }];
+      return listeners.length === 0
+        ? []
+        : [
+            {
+              point: point.name,
+              spec: {
+                ...point.spec,
+                kernel:
+                  typeof point.spec.kernel === "string"
+                    ? point.spec.kernel
+                    : [...point.spec.kernel],
+              },
+              source,
+              listeners,
+            },
+          ];
     }),
   );
 }

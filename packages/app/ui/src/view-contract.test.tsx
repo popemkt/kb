@@ -55,7 +55,7 @@ const ALL_PLUGINS: readonly Plugin[] = [
 
 /** A kernel holding every plugin the UI can hold. */
 const KERNEL = (() => {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(Effect.forEach(ALL_PLUGINS, (plugin) => kernel.load(plugin)));
   return kernel;
 })();

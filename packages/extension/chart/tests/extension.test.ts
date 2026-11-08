@@ -16,7 +16,7 @@ const PAINTER: ChartPainter = { svg: () => Effect.succeed("<svg/>") };
 function contributedText(painter?: ChartPainter) {
   return Effect.runSync(
     Effect.gen(function* () {
-      const kernel = makeKernel();
+      const kernel = makeKernel({ host: "registry" });
       yield* kernel.load(chartPlugin(painter === undefined ? {} : { painter }));
       const views = kernel.contributions(ViewKeyPoint).map(({ id, value }) => ({ id, value }));
       yield* kernel.shutdown;

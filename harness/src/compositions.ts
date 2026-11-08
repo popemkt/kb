@@ -24,6 +24,7 @@ interface ComposedPlugin {
   readonly tags: readonly string[];
   readonly missing: readonly string[];
   readonly status: string;
+  readonly error: string | null;
 }
 
 export interface Composition {
@@ -37,7 +38,7 @@ export type CompositionName = (typeof COMPOSITIONS)[number];
 /** What every probe prints of the kernel it composed. */
 const REPORT = `
 const report = (kernel) => console.log(JSON.stringify({
-  plugins: kernel.plugins().map(({ name, tags, missing, status }) => ({ name, tags, missing, status })),
+  plugins: kernel.plugins().map(({ name, tags, missing, status, error }) => ({ name, tags, missing, status, error: error?.message ?? null })),
   dependencies: kernel.dependencies(),
 }));
 const { Effect } = await import("effect");
@@ -77,7 +78,7 @@ const { SubscriptionHub } = await import(server + "session.ts");
 const { channelsOf, loadServerPlugins } = await import(server + "plugins.ts");
 const { identityHeaderIdentity } = await import(server + "auth.ts");
 const ctx = await openKb(root);
-const kernel = makeKernel();
+const kernel = makeKernel({ host: "server" });
 const hub = new SubscriptionHub(ctx, channelsOf(kernel));
 await Effect.runPromise(
   loadServerPlugins(
@@ -97,7 +98,7 @@ hub.dispose();
     code: `${REPORT}
 const { makeKernel } = await import("@kb/plugin");
 const { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } = await import(process.cwd() + "/src/ui-plugins.ts");
-const kernel = makeKernel();
+const kernel = makeKernel({ host: "page" });
 const entries = Object.values(BROWSER_EXTENSIONS).filter((entry) => entry !== null);
 for (const plugin of [...CORE_UI_PLUGINS, ...(await Promise.all(entries.map((entry) => entry.load())))]) {
   await Effect.runPromise(Effect.exit(kernel.load(plugin)));

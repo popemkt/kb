@@ -317,7 +317,9 @@ describe("kb ext list", () => {
     resetRegistryCache();
     const human = await runCli(["--root", root, "ext", "list"]);
     expect(human.out).toContain("\n  tags: core\n");
-    expect(human.out).toContain("action/guard (registry): in order");
+    expect(human.out).toContain(
+      "action/guard (registry): list, T3, registry/page; strictest verdict",
+    );
     expect(human.out).toContain("  1. ext.code.script-run (code)");
   });
 });

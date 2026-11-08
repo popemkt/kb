@@ -54,7 +54,12 @@ export interface ComposerModel {
 }
 
 /** Where the gallery's `model` child offers the composer's model while a completion is provided. */
-export const ComposerModelPoint = Point<ComposerModel>()("gallery.model");
+export const ComposerModelPoint = Point<ComposerModel>()("gallery.model", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /** What the page says a use of the model needs while none is offered. */
 export const MODEL_NEEDS = "needs the agent: switch it on in Settings → Extensions, in kb ui";

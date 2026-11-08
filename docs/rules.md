@@ -152,7 +152,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: a channel a registry family contributes is not served
 
 - **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
-- **current** — the socket hub reads the channels of kb ui's own kernel (channelsOf), which holds the hosted families alone; a bundled family or a repository extension contributes to ChannelPoint in the registry's kernel, which nothing routes
+- **current** — PointSpec makes kb.ui.channels server-only: a registry contribution is refused atomically with wrong-kernel. Repository families still cannot contribute live channels through the registry.
 - **impact** — a repository extension cannot own a live channel to its page half: its two halves talk through actions only
 - **closes** — the hub's channel directory reads the session registry's kernel beside its own, with a surface property over kb ui that a registry family's channel answers its frames
 - **node** — `01M579MHGHVT2FNGJJRK81J9GY`

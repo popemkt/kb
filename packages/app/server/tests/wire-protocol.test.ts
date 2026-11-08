@@ -34,9 +34,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // included), its one-line description, and a required family's reason in
 // place of `optional`, which a page of protocol 3 requires, so it reloads
 // into a build that reads them.
+// PointSpec adds report metadata; previous pages ignore the additional spec field.
 const RECORDED = {
   protocol: 4,
-  fingerprint: "b6231d6f4fc92d016ab95dc2eeb541eac708f73d17be3d5a5fb3b7028a3706fc",
+  fingerprint: "57e61ed55af3a629972e6ac036fc8ba8fc2155c969069afc5bcdbe28def02077",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

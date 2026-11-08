@@ -84,7 +84,8 @@ const DATASCRIPT = /cljs\.core/;
  * Settings itself loads lazily.
  */
 // The routines family adds its native field/tag vocabulary; its worker remains server-side.
-const EAGER_BUDGET_BYTES = 2_039_700;
+// PointSpec metadata and host/cardinality admission add 1,121 measured eager bytes.
+const EAGER_BUDGET_BYTES = 2_040_900;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

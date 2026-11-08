@@ -11,7 +11,12 @@ import { definePlugin, Point } from "@kb/plugin";
 import { BoardService, type Board } from "@kb/ui-sdk";
 
 /** Where the gallery's `moodboard` child offers the page's board. */
-export const MoodboardPoint = Point<Board>()("gallery.moodboard");
+export const MoodboardPoint = Point<Board>()("gallery.moodboard", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /** What the look panel says the moodboard needs while none is offered. */
 export const MOODBOARD_NEEDS =

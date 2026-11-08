@@ -1,6 +1,13 @@
-import { Cause, Effect, Exit, Scope } from "effect";
+import { Cause, Effect, Exit, Scope, Predicate } from "effect";
 import { PluginError, type PluginErrorReason } from "./errors.ts";
-import { asKeyType, type AnyServiceKey, type Key, type PointKey, type ServiceKey } from "./keys.ts";
+import {
+  asKeyType,
+  type AnyServiceKey,
+  type Key,
+  type PointKey,
+  type KernelHost,
+  type ServiceKey,
+} from "./keys.ts";
 
 /** What a plugin hands a point: a local id, optional absolute aliases, the value. */
 export interface ContributionEntry<C> {
@@ -150,6 +157,7 @@ export interface Kernel {
    * Points in the order first contributed to, then each point's order.
    */
   readonly contributionsOf: (owner: string) => readonly PointContribution[];
+  readonly points: () => readonly PointKey<unknown>[];
   readonly service: <S>(key: ServiceKey<S>) => S | undefined;
   readonly plugins: () => readonly PluginState[];
   /**
@@ -199,7 +207,7 @@ interface ServiceSlot {
 }
 
 interface PointSlot {
-  readonly key: Key<"point", unknown>;
+  readonly key: PointKey<unknown>;
   readonly items: Contribution<unknown>[];
   /** Ids and aliases, so a lookup and a conflict check are one read. */
   readonly byId: Map<string, Contribution<unknown>>;
@@ -226,6 +234,7 @@ export function namespaced(namespace: string, id: string): string {
 
 /** Everything a kernel knows, mutated only inside the effects below. */
 interface State {
+  readonly host: KernelHost;
   readonly entries: Map<string, Entry>;
   readonly services: Map<string, ServiceSlot>;
   readonly points: Map<string, PointSlot>;
@@ -418,10 +427,22 @@ const getErased = Effect.fnUntraced(function* (state: State, entry: Entry, key: 
 const contributeErased = Effect.fnUntraced(function* (
   state: State,
   entry: Entry,
-  point: Key<"point", unknown>,
+  point: PointKey<unknown>,
   item: ContributionEntry<unknown>,
 ) {
   const scope = yield* scopeOf(entry);
+  // oxlint-disable-next-line typescript/no-unnecessary-condition -- installed JavaScript may use a pre-PointSpec SDK
+  if (point.spec === undefined) {
+    return yield* refusal(entry.name, "invalid-point", `${point.name} requires a PointSpec`);
+  }
+  const hosts = typeof point.spec.kernel === "string" ? [point.spec.kernel] : point.spec.kernel;
+  if (!hosts.includes(state.host)) {
+    return yield* refusal(
+      entry.name,
+      "wrong-kernel",
+      `${point.name} requires ${hosts.join(" or ")}; this kernel is ${state.host}`,
+    );
+  }
   const existing = state.points.get(point.name);
   yield* claim(entry.name, existing?.key, point);
   const slot: PointSlot = existing ?? { key: point, items: [], byId: new Map() };
@@ -439,6 +460,31 @@ const contributeErased = Effect.fnUntraced(function* (
       "contribution-conflict",
       `${point.name} already has ${clash} (from ${slot.byId.get(clash)?.owner ?? "?"})`,
     );
+  }
+  if (point.spec.cardinality === "single" && slot.items.length > 0) {
+    return yield* refusal(
+      entry.name,
+      "contribution-conflict",
+      `${point.name} accepts only one contribution`,
+    );
+  }
+  if (point.spec.cardinality === "keyed" && point.spec.keyBy !== undefined) {
+    const keyBy = point.spec.keyBy;
+    const member = (value: unknown): unknown =>
+      keyBy
+        .split(".")
+        .reduce<unknown>(
+          (current, key) => (Predicate.isObject(current) ? current[key] : undefined),
+          value,
+        );
+    const key = member(item.value);
+    if (key === undefined || slot.items.some((held) => Object.is(member(held.value), key))) {
+      return yield* refusal(
+        entry.name,
+        "contribution-conflict",
+        `${point.name} requires a unique ${keyBy}`,
+      );
+    }
   }
   state.points.set(point.name, slot);
   slot.items.push(contribution);
@@ -474,8 +520,9 @@ function contextFor(state: State, entry: Entry): PluginContext {
  * State is plain maps mutated only inside the kernel's own effects, and read
  * synchronously, so a UI can render from it without running an Effect.
  */
-export function makeKernel(): Kernel {
+export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
   const state: State = {
+    host,
     entries: new Map(),
     services: new Map(),
     points: new Map(),
@@ -514,6 +561,10 @@ export function makeKernel(): Kernel {
           .filter((item) => visible(state, item.owner))
           .map(({ id, aliases, owner: by }) => ({ point: slot.key.name, id, aliases, owner: by })),
       ),
+    points: () =>
+      [...state.points.values()]
+        .filter((slot) => slot.items.some((item) => visible(state, item.owner)))
+        .map((slot) => slot.key),
     service: (key) => {
       const slot = state.services.get(key.name);
       return slot?.key === key ? asKeyType(key, slot.impl) : undefined;

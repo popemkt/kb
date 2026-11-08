@@ -38,7 +38,10 @@ export type FootprintRow = z.infer<typeof FootprintRowSchema>;
  */
 export interface FamilyKernel {
   readonly source: Exclude<FootprintRow["source"], "seed">;
-  readonly kernel: Pick<Kernel, "plugins" | "dependencies" | "contributions" | "contributionsOf">;
+  readonly kernel: Pick<
+    Kernel,
+    "plugins" | "dependencies" | "contributions" | "contributionsOf" | "points"
+  >;
 }
 
 /**

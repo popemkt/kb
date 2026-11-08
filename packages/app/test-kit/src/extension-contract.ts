@@ -412,7 +412,7 @@ export function extensionContract(
     test("it loads, and unloads leaving nothing behind", () =>
       Effect.runPromise(
         Effect.gen(function* () {
-          const kernel = makeKernel();
+          const kernel = makeKernel({ host: "registry" });
           yield* kernel.load(entry);
           expect(kernel.plugins().map((plugin) => plugin.name)).toContain(entry.name);
           expect(kernel.plugins().filter((plugin) => plugin.status === "failed")).toEqual([]);
@@ -425,7 +425,7 @@ export function extensionContract(
     test("the views it contributes are exactly the views it declares", () =>
       Effect.runPromise(
         Effect.gen(function* () {
-          const kernel = makeKernel();
+          const kernel = makeKernel({ host: "registry" });
           yield* kernel.load(entry);
           const contributed = kernel.contributions(ViewKeyPoint).map((view) => view.id);
           yield* kernel.shutdown;
@@ -473,7 +473,7 @@ export function extensionContract(
         Effect.scoped(
           Effect.gen(function* () {
             const ctx = yield* openSession(yield* scratchRoot);
-            const kernel = makeKernel();
+            const kernel = makeKernel({ host: "registry" });
             yield* kernel.load(entry);
             const views = kernel.contributions(ViewKeyPoint).map(({ value }) => value);
             yield* kernel.shutdown;

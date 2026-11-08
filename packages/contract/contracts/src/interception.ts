@@ -89,10 +89,20 @@ export interface ActionInterceptor {
 }
 
 /** The guards plugins contribute. Every one that matches is asked; the strictest verdict holds. */
-export const ActionGuardPoint = Point<ActionGuard>()("action/guard");
+export const ActionGuardPoint = Point<ActionGuard>()("action/guard", {
+  cardinality: "list",
+  combine: "strictest verdict",
+  kernel: ["registry", "page"],
+  tier: "T3",
+});
 
 /** The interceptors plugins contribute, run in order on the input and in reverse on the output. */
-export const ActionInterceptorPoint = Point<ActionInterceptor>()("action/intercept");
+export const ActionInterceptorPoint = Point<ActionInterceptor>()("action/intercept", {
+  cardinality: "chain",
+  combine: "input in order, output in reverse",
+  kernel: ["registry", "page"],
+  tier: "T3",
+});
 
 /** One listener as the invoke core runs it: what it is, and the plugin that contributed it. */
 export interface Listener<L> {

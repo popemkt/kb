@@ -16,7 +16,7 @@ import { LAB_SCENE_IDS, LabView, labExtension, labPlugin } from "@kb/lab";
 function contributed() {
   return Effect.runSync(
     Effect.gen(function* () {
-      const kernel = makeKernel();
+      const kernel = makeKernel({ host: "registry" });
       yield* kernel.load(labPlugin());
       const views = kernel.contributions(ViewKeyPoint).map(({ id, value }) => ({ id, value }));
       yield* kernel.shutdown;

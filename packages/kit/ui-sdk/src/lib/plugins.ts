@@ -115,7 +115,12 @@ export interface ProvidedView {
   readonly frame?: RouteFrame;
 }
 
-export const ViewPoint = Point<ProvidedView>()("ui.views");
+export const ViewPoint = Point<ProvidedView>()("ui.views", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /** What a view contribution says beside its key: its placements but `preview`, which the key says. */
 type ViewEntry<P> = Omit<View<P>, "key" | "placements"> & {
@@ -200,7 +205,12 @@ export interface ProvidedRoute {
   readonly entry?: string;
 }
 
-export const RoutePoint = Point<ProvidedRoute>()("ui.routes");
+export const RoutePoint = Point<ProvidedRoute>()("ui.routes", {
+  cardinality: "chain",
+  combine: "first matching route",
+  kernel: "page",
+  tier: "T3",
+});
 
 /** The `RoutePoint` contribution for `route`, under its view's local id. */
 /**
@@ -247,7 +257,12 @@ export interface SidebarSection {
   readonly Component: ComponentType<{ readonly route: MatchedRoute | null }>;
 }
 
-export const SidebarSectionPoint = Point<SidebarSection>()("ui.sidebar");
+export const SidebarSectionPoint = Point<SidebarSection>()("ui.sidebar", {
+  cardinality: "list",
+  combine: "ascending order",
+  kernel: "page",
+  tier: "T3",
+});
 
 /**
  * A dock: a tool window at the workspace's right edge, beside every page
@@ -263,7 +278,12 @@ export interface Dock {
   readonly Component: ComponentType<{ readonly onClose: () => void }>;
 }
 
-export const DockPoint = Point<Dock>()("ui.docks");
+export const DockPoint = Point<Dock>()("ui.docks", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /**
  * A page overlay: something a plugin mounts once for the whole page, beside
@@ -277,7 +297,12 @@ export interface Overlay {
   readonly Component: ComponentType;
 }
 
-export const OverlayPoint = Point<Overlay>()("ui.overlays");
+export const OverlayPoint = Point<Overlay>()("ui.overlays", {
+  cardinality: "list",
+  combine: "mount all",
+  kernel: "page",
+  tier: "T3",
+});
 
 /**
  * How far across the page a backdrop's frame reaches: centred under the
@@ -460,7 +485,12 @@ export interface Backdrop {
   readonly Component: ComponentType<BackdropProps>;
 }
 
-export const BackdropPoint = Point<Backdrop>()("ui.backdrops");
+export const BackdropPoint = Point<Backdrop>()("ui.backdrops", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /**
  * Something a page head's backdrop offers where its owner double-clicks it
@@ -475,7 +505,12 @@ export interface BackdropAction {
   readonly run: (backdrop: string) => void;
 }
 
-export const BackdropActionPoint = Point<BackdropAction>()("ui.backdrop-actions");
+export const BackdropActionPoint = Point<BackdropAction>()("ui.backdrop-actions", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /**
  * The backdrop its family declares as `key`, as its page plugin contributes
@@ -551,7 +586,12 @@ export interface ThemeArtProps {
  */
 export const THEME_GESTURE_MAX_MS = 2400;
 
-export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems");
+export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /** The design system its family names `key`, as its page plugin contributes it (`provideBackdrop`). */
 export function provideDesignSystem(
@@ -593,7 +633,7 @@ export function chosenDeclared<T extends Keyed>(
 }
 
 /** One kernel per page: everything the UI shows is contributed to it. */
-const uiKernel = makeKernel();
+const uiKernel = makeKernel({ host: "page" });
 
 /**
  * Converge the UI kernel on exactly `plugins` (`syncPlugins`, the one

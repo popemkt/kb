@@ -25,7 +25,12 @@ export interface ContextReference {
 }
 
 /** Where a family's declaration contributes its references (`ExtensionDeclaration.context`). */
-export const ContextReferencePoint = Point<ContextReference>()("kb.context");
+export const ContextReferencePoint = Point<ContextReference>()("kb.context", {
+  cardinality: "list",
+  combine: "all in contribution order",
+  kernel: ["registry", "server", "page"],
+  tier: "T0",
+});
 
 /**
  * Core's references, which every pane reports (`PaneScreen`), in the root

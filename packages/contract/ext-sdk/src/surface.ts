@@ -187,11 +187,23 @@ export interface ServiceKey<S> {
   readonly "~type"?: S;
 }
 
-/** A place contributions collect, each under an id unique within it. Compared by identity. */
+export type KernelHost = "registry" | "server" | "page";
+
+export interface PointSpec {
+  readonly cardinality: "list" | "keyed" | "single" | "chain";
+  readonly combine: string;
+  readonly kernel: KernelHost | readonly KernelHost[];
+  readonly tier: "T0" | "T1" | "T2" | "T3";
+  /** Dot-separated member path; absent means contribution id. */
+  readonly keyBy?: string;
+}
+
+/** A place contributions collect, with its contract and unique contribution ids. */
 export interface PointKey<C> {
   readonly kind: "point";
   readonly name: string;
   readonly "~type"?: C;
+  readonly spec: PointSpec;
 }
 
 /** What a plugin hands a point: a local id, optional absolute aliases, the value. */
@@ -215,6 +227,8 @@ export type PluginErrorReason =
   | "service-conflict"
   | "contribution-conflict"
   | "key-mismatch"
+  | "wrong-kernel"
+  | "invalid-point"
   | "not-injected"
   | "apply-failed"
   | "not-loaded";
@@ -590,7 +604,7 @@ export declare function familyTags(
 ): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
-export declare function Point<C>(): (name: string) => PointKey<C>;
+export declare function Point<C>(): (name: string, spec: PointSpec) => PointKey<C>;
 export declare function Service<S>(): (name: string) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;

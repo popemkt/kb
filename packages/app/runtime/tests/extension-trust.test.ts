@@ -80,7 +80,7 @@ let root = "";
 const helloOf = (extensions: readonly LoadedExtension[]) =>
   Effect.runPromise(
     Effect.gen(function* () {
-      const kernel = makeKernel();
+      const kernel = makeKernel({ host: "registry" });
       for (const { entry } of extensions) yield* kernel.load(entry);
       const action = kernel.lookup(ActionPoint, "ext.hello.hello")?.value;
       yield* kernel.shutdown;

@@ -69,7 +69,7 @@ describe("the contract's seed, view and text promises have a subject", () => {
     expect(added.status).toBe("succeeded");
     const figures = await Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         if (chart !== undefined) yield* kernel.load(chart.entry);
         const views = kernel.contributions(ViewKeyPoint).map(({ value }) => value);
         yield* kernel.shutdown;
@@ -103,7 +103,7 @@ describe("the contract's seed, view and text promises have a subject", () => {
     };
     const texts = await Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         if (code !== undefined) yield* kernel.load(code.entry);
         const views = kernel.contributions(ViewKeyPoint).map(({ value }) => value);
         yield* kernel.shutdown;
@@ -188,7 +188,7 @@ describe("the contract's seed, view and text promises have a subject", () => {
     // The server's entry is the family's actions with its shared plugin as a child.
     const held = await Effect.runPromise(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         if (canvas !== undefined) yield* kernel.load(canvas.entry);
         const views = kernel.contributions(ViewKeyPoint).map(({ id }) => id);
         const actions = kernel.contributions(ActionPoint).map(({ id }) => id);

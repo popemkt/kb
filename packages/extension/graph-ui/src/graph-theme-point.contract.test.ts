@@ -47,7 +47,7 @@ const plainPlugin = definePlugin({
 
 /** The themes `plugins` contribute, read from a kernel of their own. */
 function contributedBy(plugins: readonly Plugin[]) {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(syncPlugins(kernel, plugins));
   return kernel.contributions(GraphThemePoint);
 }

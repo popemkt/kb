@@ -308,7 +308,12 @@ const CUBE: GraphTheme = {
  * graph's theme kind (`GRAPH_THEME_OPTIONS`), so its option and its
  * contribution are one id. Any family's page plugin may contribute one.
  */
-export const GraphThemePoint = Point<GraphTheme>()("graph.themes");
+export const GraphThemePoint = Point<GraphTheme>()("graph.themes", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /** The default theme: the graph family's own matte, contributed first. */
 export const DEFAULT_GRAPH_THEME: GraphTheme = MATTE;
