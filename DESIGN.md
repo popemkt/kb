@@ -1081,7 +1081,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
 - **A tag names the view type its nodes open in, before the store's.** The
   same field, `sys.f.view.default`, on a tag node: a node that names no view
   opens in the first of its tags' defaults (in the order it carries them,
-  `tagDefaultViewsOf`) that its host holds a key for, else in the store's,
+  `tagViewsOf` in the role `default`) that its host holds a key for, else in the store's,
   else core's read view. So the resolution is one chain — the node's own
   view nodes, its tags', the store's, the floor — read by
   `resolveNodeView`, and opening a node through it is opening it through
@@ -1120,7 +1120,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     (`nodePath`, `@kb/views`).
 - **A tag's view sets how its nodes show.** The view a node's tag opens it
   in is the node's *tag opening* (`tagOpeningOf`, `@kb/ui-sdk`: the
-  resolver's own rule `heldTagDefaultOf` over the page's view catalog, when
+  resolver's own rule `heldTagViewOf` over the page's view catalog, when
   the page draws that view as a page). Such a node is still a node: in the
   outline it is a row like any other, and a small set of *display options*
   says what more its row shows (`@kb/model` `display.ts`, the one home of
