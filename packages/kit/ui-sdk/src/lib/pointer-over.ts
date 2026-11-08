@@ -37,6 +37,9 @@ export function coveringAncestor(frame: HTMLElement): HTMLElement {
   return frame.ownerDocument.documentElement;
 }
 
+/** A pointer never over the frame: what a frame that hears no owner is handed (a card, a studio not interacting). */
+export const NO_POINTER: PointerSource = { now: () => null };
+
 /** How many screen pixels one of the frame's own CSS pixels is, on each axis. */
 export interface FrameScale {
   readonly x: number;

@@ -3,15 +3,12 @@ import type { BackdropStrength } from "@kb/model";
 import { usePageBackdrop } from "../hooks";
 import { cardWindowTop } from "../lib/backdrop-card-window";
 import { BackdropPoint, QUIET_ACTIVITY, useContributions } from "../lib/plugins";
-import type { PointerSource } from "../lib/pointer-over";
+import { NO_POINTER } from "../lib/pointer-over";
 import { HoldStill } from "./hold-still";
 import { BackdropFrame } from "./page-backdrop";
 
 /** The width a card draws its backdrop's frame at, then scales into the card: a side panel's, the narrowest a head is drawn. */
 const FRAME_WIDTH = 480;
-/** A sample hears no owner: nothing is being typed or written (`QUIET_ACTIVITY`), and no pointer is over it. */
-const NO_POINTER: PointerSource = { now: () => null };
-
 /** The card's size in CSS pixels. */
 interface CardSize {
   readonly width: number;

@@ -563,6 +563,7 @@ export { setToastSink, toast } from "./lib/toast";
 export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export {
+  NO_POINTER,
   placeOver,
   usePointerOver,
   type PointerPlace,
