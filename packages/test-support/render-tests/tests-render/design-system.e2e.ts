@@ -69,6 +69,7 @@ for (const scheme of ["light", "dark"] as const) {
       )
         .filter({ has: page.locator(`[data-option-preview="${id}"]`) })
         .click();
+      // GAP [[01M6W4HV113Y6WKXZT1XN8B07E]] — paint measurement can precede the native update callback.
       await expect.poll(() => paint(page).then((p) => [p.theme, p.swatchOf])).toEqual([id, id]);
       const now = await paint(page);
       expect(

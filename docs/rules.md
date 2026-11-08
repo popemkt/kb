@@ -758,6 +758,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
+### GAP: design-system gallery can outpace the page painter
+
+- **expected** — A chosen design system paints the root and its gallery consistently, including rapid changes during an active browser View Transition.
+- **current** — Main a667c89d run 42417870644 and PR125 runs 42457579603 and 42458657765 fail the selected-gallery versus root-paint contract on macOS. Shared-server repeat-each 10 measurements passed 20/20 on main 8ff4a9c9 and 20/20 on PR125 66f9efdf. Draft PR127 captures the transition lifecycle to establish the cause before changing behavior. No retry, skip, quarantine or timeout increase is added.
+- **impact** — Settings can show a new design-system selection while the page stays painted in the previous one, and the render admission gate intermittently fails.
+- **closes** — A deterministic regression captures the failing ordering, its owning mechanism is fixed, and the unchanged light/dark render contract passes.
+- **node** — `01M6W4HV113Y6WKXZT1XN8B07E`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
