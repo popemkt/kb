@@ -1720,6 +1720,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A CI runner with a GPU adapter (a self-hosted Apple silicon runner, or a hosted runner that exposes Metal to Chromium), after which the skip condition never holds and can be deleted.
 - **node** — `01M3E6QH4WZFJQTQM96NBZ7VVA`
 
+### GAP: what a point's contribution is called, in a word, lives in a UI table beside the points
+
+- **expected** — Each Point declaration names its contribution in a word (Point<T>()(id, { noun: "actions" })), and Settings reads it from the point, so a new point is named where it is declared.
+- **current** — POINT_WORDS in packages/app/ui/src/lib/extension-report.ts maps 19 point ids to words by hand; a point missing from it shows its raw id in an extension's Details.
+- **impact** — A mirror of the point declarations: a new or renamed point drifts silently, and the Details fall back to an id a person does not read.
+- **closes** — Add an optional noun to Point() in the plugin kernel, set it on each declaration, expose it on the footprint rows or the registry, and delete POINT_WORDS.
+- **node** — `01M6X9T7NPWVGP1W29FDPG6TPE`
+
 ### GAP: with no editor family loaded, a field draws nothing
 
 - **expected** — A field reads as its value wherever it is drawn, with or without an editor: core draws a read-only value when no family provides the page's field editor (FieldEditorService).

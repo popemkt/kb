@@ -27,7 +27,13 @@ function SourceChanges({ diff }: { readonly diff: ExtensionLineDiff }) {
           <div className="max-h-80 overflow-auto bg-background p-2 font-mono text-caption">
             {file.parts.map((part) =>
               part.added || part.removed ? (
-                <pre key={part.at} className="whitespace-pre-wrap break-all">
+                <pre
+                  key={part.at}
+                  data-diff={part.added ? "added" : "removed"}
+                  className={`whitespace-pre-wrap break-all ${
+                    part.added ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                  }`}
+                >
                   {part.value
                     .split(/(?<=\n)/)
                     .map((line) => `${part.added ? "+" : "-"} ${line}`)

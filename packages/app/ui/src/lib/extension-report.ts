@@ -14,6 +14,7 @@ import {
   FootprintRowSchema,
   orderedPoints,
   organisationOf,
+  type ExtensionOrigin,
   type ExtensionReport,
   type FootprintRow,
   type ExtensionRow,
@@ -44,8 +45,8 @@ export interface PanelExtension {
   readonly row: ExtensionReport["extensions"][number];
   /** Every runtime contribution, the server's and the page's, grouped under the point it went to. */
   readonly contributions: ReadonlyMap<string, readonly FootprintRow[]>;
-  /** How many nodes its declaration seeds. */
-  readonly seeds: number;
+  /** The nodes its declaration seeds, each with its type. */
+  readonly seeded: readonly FootprintRow[];
 }
 
 /** The panel's whole reading; null until the server has answered once. */
@@ -168,7 +169,7 @@ function joinExtension(
       ...own.filter((entry) => entry.source !== "seed"),
       ...pageFootprint(row.name),
     ]),
-    seeds: own.filter((entry) => entry.source === "seed").length,
+    seeded: own.filter((entry) => entry.source === "seed"),
   };
 }
 
@@ -185,6 +186,135 @@ function joinPage(server: ServerReport, _page: PageKernelAt): PanelReport {
     points: [...server.report.points, ...orderedPoints([PAGE_FAMILY_KERNEL])],
     failures: server.report.failures,
   };
+}
+
+/**
+ * Which shelf of the Extensions part an extension sits on: kb's own (its
+ * build and the `kb ui` host), or added to this kb (its own folder, a link,
+ * an install). Read from the row's origin, never from its path.
+ */
+export type ExtensionShelf = "installed" | "builtin";
+
+export function extensionShelf(origin: ExtensionOrigin): ExtensionShelf {
+  return origin.kind === "bundled" || origin.kind === "host" ? "builtin" : "installed";
+}
+
+/**
+ * Where an extension stands, the one word its card leads with: a plugin of
+ * it failed; a fetched update awaits review while the approved digest runs;
+ * its selection was never trusted; switched off; trusted at its digest; or
+ * on, as kb's build is.
+ */
+export type ExtensionStatus = "error" | "update" | "approval" | "off" | "trusted" | "on";
+
+export function extensionStatus(row: PanelExtension["row"]): ExtensionStatus {
+  if (row.failures.length > 0) return "error";
+  if (row.trusted === false) return row.running === undefined ? "approval" : "update";
+  if (!row.enabled) return "off";
+  return row.digest === undefined ? "on" : "trusted";
+}
+
+/** What a contribution to each point is, in a word, for the points a person meets. */
+// GAP [[01M6X9T7NPWVGP1W29FDPG6TPE]] the word belongs on each Point declaration, not in a table here.
+const POINT_WORDS: Readonly<Record<string, string>> = {
+  "kb.actions": "actions",
+  "kb.views": "views",
+  "ui.views": "views",
+  "ui.routes": "pages",
+  "ui.backdrops": "backdrops",
+  "ui.design-systems": "themes",
+  "ui.commands": "commands",
+  "ui.sidebar": "sidebar sections",
+  "ui.docks": "docks",
+  "ui.overlays": "overlays",
+  "kb.templates": "templates",
+  "kb.context": "context references",
+  "kb.ui.channels": "channels",
+  "ui.action-reviews": "action reviews",
+  "ui.palette-steps": "palette steps",
+  "ui.option-previews": "option previews",
+  "action/guard": "guards",
+  "action/intercept": "interceptors",
+  "identity.providers": "identity providers",
+};
+
+/** One kind of thing an extension adds, and each one's name. */
+export interface ContributionGroup {
+  readonly kind: string;
+  readonly names: readonly string[];
+}
+
+/**
+ * What an extension adds, as a person reads it: each kind (a point's word,
+ * else its name; a seeded node's type, by that type node's text) with the
+ * names of what it added, its own namespace left off. A view contributed
+ * on both hosts is named once.
+ */
+export function contributionGroups(
+  extension: PanelExtension,
+  textOf: (id: string) => string | undefined,
+): readonly ContributionGroup[] {
+  const own = [`ext.${extension.row.name}.`, `${extension.row.name}.`];
+  const short = (id: string) => {
+    const prefix = own.find((candidate) => id.startsWith(candidate));
+    return prefix === undefined ? id : id.slice(prefix.length);
+  };
+  const grouped = new Map<string, Set<string>>();
+  for (const [point, rows] of extension.contributions) {
+    for (const { id } of rows) {
+      const kind = POINT_WORDS[point] ?? point;
+      grouped.set(kind, (grouped.get(kind) ?? new Set()).add(short(id)));
+    }
+  }
+  for (const { kind, id } of extension.seeded) {
+    const type = textOf(kind) ?? kind;
+    grouped.set(type, (grouped.get(type) ?? new Set()).add(textOf(id) ?? short(id)));
+  }
+  return [...grouped].map(([kind, names]) => ({ kind, names: [...names] }));
+}
+
+type Marketplaces = ReturnType<typeof marketplaceListDef.outputSchema.parse>["marketplaces"];
+
+/** The pinned marketplaces and their entries as last read, and why the latest read failed, if it did. */
+export interface MarketplaceReading {
+  readonly markets: Marketplaces;
+  readonly problem: string | null;
+}
+
+/**
+ * The marketplaces, read once for the whole part, on mount and whenever the
+ * manifest is read again (an add, an install, a remove); offline, from the
+ * pinned index trees.
+ */
+export function useMarketplaces(): MarketplaceReading {
+  const [reading, setReading] = useState<MarketplaceReading>({ markets: [], problem: null });
+  useEffect(() => {
+    let live = true;
+    // A failed read keeps the last listing, so what was shown (and an install's error under it) stays.
+    const read = latestRead(
+      () =>
+        readMarketplaces()
+          .then((markets) => ({ markets }))
+          .catch((error: unknown) => ({
+            problem: error instanceof Error ? error.message : String(error),
+          })),
+      (next) => {
+        if (!live) return;
+        setReading((was) =>
+          "markets" in next
+            ? { markets: next.markets, problem: null }
+            : { markets: was.markets, problem: next.problem },
+        );
+      },
+    );
+    void read();
+    const unsubscribe = subscribeManifest(() => void read());
+    return () => {
+      live = false;
+      unsubscribe();
+    };
+  }, []);
+  return reading;
 }
 
 /** The panel's reading, and how to ask the server again. */
@@ -248,7 +378,7 @@ export function readExtensionDiff(row: ExtensionRow) {
   });
 }
 
-export function readMarketplaces() {
+function readMarketplaces() {
   return invoke(marketplaceListDef.id, {}).then((receipt) => {
     if (receipt.status === "failed") throw new Error(receipt.message);
     return marketplaceListDef.outputSchema.parse(receipt.output).marketplaces;

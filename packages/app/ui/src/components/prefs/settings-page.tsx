@@ -2,10 +2,13 @@
  * The Settings page, in parts (DESIGN-UI.md → Settings): General,
  * Appearance, Extensions and Advanced, each a list of sections that fold.
  * Every extension node's settings are drawn as `settingsOf` reads them,
- * each with the page's field editor; each extension's switch and what it
- * composes are drawn in its section; a filter reads across every part.
+ * each with the page's field editor; each extension's card (its status,
+ * its source, its actions and its details) is drawn in its section, the
+ * installed ones before kb's own; a filter reads across every part.
  */
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { ExtensionAdd, RetainedExtension } from "./extension-controls";
+import { ExtensionDetails } from "./extension-card";
 import {
   DEFAULT_BACKDROP_STRENGTH,
   MOTION_EFFECTS,
@@ -41,12 +44,32 @@ import {
 import { SETTINGS_PARTS, type SettingsPart } from "@kb/views";
 import { ArrowsHorizontalIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { useExtensionReport, type PanelReport } from "@/lib/extension-report";
+import {
+  extensionShelf,
+  useExtensionReport,
+  useMarketplaces,
+  type MarketplaceReading,
+  type PanelExtension,
+  type PanelReport,
+} from "@/lib/extension-report";
 import { PART_WORDS, settingsPartOf, settingsPath } from "@/lib/settings-parts";
 import { useMotionStore } from "@/stores/motion.store";
 import { usePrefsStore } from "@/stores/prefs.store";
-import { ExtensionDetails, ExtensionSwitch, PartLink, ReportStatus } from "./settings-extensions";
-import { Fold, SettingRow, type Row, type Section } from "./settings-fold";
+import {
+  ExtensionAside,
+  ExtensionCaption,
+  ExtensionLede,
+  PartLink,
+  ReportStatus,
+} from "./settings-extensions";
+import {
+  Fold,
+  Groups,
+  SettingRow,
+  type Row,
+  type Section,
+  type SectionGroup,
+} from "./settings-fold";
 
 const CORE = extensionNodeId("core");
 
@@ -206,15 +229,24 @@ export function SettingsPage({ part }: { readonly part?: SettingsPart }) {
   const [query, setQuery] = useState("");
   const graph = useGraphRead();
   const { report, reread } = useExtensionReport();
+  const markets = useMarketplaces();
   const nodes = useExtensionNodes(graph);
   const coreSettings = nodes.find((node) => node.id === CORE)?.settings ?? [];
   const coreRow = useCoreRow(graph, coreSettings);
-  const sections: Readonly<Record<SettingsPart, readonly Section[]>> = {
-    general: generalSections(graph, coreSettings, coreRow),
-    appearance: appearanceSections(graph, coreRow),
-    extensions: extensionSections(graph, nodes, report),
-    advanced: advancedSections(report),
+  const groups: Readonly<Record<SettingsPart, readonly SectionGroup[]>> = {
+    general: [{ id: "general", sections: generalSections(graph, coreSettings, coreRow) }],
+    appearance: [{ id: "appearance", sections: appearanceSections(graph, coreRow) }],
+    extensions: extensionGroups(graph, nodes, report, markets),
+    advanced: [{ id: "advanced", sections: advancedSections(report) }],
   };
+  const flat = (of: SettingsPart) => groups[of].flatMap((group) => group.sections);
+  const sections: Readonly<Record<SettingsPart, readonly Section[]>> = {
+    general: flat("general"),
+    appearance: flat("appearance"),
+    extensions: flat("extensions"),
+    advanced: flat("advanced"),
+  };
+  const read = typeof report === "object" && report !== null ? report : null;
   const needle = query.trim().toLowerCase();
   const status = <ReportStatus report={report} reread={reread} />;
   return (
@@ -265,19 +297,22 @@ export function SettingsPage({ part }: { readonly part?: SettingsPart }) {
         />
         {shown === "extensions" && needle === "" && (
           <ExtensionAdd
-            awaiting={
-              typeof report === "object" && report !== null
-                ? report.groups
-                    .filter((group) => group.effective?.row.trusted === false)
-                    .map((group) => group.name)
-                : []
-            }
+            markets={markets}
+            awaiting={(read?.groups ?? [])
+              .filter((group) => group.effective?.row.trusted === false)
+              .map((group) => group.name)}
+            installed={(read?.groups ?? []).flatMap((group) =>
+              group.effective !== undefined &&
+              extensionShelf(group.effective.row.origin) === "installed"
+                ? [group.name]
+                : [],
+            )}
           />
         )}
         {needle === "" ? (
           <Part
             id={shown}
-            sections={sections[shown]}
+            groups={groups[shown]}
             status={shown === "extensions" || shown === "advanced" ? status : null}
           />
         ) : (
@@ -288,22 +323,20 @@ export function SettingsPage({ part }: { readonly part?: SettingsPart }) {
   );
 }
 
-/** One part: its sections, each a fold. */
+/** One part: its groups of sections, each section a fold. */
 function Part({
   id,
-  sections,
+  groups,
   status,
 }: {
   readonly id: SettingsPart;
-  readonly sections: readonly Section[];
+  readonly groups: readonly SectionGroup[];
   readonly status: ReactNode;
 }) {
   return (
     <div data-settings-part={id}>
       {status}
-      {sections.map((section) => (
-        <Fold key={section.id} section={section} rows={section.rows} whole />
-      ))}
+      <Groups groups={groups} />
     </div>
   );
 }
@@ -558,80 +591,162 @@ function ResetMotion() {
   );
 }
 
-/**
- * Extensions: one section per extension, in `sys.extensions`' order, then
- * any the server reports with no node: its switch in its heading, its
- * settings as rows, then a fold of what it composes. Core's settings are
- * Appearance's and General's, so its section points there.
- */
-function extensionSections(
-  graph: GraphRead,
-  nodes: readonly { id: NodeId; label: string; settings: readonly Setting[] }[],
-  report: PanelReport | string | null,
-): readonly Section[] {
-  const rows = typeof report === "object" && report !== null ? report.groups : [];
-  const known = new Set(nodes.map((node) => node.id));
-  const extra = rows.filter((extension) => !known.has(extensionNodeId(extension.name)));
-  return [
-    ...nodes.map(({ id, label, settings }) => extensionSection(graph, id, label, settings, report)),
-    ...extra.map((extension) =>
-      extensionSection(
-        graph,
-        extensionNodeId(extension.name),
-        extension.effective?.row.label ?? extension.name,
-        [],
-        report,
-      ),
-    ),
-  ];
+/** Each bundled declaration by name: core's and every family kb's build carries. */
+const BUNDLED_BY_NAME = new Map(
+  BUNDLED_DECLARATIONS.map((declaration) => [declaration.name, declaration]),
+);
+
+/** An extension node's name: its id without `sys.extension.`. */
+const nameOf = (nodeId: NodeId): string => nodeId.replace(/^sys\.extension\./, "");
+
+/** What an extension's card reads beside its catalog group: its node, and the page's readings. */
+interface ExtensionNode {
+  readonly id: NodeId;
+  readonly label: string;
+  readonly settings: readonly Setting[];
 }
 
+/** Core's section points to the parts that draw its settings. */
+const CORE_ROWS: readonly Row[] = [
+  {
+    key: "core",
+    words: "core appearance general",
+    node: (
+      <p className="py-1 text-meta text-muted-foreground">
+        Its settings are in <PartLink part="appearance">Appearance</PartLink> and{" "}
+        <PartLink part="general">General</PartLink>.
+      </p>
+    ),
+  },
+];
+
+/**
+ * What an extension's card says under its heading: its own line, else its
+ * bundled declaration's (core's, or a family the server did not report),
+ * else a marketplace's; and why it is required, from the same sources.
+ */
+function cardWords(
+  name: string,
+  row: PanelExtension["row"] | undefined,
+  markets: MarketplaceReading,
+): { readonly description: string | undefined; readonly required: string | undefined } {
+  const bundled = BUNDLED_BY_NAME.get(name);
+  const offered = markets.markets
+    .flatMap((market) => market.entries)
+    .find((entry) => entry.name === name)?.description;
+  return {
+    description: row?.description ?? bundled?.description ?? offered,
+    required: row?.required ?? bundled?.required,
+  };
+}
+
+/**
+ * One extension's card, and its shelf: installed by its origin, or, for a
+ * node the server reports nothing for, whether kb's build declares it (a
+ * removed extension's node is installed, and says its nodes remain).
+ */
 function extensionSection(
   graph: GraphRead,
-  nodeId: NodeId,
-  label: string,
-  settings: readonly Setting[],
-  report: PanelReport | string | null,
-): Section {
-  const catalog = typeof report === "object" && report !== null ? report : null;
-  const group = catalog?.groups.find((item) => extensionNodeId(item.name) === nodeId);
-  const extension = group?.effective;
-  const name = group?.name ?? nodeId.replace(/^sys\.extension\./, "");
-  const core = nodeId === CORE;
-  return {
-    id: nodeId,
+  { id, label, settings }: ExtensionNode,
+  catalog: PanelReport | null,
+  markets: MarketplaceReading,
+): { readonly section: Section; readonly installed: boolean } {
+  const group = catalog?.groups.find((item) => extensionNodeId(item.name) === id);
+  const name = group?.name ?? nameOf(id);
+  const row = group?.effective?.row;
+  const bundled = BUNDLED_BY_NAME.get(name);
+  const installed =
+    row === undefined ? bundled === undefined : extensionShelf(row.origin) === "installed";
+  const after =
+    group !== undefined ? (
+      <ExtensionDetails nodeId={id} group={group} textOf={(of) => graph.schema.get(of)?.text} />
+    ) : catalog !== null && installed ? (
+      <RetainedExtension name={name} markets={markets} />
+    ) : null;
+  const said = cardWords(name, row, markets);
+  const section: Section = {
+    id,
     title: label,
-    caption: <span className="font-mono">{name}</span>,
+    caption: <ExtensionCaption name={name} label={label} extension={group?.effective} />,
     testId: `extension-${name}`,
     anchor: `extension-review-${name}`,
-    aside: <ExtensionSwitch extension={extension} />,
-    rows: core
-      ? [
-          {
-            key: "core",
-            words: "core appearance general",
+    aside: (
+      <ExtensionAside extension={group?.effective} installed={installed} required={said.required} />
+    ),
+    lede: <ExtensionLede extension={group?.effective} installed={installed} {...said} />,
+    rows:
+      id === CORE
+        ? CORE_ROWS
+        : settings.map((setting) => ({
+            key: setting.field,
+            words: `${label} ${name} ${setting.label}`,
             node: (
-              <p className="py-1 text-meta text-muted-foreground">
-                Its settings are in <PartLink part="appearance">Appearance</PartLink> and{" "}
-                <PartLink part="general">General</PartLink>.
-              </p>
+              <SettingRow graph={graph} nodeId={id} field={setting.field} label={setting.label} />
             ),
-          },
-        ]
-      : settings.map((setting) => ({
-          key: setting.field,
-          words: `${label} ${name} ${setting.label}`,
-          node: (
-            <SettingRow graph={graph} nodeId={nodeId} field={setting.field} label={setting.label} />
-          ),
-        })),
-    after:
-      group !== undefined ? (
-        <ExtensionDetails nodeId={nodeId} group={group} />
-      ) : catalog !== null ? (
-        <RetainedExtension name={name} />
-      ) : null,
+          })),
+    after,
   };
+  return { section, installed };
+}
+
+/**
+ * Extensions: one section per extension, in `sys.extensions`' order, then
+ * any the server reports with no node, on two shelves by origin: Installed
+ * (the store's own, linked and installed extensions, and the nodes a
+ * removed one left) first, then Built-in (kb's build and the `kb ui`
+ * host), which folds. A card leads with its status and its one line, and
+ * carries its control in its heading, its settings as rows, then its
+ * details. Core's settings are Appearance's and General's, so its section
+ * points there.
+ */
+function extensionGroups(
+  graph: GraphRead,
+  nodes: readonly ExtensionNode[],
+  report: PanelReport | string | null,
+  markets: MarketplaceReading,
+): readonly SectionGroup[] {
+  const catalog = typeof report === "object" && report !== null ? report : null;
+  const rows = catalog?.groups ?? [];
+  const known = new Set(nodes.map((node) => node.id));
+  const all = [
+    ...nodes,
+    ...rows
+      .filter((extension) => !known.has(extensionNodeId(extension.name)))
+      .map((extension) => ({
+        id: extensionNodeId(extension.name),
+        label: extension.effective?.row.label ?? extension.name,
+        settings: [] as readonly Setting[],
+      })),
+  ];
+  const sections = all.map((node) => extensionSection(graph, node, catalog, markets));
+  const installed = sections.filter((entry) => entry.installed).map((entry) => entry.section);
+  const builtin = sections.filter((entry) => !entry.installed).map((entry) => entry.section);
+  return [
+    {
+      id: "installed",
+      title: "Installed",
+      caption: catalog === null ? undefined : `${installed.length}`,
+      cards: true,
+      sections: catalog === null ? [] : installed,
+      empty:
+        catalog === null ? null : (
+          <p
+            className="rounded-md border border-dashed border-border px-3 py-4 text-meta text-muted-foreground"
+            data-testid="extensions-empty"
+          >
+            Nothing installed yet. Choose <span className="text-foreground">Add extension</span> to
+            browse a marketplace or paste a GitHub source.
+          </p>
+        ),
+    },
+    {
+      id: "builtin",
+      title: "Built-in",
+      caption: `${builtin.length} · part of kb`,
+      cards: true,
+      sections: builtin,
+    },
+  ];
 }
 
 /** Advanced: the listeners asked in turn, the repository extensions refused, and the CLI. */

@@ -1,48 +1,34 @@
-/** Settings operates on the catalog's effective source; approval belongs to ActionApproval. */
+/**
+ * Settings' extension controls (DESIGN-UI.md → Settings → Extensions): the
+ * review sheet, where the person's click is the only thing that trusts; the
+ * one way to add an extension, by browsing the pinned marketplaces or
+ * pasting a GitHub source; the line that names what awaits review; and the
+ * card of an extension whose selection was removed while its nodes stay.
+ * Approval itself belongs to `ActionApproval`.
+ */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ActionInvocation, ExtensionReportRow, ExtensionScope } from "@kb/contracts";
 import { DEFAULT_EXTENSION_SCOPE } from "@kb/contracts";
-import type { marketplaceListDef } from "@kb/operations";
-import { ActionApproval, EnumSelect, latestRead } from "@kb/ui-sdk";
+import { ActionApproval, cn, EnumSelect } from "@kb/ui-sdk";
 import { extensionNodeId } from "@kb/model";
+import { PlusIcon } from "@phosphor-icons/react";
 import { usePrefsStore } from "@/stores/prefs.store";
-import { subscribeManifest } from "@/lib/manifest";
 import { changeExtensions } from "@/actions/extensions";
-import { readMarketplaces } from "@/lib/extension-report";
+import type { MarketplaceReading } from "@/lib/extension-report";
+import {
+  BUTTON,
+  PRIMARY_BUTTON,
+  SCOPE_OPTIONS,
+  SCOPES,
+  useExtensionAction,
+} from "./extension-actions";
 
-const BUTTON =
-  "rounded-sm border border-border px-2 py-1 text-label hover:bg-foreground/5 disabled:opacity-40";
-const SCOPE_OPTIONS = [
-  { value: "store", label: "Store (committed)" },
-  { value: "local", label: "This root (private)" },
-  { value: "user", label: "All stores (user)" },
-] as const;
-const NO_PENDING: readonly string[] = [];
-const INPUT = "w-full rounded-sm border border-border bg-background px-2 py-1 text-ui";
+const INPUT =
+  "w-full rounded-sm border border-border bg-background px-2 py-1 text-ui text-foreground placeholder:text-faint-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const NO_NAMES: readonly string[] = [];
 
-/** One mutation/error lifetime shared by the install and row controls. */
-function useExtensionAction() {
-  const [pending, setPending] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  function run(id: string, input: Record<string, unknown>, onComplete?: () => void) {
-    setPending(true);
-    setProblem(null);
-    setNotice(null);
-    return changeExtensions(id, input)
-      .then((message) => {
-        setNotice(message);
-        return onComplete?.();
-      })
-      .catch((error: unknown) => {
-        setProblem(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => setPending(false));
-  }
-  return { pending, problem, notice, run };
-}
-
-function ReviewSheet({
+/** The sheet a person trusts an extension's exact selection in; Decline closes it and trusts nothing. */
+export function ReviewSheet({
   row,
   close,
 }: {
@@ -88,149 +74,81 @@ function ReviewSheet({
   );
 }
 
-export function ExtensionControls({ row }: { readonly row: ExtensionReportRow }) {
-  const [review, setReview] = useState(false);
-  const task = useExtensionAction();
-  if (row.digest === undefined) return null;
-  const scope = row.origin.kind === "install" ? row.origin.scope : null;
+/** The scope a control writes, chosen once beside it. */
+function ScopeSelect({
+  value,
+  onChange,
+}: {
+  readonly value: ExtensionScope;
+  readonly onChange: (scope: ExtensionScope) => void;
+}) {
   return (
-    <div
-      className="my-2 space-y-2"
-      data-extension-state={
-        row.running !== undefined && row.trusted === false
-          ? "pending-update"
-          : row.trusted === false
-            ? "untrusted"
-            : "trusted"
-      }
-    >
-      <p className="text-meta font-medium">
-        {row.trusted === false
-          ? row.running === undefined
-            ? "Untrusted"
-            : "Pending update · untrusted"
-          : "Trusted"}
-      </p>
-      <p className="break-all font-mono text-caption">Selected: {row.digest}</p>
-      {row.running !== undefined && (
-        <p className="break-all font-mono text-caption">Running: {row.running.digest}</p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className={BUTTON} onClick={() => setReview(true)}>
-          {row.trusted === false ? "Review & trust" : "Review"}
-        </button>
-        {scope !== null && (
-          <>
-            <button
-              type="button"
-              className={BUTTON}
-              disabled={task.pending}
-              onClick={() => void task.run("extension.update", { name: row.name, scope })}
-            >
-              Update
-            </button>
-            <button
-              type="button"
-              className={BUTTON}
-              disabled={task.pending}
-              onClick={() => void task.run("extension.remove", { name: row.name, scope })}
-            >
-              Remove
-            </button>
-          </>
-        )}
-      </div>
-      {task.notice !== null && (
-        <p role="status" className="text-label text-foreground/60">
-          {task.notice}
-        </p>
-      )}
-      {task.problem !== null && (
-        <p role="alert" className="text-label text-destructive">
-          {task.problem}
-        </p>
-      )}
-      {review && <ReviewSheet row={row} close={() => setReview(false)} />}
-    </div>
+    <label className="flex items-center gap-2 text-label text-muted-foreground">
+      Install into
+      <EnumSelect
+        className={cn(INPUT, "w-auto py-0.5 text-label")}
+        value={value}
+        options={SCOPE_OPTIONS}
+        onChange={onChange}
+        testId="extension-scope"
+      />
+    </label>
   );
 }
 
-type Markets = ReturnType<typeof marketplaceListDef.outputSchema.parse>["marketplaces"];
-function useMarketplaces() {
-  const [markets, setMarkets] = useState<Markets>([]);
-  const [problem, setProblem] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    const read = latestRead(
-      () =>
-        readMarketplaces()
-          .then((catalog) => ({ markets: catalog, problem: null }))
-          .catch((error: unknown) => ({
-            markets: [],
-            problem: error instanceof Error ? error.message : String(error),
-          })),
-      (next) => {
-        if (live) {
-          setMarkets(next.markets);
-          setProblem(next.problem);
-        }
-      },
-    );
-    void read();
-    const unsubscribe = subscribeManifest(() => void read());
-    return () => {
-      live = false;
-      unsubscribe();
-    };
-  }, []);
-  return { markets, problem };
-}
-
-function InstallForm({
+/** A GitHub source, pasted: an extension to install, or a marketplace to add. */
+function SourceForm({
   kind,
-  onComplete,
+  scope,
+  onDone,
 }: {
   readonly kind: "extension" | "marketplace";
-  readonly onComplete: () => void;
+  readonly scope: ExtensionScope;
+  readonly onDone?: () => void;
 }) {
   const source = useRef<HTMLInputElement>(null);
-  const [scope, setScope] = useState<ExtensionScope>(DEFAULT_EXTENSION_SCOPE);
   const task = useExtensionAction();
   const title = kind === "extension" ? "Add from GitHub" : "Add marketplace";
   return (
     <form
-      className="my-3 space-y-2"
+      className="space-y-1.5"
       onSubmit={(event) => {
         event.preventDefault();
         void task.run(
           kind === "extension" ? "extension.install" : "extension.marketplace.add",
           { source: source.current?.value.trim() ?? "", scope },
-          onComplete,
+          () =>
+            kind === "extension"
+              ? "Installed. Review it below to run it."
+              : "Marketplace added: its entries are listed above.",
+          () => {
+            if (source.current !== null) source.current.value = "";
+            onDone?.();
+          },
         );
       }}
     >
-      <label className="block text-label">
-        {title}
+      <div className="flex gap-2">
         <input
           required
           aria-label={`${title} source`}
           className={INPUT}
-          placeholder="github:owner/repo/path@ref"
+          placeholder={
+            kind === "extension"
+              ? "github:owner/repo/path@ref"
+              : "github:owner/repo — a repository with kb-marketplace.json"
+          }
           ref={source}
         />
-      </label>
-      <label className="block text-label">
-        Scope
-        <EnumSelect className={INPUT} value={scope} options={SCOPE_OPTIONS} onChange={setScope} />
-      </label>
-      <div className="flex gap-2">
-        <button type="submit" className={BUTTON} disabled={task.pending}>
-          {task.pending ? "Adding…" : title}
-        </button>
-        <button type="button" className={BUTTON} onClick={onComplete}>
-          Cancel
+        <button type="submit" className={cn(BUTTON, "flex-none")} disabled={task.pending}>
+          {task.pending ? "Adding…" : kind === "extension" ? "Install" : "Add"}
         </button>
       </div>
+      {task.notice !== null && (
+        <p role="status" className="text-label text-muted-foreground">
+          {task.notice}
+        </p>
+      )}
       {task.problem !== null && (
         <p role="alert" className="text-label text-destructive">
           {task.problem}
@@ -240,122 +158,254 @@ function InstallForm({
   );
 }
 
-export function ExtensionAdd({ awaiting = NO_PENDING }: { readonly awaiting?: readonly string[] }) {
-  const setFold = usePrefsStore((state) => state.setSettingsFold);
-  const [form, setForm] = useState<"extension" | "marketplace" | null>(null);
-  const { markets, problem } = useMarketplaces();
+/** One marketplace entry: its name and line, and Install, or that it is installed already. */
+function MarketEntry({
+  name,
+  description,
+  market,
+  installed,
+  scope,
+}: {
+  readonly name: string;
+  readonly description: string | undefined;
+  readonly market: string;
+  readonly installed: boolean;
+  readonly scope: ExtensionScope;
+}) {
   const task = useExtensionAction();
-
   return (
-    <section aria-label="Add extensions" className="mb-4 space-y-2">
-      {awaiting.length > 0 && (
-        <p className="text-label">
-          {awaiting.length} extensions await review:{" "}
-          {awaiting.map((name) => (
-            <a
-              key={name}
-              className="mr-2 underline"
-              href={`#extension-review-${name}`}
-              onClick={() => setFold(extensionNodeId(name), true)}
+    <li className="flex items-start gap-3 py-2" data-market-entry={name}>
+      <div className="min-w-0 flex-1">
+        <p className="text-ui font-medium text-foreground">{name}</p>
+        {description !== undefined && (
+          <p className="text-meta text-muted-foreground">{description}</p>
+        )}
+        {task.problem !== null && (
+          <p role="alert" className="text-label text-destructive">
+            {task.problem}
+          </p>
+        )}
+      </div>
+      {installed ? (
+        <span className="pt-0.5 text-label text-muted-foreground">Installed</span>
+      ) : (
+        <button
+          type="button"
+          className={BUTTON}
+          disabled={task.pending}
+          aria-label={`Install ${name} from ${market}`}
+          onClick={() => void task.run("extension.install", { source: `${name}@${market}`, scope })}
+        >
+          {task.pending ? "Installing…" : "Install"}
+        </button>
+      )}
+    </li>
+  );
+}
+
+/**
+ * The one way to add an extension: Browse lists every pinned marketplace's
+ * entries with Install, and adds a marketplace; From GitHub installs a
+ * pasted source. Both write the scope chosen beside them, and nothing they
+ * do trusts: an installed extension waits for review.
+ */
+function AddPanel({
+  markets,
+  installed,
+}: {
+  readonly markets: MarketplaceReading;
+  readonly installed: readonly string[];
+}) {
+  const [tab, setTab] = useState<"browse" | "github">("browse");
+  const [scope, setScope] = useState<ExtensionScope>(DEFAULT_EXTENSION_SCOPE);
+  const [adding, setAdding] = useState(false);
+  const tabs = [
+    { id: "browse", label: "Browse marketplaces" },
+    { id: "github", label: "From GitHub" },
+  ] as const;
+  return (
+    <div
+      className="mt-2 space-y-3 rounded-md border border-border bg-card p-3 text-card-foreground"
+      data-testid="extension-add"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div role="tablist" aria-label="Add from" className="flex gap-1">
+          {tabs.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              className="rounded-sm px-2 py-1 text-label text-muted-foreground hover:text-foreground aria-selected:bg-foreground/8 aria-selected:text-foreground"
+              onClick={() => setTab(id)}
             >
-              {name}
-            </a>
+              {label}
+            </button>
+          ))}
+        </div>
+        <ScopeSelect value={scope} onChange={setScope} />
+      </div>
+      <p className="text-meta text-muted-foreground">
+        Installing fetches the code and pins it to one commit. Nothing runs until you review it and
+        trust it.
+      </p>
+      {tab === "github" ? (
+        <SourceForm kind="extension" scope={scope} />
+      ) : (
+        <div className="space-y-3">
+          {markets.problem !== null && (
+            <p role="alert" className="text-label text-destructive">
+              {markets.problem}
+            </p>
+          )}
+          {markets.markets.length === 0 && markets.problem === null && (
+            <p className="text-meta text-muted-foreground">
+              No marketplaces yet. A marketplace is a GitHub repository with a{" "}
+              <code className="font-mono">kb-marketplace.json</code> index; add one to browse it.
+            </p>
+          )}
+          {markets.markets.map((market) => {
+            const { repo, rev } = market.selection.locked;
+            return (
+              <section
+                key={`${market.scope}:${market.name}`}
+                aria-label={`${market.name} marketplace`}
+              >
+                <h4 className="flex flex-wrap items-baseline gap-x-2 text-meta">
+                  <span className="kb-label text-muted-foreground">{market.name}</span>
+                  <span className="font-mono text-caption text-faint-foreground">
+                    {repo} @ {rev.slice(0, 7)} · {SCOPES[market.scope].label.toLowerCase()}
+                  </span>
+                </h4>
+                {market.error !== undefined && (
+                  <p role="alert" className="text-label text-destructive">
+                    {market.error}
+                  </p>
+                )}
+                <ul className="divide-y divide-border">
+                  {market.entries.map((entry) => (
+                    <MarketEntry
+                      key={entry.name}
+                      name={entry.name}
+                      description={entry.description}
+                      market={market.name}
+                      installed={installed.includes(entry.name)}
+                      scope={scope}
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+          {adding || markets.markets.length === 0 ? (
+            <SourceForm kind="marketplace" scope={scope} onDone={() => setAdding(false)} />
+          ) : (
+            <button
+              type="button"
+              className="text-label text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              onClick={() => setAdding(true)}
+            >
+              Add a marketplace…
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The top of the Extensions part: what awaits review, each a link to its
+ * card, and the one Add extension entry point.
+ */
+export function ExtensionAdd({
+  awaiting = NO_NAMES,
+  installed = NO_NAMES,
+  markets,
+}: {
+  readonly awaiting?: readonly string[];
+  readonly installed?: readonly string[];
+  readonly markets: MarketplaceReading;
+}) {
+  const setFold = usePrefsStore((state) => state.setSettingsFold);
+  const [open, setOpen] = useState(false);
+  return (
+    <section aria-label="Add extensions" className="mb-2">
+      {awaiting.length > 0 && (
+        <p
+          className="mb-2 rounded-md bg-warning/10 px-3 py-2 text-label text-warning"
+          data-testid="extensions-awaiting"
+        >
+          {awaiting.length === 1 ? "1 extension awaits" : `${awaiting.length} extensions await`}{" "}
+          your review:{" "}
+          {awaiting.map((name, at) => (
+            <span key={name}>
+              {at > 0 && ", "}
+              <a
+                className="font-medium underline underline-offset-2"
+                href={`#extension-review-${name}`}
+                onClick={() => setFold(extensionNodeId(name), true)}
+              >
+                {name}
+              </a>
+            </span>
           ))}
         </p>
       )}
+      <button
+        type="button"
+        className={PRIMARY_BUTTON}
+        aria-expanded={open}
+        onClick={() => setOpen((was) => !was)}
+      >
+        <PlusIcon size={12} weight="bold" aria-hidden />
+        Add extension
+      </button>
+      {open && <AddPanel markets={markets} installed={installed} />}
+    </section>
+  );
+}
 
-      <div className="flex gap-2">
-        <button type="button" className={BUTTON} onClick={() => setForm("extension")}>
-          Add from GitHub
-        </button>
-        <button type="button" className={BUTTON} onClick={() => setForm("marketplace")}>
-          Add marketplace
-        </button>
-      </div>
-      {form !== null && <InstallForm key={form} kind={form} onComplete={() => setForm(null)} />}
-      <details>
-        <summary className="cursor-pointer text-label">Pick from a marketplace</summary>
-        <p className="text-meta text-muted-foreground">
-          Marketplace installs use{" "}
-          {SCOPE_OPTIONS.find((option) => option.value === DEFAULT_EXTENSION_SCOPE)?.label} scope.
-        </p>
-        {markets.length === 0 && (
-          <p className="text-meta text-muted-foreground">
-            Add a marketplace to browse its pinned entries.
-          </p>
-        )}
-        {markets.map((market) => (
-          <div key={`${market.scope}:${market.name}`} className="my-2 space-y-2">
-            <p className="text-meta">
-              {market.name} · {market.scope}
-            </p>
-            {market.error !== undefined && <p role="alert">{market.error}</p>}
-            {market.entries.map((entry) => (
-              <div key={entry.name} className="flex items-center justify-between gap-2 text-label">
-                <span>
-                  {entry.name} · {entry.description}
-                </span>
-                <button
-                  type="button"
-                  className={BUTTON}
-                  disabled={task.pending}
-                  onClick={() =>
-                    void task.run("extension.install", {
-                      source: `${entry.name}@${market.name}`,
-                      scope: DEFAULT_EXTENSION_SCOPE,
-                    })
-                  }
-                >
-                  Install {entry.name}
-                </button>
-              </div>
-            ))}
-          </div>
+/** An extension whose selection was removed: its nodes stay, and a marketplace that lists it offers it again. */
+export function RetainedExtension({
+  name,
+  markets,
+}: {
+  readonly name: string;
+  readonly markets: MarketplaceReading;
+}) {
+  const task = useExtensionAction();
+  const offers = markets.markets.flatMap((market) =>
+    market.entries.some((entry) => entry.name === name) ? [market] : [],
+  );
+  return (
+    <div className="space-y-2 pb-2 text-meta text-muted-foreground">
+      <p>Not installed. Its nodes remain, and install brings it back.</p>
+      <div className="flex flex-wrap gap-2">
+        {offers.map((market) => (
+          <button
+            key={`${market.name}:${market.scope}`}
+            type="button"
+            className={BUTTON}
+            aria-label={`Install ${name} from ${market.name}`}
+            title={`Into the ${SCOPES[DEFAULT_EXTENSION_SCOPE].label.toLowerCase()}`}
+            disabled={task.pending}
+            onClick={() =>
+              void task.run("extension.install", {
+                source: `${name}@${market.name}`,
+                scope: DEFAULT_EXTENSION_SCOPE,
+              })
+            }
+          >
+            Install from {market.name}
+          </button>
         ))}
-      </details>
-      {problem !== null && (
-        <p role="alert" className="text-label text-destructive">
-          {problem}
-        </p>
-      )}
+      </div>
       {task.problem !== null && (
         <p role="alert" className="text-label text-destructive">
           {task.problem}
         </p>
       )}
-    </section>
-  );
-}
-
-/** Retained graph nodes remain useful after their source selection is removed. */
-export function RetainedExtension({ name }: { readonly name: string }) {
-  const { markets, problem } = useMarketplaces();
-  const task = useExtensionAction();
-  return (
-    <div className="my-2 space-y-2 text-label">
-      <p>Not installed. Its nodes remain.</p>
-      {markets.flatMap((market) =>
-        market.entries
-          .filter((entry) => entry.name === name)
-          .map((entry) => (
-            <button
-              key={`${market.name}:${market.scope}`}
-              type="button"
-              className={BUTTON}
-              disabled={task.pending}
-              onClick={() =>
-                void task.run("extension.install", {
-                  source: `${entry.name}@${market.name}`,
-                  scope: DEFAULT_EXTENSION_SCOPE,
-                })
-              }
-            >
-              Install {name} from {market.name} ({DEFAULT_EXTENSION_SCOPE})
-            </button>
-          )),
-      )}
-      {problem !== null && <p role="alert">{problem}</p>}
-      {task.problem !== null && <p role="alert">{task.problem}</p>}
     </div>
   );
 }

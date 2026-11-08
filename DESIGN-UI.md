@@ -2914,26 +2914,60 @@ the settings. The record of why is
   their kinds preview at card size
   ([Field values → option galleries](#field-values-one-slot-grammar));
   the page asks for nothing.
-- **Extensions** holds one section per extension node under
+- **Extensions** holds one card per extension node under
   `sys.extensions`, in that list's order, read from the whole graph (the
   schema, never a scoped projection), then any the server reports with
-  no node. Its heading carries the extension's switch unless it is
-  required, which calls `extension.switch` and then shows what the server
-  reports (never the choice), with _off: contributes nothing_ beside it;
-  a required one says _required_ and why, in its declaration's words.
-  Whether a family is required, and where it came from (its `origin`), is
-  the server's report; the page infers neither. The switch is a load decision: switched off, the
-  extension's actions, views and MCP tools leave, which the part's lede
-  says. Under the heading are its settings, exactly what `settingsOf`
-  reads for its node, each drawn with the page's field editor; core's
-  section says its settings are in Appearance and General instead. Then
-  why any of its plugins failed, on the server or in the page, and a fold,
-  _What it composes_, closed by default:
-  - its trust: part of kb's build, composed by `kb ui`, or trusted at a
-    digest from a repository path, and its tags;
-  - what it contributed to each point, server and page side by side, and
-    how many nodes it seeds;
-  - what it injects and from whom, and what it provides.
+  no node, on two shelves by the row's `origin`: _Installed_ (the
+  store's own folder, links, installs, and the node a removed one left)
+  first, then _Built-in_ (kb's build and the `kb ui` host), which folds
+  like any section. Whether a family is required, and where it came from,
+  is the server's report; the page infers neither, except that a node
+  the server reports nothing for is Built-in when kb's build declares it
+  (core, the kernel, is not a row).
+  - **Above the shelves**, a banner names what awaits review, each name a
+    link that opens its card, and one _Add extension_ button opens the
+    add panel: _Browse marketplaces_ lists every pinned marketplace's
+    entries with _Install_ (or _Installed_), and adds a marketplace; _From
+    GitHub_ installs a pasted source. One _Install into_ choice (store
+    lock, this root, every kb on the machine) applies to both, and the
+    panel says that nothing runs until it is trusted. A failed marketplace
+    read keeps the last listing and says why.
+  - **A card's heading** is its label, its CLI name when that differs, and
+    one status pill (`extensionStatus`): _Error_ when a plugin failed,
+    _Update available_ when a fetched digest awaits trust while the
+    approved one runs, _Needs approval_, _Off_, _Trusted_; a family of
+    kb's build that is on shows none. Beside it is a required family's
+    lock, saying why in its declaration's `required` words; else a
+    built-in family's switch, which calls `extension.switch` and then
+    shows what the server reports (never the choice); else an installed
+    extension's actions.
+  - **An installed extension's actions** lead with the one its status
+    asks for, _Review & trust_, _Review update_ or _Turn on_, and keep the
+    rest in one menu (`MENU_SURFACE`, `useMenuKeys`): _Review code_,
+    _Check for updates_ (`extension.outdated`) and _Update_ for an install,
+    _Turn off_, and _Remove…_, which asks first, saying the lock entry
+    goes, its nodes stay, and its code stays cached until `kb ext gc`.
+    Nothing on the card trusts; every review opens the sheet below.
+  - **Under the heading**, its one line (the declaration's `description`,
+    else a marketplace entry's), where an installed one came from (its
+    marketplace, the GitHub path, the pin as a short sha linked to that
+    tree, and the lock's scope; a link or own folder by path), and why a
+    required one is required. Then its settings, exactly what
+    `settingsOf` reads for its node, each drawn with the page's field
+    editor; core's card says its settings are in Appearance and General
+    instead. Then why any of its plugins failed, on the server or in the
+    page, and _Details_, closed by default: what it adds, in words per
+    kind (a point's word, a seeded node's type) with its own namespace
+    left off, or why it adds nothing yet; its bundle and file-set digests
+    as twelve hex to copy, the whole in the title and on the review sheet;
+    the approved digest that runs while an update waits; where it is
+    loaded from; its tags; what it injects and from whom, and what it
+    provides. Same-name sources the catalog hides follow, folded.
+  - An installed node the server no longer reports says its nodes
+    remain, and offers each marketplace that lists it.
+  The switch is a load decision: switched off, the extension's actions,
+  views and MCP tools leave and its nodes stay, which the part's lede
+  says.
 - **Advanced** holds the points whose listeners are asked in turn
   (identity providers, interceptors, guards), per kernel and in that
   order; the repository extensions refused, where an untrusted one names
@@ -2946,7 +2980,7 @@ the settings. The record of why is
   computes nothing a CLI caller could not read (`lib/extension-report.ts`).
   When either action fails, or the server cannot be asked, Extensions and
   Advanced say why and offer to ask again; an extension's settings stay,
-  read from the graph, and its switch and what it composes are not drawn,
+  read from the graph, and its switch and its Details are not drawn,
   never a half it could not read as an empty one. A failure is tried
   again at the next convergence, and the same failure is the same value,
   so a dropped chunk recovers without a reload and nothing moves while it
