@@ -1,4 +1,5 @@
 import { Effect, Predicate } from "effect";
+import type { StandardSchemaV1 } from "effect/StandardSchema";
 import { z } from "zod";
 import { type DomainError, domainFromResolve, isDomainError } from "./errors.ts";
 import { ResolveError } from "./resolve.ts";
@@ -10,26 +11,8 @@ import { ResolveError } from "./resolve.ts";
  * the extension boundary before any internal Schema migration.
  */
 
-export interface StandardSchemaV1Issue {
-  readonly message: string;
-  readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
-}
-
-interface StandardSchemaV1Result<Output> {
-  readonly value?: Output;
-  readonly issues?: ReadonlyArray<StandardSchemaV1Issue>;
-}
-
-export interface StandardSchemaV1Like<Input = unknown, Output = Input> {
-  readonly "~standard": {
-    readonly version: 1;
-    readonly vendor: string;
-    readonly validate: (
-      value: unknown,
-    ) => StandardSchemaV1Result<Output> | Promise<StandardSchemaV1Result<Output>>;
-    readonly types?: { readonly input: Input; readonly output: Output };
-  };
-}
+export type StandardSchemaV1Issue = StandardSchemaV1.Issue;
+export type StandardSchemaV1Like<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output>;
 
 interface ParsableSchema {
   readonly parse: (input: unknown) => unknown;
@@ -98,7 +81,7 @@ export const parseBySchema = Effect.fn("kb.parseBySchema")(function* (
     const result = yield* Effect.promise(() =>
       Promise.resolve(schema["~standard"].validate(input)),
     );
-    if (result.issues && result.issues.length > 0) {
+    if (result.issues !== undefined) {
       return yield* Effect.fail(
         new ActionSchemaError(result.issues.map((i) => i.message).join("; "), result.issues),
       );

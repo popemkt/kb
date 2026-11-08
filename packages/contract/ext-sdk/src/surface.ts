@@ -64,26 +64,12 @@ export interface KbNode {
   updatedAt: string;
 }
 
-export interface StandardSchemaV1Issue {
-  readonly message: string;
-  readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
-}
-
-export interface StandardSchemaV1Result<Output> {
-  readonly value?: Output;
-  readonly issues?: ReadonlyArray<StandardSchemaV1Issue>;
-}
-
-export interface StandardSchemaV1Like<Input = unknown, Output = Input> {
-  readonly "~standard": {
-    readonly version: 1;
-    readonly vendor: string;
-    readonly validate: (
-      value: unknown,
-    ) => StandardSchemaV1Result<Output> | Promise<StandardSchemaV1Result<Output>>;
-    readonly types?: { readonly input: Input; readonly output: Output };
-  };
-}
+export type StandardSchemaV1Issue = effect.StandardSchema.StandardSchemaV1.Issue;
+export type StandardSchemaV1Result<Output> = effect.StandardSchema.StandardSchemaV1.Result<Output>;
+export type StandardSchemaV1Like<
+  Input = unknown,
+  Output = Input,
+> = effect.StandardSchema.StandardSchemaV1<Input, Output>;
 
 export interface ParsableSchema {
   readonly parse: (input: unknown) => unknown;

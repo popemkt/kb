@@ -2,7 +2,7 @@
 
 Date: 2026-11-09. The backend implementation is committed alongside this
 record. Sample source: [`popemkt/kb-extensions` at
-`0d341ce69ef3ddca41d84cf3253e005002f31f15`](https://github.com/popemkt/kb-extensions/tree/0d341ce69ef3ddca41d84cf3253e005002f31f15).
+`20a4e142a98ebfbc3d96af79261494cd97aee182`](https://github.com/popemkt/kb-extensions/tree/20a4e142a98ebfbc3d96af79261494cd97aee182).
 
 The real CLI installed two separate GitHub trees into scratch stores, with
 scratch `KB_HOME` and `KB_DATA`. A test fixture supplied the person's trust
@@ -21,9 +21,9 @@ same scratch trust profile, so the identical contributor digest is already
 trusted in the second store.
 
 ```text
-$ kb --root $BOTH --json ext install github:popemkt/kb-extensions/extensions/quote-source@0d341ce69ef3ddca41d84cf3253e005002f31f15
+$ kb --root $BOTH --json ext install github:popemkt/kb-extensions/extensions/quote-source@20a4e142a98ebfbc3d96af79261494cd97aee182
 succeeded; quote-source; trusted=false
-$ kb --root $BOTH --json ext install github:popemkt/kb-extensions/extensions/quotes@0d341ce69ef3ddca41d84cf3253e005002f31f15
+$ kb --root $BOTH --json ext install github:popemkt/kb-extensions/extensions/quotes@20a4e142a98ebfbc3d96af79261494cd97aee182
 succeeded; quotes; trusted=false
 
 trust fixture: quote-source sha256:630dfa80f999844ced29e15c476771beee4ca453f34c496b4aaee1dabde4a82d
@@ -35,7 +35,7 @@ extension.list point:
 $ kb --root $BOTH --json action-invoke '{"id":"ext.quotes.list","input":{}}'
 {"status":"succeeded","id":"ext.quotes.list","output":[{"text":"A point connects independent plugins.","author":"kb sample"}]}
 
-$ kb --root $ALONE --json ext install github:popemkt/kb-extensions/extensions/quote-source@0d341ce69ef3ddca41d84cf3253e005002f31f15
+$ kb --root $ALONE --json ext install github:popemkt/kb-extensions/extensions/quote-source@20a4e142a98ebfbc3d96af79261494cd97aee182
 succeeded
 extension.list contributor:
 {"name":"quote-source","uses":[{"point":"ext.quotes.sources","from":null}],"failures":[],"loadFailures":[]}
