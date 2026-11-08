@@ -241,9 +241,9 @@ export interface BackdropBudget {
  * applies, or less, never more.
  */
 export declare const BACKDROP_BUDGETS: {
-  readonly gpu: BackdropBudget;
-  readonly canvas: BackdropBudget;
-  readonly dom: BackdropBudget;
+  readonly gpu: { readonly frameMs: 6 };
+  readonly canvas: { readonly frameMs: 2 };
+  readonly dom: { readonly frameMs: 1 };
 };
 
 /** What has happened on the page, counted since it loaded. */

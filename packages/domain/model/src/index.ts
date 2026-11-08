@@ -189,6 +189,7 @@ export {
 } from "./knob-fields.ts";
 export {
   KNOB_COLOR,
+  KnobSchema,
   knobDefaults,
   knobNumber,
   knobSchemaError,

@@ -3149,10 +3149,15 @@ from "kb-ext-sdk"`. Types are generated from
   backdrops → A plugin's backdrop is a backdrop). Its values are the
   page's `@kb/ui-sdk`, so `@kb/ui-sdk`'s `page-surface-bridge.test.ts`
   holds the restatement to them as `surface-bridge.test.ts` holds
-  `kb-ext-sdk`'s: the surface declares only what the page serves, an
-  author's contribution and a provider's arguments are what the page
-  reads, and every other value the page serves is one the surface
-  describes. That is why `@kb/ext-sdk` is `scope:shared`, the strings and
+  `kb-ext-sdk`'s: the surface declares only what the page serves; a
+  value it declares is the page's own exactly, member for member, so the
+  host can neither drop nor change what the surface advertises, and a
+  projection stated on purpose is named as one; a contribution's data
+  names no member the host does not read; and code (a component, a
+  callback, a provider) is held one way, since an author's contribution
+  and a provider's arguments and result are what the page reads. A
+  repository extension's knobs are decoded against the model's one knob
+  schema (`KnobSchema`), whose types the knob types are. That is why `@kb/ext-sdk` is `scope:shared`, the strings and
   the surfaces alone; writing them into a root is the CLI's
   (`sdk-files.ts`).
   Schemas may be zod, Standard Schema v1, or a bare `{ parse }`.

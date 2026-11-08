@@ -6,60 +6,78 @@
  * the same way. Isomorphic: what a knob is and how a value reads against it
  * are facts the page, the seed and the CLI all need.
  */
+import { Schema } from "effect";
 
 /** One choice of an enum knob: its id, the value the knob takes, and its label. */
-export interface KnobOption {
-  readonly id: string;
-  readonly label: string;
-}
+const KnobOptionSchema = Schema.Struct({ id: Schema.String, label: Schema.String });
+export type KnobOption = typeof KnobOptionSchema.Type;
 
-interface KnobBase {
-  /** Local to whatever declares the knob. */
-  readonly id: string;
-  readonly label: string;
-}
+/** What every knob carries: an id local to whatever declares it, and its label. */
+const knobBase = { id: Schema.String, label: Schema.String };
 
-/** A number in a range, moved in steps. */
-export interface NumberKnob extends KnobBase {
-  readonly kind: "number";
-  readonly min: number;
-  readonly max: number;
-  readonly step: number;
-  readonly default: number;
-  /** Shown after the value. */
-  readonly unit?: string;
-}
+/** A number in a range, moved in steps; its unit is shown after the value. */
+const NumberKnobSchema = Schema.Struct({
+  ...knobBase,
+  kind: Schema.Literal("number"),
+  min: Schema.Finite,
+  max: Schema.Finite,
+  step: Schema.Finite,
+  default: Schema.Finite,
+  unit: Schema.optionalKey(Schema.String),
+});
+export type NumberKnob = typeof NumberKnobSchema.Type;
 
 /** On or off. */
-export interface BooleanKnob extends KnobBase {
-  readonly kind: "boolean";
-  readonly default: boolean;
-}
+const BooleanKnobSchema = Schema.Struct({
+  ...knobBase,
+  kind: Schema.Literal("boolean"),
+  default: Schema.Boolean,
+});
+export type BooleanKnob = typeof BooleanKnobSchema.Type;
 
 /** One of a fixed list. */
-export interface EnumKnob extends KnobBase {
-  readonly kind: "enum";
-  readonly options: readonly KnobOption[];
-  readonly default: string;
-}
+const EnumKnobSchema = Schema.Struct({
+  ...knobBase,
+  kind: Schema.Literal("enum"),
+  options: Schema.Array(KnobOptionSchema),
+  default: Schema.String,
+});
+export type EnumKnob = typeof EnumKnobSchema.Type;
 
 /** A colour, `#rrggbb`. */
-export interface ColorKnob extends KnobBase {
-  readonly kind: "color";
-  readonly default: string;
-}
+const ColorKnobSchema = Schema.Struct({
+  ...knobBase,
+  kind: Schema.Literal("color"),
+  default: Schema.String,
+});
+export type ColorKnob = typeof ColorKnobSchema.Type;
 
 /**
  * The seed a scene's variation is drawn from (DESIGN-UI.md → Page-head
  * backdrops → Variation): a whole number pins one composition; none, the
  * default, draws a new one each load.
  */
-export interface SeedKnob extends KnobBase {
-  readonly kind: "seed";
-  readonly default: number | null;
-}
+const SeedKnobSchema = Schema.Struct({
+  ...knobBase,
+  kind: Schema.Literal("seed"),
+  default: Schema.NullOr(Schema.Finite),
+});
+export type SeedKnob = typeof SeedKnobSchema.Type;
 
-export type Knob = NumberKnob | BooleanKnob | EnumKnob | ColorKnob | SeedKnob;
+/**
+ * A knob's shape, whichever kind: what a declaration read from bytes kb did
+ * not build (a repository extension's) is decoded against before
+ * `knobSchemaError` asks whether its values make sense. The knob types are
+ * this schema's, so the shape is stated once.
+ */
+export const KnobSchema = Schema.Union([
+  NumberKnobSchema,
+  BooleanKnobSchema,
+  EnumKnobSchema,
+  ColorKnobSchema,
+  SeedKnobSchema,
+]);
+export type Knob = typeof KnobSchema.Type;
 export type KnobKind = Knob["kind"];
 export type KnobValue = Knob["default"];
 export type KnobValues = Readonly<Record<string, KnobValue>>;

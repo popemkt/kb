@@ -11,7 +11,7 @@
  */
 import { Predicate, Result, Schema } from "effect";
 import { declarationPlugin, type ExtensionDeclaration, type ExtensionEntry } from "@kb/contracts";
-import { KbNodeSchema, knobSchemaError } from "@kb/model";
+import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
 import { isPlugin } from "@kb/plugin";
 
 /** A family's name: its `ext.<name>` namespace and its node's. */
@@ -43,15 +43,7 @@ const DeclarationData = Schema.Struct({
           Schema.Struct({
             id: Schema.String,
             label: Schema.String,
-            knobs: Schema.optional(
-              Schema.Array(
-                Schema.Struct({
-                  kind: Schema.Literals(["number", "boolean", "enum", "color", "seed"]),
-                  id: Schema.String,
-                  label: Schema.String,
-                }),
-              ),
-            ),
+            knobs: Schema.optional(Schema.Array(KnobSchema)),
           }),
         ),
       }),

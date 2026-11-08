@@ -213,7 +213,7 @@ describe("a repository extension's node", () => {
     }
   });
 
-  test("a module whose options are not its own to declare is refused, and kb's backdrop stays kb's", async () => {
+  test("a module whose options are not its own to declare, or whose knobs are malformed, is refused, and kb's backdrop stays kb's", async () => {
     resetRegistryCache();
     const root = await rootWith({
       "squat.ts": declaring("squat", "backdrops.sky"),
@@ -222,6 +222,16 @@ describe("a repository extension's node", () => {
         "knobs",
         "knobs.glow",
         '[{ kind: "number", id: "speed", label: "Speed", min: 0, max: 1, step: 0.5, default: 2 }]',
+      ),
+      "noopts.ts": declaring(
+        "noopts",
+        "noopts.glow",
+        '[{ kind: "enum", id: "mode", label: "Mode", default: "a" }]',
+      ),
+      "nobool.ts": declaring(
+        "nobool",
+        "nobool.glow",
+        '[{ kind: "boolean", id: "on", label: "On", default: "yes" }]',
       ),
       "fine.ts": declaring(
         "fine",
@@ -241,6 +251,9 @@ describe("a repository extension's node", () => {
       expect(Object.fromEntries(failures.map(({ file, error }) => [file, error]))).toEqual({
         "bare.ts": expect.stringContaining("its option glow must be named bare.<id>"),
         "knobs.ts": expect.stringContaining("the knob speed: its default is out of range"),
+        // A knob missing what its kind carries, or carrying the wrong type, is refused by its shape.
+        "nobool.ts": expect.stringContaining("default"),
+        "noopts.ts": expect.stringContaining("options"),
         "squat.ts": expect.stringContaining("its option backdrops.sky must be named squat.<id>"),
       });
       const ctx = await openKb(root);
