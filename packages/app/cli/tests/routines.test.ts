@@ -167,6 +167,13 @@ test("routines is optional, outline fields preview through real actions, and unl
       status: "failed",
       code: "approval_required",
     });
+    // The page is offered a binding to trust only over the host's own references;
+    // these name others (an env variable, a dotenv file), so neither binding is offered.
+    for (const node of ["account", "calendar"])
+      expect(await call("ext.routines.binding", { node })).toMatchObject({
+        status: "failed",
+        message: "secrets_foreign",
+      });
     expect(
       await call("ext.routines.client", { ...client, clientSecret: "GOCSPX-wrong" }),
     ).toMatchObject({ status: "failed", message: "client_invalid" });

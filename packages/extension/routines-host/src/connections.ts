@@ -10,7 +10,8 @@
  *   is data anyone may have written, so it cannot steer a write. The account
  *   then names those references.
  * - **Connect.** The account's binding (its references) must be trusted
- *   here; the page grants that as the person presses Connect. Google sends
+ *   here; the page grants that as the person presses Connect, and is only
+ *   offered a binding whose references are the ones the host placed. Google sends
  *   the person back to `CONNECT_PATH` at the public origin, and the page
  *   there hands that URL to `finish`, which finds the attempt by its state.
  * - **Provision.** A calendar on a connected account gets its own Google
@@ -22,6 +23,7 @@ import { Clock, DateTime, Effect, Result } from "effect";
 import { onWire, type SecretStore, type UiHostService } from "@kb/contracts";
 import { formatSecretRef, typeRefsOf, type SecretRef } from "@kb/model";
 import {
+  type AccountConfig,
   CONNECT_PATH,
   readAccount,
   readCalendar,
@@ -37,8 +39,27 @@ import type { ConnectStep, RoutinesPluginOptions } from "./plugin.ts";
 const CONNECT_MS = 600_000;
 const ACCOUNT_SECRETS = ["client-id", "client-secret", "refresh-token"] as const;
 
+/** Where the host keeps `secret` for `account`: its own choice, never a node's. */
+const placed = (
+  secrets: SecretStore,
+  account: string,
+  secret: (typeof ACCOUNT_SECRETS)[number],
+): SecretRef => secrets.place(`routines.${account.replaceAll(/[^A-Za-z0-9._-]/g, "-")}.${secret}`);
+
+/**
+ * Whether `account` names exactly the references the host placed for it.
+ * Only such a binding is offered to the page to trust: a person pressing
+ * Connect approves connecting the account, not whatever an earlier write
+ * pointed its fields at (another host secret, which connecting would send
+ * to Google and put in the sign-in URL the page opens).
+ */
+const ownsSecrets = (secrets: SecretStore, account: AccountConfig) =>
+  account.clientId === formatSecretRef(placed(secrets, account.id, "client-id")) &&
+  account.clientSecret === formatSecretRef(placed(secrets, account.id, "client-secret")) &&
+  account.refreshToken === formatSecretRef(placed(secrets, account.id, "refresh-token"));
+
 /** The nodes setup reads and writes: an account, a calendar's binding, and either's digest. */
-function setupGraph(ui: UiHostService, host: RoutineHost) {
+function setupGraph(ui: UiHostService, host: RoutineHost, secrets: SecretStore) {
   const write = Effect.fn("routines.setup.write")(function* (input: Record<string, unknown>) {
     const receipt = yield* ui.invoke(
       onWire(
@@ -75,22 +96,25 @@ function setupGraph(ui: UiHostService, host: RoutineHost) {
       catch: () => new SyncError({ status: 400, code: "invalid_binding" }),
     });
   });
-  /** The trust digest of a calendar's binding or an account's, whichever `id` is. */
+  const foreign = new SyncError({ status: 409, code: "secrets_foreign" });
+  /**
+   * The trust digest of a calendar's binding or an account's, whichever
+   * `id` is: what the page grants as the person, so only for an account
+   * that names the host's own references (`ownsSecrets`).
+   */
   const digestOf = Effect.fn("routines.binding.digest")(function* (id: string) {
     const node = (yield* host.read).get(id);
-    if (node !== undefined && typeRefsOf(node).includes(T.account))
-      return yield* accountBindingDigest(yield* accountOf(id));
-    return yield* calendarBindingDigest(yield* bindingFor(id));
+    if (node !== undefined && typeRefsOf(node).includes(T.account)) {
+      const account = yield* accountOf(id);
+      if (!ownsSecrets(secrets, account)) return yield* foreign;
+      return yield* accountBindingDigest(account);
+    }
+    const binding = yield* bindingFor(id);
+    if (binding.account !== null && !ownsSecrets(secrets, binding.account)) return yield* foreign;
+    return yield* calendarBindingDigest(binding);
   });
   return { write, accountOf, bindingFor, digestOf };
 }
-
-/** Where the host keeps `secret` for `account`: its own choice, never a node's. */
-const placed = (
-  secrets: SecretStore,
-  account: string,
-  secret: (typeof ACCOUNT_SECRETS)[number],
-): SecretRef => secrets.place(`routines.${account.replaceAll(/[^A-Za-z0-9._-]/g, "-")}.${secret}`);
 
 /**
  * Check a client with Google, keep it at the host's own references for the
@@ -145,7 +169,7 @@ export function connections(options: RoutinesPluginOptions, ui: UiHostService, h
     { account: string; digest: string; step: ConnectStep; at: number }
   >();
   const redirectUri = new URL(CONNECT_PATH, options.origin).toString();
-  const { write, accountOf, bindingFor, digestOf } = setupGraph(ui, host);
+  const { write, accountOf, bindingFor, digestOf } = setupGraph(ui, host, options.secrets);
   const info = Effect.gen(function* () {
     return {
       redirectUri,

@@ -27,6 +27,8 @@ const MESSAGES: Readonly<Record<string, string>> = {
   auth_needed: "Google refused the connection. Connect again.",
   secret_not_kept: "kb couldn't keep the secret on its host. Check the host's data directory.",
   binding_changed: "The account changed while connecting. Connect again.",
+  secrets_foreign:
+    "This account names secrets kb's host didn't keep for it. Paste its client again in step 5.",
   offline: "kb's host couldn't reach Google. Check its network and try again.",
   timeout: "Google took too long to answer. Try again.",
   upstream: "Google had a problem answering. Try again in a minute.",

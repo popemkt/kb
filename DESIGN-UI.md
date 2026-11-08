@@ -3633,7 +3633,11 @@ and a horizontal one above it on a narrow one.
   `/calendar/connect`, which hands that address to the host once
   (`ext.routines.finish`), removes the code from the address bar at once,
   and returns to the setup. Every write here is `approval: "required"`, so
-  an agent cannot set up, connect or remove a service.
+  an agent cannot set up, connect or remove a service, and the host offers
+  the page a binding to trust (`ext.routines.binding`) only when the
+  account names the references the host placed for it: pressing Connect
+  approves connecting the account, never a secret an earlier write pointed
+  its fields at.
 - **Calendars.** The last step lists kb's calendars and a new one by name;
   each one picked is linked to the account, given its own Google calendar
   (`ext.routines.provision`, under its trusted binding) and switched on.
