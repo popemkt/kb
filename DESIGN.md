@@ -5710,3 +5710,30 @@ Typed point-name references resolve through that same reader. A declaration's
 Standard Schema contract decodes contributions before admission; a failure
 refuses the plugin atomically. The extension report shows declarations, their
 specs, contributors, and waiting point requirements.
+
+
+### Provider roles
+
+A replaceable service, single point, or cell of a keyed point is a role.
+Its spec opts in with `replaceable: true`; all other registrations retain
+one-provider conflict rules. A cell holds its bundled owner's default at
+priority 100 and host-approved candidates at their declared priority (50
+when omitted). Lower wins; ties retain registration order. Approval belongs
+to host admission, never to a plugin's own fields. Installed code cannot
+make itself a default or grant replacement authority.
+
+Each owner seeds `sys.role.<role>` as a role node. Core's `sys.f.provider`
+ref field configures that kind and refers to an extension's ordinary node.
+Empty means the best approved candidate. Hosts read that graph setting into
+the kernel; a stored preference cannot admit a new candidate. Role inspection
+reports the default, candidates, elected provider and any session faults.
+
+Page consumers render through `useRole`, which shares the view error boundary.
+A render failure reports `kernel.fault(role, provider, cause)`, names the
+extension in a toast, and renders the next candidate. Service calls use
+`roleCall`: a defect or budget overrun faults the candidate and retries once
+with the next one; ordinary typed failures remain the caller's result.
+A fault lasts for the kernel session or until the provider's identity changes
+with new code. Faulted defaults remain visible in the candidate report.
+The first consumer is the outline's `ui.field-editor`; no new implementation
+or provider choice is introduced with its migration.

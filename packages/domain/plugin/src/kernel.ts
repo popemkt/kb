@@ -1,5 +1,17 @@
-import { Cause, Effect, Exit, Scope, Predicate } from "effect";
-import { PluginError, type PluginErrorReason } from "./errors.ts";
+import { Effect, Exit, Scope, Predicate } from "effect";
+import type { PluginError } from "./errors.ts";
+import {
+  changed,
+  visible,
+  refusal,
+  failureOf,
+  pointSlot,
+  serviceProvider,
+  type State,
+  type Entry,
+  type PointSlot,
+} from "./state.ts";
+import { cell, cellEntries } from "./cells.ts";
 import {
   asKeyType,
   asPointKey,
@@ -209,92 +221,20 @@ export interface PointState {
   readonly owner: string | null;
 }
 
-interface Entry {
-  readonly name: string;
-  readonly namespace: string;
-  readonly tags: readonly string[];
-  readonly inject: readonly AnyServiceKey[];
-  readonly uses: readonly string[];
-  readonly pointNamespace: string;
-  readonly parent: string | null;
-  /** The value it was loaded as. */
-  readonly plugin: Plugin;
-  readonly apply: Plugin["apply"];
-  status: PluginStatus;
-  /**
-   * Whether `apply` has run to its end and the plugin is still active: what
-   * it contributed is visible from then until it starts to go, all at once
-   * either way.
-   */
-  applied: boolean;
-  error: PluginError | null;
-  /** Open while `active`; everything the plugin registered hangs off it. */
-  scope: Scope.Closeable | null;
-}
-
-interface ServiceSlot {
-  readonly key: AnyServiceKey;
-  readonly owner: string;
-  readonly impl: unknown;
-}
-
-interface PointSlot {
-  readonly key: PointKey<unknown>;
-  readonly items: Contribution<unknown>[];
-  /** Ids and aliases, so a lookup and a conflict check are one read. */
-  readonly byId: Map<string, Contribution<unknown>>;
-}
-
-function refusal(plugin: string, reason: PluginErrorReason, message: string): PluginError {
-  return new PluginError({ plugin, reason, message });
-}
-
-function failureOf(plugin: string, cause: Cause.Cause<PluginError>): PluginError {
-  const squashed = Cause.squash(cause);
-  if (squashed instanceof PluginError) return squashed;
-  return refusal(
-    plugin,
-    "apply-failed",
-    squashed instanceof Error ? squashed.message : String(squashed),
-  );
-}
-
 /** The id a contribution `id` takes in `namespace`: `<namespace>.<id>`, or `id` in the root one. */
 export function namespaced(namespace: string, id: string): string {
   return namespace === "" ? id : `${namespace}.${id}`;
-}
-
-/** Everything a kernel knows, mutated only inside the effects below. */
-interface State {
-  readonly host: KernelHost;
-  readonly entries: Map<string, Entry>;
-  readonly services: Map<string, ServiceSlot>;
-  readonly points: Map<string, PointSlot>;
-  readonly subscribers: Set<() => void>;
-  version: number;
-}
-
-/**
- * Whether what `owner` contributed is visible: it and every plugin that
- * loaded it have applied, so a reader never sees part of a plugin's
- * contributions, while it loads or while it goes.
- */
-function visible(state: State, owner: string): boolean {
-  const entry = state.entries.get(owner);
-  if (entry === undefined || !entry.applied) return false;
-  return entry.parent === null || visible(state, entry.parent);
-}
-
-function changed(state: State): void {
-  state.version++;
-  for (const listener of state.subscribers) listener();
 }
 
 function requirementsOf(state: State, entry: Entry): RequirementState[] {
   return [
     ...entry.inject.map((key): RequirementState => {
       const slot = state.services.get(key.name);
-      return { kind: "service", name: key.name, from: slot?.key === key ? slot.owner : null };
+      return {
+        kind: "service",
+        name: key.name,
+        from: slot?.key === key ? (serviceProvider(slot)?.owner ?? null) : null,
+      };
     }),
     ...entry.uses.map(
       (name): RequirementState => ({
@@ -459,10 +399,10 @@ const provideErased = Effect.fnUntraced(function* (
     return yield* refusal(
       entry.name,
       "service-conflict",
-      `service ${key.name} is already provided by ${existing.owner}`,
+      `service ${key.name} is already provided by ${serviceProvider(existing)?.owner ?? "?"}`,
     );
   }
-  state.services.set(key.name, { key, owner: entry.name, impl });
+  state.services.set(key.name, { key, cell: cell({ owner: entry.name, impl }) });
   yield* Scope.addFinalizer(scope, removeService(state, key.name));
   changed(state);
   // A new service can be the last thing a pending plugin was waiting for; it
@@ -479,10 +419,11 @@ const getErased = Effect.fnUntraced(function* (state: State, entry: Entry, key: 
     );
   }
   const slot = state.services.get(key.name);
-  if (slot?.key !== key) {
+  const provider = serviceProvider(slot);
+  if (slot?.key !== key || provider === undefined) {
     return yield* refusal(entry.name, "not-loaded", `service ${key.name} is not provided`);
   }
-  return slot.impl;
+  return provider.impl;
 });
 
 const checkPointHost = Effect.fnUntraced(function* (
@@ -523,6 +464,50 @@ const contributionValue = Effect.fnUntraced(function* (
     : yield* decodeContribution(owner, point.spec.contract, input);
 });
 
+function memberAt(value: unknown, path: string): unknown {
+  return path
+    .split(".")
+    .reduce<unknown>(
+      (current, key) => (Predicate.isObject(current) ? current[key] : undefined),
+      value,
+    );
+}
+
+const checkPointCell = Effect.fnUntraced(function* (
+  owner: string,
+  point: PointKey<unknown>,
+  slot: PointSlot,
+  contribution: Contribution<unknown>,
+) {
+  if (point.spec.cardinality === "single" && slot.cells.length > 0) {
+    return yield* refusal(
+      owner,
+      "contribution-conflict",
+      `${point.name} accepts only one contribution`,
+    );
+  }
+  const key =
+    point.spec.cardinality === "single"
+      ? null
+      : point.spec.cardinality === "keyed" && point.spec.keyBy !== undefined
+        ? memberAt(contribution.value, point.spec.keyBy)
+        : contribution.id;
+  const keyBy = point.spec.keyBy;
+  if (point.spec.cardinality === "keyed" && keyBy !== undefined) {
+    if (
+      key === undefined ||
+      cellEntries(slot.cells).some((held) => Object.is(memberAt(held.value, keyBy), key))
+    ) {
+      return yield* refusal(
+        owner,
+        "contribution-conflict",
+        `${point.name} requires a unique ${point.spec.keyBy}`,
+      );
+    }
+  }
+  return undefined;
+});
+
 const contributeErased = Effect.fnUntraced(function* (
   state: State,
   entry: Entry,
@@ -545,7 +530,7 @@ const contributeErased = Effect.fnUntraced(function* (
       return yield* refusal(entry.name, "not-used", `${point.name} must be listed in uses`);
   }
   yield* claim(entry.name, existing?.key, point);
-  const slot: PointSlot = existing ?? { key: point, items: [], byId: new Map() };
+  const slot: PointSlot = existing ?? pointSlot(point);
   const contribution: Contribution<unknown> = {
     id: namespaced(entry.namespace, item.id),
     aliases: item.aliases ?? [],
@@ -558,41 +543,18 @@ const contributeErased = Effect.fnUntraced(function* (
     return yield* refusal(
       entry.name,
       "contribution-conflict",
-      `${point.name} already has ${clash} (from ${slot.byId.get(clash)?.owner ?? "?"})`,
+      `${point.name} already has ${clash} (from ${slot.byId.get(clash)?.entries[0]?.owner ?? "?"})`,
     );
   }
-  if (point.spec.cardinality === "single" && slot.items.length > 0) {
-    return yield* refusal(
-      entry.name,
-      "contribution-conflict",
-      `${point.name} accepts only one contribution`,
-    );
-  }
-  if (point.spec.cardinality === "keyed" && point.spec.keyBy !== undefined) {
-    const keyBy = point.spec.keyBy;
-    const member = (candidate: unknown): unknown =>
-      keyBy
-        .split(".")
-        .reduce<unknown>(
-          (current, key) => (Predicate.isObject(current) ? current[key] : undefined),
-          candidate,
-        );
-    const key = member(value);
-    if (key === undefined || slot.items.some((held) => Object.is(member(held.value), key))) {
-      return yield* refusal(
-        entry.name,
-        "contribution-conflict",
-        `${point.name} requires a unique ${keyBy}`,
-      );
-    }
-  }
+  yield* checkPointCell(entry.name, point, slot, contribution);
+  const held = cell(contribution);
   state.points.set(point.name, slot);
-  slot.items.push(contribution);
-  for (const id of ids) slot.byId.set(id, contribution);
+  slot.cells.push(held);
+  for (const id of ids) slot.byId.set(id, held);
   yield* Scope.addFinalizer(
     scope,
     Effect.sync(() => {
-      slot.items.splice(slot.items.indexOf(contribution), 1);
+      slot.cells.splice(slot.cells.indexOf(held), 1);
       for (const id of ids) slot.byId.delete(id);
       changed(state);
     }),
@@ -610,7 +572,7 @@ function matchesPoint<C>(slot: PointSlot | undefined, point: PointReference<C>):
 function contributionsAt<C>(state: State, point: PointReference<C>): readonly Contribution<C>[] {
   const slot = state.points.get(point.name);
   if (!matchesPoint(slot, point) || slot === undefined) return [];
-  return slot.items
+  return cellEntries(slot.cells)
     .filter((item) => visible(state, item.owner))
     .map((item) => ({ ...item, value: asKeyType(point, item.value) }));
 }
@@ -673,7 +635,7 @@ const declarePoint = Effect.fn("plugin.declare")(function* <C>(
   if (state.points.has(full))
     return yield* refusal(entry.name, "point-conflict", `point ${full} is already registered`);
   const key = pointKey<C>(full, spec, entry.name);
-  state.points.set(full, { key, items: [], byId: new Map() });
+  state.points.set(full, pointSlot(key));
   yield* Scope.addFinalizer(
     scope,
     Effect.gen(function* () {
@@ -734,14 +696,14 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
     contributions: (point) => contributionsAt(state, point),
     lookup: (point, id) => {
       const slot = state.points.get(point.name);
-      const item = matchesPoint(slot, point) ? slot?.byId.get(id) : undefined;
+      const item = matchesPoint(slot, point) ? slot?.byId.get(id)?.entries[0] : undefined;
       return item === undefined || !visible(state, item.owner)
         ? undefined
         : { ...item, value: asKeyType(point, item.value) };
     },
     contributionsOf: (owner) =>
       [...state.points.values()].flatMap((slot) =>
-        slot.items
+        cellEntries(slot.cells)
           .filter((item) => item.owner === owner || item.owner.startsWith(`${owner}/`))
           .filter((item) => visible(state, item.owner))
           .map(({ id, aliases, owner: by }) => ({ point: slot.key.name, id, aliases, owner: by })),
@@ -751,12 +713,15 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
         .filter((slot) =>
           slot.key.declarer !== null
             ? visible(state, slot.key.declarer)
-            : slot.items.some((item) => visible(state, item.owner)),
+            : cellEntries(slot.cells).some((item) => visible(state, item.owner)),
         )
         .map(({ key }) => ({ key, owner: key.declarer ?? null })),
     service: (key) => {
       const slot = state.services.get(key.name);
-      return slot?.key === key ? asKeyType(key, slot.impl) : undefined;
+      const provider = serviceProvider(slot);
+      return slot?.key === key && provider !== undefined
+        ? asKeyType(key, provider.impl)
+        : undefined;
     },
     holds: (plugin) => state.entries.get(plugin.name)?.plugin === plugin,
     plugins: () =>
@@ -769,7 +734,7 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
         missing: missingOf(state, entry),
         requirements: requirementsOf(state, entry),
         provides: [...state.services.values()]
-          .filter((slot) => slot.owner === entry.name)
+          .filter((slot) => slot.cell.entries.some((provider) => provider.owner === entry.name))
           .map((slot) => slot.key.name),
         applied: entry.applied,
         error: entry.error,
