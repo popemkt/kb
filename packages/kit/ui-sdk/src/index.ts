@@ -578,3 +578,5 @@ export {
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
 export { tagOpeningOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
+
+export { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
