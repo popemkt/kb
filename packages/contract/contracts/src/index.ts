@@ -3,6 +3,7 @@ export {
   ExtensionReachSchema,
   ExtensionReviewSchema,
   installMarketplace,
+  isKbOrigin,
 } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
 export {

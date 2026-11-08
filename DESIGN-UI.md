@@ -850,9 +850,13 @@ core's design-system plugin previews a design system with its swatch and,
 at card size, a small page its sheet paints with what the theme brings
 under it (its extension, the backdrop it pairs, its motion preset); and
 a backdrop with its theme's swatch at chip size and, at card size, the
-backdrop itself (`BackdropCard`): its own renderer in the frame the head
+backdrop itself (`BackdropCard`, the kit's, the one card every gallery
+of backdrops draws): its own renderer in the frame the head
 draws (`BackdropFrame`), laid out at a side panel's width and scaled into
-the card, at the strength and direction in force, hearing no owner, and
+the card, looking at the band of it a head's picture is composed round (a
+backdrop that faces a way, the line the head's content begins on, from
+the side it faces; one with no direction, its top), at the direction in
+force and the strength in force or one the gallery shows, hearing no owner, and
 held still (`HoldStill`, Motion options), mounted once the card is on
 screen, so a gallery costs what it shows. A graph theme would fill the
 same slot. A preview draws nothing for a thing nobody
@@ -3157,6 +3161,15 @@ principles below it applies, and two to four live parameters:
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes                                                                                                                                                                   | tone mapping, PBR/matcap, AO, key angle      |
 | Motion | staggered critically damped springs against an eased tween                                                                                                                                                                     | settle, stagger, drive, overlap              |
 
+A study's parameters are knobs: `Knob` (`@kb/model`'s `knob.ts`, a number
+in a range and step, a boolean or one of an enum's options, each with its
+default) drawn by the one `KnobControl` (`@kb/ui-sdk`). It is the same
+schema and the same control a page-head backdrop's knobs are (Page-head
+backdrops → Knobs), so a parameter is declared, labelled and reached by
+keyboard one way wherever a panel lists it. Only a panel draws it, so the
+kit exports it deferred (`deferred`), and its code loads with the first
+panel that does, never with the page.
+
 Embers keeps its theme rather than forcing a dark stage: on a light ground
 the heat ramp moves from the emissive into the surface (`heatAlbedo`: pale
 ash warming through the accent's ember to the accent), and only the hot
@@ -3786,8 +3799,8 @@ kb ships six; the last three are whole themes (Themes, below):
   `yorha.arena`), with `themeSystem` and `themeBackdrop` (`@kb/model`), so
   every theme's options have one shape; its browser half holds its sheet
   (`src/<family>.css`), its faces and its art (`src/art/`), drawn with the
-  art kit `@kb/theme-art` (`useBeat`, `useGesture`, `deferred`, `band`),
-  which knows no theme. Switched off, a family takes its systems and heads
+  art kit `@kb/theme-art` (`useBeat`, `useGesture`, `ART_FRAME`, `band`),
+  which knows no theme, and the kit's `deferred` (`@kb/ui-sdk`). Switched off, a family takes its systems and heads
   and nothing else; the page offers the default and whatever another
   family contributes.
   - **The themes were one family's once.** ZZZ, Transistor and YoRHa were
@@ -4042,8 +4055,8 @@ above). What each of kb's themes is after, and where each idea lives, is
   `prefers-reduced-motion` no gesture is drawn (the shell hides the veil,
   `motion-reduce:hidden`, and the art hides its own in the ground and the
   heads), and the global rule stops every ambient loop: a cut, never a
-  frame of a flash. The art's code loads when first drawn (`deferred`, a
-  frame drawn at once), so it costs the page's eager bundle nothing; a
+  frame of a flash. The art's code loads when first drawn (the kit's `deferred`,
+  with `ART_FRAME` drawn at once), so it costs the page's eager bundle nothing; a
   sheet is in it, so `vite.config.ts` drops a sheet's comments, spare
   whitespace and leading zeros (`compactRawSheets`).
 
@@ -4175,11 +4188,20 @@ backdrop or theme is held beside
 ([`docs/research/2026-10-31-3d-quality-bar.md`](docs/research/2026-10-31-3d-quality-bar.md)).
 A PR for a backdrop reports a score against each criterion.
 
-- **The point.** `BackdropPoint` (`ui.backdrops`, `@kb/ui-sdk`, beside
-  `ViewPoint`, `DockPoint` and `OverlayPoint`) holds one `Backdrop` per
-  contribution: its `key`, its `presentation` and its `Component`.
-  - The key is the backdrop as its family declares it: an id
-    (`<family>.<local id>`) and a label. `provideBackdrop` contributes it
+- **The point is the surface.** `BackdropPoint` (`ui.backdrops`,
+  `@kb/ui-sdk`, beside `ViewPoint`, `DockPoint` and `OverlayPoint`) holds
+  one `Backdrop` per contribution: its `key`, its `presentation`, its
+  `budget` and its `Component`. Any family contributes to it: the backdrops
+  family ships kb's own and its studio (Backdrop Studio, below), and the
+  themes bring theirs. It lives in the kit, not in the backdrops family,
+  because a family may import no other family (the family fence), so the
+  one surface every plugin can reach is the kit's
+  (docs/research/2026-11-06-backdrop-studio.md).
+  - The key is the backdrop as its family declares it (`SeedBackdrop`,
+    `@kb/model`): an id (`<family>.<local id>`), a label, whose work it is
+    drawn after (`credit`), the strength it is shown at where no setting
+    chooses one (`strength`; **Its own strength**, below), its knobs
+    (**Knobs**, below) and its variants. `provideBackdrop` contributes it
     under the key's local id, so the contribution answers to the declared
     id, as a view answers to its key.
   - The presentation is how a head frames it: the breathing room it
@@ -4190,10 +4212,28 @@ A PR for a backdrop reports a score against each criterion.
     at most `maxWidth` wide (`reach: "content"`), or across the whole
     scroll region behind it (`reach: "region"`), so a wider window or the
     full content width adds field at its sides.
-  - The component receives what the head knows (`BackdropProps`): its
-    colour (the shown node's tag colour, else the accent), the node it shows
-    if any, the strength, the direction, the opacity at that strength, what
-    the owner is doing (`activity`) and where the pointer is (`pointer`).
+  - The budget is what it may spend drawing a frame (`BackdropBudget`,
+    `frameMs`): the page head's frame budget by what draws it
+    (`BACKDROP_BUDGETS`), 6 ms of the GPU's time for a GPU scene, 2 ms of
+    the main thread for a canvas scene, 1 ms for one the page's CSS draws.
+    A contribution names the one that applies, or less. A backdrop that
+    draws to a canvas holds its frames to it with the kit's one frame
+    meter (`meterFrames`, `@kb/ui-sdk`): a smoothed cost per frame, a
+    verdict every 30 frames, and after three verdicts over budget its
+    quality steps down by 0.15, to a floor it names. The meter reports on
+    the canvas (`data-quality`, `data-quality-floor`, and `data-frame-ms`
+    or `data-gpu-ms`),
+    where Backdrop Studio's readout reads it (`readFrameMeter`). The GPU
+    host and the 2D stage both meter with it (Cost, below); a backdrop
+    the page's CSS or a vendor runtime draws is not metered (GAP
+    [[01M6RT9R6AXGVYZWCSTG26EET8]]).
+  - The component is its scene: the one factory the slot instantiates
+    wherever the backdrop is drawn, in a head, a card or the studio. It
+    receives what the head knows (`BackdropProps`): its colour (the shown
+    node's tag colour, else the accent), the node it shows if any, the
+    strength, the direction, the opacity at that strength, its knobs'
+    values (`knobs`), its budget, what the owner is doing (`activity`) and
+    where the pointer is (`pointer`).
   - **Activity is a declared input, not a listener.** `PageActivity` is
     whether a node's text is being edited (`editing`, the host's read of the
     page editor), how many writes the graph has taken (`writes`, the
@@ -4247,6 +4287,44 @@ A PR for a backdrop reports a score against each criterion.
   derives view options under `sys.views` (DESIGN.md → Extension families).
   A contribution whose key no declaration lists has no option, so it cannot
   be chosen.
+- **A plugin's backdrop is a backdrop.** A repository extension, its own,
+  linked or installed (DESIGN.md → Core boundary & extensions), declares
+  and contributes a backdrop by this same surface, through the SDK:
+  `BACKDROP_OPTIONS` and `backdropVariantOptions` in `kb-ext-sdk` for its
+  declaration, and `BackdropPoint`, `provideBackdrop`, `BACKDROP_BUDGETS`,
+  `meterFrames` and `useReducedMotion` in `kb-ext-sdk/page` for its page
+  half (DESIGN.md → Extension SDK). Nothing about it is special: its
+  option is derived by the fold, its knobs are fields on its node, the
+  slot frames it, Settings and the studio list it, and the contract runs
+  over it.
+  - **Named in its own namespace.** Its backdrops' ids are
+    `<extension>.<local id>`, as a family's are, and discovery refuses a
+    repository module that declares an option outside its own namespace,
+    or a knob schema `knobSchemaError` refuses. A bundled family's name is
+    refused for a repository extension, so a plugin can never answer to,
+    or replace, one of kb's backdrops.
+  - **Held to the same budget.** It declares a budget within the page
+    head's, and a canvas scene meters its frames with the kit's frame
+    meter, so it steps its quality down as kb's own do and the studio's
+    readout reads it (Backdrop Studio, below). A scene that does not
+    meter shows as not metered.
+  - **What it is handed** is what every backdrop is handed
+    (`BackdropProps`): the head's colour, the shown node, strength,
+    direction, opacity, knobs, budget, the owner's activity and the
+    pointer. `kb-ext-sdk/page` declares the node by its id alone, which is
+    what navigation needs. It draws on its own canvas (no GPU host is
+    offered through the SDK). Once trusted it is owner code with the
+    page's power, as every repository extension is; the SDK's narrower
+    types state what a backdrop is for, and enforce nothing (GAP
+    [[01M6WVFMGB5PP2AANF0E5R921V]]).
+  - **Untrusted, it does not exist.** An untrusted extension runs no code,
+    so its declaration is not read and its backdrops have no option and
+    no contribution; the studio lists it as needing approval. Removed
+    (`kb ext remove`), it is no longer discovered: its option node stays,
+    as a switched-off family's does, its contribution goes, and every page
+    that chose it falls through to the next node's choice, as any choice
+    nobody contributes does (The choice is fields, below).
+
 - **kb's backdrops are a family's.** The `backdrops` family
   (`@kb/backdrops`, `@kb/backdrops-ui`; optional, on by default) declares
   and contributes the backdrops kb ships, the unicorn first:
@@ -4408,13 +4486,143 @@ A PR for a backdrop reports a score against each criterion.
     one shown while it is still among those the head may show, and draws
     again, in the running scene, when it is not.
   - **Its own strength.** Where no setting chooses a strength, the frame
-    shows the drawn variant at the one it declares, else the default
-    (`shownStrength`): Warp declares `vivid`, the owner's pick. A strength
-    a setting chooses holds over the variant's.
+    shows the drawn variant at the one it declares, else at its backdrop's,
+    else the default (`shownStrength`): Warp declares `vivid`, the owner's
+    pick. A strength a setting chooses holds over the declared ones.
   - Set them in Settings → Appearance (the `variants` row under Page head),
     or `kb set sys.extension.core sys.f.backdrop.variant
 sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
     another pins a second, and `kb unset` takes one back out.
+- **Knobs.** A backdrop's knobs are its live parameters, declared on its
+  key, each with its default: `Knob` (`@kb/model`'s `knob.ts`), the one
+  schema the lab's study parameters use too (The lab), drawn by the one
+  `KnobControl` (`@kb/ui-sdk`). A knob is a `number` in a range and step
+  (with a unit), a `boolean`, an `enum` of options, a `color` (`#rrggbb`),
+  or a `seed`: a whole number pins the backdrop's variation (Variation,
+  below), none draws a new one each load. A backdrop has at most one seed.
+  - **Per backdrop and per variant.** A knob on the backdrop's key is
+    shown whatever variant is drawn. A variant's own knobs
+    (`BackdropVariant.knobs`) are shown only with it, after its backdrop's
+    (`knobsOf`).
+  - **Well formed where declared.** `knobSchemaError` refuses a schema
+    with an id twice, a default its own knob does not accept (out of its
+    range, off its step, none of its options, not `#rrggbb`, a seed that is
+    not whole), or a second seed.
+  - **Values are fields on the backdrop's own node.** The fold derives one
+    field per knob a declared option declares (`SeedOption.knobs`,
+    `knob-fields.ts`), `<option node>.knob.<knob id>`, a child of that
+    option's node: typed by its kind (a number or a seed is `number`, a
+    boolean `checkbox`, a colour `text`, an enum a `ref` to its options,
+    which are the field's children, `<field>.<option id>`), holding one
+    value, and configuring that node (`sys.f.configures`), so its values
+    are a person's to write (DESIGN.md → write protection). A backdrop's
+    values sit on `sys.backdrop.<id>`, a variant's own on
+    `sys.backdrop-variant.<id>.<variant>`. The fold seeds no value: an
+    absent value is the knob's default, and taking it out resets it.
+  - **Read against the knob.** `knobValues` reads each held value as its
+    knob accepts it: a number held to its range and on its step, a colour
+    lower-cased, a seed whole, an enum by its option's ref; anything else
+    reads as the default. A number knob's range is not data on its field,
+    so a write accepts a number outside it, which reads held to the range
+    (GAP [[01M6RVVZTP0BF2364BF8J1BFQB]]).
+  - **Live.** The frame reads them from the backdrop's node and the drawn
+    variant's (`useBackdropKnobs`, live, one object while nothing it reads
+    changes) and hands them to the component (`BackdropProps.knobs`). The
+    GPU host passes them on through `setLook`, which reaches the running
+    scene, so a value written anywhere (the studio, the CLI, an agent)
+    changes every head and card that shows it with no reload. A scene reads
+    its own by the knob itself (`knobValue`), so a default is stated once.
+    A pinned seed is a new composition: the scene mounts again with it.
+  - **Set them from the CLI or an agent.** A knob is a field like any
+    setting:
+
+    ```bash
+    kb set sys.backdrop.backdrops.black-hole sys.backdrop.backdrops.black-hole.knob.speed 1.5
+    kb set sys.backdrop.backdrops.black-hole sys.backdrop.backdrops.black-hole.knob.seed 42
+    kb unset sys.backdrop.backdrops.black-hole sys.backdrop.backdrops.black-hole.knob.speed
+    ```
+
+    An enum knob takes its option's id
+    (`<field>.<option id>`); a variant's own knob is set on the variant's
+    node. Over MCP it is `node.update` with the same node and field (a
+    `{t:"num"}`, `{t:"bool"}`, `{t:"str"}` or `{t:"ref"}` value by the
+    knob's kind), and `kb unset` is its `unset`. A field holds one value,
+    so a second `set` replaces the first.
+  - **Speed and seed.** Every moving backdrop of the backdrops family
+    lists the family's two knobs first (`MOVING_KNOBS`, `@kb/backdrops`):
+    `speed` scales the picture's time, 0 a held frame (`sceneClock`, the one
+    clock both hosts read; the reactions to the owner keep their own time),
+    and `seed` pins the variation its composition is drawn from
+    (`backdropSeed`: a pin holds moving or still). Each is implemented once,
+    by the family's GPU host and its 2D stage.
+  - **Each its own.** After those two, each moving backdrop declares the
+    knobs of its own picture (`packages/extension/backdrops/src/knobs/`):
+    what its art direction lets vary, a lens's star mass, a sea's wave
+    height, a sky's flock. A backdrop's knobs at their defaults draw it as
+    it was drawn before it had any, and none raises what a frame does
+    beyond that (no more steps, samples or instances than its default
+    draws), so its budget holds across its range. A scene reads its knobs
+    where it reads the rest of its look: a GPU scene in its `setLook` (a
+    uniform or a value its frame reads, never a new shader), a 2D scene's
+    composition in `configure` (`SceneConfig.knobs`, the backdrop's values
+    but speed and seed, which the stage keeps), so a change lays the scene
+    out again as a resize does and a look equal to the one drawn does not.
+- **Its actions.** A double-click on the backdrop's own area shows what
+  it offers, in a small corner of the head (`BackdropCorner`, top right):
+  each action contributed to `BackdropActionPoint` (a label, an icon, and
+  what it does for the backdrop shown), as Backdrop Studio contributes
+  _Open in Studio_. The slot owns the gesture and the corner and names no
+  action; with none contributed a double-click shows nothing.
+  - **Never the page's double-click.** The frame takes no pointer events,
+    so the slot hears the double-click on what covers it, as it hears the
+    pointer (`watchBackdropDoubleClick`), and it is the backdrop's only
+    over the frame and where the page has no use for it: not on anything
+    editable, a control, a link or a label, not one that selected the text
+    under the pointer (a word is selected before the double-click is
+    heard), and not one the page already handled. It never takes the
+    default. A browser double-clicked in empty space may select the
+    nearest word, beside the pointer: that double-click is still the
+    backdrop's, and the word it selected is let go. A selection that stood
+    before the double-click began is the person's, and stays.
+  - **Clear of the title, and of the header.** The corner stands inside
+    the frame's top edge (`cornerTop`), unless that would bring it down on
+    the title, as for a backdrop with little or no breathing room; then it
+    is lifted until it clears the title, above it. It never stands above
+    the breathing room's own top, inset: a frame that starts higher, behind
+    the page's header, would otherwise put it under the header's edge.
+    Where the room is too short for both, the inset wins.
+  - **Asks for nothing.** The corner fades after a few seconds unless the
+    pointer or focus is on it, Escape dismisses it, it takes no focus, and
+    running an action closes it. It is a positioned layer beside the
+    frame's, not in it, so it paints and is clicked above the page.
+- **Its interactions.** A backdrop's contribution says what it answers
+  (`Backdrop.interactions`): each a cue and a line on what it does when
+  the cue moves ("birds scatter from the cursor"). A cue is the pointer
+  over its frame, a move to another page, or one of the things its
+  activity says the owner does (`PageActivity`: typing is `editing`; a
+  write; a change from elsewhere, an error, an agent's turn), so the
+  activity's fields name them (`BackdropCue`), and one table names each
+  for a person (`BACKDROP_CUE_LABELS`). It is stated for every backdrop,
+  empty for one that answers nothing, kb's, a theme's and a plugin's
+  alike; the contract holds each to a known cue, said in one line.
+  Backdrop Studio lists them and lets a person try them (Backdrop Studio
+  → Interact).
+- **Read once, checked.** A repository extension's page half is
+  third-party code built against whichever SDK it was, and will lag the
+  contract. So the page never draws what `BackdropPoint` holds as the
+  kernel holds it: every reader (a head, a card, Settings, the studio)
+  reads it through one check (`useBackdrops`, `decodeBackdrop`). A list
+  the contract has since required and a contribution left out is its
+  empty value (`interactions`, none). Anything else that is not what the
+  contract says (a field missing or of the wrong shape, its key's variants,
+  knobs and credit with them) refuses that one backdrop, with where and
+  why, and leaves every other drawn. The check is a `Schema` of the
+  contract; a component is any React draws, a function or a `memo` or
+  `forwardRef`. Reading a page half's value may run its code (a getter):
+  what that throws refuses it too, and what the page keeps is a copy. A page head whose
+  choice was refused falls through as for one nobody contributes, and the
+  studio shows it as a card that says it can't be shown, and why. kb's
+  own backdrops pass the same check, and the contract holds them to it.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -4422,9 +4630,17 @@ sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
   as it draws every setting it lists, and says so under it when the shown
   backdrop faces no way.
 - **The contract** (`app/ui/src/backdrop-point.contract.test.tsx`) runs over
-  every contributed backdrop: the page's families' backdrops and one from a
-  test plugin.
+  every contributed backdrop: the page's families' backdrops, one from a
+  test plugin, and the example repository extension's, its page half
+  bundled from its files and loaded as the page loads a trusted one.
   - Each backdrop answers to its declared id.
+  - Each declares a well-formed knob schema, its variants' with it, and a
+    budget within the page head's frame budget (6 ms).
+  - The slot hands each its budget and its knobs' values, its drawn
+    variant's with them, as their nodes hold them (held to their range),
+    and a strength its backdrop declares where nothing chooses one.
+  - The seed holds one field per knob of each backdrop and each variant,
+    configuring the node its values sit on.
   - The seed holds each backdrop's option, labelled, under the backdrop
     field.
   - The slot shows each backdrop, framed by its presentation, at every
@@ -4487,7 +4703,7 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
 - **The stage** (`stage.ts`) owns the canvas, a time-based loop (`dt`
   clamped, so any frame rate moves the same and a stall resumes without a
   leap), the pause (`watchPlayback`), the declared pointer and activity, and
-  a frame-cost meter: over its 2 ms budget it lowers detail rather than
+  the frame meter (`meterFrames`): over its budget (`Backdrop.budget`, 2 ms for Sky and Roost) it lowers detail rather than
   costing the page. Under reduced motion it draws one still composition.
 - **Reactions** are eased signals (`reactions.ts`): the pointer scatters
   fliers locally and they regather; typing calms the scene; a write is a
@@ -4659,11 +4875,13 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   in its panel composition. Below a frame about 1000px wide the glass is
   slid in and made smaller to stay whole.
 - **Cost.** It runs only while the tab is shown and the frame is in view
-  (`watchPlayback`). Each frame's GPU time is metered against 6 ms; while it
+  (`watchPlayback`). Each frame's GPU time is metered against its budget
+  (`Backdrop.budget`, 6 ms for every GPU backdrop kb ships); while it
   runs over, the backdrop steps its quality down (the offscreen pass's
   resolution; a ray's steps are never cut, or the photon ring goes first). On WebGPU the meter reads
   the stage's `gpuMs` (queue completion; gap 01M5STYVVX474T8WBT4FY341CM); on
-  WebGL2 it reads the frame interval. The canvas carries `data-quality` and
+  WebGL2 it reads the frame interval. The meter is the kit's frame meter
+  (`meterFrames`, floor 0.4), so the canvas carries `data-quality` and
   `data-gpu-ms`.
 - **Reduced motion** shows one still frame, of the curated seed (**Variation**).
 - **One scene for the life of the head.** The host mounts a scene once for
@@ -4701,11 +4919,23 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   - Crisp first: the hole is drawn at 1.5 texels a CSS pixel at full
     quality and never under 1, however long frames run, and a ray's
     steps are never cut short (the rays that wind round the hole are the
-    photon ring). Each frame's rays leave from a new point in their texel,
+    photon ring). A frame taller than a head (the studio's, full-size)
+    shows the hole larger, never finer: it is drawn with a head's texels
+    and scaled up (`pastHead`), so its cost is a head's, whatever its
+    size on screen. Each frame's rays leave from a new point in their texel,
     so the history antialiases the ring and the filaments' edges; a step
     through the slab near the inner edge takes three samples, so the ring's
     thin crossings are not missed. The upscale is sharpened
     (contrast-adaptive), and the stage adds fine grain.
+  - Cheap where nothing changes. The gas's noise is a fixed field of
+    where it is round the disk and how far out (its stream only moves
+    where it is read), so it is baked once as the look is built, periodic
+    round the disk (`bakedGas`), and a sample reads it rather than
+    computing it. Past the disk (r > 15) space is all but flat and holds
+    no gas, so a ray crosses it in one step, its bend added in closed form
+    (the weak field's first order on the way in and out, and
+    Schwarzschild's second to infinity); a ray that passes wide of it
+    never marches. Within it the march runs as ever.
   - A light page is an eclipse by day: a charcoal shadow, the disk's dust
     lit amber.
 - **Black hole · Warp.** The lens-warp black hole after the demo in Bruno
@@ -5368,6 +5598,100 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   fields row too, or it paints under the scene.
 - **The contract.** `@kb/backdrops-ui` runs the scene contract over every
   GPU scene, each on a dark page and a light one.
+
+#### Backdrop Studio
+
+The backdrops family's one view (`BackdropStudioView`, `backdrops.studio`),
+where each backdrop is a scene of its own, as each of the lab's studies is
+(The lab). It is every backdrop's, not the family's own: it lists what
+`BackdropPoint` holds now, so a backdrop another family contributes is in
+it as kb's own are, and a family switched off takes its backdrops out.
+
+- **Routes.** `/backdrops` is the gallery, `/backdrops/<id>` one backdrop
+  by its declared id (`matchStudio`, `studioPath`); a full-frame page. An
+  id nothing contributes now says so.
+- **The gallery** draws each backdrop with the card Settings draws
+  (`BackdropCard`, Option previews): a still, mounted once it is on
+  screen, under its name, its credit, its count of knobs, and whether it
+  is the one the owner's pages show.
+  - **From plugins.** Backdrops whose family is a repository extension
+    (`extension.list`'s rows with an `origin`: own, linked or installed)
+    are a section of their own below kb's, each card saying
+    _from <extension>_; the scene's header says it too. The report is
+    read again whenever the page reads the server's manifest again
+    (`BrowserHost.subscribeManifest`), so installing, trusting, switching
+    or removing one is drawn, even when no plugin of the page moves.
+  - **Refused.** A backdrop the page's check refused (Page-head
+    backdrops → Read once, checked) is a card with no picture where its
+    own would be: its name, its extension, and why, so one malformed
+    backdrop is a warning on its own card only; its page says the same.
+  - **Needing approval.** Each repository extension that has a page half
+    and is not trusted is listed in that section as a card with no
+    picture: its name, its source, and that kb runs none of its code until
+    a person trusts it, so the backdrops it may bring are unknown, with
+    the way to trust it (`kb ext trust <name>`, or Settings → Extensions).
+    Trusting it loads it with no reload (DESIGN.md → Trust is read on
+    every load), and its card gives way to its backdrops. A card shows its backdrop vivid,
+  whatever the page's strength: the gallery shows what each one is, where
+  Settings' card previews what its setting sets. On a dark page a card is
+  exposed (`GalleryExposure`): what a backdrop lays over the card's ground
+  counts four times over, so a wash or a dusk scene, made to sit quietly
+  behind a page's text, reads as itself; a scene that paints its own
+  ground is opaque and shows as it is. Pages never see it.
+- **One backdrop** is its scene in the frame every head draws
+  (`BackdropFrame`), under a thin header and the framing bar, so what the
+  studio shows is what a head shows, and it is the only scene running: the
+  gallery is not mounted under it.
+  - The header: back to the gallery, its name and credit, a variant
+    switcher (it pins the one shown; the studio opens on the variant a
+    head would draw now), a strength preview (the studio's own, written
+    nowhere), the perf readout, and **Use as my page backdrop**, which
+    writes core's backdrop setting as Settings does.
+  - The **knob panel** draws the backdrop's knobs and the shown variant's
+    with the one knob control (`KnobControl`), each labelled and reached by
+    keyboard, each with a reset to its default, and a reset for all. A
+    value is a setting on its holder's node (Knobs, above), written
+    through the page's writes (`knobPropValue`, the inverse of reading it
+    back): it reaches every head that shows it, and a control that moves
+    continuously settles first, so a drag is one write and one undo.
+    Leaving the studio writes what is still settling.
+  - The **perf readout** is what the scene's own frame meter reported on
+    its canvas (`readFrameMeter`: `data-gpu-ms`, else `data-frame-ms`;
+    `data-quality`; `data-backend`), against the budget its contribution declares; a
+    backdrop no host meters says so (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]).
+    A scene over its budget is warned of in words, not in colour alone:
+    _over budget_, and _over budget at its lowest quality_ once its meter
+    has nothing left to step down.
+  - **Framing.** The scene is laid out at its own size and scaled on
+    screen (`framing.ts`), so at 1:1 a pixel of it is a pixel of a page
+    and its meter measures what a page would pay. Its size is a
+    preview: the **page head**'s strip (the studio's width at its
+    presentation's height), the **full page** (the studio's viewport, as
+    it opens), or an **aspect** of chosen proportions across the width.
+    Its zoom is **Fit** (the whole scene, whatever the viewport's size,
+    below the smallest step if that is what it takes; how it opens),
+    **1:1**, or a step in or out, about the viewport's centre; a scene larger than the viewport is panned by dragging it,
+    held so no edge comes inside, and **Reset** fits and centres it
+    again. Choosing a preview fits it. The panels over the scene are
+    never scaled, and a press on one is the panel's, not a pan.
+  - **Interact.** The backdrop's interactions (Its interactions, above)
+    are a panel over the scene, each its cue in words and its line. The
+    **Interact** switch hands the scene the person's pointer: outside it
+    the scene's pointer answers none, and dragging pans. It is one pointer
+    source for the scene's life (`gatedPointer`), so switching restarts
+    nothing set up around it. A scene whose runtime reads the mouse itself
+    is held to that source too (Unicorn, `followPointer`). In it, each cue that is
+    not the pointer can be tried: the studio stands in for the page's
+    owner (`useStudioActivity`), so **Try** on a write or one of the
+    page's events counts it once more in the activity the scene is
+    handed, on typing plays a burst of keystrokes (editing, a write each,
+    then a pause and no longer editing), and on another page hands it a
+    page of its own, so a scene hears a move. The scene reads them as it
+    reads a page's, so what it does here is what a page would make it do.
+- **Reached** from a page head: a double-click on its backdrop offers
+  _Open in Studio_ (Its actions, above), which opens the backdrop shown.
+- **Lazy.** The page's module and everything under it load only when the
+  studio is opened, and a scene's own code only when it is shown.
 
 ### Type scale
 

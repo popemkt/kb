@@ -17,6 +17,7 @@
  * hero is smaller, higher and further right, and quieter, so it is calm
  * behind the content.
  */
+import { HEAD_HEIGHT } from "./head";
 
 /** One composition of a hero, against the frame's height. */
 export interface Composition {
@@ -45,6 +46,13 @@ export interface Anchor {
   readonly y: number;
   readonly scale: number;
 }
+
+/**
+ * How much larger than in a head a frame `height` tall shows its hero: 1
+ * for a head, more only in a taller frame (the studio's, full-size), which
+ * shows the same composition larger.
+ */
+export const pastHead = (height: number): number => Math.max(1, height / HEAD_HEIGHT);
 
 /** At or below this width the panel composition holds; at or above `WIDE`, the wide one. */
 export const PANEL_WIDTH = 480;

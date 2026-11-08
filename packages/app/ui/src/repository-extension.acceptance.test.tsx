@@ -15,25 +15,23 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { NO_SWITCHES, extensionRow, familyOn, organisationOf } from "@kb/contracts";
 import {
+  BackdropPoint,
   PAGE_FAMILY_KERNEL,
   SidebarSectionPoint,
+  chosenDeclared,
   ViewPoint,
   currentContributions,
   pageFootprint,
   type ViewProps,
 } from "@kb/ui-sdk";
 import { EXAMPLE_PAGE_HALF } from "@/test-support/example-page.text";
+import { EXAMPLE_SERVED_AT, servedAt as served } from "@/test-support/example-page-half";
 
 const { setPostAction } = await import("@/api/action");
 const { loadManifest } = await import("@/lib/manifest");
 const { BROWSER_EXTENSIONS, extensionsSettled, startUiPlugins } = await import("@/ui-plugins");
 
-/** Where the page imports the half from: here, the served bytes themselves. */
-const served = (source: string) =>
-  `data:text/javascript;base64,${btoa(
-    Array.from(new TextEncoder().encode(source), (byte) => String.fromCodePoint(byte)).join(""),
-  )}`;
-const SERVED_AT = served(EXAMPLE_PAGE_HALF);
+const SERVED_AT = EXAMPLE_SERVED_AT;
 
 /** Where the server says the half is: the example's, or bytes that throw as they are imported. */
 let servedAt = SERVED_AT;
@@ -61,6 +59,9 @@ function reported() {
     ),
   ];
 }
+
+/** The backdrop a page that chose the example's glow shows, as the slot reads its choice. */
+const chosen = () => chosenDeclared(currentContributions(BackdropPoint), "example.glow");
 
 /** Ask the server again, and wait until the page holds what it reports. */
 async function follow(): Promise<void> {
@@ -97,7 +98,23 @@ describe("a repository extension's page half (acceptance)", () => {
       ["kb.views", "example.board"],
       ["ui.views", "example.board"],
       ["ui.sidebar", "example.section"],
+      ["ui.backdrops", "example.glow"],
     ]);
+  });
+
+  it("its backdrop is one a page can choose, and a page that chose it falls through once it is off", async () => {
+    loaded = true;
+    await follow();
+    expect(chosen()?.value.key).toMatchObject({
+      id: "example.glow",
+      credit: "The example extension",
+    });
+    loaded = false;
+    await follow();
+    expect(chosen()?.value.key.id).not.toBe("example.glow");
+    expect(chosen()).toEqual(currentContributions(BackdropPoint)[0]);
+    loaded = true;
+    await follow();
   });
 
   it("draws with the page's own React", async () => {
@@ -126,14 +143,14 @@ describe("a repository extension's page half (acceptance)", () => {
     expect(pageFootprint("example")).toEqual([]);
     loaded = true;
     await follow();
-    expect(pageFootprint("example").length).toBe(3);
+    expect(pageFootprint("example").length).toBe(4);
   });
 
   it("is reported failed, as any plugin of its family is, when its page half cannot be imported, and recovers while on", async () => {
     loaded = true;
     servedAt = SERVED_AT;
     await follow();
-    expect(pageFootprint("example").length).toBe(3);
+    expect(pageFootprint("example").length).toBe(4);
 
     // Re-served from bytes that throw, the family still on: the working
     // half gives way, and its failure is the family's.
@@ -152,7 +169,7 @@ describe("a repository extension's page half (acceptance)", () => {
     servedAt = served(`${EXAMPLE_PAGE_HALF}\n// re-served`);
     await follow();
     expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
-    expect(pageFootprint("example").length).toBe(3);
+    expect(pageFootprint("example").length).toBe(4);
   });
 
   it("tries a browser entry that failed again, so one that was passing recovers without a reload", async () => {

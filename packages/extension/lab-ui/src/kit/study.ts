@@ -8,7 +8,8 @@
  * frame always moves (a study is never idle while it may animate), and the
  * theme hand-off.
  */
-import type { LabControlValue, LabScene, LabSceneInit } from "./contract";
+import type { KnobValue } from "@kb/model";
+import type { LabScene, LabSceneInit } from "./contract";
 import type { LabGraph } from "../lab-graph";
 import type { ScenePalette } from "@kb/scene";
 import { mountScene, type SceneStage, type StageOptions } from "@kb/scene-gpu";
@@ -23,7 +24,7 @@ export interface StudyContext {
 export interface StudyParts {
   /** Advance by `dt` seconds (clamped); under reduced motion `dt` is 0. */
   readonly frame: (dt: number, elapsed: number) => void;
-  readonly setControl: (id: string, value: LabControlValue) => void;
+  readonly setControl: (id: string, value: KnobValue) => void;
   /** After the stage has taken the new palette: re-tint what the stage does not own. */
   readonly setPalette?: (palette: ScenePalette, dark: boolean) => void;
   readonly setGraph?: (graph: LabGraph) => void;

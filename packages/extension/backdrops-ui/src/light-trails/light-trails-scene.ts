@@ -29,23 +29,32 @@ import {
   groundsOf,
 } from "../gpu/gpu-scene";
 import { textScrim } from "../gpu/text-scrim";
-import { trailFrame, trailUniforms } from "./light-trails-shader";
-import { layoutTrails } from "./trails";
+import { trailFrame, trailUniforms, type TrailUniforms } from "./light-trails-shader";
+import { layoutTrails, strandsShown, trailsLook, type Strand, type TrailsLook } from "./trails";
 
 /** The knot's spring toward the pointer (ω, rad/s), and how far it leans (frame units). */
 const FOLLOW = 1.4;
 const LEAN = 0.05;
+
+/**
+ * Every strand as the owner's knobs show it (`trailsLook`): fanned at
+ * their fan, and only as many lit as their count shows (`strandsShown`).
+ */
+function shapeStrands(u: TrailUniforms, strands: readonly Strand[], own: TrailsLook) {
+  const shown = strandsShown(own.strands);
+  strands.forEach((s, i) => {
+    u.shape[i]?.set(s.offset, s.fan * own.fan, s.warm, s.depth);
+    u.look[i]?.set(s.width, shown[i] === true ? s.light : 0, s.wave[0], s.wave[1]);
+    u.end[i]?.set(s.low, 0, 0, 0);
+  });
+  u.flare.value = own.knot;
+}
 
 function lightTrails(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
   const vary = variation(init.seed);
   const strands = layoutTrails(vary.stream("strands"));
   const u = trailUniforms();
   u.turn.value.set(...hueTurn(vary.range("hue", -0.08, 0.08)));
-  strands.forEach((s, i) => {
-    u.shape[i]?.set(s.offset, s.fan, s.warm, s.depth);
-    u.look[i]?.set(s.width, s.light, s.wave[0], s.wave[1]);
-    u.end[i]?.set(s.low, 0, 0, 0);
-  });
   const scrim = textScrim();
   stage.scene.backgroundNode = trailFrame(u, scrim, groundsOf(stage));
 
@@ -79,6 +88,7 @@ function lightTrails(stage: SceneStage, init: GpuBackdropInit): BackdropParts {
       return rest;
     },
     setLook: (look: GpuLook) => {
+      shapeStrands(u, strands, trailsLook(look.knobs));
       u.dark.value = look.dark ? 1 : 0;
       stage.setBloom(look.dark ? 0.25 : 0);
     },

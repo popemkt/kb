@@ -1,6 +1,7 @@
 import {
   ExtensionOriginSchema,
   ExtensionReviewSchema,
+  isKbOrigin,
   type ExtensionOrigin,
 } from "./extension-review.ts";
 import type { ExtensionManifest } from "./extension-manifest.ts";
@@ -237,10 +238,9 @@ export function extensionRow(
 ): ExtensionRow {
   const { source, origin } = extensionFrom(from);
   // kb's build is the author of what it ships: said once here, under what each family declares.
-  const manifest =
-    origin.kind === "bundled" || origin.kind === "host"
-      ? { ...KB_BUILD, ...declaration.manifest }
-      : declaration.manifest;
+  const manifest = isKbOrigin(origin)
+    ? { ...KB_BUILD, ...declaration.manifest }
+    : declaration.manifest;
   return {
     name: declaration.name,
     label: declaration.label,

@@ -15,6 +15,7 @@ import {
   backdropVariantOptions,
   declaredOptionId,
   drawVariant,
+  knobsOf,
   shownStrength,
   shownVariants,
   type KbNode,
@@ -205,8 +206,46 @@ describe("shownStrength", () => {
     expect(shownStrength(null, { id: "backdrops.flat", label: "Flat" }, null)).toBe("subtle");
   });
 
+  test("with none chosen and no variant's own: the backdrop's declared default, else the default", () => {
+    const SOFT: SeedBackdrop = { ...HOLE, id: "backdrops.soft", strength: "soft" };
+    expect(shownStrength(null, SOFT, "plain")).toBe("soft");
+    expect(shownStrength(null, SOFT, null)).toBe("soft");
+    // A variant's own default is nearer than its backdrop's.
+    expect(shownStrength(null, SOFT, "loud")).toBe("vivid");
+    expect(shownStrength("subtle", SOFT, "plain")).toBe("subtle");
+  });
+
   test("a strength chosen holds over the variant's", () => {
     expect(shownStrength("soft", HOLE, "loud")).toBe("soft");
     expect(shownStrength("subtle", HOLE, "loud")).toBe("subtle");
+  });
+});
+
+describe("knobsOf", () => {
+  const SPEED = {
+    kind: "number",
+    id: "speed",
+    label: "Speed",
+    min: 0,
+    max: 2,
+    step: 0.1,
+    default: 1,
+  } as const;
+  const SPIN = { kind: "boolean", id: "spin", label: "Spin", default: true } as const;
+  const HOLE: SeedBackdrop = {
+    id: "backdrops.hole",
+    label: "Hole",
+    knobs: [SPEED],
+    variants: [
+      { id: "plain", label: "Plain" },
+      { id: "warp", label: "Warp", knobs: [SPIN] },
+    ],
+  };
+
+  test("the backdrop's knobs, then the drawn variant's own", () => {
+    expect(knobsOf(HOLE, "warp").map(({ id }) => id)).toEqual(["speed", "spin"]);
+    expect(knobsOf(HOLE, "plain").map(({ id }) => id)).toEqual(["speed"]);
+    expect(knobsOf(HOLE, null).map(({ id }) => id)).toEqual(["speed"]);
+    expect(knobsOf({ id: "backdrops.flat", label: "Flat" }, null)).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect";
+import { BACKDROP_OPTIONS, BACKDROP_VARIANT_OPTIONS, backdropVariantOptions } from "@kb/model";
 import { NoParams, viewKey } from "@kb/views";
 import { Point, Service, definePlugin, namespaced, type ContributionEntry } from "@kb/plugin";
 import type { NodeIndex } from "@kb/query";
@@ -139,8 +140,9 @@ export function provideTemplate(template: ExtensionTemplate): ContributionEntry<
 /**
  * What a repository extension imports as `kb-ext-sdk`: the plugin model and
  * the points and keys a bundled family builds with, as the host's own
- * objects, since the kernel compares keys by identity, and the Effect and
- * Schema its plugins and view keys are written in. The host serves it; an
+ * objects, since the kernel compares keys by identity, the Effect and
+ * Schema its plugins and view keys are written in, and the declared-option
+ * kinds a declaration names its backdrops by. The host serves it; an
  * extension never carries a copy. Its types are `@kb/ext-sdk`'s surface.
  */
 export const EXTENSION_SDK = {
@@ -165,4 +167,7 @@ export const EXTENSION_SDK = {
   viewKey,
   viewDef,
   NoParams,
+  BACKDROP_OPTIONS,
+  BACKDROP_VARIANT_OPTIONS,
+  backdropVariantOptions,
 } as const;

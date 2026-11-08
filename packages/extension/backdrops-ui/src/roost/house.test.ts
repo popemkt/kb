@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { houseOf } from "./house";
+import { ROOST_WINDOW_KNOB } from "@kb/backdrops";
+import { houseOf, windowGlow } from "./house";
 
 describe("houseOf", () => {
   const sizes = [
@@ -59,5 +60,33 @@ describe("houseOf", () => {
     }
     expect(house.roof.to.y).toBeLessThan(house.roof.from.y);
     expect(house.post.to.y).toBeGreaterThan(house.post.from.y);
+  });
+});
+
+describe("windowGlow", () => {
+  const times = [0, 1.3, 2.7, 5, 11.1];
+
+  it("at its default breathes as the window did before it had a knob", () => {
+    for (const t of times) {
+      expect(windowGlow(t, {})).toBeCloseTo(
+        0.82 + 0.1 * Math.sin(t * 0.9) + 0.05 * Math.sin(t * 2.3 + 1),
+        12,
+      );
+    }
+  });
+
+  it("glows warmer or dimmer with the window knob, dark at 0", () => {
+    for (const t of times) {
+      const own = windowGlow(t, {});
+      expect(windowGlow(t, { [ROOST_WINDOW_KNOB.id]: ROOST_WINDOW_KNOB.max })).toBeCloseTo(
+        own * ROOST_WINDOW_KNOB.max,
+      );
+      expect(windowGlow(t, { [ROOST_WINDOW_KNOB.id]: 0.5 })).toBeCloseTo(own * 0.5);
+      expect(windowGlow(t, { [ROOST_WINDOW_KNOB.id]: 0 })).toBe(0);
+      // Its pane, the brightest of it, stays a glow and never more than opaque.
+      expect(0.62 * windowGlow(t, { [ROOST_WINDOW_KNOB.id]: ROOST_WINDOW_KNOB.max })).toBeLessThan(
+        1,
+      );
+    }
   });
 });

@@ -2,7 +2,13 @@ import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { band } from "@kb/theme-art";
-import { BackdropPoint, DesignSystemPoint, provideBackdrop, provideDesignSystem } from "@kb/ui-sdk";
+import {
+  BACKDROP_BUDGETS,
+  BackdropPoint,
+  DesignSystemPoint,
+  provideBackdrop,
+  provideDesignSystem,
+} from "@kb/ui-sdk";
 import {
   ARENA_BACKDROP,
   BUNKER_BACKDROP,
@@ -40,8 +46,26 @@ export const yorhaUiPlugin = definePlugin({
           DesignSystemPoint,
           provideDesignSystem(YORHA_DESIGN_SYSTEM, { stylesheet: yorha, Art: YorhaArt }),
         ),
-        ctx.contribute(BackdropPoint, provideBackdrop(BUNKER_BACKDROP, band(BunkerBackdrop))),
-        ctx.contribute(BackdropPoint, provideBackdrop(ARENA_BACKDROP, band(ArenaBackdrop))),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(
+            BUNKER_BACKDROP,
+            band(BunkerBackdrop, BACKDROP_BUDGETS.dom, [
+              { cue: "editing", does: "the reticle tracks faster" },
+              { cue: "writes", does: "the reticle pings" },
+            ]),
+          ),
+        ),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(
+            ARENA_BACKDROP,
+            band(ArenaBackdrop, BACKDROP_BUDGETS.gpu, [
+              { cue: "pointer", does: "an aiming ring follows the cursor across the field" },
+              { cue: "writes", does: "the hacking play takes a nudge" },
+            ]),
+          ),
+        ),
       ],
       { discard: true },
     ),

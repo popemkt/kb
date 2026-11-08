@@ -124,6 +124,7 @@ interface Row {
   shadowed?: string;
   running?: { digest: string };
   origin?: { kind: string };
+  reach?: { page: boolean };
 }
 async function listed(root: string, name: string) {
   const output = (await kb(root, ["ext", "list"])) as { extensions: Row[] };
@@ -270,6 +271,22 @@ const lock = JSON.parse(await readFile(lockA, "utf8")) as {
   marketplaces: { sample: { locked: { rev: string } } };
 };
 assert.equal(lock.extensions.aurora.original, "aurora@sample");
+// A plugin's backdrop: nothing of it runs or seeds until a person trusts it, then its option and knobs are nodes.
+await kb(rootA, ["ext", "install", "tide-backdrop"]);
+const tide = await listed(rootA, "tide-backdrop");
+assert.equal(tide.trusted, false);
+assert.equal(tide.reach?.page, true);
+assert.equal((await receipt(rootA, ["get", "sys.backdrop.tide-backdrop.tide"])).code, "not_found");
+await ttyTrust(rootA, "tide-backdrop");
+for (const id of ["sys.backdrop.tide-backdrop.tide", "sys.backdrop.tide-backdrop.tide.knob.hue"]) {
+  assert.ok(JSON.stringify(await kb(rootA, ["get", id])).includes(id));
+}
+await kb(rootA, ["ext", "remove", "tide-backdrop"]);
+assert.ok(
+  !((await kb(rootA, ["ext", "list"])) as { extensions: Row[] }).extensions.some(
+    (row) => row.name === "tide-backdrop",
+  ),
+);
 assert.equal(lock.marketplaces.sample.locked.rev, firstRev);
 const nextRev = await pushRevision(2);
 const outdated = (await kb(rootA, ["ext", "outdated"])) as {

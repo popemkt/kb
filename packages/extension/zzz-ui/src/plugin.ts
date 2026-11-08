@@ -3,6 +3,7 @@ import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { band } from "@kb/theme-art";
 import {
+  BACKDROP_BUDGETS,
   BackdropPoint,
   DesignSystemPoint,
   provideBackdrop,
@@ -28,6 +29,7 @@ import zzz from "./zzz.css?raw";
 
 /** ZZZ's head: the panel stack and its TV, wholly above the title. */
 const broadcast: Omit<Backdrop, "key"> = {
+  budget: BACKDROP_BUDGETS.dom,
   presentation: {
     space: 160,
     directions: [],
@@ -36,6 +38,10 @@ const broadcast: Omit<Backdrop, "key"> = {
     offset: -6,
     opacity: { subtle: 0.72, soft: 0.86, vivid: 1 },
   },
+  interactions: [
+    { cue: "editing", does: "the REC lamp lights" },
+    { cue: "writes", does: "a burst of static crosses the screen" },
+  ],
   Component: BroadcastBackdrop,
 };
 
@@ -58,7 +64,16 @@ export const zzzUiPlugin = definePlugin({
           provideDesignSystem(ZZZ_DESIGN_SYSTEM, { stylesheet: zzz, Art: ZzzArt }),
         ),
         ctx.contribute(BackdropPoint, provideBackdrop(BROADCAST_BACKDROP, broadcast)),
-        ctx.contribute(BackdropPoint, provideBackdrop(HOLLOW_BACKDROP, band(HollowBackdrop))),
+        ctx.contribute(
+          BackdropPoint,
+          provideBackdrop(
+            HOLLOW_BACKDROP,
+            band(HollowBackdrop, BACKDROP_BUDGETS.dom, [
+              { cue: "editing", does: "sparks wake around the rift's eye" },
+              { cue: "writes", does: "the lit screen steps on and a surge leaves the rift" },
+            ]),
+          ),
+        ),
       ],
       { discard: true },
     ),

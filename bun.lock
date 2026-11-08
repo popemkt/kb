@@ -297,6 +297,7 @@
         "zustand": "catalog:",
       },
       "devDependencies": {
+        "@kb/ext-sdk": "workspace:*",
         "@kb/ui-test-kit": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/react-vite": "catalog:",
@@ -531,6 +532,8 @@
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
+        "effect": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -547,6 +550,7 @@
         "@kb/scene": "workspace:*",
         "@kb/scene-gpu": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
         "effect": "catalog:",
         "react": "catalog:",
         "three": "catalog:",
@@ -555,8 +559,10 @@
         "@kb/ui-test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
         "@types/three": "catalog:",
         "happy-dom": "catalog:",
+        "react-dom": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
       },
@@ -950,6 +956,7 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/lab": "workspace:*",
+        "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/scene": "workspace:*",
         "@kb/scene-gpu": "workspace:*",
@@ -1420,6 +1427,7 @@
         "tailwind-merge": "catalog:",
       },
       "devDependencies": {
+        "@kb/ext-sdk": "workspace:*",
         "@types/bun": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",

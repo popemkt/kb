@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   ExtensionReportSchema,
   FootprintRowSchema,
+  isKbOrigin,
   orderedPoints,
   organisationOf,
   type ExtensionOrigin,
@@ -196,7 +197,7 @@ function joinPage(server: ServerReport, _page: PageKernelAt): PanelReport {
 export type ExtensionShelf = "installed" | "builtin";
 
 export function extensionShelf(origin: ExtensionOrigin): ExtensionShelf {
-  return origin.kind === "bundled" || origin.kind === "host" ? "builtin" : "installed";
+  return isKbOrigin(origin) ? "builtin" : "installed";
 }
 
 /**

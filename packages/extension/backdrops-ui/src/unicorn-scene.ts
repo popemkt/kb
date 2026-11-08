@@ -1,6 +1,10 @@
+import type { PointerSource } from "@kb/ui-sdk";
+
 /** The self-hosted Unicorn Studio runtime, shared by every header scene. */
 export interface UnicornScene {
   paused: boolean;
+  /** The runtime's own cursor following, read each frame: `disabled` holds the cursor still. */
+  readonly interactivity: { readonly mouse: { disabled: boolean } };
   destroy: () => void;
 }
 
@@ -12,6 +16,7 @@ interface UnicornRuntime {
     dpi: number;
     scale: number;
     lazyLoad: boolean;
+    interactivity: { mouse: { disabled: boolean } };
   }) => Promise<UnicornScene>;
 }
 
@@ -67,5 +72,18 @@ export async function createUnicornScene(
     dpi: 1.5,
     scale: 1,
     lazyLoad: false,
+    // Still until the pointer source says the pointer is over its frame (`followPointer`).
+    interactivity: { mouse: { disabled: true } },
   });
+}
+
+/**
+ * Hold the scene's cursor following to `pointer`, the one the page hands
+ * the backdrop: it follows only while the pointer source says the pointer
+ * is over its frame, so a source with no pointer (Backdrop Studio outside
+ * Interact) keeps it still. Where the cursor lands is still the runtime's
+ * own reading of the window, in screen pixels: GAP [[01M6XGS4KEXS9321E2JXHRYRK5]].
+ */
+export function followPointer(scene: Pick<UnicornScene, "interactivity">, pointer: PointerSource) {
+  scene.interactivity.mouse.disabled = pointer.now() === null;
 }

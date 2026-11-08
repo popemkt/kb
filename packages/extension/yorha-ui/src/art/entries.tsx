@@ -1,5 +1,5 @@
-import { QUIET_ACTIVITY, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
-import { NOWHERE, deferred } from "@kb/theme-art";
+import { QUIET_ACTIVITY, deferred, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
+import { ART_FRAME, NOWHERE } from "@kb/theme-art";
 
 /*
  * What the YoRHa family contributes for its theme's art, each piece loaded
@@ -8,15 +8,17 @@ import { NOWHERE, deferred } from "@kb/theme-art";
  * GAP [[01M5SNSQ4Y11AHAHDA43PCV5D6]] the art's words and gestures are code
  */
 
-const YorhaGround = deferred(() => import("./yorha-art").then((m) => m.YorhaGround), true);
+const YorhaGround = deferred(() => import("./yorha-art").then((m) => m.YorhaGround), {
+  frame: ART_FRAME,
+});
 const YorhaVeil = deferred(() => import("./yorha-art").then((m) => m.YorhaVeil));
 const BunkerHead = deferred<BackdropProps>(
   () => import("./bunker-backdrop").then((m) => m.BunkerBackdrop),
-  true,
+  { frame: ART_FRAME },
 );
 const ArenaHead = deferred<BackdropProps>(
   () => import("./arena-backdrop").then((m) => m.ArenaBackdrop),
-  true,
+  { frame: ART_FRAME },
 );
 
 /** YoRHa's art (DESIGN-UI.md → Themes): the Bunker's grid under the page, its HUD over it. */

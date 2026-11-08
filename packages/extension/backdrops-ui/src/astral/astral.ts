@@ -23,7 +23,11 @@
  * - **The sky's rare events** (`ambient`): a shooting star, a constellation
  *   drawing itself and fading, a far train engaging, a glint sweeping the
  *   metal, each on a clock of its own, a few a minute between them.
+ * - **The owner's tuning** (`astralTuning`): every composition's own size
+ *   in the frame, its ink's weight and its sky's stars, by the knobs.
  */
+import { ASTRAL_LINE_KNOB, ASTRAL_SIZE_KNOB, ASTRAL_STARS_KNOB } from "@kb/backdrops";
+import { knobValue, type KnobValues } from "@kb/model";
 import { TAU } from "../scene/math";
 import type { Rng } from "../scene/rng";
 
@@ -186,6 +190,34 @@ export interface Mechanism {
     readonly radius: number;
   };
 }
+
+/** A hairline, in CSS pixels, at the line knob's default: every inked line is this wide at any pixel ratio. */
+const HAIR = 0.3;
+
+/** What the owner tuned, as the scene draws it. */
+export interface AstralTuning {
+  /** The instrument's size against its composition's, panel and wide (`sized`). */
+  readonly size: number;
+  /** A hairline, CSS pixels: the width every inked line is drawn at. */
+  readonly hair: number;
+  /** How brightly the sky's tiny stars and glints show, 0 none. */
+  readonly stars: number;
+}
+
+/** The tuning `values` hold, each knob read by itself. */
+export function astralTuning(values: KnobValues): AstralTuning {
+  return {
+    size: knobValue(values, ASTRAL_SIZE_KNOB),
+    hair: HAIR * knobValue(values, ASTRAL_LINE_KNOB),
+    stars: knobValue(values, ASTRAL_STARS_KNOB),
+  };
+}
+
+/** Where a composition stands, its hero drawn `size` times as large where it stood. */
+export const sized = <T extends { readonly scale: number }>(at: T, size: number): T => ({
+  ...at,
+  scale: at.scale * size,
+});
 
 /** How many stars and links a constellation has at most: the sky's slots for it. */
 export const CONSTELLATION_POINTS = 7;

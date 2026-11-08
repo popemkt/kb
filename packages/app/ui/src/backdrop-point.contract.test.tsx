@@ -1,7 +1,7 @@
 /**
  * The page-head backdrop contract (DESIGN-UI.md → Page-head backdrops):
- * every backdrop contributed to `BackdropPoint`, the page's families' and a
- * plugin's own, is declared, so the seed holds its option under
+ * every backdrop contributed to `BackdropPoint`, the page's families', a
+ * plugin's own and a repository extension's, is declared, so the seed holds its option under
  * `sys.f.backdrop`, the one list Settings picks from; it is shown by the
  * one slot (`PageBackdrop`) for every strength and direction core's
  * settings choose, framed by its own presentation; Settings draws it as a
@@ -17,7 +17,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { prerender } from "react-dom/static";
 import { Effect } from "effect";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import {
   NO_SWITCHES,
@@ -39,6 +39,11 @@ import {
   declaredOptionId,
   extensionNodeId,
   foldSeed,
+  backdropVariantOptionId,
+  knobFieldId,
+  knobSchemaError,
+  knobsOf,
+  type Knob,
   type BackdropDirection,
   type BackdropStrength,
   type KbNode,
@@ -47,6 +52,8 @@ import {
 } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
+  BACKDROP_CUE_LABELS,
+  decodeBackdrop,
   BREAKOUT_CLASS,
   BackdropPoint,
   EMPTY_EDITOR,
@@ -69,6 +76,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { providePageEditor } from "@/stores/page-editor";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";
+import { loadExamplePageHalf } from "@/test-support/example-page-half";
 
 const AT = "2026-01-01T00:00:00.000Z";
 const CORE = extensionNodeId("core");
@@ -82,6 +90,8 @@ function PlainBackdrop({
   activity,
   pointer,
   variant,
+  knobs,
+  budget,
 }: BackdropProps) {
   const place = pointer.now();
   const still = useReducedMotion();
@@ -89,6 +99,8 @@ function PlainBackdrop({
     <i
       data-plain={`${color} ${strength} ${direction} ${opacity}`}
       data-variant={variant ?? "none"}
+      data-knobs={JSON.stringify(knobs)}
+      data-budget={budget.frameMs}
       data-still={String(still)}
       data-editing={String(activity.editing)}
       data-writes={activity.writes}
@@ -101,15 +113,29 @@ function PlainBackdrop({
 }
 /** The last pointer source the plain backdrop was handed: polled by the test, as a backdrop polls it. */
 let pointerNow: () => { x: number; y: number } | null = () => null;
-/** Two variants: one at the default strength, one that declares its own. */
+/**
+ * Two variants: one at the backdrop's own default strength, one that
+ * declares its own; a knob of the backdrop's, and one only the loud variant
+ * has.
+ */
 const PLAIN_KEY: SeedBackdrop = {
   id: "plain.plain",
   label: "Plain",
+  credit: "The test's own",
+  strength: "soft",
+  knobs: [{ kind: "number", id: "size", label: "Size", min: 0, max: 4, step: 0.5, default: 2 }],
   variants: [
     { id: "calm", label: "Calm" },
-    { id: "loud", label: "Loud", strength: "vivid" },
+    {
+      id: "loud",
+      label: "Loud",
+      strength: "vivid",
+      knobs: [{ kind: "boolean", id: "shout", label: "Shout", default: true }],
+    },
   ],
 };
+/** The page-head frame budget no backdrop may exceed (DESIGN-UI.md → GPU scenes → Cost). */
+const PAGE_HEAD_FRAME_MS = 6;
 const PLAIN_OPACITY = { subtle: 0.1, soft: 0.2, vivid: 0.3 };
 /** A family of the test's own: it declares its backdrop, and its page plugin contributes it. */
 const plainExtension = defineExtension({
@@ -137,6 +163,8 @@ const plainPlugin = definePlugin({
               offset: 0,
               opacity: PLAIN_OPACITY,
             },
+            budget: { frameMs: 1 },
+            interactions: [{ cue: "pointer", does: "a glow follows the cursor" }],
             Component: PlainBackdrop,
           }),
         ),
@@ -152,8 +180,15 @@ const PAGE_FAMILIES = await Promise.all(
   ),
 );
 
-/** The seed of the bundled families and the test's own. */
-const SEED = foldSeed([...BUNDLED_DECLARATIONS, plainExtension], AT).nodes;
+/**
+ * The example repository extension's page half, bundled from its files and
+ * loaded as the page loads a trusted one, and the declaration its server
+ * half seeds: a plugin's backdrop, held to the contract as kb's own are.
+ */
+const EXAMPLE = await loadExamplePageHalf();
+
+/** The seed of the bundled families, the test's own and the example's. */
+const SEED = foldSeed([...BUNDLED_DECLARATIONS, plainExtension, EXAMPLE.declaration], AT).nodes;
 
 /** That seed, with core's node holding `settings`. */
 function graphWith(settings: KbNode["props"]): WireNode[] {
@@ -200,6 +235,13 @@ function slot(node?: OutlineNode): HTMLElement | null {
   return host.querySelector<HTMLElement>(".kb-header-backdrop");
 }
 
+/** Escape, as a person presses it anywhere on the page. */
+function escape() {
+  act(() => {
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+  });
+}
+
 describe("every contributed page-head backdrop", () => {
   let installed: InstalledDom;
 
@@ -207,7 +249,7 @@ describe("every contributed page-head backdrop", () => {
     installed = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
     // Core's previews come with the page: the backdrop field's card is one.
-    syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES, plainPlugin]);
+    syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES, plainPlugin, EXAMPLE.plugin]);
   });
   afterAll(() => {
     syncUiPlugins([]);
@@ -215,9 +257,10 @@ describe("every contributed page-head backdrop", () => {
     installed.restore();
   });
 
-  it("counts the page's families' backdrops and a plugin's own", () => {
+  it("counts the page's families' backdrops, a plugin's own and a repository extension's", () => {
     const ids = backdrops().map(({ value }) => value.key.id);
     expect(ids).toContain(PLAIN_KEY.id);
+    expect(ids).toContain("example.glow");
     expect(ids.length).toBeGreaterThan(1);
   });
 
@@ -303,7 +346,8 @@ describe("every contributed page-head backdrop", () => {
     useGraphStore.getState().hydrateFromWire(graphWith(pinning("loud")), 1, "fixtures");
     expect(shown()).toBe(`loud: red vivid down ${PLAIN_OPACITY.vivid}`);
     useGraphStore.getState().hydrateFromWire(graphWith(pinning("calm")), 1, "fixtures");
-    expect(shown()).toBe(`calm: red subtle down ${PLAIN_OPACITY.subtle}`);
+    // Calm declares no strength of its own, so it shows at its backdrop's.
+    expect(shown()).toBe(`calm: red soft down ${PLAIN_OPACITY.soft}`);
     useGraphStore.getState().hydrateFromWire(
       graphWith({
         ...pinning("loud"),
@@ -313,6 +357,107 @@ describe("every contributed page-head backdrop", () => {
       "fixtures",
     );
     expect(shown()).toBe(`loud: red soft down ${PLAIN_OPACITY.soft}`);
+  });
+
+  it("declares a well-formed knob schema, its variants' too, and a budget within the page head's", () => {
+    for (const { value } of backdrops()) {
+      const { key, budget } = value;
+      for (const variant of [null, ...(key.variants ?? []).map(({ id }) => id)]) {
+        expect(knobSchemaError(knobsOf(key, variant)), `${key.id} ${variant}`).toBeNull();
+      }
+      expect(budget.frameMs, key.id).toBeGreaterThan(0);
+      expect(budget.frameMs, key.id).toBeLessThanOrEqual(PAGE_HEAD_FRAME_MS);
+    }
+  });
+
+  it("passes the page's check, as every reader of the point reads it", () => {
+    for (const { value } of backdrops()) {
+      const read = decodeBackdrop(value);
+      expect(read.ok ? null : read.why, value.key.id).toBeNull();
+    }
+  });
+
+  it("declares what it answers: each a cue the page moves, said in one line, none said twice", () => {
+    for (const { value } of backdrops()) {
+      const said = value.interactions.map(({ cue, does }) => `${cue}: ${does}`);
+      expect(new Set(said).size, value.key.id).toBe(said.length);
+      for (const { cue, does } of value.interactions) {
+        expect(Object.keys(BACKDROP_CUE_LABELS), value.key.id).toContain(cue);
+        expect(does.trim().length, `${value.key.id} ${cue}`).toBeGreaterThan(0);
+        expect(does.length, `${value.key.id} ${cue}`).toBeLessThanOrEqual(80);
+        expect(does, `${value.key.id} ${cue}`).not.toContain("\n");
+      }
+    }
+  });
+
+  it("hands its component its budget and its knobs' defaults, the drawn variant's with them", () => {
+    const pinning = (variant: string): KbNode["props"] => ({
+      [SYSTEM_IDS.backdropField]: [choosing(PLAIN_KEY.id)],
+      [SYSTEM_IDS.backdropVariantField]: [
+        { t: "ref", v: declaredOptionId(BACKDROP_VARIANT_OPTIONS, `${PLAIN_KEY.id}.${variant}`) },
+      ],
+    });
+    const plain = () => slot()?.querySelector("[data-plain]");
+    useGraphStore.getState().hydrateFromWire(graphWith(pinning("loud")), 1, "fixtures");
+    expect(JSON.parse(plain()?.getAttribute("data-knobs") ?? "null")).toEqual({
+      size: 2,
+      shout: true,
+    });
+    expect(plain()?.getAttribute("data-budget")).toBe("1");
+    useGraphStore.getState().hydrateFromWire(graphWith(pinning("calm")), 1, "fixtures");
+    expect(JSON.parse(plain()?.getAttribute("data-knobs") ?? "null")).toEqual({ size: 2 });
+  });
+
+  it("hands its component the knob values its node holds, held to their range, the variant's from the variant's node", () => {
+    const backdropNode = backdropOptionId(PLAIN_KEY.id);
+    const variantNode = backdropVariantOptionId(PLAIN_KEY.id, "loud");
+    const holding = (values: Record<string, KbNode["props"]>): WireNode[] =>
+      graphWith({
+        [SYSTEM_IDS.backdropField]: [choosing(PLAIN_KEY.id)],
+        [SYSTEM_IDS.backdropVariantField]: [{ t: "ref", v: variantNode }],
+      }).map((node) => {
+        const props = values[node.id];
+        return props === undefined ? node : { ...node, props: { ...node.props, ...props } };
+      });
+    const knobs = () =>
+      JSON.parse(slot()?.querySelector("[data-plain]")?.getAttribute("data-knobs") ?? "null");
+    useGraphStore.getState().hydrateFromWire(
+      holding({
+        [backdropNode]: { [knobFieldId(backdropNode, "size")]: [{ t: "num", v: 3.5 }] },
+        [variantNode]: { [knobFieldId(variantNode, "shout")]: [{ t: "bool", v: false }] },
+      }),
+      1,
+      "fixtures",
+    );
+    expect(knobs()).toEqual({ size: 3.5, shout: false });
+    useGraphStore
+      .getState()
+      .hydrateFromWire(
+        holding({ [backdropNode]: { [knobFieldId(backdropNode, "size")]: [{ t: "num", v: 40 }] } }),
+        1,
+        "fixtures",
+      );
+    expect(knobs()).toEqual({ size: 4, shout: true });
+  });
+
+  it("has one field per knob in the seed, configuring the node its values sit on", () => {
+    for (const { value } of backdrops()) {
+      const { key } = value;
+      const holders: [string, readonly Knob[]][] = [
+        [backdropOptionId(key.id), key.knobs ?? []],
+        ...(key.variants ?? []).map((variant): [string, readonly Knob[]] => [
+          backdropVariantOptionId(key.id, variant.id),
+          variant.knobs ?? [],
+        ]),
+      ];
+      for (const [holder, knobs] of holders) {
+        for (const knob of knobs) {
+          const field = SEED.find((node) => node.id === knobFieldId(holder, knob.id));
+          expect(field, `${key.id} ${knob.id}`).toBeDefined();
+          expect(field?.props[SYSTEM_IDS.configuresField]).toEqual([{ t: "ref", v: holder }]);
+        }
+      }
+    }
   });
 
   it("hands its component what the owner is doing: no editing, and the writes the graph has taken", () => {
@@ -446,6 +591,101 @@ describe("every contributed page-head backdrop", () => {
       );
       expect(writes()).toBeGreaterThan(before);
     });
+
+    describe("double-clicked", () => {
+      const corner = () => container.querySelector("[data-backdrop-corner]");
+      /** A double-click at `x, y`, landing where the slot listens: on what covers its frame. */
+      const doubleClick = (x: number, y: number) => {
+        const frame = container.querySelector<HTMLElement>(".kb-header-backdrop");
+        const cover = frame?.parentElement ?? null;
+        if (frame === null || cover === null) throw new Error("the slot drew no frame");
+        frame.getBoundingClientRect = () =>
+          ({ left: 100, top: 40, width: 300, height: 120, right: 400, bottom: 160 }) as DOMRect;
+        const event = new window.MouseEvent("dblclick", {
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+        });
+        act(() => {
+          cover.dispatchEvent(event);
+        });
+        return event;
+      };
+      const action = (label: string) => {
+        const found = [...(corner()?.querySelectorAll("button") ?? [])].find(
+          (button) => button.textContent === label,
+        );
+        if (found === undefined) throw new Error(`the corner offers no ${label}`);
+        return found;
+      };
+
+      it("on its own area, shows its actions in the corner, taking no default; Escape dismisses them", () => {
+        expect(corner()).toBeNull();
+        expect(doubleClick(200, 80).defaultPrevented).toBe(false);
+        expect(corner()?.getAttribute("data-backdrop-corner")).toBe(PLAIN_KEY.id);
+        escape();
+        expect(corner()).toBeNull();
+      });
+
+      it("outside its frame, shows nothing", () => {
+        doubleClick(600, 80);
+        expect(corner()).toBeNull();
+      });
+
+      it("offers Backdrop Studio, which opens the backdrop shown", () => {
+        doubleClick(200, 80);
+        act(() => action("Open in Studio").click());
+        expect(window.location.pathname).toBe(`/backdrops/${PLAIN_KEY.id}`);
+        expect(corner()).toBeNull();
+        act(() => window.history.pushState(null, "", "/"));
+      });
+
+      it("fades on its own after a few seconds", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+          doubleClick(200, 80);
+          act(() => {
+            vi.advanceTimersByTime(3000);
+          });
+          expect(corner()).not.toBeNull();
+          act(() => {
+            vi.advanceTimersByTime(2000);
+          });
+          expect(corner()).toBeNull();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("stays while focus is on it, though the pointer passed over and left", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+          doubleClick(200, 80);
+          const studio = action("Open in Studio");
+          act(() => studio.focus());
+          const pointer = (type: string, related: EventTarget | null) =>
+            act(() => {
+              studio.dispatchEvent(
+                new window.PointerEvent(type, { bubbles: true, relatedTarget: related }),
+              );
+            });
+          pointer("pointerover", container);
+          pointer("pointerout", container);
+          act(() => {
+            vi.advanceTimersByTime(10_000);
+          });
+          expect(corner()).not.toBeNull();
+          act(() => studio.blur());
+          act(() => {
+            vi.advanceTimersByTime(5000);
+          });
+          expect(corner()).toBeNull();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+    });
   });
 
   describe("in Settings", () => {
@@ -519,8 +759,9 @@ describe("every contributed page-head backdrop", () => {
         const drawn = host.querySelector<HTMLElement>("[data-plain]");
         expect(drawn?.closest('[data-motion="reduced"]')).not.toBeNull();
         expect(drawn?.dataset.still).toBe("true");
-        // Core chooses no strength here: the card shows the variant it drew at that variant's own.
-        const strength = drawn?.dataset.variant === "loud" ? "vivid" : "subtle";
+        // Core chooses no strength here: the card shows the variant it drew at that variant's
+        // own, and Calm, which declares none, at its backdrop's.
+        const strength = drawn?.dataset.variant === "loud" ? "vivid" : "soft";
         expect(drawn?.dataset.plain).toBe(
           `var(--primary) ${strength} down ${PLAIN_OPACITY[strength]}`,
         );

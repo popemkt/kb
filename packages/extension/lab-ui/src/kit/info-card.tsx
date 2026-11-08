@@ -3,79 +3,11 @@
  * what it teaches, the principles it applies (by id; their text lives once,
  * in DESIGN-UI.md → Lab principles), and its live parameters.
  */
-import { useId, useState } from "react";
+import { useState } from "react";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
-import { EnumSelect } from "@kb/ui-sdk";
-import type { LabControl, LabControlValue, LabControlValues, LabStudy } from "./contract";
-
-function Control({
-  control,
-  value,
-  onChange,
-}: {
-  control: LabControl;
-  value: LabControlValue | undefined;
-  onChange: (value: LabControlValue) => void;
-}) {
-  const id = useId();
-  const label = (
-    <label htmlFor={id} className="min-w-0 flex-1 truncate text-foreground/55">
-      {control.label}
-    </label>
-  );
-  switch (control.kind) {
-    case "range": {
-      const current = typeof value === "number" ? value : control.value;
-      return (
-        <div className="flex items-center gap-2">
-          {label}
-          <input
-            id={id}
-            type="range"
-            className="w-28 accent-primary"
-            min={control.min}
-            max={control.max}
-            step={control.step}
-            value={current}
-            onChange={(e) => onChange(Number(e.target.value))}
-          />
-          <span className="w-12 text-right tabular-nums text-foreground/45">
-            {current}
-            {control.unit ?? ""}
-          </span>
-        </div>
-      );
-    }
-    case "toggle":
-      return (
-        <div className="flex items-center gap-2">
-          {label}
-          <input
-            id={id}
-            type="checkbox"
-            className="accent-primary"
-            checked={typeof value === "boolean" ? value : control.value}
-            onChange={(e) => onChange(e.target.checked)}
-          />
-        </div>
-      );
-    case "choice":
-      return (
-        <div className="flex items-center gap-2">
-          {label}
-          <EnumSelect
-            className="rounded-sm bg-transparent text-foreground/70 outline-none"
-            value={typeof value === "string" ? value : control.value}
-            options={control.options}
-            onChange={onChange}
-            testId={id}
-          />
-        </div>
-      );
-    default:
-      return null;
-  }
-}
+import type { KnobValue, KnobValues } from "@kb/model";
+import { KnobControl } from "@kb/ui-sdk";
+import type { LabStudy } from "./contract";
 
 export function InfoCard({
   study,
@@ -83,8 +15,8 @@ export function InfoCard({
   onChange,
 }: {
   study: LabStudy;
-  values: LabControlValues;
-  onChange: (id: string, value: LabControlValue) => void;
+  values: KnobValues;
+  onChange: (id: string, value: KnobValue) => void;
 }) {
   const [open, setOpen] = useState(true);
   return (
@@ -117,9 +49,9 @@ export function InfoCard({
           {study.controls.length > 0 ? (
             <div className="flex flex-col gap-1.5 border-t border-foreground/[0.06] pt-2.5">
               {study.controls.map((control) => (
-                <Control
+                <KnobControl
                   key={control.id}
-                  control={control}
+                  knob={control}
                   value={values[control.id]}
                   onChange={(value) => onChange(control.id, value)}
                 />

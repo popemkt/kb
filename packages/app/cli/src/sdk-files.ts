@@ -1,8 +1,13 @@
+/**
+ * The SDK's type files as `kb ext sdk` writes them into a root: the CLI's
+ * filesystem work over the strings `@kb/ext-sdk` embeds, so the SDK itself
+ * stays isomorphic (DESIGN.md → Extension SDK).
+ */
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { join } from "node:path";
-import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION } from "./sdk-dts.text.ts";
+import { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION } from "@kb/ext-sdk";
 
 /** Each file `writeSdkDts` writes under `.kb/`: the module, and a page half's beside it. */
 const SDK_FILES = [

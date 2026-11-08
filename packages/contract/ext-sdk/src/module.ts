@@ -16,7 +16,7 @@ import {
   type ExtensionDeclaration,
   type ExtensionEntry,
 } from "@kb/contracts";
-import { KbNodeSchema } from "@kb/model";
+import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
 import { isPlugin } from "@kb/plugin";
 
 /** A family's name: its `ext.<name>` namespace and its node's. */
@@ -40,6 +40,20 @@ const DeclarationData = Schema.Struct({
   ),
   label: Schema.String,
   optional: Schema.optional(Schema.Struct({ byDefault: Schema.Literals(["on", "off"]) })),
+  declaredOptions: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        kind: Schema.Struct({ field: Schema.String, prefix: Schema.String }),
+        options: Schema.Array(
+          Schema.Struct({
+            id: Schema.String,
+            label: Schema.String,
+            knobs: Schema.optional(Schema.Array(KnobSchema)),
+          }),
+        ),
+      }),
+    ),
+  ),
 });
 
 const decodeDeclarationData = Schema.decodeUnknownResult(DeclarationData);
@@ -55,6 +69,25 @@ function declarationIssue(value: unknown): string | null {
 
 function isDeclaration(value: unknown): value is ExtensionDeclaration {
   return declarationIssue(value) === null;
+}
+
+/**
+ * Why a repository extension may not declare its options, or null: each is
+ * named in its own namespace (`<name>.<local id>`), so it can answer to no
+ * other family's option, and each knob schema is one the panel can draw and
+ * the fold derive fields for (`knobSchemaError`).
+ */
+function declaredOptionsIssue(declaration: ExtensionDeclaration): string | null {
+  for (const { options } of declaration.declaredOptions ?? []) {
+    for (const option of options) {
+      if (!option.id.startsWith(`${declaration.name}.`)) {
+        return `declaration: its option ${option.id} must be named ${declaration.name}.<id>, in its own namespace`;
+      }
+      const knobs = knobSchemaError(option.knobs ?? []);
+      if (knobs !== null) return `declaration: its option ${option.id}: ${knobs}`;
+    }
+  }
+  return null;
 }
 
 /**
@@ -90,6 +123,8 @@ export function decodeExtensionModule(
       `declaration: what an extension says about itself belongs in ${name}${MANIFEST_SUFFIX}, beside it, which kb reads before anyone trusts the code`,
     );
   }
+  const options = declaredOptionsIssue(declared);
+  if (options !== null) return Result.fail(options);
   const { seed } = declared;
   const declaration: ExtensionDeclaration =
     seed === undefined ? declared : { ...declared, seed: (at) => decodeSeedNodes(seed(at)) };

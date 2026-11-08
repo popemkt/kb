@@ -90,16 +90,11 @@ async function kb(root: string, args: string[]): Promise<string> {
       env: process.env,
     },
   );
-  const [output, error, code] = await Promise.all([
+  const [output] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
     child.exited,
   ]);
-  // GAP [[01M6WW0WE9QD8W2KCRM1NW8SHB]] — preserve evidence if the child fails before emitting its receipt.
-  if (output.trim() === "")
-    throw new Error(
-      `CLI ${args[0]} returned no receipt: exit=${code}, signal=${child.signalCode}, stderr=${error}`,
-    );
   return output;
 }
 

@@ -811,7 +811,9 @@ Backdrop Studio phase 1).
 - **Acceptance:**
   - a test extension's backdrop passes the shared backdrop contract suite;
   - `gen:ext-sdk` is fresh;
-  - the sample's `aurora` loads, and is listed in the Studio gallery.
+  - the sample's backdrop loads, and is listed in the Studio gallery.
+    (Built: the backdrop is `tide-backdrop`, not `aurora`, which stayed a
+    palette action; E2E 2 installs and trusts it.)
 
 **Step 12. A running `kb ui` reloads on a lock change** (`01M6RTRHC3PXK31QCQ0M81CDGB`; child of
 G1; Q6).
@@ -829,11 +831,10 @@ G1; Q6).
 only (MIT):
 
 ```
-kb-marketplace.json                   name "sample"; entries aurora, hello (path sources)
+kb-marketplace.json                   name "sample"; entries hello, aurora, tide-backdrop (path sources)
 extensions/hello/hello.ts             declaration "hello"; one read action ext.hello.greet {name} → "hello, <name>"
-extensions/aurora/aurora.ts           declaration "aurora"; one backdrop option with knobs speed, hue
-extensions/aurora/aurora.page.tsx     provideBackdrop: a canvas-2D drifting gradient
-extensions/aurora/aurora/draw.ts      helper
+extensions/aurora/aurora.ts           declaration "aurora"; one palette action
+extensions/tide-backdrop/…            declaration "tide-backdrop"; backdrop tide-backdrop.tide (knobs speed, hue); its page half's canvas-2D scene
 README.md                             what this repo is for
 ```
 
@@ -852,7 +853,9 @@ B, with a scratch `KB_DATA` and `KB_HOME`, and stops at the first failure:
    - the lock holds the `sample` pin and `aurora` with
      `original: "aurora@sample"`.
 
-   (Once step 11 lands, `aurora` loads as a backdrop after trust.)
+   Then `kb ext install tide-backdrop`: untrusted, it seeds nothing; once
+   a person trusts it, its backdrop option and knob fields are nodes; and
+   `remove` drops it from the list.
 3. **Bump, update, untrusted.** Push a commit to the sample that changes
    `hello.ts`, then in A run `kb ext outdated` and `kb ext update hello`:
    - `outdated` lists `hello`;

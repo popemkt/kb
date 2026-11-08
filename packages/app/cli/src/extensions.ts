@@ -20,6 +20,7 @@ import {
   ExtensionReportSchema,
   ExtensionSettingsSchema,
   FootprintRowSchema,
+  isKbOrigin,
   onWire,
   type ExtensionReport,
   type ExtensionReportRow,
@@ -41,7 +42,8 @@ import {
   marketplaceListDef,
   type RegisteredAction,
 } from "@kb/operations";
-import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
+import { KB_SDK_VERSION } from "@kb/ext-sdk";
+import { readEmbeddedSdkDts, writeSdkDts } from "./sdk-files.ts";
 import { canonicalRoot } from "@kb/workspace-fs";
 import {
   admitExtensions,
@@ -165,8 +167,7 @@ function listLines(
   for (const e of listed) {
     lines.push(`${e.name} (${e.source}${e.enabled ? "" : ", off"}) — contributes ${e.contributes}`);
     // The line names where a repository extension came from; kb's build and the host are its source already.
-    if (e.origin.kind !== "bundled" && e.origin.kind !== "host")
-      lines.push(`  source: ${JSON.stringify(e.origin)}`);
+    if (!isKbOrigin(e.origin)) lines.push(`  source: ${JSON.stringify(e.origin)}`);
     if (e.required !== undefined) lines.push(`  required: ${e.required}`);
     if (e.shadowed !== undefined) lines.push(`  hidden: shadowed by ${e.shadowed}`);
     if (e.digest !== undefined)

@@ -1,12 +1,19 @@
-import type { Backdrop } from "@kb/ui-sdk";
+import type { Backdrop, BackdropBudget, BackdropInteraction } from "@kb/ui-sdk";
 
 /**
  * A theme's head drawn as a band across the top, as tall as Broadcast's:
  * the presentation a theme's second heads share, so each family states
- * only what it draws.
+ * only what it draws, what drawing it may cost a frame, and what it
+ * answers.
  */
-export function band(Component: Backdrop["Component"]): Omit<Backdrop, "key"> {
+export function band(
+  Component: Backdrop["Component"],
+  budget: BackdropBudget,
+  interactions: readonly BackdropInteraction[],
+): Omit<Backdrop, "key"> {
   return {
+    budget,
+    interactions,
     presentation: {
       space: 160,
       directions: [],

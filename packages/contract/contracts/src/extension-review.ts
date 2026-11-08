@@ -22,6 +22,15 @@ export const ExtensionOriginSchema = z.discriminatedUnion("kind", [
 export type ExtensionOrigin = z.infer<typeof ExtensionOriginSchema>;
 
 /**
+ * Whether an origin is kb's own: its build (`bundled`) or the `kb ui` host
+ * (`host`), as against one a repository added (its own folder, a link, an
+ * install). Every reader that tells the two apart asks this.
+ */
+export function isKbOrigin(origin: ExtensionOrigin): boolean {
+  return origin.kind === "bundled" || origin.kind === "host";
+}
+
+/**
  * The marketplace an install was resolved through, or undefined for a
  * GitHub source: read from the selection's recorded request
  * (`name@marketplace`), the one place install writes it.

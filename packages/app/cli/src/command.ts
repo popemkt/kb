@@ -171,7 +171,7 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
   const { approved: _approved, ...call } = invocation;
   const receipt = yield* invokeReceiptEffect(ctx, call);
   if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;
-  return yield* Effect.acquireUseRelease(
+  const approved = yield* Effect.acquireUseRelease(
     Effect.sync(() => {
       let input: ReadStream | undefined;
       let output: WriteStream | undefined;
@@ -188,7 +188,7 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
     }),
     (tty) =>
       Effect.gen(function* () {
-        if (tty === null) return receipt;
+        if (tty === null) return false;
         const title =
           (yield* manifest(ctx.root)).find((entry) => entry.id === call.id)?.title ?? call.id;
         tty.output.write(
@@ -197,9 +197,7 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
         const answer = yield* Effect.promise(() =>
           tty.terminal.question("Approve this call? [y/N] "),
         ).pipe(Effect.timeoutOption(120_000));
-        return Option.isSome(answer) && /^(y|yes)$/i.test(answer.value.trim())
-          ? yield* invokeReceiptEffect(ctx, { ...call, approved: true })
-          : receipt;
+        return Option.isSome(answer) && /^(y|yes)$/i.test(answer.value.trim());
       }),
     (tty) =>
       Effect.sync(() => {
@@ -208,4 +206,5 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
         tty?.output.destroy();
       }),
   );
+  return approved ? yield* invokeReceiptEffect(ctx, { ...call, approved: true }) : receipt;
 });

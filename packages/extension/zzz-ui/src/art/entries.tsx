@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
-import { QUIET_ACTIVITY, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
-import { NOWHERE, deferred } from "@kb/theme-art";
+import { QUIET_ACTIVITY, deferred, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
+import { ART_FRAME, NOWHERE } from "@kb/theme-art";
 
 /*
  * What the ZZZ family contributes for its theme's art, each piece loaded
@@ -9,15 +9,17 @@ import { NOWHERE, deferred } from "@kb/theme-art";
  * GAP [[01M5SNSQ4Y11AHAHDA43PCV5D6]] the art's words and gestures are code
  */
 
-const StreetGround = deferred(() => import("./zzz-art").then((m) => m.StreetGround), true);
+const StreetGround = deferred(() => import("./zzz-art").then((m) => m.StreetGround), {
+  frame: ART_FRAME,
+});
 const StreetVeil = deferred(() => import("./zzz-art").then((m) => m.StreetVeil));
 const BroadcastHead = deferred<BackdropProps>(
   () => import("./broadcast-backdrop").then((m) => m.BroadcastBackdrop),
-  true,
+  { frame: ART_FRAME },
 );
 const HollowHead = deferred<BackdropProps>(
   () => import("./hollow-backdrop").then((m) => m.HollowBackdrop),
-  true,
+  { frame: ART_FRAME },
 );
 
 /** ZZZ's art (DESIGN-UI.md → Themes): the street under the page, its gestures over it. */

@@ -18,7 +18,9 @@
  * - **Cheap.** It is drawn offscreen (`offscreenPass`) at a resolution the
  *   scene lowers when frames run long; each frame jitters where along its
  *   steps it samples and blends into the frames before it (`history`), so
- *   one sample a step converges to a smooth disk.
+ *   one sample a step converges to a smooth disk. The gas's noise is read
+ *   from a bake, and a ray crosses the flat space past the disk in one
+ *   closed-form step (`FAR`).
  * - **Dark** pages see it as light on black; **light** pages as an eclipse
  *   by day: a high-key sky, a charcoal shadow, the disk as amber dust lit
  *   from the front, only its hot inner edge burning gold.
@@ -56,9 +58,10 @@ import {
   vec4,
 } from "three/tsl";
 import { Vector2 } from "three/webgpu";
-import type { OffscreenInputs, TslNode } from "@kb/scene-gpu";
+import type { OffscreenInputs, PictureSampler, TslNode } from "@kb/scene-gpu";
 import type { Grounds } from "../gpu/gpu-scene";
 import { blackbody, fbm4, pnoise } from "../gpu/noise";
+import { gargantuaTuning } from "./hole-tuning";
 import { starsOf } from "./stars";
 
 type F = TslNode<"float">;
@@ -75,6 +78,7 @@ const DISTANCE = 40;
 const ROLL = -0.06;
 
 export function blackHoleUniforms() {
+  const tuned = gargantuaTuning({});
   return {
     time: uniform(0),
     dark: uniform(1),
@@ -95,6 +99,11 @@ export function blackHoleUniforms() {
     pulse: uniform(0),
     flarePhase: uniform(0),
     calm: uniform(0),
+    // The look's knobs (`gargantuaTuning`).
+    /** How much of the Doppler factor's cube the gas's light takes. */
+    beaming: uniform(tuned.beaming),
+    /** The gas's temperature, scaled. */
+    heat: uniform(tuned.heat),
   };
 }
 export type BlackHoleUniforms = ReturnType<typeof blackHoleUniforms>;
@@ -110,40 +119,105 @@ const FLOW = 14;
 /** The slab's scale height, growing outward. */
 const heightAt = (r: F): F => r.mul(0.022).add(0.05);
 
+/** The radius a baked field covers, from `from` to `to`. */
+interface BakedRadii {
+  readonly from: number;
+  readonly to: number;
+}
+
+/**
+ * The gas's noise, baked once (`bakedGas` in `gargantua.ts`): each field is a fixed function of
+ * where it is round the disk (in turns) and its radius, so the march reads
+ * it rather than computing it at every sample. Time only moves where a field
+ * is read (the stream carries it round), never the field itself.
+ *
+ * - **Streams** (r, g): the filaments of the two crossfading copies (the
+ *   copies differ by their seed), long and fine: a coarse octave of 14 cells
+ *   round and a fine one of 40.
+ * - **Billows** (r, g, b): the copies' wisps, which rise into the slab's
+ *   thickness (read where a point's height shifts them), and the slab's
+ *   billowing top and bottom; all coarse.
+ *
+ * Each is periodic round the disk, so it is baked periodic across (one
+ * turn), and fine enough that a read between its texels is the noise there
+ * to a few thousandths.
+ */
+export const GAS_STREAMS = { width: 640, height: 1280 } as const;
+export const GAS_BILLOWS = { width: 256, height: 384 } as const;
+/** The streams' radii: the gas's whole extent, outside which it is nothing (`densityFn`'s `radial`). */
+const STREAM_RADII: BakedRadii = { from: INNER * 0.9, to: OUTER };
+/** The billows' radii: the gas's extent and as far as a wisp's height shifts its read. */
+const BILLOW_RADII: BakedRadii = { from: 0, to: 16 };
+/** Where the two copies' seeds put them in the noise. */
+const COPY_SEEDS = [0, 53] as const;
+/** How far a point's height (in scale heights) shifts its wisp's read: round, in turns, and out. */
+const WISP_ROUND = 0.35 / 9;
+const WISP_OUT = 0.9 / 1.4;
+
+const radiusAt = (at: F, { from, to }: BakedRadii): F => at.mul(to - from).add(from);
+const readAt = (turns: F, r: F, { from, to }: BakedRadii): TslNode<"vec2"> =>
+  vec2(turns, r.sub(from).div(to - from));
+
+/** One copy's filaments at `turns` round and radius `r`. */
+const filaments = (turns: F, r: F, seed: number): F =>
+  pnoise(vec2(turns.mul(14), r.mul(5).add(seed)), 14)
+    .mul(0.55)
+    .add(pnoise(vec2(turns.mul(40), r.mul(15).add(7 + seed)), 40).mul(0.45));
+
+/** The streams' bake: a texel's turns across, its radius up. */
+export function gasStreamsFragment(): TslNode<"vec4"> {
+  return Fn(() => {
+    const at = uv();
+    const r = radiusAt(at.y, STREAM_RADII);
+    const [a, b] = COPY_SEEDS;
+    return vec4(filaments(at.x, r, a), filaments(at.x, r, b), 0, 1);
+  })();
+}
+
+/** The billows' bake: a texel's turns across, its radius up. */
+export function gasBillowsFragment(): TslNode<"vec4"> {
+  return Fn(() => {
+    const at = uv();
+    const r = radiusAt(at.y, BILLOW_RADII);
+    const wisps = (seed: number) => pnoise(vec2(at.x.mul(9), r.mul(1.4).add(20 + seed)), 9);
+    const [a, b] = COPY_SEEDS;
+    const billow = pnoise(vec2(at.x.mul(7), r.mul(1.1).add(40)), 7);
+    return vec4(wisps(a), wisps(b), billow, 1);
+  })();
+}
+
+/** The gas's baked fields, as the march reads them (`gasStreamsFragment`, `gasBillowsFragment`). */
+export interface BakedGas {
+  readonly streams: PictureSampler;
+  readonly billows: PictureSampler;
+}
+
 /** The gas at `c` (radius `r`): its density, and how near the midplane it is (1 at it). */
-function densityFn(u: BlackHoleUniforms) {
+function densityFn(u: BlackHoleUniforms, { streams, billows }: BakedGas) {
   const fn = Fn(([c, r]: readonly [V3, F]) => {
     const angle = atan(c.z, c.x);
     const y = c.y.div(heightAt(r));
-    const copy = (carried: F, seed: number) => {
+    // A copy is its channel of each field: the first copy's the first, the second's the second.
+    const copy = (carried: F, channel: "x" | "y") => {
       const turns = angle.sub(omega(r).mul(carried)).div(6.2832);
-      const filaments = pnoise(vec2(turns.mul(14), r.mul(5).add(seed)), 14)
-        .mul(0.55)
-        .add(pnoise(vec2(turns.mul(40), r.mul(15).add(7 + seed)), 40).mul(0.45));
-      const wisps = pnoise(
-        vec2(
-          turns.mul(9).add(y.mul(0.35)),
-          r
-            .mul(1.4)
-            .add(y.mul(0.9))
-            .add(20 + seed),
-        ),
-        9,
-      );
-      return filaments.mul(1.35).sub(0.32).add(wisps.sub(0.5).mul(0.6));
+      const filament = streams(readAt(turns, r, STREAM_RADII))[channel];
+      const wisps = billows(
+        readAt(turns.add(y.mul(WISP_ROUND)), r.add(y.mul(WISP_OUT)), BILLOW_RADII),
+      )[channel];
+      return filament.mul(1.35).sub(0.32).add(wisps.sub(0.5).mul(0.6));
     };
     const a = fract(u.time.div(FLOW));
     const b = fract(u.time.div(FLOW).add(0.5));
     const weight = float(1).sub(a.mul(2).sub(1).abs());
-    const gas = copy(a.mul(FLOW), 0)
+    const gas = copy(a.mul(FLOW), "x")
       .mul(weight)
-      .add(copy(b.mul(FLOW), 53).mul(float(1).sub(weight)))
+      .add(copy(b.mul(FLOW), "y").mul(float(1).sub(weight)))
       .clamp(0, 1.5);
     // The slab's top and bottom billow on a slow, rigid turn: no shear to wind them.
     const turns = angle.sub(u.time.mul(0.25)).div(6.2832);
     const billow = float(1).add(
-      pnoise(vec2(turns.mul(7), r.mul(1.1).add(40)), 7)
-        .sub(0.5)
+      billows(readAt(turns, r, BILLOW_RADII))
+        .z.sub(0.5)
         .mul(1.1),
     );
     const vertical = exp(y.mul(y).div(billow.mul(billow).mul(0.9)).negate());
@@ -233,14 +307,14 @@ function throughSlab({
       const g = sqrt(float(1).sub(dot(velocity, velocity)))
         .div(float(1).sub(dot(velocity, toward)))
         .mul(sqrt(float(1).sub(float(1).div(cr))));
-      const beam = mix(1, g.mul(g).mul(g), 0.75);
+      const beam = mix(1, g.mul(g).mul(g), u.beaming);
       const angle = u.flarePhase.add(omega(float(5)).mul(u.time));
       const toFlare = vec2(c.x, c.z).sub(vec2(cos(angle), sin(angle)).mul(5));
       const flare = vec3(1, 0.85, 0.65)
         .mul(exp(dot(toFlare, toFlare).mul(-1.4)))
         .mul(u.flare)
         .mul(7);
-      const emitted = blackbody(heat.mul(g).mul(2.7).add(1.5))
+      const emitted = blackbody(heat.mul(g).mul(2.7).add(1.5).mul(u.heat))
         .mul(pow(heat, 3.5).mul(2.1).add(0.05))
         .add(flare)
         .mul(beam)
@@ -255,6 +329,75 @@ function throughSlab({
       through.mulAssign(float(1).sub(absorbed));
     });
   });
+}
+
+/**
+ * Beyond this radius space is all but flat and holds no gas (the slab ends
+ * at `OUTER`): a ray crosses it in one step, its bend added in closed form,
+ * rather than marching. Within it the march runs as ever, so all the disk,
+ * its arch, the ring and the shadow are traced in full; marched, half a
+ * ray's steps would fall out here.
+ */
+const FAR = OUTER + 2;
+/** A march step where a ray enters `FAR`: the span its entry is jittered over, as the march's start was. */
+const FAR_STEP = FAR * 0.04 - 0.02;
+
+/** s − s³/3: how much a straight ray has bent by where it stands, s = sin θ = l / r along it. */
+const bent = (s: F): F => s.sub(s.mul(s).mul(s).div(3));
+
+/**
+ * The straight line through `p` along the unit `d`: how far along it `p`
+ * stands from where it passes nearest the hole (`l`), how near that is
+ * (`b`), and the way out from the hole to there (`out`).
+ */
+function lineOf(p: V3, d: V3) {
+  const l = dot(p, d);
+  const nearest = p.sub(d.mul(l));
+  const b = max(length(nearest), 1e-4);
+  return { l, b, nearest, out: nearest.div(b) };
+}
+
+/**
+ * A ray from `p` along the unit `d`, carried in to radius `to`: where it
+ * stands there and its velocity. The bend over the way, to first order
+ * (the weak field's), in closed form: the force `−3/2·h²·r̂/r⁴` integrated
+ * along the straight line, for both the velocity and the way it drifts.
+ */
+function flightIn(p: V3, d: V3, to: F) {
+  const { l, b, nearest, out } = lineOf(p, d);
+  const r1 = length(p);
+  const s1 = l.div(r1);
+  const l2 = sqrt(max(to.mul(to).sub(b.mul(b)), 0)).negate();
+  const s2 = l2.div(to);
+  const along = l2.sub(l);
+  const b2 = b.mul(b);
+  const r1Cubed = r1.mul(r1).mul(r1);
+  const kick = out
+    .mul(bent(s2).sub(bent(s1)).mul(-1.5).div(b))
+    .add(d.mul(b2.mul(0.5).mul(float(1).div(to.mul(to).mul(to)).sub(float(1).div(r1Cubed)))));
+  const swept = (r: F): F => r.mul(r).mul(2).sub(b2).div(r.mul(3));
+  const drift = out
+    .mul(swept(to).sub(swept(r1)).sub(bent(s1).mul(along)).mul(-1.5).div(b))
+    .add(d.mul(s2.sub(s1).mul(0.5).sub(b2.mul(0.5).div(r1Cubed).mul(along))));
+  return { at: nearest.add(d.mul(l2)).add(drift), velocity: d.add(kick) };
+}
+
+/**
+ * Where a ray from `p` along the unit `d` is headed once it has left for
+ * good: its bend from there to infinity, the weak field's first order and
+ * Schwarzschild's second (`15π/16b²` over a whole pass), the share of a
+ * whole pass that is still ahead of it.
+ */
+function flightOut(p: V3, d: V3): V3 {
+  const { l, b, out } = lineOf(p, d);
+  const r = length(p);
+  const ahead = float(2 / 3).sub(bent(l.div(r)));
+  const bend = ahead.mul(
+    float(1.5)
+      .div(b)
+      .add(float(((15 * Math.PI) / 16) * 0.75).div(b.mul(b))),
+  );
+  return d.sub(out.mul(bend)).sub(d.mul(b.mul(b).mul(0.5).div(r.mul(r).mul(r))));
 }
 
 /** The camera, on a sphere round the hole, and its ray through this frame's point in the texel at `at`. */
@@ -292,10 +435,11 @@ function cameraRay(u: BlackHoleUniforms, at: TslNode<"vec2">, size: TslNode<"vec
  */
 export function blackHoleFragment(
   u: BlackHoleUniforms,
+  gas: BakedGas,
   { history, size }: OffscreenInputs,
   { ground, page, paint }: Grounds,
 ): TslNode<"vec4"> {
-  const density = densityFn(u);
+  const density = densityFn(u, gas);
   return Fn(() => {
     const at = uv();
     const { eye, v } = cameraRay(u, at, size);
@@ -306,24 +450,29 @@ export function blackHoleFragment(
         .mul(52.9829189)
         .add(u.frame.mul(0.618034)),
     );
-    // The march starts a jittered part of a step along: the steps of a ray that winds
-    // round the hole land somewhere new each frame, and the history draws the photon
-    // ring whole instead of in dashes. Space is flat out here, so the ray is unbent.
-    const p = vec3(eye)
-      .add(v.mul(jitter.mul(1.2)))
-      .toVar();
+    // The ray flies in to `FAR` and the march starts a jittered part of a step inside
+    // it: the steps of a ray that winds round the hole land somewhere new each frame,
+    // and the history draws the photon ring whole instead of in dashes. A ray that
+    // passes wide of `FAR` never marches: it flies by.
+    const enter = jitter.mul(FAR_STEP).add(FAR);
+    const passing = lineOf(eye, v);
+    const marches = passing.b.lessThan(enter);
+    const flown = flightIn(eye, v, enter);
+    const p = vec3(flown.at).toVar();
+    v.assign(select(marches, flown.velocity, flightOut(eye, v)));
     const angular = cross(p, v);
     const h2 = dot(angular, angular);
     const light = vec3(0, 0, 0).toVar();
     const dust = vec3(0, 0, 0).toVar();
     const through = float(1).toVar();
     const swallowed = float(0).toVar();
-    const nearest = float(99).toVar();
+    const nearest = select(marches, float(99), passing.b).toVar();
     const sigmaScale = mix(8, 3.2, u.dark);
     // Typing dims the disk a little and each keystroke breathes into it; a write flares.
     const fade = float(1).sub(u.calm.mul(0.35)).add(u.pulse.mul(0.4));
 
-    Loop({ start: 0, end: u.steps, type: "int", condition: "<" }, () => {
+    const steps = select(marches, u.steps, int(0));
+    Loop({ start: 0, end: steps, type: "int", condition: "<" }, () => {
       const r2 = dot(p, p);
       const r = sqrt(r2);
       nearest.assign(min(nearest, r));
@@ -331,7 +480,9 @@ export function blackHoleFragment(
         swallowed.assign(1);
         Break();
       });
-      If(r.greaterThan(55).and(dot(p, v).greaterThan(0)), () => {
+      // Out past `FAR` and leaving: the rest of its way is a flight.
+      If(r.greaterThan(FAR).and(dot(p, v).greaterThan(0)), () => {
+        v.assign(flightOut(p, normalize(v)));
         Break();
       });
       const dt = clamp(r.mul(0.04).sub(0.02), 0.02, 1.2).toVar();
