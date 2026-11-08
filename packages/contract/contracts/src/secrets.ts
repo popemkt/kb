@@ -31,4 +31,21 @@ export const NO_SECRETS: SecretSource = {
  */
 export interface SecretSink {
   readonly write: (value: string) => Effect.Effect<void, SecretError>;
+  /** Forget the value, leaving the reference unset; erasing an unset one succeeds. */
+  readonly erase: Effect.Effect<void, SecretError>;
+}
+
+/**
+ * A source that also keeps: the store a host binds where kb writes a key a
+ * person handed it (a pasted client secret, an OAuth refresh token). `place`
+ * is where this host keeps a new secret named `name` (the macOS keychain,
+ * else the sealed store under the data directory); `sink` writes the one
+ * reference it is given, and a kind this host cannot write refuses. Only
+ * hosts call `sink`, and only for a reference they chose or have trusted.
+ */
+export interface SecretStore extends SecretSource {
+  readonly place: (name: string) => SecretRef;
+  readonly sink: (ref: SecretRef) => SecretSink;
+  /** How `place` keeps a secret here, for a person to read (no value). */
+  readonly describe: Effect.Effect<string>;
 }

@@ -10,13 +10,14 @@
  * `kb.manifest` beside the registry's, and the page offers the agent only
  * while it is reported on. They load on demand, so no other command pays
  * for the agent packages. A key a provider refers to is read from this
- * process's environment or the platform keychain (`systemSecrets`).
+ * process's environment, the platform keychain or the sealed store
+ * (`systemSecrets`).
  */
 import { Effect } from "effect";
 import type { CalendarBinding, SyncError as RoutineSyncError } from "@kb/routines";
 import type { AgentAdapter } from "@kb/agent";
 import type { ExtensionEntry } from "@kb/contracts";
-import { childProcessEnv, systemSecrets, systemSecretSink } from "@kb/runtime";
+import { childProcessEnv, systemSecrets } from "@kb/runtime";
 
 /** The adapter for each of `AGENT_ADAPTERS`, running in `root`; the test holds it to every one. */
 export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function* (
@@ -54,7 +55,7 @@ export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
   const sink = (reference: string) => {
     const parsed = parseSecretRef(reference);
     if (parsed === null) throw new SyncError({ status: 401, code: "auth_needed" });
-    return systemSecretSink(parsed);
+    return secrets.sink(parsed);
   };
   const oauth = (binding: CalendarBinding, trusted: Effect.Effect<boolean, RoutineSyncError>) => {
     if (binding.account === null) throw new SyncError({ status: 401, code: "auth_needed" });
@@ -63,7 +64,7 @@ export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
   return [
     {
       declaration: agentExtension,
-      entry: agentPlugin({ adapters, secrets: systemSecrets() }),
+      entry: agentPlugin({ adapters, secrets }),
     },
     {
       declaration: routinesExtension,

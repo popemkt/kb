@@ -12,6 +12,7 @@ import {
   fieldTypeValue,
   migrateDateValues,
   normalizeUrl,
+  formatSecretRef,
   parseSecretRef,
   parseTypedValue,
   txIntegrityError,
@@ -112,7 +113,13 @@ describe("a secret is where a key lives, never the key", () => {
     txIntegrityError(base, { upserts: [node("n.a", { f: [{ t: "str", v }] })], deletes: [] });
 
   test("a reference is accepted by the parser and the write check, unset included", () => {
-    for (const ref of ["env:OPENAI_API_KEY", "keychain:kb-openai", "keychain:kb/me", ""]) {
+    for (const ref of [
+      "env:OPENAI_API_KEY",
+      "keychain:kb-openai",
+      "keychain:kb/me",
+      "sealed:routines.01ABC.client-secret",
+      "",
+    ]) {
       expect(parseTypedValue(ref, "secret")).toEqual({ ok: true, value: { t: "str", v: ref } });
       expect(write(ref)).toBeNull();
     }
@@ -121,10 +128,33 @@ describe("a secret is where a key lives, never the key", () => {
       service: "kb",
       account: "me",
     });
+    expect(parseSecretRef("sealed:routines.a")).toEqual({ kind: "sealed", name: "routines.a" });
+  });
+
+  test("a reference reads back to the text that wrote it", () => {
+    for (const text of [
+      "env:KEY",
+      "keychain:kb",
+      "keychain:kb/me",
+      "dotenv:/tmp/k.env#KEY",
+      "sealed:routines.a",
+    ]) {
+      const ref = parseSecretRef(text);
+      expect(ref === null ? null : formatSecretRef(ref)).toBe(text);
+    }
   });
 
   test("a pasted key is refused at write, by every surface, before it reaches a store", () => {
-    for (const key of ["sk-proj-abc123", "env:", "env:1BAD", "keychain:", "keychain:a b"]) {
+    for (const key of [
+      "sk-proj-abc123",
+      "env:",
+      "env:1BAD",
+      "keychain:",
+      "keychain:a b",
+      "sealed:",
+      "sealed:../escape",
+      "sealed:a/b",
+    ]) {
       expect(parseTypedValue(key, "secret").ok).toBe(false);
       expect(write(key)).toContain("is not a secret reference");
     }

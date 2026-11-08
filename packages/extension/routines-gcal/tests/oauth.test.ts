@@ -41,6 +41,7 @@ function fixture() {
           expect(reference).toBe(options.account.refreshToken);
           writes.push(value);
         }),
+      erase: Effect.void,
     }),
     fetch: Object.assign(
       (input: string | URL | Request, init?: RequestInit) => {

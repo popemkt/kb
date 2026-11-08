@@ -67,3 +67,64 @@ describe("systemSecrets", () => {
     });
   });
 });
+
+const answersNothing = () => Promise.resolve({ code: 0, stdout: "" });
+
+describe("systemSecrets writes", () => {
+  test("a new secret is placed in the macOS keychain on a Mac, the sealed store elsewhere", () => {
+    expect(systemSecrets({ platform: "darwin" }).place("routines.a")).toEqual({
+      kind: "keychain",
+      service: "kb",
+      account: "routines.a",
+    });
+    expect(systemSecrets({ platform: "linux" }).place("routines.a")).toEqual({
+      kind: "sealed",
+      name: "routines.a",
+    });
+  });
+
+  test("a keychain write hands the value on stdin, never on the command line", async () => {
+    const asked: { argv: readonly string[]; stdin: string | undefined }[] = [];
+    const run = (argv: readonly string[], _signal: AbortSignal, stdin?: string) => {
+      asked.push({ argv, stdin });
+      return Promise.resolve({ code: 0, stdout: "" });
+    };
+    const ref: SecretRef = { kind: "keychain", service: "kb", account: "routines.a" };
+    for (const platform of ["darwin", "linux"])
+      await Effect.runPromise(systemSecrets({ platform, run }).sink(ref).write("GOCSPX-value"));
+    expect(asked).toEqual([
+      {
+        argv: ["security", "-i"],
+        stdin: 'add-generic-password -U -s "kb" -a "routines.a" -w "GOCSPX-value"\n',
+      },
+      {
+        argv: ["secret-tool", "store", "--label=kb kb", "service", "kb", "account", "routines.a"],
+        stdin: "GOCSPX-value",
+      },
+    ]);
+    expect(asked.flatMap((each) => each.argv).join(" ")).not.toContain("GOCSPX-value");
+  });
+
+  test("a value macOS cannot quote is refused, not mangled, and the message holds no value", async () => {
+    const ref: SecretRef = { kind: "keychain", service: "kb", account: "a" };
+    const result = await Effect.runPromise(
+      Effect.result(
+        systemSecrets({ platform: "darwin", run: answersNothing }).sink(ref).write('has"quote'),
+      ),
+    );
+    expect(result).toMatchObject({
+      failure: {
+        message: "the keychain item kb (account a): kb cannot write this to the keychain on darwin",
+      },
+    });
+  });
+
+  test("env: is read-only", async () => {
+    const result = await Effect.runPromise(
+      Effect.result(systemSecrets().sink({ kind: "env", name: "K" }).write("v")),
+    );
+    expect(result).toMatchObject({
+      failure: { message: "the environment variable K: this source is read-only" },
+    });
+  });
+});
