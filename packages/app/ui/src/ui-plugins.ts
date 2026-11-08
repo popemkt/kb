@@ -71,8 +71,7 @@ import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
-import * as uiSdk from "@kb/ui-sdk";
-import { latestRead, logWarn, syncUiPlugins } from "@kb/ui-sdk";
+import { PAGE_EXTENSION_SDK, latestRead, logWarn, syncUiPlugins } from "@kb/ui-sdk";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
 import { invokeSettled } from "@/session/runtime";
@@ -234,7 +233,7 @@ function browserEntry(row: ExtensionRow): BrowserExtension | null {
 function installPageModules(): void {
   installHostModules("page", {
     "kb-ext-sdk": EXTENSION_SDK,
-    "kb-ext-sdk/page": uiSdk,
+    "kb-ext-sdk/page": PAGE_EXTENSION_SDK,
     zod,
     "zod/v4": zod,
     react: React,

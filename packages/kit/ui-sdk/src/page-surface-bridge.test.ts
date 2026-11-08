@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Bridge, PageSurface, Surface } from "@kb/ext-sdk";
 import type * as UiSdk from "./index";
+import type { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
 
 /**
- * `kb-ext-sdk/page` is this module as the page serves it to a repository
+ * `kb-ext-sdk/page` is PAGE_EXTENSION_SDK, served to a repository
  * extension's page half (`installHostModules`), and `page-surface.ts` is
  * its types restated for an author, self-contained so they can be emitted
  * as a standalone ambient module. This is the bridge that keeps the
@@ -12,8 +13,7 @@ import type * as UiSdk from "./index";
  * on one side fails `tsc` until the other follows (`@kb/ext-sdk`'s
  * `bridge.ts` says how the two are compared).
  *
- * The surface declares a part of what the page serves, never a value it
- * does not. A value it declares is the page's own, exactly: the page can
+ * The surface declares exactly the values the page serves. A value it declares is the page's own, exactly: the page can
  * neither drop nor change what the surface advertises. A contribution's
  * data may be declared in part, but never with a member the page does not
  * read (`Declares`). Code is held one way, since its arguments may be a
@@ -22,7 +22,7 @@ import type * as UiSdk from "./index";
  * what the page reads.
  */
 type Declared = typeof PageSurface;
-type Page = typeof UiSdk;
+type Page = typeof PAGE_EXTENSION_SDK;
 type PointNames = {
   [K in keyof Declared]: Declared[K] extends Surface.PointKey<unknown> ? K : never;
 }[keyof Declared];
@@ -36,7 +36,7 @@ type Contributed<P> = Bridge.Contributed<P>;
 /** What the page serves under `K`; `served` below holds that it serves every name declared. */
 type Served<K> = K extends keyof Page ? Page[K] : never;
 
-const served: [keyof Declared] extends [keyof Page] ? true : false = true;
+const served: Same<keyof Declared, keyof Page> = true;
 const points: AllTrue<{
   [K in PointNames]: [Contributed<Declared[K]>] extends [Contributed<Served<K>>] ? true : false;
 }> = true;

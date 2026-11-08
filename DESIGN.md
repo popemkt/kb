@@ -2990,8 +2990,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   root, a link to a helper, or the extension itself a link. What it imports
   from kb is not inlined but read from the host at run time (`HOST_MODULES`,
   `@kb/contracts`: `kb-ext-sdk`, `zod`, and in the page `kb-ext-sdk/page`,
-  which is the page's `@kb/ui-sdk`, and React), so it holds the host's one
-  copy, through the one global each host installs its modules under
+  which is `PAGE_EXTENSION_SDK` from `@kb/ui-sdk`, and React), so it holds
+  the host's one copy, through the one global each host installs its modules under
   (`installHostModules`). The bundle carries no comment and no whitespace,
   so the closure is its files and nothing of where the process runs. Its
   digest is `extensionDigest` (`@kb/sandbox`, both halves in a format of
@@ -3161,11 +3161,11 @@ from "kb-ext-sdk"`. Types are generated from
   (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
   `backdropVariantOptions`) and the knob schema (DESIGN-UI.md → Page-head
   backdrops → A plugin's backdrop is a backdrop). Its values are the
-  page's `@kb/ui-sdk`, so `@kb/ui-sdk`'s `page-surface-bridge.test.ts`
-  holds the restatement to them as `surface-bridge.test.ts` holds
+  page's `PAGE_EXTENSION_SDK` object (`@kb/ui-sdk`), so
+  `page-surface-bridge.test.ts` holds the restatement to them as `surface-bridge.test.ts` holds
   `kb-ext-sdk`'s, by the one set of comparisons (`bridge.ts`): the
-  surface declares only what the page serves; a value it declares is the
-  page's own exactly, member for member in every variant and through
+  surface and served object have exactly the same value names; a value is
+  the page's own exactly, member for member in every variant and through
   optional members, so the
   host can neither drop nor change what the surface advertises, and a
   projection stated on purpose is named as one; a contribution's data
