@@ -46,6 +46,7 @@ import {
 export const TEMPLATE_TAGS: readonly string[] = [
   SYSTEM_IDS.field,
   SYSTEM_IDS.ontologyTag,
+  SYSTEM_IDS.roleTag,
   SYSTEM_IDS.tag,
 ];
 
@@ -465,6 +466,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     childrenTargetQuery(SYSTEM_IDS.extensionsRoot),
     { one: true },
   );
+  const roleTag = seededTag(SYSTEM_IDS.roleTag, "role", [SYSTEM_IDS.providerField], at);
+  const providerField = refQueryField(
+    SYSTEM_IDS.providerField,
+    "provider",
+    childrenTargetQuery(SYSTEM_IDS.extensionsRoot),
+    { one: true, props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.roleTag }] } },
+  );
   // The switch: a setting of every extension's node.
   const enabled = singleField(SYSTEM_IDS.extensionEnabledField, "enabled", "checkbox");
   const extensionEnabledField: KbNode = {
@@ -604,6 +612,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     pinnedRoot,
     viewsList,
     extensionsRoot,
+    roleTag,
+    providerField,
     extensionEnabledField,
     configuresField,
     backdropField,

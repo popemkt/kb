@@ -23,7 +23,6 @@ import {
 import type { Icon } from "@phosphor-icons/react";
 import { Cause, Effect } from "effect";
 import { runtimeFootprint, type FamilyKernel, type FootprintRow } from "@kb/contracts";
-import { present } from "@kb/model";
 import {
   Point,
   makeKernel,
@@ -34,6 +33,7 @@ import {
   type Plugin,
   type PointReference,
   type ServiceKey,
+  type RoleKey,
 } from "@kb/plugin";
 import { usePath } from "./router";
 import type { PointerSource } from "./pointer-over";
@@ -45,13 +45,17 @@ import {
   type PlainViewKey,
   type ViewKey,
 } from "@kb/views";
+import { roleComponent } from "./roles";
 import { toast } from "./toast";
-import type {
-  BackdropDirection,
-  BackdropStrength,
-  KnobValues,
-  SeedBackdrop,
-  SeedOption,
+import {
+  present,
+  roleSelections,
+  type KbNode,
+  type BackdropDirection,
+  type BackdropStrength,
+  type KnobValues,
+  type SeedBackdrop,
+  type SeedOption,
 } from "@kb/model";
 import type { OutlineNode } from "./types";
 
@@ -649,6 +653,18 @@ export function syncUiPlugins(plugins: readonly Plugin[]): void {
       `UI plugin ${name} failed to ${verb}: ${failure instanceof Error ? failure.message : String(failure)}`,
     );
   }
+}
+
+/** Per-store choices derived by the host from role nodes. */
+export function configureUiRoles(
+  nodeOf: (id: string) => Pick<KbNode, "id" | "props"> | undefined,
+): void {
+  Effect.runSync(uiKernel.configureRoles(roleSelections(uiKernel.roles(), nodeOf)));
+}
+
+/** Role consumers get a stable boundary rather than the unguarded implementation. */
+export function useRole<P extends object>(role: RoleKey<ComponentType<P>>): ComponentType<P> {
+  return roleComponent(uiKernel, role);
 }
 
 /** Called after every change to the page kernel's plugins, services or contributions. */

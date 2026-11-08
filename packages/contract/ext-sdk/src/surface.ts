@@ -171,16 +171,26 @@ export interface ServiceKey<S> {
   readonly kind: "service";
   readonly name: string;
   readonly "~type"?: S;
+  readonly spec?: ServiceSpec;
 }
 
 export type KernelHost = "registry" | "server" | "page";
 
-export interface PointSpec {
-  readonly cardinality: "list" | "keyed" | "single" | "chain";
-  readonly combine: string;
+export interface KernelSpec {
   readonly kernel: KernelHost | readonly KernelHost[];
   readonly tier: "T0" | "T1" | "T2" | "T3";
-  /** Dot-separated member path; absent means contribution id. */
+}
+
+export interface RolePolicy {
+  readonly replaceable?: boolean;
+  readonly rolePrefix?: string;
+}
+
+export interface ServiceSpec extends KernelSpec, RolePolicy {}
+
+export interface PointSpec extends KernelSpec, RolePolicy {
+  readonly cardinality: "list" | "keyed" | "single" | "chain";
+  readonly combine: string;
   readonly keyBy?: string;
   readonly contract?: effect.StandardSchema.StandardSchemaV1;
 }
@@ -205,6 +215,7 @@ export interface PointName<C> {
 export interface ContributionEntry<C> {
   readonly id: string;
   readonly aliases?: readonly string[];
+  readonly replaces?: string;
   readonly value: C;
 }
 
@@ -610,7 +621,7 @@ export declare function familyTags(
 ): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
-export declare function Service<S>(): (name: string) => ServiceKey<S>;
+export declare function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;
 /** Every render template, by the id a view spec names it with. */

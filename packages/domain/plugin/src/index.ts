@@ -1,5 +1,5 @@
 export { PluginError, PluginErrorReason } from "./errors.ts";
-export { bindPointNamespace, definePlugin, isPlugin, makeKernel, namespaced } from "./kernel.ts";
+export { definePlugin, isPlugin, makeKernel } from "./kernel.ts";
 export type {
   Contribution,
   Dependency,
@@ -34,3 +34,22 @@ export type {
   KernelHost,
   ServiceKey,
 } from "./keys.ts";
+
+export { bindPluginAuthority, type PluginAuthority, type RoleApproval } from "./authority.ts";
+export { type RoleCandidate, type RoleState, type RoleProvider } from "./roles.ts";
+export {
+  Role,
+  roleName,
+  type RoleKey,
+  type ServiceSpec,
+  type KernelSpec,
+  type RolePolicy,
+} from "./keys.ts";
+
+export { roleCall } from "./role-call.ts";
+
+export { namespaced } from "./keys.ts";
+
+export { roleSession, type RoleSession } from "./role-session.ts";
+
+export { ROLE_KINDS } from "./roles.ts";

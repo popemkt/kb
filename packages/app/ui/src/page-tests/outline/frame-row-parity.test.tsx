@@ -13,7 +13,8 @@ import { viewFieldNodes } from "@/fixtures/view-fields";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { NodeBlock, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { NodeBlock, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionTableView } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 

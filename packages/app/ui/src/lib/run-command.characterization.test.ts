@@ -32,7 +32,8 @@ import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/comman
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { themesUiPlugin } from "@kb/themes-ui";
 import { transistorUiPlugin } from "@kb/transistor-ui";

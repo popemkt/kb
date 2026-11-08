@@ -5720,7 +5720,10 @@ one-provider conflict rules. A cell holds its bundled owner's default at
 priority 100 and host-approved candidates at their declared priority (50
 when omitted). Lower wins; ties retain registration order. Approval belongs
 to host admission, never to a plugin's own fields. Installed code cannot
-make itself a default or grant replacement authority.
+make itself a default or grant replacement authority. Host-defined role keys
+reserve their address before a provider loads; installed code cannot mint
+a lookalike key to occupy an absent owner's role. A plugin context belongs
+to one activation and retires when its scope closes, including on re-election.
 
 Each owner seeds `sys.role.<role>` as a role node. Core's `sys.f.provider`
 ref field configures that kind and refers to an extension's ordinary node.
@@ -5733,7 +5736,13 @@ A render failure reports `kernel.fault(role, provider, cause)`, names the
 extension in a toast, and renders the next candidate. Service calls use
 `roleCall`: a defect or budget overrun faults the candidate and retries once
 with the next one; ordinary typed failures remain the caller's result.
-A fault lasts for the kernel session or until the provider's identity changes
-with new code. Faulted defaults remain visible in the candidate report.
+A fault demotes only replacements. The bundled default is the floor: its
+failure stays in that rendered instance's error UI, or returns from that
+service call, and never hides the role globally. A replacement fault lasts
+for the page or process session, including registry rebuilds,
+or until the provider's trusted code digest changes. A stale failure carries
+its old identity and cannot demote new code. Roles must be defined beside their host key before providers load.
+`roleCall` currently has no live server role; its shared contract suite
+proves the boundary until a server consumer opts in.
 The first consumer is the outline's `ui.field-editor`; no new implementation
 or provider choice is introduced with its migration.

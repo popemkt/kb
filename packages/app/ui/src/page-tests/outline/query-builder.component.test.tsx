@@ -13,13 +13,8 @@ import { bundledSeed } from "@kb/bundled";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { browserHost, fieldTypeValue, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { OutlineListView } from "@kb/views";
-import {
-  outlineNodes,
-  outlineUiPlugin,
-  QueryResultsSection,
-  useOutlineStore,
-  ViewToolbar,
-} from "@kb/outline-ui";
+import { outlineNodes, QueryResultsSection, useOutlineStore, ViewToolbar } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";

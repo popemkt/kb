@@ -3,91 +3,57 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  IdentityPoint,
-  ActionGuardPoint,
-  type ActionResponse,
-  type ActionRequest,
-  type ExtensionReport,
-  type FootprintRow,
-  type GraphSnapshot,
+import type {
+  ActionResponse,
+  ActionRequest,
+  ExtensionReport,
+  FootprintRow,
+  GraphSnapshot,
 } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { present } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
 import { loadManifest } from "@/lib/manifest";
+import { ISO, FILES, DIGEST, REPORT } from "@/test-support/extension-report-fixture";
 import { App } from "@/components/App";
 
-const ISO = "2026-10-20T00:00:00.000Z";
-const FILES = `sha256:${"cd".repeat(32)}`;
-const DIGEST = `sha256:${"ab".repeat(32)}`;
-
-const REPORT: ExtensionReport = {
-  extensions: [
-    {
-      name: "outline",
-      label: "Outline",
-      required: "Synthetic: the page cannot draw without it.",
-      enabled: true,
-      source: "bundled",
-      origin: { kind: "bundled" },
-      tags: ["core"],
-      declares: [],
-      uses: [],
-      injects: [],
-      provides: [],
-      failures: [],
-    },
-    {
-      name: "graph",
-      label: "Graph",
-      enabled: true,
-      source: "bundled",
-      origin: { kind: "bundled" },
-      tags: ["graph"],
-      declares: [],
-      uses: [],
-      injects: [{ service: "kb.index", from: null }],
-      provides: [],
-      failures: [],
-    },
-    {
-      name: "hello",
-      label: "Hello",
-      enabled: true,
-      source: "/repo/.kb/extensions/hello.ts",
-      origin: { kind: "own" },
-      digest: DIGEST,
-      tags: [],
-      declares: [],
-      uses: [],
-      injects: [],
-      provides: [],
-      failures: ["hello/child failed to load: boom"],
-    },
-  ],
-  points: [
-    {
-      point: "identity.providers",
-      owner: null,
-      spec: IdentityPoint.spec,
-      source: "host",
-      listeners: [{ owner: "identity-header", id: "header" }],
-    },
-    {
-      point: "action/guard",
-      owner: null,
-      spec: ActionGuardPoint.spec,
-      source: "registry",
-      listeners: [
-        { owner: "governance", id: "ext.governance.approval", match: "*" },
-        { owner: "governance", id: "ext.governance.force", match: "every write" },
-      ],
-    },
-  ],
-  failures: [{ file: "stranger.ts", error: `not trusted on this machine (${DIGEST})` }],
-};
+/** hello installed from a marketplace, pinned, and not yet trusted. */
+function installedHello(): ExtensionReport {
+  return {
+    ...REPORT,
+    extensions: REPORT.extensions.map((row) =>
+      row.name === "hello"
+        ? {
+            ...row,
+            trusted: false,
+            failures: [],
+            files: FILES,
+            manifest: { author: "Ada", capabilities: { network: { hosts: [] } } },
+            origin: {
+              kind: "install" as const,
+              scope: "local" as const,
+              selection: {
+                original: "hello@sample",
+                locked: {
+                  repo: "popemkt/kb-plugins-sample",
+                  path: "extensions/hello",
+                  rev: "a".repeat(40),
+                  files: FILES,
+                },
+              },
+            },
+            reach: {
+              files: [{ path: "hello.ts", bytes: 30 }],
+              page: false,
+              host: { server: [], page: [] },
+              builtins: [],
+            },
+          }
+        : row,
+    ),
+  };
+}
 
 const FOOTPRINT: FootprintRow[] = [
   { family: "graph", kind: "kb.actions", id: "ext.graph.trace", enabled: true, source: "registry" },
@@ -409,43 +375,6 @@ describe("Settings' Extensions (acceptance)", () => {
       );
     });
     await settle();
-  }
-
-  /** hello installed from a marketplace, pinned, and not yet trusted. */
-  function installedHello(): ExtensionReport {
-    return {
-      ...REPORT,
-      extensions: REPORT.extensions.map((row) =>
-        row.name === "hello"
-          ? {
-              ...row,
-              trusted: false,
-              failures: [],
-              files: FILES,
-              manifest: { author: "Ada", capabilities: { network: { hosts: [] } } },
-              origin: {
-                kind: "install" as const,
-                scope: "local" as const,
-                selection: {
-                  original: "hello@sample",
-                  locked: {
-                    repo: "popemkt/kb-plugins-sample",
-                    path: "extensions/hello",
-                    rev: "a".repeat(40),
-                    files: FILES,
-                  },
-                },
-              },
-              reach: {
-                files: [{ path: "hello.ts", bytes: 30 }],
-                page: false,
-                host: { server: [], page: [] },
-                builtins: [],
-              },
-            }
-          : row,
-      ),
-    };
   }
 
   it("opens from the header's gear and puts each extension on its shelf, as the server reports it", async () => {

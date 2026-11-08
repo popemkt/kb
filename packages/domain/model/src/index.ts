@@ -343,3 +343,5 @@ export {
   type DisplaySettings,
   type DisplayView,
 } from "./display.ts";
+
+export { roleNodeId, roleSelections, type RoleDefinition } from "./roles.ts";

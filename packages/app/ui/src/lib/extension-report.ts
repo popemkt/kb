@@ -14,6 +14,7 @@ import {
   FootprintRowSchema,
   isKbOrigin,
   orderedPoints,
+  orderedRoles,
   organisationOf,
   type ExtensionOrigin,
   type ExtensionReport,
@@ -60,6 +61,7 @@ export interface PanelExtensionGroup {
 export interface PanelReport {
   readonly groups: readonly PanelExtensionGroup[];
   readonly points: ExtensionReport["points"];
+  readonly roles: ExtensionReport["roles"];
   readonly failures: ExtensionReport["failures"];
 }
 
@@ -185,6 +187,7 @@ function joinPage(server: ServerReport, _page: PageKernelAt): PanelReport {
           : joinExtension(group.effective, server.footprint),
     })),
     points: [...server.report.points, ...orderedPoints([PAGE_FAMILY_KERNEL])],
+    roles: [...server.report.roles, ...orderedRoles([PAGE_FAMILY_KERNEL])],
     failures: server.report.failures,
   };
 }

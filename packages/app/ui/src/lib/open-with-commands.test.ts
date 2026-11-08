@@ -18,7 +18,8 @@ import { OUTLINE_IDS } from "@kb/outline";
 import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { canvasUiPlugin } from "@kb/canvas-ui";
-import { outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import {
   paletteStepsPlugin,
   getPath,

@@ -18,7 +18,7 @@ import {
   type ExtensionEntry,
 } from "@kb/contracts";
 import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
-import { bindPointNamespace, isPlugin, type Plugin } from "@kb/plugin";
+import { bindPluginAuthority, isPlugin, type Plugin } from "@kb/plugin";
 
 /** A family's name: its `ext.<name>` namespace and its node's. */
 const NAME_RE = /^[\w][\w.-]*$/;
@@ -114,6 +114,10 @@ export function decodeExtensionModule(
   if (declared.name !== name) {
     return Result.fail(`declaration: its name ${declared.name} must be its file's, ${name}`);
   }
+  if (declared.roles !== undefined)
+    return Result.fail(
+      "role defaults are defined by bundled owners; replacements require host approval",
+    );
   if (declared.required !== undefined) {
     return Result.fail(
       "declaration: required is kb's own build's claim; an extension from a repository, a link or an install can always be switched off",
@@ -133,7 +137,12 @@ export function decodeExtensionModule(
   if (entry === undefined)
     return Result.succeed({
       declaration,
-      entry: bindPointNamespace(declarationPlugin(declaration), extensionNamespace(name)),
+      entry: bindPluginAuthority(declarationPlugin(declaration), {
+        pointNamespace: extensionNamespace(name),
+        source: "extension",
+        replacements: [],
+        defaults: [],
+      }),
     });
   return Result.map(decodeExtensionPlugin(entry, name), (plugin) => ({
     declaration,
@@ -155,5 +164,10 @@ export function decodeExtensionPlugin(entry: unknown, name: string): Result.Resu
   ) {
     return Result.fail(`entry namespace must be ${namespace}`);
   }
-  return Result.succeed(bindPointNamespace({ ...entry, name }, namespace));
+  return Result.succeed(
+    bindPluginAuthority(
+      { ...entry, name },
+      { pointNamespace: namespace, source: "extension", replacements: [], defaults: [] },
+    ),
+  );
 }

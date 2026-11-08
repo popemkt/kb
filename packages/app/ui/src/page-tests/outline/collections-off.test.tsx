@@ -13,7 +13,8 @@ import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { syncUiPlugins } from "@kb/ui-sdk";
-import { FrameViewSlot, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { FrameViewSlot, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 
 const FRAME = "n.root-a";

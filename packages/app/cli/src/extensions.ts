@@ -126,7 +126,7 @@ function settingsLines(output: unknown): readonly string[] {
 /** `extension.list`'s report, as the action answers it; empty when it answers otherwise. */
 function reportOf(output: unknown): ExtensionReport {
   const parsed = ExtensionReportSchema.safeParse(output);
-  return parsed.success ? parsed.data : { extensions: [], points: [], failures: [] };
+  return parsed.success ? parsed.data : { extensions: [], points: [], roles: [], failures: [] };
 }
 
 /** Each ordered point's listeners, in the order a host asks them. */
@@ -168,7 +168,7 @@ function listLines(
     readonly contributes: number;
     readonly actions: readonly RegisteredAction[];
   })[],
-  { points, failures }: ExtensionReport,
+  { points, roles, failures }: ExtensionReport,
 ): string[] {
   const lines: string[] = [];
   for (const e of listed) {
@@ -187,6 +187,15 @@ function listLines(
     }
   }
   lines.push(...pointLines(points));
+  for (const role of roles) {
+    lines.push(
+      `${role.role} (${role.source}): elected ${role.elected ?? "nobody"}; selected ${role.selected ?? "best approved"}`,
+    );
+    for (const candidate of role.candidates)
+      lines.push(
+        `  ${candidate.provider}: priority ${candidate.priority}${candidate.default ? " (default)" : ""}${candidate.fault === null ? "" : `; faulted: ${candidate.fault}`}`,
+      );
+  }
   for (const f of failures) lines.push(`! ${f.file}: ${f.error} (skipped)`);
   return lines;
 }

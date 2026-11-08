@@ -248,6 +248,8 @@ export const SYSTEM_IDS = {
    * other. Being one of its children is what an extension's node is.
    */
   extensionsRoot: "sys.extensions",
+  roleTag: "sys.tag.role",
+  providerField: "sys.f.provider",
   /**
    * Whether an optional family is on (checkbox, one), carried by its node.
    * Absent is its declared default; `extension.switch` is its one writer.

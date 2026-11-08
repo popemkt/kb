@@ -19,7 +19,8 @@ import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { NodeBlock, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 
 const ISO = "2026-08-08T05:00:00.000Z";

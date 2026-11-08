@@ -7,7 +7,8 @@ import { useUiStore } from "@/stores/ui.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { pageGraph } from "@/stores/graph-read";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { outlineNodes, outlineUiPlugin, setOutlineHost, useOutlineStore } from "@kb/outline-ui";
+import { outlineNodes, setOutlineHost, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

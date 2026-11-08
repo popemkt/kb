@@ -8,8 +8,9 @@
  * while it is loaded, and with none provided a field draws nothing.
  */
 import type { ComponentType } from "react";
-import { Service } from "@kb/plugin";
-import { useService } from "./plugins";
+import { Service, Role } from "@kb/plugin";
+import { FIELD_EDITOR_ROLE } from "@kb/contracts";
+import { useRole } from "./plugins";
 import type { FieldContext } from "./schema";
 import type { PropValue } from "./types";
 
@@ -31,13 +32,16 @@ export interface FieldEditorProps {
 }
 
 /** Where a plugin provides the page's field editor while it is loaded. */
-export const FieldEditorService = Service<ComponentType<FieldEditorProps>>()("ui.field-editor");
+export const FieldEditorService = Service<ComponentType<FieldEditorProps>>()(
+  FIELD_EDITOR_ROLE.role,
+  FIELD_EDITOR_ROLE.spec,
+);
 
 /** What a field is drawn with while no editor is provided: nothing. */
 // GAP [[01M5MWXM43Y12KDBM4JG7X1VRX]] with no editor family loaded, a field draws nothing
-const NO_FIELD_EDITOR: ComponentType<FieldEditorProps> = () => null;
+const FieldEditorRole = Role(FieldEditorService);
 
 /** The page's field editor now, re-read when the plugins change. */
 export function useFieldEditor(): ComponentType<FieldEditorProps> {
-  return useService(FieldEditorService) ?? NO_FIELD_EDITOR;
+  return useRole(FieldEditorRole);
 }

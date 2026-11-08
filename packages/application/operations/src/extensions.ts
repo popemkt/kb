@@ -29,6 +29,7 @@ import {
   KbCtx,
   holdsFamily,
   orderedPoints,
+  orderedRoles,
   organisationOf,
   runtimeFootprint,
   switchWrites,
@@ -186,6 +187,7 @@ export const extensionListEffect = Effect.fn("extension.list")(function* (): Eff
       ...organisationOf(row.name, kernels),
     })),
     points: orderedPoints(kernels),
+    roles: orderedRoles(kernels),
     failures: [
       ...(yield* ExtensionFailures),
       ...(yield* (yield* IgnoredRootFiles).notices((yield* KbCtx).root)),

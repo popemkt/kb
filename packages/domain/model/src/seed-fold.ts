@@ -24,6 +24,7 @@ import {
   type NodeId,
   nowIso,
 } from "./model.ts";
+import { roleNodeId, type RoleDefinition } from "./roles.ts";
 import { displaySettingFields, displaySettingValues } from "./display.ts";
 import { knobFields } from "./knob-fields.ts";
 import type { SeedRetirement } from "./seed-retirement.ts";
@@ -57,6 +58,7 @@ export interface SeedSource {
   /** What its own node (`extensionNodeId(name)`) is called. */
   readonly label: string;
   readonly seed?: (at: string) => readonly KbNode[];
+  readonly roles?: readonly RoleDefinition[];
   readonly views?: readonly { readonly key: SeedView }[];
   /**
    * Its own seed nodes it files under another source's list node, by that
@@ -377,6 +379,16 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     name: source.name,
     seed: [
       ...(source.seed?.(at) ?? []),
+      ...(source.roles ?? []).map(
+        ({ role, label }): KbNode => ({
+          id: roleNodeId(role),
+          text: label,
+          props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.roleTag }] },
+          children: [],
+          createdAt: at,
+          updatedAt: at,
+        }),
+      ),
       ...tagOpened(source).flatMap((view) => displaySettingFields(view, source.name, at)),
     ],
     files: source.files,

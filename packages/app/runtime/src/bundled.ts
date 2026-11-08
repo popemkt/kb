@@ -14,7 +14,7 @@ import type { KbNode } from "@kb/model";
  * list, so a family that joins it is held to the same promises as the rest.
  */
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import type { ExtensionDeclaration, ExtensionEntry } from "@kb/contracts";
+import { bundledPlugin, type ExtensionDeclaration, type ExtensionEntry } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { backdropsPlugin } from "@kb/backdrops";
 import { chartServerPlugin } from "@kb/chart-vega";
@@ -52,7 +52,7 @@ export function serverEntriesFor(
       throw new Error(`family ${declaration.name} has no server entry`);
     }
     unmatched.delete(declaration.name);
-    return { declaration, entry };
+    return { declaration, entry: bundledPlugin(declaration, entry) };
   });
   if (unmatched.size > 0) {
     throw new Error(`server entries ${[...unmatched.keys()].join(", ")} name no family`);

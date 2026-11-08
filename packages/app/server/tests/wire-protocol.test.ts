@@ -34,10 +34,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // included), its one-line description, and a required family's reason in
 // place of `optional`, which a page of protocol 3 requires, so it reloads
 // into a build that reads them.
-// Declared points add report metadata; previous pages ignore the additional fields.
+// Declared points and roles add report metadata; previous pages ignore the additional fields.
 const RECORDED = {
   protocol: 4,
-  fingerprint: "02610a38a0532a349d23db49dbc84659976080e1e64ddaa7ad2c0c9290b76ec7",
+  fingerprint: "dfcb5b9c90357206cda87281b62b0e6d820bc71067b4c317f7fba98f61f706c9",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

@@ -18,7 +18,9 @@ export interface Key<Kind extends string, T> {
 }
 
 /** An implementation one plugin provides and others inject by this key. */
-export type ServiceKey<S> = Key<"service", S>;
+export interface ServiceKey<S> extends Key<"service", S> {
+  readonly spec?: ServiceSpec;
+}
 
 /**
  * A place contributions collect: actions, render templates, UI surfaces. Each
@@ -29,11 +31,22 @@ export const POINT_CARDINALITIES = ["list", "keyed", "single", "chain"] as const
 export const POINT_TIERS = ["T0", "T1", "T2", "T3"] as const;
 export type KernelHost = (typeof KERNEL_HOSTS)[number];
 
-export interface PointSpec {
-  readonly cardinality: (typeof POINT_CARDINALITIES)[number];
-  readonly combine: string;
+export interface KernelSpec {
   readonly kernel: KernelHost | readonly KernelHost[];
   readonly tier: (typeof POINT_TIERS)[number];
+}
+
+export interface RolePolicy {
+  readonly replaceable?: boolean;
+  /** The name before a keyed cell's colon; defaults to the point name. */
+  readonly rolePrefix?: string;
+}
+
+export interface ServiceSpec extends KernelSpec, RolePolicy {}
+
+export interface PointSpec extends KernelSpec, RolePolicy {
+  readonly cardinality: (typeof POINT_CARDINALITIES)[number];
+  readonly combine: string;
   /** Dot-separated member path; absent means contribution id. */
   readonly keyBy?: string;
   readonly contract?: StandardSchemaV1;
@@ -46,10 +59,20 @@ export interface PointKey<C> extends Key<"point", C> {
 }
 
 /** Any key, whatever it stands for — for lists such as a plugin's `inject`. */
-export type AnyServiceKey = Key<"service", unknown>;
+export type AnyServiceKey = ServiceKey<unknown>;
 
-export function Service<S>(): (name: string) => ServiceKey<S> {
-  return (name) => ({ kind: "service", name });
+export function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S> {
+  return (name, spec) =>
+    Object.freeze({
+      kind: "service",
+      name,
+      ...(spec === undefined ? {} : { spec: freezeSpec(spec) }),
+    });
+}
+
+function freezeSpec<S extends KernelSpec>(spec: S): S {
+  if (Array.isArray(spec.kernel)) Object.freeze(spec.kernel);
+  return Object.freeze({ ...spec });
 }
 
 export function Point<C>(): (name: string, spec: PointSpec) => PointKey<C> {
@@ -90,7 +113,8 @@ export function pointKey<C>(name: string, spec: PointSpec, declarer?: string): P
   const key: PointKey<C> = Object.freeze({
     kind: "point",
     name,
-    spec,
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- old JavaScript keys are refused by the kernel
+    spec: spec === undefined ? spec : freezeSpec(spec),
     declarer: declarer ?? null,
   });
   pointKeys.add(key);
@@ -98,4 +122,45 @@ export function pointKey<C>(name: string, spec: PointSpec, declarer?: string): P
 }
 export function isPointKey(key: PointKey<unknown>): boolean {
   return pointKeys.has(key);
+}
+
+/** A service, single point, or one keyed point cell, read through its elected provider. */
+export interface RoleKey<C> extends Key<"role", C> {
+  readonly key: ServiceKey<C> | PointKey<C>;
+  readonly cell: string | null;
+}
+
+export function roleName(
+  key: ServiceKey<unknown> | PointKey<unknown>,
+  cell: string | null,
+): string {
+  return cell === null ? key.name : `${key.spec?.rolePrefix ?? key.name}:${cell}`;
+}
+
+const nativeRoles = new Map<KernelHost, Map<string, WeakSet<object>>>();
+
+/** undefined is an ordinary address; false is a counterfeit of a host-defined role. */
+export function roleKeyAt(name: string, key: object, host: KernelHost): boolean | undefined {
+  return nativeRoles.get(host)?.get(name)?.has(key);
+}
+
+/** A host defines a role reference before any provider loads; the SDK cannot mint these. */
+export function Role<C>(key: ServiceKey<C> | PointKey<C>, cell?: string): RoleKey<C> {
+  const name = roleName(key, cell ?? null);
+  if (key.spec?.replaceable === true) {
+    const hosts = typeof key.spec.kernel === "string" ? [key.spec.kernel] : key.spec.kernel;
+    for (const host of hosts) {
+      const names = nativeRoles.get(host) ?? new Map<string, WeakSet<object>>();
+      const keys = names.get(name) ?? new WeakSet<object>();
+      keys.add(key);
+      names.set(name, keys);
+      nativeRoles.set(host, names);
+    }
+  }
+  return Object.freeze({ kind: "role", name, key, cell: cell ?? null });
+}
+
+/** The id a contribution `id` takes in `namespace`: `<namespace>.<id>`, or `id` in the root one. */
+export function namespaced(namespace: string, id: string): string {
+  return namespace === "" ? id : `${namespace}.${id}`;
 }

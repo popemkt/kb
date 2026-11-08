@@ -45,6 +45,7 @@ import { collectionsExtension } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import {
   EXTENSION_SDK,
+  bundledPlugin,
   NO_SWITCHES,
   declarationPlugin,
   extensionRow,
@@ -62,6 +63,7 @@ import { locationsUiPlugin } from "@kb/locations-ui";
 import { outlineExtension } from "@kb/outline";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension } from "@kb/operations";
+import { useGraphStore } from "@/stores/graph.store";
 import { PluginError, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
@@ -76,6 +78,7 @@ import {
   PAGE_EXTENSION_SDK,
   paletteStepsPlugin,
   latestRead,
+  configureUiRoles,
   logWarn,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -91,7 +94,7 @@ import { webMcpUiPlugin } from "@/webmcp";
  * kernel's catalog through the same declaration the server loads them from.
  */
 export const CORE_UI_PLUGINS: readonly Plugin[] = [
-  declarationPlugin(coreExtension),
+  bundledPlugin(coreExtension, declarationPlugin(coreExtension)),
   paletteStepsPlugin,
   browserHostUiPlugin,
   designSystemsUiPlugin,
@@ -164,7 +167,7 @@ export interface BrowserExtension {
  * browser half is listed too, as `null`, so a bundled family is never left
  * out by omission: the resolver's test holds every bundled family to an entry.
  */
-export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
+const browserEntries: Readonly<Record<string, BrowserExtension | null>> = {
   [routinesExtension.name]: {
     load: () => import("@kb/routines-ui").then(({ routinesUiPlugin }) => routinesUiPlugin),
   },
@@ -191,6 +194,22 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   },
   [agentExtension.name]: { load: loadAgentEntry },
 };
+
+/** Bundled admission binds the owner's role grants at the composition boundary. */
+export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> =
+  Object.fromEntries(
+    Object.entries(browserEntries).map(([name, entry]) => {
+      const declaration = BUNDLED_FAMILIES.find((family) => family.name === name);
+      return [
+        name,
+        entry === null || declaration === undefined
+          ? entry
+          : {
+              load: async () => bundledPlugin(declaration, await entry.load()),
+            },
+      ];
+    }),
+  );
 
 /**
  * The bundled families as the page reads them while no server answers: a
@@ -327,7 +346,10 @@ let settling: Promise<void> = Promise.resolve();
 /** Resolve entries first; only the latest requested set may replace the page kernel. */
 const converge = latestRead(
   (rows: readonly ExtensionRow[]) => Promise.all(loadable(rows).map(loadEntry)),
-  (entries) => syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]),
+  (entries) => {
+    syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]);
+    selectRoles();
+  },
 );
 
 /**
@@ -340,6 +362,8 @@ export async function extensionsSettled(): Promise<void> {
   if (current !== settling) await extensionsSettled();
 }
 
+const selectRoles = () => configureUiRoles((id) => useGraphStore.getState().index?.getNode(id));
+
 /**
  * Load the UI's plugins, then keep the kernel in step with the server's
  * report: a family the report drops is unloaded, and its pages and sidebar
@@ -350,6 +374,12 @@ export function startUiPlugins(): () => void {
   const sync = () => {
     settling = converge(followedExtensions());
   };
+  selectRoles();
   sync();
-  return subscribeManifest(sync);
+  const stopManifest = subscribeManifest(sync);
+  const stopGraph = useGraphStore.subscribe(selectRoles);
+  return () => {
+    stopManifest();
+    stopGraph();
+  };
 }

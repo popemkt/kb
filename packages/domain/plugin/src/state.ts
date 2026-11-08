@@ -1,8 +1,10 @@
-import { Cause, type Scope } from "effect";
+import { Cause, Effect, type Scope } from "effect";
 import { PluginError, type PluginErrorReason } from "./errors.ts";
-import type { AnyServiceKey, PointKey, KernelHost } from "./keys.ts";
+import type { AnyServiceKey, PointKey, KernelHost, Key } from "./keys.ts";
 import type { Cell } from "./cells.ts";
-import type { Contribution, Plugin, PluginStatus } from "./kernel.ts";
+import type { Contribution, Plugin, PluginStatus, RequirementState } from "./kernel.ts";
+import type { RoleSession } from "./role-session.ts";
+import type { PluginAuthority } from "./authority.ts";
 
 export interface Entry {
   readonly name: string;
@@ -10,42 +12,35 @@ export interface Entry {
   readonly tags: readonly string[];
   readonly inject: readonly AnyServiceKey[];
   readonly uses: readonly string[];
-  readonly pointNamespace: string;
+  readonly authority: PluginAuthority;
   readonly parent: string | null;
   /** The value it was loaded as. */
   readonly plugin: Plugin;
   readonly apply: Plugin["apply"];
   status: PluginStatus;
-  /**
-   * Whether `apply` has run to its end and the plugin is still active: what
-   * it contributed is visible from then until it starts to go, all at once
-   * either way.
-   */
-  applied: boolean;
   error: PluginError | null;
-  /** Open while `active`; everything the plugin registered hangs off it. */
-  scope: Scope.Closeable | null;
+  activation: Activation | null;
 }
 
-export interface ServiceProvider {
-  readonly owner: string;
-  readonly impl: unknown;
+export interface Activation {
+  readonly entry: Entry;
+  readonly scope: Scope.Closeable;
+  readonly bound: readonly RequirementState[];
+  phase: "applying" | "active" | "closing";
 }
 
 export interface ServiceSlot {
   readonly key: AnyServiceKey;
-  readonly cell: Cell<ServiceProvider>;
+  readonly cell: Cell<unknown>;
 }
 
-export function serviceProvider(slot: ServiceSlot | undefined): ServiceProvider | undefined {
-  return slot?.cell.entries[0];
-}
+export type PointValue = Omit<Contribution<unknown>, "owner">;
 
 export interface PointSlot {
   readonly key: PointKey<unknown>;
-  readonly cells: Cell<Contribution<unknown>>[];
+  readonly cells: Cell<PointValue>[];
   /** Ids and aliases, so a lookup and a conflict check are one read. */
-  readonly byId: Map<string, Cell<Contribution<unknown>>>;
+  readonly byId: Map<string, Cell<PointValue>>;
 }
 
 export function pointSlot(key: PointKey<unknown>): PointSlot {
@@ -56,14 +51,13 @@ export function refusal(plugin: string, reason: PluginErrorReason, message: stri
   return new PluginError({ plugin, reason, message });
 }
 
+export function pluginFailure(plugin: string, cause: unknown): PluginError {
+  if (cause instanceof PluginError) return cause;
+  return refusal(plugin, "apply-failed", cause instanceof Error ? cause.message : String(cause));
+}
+
 export function failureOf(plugin: string, cause: Cause.Cause<PluginError>): PluginError {
-  const squashed = Cause.squash(cause);
-  if (squashed instanceof PluginError) return squashed;
-  return refusal(
-    plugin,
-    "apply-failed",
-    squashed instanceof Error ? squashed.message : String(squashed),
-  );
+  return pluginFailure(plugin, Cause.squash(cause));
 }
 
 /** Everything a kernel knows, mutated only inside the effects below. */
@@ -73,6 +67,8 @@ export interface State {
   readonly services: Map<string, ServiceSlot>;
   readonly points: Map<string, PointSlot>;
   readonly subscribers: Set<() => void>;
+  roleSelections: Map<string, string>;
+  readonly roleSession: RoleSession;
   version: number;
 }
 
@@ -83,11 +79,48 @@ export interface State {
  */
 export function visible(state: State, owner: string): boolean {
   const entry = state.entries.get(owner);
-  if (entry === undefined || !entry.applied) return false;
+  if (entry?.activation?.phase !== "active") return false;
   return entry.parent === null || visible(state, entry.parent);
 }
 
 export function changed(state: State): void {
   state.version++;
   for (const listener of state.subscribers) listener();
+}
+
+/** A context belongs to one activation, including across service-driven reapplication. */
+export function assertActive(active: Activation): Entry {
+  if (active.entry.activation !== active || active.phase === "closing")
+    throw refusal(active.entry.name, "not-loaded", `plugin ${active.entry.name} is not active`);
+  return active.entry;
+}
+
+export function scopeOf(active: Activation): Effect.Effect<Scope.Closeable, PluginError> {
+  return Effect.try({
+    try: () => {
+      assertActive(active);
+      return active.scope;
+    },
+    catch: (cause) => pluginFailure(active.entry.name, cause),
+  });
+}
+
+export function claim<K extends string>(
+  owner: string,
+  slotKey: Key<K, unknown> | undefined,
+  key: Key<K, unknown>,
+): void {
+  if (slotKey !== undefined && slotKey !== key)
+    throw refusal(owner, "key-mismatch", `two different ${key.kind} keys are named ${key.name}`);
+}
+
+export function alive(state: State, owner: string): boolean {
+  const entry = state.entries.get(owner);
+  if (
+    entry?.activation === null ||
+    entry?.activation === undefined ||
+    entry.activation.phase === "closing"
+  )
+    return false;
+  return entry.parent === null || alive(state, entry.parent);
 }

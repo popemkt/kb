@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionMode, EXTENSION_SDK, ExtensionDeclaration } from "@kb/contracts";
 import type { BackdropVariant, FailureCode, Knob, NumberKnob, SeedBackdrop } from "@kb/model";
-import type { Plugin, PointSpec, KernelHost } from "@kb/plugin";
+import type {
+  Plugin,
+  PointSpec,
+  KernelHost,
+  KernelSpec,
+  ServiceSpec,
+  RolePolicy,
+} from "@kb/plugin";
 import type * as Bridge from "../src/bridge.ts";
 import type * as Surface from "../src/surface.ts";
 
@@ -20,6 +27,12 @@ type Contributed<P> = Bridge.Contributed<P>;
 
 const spec: Same<Surface.PointSpec, PointSpec> = true;
 const host: Same<Surface.KernelHost, KernelHost> = true;
+const roleSpecs: [
+  Same<Surface.KernelSpec, KernelSpec>,
+  Same<Surface.ServiceSpec, ServiceSpec>,
+  Same<Surface.RolePolicy, RolePolicy>,
+] = [true, true, true];
+void roleSpecs;
 void spec;
 void host;
 const modes: Same<Surface.ActionMode, ActionMode> = true;

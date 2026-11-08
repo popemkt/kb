@@ -126,4 +126,5 @@ describe("undo / redo (D19)", () => {
 // the file also runs under plain bun without react-dom/test-utils.
 import { act } from "react";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { mergeWithPrevious, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { mergeWithPrevious, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";

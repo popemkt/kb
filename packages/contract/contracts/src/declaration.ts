@@ -1,3 +1,4 @@
+import type { ProviderRole } from "./roles.ts";
 import {
   ExtensionOriginSchema,
   ExtensionReviewSchema,
@@ -63,6 +64,8 @@ export interface ExtensionDeclaration {
    * plugin contributes none.
    */
   readonly seed?: (at: string) => readonly KbNode[];
+  /** Bundled role nodes derived by the same seed fold as views and options. */
+  readonly roles?: readonly ProviderRole[];
   /**
    * Its own seed nodes it files under core's list nodes, by the list's id
    * (`SeedSource.files`): a pin among the Pinned, a view node among the

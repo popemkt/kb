@@ -9,7 +9,8 @@ import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { brokenOntology, ontologyWire } from "@/test-support/ontology-wire";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
