@@ -69,6 +69,7 @@ describe("the lab is switched on the server", () => {
       row: {
         name: "lab",
         label: "Lab",
+        description: expect.any(String),
         enabled: false,
         source: "bundled",
         origin: { kind: "bundled" },

@@ -389,15 +389,13 @@ describe("Settings' Extensions (acceptance)", () => {
     await settle();
   }
 
-  /** Open Add extension, on `tab`. */
-  async function openAdd(tab: "Browse marketplaces" | "From GitHub"): Promise<HTMLElement> {
+  /** Open Add extension. */
+  async function openAdd(): Promise<HTMLElement> {
     await act(async () => buttonIn(container, "Add extension").click());
-    const panel = present(
+    return present(
       container.querySelector<HTMLElement>('[data-testid="extension-add"]'),
       "the Add panel",
     );
-    await act(async () => buttonIn(panel, tab).click());
-    return panel;
   }
 
   async function submit(input: HTMLInputElement, value: string): Promise<void> {
@@ -591,7 +589,7 @@ describe("Settings' Extensions (acceptance)", () => {
     );
   });
 
-  it("a refreshed catalog shows an untrusted update and what keeps running, without reopening Settings", async () => {
+  it("a refreshed catalog shows an untrusted update and what keeps running, without reopening Settings; off, it still turns on", async () => {
     await openFromHeader();
     await openDetails("hello");
     const next = `sha256:${"cd".repeat(32)}`;
@@ -620,6 +618,19 @@ describe("Settings' Extensions (acceptance)", () => {
     expect(
       card("hello").querySelector(`code[title="${DIGEST}"]`)?.closest("dd")?.textContent,
     ).toContain("until the update is trusted");
+    // Off with the update waiting, it still turns on from its menu, back to the approved digest.
+    report = {
+      ...report,
+      extensions: report.extensions.map((row) =>
+        row.name === "hello" ? { ...row, enabled: false } : row,
+      ),
+    };
+    await act(async () => loadManifest());
+    await fromMenu("Hello", "Turn on");
+    expect(asked.filter(({ id }) => id === "extension.switch").map(({ input }) => input)).toEqual([
+      { name: "hello", on: true },
+    ]);
+    expect(asked.some(({ id }) => id === "sandbox.trust")).toBe(false);
   });
 
   it("keeps one card and shows the other same-name source as hidden", async () => {
@@ -684,7 +695,7 @@ describe("Settings' Extensions (acceptance)", () => {
 
   it("installs from GitHub into the scope chosen, through the shared action", async () => {
     await openFromHeader();
-    const panel = await openAdd("From GitHub");
+    const panel = await openAdd();
     const scope = present(
       panel.querySelector<HTMLSelectElement>('[data-testid="extension-scope"]'),
       "scope",
@@ -711,7 +722,7 @@ describe("Settings' Extensions (acceptance)", () => {
   it("browses a marketplace, installs an entry with its Install button, and adds a marketplace", async () => {
     marketNames = ["hello", "tide"];
     await openFromHeader();
-    const panel = await openAdd("Browse marketplaces");
+    const panel = await openAdd();
     // What is installed already says so; the rest has Install.
     expect(panel.querySelector('button[aria-label="Install hello from sample"]')).toBeNull();
     const install = present(
@@ -747,7 +758,7 @@ describe("Settings' Extensions (acceptance)", () => {
     marketNames = ["tide"];
     await openFromHeader();
     installFails = true;
-    const panel = await openAdd("Browse marketplaces");
+    const panel = await openAdd();
     await act(async () =>
       present(
         panel.querySelector<HTMLButtonElement>('button[aria-label="Install tide from sample"]'),

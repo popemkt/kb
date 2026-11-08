@@ -2926,11 +2926,11 @@ the settings. The record of why is
   (core, the kernel, is not a row).
   - **Above the shelves**, a banner names what awaits review, each name a
     link that opens its card, and one _Add extension_ button opens the
-    add panel: _Browse marketplaces_ lists every pinned marketplace's
-    entries with _Install_ (or _Installed_), and adds a marketplace; _From
-    GitHub_ installs a pasted source. One _Install into_ choice (store
-    lock, this root, every kb on the machine) applies to both, and the
-    panel says that nothing runs until it is trusted. A failed marketplace
+    add panel: every pinned marketplace's entries with _Install_ (or
+    _Installed_), _Add a marketplace…_, then a field for a pasted GitHub
+    source. One _Install into_ choice (store lock, this root, every kb on
+    the machine) applies to all of them, and the panel says that nothing
+    runs until it is trusted. A failed marketplace
     read keeps the last listing and says why.
   - **A card's heading** is its label, its CLI name when that differs, and
     one status pill (`extensionStatus`): _Error_ when a plugin failed,

@@ -204,10 +204,10 @@ function MarketEntry({
 }
 
 /**
- * The one way to add an extension: Browse lists every pinned marketplace's
- * entries with Install, and adds a marketplace; From GitHub installs a
- * pasted source. Both write the scope chosen beside them, and nothing they
- * do trusts: an installed extension waits for review.
+ * The one way to add an extension: every pinned marketplace's entries with
+ * Install, a marketplace added, then a GitHub source pasted. All of them
+ * write the scope chosen at the top, and nothing they do trusts: an
+ * installed extension waits for review.
  */
 function AddPanel({
   markets,
@@ -216,100 +216,76 @@ function AddPanel({
   readonly markets: MarketplaceReading;
   readonly installed: readonly string[];
 }) {
-  const [tab, setTab] = useState<"browse" | "github">("browse");
   const [scope, setScope] = useState<ExtensionScope>(DEFAULT_EXTENSION_SCOPE);
   const [adding, setAdding] = useState(false);
-  const tabs = [
-    { id: "browse", label: "Browse marketplaces" },
-    { id: "github", label: "From GitHub" },
-  ] as const;
   return (
     <div
       className="mt-2 space-y-3 rounded-md border border-border bg-card p-3 text-card-foreground"
       data-testid="extension-add"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label="Add from" className="flex gap-1">
-          {tabs.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              className="rounded-sm px-2 py-1 text-label text-muted-foreground hover:text-foreground aria-selected:bg-foreground/8 aria-selected:text-foreground"
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <p className="text-meta text-muted-foreground">
+          Installing fetches the code and pins it to one commit. Nothing runs until you review it
+          and trust it.
+        </p>
         <ScopeSelect value={scope} onChange={setScope} />
       </div>
-      <p className="text-meta text-muted-foreground">
-        Installing fetches the code and pins it to one commit. Nothing runs until you review it and
-        trust it.
-      </p>
-      {tab === "github" ? (
-        <SourceForm kind="extension" scope={scope} />
-      ) : (
-        <div className="space-y-3">
-          {markets.problem !== null && (
-            <p role="alert" className="text-label text-destructive">
-              {markets.problem}
-            </p>
-          )}
-          {markets.markets.length === 0 && markets.problem === null && (
-            <p className="text-meta text-muted-foreground">
-              No marketplaces yet. A marketplace is a GitHub repository with a{" "}
-              <code className="font-mono">kb-marketplace.json</code> index; add one to browse it.
-            </p>
-          )}
-          {markets.markets.map((market) => {
-            const { repo, rev } = market.selection.locked;
-            return (
-              <section
-                key={`${market.scope}:${market.name}`}
-                aria-label={`${market.name} marketplace`}
-              >
-                <h4 className="flex flex-wrap items-baseline gap-x-2 text-meta">
-                  <span className="kb-label text-muted-foreground">{market.name}</span>
-                  <span className="font-mono text-caption text-faint-foreground">
-                    {repo} @ {rev.slice(0, 7)} · {SCOPES[market.scope].label.toLowerCase()}
-                  </span>
-                </h4>
-                {market.error !== undefined && (
-                  <p role="alert" className="text-label text-destructive">
-                    {market.error}
-                  </p>
-                )}
-                <ul className="divide-y divide-border">
-                  {market.entries.map((entry) => (
-                    <MarketEntry
-                      key={entry.name}
-                      name={entry.name}
-                      description={entry.description}
-                      market={market.name}
-                      installed={installed.includes(entry.name)}
-                      scope={scope}
-                    />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-          {adding || markets.markets.length === 0 ? (
-            <SourceForm kind="marketplace" scope={scope} onDone={() => setAdding(false)} />
-          ) : (
-            <button
-              type="button"
-              className="text-label text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-              onClick={() => setAdding(true)}
-            >
-              Add a marketplace…
-            </button>
-          )}
-        </div>
+      {markets.problem !== null && (
+        <p role="alert" className="text-label text-destructive">
+          {markets.problem}
+        </p>
       )}
+      {markets.markets.length === 0 && markets.problem === null && (
+        <p className="text-meta text-muted-foreground">
+          No marketplaces yet. A marketplace is a GitHub repository with a{" "}
+          <code className="font-mono">kb-marketplace.json</code> index; add one to browse it.
+        </p>
+      )}
+      {markets.markets.map((market) => {
+        const { repo, rev } = market.selection.locked;
+        return (
+          <section key={`${market.scope}:${market.name}`} aria-label={`${market.name} marketplace`}>
+            <h4 className="flex flex-wrap items-baseline gap-x-2 text-meta">
+              <span className="kb-label text-muted-foreground">{market.name}</span>
+              <span className="font-mono text-caption text-faint-foreground">
+                {repo} @ {rev.slice(0, 7)} · {SCOPES[market.scope].label.toLowerCase()}
+              </span>
+            </h4>
+            {market.error !== undefined && (
+              <p role="alert" className="text-label text-destructive">
+                {market.error}
+              </p>
+            )}
+            <ul className="divide-y divide-border">
+              {market.entries.map((entry) => (
+                <MarketEntry
+                  key={entry.name}
+                  name={entry.name}
+                  description={entry.description}
+                  market={market.name}
+                  installed={installed.includes(entry.name)}
+                  scope={scope}
+                />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+      {adding || markets.markets.length === 0 ? (
+        <SourceForm kind="marketplace" scope={scope} onDone={() => setAdding(false)} />
+      ) : (
+        <button
+          type="button"
+          className="text-label text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => setAdding(true)}
+        >
+          Add a marketplace…
+        </button>
+      )}
+      <div className="space-y-1.5 border-t border-border pt-3">
+        <p className="text-label text-muted-foreground">Or paste a GitHub source</p>
+        <SourceForm kind="extension" scope={scope} />
+      </div>
     </div>
   );
 }

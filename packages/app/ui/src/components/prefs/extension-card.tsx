@@ -31,32 +31,41 @@ import { Disclosure } from "./settings-fold";
 
 /**
  * Each status in words: the pill it leads with (none for one of kb's build
- * that is on), and what its Details say when it adds nothing.
+ * that is on), what its Details say when it adds nothing, and the review it
+ * waits on, which leads its actions (any other status reviews from the menu).
  */
 const STATUS: Readonly<
-  Record<ExtensionStatus, { pill: { word: string; tone: string } | null; idle: string }>
+  Record<
+    ExtensionStatus,
+    { pill: { word: string; tone: string } | null; idle: string; review: string | null }
+  >
 > = {
   error: {
     pill: { word: "Error", tone: "bg-destructive/10 text-destructive" },
     idle: "nothing, while it fails to load",
+    review: null,
   },
   update: {
     pill: { word: "Update available", tone: "bg-info/10 text-info" },
     idle: "nothing on this page or server",
+    review: "Review update",
   },
   approval: {
     pill: { word: "Needs approval", tone: "bg-warning/10 text-warning" },
     idle: "nothing until you review and trust it",
+    review: "Review & trust",
   },
   off: {
     pill: { word: "Off", tone: "bg-foreground/5 text-muted-foreground" },
     idle: "nothing while it is off",
+    review: null,
   },
   trusted: {
     pill: { word: "Trusted", tone: "bg-success/10 text-success" },
     idle: "nothing on this page or server",
+    review: null,
   },
-  on: { pill: null, idle: "nothing on this page or server" },
+  on: { pill: null, idle: "nothing on this page or server", review: null },
 };
 
 /** The status an extension leads with, as a pill; nothing for one of kb's build that is on. */
@@ -326,7 +335,7 @@ function OverflowMenu({
  * An extension's actions, by its state: the one its status asks for
  * (Review & trust, Review update, Turn on), and the rest in the menu:
  * reviewing a trusted digest, checking for and fetching an update, turning
- * it off and removing it. Nothing here trusts: Review opens the sheet,
+ * it on or off, and removing it. Nothing here trusts: Review opens the sheet,
  * where only the person's click does.
  */
 export function ExtensionActions({
@@ -342,18 +351,18 @@ export function ExtensionActions({
   const status = extensionStatus(row);
   const scope = row.origin.kind === "install" ? row.origin.scope : null;
   const switchable = row.required === undefined;
-  const primary =
-    status === "approval"
-      ? { label: "Review & trust", run: onReview }
-      : status === "update"
-        ? { label: "Review update", run: onReview }
-        : status === "off" && switchable
-          ? { label: "Turn on", run: () => void switchExtension(row.name, true) }
-          : null;
-  const review: MenuItem[] =
-    row.digest !== undefined && primary?.run !== onReview
-      ? [{ label: "Review code", run: onReview }]
-      : [];
+  const waiting = STATUS[status].review;
+  const review: MenuItem = { label: waiting ?? "Review code", run: onReview };
+  // On or off is the row's, whatever its status leads with: one off with an update to review
+  // still turns on, back to the approved digest.
+  const power: MenuItem | null = !switchable
+    ? null
+    : row.enabled
+      ? { label: "Turn off", run: () => void switchExtension(row.name, false) }
+      : { label: "Turn on", run: () => void switchExtension(row.name, true) };
+  // The one its status asks for: a review waiting, else turning an off one on; the menu holds the rest.
+  const primary = waiting !== null ? review : status === "off" ? power : null;
+  const reviews: MenuItem[] = row.digest !== undefined && primary !== review ? [review] : [];
   const lifecycle: MenuItem[] =
     scope === null
       ? []
@@ -373,10 +382,7 @@ export function ExtensionActions({
               ),
           },
         ];
-  const power: MenuItem[] =
-    switchable && row.enabled
-      ? [{ label: "Turn off", run: () => void switchExtension(row.name, false) }]
-      : [];
+  const powers: MenuItem[] = power !== null && power !== primary ? [power] : [];
   const removal: MenuItem[] =
     scope === null ? [] : [{ label: "Remove…", run: () => setConfirming(true), danger: true }];
   return (
@@ -391,7 +397,7 @@ export function ExtensionActions({
           {primary.label}
         </button>
       )}
-      <OverflowMenu name={row.label} groups={[review, lifecycle, power, removal]} />
+      <OverflowMenu name={row.label} groups={[reviews, lifecycle, powers, removal]} />
       {confirming && scope !== null && (
         <RemoveConfirm
           row={row}
