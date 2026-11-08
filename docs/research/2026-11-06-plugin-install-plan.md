@@ -175,7 +175,8 @@ overrides an installed `aurora` while you work on it.
 
 - **A running server keeps what it imported.** A running `kb ui` or
   `kb mcp` imported its closures from memory (a `data:` module), so it
-  keeps running the bytes it trusted (`closureCache`, one read per process).
+  keeps running the bytes it trusted. It reads each closure once per lock
+  state, not on every request.
 - **The next read sees the change.** That is the next start, or step 12's
   reload.
   - An edited extension has a new digest, so it is untrusted: it is skipped
