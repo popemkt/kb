@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -36,6 +37,10 @@ function memorySecrets() {
   };
   return { kept, store };
 }
+
+/** Where the host places an account's secret: named by a digest of the whole account id. */
+const placedRef = (account: string, secret: string) =>
+  `sealed:routines.${createHash("sha256").update(account).digest("hex").slice(0, 32)}.${secret}`;
 
 /** Real invoke, graph tail and family lifecycle; Calendar stays in memory. */
 test("routines is optional, outline fields preview through real actions, and unload stops its worker", async () => {
@@ -182,15 +187,15 @@ test("routines is optional, outline fields preview through real actions, and unl
       await call("ext.routines.client", { ...client, clientSecret: "GOCSPX-good" }),
     ).toMatchObject({ status: "succeeded" });
     // Kept where the host placed them, and the account names those references, not values.
-    expect(secrets.kept.get("sealed:routines.account.client-secret")).toBe("GOCSPX-good");
+    expect(secrets.kept.get(placedRef("account", "client-secret"))).toBe("GOCSPX-good");
     const account = await call("node.get", { id: "account", depth: 0 });
     expect(account).toMatchObject({
       output: {
         node: {
           props: {
-            [F.clientId]: [{ t: "str", v: "sealed:routines.account.client-id" }],
-            [F.clientSecret]: [{ t: "str", v: "sealed:routines.account.client-secret" }],
-            [F.refreshToken]: [{ t: "str", v: "sealed:routines.account.refresh-token" }],
+            [F.clientId]: [{ t: "str", v: placedRef("account", "client-id") }],
+            [F.clientSecret]: [{ t: "str", v: placedRef("account", "client-secret") }],
+            [F.refreshToken]: [{ t: "str", v: placedRef("account", "refresh-token") }],
           },
         },
       },
@@ -240,6 +245,24 @@ test("routines is optional, outline fields preview through real actions, and unl
     });
     expect(revoked).toEqual(["refresh"]);
     expect(secrets.kept.size).toBe(0);
+
+    // Two accounts whose ids a lossy name would merge keep their secrets apart:
+    // removing one leaves the other's untouched.
+    for (const id of ["team/a", "team-a"]) {
+      expect(await call("node.add", { id, text: id, tags: [T.account] })).toMatchObject({
+        status: "succeeded",
+      });
+      expect(
+        await call("ext.routines.client", { ...client, account: id, clientSecret: "GOCSPX-good" }),
+      ).toMatchObject({ status: "succeeded" });
+    }
+    expect(secrets.kept.size).toBe(4);
+    expect(await call("ext.routines.remove", { account: "team/a" })).toMatchObject({
+      status: "succeeded",
+    });
+    expect([...secrets.kept.keys()].toSorted()).toEqual(
+      [placedRef("team-a", "client-id"), placedRef("team-a", "client-secret")].toSorted(),
+    );
 
     expect(await call("extension.switch", { name: "routines", on: false })).toMatchObject({
       status: "succeeded",

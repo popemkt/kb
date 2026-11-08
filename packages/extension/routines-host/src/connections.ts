@@ -19,6 +19,7 @@
  * - **Remove.** The refresh token is revoked at Google, and what the host
  *   placed for the account is erased.
  */
+import { createHash } from "node:crypto";
 import { Clock, DateTime, Effect, Result } from "effect";
 import { onWire, type SecretStore, type UiHostService } from "@kb/contracts";
 import { formatSecretRef, typeRefsOf, type SecretRef } from "@kb/model";
@@ -39,12 +40,19 @@ import type { ConnectStep, RoutinesPluginOptions } from "./plugin.ts";
 const CONNECT_MS = 600_000;
 const ACCOUNT_SECRETS = ["client-id", "client-secret", "refresh-token"] as const;
 
-/** Where the host keeps `secret` for `account`: its own choice, never a node's. */
+/**
+ * Where the host keeps `secret` for `account`: its own choice, never a
+ * node's. The name carries a digest of the whole account id, so two
+ * accounts never share a secret, whatever characters their ids hold.
+ */
 const placed = (
   secrets: SecretStore,
   account: string,
   secret: (typeof ACCOUNT_SECRETS)[number],
-): SecretRef => secrets.place(`routines.${account.replaceAll(/[^A-Za-z0-9._-]/g, "-")}.${secret}`);
+): SecretRef =>
+  secrets.place(
+    `routines.${createHash("sha256").update(account).digest("hex").slice(0, 32)}.${secret}`,
+  );
 
 /**
  * Whether `account` names exactly the references the host placed for it.

@@ -5031,7 +5031,9 @@ setup page shows beside the field). `kb ui` binds `systemSecrets`
 - **Where a new secret goes.** `place` answers the macOS Keychain on macOS
   (`keychain:kb/<name>`) and the sealed store everywhere else
   (`sealed:<name>`). The host chooses the name, never a node: a node is
-  data anyone may have written, so it cannot steer a write.
+  data anyone may have written, so it cannot steer a write. A name a host
+  derives from a node id is a digest of the whole id, so two nodes never
+  share a secret.
 - **`sealed:<name>`** is the file `<data>/secrets/<name>.sealed` in kb's
   per-user data directory ([Locations](#locations)), 0600 in a 0700
   directory, never in a root. Its first line, `kb-sealed/1 <cipher>`, names

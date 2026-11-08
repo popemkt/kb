@@ -44,7 +44,7 @@ ID, client secret and refresh token in its secret store (DESIGN.md →
 Keychain on a Mac, and on Linux a file in kb's data directory sealed with
 `systemd-creds`, or with AES-256-GCM under a key file beside it where
 `systemd-creds` cannot seal. The account node holds only the references
-(`sealed:routines.<account>.client-secret`, …), and the page never receives a
+(`sealed:routines.<digest of the account id>.client-secret`, …), and the page never receives a
 value after you paste it. Agents cannot read them, and cannot set up, connect
 or remove a service: those actions require the person's approval.
 
