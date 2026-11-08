@@ -50,6 +50,9 @@ const STEPS: Readonly<
   calendars: { label: "Calendars", Body: CalendarsStep },
 };
 
+const MARKER_CLASS =
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-label";
+
 function StepMarker({
   setup,
   step,
@@ -59,18 +62,23 @@ function StepMarker({
   readonly step: SetupStep;
   readonly index: number;
 }) {
-  const done = stepDone(setup, step);
+  if (stepDone(setup, step))
+    return (
+      <span className={`${MARKER_CLASS} border-success bg-success/20 text-foreground`} aria-hidden>
+        <CheckIcon size={12} weight="bold" />
+      </span>
+    );
   return (
     <span
       className={cn(
-        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-label",
-        done && "border-success bg-success text-primary-foreground",
-        !done && currentStep(setup) === step && "border-primary text-primary",
-        !done && currentStep(setup) !== step && "border-border text-muted-foreground",
+        MARKER_CLASS,
+        currentStep(setup) === step
+          ? "border-primary text-primary"
+          : "border-border text-muted-foreground",
       )}
       aria-hidden
     >
-      {done ? <CheckIcon size={12} weight="bold" /> : index + 1}
+      {index + 1}
     </span>
   );
 }
@@ -109,7 +117,7 @@ function Stepper({
               className={cn(
                 "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ui text-foreground",
                 step === open ? "bg-accent shadow-edge" : "hover:bg-accent/60",
-                !reachable && "cursor-not-allowed text-muted-foreground hover:bg-transparent",
+                !reachable && "cursor-not-allowed opacity-60 hover:bg-transparent",
               )}
             >
               <StepMarker setup={setup} step={step} index={index} />
@@ -174,7 +182,7 @@ function RemoveDialog({
         </button>
         <button
           type="button"
-          className={cn(PRIMARY_BUTTON_CLASS, "bg-destructive hover:bg-destructive/90")}
+          className={cn(BUTTON_CLASS, "text-destructive hover:bg-destructive/10")}
           disabled={busy}
           onClick={onRemove}
         >
