@@ -7,13 +7,12 @@
  * that lowers detail before a busy page feels the scene. It knows nothing of
  * bats, and a composition (`composition.ts`) knows nothing of the clock.
  */
-import type { PointerSource } from "@kb/ui-sdk";
+import { meterFrames, type BackdropBudget, type PointerSource } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback.ts";
 import type { Composition, SceneConfig } from "./composition.ts";
 import { clamp } from "./math.ts";
 import { sceneClock } from "./clock.ts";
 import { sameLook, type Look } from "./look.ts";
-import { meterOf } from "./meter.ts";
 import { startReactions, type Reactions } from "./reactions.ts";
 
 export interface Stage {
@@ -29,14 +28,13 @@ export interface StageOptions {
   readonly reducedMotion: boolean;
   /** The pointer over the frame, as the page head declares it (`BackdropProps.pointer`). */
   readonly pointer: PointerSource;
-  /** A frame this long (ms) is over budget. */
-  readonly budgetMs: number;
+  /** What a frame may spend (`Backdrop.budget`), which the stage's frame meter holds it to. */
+  readonly budget: BackdropBudget;
 }
 
 /** The longest stretch of time one step may take; a stalled tab resumes smoothly, not in a leap. */
 const MAX_DT = 1 / 20;
 const MAX_DPR = 2;
-const MIN_QUALITY = 0.45;
 
 export function createStage(
   canvas: HTMLCanvasElement,
@@ -45,10 +43,9 @@ export function createStage(
 ): Stage {
   const reactions = startReactions();
   const context = canvas.getContext("2d");
-  const meter = meterOf(options.budgetMs);
+  const meter = meterFrames(canvas, options.budget);
   const clock = sceneClock();
   let current: Look | null = null;
-  let quality = 1;
   let width = 0;
   let height = 0;
   let last = 0;
@@ -56,7 +53,8 @@ export function createStage(
   let running = false;
   let raf = 0;
 
-  const dprNow = () => Math.min(window.devicePixelRatio || 1, MAX_DPR) * (quality < 0.7 ? 0.8 : 1);
+  const dprNow = () =>
+    Math.min(window.devicePixelRatio || 1, MAX_DPR) * (meter.quality() < 0.7 ? 0.8 : 1);
 
   const paint = () => {
     if (context === null) return;
@@ -71,9 +69,8 @@ export function createStage(
     const dpr = dprNow();
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
-    const config: SceneConfig = { width, height, dpr, quality, ...current };
+    const config: SceneConfig = { width, height, dpr, quality: meter.quality(), ...current };
     composition.configure(config);
-    canvas.dataset.quality = quality.toFixed(2);
     if (options.reducedMotion) composition.settle(reactions);
     if (options.reducedMotion || !running) paint();
   };
@@ -95,15 +92,8 @@ export function createStage(
     reactions.update(dt);
     composition.step(clock.advance(dt), reactions);
     paint();
-    const verdict = meter.record(performance.now() - began);
-    if (verdict !== null) {
-      canvas.dataset.frameMs = verdict.spent.toFixed(2);
-      // Lower detail while frames run over budget: the cost is the stage's to hold, not the page's to pay.
-      if (verdict.lower && quality > MIN_QUALITY) {
-        quality = Math.max(MIN_QUALITY, quality - 0.15);
-        configure();
-      }
-    }
+    // Lower detail while frames run over budget: the cost is the stage's to hold, not the page's to pay.
+    if (meter.record(performance.now() - began)) configure();
     raf = requestAnimationFrame(tick);
   };
 

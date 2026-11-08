@@ -147,6 +147,14 @@ export {
   type ViewProps,
 } from "./lib/plugins";
 export {
+  type FrameCost,
+  type FrameMeter,
+  type FrameMeterOptions,
+  type FrameMeterReading,
+  meterFrames,
+  readFrameMeter,
+} from "./lib/frame-meter";
+export {
   type FamilyView,
   MAX_VIEW_DEPTH,
   type SlotChain,

@@ -4157,8 +4157,14 @@ A PR for a backdrop reports a score against each criterion.
     `frameMs`): the page head's frame budget by what draws it
     (`BACKDROP_BUDGETS`), 6 ms of the GPU's time for a GPU scene, 2 ms of
     the main thread for a canvas scene, 1 ms for one the page's CSS draws.
-    A contribution names the one that applies, or less. The GPU host and
-    the 2D stage meter their frames against it (Cost, below); a backdrop
+    A contribution names the one that applies, or less. A backdrop that
+    draws to a canvas holds its frames to it with the kit's one frame
+    meter (`meterFrames`, `@kb/ui-sdk`): a smoothed cost per frame, a
+    verdict every 30 frames, and after three verdicts over budget its
+    quality steps down by 0.15, to a floor it names. The meter reports on
+    the canvas (`data-quality`, and `data-frame-ms` or `data-gpu-ms`),
+    where Backdrop Studio's readout reads it (`readFrameMeter`). The GPU
+    host and the 2D stage both meter with it (Cost, below); a backdrop
     the page's CSS or a vendor runtime draws is not metered (GAP
     [[01M6RT9R6AXGVYZWCSTG26EET8]]).
   - The component is its scene: the one factory the slot instantiates
@@ -4567,7 +4573,7 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
 - **The stage** (`stage.ts`) owns the canvas, a time-based loop (`dt`
   clamped, so any frame rate moves the same and a stall resumes without a
   leap), the pause (`watchPlayback`), the declared pointer and activity, and
-  a frame-cost meter: over its budget (`Backdrop.budget`, 2 ms for Sky and Roost) it lowers detail rather than
+  the frame meter (`meterFrames`): over its budget (`Backdrop.budget`, 2 ms for Sky and Roost) it lowers detail rather than
   costing the page. Under reduced motion it draws one still composition.
 - **Reactions** are eased signals (`reactions.ts`): the pointer scatters
   fliers locally and they regather; typing calms the scene; a write is a
@@ -4744,7 +4750,8 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   runs over, the backdrop steps its quality down (the offscreen pass's
   resolution; a ray's steps are never cut, or the photon ring goes first). On WebGPU the meter reads
   the stage's `gpuMs` (queue completion; gap 01M5STYVVX474T8WBT4FY341CM); on
-  WebGL2 it reads the frame interval. The canvas carries `data-quality` and
+  WebGL2 it reads the frame interval. The meter is the kit's frame meter
+  (`meterFrames`, floor 0.4), so the canvas carries `data-quality` and
   `data-gpu-ms`.
 - **Reduced motion** shows one still frame, of the curated seed (**Variation**).
 - **One scene for the life of the head.** The host mounts a scene once for
@@ -5500,9 +5507,9 @@ it as kb's own are, and a family switched off takes its backdrops out.
     back): it reaches every head that shows it, and a control that moves
     continuously settles first, so a drag is one write and one undo.
     Leaving the studio writes what is still settling.
-  - The **perf readout** is what the scene's own meter measured, read off
-    its canvas (`data-gpu-ms`, else `data-frame-ms`; `data-quality`;
-    `data-backend`), against the budget its contribution declares; a
+  - The **perf readout** is what the scene's own frame meter reported on
+    its canvas (`readFrameMeter`: `data-gpu-ms`, else `data-frame-ms`;
+    `data-quality`; `data-backend`), against the budget its contribution declares; a
     backdrop no host meters says so (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]).
 - **Reached** from a page head: a double-click on its backdrop offers
   _Open in Studio_ (Its actions, above), which opens the backdrop shown.

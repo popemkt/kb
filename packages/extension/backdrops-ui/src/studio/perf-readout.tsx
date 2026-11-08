@@ -1,51 +1,21 @@
 /**
- * The studio's perf readout: what the scene's own meter measured, read off
- * its canvas (`data-gpu-ms` where the backend reports GPU time, else
- * `data-frame-ms`; `data-quality`; `data-backend`), against the budget its
- * contribution declares (`Backdrop.budget`). A backdrop no host meters (a
- * CSS wash, a vendor runtime) says so.
+ * The studio's perf readout: what the scene's own frame meter reported on
+ * its canvas (`readFrameMeter`), against the budget its contribution
+ * declares (`Backdrop.budget`). A backdrop no frame meter meters (a CSS
+ * wash, a vendor runtime) says so.
  */
 import { useEffect, useState } from "react";
-import { cn, type BackdropBudget } from "@kb/ui-sdk";
+import { cn, readFrameMeter, type BackdropBudget, type FrameMeterReading } from "@kb/ui-sdk";
 
 /** How often the readout reads the meter: the meter itself reports over a window, not per frame. */
 const READ_MS = 500;
 
-interface Metered {
-  readonly backend: string | null;
-  /** Milliseconds a frame spent, as the meter last reported; null, not reported yet. */
-  readonly spent: number | null;
-  readonly quality: number | null;
-  /** Whether the frame draws to a canvas a host meters. */
-  readonly metered: boolean;
-}
-
-const UNMETERED: Metered = { backend: null, spent: null, quality: null, metered: false };
-
-const numberOf = (value: string | undefined): number | null => {
-  const n = value === undefined ? Number.NaN : Number(value);
-  return Number.isFinite(n) ? n : null;
-};
-
-/** What the meter in `frame` last reported. */
-function readMeter(frame: HTMLElement | null): Metered {
-  const canvas = frame?.querySelector<HTMLCanvasElement>("canvas[data-quality]");
-  if (canvas === null || canvas === undefined) return UNMETERED;
-  const { backend, gpuMs, frameMs, quality } = canvas.dataset;
-  return {
-    backend: backend ?? null,
-    spent: numberOf(gpuMs ?? frameMs),
-    quality: numberOf(quality),
-    metered: true,
-  };
-}
-
-function useMeter(frame: HTMLElement | null): Metered {
-  const [metered, setMetered] = useState<Metered>(UNMETERED);
+function useMeter(frame: HTMLElement | null): FrameMeterReading {
+  const [metered, setMetered] = useState(() => readFrameMeter(null));
   useEffect(() => {
     const read = () =>
       setMetered((before) => {
-        const next = readMeter(frame);
+        const next = readFrameMeter(frame);
         const same =
           next.backend === before.backend &&
           next.spent === before.spent &&

@@ -55,7 +55,7 @@ export function SceneStage({
     const made = createStage(element, factory(seed), {
       reducedMotion,
       pointer,
-      budgetMs: budget.frameMs,
+      budget,
     });
     stage.current = made;
     made.reactions.setEditing(latest.current.editing);
