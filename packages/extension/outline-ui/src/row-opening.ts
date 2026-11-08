@@ -9,12 +9,13 @@
 import { createElement, useMemo, type ReactNode } from "react";
 import { eachDisplayOption, type DisplayOption, type NodeId, type PropValue } from "@kb/model";
 import { OUTLINE_IDS } from "@kb/outline";
-import type { ViewKey } from "@kb/views";
+import type { HeldTagView, ViewKey } from "@kb/views";
 import {
   browserHost,
   nodePath,
   SYSTEM_IDS,
   tagOpeningOf,
+  tagRowViewOf,
   useContributions,
   useGraphRead,
   ViewPoint,
@@ -58,6 +59,19 @@ export function useRowOpening(node: OutlineNode | undefined): RowOpening | null 
       ),
     };
   }, [node, schema, views]);
+}
+
+/**
+ * The view `node`'s row is drawn as (`tagRowViewOf` over the page's catalog
+ * and views), or null when no tag of it names one this page draws there.
+ */
+export function useRowView(node: OutlineNode | undefined): HeldTagView | null {
+  const { schema } = useGraphRead();
+  const views = useContributions(ViewPoint);
+  return useMemo(
+    () => tagRowViewOf(node, browserHost().viewCatalog(), views, (id) => schema.get(id)),
+    [node, schema, views],
+  );
 }
 
 /** Open `node` in `view` in pane `pane`: the node menu's "Open with" for that view. */

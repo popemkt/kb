@@ -152,6 +152,7 @@ export {
   useService,
   useRoute,
   ViewPoint,
+  type RowSubject,
   type ViewProps,
 } from "./lib/plugins";
 export { decodeBackdrop, type RefusedBackdrop } from "./lib/backdrop-decode";
@@ -601,6 +602,6 @@ export {
 } from "./lib/pointer-over";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
-export { tagOpeningOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
+export { tagOpeningOf, tagRowViewOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
 
 export { PAGE_EXTENSION_SDK } from "./page-extension-sdk";

@@ -14,7 +14,7 @@ import {
   type NodeId,
   type PropValue,
 } from "@kb/model";
-import { heldTagViewOf, ignoreReport, type ViewKey } from "@kb/views";
+import { heldTagViewOf, ignoreReport, type HeldTagView, type ViewKey } from "@kb/views";
 import type { Contribution } from "@kb/plugin";
 import type { ProvidedView } from "./plugins";
 import type { ViewPicker } from "./view-key";
@@ -72,4 +72,24 @@ export function tagOpeningOf(
     }),
     settings: displaySettingsOf(held.key.id, lookup),
   };
+}
+
+/**
+ * The view `node`'s row is drawn as (DESIGN-UI.md → Row views): the first
+ * of its tags' row views the catalog holds (`heldTagViewOf`, in `row`), when
+ * one of `views` draws it at placement `row`; else null, and the row is its
+ * text. Nodes are read through `lookup`.
+ */
+export function tagRowViewOf(
+  node: Carrier | undefined,
+  catalog: KeyCatalog,
+  views: readonly Contribution<ProvidedView>[],
+  lookup: (id: NodeId) => Carrier | undefined,
+): HeldTagView | null {
+  const held = heldTagViewOf(node, "row", catalog.keyOf, lookup, ignoreReport);
+  if (held === null) return null;
+  const drawn = views.some(
+    ({ value }) => value.key === held.key && value.placements.includes("row"),
+  );
+  return drawn ? held : null;
 }

@@ -94,6 +94,15 @@ export interface ExtensionDeclaration {
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
   /**
+   * The tags whose nodes an outline draws as one of its own `views`, in
+   * place of their row's text while no one edits it (DESIGN-UI.md → Row
+   * views): by the tag's id, the view's key, which its page half provides
+   * at placement `row`. The seed writes each as the tag node's
+   * `sys.f.view.row`, which a person may change there, and refuses a tag
+   * another declaration claims, as it does `tagDefaultViews`.
+   */
+  readonly tagRowViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
+  /**
    * The declared options the family contributes (DESIGN.md → Extension
    * families → Declared options), by kind: page-head backdrops
    * (`BACKDROP_OPTIONS`), design systems (`DESIGN_SYSTEM_OPTIONS`), or the

@@ -3,10 +3,11 @@
  * against `kb-ext-sdk` as its author would write it (DESIGN.md → Core
  * boundary & extensions → repository extensions). Its server entry
  * provides a service, loads a child plugin that injects it to answer an
- * action, and loads its declaration's plugin for its view; its declaration
- * names a backdrop; its page entry draws that view, adds a sidebar section,
- * contributes the backdrop, metered by the kit's frame meter, and binds keys
- * in the outline's contexts. Its files share a helper
+ * action, and loads its declaration's plugin for its views; its declaration
+ * names a backdrop, seeds a tag and claims the tag's rows for one of its
+ * views; its page entry draws the board as a page and the note at a row,
+ * adds a sidebar section, contributes the backdrop, metered by the kit's
+ * frame meter, and binds keys in the outline's contexts. Its files share a helper
  * directory, so its closure holds more than its two entries.
  */
 import { Effect } from "effect";
@@ -23,11 +24,18 @@ export const EXAMPLE_EXTENSION: Readonly<Record<string, string>> = {
   defineExtension,
   viewDef,
   viewKey,
+  type KbNode,
   type SeedBackdrop,
 } from "kb-ext-sdk";
 
-/** The example's one view: a board, which its page half draws. */
+/** The example's page: a board, which its page half draws. */
 export const BoardView = viewKey("example.board", "Example board", NoParams);
+
+/** The view a \`#noted\` row is drawn as, which its page half draws at a row. */
+export const NoteView = viewKey("example.note", "Example note", NoParams);
+
+/** The tag it seeds, whose nodes are drawn as a note: \`example.<local id>\`, in its namespace. */
+export const NOTED = "example.noted";
 
 /** The example's backdrop: a glow drifting across the head, with two knobs. */
 export const Glow: SeedBackdrop = {
@@ -45,7 +53,21 @@ export const declaration = defineExtension({
   name: "example",
   label: "Example",
   optional: { byDefault: "on" },
-  views: [viewDef(BoardView, { body: () => ["An example board."] })],
+  seed: (at): readonly KbNode[] => [
+    {
+      id: NOTED,
+      text: "noted",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] },
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    },
+  ],
+  views: [
+    viewDef(BoardView, { body: () => ["An example board."] }),
+    viewDef(NoteView, { body: () => ["An example note."] }),
+  ],
+  tagRowViews: { [NOTED]: NoteView },
   declaredOptions: [{ kind: BACKDROP_OPTIONS, options: [Glow] }],
 });
 `,
@@ -172,9 +194,26 @@ import {
   provideBackdrop,
   provideKeybinding,
   provideView,
+  type ViewProps,
 } from "kb-ext-sdk/page";
-import { BoardView, Glow, declaration } from "./lib/declaration.ts";
+import { BoardView, Glow, NoteView, declaration } from "./lib/declaration.ts";
 import { GlowScene } from "./lib/glow.tsx";
+
+/** Its declaration, as the page half reads it too: a test seeds a page from it. */
+export { declaration };
+
+function Board() {
+  return <section data-example="board">An example board</section>;
+}
+
+function Section() {
+  return <nav data-example="section">Example</nav>;
+}
+
+/** A \`#noted\` row: the row's own text, as the outline drew it, set in a note. */
+function Note({ host }: ViewProps<unknown>) {
+  return <aside data-example="note" data-row={host.row?.id}>{host.row?.text}</aside>;
+}
 
 /**
  * Its keys: Alt-↑ moves the row in both of the outline's contexts, each
@@ -202,17 +241,6 @@ const KEYS = [
   }),
 ];
 
-/** Its declaration, as the page half reads it too: a test seeds a page from it. */
-export { declaration };
-
-function Board() {
-  return <section data-example="board">An example board</section>;
-}
-
-function Section() {
-  return <nav data-example="section">Example</nav>;
-}
-
 export default definePlugin({
   name: declaration.name,
   apply: (ctx) =>
@@ -222,6 +250,10 @@ export default definePlugin({
         ctx.contribute(
           ViewPoint,
           provideView(BoardView, { placements: ["page"], sample: {}, Component: Board }),
+        ),
+        ctx.contribute(
+          ViewPoint,
+          provideView(NoteView, { placements: ["row"], sample: {}, Component: Note }),
         ),
         ctx.contribute(SidebarSectionPoint, { id: "section", value: { order: 90, Component: Section } }),
         ...KEYS.map((binding) => ctx.contribute(KeybindingPoint, binding)),

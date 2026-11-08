@@ -1,7 +1,7 @@
 import { Suspense, useContext, useMemo, type ReactElement } from "react";
 import { EnclosingSlots } from "./slot-chain";
 import { ViewErrorBoundary } from "./view-error-boundary";
-import { useView, type Placement, type ViewHost } from "../lib/plugins";
+import { useView, type Placement, type RowSubject, type ViewHost } from "../lib/plugins";
 import { slotLink, slotRenders, type SlotChain } from "../lib/view-key";
 import type { ViewKey } from "@kb/views";
 
@@ -30,6 +30,7 @@ export function ViewSlot<P>({
   fallback,
   subject,
   viewNode,
+  row,
   pending = PENDING,
 }: {
   readonly view: ViewKey<P>;
@@ -48,14 +49,20 @@ export function ViewSlot<P>({
   readonly subject?: string;
   /** The view node the view is drawn from, when it is drawn from one (`ViewHost.viewNode`). */
   readonly viewNode?: string;
+  /** The row the view draws, at placement `row` (`ViewHost.row`). */
+  readonly row?: RowSubject;
   /** Shown in the slot's box while the view's code or data is still loading. */
   readonly pending?: ReactElement | null;
 }) {
   const provided = useView(view);
   const outer = useContext(EnclosingSlots);
   const host = useMemo(
-    (): ViewHost => (viewNode === undefined ? { placement } : { placement, viewNode }),
-    [placement, viewNode],
+    (): ViewHost => ({
+      placement,
+      ...(viewNode === undefined ? {} : { viewNode }),
+      ...(row === undefined ? {} : { row }),
+    }),
+    [placement, viewNode, row],
   );
   const link = slotLink(view, subject);
   const chain = useMemo((): SlotChain => [...outer, link], [outer, link]);

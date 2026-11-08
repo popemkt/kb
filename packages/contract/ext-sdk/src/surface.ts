@@ -368,6 +368,13 @@ export interface ExtensionDeclaration {
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
   /**
+   * The tags whose nodes an outline draws as one of its own `views`, in
+   * place of their row's text while no one edits it: by the tag's id, the
+   * view's key, which its page half provides at placement `row`. A tag
+   * another declaration already claims makes this one not fold.
+   */
+  readonly tagRowViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
+  /**
    * The declared options it contributes, by kind (a design system, a
    * backdrop): each named by the id its page contribution answers to.
    */

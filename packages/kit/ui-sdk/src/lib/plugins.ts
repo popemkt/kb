@@ -19,6 +19,7 @@ import {
   type ComponentType,
   type FunctionComponent,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Cause, Effect } from "effect";
@@ -61,13 +62,30 @@ import type { OutlineNode } from "./types";
  * under the row of the frame whose children it lays out; `preview` is a
  * compact, read-only picture of a node under its row, in a box of fixed
  * height, which a view offers exactly when its key says it draws one
- * (`ViewKey.preview`, {@link provideView}). The rest of the placements wait
- * on their first host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
+ * (`ViewKey.preview`, {@link provideView}); `row` is a node's row itself, in
+ * place of its text while no one edits it, where a tag names the view its
+ * nodes are drawn as (`sys.f.view.row`), handed the row it draws
+ * ({@link ViewHost.row}). The rest of the placements wait on their first
+ * host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
-export type Placement = "page" | "inline" | "preview";
+export type Placement = "page" | "inline" | "preview" | "row";
 
 /** The placements a contribution lists itself: `preview` is its key's to say. */
 type ListedPlacement = Exclude<Placement, "preview">;
+
+/**
+ * The row a view at placement `row` draws (DESIGN-UI.md → Row views): the
+ * node the row shows and its text, which is all of the graph such a view is
+ * handed. `text` is that text as the outline draws it, references as pills,
+ * and pressing it edits the row where it was pressed, so a view places it
+ * rather than drawing the markdown itself.
+ */
+export interface RowSubject {
+  readonly id: string;
+  /** The text as written: inline markdown, a reference as `[[id|label]]`. */
+  readonly markdown: string;
+  readonly text: ReactNode;
+}
 
 /** What a host guarantees a view: never a store, never `ctx`. */
 export interface ViewHost {
@@ -78,6 +96,8 @@ export interface ViewHost {
    * writes them. Absent for a view drawn from a view type or from code.
    */
   readonly viewNode?: string;
+  /** The row it draws: present exactly at placement `row`. */
+  readonly row?: RowSubject;
 }
 
 export interface ViewProps<P> {

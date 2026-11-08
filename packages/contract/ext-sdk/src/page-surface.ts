@@ -30,19 +30,35 @@ import type {
 
 /**
  * Where a host renders a view: filling the page's box, inline in the
- * outline's flow, or as a compact read-only preview under a node's row,
- * which a view draws exactly when its key says so (`ViewKey.preview`).
+ * outline's flow, as a compact read-only preview under a node's row, which
+ * a view draws exactly when its key says so (`ViewKey.preview`), or as a
+ * node's row itself, in place of its text while no one edits it, for the
+ * nodes of a tag that names it (`tagRowViews`, `sys.f.view.row`).
  */
-export type Placement = "page" | "inline" | "preview";
+export type Placement = "page" | "inline" | "preview" | "row";
 
 /** The placements a contribution lists itself: `preview` is its key's to say. */
 export type ListedPlacement = Exclude<Placement, "preview">;
+
+/**
+ * The row a view at placement `row` draws: the node the row shows and its
+ * text, all of the graph it is handed. `text` is that text drawn as the
+ * outline draws it; pressing it edits the row there, so a view places it.
+ */
+export interface RowSubject {
+  readonly id: string;
+  /** The text as written: inline markdown, a reference as `[[id|label]]`. */
+  readonly markdown: string;
+  readonly text: ReactNode;
+}
 
 /** What a host guarantees a view: never a store. */
 export interface ViewHost {
   readonly placement: Placement;
   /** The view node the host draws the view from, when it draws one. */
   readonly viewNode?: string;
+  /** The row it draws: present exactly at placement `row`. */
+  readonly row?: RowSubject;
 }
 
 export interface ViewProps<P> {

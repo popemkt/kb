@@ -249,7 +249,14 @@ export {
   seededTag,
   systemSeedNodes,
 } from "./seed.ts";
-export { foldSeed, type FoldedSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
+export {
+  claimedTagViews,
+  foldSeed,
+  TAG_VIEW_CLAIMS,
+  type FoldedSeed,
+  type SeedSource,
+  type SeedView,
+} from "./seed-fold.ts";
 export type { SeedRetirement } from "./seed-retirement.ts";
 export { themeBackdrop, themeSystem } from "./theme.ts";
 export {

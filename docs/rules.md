@@ -474,12 +474,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
-### GAP: a tag's view.default picker offers view types no node opens in
+### GAP: a tag's view pickers offer view types that cannot play their part
 
-- **expected** — the picker on a tag's view.default offers only the view types a node can be shown in (showsANode), the outline among them
-- **current** — it offers every option of sys.views (the home, the canvas list, the 2D and 3D renderers); choosing one of those is reported at open and passed over, so the node opens in the store's default
+- **expected** — the picker on a tag's view.default offers only the view types a node can be shown in (showsANode), the outline among them; the one on its view.row only the views a page draws at placement row
+- **current** — both offer every option of sys.views (the home, the canvas list, the 2D and 3D renderers). A default naming one of those is reported at open and passed over, so the node opens in the store's default; a row view the page does not draw at row is passed over, so the row is its text
 - **impact** — a person can pick a choice that silently does nothing for the tag's nodes apart from a warning in the log
-- **closes** — the field's option set narrowed by what a view shows (an option filter read from the view catalog), shared by the store default and the tag default
+- **closes** — each field's option set narrowed by what a view does (an option filter read from the view catalog for the default, from the page's placements for the row), shared by the store default and the tag fields
 - **node** — `01M69DX3D78HDQJ7W5E4HGC4PJ`
 
 ### GAP: a theme cannot bring a graph look of its own
@@ -525,8 +525,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: a view host is placement-only, and Placement is only page
 
 - **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
-- **current** — Placement is page | inline; ViewHost carries only placement. ViewSlot counts embeds by an exact (view, subject) ancestor chain plus MAX_VIEW_DEPTH=32 (slotRenders in lib/view-key.ts), and the keyboard walk asks the same rule.
-- **impact** — No view can be embedded at card, beside, float, inline or hover size yet, and a view cannot learn its box size, the appearance key or the reduced-motion preference from its host, so the shared suite cannot check those properties. Nothing breaks today, because every host asks for page placement.
+- **current** — Placement is page | inline | preview | row. ViewHost carries placement, the view node a host draws from (viewNode), and at row the row it draws (RowSubject: the node, its markdown, its text as the outline drew it). ViewSlot counts embeds by an exact (view, subject) ancestor chain plus MAX_VIEW_DEPTH=32 (slotRenders in lib/view-key.ts), and the keyboard walk asks the same rule. view-contract mounts each view at each placement it offers, a row view with a sample row.
+- **impact** — No view can be embedded at card, beside, float or hover size yet, and a view cannot learn its box size, the appearance key or the reduced-motion preference from its host, so the shared suite cannot check those properties.
 - **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, have ViewSlot measure its box, and add the matching view-contract properties.
 - **node** — `01M3EZR20H0CDF5MD01M2S26C5`
 

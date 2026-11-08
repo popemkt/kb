@@ -86,12 +86,15 @@ export function defaultViewTypeOf(views: Carrier | undefined): NodeId | null {
  * The views a tag names for its nodes, by the part each plays: the field of
  * the tag node that names it, and what the part is called. `default` is the
  * view type a node that names no view opens in (`sys.f.view.default`, the
- * field `sys.views` names the store's in, {@link defaultViewTypeOf}). Each
- * is a ref to a view's option, which a declaration claims for its tags and
+ * field `sys.views` names the store's in, {@link defaultViewTypeOf}); `row`
+ * is the view its nodes are drawn as in an outline, in place of their row's
+ * text (`sys.f.view.row`, DESIGN-UI.md → Row views). Each is a ref to a
+ * view's option, which a declaration claims for its tags and
  * a person may change on the tag (DESIGN.md → View nodes).
  */
 export const TAG_VIEWS = {
   default: { field: SYSTEM_IDS.viewDefaultField, label: "default view type" },
+  row: { field: SYSTEM_IDS.viewRowField, label: "row view" },
 } as const;
 
 /** A part a tag's view plays for its nodes ({@link TAG_VIEWS}). */

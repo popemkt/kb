@@ -34,6 +34,7 @@ import {
   ViewSlot,
   type Placement,
   type ProvidedView,
+  type RowSubject,
   type ViewProps,
 } from "@kb/ui-sdk";
 import { setPostAction } from "@/api/action";
@@ -152,6 +153,22 @@ async function until(ready: () => boolean, ms = 3000): Promise<void> {
   }
 }
 
+/** A view that shows the row it was handed, or `none`. */
+function RowProbe({ host }: ViewProps<unknown>): ReactElement {
+  return (
+    <div data-contract-row={host.row?.id ?? "none"} data-contract-placement={host.placement}>
+      {host.row?.text}
+    </div>
+  );
+}
+
+/** The row a contract slot at `row` hands a view: a node, its markdown, and its text as drawn. */
+const SAMPLE_ROW: RowSubject = {
+  id: "contract.row",
+  markdown: "A row's **text**",
+  text: <span data-contract-row-text="true">A row's text</span>,
+};
+
 const FALLBACK = <p data-contract-fallback="true">fallback</p>;
 const SUSPENDED = <p data-contract-suspended="true">loading</p>;
 
@@ -199,7 +216,10 @@ describe("view contract", () => {
     container.remove();
   });
 
-  /** A host that stays up whatever its slot does, and the slot inside it. */
+  /**
+   * A host that stays up whatever its slot does, and the slot inside it. At
+   * `row` the slot hands the view a row, as the outline does.
+   */
   async function mount(
     view: ProvidedView,
     placement: Placement = firstPlacement(view),
@@ -212,6 +232,7 @@ describe("view contract", () => {
           placement={placement}
           fallback={FALLBACK}
           pending={SUSPENDED}
+          {...(placement === "row" ? { row: SAMPLE_ROW } : {})}
         />
       </section>
     );
@@ -381,6 +402,22 @@ describe("view contract", () => {
         ]),
       );
     }
+
+    it("hands a view at row the row it draws, and a view at any other placement none", () => {
+      provide(provideView(KEY, { placements: ["page", "row"], sample: {}, Component: RowProbe }));
+      act(() =>
+        root.render(
+          <>
+            <ViewSlot view={KEY} params={{}} placement="row" row={SAMPLE_ROW} fallback={FALLBACK} />
+            <ViewSlot view={KEY} params={{}} placement="page" fallback={FALLBACK} />
+          </>,
+        ),
+      );
+      const [atRow, atPage] = container.querySelectorAll("[data-contract-row]");
+      expect(atRow?.getAttribute("data-contract-row")).toBe(SAMPLE_ROW.id);
+      expect(atRow?.querySelector("[data-contract-row-text]")).not.toBeNull();
+      expect(atPage?.getAttribute("data-contract-row")).toBe("none");
+    });
 
     it("shows a view again down its own tree, for other subjects, up to MAX_VIEW_DEPTH", () => {
       provide(

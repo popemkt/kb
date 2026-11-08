@@ -87,6 +87,13 @@ export interface SeedSource {
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, SeedView>>;
   /**
+   * The tags whose nodes an outline draws as one of this source's own
+   * `views`, in place of their row's text: by the tag node's id, the view's
+   * key. The fold writes each as that tag node's `sys.f.view.row`; a tag two
+   * sources claim is refused.
+   */
+  readonly tagRowViews?: Readonly<Record<NodeId, SeedView>>;
+  /**
    * The seeded ids it renamed or removed since a store could have been
    * seeded with them, each with what replaced it, if anything, and the
    * labels it changed: its rows of the retirement table (`SeedRetirement`),
@@ -97,13 +104,27 @@ export interface SeedSource {
 
 /**
  * Where a source claims views for its tags, by the part they play
- * (`TAG_VIEWS`): its own table for each role.
+ * (`TAG_VIEWS`): the key of its own table for each role, by the tag's id
+ * the view's key.
  */
-const TAG_VIEW_CLAIMS: {
-  readonly [R in TagViewRole]: (source: SeedSource) => SeedSource["tagDefaultViews"];
-} = {
-  default: (source) => source.tagDefaultViews,
-};
+export const TAG_VIEW_CLAIMS = {
+  default: "tagDefaultViews",
+  row: "tagRowViews",
+} as const satisfies Record<TagViewRole, keyof SeedSource>;
+
+/** Every role a tag's view plays, in the order `TAG_VIEWS` lists them. */
+const TAG_VIEW_ROLES = Object.keys(TAG_VIEWS).filter(
+  (role): role is TagViewRole => role in TAG_VIEW_CLAIMS,
+);
+
+/** Every view `source` claims for a tag, role by role: the role, the tag, the view. */
+export function claimedTagViews(
+  source: SeedSource,
+): { readonly role: TagViewRole; readonly tag: NodeId; readonly view: SeedView }[] {
+  return TAG_VIEW_ROLES.flatMap((role) =>
+    Object.entries(source[TAG_VIEW_CLAIMS[role]] ?? {}).map(([tag, view]) => ({ role, tag, view })),
+  );
+}
 
 /**
  * One source's claim on a view one carrier node names: the node and the
@@ -119,11 +140,6 @@ interface ViewClaim {
   readonly by: SeedSource;
 }
 
-/** Every role a tag's view plays, in the order `TAG_VIEWS` lists them. */
-const TAG_VIEW_ROLES = Object.keys(TAG_VIEWS).filter(
-  (role): role is TagViewRole => role in TAG_VIEW_CLAIMS,
-);
-
 /** Every view `sources` claim, in source order: the store's default, then each tag's, role by role. */
 function viewClaims(sources: readonly SeedSource[]): ViewClaim[] {
   return sources.flatMap((source) => [
@@ -137,14 +153,12 @@ function viewClaims(sources: readonly SeedSource[]): ViewClaim[] {
             by: source,
           },
         ]),
-    ...TAG_VIEW_ROLES.flatMap((role) =>
-      Object.entries(TAG_VIEW_CLAIMS[role](source) ?? {}).map(([on, view]) => ({
-        on,
-        ...TAG_VIEWS[role],
-        view,
-        by: source,
-      })),
-    ),
+    ...claimedTagViews(source).map(({ role, tag, view }) => ({
+      on: tag,
+      ...TAG_VIEWS[role],
+      view,
+      by: source,
+    })),
   ]);
 }
 

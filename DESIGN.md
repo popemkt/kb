@@ -1098,6 +1098,13 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     families, and for a repository extension a declaration that does not
     fold, refused as a unit and reported (Extension families). Never
     resolved by order.
+  - **One table of roles.** A tag names a view in more than one part
+    (`TAG_VIEWS`, `@kb/model`): `default`, the view type its nodes open
+    in, and `row`, the view an outline draws their rows as
+    (`sys.f.view.row`, DESIGN-UI → Row views). Each role is a field of the
+    tag node and a table of the declaration (`TAG_VIEW_CLAIMS`), read by
+    `tagViewsOf` and `heldTagViewOf` with the role and folded by one claim
+    rule, so a role is a row of the table, never a parallel path.
   - **The person overrides it on the tag.** `sys.f.view.default` is a
     setting of the kind `sys.tag` (`sys.f.configures` naming a kind: every
     node of it), and the kind templates it, so every tag's page shows the
@@ -3295,7 +3302,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
+manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, tagRowViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
   of what it says about itself (`manifest`, `ExtensionManifestSchema` in
   `@kb/contracts`: the one line Settings shows under its label, its author,
   links, licence and capabilities; what each field means is
@@ -3456,7 +3463,9 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     composes beside the registry, such as `kb ui`'s agent: its code is that
     host's, its seed is every store's), with `sys.views` naming the default
     view type its one provider declares (`defaultView`), and each claimed
-    tag naming the view type its one claimant declares (`tagDefaultViews`);
+    tag naming the view its one claimant declares in each role
+    (`TAG_VIEW_CLAIMS`: `tagDefaultViews` for the view type it opens in,
+    `tagRowViews` for the view its rows are drawn as, DESIGN-UI → Row views);
   - each declaration's own node, `sys.extension.<name>`, derived from it as
     a view's option is derived from its key: named by its label, holding
     the defaults of the settings the fold derives for it (the display

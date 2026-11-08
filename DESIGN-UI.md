@@ -2324,7 +2324,9 @@ a separate point that only points at it.
   `inline` (the view sits in the outline's flow, under the row of the frame
   it shows) or `preview` (the view draws a node in a small fixed box under
   its row; a contribution never lists it — `provideView` offers it because
-  the view's key says `preview`, the one statement of it), and, when the host draws the view from a view node, that node
+  the view's key says `preview`, the one statement of it) or `row` (the
+  view draws a node's row in place of its text, for the nodes of a tag
+  that names it; the host hands it the row as `row`, see Row views below), and, when the host draws the view from a view node, that node
   (`viewNode`, which the slot takes and the node route passes): where a view
   that edits its own settings writes them (the chart's spec editor). A view
   drawn from a view type or from code has none. The rest of the host contract (size, appearance, reduced motion,
@@ -2733,6 +2735,31 @@ until "Save workspace".
     row's fields section, and the zoomed node's, reveal the fields of the
     tag that opens it, drawn as any other field (`RowOpening.revealed`).
   - With the family off there is no opening, so no option.
+- **Row views.** A tag may name the view its nodes are drawn as in an
+  outline, in place of their row's text: `sys.f.view.row` on the tag node,
+  a setting of every tag as `view.default` is (DESIGN.md → View nodes), so
+  a person chooses it on the tag and a declaration's claim (`tagRowViews`)
+  is only where it starts. A node is drawn as the first of its tags' row
+  views the page holds (`heldTagViewOf` in the role `row`), when the page
+  draws that view at placement `row` (`tagRowViewOf`, `useRowView`); else
+  its row is its text. It is a placement of a view like any other, never a
+  second renderer: "render `#callout` as a callout" is a view of the node,
+  drawn where its row is (the parity record, §3.1).
+  - **The text stays the outline's.** The view is drawn only while no one
+    edits the row, and the text host draws the text it holds
+    (`NodeTextHost`'s `display`): the host hands the view its row
+    (`ViewHost.row`, `RowSubject`: the node, its markdown, and its text as
+    the host drew it), and the view places that text. So pressing the text
+    edits the row where it was pressed, and while the row is edited it is
+    the text host's alone: caret, history and keys are never a plugin's.
+    The row's chips stay beside it, and the view is its own block
+    formatting context, so it sits beside them rather than under.
+  - **It is all the view reads.** A row view is handed its row, not the
+    graph; one that wants more is a page power (T3) like any page half.
+  - **Where it cannot draw, the row is its text:** params that do not
+    decode, an owner switched off, a view still loading. A view that throws
+    is contained by its slot, as every view is (promise 3).
+  - (`row-view.tsx`, `@kb/outline-ui`)
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,

@@ -28,7 +28,7 @@ import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
 import { RowPreview } from "./row-preview";
-import { openIn, useRowOpening } from "./row-opening";
+import { openIn, useRowOpening, useRowView } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { ViewToolbar } from "./view-toolbar";
@@ -127,6 +127,8 @@ export const NodeBlock = memo(function NodeBlock({
   const frameViewKey = frameView?.key ?? null;
   // The view the shown node's tag opens it in: on its tag's chip, and how the row shows the node.
   const opening = useRowOpening(shown);
+  // The view the shown node's tag draws its row as, in place of its text.
+  const rowView = useRowView(shown);
   const pane = usePane();
 
   if (!node || !shown) return null;
@@ -172,6 +174,7 @@ export const NodeBlock = memo(function NodeBlock({
                 instanceKey={instanceKey}
                 isActive={isActive}
                 tags={shown.tags}
+                rowView={rowView?.key ?? null}
                 tagAction={
                   opening === null
                     ? undefined

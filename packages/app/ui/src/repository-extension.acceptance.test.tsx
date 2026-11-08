@@ -33,8 +33,8 @@ const { BROWSER_EXTENSIONS, extensionsSettled, startUiPlugins } = await import("
 
 const SERVED_AT = EXAMPLE_SERVED_AT;
 
-/** How many contributions the example's page half makes: its view, section, backdrop and keys, and its declaration's view. */
-const FOOTPRINT = 7;
+/** How many contributions the example's page half makes: its views' keys and drawings, its section, its keys and its backdrop. */
+const FOOTPRINT = 9;
 
 /** Where the server says the half is: the example's, or bytes that throw as they are imported. */
 let servedAt = SERVED_AT;
@@ -94,12 +94,14 @@ describe("a repository extension's page half (acceptance)", () => {
     setPostAction(null);
   });
 
-  it("loads beside the bundled families, and its view, sidebar section and keys are the page's", async () => {
+  it("loads beside the bundled families, and its views, sidebar section and keys are the page's", async () => {
     loaded = true;
     await follow();
     expect(pageFootprint("example").map(({ kind, id }) => [kind, id])).toEqual([
       ["kb.views", "example.board"],
+      ["kb.views", "example.note"],
       ["ui.views", "example.board"],
+      ["ui.views", "example.note"],
       ["ui.sidebar", "example.section"],
       ["ui.keybindings", "example.move-up"],
       ["ui.keybindings", "example.move-up-selected"],
