@@ -10,27 +10,30 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { Effect, Layer, Schema } from "effect";
+import { dirname, isAbsolute, join, resolve, relative } from "node:path";
+import { Effect, Layer, Schema, Option } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { containedPath } from "./contained.ts";
+import { canonicalRoot } from "./ui-presence.ts";
 import {
   SOURCE_LIMITS,
   checkedTree,
   pinnedSchema,
   type ObjectFile,
-  type PinnedSource,
-  type SourceTree,
+  type SelectedSource,
 } from "@kb/extension-source";
 import {
   CachedSourceSchema,
   ExtensionStorage,
   ExtensionLockSchema,
-  ExtensionNameSchema,
-  SourceHashSchema,
+  SourceKindSchema,
+  SourceAddressSchema,
   type ExtensionLock,
   type ExtensionScope,
-  type CachedExtension,
+  type CachedTree,
+  type SourceAddress,
+  type SourceSelection,
+  type ExtensionTransaction,
 } from "@kb/contracts";
 import { domainError, ensureDomainError } from "@kb/model";
 import {
@@ -123,18 +126,40 @@ const locked = <A, E, R>(path: string, body: Effect.Effect<A, E, R>) =>
     (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
   );
 
-const lockPath = (data: string, root: string, scope: ExtensionScope) =>
-  scope === "user"
-    ? join(data, "lock.json")
-    : join(root, ".kb", scope === "local" ? "extensions.local.json" : "extensions.lock.json");
-const address = (data: string, name: string, files: string) =>
-  join(data, "store", `${files.slice(7, 39)}-${name}`);
-const pinPath = (data: string, pin: PinnedSource) =>
+const localKey = (root: string) => createHash("sha256").update(root).digest("hex");
+const rootRecord = Schema.decodeUnknownOption(Schema.Struct({ root: Schema.String }));
+const lockLocation = Effect.fn("extensions.lockLocation")(function* (
+  data: string,
+  root: string,
+  scope: ExtensionScope,
+) {
+  if (scope === "local") {
+    const canonical = yield* canonicalRoot(root);
+    return { path: join(data, "local", `${localKey(canonical)}.json`), root: canonical };
+  }
+  return {
+    path: scope === "user" ? join(data, "lock.json") : join(root, ".kb", "extensions.lock.json"),
+    root: undefined,
+  };
+});
+type LockLocation = Effect.Success<ReturnType<typeof lockLocation>>;
+const address = (data: string, key: SourceAddress) =>
+  join(
+    data,
+    "store",
+    `${key.files.slice(7, 39)}-${key.name}${key.kind === "marketplace" ? ".marketplace" : ""}`,
+  );
+const pinPath = (data: string, selection: SourceSelection) =>
   join(
     data,
     "refs",
     `${createHash("sha256")
-      .update(JSON.stringify(pinnedSchema.parse(pin)))
+      .update(
+        JSON.stringify({
+          kind: SourceKindSchema.parse(selection.kind),
+          pin: pinnedSchema.parse(selection.pin),
+        }),
+      )
       .digest("hex")}.json`,
   );
 const checkedLock = Effect.fn("extensions.lock.check")(function* (
@@ -146,29 +171,67 @@ const checkedLock = Effect.fn("extensions.lock.check")(function* (
     try: () => ExtensionLockSchema.parse(value),
     catch: () => domainError("invalid_input", "invalid extension lock schema"),
   });
-  if (scope === "store")
-    for (const path of lock.links) {
-      if (isAbsolute(path) || (yield* containedPath(root, resolve(root, path))) === null)
-        return yield* domainError(
-          "invalid_input",
-          `store extension link must be relative and resolve inside the repository: ${path}`,
-        );
-    }
-  return lock;
+  const failures: { file: string; error: string }[] = [];
+  const links: string[] = [];
+  for (const path of lock.links) {
+    const safe =
+      scope !== "store" ||
+      (!isAbsolute(path) && (yield* containedPath(root, resolve(root, path))) !== null);
+    if (safe) links.push(path);
+    else
+      failures.push({
+        file: path,
+        error: `store extension link must be relative and resolve inside the repository: ${path}`,
+      });
+  }
+  return { lock: { ...lock, links }, failures };
+});
+const lockValue = Effect.fn("extensions.lock.value")(function* (path: string) {
+  const text = yield* maybeRead(path);
+  if (text === null) return Option.none<unknown>();
+  return Option.some(
+    yield* Effect.try({
+      try: () => JSON.parse(text) as unknown,
+      catch: () => domainError("invalid_input", `invalid extension lock: ${path}`),
+    }),
+  );
+});
+const decodeLock = Effect.fn("extensions.lock.decode")(function* (
+  location: LockLocation,
+  value: unknown,
+) {
+  if (location.root !== undefined) {
+    const recorded = rootRecord(value);
+    if (Option.isNone(recorded) || recorded.value.root !== location.root)
+      return { kind: "mismatched" as const };
+  }
+  const lock = yield* Effect.try({
+    try: () => ExtensionLockSchema.parse(value),
+    catch: () => domainError("invalid_input", `invalid extension lock: ${location.path}`),
+  });
+  return { kind: "held" as const, lock };
+});
+const declaredLock = Effect.fn("extensions.lock.declared")(function* (location: LockLocation) {
+  const value = yield* lockValue(location.path);
+  return Option.isNone(value)
+    ? { kind: "held" as const, lock: emptyLock() }
+    : yield* decodeLock(location, value.value);
 });
 const readLock = Effect.fn("extensions.lock.read")(function* (
   data: string,
   root: string,
   scope: ExtensionScope,
 ) {
-  const path = lockPath(data, root, scope);
-  const text = yield* maybeRead(path);
-  if (text === null) return emptyLock();
-  const value = yield* Effect.try({
-    try: () => JSON.parse(text) as unknown,
-    catch: () => domainError("invalid_input", `invalid extension lock: ${path}`),
-  });
-  return yield* checkedLock(root, scope, value);
+  const location = yield* lockLocation(data, root, scope);
+  const declared = yield* declaredLock(location);
+  if (declared.kind !== "held")
+    return {
+      lock: emptyLock(),
+      failures: [
+        { file: location.path, error: "local extension lock root does not match its key; ignored" },
+      ],
+    };
+  return yield* checkedLock(root, scope, declared.lock);
 });
 const updateLock = Effect.fn("extensions.lock.update")(function* (
   data: string,
@@ -176,75 +239,89 @@ const updateLock = Effect.fn("extensions.lock.update")(function* (
   scope: ExtensionScope,
   change: (held: ExtensionLock) => ExtensionLock,
 ) {
-  const path = lockPath(data, root, scope);
+  const location = yield* lockLocation(data, root, scope);
+  const { path } = location;
   yield* locked(
     path,
     Effect.gen(function* () {
-      const held = yield* readLock(data, root, scope);
+      const declared = yield* declaredLock(location);
+      if (declared.kind !== "held")
+        return yield* domainError(
+          "invalid_input",
+          `local extension lock root does not match its key: ${path}`,
+        );
+      const held = declared.lock;
       const changed = yield* Effect.try({ try: () => change(held), catch: ensureDomainError });
-      const next = yield* checkedLock(root, scope, changed);
+      const checked = yield* checkedLock(root, scope, changed);
+      if (checked.failures.length !== 0)
+        return yield* domainError(
+          "invalid_input",
+          checked.failures.map(({ error }) => error).join("; "),
+        );
+      const next = checked.lock;
       yield* disk(() => mkdir(dirname(path), { recursive: true }));
       yield* Effect.try({
-        try: () => durableReplaceFile({ path, body: sorted(next), mode: 0o600 }),
+        try: () =>
+          durableReplaceFile({
+            path,
+            body: sorted(location.root === undefined ? next : { ...next, root: location.root }),
+            mode: 0o600,
+          }),
         catch: ensureDomainError,
       });
       return undefined;
     }),
   );
 });
-const readTree = Effect.fn("extensions.tree")(function* (
-  data: string,
-  name: string,
-  files: string,
-) {
-  yield* Effect.try({
-    try: () => {
-      ExtensionNameSchema.parse(name);
-      SourceHashSchema.parse(files);
-    },
-    catch: () => domainError("invalid_input", "invalid extension tree address"),
+const readTree = Effect.fn("extensions.tree")(function* (data: string, input: SourceAddress) {
+  const key = yield* Effect.try({
+    try: () => SourceAddressSchema.parse(input),
+    catch: () => domainError("invalid_input", "invalid source tree address"),
   });
-  const dir = address(data, name, files);
+  const dir = address(data, key);
   if ((yield* fileInfo(dir)) === null) return null;
   const actual = yield* checkedTree(yield* treeFiles(dir)).pipe(
     Effect.mapError((error) =>
-      domainError("invalid_input", `tampered extension ${name}: ${error.message}`),
+      domainError("invalid_input", `tampered source ${key.name}: ${error.message}`),
     ),
   );
-  if (actual.hash !== files || actual.name !== name || actual.ignored.length !== 0)
+  if (actual.hash !== key.files)
     return yield* domainError(
       "invalid_input",
-      `tampered extension ${name}: file-set hash mismatch`,
+      `tampered source ${key.name}: file-set hash mismatch`,
     );
-  return { name, files, dir, ignored: [] };
+  return { ...key, dir, ignored: [], source: actual };
 });
-const cachedSource = Effect.fn("extensions.cached")(function* (data: string, pin: PinnedSource) {
-  const text = yield* maybeRead(pinPath(data, pin));
+const cachedSource = Effect.fn("extensions.cached")(function* (
+  data: string,
+  selection: SourceSelection,
+) {
+  const text = yield* maybeRead(pinPath(data, selection));
   if (text === null) return null;
   const entry = yield* Effect.try({
     try: () => CachedSourceSchema.parse(JSON.parse(text)),
     catch: ensureDomainError,
   }).pipe(Effect.orElseSucceed(() => null));
+  const { pin, kind } = selection;
   if (
     entry === null ||
+    entry.kind !== kind ||
     entry.pin.repo !== pin.repo ||
     entry.pin.path !== pin.path ||
     entry.pin.rev !== pin.rev
   )
     return null;
-  const held = yield* readTree(data, entry.name, entry.files).pipe(
-    Effect.orElseSucceed(() => null),
-  );
+  const held = yield* readTree(data, entry).pipe(Effect.orElseSucceed(() => null));
   return held === null ? null : { ...held, ignored: entry.ignored };
 });
 /** Copy exclusively into private staging, verify the result, then publish before writing a pin. */
 const publishTree = Effect.fn("extensions.publish")(function* (
   data: string,
-  source: SourceTree,
+  source: SelectedSource,
   dir: string,
 ) {
+  yield* disk(() => mkdir(dirname(dir), { recursive: true }));
   yield* disk(() => mkdir(join(data, "tmp"), { recursive: true }));
-  // GAP [[01M6RTRFDBKDPS8MKVYR9GS61R]] GC must sweep stages abandoned by a crashed publisher.
   const temp = yield* disk(() => mkdtemp(join(data, "tmp", "tree-")));
   yield* Effect.acquireUseRelease(
     Effect.succeed(temp),
@@ -294,57 +371,169 @@ const publishTree = Effect.fn("extensions.publish")(function* (
 });
 const storeSource = Effect.fn("extensions.store")(function* (
   data: string,
-  pin: PinnedSource,
-  source: SourceTree,
+  selection: SourceSelection,
+  source: SelectedSource,
 ) {
   const checked = yield* checkedTree(source.files).pipe(
     Effect.mapError((error) => domainError("invalid_input", error.message)),
   );
   if (checked.hash !== source.hash)
     return yield* domainError("invalid_input", "source file-set hash mismatch");
-  const dir = address(data, checked.name, checked.hash);
+  const key = yield* Effect.try({
+    try: () =>
+      SourceAddressSchema.parse({ kind: selection.kind, name: source.name, files: checked.hash }),
+    catch: ensureDomainError,
+  });
+  const dir = address(data, key);
   yield* locked(
     dir,
     Effect.gen(function* () {
-      const existing = yield* readTree(data, checked.name, checked.hash).pipe(
-        Effect.orElseSucceed(() => null),
-      );
-      if (existing === null) yield* publishTree(data, checked, dir);
+      const existing = yield* readTree(data, key).pipe(Effect.orElseSucceed(() => null));
+      if (existing === null) yield* publishTree(data, source, dir);
     }),
   );
-  const index = pinPath(data, pin);
+  const index = pinPath(data, selection);
   yield* disk(() => mkdir(dirname(index), { recursive: true }));
   const record = CachedSourceSchema.parse({
     version: 1,
-    name: checked.name,
-    files: checked.hash,
-    pin,
+    ...key,
+    pin: selection.pin,
     ignored: source.ignored,
   });
   yield* Effect.try({
     try: () => durableReplaceFile({ path: index, body: sorted(record), mode: 0o600 }),
     catch: ensureDomainError,
   });
-  return {
-    name: checked.name,
-    files: checked.hash,
-    dir,
-    ignored: source.ignored,
-  } satisfies CachedExtension;
+  return { ...key, dir, ignored: source.ignored, source: checked } satisfies CachedTree;
+});
+const directoryNames = Effect.fn("extensions.directoryNames")(function* (path: string) {
+  const info = yield* fileInfo(path);
+  if (info === null) return [];
+  if (info.isSymbolicLink() || !info.isDirectory())
+    return yield* domainError("invalid_input", `tampered cache directory: ${path}`);
+  return yield* disk(() => readdir(path));
+});
+/** Capture references before any deletion; the caller retires provenance before applying sweep. */
+const collection = Effect.fn("extensions.collection")(function* (
+  data: string,
+  roots: readonly string[],
+) {
+  const retained = new Map<string, SourceAddress>();
+  const include = (lock: ExtensionLock) => {
+    for (const [name, selection] of Object.entries(lock.extensions)) {
+      for (const pin of [
+        selection.locked,
+        ...(selection.previous === undefined ? [] : [selection.previous]),
+      ]) {
+        const key = { kind: "extension" as const, name, files: pin.files };
+        retained.set(address(data, key), key);
+      }
+    }
+    for (const [name, selection] of Object.entries(lock.marketplaces)) {
+      const key = { kind: "marketplace" as const, name, files: selection.locked.files };
+      retained.set(address(data, key), key);
+    }
+  };
+  include((yield* readLock(data, "", "user")).lock);
+  for (const root of new Set(roots)) include((yield* readLock(data, root, "store")).lock);
+  const orphanedLocalLocks: { path: string; root: string }[] = [];
+  for (const name of yield* directoryNames(join(data, "local"))) {
+    const path = join(data, "local", name);
+    const info = yield* fileInfo(path);
+    if (info === null || !info.isFile() || info.isSymbolicLink()) continue;
+    if (!/^[a-f0-9]{64}\.json$/.test(name)) continue;
+    const value = yield* lockValue(path);
+    if (Option.isNone(value)) continue;
+    const record = rootRecord(value.value);
+    if (Option.isNone(record) || name !== `${localKey(record.value.root)}.json`) continue;
+    const location = yield* lockLocation(data, record.value.root, "local");
+    if (location.path !== path) continue;
+    const declared = yield* decodeLock(location, value.value);
+    if (declared.kind !== "held") continue;
+    if ((yield* fileInfo(record.value.root)) === null)
+      orphanedLocalLocks.push({ path, root: record.value.root });
+    else include(declared.lock);
+  }
+  const sweep = Effect.gen(function* () {
+    const trees: string[] = [];
+    const stages: string[] = [];
+    for (const name of yield* directoryNames(join(data, "store"))) {
+      const path = join(data, "store", name);
+      if (retained.has(path)) continue;
+      yield* writable(path);
+      yield* disk(() => rm(path, { recursive: true, force: true }));
+      trees.push(name);
+    }
+    for (const name of yield* directoryNames(join(data, "refs"))) {
+      const path = join(data, "refs", name);
+      const info = yield* fileInfo(path);
+      if (info !== null && info.isFile() && !info.isSymbolicLink()) {
+        const text = yield* maybeRead(path);
+        const entry = CachedSourceSchema.safeParse(
+          text === null
+            ? null
+            : yield* Effect.try({ try: () => JSON.parse(text), catch: ensureDomainError }).pipe(
+                Effect.orElseSucceed(() => null),
+              ),
+        );
+        if (entry.success && retained.has(address(data, entry.data))) continue;
+      }
+      yield* disk(() => rm(path, { recursive: true, force: true }));
+    }
+    // The global mutation lock excludes live publishers; every remaining stage was abandoned.
+    for (const name of yield* directoryNames(join(data, "tmp"))) {
+      if (!name.startsWith("tree-")) continue;
+      const path = join(data, "tmp", name);
+      yield* writable(path);
+      yield* disk(() => rm(path, { recursive: true, force: true }));
+      stages.push(name);
+    }
+    return { trees, stages, orphanedLocalLocks };
+  });
+  return { retained: [...retained.values()], sweep };
 });
 export const extensionStorageLayer = Layer.effect(
   ExtensionStorage,
   Effect.gen(function* () {
     const data = join(yield* currentData, "extensions");
     const fs = yield* FileSystem;
+    const transaction: ExtensionTransaction = {
+      update: (root, scope, change) =>
+        updateLock(data, root, scope, change).pipe(Effect.provideService(FileSystem, fs)),
+      store: storeSource.bind(null, data),
+      collection: (roots) => collection(data, roots).pipe(Effect.provideService(FileSystem, fs)),
+      links: Effect.fn("extensions.links")(function* (
+        root: string,
+        scope: ExtensionScope,
+        edit: { readonly add: string } | { readonly remove: string },
+      ) {
+        const input = "add" in edit ? edit.add : edit.remove;
+        const absolute = resolve(root, input.replace(/^path:/, ""));
+        const stored = scope === "store" ? relative(root, absolute) || "." : absolute;
+        yield* updateLock(data, root, scope, (held) => ({
+          ...held,
+          links:
+            "add" in edit
+              ? [...new Set([...held.links, stored])]
+              : held.links.filter(
+                  (path) =>
+                    resolve(scope === "user" ? resolve(data, "..") : root, path) !== absolute,
+                ),
+        })).pipe(Effect.provideService(FileSystem, fs));
+        return stored;
+      }),
+    };
     return ExtensionStorage.of({
       read: (root, scope) =>
         readLock(data, root, scope).pipe(Effect.provideService(FileSystem, fs)),
-      update: (root, scope, change) =>
-        updateLock(data, root, scope, change).pipe(Effect.provideService(FileSystem, fs)),
       tree: readTree.bind(null, data),
       cached: cachedSource.bind(null, data),
-      store: storeSource.bind(null, data),
+      mutate(body) {
+        return locked(
+          join(data, "mutation"),
+          Effect.suspend(() => body(transaction)),
+        );
+      },
     });
   }),
 );

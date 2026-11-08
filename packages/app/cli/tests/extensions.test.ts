@@ -202,6 +202,7 @@ describe("kb ext list", () => {
     const names = parsed.output.extensions.map((e) => e.name).toSorted();
     expect(names).toEqual([
       "backdrops",
+      "broken",
       "canvas",
       "chart",
       "check",
@@ -221,6 +222,12 @@ describe("kb ext list", () => {
       "zzz",
     ]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);
+    expect(parsed.output.extensions.find((row) => row.name === "broken")).toMatchObject({
+      enabled: false,
+      trusted: true,
+      origin: { kind: "own" },
+      actions: [],
+    });
   });
 
   test("shows each family's tags and each interception point's listeners in order", async () => {
@@ -433,5 +440,25 @@ describe("kb ext validate", () => {
     // From inside it, the same root is admitted, and its code runs.
     expect((await validateIn(root, "--root", root)).code).toBe(0);
     expect(existsSync(mark)).toBe(true);
+  });
+});
+
+test("marketplace add derives the explicit replace switch from its action schema", async () => {
+  const root = await tempRoot();
+  const result = await runCli([
+    "--root",
+    root,
+    "--json",
+    "ext",
+    "marketplace",
+    "add",
+    "invalid-source",
+    "--replace",
+  ]);
+  expect(result.code).toBe(1);
+  expect(JSON.parse(result.out)).toMatchObject({
+    status: "failed",
+    code: "invalid_input",
+    message: expect.stringContaining("expected github:"),
   });
 });

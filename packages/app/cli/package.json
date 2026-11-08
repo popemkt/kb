@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "kb": "./src/main.ts"
+    "kb": "./bin/kb"
   },
   "type": "module",
   "exports": {},
@@ -16,6 +16,7 @@
     "@kb/agent-claude": "workspace:*",
     "@kb/agent-openai": "workspace:*",
     "@kb/bundled": "workspace:*",
+    "@kb/child-process": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/ext-sdk": "workspace:*",
     "@kb/mcp": "workspace:*",

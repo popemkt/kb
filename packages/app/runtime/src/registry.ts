@@ -494,15 +494,17 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
   nodeOf: NodeLookup = NO_SWITCHES,
 ): Effect.fn.Return<Registry, never, FileSystem> {
-  const { families, failures } = yield* rootFamilies(root);
+  const { families, failures, inventory } = yield* rootFamilies(root);
   const unread: string[] = [];
   const on = families.filter(({ declaration }) =>
     familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
   );
   const rootKey = root ?? NO_ROOT_KEY;
-  const key = on
-    .map(({ declaration, digest }) => `${declaration.name}@${digest ?? "bundled"}`)
-    .join("\0");
+  const key = JSON.stringify([
+    on.map(({ declaration, digest }) => `${declaration.name}@${digest ?? "bundled"}`),
+    inventory,
+    failures,
+  ]);
   const held = current.get(rootKey);
   if (held?.key === key) return yield* held.registry;
   // `Effect.cached` is what makes the entry a build-once value rather than a
@@ -510,6 +512,34 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   // The deployment, not the store, decides whether governance is composed (`deploys`).
   const built = yield* Effect.cached(
     buildRegistry(families, on, failures, requiredFamilies()).pipe(
+      Effect.map((registry) => ({
+        ...registry,
+        families: [
+          ...registry.families.map((row) => {
+            const candidate = inventory.find(
+              (entry) => entry.name === row.name && entry.shadowed === undefined,
+            );
+            return candidate === undefined
+              ? row
+              : {
+                  ...row,
+                  ...candidate,
+                  label: row.label,
+                  optional: row.optional,
+                  enabled: row.enabled,
+                  page: row.page,
+                  ...(row.digest !== undefined && row.digest !== candidate.digest
+                    ? { running: { digest: row.digest, source: row.source } }
+                    : {}),
+                };
+          }),
+          ...inventory.filter(
+            (candidate) =>
+              candidate.shadowed !== undefined ||
+              !registry.families.some((row) => row.name === candidate.name),
+          ),
+        ],
+      })),
       Effect.tap((registry) =>
         Effect.sync(() => {
           for (const failure of registry.failures) {

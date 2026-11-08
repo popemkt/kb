@@ -9,6 +9,7 @@ import {
   installHostModules,
   type ExtensionFailure,
   type LoadedExtension,
+  type ExtensionRow,
 } from "@kb/contracts";
 import { isNotFound } from "@kb/workspace-fs";
 import { serverEntriesFor } from "./bundled.ts";
@@ -44,7 +45,11 @@ function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
 }
 
-import { ownExtensionFolder, type ExtensionFolder } from "./extension-folder.ts";
+import {
+  ownExtensionFolder,
+  type ExtensionFolder,
+  type ExtensionCandidate,
+} from "./extension-folder.ts";
 export { ownExtensionFolder } from "./extension-folder.ts";
 export type { ExtensionFolder } from "./extension-folder.ts";
 
@@ -220,16 +225,42 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
  * be closed over is a failure. Nothing of them has run.
  */
 export const readClosures = Effect.fn("kb.readClosures")(function* (
-  folders: readonly ExtensionFolder[],
+  folders: readonly ExtensionCandidate[],
 ): Effect.fn.Return<
-  { readonly closures: readonly ClosedExtension[]; readonly failures: readonly ExtensionFailure[] },
+  {
+    readonly closures: readonly ClosedExtension[];
+    readonly failures: readonly ExtensionFailure[];
+    readonly rows: readonly ExtensionRow[];
+  },
   never,
   FileSystem
 > {
   const closures: ClosedExtension[] = [];
   const failures: ExtensionFailure[] = [];
+  const rows: ExtensionRow[] = [];
   const selected = new Map<string, string>();
   for (const folder of folders) {
+    if ("kind" in folder) {
+      const winner = selected.get(folder.name);
+      rows.push({
+        name: folder.name,
+        label: folder.name,
+        optional: true,
+        enabled: false,
+        source: folder.name,
+        origin: folder.origin,
+        ...(folder.origin.kind === "install"
+          ? { files: folder.origin.selection.locked.files }
+          : {}),
+        ...(winner === undefined ? {} : { shadowed: winner }),
+      });
+      if (winner === undefined) selected.set(folder.name, folder.name);
+      failures.push({
+        file: folder.name,
+        error: winner === undefined ? folder.error : `shadowed by ${winner}`,
+      });
+      continue;
+    }
     const { dir, origin } = folder;
     const entries = yield* entriesOf(dir).pipe(Effect.result);
     if (Result.isFailure(entries)) {
@@ -240,6 +271,19 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
     const visible = entries.success.filter((file) => {
       const name = isServerEntry(file) ? file.slice(0, -3) : pageOf(file);
       const winner = name === null ? undefined : selected.get(name);
+      if (isServerEntry(file))
+        rows.push({
+          name: file.slice(0, -3),
+          label: file.slice(0, -3),
+          optional: true,
+          enabled: false,
+          source: join(dir, file),
+          origin: folder.provenance ?? { kind: "own" },
+          ...(folder.provenance?.kind === "install"
+            ? { files: folder.provenance.selection.locked.files }
+            : {}),
+          ...(winner === undefined ? {} : { shadowed: winner }),
+        });
       if (winner === undefined) return true;
       if (isServerEntry(file))
         failures.push({
@@ -257,7 +301,16 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
       ...local.map(({ file, error }) => ({ file: join(dir, file), error: `${origin}: ${error}` })),
     );
   }
-  return { closures, failures };
+  return {
+    closures,
+    failures,
+    rows: rows.map((row) => {
+      const found = closures.find((entry) => entry.path === row.source);
+      return found === undefined
+        ? row
+        : { ...row, digest: found.closure.digest, reach: found.closure.reach };
+    }),
+  };
 });
 
 /**

@@ -1,3 +1,28 @@
+import {
+  extensionUpdateDef,
+  extensionUpdateEffect,
+  extensionOutdatedDef,
+  extensionOutdatedEffect,
+  extensionRemoveDef,
+  extensionRemoveEffect,
+  extensionLinkDef,
+  extensionLinkEffect,
+  extensionUnlinkDef,
+  extensionUnlinkEffect,
+  extensionGcDef,
+  extensionGcEffect,
+} from "./extension-lifecycle.ts";
+import {
+  marketplaceAddDef,
+  marketplaceAddEffect,
+  marketplaceRemoveDef,
+  marketplaceRemoveEffect,
+  marketplaceUpdateDef,
+  marketplaceUpdateEffect,
+  marketplaceListDef,
+  marketplaceListEffect,
+} from "./extension-marketplace.ts";
+import { extensionDiffDef, extensionDiffEffect } from "./extension-review.ts";
 import { coreNative, type RegisteredAction } from "./invoke.ts";
 import { isomorphicActions } from "./isomorphic-actions.ts";
 import { extensionInstallDef, extensionInstallEffect } from "./extension-install.ts";
@@ -48,6 +73,16 @@ import {
  * own catalogs (actions, views, extensions), or the screens of the UI tabs.
  */
 const portActions: readonly RegisteredAction[] = [
+  coreNative(extensionUpdateDef, extensionUpdateEffect),
+  coreNative(extensionOutdatedDef, extensionOutdatedEffect),
+  coreNative(extensionRemoveDef, extensionRemoveEffect),
+  coreNative(extensionLinkDef, extensionLinkEffect),
+  coreNative(extensionUnlinkDef, extensionUnlinkEffect),
+  coreNative(extensionGcDef, extensionGcEffect),
+  coreNative(marketplaceAddDef, marketplaceAddEffect),
+  coreNative(marketplaceRemoveDef, marketplaceRemoveEffect),
+  coreNative(marketplaceUpdateDef, marketplaceUpdateEffect),
+  coreNative(marketplaceListDef, marketplaceListEffect),
   coreNative(graphRunDef, graphRunEffect),
   coreNative(assetUploadDef, assetUploadEffect),
   coreNative(renderViewDef, renderViewActionEffect),
@@ -57,6 +92,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(extensionInstallDef, extensionInstallEffect),
   coreNative(extensionFootprintDef, extensionFootprintEffect),
   coreNative(extensionListDef, extensionListEffect),
+  coreNative(extensionDiffDef, extensionDiffEffect),
   coreNative(extensionSettingsDef, extensionSettingsEffect),
   coreNative(viewsMigrateDef, viewsMigrateEffect),
   coreNative(uiScreenDef, uiScreenEffect),

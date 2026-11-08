@@ -23,7 +23,14 @@ import type { ExtensionCatalog } from "./declaration.ts";
 import type { ExtensionFailures } from "./extension-report.ts";
 import type { FamilyKernels } from "./footprint.ts";
 import type { ViewCatalog } from "./view-catalog.ts";
-import type { Assets, CodeTrust, LegacyTrust, LegacyDocsViews, SavedQueries } from "./workspace.ts";
+import type {
+  Assets,
+  CodeTrust,
+  LegacyTrust,
+  IgnoredRootFiles,
+  LegacyDocsViews,
+  SavedQueries,
+} from "./workspace.ts";
 import type { KbRoots } from "./roots.ts";
 
 /**
@@ -130,6 +137,7 @@ export type ActionHandlerEnv =
   | ExtensionStorage
   | ExtensionCompiler
   | CodeTrust
+  | IgnoredRootFiles
   | LegacyTrust
   | KbRoots
   | Screens;

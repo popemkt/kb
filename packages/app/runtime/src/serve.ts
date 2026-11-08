@@ -1,3 +1,4 @@
+import { KB_LAUNCH_FLAGS } from "@kb/child-process";
 /**
  * Starting a `kb ui` over a root (DESIGN.md → Locations): a detached child
  * that runs kb's own command as `kb --root <root> ui --port 0 --no-open`.
@@ -47,7 +48,10 @@ const TAIL_CHARS = 2000;
 export function selfLaunch(): UiLaunch {
   const [, entry] = process.argv;
   return {
-    command: entry === undefined ? [process.execPath] : [process.execPath, entry],
+    command:
+      entry === undefined
+        ? [process.execPath, ...KB_LAUNCH_FLAGS]
+        : [process.execPath, ...KB_LAUNCH_FLAGS, entry],
     env: childProcessEnv("kb"),
     timeoutMs: START_TIMEOUT_MS,
   };

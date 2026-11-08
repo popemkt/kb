@@ -8,7 +8,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pointHomeAt } from "@kb/test-kit";
+import { KB_SOURCE_BIN, pointHomeAt } from "@kb/test-kit";
 import { main } from "../src/cli.ts";
 
 let scratch: string;
@@ -51,7 +51,7 @@ async function initRoot(name: string): Promise<string> {
   return root;
 }
 
-const CLI = join(import.meta.dir, "..", "src", "main.ts");
+const CLI = KB_SOURCE_BIN;
 
 describe("a test run never reaches the person's home store", () => {
   test("a kb child started without the run's KB_HOME registers nothing, and says why", async () => {
@@ -64,7 +64,7 @@ describe("a test run never reaches the person's home store", () => {
     const env = Object.fromEntries(
       Object.entries(Bun.env).filter(([key]) => key !== "KB_HOME" && !key.startsWith("XDG_")),
     );
-    const child = Bun.spawn(["bun", CLI, "--root", root, "init", "--bare"], {
+    const child = Bun.spawn([CLI, "--root", root, "init", "--bare"], {
       env: { ...env, NODE_ENV: "test", HOME: person },
       stdout: "pipe",
       stderr: "pipe",

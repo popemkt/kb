@@ -66,10 +66,24 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$out/lib/kb/packages/app/ui" "$out/bin"
     cp -a "$TMPDIR/bundle/main.js" "$out/lib/kb/cli.js"
     cp -a packages/app/ui/dist "$out/lib/kb/packages/app/ui/dist"
-    makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
+    cp bin/kb-bun "$out/lib/kb/launch"
+    patchShebangs "$out/lib/kb/launch"
+    cp packages/infrastructure/child-process/src/kb-launch-flags.txt "$out/lib/kb/launch-flags"
+    makeBinaryWrapper "$out/lib/kb/launch" "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
-      --add-flags "$out/lib/kb/cli.js"
+      --add-flags "${lib.getExe bun} $out/lib/kb/launch-flags $out/lib/kb/cli.js"
     runHook postInstall
+  '';
+
+  # The real installed binary joins the same startup contract as checkout/release.
+  doInstallCheck = true;
+  installCheckPhase = ''
+    runHook preInstallCheck
+    export KB_HOME="$TMPDIR/kb-startup-home"
+    export KB_DATA="$TMPDIR/kb-startup-data"
+    export KB_NIX_TEST_BIN="$out/bin/kb"
+    bun test packages/app/cli/tests/startup-contract.test.ts --timeout 30000
+    runHook postInstallCheck
   '';
 
   meta = {

@@ -1,4 +1,29 @@
 export {
+  extensionUpdateDef,
+  extensionUpdateEffect,
+  extensionOutdatedDef,
+  extensionOutdatedEffect,
+  extensionRemoveDef,
+  extensionRemoveEffect,
+  extensionLinkDef,
+  extensionLinkEffect,
+  extensionUnlinkDef,
+  extensionUnlinkEffect,
+  extensionGcDef,
+  extensionGcEffect,
+} from "./extension-lifecycle.ts";
+export {
+  marketplaceAddDef,
+  marketplaceAddEffect,
+  marketplaceRemoveDef,
+  marketplaceRemoveEffect,
+  marketplaceUpdateDef,
+  marketplaceUpdateEffect,
+  marketplaceListDef,
+  marketplaceListEffect,
+} from "./extension-marketplace.ts";
+export { extensionDiffDef, extensionDiffEffect } from "./extension-review.ts";
+export {
   classifyQueryError,
   fieldDefineDef,
   fieldDefineEffect,

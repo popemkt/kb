@@ -290,7 +290,7 @@ describe("nodes.jsonl merge driver", () => {
     // The PATH holds only what the merge runs, linked from wherever this
     // machine keeps it (on NixOS, /usr/bin and /bin hold almost nothing),
     // so the real bun is not on it.
-    for (const tool of ["git", "dirname"]) {
+    for (const tool of ["git", "dirname", "bash", "readlink"]) {
       await symlink(realpathSync(present(Bun.which(tool), `${tool} on PATH`)), join(bin, tool));
     }
     await writeFile(join(bin, "bun"), "#!/bin/sh\necho 'error: boom' >&2\nexit 1\n", {

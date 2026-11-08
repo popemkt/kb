@@ -25,7 +25,6 @@ export function treeEntries(bytes: Uint8Array): ObjectEntry[] {
         throw new SourceError({ message: "source is not a regular file" });
       return { path: entry.slice(tab + 1), mode, oid: fullRev.parse(oid) };
     });
-  checkSourceEntries(entries);
   return entries;
 }
 function batchObjects(bytes: Uint8Array, oids: readonly string[]): Map<string, Uint8Array> {
@@ -57,6 +56,7 @@ export const readObjects = Effect.fn("source.objects")(function* (
   dir: string,
   entries: readonly ObjectEntry[],
 ) {
+  yield* Effect.try({ try: () => checkSourceEntries(entries), catch: SourceError.from });
   if (entries.length === 0) return [] as ObjectFile[];
   const oids = [...new Set(entries.map(({ oid }) => oid))];
   yield* git(

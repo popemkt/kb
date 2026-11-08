@@ -16,6 +16,7 @@ import {
   DEFAULT_EXTENSION_SCOPE,
   EXTENSION_SCOPES,
   type ActionReceipt,
+  type ActionDefinition,
   ExtensionReportSchema,
   ExtensionSettingsSchema,
   FootprintRowSchema,
@@ -26,11 +27,29 @@ import {
   type FootprintRow,
   type KbContext,
 } from "@kb/contracts";
-import { ensureDomainError } from "@kb/model";
-import type { RegisteredAction } from "@kb/operations";
+import { ensureDomainError, schemaToJsonSchema } from "@kb/model";
+import {
+  extensionUpdateDef,
+  extensionOutdatedDef,
+  extensionRemoveDef,
+  extensionLinkDef,
+  extensionUnlinkDef,
+  extensionGcDef,
+  marketplaceAddDef,
+  marketplaceRemoveDef,
+  marketplaceUpdateDef,
+  marketplaceListDef,
+  type RegisteredAction,
+} from "@kb/operations";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { canonicalRoot } from "@kb/workspace-fs";
-import { admitExtensions, resolveRootEffect, sessionRegistry, writeOut } from "@kb/runtime";
+import {
+  admitExtensions,
+  resolveRootEffect,
+  sessionRegistry,
+  writeErr,
+  writeOut,
+} from "@kb/runtime";
 import {
   invokeCliEffect,
   ACTION_INVOKE_WIRE,
@@ -145,6 +164,11 @@ function listLines(
   const lines: string[] = [];
   for (const e of listed) {
     lines.push(`${e.name} (${e.source}${e.enabled ? "" : ", off"}) — contributes ${e.contributes}`);
+    if (e.origin !== undefined) lines.push(`  source: ${JSON.stringify(e.origin)}`);
+    if (e.shadowed !== undefined) lines.push(`  hidden: shadowed by ${e.shadowed}`);
+    if (e.digest !== undefined)
+      lines.push(`  ${e.trusted === true ? "trusted" : "untrusted"}: ${e.digest}`);
+    if (e.reach !== undefined) lines.push(`  reach: ${JSON.stringify(e.reach)}`);
     lines.push(...organisationLines(e));
     for (const a of e.actions) {
       const alias = a.aliases.length > 0 ? ` (alias: ${a.aliases.join(", ")})` : "";
@@ -248,6 +272,155 @@ function installCommand(ext: Command): void {
     );
 }
 
+function reviewCommands(ext: Command): void {
+  ext
+    .command("diff")
+    .description("Offline diff against this machine's last trusted tree")
+    .argument("<name>")
+    .action(
+      kbAction((ctx, globals, [name]: [string]) =>
+        invokeCliEffect(
+          ctx,
+          onWire(ACTION_INVOKE_WIRE, { id: "extension.diff", input: { name } }),
+        ).pipe(
+          Effect.map((receipt) => report(receipt, globals, (output) => [JSON.stringify(output)])),
+        ),
+      ),
+    );
+  ext
+    .command("trust")
+    .description("Review an extension, then ask the person to trust its digest")
+    .argument("<name>")
+    .action(
+      kbAction((ctx, globals, [name]: [string]) =>
+        Effect.gen(function* () {
+          const listed = yield* invokeCliEffect(
+            ctx,
+            onWire(ACTION_INVOKE_WIRE, { id: "extension.list", input: {} }),
+          );
+          if (listed.status !== "succeeded") return report(listed, globals, () => []);
+          const row = reportOf(listed.output).extensions.find(
+            (candidate) => candidate.name === name && candidate.shadowed === undefined,
+          );
+          if (row?.digest === undefined)
+            return report(
+              {
+                status: "failed",
+                id: "sandbox.trust",
+                code: "not_found",
+                message: `no compiled extension named ${name}`,
+              },
+              globals,
+              () => [],
+            );
+          writeErr(
+            JSON.stringify(
+              {
+                name: row.name,
+                digest: row.digest,
+                origin: row.origin,
+                files: row.files,
+                reach: row.reach,
+              },
+              null,
+              2,
+            ),
+          );
+          if (row.origin?.kind === "install") {
+            const diff = yield* invokeCliEffect(
+              ctx,
+              onWire(ACTION_INVOKE_WIRE, { id: "extension.diff", input: { name } }),
+            );
+            if (diff.status !== "succeeded") return report(diff, globals, () => []);
+            writeErr(JSON.stringify(diff.output, null, 2));
+          }
+          const receipt = yield* invokeCliEffect(
+            ctx,
+            onWire(ACTION_INVOKE_WIRE, {
+              id: "sandbox.trust",
+              input: {
+                digest: row.digest,
+                ...(row.origin?.kind === "install" && row.files !== undefined
+                  ? { extension: { name, files: row.files } }
+                  : {}),
+              },
+            }),
+          );
+          return report(receipt, globals, (output) => [JSON.stringify(output)]);
+        }),
+      ),
+    );
+}
+
+/** These action adapters derive argument presence and scope support from their registry schemas. */
+function extensionVerb(
+  parent: Command,
+  verb: string,
+  definition: Pick<ActionDefinition, "id" | "description" | "inputSchema">,
+): void {
+  const schema = z
+    .object({
+      properties: z.record(z.string(), z.unknown()).optional(),
+      required: z.array(z.string()).optional(),
+    })
+    .parse(schemaToJsonSchema(definition.inputSchema, "input"));
+  const properties = schema.properties ?? {};
+  const flags = Object.entries(properties)
+    .filter(([, value]) => z.object({ type: z.literal("boolean") }).safeParse(value).success)
+    .map(([key]) => key);
+  const field = Object.keys(properties).find((key) => key !== "scope" && !flags.includes(key));
+  const command = parent.command(verb).description(definition.description);
+  if (field !== undefined)
+    command.argument(schema.required?.includes(field) === true ? `<${field}>` : `[${field}]`);
+  if ("scope" in properties) command.option("--scope <scope>", EXTENSION_SCOPES.join(", "));
+  for (const flag of flags)
+    command.option(
+      `--${flag}`,
+      z.object({ description: z.string().optional() }).parse(properties[flag]).description ?? flag,
+    );
+  command.action(
+    kbAction((ctx, globals, args: unknown[]) => {
+      const options = z.record(z.string(), z.unknown()).parse(args[field === undefined ? 0 : 1]);
+      const named = Object.fromEntries(
+        Object.entries(options).filter(
+          ([key, value]) => key in properties && key !== field && value !== undefined,
+        ),
+      );
+      return invokeCliEffect(
+        ctx,
+        onWire(ACTION_INVOKE_WIRE, {
+          id: definition.id,
+          input: {
+            ...(field === undefined || args[0] === undefined ? {} : { [field]: args[0] }),
+            ...named,
+          },
+        }),
+      ).pipe(
+        Effect.map((receipt) => report(receipt, globals, (output) => [JSON.stringify(output)])),
+      );
+    }),
+  );
+}
+function lifecycleCommands(ext: Command): void {
+  for (const [verb, definition] of [
+    ["update", extensionUpdateDef],
+    ["outdated", extensionOutdatedDef],
+    ["remove", extensionRemoveDef],
+    ["link", extensionLinkDef],
+    ["unlink", extensionUnlinkDef],
+    ["gc", extensionGcDef],
+  ] as const)
+    extensionVerb(ext, verb, definition);
+  const marketplace = ext.command("marketplace").description("Manage pinned extension indexes");
+  for (const [verb, definition] of [
+    ["add", marketplaceAddDef],
+    ["remove", marketplaceRemoveDef],
+    ["update", marketplaceUpdateDef],
+    ["list", marketplaceListDef],
+  ] as const)
+    extensionVerb(marketplace, verb, definition);
+}
+
 export function extensionCommands(program: Command): void {
   const ext = program.command("ext").description("Extension operations");
   ext
@@ -281,6 +454,7 @@ export function extensionCommands(program: Command): void {
                 id: "ext.list",
                 output: {
                   extensions: listed.map((e) => ({
+                    ...e,
                     name: e.name,
                     source: e.source,
                     optional: e.optional,
@@ -325,6 +499,8 @@ export function extensionCommands(program: Command): void {
       ),
     );
   installCommand(ext);
+  reviewCommands(ext);
+  lifecycleCommands(ext);
   settingsCommand(ext);
   ext
     .command("validate")
@@ -332,6 +508,10 @@ export function extensionCommands(program: Command): void {
       "Admit every extension as a gate: load each .kb/extensions module as if trusted, every family on, and fail on any that would be skipped. It runs the extension code of the root it is run inside (never one --root names elsewhere), so run it where you would run the checkout's tests; it trusts nothing on this machine",
     )
     .action(cliAction(validate));
+  sdkCommand(ext);
+}
+
+function sdkCommand(ext: Command): void {
   ext
     .command("sdk")
     .description(

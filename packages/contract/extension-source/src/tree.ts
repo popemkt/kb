@@ -1,10 +1,11 @@
 import { Effect } from "effect";
 import {
+  SOURCE_LIMITS,
   SourceError,
   sourcePath,
-  SOURCE_LIMITS,
   type SourceFile,
   type SourceTree,
+  type SelectedSource,
 } from "./model.ts";
 
 export interface ObjectFile {
@@ -36,8 +37,8 @@ export function checkSourceEntries(
   }
 }
 
-/** One checked file-set representation for every source adapter and the local cache. */
-function selectedFiles(objects: readonly ObjectFile[]): Omit<SourceTree, "hash"> {
+/** Every transport supplies exactly this checked raw file set. Layout parsing is a projection. */
+function regularFiles(objects: readonly ObjectFile[]): SourceFile[] {
   checkSourceEntries(objects);
   let bytes = 0;
   for (const file of objects) {
@@ -45,6 +46,11 @@ function selectedFiles(objects: readonly ObjectFile[]): Omit<SourceTree, "hash">
     if (bytes > SOURCE_LIMITS.bytes)
       throw new SourceError({ message: "source exceeds byte limit" });
   }
+  return objects
+    .map<SourceFile>((file) => ({ ...file, mode: file.mode === "100755" ? "100755" : "100644" }))
+    .toSorted((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+function selectedFiles(objects: readonly SourceFile[]): Omit<SelectedSource, "hash"> {
   const servers = objects.filter(
     ({ path }) => /^[\w][\w.-]*\.ts$/.test(path) && !/\.d\.ts$|\.page\.ts$/.test(path),
   );
@@ -64,10 +70,9 @@ function selectedFiles(objects: readonly ObjectFile[]): Omit<SourceTree, "hash">
       file.path === "README.md" ||
       /^LICENSE[^/]*$/.test(file.path)
     ) {
-      files.push({ ...file, mode: file.mode === "100755" ? "100755" : "100644" });
+      files.push(file);
     } else ignored.push(file.path);
   }
-  files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return { name, files, ignored: ignored.toSorted() };
 }
 
@@ -75,12 +80,12 @@ export const checkedTree = Effect.fn("source.checkedTree")(function* (
   objects: readonly ObjectFile[],
 ) {
   const selected = yield* Effect.try({
-    try: () => selectedFiles(objects),
+    try: () => regularFiles(objects),
     catch: SourceError.from,
   });
   const encoder = new TextEncoder();
   const chunks: Uint8Array[] = [encoder.encode("kb.source/1\0")];
-  for (const file of selected.files) {
+  for (const file of selected) {
     for (const part of [encoder.encode(file.path), encoder.encode(file.mode), file.bytes])
       chunks.push(encoder.encode(`${part.length}:`), part);
   }
@@ -92,7 +97,33 @@ export const checkedTree = Effect.fn("source.checkedTree")(function* (
   }
   const hash = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", bytes));
   return {
-    ...selected,
+    files: selected,
     hash: `sha256:${Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("")}`,
   };
+});
+
+/** Select the extension layout once, after the raw source satisfies the transport contract. */
+export const extensionTree = Effect.fn("source.extensionTree")(function* (
+  tree: SourceTree,
+  expected?: { readonly name: string; readonly files?: string },
+) {
+  const selected = yield* Effect.try({
+    try: () => selectedFiles(tree.files),
+    catch: SourceError.from,
+  });
+  const source = { ...selected, ...(yield* checkedTree(selected.files)) };
+  if (
+    expected !== undefined &&
+    (source.name !== expected.name ||
+      (expected.files !== undefined && source.hash !== expected.files))
+  )
+    return yield* new SourceError({
+      message: `fetched extension ${source.name} does not match expected ${expected.name} or its locked file set`,
+    });
+  return source;
+});
+export const checkedExtensionTree = Effect.fn("source.checkedExtensionTree")(function* (
+  objects: readonly ObjectFile[],
+) {
+  return yield* extensionTree(yield* checkedTree(objects));
 });

@@ -62,13 +62,14 @@
       "name": "@kb/cli",
       "version": "0.0.0",
       "bin": {
-        "kb": "./src/main.ts",
+        "kb": "../../../bin/kb",
       },
       "dependencies": {
         "@kb/agent": "workspace:*",
         "@kb/agent-claude": "workspace:*",
         "@kb/agent-openai": "workspace:*",
         "@kb/bundled": "workspace:*",
+        "@kb/child-process": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
         "@kb/mcp": "workspace:*",
@@ -150,6 +151,7 @@
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
+        "@kb/locations": "workspace:*",
         "@kb/locations-fs": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
@@ -172,7 +174,6 @@
       },
       "devDependencies": {
         "@kb/canvas": "workspace:*",
-        "@kb/locations": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",

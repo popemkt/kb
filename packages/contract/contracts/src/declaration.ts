@@ -1,3 +1,4 @@
+import { ExtensionReviewSchema } from "./extension-review.ts";
 /**
  * A family declares itself once (DESIGN.md → Extension families): its name,
  * how it is labelled, the system nodes it seeds and the views it provides.
@@ -158,6 +159,7 @@ export interface ExtensionEntry {
  * `bundled`, `host` (composed by `kb ui`) or a repository extension's path.
  */
 export const ExtensionRowSchema = z.object({
+  ...ExtensionReviewSchema.shape,
   name: z.string(),
   label: z.string(),
   optional: z.boolean(),

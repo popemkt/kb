@@ -26,15 +26,18 @@ export interface SourceFile {
   readonly bytes: Uint8Array;
 }
 export interface SourceTree {
-  readonly name: string;
   readonly files: readonly SourceFile[];
-  readonly ignored: readonly string[];
   readonly hash: string;
+}
+export interface SelectedSource extends SourceTree {
+  readonly name: string;
+  readonly ignored: readonly string[];
 }
 export class SourceReader extends Context.Service<
   SourceReader,
   {
     readonly resolve: (source: GithubSource) => Effect.Effect<PinnedSource, SourceError>;
+    /** Read one directory or regular file; file selections use their basename in the returned tree. */
     readonly read: (source: PinnedSource) => Effect.Effect<SourceTree, SourceError>;
   }
 >()("kb/SourceReader") {}
@@ -123,4 +126,22 @@ export function pinSource(source: GithubSource, refs: ReadonlyMap<string, string
 /** Only a repository's branches and tags confer provenance; HEAD and pull refs do not. */
 export function isRepositoryRef(name: string): boolean {
   return name.startsWith("refs/heads/") || name.startsWith("refs/tags/");
+}
+
+/** One path projection for Git and memory, before any selected blob is downloaded. */
+export function selectedPaths<T extends { readonly path: string }>(
+  entries: readonly T[],
+  path: string,
+): T[] {
+  const prefix = path === "" ? "" : `${path}/`;
+  const selected = entries.flatMap((entry) =>
+    entry.path === path && path !== ""
+      ? [{ ...entry, path: path.split("/").at(-1) ?? path }]
+      : entry.path.startsWith(prefix)
+        ? [{ ...entry, path: entry.path.slice(prefix.length) }]
+        : [],
+  );
+  if (path !== "" && selected.length === 0)
+    throw new SourceError({ message: `source path not found: ${path}` });
+  return selected;
 }

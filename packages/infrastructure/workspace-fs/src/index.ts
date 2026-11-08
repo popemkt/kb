@@ -1,3 +1,4 @@
+export { ignoredRootFilesLayer } from "./ignored-root-files.ts";
 export { assetsLayer } from "./assets.ts";
 export { containedDirectory, containedFile } from "./contained.ts";
 export type { ContainedFile } from "./contained.ts";

@@ -107,7 +107,7 @@ jobs:
         run: bun run verify
 
       - name: Generated docs match .kb data
-        run: bun packages/app/cli/src/main.ts docs check
+        run: bin/kb docs check
 
   # Core has no browser/GPU requirement. Linux frees a macOS slot for render.
   core:

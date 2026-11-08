@@ -52,6 +52,13 @@ const proveAncestry = Effect.fn("source.proveAncestry")(function* (
   yield* git(
     ["fetch", "--quiet", "--filter=tree:0", "--no-tags", "--no-recurse-submodules", url, ...tips],
     dir,
+  ).pipe(
+    Effect.mapError(
+      (error) =>
+        new SourceError({
+          message: `cannot prove non-tip commit ${pin.rev} belongs to ${pin.repo} within the ${GIT_BUDGET.metadataFileBytes / 1024 / 1024} MiB ancestry budget; pin a branch or tag tip instead (${error.message})`,
+        }),
+    ),
   );
   const type = yield* git(["cat-file", "-t", pin.rev], dir).pipe(Effect.result);
   if (!Result.isSuccess(type) || decoder.decode(type.success).trim() !== "commit") return false;

@@ -84,15 +84,32 @@ export class Assets extends Context.Service<Assets, AssetsPort>()("kb/Assets") {
  * in one, so trust is never committed, merged or pulled in from elsewhere.
  * The adapter decides where the record lives and whose machine it is.
  */
+export interface TrustProvenance {
+  readonly name: string;
+  readonly files: string;
+}
+export interface CodeTrustRecord {
+  readonly digest: string;
+  readonly machine: string;
+  readonly at: string;
+  readonly name?: string;
+  readonly files?: string;
+}
 export interface CodeTrustPort {
+  /** This machine's independent approval records; several provenances may share a digest. Reads never write. */
+  readonly records: Effect.Effect<readonly CodeTrustRecord[], DomainError>;
   /**
    * Which of `digests` a person has trusted on this machine. Read-only: never
    * imports repository records or writes state. Undecodable records grant nothing.
    */
   trusted(digests: readonly string[]): Effect.Effect<readonly string[], DomainError>;
+  /** Remember another verified file set only while its digest is already approved; never grants or restores trust. */
+  attachSource(digest: string, provenance: TrustProvenance): Effect.Effect<boolean, DomainError>;
   /** Trust changes refuse an undecodable existing record, preserving its bytes. */
-  trust(digest: string): Effect.Effect<void, DomainError>;
+  trust(digest: string, provenance?: TrustProvenance): Effect.Effect<void, DomainError>;
   untrust(digest: string): Effect.Effect<void, DomainError>;
+  /** Retire only this machine's unreferenced provenance approvals; bare approvals remain. Return every retired record. */
+  retain(files: readonly string[]): Effect.Effect<readonly CodeTrustRecord[], DomainError>;
 }
 
 export class CodeTrust extends Context.Service<CodeTrust, CodeTrustPort>()("kb/CodeTrust") {}
@@ -102,6 +119,15 @@ export class LegacyTrust extends Context.Service<
   LegacyTrust,
   {
     readonly digests: (root: string) => Effect.Effect<readonly string[], DomainError>;
-    readonly present: (root: string) => Effect.Effect<boolean, DomainError>;
   }
 >()("kb/LegacyTrust") {}
+
+/** Presence-only diagnostics for ignored repository files; they never supply authority. */
+export class IgnoredRootFiles extends Context.Service<
+  IgnoredRootFiles,
+  {
+    readonly notices: (
+      root: string,
+    ) => Effect.Effect<readonly { file: string; error: string }[], DomainError>;
+  }
+>()("kb/IgnoredRootFiles") {}

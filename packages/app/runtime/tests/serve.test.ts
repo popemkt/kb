@@ -1,3 +1,4 @@
+import { KB_SOURCE_BIN } from "@kb/test-kit";
 /**
  * Starting a `kb ui` for a root (`serveRoot`, DESIGN.md → Locations): a real
  * `kb ui --port 0` over a temp root, whose URL in presence answers for that
@@ -22,7 +23,7 @@ import { bunFileSystemLayer } from "../src/platform.ts";
 import { oneStartPerRoot, serveRoot, type UiLaunch } from "../src/serve.ts";
 import { createStore } from "../src/store-selection.ts";
 
-const CLI = join(import.meta.dir, "..", "..", "cli", "src", "main.ts");
+const CLI = KB_SOURCE_BIN;
 
 let scratch = "";
 let root = "";
@@ -87,9 +88,7 @@ describe("starting a kb ui for a root", () => {
 
   test("kb ui --port 0 starts detached, and the listener in its presence answers for the root", async () => {
     const url = await run(
-      serveRoot(root, launch([process.execPath, CLI], 20_000)).pipe(
-        Effect.provide(bunFileSystemLayer),
-      ),
+      serveRoot(root, launch([CLI], 20_000)).pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
     expect(url).not.toBe("http://127.0.0.1:4321");

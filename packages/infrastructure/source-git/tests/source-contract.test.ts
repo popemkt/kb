@@ -3,7 +3,14 @@ import { mkdir, mkdtemp, readFile, readdir, stat, writeFile, rm } from "node:fs/
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit, Result } from "effect";
-import { checkedTree, parseSource, type SourceReader, type ObjectFile } from "@kb/extension-source";
+import {
+  checkedTree,
+  extensionTree,
+  marketplaceTree,
+  parseSource,
+  type SourceReader,
+  type ObjectFile,
+} from "@kb/extension-source";
 import { childProcessEnv } from "@kb/child-process";
 import { gitSourceReader, memorySourceReader } from "../src/index.ts";
 import { gitTransport } from "../src/transport.ts";
@@ -101,6 +108,10 @@ const valid = [
   file("README.md", "fixture"),
   file("package.json", "{}"),
 ];
+const indexOnly = commit(
+  [file("kb-marketplace.json", JSON.stringify({ version: 1, name: "sample", extensions: [] }))],
+  "index-only",
+);
 const original = commit(valid, "main");
 point("original", original);
 git(["symbolic-ref", "HEAD", "refs/heads/main"]);
@@ -176,15 +187,47 @@ const largeRevision = commit(
   [file("ext/hello.ts"), { path: "other/huge.bin", mode: "100644", bytes: largeBytes }],
   "large-path",
 );
+const largeIndex = commit(
+  [
+    file(
+      "catalog/kb-marketplace.json",
+      JSON.stringify({ version: 1, name: "sample", extensions: [] }),
+    ),
+    ...Array.from({ length: 520 }, (_, index) => file(`catalog/extensions/file-${index}.txt`)),
+    { path: "catalog/huge.bin", mode: "100644", bytes: largeBytes },
+  ],
+  "index-with-large-neighbors",
+);
 function sourceContract(name: string, reader: SourceReader["Service"]): void {
+  test(`${name}: an exact regular-file selection excludes oversized sibling trees`, async () => {
+    const tree = await Effect.runPromise(
+      reader.read({ repo: "owner/repo", path: "catalog/kb-marketplace.json", rev: largeIndex }),
+    );
+    expect(tree.files.map((entry) => entry.path)).toEqual(["kb-marketplace.json"]);
+    expect((await Effect.runPromise(marketplaceTree(tree))).index.name).toBe("sample");
+  });
+  test(`${name}: raw transport accepts an index with no extension server`, async () => {
+    const raw = await Effect.runPromise(
+      reader.read({ repo: "owner/repo", path: "", rev: indexOnly }),
+    );
+    expect((await Effect.runPromise(marketplaceTree(raw))).index.name).toBe("sample");
+    expect(Exit.isFailure(await Effect.runPromise(extensionTree(raw).pipe(Effect.exit)))).toBe(
+      true,
+    );
+  });
   test(`${name}: ancestry may be anchored only by a tag`, async () => {
     expect(
       (await Effect.runPromise(reader.resolve(parseSource(`github:owner/repo@${tagAncestor}`))))
         .rev,
     ).toBe(tagAncestor);
     expect(
-      (await Effect.runPromise(reader.read({ repo: "owner/repo", path: "", rev: tagAncestor })))
-        .name,
+      (
+        await Effect.runPromise(
+          reader
+            .read({ repo: "owner/repo", path: "", rev: tagAncestor })
+            .pipe(Effect.flatMap(extensionTree)),
+        )
+      ).name,
     ).toBe("hello");
   });
   test(`${name}: the same object is installable when it names its actual fork`, async () => {
@@ -192,7 +235,13 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
       (await Effect.runPromise(reader.resolve(parseSource("github:fork/repo@fork-only")))).rev,
     ).toBe(imposter);
     expect(
-      (await Effect.runPromise(reader.read({ repo: "fork/repo", path: "", rev: imposter }))).name,
+      (
+        await Effect.runPromise(
+          reader
+            .read({ repo: "fork/repo", path: "", rev: imposter })
+            .pipe(Effect.flatMap(extensionTree)),
+        )
+      ).name,
     ).toBe("hello");
   });
   test(`${name}: an out-of-path large blob is outside the source budget`, async () => {
@@ -206,7 +255,13 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
       (await Effect.runPromise(reader.resolve(parseSource(`github:owner/repo@${ancestor}`)))).rev,
     ).toBe(ancestor);
     expect(
-      (await Effect.runPromise(reader.read({ repo: "owner/repo", path: "", rev: ancestor }))).name,
+      (
+        await Effect.runPromise(
+          reader
+            .read({ repo: "owner/repo", path: "", rev: ancestor })
+            .pipe(Effect.flatMap(extensionTree)),
+        )
+      ).name,
     ).toBe("hello");
   });
   test(`${name}: rejects an accessible object that exists only off the repository's refs`, async () => {
@@ -238,7 +293,8 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
     const source = parseSource("github:owner/repo@main");
     const pinned = await Effect.runPromise(reader.resolve(source));
     expect(pinned).toEqual({ repo: "owner/repo", path: "", rev: original });
-    const read = await Effect.runPromise(reader.read(pinned));
+    const raw = await Effect.runPromise(reader.read(pinned));
+    const read = await Effect.runPromise(extensionTree(raw));
     expect(read.name).toBe("hello");
     expect(read.ignored).toEqual(["package.json"]);
     expect(read.files.map(({ path, mode }) => [path, mode])).toEqual([
@@ -249,7 +305,7 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
     const moved = commit([file("hello.ts", "export const value = 43;")], `moved-${name}`);
     git(["update-ref", "refs/heads/main", moved]);
     refs.set("refs/heads/main", moved);
-    expect((await Effect.runPromise(reader.read(pinned))).hash).toBe(read.hash);
+    expect((await Effect.runPromise(reader.read(pinned))).hash).toBe(raw.hash);
     expect((await Effect.runPromise(reader.resolve(source))).rev).toBe(moved);
     git(["update-ref", "refs/heads/main", original]);
     refs.set("refs/heads/main", original);
@@ -258,7 +314,13 @@ function sourceContract(name: string, reader: SourceReader["Service"]): void {
     test(`${name}: refuses ${kind}`, async () => {
       expect(
         Exit.isFailure(
-          await Effect.runPromise(Effect.exit(reader.read({ repo: "owner/repo", path: "", rev }))),
+          await Effect.runPromise(
+            Effect.exit(
+              reader
+                .read({ repo: "owner/repo", path: "", rev })
+                .pipe(Effect.flatMap(extensionTree)),
+            ),
+          ),
         ),
       ).toBe(true);
     });
