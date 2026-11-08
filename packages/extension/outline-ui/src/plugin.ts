@@ -80,37 +80,41 @@ export const outlineUiPlugin = definePlugin({
   name: outlineExtension.name,
   tags: familyTags(outlineExtension, "ui"),
   inject: [BrowserHostService],
+  uses: [PaletteStepPoint.name],
   apply: (ctx) =>
-    Effect.all(
-      [
-        ctx.plugin(outlinePlugin()),
-        // The page stands in the outline while this plugin is loaded: the
-        // outline is its projection, which the graph store tells of each move
-        // and the shell reads rows and reveals through, and its store is the
-        // page's editor. Unloading leaves the page as a page move does (an
-        // empty row it minted is pruned), and the shell then reads no
-        // projection and no editor; the outline's own state stays where it
-        // was. Loaded again, it follows the graph as a fresh load: the
-        // expansion is read from storage again, and the focus and transient
-        // rows start empty.
-        ctx.provide(PageProjectionService, outlineProjection),
-        ctx.provide(PageEditorService, useOutlineStore),
-        // Its field row is the page's field editor, wherever a field is drawn.
-        ctx.provide(FieldEditorService, NodeField),
-        ...OUTLINE_VIEWS.map((view) => ctx.contribute(ViewPoint, view)),
-        ctx.contribute(SidebarSectionPoint, {
-          id: "pinned",
-          value: { order: 100, Component: PinnedSection },
-        }),
-        ...OUTLINE_COMMANDS.map((command) =>
-          ctx.contribute(CommandPoint, { id: command.id, value: command }),
-        ),
-        ...OUTLINE_STEPS.map((step) => ctx.contribute(PaletteStepPoint, step)),
-        ctx.contribute(OverlayPoint, {
-          id: "view-filter",
-          value: { order: 0, Component: ViewSettingsPopoverHost },
-        }),
-      ],
-      { discard: true },
-    ),
+    Effect.gen(function* () {
+      const paletteSteps = yield* ctx.point(PaletteStepPoint);
+      yield* Effect.all(
+        [
+          ctx.plugin(outlinePlugin()),
+          // The page stands in the outline while this plugin is loaded: the
+          // outline is its projection, which the graph store tells of each move
+          // and the shell reads rows and reveals through, and its store is the
+          // page's editor. Unloading leaves the page as a page move does (an
+          // empty row it minted is pruned), and the shell then reads no
+          // projection and no editor; the outline's own state stays where it
+          // was. Loaded again, it follows the graph as a fresh load: the
+          // expansion is read from storage again, and the focus and transient
+          // rows start empty.
+          ctx.provide(PageProjectionService, outlineProjection),
+          ctx.provide(PageEditorService, useOutlineStore),
+          // Its field row is the page's field editor, wherever a field is drawn.
+          ctx.provide(FieldEditorService, NodeField),
+          ...OUTLINE_VIEWS.map((view) => ctx.contribute(ViewPoint, view)),
+          ctx.contribute(SidebarSectionPoint, {
+            id: "pinned",
+            value: { order: 100, Component: PinnedSection },
+          }),
+          ...OUTLINE_COMMANDS.map((command) =>
+            ctx.contribute(CommandPoint, { id: command.id, value: command }),
+          ),
+          ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
+          ctx.contribute(OverlayPoint, {
+            id: "view-filter",
+            value: { order: 0, Component: ViewSettingsPopoverHost },
+          }),
+        ],
+        { discard: true },
+      );
+    }),
 });

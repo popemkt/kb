@@ -15,6 +15,9 @@ export const PluginErrorReason = Schema.Literals([
   "key-mismatch",
   "wrong-kernel",
   "invalid-point",
+  "point-conflict",
+  "not-used",
+  "invalid-contribution",
   /** `get` of a service the plugin did not declare in `inject`. */
   "not-injected",
   /** The plugin's own `apply` failed. */

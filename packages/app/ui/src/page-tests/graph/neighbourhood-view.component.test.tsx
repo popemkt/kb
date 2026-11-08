@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { Result } from "effect";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
-import { syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
+import { paletteStepsPlugin, syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
 import { lensReport, graphUiPlugin } from "@kb/graph-ui";
 import { paramsFromProps } from "@kb/views";
 import { NeighbourhoodView, type NeighbourhoodParams, GRAPH_IDS } from "@kb/graph";
@@ -100,7 +100,7 @@ describe("graph.neighbourhood", () => {
       unobserve() {}
       disconnect() {}
     };
-    syncUiPlugins([browserHostUiPlugin, graphUiPlugin]);
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, graphUiPlugin]);
   });
 
   afterAll(() => syncUiPlugins([]));

@@ -25,7 +25,7 @@ import {
   type Library,
   type Reflection,
 } from "@kb/gallery";
-import { definePlugin, Point } from "@kb/plugin";
+import { definePlugin, PointName, type PointSpec } from "@kb/plugin";
 import { ModelCompletionService, toast, type ModelCompletion } from "@kb/ui-sdk";
 
 /**
@@ -54,12 +54,13 @@ export interface ComposerModel {
 }
 
 /** Where the gallery's `model` child offers the composer's model while a completion is provided. */
-export const ComposerModelPoint = Point<ComposerModel>()("gallery.model", {
+export const ComposerModelPoint = PointName<ComposerModel>()("gallery.model");
+export const COMPOSER_MODEL_POINT_SPEC: PointSpec = {
   cardinality: "keyed",
   combine: "lookup by contribution id",
   kernel: "page",
   tier: "T3",
-});
+};
 
 /** What the page says a use of the model needs while none is offered. */
 export const MODEL_NEEDS = "needs the agent: switch it on in Settings → Extensions, in kb ui";
@@ -108,11 +109,13 @@ function composerModelOver(completion: ModelCompletion): ComposerModel {
 
 export const galleryModelPlugin = definePlugin({
   name: "model",
+  uses: [ComposerModelPoint.name],
   inject: [ModelCompletionService],
   apply: (ctx) =>
     Effect.gen(function* () {
+      const point = yield* ctx.point(ComposerModelPoint);
       const completion = yield* ctx.get(ModelCompletionService);
-      yield* ctx.contribute(ComposerModelPoint, {
+      yield* ctx.contribute(point, {
         id: "model",
         value: composerModelOver(completion),
       });

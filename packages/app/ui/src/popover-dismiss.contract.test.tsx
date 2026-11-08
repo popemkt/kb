@@ -54,6 +54,8 @@ dismissContract({
             origin: { kind: "own" },
             digest: `sha256:${"ab".repeat(32)}`,
             tags: [],
+            declares: [],
+            uses: [],
             injects: [],
             provides: [],
             failures: [],

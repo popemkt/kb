@@ -1,5 +1,5 @@
 export { PluginError, PluginErrorReason } from "./errors.ts";
-export { definePlugin, isPlugin, makeKernel, namespaced } from "./kernel.ts";
+export { bindPointNamespace, definePlugin, isPlugin, makeKernel, namespaced } from "./kernel.ts";
 export type {
   Contribution,
   Dependency,
@@ -12,8 +12,10 @@ export type {
   PluginState,
   PluginStatus,
   PointContribution,
+  PointState,
 } from "./kernel.ts";
 export {
+  PointName,
   Point,
   Service,
   asKeyType,
@@ -23,4 +25,12 @@ export {
 } from "./keys.ts";
 export { syncPlugins } from "./sync.ts";
 export type { SyncFailure } from "./sync.ts";
-export type { AnyServiceKey, Key, PointKey, PointSpec, KernelHost, ServiceKey } from "./keys.ts";
+export type {
+  AnyServiceKey,
+  Key,
+  PointKey,
+  PointSpec,
+  PointReference,
+  KernelHost,
+  ServiceKey,
+} from "./keys.ts";

@@ -1,5 +1,5 @@
 import type { Plugin } from "@kb/plugin";
-import { syncUiPlugins } from "@kb/ui-sdk";
+import { syncUiPlugins, paletteStepsPlugin } from "@kb/ui-sdk";
 import { browserHostUiPlugin } from "@/browser-host";
 
 /**
@@ -11,6 +11,7 @@ import { browserHostUiPlugin } from "@/browser-host";
 export function syncPagePlugins(plugins: readonly Plugin[]): void {
   syncUiPlugins([
     browserHostUiPlugin,
-    ...plugins.filter((plugin) => plugin !== browserHostUiPlugin),
+    paletteStepsPlugin,
+    ...plugins.filter((plugin) => plugin !== browserHostUiPlugin && plugin !== paletteStepsPlugin),
   ]);
 }

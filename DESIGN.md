@@ -3071,11 +3071,11 @@ where, how rows become markdown, repo-specific output of any kind — lives in
     GAP [[01M579MHGHVT2FNGJJRK81J9GY]]
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
-  Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through
+  Cordis). A plugin is `{ name, namespace?, inject?, uses?, apply(ctx) }`; through
   `ctx` it provides and injects typed services, contributes to typed points,
   and loads children. Everything it registers hangs off its Effect `Scope`,
   so unload closes the scope; a plugin waits as `pending` until what it
-  injects exists, and returns to pending when a provider leaves. A failing
+  requires exists, and returns to pending when a provider or declarer leaves. A failing
   `apply` is atomic: nothing it registered survives.
 - **The kernel has no events.** A change to its plugins, services or
   contributions is observed one way: `subscribe` and `version`, read
@@ -3219,16 +3219,14 @@ kb has many first-party plugins, and so will any third party with a large
 extension set. The mechanism is the kernel's, the same for every plugin,
 and it adds no field an extension author must fill in.
 
-- **Dependencies are derived, never declared.** A plugin already says what
-  it reads (`inject`), and the kernel knows who provides each service, so
-  the dependency graph is `inject` joined to `provide`: an edge from a
-  plugin to the provider of each service it injects
-  (`kernel.dependencies()`: `{from, to, kind, name}`, `@kb/plugin`). An
-  injected service nobody provides is the plugin's `missing`, not an edge.
-  Readiness and reporting derive from the same requirement states.
-  Contributing to a point is not a dependency on the point's reader. A
-  plugin reaches another only through a service it injects, never by
-  importing it; the static import matrix (`familyEdgeViolation`,
+- **Dependencies are derived, never declared.** A plugin says what it reads
+  (`inject` and `uses`), and the kernel knows each service's provider and
+  each declared point's owner. Readiness, missing requirements and dependency
+  edges all derive from those requirement states (`kernel.dependencies()`:
+  `{from, to, kind, name}`, `@kb/plugin`). A requirement nobody supplies is
+  the plugin's `missing`, not an edge. Contributing to a declared point depends on its
+  declarer, through `uses`, rather than on any reader. Plugins reach each
+  other through the kernel; the static import matrix (`familyEdgeViolation`,
   `EXTENSION_ROOTS`) enforces the import half.
 - **Tags are optional labels**, `tags?: readonly string[]` on `Plugin`, for
   organisation only. The kernel reports them (`PluginState.tags`, a child
@@ -5617,7 +5615,7 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
 What a plugin can add or change, and what it cannot, read from the code
 as it is. Every kind below goes through the one kernel (`@kb/plugin`) as
 a service a plugin provides and others inject, or a contribution to a
-point. A plugin reaches another only through a service it injects.
+point. A plugin reaches another through an injected service or a declared point it lists in `uses`.
 
 | Kind                             | How                                                                                                                                             | Where it runs                          | Examples                          |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------- |
@@ -5694,3 +5692,21 @@ point. A plugin reaches another only through a service it injects.
 ### Point specifications
 
 The [extensibility parity design](docs/research/2026-11-08-extensibility-parity.md#4-declared-points) motivates this contract. Every point key carries a spec: cardinality (`list`, `keyed`, `single`, or `chain`), reader combination prose, accepted kernels (`registry`, `server`, `page`), and minimum isolation tier. A point may accept multiple kernels; guards and interceptors accept registry and page, while shared declarations accept all hosts. Kernels require an explicit host and refuse contributions to another host with `wrong-kernel`. Single points accept one contribution; keyed points refuse repeated ids, aliases, or the member path named by `keyBy`. Lists and chains retain contribution order. The effective extension report includes each live point’s spec and ordered contributions.
+
+### Declared point lifecycle
+
+A plugin declares one local name (without dots), or its typed name reference,
+through `ctx.declare(name, spec)`. Repository and installed roots are bound by
+their host to `ext.<extension-name>`; children inherit that declaration
+authority even when their contribution prefix differs. Native roots use their
+configured namespace. The kernel owns the resulting key. Point keys are frozen
+host capabilities; the extension SDK serves no `Point` constructor, and
+counterfeit or retired keys are refused. Other plugins list its full name in
+`uses` and resolve the same key with `ctx.point(name)`; they wait before apply
+until it exists, and return to pending when its owner leaves.
+`ctx.contributions(point)` reads through the kernel's normal visibility rules,
+so installed declarers can consume contributions without a kernel reference.
+Typed point-name references resolve through that same reader. A declaration's
+Standard Schema contract decodes contributions before admission; a failure
+refuses the plugin atomically. The extension report shows declarations, their
+specs, contributors, and waiting point requirements.

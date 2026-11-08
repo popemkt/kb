@@ -877,3 +877,5 @@ otherwise.
     `card`, whose box rules (fixed height) do not fit a row.
 
 Implementation follow-up (Step 2): finding A is closed; see [the page SDK contract](../../DESIGN.md#core-boundary--extensions).
+
+Implementation follow-up (Step 5): finding B is closed by [declared point lifecycle](../../DESIGN.md#declared-point-lifecycle).

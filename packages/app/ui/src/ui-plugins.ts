@@ -16,11 +16,12 @@
  * repository extension's is its closure's page half, which the server
  * serves at the path its row names, imported beside them.
  */
+import { decodeExtensionPlugin } from "@kb/ext-sdk";
 import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as zod from "zod";
 import { ulid } from "ulid";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
 import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { routinesExtension } from "@kb/routines";
@@ -61,7 +62,7 @@ import { locationsUiPlugin } from "@kb/locations-ui";
 import { outlineExtension } from "@kb/outline";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension } from "@kb/operations";
-import { isPlugin, PluginError, type Plugin } from "@kb/plugin";
+import { PluginError, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
 import { designSystemsUiPlugin } from "@/design-systems";
@@ -71,7 +72,13 @@ import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
-import { PAGE_EXTENSION_SDK, latestRead, logWarn, syncUiPlugins } from "@kb/ui-sdk";
+import {
+  PAGE_EXTENSION_SDK,
+  paletteStepsPlugin,
+  latestRead,
+  logWarn,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
 import { invokeSettled } from "@/session/runtime";
@@ -85,6 +92,7 @@ import { webMcpUiPlugin } from "@/webmcp";
  */
 export const CORE_UI_PLUGINS: readonly Plugin[] = [
   declarationPlugin(coreExtension),
+  paletteStepsPlugin,
   browserHostUiPlugin,
   designSystemsUiPlugin,
   ontologyUiPlugin,
@@ -222,7 +230,7 @@ function loadable(rows: readonly ExtensionRow[]): readonly ExtensionRow[] {
 function browserEntry(row: ExtensionRow): BrowserExtension | null {
   if (Object.hasOwn(BROWSER_EXTENSIONS, row.name)) return BROWSER_EXTENSIONS[row.name] ?? null;
   const { page } = row;
-  return page === undefined ? null : { load: () => importPageHalf(page) };
+  return page === undefined ? null : { load: () => importPageHalf(page, row.name) };
 }
 
 /**
@@ -246,15 +254,16 @@ function installPageModules(): void {
  * the closure a person trusted, which run in the page with the page's
  * power (DESIGN.md → Core boundary & extensions → repository extensions).
  */
-export async function importPageHalf(path: string): Promise<Plugin> {
+export async function importPageHalf(path: string, name: string): Promise<Plugin> {
   installPageModules();
   const module: unknown = await import(/* @vite-ignore */ path);
   const entry =
     typeof module === "object" && module !== null && "default" in module
       ? module.default
       : undefined;
-  if (isPlugin(entry)) return entry;
-  throw new Error(`its page half at ${path} default-exports no plugin`);
+  const decoded = decodeExtensionPlugin(entry, name);
+  if (Result.isSuccess(decoded)) return decoded.success;
+  throw new Error(`its page half at ${path}: ${decoded.failure}`);
 }
 
 /**

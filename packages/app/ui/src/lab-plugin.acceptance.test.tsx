@@ -102,6 +102,8 @@ async function answer(invocation: ActionRequest) {
     const extensions = manifest().extensions.map((row) => ({
       ...row,
       tags: [],
+      declares: [],
+      uses: [],
       injects: [],
       provides: [],
       failures: [],

@@ -33,6 +33,8 @@ const REPORT: ExtensionReport = {
       source: "bundled",
       origin: { kind: "bundled" },
       tags: ["core"],
+      declares: [],
+      uses: [],
       injects: [],
       provides: [],
       failures: [],
@@ -44,6 +46,8 @@ const REPORT: ExtensionReport = {
       source: "bundled",
       origin: { kind: "bundled" },
       tags: ["graph"],
+      declares: [],
+      uses: [],
       injects: [{ service: "kb.index", from: null }],
       provides: [],
       failures: [],
@@ -56,6 +60,8 @@ const REPORT: ExtensionReport = {
       origin: { kind: "own" },
       digest: DIGEST,
       tags: [],
+      declares: [],
+      uses: [],
       injects: [],
       provides: [],
       failures: ["hello/child failed to load: boom"],
@@ -64,12 +70,14 @@ const REPORT: ExtensionReport = {
   points: [
     {
       point: "identity.providers",
+      owner: null,
       spec: IdentityPoint.spec,
       source: "host",
       listeners: [{ owner: "identity-header", id: "header" }],
     },
     {
       point: "action/guard",
+      owner: null,
       spec: ActionGuardPoint.spec,
       source: "registry",
       listeners: [

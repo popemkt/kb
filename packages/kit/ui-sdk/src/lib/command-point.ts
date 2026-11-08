@@ -7,8 +7,9 @@
  * palette to is a {@link PaletteStep}, contributed through
  * {@link PaletteStepPoint} by whichever family owns it.
  */
+import { Effect } from "effect";
 import type { ReactNode } from "react";
-import { Point } from "@kb/plugin";
+import { Point, PointName, definePlugin, type PointSpec } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
 import type { FrameViewKey, LayoutTree } from "@kb/views";
 import type { ThemePref, WidthPref } from "./theme";
@@ -104,12 +105,13 @@ export interface PaletteStep {
  * The node palette's picker steps, by id: a node command opens one with
  * `palette.openStep(id)`. A family's steps come and go with it.
  */
-export const PaletteStepPoint = Point<PaletteStep>()("ui.palette-steps", {
+export const PaletteStepPoint = PointName<PaletteStep>()("ui.palette-steps");
+const PALETTE_STEP_POINT_SPEC: PointSpec = {
   cardinality: "keyed",
   combine: "lookup by contribution id",
   kernel: "page",
   tier: "T3",
-});
+};
 
 /**
  * Which node a command is about.
@@ -192,3 +194,11 @@ export function nodeAction(ctx: CommandContext, body: (nodeId: string) => void):
   onTarget(ctx, body);
   ctx.palette.close();
 }
+
+/** The core page's owner of the palette-step seam. */
+export const paletteStepsPlugin = definePlugin({
+  name: "ui",
+  namespace: "ui",
+  tags: ["core", "ui"],
+  apply: (ctx) => ctx.declare(PaletteStepPoint, PALETTE_STEP_POINT_SPEC).pipe(Effect.asVoid),
+});

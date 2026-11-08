@@ -3,6 +3,7 @@
  * tests pin the contract every renderer and the nav walk share.
  */
 import {
+  paletteStepsPlugin,
   familyViews,
   frameRows,
   type FrameRowsInput,
@@ -33,6 +34,7 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
 const VIEWS = (() => {
   const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(browserHostUiPlugin));
+  Effect.runSync(kernel.load(paletteStepsPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   Effect.runSync(kernel.load(collectionsUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);

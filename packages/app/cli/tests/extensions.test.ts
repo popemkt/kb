@@ -292,6 +292,8 @@ describe("kb ext list", () => {
           source: string;
           digest?: string;
           tags: string[];
+          declares: [];
+          uses: [];
           injects: unknown[];
           provides: string[];
         }[];

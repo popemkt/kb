@@ -146,10 +146,17 @@ function pointLines(points: ExtensionReport["points"]): string[] {
  * (nobody yet, while nobody does), what they provide, and why any failed.
  */
 function organisationLines(row: ExtensionReportRow): string[] {
-  const { tags, injects, provides, failures } = row;
+  const { tags, injects, provides, failures, declares, uses } = row;
   return [
     ...(tags.length === 0 ? [] : [`  tags: ${tags.join(", ")}`]),
     ...injects.map(({ service, from }) => `  injects ${service} from ${from ?? "nobody yet"}`),
+    ...declares.map(
+      ({ point, spec }) =>
+        `  declares ${point} (${spec.cardinality}, ${spec.tier}): ${spec.combine}`,
+    ),
+    ...uses.map(({ point, from }) =>
+      from === null ? `  waiting for point ${point}` : `  uses ${point} from ${from}`,
+    ),
     ...provides.map((service) => `  provides ${service}`),
     ...failures.map((failure) => `  ! ${failure}`),
   ];

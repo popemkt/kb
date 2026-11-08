@@ -19,7 +19,13 @@ import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { canvasUiPlugin } from "@kb/canvas-ui";
 import { outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
-import { getPath, navigate, syncUiPlugins, type CommandContext } from "@kb/ui-sdk";
+import {
+  paletteStepsPlugin,
+  getPath,
+  navigate,
+  syncUiPlugins,
+  type CommandContext,
+} from "@kb/ui-sdk";
 import { singlePane } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { browserHostUiPlugin } from "@/browser-host";
@@ -97,7 +103,13 @@ describe("Open with…", () => {
   });
 
   it("leads a canvas's menu with its canvas, then offers the outline", async () => {
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      canvasUiPlugin,
+      layoutUiPlugin,
+    ]);
     useOutlineStore.setState({ selectedNodeId: "n.board" });
     expect(listNodeCommands(context())[0]?.label).toBe("Open in Canvas");
     const labels = offered("n.board").map((c) => c.label);
@@ -112,7 +124,7 @@ describe("Open with…", () => {
   });
 
   it("marks the outline the default of a plain node, and offers no canvas with the family off", () => {
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin]);
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin]);
     expect(offered("n.board").map((c) => c.label)).not.toContain("Open in Canvas");
     expect(offered("n.plain").map((c) => c.label)).toContain("Open with: Outline (default)");
   });
@@ -125,7 +137,13 @@ describe("the display toggles in the node menu", () => {
   beforeEach(() => {
     dom = installDomGlobals();
     resetOutlineStore();
-    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin]);
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      canvasUiPlugin,
+      layoutUiPlugin,
+    ]);
   });
   afterEach(() => {
     syncUiPlugins([]);

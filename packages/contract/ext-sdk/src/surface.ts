@@ -196,6 +196,7 @@ export interface PointSpec {
   readonly tier: "T0" | "T1" | "T2" | "T3";
   /** Dot-separated member path; absent means contribution id. */
   readonly keyBy?: string;
+  readonly contract?: effect.StandardSchema.StandardSchemaV1;
 }
 
 /** A place contributions collect, with its contract and unique contribution ids. */
@@ -204,6 +205,14 @@ export interface PointKey<C> {
   readonly name: string;
   readonly "~type"?: C;
   readonly spec: PointSpec;
+  readonly declarer: string | null;
+}
+
+/** A typed reference resolves to a kernel-owned point by name. */
+export interface PointName<C> {
+  readonly kind: "point-name";
+  readonly name: string;
+  readonly "~type"?: C;
 }
 
 /** What a plugin hands a point: a local id, optional absolute aliases, the value. */
@@ -229,6 +238,9 @@ export type PluginErrorReason =
   | "key-mismatch"
   | "wrong-kernel"
   | "invalid-point"
+  | "point-conflict"
+  | "not-used"
+  | "invalid-contribution"
   | "not-injected"
   | "apply-failed"
   | "not-loaded";
@@ -252,6 +264,12 @@ export interface PluginContext {
   readonly name: string;
   /** Prefix of this plugin's contribution ids; `""` is the root namespace. */
   readonly namespace: string;
+  declare<C>(
+    name: string | PointName<C>,
+    spec: PointSpec,
+  ): effect.Effect.Effect<PointKey<C>, PluginError>;
+  point<C>(name: string | PointName<C>): effect.Effect.Effect<PointKey<C>, PluginError>;
+  contributions<C>(point: PointKey<C>): readonly Contribution<C>[];
   /** A service this plugin declared in `inject`. */
   get<S>(key: ServiceKey<S>): effect.Effect.Effect<S, PluginError>;
   provide<S>(key: ServiceKey<S>, impl: S): effect.Effect.Effect<void, PluginError>;
@@ -273,10 +291,12 @@ export interface Plugin {
   readonly namespace?: string;
   /** Services that must exist before `apply` runs; the plugin waits until they do. */
   readonly inject?: readonly ServiceKey<unknown>[];
+  readonly uses?: readonly string[];
   /** Labels for organising plugins, which kb reports and never reads: its family's ({@link familyTags}). */
   readonly tags?: readonly string[];
   /** Runs with the plugin's scope as `Scope`: `acquireRelease` in here is released on unload. */
   readonly apply: (
+    this: void,
     ctx: PluginContext,
   ) => effect.Effect.Effect<void, PluginError, effect.Scope.Scope>;
 }
@@ -604,7 +624,6 @@ export declare function familyTags(
 ): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
-export declare function Point<C>(): (name: string, spec: PointSpec) => PointKey<C>;
 export declare function Service<S>(): (name: string) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;

@@ -33,7 +33,7 @@ export async function loadExamplePageHalf(): Promise<{
 }> {
   // The page's loader is imported when first asked for, so importing this module starts nothing.
   const { importPageHalf } = await import("@/ui-plugins");
-  const plugin = await importPageHalf(EXAMPLE_SERVED_AT);
+  const plugin = await importPageHalf(EXAMPLE_SERVED_AT, "example");
   // Its declaration decoded as discovery decodes a repository module's.
   const module: unknown = await import(/* @vite-ignore */ EXAMPLE_SERVED_AT);
   const decoded = decodeExtensionModule(module, "example");

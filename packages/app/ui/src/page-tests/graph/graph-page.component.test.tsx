@@ -9,7 +9,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
+import { paletteStepsPlugin, syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type { GraphFrame } from "@kb/graph-ui";
@@ -115,7 +115,7 @@ describe("GraphPage (smoke)", () => {
       disconnect() {}
     };
     // The page draws through the renderer views the graph plugin provides.
-    syncUiPlugins([browserHostUiPlugin, graphUiPlugin]);
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, graphUiPlugin]);
   });
 
   afterAll(() => {

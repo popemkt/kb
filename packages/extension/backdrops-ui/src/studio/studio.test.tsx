@@ -501,6 +501,8 @@ function row(name: string, more: Record<string, unknown>) {
     enabled: true,
     source: `/root/.kb/extensions/${name}.ts`,
     tags: [],
+    declares: [],
+    uses: [],
     injects: [],
     provides: [],
     failures: [],

@@ -1086,7 +1086,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: only BackdropPoint checks what a repository extension contributes; the page's other points trust its types
 
 - **expected** — Every page point a repository extension can contribute to reads each contribution through a check owned by its point (as useBackdrops reads BackdropPoint), so one malformed contribution is refused alone and never throws in a reader
-- **current** — BackdropPoint is read through decodeBackdrop; ViewPoint, RoutePoint, SidebarSectionPoint, DockPoint, OverlayPoint, CommandPoint and DesignSystemPoint hand readers what the kernel holds as the plugin typed it (asKeyType)
+- **current** — PointSpec.contract now decodes contributions in the kernel when supplied. The existing static page points still lack those contracts; BackdropPoint alone has its reader decoder, and malformed native page contributions can still reach the other readers.
 - **impact** — A page half built against an older SDK, or malformed, can throw in the shell's readers of those points (a view, a route, a command) instead of being refused on its own
 - **closes** — A point key carries its check (a decoder the kernel or its one reader applies), with refusals recorded per contribution and shown where the point is drawn; backdrops move onto that mechanism
 - **node** — `01M6XKP09V8E144HJBXMBV0MFK`
@@ -1449,7 +1449,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the extension dependency graph has no command, view or reverse edges
 
 - **expected** — extension.graph returns every derived edge {from, to, key, kind, optional, source} and data edges between families; kb ext graph prints it (and --dot), kb ext why <plugin> says why a plugin is not active, extension.list rows carry dependants, and the graph view has a lens over sys.extensions drawing the same edges
-- **current** — kernel.dependencies() exists and organisationOf reads it into each row's injects, forward only and per family; no surface prints the whole graph or who depends on a family
+- **current** — Kernel requirement states now derive service and declared-point edges, readiness and per-family injects/uses reports. There is still no command exposing the whole graph, reverse dependants, command/view edges or graph lens.
 - **impact** — the coupling that exists cannot be seen in one place; a reviewer cannot ask what depends on canvas
 - **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
@@ -1658,7 +1658,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: two installed extensions cannot share a service key
 
 - **expected** — An installed extension can inject a service another installed extension provides; the key has one home both can import (docs/research/2026-10-31-plugin-sources.md §7, and Q1 of 2026-10-29-plugin-codependency.md).
-- **current** — Keys are compared by identity and an extension's closure inlines every import but the host's modules, so each bundle holds its own copy of a key one of them defines.
+- **current** — Service/inject keys still compare by identity across separately bundled closures. Declared points now resolve by name through the kernel, so independently installed extensions can exchange contributions without an import; sharing a Service key remains unsupported.
 - **impact** — An installed extension depends only on keys the host owns; a pair of installed extensions cannot be a provider and a consumer.
 - **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
 - **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
