@@ -443,6 +443,40 @@ const plugged = definePlugin({
     ),
 });
 
+/**
+ * A repository extension built against an older SDK: its Ember says nothing
+ * of what it answers (`interactions` came later), and its Smoke says it in
+ * a shape the contract never had. Contributed as its page half's bytes
+ * would be, untyped.
+ */
+const EMBER: SeedBackdrop = { id: "lagging.ember", label: "Ember" };
+const SMOKE: SeedBackdrop = { id: "lagging.smoke", label: "Smoke" };
+const lagging = definePlugin({
+  name: "lagging",
+  apply: (ctx) => {
+    const ember = provideBackdrop(EMBER, {
+      presentation,
+      budget: BACKDROP_BUDGETS.canvas,
+      interactions: [],
+      Component: probeScene(EMBER.id),
+    });
+    Reflect.deleteProperty(ember.value, "interactions");
+    const smoke = provideBackdrop(SMOKE, {
+      presentation,
+      budget: BACKDROP_BUDGETS.canvas,
+      interactions: [],
+      Component: probeScene(SMOKE.id),
+    });
+    Reflect.set(smoke.value, "interactions", "it swirls");
+    return Effect.all(
+      [ctx.contribute(BackdropPoint, ember), ctx.contribute(BackdropPoint, smoke)],
+      {
+        discard: true,
+      },
+    );
+  },
+});
+
 const REACH = { files: [], host: { server: [], page: [] }, builtins: [] };
 
 /** One row of the server's report. */
@@ -501,6 +535,7 @@ const manifestReaders = new Set<() => void>();
 
 describe("Backdrop Studio, from plugins", () => {
   let root: Root;
+  let pluginHost: TestBrowserHost;
 
   beforeAll(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -509,7 +544,7 @@ describe("Backdrop Studio, from plugins", () => {
     mounts = [];
     served = REPORT;
     manifestReaders.clear();
-    const host = testBrowserHost({
+    pluginHost = testBrowserHost({
       invoke: (id) =>
         Promise.resolve(
           id === "extension.list"
@@ -521,8 +556,8 @@ describe("Backdrop Studio, from plugins", () => {
         return () => manifestReaders.delete(listener);
       },
     });
-    host.setNodes([node(HOLE), node(extensionNodeId("core"))]);
-    syncUiPlugins([testHostPlugin(host), probes, plugged]);
+    pluginHost.setNodes([node(HOLE), node(extensionNodeId("core"))]);
+    syncUiPlugins([testHostPlugin(pluginHost), probes, plugged]);
     root = createRoot(document.body.appendChild(document.createElement("div")));
   });
   afterEach(() => {
@@ -587,6 +622,53 @@ describe("Backdrop Studio, from plugins", () => {
     await shown(<StudioPage backdrop={PLUGGED.id} />);
     expect(mounts).toEqual([PLUGGED.id]);
     expect(document.querySelector("[data-studio-from]")?.textContent).toBe("from plugged");
+  });
+
+  describe("built against an older SDK", () => {
+    beforeEach(() => {
+      served = {
+        ...REPORT,
+        extensions: [
+          ...REPORT.extensions,
+          row("lagging", {
+            origin: { kind: "own" },
+            trusted: true,
+            reach: { ...REACH, page: true },
+          }),
+        ],
+      };
+      syncUiPlugins([testHostPlugin(pluginHost), probes, plugged, lagging]);
+    });
+
+    test("a backdrop that says nothing of what it answers is drawn, answering nothing", async () => {
+      await shown(<StudioPage />);
+      expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toContain(EMBER.id);
+      await shown(<StudioPage backdrop={EMBER.id} />);
+      expect(mounts).toContain(EMBER.id);
+      expect(document.querySelector("[data-studio-interactions]")?.textContent).toContain(
+        "It answers nothing",
+      );
+    });
+
+    test("a malformed one is refused on its own card, with why, and every other is drawn", async () => {
+      await shown(<StudioPage />);
+      const refused = document.querySelector(`[data-studio-refused="${SMOKE.id}"]`);
+      expect(refused?.textContent).toContain("Smoke");
+      expect(refused?.textContent).toContain("can't be shown");
+      expect(refused?.textContent).toContain("from lagging");
+      expect(refused?.textContent).toContain("its interactions are not a list");
+      expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toEqual(
+        expect.arrayContaining([PLUGGED.id, EMBER.id]),
+      );
+      expect(cardsIn(document.querySelector("[data-studio-gallery]")).slice(0, 2)).toEqual([
+        PROBE.id,
+        OTHER.id,
+      ]);
+      expect(mounts).not.toContain(SMOKE.id);
+      await shown(<StudioPage backdrop={SMOKE.id} />);
+      expect(document.body.textContent).toContain("This backdrop can't be shown");
+      expect(mounts).not.toContain(SMOKE.id);
+    });
   });
 
   test("kb's own backdrop is from no extension", async () => {

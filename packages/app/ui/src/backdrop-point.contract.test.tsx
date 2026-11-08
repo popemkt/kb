@@ -53,6 +53,7 @@ import {
 import { definePlugin } from "@kb/plugin";
 import {
   BACKDROP_CUE_LABELS,
+  decodeBackdrop,
   BREAKOUT_CLASS,
   BackdropPoint,
   EMPTY_EDITOR,
@@ -366,6 +367,13 @@ describe("every contributed page-head backdrop", () => {
       }
       expect(budget.frameMs, key.id).toBeGreaterThan(0);
       expect(budget.frameMs, key.id).toBeLessThanOrEqual(PAGE_HEAD_FRAME_MS);
+    }
+  });
+
+  it("passes the page's check, as every reader of the point reads it", () => {
+    for (const { value } of backdrops()) {
+      const read = decodeBackdrop(value);
+      expect(read.ok ? null : read.why, value.key.id).toBeNull();
     }
   });
 

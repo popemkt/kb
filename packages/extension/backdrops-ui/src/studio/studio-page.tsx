@@ -4,16 +4,24 @@
  * the studio is opened; a scene's own code loads only when it is shown.
  */
 import type { BackdropStudioParams } from "@kb/backdrops";
-import { BackdropPoint, useContributions, WorkspaceState } from "@kb/ui-sdk";
+import { useBackdrops, WorkspaceState } from "@kb/ui-sdk";
 import { familyOf, usePluginExtensions } from "./plugin-extensions";
 import { StudioGallery } from "./studio-gallery";
 import { StudioScene } from "./studio-scene";
 
 export default function StudioPage({ backdrop }: BackdropStudioParams) {
-  const contributed = useContributions(BackdropPoint);
+  const { shown: contributed, refused } = useBackdrops();
   const plugins = usePluginExtensions();
   if (backdrop === undefined) return <StudioGallery plugins={plugins} />;
   const shown = contributed.find(({ value }) => value.key.id === backdrop);
+  const unreadable = refused.find(({ id }) => id === backdrop);
+  if (shown === undefined && unreadable !== undefined)
+    return (
+      <WorkspaceState
+        title="This backdrop can't be shown"
+        description={`kb refused what ${familyOf(unreadable.owner)} contributes for it: ${unreadable.why}.`}
+      />
+    );
   if (shown === undefined)
     return (
       <WorkspaceState

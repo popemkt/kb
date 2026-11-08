@@ -4548,6 +4548,18 @@ A PR for a backdrop reports a score against each criterion.
   alike; the contract holds each to a known cue, said in one line.
   Backdrop Studio lists them and lets a person try them (Backdrop Studio
   → Interact).
+- **Read once, checked.** A repository extension's page half is
+  third-party code built against whichever SDK it was, and will lag the
+  contract. So the page never draws what `BackdropPoint` holds as the
+  kernel holds it: every reader (a head, a card, Settings, the studio)
+  reads it through one check (`useBackdrops`, `decodeBackdrop`). A list
+  the contract has since required and a contribution left out is its
+  empty value (`interactions`, none). Anything else that is not what the
+  contract says (a field missing or of the wrong shape) refuses that one
+  backdrop, with why, and leaves every other drawn. A page head whose
+  choice was refused falls through as for one nobody contributes, and the
+  studio shows it as a card that says it can't be shown, and why. kb's
+  own backdrops pass the same check, and the contract holds them to it.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the
@@ -5546,6 +5558,10 @@ it as kb's own are, and a family switched off takes its backdrops out.
     read again whenever the page reads the server's manifest again
     (`BrowserHost.subscribeManifest`), so installing, trusting, switching
     or removing one is drawn, even when no plugin of the page moves.
+  - **Refused.** A backdrop the page's check refused (Page-head
+    backdrops → Read once, checked) is a card with no picture where its
+    own would be: its name, its extension, and why, so one malformed
+    backdrop is a warning on its own card only; its page says the same.
   - **Needing approval.** Each repository extension that has a page half
     and is not trusted is listed in that section as a card with no
     picture: its name, its source, and that kb runs none of its code until

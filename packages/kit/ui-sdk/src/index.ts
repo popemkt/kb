@@ -38,6 +38,7 @@ export {
   useOpenNode,
   usePageActivity,
   useBackdropKnobs,
+  useBackdrops,
   usePageBackdrop,
   useShownDesignSystem,
   type PageBackdropChoice,
@@ -149,6 +150,7 @@ export {
   ViewPoint,
   type ViewProps,
 } from "./lib/plugins";
+export { decodeBackdrop, type RefusedBackdrop } from "./lib/backdrop-decode";
 export {
   type FrameCost,
   type FrameMeter,

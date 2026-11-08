@@ -1075,6 +1075,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
 - **node** — `01M6950YQJFX3TYG608GNVHRX4`
 
+### GAP: only BackdropPoint checks what a repository extension contributes; the page's other points trust its types
+
+- **expected** — Every page point a repository extension can contribute to reads each contribution through a check owned by its point (as useBackdrops reads BackdropPoint), so one malformed contribution is refused alone and never throws in a reader
+- **current** — BackdropPoint is read through decodeBackdrop; ViewPoint, RoutePoint, SidebarSectionPoint, DockPoint, OverlayPoint, CommandPoint and DesignSystemPoint hand readers what the kernel holds as the plugin typed it (asKeyType)
+- **impact** — A page half built against an older SDK, or malformed, can throw in the shell's readers of those points (a view, a route, a command) instead of being refused on its own
+- **closes** — A point key carries its check (a decoder the kernel or its one reader applies), with refusals recorded per contribution and shown where the point is drawn; backdrops move onto that mechanism
+- **node** — `01M6XKP09V8E144HJBXMBV0MFK`
+
 ### GAP: only text cards can be promoted to nodes
 
 - **expected** — shapes promotable
