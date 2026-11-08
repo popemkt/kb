@@ -55,6 +55,7 @@ export const OVC_BACKDROP = themeBackdrop(
 export const transistorExtension = defineExtension({
   name: "transistor",
   label: "Transistor",
+  description: "The Transistor theme, after Cloudbank, with two page-head backdrops.",
   tags: ["themes"],
   optional: { byDefault: "on" },
   declaredOptions: [

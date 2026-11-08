@@ -31,6 +31,7 @@ import { CodeView } from "./view.ts";
 export const codeExtension = defineExtension({
   name: "code",
   label: "Code",
+  description: "Code views: code that draws something, kept as a view node's settings.",
   tags: ["code"],
   optional: { byDefault: "on" },
   seed: codeSeedNodes,

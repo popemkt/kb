@@ -3261,7 +3261,8 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
+description?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
+  of the one line that says what it adds (`description`, which Settings shows under its label),
   of how it starts (`optional: {byDefault: "on" | "off"}`, its state in a
   store where no one has switched it; `on` when it says nothing), and of
   whether it is required (`required`: why kb cannot run without it, in the
@@ -3281,7 +3282,7 @@ optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers
   declaration, so every bundled family declares itself in its shared
   package. The server resolves each one's entry by the name the entry takes
   from it (`BUNDLED_EXTENSIONS`, `app/runtime`), and fails at load on a
-  family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, required?,
+  family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, description?, required?,
 enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `host`, the store's `own` folder, a `link`, or an `install`
   with its selection, through which a marketplace's name is read: `installMarketplace`), so no reader infers it from `source`. The `kb ui` server adds the host plugins it loaded,
   such as the agent, to the same report. The browser loads the browser

@@ -40,6 +40,7 @@ export const HOLLOW_BACKDROP = themeBackdrop("zzz.hollow", "Hollow", ZZZ_DESIGN_
 export const zzzExtension = defineExtension({
   name: "zzz",
   label: "ZZZ",
+  description: "The ZZZ theme, after Zenless Zone Zero, with two page-head backdrops.",
   tags: ["themes"],
   optional: { byDefault: "on" },
   declaredOptions: [

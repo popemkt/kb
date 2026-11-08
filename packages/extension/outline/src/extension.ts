@@ -23,6 +23,7 @@ import { OUTLINE_IDS } from "./ids.ts";
 export const outlineExtension = defineExtension({
   name: "outline",
   label: "Outline",
+  description: "The outliner: the default way to read and edit a node and its children.",
   optional: { byDefault: "on" },
   tags: ["outline"],
   defaultView: OutlineView,

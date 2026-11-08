@@ -31,11 +31,12 @@ import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 // Protocol 4: an extension row carries its origin (kb's build and the host
-// included) and a required family's reason in place of `optional`, which a
-// page of protocol 3 requires, so it reloads into a build that reads them.
+// included), its one-line description, and a required family's reason in
+// place of `optional`, which a page of protocol 3 requires, so it reloads
+// into a build that reads them.
 const RECORDED = {
   protocol: 4,
-  fingerprint: "bf75ff91b784cdd20e3ebaba56c6c59d2b12783cb02bc1b55773de22eca2676c",
+  fingerprint: "3c30b86fff36eea7f6eb49fd4b5f1e570f95c132d8f160bea65385d54dc1441c",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

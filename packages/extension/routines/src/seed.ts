@@ -158,6 +158,7 @@ export function routinesSeed(at: string): readonly KbNode[] {
 export const routinesExtension = defineExtension({
   name: "routines",
   label: "Routines",
+  description: "Routines and their occurrences on a calendar, synced with Google Calendar.",
   tags: ["routine", "occurrence", "calendar", "google-account"],
   optional: { byDefault: "off" },
   seed: routinesSeed,

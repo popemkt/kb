@@ -24,6 +24,8 @@ export interface ExtensionDeclaration {
   /** The family's name: the one home of it, which its plugins and its manifest row read. */
   readonly name: string;
   readonly label: string;
+  /** What the family adds, in one line: what Settings shows under its label. */
+  readonly description?: string;
   /**
    * How the family starts in a store where no one has switched it: `on`
    * when it says nothing. Every family can be switched unless it declares
@@ -179,6 +181,7 @@ export const ExtensionRowSchema = z.object({
   origin: ExtensionOriginSchema,
   name: z.string(),
   label: z.string(),
+  description: z.string().optional(),
   required: z.string().optional(),
   enabled: z.boolean(),
   source: z.string(),
@@ -224,6 +227,7 @@ export function extensionRow(
   return {
     name: declaration.name,
     label: declaration.label,
+    ...(declaration.description === undefined ? {} : { description: declaration.description }),
     ...(declaration.required === undefined ? {} : { required: declaration.required }),
     enabled,
     source,

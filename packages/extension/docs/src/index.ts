@@ -8,6 +8,7 @@ import { defineExtension } from "@kb/contracts";
 export const docsExtension = defineExtension({
   name: "docs",
   label: "Docs",
+  description: "Markdown docs rendered from queries and templates, and the generated-docs check.",
   tags: ["core"],
   required:
     "Core's markdown views render with its templates, and it runs the docs check this repository's gate relies on.",

@@ -34,6 +34,7 @@ const DeclarationData = Schema.Struct({
     ),
   ),
   label: Schema.String,
+  description: Schema.optional(Schema.String),
   optional: Schema.optional(Schema.Struct({ byDefault: Schema.Literals(["on", "off"]) })),
 });
 

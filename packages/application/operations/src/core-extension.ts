@@ -33,6 +33,7 @@ export const KB_DESIGN_SYSTEM: SeedOption = { id: "kb", label: "kb" };
 export const coreExtension = defineExtension({
   name: "core",
   label: "Core",
+  description: "The graph itself: nodes, fields, tags, search, views and these settings.",
   tags: ["core"],
   required: "kb itself: the graph, its nodes, fields and tags, search, and these settings.",
   seed: systemSeedNodes,
