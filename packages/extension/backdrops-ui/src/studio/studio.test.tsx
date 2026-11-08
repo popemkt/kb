@@ -388,6 +388,10 @@ const cardsIn = (within: Element | null) =>
       `awaiting ${card.getAttribute("data-studio-awaiting")}`,
   );
 
+/** What the fake server reports of its extensions now, and who reads its manifest again. */
+let served: typeof REPORT = REPORT;
+const manifestReaders = new Set<() => void>();
+
 describe("Backdrop Studio, from plugins", () => {
   let root: Root;
 
@@ -396,13 +400,19 @@ describe("Backdrop Studio, from plugins", () => {
   });
   beforeEach(() => {
     mounts = [];
+    served = REPORT;
+    manifestReaders.clear();
     const host = testBrowserHost({
       invoke: (id) =>
         Promise.resolve(
           id === "extension.list"
-            ? { status: "succeeded", id, output: REPORT }
+            ? { status: "succeeded", id, output: served }
             : { status: "failed", id, code: "not_found", message: "none" },
         ),
+      subscribeManifest: (listener) => {
+        manifestReaders.add(listener);
+        return () => manifestReaders.delete(listener);
+      },
     });
     host.setNodes([node(HOLE), node(extensionNodeId("core"))]);
     syncUiPlugins([testHostPlugin(host), probes, plugged]);
@@ -440,6 +450,30 @@ describe("Backdrop Studio, from plugins", () => {
     expect(waiting?.textContent).toContain("kb ext trust waiting");
     // One with no page half can bring no backdrop, so the studio does not speak of it.
     expect(document.querySelector('[data-studio-awaiting="quiet"]')).toBeNull();
+  });
+
+  test("it follows the server's manifest, so an install or removal that loads nothing is drawn", async () => {
+    served = { ...REPORT, extensions: REPORT.extensions.filter(({ name }) => name !== "waiting") };
+    await shown(<StudioPage />);
+    expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toEqual([PLUGGED.id]);
+    /** The server composes `next`, and the page reads its manifest again; the page kernel never moves. */
+    const composed = async (next: typeof REPORT) => {
+      served = next;
+      await act(async () => {
+        for (const read of manifestReaders) read();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    };
+    await composed(REPORT);
+    expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toEqual([
+      PLUGGED.id,
+      "awaiting waiting",
+    ]);
+    await composed({
+      ...REPORT,
+      extensions: REPORT.extensions.filter(({ name }) => name !== "waiting"),
+    });
+    expect(cardsIn(document.querySelector("[data-studio-plugins]"))).toEqual([PLUGGED.id]);
   });
 
   test("its scene says which extension it is from", async () => {

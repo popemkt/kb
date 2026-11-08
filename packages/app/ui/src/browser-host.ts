@@ -9,6 +9,7 @@ import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
+import { subscribeManifest } from "@/lib/manifest";
 import { proposeView } from "@/lib/propose-view";
 import { pageCatalog } from "@/lib/view-catalog";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
@@ -85,6 +86,7 @@ const host: BrowserHost = {
   viewCatalog: pageCatalog,
   writes: mutations,
   invoke,
+  subscribeManifest,
   screen: paneScreenPort,
   proposeView,
   sandbox: { hostFrame: hostSandboxFrame, invokeAsScript, isTrusted, setTrusted },

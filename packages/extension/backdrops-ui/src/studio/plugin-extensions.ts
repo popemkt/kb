@@ -2,12 +2,13 @@
  * The repository extensions Backdrop Studio speaks of (DESIGN-UI.md →
  * Backdrop Studio → From plugins): the server's report (`extension.list`),
  * every row of which with an `origin` is one, its own, linked or
- * installed. It is read again whenever the page's kernel moves, since
- * trusting, removing or switching one moves it.
+ * installed. It is read again whenever the page reads the server's
+ * manifest again (`BrowserHost.subscribeManifest`), as installing,
+ * trusting, switching or removing one makes it.
  */
 import { useEffect, useState } from "react";
 import { ExtensionReportSchema, type ExtensionReportRow } from "@kb/contracts";
-import { browserHost, subscribeUiKernel } from "@kb/ui-sdk";
+import { browserHost } from "@kb/ui-sdk";
 
 export interface PluginExtensions {
   /** The repository extensions by name: a backdrop its family is one of these is a plugin's. */
@@ -51,7 +52,7 @@ export function usePluginExtensions(): PluginExtensions {
   const [read, setRead] = useState<PluginExtensions>(NONE);
   useEffect(() => {
     let live = true;
-    // A burst of kernel moves is one read in flight and, if any moved during it, one more after.
+    // A burst of manifest reads is one read in flight and, if any moved during it, one more after.
     let asking = false;
     let again = false;
     const ask = () => {
@@ -77,7 +78,7 @@ export function usePluginExtensions(): PluginExtensions {
         .catch(() => settle(NONE));
     };
     ask();
-    const unsubscribe = subscribeUiKernel(ask);
+    const unsubscribe = browserHost().subscribeManifest(ask);
     return () => {
       live = false;
       unsubscribe();

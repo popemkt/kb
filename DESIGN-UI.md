@@ -5527,7 +5527,10 @@ it as kb's own are, and a family switched off takes its backdrops out.
   - **From plugins.** Backdrops whose family is a repository extension
     (`extension.list`'s rows with an `origin`: own, linked or installed)
     are a section of their own below kb's, each card saying
-    _from <extension>_; the scene's header says it too.
+    _from <extension>_; the scene's header says it too. The report is
+    read again whenever the page reads the server's manifest again
+    (`BrowserHost.subscribeManifest`), so installing, trusting, switching
+    or removing one is drawn, even when no plugin of the page moves.
   - **Needing approval.** Each repository extension that has a page half
     and is not trusted is listed in that section as a card with no
     picture: its name, its source, and that kb runs none of its code until

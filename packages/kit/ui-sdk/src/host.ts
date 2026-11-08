@@ -101,6 +101,13 @@ export interface BrowserHost extends NodeTextPort {
   readonly writes: PageWrites;
   /** Make one call through the browser's one invoke path and answer its receipt. */
   readonly invoke: (id: string, input: unknown) => Promise<ActionReceipt>;
+  /**
+   * Called whenever the page reads the server's manifest again: the server
+   * composed something new, as when an extension is installed, trusted,
+   * switched or removed. What the server reports of its extensions
+   * (`extension.list`) is read again then.
+   */
+  readonly subscribeManifest: (listener: () => void) => () => void;
   /** Where a view reports what it shows for its pane (`usePaneScreen`). */
   readonly screen: PaneScreenPort;
   /** Make a view node through `view.propose`, the one check of a proposed view. */
