@@ -11,10 +11,10 @@
  * while it is reported on. They load on demand, so no other command pays
  * for the agent packages. A key a provider refers to is read from this
  * process's environment, the platform keychain or the sealed store
- * (`systemSecrets`).
+ * (`systemSecrets`), and a key routines' setup is handed is kept there.
  */
 import { Effect } from "effect";
-import type { CalendarBinding, SyncError as RoutineSyncError } from "@kb/routines";
+import type { AccountConfig, CalendarBinding, SyncError as RoutineSyncError } from "@kb/routines";
 import type { AgentAdapter } from "@kb/agent";
 import type { ExtensionEntry } from "@kb/contracts";
 import { childProcessEnv, systemSecrets } from "@kb/runtime";
@@ -31,6 +31,22 @@ export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function*
   return [claudeAdapter({ cwd: root, env }), openAiChatAdapter()];
 });
 
+/** gcloud is the person's own tool, run as their shell would, never asked to prompt. */
+function gcloud(argv: readonly string[]) {
+  const child = Bun.spawn([...argv], {
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+    env: childProcessEnv("tool", { CLOUDSDK_CORE_DISABLE_PROMPTS: "1" }),
+    timeout: 120_000,
+  });
+  return Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]).then(([stdout, stderr, code]) => ({ code, stdout, stderr }));
+}
+
 export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
   root: string,
   origin = "http://127.0.0.1:4321",
@@ -40,7 +56,15 @@ export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
   const [
     { routinesExtension, SyncError },
     { routinesPlugin },
-    { makeGoogleCalendar, makeGoogleTokens, beginGoogleConnect },
+    {
+      makeGoogleCalendar,
+      makeGoogleTokens,
+      beginGoogleConnect,
+      validateGoogleClient,
+      revokeGoogle,
+      gcloudStatus,
+      gcloudSetup,
+    },
     { parseSecretRef },
   ] = yield* Effect.promise(() =>
     Promise.all([
@@ -57,9 +81,15 @@ export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
     if (parsed === null) throw new SyncError({ status: 401, code: "auth_needed" });
     return secrets.sink(parsed);
   };
-  const oauth = (binding: CalendarBinding, trusted: Effect.Effect<boolean, RoutineSyncError>) => {
-    if (binding.account === null) throw new SyncError({ status: 401, code: "auth_needed" });
-    return { account: binding.account, trusted, secrets, sink };
+  const oauth = (account: AccountConfig, trusted: Effect.Effect<boolean, RoutineSyncError>) => ({
+    account,
+    trusted,
+    secrets,
+    sink,
+  });
+  const accountOf = (calendar: CalendarBinding) => {
+    if (calendar.account === null) throw new SyncError({ status: 401, code: "auth_needed" });
+    return calendar.account;
   };
   return [
     {
@@ -71,11 +101,19 @@ export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (
       entry: routinesPlugin({
         origin,
         runner,
-        client: (binding, trusted) =>
-          makeGoogleTokens(oauth(binding, trusted)).pipe(
+        secrets,
+        client: (calendar, trusted) =>
+          makeGoogleTokens(oauth(accountOf(calendar), trusted)).pipe(
             Effect.map((tokens) => makeGoogleCalendar({ tokens, runner })),
           ),
-        connect: (binding, trusted) => beginGoogleConnect(oauth(binding, trusted)),
+        setup: {
+          validate: (client, redirectUri) => validateGoogleClient(client, redirectUri),
+          connect: (account, trusted, redirectUri) =>
+            beginGoogleConnect(oauth(account, trusted), redirectUri),
+          revoke: (account, trusted) => revokeGoogle(oauth(account, trusted)),
+          automation: gcloudStatus(gcloud),
+          automate: (project) => gcloudSetup(gcloud, project),
+        },
       }),
     },
   ];

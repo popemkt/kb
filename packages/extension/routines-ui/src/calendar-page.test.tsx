@@ -479,7 +479,8 @@ describe("sync status", () => {
         ...status({ state: "synced", message: "", url: "https://calendar.google.com/event?eid=x" }),
       },
     };
-    open("/calendar/week/2026-11-02", [CALENDAR, synced]);
+    const service = outline("acct", "Google", { [SYSTEM_IDS.typeField]: [ref(T.account)] });
+    open("/calendar/week/2026-11-02", [CALENDAR, synced, service]);
     pointer("pointerdown", chip("gym/2026-11-02"), y(7) + 10);
     pointer("pointerup", chip("gym/2026-11-02"), y(7) + 10);
     const link = $('[data-testid="entry-popover"] a');
@@ -487,6 +488,14 @@ describe("sync status", () => {
     expect(link.getAttribute("target")).toBe("_blank");
     await click($("[data-sync-summary]"));
     expect(calls.at(-1)).toEqual({ id: "ext.routines.sync", input: {} });
+    await click(button("Sync services"));
+    expect(getPath()).toBe("/calendar/sync");
+  });
+  test("with no sync service, the toolbar offers to set one up", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    await click(button("Set up sync"));
+    expect(getPath()).toBe("/calendar/sync");
+    expect(calls.filter((call) => call.id === "ext.routines.sync")).toEqual([]);
   });
   test("a calendar in preview or paused sends nothing, whatever status the engine last wrote", () => {
     const sync = (mode: string) => ({

@@ -38,9 +38,14 @@ comments on 2026-11-03. kb is the source of truth; Google is its outbound projec
   stopped cannot be recovered from the missing node alone. End the routine via
   its until field before deleting it when offline. Google may retain sparse
   exceptions across parent updates; live acceptance must verify restoration.
-- Secrets remain absolute dotenv pointers to a private 0600 file, with each
-  person's own desktop OAuth client and calendar.app.created scope. Setup lives
-  in the extension README. Calendar month/week/agenda views are a separate pass.
+- Secrets are references the host placed in its secret store (the macOS
+  Keychain, or a file sealed with systemd-creds or AES-256-GCM in kb's data
+  directory; DESIGN.md → Writable host secrets), with each person's own Web
+  application OAuth client, redirected to kb's own page, and calendar.app.created
+  scope. Setup is the page's wizard (DESIGN-UI.md → Sync services), summarized in
+  the extension README; the 2026-11-04 dotenv pointers and Desktop loopback
+  client are superseded (2026-11-08). Calendar month/week/agenda views are a
+  separate pass.
 
 ## Scope and ownership
 

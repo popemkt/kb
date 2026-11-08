@@ -2,19 +2,20 @@ import { Record } from "effect";
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { seededField, seededTag, SYSTEM_IDS, type FieldType, type KbNode } from "@kb/model";
-import { RoutinesCalendarView } from "./view.ts";
+import { RoutinesCalendarView, RoutinesSyncView } from "./view.ts";
 
 function field(
   label: string,
   type: FieldType,
-): { label: string; type: FieldType; options: readonly [] };
+): { label: string; type: FieldType; options: readonly []; one: boolean };
 function field<const O extends readonly string[]>(
   label: string,
   type: FieldType,
   options: O,
-): { label: string; type: FieldType; options: O };
-function field(label: string, type: FieldType, options: readonly string[] = []) {
-  return { label, type, options };
+  one?: boolean,
+): { label: string; type: FieldType; options: O; one: boolean };
+function field(label: string, type: FieldType, options: readonly string[] = [], one = true) {
+  return { label, type, options, one };
 }
 const fields = {
   rrule: field("rrule", "text"),
@@ -41,6 +42,9 @@ const fields = {
   clientId: field("client id", "secret"),
   clientSecret: field("client secret", "secret"),
   refreshToken: field("refresh token", "secret"),
+  project: field("google project", "text"),
+  /** The setup steps a person confirmed by hand: kb cannot see them in Google before it connects. */
+  setup: field("setup done", "ref", ["project", "apis", "branding", "audience"], false),
 };
 export type RoutineField = keyof typeof fields;
 export type RoutineOption<K extends RoutineField> = (typeof fields)[K]["options"][number];
@@ -112,6 +116,8 @@ const tags: readonly [string, string, readonly RoutineField[]][] = [
       "clientId",
       "clientSecret",
       "refreshToken",
+      "project",
+      "setup",
       "status",
       "message",
       "eventId",
@@ -128,7 +134,7 @@ export function routinesSeed(at: string): readonly KbNode[] {
       key === "calendar" ? ROUTINE_TAGS.calendar : key === "account" ? ROUTINE_TAGS.account : null;
     nodes.push({
       ...seededField(id, spec.label, spec.type, at, {
-        one: true,
+        one: spec.one,
         props: target === null ? {} : { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: target }] },
       }),
       children: spec.options.map((value) => routineOption(key, value)),
@@ -161,7 +167,7 @@ export const routinesExtension = defineExtension({
   tags: ["routine", "occurrence", "calendar", "google-account"],
   optional: { byDefault: "off" },
   seed: routinesSeed,
-  views: [viewDef(RoutinesCalendarView)],
+  views: [viewDef(RoutinesCalendarView), viewDef(RoutinesSyncView)],
 });
 
 /** The family's shared plugin: its declaration's view, which both hosts' entries load. */
