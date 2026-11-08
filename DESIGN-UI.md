@@ -459,19 +459,28 @@ decides a context's keys, and its rule is the point's `combine`:
   ⌘K (`PALETTE_CHORD`), so no binding can trap a person in a row;
 - the owner's bindings are held first, then the rest in load order;
 - **no two held chords overlap** (`chordsOverlap`: a common key, and a state
-  of the four modifiers both admit), but for a replacement and its holder. So the order bindings are listed in
-  means nothing, and each says exactly what it claims: the outline's split is
-  `Enter` without Shift, its bare arrows are `mod: false`, and typing over a
-  selected row is any printable key the selection's other bindings leave;
+  of the four modifiers both admit), but along a chain of replacements. So
+  the order bindings are listed in means nothing, and each says exactly what
+  it claims: the outline's split is `Enter` without Shift, its bare arrows
+  are `mod: false`, and typing over a selected row is any printable key the
+  selection's other bindings leave. Alt is a modifier like the others: an
+  Alt-composed character (⌥o is ø) is no outline key, so it stays native
+  unless a binding claims its chord;
 - a binding over a held chord is refused unless it names the holder in
   `replaces` (the record's §9 default 7: an occupied chord is never taken
   silently). A replacement takes exactly its own chord, and the holder keeps
   the rest: `Alt-ArrowUp` replacing `outline.selection.up` moves the row,
-  and a bare ↑ still selects the row above. A chord one replacement holds
-  is held, so a second must replace the first;
+  and a bare ↑ still selects the row above. A replacement stands on the
+  binding it names, and on everything that one stands on, so the chord it
+  may overlap is its chain's: a second replacement of `Alt-ArrowUp` names
+  the first, and one of `Alt-Shift-ArrowUp`, which the first does not hold,
+  names the outline's. A key runs the newest binding it matches, the one
+  furthest down its chain. A replacement whose holder leaves is refused
+  until it names the binding that holds the chord then, so a key never
+  moves to a binding no one chose for it;
 - a binding over a reserved chord is refused, even as a replacement, and so
-  is one that replaces nothing it overlaps, or names an intent its context
-  lacks. The outline reads both keymaps whenever the page kernel moves, so a
+  is one that replaces a binding holding no chord it overlaps, or names an
+  intent its context lacks. The outline reads both keymaps whenever the page kernel moves, so a
   refusal is told when the binding arrives, once a page session, naming the
   binding, the chord and its holder. The kernel admits a binding by its id
   alone, so a refused one stays contributed and inert:

@@ -5,7 +5,7 @@
  * to, and the GPU facts a spec may depend on (`gpu`).
  */
 import { test as base, expect, type Locator } from "playwright/test";
-import { startHarness } from "./harness-server.ts";
+import { startHarness, type HarnessOptions } from "./harness-server.ts";
 
 export { expect };
 
@@ -50,10 +50,12 @@ export interface GpuFacts {
 export const test = base.extend<{
   harness: { url: string };
   gpu: GpuFacts;
+  /** What the harness installs beside the fixture store; a spec sets it with `test.use`. */
+  harnessOptions: HarnessOptions;
 }>({
-  // oxlint-disable-next-line no-empty-pattern -- Playwright reads fixture deps from the destructuring pattern
-  harness: async ({}, provide) => {
-    const harness = await startHarness();
+  harnessOptions: [{}, { option: true }],
+  harness: async ({ harnessOptions }, provide) => {
+    const harness = await startHarness(harnessOptions);
     try {
       await provide({ url: harness.url });
     } finally {

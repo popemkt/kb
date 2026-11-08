@@ -18,7 +18,7 @@
         "playwright.config.ts",
         "tests-render/*.e2e.ts",
         "tests-render/global-setup.ts",
-        "tests-render/server.ts"
+        "tests-render/server/server.ts"
       ]
     },
     "packages/app/ui": {

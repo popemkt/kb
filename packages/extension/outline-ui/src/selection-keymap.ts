@@ -169,7 +169,12 @@ function selectionBinding(
   };
 }
 
-/** The bindings typing over a row yields to: a character one of them claims is not typed. */
+/**
+ * The bindings typing over a row yields to: a character one of them claims
+ * is not typed. A character key says `alt: false`, so an Alt-composed glyph
+ * (⌥o is ø) is never one of the outline's keys and stays native unless a
+ * binding claims its chord.
+ */
 const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
   selectionBinding("move-up", { key: "ArrowUp", mod: true, shift: true }),
   selectionBinding("move-down", { key: "ArrowDown", mod: true, shift: true }),
@@ -179,13 +184,13 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
   selectionBinding("close-or-climb", { key: "ArrowLeft", mod: false }),
   selectionBinding("open-or-descend", { key: "ArrowRight", mod: false }),
   selectionBinding("edit", { key: "Enter", mod: false }),
-  selectionBinding("toggle-collapse", { key: SPACE_KEYS, mod: false }),
+  selectionBinding("toggle-collapse", { key: SPACE_KEYS, mod: false, alt: false }),
   selectionBinding("outdent", { key: "Tab", shift: true, mod: false }),
   selectionBinding("indent", { key: "Tab", shift: false, mod: false }),
-  selectionBinding("create-after", { key: "o", mod: false }),
+  selectionBinding("create-after", { key: "o", mod: false, alt: false }),
   // Shift+o: a new empty row directly above. Case is the binding, so this is
   // its own row rather than a `shift` constraint on the one above.
-  selectionBinding("create-before", { key: "O", mod: false }),
+  selectionBinding("create-before", { key: "O", mod: false, alt: false }),
   selectionBinding("delete", { key: ["Backspace", "Delete"], mod: false }),
   selectionBinding("clear", { key: "Escape", mod: false }),
 ];
@@ -197,7 +202,8 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
  * resolves to nothing and stays the browser's or the shell's. Typing over a
  * selected row edits it with the character appended: any printable key but
  * those the bindings above claim, with Alt excluded so Alt-composed glyphs
- * stay native.
+ * stay native. The keymap alone says which keys are the selection's: an
+ * event no binding resolves is left to the page, Alt or not.
  */
 export const SELECTION_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
   ...SELECTION_KEYS,

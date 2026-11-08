@@ -53,8 +53,20 @@ async function freePort(): Promise<number> {
   return address.port;
 }
 
+/** The argument that asks `tests-render/server/server.ts` to install the example extension. */
+export const EXAMPLE_ARG = "--example";
+
+export interface HarnessOptions {
+  /**
+   * Install the test kit's example repository extension (`@kb/test-kit`'s
+   * `EXAMPLE_EXTENSION`) in the scratch root, trusted as its owner would
+   * trust it, so a spec drives what a trusted repository extension adds.
+   */
+  readonly example?: boolean;
+}
+
 /**
- * Spawn a harness UI over a fresh fixture store (`server.ts`).
+ * Spawn a harness UI over a fresh fixture store (`tests-render/server/server.ts`).
  *
  * Every test gets its own instance, through the `harness` fixture in
  * `harness-test.ts`. The store lives on the server for that server's
@@ -63,7 +75,7 @@ async function freePort(): Promise<number> {
  * test makes an unrelated one fail. A store opens in about 300 ms, so
  * isolation is cheaper than any reset a test could get wrong.
  */
-export async function startHarness(): Promise<{
+export async function startHarness(options: HarnessOptions = {}): Promise<{
   url: string;
   stop: () => Promise<void>;
 }> {
@@ -72,7 +84,8 @@ export async function startHarness(): Promise<{
   // server's own override, `KB_UI_DIST` (packages/app/server/src/paths.ts):
   // this process runs under Node, so it cannot import that Bun module to
   // name it, and the harness is the override's reason to exist.
-  const server = spawn("bun", ["tests-render/server.ts", String(port)], {
+  const args = [String(port), ...(options.example === true ? [EXAMPLE_ARG] : [])];
+  const server = spawn("bun", ["tests-render/server/server.ts", ...args], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "inherit"],
     env: { ...process.env, KB_UI_DIST: HARNESS_UI_DIST },

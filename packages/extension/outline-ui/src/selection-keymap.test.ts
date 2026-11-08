@@ -317,6 +317,8 @@ describe("mapSelectionKey chord table (characterization)", () => {
       { type: "append", nodeId: "b", instanceKey: "tree/b", char: "!" },
     ],
     ["Alt+x composes natively", key("x", { altKey: true }), "b", null],
+    ["Alt+o composes natively", key("o", { altKey: true }), "b", null],
+    ["Alt+Space stays native", key(" ", { altKey: true }), "b", null],
     ["F5 is not printable", key("F5"), "b", null],
     ["ArrowRight-like unknown names are not printable", key("PageDown"), "b", null],
   ];

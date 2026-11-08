@@ -16,9 +16,6 @@ export function useSelectionKeymap(): void {
       return undefined;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && !(e.metaKey || e.ctrlKey)) {
-        if (e.key.length === 1) return; // Alt-composed glyphs stay native
-      }
       if (isEditableTarget(e.target)) return;
       // A key the focused element already handled (the selected row's own
       // Enter/Space) is not a selection key a second time.

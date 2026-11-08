@@ -86,6 +86,19 @@ describe("the outline's keybindings", () => {
   });
 });
 
+/** Another plugin's binding of `chord` in the selection, replacing `replaces`. */
+const replace = (id: string, chord: string, replaces: string) => ({
+  name: "more",
+  bindings: [
+    provideKeybinding(id, {
+      context: "outline.selection",
+      chord,
+      run: { intent: "zoom" },
+      replaces,
+    }),
+  ],
+});
+
 describe("a binding that replaces a held one", () => {
   const moveWithAlt = {
     name: "keys",
@@ -142,6 +155,53 @@ describe("a binding that replaces a held one", () => {
           "it replaces outline.selection.up, which holds no chord overlapping Mod-j in outline.selection",
       },
     ]);
+  });
+
+  it("is itself replaced by a binding that names it, and each it stands on keeps the rest", () => {
+    const keymap = admitKeybindings(
+      SELECTION_CONTEXT,
+      outlineKeybindings(moveWithAlt, replace("again", "Alt-ArrowUp", "keys.move-up")),
+    );
+    expect(keymap.refused).toEqual([]);
+    expect(keymap.resolve({ key: "ArrowUp", altKey: true })?.id).toBe("more.again");
+    expect(keymap.resolve({ key: "ArrowUp" })?.id).toBe("outline.selection.up");
+  });
+
+  it("names the binding that holds the part of the chord it takes", () => {
+    const wrong = admitKeybindings(
+      SELECTION_CONTEXT,
+      outlineKeybindings(moveWithAlt, replace("wide", "Alt-Shift-ArrowUp", "keys.move-up")),
+    );
+    expect(wrong.refused).toEqual([
+      {
+        id: "more.wide",
+        reason:
+          "it replaces keys.move-up, which holds no chord overlapping Shift-Alt-ArrowUp in outline.selection",
+      },
+    ]);
+    const right = admitKeybindings(
+      SELECTION_CONTEXT,
+      outlineKeybindings(moveWithAlt, replace("wide", "Alt-Shift-ArrowUp", "outline.selection.up")),
+    );
+    expect(right.refused).toEqual([]);
+    expect(right.resolve({ key: "ArrowUp", altKey: true, shiftKey: true })?.id).toBe("more.wide");
+    expect(right.resolve({ key: "ArrowUp", altKey: true })?.id).toBe("keys.move-up");
+    expect(right.resolve({ key: "ArrowUp" })?.id).toBe("outline.selection.up");
+  });
+
+  it("is refused once the binding it replaces leaves, and the key goes back to the holder", () => {
+    const keymap = admitKeybindings(
+      SELECTION_CONTEXT,
+      outlineKeybindings(replace("again", "Alt-ArrowUp", "keys.move-up")),
+    );
+    expect(keymap.refused).toEqual([
+      {
+        id: "more.again",
+        reason:
+          "it replaces keys.move-up, which holds no chord overlapping Alt-ArrowUp in outline.selection",
+      },
+    ]);
+    expect(keymap.resolve({ key: "ArrowUp", altKey: true })?.id).toBe("outline.selection.up");
   });
 
   it("may not take a reserved chord, even by replacing its holder", () => {

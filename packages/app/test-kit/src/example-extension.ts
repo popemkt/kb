@@ -4,8 +4,9 @@
  * boundary & extensions → repository extensions). Its server entry
  * provides a service, loads a child plugin that injects it to answer an
  * action, and loads its declaration's plugin for its view; its declaration
- * names a backdrop; its page entry draws that view, adds a sidebar section
- * and contributes the backdrop, metered by the kit's frame meter. Its files share a helper
+ * names a backdrop; its page entry draws that view, adds a sidebar section,
+ * contributes the backdrop, metered by the kit's frame meter, and binds keys
+ * in the outline's contexts. Its files share a helper
  * directory, so its closure holds more than its two entries.
  */
 import { Effect } from "effect";
@@ -165,13 +166,41 @@ export default definePlugin({
 import {
   BACKDROP_BUDGETS,
   BackdropPoint,
+  KeybindingPoint,
   SidebarSectionPoint,
   ViewPoint,
   provideBackdrop,
+  provideKeybinding,
   provideView,
 } from "kb-ext-sdk/page";
 import { BoardView, Glow, declaration } from "./lib/declaration.ts";
 import { GlowScene } from "./lib/glow.tsx";
+
+/**
+ * Its keys: Alt-↑ moves the row in both of the outline's contexts, each
+ * taking a chord the outline holds by naming the binding it replaces; and
+ * ⌘⇧Y on a selected row runs kb's own \`node.update\` on it, through the
+ * page's invoke path and its guards.
+ */
+const KEYS = [
+  provideKeybinding("move-up", {
+    context: "outline.editing",
+    chord: "Alt-ArrowUp",
+    run: { intent: "move-up" },
+    replaces: "outline.editing.line-up",
+  }),
+  provideKeybinding("move-up-selected", {
+    context: "outline.selection",
+    chord: "Alt-ArrowUp",
+    run: { intent: "move-up" },
+    replaces: "outline.selection.up",
+  }),
+  provideKeybinding("stamp", {
+    context: "outline.selection",
+    chord: "Mod-Shift-y",
+    run: { action: "node.update", input: { text: "Stamped by the example" } },
+  }),
+];
 
 /** Its declaration, as the page half reads it too: a test seeds a page from it. */
 export { declaration };
@@ -195,6 +224,7 @@ export default definePlugin({
           provideView(BoardView, { placements: ["page"], sample: {}, Component: Board }),
         ),
         ctx.contribute(SidebarSectionPoint, { id: "section", value: { order: 90, Component: Section } }),
+        ...KEYS.map((binding) => ctx.contribute(KeybindingPoint, binding)),
         ctx.contribute(
           BackdropPoint,
           provideBackdrop(Glow, {
