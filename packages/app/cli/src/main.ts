@@ -5,7 +5,9 @@ import { kbLaunchError, UNSAFE_KB_LAUNCH } from "@kb/child-process";
 const launchError = kbLaunchError(process.execArgv);
 if (launchError !== null) {
   process.stderr.write(`${launchError}\n`);
-  process.exit(UNSAFE_KB_LAUNCH);
+  process.exitCode = UNSAFE_KB_LAUNCH;
+} else {
+  const { main } = await import("./cli.ts");
+  // Natural shutdown lets both output streams finish their pending pipe writes.
+  process.exitCode = await main();
 }
-const { main } = await import("./cli.ts");
-process.exit(await main());
