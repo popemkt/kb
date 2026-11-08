@@ -33,8 +33,12 @@ const { BROWSER_EXTENSIONS, extensionsSettled, startUiPlugins } = await import("
 
 const SERVED_AT = EXAMPLE_SERVED_AT;
 
-/** How many contributions the example's page half makes: its views' keys and drawings, its section, its keys and its backdrop. */
-const FOOTPRINT = 9;
+/**
+ * How many contributions the example's page half makes: its views' keys and
+ * drawings, its section, its keys, its node command, its picker step and its
+ * backdrop.
+ */
+const FOOTPRINT = 11;
 
 /** Where the server says the half is: the example's, or bytes that throw as they are imported. */
 let servedAt = SERVED_AT;
@@ -94,15 +98,17 @@ describe("a repository extension's page half (acceptance)", () => {
     setPostAction(null);
   });
 
-  it("loads beside the bundled families, and its views, sidebar section and keys are the page's", async () => {
+  it("loads beside the bundled families, and its views, sidebar section, keys, command and step are the page's", async () => {
     loaded = true;
     await follow();
     expect(pageFootprint("example").map(({ kind, id }) => [kind, id])).toEqual([
       ["kb.views", "example.board"],
       ["kb.views", "example.note"],
+      ["ui.palette-steps", "example.link"],
       ["ui.views", "example.board"],
       ["ui.views", "example.note"],
       ["ui.sidebar", "example.section"],
+      ["ui.commands", "example.link"],
       ["ui.keybindings", "example.move-up"],
       ["ui.keybindings", "example.move-up-selected"],
       ["ui.keybindings", "example.stamp"],

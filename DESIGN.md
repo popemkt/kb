@@ -3161,8 +3161,9 @@ from "kb-ext-sdk"`. Types are generated from
   `effect`'s, a dev dependency of the extension's repository; its values
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
-  views, routes, sidebar sections, docks, overlays, commands, design
-  systems, backdrops with their budgets and the kit's frame meter — and
+  views, routes, sidebar sections, docks, overlays, commands, picker
+  steps, keybindings, design systems, backdrops with their budgets and the
+  kit's frame meter — and
   React's own types), written beside it. `kb-ext-sdk` carries the
   declared-option kinds a declaration names its backdrops by
   (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
@@ -3171,7 +3172,9 @@ from "kb-ext-sdk"`. Types are generated from
   page's `PAGE_EXTENSION_SDK` object (`@kb/ui-sdk`), so
   `page-surface-bridge.test.ts` holds the restatement to them as `surface-bridge.test.ts` holds
   `kb-ext-sdk`'s, by the one set of comparisons (`bridge.ts`): the
-  surface and served object have exactly the same value names; a value is
+  surface and served object have exactly the same value names; a point,
+  static (`PointKey`) or declared (`PointName`), is held by what it is
+  contributed; a value is
   the page's own exactly, member for member in every variant and through
   optional members, so the
   host can neither drop nor change what the surface advertises, and a

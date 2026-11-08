@@ -1,4 +1,6 @@
-import { CommandPoint } from "./lib/command-point";
+import { PICKED } from "./lib/action-call";
+import { provideCommand, providePaletteStep } from "./lib/command-forms";
+import { CommandPoint, PaletteStepPoint } from "./lib/command-point";
 import { meterFrames } from "./lib/frame-meter";
 import { KeybindingPoint, provideKeybinding } from "./lib/keybindings";
 import { useReducedMotion } from "./lib/motion";
@@ -32,6 +34,10 @@ export const PAGE_EXTENSION_SDK = {
   DockPoint,
   OverlayPoint,
   CommandPoint,
+  provideCommand,
+  PaletteStepPoint,
+  providePaletteStep,
+  PICKED,
   KeybindingPoint,
   provideKeybinding,
   DesignSystemPoint,

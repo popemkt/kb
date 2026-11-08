@@ -103,6 +103,15 @@ export {
   paletteStepsPlugin,
   type PaletteSurface,
 } from "./lib/command-point";
+export { type ActionCall, callInput, invokeAction, PICKED, type Picked } from "./lib/action-call";
+export {
+  type CommandForm,
+  type IconName,
+  type PaletteStepForm,
+  provideCommand,
+  providePaletteStep,
+} from "./lib/command-forms";
+export { savedQueryIds } from "./lib/saved-query";
 export {
   currentContributions,
   currentView,

@@ -503,8 +503,9 @@ key as `KeyboardEvent.key` names it, joined by `-`; exact, so a modifier it
 does not name must be up; a letter matches in either case, since macOS
 reports ⌘⇧S as `s`). Only the outline's two contexts exist; the
 page's own ⌘K and the canvas's keymap are not contexts yet:
-GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]. A run naming a command waits for the
-T0 command form.
+GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]. A key's action is the one shape a
+command's and a picker step's are as data (`ActionCall`, [The node
+menu](#the-node-menu)).
 
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
@@ -2319,6 +2320,35 @@ the one menu builder (`listNodeCommands`) reads the place from the
 command: no list position means anything, and no row is the shell's by
 being listed first.
 
+**A command and a picker step as data.** A node command may hand the
+palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,
+below). Through `kb-ext-sdk/page` both come in two forms. The T3 form is
+the one above, with functions, handed only the row (`CommandContext.target`,
+a step's anchor and pick). The T0 form is data, which the page interprets,
+so no author code runs when a person picks (`lib/command-forms`):
+
+- `provideCommand(id, { label, icon, group, order, when, run })`. `icon`
+  is a name from the shell's set (`IconName`). `when` is a query node, by
+  id: the command is offered on the rows whose id is in its answer's
+  first column, once the replica has answered it (`savedQueryIds`), and
+  absent, on every row. `run` is an action about the row, or a step to
+  open, by its contribution's id (`{ step: "link-to.pick" }`).
+- `providePaletteStep(id, { label, placeholder, icon, candidates, limit,
+  commit })`. `candidates` is a query node: the picker offers the nodes in
+  its answer's first column, each named by its text, less the row itself.
+  Nothing is minted from it. `commit` is an action about the row, and the
+  pick fills each `PICKED` in its input: `{ action: "node.update", input:
+  { setProps: [{ field, value: { t: "ref", v: PICKED } }] } }` links the
+  row to the node picked.
+
+An action is one shape wherever it is data (`ActionCall`, `lib/action-call`):
+a key's (Keybindings), a command's and a step's. Each is called through the
+page's one invoke path with the row's node as its input's `id`, under the
+guards every call meets, and a failed call is told (`invokeAction`). So a
+T0 command or step writes only what a person could write through that
+action, with no new action to add: a link is a ref value, and `node.update`
+already writes one.
+
 ### UI points: routes and views
 
 The UI is assembled from contributions to the browser's `@kb/plugin` kernel
@@ -3216,7 +3246,10 @@ the shell.
     namespaced id): its label, placeholder and icon, its candidates, whether
     one may be minted, and its write. The outline's own add-tag, add-field
     and reference steps are its contributions (`outline.add-tag`, …), so a
-    family's steps come and go with it and the palette reads no closed list;
+    family's steps come and go with it and the palette reads no closed list.
+    A page half reaches it by `uses` and `ctx.point`, as any declared point,
+    and may write one as data (`providePaletteStep`, [The node
+    menu](#the-node-menu));
   - the primitives and the design tokens;
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions

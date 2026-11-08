@@ -19,17 +19,12 @@ import { Point } from "@kb/plugin";
 import { chordsOverlap, describeChord, matchesChord, parseChord } from "./keychord";
 import type { Chord, KeyChordEvent } from "./keychord";
 import { browserHost } from "../host";
+import type { ActionCall } from "./action-call";
 import { pointReader } from "./plugins";
 import { toast } from "./toast";
 
 /** What a key runs: an intent of its context, by name, or an action, through the invoke path. */
-export type KeyRun =
-  | { readonly intent: string }
-  | {
-      readonly action: string;
-      /** The action's input; the row's node is added as `id`. */
-      readonly input?: Readonly<Record<string, unknown>>;
-    };
+export type KeyRun = { readonly intent: string } | ActionCall;
 
 /** A key in a context, and what it runs. */
 export interface Keybinding {

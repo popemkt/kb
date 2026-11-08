@@ -7,7 +7,9 @@
  * names a backdrop, seeds a tag and claims the tag's rows for one of its
  * views; its page entry draws the board as a page and the note at a row,
  * adds a sidebar section, contributes the backdrop, metered by the kit's
- * frame meter, and binds keys in the outline's contexts. Its files share a helper
+ * frame meter, binds keys in the outline's contexts, and adds "Link to a
+ * note…" to the node menu, a command and a picker step written as data
+ * over the two query nodes and the field it seeds. Its files share a helper
  * directory, so its closure holds more than its two entries.
  */
 import { Effect } from "effect";
@@ -37,6 +39,23 @@ export const NoteView = viewKey("example.note", "Example note", NoParams);
 /** The tag it seeds, whose nodes are drawn as a note: \`example.<local id>\`, in its namespace. */
 export const NOTED = "example.noted";
 
+/** Its ref field, which "Link to a note…" adds the note picked to. */
+export const LINKS = "example.f.links";
+
+/** Its query nodes: the \`#noted\` nodes, which the picker offers, and the rows that are not one, where the command is offered. */
+export const NOTES = "example.q.notes";
+export const UNNOTED = "example.q.unnoted";
+
+/** A node of the seed, made at \`at\`. */
+const seeded = (at: string, id: string, text: string, props: KbNode["props"]): KbNode => ({
+  id,
+  text,
+  props,
+  children: [],
+  createdAt: at,
+  updatedAt: at,
+});
+
 /** The example's backdrop: a glow drifting across the head, with two knobs. */
 export const Glow: SeedBackdrop = {
   id: "example.glow",
@@ -54,14 +73,27 @@ export const declaration = defineExtension({
   label: "Example",
   optional: { byDefault: "on" },
   seed: (at): readonly KbNode[] => [
-    {
-      id: NOTED,
-      text: "noted",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] },
-      children: [],
-      createdAt: at,
-      updatedAt: at,
-    },
+    seeded(at, NOTED, "noted", { "sys.f.type": [{ t: "ref", v: "sys.tag" }] }),
+    seeded(at, LINKS, "links", {
+      "sys.f.type": [{ t: "ref", v: "sys.field" }],
+      "sys.f.fieldType": [{ t: "ref", v: "sys.ft.ref" }],
+    }),
+    seeded(at, NOTES, "notes", {
+      "sys.f.query": [
+        {
+          t: "str",
+          v: \`[:find ?id :where [?t :node/id "\${NOTED}"] [?n :f/sys.f.type ?t] [?n :node/id ?id]]\`,
+        },
+      ],
+    }),
+    seeded(at, UNNOTED, "rows that are no note", {
+      "sys.f.query": [
+        {
+          t: "str",
+          v: \`[:find ?id :where [?n :node/id ?id] (not [?n :f/sys.f.type ?t] [?t :node/id "\${NOTED}"])]\`,
+        },
+      ],
+    }),
   ],
   views: [
     viewDef(BoardView, { body: () => ["An example board."] }),
@@ -188,15 +220,28 @@ export default definePlugin({
 import {
   BACKDROP_BUDGETS,
   BackdropPoint,
+  CommandPoint,
   KeybindingPoint,
+  PICKED,
+  PaletteStepPoint,
   SidebarSectionPoint,
   ViewPoint,
   provideBackdrop,
+  provideCommand,
   provideKeybinding,
+  providePaletteStep,
   provideView,
   type ViewProps,
 } from "kb-ext-sdk/page";
-import { BoardView, Glow, NoteView, declaration } from "./lib/declaration.ts";
+import {
+  BoardView,
+  Glow,
+  LINKS,
+  NOTES,
+  NoteView,
+  UNNOTED,
+  declaration,
+} from "./lib/declaration.ts";
 import { GlowScene } from "./lib/glow.tsx";
 
 /** Its declaration, as the page half reads it too: a test seeds a page from it. */
@@ -241,12 +286,39 @@ const KEYS = [
   }),
 ];
 
+/**
+ * "Link to a note…", as data: offered on a row that is no note, it opens
+ * the picker over the notes, and the note picked is added to the row's
+ * \`links\` through kb's own \`node.update\`.
+ */
+const LINK_COMMAND = provideCommand("link", {
+  label: "Link to a note…",
+  icon: "link",
+  group: "make",
+  order: 70,
+  when: UNNOTED,
+  run: { step: "example.link" },
+});
+const LINK_STEP = providePaletteStep("link", {
+  label: "Link to a note",
+  placeholder: "Search the notes…",
+  icon: "link",
+  candidates: NOTES,
+  commit: {
+    action: "node.update",
+    input: { setProps: [{ field: LINKS, value: { t: "ref", v: PICKED } }] },
+  },
+});
+
 export default definePlugin({
   name: declaration.name,
+  uses: [PaletteStepPoint.name],
   apply: (ctx) =>
     Effect.all(
       [
         ctx.plugin(declarationPlugin(declaration)),
+        ctx.contribute(CommandPoint, LINK_COMMAND),
+        Effect.flatMap(ctx.point(PaletteStepPoint), (steps) => ctx.contribute(steps, LINK_STEP)),
         ctx.contribute(
           ViewPoint,
           provideView(BoardView, { placements: ["page"], sample: {}, Component: Board }),

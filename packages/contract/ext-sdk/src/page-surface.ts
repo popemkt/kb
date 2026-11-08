@@ -24,6 +24,7 @@ import type {
   KnobValues,
   PlainViewKey,
   PointKey,
+  PointName,
   SeedBackdrop,
   ViewKey,
 } from "./surface.ts";
@@ -232,6 +233,122 @@ export type Command = GlobalCommand | NodeCommand;
 export declare const CommandPoint: PointKey<Command>;
 
 /**
+ * An action as data: its id, and its input. It is about a row, so the
+ * row's node is added to the input as `id`; a picker step's pick fills
+ * each {@link PICKED} in it. kb calls it through the page's one invoke
+ * path, under the guards every call meets, and tells a person when it fails.
+ */
+export interface ActionCall {
+  readonly action: string;
+  readonly input?: Readonly<Record<string, unknown>>;
+}
+
+/** Where a picker step's input takes the node the person picked. */
+export interface Picked {
+  readonly $: "picked";
+}
+
+/** The value a picker step's pick replaces, wherever it stands in the input. */
+export declare const PICKED: Picked;
+
+/** An icon a form names: one of the shell's. */
+export type IconName =
+  | "arrow-right"
+  | "bell"
+  | "bookmark"
+  | "calendar"
+  | "check"
+  | "flag"
+  | "folder"
+  | "hash"
+  | "link"
+  | "magnifying-glass"
+  | "note"
+  | "pencil"
+  | "plus"
+  | "pin"
+  | "sparkle"
+  | "star"
+  | "tag"
+  | "user";
+
+/**
+ * The {@link CommandPoint} contribution for a node command written as
+ * data, its T0 form: a label, an icon by name, where the node menu lists
+ * it, a query node (by id) whose answer's first column holds the rows it is
+ * offered on (absent, every row), and what it runs: an action about the
+ * row, or a picker step to open, by its contribution's id. A group that is
+ * not the menu's, or an icon kb does not name, throws where the plugin
+ * applies.
+ */
+export declare function provideCommand(
+  id: string,
+  form: {
+    readonly label: string;
+    readonly icon?: IconName;
+    readonly group: NodeMenuGroup;
+    readonly order: number;
+    readonly when?: string;
+    readonly run: ActionCall | { readonly step: string };
+  },
+): ContributionEntry<Command>;
+
+/** What a picker step offers: a node, by id, and the text that names it. */
+export interface PickerCandidate {
+  readonly id: string;
+  readonly label: string;
+}
+
+/**
+ * One picker step of the node palette, which a node command opens by its
+ * contribution's id. As a page half writes it, it is handed the row the
+ * palette is anchored to, and the node picked or named; the rest of the
+ * page it reaches through the host API, as a command does.
+ */
+export interface PaletteStep {
+  readonly label: string;
+  readonly placeholder: string;
+  readonly icon: ReactNode;
+  /** Absent ⇒ nothing can be minted from the picker. */
+  readonly createLabel?: (name: string) => string;
+  readonly candidates: (graph: { readonly anchorId: string | null }) => PickerCandidate[];
+  /** At most this many rows; absent, every match. */
+  readonly limit?: number;
+  readonly commit: (pick: {
+    readonly targetNodeId: string;
+    readonly pickedId: string;
+    readonly creating: boolean;
+    readonly name: string;
+  }) => Promise<void>;
+}
+
+/**
+ * The node palette's picker steps, by id: a point the shell declares, so a
+ * plugin that contributes one names it in `uses` and reaches it with
+ * `ctx.point(PaletteStepPoint)`.
+ */
+export declare const PaletteStepPoint: PointName<PaletteStep>;
+
+/**
+ * The {@link PaletteStepPoint} contribution for a picker step written as
+ * data, its T0 form: the page runs the picker over the nodes a query node
+ * (by id) answers in its first column, less the row itself, each named by
+ * its text, and a pick calls `commit` about the row, the pick filling each
+ * {@link PICKED} in its input.
+ */
+export declare function providePaletteStep(
+  id: string,
+  form: {
+    readonly label: string;
+    readonly placeholder: string;
+    readonly icon?: IconName;
+    readonly candidates: string;
+    readonly limit?: number;
+    readonly commit: ActionCall;
+  },
+): ContributionEntry<PaletteStep>;
+
+/**
  * A key as a binding states it: a key name as `KeyboardEvent.key` names
  * it (or several, or a test of the name), and the modifiers it asks about.
  * A modifier left out is not asked about. `mod` is ⌘ or Ctrl.
@@ -257,9 +374,7 @@ export type KeyContextId = "outline.editing" | "outline.selection";
  * `move-down`, `create-after`, `zoom`, …), or an action through the page's
  * invoke path, with the row's node as its input's `id`.
  */
-export type KeyRun =
-  | { readonly intent: string }
-  | { readonly action: string; readonly input?: Readonly<Record<string, unknown>> };
+export type KeyRun = { readonly intent: string } | ActionCall;
 
 /** A key in a context, and what it runs; the binding whose held chord it takes, if any. */
 export interface Keybinding {
