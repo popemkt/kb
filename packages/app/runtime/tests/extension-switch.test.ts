@@ -66,7 +66,14 @@ describe("the lab is switched on the server", () => {
     const ctx = await openKb(root);
     expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
     expect(await labIn(ctx)).toEqual({
-      row: { name: "lab", label: "Lab", optional: true, enabled: false, source: "bundled" },
+      row: {
+        name: "lab",
+        label: "Lab",
+        manifest: expect.objectContaining({ description: expect.any(String) }),
+        enabled: false,
+        source: "bundled",
+        origin: { kind: "bundled" },
+      },
       listed: false,
     });
     // The view type's option is seeded whether the family is on or not: the data outlives the code.
@@ -130,7 +137,7 @@ describe("the lab is switched on the server", () => {
     expect(await labIn(stale)).toMatchObject({ row: { enabled: false } });
   });
 
-  test("a family that is not optional cannot be switched, and an unknown one is not found", async () => {
+  test("a required family cannot be switched, and an unknown one is not found", async () => {
     const ctx = await openKb(root);
     const before: KbNode[] = ctx.nodes;
     for (const name of ["docs", "check"]) {
@@ -168,7 +175,7 @@ describe("the gates do not depend on a switch", () => {
     // The families that run the gates are required, as is governance; every
     // required one is written off. The outline, the default editing mode, is
     // optional: a node it would open is read in core's view without it.
-    const required = BUNDLED_FAMILIES.filter((family) => family.optional === undefined);
+    const required = BUNDLED_FAMILIES.filter((family) => family.required !== undefined);
     expect(required.map(({ name }) => name)).toEqual(["governance", "docs", "check"]);
     const ctx = await openKb(root);
     const off: KbNode[] = [];

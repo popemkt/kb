@@ -44,6 +44,7 @@ import {
 export const graphExtension = defineExtension({
   name: "graph",
   label: "Graph",
+  manifest: { description: "The graph page: nodes and their relationships, in five renderers." },
   tags: ["graph"],
   optional: { byDefault: "on" },
   seed: graphSeedNodes,

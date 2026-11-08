@@ -323,14 +323,17 @@ export interface ViewDef<P> {
  * module's `declaration` export. The store it lives in seeds its node,
  * `sys.extension.<name>`, filed under `sys.extensions`, and every node
  * `seed` returns; a field node whose `sys.f.configures` refers to that node
- * is one of its settings. With `optional`, it can be switched, and is
- * `byDefault` in a store where no one has switched it. The views it
- * provides each get an option node under `sys.views`.
+ * is one of its settings. It can always be switched off; `optional` says
+ * whether it starts `on` (as when it says nothing) or `off` in a store
+ * where no one has switched it. The views it provides each get an option
+ * node under `sys.views`.
  */
 export interface ExtensionDeclaration {
   /** The module's file name without `.ts`: its `ext.<name>` namespace and its node's name. */
   readonly name: string;
   readonly label: string;
+  // What it says about itself (its one line, author, capabilities) is its `<name>.manifest.json`'s,
+  // beside this module: kb reads it before anyone trusts the code (docs/extensions/README.md).
   readonly optional?: { readonly byDefault: "on" | "off" };
   /** Its labels, the one home of them: each of its plugins carries them ({@link familyTags}). */
   readonly tags?: readonly string[];

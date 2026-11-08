@@ -1,32 +1,23 @@
 /**
  * What Settings' Extensions and Advanced parts draw beside the rows
- * (DESIGN-UI.md → Settings): an extension's switch and the fold of what
- * it composes, a link to another part, and while the server's report is
- * read, or why it could not be.
+ * (DESIGN-UI.md → Settings): an extension's heading control (its switch,
+ * its lock, or its actions), the lede under its heading (what it adds in a
+ * line, where it came from, why it is required), a link to another part,
+ * and while the server's report is read, or why it could not be.
  */
-import type { NodeId } from "@kb/model";
+import { useState, type ReactNode } from "react";
 import { type EnumOption, EnumSelect, navigate, POPOVER_VALUE_CLASS } from "@kb/ui-sdk";
 import type { SettingsPart } from "@kb/views";
-import type { ReactNode } from "react";
-import { switchExtension, type PanelExtension, type PanelReport } from "@/lib/extension-report";
+import { switchExtension, extensionStatus, type PanelExtension } from "@/lib/extension-report";
 import { settingsPath } from "@/lib/settings-parts";
-import { Disclosure } from "./settings-fold";
+import { ExtensionActions, RequiredLock, SourceLine, StatusPill } from "./extension-card";
+import { ReviewSheet } from "./extension-controls";
 
-/** Off first: an optional extension is off until it is switched on. */
+/** Off first: an extension that starts off is off until it is switched on. */
 const SWITCH_OPTIONS: readonly EnumOption<"off" | "on">[] = [
   { value: "off", label: "off" },
   { value: "on", label: "on" },
 ];
-
-/** Whether kb's build carries it, the `kb ui` host composes it, or a person trusted it at a digest. */
-function trustOf({ source, digest, trusted, running }: PanelExtension["row"]): string {
-  if (source === "bundled") return "part of kb's build";
-  if (source === "host") return "composed by kb ui";
-  if (digest === undefined) return `from ${source}`;
-  const candidate = `${trusted === false ? "untrusted" : "trusted"} at ${digest}`;
-  const active = running === undefined ? "" : ` · running approved ${running.digest}`;
-  return `${candidate}${active} · ${source}`;
-}
 
 export function PartLink({
   part,
@@ -46,80 +37,94 @@ export function PartLink({
   );
 }
 
-/** The switch of an optional extension, or that it is required; nothing until the server reports. */
-export function ExtensionSwitch({ extension }: { readonly extension: PanelExtension | undefined }) {
-  if (extension === undefined) return null;
-  const { row } = extension;
-  return row.optional ? (
-    <span className="flex items-center gap-2">
-      {row.enabled ? null : (
-        <span className="text-caption text-faint-foreground">off: contributes nothing</span>
-      )}
-      <EnumSelect
-        className={`${POPOVER_VALUE_CLASS} max-w-16 flex-none`}
-        value={row.enabled ? "on" : "off"}
-        options={SWITCH_OPTIONS}
-        testId={`switch-${row.name}`}
-        onChange={(next) => void switchExtension(row.name, next === "on")}
-      />
-    </span>
-  ) : (
-    <span className="text-meta text-muted-foreground">required</span>
+/** A built-in family's switch, as the server reports it; it calls `extension.switch`, never the browser. */
+function ExtensionSwitch({ row }: { readonly row: PanelExtension["row"] }) {
+  return (
+    <EnumSelect
+      className={`${POPOVER_VALUE_CLASS} max-w-16 flex-none`}
+      value={row.enabled ? "on" : "off"}
+      options={SWITCH_OPTIONS}
+      testId={`switch-${row.name}`}
+      onChange={(next) => void switchExtension(row.name, next === "on")}
+    />
   );
 }
 
-/** Why its plugins failed, then a fold of its trust, tags, contributions and services. */
-export function Composes({
-  nodeId,
+/**
+ * An extension's heading control: a required family's lock, whether or
+ * not the server reports it (core is the kernel, not a row); else nothing
+ * until the server reports; a built-in family's switch; an installed
+ * extension's actions by its state, with the review sheet they open.
+ */
+export function ExtensionAside({
   extension,
+  installed,
+  required,
 }: {
-  readonly nodeId: NodeId;
-  readonly extension: PanelExtension;
+  readonly extension: PanelExtension | undefined;
+  readonly installed: boolean;
+  readonly required: string | undefined;
 }) {
-  const { row, contributions, seeds } = extension;
-  const services = [
-    ...row.injects.map(({ service, from }) => `injects ${service} from ${from ?? "nobody yet"}`),
-    ...row.provides.map((service) => `provides ${service}`),
-  ];
+  const [review, setReview] = useState(false);
+  if (required !== undefined) return <RequiredLock because={required} />;
+  if (extension === undefined) return null;
+  const { row } = extension;
+  if (!installed) return <ExtensionSwitch row={row} />;
   return (
     <>
-      {row.failures.map((failure) => (
-        <p key={failure} role="alert" className="text-meta text-destructive">
-          {failure}
-        </p>
-      ))}
-      <Disclosure id={`${nodeId}:composes`} title="What it composes" level="inner" opensBy={false}>
-        <div className="text-meta text-muted-foreground" data-testid={`trust-${row.name}`}>
-          {trustOf(row)}
-          {row.tags.length > 0 ? ` · tags: ${row.tags.join(", ")}` : ""}
-        </div>
-        {contributions.size === 0 && seeds === 0 ? null : (
-          <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-3 text-meta">
-            {[...contributions].map(([point, rows]) => (
-              <div key={point} className="contents">
-                <dt className="font-mono text-faint-foreground">{point}</dt>
-                <dd className="text-muted-foreground">
-                  {rows.map(({ id, source }) => `${id} (${source})`).join(", ")}
-                </dd>
-              </div>
-            ))}
-            {seeds > 0 ? (
-              <div className="contents">
-                <dt className="font-mono text-faint-foreground">seed</dt>
-                <dd className="text-muted-foreground">{seeds} nodes</dd>
-              </div>
-            ) : null}
-          </dl>
-        )}
-        {services.length === 0 ? null : (
-          <ul className="mt-1 text-meta text-muted-foreground">
-            {services.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        )}
-      </Disclosure>
+      <ExtensionActions extension={extension} onReview={() => setReview(true)} />
+      {review && <ReviewSheet row={row} close={() => setReview(false)} />}
     </>
+  );
+}
+
+/**
+ * The heading's caption: the name the CLI knows it by, when its label is
+ * not already that name, and the status it leads with.
+ */
+export function ExtensionCaption({
+  name,
+  label,
+  extension,
+}: {
+  readonly name: string;
+  readonly label: string;
+  readonly extension: PanelExtension | undefined;
+}) {
+  return (
+    <>
+      {label !== name && <span className="font-mono">{name}</span>}
+      {extension === undefined ? null : <StatusPill status={extensionStatus(extension.row)} />}
+    </>
+  );
+}
+
+/**
+ * Under an extension's heading, folded or open: what it adds, in its own
+ * line (else a marketplace's); where an installed one came from; why a
+ * required one is required.
+ */
+export function ExtensionLede({
+  extension,
+  description,
+  required,
+  installed,
+}: {
+  readonly extension: PanelExtension | undefined;
+  readonly description: string | undefined;
+  readonly required: string | undefined;
+  readonly installed: boolean;
+}) {
+  const row = extension?.row;
+  if (description === undefined && required === undefined && row === undefined) return null;
+  return (
+    <div className="space-y-0.5" data-extension-lede>
+      {description !== undefined && <p className="text-meta text-foreground/80">{description}</p>}
+      {installed && row !== undefined && <SourceLine row={row} />}
+      {required !== undefined && (
+        <p className="text-caption text-muted-foreground">Required: {required}</p>
+      )}
+    </div>
   );
 }
 
@@ -128,21 +133,28 @@ export function ReportStatus({
   report,
   reread,
 }: {
-  readonly report: PanelReport | string | null;
+  readonly report: unknown;
   readonly reread: () => void;
 }) {
   if (report === null) {
-    return <p className="py-2 text-ui text-muted-foreground">Reading the extensions…</p>;
+    return (
+      <div className="space-y-2 py-2" aria-busy="true" data-testid="extensions-reading">
+        <p className="text-ui text-muted-foreground">Reading the extensions…</p>
+        {[0, 1, 2].map((at) => (
+          <div key={at} className="h-12 animate-pulse rounded-md bg-foreground/5" aria-hidden />
+        ))}
+      </div>
+    );
   }
   if (typeof report !== "string") return null;
   return (
-    <div className="flex items-baseline gap-3 py-2">
+    <div className="flex items-baseline gap-3 rounded-md bg-destructive/10 px-3 py-2">
       <p role="alert" className="text-ui text-destructive">
         {report}
       </p>
       <button
         type="button"
-        className="text-meta text-muted-foreground hover:text-foreground"
+        className="text-meta text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         onClick={reread}
       >
         Ask again

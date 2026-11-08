@@ -1,0 +1,16 @@
+{
+  "description": "Adds one action, Say hello, that greets whoever you name.",
+  "author": "Your name or organisation",
+  "homepage": "https://github.com/owner/repo/tree/main/extensions/hello",
+  "repository": "https://github.com/owner/repo",
+  "license": "MIT",
+  "capabilities": {
+    "network": { "hosts": [] },
+    "storage": [],
+    "secrets": [],
+    "data": { "reads": [], "writes": [] },
+    "page": "none",
+    "services": [],
+    "approvals": []
+  }
+}

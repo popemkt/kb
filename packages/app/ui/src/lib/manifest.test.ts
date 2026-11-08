@@ -6,7 +6,13 @@ it("a slow older manifest cannot replace the catalog from the latest notificatio
   const older = Promise.withResolvers<ManifestRead>();
   const current = {
     views: [],
-    extensions: [extensionRow({ name: "newer", label: "Newer" }, "fixture", true)],
+    extensions: [
+      extensionRow(
+        { name: "newer", label: "Newer" },
+        { source: "fixture", origin: { kind: "own" } },
+        true,
+      ),
+    ],
   };
   const seen: unknown[] = [];
   const unsubscribe = subscribeManifest(() => seen.push(servedManifest()));

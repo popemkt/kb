@@ -149,7 +149,9 @@ describe("the agent dock", () => {
       ask: { message: "needs approval" },
     });
     expect(container.textContent).toContain("Approve Stamp?");
-    await act(async () => button("Approve")?.click());
+    const approve = button("Approve once");
+    expect(approve).toBeDefined();
+    await act(async () => approve?.click());
     expect(s.invoked).toEqual([
       { id: "ext.gated.stamp", input: { n: 1 }, approved: true, actor: "agent" },
     ]);
@@ -161,7 +163,7 @@ describe("the agent dock", () => {
     });
     s.hear({ type: "tool-result", conversation: "k1", call: "c1", receipt: stamped });
     expect(container.textContent).toContain("You approved this.");
-    expect(button("Approve")).toBeUndefined();
+    expect(button("Approve once")).toBeUndefined();
   });
 
   it("an ask to configure the agent shows what it runs with, the provider a reference names included", () => {

@@ -38,6 +38,7 @@ for (const contained of [false, true]) {
             { dir: root, origin: "fixture", contained },
             join(root, "hello.ts"),
             join(root, "hello.page.ts"),
+            null,
           ).pipe(Effect.result),
         );
         expect(Result.isFailure(result)).toBe(true);

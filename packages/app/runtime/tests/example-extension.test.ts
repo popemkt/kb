@@ -82,7 +82,6 @@ describe("the example extension's server half", () => {
     expect(registry.families.find(({ name }) => name === EXAMPLE)).toMatchObject({
       name: EXAMPLE,
       label: "Example",
-      optional: true,
       enabled: true,
       source: join(ROOT, ".kb", "extensions", "example.ts"),
       page: extensionPagePath(DIGEST),

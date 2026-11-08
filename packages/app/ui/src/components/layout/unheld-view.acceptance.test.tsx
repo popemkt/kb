@@ -63,7 +63,11 @@ const LOADED = [
   ...BUNDLED_FAMILIES.map((declaration) =>
     extensionRow(declaration, "bundled", declaration.name !== OFF),
   ),
-  extensionRow({ name: "sketch", label: "sketch" }, "/root/.kb/extensions/sketch.ts", true),
+  extensionRow(
+    { name: "sketch", label: "sketch" },
+    { source: "/root/.kb/extensions/sketch.ts", origin: { kind: "own" } },
+    true,
+  ),
 ];
 
 function node(id: string, text: string, props: WireNode["props"] = {}): WireNode {

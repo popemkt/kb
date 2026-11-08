@@ -603,6 +603,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Each system's sheet moves to the family's shared package (designSystems carrying the sheet), so the server reads core's setting and resolves the tokens.
 - **node** — `01M54QTGRJYJZ7W5SXDP4356QW`
 
+### GAP: an extension row reports whether it is loaded, not its switch, so an unloaded row's switch is unknown
+
+- **expected** — ExtensionRow carries the switch (on or off, as familyOn reads it) beside enabled (the host holds it loaded), for every row including one the host never loaded, so a caller can offer Turn on or Turn off for any switchable extension.
+- **current** — enabled is documented as loaded; an inventory row (untrusted, failed or shadowed) always reports enabled: false. Settings therefore offers no power action for an extension awaiting its first approval (extensionPower in packages/app/ui/src/lib/extension-report.ts).
+- **impact** — A person cannot switch off an untrusted extension from Settings before reviewing it (kb action-invoke extension.switch still can), and the CLI and the page cannot show an unloaded extension's switch.
+- **closes** — Report the switch on every row (familyOn over the switch node and the default for a non-bundled family), bump WIRE_PROTOCOL, and derive the UI's power action from it.
+- **node** — `01M6XAQX9VXDK3M0ZMXMQ33DFY`
+
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
 - **expected** — a family switched off keeps its seeded nodes (the data outlives the code, DESIGN.md → seed) but the tag and field pickers offer only the vocabulary of loaded families, or mark an off family's as such, as a view of an off family opens as 'cannot be shown here'
@@ -815,14 +823,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
-### GAP: extension review and trust are missing from the page
-
-- **expected** — Before sandbox.trust, a person sees where the closure came from, its files and sizes, the host modules and Node/Bun builtins it imports, and on update the diff against the locked rev, on the one extension.list report (docs/research/2026-10-31-plugin-sources.md §5).
-- **current** — Catalog and CLI review, reach, diff and provenance are implemented (DESIGN.md, Core boundary & extensions). The page review sheet and agent approval card remain step 6.
-- **impact** — Trusting an installed extension means reading every file by hand; a reach disclosure is a disclosure, not containment, and an extension is owner code once trusted.
-- **closes** — Steps 5 and 6 of docs/research/2026-11-06-plugin-install-plan.md, each its own child gap.
-- **node** — `01M68NF9WGE31RYX3VB9EWHC8M`
-
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -855,6 +855,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
+
+### GAP: Git source failures do not distinguish unavailable repositories or refs
+
+- **expected** — The source port distinguishes a repository/ref that is unavailable or denied from transfer caps and transport failures, without exposing credentials.
+- **current** — The transport discards stderr and maps every nonzero Git exit to git source operation failed within its transfer limits. Adding github:popemkt/does-not-exist-xyz/ext@main therefore suggests a size limit.
+- **impact** — The marketplace UI and CLI give misleading recovery guidance for missing or inaccessible sources.
+- **closes** — Define and test a sanitized source-failure classification at the transport owner, including missing repository/ref, denied access, byte/count caps and connection failure; all adapters present that classification.
+- **node** — `01M6WXNJH2JJD9956VC408R386`
 
 ### GAP: GPU backdrops paint an opaque frame over the page's flat ground
 
@@ -1179,6 +1187,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
+### GAP: query print-roundtrip coverage quota depends on independent random samples
+
+- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
+- **current** — ir.test.ts samples 100 independently generated stores and queries, then requires at least 8 non-empty answers. CI run 42451620455 produced 7, although every round-trip comparison passed.
+- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
+- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
+- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
@@ -1437,14 +1453,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the coupling that exists cannot be seen in one place; a reviewer cannot ask what depends on canvas
 - **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
-
-### GAP: the Extensions settings page cannot add, review, trust, update or remove an installed extension
-
-- **expected** — Settings → Extensions has Add from GitHub, and a Review & trust sheet (source, files, reach, diff, digest); Trust loads the family with no restart; Update and Remove are on the row.
-- **current** — The page lists and switches families only.
-- **impact** — Trusting from an agent thread has nowhere to send the person.
-- **closes** — Step 6 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTRA612RSR06HZC7DQ5S6J`
 
 ### GAP: the graph legend overlays a renderer that cannot pan
 
@@ -1743,6 +1751,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A regression in a WebGPU-only path (storage atomics, compute) is caught only by a local test:render run, not by CI.
 - **closes** — A CI runner with a GPU adapter (a self-hosted Apple silicon runner, or a hosted runner that exposes Metal to Chromium), after which the skip condition never holds and can be deleted.
 - **node** — `01M3E6QH4WZFJQTQM96NBZ7VVA`
+
+### GAP: what a point's contribution is called, in a word, lives in a UI table beside the points
+
+- **expected** — Each Point declaration names its contribution in a word (Point<T>()(id, { noun: "actions" })), and Settings reads it from the point, so a new point is named where it is declared.
+- **current** — POINT_WORDS in packages/app/ui/src/lib/extension-report.ts maps 19 point ids to words by hand; a point missing from it shows its raw id in an extension's Details.
+- **impact** — A mirror of the point declarations: a new or renamed point drifts silently, and the Details fall back to an id a person does not read.
+- **closes** — Add an optional noun to Point() in the plugin kernel, set it on each declaration, expose it on the footprint rows or the registry, and delete POINT_WORDS.
+- **node** — `01M6X9T7NPWVGP1W29FDPG6TPE`
 
 ### GAP: with no editor family loaded, a field draws nothing
 

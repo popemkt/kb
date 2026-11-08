@@ -427,7 +427,7 @@ describe("Backdrop Studio", () => {
   });
 });
 
-/** A repository extension's backdrop: its family is a row of `extension.list` with an origin. */
+/** A repository extension's backdrop: its family is a row of `extension.list` whose origin is not kb's own. */
 const PLUGGED: SeedBackdrop = { id: "plugged.glow", label: "Glow", credit: "After a lamp" };
 const plugged = definePlugin({
   name: "plugged",
@@ -515,7 +515,7 @@ function row(name: string, more: Record<string, unknown>) {
  */
 const REPORT = {
   extensions: [
-    row("studio-probes", { source: "bundled" }),
+    row("studio-probes", { source: "bundled", origin: { kind: "bundled" } }),
     row("plugged", { origin: { kind: "own" }, trusted: true, reach: { ...REACH, page: true } }),
     row("waiting", {
       enabled: false,

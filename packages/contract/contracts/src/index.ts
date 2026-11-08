@@ -2,8 +2,23 @@ export {
   ExtensionOriginSchema,
   ExtensionReachSchema,
   ExtensionReviewSchema,
+  installMarketplace,
+  isKbOrigin,
 } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
+export {
+  ExtensionCapabilitiesSchema,
+  ExtensionManifestSchema,
+  MANIFEST_SUFFIX,
+  PAGE_CODE_TIERS,
+  PAGE_TIERS,
+  capabilityLines,
+  listingMissing,
+  type CapabilityLine,
+  type ExtensionCapabilities,
+  type ExtensionManifest,
+  type PageTier,
+} from "./extension-manifest.ts";
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
 export {
   ActionCatalog,
@@ -72,9 +87,15 @@ export {
   declarationPlugin,
   familyTags,
   defineExtension,
+  extensionFrom,
   extensionRow,
 } from "./declaration.ts";
-export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
+export type {
+  ExtensionDeclaration,
+  ExtensionEntry,
+  ExtensionFrom,
+  ExtensionRow,
+} from "./declaration.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
 export {
   FOOTPRINT_SOURCES,

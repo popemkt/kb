@@ -131,3 +131,5 @@ export { extensionInstallDef, extensionInstallEffect } from "./extension-install
 
 export { coreActions } from "./core-actions.ts";
 export { isomorphicActions } from "./isomorphic-actions.ts";
+
+export { sandboxTrustDef } from "./trust.ts";

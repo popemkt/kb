@@ -44,16 +44,16 @@ Server ownership lives behind the stable facade `packages/app/server/src/index.t
 re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
 implementation modules under `packages/app/server/src/` split by concern:
 
-| Module             | Owns                                                                              |
-| ------------------ | --------------------------------------------------------------------------------- |
-| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown          |
-| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback       |
-| `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
+| Module             | Owns                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown                        |
+| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback                     |
+| `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery))               |
 | `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core; logs each refusal |
-| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)        |
-| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)  |
-| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                       |
-| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                          |
+| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)                      |
+| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)                |
+| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                                     |
+| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                                        |
 
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
@@ -272,7 +272,7 @@ be kept, never how it is sent.
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
 - **A tab outlives its build.** A release replaces `ui/dist`, and a tab
   opened before it keeps working: it reloads only when it cannot.
-  - *Earlier builds are still served.* When a server starts it keeps the
+  - _Earlier builds are still served._ When a server starts it keeps the
     build it serves in kb's cache (`<cache>/ui-builds`, `KB_CACHE` or the
     platform's cache directory): one directory per build, published whole,
     of which the newest eight stay. Servers sharing that cache never remove
@@ -286,7 +286,7 @@ be kept, never how it is sent.
     whatever installs kb, the server keeps its own builds. The sandbox
     frame's script is not digest-named, so a tab gets the current one
     (GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]]).
-  - *A build is not a protocol.* A build changes with every release; the
+  - _A build is not a protocol._ A build changes with every release; the
     wire a page and a server must agree on changes rarely. Every
     connection's `hello` names the server's `WIRE_PROTOCOL` (`@kb/contracts`
     → `protocol.ts`), and a tab of the same protocol keeps working whatever
@@ -297,7 +297,7 @@ be kept, never how it is sent.
     (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
     someone decides: still compatible (record the fingerprint), or not (bump
     the protocol).
-  - *A reload waits, keeps the page, and says so.* A tab reloads when the
+  - _A reload waits, keeps the page, and says so._ A tab reloads when the
     server speaks another protocol, or as a fallback when a chunk it asks
     for is gone even so (Vite's `vite:preloadError`, or a view's error
     boundary, which says "kb was updated" meanwhile). It waits until the page
@@ -1645,8 +1645,8 @@ manipulation feel professional rather than merely functional.
   right-click on words being typed keeps the browser's own menu. The header's zoom
   readout is a button that opens the zoom menu, drawn the same way
   (`CommandMenu`, `canvas-menu.tsx`, which keeps a menu opened at a point inside the stage): in, out, 100%, frame all and the
-  selection. The view menu shares their surface, rows and keys
-  (`use-canvas-menu.ts`).
+  selection. The view menu shares their surface, rows and keys, which are
+  the kit's (`menu.ts`, `@kb/ui-sdk`: every menu in kb is drawn from it).
 - **Floating selection toolbar** with Group / Ungroup / Delete /
   Bring-to-front / Send-to-back. Items paint by the height of their top
   (`z + depth`), then in document order, and the two buttons reorder the
@@ -2918,24 +2918,73 @@ the settings. The record of why is
   their kinds preview at card size
   ([Field values → option galleries](#field-values-one-slot-grammar));
   the page asks for nothing.
-- **Extensions** holds one section per extension node under
+- **Extensions** holds one card per extension node under
   `sys.extensions`, in that list's order, read from the whole graph (the
   schema, never a scoped projection), then any the server reports with
-  no node. Its heading carries the extension's switch when it is
-  optional, which calls `extension.switch` and then shows what the server
-  reports (never the choice), with _off: contributes nothing_ beside it;
-  otherwise _required_. The switch is a load decision: switched off, the
-  extension's actions, views and MCP tools leave, which the part's lede
-  says. Under the heading are its settings, exactly what `settingsOf`
-  reads for its node, each drawn with the page's field editor; core's
-  section says its settings are in Appearance and General instead. Then
-  why any of its plugins failed, on the server or in the page, and a fold,
-  _What it composes_, closed by default:
-  - its trust: part of kb's build, composed by `kb ui`, or trusted at a
-    digest from a repository path, and its tags;
-  - what it contributed to each point, server and page side by side, and
-    how many nodes it seeds;
-  - what it injects and from whom, and what it provides.
+  no node, on two shelves by the row's `origin`: _Installed_ (the
+  store's own folder, links, installs, and the node a removed one left)
+  first, then _Built-in_ (kb's build and the `kb ui` host), which folds
+  like any section. Whether a family is required, and where it came from,
+  is the server's report; the page infers neither, except that a node
+  the server reports nothing for is Built-in when kb's build declares it
+  (core, the kernel, is not a row).
+  - **Above the shelves**, a banner names what awaits review, each name a
+    link that opens its card, and one _Add extension_ button opens the
+    add panel: every pinned marketplace's entries with _Install_ (or
+    _Installed_), _Add a marketplace…_, then a field for a pasted GitHub
+    source. One _Install into_ choice (store lock, this root, every kb on
+    the machine) applies to all of them, and the panel says that nothing
+    runs until it is trusted. A failed marketplace
+    read keeps the last listing and says why.
+  - **A card's heading** is its label, its CLI name when that differs, and
+    one status pill (`extensionStatus`): _Error_ when a plugin failed,
+    _Update available_ when a fetched digest awaits trust while the
+    approved one runs, _Needs approval_, _Off_, _Trusted_; a family of
+    kb's build that is on shows none. Beside it is a required family's
+    lock, saying why in its declaration's `required` words; else a
+    built-in family's switch, which calls `extension.switch` and then
+    shows what the server reports (never the choice); else an installed
+    extension's actions.
+  - **An installed extension's actions** lead with the one its status
+    asks for, _Review & trust_, _Review update_ or _Turn on_, and keep the
+    rest in one menu (`MENU_SURFACE`, `useMenuKeys`): _Review code_,
+    _Check for updates_ (`extension.outdated`) and _Update_ for an install,
+    _Turn off_ or _Turn on_ by the row's `enabled` (none while it awaits its
+    first approval: no host built it, so its row cannot say its switch),
+    and _Remove…_, which asks first, saying the lock entry
+    goes, its nodes stay, and its code stays cached until `kb ext gc`.
+    Nothing on the card trusts; every review opens the sheet below.
+  - **Under the heading**, its one line (its manifest's `description`,
+    else a marketplace entry's), who wrote it (_by_ its manifest's
+    `author`), where an installed one came from (its
+    marketplace, the GitHub path, the pin as a short sha linked to that
+    tree, and the lock's scope; a link or own folder by path), and why a
+    required one is required. Then its settings, exactly what
+    `settingsOf` reads for its node, each drawn with the page's field
+    editor; core's card says its settings are in Appearance and General
+    instead. Then why any of its plugins failed, on the server or in the
+    page, and _Details_, closed by default: what its manifest says about
+    it (`ExtensionAbout`, below); what it adds, in words per
+    kind (a point's word, a seeded node's type) with its own namespace
+    left off, or why it adds nothing yet; its bundle and file-set digests
+    as twelve hex to copy, the whole in the title and on the review sheet;
+    the approved digest that runs while an update waits; where it is
+    loaded from; its tags; what it injects and from whom, and what it
+    provides. Same-name sources the catalog hides follow, folded.
+  - **What an extension says about itself** (`ExtensionAbout`, the
+    same on the card's Details and on the review sheet): its author,
+    licence, homepage and repository, then one plain line per capability
+    (`capabilityLines`, `@kb/contracts`: network, storage, secrets, kb
+    data, page, background, approvals). A field its manifest leaves out
+    reads _not declared_, never blank and never "none": declaring nothing
+    and saying nothing are different answers. It is what the extension
+    says, not what kb confines it to, and the review sheet says so beside
+    a page half's full page power.
+  - An installed node the server no longer reports says its nodes
+    remain, and offers each marketplace that lists it.
+  The switch is a load decision: switched off, the extension's actions,
+  views and MCP tools leave and its nodes stay, which the part's lede
+  says.
 - **Advanced** holds the points whose listeners are asked in turn
   (identity providers, interceptors, guards), per kernel and in that
   order; the repository extensions refused, where an untrusted one names
@@ -2948,7 +2997,7 @@ the settings. The record of why is
   computes nothing a CLI caller could not read (`lib/extension-report.ts`).
   When either action fails, or the server cannot be asked, Extensions and
   Advanced say why and offer to ask again; an extension's settings stay,
-  read from the graph, and its switch and what it composes are not drawn,
+  read from the graph, and its switch and its Details are not drawn,
   never a half it could not read as an empty one. A failure is tried
   again at the next convergence, and the same failure is the same value,
   so a dropped chunk recovers without a reload and nothing moves while it
@@ -2975,6 +3024,16 @@ the settings. The record of why is
   and backdrop contracts choose through Appearance, each by a card of its
   gallery.
 - The page's body loads when it is first opened, not with the shell.
+
+Settings' extension install and review behavior is specified in
+[the install plan](docs/research/2026-11-06-plugin-install-plan.md#4-trust).
+The Settings sheet, agent dock and sandbox approval cards share `ActionApproval`.
+Action-specific evidence comes from `ui.action-reviews`: the contribution names
+its action and asynchronously reads its review. While evidence is loading, has
+failed, or belongs to an older invocation, approval is disabled; decline stays
+available. A contribution may return null for an input it does not describe,
+which retains the default action review. Core Settings contributes the extension
+review for `sandbox.trust`; its diff must match the reviewed file-set digest.
 
 ### Extension UI halves
 
@@ -4485,7 +4544,7 @@ A PR for a backdrop reports a score against each criterion.
     pick. A strength a setting chooses holds over the declared ones.
   - Set them in Settings → Appearance (the `variants` row under Page head),
     or `kb set sys.extension.core sys.f.backdrop.variant
-    sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
+sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
     another pins a second, and `kb unset` takes one back out.
 - **Knobs.** A backdrop's knobs are its live parameters, declared on its
   key, each with its default: `Knob` (`@kb/model`'s `knob.ts`), the one

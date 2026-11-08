@@ -282,6 +282,7 @@
         "@kb/zzz-ui": "workspace:*",
         "@phosphor-icons/react": "catalog:",
         "@tailwindcss/vite": "catalog:",
+        "diff": "catalog:",
         "dockview-react": "catalog:",
         "effect": "catalog:",
         "graphology-communities-louvain": "catalog:",
@@ -517,6 +518,9 @@
       },
       "devDependencies": {
         "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "happy-dom": "catalog:",
+        "react-dom": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
       },
@@ -1513,6 +1517,7 @@
     "d3-force-3d": "^3.0.6",
     "d3-hierarchy": "^3.1.2",
     "datascript": "^1.8.1",
+    "diff": "9.0.0",
     "dockview-react": "^8.4.0",
     "effect": "4.0.0-rc.112",
     "fast-check": "^4.9.0",
@@ -2609,6 +2614,8 @@
     "des.js": ["des.js@1.1.0", "", { "dependencies": { "inherits": "^2.0.1", "minimalistic-assert": "^1.0.0" } }, "sha512-r17GxjhUCjSRy8aiJpr8/UadFIzMzJGexI3Nmz4ADi9LYSFx4gTBp80+NaX/YsXWWLhpZ7v/v/ubEc/bCNfKwg=="],
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
+
+    "diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
     "diff-match-patch": ["diff-match-patch@1.0.5", "", {}, "sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw=="],
 

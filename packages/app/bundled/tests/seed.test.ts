@@ -50,6 +50,18 @@ const declaredOptionsOf = (declaration: ExtensionDeclaration) =>
   );
 
 describe("bundled seed", () => {
+  test("a required family says why in words, and never also says how it starts switched", () => {
+    const required = BUNDLED_DECLARATIONS.filter((family) => family.required !== undefined);
+    expect(required.map(({ name }) => name)).toEqual(["core", "governance", "docs", "check"]);
+    for (const family of required) {
+      expect({ name: family.name, optional: family.optional }).toEqual({
+        name: family.name,
+        optional: undefined,
+      });
+      expect(family.required?.trim().length ?? 0).toBeGreaterThan(20);
+    }
+  });
+
   test("sys.views lists one option per declared view, in declaration order", () => {
     const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
     expect(seed.get(SYSTEM_IDS.viewsRoot)?.children).toEqual(

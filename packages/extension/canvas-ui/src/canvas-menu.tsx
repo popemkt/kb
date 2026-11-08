@@ -2,13 +2,12 @@
  * The canvas's command menus as drawn (the context menu, the zoom menu):
  * rows of the keymap's own commands (`menuCommands`), each with its key,
  * sent through the keymap's applier and closing the menu. Its surface,
- * row and keys are `use-canvas-menu.ts`'s, which the view menu shares;
+ * row and keys are the kit's (`menu.ts`), which the view menu shares;
  * dismissal is `useDismiss`'s, as every popover's.
  */
 import { useLayoutEffect, useState, type RefObject } from "react";
-import { cn, useDismiss } from "@kb/ui-sdk";
+import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
 import type { CanvasIntent, CanvasMenuCommand } from "./canvas-keymap";
-import { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./use-canvas-menu";
 
 interface Spot {
   readonly x: number;
@@ -31,11 +30,6 @@ function useInside(at: Spot | undefined, ref: RefObject<HTMLDivElement | null>) 
     setInside({ x, y });
   }, [at, ref]);
   return inside === undefined ? undefined : { left: inside.x, top: inside.y };
-}
-
-/** A rule between a menu's kinds of row. */
-export function MenuSeparator() {
-  return <div role="separator" className="mx-1 my-1 h-px bg-foreground/10" />;
 }
 
 /** A row's key, right-aligned, in words (`CanvasShortcut.hint`); nothing for none. */

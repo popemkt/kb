@@ -104,11 +104,59 @@ describe("extension loading", () => {
       ...BUNDLED_FAMILIES.map(({ name }) => `${name} (bundled)`),
       `hello (${join(root, ".kb", "extensions", "hello.ts")})`,
     ]);
-    expect(extensions.find(({ name }) => name === "hello")).toMatchObject({
-      label: "hello",
-      optional: false,
-      enabled: true,
+    const hello = extensions.find(({ name }) => name === "hello");
+    expect(hello).toMatchObject({ label: "hello", enabled: true, origin: { kind: "own" } });
+    expect(hello?.required).toBeUndefined();
+    expect(extensions.find(({ name }) => name === "docs")).toMatchObject({
+      origin: { kind: "bundled" },
+      required: expect.stringContaining("templates"),
     });
+  });
+
+  test("a repository extension that declares no switch can still be switched off, and back on", async () => {
+    const root = await tempRoot();
+    await writeExtension(root, "hello.ts", HELLO_EXT);
+    const ctx = await openKb(root);
+    const listed = async () => {
+      const receipt = await invoke(ctx, { id: "kb.manifest", input: {} });
+      const { extensions } = kbManifestDef.outputSchema.parse(
+        receipt.status === "succeeded" ? receipt.output : null,
+      );
+      const manifest = receipt.status === "succeeded" ? receipt.output : null;
+      return {
+        enabled: extensions.find(({ name }) => name === "hello")?.enabled,
+        greets: JSON.stringify(manifest).includes("ext.hello.greet"),
+      };
+    };
+    expect(await listed()).toEqual({ enabled: true, greets: true });
+    expect(
+      await invoke(ctx, { id: "extension.switch", input: { name: "hello", on: false } }),
+    ).toMatchObject({ status: "succeeded" });
+    expect(await listed()).toEqual({ enabled: false, greets: false });
+    expect(
+      await invoke(ctx, { id: "extension.switch", input: { name: "hello", on: true } }),
+    ).toMatchObject({ status: "succeeded" });
+    expect(await listed()).toEqual({ enabled: true, greets: true });
+  });
+
+  test("a repository extension kb has not loaded yet has its node, so its switch is written like any other, and holds once it is trusted", async () => {
+    const root = await tempRoot();
+    await writeUntrustedExtension(root, "hello.ts", HELLO_EXT);
+    const ctx = await openKb(root);
+    // Untrusted, its code never ran, but kb selects it, so its node is under sys.extensions.
+    expect(ctx.index.getNode("sys.extensions")?.children).toContain("sys.extension.hello");
+    expect(
+      await invoke(ctx, { id: "extension.switch", input: { name: "hello", on: false } }),
+    ).toMatchObject({ status: "succeeded", output: { name: "hello", on: false } });
+
+    await writeExtension(root, "hello.ts", HELLO_EXT);
+    resetRegistryCache();
+    const receipt = await invoke(ctx, { id: "kb.manifest", input: {} });
+    const { extensions } = kbManifestDef.outputSchema.parse(
+      receipt.status === "succeeded" ? receipt.output : null,
+    );
+    expect(extensions.find(({ name }) => name === "hello")).toMatchObject({ enabled: false });
+    expect(JSON.stringify(receipt)).not.toContain("ext.hello.greet");
   });
 
   test("broken extension warns + skips; core and other extensions survive", async () => {

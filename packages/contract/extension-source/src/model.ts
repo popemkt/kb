@@ -145,3 +145,10 @@ export function selectedPaths<T extends { readonly path: string }>(
     throw new SourceError({ message: `source path not found: ${path}` });
   return selected;
 }
+
+/**
+ * The file beside an extension's entry `<name>.ts` that holds what it says
+ * about itself (`@kb/contracts` → `ExtensionManifestSchema`); it travels with
+ * the code, so an install carries it into the store.
+ */
+export const MANIFEST_SUFFIX = ".manifest.json";

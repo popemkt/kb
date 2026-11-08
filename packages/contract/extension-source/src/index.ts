@@ -7,6 +7,7 @@ export {
 } from "./marketplace.ts";
 export type { MarketplaceIndex } from "./marketplace.ts";
 export {
+  MANIFEST_SUFFIX,
   SOURCE_LIMITS,
   SourceError,
   SourceReader,

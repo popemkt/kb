@@ -7,7 +7,9 @@ import {
   CodeTrust,
   EXTENSION_SDK,
   installHostModules,
+  MANIFEST_SUFFIX,
   type ExtensionFailure,
+  type ExtensionOrigin,
   type LoadedExtension,
   type ExtensionRow,
 } from "@kb/contracts";
@@ -61,6 +63,8 @@ export interface ClosedExtension {
   readonly file: string;
   readonly name: string;
   readonly path: string;
+  /** How its folder was selected: the store's own, a link, or an install. */
+  readonly origin: ExtensionOrigin;
   readonly closure: DigestedClosure;
 }
 
@@ -145,19 +149,36 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
       continue;
     }
     const page = entries.find((entry) => pageOf(entry) === name);
+    const manifest = entries.includes(`${name}${MANIFEST_SUFFIX}`)
+      ? join(dir, `${name}${MANIFEST_SUFFIX}`)
+      : null;
     const path = join(dir, file);
     const closure = yield* extensionClosure(
       folder,
       path,
       page === undefined ? null : join(dir, page),
+      manifest,
     ).pipe(Effect.result);
     if (Result.isFailure(closure)) failures.push({ file, error: closure.failure });
-    else result.push({ file, name, path, closure: closure.success });
+    else
+      result.push({
+        file,
+        name,
+        path,
+        origin: folder.provenance ?? { kind: "own" },
+        closure: closure.success,
+      });
   }
   for (const file of entries) {
     const name = pageOf(file);
     if (name !== null && !servers.includes(`${name}.ts`)) {
       failures.push({ file, error: `a page entry of ${name}, which has no ${name}.ts` });
+    }
+    const described = file.endsWith(MANIFEST_SUFFIX)
+      ? file.slice(0, -MANIFEST_SUFFIX.length)
+      : null;
+    if (described !== null && !servers.includes(`${described}.ts`)) {
+      failures.push({ file, error: `the manifest of ${described}, which has no ${described}.ts` });
     }
     if (strayCode(file)) {
       failures.push({
@@ -212,7 +233,9 @@ export const closureOf = Effect.fn("kb.closureOf")(function* (
   const entries = (yield* entriesOf(dir)) ?? [];
   const name = file.slice(0, -".ts".length);
   const failures: ExtensionFailure[] = [];
-  const own = entries.filter((entry) => entry === file || pageOf(entry) === name);
+  const own = entries.filter(
+    (entry) => entry === file || pageOf(entry) === name || entry === `${name}${MANIFEST_SUFFIX}`,
+  );
   const [found] = yield* closed(ownExtensionFolder(root), own, failures);
   if (found !== undefined) return found.closure;
   return yield* Effect.fail(
@@ -245,7 +268,6 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
       rows.push({
         name: folder.name,
         label: folder.name,
-        optional: true,
         enabled: false,
         source: folder.name,
         origin: folder.origin,
@@ -275,7 +297,6 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
         rows.push({
           name: file.slice(0, -3),
           label: file.slice(0, -3),
-          optional: true,
           enabled: false,
           source: join(dir, file),
           origin: folder.provenance ?? { kind: "own" },
@@ -308,7 +329,12 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
       const found = closures.find((entry) => entry.path === row.source);
       return found === undefined
         ? row
-        : { ...row, digest: found.closure.digest, reach: found.closure.reach };
+        : {
+            ...row,
+            digest: found.closure.digest,
+            reach: found.closure.reach,
+            ...(found.closure.about === null ? {} : { manifest: found.closure.about }),
+          };
     }),
   };
 });
@@ -322,7 +348,7 @@ export const importClosures = Effect.fn("kb.importClosures")(function* (
 ): Effect.fn.Return<{ extensions: LoadedExtension[]; failures: ExtensionFailure[] }> {
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
-  for (const { file, name, path, closure } of closures) {
+  for (const { file, name, path, origin, closure } of closures) {
     const loaded = yield* importClosure(closure.server).pipe(Effect.result);
     if (Result.isFailure(loaded)) {
       failures.push({ file, error: loaded.failure });
@@ -346,6 +372,7 @@ export const importClosures = Effect.fn("kb.importClosures")(function* (
       declaration,
       entry,
       source: path,
+      origin,
       digest: closure.digest,
       ...(closure.page === null ? {} : { page: closure.page }),
     });

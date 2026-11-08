@@ -63,7 +63,7 @@ export const sandboxTrustEffect = Effect.fn("sandbox.trust")(function* (
 > {
   const selected = (yield* ExtensionCatalog).find(
     (row) =>
-      row.digest === input.digest && row.origin?.kind === "install" && row.shadowed === undefined,
+      row.digest === input.digest && row.origin.kind === "install" && row.shadowed === undefined,
   );
   if (
     input.extension !== undefined &&
