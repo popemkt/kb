@@ -2825,6 +2825,10 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   decoded once (`decodeExtensionModule`, `@kb/ext-sdk`), its entry paired
   with its declaration by the one rule a bundled family's is
   (`serverEntriesFor`), and its seed's nodes are checked as a store's are.
+  Its declared options are checked too: each is named in its own
+  namespace (`<name>.<local id>`), and each knob schema is one
+  `knobSchemaError` accepts, so a repository extension can neither answer
+  to another family's option nor seed a malformed knob field.
   So `rootFamilies` (`app/runtime`) lists the bundled families, then each
   repository extension, and the registry switches, loads and reports them
   all by the one rule. No plugin takes over what another holds: a service
@@ -3137,7 +3141,12 @@ from "kb-ext-sdk"`. Types are generated from
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
   views, routes, sidebar sections, docks, overlays, commands, design
-  systems — and React's own types), written beside it. Its values are the
+  systems, backdrops with their budgets and the kit's frame meter — and
+  React's own types), written beside it. `kb-ext-sdk` carries the
+  declared-option kinds a declaration names its backdrops by
+  (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
+  `backdropVariantOptions`) and the knob schema (DESIGN-UI.md → Page-head
+  backdrops → A plugin's backdrop is a backdrop). Its values are the
   page's `@kb/ui-sdk`, so `@kb/ui-sdk`'s `page-surface-bridge.test.ts`
   holds the restatement to them as `surface-bridge.test.ts` holds
   `kb-ext-sdk`'s: the surface declares only what the page serves, an

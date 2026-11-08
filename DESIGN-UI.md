@@ -4227,6 +4227,43 @@ A PR for a backdrop reports a score against each criterion.
   derives view options under `sys.views` (DESIGN.md → Extension families).
   A contribution whose key no declaration lists has no option, so it cannot
   be chosen.
+- **A plugin's backdrop is a backdrop.** A repository extension, its own,
+  linked or installed (DESIGN.md → Core boundary & extensions), declares
+  and contributes a backdrop by this same surface, through the SDK:
+  `BACKDROP_OPTIONS` and `backdropVariantOptions` in `kb-ext-sdk` for its
+  declaration, and `BackdropPoint`, `provideBackdrop`, `BACKDROP_BUDGETS`,
+  `meterFrames` and `useReducedMotion` in `kb-ext-sdk/page` for its page
+  half (DESIGN.md → Extension SDK). Nothing about it is special: its
+  option is derived by the fold, its knobs are fields on its node, the
+  slot frames it, Settings and the studio list it, and the contract runs
+  over it.
+  - **Named in its own namespace.** Its backdrops' ids are
+    `<extension>.<local id>`, as a family's are, and discovery refuses a
+    repository module that declares an option outside its own namespace,
+    or a knob schema `knobSchemaError` refuses. A bundled family's name is
+    refused for a repository extension, so a plugin can never answer to,
+    or replace, one of kb's backdrops.
+  - **Held to the same budget.** It declares a budget within the page
+    head's, and a canvas scene meters its frames with the kit's frame
+    meter, so it steps its quality down as kb's own do and the studio's
+    readout reads it (Backdrop Studio, below). A scene that does not
+    meter shows as not metered.
+  - **What it is handed** is what every backdrop is handed
+    (`BackdropProps`): the head's colour, the shown node, strength,
+    direction, opacity, knobs, budget, the owner's activity and the
+    pointer. `kb-ext-sdk/page` declares the node by its id alone, which is
+    what navigation needs. It draws on its own canvas (no GPU host is
+    offered through the SDK). Once trusted it is owner code with the
+    page's power, as every repository extension is; the SDK's narrower
+    types state what a backdrop is for, and enforce nothing.
+  - **Untrusted, it does not exist.** An untrusted extension runs no code,
+    so its declaration is not read and its backdrops have no option and
+    no contribution; the studio lists it as needing approval. Removed
+    (`kb ext remove`), it is no longer discovered: its option node stays,
+    as a switched-off family's does, its contribution goes, and every page
+    that chose it falls through to the next node's choice, as any choice
+    nobody contributes does (The choice is fields, below).
+
 - **kb's backdrops are a family's.** The `backdrops` family
   (`@kb/backdrops`, `@kb/backdrops-ui`; optional, on by default) declares
   and contributes the backdrops kb ships, the unicorn first:
@@ -4501,8 +4538,9 @@ A PR for a backdrop reports a score against each criterion.
   as it draws every setting it lists, and says so under it when the shown
   backdrop faces no way.
 - **The contract** (`app/ui/src/backdrop-point.contract.test.tsx`) runs over
-  every contributed backdrop: the page's families' backdrops and one from a
-  test plugin.
+  every contributed backdrop: the page's families' backdrops, one from a
+  test plugin, and the example repository extension's, its page half
+  bundled from its files and loaded as the page loads a trusted one.
   - Each backdrop answers to its declared id.
   - Each declares a well-formed knob schema, its variants' with it, and a
     budget within the page head's frame budget (6 ms).
@@ -5483,7 +5521,18 @@ it as kb's own are, and a family switched off takes its backdrops out.
 - **The gallery** draws each backdrop with the card Settings draws
   (`BackdropCard`, Option previews): a still, mounted once it is on
   screen, under its name, its credit, its count of knobs, and whether it
-  is the one the owner's pages show. A card shows its backdrop vivid,
+  is the one the owner's pages show.
+  - **From plugins.** Backdrops whose family is a repository extension
+    (`extension.list`'s rows with an `origin`: own, linked or installed)
+    are a section of their own below kb's, each card saying
+    _from <extension>_; the scene's header says it too.
+  - **Needing approval.** Each repository extension that has a page half
+    and is not trusted is listed in that section as a card with no
+    picture: its name, its source, and that kb runs none of its code until
+    a person trusts it, so the backdrops it may bring are unknown, with
+    the way to trust it (`kb ext trust <name>`, or Settings → Extensions).
+    Trusting it loads it with no reload (DESIGN.md → Trust is read on
+    every load), and its card gives way to its backdrops. A card shows its backdrop vivid,
   whatever the page's strength: the gallery shows what each one is, where
   Settings' card previews what its setting sets. On a dark page a card is
   exposed (`GalleryExposure`): what a backdrop lays over the card's ground
@@ -5511,6 +5560,9 @@ it as kb's own are, and a family switched off takes its backdrops out.
     its canvas (`readFrameMeter`: `data-gpu-ms`, else `data-frame-ms`;
     `data-quality`; `data-backend`), against the budget its contribution declares; a
     backdrop no host meters says so (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]).
+    A scene over its budget is warned of in words, not in colour alone:
+    _over budget_, and _over budget at its lowest quality_ once its meter
+    has nothing left to step down.
 - **Reached** from a page head: a double-click on its backdrop offers
   _Open in Studio_ (Its actions, above), which opens the backdrop shown.
 - **Lazy.** The page's module and everything under it load only when the
