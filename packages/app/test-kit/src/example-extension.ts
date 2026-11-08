@@ -207,6 +207,7 @@ export default definePlugin({
               opacity: { subtle: 0.35, soft: 0.6, vivid: 0.9 },
             },
             budget: BACKDROP_BUDGETS.canvas,
+            interactions: [],
             Component: GlowScene,
           }),
         ),

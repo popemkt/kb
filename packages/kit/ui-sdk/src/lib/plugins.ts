@@ -406,19 +406,57 @@ export interface BackdropProps {
 }
 
 /**
+ * What a backdrop can be seen to answer (DESIGN-UI.md → Page-head
+ * backdrops → Its interactions): the pointer over its frame (`pointer`), a
+ * move to another page (`navigation`, the `node` it is handed changing), or
+ * one of the things its activity says the owner does (`PageActivity`:
+ * `editing`, typing in a node; `writes`; and the page's `arrivals`,
+ * `errors` and `turns`). The activity's own fields name them, so a cue
+ * the activity gains is one a backdrop can declare.
+ */
+export type BackdropCue = "pointer" | "navigation" | keyof PageActivity;
+
+/**
+ * Each cue as a person reads it, in the order it is listed: the cue
+ * vocabulary's one table, so a cue the type gains has a name before any
+ * backdrop can declare it.
+ */
+export const BACKDROP_CUE_LABELS: Readonly<Record<BackdropCue, string>> = {
+  pointer: "Pointer",
+  editing: "Typing",
+  writes: "A write",
+  navigation: "Another page",
+  arrivals: "A change from elsewhere",
+  errors: "An error",
+  turns: "An agent's turn",
+};
+
+/** One thing a backdrop does when its cue moves, said in a line ("ripples follow the cursor"). */
+export interface BackdropInteraction {
+  readonly cue: BackdropCue;
+  readonly does: string;
+}
+
+/**
  * A page-head backdrop: the ambience painted behind a page's head
  * (DESIGN-UI.md → Page-head backdrops). Every page head renders the chosen
  * one through one slot (`PageBackdrop`) and names none. Its `key` is the
  * backdrop its family declares, whose option node choosing it refers to:
  * its label, credit, variants, default strength and knobs. Its
- * contribution adds how a head frames it, what it may spend a frame, and
- * its scene, the component the slot instantiates wherever it is drawn (a
+ * contribution adds how a head frames it, what it may spend a frame, what
+ * it answers, and its scene, the component the slot instantiates wherever it is drawn (a
  * head, a card, the studio).
  */
 export interface Backdrop {
   readonly key: SeedBackdrop;
   readonly presentation: BackdropPresentation;
   readonly budget: BackdropBudget;
+  /**
+   * What it answers, each a line on what it does when its cue moves, as
+   * Backdrop Studio lists them and lets a person try them; none, for a
+   * backdrop that answers nothing.
+   */
+  readonly interactions: readonly BackdropInteraction[];
   readonly Component: ComponentType<BackdropProps>;
 }
 

@@ -91,6 +91,7 @@ const probeUiPlugin = definePlugin({
               opacity: { subtle: 0.72, soft: 0.86, vivid: 1 },
             },
             budget: BACKDROP_BUDGETS.dom,
+            interactions: [],
             Component: Nothing,
           }),
         ),

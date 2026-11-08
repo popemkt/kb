@@ -40,6 +40,10 @@ const cloudbank: Omit<Backdrop, "key"> = {
     offset: -24,
     opacity: { subtle: 0.7, soft: 0.85, vivid: 1 },
   },
+  interactions: [
+    { cue: "editing", does: "the city's windows burn brighter" },
+    { cue: "writes", does: "a trail of light crosses the roofs" },
+  ],
   Component: CloudbankBackdrop,
 };
 
@@ -68,7 +72,13 @@ export const transistorUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(CLOUDBANK_BACKDROP, cloudbank)),
         ctx.contribute(
           BackdropPoint,
-          provideBackdrop(OVC_BACKDROP, band(OvcBackdrop, BACKDROP_BUDGETS.dom)),
+          provideBackdrop(
+            OVC_BACKDROP,
+            band(OvcBackdrop, BACKDROP_BUDGETS.dom, [
+              { cue: "editing", does: "the screen comes up and the cursor lights" },
+              { cue: "writes", does: "the screen refreshes and the tally counts one more" },
+            ]),
+          ),
         ),
       ],
       { discard: true },

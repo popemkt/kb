@@ -48,11 +48,23 @@ export const yorhaUiPlugin = definePlugin({
         ),
         ctx.contribute(
           BackdropPoint,
-          provideBackdrop(BUNKER_BACKDROP, band(BunkerBackdrop, BACKDROP_BUDGETS.dom)),
+          provideBackdrop(
+            BUNKER_BACKDROP,
+            band(BunkerBackdrop, BACKDROP_BUDGETS.dom, [
+              { cue: "editing", does: "the reticle tracks faster" },
+              { cue: "writes", does: "the reticle pings" },
+            ]),
+          ),
         ),
         ctx.contribute(
           BackdropPoint,
-          provideBackdrop(ARENA_BACKDROP, band(ArenaBackdrop, BACKDROP_BUDGETS.gpu)),
+          provideBackdrop(
+            ARENA_BACKDROP,
+            band(ArenaBackdrop, BACKDROP_BUDGETS.gpu, [
+              { cue: "pointer", does: "an aiming ring follows the cursor across the field" },
+              { cue: "writes", does: "the hacking play takes a nudge" },
+            ]),
+          ),
         ),
       ],
       { discard: true },

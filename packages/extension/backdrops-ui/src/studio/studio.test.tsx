@@ -76,6 +76,13 @@ function probeScene(id: string) {
   };
 }
 
+/** What the probe answers: the pointer, typing and a change from elsewhere, as the studio lists and tries them. */
+const PROBE_INTERACTIONS = [
+  { cue: "pointer", does: "a dot follows the cursor" },
+  { cue: "editing", does: "the dot slows" },
+  { cue: "arrivals", does: "the dot blinks" },
+] as const;
+
 const presentation = {
   space: 100,
   directions: [],
@@ -96,6 +103,7 @@ const probes = definePlugin({
           provideBackdrop(PROBE, {
             presentation,
             budget: BACKDROP_BUDGETS.gpu,
+            interactions: PROBE_INTERACTIONS,
             Component: probeScene(PROBE.id),
           }),
         ),
@@ -104,6 +112,7 @@ const probes = definePlugin({
           provideBackdrop(OTHER, {
             presentation,
             budget: BACKDROP_BUDGETS.dom,
+            interactions: [],
             Component: probeScene(OTHER.id),
           }),
         ),
@@ -331,6 +340,7 @@ const plugged = definePlugin({
       provideBackdrop(PLUGGED, {
         presentation,
         budget: BACKDROP_BUDGETS.canvas,
+        interactions: [{ cue: "pointer", does: "a lamp follows the cursor" }],
         Component: probeScene(PLUGGED.id),
       }),
     ),

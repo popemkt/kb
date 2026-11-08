@@ -4536,6 +4536,18 @@ A PR for a backdrop reports a score against each criterion.
     pointer or focus is on it, Escape dismisses it, it takes no focus, and
     running an action closes it. It is a positioned layer beside the
     frame's, not in it, so it paints and is clicked above the page.
+- **Its interactions.** A backdrop's contribution says what it answers
+  (`Backdrop.interactions`): each a cue and a line on what it does when
+  the cue moves ("birds scatter from the cursor"). A cue is the pointer
+  over its frame, a move to another page, or one of the things its
+  activity says the owner does (`PageActivity`: typing is `editing`; a
+  write; a change from elsewhere, an error, an agent's turn), so the
+  activity's fields name them (`BackdropCue`), and one table names each
+  for a person (`BACKDROP_CUE_LABELS`). It is stated for every backdrop,
+  empty for one that answers nothing, kb's, a theme's and a plugin's
+  alike; the contract holds each to a known cue, said in one line.
+  Backdrop Studio lists them and lets a person try them (Backdrop Studio
+  → Interact).
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops, laid out as a gallery of cards, each the

@@ -66,6 +66,7 @@ const gradient: Omit<Backdrop, "key"> = {
     opacity: { subtle: 0.5, soft: 0.75, vivid: 1 },
   },
   budget: BACKDROP_BUDGETS.dom,
+  interactions: [],
   Component: GradientBackdrop,
 };
 
@@ -81,6 +82,7 @@ const unicorn: Omit<Backdrop, "key"> = {
   },
   // GAP [[01M6RT9R6AXGVYZWCSTG26EET8]] a vendor runtime's frames are not metered against its budget
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [{ cue: "pointer", does: "the nebula drifts sideways with the cursor" }],
   Component: UnicornWashBackdrop,
 };
 
@@ -95,6 +97,12 @@ const sky: Omit<Backdrop, "key"> = {
     opacity: { subtle: 0.45, soft: 0.68, vivid: 0.88 },
   },
   budget: BACKDROP_BUDGETS.canvas,
+  interactions: [
+    { cue: "pointer", does: "birds scatter from the cursor" },
+    { cue: "editing", does: "the flock slows and glides" },
+    { cue: "writes", does: "birds fly and flap faster" },
+    { cue: "navigation", does: "the flock drifts somewhere new and bunches up" },
+  ],
   Component: SkyBackdrop,
 };
 
@@ -109,6 +117,12 @@ const roost: Omit<Backdrop, "key"> = {
     opacity: { subtle: 0.5, soft: 0.7, vivid: 0.9 },
   },
   budget: BACKDROP_BUDGETS.canvas,
+  interactions: [
+    { cue: "pointer", does: "nearby bats shiver and open their eyes" },
+    { cue: "editing", does: "bats breathe slower and stay roosting" },
+    { cue: "writes", does: "a hanging bat shuffles" },
+    { cue: "navigation", does: "a shiver ripples along the row" },
+  ],
   Component: RoostBackdrop,
 };
 
@@ -131,6 +145,11 @@ const gpuFrame: Backdrop["presentation"] = {
 const lens: Omit<Backdrop, "key"> = {
   presentation: gpuFrame,
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the dark star follows the cursor" },
+    { cue: "editing", does: "the star's pull eases" },
+    { cue: "writes", does: "the star swells and a supernova flares beside it" },
+  ],
   Component: LensBackdrop,
 };
 
@@ -138,6 +157,11 @@ const lens: Omit<Backdrop, "key"> = {
 const blackHole: Omit<Backdrop, "key"> = {
   presentation: gpuFrame,
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the camera tilts and swings with the cursor" },
+    { cue: "editing", does: "the gas disk dims" },
+    { cue: "writes", does: "the disk brightens and a hot flare orbits" },
+  ],
   Component: BlackHoleBackdrop,
 };
 
@@ -155,6 +179,11 @@ const sceneFrame: Backdrop["presentation"] = {
 const toonSea: Omit<Backdrop, "key"> = {
   presentation: sceneFrame,
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "ripple rings spread from the cursor" },
+    { cue: "editing", does: "the swell calms and the sea slows" },
+    { cue: "writes", does: "splash rings and glints burst across the sea" },
+  ],
   Component: ToonSeaBackdrop,
 };
 
@@ -162,6 +191,11 @@ const toonSea: Omit<Backdrop, "key"> = {
 const silk: Omit<Backdrop, "key"> = {
   presentation: sceneFrame,
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the cursor's wind lifts the ribbons" },
+    { cue: "editing", does: "the ribbons slow and the light sweep rests" },
+    { cue: "writes", does: "a shimmer runs along the ribbons, and they flutter faster" },
+  ],
   Component: SilkBackdrop,
 };
 
@@ -173,6 +207,12 @@ const silk: Omit<Backdrop, "key"> = {
 const floatingGeometry: Omit<Backdrop, "key"> = {
   presentation: { ...gpuFrame, span: { reach: "region" } },
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the gold lamp follows the cursor and the glass shifts" },
+    { cue: "editing", does: "the drift slows and the light sweep rests" },
+    { cue: "writes", does: "the lamps glow hotter and the glass folds" },
+    { cue: "navigation", does: "the glass folds and eases back" },
+  ],
   Component: FloatingGeometryBackdrop,
 };
 
@@ -184,6 +224,11 @@ const floatingGeometry: Omit<Backdrop, "key"> = {
 const gradientOrbs: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the orbs turn their lit faces to the cursor" },
+    { cue: "editing", does: "the orbs drift more slowly" },
+    { cue: "writes", does: "the orbs swell and their glow brightens" },
+  ],
   Component: GradientOrbsBackdrop,
 };
 
@@ -194,6 +239,14 @@ const gradientOrbs: Omit<Backdrop, "key"> = {
 const wolfMedallion: Omit<Backdrop, "key"> = {
   presentation: { ...gpuFrame, span: { reach: "region" } },
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the eyes glow as the cursor nears; moving it scatters embers" },
+    { cue: "editing", does: "the smoke slows" },
+    { cue: "writes", does: "the glyph circle turns faster" },
+    { cue: "arrivals", does: "the eyes flash silver and the medallion swings" },
+    { cue: "errors", does: "the eyes flash red and the medallion swings" },
+    { cue: "turns", does: "the eyes flash gold and the medallion swings" },
+  ],
   Component: WolfMedallionBackdrop,
 };
 
@@ -204,6 +257,11 @@ const wolfMedallion: Omit<Backdrop, "key"> = {
 const lightTrails: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the trails burn brighter and lean toward the cursor" },
+    { cue: "editing", does: "the light runs more slowly" },
+    { cue: "writes", does: "light packets along the strands brighten" },
+  ],
   Component: LightTrailsBackdrop,
 };
 
@@ -214,6 +272,14 @@ const lightTrails: Omit<Backdrop, "key"> = {
 const astral: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the light swings toward the cursor and nearby stars glint" },
+    { cue: "writes", does: "the gears tick a notch and the hub star flares" },
+    { cue: "navigation", does: "the gears tick a notch and the hub star flares" },
+    { cue: "arrivals", does: "the gears tick a notch and the hub star flares" },
+    { cue: "errors", does: "the gears tick a notch and the hub star flares" },
+    { cue: "turns", does: "the gears tick a notch and the hub star flares" },
+  ],
   Component: AstralBackdrop,
 };
 
@@ -225,6 +291,10 @@ const astral: Omit<Backdrop, "key"> = {
 const discField: Omit<Backdrop, "key"> = {
   presentation: { ...sceneFrame, span: { reach: "region" } },
   budget: BACKDROP_BUDGETS.gpu,
+  interactions: [
+    { cue: "pointer", does: "the view leans toward the cursor" },
+    { cue: "writes", does: "a gust of wind moves through the leaves" },
+  ],
   Component: DiscFieldBackdrop,
 };
 

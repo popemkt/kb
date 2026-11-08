@@ -52,6 +52,7 @@ import {
 } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
+  BACKDROP_CUE_LABELS,
   BREAKOUT_CLASS,
   BackdropPoint,
   EMPTY_EDITOR,
@@ -162,6 +163,7 @@ const plainPlugin = definePlugin({
               opacity: PLAIN_OPACITY,
             },
             budget: { frameMs: 1 },
+            interactions: [{ cue: "pointer", does: "a glow follows the cursor" }],
             Component: PlainBackdrop,
           }),
         ),
@@ -364,6 +366,19 @@ describe("every contributed page-head backdrop", () => {
       }
       expect(budget.frameMs, key.id).toBeGreaterThan(0);
       expect(budget.frameMs, key.id).toBeLessThanOrEqual(PAGE_HEAD_FRAME_MS);
+    }
+  });
+
+  it("declares what it answers: each a cue the page moves, said in one line, none said twice", () => {
+    for (const { value } of backdrops()) {
+      const said = value.interactions.map(({ cue, does }) => `${cue}: ${does}`);
+      expect(new Set(said).size, value.key.id).toBe(said.length);
+      for (const { cue, does } of value.interactions) {
+        expect(Object.keys(BACKDROP_CUE_LABELS), value.key.id).toContain(cue);
+        expect(does.trim().length, `${value.key.id} ${cue}`).toBeGreaterThan(0);
+        expect(does.length, `${value.key.id} ${cue}`).toBeLessThanOrEqual(80);
+        expect(does, `${value.key.id} ${cue}`).not.toContain("\n");
+      }
     }
   });
 
