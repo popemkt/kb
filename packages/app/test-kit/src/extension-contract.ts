@@ -441,13 +441,18 @@ export function extensionContract(
       expect(() => foldSeed(foldWith(declaration), CONTRACT_AT)).not.toThrow();
     });
 
-    test("its node is in the fold, named by its label, and switching it writes only its switch", () => {
+    test("its node is in the fold, named by its label, holding what it files there, and switching it writes only its switch", () => {
       const fold = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
       const node = present(
         fold.find(({ id }) => id === extensionNodeId(declaration.name)),
         `${declaration.name}'s node is in the fold`,
       );
-      expect(node).toMatchObject({ text: declaration.label, props: {}, children: [] });
+      // It holds what the family files under it, and nothing else.
+      expect(node).toMatchObject({
+        text: declaration.label,
+        props: {},
+        children: declaration.files?.[node.id] ?? [],
+      });
       const list = fold.find(({ id }) => id === SYSTEM_IDS.extensionsRoot);
       expect(list?.children).toContain(node.id);
       const seeded = new Map(fold.map((seed) => [seed.id, seed]));

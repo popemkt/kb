@@ -143,9 +143,20 @@ describe("a node command as data", () => {
     expect(() => provideCommand("bad", { ...form, group: "top" as never })).toThrow(
       /no group of the node menu/,
     );
-    expect(() => provideCommand("bad", { ...form, icon: "unicorn" as never })).toThrow(
-      /no icon kb names/,
-    );
+    for (const icon of ["unicorn", "constructor", "toString", "__proto__"]) {
+      expect(() => provideCommand("bad", { ...form, icon: icon as never })).toThrow(
+        /no icon kb names/,
+      );
+      expect(() =>
+        providePaletteStep("bad", {
+          label: "x",
+          placeholder: "x",
+          icon: icon as never,
+          candidates: "q.topics",
+          commit: { action: "node.get" },
+        }),
+      ).toThrow(/no icon kb names/);
+    }
   });
 });
 

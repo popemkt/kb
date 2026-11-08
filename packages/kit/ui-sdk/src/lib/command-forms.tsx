@@ -60,9 +60,9 @@ export type IconName = keyof typeof FORM_ICONS;
 /** The icon `name` names, checked where the form is provided. */
 function iconOf(owner: string, name: IconName | undefined): Icon | null {
   if (name === undefined) return null;
-  const icon: Icon | undefined = (FORM_ICONS as Readonly<Record<string, Icon>>)[name];
-  if (icon === undefined) throw new Error(`${owner}: "${name}" is no icon kb names`);
-  return icon;
+  // Its own names only: a name such as `constructor` must not read through the prototype.
+  if (!Object.hasOwn(FORM_ICONS, name)) throw new Error(`${owner}: "${name}" is no icon kb names`);
+  return FORM_ICONS[name];
 }
 
 function drawn(icon: Icon | null, size: number): ReactNode {
