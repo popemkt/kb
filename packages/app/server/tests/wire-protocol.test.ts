@@ -30,11 +30,11 @@ import {
 import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
-// Legacy import adds an action; old pages do not need it. Existing envelopes,
-// modes and receipts remain compatible, so the protocol stays unchanged.
+// Older pages reject unknown notification frames. Protocol 3 reloads them
+// into a build that follows manifest-changed and refreshes its catalog.
 const RECORDED = {
-  protocol: 2,
-  fingerprint: "2ecd44d78797b1bec6a22bf226888f7832224c32805cba6a2fedea6def570fcb",
+  protocol: 3,
+  fingerprint: "dc186c808951547fe76ba28c89f190d81c148286e7d20c617a8cb1594c0434eb",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

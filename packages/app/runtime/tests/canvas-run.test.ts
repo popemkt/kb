@@ -1,3 +1,4 @@
+import { KB_SOURCE_BIN } from "@kb/test-kit";
 /**
  * `ext.canvas.run` through the invoke core: a canvas as a computer. Cards
  * standing for nodes are its components and its edges carry outputs;
@@ -195,8 +196,7 @@ test("a terminal-approved non-human canvas run performs its script components", 
   let answered = false;
   const child = Bun.spawn(
     [
-      process.execPath,
-      join(import.meta.dir, "../../cli/src/main.ts"),
+      KB_SOURCE_BIN,
       "--root",
       ctx.root,
       "--json",

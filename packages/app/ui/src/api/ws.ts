@@ -26,6 +26,7 @@ import {
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
+  type ServerMessage,
 } from "@kb/contracts";
 import type { GraphMessage } from "@/session/replica";
 
@@ -82,6 +83,8 @@ export interface KbWsClientOptions {
    * protocol reloads for (`@kb/ui-sdk` → `lib/stale-build`).
    */
   onProtocol?: (protocol: number | undefined) => void;
+  /** Read the server catalog on connection and whenever the server announces a change. */
+  onManifestChanged?: () => void;
   /**
    * A command the server asks this tab to carry out; the answer goes back
    * with {@link KbWsClient.answerScreenCommand} under the same id.
@@ -281,7 +284,10 @@ export class KbWsClient {
 
   /** A graph-stream message, to the replica; a hello's protocol, to whoever follows it. */
   private graph(msg: GraphMessage): void {
-    if (msg.op === "hello") this.opts.onProtocol?.(msg.protocol);
+    if (msg.op === "hello") {
+      this.opts.onProtocol?.(msg.protocol);
+      this.opts.onManifestChanged?.();
+    }
     this.opts.onGraph(msg);
   }
 
@@ -304,7 +310,11 @@ export class KbWsClient {
       });
       return;
     }
-    const msg = parsed.data;
+    this.dispatch(parsed.data);
+  }
+
+  /** Route a decoded protocol message to the capability that owns it. */
+  private dispatch(msg: ServerMessage): void {
     switch (msg.op) {
       case "hello":
       case "tx":
@@ -330,6 +340,9 @@ export class KbWsClient {
         this.opts.onPerson?.(msg.person, msg.embedding ?? NO_EMBEDDING);
         break;
       case "pong":
+        break;
+      case "manifest-changed":
+        this.opts.onManifestChanged?.();
         break;
       // Exhaustive over ServerMessage['op']; switch-exhaustiveness-check guards it
       // no default

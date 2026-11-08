@@ -1,3 +1,5 @@
+import { locationEntries } from "@kb/locations";
+import type { KbNode } from "@kb/model";
 /**
  * The server's entries for the bundled families (DESIGN.md → Extension
  * families). Which families are bundled, and in what order, is
@@ -77,3 +79,8 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   yorhaPlugin(),
   galleryServerPlugin(),
 ]);
+
+/** The locations family's graph projection, selected at the server composition root. */
+export function registeredLocationPaths(nodes: readonly KbNode[]): readonly string[] {
+  return locationEntries(nodes).flatMap((entry) => entry.paths);
+}

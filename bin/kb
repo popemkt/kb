@@ -1,4 +1,1 @@
-#!/usr/bin/env bash
-# The kb CLI from this checkout's source; an installed kb is the release
-# bundle or `nix profile install github:popemkt/kb`.
-exec bun "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/packages/app/cli/src/main.ts" "$@"
+../packages/app/cli/bin/kb

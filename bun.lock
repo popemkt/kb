@@ -62,13 +62,14 @@
       "name": "@kb/cli",
       "version": "0.0.0",
       "bin": {
-        "kb": "./src/main.ts",
+        "kb": "../../../bin/kb",
       },
       "dependencies": {
         "@kb/agent": "workspace:*",
         "@kb/agent-claude": "workspace:*",
         "@kb/agent-openai": "workspace:*",
         "@kb/bundled": "workspace:*",
+        "@kb/child-process": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
         "@kb/mcp": "workspace:*",
@@ -136,6 +137,7 @@
         "@kb/backdrops": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/chart-vega": "workspace:*",
+        "@kb/child-process": "workspace:*",
         "@kb/code": "workspace:*",
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
@@ -143,11 +145,13 @@
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
+        "@kb/extension-source": "workspace:*",
         "@kb/file-write": "workspace:*",
         "@kb/gallery-net": "workspace:*",
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
+        "@kb/locations": "workspace:*",
         "@kb/locations-fs": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
@@ -156,6 +160,7 @@
         "@kb/query": "workspace:*",
         "@kb/sandbox": "workspace:*",
         "@kb/sandbox-quickjs": "workspace:*",
+        "@kb/source-git": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "@kb/store-sqlite": "workspace:*",
         "@kb/themes": "workspace:*",
@@ -169,7 +174,6 @@
       },
       "devDependencies": {
         "@kb/canvas": "workspace:*",
-        "@kb/locations": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",
@@ -332,6 +336,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/extension-source": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -348,6 +353,7 @@
       "name": "@kb/contracts",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/extension-source": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -374,6 +380,17 @@
         "@types/bun": "catalog:",
         "@types/react": "catalog:",
         "typescript": "catalog:",
+      },
+    },
+    "packages/contract/extension-source": {
+      "name": "@kb/extension-source",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/contract/sandbox": {
@@ -766,6 +783,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@kb/query": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -1238,6 +1256,13 @@
         "@types/react": "catalog:",
       },
     },
+    "packages/infrastructure/child-process": {
+      "name": "@kb/child-process",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/infrastructure/file-write": {
       "name": "@kb/file-write",
       "version": "0.0.0",
@@ -1272,6 +1297,18 @@
       },
       "devDependencies": {
         "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/infrastructure/source-git": {
+      "name": "@kb/source-git",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/child-process": "workspace:*",
+        "@kb/extension-source": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
@@ -1320,6 +1357,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/extension-source": "workspace:*",
         "@kb/file-write": "workspace:*",
         "@kb/model": "workspace:*",
         "effect": "catalog:",
@@ -1796,6 +1834,8 @@
 
     "@kb/check": ["@kb/check@workspace:packages/extension/check"],
 
+    "@kb/child-process": ["@kb/child-process@workspace:packages/infrastructure/child-process"],
+
     "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
 
     "@kb/client": ["@kb/client@workspace:packages/app/client"],
@@ -1819,6 +1859,8 @@
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
+
+    "@kb/extension-source": ["@kb/extension-source@workspace:packages/contract/extension-source"],
 
     "@kb/file-write": ["@kb/file-write@workspace:packages/infrastructure/file-write"],
 
@@ -1881,6 +1923,8 @@
     "@kb/scene-gpu": ["@kb/scene-gpu@workspace:packages/kit/scene-gpu"],
 
     "@kb/server": ["@kb/server@workspace:packages/app/server"],
+
+    "@kb/source-git": ["@kb/source-git@workspace:packages/infrastructure/source-git"],
 
     "@kb/store-jsonl": ["@kb/store-jsonl@workspace:packages/infrastructure/store-jsonl"],
 

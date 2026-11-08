@@ -17,6 +17,7 @@ import { bundledSeed } from "@kb/bundled";
 import { present } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
+import { loadManifest } from "@/lib/manifest";
 import { App } from "@/components/App";
 
 const ISO = "2026-10-20T00:00:00.000Z";
@@ -107,6 +108,7 @@ describe("Settings' Extensions (acceptance)", () => {
   let container: HTMLDivElement;
   let root: Root;
   let asked: ActionRequest[] = [];
+  let report = REPORT;
   /** Which request the stand-in server fails, if any. */
   let failing: "unreachable" | "footprint" | null = null;
 
@@ -146,10 +148,12 @@ describe("Settings' Extensions (acceptance)", () => {
       }
       const output =
         invocation.id === "extension.list"
-          ? REPORT
+          ? report
           : invocation.id === "extension.footprint"
             ? { rows: FOOTPRINT }
-            : {};
+            : invocation.id === "kb.manifest"
+              ? { actions: [], views: [], extensions: report.extensions }
+              : {};
       return Promise.resolve({ status: "succeeded", id: invocation.id, output, rev: 3 });
     });
   });
@@ -161,6 +165,7 @@ describe("Settings' Extensions (acceptance)", () => {
 
   beforeEach(async () => {
     asked = [];
+    report = REPORT;
     failing = null;
     dom.history.pushState({}, "", "/");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
@@ -243,6 +248,31 @@ describe("Settings' Extensions (acceptance)", () => {
     expect(card("hello").querySelector('[role="alert"]')?.textContent).toBe(
       "hello/child failed to load: boom",
     );
+  });
+
+  it("a refreshed catalog shows an untrusted update and the previous approved digest without reopening Settings", async () => {
+    await openFromHeader();
+    await openComposes("hello");
+    const next = `sha256:${"cd".repeat(32)}`;
+    report = {
+      ...REPORT,
+      extensions: REPORT.extensions.map((row) =>
+        row.name === "hello"
+          ? {
+              ...row,
+              digest: next,
+              trusted: false,
+              running: { digest: DIGEST, source: row.source },
+            }
+          : row,
+      ),
+    };
+    await act(async () => {
+      await loadManifest();
+    });
+    await until(() => card("hello").textContent.includes(`untrusted at ${next}`));
+    expect(card("hello").textContent).toContain(`untrusted at ${next}`);
+    expect(card("hello").textContent).toContain(`running approved ${DIGEST}`);
   });
 
   it("lists the listeners asked in turn, in order, and the extensions refused, in Advanced", async () => {

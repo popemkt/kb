@@ -251,21 +251,26 @@ class Harness {
 
   constructor(rev: number) {
     useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), rev, "api");
-    setPostAction(
-      (invocation) =>
-        new Promise((resolve, reject) => {
-          this.pushes.push({
-            id: invocation.id,
-            settle: (outcome) => {
-              if ("throws" in outcome) reject(new Error("network down"));
-              else if ("fail" in outcome)
-                resolve({ status: "failed", id: invocation.id, code: "internal", message: "no" });
-              else
-                resolve({ status: "succeeded", id: invocation.id, output: {}, rev: outcome.rev });
-            },
-          });
-        }),
-    );
+    setPostAction((invocation) => {
+      if (invocation.id === "kb.manifest")
+        return Promise.resolve({
+          status: "succeeded",
+          id: invocation.id,
+          rev: 0,
+          output: { actions: [], views: [], extensions: [] },
+        });
+      return new Promise((resolve, reject) => {
+        this.pushes.push({
+          id: invocation.id,
+          settle: (outcome) => {
+            if ("throws" in outcome) reject(new Error("network down"));
+            else if ("fail" in outcome)
+              resolve({ status: "failed", id: invocation.id, code: "internal", message: "no" });
+            else resolve({ status: "succeeded", id: invocation.id, output: {}, rev: outcome.rev });
+          },
+        });
+      });
+    });
     setFetchGraphSnapshot(() => {
       this.fetches += 1;
       return new Promise((resolve, reject) => {

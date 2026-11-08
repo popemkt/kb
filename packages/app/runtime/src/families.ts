@@ -1,3 +1,5 @@
+import { rootExtensionState, resetRootExtensionStates } from "./extension-state.ts";
+import { installedFolders } from "./installed-extensions.ts";
 /**
  * The families a root composes (DESIGN.md → Extension families): every
  * bundled one, then each repository extension its `.kb/extensions` holds,
@@ -13,15 +15,17 @@ import type { FileSystem } from "effect/FileSystem";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   extensionPagePath,
+  type ExtensionRow,
   familyOn,
   type ExtensionDeclaration,
+  ExtensionStorage,
   type ExtensionFailure,
   type LoadedExtension,
   type NodeLookup,
 } from "@kb/contracts";
 import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
-import { codeTrustLayer } from "@kb/workspace-fs";
+import { extensionStorageLayer, codeTrustLayer } from "@kb/workspace-fs";
 import { deploys, governanceMode } from "./deployment.ts";
 import {
   importClosures,
@@ -32,6 +36,7 @@ import {
 } from "./extension-loader.ts";
 
 export interface RootFamilies {
+  readonly inventory: readonly ExtensionRow[];
   readonly families: readonly LoadedExtension[];
   /**
    * What the root's store is seeded from (DESIGN.md → Extension families →
@@ -53,8 +58,9 @@ const BUNDLED: readonly LoadedExtension[] = BUNDLED_EXTENSIONS.map((family) => (
  * (`deploys`): what a root's families start from, and what its store is
  * seeded from, so a family the deployment leaves out seeds nothing.
  */
-function deployed(): Pick<RootFamilies, "families" | "declarations"> {
+function deployed(): Pick<RootFamilies, "families" | "declarations" | "inventory"> {
   return {
+    inventory: [],
     families: BUNDLED.filter(({ declaration }) => deploys(declaration.name)),
     declarations: BUNDLED_DECLARATIONS.filter(({ name }) => deploys(name)),
   };
@@ -90,19 +96,17 @@ function admitted(extensions: readonly LoadedExtension[]): {
   return { extensions: accepted, failures };
 }
 
-/** Each root's closures: bundled once, for the process lifetime (an extension changed on disk needs a restart). */
-const closureCache = new Map<
+/** One current composed family set per root; importing a trusted closure runs its module code. */
+const familiesCache = new Map<
   string,
-  Effect.Effect<Effect.Success<ReturnType<typeof readClosures>>, never, FileSystem>
+  { readonly key: string; readonly composed: Effect.Effect<RootFamilies> }
 >();
-/** Each root's families, per set of closures trusted there: importing one runs its module code. */
-const familiesCache = new Map<string, Effect.Effect<RootFamilies>>();
 
 /**
  * The families `root` composes; with no root, the bundled ones alone, as
  * the deployment composes them (`deployed`). Its
- * closures are read once per root, and which of them a person trusted is
- * read from the user's record on every call, so `sandbox.trust` and
+ * closures are read once per root selection generation. Trust is read from
+ * the user's record on every call, so `sandbox.trust` and
  * `sandbox.untrust` take effect in the process that runs them: a newly
  * trusted closure is imported, an untrusted one is not a family of the
  * root, so the registry and the page server drop it as they drop a family
@@ -112,24 +116,58 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
   if (root === null) return { ...deployed(), failures: [] };
-  let reading = closureCache.get(root);
+  const fingerprint = yield* Effect.gen(function* () {
+    return yield* (yield* ExtensionStorage).fingerprint(root);
+  }).pipe(Effect.provide(extensionStorageLayer));
+  const state = rootExtensionState(root, fingerprint);
+  const selected = yield* installedFolders(state).pipe(Effect.provide(extensionStorageLayer));
+  const cacheKey = JSON.stringify([root, selected.folders]);
+  let reading = state.closures.get(cacheKey);
   if (reading === undefined) {
-    reading = yield* Effect.cached(readClosures([ownExtensionFolder(root)]));
-    closureCache.set(root, reading);
+    reading = yield* Effect.cached(readClosures([ownExtensionFolder(root), ...selected.folders]));
+    state.closures.set(cacheKey, reading);
   }
   const read = yield* reading;
   // The user's shared record decides which closures this root may load.
   const { trusted, failures: untrusted } = yield* trustedOf(read.closures).pipe(
     Effect.provide(codeTrustLayer()),
   );
-  const key = [governanceMode(), root, ...trusted.map(({ closure }) => closure.digest)].join("\0");
-  let composed = familiesCache.get(key);
+  const active = [...trusted];
+  for (const fallback of selected.fallbacks) {
+    const candidate = read.rows.find(
+      (row) => row.source === fallback.candidate && row.shadowed === undefined,
+    );
+    if (candidate === undefined || active.some((entry) => entry.name === candidate.name)) continue;
+    let previous = state.closures.get(fallback.folder.dir);
+    if (previous === undefined) {
+      previous = yield* Effect.cached(readClosures([fallback.folder]));
+      state.closures.set(fallback.folder.dir, previous);
+    }
+    active.push(
+      ...(yield* trustedOf((yield* previous).closures).pipe(Effect.provide(codeTrustLayer())))
+        .trusted,
+    );
+  }
+  const key = [governanceMode(), ...active.map(({ closure }) => closure.digest)].join("\0");
+  const held = familiesCache.get(root);
+  let composed = held?.key === key ? held.composed : undefined;
   if (composed === undefined) {
-    composed = yield* Effect.cached(composedOf(trusted));
-    familiesCache.set(key, composed);
+    composed = yield* Effect.cached(composedOf(active));
+    familiesCache.set(root, { key, composed });
   }
   const families = yield* composed;
-  return { ...families, failures: [...read.failures, ...untrusted, ...families.failures] };
+  return {
+    ...families,
+    inventory: read.rows.map((row) =>
+      row.digest === undefined
+        ? row
+        : {
+            ...row,
+            trusted: trusted.some((entry) => entry.closure.digest === row.digest),
+          },
+    ),
+    failures: [...selected.failures, ...read.failures, ...untrusted, ...families.failures],
+  };
 });
 
 /**
@@ -144,6 +182,7 @@ const composedOf = (closures: readonly ClosedExtension[]): Effect.Effect<RootFam
       const { extensions, failures } = admitted(imported.extensions);
       const bundled = deployed();
       return {
+        inventory: [],
         families: [...bundled.families, ...extensions],
         declarations: [
           ...bundled.declarations,
@@ -196,6 +235,6 @@ export const servedPage = Effect.fn("kb.servedPage")(function* (
 
 /** Test hook: forget every root's closures and families, so a fresh root is discovered again. */
 export function resetRootFamilies(): void {
-  closureCache.clear();
+  resetRootExtensionStates();
   familiesCache.clear();
 }

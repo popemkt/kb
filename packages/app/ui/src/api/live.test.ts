@@ -4,6 +4,9 @@ import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { setPostAction } from "@/api/action";
+import { servedManifest } from "@/lib/manifest";
+import { extensionRow } from "@kb/contracts";
 import { createLiveClient } from "./live";
 import { FakeWsSocket } from "@/test-support/ws";
 import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
@@ -61,10 +64,17 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
   beforeEach(() => {
     resetStore();
     setFetchGraphSnapshot(null);
+    setPostAction(async () => ({
+      status: "succeeded",
+      id: "kb.manifest",
+      rev: 0,
+      output: { actions: [], views: [], extensions: [] },
+    }));
   });
   afterEach(() => {
     globalThis.fetch = origFetch;
     setFetchGraphSnapshot(null);
+    setPostAction(null);
   });
 
   it("catches up from the tx frames the server holds — no refetch", async () => {
@@ -203,4 +213,32 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     offOutline();
     client.disconnect();
   });
+});
+
+it("a server catalog notification refreshes the page manifest without a graph write", async () => {
+  const before = globalThis.fetch;
+  const row = extensionRow({ name: "live-update", label: "Live update" }, "fixture", false);
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        status: "succeeded",
+        id: "kb.manifest",
+        rev: 0,
+        output: { actions: [], views: [], extensions: [row] },
+      }),
+    );
+  const socket = new FakeWsSocket();
+  const client = createLiveClient({ url: "ws://test/ws", makeSocket: () => socket });
+  try {
+    client.connect();
+    socket.accept();
+    socket.deliver({ op: "manifest-changed" });
+    await until(
+      () => servedManifest()?.extensions.some((extension) => extension.name === row.name) === true,
+    );
+    expect(servedManifest()?.extensions).toEqual([row]);
+  } finally {
+    client.disconnect();
+    globalThis.fetch = before;
+  }
 });

@@ -24,7 +24,7 @@ if ! command -v bun >/dev/null 2>&1; then
 elif [ ! -d "$kb/node_modules" ]; then
   reason="dependencies are not installed (bun install)"
 else
-  bun "$kb/packages/app/cli/src/main.ts" merge-jsonl "$base" "$ours" "$theirs" "$shown"
+  "$kb/bin/kb" merge-jsonl "$base" "$ours" "$theirs" "$shown"
   status=$?
   case $status in
     0) exit 0 ;;

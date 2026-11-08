@@ -1,3 +1,5 @@
+import type { SourceReader } from "@kb/extension-source";
+import type { ExtensionStorage, ExtensionCompiler } from "./extension-install.ts";
 import { Context, Predicate, type Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
@@ -21,7 +23,14 @@ import type { ExtensionCatalog } from "./declaration.ts";
 import type { ExtensionFailures } from "./extension-report.ts";
 import type { FamilyKernels } from "./footprint.ts";
 import type { ViewCatalog } from "./view-catalog.ts";
-import type { Assets, CodeTrust, LegacyTrust, LegacyDocsViews, SavedQueries } from "./workspace.ts";
+import type {
+  Assets,
+  CodeTrust,
+  LegacyTrust,
+  IgnoredRootFiles,
+  LegacyDocsViews,
+  SavedQueries,
+} from "./workspace.ts";
 import type { KbRoots } from "./roots.ts";
 
 /**
@@ -124,7 +133,11 @@ export type ActionHandlerEnv =
   | SavedQueries
   | LegacyDocsViews
   | Assets
+  | SourceReader
+  | ExtensionStorage
+  | ExtensionCompiler
   | CodeTrust
+  | IgnoredRootFiles
   | LegacyTrust
   | KbRoots
   | Screens;

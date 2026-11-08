@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# The kb CLI from this checkout's source; an installed kb is the release
+# bundle or `nix profile install github:popemkt/kb`.
+self=${BASH_SOURCE[0]}
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in
+    /*) self=$link ;;
+    *) self=$(dirname "$self")/$link ;;
+  esac
+done
+kb_root="$(cd "$(dirname "$self")/../../../.." && pwd)"
+exec "$kb_root/bin/kb-bun" "${KB_BUN:-bun}" "$kb_root/packages/infrastructure/child-process/src/kb-launch-flags.txt" "$kb_root/packages/app/cli/src/main.ts" "$@"

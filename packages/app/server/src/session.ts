@@ -158,6 +158,14 @@ export class SubscriptionHub {
     Effect.runFork(this.screens.dispose());
   }
 
+  /** Runtime definitions moved without a node delta; answers still follow the index. */
+  manifestChanged(): Effect.Effect<void> {
+    const payload = JSON.stringify({ op: "manifest-changed" } satisfies ServerMessage);
+    return Effect.forEach([...this.clients.values()], (client) => client.send(payload), {
+      discard: true,
+    }).pipe(Effect.andThen(this.publishRows(this.ctx.log.head)));
+  }
+
   /** Test hook: number of live clients. */
   get clientCount(): number {
     return this.clients.size;
@@ -395,6 +403,12 @@ export class SubscriptionHub {
       if (c.watchTx) sends.push(c.send(payload));
     }
 
+    return Effect.all([...sends, this.publishRows(tx.rev)]).pipe(Effect.asVoid);
+  }
+
+  /** Re-evaluate live answers at this revision, independently of a node delta. */
+  private publishRows(rev: number): Effect.Effect<void> {
+    const sends: Effect.Effect<void>[] = [];
     const answers = new Map<string, QueryAnswer>();
     for (const c of this.clients.values()) {
       for (const [id, sub] of c.subs) {
@@ -413,7 +427,7 @@ export class SubscriptionHub {
         }
         if (answer.hash === sub.lastHash) continue;
         sub.lastHash = answer.hash;
-        sends.push(c.send(JSON.stringify({ op: "rows", id, rev: tx.rev, rows: answer.rows })));
+        sends.push(c.send(JSON.stringify({ op: "rows", id, rev, rows: answer.rows })));
       }
     }
 

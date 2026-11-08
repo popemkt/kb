@@ -1,0 +1,2 @@
+--no-env-file
+--config=/dev/null

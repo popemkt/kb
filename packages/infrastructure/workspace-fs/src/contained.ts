@@ -1,6 +1,7 @@
-import { isAbsolute, relative } from "node:path";
-import { Effect, Option } from "effect";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { Effect, Option, Result } from "effect";
 import { FileSystem, type File } from "effect/FileSystem";
+import { isNotFound } from "./errors.ts";
 
 /** Where a path inside a directory stands once its links are followed. */
 export type ContainedFile =
@@ -10,7 +11,7 @@ export type ContainedFile =
 
 function isPathInside(rootReal: string, targetReal: string): boolean {
   const rel = relative(rootReal, targetReal);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 /**
@@ -51,4 +52,30 @@ export const containedDirectory = Effect.fn("kb.fs.containedDirectory")(function
   if (!isPathInside(rootReal.value, dirReal.value)) return null;
   const info = yield* fs.stat(dirReal.value).pipe(Effect.option);
   return Option.isSome(info) && info.value.type === "Directory" ? dirReal.value : null;
+});
+
+/** Resolve an inside path through its existing ancestors, including a missing final directory. */
+export const containedPath = Effect.fn("kb.fs.containedPath")(function* (
+  rootDir: string,
+  candidate: string,
+) {
+  const fs = yield* FileSystem;
+  const rootReal = yield* fs.realPath(rootDir).pipe(Effect.option);
+  if (Option.isNone(rootReal) || !isPathInside(resolve(rootDir), resolve(candidate))) return null;
+  const suffix: string[] = [];
+  let cursor = resolve(candidate);
+  for (;;) {
+    const found = yield* fs.realPath(cursor).pipe(Effect.result);
+    if (Result.isSuccess(found)) {
+      const path = resolve(found.success, ...suffix);
+      return isPathInside(rootReal.value, path) ? path : null;
+    }
+    if (!isNotFound(found.failure)) return null;
+    const link = yield* fs.readLink(cursor).pipe(Effect.result);
+    if (Result.isSuccess(link) || !isNotFound(link.failure)) return null;
+    const parent = dirname(cursor);
+    if (parent === cursor) return null;
+    suffix.unshift(basename(cursor));
+    cursor = parent;
+  }
 });

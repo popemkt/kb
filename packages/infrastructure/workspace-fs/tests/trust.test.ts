@@ -78,6 +78,7 @@ describe("code trust on disk", () => {
       for (const change of [
         (t: CodeTrust["Service"]) => t.trust(A),
         (t: CodeTrust["Service"]) => t.untrust(A),
+        (t: CodeTrust["Service"]) => t.retain([]),
       ]) {
         const exit = await on("mac-1", (trust) => change(trust).pipe(Effect.exit));
         expect(Exit.isFailure(exit)).toBe(true);
@@ -153,3 +154,73 @@ describe("code trust on disk", () => {
     expect(await on("mac-1", (t) => t.trusted([A]))).toEqual([]);
   });
 });
+
+test("provenance retirement preserves bare approvals and other machines' records", async () => {
+  const files = `sha256:${"d".repeat(64)}`;
+  await on("mac-1", (trust) => trust.trust(A, { name: "hello", files }));
+  await on("mac-1", (trust) => trust.trust(B));
+  await on("mac-2", (trust) => trust.trust(A, { name: "hello", files }));
+  await on("mac-1", (trust) => trust.retain([files]));
+  expect(await on("mac-1", (trust) => trust.trusted([A, B]))).toEqual([A, B]);
+  await on("mac-1", (trust) => trust.retain([]));
+  expect(await on("mac-1", (trust) => trust.trusted([A, B]))).toEqual([B]);
+  expect(await on("mac-2", (trust) => trust.trusted([A]))).toEqual([A]);
+});
+
+test("independent source and bare approvals sharing a digest are never overwritten", async () => {
+  const one = `sha256:${"c".repeat(64)}`;
+  const two = `sha256:${"d".repeat(64)}`;
+  await on("mac-1", (trust) => trust.trust(A, { name: "hello", files: one }));
+  await on("mac-1", (trust) => trust.trust(A, { name: "hello", files: two }));
+  expect(
+    (await on("mac-1", (trust) => trust.records)).filter((row) => row.digest === A),
+  ).toHaveLength(2);
+  expect(await on("mac-1", (trust) => trust.retain([one]))).toEqual([
+    expect.objectContaining({ digest: A, name: "hello", files: two }),
+  ]);
+  expect(await on("mac-1", (trust) => trust.trusted([A]))).toEqual([A]);
+  await on("mac-1", (trust) => trust.trust(A));
+  expect(await on("mac-1", (trust) => trust.retain([]))).toEqual([
+    expect.objectContaining({ digest: A, name: "hello", files: one }),
+  ]);
+  expect(await on("mac-1", (trust) => trust.trusted([A]))).toEqual([A]);
+  await on("mac-1", (trust) => trust.untrust(A));
+  expect(await on("mac-1", (trust) => trust.trusted([A]))).toEqual([]);
+});
+
+test("recording installed provenance preserves an earlier bare own-code approval", async () => {
+  await on("mac-1", (trust) => trust.trust(A));
+  await on("mac-1", (trust) =>
+    trust.trust(A, { name: "hello", files: `sha256:${"c".repeat(64)}` }),
+  );
+  const retired = await on("mac-1", (trust) => trust.retain([]));
+  expect(retired).toHaveLength(1);
+  expect(await on("mac-1", (trust) => trust.trusted([A]))).toEqual([A]);
+});
+
+test("attaching source evidence never grants trust or revives a revoked digest", async () => {
+  const evidence = { name: "hello", files: `sha256:${"c".repeat(64)}` };
+  await on("mac-2", (trust) => trust.trust(A));
+  expect(await on("mac-1", (trust) => trust.attachSource(A, evidence))).toBe(false);
+  expect(await on("mac-1", (trust) => trust.trusted([A]))).toEqual([]);
+  await on("mac-1", (trust) => trust.trust(A));
+  expect(await on("mac-1", (trust) => trust.attachSource(A, evidence))).toBe(true);
+  expect(
+    (await on("mac-1", (trust) => trust.records)).filter((record) => record.digest === A),
+  ).toHaveLength(2);
+  await on("mac-1", (trust) => trust.untrust(A));
+  expect(await on("mac-1", (trust) => trust.attachSource(A, evidence))).toBe(false);
+  expect(await on("mac-1", (trust) => trust.trusted([A]))).toEqual([]);
+});
+
+for (const bytes of ['{"version":2,"trusted":[]}', '{"version":1,"trusted":['])
+  test(`source attachment preserves an unreadable ledger: ${bytes}`, async () => {
+    const data = await Effect.runPromise(currentData);
+    await mkdir(data, { recursive: true });
+    const file = join(data, "trust.json");
+    await writeFile(file, bytes);
+    expect(await on("mac-1", (trust) => trust.attachSource(A, { name: "hello", files: B }))).toBe(
+      false,
+    );
+    expect(await readFile(file, "utf8")).toBe(bytes);
+  });

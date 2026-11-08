@@ -1,3 +1,4 @@
+import { KB_SOURCE_BIN } from "@kb/test-kit";
 /**
  * Live sync across processes: a running `kb ui`, a `kb add` from a second
  * process, and the write reaching the UI's watchers as a `tx` frame.
@@ -20,7 +21,7 @@ import type { ServerMessage } from "@kb/contracts";
 import { childProcessEnv } from "@kb/runtime";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
-const CLI = join(import.meta.dir, "..", "..", "cli", "src", "main.ts");
+const CLI = KB_SOURCE_BIN;
 
 /**
  * Generous next to `STORE_CHANGES_POLL` (1s), the port's bound for an
@@ -31,7 +32,7 @@ const FRAME_TIMEOUT_MS = 5000;
 type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 
 async function kb(root: string, ...args: string[]): Promise<string> {
-  const proc = Bun.spawn(["bun", CLI, "--root", root, ...args], {
+  const proc = Bun.spawn([CLI, "--root", root, ...args], {
     // The run's scratch home store (`KB_HOME`, test-kit test-home.ts) is the child's too.
     env: childProcessEnv("kb"),
     stdout: "pipe",

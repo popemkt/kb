@@ -34,6 +34,8 @@ export interface KbRootsPort {
    * Locations), whether or not there is one there yet.
    */
   readonly home: Effect.Effect<string>;
+  /** Registered location paths, read from the home graph without seeding or importing code. */
+  readonly registered: Effect.Effect<readonly string[], DomainError>;
   /** What is at `path`. Never fails for a path that is absent or not a store: that is its state. */
   readonly probe: (path: string) => Effect.Effect<RootProbe, DomainError>;
   /** The URL of the `kb ui` that serves `root` now, or null (presence, checked by asking it). */

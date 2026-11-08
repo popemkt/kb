@@ -29,7 +29,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Layer } from "effect";
+import { Stream, Effect, Layer } from "effect";
 import {
   ActionPoint,
   CodeTrust,
@@ -184,7 +184,7 @@ describe("a root's repository extensions", () => {
       root,
       "held.ts",
       `import { appendFileSync } from "node:fs";
-import { Effect, defineExtension, definePlugin, extensionNamespace } from "kb-ext-sdk";
+import { Stream, Effect, defineExtension, definePlugin, extensionNamespace } from "kb-ext-sdk";
 export const declaration = defineExtension({ name: "held", label: "Held", optional: { byDefault: "on" } });
 export default definePlugin({
   name: "held",
@@ -450,6 +450,10 @@ export default definePlugin({
           return yield* importClosures((yield* trustedOf(closures)).trusted);
         }).pipe(
           Effect.provideService(CodeTrust, {
+            attachSource: () => Effect.succeed(false),
+            changes: Stream.empty,
+            records: Effect.succeed([]),
+            retain: () => Effect.succeed([]),
             // The file changes after its closure is read, before it is imported.
             trusted: (digests) =>
               Effect.sync(() => {

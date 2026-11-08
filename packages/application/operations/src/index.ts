@@ -1,4 +1,29 @@
 export {
+  extensionUpdateDef,
+  extensionUpdateEffect,
+  extensionOutdatedDef,
+  extensionOutdatedEffect,
+  extensionRemoveDef,
+  extensionRemoveEffect,
+  extensionLinkDef,
+  extensionLinkEffect,
+  extensionUnlinkDef,
+  extensionUnlinkEffect,
+  extensionGcDef,
+  extensionGcEffect,
+} from "./extension-lifecycle.ts";
+export {
+  marketplaceAddDef,
+  marketplaceAddEffect,
+  marketplaceRemoveDef,
+  marketplaceRemoveEffect,
+  marketplaceUpdateDef,
+  marketplaceUpdateEffect,
+  marketplaceListDef,
+  marketplaceListEffect,
+} from "./extension-marketplace.ts";
+export { extensionDiffDef, extensionDiffEffect } from "./extension-review.ts";
+export {
   classifyQueryError,
   fieldDefineDef,
   fieldDefineEffect,
@@ -91,8 +116,6 @@ export {
 } from "./session.ts";
 export { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
 export {
-  coreActions,
-  isomorphicActions,
   MAX_CALL_DEPTH,
   invokeReceiptWith,
   invokeWith,
@@ -103,3 +126,8 @@ export type { RegisteredAction } from "./invoke.ts";
 export { callWithin, readableNodes, readableQuery } from "./script-reach.ts";
 export { interceptionFrom, interceptionOf } from "./interception.ts";
 export type { InterceptionOptions } from "./interception.ts";
+
+export { extensionInstallDef, extensionInstallEffect } from "./extension-install.ts";
+
+export { coreActions } from "./core-actions.ts";
+export { isomorphicActions } from "./isomorphic-actions.ts";

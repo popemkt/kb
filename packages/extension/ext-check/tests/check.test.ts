@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer, Option, Stream } from "effect";
 import * as FileSystem from "effect/FileSystem";
+import { DatascriptIndex, derivedWith } from "@kb/query";
 import { canonicalJsonl, fieldTypeValue } from "@kb/model";
 import {
   kbCtxLayer,
@@ -119,8 +120,6 @@ class FixtureLog implements KbTxLog {
 function fixtureContext(initial: readonly KbNode[]) {
   const tail = new FixtureTail();
   let stored = [...initial];
-  let indexed = [...initial];
-  let generation = 0;
   let revision = 0;
   const store: EffectStore = {
     path: "/memory/nodes.jsonl",
@@ -136,50 +135,7 @@ function fixtureContext(initial: readonly KbNode[]) {
         return { base, fingerprint: `revision:${revision}`, tx };
       }),
   };
-  const index = {
-    get generation() {
-      return generation;
-    },
-    rebuild(nodes: ReadonlyArray<KbNode>) {
-      indexed = [...nodes];
-      generation += 1;
-    },
-    applyTx(tx: StoreTx) {
-      indexed = applyTx(indexed, tx);
-      generation += 1;
-    },
-    run() {
-      return [];
-    },
-    runDatalog() {
-      return [];
-    },
-    answerDatalog() {
-      return { rows: [], holdsUntilMs: null };
-    },
-    pull() {
-      return undefined;
-    },
-    getNode(id: string) {
-      return indexed.find((entry) => entry.id === id);
-    },
-    referencesOf() {
-      return new Set<string>();
-    },
-    allNodes() {
-      return indexed;
-    },
-    storedNodes() {
-      return [...indexed];
-    },
-    search(text: string, limit = Number.POSITIVE_INFINITY) {
-      const needle = text.toLowerCase();
-      return indexed.filter((entry) => entry.text.toLowerCase().includes(needle)).slice(0, limit);
-    },
-    withVirtual() {
-      generation += 1;
-    },
-  };
+  const index = new DatascriptIndex(initial, { derived: derivedWith({}) });
   const log = new FixtureLog(tail);
   const ctx: KbContext = {
     root: ROOT,

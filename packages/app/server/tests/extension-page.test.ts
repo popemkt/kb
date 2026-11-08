@@ -71,7 +71,9 @@ describe("a repository extension's page half", () => {
 
     await invoke("sandbox.untrust", { digest });
     expect(await greets()).toBe(false);
-    expect((await manifest()).extensions.some(({ name }) => name === EXAMPLE)).toBe(false);
+    const untrusted = (await manifest()).extensions.find(({ name }) => name === EXAMPLE);
+    expect(untrusted).toMatchObject({ enabled: false, trusted: false });
+    expect(untrusted?.page).toBeUndefined();
     expect((await fetch(page)).status).toBe(404);
 
     await trustExtension(root, "example.ts");

@@ -13,7 +13,7 @@ import type { Ir } from "../ir/ir.ts";
 import { parseEdn } from "../ir/parse.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
-import type { DatalogAnswer, KbIndex } from "./index.ts";
+import type { DatalogAnswer, KbIndex, IndexOptions } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
 import { readSetOf, touches, type ChangedDatom, type ReadSet } from "./read-set.ts";
 
@@ -44,26 +44,6 @@ interface Kept extends DatalogAnswer {
   readonly reads: ReadSet;
 }
 
-/** How an index is built beyond its nodes. */
-export interface IndexOptions {
-  /**
-   * The derived ref attributes it builds: what the host's families declare
-   * (`bundledDerived`, `derivedOf`), or the core table alone
-   * (`derivedWith({})`). Required, so no host drops a family's references by
-   * leaving it out.
-   */
-  readonly derived: readonly DerivedRef[];
-  /**
-   * Where a run's clock sample comes from: the `Clock` and zone of the host
-   * that builds the index (`clockSampler` in `@kb/model`), sampled once by a
-   * run that calls a clocked kb function (`kb/today`, …) and never by any
-   * other run, and by a remembered clocked answer to learn whether it still
-   * holds. Without one, such a query fails naming the function; the index
-   * never falls back to a wall clock of its own.
-   */
-  readonly clock?: ClockSampler;
-}
-
 /**
  * The one {@link KbIndex} implementation: an in-memory DataScript db kept
  * incrementally in step with the store.
@@ -87,7 +67,7 @@ export class DatascriptIndex implements KbIndex {
   /** Field attrs that have held a node ref since the last rebuild (`DatascriptDb.refAttrs`). */
   #refAttrs = new Set<string>();
   /** The derived ref attributes this index builds (`DerivedRef`). */
-  readonly #derived: readonly DerivedRef[];
+  #derived: readonly DerivedRef[];
   readonly #clock: ClockSampler | undefined;
   /** Answers by query text, least recently asked first; each held until a transaction touches its read set. */
   readonly #answers = new Map<string, Kept>();
@@ -128,6 +108,12 @@ export class DatascriptIndex implements KbIndex {
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {
     this.#table.rebuild(nodes);
+    this.#buildDatoms();
+  }
+
+  setDerived(derived: readonly DerivedRef[]): void {
+    this.#derived = derived;
+    this.#table.setDerived(derived);
     this.#buildDatoms();
   }
 

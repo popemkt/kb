@@ -1,3 +1,7 @@
+import { registeredLocationPaths } from "./bundled.ts";
+import { SourceReader } from "@kb/extension-source";
+import { gitSourceReader } from "@kb/source-git";
+import { extensionCompilerLayer } from "./installed-extensions.ts";
 import { Cause, Effect, Layer } from "effect";
 import { bunFileSystemLayer } from "./platform.ts";
 import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
@@ -26,7 +30,9 @@ import { quickjsEngine } from "@kb/sandbox-quickjs";
 import {
   assetsLayer,
   codeTrustLayer,
+  extensionStorageLayer,
   legacyTrustLayer,
+  ignoredRootFilesLayer,
   legacyDocsViewsLayer,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
@@ -79,6 +85,9 @@ export function kbRuntimeLayer(
   const registry = sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
     bunFileSystemLayer,
+    extensionStorageLayer.pipe(Layer.provide(bunFileSystemLayer)),
+    extensionCompilerLayer,
+    Layer.succeed(SourceReader, gitSourceReader()),
     kbStoreLayer(ctx.store),
     kbCtxLayer(ctx),
     graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),
@@ -88,8 +97,9 @@ export function kbRuntimeLayer(
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
     legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
+    ignoredRootFilesLayer.pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
+    kbRootsLayer(registeredLocationPaths).pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),

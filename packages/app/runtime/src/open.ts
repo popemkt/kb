@@ -6,24 +6,12 @@
  */
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import {
-  currentIso,
-  foldSeed,
-  diffTx,
-  ensureSystemSeed,
-  migrateDateValues,
-  migrateFieldTypeValues,
-  legacyViewShapes,
-  type DomainError,
-  type FoldedSeed,
-  type KbNode,
-  type StoreTx,
-} from "@kb/model";
-import { derivedOf } from "@kb/bundled";
+import { legacyViewShapes, type DomainError, type KbNode } from "@kb/model";
+import { derivedWith } from "@kb/query";
 import type { KbContext } from "@kb/contracts";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
-import { rootFamilies } from "./families.ts";
-import { persistOwnWrite, sessionOver } from "./own-write.ts";
+import { sessionOver } from "./own-write.ts";
+import { reconcileSessionSchema } from "./session-schema.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
@@ -71,26 +59,9 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
   const store = yield* selectStore(root);
-  const { declarations } = yield* rootFamilies(root);
   const loaded = yield* store.loadEffect;
-  const seed = foldSeed(declarations, yield* currentIso);
-  const ctx = yield* sessionOver(root, store, loaded, derivedOf(declarations));
-  if (migrationOf(loaded, seed) !== null) {
-    yield* persistOwnWrite(ctx, (nodes) => Effect.succeed(migrationOf(nodes, seed)));
-  }
+  const ctx = yield* sessionOver(root, store, loaded, derivedWith({}));
+  yield* reconcileSessionSchema(ctx);
   yield* reportLegacyViews(root, ctx.nodes);
   return ctx;
 });
-
-/**
- * What opening writes to a store holding `nodes`: the system seed's
- * additions and retirements, and field-type and legacy date values
- * rewritten, as the nodes that change; null when nothing does.
- */
-function migrationOf(nodes: readonly KbNode[], seed: FoldedSeed): StoreTx | null {
-  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed([...nodes], seed);
-  const typed = migrateFieldTypeValues(seeded);
-  const dated = migrateDateValues(typed.nodes);
-  if (!didSeed && deletes.length === 0 && !typed.changed && !dated.changed) return null;
-  return diffTx([...nodes], dated.nodes);
-}

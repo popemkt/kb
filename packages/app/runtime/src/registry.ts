@@ -1,3 +1,6 @@
+import { reconcileSessionSchema } from "./session-schema.ts";
+import { validateInstallLocks } from "./installed-extensions.ts";
+import { extensionStorageLayer } from "@kb/workspace-fs";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
@@ -45,7 +48,7 @@ import {
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { GOVERNANCE_FAMILY, governanceMode } from "./deployment.ts";
-import { resetRootFamilies, rootFamilies, vouchedFamilies } from "./families.ts";
+import { resetRootFamilies, rootFamilies, vouchedFamilies, type RootFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
@@ -492,15 +495,26 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
   nodeOf: NodeLookup = NO_SWITCHES,
 ): Effect.fn.Return<Registry, never, FileSystem> {
-  const { families, failures } = yield* rootFamilies(root);
+  return yield* registryOf(root, yield* rootFamilies(root), nodeOf);
+});
+
+/** Compile a registry from a root's already-read family snapshot. */
+const registryOf = Effect.fn("kb.registryOf")(function* (
+  root: string | null,
+  snapshot: RootFamilies,
+  nodeOf: NodeLookup,
+): Effect.fn.Return<Registry, never, FileSystem> {
+  const { families, failures, inventory } = snapshot;
   const unread: string[] = [];
   const on = families.filter(({ declaration }) =>
     familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
   );
   const rootKey = root ?? NO_ROOT_KEY;
-  const key = on
-    .map(({ declaration, digest }) => `${declaration.name}@${digest ?? "bundled"}`)
-    .join("\0");
+  const key = JSON.stringify([
+    on.map(({ declaration, digest }) => `${declaration.name}@${digest ?? "bundled"}`),
+    inventory,
+    failures,
+  ]);
   const held = current.get(rootKey);
   if (held?.key === key) return yield* held.registry;
   // `Effect.cached` is what makes the entry a build-once value rather than a
@@ -508,6 +522,34 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   // The deployment, not the store, decides whether governance is composed (`deploys`).
   const built = yield* Effect.cached(
     buildRegistry(families, on, failures, requiredFamilies()).pipe(
+      Effect.map((registry) => ({
+        ...registry,
+        families: [
+          ...registry.families.map((row) => {
+            const candidate = inventory.find(
+              (entry) => entry.name === row.name && entry.shadowed === undefined,
+            );
+            return candidate === undefined
+              ? row
+              : {
+                  ...row,
+                  ...candidate,
+                  label: row.label,
+                  optional: row.optional,
+                  enabled: row.enabled,
+                  page: row.page,
+                  ...(row.digest !== undefined && row.digest !== candidate.digest
+                    ? { running: { digest: row.digest, source: row.source } }
+                    : {}),
+                };
+          }),
+          ...inventory.filter(
+            (candidate) =>
+              candidate.shadowed !== undefined ||
+              !registry.families.some((row) => row.name === candidate.name),
+          ),
+        ],
+      })),
       Effect.tap((registry) =>
         Effect.sync(() => {
           for (const failure of registry.failures) {
@@ -548,7 +590,8 @@ export const admitExtensions = Effect.fn("kb.admitExtensions")(function* (
         const { families, failures } = yield* vouchedFamilies(root);
         const registry = yield* buildRegistry(families, families, failures, requiredFamilies());
         yield* registry.lifetime.retire;
-        return registry.failures;
+        const locks = yield* validateInstallLocks(root).pipe(Effect.provide(extensionStorageLayer));
+        return [...registry.failures, ...locks];
       }),
     (held) =>
       Effect.sync(() => {
@@ -589,7 +632,10 @@ function requiredFamilies(): readonly string[] {
 
 /** The registry a session runs in: its root's, as its own store switches the families. */
 export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, FileSystem> {
-  return registryFor(ctx.root, (id) => ctx.index.getNode(id));
+  return reconcileSessionSchema(ctx).pipe(
+    Effect.orDie,
+    Effect.flatMap((families) => registryOf(ctx.root, families, (id) => ctx.index.getNode(id))),
+  );
 }
 
 /**

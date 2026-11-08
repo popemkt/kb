@@ -47,7 +47,7 @@ import {
 } from "@kb/locations";
 import { SYSTEM_IDS, domainError, type DomainError, type KbNode } from "@kb/model";
 import { readUiPresence, writeUiPresence } from "@kb/workspace-fs";
-import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
+import { KB_SOURCE_BIN, CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -57,7 +57,7 @@ import { invokeReceiptEffect } from "../src/registry.ts";
 import { serveRoot } from "../src/serve.ts";
 import { STORE_BACKENDS, createStore, type StoreBackend } from "../src/store-selection.ts";
 
-const CLI = join(import.meta.dir, "..", "..", "cli", "src", "main.ts");
+const CLI = KB_SOURCE_BIN;
 
 /** Every file under `dir` with its bytes, so a directory can be compared before and after. */
 const snapshot = Effect.fn("locationsContract.snapshot")(function* (dir: string) {
@@ -129,7 +129,7 @@ function locationsContract(homeBackend: StoreBackend): void {
       if (realServe) {
         children.push(root);
         const env = childProcessEnv("kb", { KB_PKG_ROOT: join(scratch, "pkg"), KB_HOME: home });
-        return serveRoot(root, { command: [process.execPath, CLI], env, timeoutMs: 20_000 }).pipe(
+        return serveRoot(root, { command: [CLI], env, timeoutMs: 20_000 }).pipe(
           Effect.provide(bunFileSystemLayer),
         );
       }

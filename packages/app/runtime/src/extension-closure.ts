@@ -1,4 +1,4 @@
-import { realpathSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { ExtensionFolder } from "./extension-folder.ts";
 /**
@@ -22,7 +22,12 @@ import type { ExtensionFolder } from "./extension-folder.ts";
  */
 import { builtinModules } from "node:module";
 import { Effect } from "effect";
-import { HOST_MODULES, HOST_MODULES_KEY, type ExtensionHalf } from "@kb/contracts";
+import {
+  HOST_MODULES,
+  HOST_MODULES_KEY,
+  type ExtensionHalf,
+  type ExtensionReach,
+} from "@kb/contracts";
 import { extensionDigest, type ExtensionClosure } from "@kb/sandbox";
 
 /** What Bun builds each half for. */
@@ -59,12 +64,15 @@ const CODE_LOADING_BUILTINS = new Set(["module", "vm", "worker_threads"]);
 const escaped = (text: string) => text.replaceAll(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 
 /** Each host module, read from the host at run time rather than inlined. */
-function hostModules(half: ExtensionHalf): Bun.BunPlugin {
+function hostModules(half: ExtensionHalf, imported: Set<string>): Bun.BunPlugin {
   const filter = new RegExp(`^(${HOST_MODULES[half].map(escaped).join("|")})$`);
   return {
     name: "kb-host-modules",
     setup(build) {
-      build.onResolve({ filter }, ({ path }) => ({ path, namespace: "kb-host" }));
+      build.onResolve({ filter }, ({ path }) => {
+        imported.add(path);
+        return { path, namespace: "kb-host" };
+      });
       build.onLoad({ filter: /.*/, namespace: "kb-host" }, ({ path }) => ({
         contents: `module.exports = globalThis[Symbol.for(${JSON.stringify(HOST_MODULES_KEY)})](${JSON.stringify(path)});`,
         loader: "js",
@@ -74,7 +82,7 @@ function hostModules(half: ExtensionHalf): Bun.BunPlugin {
 }
 
 /** Why `code`, a bundled half, runs code its bundle does not hold, or null. */
-function unseenCode(code: string, half: ExtensionHalf): string | null {
+function unseenCode(code: string, half: ExtensionHalf, left: readonly string[]): string | null {
   for (const [pattern, what] of LOADS_CODE) {
     const found = pattern.exec(code);
     if (found !== null) {
@@ -82,7 +90,6 @@ function unseenCode(code: string, half: ExtensionHalf): string | null {
       return `mentions ${what} (${at}…), which can load code the bundle does not hold`;
     }
   }
-  const left = new Bun.Transpiler({ loader: "js" }).scanImports(code).map(({ path }) => path);
   for (const specifier of left) {
     const name = specifier.replace(/^node:/, "");
     const builtin =
@@ -101,25 +108,30 @@ const bundleHalf = Effect.fn("kb.bundleExtensionHalf")(function* (
   entry: string,
   half: ExtensionHalf,
   folder: ExtensionFolder,
-): Effect.fn.Return<string, string> {
+): Effect.fn.Return<
+  { code: string; files: { path: string; bytes: number }[]; host: string[]; builtins: string[] },
+  string
+> {
   // Bun reports metafile inputs relative to the cwd at build start.
   const buildCwd = process.cwd();
-  const built = yield* Effect.promise(() =>
-    Bun.build({
-      entrypoints: [entry],
-      root: folder.dir,
-      metafile: folder.contained,
-      target: TARGETS[half],
-      format: "esm",
-      // No whitespace and no comments: Bun names each module by its path from
-      // the process's working directory, which is no part of what runs.
-      minify: { whitespace: true, syntax: false, identifiers: false },
-      throw: false,
-      jsx: { runtime: "automatic", importSource: "react", development: false },
-      define: half === "page" ? { "process.env.NODE_ENV": JSON.stringify("production") } : {},
-      plugins: [hostModules(half)],
-    }),
-  );
+  const imported = new Set<string>();
+  const configuration: Bun.BuildConfig & { readonly macros: false } = {
+    // Supported by the runtime; the pinned older Bun typings omit this capability.
+    macros: false,
+    entrypoints: [entry],
+    root: folder.dir,
+    metafile: true,
+    target: TARGETS[half],
+    format: "esm",
+    // No whitespace and no comments: Bun names each module by its path from
+    // the process's working directory, which is no part of what runs.
+    minify: { whitespace: true, syntax: false, identifiers: false },
+    throw: false,
+    jsx: { runtime: "automatic", importSource: "react", development: false },
+    define: half === "page" ? { "process.env.NODE_ENV": JSON.stringify("production") } : {},
+    plugins: [hostModules(half, imported)],
+  };
+  const built = yield* Effect.promise(() => Bun.build(configuration));
   const [output] = built.outputs;
   if (!built.success || output === undefined || built.outputs.length !== 1) {
     const why = built.logs.map((log) => log.message).join("; ");
@@ -143,14 +155,33 @@ const bundleHalf = Effect.fn("kb.bundleExtensionHalf")(function* (
     if (refusal !== null) return yield* Effect.fail(refusal);
   }
   const code = yield* Effect.promise(() => output.text());
-  const unseen = unseenCode(code, half);
+  const imports = new Bun.Transpiler({ loader: "js" }).scanImports(code).map(({ path }) => path);
+  const unseen = unseenCode(code, half, imports);
   if (unseen !== null) return yield* Effect.fail(`its ${half} half ${unseen}`);
-  return code;
+  const files = yield* Effect.try({
+    try: () =>
+      Object.keys(built.metafile?.inputs ?? {})
+        .filter((path) => !path.startsWith("kb-host:"))
+        .map((path) => ({
+          path: relative(folder.dir, resolve(buildCwd, path)),
+          bytes: statSync(resolve(buildCwd, path)).size,
+        })),
+    catch: String,
+  });
+  return {
+    code,
+    files,
+    host: [...imported].toSorted(),
+    builtins: imports
+      .map((path) => (builtinModules.includes(path) ? `node:${path}` : path))
+      .toSorted(),
+  };
 });
 
 /** A closure, with the digest a person trusts it by. */
 export interface DigestedClosure extends ExtensionClosure {
   readonly digest: string;
+  readonly reach: ExtensionReach;
 }
 
 /**
@@ -163,9 +194,20 @@ export const extensionClosure = Effect.fn("kb.extensionClosure")(function* (
   server: string,
   page: string | null,
 ): Effect.fn.Return<DigestedClosure, string> {
-  const closure: ExtensionClosure = {
-    server: yield* bundleHalf(server, "server", folder),
-    page: page === null ? null : yield* bundleHalf(page, "page", folder),
+  const serverHalf = yield* bundleHalf(server, "server", folder);
+  const pageHalf = page === null ? null : yield* bundleHalf(page, "page", folder);
+  const closure: ExtensionClosure = { server: serverHalf.code, page: pageHalf?.code ?? null };
+  const files = new Map(
+    [...serverHalf.files, ...(pageHalf?.files ?? [])].map((file) => [file.path, file]),
+  );
+  return {
+    ...closure,
+    digest: yield* extensionDigest(closure),
+    reach: {
+      files: [...files.values()].toSorted((a, b) => a.path.localeCompare(b.path)),
+      page: page !== null,
+      host: { server: serverHalf.host, page: pageHalf?.host ?? [] },
+      builtins: serverHalf.builtins,
+    },
   };
-  return { ...closure, digest: yield* extensionDigest(closure) };
 });

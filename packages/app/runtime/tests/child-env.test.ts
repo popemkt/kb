@@ -3,7 +3,7 @@
  * a kb child gets the base and kb's own settings, never a key; a lookup gets
  * the base and the session bus; an agent runtime the base and only what its
  * adapter declares the runtime reads; the person's own tool gets everything; and
- * an override always lands.
+ * explicit overrides land unless a child policy requires a fixed value.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { childProcessEnv } from "../src/child-env.ts";
@@ -71,6 +71,22 @@ describe("a child process's environment", () => {
     expect(declared.XDG_DATA_HOME).toBeUndefined();
   });
 
+  test("git cannot prompt or fetch objects implicitly, even through an override", () => {
+    const env = childProcessEnv("git", {
+      GIT_TERMINAL_PROMPT: "1",
+      GCM_INTERACTIVE: "always",
+      GIT_NO_LAZY_FETCH: "0",
+      POSIXLY_CORRECT: "0",
+    });
+    expect(env).toMatchObject({
+      GIT_TERMINAL_PROMPT: "0",
+      GCM_INTERACTIVE: "never",
+      GIT_NO_LAZY_FETCH: "1",
+      POSIXLY_CORRECT: "1",
+      HTTPS_PROXY: "http://proxy:3128",
+    });
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
   test("the person's own tool gets the whole environment", () => {
     expect(childProcessEnv("tool").ANTHROPIC_API_KEY).toBe("sk-secret");
   });

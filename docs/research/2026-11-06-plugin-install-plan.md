@@ -95,11 +95,36 @@ home store (`<data>/home`). One function owns it (`dataPath`, beside
 `homePath` derives from it. A test run must name `KB_DATA`, as it must name
 `KB_HOME`.
 
+**The directory kb starts in has no say over it.** Bun auto-loads `.env` and
+`bunfig.toml` from the working directory. A clone's `.env` could set
+`KB_DATA` to a forged trust ledger, and a `bunfig.toml` `preload` runs code
+before kb's entry does (T15). So kb is launched with exactly the flags in
+`packages/infrastructure/child-process/src/kb-launch-flags.txt`, shipped
+verbatim as `lib/kb/launch-flags`: `--no-env-file` and `--config=/dev/null`
+(an explicit empty config, for macOS and Linux delivery).
+
+- **One adapter applies them.** `bin/kb-bun` reads the file and executes
+  Bun. The checkout's `bin/kb`, the release launcher and the repo's Nix
+  packaging all go through it. A wrapper that calls Bun directly, such as
+  the owner's dotfiles Nix wrapper, must pass exactly those flags before
+  `$out/lib/kb/cli.js`. The file is the release contract that such a
+  wrapper reads.
+- **The entry fails closed.** `cli.js` compares `process.execArgv` with the
+  same embedded file: order does not matter, but no flag may be missing or
+  extra. On a mismatch it exits 78 with `kb: unsafe Bun launch; …`, before
+  it imports the CLI or runtime, so no store is opened.
+- **The honest limit.** A `bunfig.toml` preload runs before any entry
+  code, so the entry check cannot undo one, and it cannot vouch for process
+  state that hostile code has already touched. The flags are what prevents
+  it; the check only catches an ordinary unprotected launch. kb ships
+  Bun-target JS only. A standalone `--compile` binary would need its own
+  rule.
+
 | What | Where | Committed? | Holds |
 |---|---|---|---|
 | Own extensions | `<root>/.kb/extensions/` | yes | files, as today |
-| Store lock | `<root>/.kb/extensions.lock.json` | yes | installs, marketplaces, relative links |
-| Local lock | `<root>/.kb/extensions.local.json` | no (gitignored) | the same schema: this machine's installs and links for this store, absolute paths allowed |
+| Store lock | `<root>/.kb/extensions.lock.json` | yes | installs, marketplaces, links that resolve inside the repo |
+| Local lock | `<data>/extensions/local/<key>.json`, `key` = SHA-256 of the canonical root | no (per-user state, outside every repo; backed up) | the same schema plus the `root` it belongs to: this machine's installs and links for this store, links anywhere |
 | User lock | `<data>/extensions/lock.json` | no (backed up) | the same schema: "enabled in every kb on this machine" |
 | Trees | `<data>/extensions/store/<files>-<name>/` | no (refetchable) | immutable, read-only source trees |
 | Trust | `<data>/trust.json` | no (backed up) | `{digest, machine, at, name?, files?}` records |
@@ -107,6 +132,19 @@ home store (`<data>/home`). One function owns it (`dataPath`, beside
 
 One schema covers three scopes, as Claude Code's settings have user,
 project and local scopes. `--scope store|local|user` picks the file.
+
+**The local lock lives outside the repo.** Its links may point anywhere,
+so only this machine's person may write it, and a file inside the root
+can't promise that. A gitignored file can still be force-added and
+committed, cloned, or shipped in an archive. The lock is therefore kept
+under `<data>`, keyed by the root's canonical path (`canonicalRoot`, with
+symlinks resolved), and it records that `root`. A file whose `root` does not
+match its key is ignored. A root that moves starts with an empty local
+lock; `kb ext gc` lists local locks whose root no longer exists.
+A selection file inside the repo (`<root>/.kb/extensions.local.json`) is
+never read. When one is present, `extension.list` says once that it is
+ignored (T14), as with the old trust file (§4). There is no migration;
+re-add with `--scope local`.
 
 **The search list, nearest first.** Discovery reads an ordered list of
 *extension folders*, each laid out like `.kb/extensions/`. An installed
@@ -137,7 +175,8 @@ overrides an installed `aurora` while you work on it.
 
 - **A running server keeps what it imported.** A running `kb ui` or
   `kb mcp` imported its closures from memory (a `data:` module), so it
-  keeps running the bytes it trusted (`closureCache`, one read per process).
+  keeps running the bytes it trusted. It reads each closure once per lock
+  state, not on every request.
 - **The next read sees the change.** That is the next start, or step 12's
   reload.
   - An edited extension has a new digest, so it is untrusted: it is skipped
@@ -155,7 +194,10 @@ overrides an installed `aurora` while you work on it.
 - **With shared trust (Q1), a link brings in everything trusted in that
   folder.** Linking another store's `.kb/extensions/` enables everything in
   it, and anything already trusted there runs here too. That is what a link
-  means, and `kb ext link` says so when it runs.
+  means, and `kb ext link` says so when it runs. It is also why only a
+  person's own locks (local and user) may link outside the repo: a
+  committed link to `../notes/.kb/extensions` would let any clone run, in
+  its own root, what you trusted in another store (T14).
 
 **Admission does not change.** `kb ext validate` (in `verify`, so in
 pre-commit and CI) runs extension code without trust, so it stays confined
@@ -163,7 +205,7 @@ to the checkout's own code: `<root>/.kb/extensions/`. For the locks it
 checks, without running or fetching anything:
 
 - that the schema is valid;
-- that no store-scope link is absolute;
+- that every store-scope link resolves inside the repo (§2, Links);
 - that no name is a bundled family's;
 - that the `files` hash matches, where the tree is present.
 
@@ -211,7 +253,7 @@ two branches that each add one entry do not collide on a shared last line.
       "locked": { "repo": "popemkt/kb-plugins-sample", "path": "extensions/hello", "rev": "3f2c1a9…", "files": "sha256:…" }
     }
   },
-  "links": ["../notes/.kb/extensions"]
+  "links": ["tools/kb-extensions"]
 }
 ```
 
@@ -225,9 +267,16 @@ two branches that each add one entry do not collide on a shared last line.
   Installing by name adds the marketplace's pin to the lock it writes to,
   so each lock is self-contained, and a clone on a machine that never added
   `sample` can still fetch.
-- **Links.** In the store scope, links must be relative (they resolve from
-  the root). Absolute paths belong in the local or user lock, and `validate`
-  refuses an absolute path in a store lock.
+- **Links.** A store-scope link is committed, so the repository chooses
+  it, and it must resolve inside the repo. It is a relative path from the
+  root, with no absolute path and no `..` that leaves the root. Where the
+  folder exists, its real path (symlinks followed) must also lie inside the
+  root's real path. Links to sibling stores or anywhere else belong in the
+  local or user lock, which live in per-user state outside the repo
+  (§1), so only this machine's person writes them.
+  `extension.link` refuses an outside path in the store scope. `validate`
+  reports one in a committed lock, and discovery skips it with a failure
+  row instead of loading it.
 
 **The marketplace index**, `kb-marketplace.json` at the marketplace
 source's path:
@@ -313,10 +362,24 @@ is true for every action that touches the network or `<data>`.
 - **Transport.** `git` runs as a child process with `childProcessEnv`, with
   `-c core.hooksPath=/dev/null -c protocol.allow=never -c
   protocol.https.allow=always -c protocol.ssh.allow=always`. The steps are
-  `git ls-remote` to resolve a ref, `git fetch --depth 1 <url> <full-sha>`
-  into a scratch bare repo, then `git ls-tree -r -z` and
-  `git cat-file blob` to read objects. It never checks anything out. Private
-  repos work through the person's own git credentials.
+  `git ls-remote` to resolve a ref, then a fetch into a scratch bare repo.
+  The fetch is bounded before it writes. `--depth 1 --filter=blob:none`
+  brings the commit and its trees only, `git ls-tree -r -z` lists the path,
+  the count and path checks run, and only the listed blobs are fetched,
+  stopping at the byte cap. A blob outside the path is never downloaded. It
+  never checks anything out. Private repos work through the person's own
+  git credentials.
+- **A pinned sha must belong to the named repo.** GitHub serves any commit
+  in a fork network through the parent's URL, so a sha alone does not say
+  whose code it is ("imposter commits", T13). `read` refuses a `rev` that is
+  not reachable from a ref of `repo`. It lists the refs with
+  `git ls-remote`, fetches their commits only (`--filter=tree:0`), and
+  needs `git merge-base --is-ancestor <rev> <ref>` to hold for one of them.
+  The check lives in `read`, so install, restore from a lock and update all
+  get it. A sha that a ref no longer reaches (force-pushed away) is refused
+  too, so restoring a lock can fail. Re-pin it with `update`. The memory
+  adapter models reachability with its refs, and the contract suite holds
+  both adapters to it.
 
 ## 4. Trust
 
@@ -537,6 +600,9 @@ shows that nothing about them is special.
 | T10 | **Install-time code.** | Nothing runs. Bundling only reads files, as `bunfig.toml`'s empty `trustedDependencies` keeps it. | step 4 |
 | T11 | **Gates run a stranger's code.** | `kb ext validate` runs only the root's own `.kb/extensions/`, and checks the locks without running or fetching anything (§1). | step 4 |
 | T12 | **Forged trust from a repository.** A committed or shipped `.kb/trust.json` names this hostname and a hostile digest. | kb never reads a root's trust file as trust. Import is an approval-required gesture that shows its digests and imports this machine's records only. Reads never write (§4). | step 1 |
+| T13 | **Imposter commit.** `github:trusted-org/x@<sha>` names a commit pushed only to a fork, which GitHub serves through the parent's URL. | `read` refuses a `rev` not reachable from a ref of the named repo (§3, Transport), on install, restore and update. | contract suite (step 3) |
+| T14 | **A repository links outside itself.** A clone's store lock links `../notes/.kb/extensions`, or a force-added or archived `.kb/extensions.local.json` carries a local-scope link there. Shared trust then runs what you trusted in that sibling store inside the clone (found reviewing kb#120). | A store-scope link must resolve inside the repo, symlinks included (§2, Links). Outside links live only in the local and user locks, and both sit in per-user state under `<data>`, never in the root. A selection file inside the repo is ignored and reported, because gitignore is not an authority boundary (§1). | steps 4 and 8 |
+| T15 | **The working directory configures the runtime.** Starting kb inside a clone lets Bun auto-load its `.env` (`KB_DATA` pointing at a forged trust ledger) and its `bunfig.toml` (a `preload` runs before kb). | kb is launched only with `--no-env-file --config=/dev/null`, from one shipped flag file, through `bin/kb-bun` or a wrapper that passes the same flags. `cli.js` exits 78 when its `execArgv` doesn't match. A preload can't be undone after the fact, so the flags are the defence (§1). | step 1 (`KB startup contract`) |
 
 ## 9. What not to build
 
@@ -600,6 +666,23 @@ decision Q1).
   - two processes trusting at once keep every digest;
   - another machine's records still count for nothing;
   - a test run without `KB_DATA` fails;
+  - the `KB startup contract` suite
+    (`packages/app/cli/tests/startup-contract.test.ts`) builds the real CLI
+    bundle, extracts the real release launcher and uses the shipped flag
+    file. From a hostile working directory:
+    - for each of the checkout, release and Nix launchers, a `.env` setting
+      `KB_DATA` doesn't reach kb, a `bunfig.toml` preload doesn't run, and
+      repo-local selection files grant nothing;
+    - a negative control shows the same directory really does load the
+      `.env` value and run the preload when the flags are left out, so the
+      test can't pass vacuously;
+    - a raw `bun cli.js` without the launch flags exits 78 before it
+      creates `nodes.jsonl`, and so does one with the flags plus an extra
+      `--preload`;
+    - `nix/package.nix`'s install check (`doInstallCheck`) runs the same
+      suite against the installed `$out/bin/kb` (`KB_NIX_TEST_BIN`). The
+      test is "built nix artifact: repository dotenv and bunfig preload
+      cannot configure kb", and both Nix CI jobs run it;
   - `.gitignore` is updated, and the PR tells the owner which backup path
     moved.
 
@@ -625,6 +708,10 @@ G1; a restructure).
 - **Acceptance:**
   - the suite covers each T1/T2 property;
   - an abbreviated sha is refused;
+  - a full sha that no ref of the named repo reaches is refused, by both
+    adapters;
+  - a blob outside the requested path is never fetched, and the caps
+    refuse before the blobs are written;
   - `files` is stable across adapters for the same tree;
   - the pasted-URL form is normalised.
 
@@ -647,7 +734,16 @@ G1; a restructure).
   - a missing tree is reported `not fetched`;
   - a bundled name is refused;
   - an escaping import is refused;
-  - an absolute link in a store lock fails `validate`;
+  - a store-lock link that leaves the repo (absolute, `..` out of the
+    root, or a symlink out) fails `validate` and is not loaded;
+  - a committed or archived `<root>/.kb/extensions.local.json` with an
+    outside link selects nothing in that root. A sibling store's trusted
+    extension does not load, and `extension.list` reports the file as
+    ignored;
+  - `--scope local` writes `<data>/extensions/local/<key>.json` and
+    nothing in the root. Two paths to one root (one through a symlink)
+    share one local lock. A file whose recorded `root` does not match its
+    key is ignored;
   - `validate` never imports installed code (a tree that would
     `process.exit` on import does not stop it).
 
@@ -681,8 +777,9 @@ of G2).
 
 - `extension.link` and `extension.unlink`, in all three scopes.
 - **Acceptance:**
-  - linking another store's `.kb/extensions/` makes its extensions appear
-    (trusted ones run);
+  - linking another store's `.kb/extensions/` in the local or user scope
+    makes its extensions appear (trusted ones run);
+  - `kb ext link ../other --scope store` is refused;
   - after an edit there and a restart, the new digest is untrusted;
   - a removed folder is one failure row.
 

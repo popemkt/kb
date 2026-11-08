@@ -1,3 +1,9 @@
+export {
+  ExtensionOriginSchema,
+  ExtensionReachSchema,
+  ExtensionReviewSchema,
+} from "./extension-review.ts";
+export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
 export {
   ActionCatalog,
@@ -240,6 +246,7 @@ export {
   Assets,
   CodeTrust,
   LegacyTrust,
+  IgnoredRootFiles,
   LegacyDocsViews,
   SavedQueries,
   isValidWorkspaceName,
@@ -249,7 +256,37 @@ export type { KbRootsPort, RootProbe, RootState } from "./roots.ts";
 export type {
   AssetsPort,
   CodeTrustPort,
+  CodeTrustRecord,
+  TrustProvenance,
   LegacyDocsViewFiles,
   LegacyDocsViewsPort,
   SavedQueriesPort,
 } from "./workspace.ts";
+
+export {
+  CachedSourceSchema,
+  ExtensionStorage,
+  ExtensionCompiler,
+  EXTENSION_SCOPES,
+  DEFAULT_EXTENSION_SCOPE,
+  EXTENSION_RELOAD,
+  ExtensionScopeSchema,
+  ExtensionNameSchema,
+  SourceHashSchema,
+  SourceKindSchema,
+  SourceAddressSchema,
+  LockedSourceSchema,
+  ExtensionSelectionSchema,
+  ExtensionLockSchema,
+} from "./extension-install.ts";
+export type {
+  ExtensionScope,
+  ExtensionLock,
+  ExtensionSelection,
+  CachedTree,
+  SourceAddress,
+  SourceSelection,
+  ExtensionTransaction,
+  ExtensionCollection,
+  ExtensionLockRead,
+} from "./extension-install.ts";
