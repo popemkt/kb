@@ -5,14 +5,21 @@
  * its own scene. A card shows its backdrop at its fullest, vivid, whatever
  * the page's strength: the gallery shows what each one is, not what the
  * page is set to. On a dark page a card is exposed too (`GalleryExposure`).
+ * A repository extension's backdrops are a section of their own, from
+ * plugins, beside a card for each repository extension a person has not
+ * trusted yet (`PluginExtensions`).
  */
+import type { Contribution } from "@kb/plugin";
+import type { ExtensionReportRow } from "@kb/contracts";
 import {
   BackdropCard,
   BackdropPoint,
   navigate,
   useContributions,
   usePageBackdrop,
+  type Backdrop,
 } from "@kb/ui-sdk";
+import { familyOf, sourceOf, type PluginExtensions } from "./plugin-extensions";
 import { studioPath } from "./routes";
 
 /** How many times over a dark gallery's card shows what a backdrop lays over its ground. */
@@ -39,9 +46,93 @@ function GalleryExposure() {
   );
 }
 
-export function StudioGallery() {
+const GRID = "grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4";
+
+/** One contributed backdrop's card, opening its scene; `from`, the extension it comes from, if a plugin's. */
+function GalleryCard({
+  backdrop: { key },
+  from,
+  yours,
+}: {
+  readonly backdrop: Backdrop;
+  readonly from: string | null;
+  readonly yours: boolean;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        data-studio-card={key.id}
+        className="group flex w-full flex-col gap-2 rounded-lg p-1.5 text-left hover:bg-foreground/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+        onClick={() => navigate(studioPath(key.id))}
+      >
+        <BackdropCard id={key.id} strength="vivid" />
+        <span className="flex items-baseline gap-2 px-0.5">
+          <span className="text-ui font-medium text-foreground/80">{key.label}</span>
+          {yours ? <span className="text-label text-primary">your pages</span> : null}
+          <span className="flex-1" />
+          {(key.knobs?.length ?? 0) > 0 ? (
+            <span className="text-label text-foreground/40">{key.knobs?.length} knobs</span>
+          ) : null}
+        </span>
+        {key.credit === undefined && from === null ? null : (
+          <span className="px-0.5 text-label text-foreground/40">
+            {[key.credit, from === null ? undefined : `from ${from}`]
+              .filter((part) => part !== undefined)
+              .join(" · ")}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
+
+/**
+ * A repository extension no one has trusted here: kb runs none of its code,
+ * so it draws no picture and names no backdrop, only that it waits on a
+ * person, and how they trust it.
+ */
+function AwaitingCard({ row }: { readonly row: ExtensionReportRow }) {
+  return (
+    <li
+      data-studio-awaiting={row.name}
+      className="flex flex-col gap-2 rounded-lg border border-dashed border-foreground/15 p-3"
+    >
+      <span className="flex items-baseline gap-2">
+        <span className="text-ui font-medium text-foreground/80">{row.name}</span>
+        <span className="text-label text-warning">needs approval</span>
+      </span>
+      <span className="text-label text-foreground/50">{sourceOf(row)}</span>
+      <span className="text-label text-foreground/55">
+        Not trusted on this machine, so kb runs none of its code and cannot show the backdrops it
+        may bring. Review it and trust it to see them.
+      </span>
+      <span className="text-label text-foreground/55">
+        Trust it in a terminal with{" "}
+        <code className="text-foreground/70">kb ext trust {row.name}</code>; Settings → Extensions
+        lists it.
+      </span>
+    </li>
+  );
+}
+
+export function StudioGallery({ plugins }: { readonly plugins: PluginExtensions }) {
   const backdrops = useContributions(BackdropPoint);
   const page = usePageBackdrop();
+  const fromOf = ({ owner }: Contribution<Backdrop>): string | null => {
+    const family = familyOf(owner);
+    return plugins.rows.has(family) ? family : null;
+  };
+  const card = (backdrop: Contribution<Backdrop>) => (
+    <GalleryCard
+      key={backdrop.value.key.id}
+      backdrop={backdrop.value}
+      from={fromOf(backdrop)}
+      yours={page.backdrop?.value.key.id === backdrop.value.key.id}
+    />
+  );
+  const own = backdrops.filter((backdrop) => fromOf(backdrop) === null);
+  const plugged = backdrops.filter((backdrop) => fromOf(backdrop) !== null);
   return (
     <div className="h-full overflow-y-auto" data-studio-gallery="">
       <GalleryExposure />
@@ -53,33 +144,18 @@ export function StudioGallery() {
             its knobs.
           </p>
         </header>
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4">
-          {backdrops.map(({ value: { key } }) => (
-            <li key={key.id}>
-              <button
-                type="button"
-                data-studio-card={key.id}
-                className="group flex w-full flex-col gap-2 rounded-lg p-1.5 text-left hover:bg-foreground/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                onClick={() => navigate(studioPath(key.id))}
-              >
-                <BackdropCard id={key.id} strength="vivid" />
-                <span className="flex items-baseline gap-2 px-0.5">
-                  <span className="text-ui font-medium text-foreground/80">{key.label}</span>
-                  {page.backdrop?.value.key.id === key.id ? (
-                    <span className="text-label text-primary">your pages</span>
-                  ) : null}
-                  <span className="flex-1" />
-                  {(key.knobs?.length ?? 0) > 0 ? (
-                    <span className="text-label text-foreground/40">{key.knobs?.length} knobs</span>
-                  ) : null}
-                </span>
-                {key.credit === undefined ? null : (
-                  <span className="px-0.5 text-label text-foreground/40">{key.credit}</span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <ul className={GRID}>{own.map(card)}</ul>
+        {plugged.length === 0 && plugins.awaiting.length === 0 ? null : (
+          <section className="flex flex-col gap-3" data-studio-plugins="">
+            <h2 className="text-ui font-medium text-foreground/70">From plugins</h2>
+            <ul className={GRID}>
+              {plugged.map(card)}
+              {plugins.awaiting.map((row) => (
+                <AwaitingCard key={row.name} row={row} />
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   );

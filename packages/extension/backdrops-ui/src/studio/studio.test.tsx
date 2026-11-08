@@ -7,10 +7,13 @@
  * setting on the node that holds it, through the page's writes, as one
  * write when a control is let go; a reset takes it out, or drops one not
  * yet let go; and "Use as my page
- * backdrop" writes core's backdrop setting, as Settings does.
+ * backdrop" writes core's backdrop setting, as Settings does. A repository
+ * extension's backdrops are a section of their own, from plugins, beside
+ * the extensions no one has trusted yet; and the perf readout warns of a
+ * scene over its budget in words.
  */
 import { Effect } from "effect";
-import { act } from "react";
+import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -32,6 +35,7 @@ import {
   type OutlineNode,
 } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin, type TestBrowserHost } from "@kb/ui-test-kit";
+import { budgetWarning } from "./budget-warning";
 import StudioPage from "./studio-page";
 
 const PROBE: SeedBackdrop = {
@@ -314,5 +318,161 @@ describe("Backdrop Studio", () => {
     act(() => root.render(<StudioPage backdrop="gone.away" />));
     expect(document.body.textContent).toContain("No such backdrop");
     expect(mounts).toEqual([]);
+  });
+});
+
+/** A repository extension's backdrop: its family is a row of `extension.list` with an origin. */
+const PLUGGED: SeedBackdrop = { id: "plugged.glow", label: "Glow", credit: "After a lamp" };
+const plugged = definePlugin({
+  name: "plugged",
+  apply: (ctx) =>
+    ctx.contribute(
+      BackdropPoint,
+      provideBackdrop(PLUGGED, {
+        presentation,
+        budget: BACKDROP_BUDGETS.canvas,
+        Component: probeScene(PLUGGED.id),
+      }),
+    ),
+});
+
+const REACH = { files: [], host: { server: [], page: [] }, builtins: [] };
+
+/** One row of the server's report. */
+function row(name: string, more: Record<string, unknown>) {
+  return {
+    name,
+    label: name,
+    optional: true,
+    enabled: true,
+    source: `/root/.kb/extensions/${name}.ts`,
+    tags: [],
+    injects: [],
+    provides: [],
+    failures: [],
+    ...more,
+  };
+}
+
+/**
+ * What `extension.list` answers: a bundled family, the plugged extension
+ * trusted, one linked and not trusted with a page half, and one not trusted
+ * with none, which can bring no backdrop.
+ */
+const REPORT = {
+  extensions: [
+    row("studio-probes", { source: "bundled" }),
+    row("plugged", { origin: { kind: "own" }, trusted: true, reach: { ...REACH, page: true } }),
+    row("waiting", {
+      enabled: false,
+      origin: { kind: "link", scope: "user" },
+      trusted: false,
+      reach: { ...REACH, page: true },
+    }),
+    row("quiet", {
+      enabled: false,
+      origin: { kind: "own" },
+      trusted: false,
+      reach: { ...REACH, page: false },
+    }),
+  ],
+  points: [],
+  failures: [],
+};
+
+/** The cards in `within`, by backdrop, and an extension awaiting approval by its name. */
+const cardsIn = (within: Element | null) =>
+  [...(within?.querySelectorAll("[data-studio-card], [data-studio-awaiting]") ?? [])].map(
+    (card) =>
+      card.getAttribute("data-studio-card") ??
+      `awaiting ${card.getAttribute("data-studio-awaiting")}`,
+  );
+
+describe("Backdrop Studio, from plugins", () => {
+  let root: Root;
+
+  beforeAll(() => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  });
+  beforeEach(() => {
+    mounts = [];
+    const host = testBrowserHost({
+      invoke: (id) =>
+        Promise.resolve(
+          id === "extension.list"
+            ? { status: "succeeded", id, output: REPORT }
+            : { status: "failed", id, code: "not_found", message: "none" },
+        ),
+    });
+    host.setNodes([node(HOLE), node(extensionNodeId("core"))]);
+    syncUiPlugins([testHostPlugin(host), probes, plugged]);
+    root = createRoot(document.body.appendChild(document.createElement("div")));
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    document.body.replaceChildren();
+    syncUiPlugins([]);
+  });
+
+  /** Render `page`, and wait until the server's report has been read. */
+  async function shown(page: ReactElement) {
+    await act(async () => {
+      root.render(page);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  test("a repository extension's backdrops are a section of their own, each from its extension", async () => {
+    await shown(<StudioPage />);
+    const plugins = document.querySelector("[data-studio-plugins]");
+    expect(cardsIn(plugins)).toEqual([PLUGGED.id, "awaiting waiting"]);
+    const all = cardsIn(document.querySelector("[data-studio-gallery]"));
+    expect(all.slice(0, 2)).toEqual([PROBE.id, OTHER.id]);
+    const card = document.querySelector(`[data-studio-card="${PLUGGED.id}"]`);
+    expect(card?.textContent).toContain("After a lamp · from plugged");
+  });
+
+  test("an extension no one trusted waits on a person, and says how to trust it", async () => {
+    await shown(<StudioPage />);
+    const waiting = document.querySelector('[data-studio-awaiting="waiting"]');
+    expect(waiting?.textContent).toContain("needs approval");
+    expect(waiting?.textContent).toContain("a folder linked in the user scope");
+    expect(waiting?.textContent).toContain("kb ext trust waiting");
+    // One with no page half can bring no backdrop, so the studio does not speak of it.
+    expect(document.querySelector('[data-studio-awaiting="quiet"]')).toBeNull();
+  });
+
+  test("its scene says which extension it is from", async () => {
+    await shown(<StudioPage backdrop={PLUGGED.id} />);
+    expect(mounts).toEqual([PLUGGED.id]);
+    expect(document.querySelector("[data-studio-from]")?.textContent).toBe("from plugged");
+  });
+
+  test("kb's own backdrop is from no extension", async () => {
+    await shown(<StudioPage backdrop={PROBE.id} />);
+    expect(document.querySelector("[data-studio-from]")).toBeNull();
+  });
+});
+
+/** A meter's reading of `spent` ms at `quality`, its floor 0.45. */
+const reading = (spent: number | null, quality: number) => ({
+  backend: null,
+  spent,
+  quality,
+  floor: 0.45,
+  metered: true,
+});
+
+describe("the perf readout's warning", () => {
+  test("says nothing within budget, or before the meter reports", () => {
+    expect(budgetWarning(reading(1.5, 1), BACKDROP_BUDGETS.canvas)).toBeNull();
+    expect(budgetWarning(reading(null, 1), BACKDROP_BUDGETS.canvas)).toBeNull();
+  });
+
+  test("over budget, says so in words, and that it is at its lowest once nothing is left to lower", () => {
+    expect(budgetWarning(reading(3, 0.85), BACKDROP_BUDGETS.canvas)).toBe("over budget");
+    expect(budgetWarning(reading(3, 0.45), BACKDROP_BUDGETS.canvas)).toBe(
+      "over budget at its lowest quality",
+    );
   });
 });

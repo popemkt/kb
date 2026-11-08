@@ -351,6 +351,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
+### GAP: a plugin backdrop runs with the page's power; nothing confines it to its canvas and its knobs
+
+- **expected** — A repository extension's backdrop is handed only its canvas (or GPU context) and its knob values, and can read no kb data: its scene runs in an isolated host (a sandboxed frame or a worker drawing to an OffscreenCanvas) that the slot feeds
+- **current** — Once trusted, its page half is owner code with the page's power, as every repository extension is; kb-ext-sdk/page declares BackdropProps.node by its id alone, which states what a backdrop is for and enforces nothing
+- **impact** — A trusted backdrop can read the graph through the page's host API like any trusted page half; trust is the only fence
+- **closes** — An isolated backdrop host behind BackdropPoint for repository extensions, with the frame meter and knob values passed across, held by the shared backdrop contract
+- **node** — `01M6WVFMGB5PP2AANF0E5R921V`
+
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -374,14 +382,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No offline start; a DO daily-quota block or a Turso BLOCKED leaves nothing to read after a restart.
 - **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
 - **node** — `01M6950XSKGDE356Q8RK622WKQ`
-
-### GAP: a repository extension cannot contribute a backdrop
-
-- **expected** — kb-ext-sdk/page exports BackdropPoint, provideBackdrop and the Knob types; kb-ext-sdk exports the backdrop declared-option kind; a third-party backdrop passes the shared backdrop contract suite.
-- **current** — The page SDK exports DesignSystemPoint but no backdrop surface.
-- **impact** — Backdrops, the first thing a third party would ship, cannot be shipped.
-- **closes** — Step 11 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTRGPNHP3MD7DF6G0EAPE8`
 
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
@@ -920,14 +920,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — in 3D, an edge to a label or standing billboard runs to the floor beneath it
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
-
-### GAP: installed extension distribution awaits the SDK backdrop acceptance
-
-- **expected** — Installed-extension distribution meets the accepted plugin-install plan; the remaining SDK acceptance is GAP: a repository extension cannot contribute a backdrop.
-- **current** — The CLI lifecycle, marketplaces and live reload are implemented (DESIGN.md, Core boundary & extensions). Step 11 waits for owner approval of #107 and the SDK backdrop exports.
-- **impact** — The sample's third-party backdrop cannot be accepted in the Studio until #107 and the SDK exports land.
-- **closes** — Step 11 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M68NF91SD1D15C00TYDTPQXE`
 
 ### GAP: kb cannot be edited offline and merged later; devices meet only through git
 

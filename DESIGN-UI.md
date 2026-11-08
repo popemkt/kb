@@ -4162,7 +4162,8 @@ A PR for a backdrop reports a score against each criterion.
     meter (`meterFrames`, `@kb/ui-sdk`): a smoothed cost per frame, a
     verdict every 30 frames, and after three verdicts over budget its
     quality steps down by 0.15, to a floor it names. The meter reports on
-    the canvas (`data-quality`, and `data-frame-ms` or `data-gpu-ms`),
+    the canvas (`data-quality`, `data-quality-floor`, and `data-frame-ms`
+    or `data-gpu-ms`),
     where Backdrop Studio's readout reads it (`readFrameMeter`). The GPU
     host and the 2D stage both meter with it (Cost, below); a backdrop
     the page's CSS or a vendor runtime draws is not metered (GAP
@@ -4255,7 +4256,8 @@ A PR for a backdrop reports a score against each criterion.
     what navigation needs. It draws on its own canvas (no GPU host is
     offered through the SDK). Once trusted it is owner code with the
     page's power, as every repository extension is; the SDK's narrower
-    types state what a backdrop is for, and enforce nothing.
+    types state what a backdrop is for, and enforce nothing (GAP
+    [[01M6WVFMGB5PP2AANF0E5R921V]]).
   - **Untrusted, it does not exist.** An untrusted extension runs no code,
     so its declaration is not read and its backdrops have no option and
     no contribution; the studio lists it as needing approval. Removed

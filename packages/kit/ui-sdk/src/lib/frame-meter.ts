@@ -8,9 +8,9 @@
  * thing whoever drew the frame.
  *
  * It reports on the canvas it meters, the one place a reader finds it
- * (`readFrameMeter`, Backdrop Studio's perf readout): `data-quality`, and
- * the smoothed cost as `data-frame-ms` (the main thread's) or `data-gpu-ms`
- * (the GPU's).
+ * (`readFrameMeter`, Backdrop Studio's perf readout): `data-quality` and
+ * its floor (`data-quality-floor`), and the smoothed cost as
+ * `data-frame-ms` (the main thread's) or `data-gpu-ms` (the GPU's).
  */
 import type { BackdropBudget } from "./plugins";
 
@@ -83,6 +83,7 @@ export function meterFrames(
   const meters = new Map<FrameCost, ReturnType<typeof smoothed>>();
   let quality = 1;
   canvas.dataset.quality = quality.toFixed(2);
+  canvas.dataset.qualityFloor = floor.toFixed(2);
   return {
     quality: () => quality,
     record: (ms, cost = "frame") => {
@@ -110,11 +111,19 @@ export interface FrameMeterReading {
   /** Milliseconds a frame spent, as the meter last reported; null, not reported yet. */
   readonly spent: number | null;
   readonly quality: number | null;
+  /** The lowest quality it steps down to: at it, the meter has nothing left to lower. */
+  readonly floor: number | null;
   /** Whether a frame meter meters a canvas in `frame` at all. */
   readonly metered: boolean;
 }
 
-const UNMETERED: FrameMeterReading = { backend: null, spent: null, quality: null, metered: false };
+const UNMETERED: FrameMeterReading = {
+  backend: null,
+  spent: null,
+  quality: null,
+  floor: null,
+  metered: false,
+};
 
 const numberOf = (value: string | undefined): number | null => {
   const n = value === undefined ? Number.NaN : Number(value);
@@ -125,11 +134,12 @@ const numberOf = (value: string | undefined): number | null => {
 export function readFrameMeter(frame: HTMLElement | null): FrameMeterReading {
   const canvas = frame?.querySelector<HTMLCanvasElement>("canvas[data-quality]");
   if (canvas === null || canvas === undefined) return UNMETERED;
-  const { backend, gpuMs, frameMs, quality } = canvas.dataset;
+  const { backend, gpuMs, frameMs, quality, qualityFloor } = canvas.dataset;
   return {
     backend: backend ?? null,
     spent: numberOf(gpuMs ?? frameMs),
     quality: numberOf(quality),
+    floor: numberOf(qualityFloor),
     metered: true,
   };
 }

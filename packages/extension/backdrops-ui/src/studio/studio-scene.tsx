@@ -1,7 +1,7 @@
 /**
  * One backdrop in the studio (DESIGN-UI.md → Backdrop Studio): its scene
  * full-size, the only one running, under a thin header (back to the
- * gallery, its name and credit, a variant switcher, a strength preview,
+ * gallery, its name and credit, the extension it comes from if a plugin's, a variant switcher, a strength preview,
  * the perf readout, and "Use as my page backdrop"), with the knob panel
  * over it. The frame is the one every head draws (`BackdropFrame`), so what
  * the studio shows is what a page head shows.
@@ -118,11 +118,13 @@ interface Shown {
 
 function StudioHeader({
   backdrop,
+  from,
   shown,
   onShow,
   frame,
 }: {
   readonly backdrop: Backdrop;
+  readonly from: string | null;
   readonly shown: Shown;
   readonly onShow: (shown: Shown) => void;
   readonly frame: HTMLElement | null;
@@ -143,6 +145,11 @@ function StudioHeader({
         {key.label}
         {key.credit === undefined ? null : (
           <span className="text-label font-normal text-foreground/40">{key.credit}</span>
+        )}
+        {from === null ? null : (
+          <span className="text-label font-normal text-foreground/40" data-studio-from={from}>
+            from {from}
+          </span>
         )}
       </h1>
       {variants.length > 1 && shown.variant !== null ? (
@@ -199,9 +206,12 @@ function useOpening(backdrop: Backdrop): Shown {
 export function StudioScene({
   id,
   backdrop,
+  from,
 }: {
   readonly id: string;
   readonly backdrop: Backdrop;
+  /** The repository extension it comes from, when it is a plugin's. */
+  readonly from: string | null;
 }) {
   const opening = useOpening(backdrop);
   const [shown, setShown] = useState(opening);
@@ -225,7 +235,7 @@ export function StudioScene({
       className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background"
       data-studio-backdrop={key.id}
     >
-      <StudioHeader backdrop={backdrop} shown={shown} onShow={setShown} frame={frame} />
+      <StudioHeader backdrop={backdrop} from={from} shown={shown} onShow={setShown} frame={frame} />
       <div className="relative min-h-0 flex-1">
         <BackdropFrame
           id={id}

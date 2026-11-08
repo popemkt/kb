@@ -277,6 +277,7 @@ export interface PointerSource {
  * handed. The node it shows is declared by its id, which is what a
  * backdrop that answers navigation reads.
  */
+// GAP [[01M6WVFMGB5PP2AANF0E5R921V]] a trusted backdrop has the page's power; these types confine nothing
 export interface BackdropProps {
   /** The head's colour: the shown node's tag colour, else the accent. */
   readonly color: string;

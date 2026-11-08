@@ -38,6 +38,7 @@ describe("the frame meter", () => {
       backend: null,
       spent: null,
       quality: 1,
+      floor: 0.45,
       metered: true,
     });
   });
@@ -66,6 +67,7 @@ describe("the frame meter", () => {
     const meter = meterFrames(canvas, BUDGET, { floor: 0.4 });
     run(meter, 3000, 9);
     expect(meter.quality()).toBe(0.4);
+    expect(readFrameMeter(canvas.parentElement ?? null).floor).toBe(0.4);
     expect(run(meter, 300, 9)).toBe(0);
   });
 
