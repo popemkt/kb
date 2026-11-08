@@ -131,8 +131,8 @@ function reportOf(output: unknown): ExtensionReport {
 
 /** Each ordered point's listeners, in the order a host asks them. */
 function pointLines(points: ExtensionReport["points"]): string[] {
-  return points.flatMap(({ point, source, listeners }) => [
-    `${point} (${source}): in order`,
+  return points.flatMap(({ point, source, spec, listeners }) => [
+    `${point} (${source}): ${spec.cardinality}, ${spec.tier}, ${typeof spec.kernel === "string" ? spec.kernel : spec.kernel.join("/")}; ${spec.combine}`,
     ...listeners.map(
       ({ owner, id, match }, at) =>
         `  ${at + 1}. ${id} (${owner})${match === undefined ? "" : ` on ${match}`}`,

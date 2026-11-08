@@ -34,6 +34,14 @@ describe.each([...COMPOSITIONS])("the %s composition", (name) => {
   let composed: Composition | undefined;
   const read = (): Composition => (composed ??= composition(name));
 
+  test("every plugin accepts its host", () => {
+    expect(
+      read()
+        .plugins.filter((plugin) => plugin.status === "failed")
+        .map((plugin) => `${plugin.name}: ${plugin.error}`),
+    ).toEqual([]);
+  }, 60_000);
+
   test("every plugin is tagged", () => {
     const untagged = read().plugins.filter((plugin) => plugin.tags.length === 0);
     expect(untagged.map((plugin) => plugin.name)).toEqual([]);

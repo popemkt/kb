@@ -130,7 +130,7 @@ const byId = (a: string, b: string) => a.localeCompare(b);
 
 /** The design systems' and the heads' ids `plugins` contribute. */
 function contributedBy(plugins: readonly Plugin[]) {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(syncPlugins(kernel, plugins));
   return {
     systems: kernel.contributions(DesignSystemPoint).map(({ value }) => value.key.id),

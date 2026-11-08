@@ -21,7 +21,23 @@ export type ServiceKey<S> = Key<"service", S>;
  * A place contributions collect: actions, render templates, UI surfaces. Each
  * contribution carries an id unique within the point.
  */
-export type PointKey<C> = Key<"point", C>;
+export const KERNEL_HOSTS = ["registry", "server", "page"] as const;
+export const POINT_CARDINALITIES = ["list", "keyed", "single", "chain"] as const;
+export const POINT_TIERS = ["T0", "T1", "T2", "T3"] as const;
+export type KernelHost = (typeof KERNEL_HOSTS)[number];
+
+export interface PointSpec {
+  readonly cardinality: (typeof POINT_CARDINALITIES)[number];
+  readonly combine: string;
+  readonly kernel: KernelHost | readonly KernelHost[];
+  readonly tier: (typeof POINT_TIERS)[number];
+  /** Dot-separated member path; absent means contribution id. */
+  readonly keyBy?: string;
+}
+
+export interface PointKey<C> extends Key<"point", C> {
+  readonly spec: PointSpec;
+}
 
 /** Any key, whatever it stands for — for lists such as a plugin's `inject`. */
 export type AnyServiceKey = Key<"service", unknown>;
@@ -30,8 +46,8 @@ export function Service<S>(): (name: string) => ServiceKey<S> {
   return (name) => ({ kind: "service", name });
 }
 
-export function Point<C>(): (name: string) => PointKey<C> {
-  return (name) => ({ kind: "point", name });
+export function Point<C>(): (name: string, spec: PointSpec) => PointKey<C> {
+  return (name, spec) => ({ kind: "point", name, spec });
 }
 
 /**

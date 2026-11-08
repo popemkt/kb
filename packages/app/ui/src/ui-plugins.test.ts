@@ -31,7 +31,7 @@ const ALWAYS_ON = await Promise.all(
 );
 
 function kernelWithBuiltins() {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(
     Effect.forEach([...CORE_UI_PLUGINS, ...ALWAYS_ON], (plugin) => kernel.load(plugin)),
   );
@@ -266,7 +266,7 @@ describe("an optional family switched off on the server", () => {
 
   for (const family of SWITCHABLE) {
     it(`${family.name}: the page drops its browser half and everything it contributed, and takes it back when switched on`, async () => {
-      const kernel = makeKernel();
+      const kernel = makeKernel({ host: "page" });
       for (const on of [true, false, true]) {
         const rows = [
           ...reported((name) => name !== family.name || on),
@@ -289,7 +289,7 @@ describe("an optional family switched off on the server", () => {
   }
 
   it("the lab, on, shows every study while the graph is off but Sky, which reads the graph", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "page" });
     for (const graphOn of [false, true]) {
       const rows = reported((name) => name !== "graph" || graphOn);
       const entries = await Promise.all(

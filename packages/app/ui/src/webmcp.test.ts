@@ -79,7 +79,7 @@ describe("the page's WebMCP plugin", () => {
     const tools = installModelContext();
     const post = serverAnswering();
     setPostAction(post);
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "page" });
     Effect.runSync(kernel.load(webMcpUiPlugin));
     await settle();
     expect(post).toHaveBeenCalledWith({
@@ -98,7 +98,7 @@ describe("the page's WebMCP plugin", () => {
     const tools = installModelContext();
     const post = serverAnswering();
     setPostAction(post);
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "page" });
     Effect.runSync(kernel.load(webMcpUiPlugin));
     await settle();
     post.mockClear();
@@ -128,7 +128,7 @@ describe("the page's WebMCP plugin", () => {
     const post = serverAnswering();
     setPostAction(post);
     useUiStore.getState().setWsStatus("connecting");
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "page" });
     Effect.runSync(kernel.load(webMcpUiPlugin));
     await settle();
     post.mockClear();
@@ -170,7 +170,7 @@ describe("the page's WebMCP plugin", () => {
           ),
       ),
     );
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "page" });
     Effect.runSync(kernel.load(webMcpUiPlugin));
     await settle();
     const error = await tools
@@ -185,7 +185,7 @@ describe("the page's WebMCP plugin", () => {
   it("does nothing where the browser has no model context", async () => {
     const post = serverAnswering();
     setPostAction(post);
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "page" });
     Effect.runSync(kernel.load(webMcpUiPlugin));
     await settle();
     expect(post).not.toHaveBeenCalled();

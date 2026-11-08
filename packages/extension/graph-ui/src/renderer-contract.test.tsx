@@ -135,7 +135,7 @@ const DARK: Appearance = { designSystem: "kb", dark: true, key: "kb:dark" };
 
 /** Every renderer view the graph plugin provides, by its name in `lens.renderer`. */
 const RENDERERS = (() => {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(hostPlugin));
   Effect.runSync(kernel.load(graphUiPlugin));
   const renderers = familyViews(kernel.contributions(ViewPoint), isRendererKey);

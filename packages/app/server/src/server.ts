@@ -410,7 +410,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const lifetime = Scope.makeUnsafe("parallel");
 
   const ctx = yield* openKbEffect(opts.root);
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "server" });
   const hub = new SubscriptionHub(ctx, channelsOf(kernel), opts.embedding ?? NO_EMBEDDING);
   const hosted = yield* loadServerPlugins(
     kernel,

@@ -104,7 +104,12 @@ export interface PaletteStep {
  * The node palette's picker steps, by id: a node command opens one with
  * `palette.openStep(id)`. A family's steps come and go with it.
  */
-export const PaletteStepPoint = Point<PaletteStep>()("ui.palette-steps");
+export const PaletteStepPoint = Point<PaletteStep>()("ui.palette-steps", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "page",
+  tier: "T3",
+});
 
 /**
  * Which node a command is about.
@@ -160,7 +165,12 @@ export interface Command {
  * plugins loaded; the runner finds them
  * by id like any other.
  */
-export const CommandPoint = Point<Command>()("ui.commands");
+export const CommandPoint = Point<Command>()("ui.commands", {
+  cardinality: "list",
+  combine: "all in contribution order",
+  kernel: "page",
+  tier: "T3",
+});
 
 /** One row of the node menu: what to show, and what pressing it does. */
 export interface NodeCommandListing {

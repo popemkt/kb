@@ -14,4 +14,9 @@ export interface ActionReview {
   readonly read: (invocation: ActionInvocation) => Promise<ApprovalView | null>;
 }
 
-export const ActionReviewPoint = Point<ActionReview>()("ui.action-reviews");
+export const ActionReviewPoint = Point<ActionReview>()("ui.action-reviews", {
+  cardinality: "list",
+  combine: "all in contribution order",
+  kernel: "page",
+  tier: "T3",
+});

@@ -19,7 +19,7 @@ const AGENT = {
  * composing the agent as the store it is pointed at switches it.
  */
 function uiServerHost(): SwitchingHost {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "server" });
   let store: NodeLookup = NO_SWITCHES;
   let hosted: HostedExtensions | null = null;
   const held = definePlugin({

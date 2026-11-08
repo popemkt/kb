@@ -10,7 +10,7 @@ import { makeKernel, syncPlugins } from "@kb/plugin";
 import { GraphThemePoint, graphThemesPlugin, type GraphTheme } from "./graph-themes";
 
 function contributedThemes(): readonly GraphTheme[] {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(syncPlugins(kernel, [graphThemesPlugin]));
   return kernel.contributions(GraphThemePoint).map(({ value }) => value);
 }

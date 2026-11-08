@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionMode, EXTENSION_SDK, ExtensionDeclaration } from "@kb/contracts";
 import type { BackdropVariant, FailureCode, Knob, NumberKnob, SeedBackdrop } from "@kb/model";
-import type { Plugin } from "@kb/plugin";
+import type { Plugin, PointSpec, KernelHost } from "@kb/plugin";
 import type * as Bridge from "../src/bridge.ts";
 import type * as Surface from "../src/surface.ts";
 
@@ -18,6 +18,10 @@ type Declares<D, S> = Bridge.Declares<D, S>;
 type DataOf<T> = Bridge.DataOf<T>;
 type Contributed<P> = Bridge.Contributed<P>;
 
+const spec: Same<Surface.PointSpec, PointSpec> = true;
+const host: Same<Surface.KernelHost, KernelHost> = true;
+void spec;
+void host;
 const modes: Same<Surface.ActionMode, ActionMode> = true;
 const codes: Same<Surface.FailureCode, FailureCode> = true;
 /** A backdrop's key and its knobs, as an author declares them, are the model's own. */

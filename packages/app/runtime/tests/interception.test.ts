@@ -503,7 +503,7 @@ describe("order and lifecycle", () => {
           return allow;
         }),
     });
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     // `dependent` loads first but injects what `provider` provides, so it applies after it.
     const dependent = definePlugin({
       name: "dependent",
@@ -534,7 +534,7 @@ describe("order and lifecycle", () => {
   });
 
   test("a plugin on its way out has no guards, even to a reader that indexed them, while its finalizers run", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const interception = interceptionFrom(kernel);
     const duringFinalizer: number[] = [];
     const echoing = { id: "test.echo", mode: { kind: "read" } } as const;
@@ -559,7 +559,7 @@ describe("order and lifecycle", () => {
   });
 
   test("a required child is missing as soon as its parent is on its way out", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const interception = interceptionFrom(kernel, { required: ["parent/guard"] });
     const duringUnload: unknown[] = [];
     const parent = definePlugin({
@@ -590,7 +590,7 @@ describe("order and lifecycle", () => {
   });
 
   test("while a guard the deployment requires is not applied, every call is denied", async () => {
-    const kernel = makeKernel();
+    const kernel = makeKernel({ host: "registry" });
     const interception = interceptionFrom(kernel, { required: ["governance"] });
     expect(await call(interception, echo())).toMatchObject({
       code: "forbidden",

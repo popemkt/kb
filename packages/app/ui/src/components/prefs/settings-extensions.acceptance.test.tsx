@@ -1,25 +1,16 @@
-/**
- * Settings' Extensions and Advanced parts, driven through the real App: the
- * header's gear opens Settings and its rail the part (⌘K's command is
- * `run-command`'s), the part draws what `extension.list` and
- * `extension.footprint` answer with the page's own kernel joined in, on two
- * shelves (Installed, then Built-in), each extension a card: its status,
- * its line, where it came from, its lock, switch or actions by its state,
- * its settings, the fields of its node, and its Details folded. Trust is
- * only the review sheet's click; Remove asks first. Advanced lists the
- * listeners asked in turn and the extensions refused; the page's former
- * path leads to the part.
- */
+/** Settings Extensions acceptance through the real App and extension report. */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type {
-  ActionResponse,
-  ActionRequest,
-  ExtensionReport,
-  FootprintRow,
-  GraphSnapshot,
+import {
+  IdentityPoint,
+  ActionGuardPoint,
+  type ActionResponse,
+  type ActionRequest,
+  type ExtensionReport,
+  type FootprintRow,
+  type GraphSnapshot,
 } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { present } from "@kb/model";
@@ -73,11 +64,13 @@ const REPORT: ExtensionReport = {
   points: [
     {
       point: "identity.providers",
+      spec: IdentityPoint.spec,
       source: "host",
       listeners: [{ owner: "identity-header", id: "header" }],
     },
     {
       point: "action/guard",
+      spec: ActionGuardPoint.spec,
       source: "registry",
       listeners: [
         { owner: "governance", id: "ext.governance.approval", match: "*" },

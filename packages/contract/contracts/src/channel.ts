@@ -33,7 +33,12 @@ export interface Channel {
 }
 
 /** The channels the `kb ui` server's plugins own, by contribution id (`<namespace>.<id>`). */
-export const ChannelPoint = Point<Channel>()("kb.ui.channels");
+export const ChannelPoint = Point<Channel>()("kb.ui.channels", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "server",
+  tier: "T3",
+});
 
 /**
  * What the `kb ui` server offers the plugins it hosts: the registry, run as it

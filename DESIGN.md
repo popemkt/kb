@@ -3066,11 +3066,9 @@ where, how rows become markdown, repo-specific output of any kind — lives in
     scope closed, once the calls running on it have settled), but a module
     cannot be un-imported: its top level's effects, and the module, stay
     until the process restarts.
-  - **A family's channels are its host's.** A plugin contributes to any
-    point of the kernel it is loaded in; the `kb ui` socket hub routes
-    `channel` frames to the channels of its own kernel, so a channel a
-    registry family contributes, a repository extension's included, is not
-    served. GAP [[01M579MHGHVT2FNGJJRK81J9GY]]
+  - **A family's channels are its host's.** `kb.ui.channels` accepts only
+    the server kernel. A registry contribution is refused with `wrong-kernel`.
+    GAP [[01M579MHGHVT2FNGJJRK81J9GY]]
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
   Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through
@@ -5691,3 +5689,7 @@ point. A plugin reaches another only through a service it injects.
     `STORE_BACKENDS`), as One contract, every implementation asks.
 - **Isolation scopes**: a sub-scope with its own implementation of a
   service name, as Cordis has. Nothing needs it yet.
+
+### Point specifications
+
+The [extensibility parity design](docs/research/2026-11-08-extensibility-parity.md#4-declared-points) motivates this contract. Every point key carries a spec: cardinality (`list`, `keyed`, `single`, or `chain`), reader combination prose, accepted kernels (`registry`, `server`, `page`), and minimum isolation tier. A point may accept multiple kernels; guards and interceptors accept registry and page, while shared declarations accept all hosts. Kernels require an explicit host and refuse contributions to another host with `wrong-kernel`. Single points accept one contribution; keyed points refuse repeated ids, aliases, or the member path named by `keyBy`. Lists and chains retain contribution order. The effective extension report includes each live point’s spec and ordered contributions.

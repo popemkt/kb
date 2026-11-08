@@ -31,7 +31,7 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
 
 /** The frame views the outline plugin provides, as its hosts see them. */
 const VIEWS = (() => {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   Effect.runSync(kernel.load(collectionsUiPlugin));

@@ -112,10 +112,20 @@ export interface ActionContribution extends Omit<ActionDefinition, "id" | "effec
 }
 
 /** Every action any loaded plugin offers: core's, bundled extensions', the repo's. */
-export const ActionPoint = Point<ActionContribution>()("kb.actions");
+export const ActionPoint = Point<ActionContribution>()("kb.actions", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: ["registry", "server", "page"],
+  tier: "T3",
+});
 
 /** Every render template, by the id a view spec names it with. */
-export const TemplatePoint = Point<TemplateFn>()("kb.templates");
+export const TemplatePoint = Point<TemplateFn>()("kb.templates", {
+  cardinality: "keyed",
+  combine: "lookup by contribution id",
+  kernel: "registry",
+  tier: "T3",
+});
 
 /** The namespace a family's plugin contributes in, so its ids read `ext.<name>.<id>`. */
 export function extensionNamespace(name: string): string {

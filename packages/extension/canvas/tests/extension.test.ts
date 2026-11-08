@@ -26,7 +26,7 @@ const AT = "2026-01-01T00:00:00.000Z";
 function contributed() {
   return Effect.runSync(
     Effect.gen(function* () {
-      const kernel = makeKernel();
+      const kernel = makeKernel({ host: "registry" });
       yield* kernel.load(canvasPlugin());
       const views = kernel.contributions(ViewKeyPoint).map(({ id, value }) => ({ id, value }));
       yield* kernel.shutdown;
@@ -99,7 +99,7 @@ describe("canvas family", () => {
   test("its plugin contributes what a session fills from a canvas pane, and only from one", () => {
     const references = Effect.runSync(
       Effect.gen(function* () {
-        const kernel = makeKernel();
+        const kernel = makeKernel({ host: "registry" });
         yield* kernel.load(canvasPlugin());
         const found = new Map(
           kernel.contributions(ContextReferencePoint).map(({ id, value }) => [id, value]),

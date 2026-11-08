@@ -37,4 +37,9 @@ export interface IdentityProvider {
  * dependencies first, then load order) and takes the first answer (Cordis's
  * `bail`); when every one passes, or there is none, the request is nobody's.
  */
-export const IdentityPoint = Point<IdentityProvider>()("identity.providers");
+export const IdentityPoint = Point<IdentityProvider>()("identity.providers", {
+  cardinality: "chain",
+  combine: "first non-null answer",
+  kernel: "server",
+  tier: "T3",
+});

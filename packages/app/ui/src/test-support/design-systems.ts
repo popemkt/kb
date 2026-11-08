@@ -34,7 +34,7 @@ export const PAGE_FAMILIES: readonly Plugin[] = await Promise.all(
 
 /** The design systems `plugins` contribute, in contribution order, read from a kernel of their own. */
 function designSystemsOf(plugins: readonly Plugin[]): readonly DesignSystem[] {
-  const kernel = makeKernel();
+  const kernel = makeKernel({ host: "page" });
   Effect.runSync(syncPlugins(kernel, plugins));
   return kernel.contributions(DesignSystemPoint).map(({ value }) => value);
 }
