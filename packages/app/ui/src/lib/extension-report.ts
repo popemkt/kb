@@ -16,10 +16,12 @@ import {
   organisationOf,
   type ExtensionReport,
   type FootprintRow,
+  type ExtensionRow,
 } from "@kb/contracts";
 import { extensionSwitchDef } from "@kb/operations";
 import {
   PAGE_FAMILY_KERNEL,
+  latestRead,
   pageFootprint,
   subscribeUiKernel,
   toast,
@@ -47,10 +49,29 @@ export interface PanelExtension {
 }
 
 /** The panel's whole reading; null until the server has answered once. */
+export interface PanelExtensionGroup {
+  readonly name: string;
+  readonly effective: PanelExtension | undefined;
+  readonly hidden: readonly ExtensionReport["extensions"][number][];
+}
+
 export interface PanelReport {
-  readonly extensions: readonly PanelExtension[];
+  readonly groups: readonly PanelExtensionGroup[];
   readonly points: ExtensionReport["points"];
   readonly failures: ExtensionReport["failures"];
+}
+
+/** The catalog is parsed in one place, shared by every extension reading. */
+type CatalogRead = { readonly report: ExtensionReport } | { readonly problem: string };
+
+function readExtensionCatalog(): Promise<CatalogRead> {
+  return invoke("extension.list", {}).then((receipt) => {
+    if (receipt.status === "failed") return { problem: receipt.message } as const;
+    const parsed = ExtensionReportSchema.safeParse(receipt.output);
+    return parsed.success
+      ? ({ report: parsed.data } as const)
+      : ({ problem: `extension.list answered in another shape: ${parsed.error.message}` } as const);
+  });
 }
 
 /**
@@ -62,17 +83,15 @@ export interface PanelReport {
 async function readServer(): Promise<ServerReport | string> {
   try {
     const [listed, footprint] = await Promise.all([
-      invoke("extension.list", {}),
+      readExtensionCatalog(),
       invoke("extension.footprint", {}),
     ]);
-    if (listed.status === "failed") return listed.message;
+    if ("problem" in listed) return listed.problem;
     if (footprint.status === "failed") return footprint.message;
-    const report = ExtensionReportSchema.safeParse(listed.output);
-    if (!report.success) return `extension.list answered in another shape: ${report.error.message}`;
     const rows = FootprintOutput.safeParse(footprint.output);
     if (!rows.success)
       return `extension.footprint answered in another shape: ${rows.error.message}`;
-    return { report: report.data, footprint: rows.data.rows };
+    return { report: listed.report, footprint: rows.data.rows };
   } catch (error) {
     return `the server could not be asked: ${error instanceof Error ? error.message : String(error)}`;
   }
@@ -98,29 +117,69 @@ function readPageAt(): PageKernelAt {
   return pageAt;
 }
 
+/** Source scope is presentation of the catalog's declared origin, never inferred from paths. */
+export function extensionSourceLabel(row: Pick<ExtensionRow, "origin" | "source">): string {
+  const origin = row.origin;
+  if (origin === undefined) return row.source;
+  switch (origin.kind) {
+    case "own":
+      return "own folder";
+    case "link":
+      return `${origin.scope} link`;
+    case "install":
+      return `${origin.scope} install`;
+    default:
+      return origin satisfies never;
+  }
+}
+
+/** One name owns its effective reading and all the sources the catalog says it hides. */
+function catalogGroups(rows: ExtensionReport["extensions"]) {
+  type Group = { name: string; effective?: (typeof rows)[number]; hidden: (typeof rows)[number][] };
+  const groups = new Map<string, Group>();
+  for (const row of rows) {
+    const group: Group = groups.get(row.name) ?? { name: row.name, hidden: [] };
+    if (row.shadowed === undefined) group.effective = row;
+    else group.hidden.push(row);
+    groups.set(row.name, group);
+  }
+  return [...groups.values()];
+}
+
+/** A footprint belongs to the effective family, never to a hidden copy with the same name. */
+function joinExtension(
+  row: ExtensionReport["extensions"][number],
+  footprint: readonly FootprintRow[],
+): PanelExtension {
+  const onPage = organisationOf(row.name, [PAGE_FAMILY_KERNEL]);
+  const own = footprint.filter((entry) => entry.family === row.name);
+  return {
+    row: {
+      ...row,
+      tags: [...new Set([...row.tags, ...onPage.tags])],
+      injects: [...row.injects, ...onPage.injects],
+      provides: [...row.provides, ...onPage.provides],
+      failures: [...row.failures, ...onPage.failures],
+    },
+    contributions: byPoint([
+      ...own.filter((entry) => entry.source !== "seed"),
+      ...pageFootprint(row.name),
+    ]),
+    seeds: own.filter((entry) => entry.source === "seed").length,
+  };
+}
+
 /** The server's half joined with the page kernel as it is at `_page`. */
 function joinPage(server: ServerReport, _page: PageKernelAt): PanelReport {
-  const page = [PAGE_FAMILY_KERNEL];
   return {
-    extensions: server.report.extensions.map((row) => {
-      const onPage = organisationOf(row.name, page);
-      const own = server.footprint.filter((entry) => entry.family === row.name);
-      return {
-        row: {
-          ...row,
-          tags: [...new Set([...row.tags, ...onPage.tags])],
-          injects: [...row.injects, ...onPage.injects],
-          provides: [...row.provides, ...onPage.provides],
-          failures: [...row.failures, ...onPage.failures],
-        },
-        contributions: byPoint([
-          ...own.filter((entry) => entry.source !== "seed"),
-          ...pageFootprint(row.name),
-        ]),
-        seeds: own.filter((entry) => entry.source === "seed").length,
-      };
-    }),
-    points: [...server.report.points, ...orderedPoints(page)],
+    groups: catalogGroups(server.report.extensions).map((group) => ({
+      ...group,
+      effective:
+        group.effective === undefined
+          ? undefined
+          : joinExtension(group.effective, server.footprint),
+    })),
+    points: [...server.report.points, ...orderedPoints([PAGE_FAMILY_KERNEL])],
     failures: server.report.failures,
   };
 }
@@ -143,10 +202,9 @@ export function useExtensionReport(): ExtensionReading {
   const readAgain = useRef<() => void>(() => {});
   useEffect(() => {
     let live = true;
-    const read = async () => {
-      const next = await readServer();
+    const read = latestRead(readServer, (next) => {
       if (live) setServer(next);
-    };
+    });
     readAgain.current = () => void read();
     void read();
     const unsubscribe = subscribeManifest(() => void read());

@@ -12,7 +12,13 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { ActionRequest, ExtensionReport, FootprintRow, GraphSnapshot } from "@kb/contracts";
+import type {
+  ActionResponse,
+  ActionRequest,
+  ExtensionReport,
+  FootprintRow,
+  GraphSnapshot,
+} from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { present } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
@@ -109,6 +115,7 @@ describe("Settings' Extensions (acceptance)", () => {
   let root: Root;
   let asked: ActionRequest[] = [];
   let report = REPORT;
+  let waitingList: Promise<ActionResponse> | null = null;
   /** Which request the stand-in server fails, if any. */
   let failing: "unreachable" | "footprint" | null = null;
 
@@ -134,6 +141,11 @@ describe("Settings' Extensions (acceptance)", () => {
     setFetchGraphSnapshot(() => Promise.resolve(snapshot()));
     setPostAction((invocation) => {
       asked.push(invocation);
+      if (invocation.id === "extension.list" && waitingList !== null) {
+        const response = waitingList;
+        waitingList = null;
+        return response;
+      }
       if (failing === "unreachable" && invocation.id === "extension.list") {
         return Promise.reject(new Error("connection refused"));
       }
@@ -166,6 +178,7 @@ describe("Settings' Extensions (acceptance)", () => {
   beforeEach(async () => {
     asked = [];
     report = REPORT;
+    waitingList = null;
     failing = null;
     dom.history.pushState({}, "", "/");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
@@ -273,6 +286,68 @@ describe("Settings' Extensions (acceptance)", () => {
     await until(() => card("hello").textContent.includes(`untrusted at ${next}`));
     expect(card("hello").textContent).toContain(`untrusted at ${next}`);
     expect(card("hello").textContent).toContain(`running approved ${DIGEST}`);
+  });
+
+  it("keeps one effective section and shows the other same-name source as hidden", async () => {
+    const own = present(
+      REPORT.extensions.find((row) => row.name === "hello"),
+      "hello source",
+    );
+    const hiddenDigest = `sha256:${"ef".repeat(32)}`;
+    report = {
+      ...REPORT,
+      extensions: [
+        ...REPORT.extensions,
+        {
+          ...own,
+          source: "/cache/other/hello.ts",
+          digest: hiddenDigest,
+          origin: { kind: "link", scope: "user" },
+          shadowed: own.source,
+        },
+      ],
+    };
+    await openFromHeader();
+    expect(container.querySelectorAll('[data-testid="extension-hello"]')).toHaveLength(1);
+    await openComposes("hello");
+    expect(card("hello").querySelector('[data-testid="trust-hello"]')?.textContent).toContain(
+      DIGEST,
+    );
+    const fold = present(
+      card("hello").querySelector<HTMLButtonElement>(
+        '[data-settings-fold="sys.extension.hello:hidden"]',
+      ),
+      "hidden sources",
+    );
+    if (fold.getAttribute("aria-expanded") !== "true") await act(async () => fold.click());
+    const hidden = present(
+      card("hello").querySelector('[data-extension-hidden="hello"]'),
+      "hidden source",
+    );
+    expect(hidden.textContent).toContain("user link");
+    expect(hidden.textContent).toContain(hiddenDigest);
+  });
+
+  it("an older report cannot replace the sources from a later catalog refresh", async () => {
+    await openFromHeader();
+    await openComposes("hello");
+    const older = Promise.withResolvers<ActionResponse>();
+    waitingList = older.promise;
+    await act(async () => loadManifest());
+    const newerDigest = `sha256:${"cd".repeat(32)}`;
+    report = {
+      ...REPORT,
+      extensions: REPORT.extensions.map((row) =>
+        row.name === "hello" ? { ...row, digest: newerDigest, trusted: false } : row,
+      ),
+    };
+    await act(async () => loadManifest());
+    await until(() => card("hello").textContent.includes(newerDigest));
+    older.resolve({ status: "succeeded", id: "extension.list", output: REPORT, rev: 3 });
+    await settle();
+    expect(card("hello").querySelector('[data-testid="trust-hello"]')?.textContent).toContain(
+      newerDigest,
+    );
   });
 
   it("lists the listeners asked in turn, in order, and the extensions refused, in Advanced", async () => {

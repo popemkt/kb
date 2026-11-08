@@ -40,11 +40,15 @@ import {
 import { SETTINGS_PARTS, type SettingsPart } from "@kb/views";
 import { ArrowsHorizontalIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { useExtensionReport, type PanelExtension, type PanelReport } from "@/lib/extension-report";
+import {
+  useExtensionReport,
+  type PanelExtensionGroup,
+  type PanelReport,
+} from "@/lib/extension-report";
 import { PART_WORDS, settingsPartOf, settingsPath } from "@/lib/settings-parts";
 import { useMotionStore } from "@/stores/motion.store";
 import { usePrefsStore } from "@/stores/prefs.store";
-import { Composes, ExtensionSwitch, PartLink, ReportStatus } from "./settings-extensions";
+import { ExtensionDetails, ExtensionSwitch, PartLink, ReportStatus } from "./settings-extensions";
 import { Fold, SettingRow, type Row, type Section } from "./settings-fold";
 
 const CORE = extensionNodeId("core");
@@ -557,10 +561,10 @@ function extensionSections(
   nodes: readonly { id: NodeId; label: string; settings: readonly Setting[] }[],
   report: PanelReport | string | null,
 ): readonly Section[] {
-  const rows = typeof report === "object" && report !== null ? report.extensions : [];
-  const byNode = new Map(rows.map((extension) => [extensionNodeId(extension.row.name), extension]));
+  const rows = typeof report === "object" && report !== null ? report.groups : [];
+  const byNode = new Map(rows.map((extension) => [extensionNodeId(extension.name), extension]));
   const known = new Set(nodes.map((node) => node.id));
-  const extra = rows.filter((extension) => !known.has(extensionNodeId(extension.row.name)));
+  const extra = rows.filter((extension) => !known.has(extensionNodeId(extension.name)));
   return [
     ...nodes.map(({ id, label, settings }) =>
       extensionSection(graph, id, label, settings, byNode.get(id)),
@@ -568,8 +572,8 @@ function extensionSections(
     ...extra.map((extension) =>
       extensionSection(
         graph,
-        extensionNodeId(extension.row.name),
-        extension.row.label,
+        extensionNodeId(extension.name),
+        extension.effective?.row.label ?? extension.name,
         [],
         extension,
       ),
@@ -582,9 +586,10 @@ function extensionSection(
   nodeId: NodeId,
   label: string,
   settings: readonly Setting[],
-  extension: PanelExtension | undefined,
+  group: PanelExtensionGroup | undefined,
 ): Section {
-  const name = extension?.row.name ?? nodeId.replace(/^sys\.extension\./, "");
+  const extension = group?.effective;
+  const name = group?.name ?? nodeId.replace(/^sys\.extension\./, "");
   const core = nodeId === CORE;
   return {
     id: nodeId,
@@ -612,7 +617,7 @@ function extensionSection(
             <SettingRow graph={graph} nodeId={nodeId} field={setting.field} label={setting.label} />
           ),
         })),
-    after: extension === undefined ? null : <Composes nodeId={nodeId} extension={extension} />,
+    after: group === undefined ? null : <ExtensionDetails nodeId={nodeId} group={group} />,
   };
 }
 

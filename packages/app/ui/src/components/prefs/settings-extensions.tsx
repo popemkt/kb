@@ -8,7 +8,13 @@ import type { NodeId } from "@kb/model";
 import { type EnumOption, EnumSelect, navigate, POPOVER_VALUE_CLASS } from "@kb/ui-sdk";
 import type { SettingsPart } from "@kb/views";
 import type { ReactNode } from "react";
-import { switchExtension, type PanelExtension, type PanelReport } from "@/lib/extension-report";
+import {
+  switchExtension,
+  extensionSourceLabel,
+  type PanelExtension,
+  type PanelExtensionGroup,
+  type PanelReport,
+} from "@/lib/extension-report";
 import { settingsPath } from "@/lib/settings-parts";
 import { Disclosure } from "./settings-fold";
 
@@ -69,7 +75,7 @@ export function ExtensionSwitch({ extension }: { readonly extension: PanelExtens
 }
 
 /** Why its plugins failed, then a fold of its trust, tags, contributions and services. */
-export function Composes({
+function Composes({
   nodeId,
   extension,
 }: {
@@ -119,6 +125,47 @@ export function Composes({
           </ul>
         )}
       </Disclosure>
+    </>
+  );
+}
+
+/** One effective family and its explicitly hidden source copies. */
+export function ExtensionDetails({
+  nodeId,
+  group,
+}: {
+  readonly nodeId: NodeId;
+  readonly group: PanelExtensionGroup;
+}) {
+  return (
+    <>
+      {group.effective === undefined ? null : (
+        <Composes nodeId={nodeId} extension={group.effective} />
+      )}
+      {group.hidden.length === 0 ? null : (
+        <Disclosure
+          id={`${nodeId}:hidden`}
+          title={`Hidden sources (${group.hidden.length})`}
+          level="inner"
+          opensBy={false}
+        >
+          <ul className="space-y-2 text-meta text-muted-foreground">
+            {group.hidden.map((row) => (
+              <li key={JSON.stringify([row.source, row.origin])} data-extension-hidden={row.name}>
+                <p>
+                  {extensionSourceLabel(row)} · hidden by {row.shadowed}
+                </p>
+                <p className="break-all font-mono text-caption">{row.source}</p>
+                {row.digest === undefined ? null : (
+                  <p className="break-all font-mono text-caption">
+                    {row.trusted === false ? "untrusted" : "trusted"} at {row.digest}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Disclosure>
+      )}
     </>
   );
 }
