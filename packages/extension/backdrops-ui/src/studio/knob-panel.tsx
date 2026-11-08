@@ -107,7 +107,8 @@ export function KnobPanel({ groups }: { readonly groups: readonly KnobGroup[] })
   return (
     <section
       aria-label="Knobs"
-      className="pointer-events-auto flex w-80 flex-col gap-3 rounded-lg border border-foreground/10 bg-popover/85 p-3 text-meta shadow-floating backdrop-blur-md"
+      className="pointer-events-auto flex w-80 max-w-full flex-col gap-3 rounded-lg border border-foreground/10 bg-popover/85 p-3 text-meta shadow-floating backdrop-blur-md"
+      data-studio-panel=""
     >
       <header className="flex items-center gap-2">
         <h2 className="flex-1 font-medium text-foreground/80">Knobs</h2>

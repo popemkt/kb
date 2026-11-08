@@ -1,10 +1,12 @@
 /**
- * One backdrop in the studio (DESIGN-UI.md → Backdrop Studio): its scene
- * full-size, the only one running, under a thin header (back to the
- * gallery, its name and credit, the extension it comes from if a plugin's, a variant switcher, a strength preview,
- * the perf readout, and "Use as my page backdrop"), with the knob panel
- * over it. The frame is the one every head draws (`BackdropFrame`), so what
- * the studio shows is what a page head shows.
+ * One backdrop in the studio (DESIGN-UI.md → Backdrop Studio): its scene,
+ * the only one running, under a thin header (back to the gallery, its name
+ * and credit, the extension it comes from if a plugin's, a variant
+ * switcher, a strength preview, the perf readout, and "Use as my page
+ * backdrop") and the framing bar (its preview size, zoom and pan, and
+ * Interact), with the knob and interaction panels over it. The frame is the
+ * one every head draws (`BackdropFrame`), so what the studio shows is what a
+ * page head shows.
  */
 import { useCallback, useState } from "react";
 import { ArrowLeftIcon, CheckIcon } from "@phosphor-icons/react";
@@ -24,7 +26,7 @@ import {
   BackdropFrame,
   browserHost,
   navigate,
-  QUIET_ACTIVITY,
+  NO_POINTER,
   useAppearance,
   useLoadSeed,
   useNode,
@@ -33,9 +35,13 @@ import {
   type Backdrop,
 } from "@kb/ui-sdk";
 import { KnobPanel, type KnobGroup } from "./knob-panel";
+import { useStudioActivity } from "./interact";
 import { PerfReadout } from "./perf-readout";
 import { studioPath } from "./routes";
 import { Segments } from "./segments";
+import { FramingBar, InteractionsPanel } from "./studio-controls";
+import { StudioStage } from "./studio-stage";
+import { useFraming } from "./use-framing";
 
 /** Make `id` the backdrop every page head shows by default: core's setting, as Settings writes it. */
 function UseAsPageBackdrop({ id }: { readonly id: string }) {
@@ -180,6 +186,9 @@ export function StudioScene({
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [pointer, attachPointer] = usePointerOver();
   const page = usePageBackdrop();
+  const framing = useFraming(backdrop.presentation);
+  const owner = useStudioActivity();
+  const [interacting, setInteracting] = useState(false);
   const frameRef = useCallback(
     (el: HTMLDivElement | null) => {
       setFrame(el);
@@ -198,25 +207,38 @@ export function StudioScene({
       data-studio-backdrop={key.id}
     >
       <StudioHeader backdrop={backdrop} from={from} shown={shown} onShow={setShown} frame={frame} />
-      <div className="relative min-h-0 flex-1">
+      <FramingBar framing={framing} interacting={interacting} onInteract={setInteracting} />
+      <StudioStage
+        framing={framing}
+        interacting={interacting}
+        overlay={
+          <div className="pointer-events-none absolute inset-y-4 right-4 z-10 flex w-80 max-w-[calc(100%-2rem)] flex-col overflow-y-auto">
+            <div className="mt-auto flex flex-col gap-3">
+              <InteractionsPanel
+                interactions={backdrop.interactions}
+                interacting={interacting}
+                owner={owner}
+              />
+              <KnobPanel groups={groupsOf(backdrop, shown.variant)} />
+            </div>
+          </div>
+        }
+      >
         <BackdropFrame
           id={id}
           backdrop={backdrop}
           frameRef={frameRef}
           placement={{ left: 0, top: 0, width: "100%", height: "100%" }}
           color="var(--primary)"
-          node={undefined}
+          node={owner.node}
           strength={shown.strength}
           direction={page.direction}
           art={page.art}
           pinned={shown.variant === null ? [] : [backdropVariantId(key.id, shown.variant)]}
-          activity={QUIET_ACTIVITY}
-          pointer={pointer}
+          activity={owner.activity}
+          pointer={interacting ? pointer : NO_POINTER}
         />
-        <div className="pointer-events-none absolute inset-y-4 right-4 z-10 flex flex-col justify-end">
-          <KnobPanel groups={groupsOf(backdrop, shown.variant)} />
-        </div>
-      </div>
+      </StudioStage>
     </div>
   );
 }

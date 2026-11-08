@@ -5559,10 +5559,10 @@ it as kb's own are, and a family switched off takes its backdrops out.
   counts four times over, so a wash or a dusk scene, made to sit quietly
   behind a page's text, reads as itself; a scene that paints its own
   ground is opaque and shows as it is. Pages never see it.
-- **One backdrop** is its scene full-size in the frame every head draws
-  (`BackdropFrame`, its placement the whole page under a thin header), so
-  what the studio shows is what a head shows, and it is the only scene
-  running: the gallery is not mounted under it.
+- **One backdrop** is its scene in the frame every head draws
+  (`BackdropFrame`), under a thin header and the framing bar, so what the
+  studio shows is what a head shows, and it is the only scene running: the
+  gallery is not mounted under it.
   - The header: back to the gallery, its name and credit, a variant
     switcher (it pins the one shown; the studio opens on the variant a
     head would draw now), a strength preview (the studio's own, written
@@ -5583,6 +5583,29 @@ it as kb's own are, and a family switched off takes its backdrops out.
     A scene over its budget is warned of in words, not in colour alone:
     _over budget_, and _over budget at its lowest quality_ once its meter
     has nothing left to step down.
+  - **Framing.** The scene is laid out at its own size and scaled on
+    screen (`framing.ts`), so at 1:1 a pixel of it is a pixel of a page
+    and its meter measures what a page would pay. Its size is a
+    preview: the **page head**'s strip (the studio's width at its
+    presentation's height), the **full page** (the studio's viewport, as
+    it opens), or an **aspect** of chosen proportions across the width.
+    Its zoom is **Fit** (the whole scene, whatever the viewport's size;
+    how it opens), **1:1**, or a step in or out, about the viewport's
+    centre; a scene larger than the viewport is panned by dragging it,
+    held so no edge comes inside, and **Reset** fits and centres it
+    again. Choosing a preview fits it. The panels over the scene are
+    never scaled, and a press on one is the panel's, not a pan.
+  - **Interact.** The backdrop's interactions (Its interactions, above)
+    are a panel over the scene, each its cue in words and its line. The
+    **Interact** switch hands the scene the person's pointer: outside it
+    the scene sees no pointer, and dragging pans. In it, each cue that is
+    not the pointer can be tried: the studio stands in for the page's
+    owner (`useStudioActivity`), so **Try** on a write or one of the
+    page's events counts it once more in the activity the scene is
+    handed, on typing plays a burst of keystrokes (editing, a write each,
+    then a pause and no longer editing), and on another page hands it a
+    page of its own, so a scene hears a move. The scene reads them as it
+    reads a page's, so what it does here is what a page would make it do.
 - **Reached** from a page head: a double-click on its backdrop offers
   _Open in Studio_ (Its actions, above), which opens the backdrop shown.
 - **Lazy.** The page's module and everything under it load only when the

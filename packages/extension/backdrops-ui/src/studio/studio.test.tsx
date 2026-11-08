@@ -29,6 +29,7 @@ import { definePlugin } from "@kb/plugin";
 import {
   BACKDROP_BUDGETS,
   BackdropPoint,
+  NO_POINTER,
   provideBackdrop,
   syncUiPlugins,
   type BackdropProps,
@@ -63,7 +64,7 @@ const OTHER: SeedBackdrop = { id: "elsewhere.wash", label: "Wash" };
 let mounts: string[] = [];
 
 function probeScene(id: string) {
-  return function ProbeScene({ knobs, variant, strength }: BackdropProps) {
+  return function ProbeScene({ knobs, variant, strength, activity, node, pointer }: BackdropProps) {
     if (!mounts.includes(id)) mounts.push(id);
     return (
       <div
@@ -71,6 +72,9 @@ function probeScene(id: string) {
         data-variant={variant ?? ""}
         data-strength={strength}
         data-knobs={JSON.stringify(knobs)}
+        data-activity={JSON.stringify(activity)}
+        data-node={node?.id ?? ""}
+        data-pointing={String(pointer !== NO_POINTER)}
       />
     );
   };
@@ -170,6 +174,15 @@ const button = (name: string): HTMLButtonElement => {
   return found;
 };
 
+/** The probe's scene, and the activity the studio hands it. */
+const probe = () => document.querySelector("[data-probe]");
+const activity = () =>
+  JSON.parse(probe()?.getAttribute("data-activity") ?? "{}") as Record<string, unknown>;
+/** The studio's stage, and the size its scene is laid out at. */
+const stage = () => document.querySelector("[data-studio-stage]");
+const size = () =>
+  document.querySelector("[data-studio-scene-size]")?.getAttribute("data-studio-scene-size");
+
 const node = (id: string, props: OutlineNode["props"] = {}): OutlineNode =>
   ({ id, text: id, props, children: [] }) as unknown as OutlineNode;
 
@@ -234,7 +247,7 @@ describe("Backdrop Studio", () => {
     try {
       act(() => root.render(<StudioPage />));
       const strengths = [...document.querySelectorAll<HTMLElement>("[data-probe]")].map(
-        (probe) => probe.dataset.strength,
+        (scene) => scene.dataset.strength,
       );
       expect(strengths).toEqual(["vivid", "vivid"]);
       // A dark gallery's exposure is the gallery's own filter.
@@ -321,6 +334,83 @@ describe("Backdrop Studio", () => {
         value: { t: "ref", v: backdropOptionId(OTHER.id) },
       },
     ]);
+  });
+
+  test("it lists what the backdrop answers, each cue said in words, and says when it answers nothing", () => {
+    act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+    const rows = [...document.querySelectorAll("[data-studio-cue]")];
+    expect(rows.map((cue) => cue.getAttribute("data-studio-cue"))).toEqual([
+      "pointer",
+      "editing",
+      "arrivals",
+    ]);
+    expect(rows[0]?.textContent).toContain("Pointer");
+    expect(rows[0]?.textContent).toContain("a dot follows the cursor");
+    expect(rows[1]?.textContent).toContain("Typing");
+    act(() => root.render(<StudioPage backdrop={OTHER.id} />));
+    expect(document.querySelector("[data-studio-interactions]")?.textContent).toContain(
+      "It answers nothing",
+    );
+  });
+
+  test("Interact hands the scene the person's pointer, and acts out each cue as a page's owner would", () => {
+    act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+    // Outside Interact, the pointer is the studio's (it pans) and nothing can be tried.
+    expect(probe()?.getAttribute("data-pointing")).toBe("false");
+    expect(document.querySelector('[aria-label^="Try:"]')).toBeNull();
+    act(() => button("Interact with the scene").click());
+    expect(button("Stop interacting").getAttribute("aria-pressed")).toBe("true");
+    expect(probe()?.getAttribute("data-pointing")).toBe("true");
+    act(() => button("Try: A change from elsewhere").click());
+    expect(activity()).toMatchObject({ arrivals: 1, editing: false });
+    vi.useFakeTimers();
+    try {
+      act(() => button("Try: Typing").click());
+      expect(button("Try: Typing").disabled).toBe(true);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(activity()).toMatchObject({ editing: true });
+      act(() => {
+        vi.runAllTimers();
+      });
+      expect(activity()).toMatchObject({ editing: false, arrivals: 1 });
+      expect(activity()["writes"]).toBeGreaterThan(0);
+      expect(button("Try: Typing").disabled).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("the scene is framed as a page head's strip, the full page or an aspect, fitted, and zooms to 1:1 and back", () => {
+    const sizes = { clientWidth: 1000, clientHeight: 500 };
+    const restore = Object.entries(sizes).map(([key, value]) => {
+      const was = Object.getOwnPropertyDescriptor(HTMLElement.prototype, key);
+      Object.defineProperty(HTMLElement.prototype, key, { configurable: true, get: () => value });
+      return () => {
+        if (was !== undefined) Object.defineProperty(HTMLElement.prototype, key, was);
+      };
+    });
+    try {
+      act(() => root.render(<StudioPage backdrop={PROBE.id} />));
+      expect(size()).toBe("1000x500");
+      expect(stage()?.getAttribute("data-studio-zoom")).toBe("1.00");
+      act(() => button("Page head").click());
+      expect(size()).toBe(`1000x${presentation.height}`);
+      act(() => button("Aspect").click());
+      act(() => button("9:16").click());
+      expect(size()).toBe("1000x1778");
+      // Fitted, the whole of it shows.
+      expect(Number(stage()?.getAttribute("data-studio-zoom"))).toBeCloseTo(500 / 1778, 2);
+      act(() => button("Its own size, 1:1").click());
+      expect(stage()?.getAttribute("data-studio-zoom")).toBe("1.00");
+      act(() => button("Zoom in").click());
+      expect(stage()?.getAttribute("data-studio-zoom")).toBe("1.25");
+      act(() => button("Reset the view").click());
+      expect(Number(stage()?.getAttribute("data-studio-zoom"))).toBeCloseTo(500 / 1778, 2);
+    } finally {
+      for (const undo of restore) undo();
+    }
   });
 
   test("a backdrop nothing contributes says so", () => {
