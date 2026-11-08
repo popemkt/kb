@@ -5043,8 +5043,12 @@ setup page shows beside the field). `kb ui` binds `systemSecrets`
     TPM2 when it has one, with no PCR policy so a firmware update keeps the
     secret. A copied file opens on no other machine.
   - `aes-256-gcm` otherwise: WebCrypto, a random 96-bit nonce per seal, and
-    a random 256-bit key in `<data>/secrets/key` (0600, created with an
-    exclusive create so two writers agree on one key).
+    a random 256-bit key in `<data>/secrets/key` (0600). The key is made
+    on the first seal under the key file's own lock, checked again there so
+    two writers agree on one, and published whole (written and synced
+    beside it, renamed into place, the directory synced), so no reader
+    sees part of one and a crash leaves no key rather than a broken one;
+    an existing key, even a malformed one, is never replaced.
 
   Both bind the name into the seal (the name is systemd-creds' `--name`,
   and AES-GCM's additional data is `kb-sealed/1\0<name>`), so a file

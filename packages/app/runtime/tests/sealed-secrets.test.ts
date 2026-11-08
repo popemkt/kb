@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { aesGcmCipher, sealedSecrets, systemdCredsCipher } from "../src/index.ts";
 import { sealedContract } from "./sealed-contract.ts";
 
@@ -47,6 +47,56 @@ describe("aes-256-gcm", () => {
         },
       });
       expect(await readFile(join(dir, "a.sealed"), "utf8")).not.toContain("secret");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("first seals at once agree on one key, published whole", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-sealed-race-"));
+    const dir = join(root, "secrets");
+    // Separate ciphers over one key file, as two writers are.
+    const writer = () =>
+      sealedSecrets({ dir: () => dir, ciphers: [aesGcmCipher(() => join(dir, "key"))] });
+    try {
+      const names = ["a", "b", "c", "d", "e", "f"];
+      await Promise.all(
+        names.map((name) =>
+          Effect.runPromise(writer().sink({ kind: "sealed", name }).write(`value-${name}`)),
+        ),
+      );
+      for (const name of names)
+        expect(await Effect.runPromise(writer().resolve({ kind: "sealed", name }))).toBe(
+          `value-${name}`,
+        );
+      expect((await readFile(join(dir, "key"), "utf8")).trim()).toMatch(/^[A-Za-z0-9+/]{43}=$/);
+      expect((await readdir(dir)).filter((file) => !file.endsWith(".sealed"))).toEqual(["key"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a creation cut short leaves no key, and a malformed key is refused, never replaced", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-sealed-cut-"));
+    const dir = join(root, "secrets");
+    const store = sealedSecrets({
+      dir: () => dir,
+      ciphers: [aesGcmCipher(() => join(dir, "key"))],
+    });
+    const write = (name: string) =>
+      Effect.runPromise(Effect.result(store.sink({ kind: "sealed", name }).write("secret")));
+    try {
+      // A writer that died before publishing left only its candidate beside the key.
+      await mkdir(dir, { recursive: true, mode: 0o700 });
+      await writeFile(join(dir, "key.99999.0.tmp"), "", { mode: 0o600 });
+      expect(Result.isSuccess(await write("a"))).toBe(true);
+      expect(await Effect.runPromise(store.resolve({ kind: "sealed", name: "a" }))).toBe("secret");
+      // A key that is there but broken may still be what older files were sealed under.
+      await writeFile(join(dir, "key"), "\n", { mode: 0o600 });
+      expect(await write("b")).toMatchObject({
+        failure: { message: "the sealed secret b: the sealed store's key file cannot be read" },
+      });
+      expect(await readFile(join(dir, "key"), "utf8")).toBe("\n");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

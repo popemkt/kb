@@ -26,10 +26,9 @@ import {
   rmSync,
   statSync,
   chmodSync,
-  writeSync,
 } from "node:fs";
 import { join } from "node:path";
-import { Effect, Predicate } from "effect";
+import { Effect, Predicate, Result } from "effect";
 import {
   acquireFileWriteLockEffect,
   durableReplaceFile,
@@ -168,40 +167,55 @@ const fromBase64 = (text: string) => new Uint8Array(Buffer.from(text, "base64"))
 const KEY_BYTES = 32;
 const NONCE_BYTES = 12;
 
+const unreadableKey = () =>
+  new SecretError({ message: "the sealed store's key file cannot be read" });
+
+/** The key file's bytes; a missing file fails with its ENOENT, anything else malformed. */
+function readKeyFile(path: string): Uint8Array {
+  const key = fromBase64(readPrivate(path).trim());
+  if (key.length !== KEY_BYTES) throw new Error("malformed key");
+  return key;
+}
+
 /**
- * AES-256-GCM with a random key kept in `keyPath` (0600, created on the
- * first seal with an exclusive create, so two writers agree on one key).
- * The nonce is random per seal and stored before the ciphertext.
+ * The key at `path`, made on the first seal when there is none. It is made
+ * under the key file's own lock and checked again there, so two writers
+ * agree on one key, and published whole (written and synced beside it, then
+ * renamed into place, the directory synced), so a reader never sees part of
+ * one and a crash leaves no key rather than a broken one. An existing key is
+ * never replaced: what it sealed would no longer open.
+ */
+const keyBytes = Effect.fn("kb.secrets.aes.key")(function* (path: string, create: boolean) {
+  const read = Effect.try({
+    try: () => readKeyFile(path),
+    catch: (error) => (isMissing(error) ? ("missing" as const) : ("unreadable" as const)),
+  });
+  const first = yield* Effect.result(read);
+  if (Result.isSuccess(first)) return first.success;
+  if (!create || first.failure !== "missing") return yield* unreadableKey();
+  yield* Effect.acquireRelease(
+    acquireFileWriteLockEffect(path).pipe(Effect.mapError(unreadableKey)),
+    (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
+  );
+  const again = yield* Effect.result(read);
+  if (Result.isSuccess(again)) return again.success;
+  if (again.failure !== "missing") return yield* unreadableKey();
+  const key = crypto.getRandomValues(new Uint8Array(KEY_BYTES));
+  yield* Effect.try({
+    try: () => durableReplaceFile({ path, body: `${toBase64(key)}\n`, mode: 0o600 }),
+    catch: unreadableKey,
+  });
+  return key;
+}, Effect.scoped);
+
+/**
+ * AES-256-GCM with a random key kept in `keyPath` (0600, made on the first
+ * seal; `keyBytes`). The nonce is random per seal and stored before the
+ * ciphertext.
  */
 export function aesGcmCipher(keyPath: () => string): SealCipher {
-  const readKey = (create: boolean): Uint8Array => {
-    try {
-      const key = fromBase64(readPrivate(keyPath()).trim());
-      if (key.length !== KEY_BYTES) throw new Error("malformed key");
-      return key;
-    } catch (error) {
-      if (!create || !isMissing(error)) throw error;
-    }
-    const key = crypto.getRandomValues(new Uint8Array(KEY_BYTES));
-    try {
-      const file = openSync(keyPath(), "wx", 0o600);
-      try {
-        writeSync(file, toBase64(key) + "\n");
-      } finally {
-        closeSync(file);
-      }
-      return key;
-    } catch (error) {
-      if (Predicate.isObject(error) && "code" in error && error.code === "EEXIST")
-        return readKey(false);
-      throw error;
-    }
-  };
   const importKey = (create: boolean) =>
-    Effect.try({
-      try: () => readKey(create),
-      catch: () => new SecretError({ message: "the sealed store's key file cannot be read" }),
-    }).pipe(
+    keyBytes(keyPath(), create).pipe(
       Effect.flatMap((raw) =>
         Effect.tryPromise({
           try: () =>
