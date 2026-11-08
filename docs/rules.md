@@ -367,14 +367,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Step 11 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
 - **node** — `01M6RTRGPNHP3MD7DF6G0EAPE8`
 
-### GAP: a running kb ui does not see a lock change
-
-- **expected** — kb ui watches the lock files it composed from and re-reads closures when one changes, so an update shows as an untrusted row with no restart.
-- **current** — Closures are read once per process (closureCache).
-- **impact** — After an update from an agent thread, the person must restart kb ui before trusting.
-- **closes** — Step 12 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTRHC3PXK31QCQ0M81CDGB`
-
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
 - **expected** — a guest's graph.query has a deadline in the query layer
@@ -905,12 +897,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
 
-### GAP: installed extensions still lack the SDK backdrop surface and live lock reload
+### GAP: installed extension distribution awaits the SDK backdrop acceptance
 
-- **expected** — An extension's bytes can come from a GitHub path pinned to a full commit sha: they are fetched once per machine into a read-only, content-addressed tree store under kb's per-user data directory, each store's committed lock (with local and user scopes beside it) records original and locked (rev, files), and discovery reads one ordered list of extension folders (docs/research/2026-11-06-plugin-install-plan.md §1, §2).
-- **current** — The CLI lifecycle and marketplaces are implemented (DESIGN.md, Core boundary & extensions). SDK backdrop exports and live lock reload remain steps 11 and 12.
-- **impact** — Taking an extension from outside the repo is a manual copy; an update is a hand edit, and nothing says what it came from or whether it was altered after.
-- **closes** — Steps 1-4, S, 7, 8, 10, 11 and 12 of docs/research/2026-11-06-plugin-install-plan.md, each its own child gap.
+- **expected** — Installed-extension distribution meets the accepted plugin-install plan; the remaining SDK acceptance is GAP: a repository extension cannot contribute a backdrop.
+- **current** — The CLI lifecycle, marketplaces and live reload are implemented (DESIGN.md, Core boundary & extensions). Step 11 waits for owner approval of #107 and the SDK backdrop exports.
+- **impact** — The sample's third-party backdrop cannot be accepted in the Studio until #107 and the SDK exports land.
+- **closes** — Step 11 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
 - **node** — `01M68NF91SD1D15C00TYDTPQXE`
 
 ### GAP: kb cannot be edited offline and merged later; devices meet only through git

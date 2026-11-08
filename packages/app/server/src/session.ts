@@ -158,6 +158,14 @@ export class SubscriptionHub {
     Effect.runFork(this.screens.dispose());
   }
 
+  /** Runtime definitions moved without a node delta; answers still follow the index. */
+  manifestChanged(): Effect.Effect<void> {
+    const payload = JSON.stringify({ op: "manifest-changed" } satisfies ServerMessage);
+    return Effect.forEach([...this.clients.values()], (client) => client.send(payload), {
+      discard: true,
+    }).pipe(Effect.andThen(this.publishRows(this.ctx.log.head)));
+  }
+
   /** Test hook: number of live clients. */
   get clientCount(): number {
     return this.clients.size;

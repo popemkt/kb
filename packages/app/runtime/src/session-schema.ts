@@ -1,6 +1,8 @@
 /** The runtime owns reconciling a session with its families' folded schema. */
-import { Effect } from "effect";
+import { Effect, Semaphore } from "effect";
 import {
+  currentIso,
+  foldSeed,
   diffTx,
   ensureSystemSeed,
   migrateDateValues,
@@ -10,15 +12,47 @@ import {
   type KbNode,
   type StoreTx,
 } from "@kb/model";
-import type { KbContext } from "@kb/contracts";
+import { KbStore, type KbContext, type ExtensionDeclaration } from "@kb/contracts";
+import type { FileSystem } from "effect/FileSystem";
+import { derivedOf } from "@kb/bundled";
+import { reloadEffect } from "@kb/operations";
+import { rootFamilies, type RootFamilies } from "./families.ts";
 import { persistOwnWrite } from "./own-write.ts";
 
-export const applySessionSeed = Effect.fn("kb.applySessionSeed")(function* (
+const applySessionSeed = Effect.fn("kb.applySessionSeed")(function* (
   ctx: KbContext,
   seed: FoldedSeed,
 ): Effect.fn.Return<void, DomainError> {
   if (migrationOf(ctx.nodes, seed) !== null)
     yield* persistOwnWrite(ctx, (nodes) => Effect.succeed(migrationOf(nodes, seed)));
+});
+
+/** Serialize schema transitions for a session; a waiting refresh resolves the latest families. */
+const states = new WeakMap<
+  KbContext,
+  { gate: Semaphore.Semaphore; declarations?: readonly ExtensionDeclaration[] }
+>();
+export const reconcileSessionSchema = Effect.fn("kb.reconcileSessionSchema")(function* (
+  ctx: KbContext,
+): Effect.fn.Return<RootFamilies, DomainError, FileSystem> {
+  let state = states.get(ctx);
+  if (state === undefined) {
+    state = { gate: Semaphore.makeUnsafe(1) };
+    states.set(ctx, state);
+  }
+  const held = state;
+  return yield* held.gate.withPermits(1)(
+    Effect.gen(function* () {
+      const families = yield* rootFamilies(ctx.root);
+      const { declarations } = families;
+      if (held.declarations === declarations) return families;
+      yield* reloadEffect(ctx).pipe(Effect.provideService(KbStore, ctx.store));
+      yield* applySessionSeed(ctx, foldSeed(declarations, yield* currentIso));
+      ctx.index.setDerived(derivedOf(declarations));
+      held.declarations = declarations;
+      return families;
+    }),
+  );
 });
 
 /**

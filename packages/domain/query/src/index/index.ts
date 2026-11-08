@@ -104,6 +104,13 @@ export interface NodeIndex {
  */
 export interface KbIndex extends NodeIndex {
   /**
+   * Replace the full query index's derived-reference definition. Rebuild
+   * its facts and point reads over the same stored and virtual nodes,
+   * preserving ids, advancing generation and forgetting cached answers.
+   */
+  setDerived(derived: readonly DerivedRef[]): void;
+
+  /**
    * Raw datalog in the engine's own dialect, as rows. Engine-specific by
    * construction: this is the surface `graph.query` / `kb query` / the WS
    * `subscribe` frame expose to users, EDN and all.

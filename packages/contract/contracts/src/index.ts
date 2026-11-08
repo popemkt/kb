@@ -269,6 +269,7 @@ export {
   ExtensionCompiler,
   EXTENSION_SCOPES,
   DEFAULT_EXTENSION_SCOPE,
+  EXTENSION_RELOAD,
   ExtensionScopeSchema,
   ExtensionNameSchema,
   SourceHashSchema,

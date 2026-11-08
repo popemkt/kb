@@ -11,7 +11,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve, relative } from "node:path";
-import { Effect, Layer, Schema, Option } from "effect";
+import { Effect, Layer, Schema, Option, Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { containedPath } from "./contained.ts";
 import { canonicalRoot } from "./ui-presence.ts";
@@ -25,6 +25,7 @@ import {
 import {
   CachedSourceSchema,
   ExtensionStorage,
+  EXTENSION_SCOPES,
   ExtensionLockSchema,
   SourceKindSchema,
   SourceAddressSchema,
@@ -41,6 +42,7 @@ import {
   releaseFileWriteLock,
   durableReplaceFile,
 } from "@kb/file-write";
+import { watchedFileState } from "./file-state.ts";
 import { currentData } from "./home.ts";
 
 const emptyLock = (): ExtensionLock => ({
@@ -446,11 +448,10 @@ const collection = Effect.fn("extensions.collection")(function* (
     if (Option.isNone(value)) continue;
     const record = rootRecord(value.value);
     if (Option.isNone(record) || name !== `${localKey(record.value.root)}.json`) continue;
-    const location = yield* lockLocation(data, record.value.root, "local");
-    if (location.path !== path) continue;
-    const declared = yield* decodeLock(location, value.value);
+    const declared = yield* decodeLock({ path, root: record.value.root }, value.value);
     if (declared.kind !== "held") continue;
-    if ((yield* fileInfo(record.value.root)) === null)
+    const location = yield* lockLocation(data, record.value.root, "local");
+    if (location.path !== path || (yield* fileInfo(record.value.root)) === null)
       orphanedLocalLocks.push({ path, root: record.value.root });
     else include(declared.lock);
   }
@@ -523,7 +524,18 @@ export const extensionStorageLayer = Layer.effect(
         return stored;
       }),
     };
+    const state = Effect.fn("extensions.state")(
+      function* (root: string) {
+        const paths = [];
+        for (const scope of EXTENSION_SCOPES)
+          paths.push((yield* lockLocation(data, root, scope)).path);
+        return watchedFileState(paths, fs);
+      },
+      Effect.provideService(FileSystem, fs),
+    );
     return ExtensionStorage.of({
+      fingerprint: (root) => state(root).pipe(Effect.flatMap((reading) => reading.fingerprint)),
+      changes: (root) => Stream.unwrap(state(root).pipe(Effect.map((reading) => reading.changes))),
       read: (root, scope) =>
         readLock(data, root, scope).pipe(Effect.provideService(FileSystem, fs)),
       tree: readTree.bind(null, data),

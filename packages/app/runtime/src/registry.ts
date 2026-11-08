@@ -1,3 +1,4 @@
+import { reconcileSessionSchema } from "./session-schema.ts";
 import { validateInstallLocks } from "./installed-extensions.ts";
 import { extensionStorageLayer } from "@kb/workspace-fs";
 import { Effect } from "effect";
@@ -631,7 +632,10 @@ function requiredFamilies(): readonly string[] {
 
 /** The registry a session runs in: its root's, as its own store switches the families. */
 export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, FileSystem> {
-  return registryFor(ctx.root, (id) => ctx.index.getNode(id));
+  return reconcileSessionSchema(ctx).pipe(
+    Effect.orDie,
+    Effect.flatMap((families) => registryOf(ctx.root, families, (id) => ctx.index.getNode(id))),
+  );
 }
 
 /**

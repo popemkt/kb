@@ -23,6 +23,7 @@ export interface ServedManifest {
 
 let served: ServedManifest | null = null;
 const listeners = new Set<() => void>();
+let reading = 0;
 
 /** The server's manifest now; null while no server has answered. */
 export function servedManifest(): ServedManifest | null {
@@ -74,7 +75,9 @@ export async function readManifest(): Promise<ManifestRead> {
  * says so in the log; it never fails the boot.
  */
 export async function loadManifest(read: Promise<ManifestRead> = readManifest()): Promise<void> {
+  const mine = ++reading;
   const answered = await read;
+  if (mine !== reading) return;
   if ("problem" in answered) logWarn(`[kb/manifest] ${answered.problem}`);
   else setServedManifest(answered.manifest);
 }

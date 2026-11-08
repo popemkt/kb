@@ -72,27 +72,36 @@ test("a local record bound to a different root is ignored without rewriting it",
     await rm(root, { recursive: true, force: true });
   }
 });
-test("a moved root starts empty and collection lists its orphaned private record", async () => {
-  const at = await mkdtemp(join(tmpdir(), "kb-local-moved-"));
-  const root = join(at, "before");
-  const moved = join(at, "after");
-  await mkdir(root);
-  const canonical = await realpath(root);
-  try {
-    await withStorage((storage) =>
-      storage.mutate((tx) => tx.links(root, "local", { add: "inside" })),
-    );
-    await rename(root, moved);
-    expect((await withStorage((storage) => storage.read(moved, "local"))).lock.links).toEqual([]);
-    const data = await Effect.runPromise(currentData);
-    const path = join(data, "extensions", "local", `${key(canonical)}.json`);
-    const bytes = await readFile(path, "utf8");
-    const result = await withStorage((storage) =>
-      storage.mutate((tx) => tx.collection([moved]).pipe(Effect.flatMap((plan) => plan.sweep))),
-    );
-    expect(result.orphanedLocalLocks).toEqual([{ path, root: canonical }]);
-    expect(await readFile(path, "utf8")).toBe(bytes);
-  } finally {
-    await rm(at, { recursive: true, force: true });
-  }
-});
+for (const replacement of ["missing", "symlink"] as const)
+  test(`a moved root starts empty and its ${replacement} replacement leaves an orphaned private record`, async () => {
+    const at = await mkdtemp(join(tmpdir(), "kb-local-moved-"));
+    const root = join(at, "before");
+    const moved = join(at, "after");
+    await mkdir(root);
+    const canonical = await realpath(root);
+    try {
+      await withStorage((storage) =>
+        storage.mutate((tx) => tx.links(root, "local", { add: "inside" })),
+      );
+      await rename(root, moved);
+      if (replacement === "symlink") {
+        const other = join(at, "other");
+        await mkdir(other);
+        await symlink(other, root);
+        expect((await withStorage((storage) => storage.read(root, "local"))).lock.links).toEqual(
+          [],
+        );
+      }
+      expect((await withStorage((storage) => storage.read(moved, "local"))).lock.links).toEqual([]);
+      const data = await Effect.runPromise(currentData);
+      const path = join(data, "extensions", "local", `${key(canonical)}.json`);
+      const bytes = await readFile(path, "utf8");
+      const result = await withStorage((storage) =>
+        storage.mutate((tx) => tx.collection([moved]).pipe(Effect.flatMap((plan) => plan.sweep))),
+      );
+      expect(result.orphanedLocalLocks).toEqual([{ path, root: canonical }]);
+      expect(await readFile(path, "utf8")).toBe(bytes);
+    } finally {
+      await rm(at, { recursive: true, force: true });
+    }
+  });

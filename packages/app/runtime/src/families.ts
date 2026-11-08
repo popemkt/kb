@@ -18,6 +18,7 @@ import {
   type ExtensionRow,
   familyOn,
   type ExtensionDeclaration,
+  ExtensionStorage,
   type ExtensionFailure,
   type LoadedExtension,
   type NodeLookup,
@@ -112,7 +113,10 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
   if (root === null) return { ...deployed(), failures: [] };
-  const state = rootExtensionState(root);
+  const fingerprint = yield* Effect.gen(function* () {
+    return yield* (yield* ExtensionStorage).fingerprint(root);
+  }).pipe(Effect.provide(extensionStorageLayer));
+  const state = rootExtensionState(root, fingerprint);
   const selected = yield* installedFolders(state).pipe(Effect.provide(extensionStorageLayer));
   const cacheKey = JSON.stringify([root, selected.folders]);
   let reading = state.closures.get(cacheKey);

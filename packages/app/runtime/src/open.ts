@@ -6,13 +6,12 @@
  */
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { currentIso, foldSeed, legacyViewShapes, type DomainError, type KbNode } from "@kb/model";
-import { derivedOf } from "@kb/bundled";
+import { legacyViewShapes, type DomainError, type KbNode } from "@kb/model";
+import { derivedWith } from "@kb/query";
 import type { KbContext } from "@kb/contracts";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
-import { rootFamilies } from "./families.ts";
 import { sessionOver } from "./own-write.ts";
-import { applySessionSeed } from "./session-schema.ts";
+import { reconcileSessionSchema } from "./session-schema.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
@@ -60,11 +59,9 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
   const store = yield* selectStore(root);
-  const { declarations } = yield* rootFamilies(root);
   const loaded = yield* store.loadEffect;
-  const seed = foldSeed(declarations, yield* currentIso);
-  const ctx = yield* sessionOver(root, store, loaded, derivedOf(declarations));
-  yield* applySessionSeed(ctx, seed);
+  const ctx = yield* sessionOver(root, store, loaded, derivedWith({}));
+  yield* reconcileSessionSchema(ctx);
   yield* reportLegacyViews(root, ctx.nodes);
   return ctx;
 });

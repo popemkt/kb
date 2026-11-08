@@ -21,6 +21,8 @@ import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } 
 import { reloadEffect } from "@kb/operations";
 import {
   bunFileSystemLayer,
+  extensionRuntimeChanges,
+  sessionRegistry,
   childProcessEnv,
   openKbEffect,
   registerOpenedRoot,
@@ -363,18 +365,31 @@ const takeOpenedRoot = Effect.fn("kb.takeOpenedRoot")(function* (served: {
   if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
 });
 
-/** One observer follows the extension switches written to this session. */
+/** One observer owns graph switches and the registry identity announced to clients. */
 const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
   ctx: KbContext,
   hosted: HostedExtensions,
+  hub: SubscriptionHub,
 ) {
+  let composition = yield* sessionRegistry(ctx);
+  const announceComposition = Effect.gen(function* () {
+    const next = yield* sessionRegistry(ctx);
+    if (next === composition) return;
+    composition = next;
+    yield* hub.manifestChanged();
+  });
   // A switch written anywhere reaches this session's log; the server composes what it says.
   const fork = Effect.runForkWith(yield* Effect.context());
   const unsubscribe = ctx.log.subscribe((tx) => {
     const ids = [...tx.ops.upserts.map(({ id }) => id), ...tx.ops.deletes];
-    if (ids.some((id) => hosted.switches.has(id))) fork(hosted.converge);
+    fork(
+      Effect.gen(function* () {
+        if (ids.some((id) => hosted.switches.has(id))) yield* hosted.converge;
+        yield* announceComposition;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
   });
-  return { unsubscribe };
+  return { refresh: announceComposition.pipe(Effect.provide(bunFileSystemLayer)), unsubscribe };
 });
 
 /**
@@ -404,7 +419,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     opts.extensions ?? [],
     opts.identity ?? [],
   );
-  const observation = yield* observeExtensions(ctx, hosted);
+  const observation = yield* observeExtensions(ctx, hosted, hub);
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
@@ -460,6 +475,13 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // landed between the open above and the watch is caught by it too.
   yield* Effect.forkIn(
     ingestEach(ctx.store.changes, ingestExternalWrite(ctx).pipe(Effect.provide(layer))),
+    lifetime,
+  );
+  yield* Effect.forkIn(
+    ingestEach(
+      extensionRuntimeChanges(ctx.root).pipe(Stream.provide(bunFileSystemLayer)),
+      observation.refresh,
+    ),
     lifetime,
   );
   yield* Effect.forkIn(

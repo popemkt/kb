@@ -12,6 +12,7 @@ export interface RootSelection {
 /** File readings have one root lifetime; imported immutable closures have their own digest lifetime. */
 export interface RootExtensionState {
   readonly root: string;
+  readonly fingerprint: string;
   selection?: Effect.Effect<RootSelection>;
   readonly closures: Map<
     string,
@@ -19,10 +20,10 @@ export interface RootExtensionState {
   >;
 }
 const states = new Map<string, RootExtensionState>();
-export function rootExtensionState(root: string): RootExtensionState {
+export function rootExtensionState(root: string, fingerprint: string): RootExtensionState {
   let held = states.get(root);
-  if (held === undefined) {
-    held = { root, closures: new Map() };
+  if (held === undefined || held.fingerprint !== fingerprint) {
+    held = { root, fingerprint, closures: new Map() };
     states.set(root, held);
   }
   return held;

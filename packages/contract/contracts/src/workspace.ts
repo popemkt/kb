@@ -1,4 +1,4 @@
-import { Context, type Effect } from "effect";
+import { Context, type Effect, type Stream } from "effect";
 import type { DomainError, LegacyDocsView } from "@kb/model";
 import type { SavedQuery } from "./protocol.ts";
 
@@ -96,6 +96,8 @@ export interface CodeTrustRecord {
   readonly files?: string;
 }
 export interface CodeTrustPort {
+  /** Initial armed state, then shared-ledger changes from any process; never creates or rewrites state. */
+  readonly changes: Stream.Stream<void>;
   /** This machine's independent approval records; several provenances may share a digest. Reads never write. */
   readonly records: Effect.Effect<readonly CodeTrustRecord[], DomainError>;
   /**

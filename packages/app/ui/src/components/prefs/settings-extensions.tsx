@@ -19,10 +19,13 @@ const SWITCH_OPTIONS: readonly EnumOption<"off" | "on">[] = [
 ];
 
 /** Whether kb's build carries it, the `kb ui` host composes it, or a person trusted it at a digest. */
-function trustOf({ source, digest }: PanelExtension["row"]): string {
+function trustOf({ source, digest, trusted, running }: PanelExtension["row"]): string {
   if (source === "bundled") return "part of kb's build";
   if (source === "host") return "composed by kb ui";
-  return digest === undefined ? `from ${source}` : `trusted at ${digest} · ${source}`;
+  if (digest === undefined) return `from ${source}`;
+  const candidate = `${trusted === false ? "untrusted" : "trusted"} at ${digest}`;
+  const active = running === undefined ? "" : ` · running approved ${running.digest}`;
+  return `${candidate}${active} · ${source}`;
 }
 
 export function PartLink({

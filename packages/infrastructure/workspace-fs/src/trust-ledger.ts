@@ -7,6 +7,7 @@ import {
   releaseFileWriteLock,
   durableReplaceFile,
 } from "@kb/file-write";
+import { watchedFileState } from "./file-state.ts";
 import { currentData } from "./home.ts";
 import { domainError, ensureDomainError } from "@kb/model";
 import { internal, isNotFound } from "./errors.ts";
@@ -65,5 +66,5 @@ export const trustLedger = Effect.gen(function* () {
       (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
     );
 
-  return { file, readFile, read, write, locked };
+  return { file, readFile, read, write, locked, changes: watchedFileState([file], fs).changes };
 });

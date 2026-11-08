@@ -67,7 +67,7 @@ export class DatascriptIndex implements KbIndex {
   /** Field attrs that have held a node ref since the last rebuild (`DatascriptDb.refAttrs`). */
   #refAttrs = new Set<string>();
   /** The derived ref attributes this index builds (`DerivedRef`). */
-  readonly #derived: readonly DerivedRef[];
+  #derived: readonly DerivedRef[];
   readonly #clock: ClockSampler | undefined;
   /** Answers by query text, least recently asked first; each held until a transaction touches its read set. */
   readonly #answers = new Map<string, Kept>();
@@ -108,6 +108,12 @@ export class DatascriptIndex implements KbIndex {
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {
     this.#table.rebuild(nodes);
+    this.#buildDatoms();
+  }
+
+  setDerived(derived: readonly DerivedRef[]): void {
+    this.#derived = derived;
+    this.#table.setDerived(derived);
     this.#buildDatoms();
   }
 

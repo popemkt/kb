@@ -38,7 +38,7 @@ export class NodeTable implements NodeIndex {
   /** id → the nodes pointing at it, resolvable or not */
   #refsTo = new Map<NodeId, Set<NodeId>>();
   #storedCache: { generation: number; nodes: KbNode[] } | null = null;
-  readonly #derived: readonly DerivedRef[];
+  #derived: readonly DerivedRef[];
 
   constructor(nodes: ReadonlyArray<KbNode>, derived: readonly DerivedRef[]) {
     this.#derived = derived;
@@ -47,6 +47,12 @@ export class NodeTable implements NodeIndex {
 
   get generation(): number {
     return this.#generation;
+  }
+
+  /** The full index replaces its definition while keeping this node table. */
+  setDerived(derived: readonly DerivedRef[]): void {
+    this.#derived = derived;
+    this.rebuild(this.storedNodes());
   }
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {

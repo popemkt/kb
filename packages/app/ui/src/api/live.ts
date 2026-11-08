@@ -13,6 +13,7 @@
  * tolerates; a burst of frames no longer costs a projection each.
  */
 import { screenRejected, type ScreenAck, type ScreenCommand } from "@kb/contracts";
+import { loadManifest } from "@/lib/manifest";
 import { followServerProtocol } from "@kb/ui-sdk";
 import { embedWith } from "@/api/embed";
 import { fetchGraphSnapshot } from "@/api/graph";
@@ -115,6 +116,7 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
     onProtocol: (protocol) => followServerProtocol(protocol),
+    onManifestChanged: () => void loadManifest(),
     onScreenCommand: (id, command) => answerScreenCommand(next, id, command),
     onScreenRefused: (tab) => screenTab?.refused(tab),
     ...overrides,
