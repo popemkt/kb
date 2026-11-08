@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionMode, EXTENSION_SDK, ExtensionDeclaration } from "@kb/contracts";
-import type { FailureCode, Knob, SeedBackdrop } from "@kb/model";
+import type { BackdropVariant, FailureCode, Knob, NumberKnob, SeedBackdrop } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
+import type * as Bridge from "../src/bridge.ts";
 import type * as Surface from "../src/surface.ts";
 
 /**
@@ -9,52 +10,32 @@ import type * as Surface from "../src/surface.ts";
  * ambient module, which makes it a restatement of the contracts'. This is
  * the bridge that keeps the restatement exact: each binding compiles only
  * while the two sides agree, so a type changed on one side fails `tsc`
- * until the other follows.
+ * until the other follows (`bridge.ts` says how the two are compared).
  */
-/** A function, or a component class: code, whose arguments may be projections. */
-type Fn = ((...args: never[]) => unknown) | (abstract new (...args: never[]) => unknown);
-type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-/**
- * The two types are one: each is the other's, and they have the same
- * members at every level of data, down to code. Each being the other's is
- * not enough, since a type without an optional member and one with it are
- * each assignable to the other.
- */
-type Same<A, B> =
-  Mutual<A, B> extends true
-    ? [A] extends [Fn]
-      ? true
-      : [A] extends [object]
-        ? Mutual<keyof A, keyof B> extends true
-          ? false extends { [K in keyof A & keyof B]: Same<A[K], B[K]> }[keyof A & keyof B]
-            ? false
-            : true
-          : false
-        : true
-    : false;
-/**
- * Every member `D` declares, at every level of data down to code, is one
- * `S` has: a surface may declare a part of a contribution, never a member
- * the host does not read, which assignability alone lets through when it
- * is optional.
- */
-type Declares<D, S> = [D] extends [Fn]
-  ? true
-  : [D] extends [object]
-    ? [keyof D] extends [keyof S]
-      ? false extends { [K in keyof D & keyof S]: Declares<D[K], S[K]> }[keyof D & keyof S]
-        ? false
-        : true
-      : false
-    : true;
+type AllTrue<T extends Record<PropertyKey, boolean>> = Bridge.AllTrue<T>;
+type Same<A, B> = Bridge.Same<A, B>;
+type Declares<D, S> = Bridge.Declares<D, S>;
+type DataOf<T> = Bridge.DataOf<T>;
+type Contributed<P> = Bridge.Contributed<P>;
 
 const modes: Same<Surface.ActionMode, ActionMode> = true;
 const codes: Same<Surface.FailureCode, FailureCode> = true;
 /** A backdrop's key and its knobs, as an author declares them, are the model's own. */
 const knobs: Same<Surface.Knob, Knob> = true;
 const backdrops: Same<Surface.SeedBackdrop, SeedBackdrop> = true;
-/** The witness that it holds: a host that dropped optional metadata the surface still advertises fails. */
+/**
+ * The witnesses that it holds: a host that dropped optional metadata the
+ * surface still advertises fails, at the top, inside an optional member,
+ * and in one variant of a union.
+ */
 const dropsCredit: Same<Surface.SeedBackdrop, Omit<SeedBackdrop, "credit">> = false;
+const dropsVariantStrength: Same<
+  Surface.SeedBackdrop,
+  Omit<SeedBackdrop, "variants"> & {
+    readonly variants?: readonly Omit<BackdropVariant, "strength">[];
+  }
+> = false;
+const dropsUnit: Same<Surface.Knob, Exclude<Knob, NumberKnob> | Omit<NumberKnob, "unit">> = false;
 /**
  * What an author writes is what kb reads: every SDK declaration is a
  * contracts declaration, and every SDK plugin a plugin the kernel loads.
@@ -66,7 +47,7 @@ const plugins: [Surface.Plugin] extends [Plugin] ? true : false = true;
  * The module's values are the host's (`EXTENSION_SDK`), and the surface
  * declares each of them, no more and no fewer, exactly: the host can
  * neither drop nor change what the surface still advertises. What is not
- * exact is named, with why (`Projected`). A contribution flows from the
+ * exact is named, with why (`Projected`, `Library`). A contribution flows from the
  * author to the host, so for a point and a provider what is held is that
  * what the author contributes is what the host reads, and that its data
  * names no member the host does not read (`Declares`).
@@ -76,10 +57,6 @@ type Served = typeof EXTENSION_SDK;
 type PointNames = {
   [K in keyof Declared]: Declared[K] extends Surface.PointKey<unknown> ? K : never;
 }[keyof Declared];
-type Contributed<P> = P extends { readonly "~type"?: infer C } ? Exclude<C, undefined> : never;
-/** A contribution's data: every member but its functions, whose arguments may be projections. */
-type DataOf<T> = { [K in keyof T as NonNullable<T[K]> extends Fn ? never : K]: T[K] };
-type AllTrue<T extends Record<PropertyKey, boolean>> = false extends T[keyof T] ? false : true;
 type Providers = "provideAction" | "provideTemplate";
 /**
  * The values the surface states as a projection, held one way: the two
@@ -88,12 +65,29 @@ type Providers = "provideAction" | "provideTemplate";
  * schema class that implements it.
  */
 type Projected = "guardAction" | "onAction" | "NoParams";
+/**
+ * The library the module re-exports as it is (`effect`'s `Effect` and
+ * `Schema`): its shape is the library's on both sides, not kb's to
+ * restate, and too wide to walk member by member, so it is held as the
+ * same library by assignability.
+ */
+type Library = "Effect" | "Schema";
 const names: Same<keyof Declared, keyof Served> = true;
 const values: AllTrue<{
-  [K in Exclude<keyof Declared, PointNames | Providers | Projected>]: Same<Served[K], Declared[K]>;
+  [K in Exclude<keyof Declared, PointNames | Providers | Projected | Library>]: Same<
+    Served[K],
+    Declared[K]
+  >;
 }> = true;
 const projected: AllTrue<{ [K in Projected]: [Served[K]] extends [Declared[K]] ? true : false }> =
   true;
+const library: AllTrue<{
+  [K in Library]: [Served[K]] extends [Declared[K]]
+    ? [Declared[K]] extends [Served[K]]
+      ? true
+      : false
+    : false;
+}> = true;
 const points: AllTrue<{
   [K in PointNames]: [Contributed<Declared[K]>] extends [Contributed<Served[K]>] ? true : false;
 }> = true;
@@ -118,11 +112,13 @@ describe("extension SDK surface", () => {
   });
 
   test("declares a backdrop and its knobs in the model's shapes", () => {
-    expect([knobs, backdrops, dropsCredit]).toEqual([true, true, false]);
+    expect([knobs, backdrops]).toEqual([true, true]);
+    expect([dropsCredit, dropsVariantStrength, dropsUnit]).toEqual([false, false, false]);
   });
 
   test("declares exactly the values the host serves as kb-ext-sdk, and its contributions' data", () => {
-    expect([names, values, projected, points, pointData, providers]).toEqual([
+    expect([names, values, projected, library, points, pointData, providers]).toEqual([
+      true,
       true,
       true,
       true,

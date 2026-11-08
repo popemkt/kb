@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PageSurface, Surface } from "@kb/ext-sdk";
+import type { Bridge, PageSurface, Surface } from "@kb/ext-sdk";
 import type * as UiSdk from "./index";
 
 /**
@@ -9,7 +9,8 @@ import type * as UiSdk from "./index";
  * as a standalone ambient module. This is the bridge that keeps the
  * restatement exact, as `surface-bridge.test.ts` keeps `kb-ext-sdk`'s:
  * each binding compiles only while the two sides agree, so a type changed
- * on one side fails `tsc` until the other follows.
+ * on one side fails `tsc` until the other follows (`@kb/ext-sdk`'s
+ * `bridge.ts` says how the two are compared).
  *
  * The surface declares a part of what the page serves, never a value it
  * does not. A value it declares is the page's own, exactly: the page can
@@ -27,46 +28,11 @@ type PointNames = {
 }[keyof Declared];
 type ProviderNames = Extract<keyof Declared, `provide${string}`>;
 type ValueNames = Exclude<keyof Declared, PointNames | ProviderNames>;
-type Contributed<P> = P extends { readonly "~type"?: infer C } ? Exclude<C, undefined> : never;
-type AllTrue<T extends Record<PropertyKey, boolean>> = false extends T[keyof T] ? false : true;
-/** A function, or a component class: code, whose arguments may be projections. */
-type Fn = ((...args: never[]) => unknown) | (abstract new (...args: never[]) => unknown);
-type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-/**
- * The two types are one: each is the other's, and they have the same
- * members at every level of data, down to code. Each being the other's is
- * not enough, since a type without an optional member and one with it are
- * each assignable to the other.
- */
-type Same<A, B> =
-  Mutual<A, B> extends true
-    ? [A] extends [Fn]
-      ? true
-      : [A] extends [object]
-        ? Mutual<keyof A, keyof B> extends true
-          ? false extends { [K in keyof A & keyof B]: Same<A[K], B[K]> }[keyof A & keyof B]
-            ? false
-            : true
-          : false
-        : true
-    : false;
-/**
- * Every member `D` declares, at every level of data down to code, is one
- * `S` has: a surface may declare a part of a contribution, never a member
- * the host does not read, which assignability alone lets through when it
- * is optional.
- */
-type Declares<D, S> = [D] extends [Fn]
-  ? true
-  : [D] extends [object]
-    ? [keyof D] extends [keyof S]
-      ? false extends { [K in keyof D & keyof S]: Declares<D[K], S[K]> }[keyof D & keyof S]
-        ? false
-        : true
-      : false
-    : true;
-/** A contribution's data: every member but its functions. */
-type DataOf<T> = { [K in keyof T as NonNullable<T[K]> extends Fn ? never : K]: T[K] };
+type AllTrue<T extends Record<PropertyKey, boolean>> = Bridge.AllTrue<T>;
+type Same<A, B> = Bridge.Same<A, B>;
+type Declares<D, S> = Bridge.Declares<D, S>;
+type DataOf<T> = Bridge.DataOf<T>;
+type Contributed<P> = Bridge.Contributed<P>;
 /** What the page serves under `K`; `served` below holds that it serves every name declared. */
 type Served<K> = K extends keyof Page ? Page[K] : never;
 

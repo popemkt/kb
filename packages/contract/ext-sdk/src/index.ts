@@ -8,3 +8,4 @@ export { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION } from "./sdk-dts.text.ts";
  */
 export type * as Surface from "./surface.ts";
 export type * as PageSurface from "./page-surface.ts";
+export type * as Bridge from "./bridge.ts";

@@ -3149,8 +3149,10 @@ from "kb-ext-sdk"`. Types are generated from
   backdrops → A plugin's backdrop is a backdrop). Its values are the
   page's `@kb/ui-sdk`, so `@kb/ui-sdk`'s `page-surface-bridge.test.ts`
   holds the restatement to them as `surface-bridge.test.ts` holds
-  `kb-ext-sdk`'s: the surface declares only what the page serves; a
-  value it declares is the page's own exactly, member for member, so the
+  `kb-ext-sdk`'s, by the one set of comparisons (`bridge.ts`): the
+  surface declares only what the page serves; a value it declares is the
+  page's own exactly, member for member in every variant and through
+  optional members, so the
   host can neither drop nor change what the surface advertises, and a
   projection stated on purpose is named as one; a contribution's data
   names no member the host does not read; and code (a component, a
