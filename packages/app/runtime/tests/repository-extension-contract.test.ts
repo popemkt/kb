@@ -125,13 +125,23 @@ describe("a repository extension's node", () => {
     }
   });
 
-  test("a module no one trusted here seeds nothing: its node is not in the store", async () => {
+  test("a module no one trusted here seeds nothing of its declaration: only its own node, by its name, empty", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-repository-extension-"));
     try {
       await writeExtension(root, "fixture.ts", FIXTURE);
       const ctx = await openKb(root);
-      expect(ctx.index.getNode(extensionNodeId("fixture"))).toBeUndefined();
+      // Its label is its declaration's, which no one has read: the node is named by its file.
+      expect(ctx.index.getNode(extensionNodeId("fixture"))).toMatchObject({
+        text: "fixture",
+        props: {},
+      });
       expect(ctx.index.getNode(SETTING)).toBeUndefined();
+      // Trusted, its declaration seeds the rest; the node keeps its text, as every seeded node does.
+      await trustExtension(root, "fixture.ts");
+      resetRegistryCache();
+      const reopened = await openKb(root);
+      expect(reopened.index.getNode(extensionNodeId("fixture"))?.text).toBe("fixture");
+      expect(reopened.index.getNode(SETTING)).toBeDefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -2989,7 +2989,14 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   its closure, either half, is new code, untrusted until trusted again. So
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
-  untrusted extension's declaration is neither seeded nor loaded.
+  untrusted extension's declaration is neither seeded nor loaded. Its own
+  node, `sys.extension.<name>`, named by the name it is selected under and
+  holding nothing, is seeded all the same, as for every extension the root
+  selects (one failing to load too): the switch is a setting of that node,
+  so `extension.switch` turns an extension off before anyone has trusted it,
+  and the off holds once it is trusted. Trusted later, its declaration seeds
+  the rest; the node keeps its text, as the seed never rewrites a seeded
+  node's text, so a surface names an extension by its row's label.
   - **Approved means owner code.** The digest guarantees that the static
     closure kb imports is exactly the approved bytes: no static import it
     does not hash, no file read again between the check and the import (the

@@ -41,7 +41,10 @@ export interface RootFamilies {
   /**
    * What the root's store is seeded from (DESIGN.md → Extension families →
    * the seed is the root's fold): the bundled declarations, then each of
-   * its repository extensions'.
+   * its repository extensions', then a name alone for each extension it
+   * selects but did not compose (not trusted yet, or failing to load), so
+   * every extension kb selects has its node, and its switch is a setting of
+   * that node like any other's.
    */
   readonly declarations: readonly ExtensionDeclaration[];
   /** The repository modules discovery refused, each skipped. */
@@ -103,6 +106,42 @@ const familiesCache = new Map<
   { readonly key: string; readonly composed: Effect.Effect<RootFamilies> }
 >();
 
+/** One current seed list per root, kept while it holds the same, so a session re-seeds only on a change. */
+const seedCache = new Map<
+  string,
+  {
+    readonly composed: readonly ExtensionDeclaration[];
+    readonly key: string;
+    readonly declarations: readonly ExtensionDeclaration[];
+  }
+>();
+
+/**
+ * What `root`'s store is seeded from: the declarations it `composed`, then
+ * each extension its `rows` select that none of them is (not trusted yet,
+ * or failing to load), by its name alone. Its code never ran, so its own
+ * node is all it seeds; once it composes, its declaration seeds the rest.
+ */
+function seededFrom(
+  root: string,
+  composed: readonly ExtensionDeclaration[],
+  rows: readonly ExtensionRow[],
+): readonly ExtensionDeclaration[] {
+  const unloaded = new Map<string, ExtensionDeclaration>();
+  for (const { name, shadowed } of rows) {
+    if (shadowed !== undefined || composed.some((declaration) => declaration.name === name))
+      continue;
+    unloaded.set(name, { name, label: name });
+  }
+  if (unloaded.size === 0) return composed;
+  const key = [...unloaded.keys()].join("\0");
+  const held = seedCache.get(root);
+  if (held?.composed === composed && held.key === key) return held.declarations;
+  const declarations = [...composed, ...unloaded.values()];
+  seedCache.set(root, { composed, key, declarations });
+  return declarations;
+}
+
 /**
  * The families `root` composes; with no root, the bundled ones alone, as
  * the deployment composes them (`deployed`). Its
@@ -159,6 +198,7 @@ export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   const families = yield* composed;
   return {
     ...families,
+    declarations: seededFrom(root, families.declarations, read.rows),
     inventory: read.rows.map((row) =>
       row.digest === undefined
         ? row
@@ -238,4 +278,5 @@ export const servedPage = Effect.fn("kb.servedPage")(function* (
 export function resetRootFamilies(): void {
   resetRootExtensionStates();
   familiesCache.clear();
+  seedCache.clear();
 }

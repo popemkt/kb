@@ -664,10 +664,12 @@ function extensionSection(
       <RetainedExtension name={name} markets={markets} />
     ) : null;
   const said = cardWords(name, row, markets);
+  // Its row's label is its declaration's; the node's text is the name it was first selected under.
+  const title = row?.label ?? label;
   const section: Section = {
     id,
-    title: label,
-    caption: <ExtensionCaption name={name} label={label} extension={group?.effective} />,
+    title,
+    caption: <ExtensionCaption name={name} label={title} extension={group?.effective} />,
     testId: `extension-${name}`,
     anchor: `extension-review-${name}`,
     aside: (
@@ -679,7 +681,7 @@ function extensionSection(
         ? CORE_ROWS
         : settings.map((setting) => ({
             key: setting.field,
-            words: `${label} ${name} ${setting.label}`,
+            words: `${title} ${name} ${setting.label}`,
             node: (
               <SettingRow graph={graph} nodeId={id} field={setting.field} label={setting.label} />
             ),
