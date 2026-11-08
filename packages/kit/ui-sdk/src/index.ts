@@ -60,6 +60,8 @@ export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./san
 // waiting on a person, its frame, and the card a person answers them on.
 export { useSandboxPorts, useSandboxTrust, type Asking, type SandboxTrust } from "./sandbox-run";
 export { SandboxFrame } from "./components/sandbox-frame";
+export { ActionApproval } from "./components/action-approval";
+export { ActionReviewPoint, type ApprovalView } from "./lib/action-review";
 export { SandboxApprovalCard } from "./components/sandbox-approval-card";
 export { latestRead } from "./lib/latest-read";
 // A view's scripts: its event channel, and the host the family that keeps

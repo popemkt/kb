@@ -5,7 +5,7 @@
  * `approved`; Decline makes it without, so the invoke core refuses it
  * again and the run is told so (`useSandboxPorts`).
  */
-import { DefaultActionApproval } from "./action-approval";
+import { ActionApproval } from "./action-approval";
 import type { Asking } from "../sandbox-run";
 
 export function SandboxApprovalCard({ asking }: { readonly asking: Asking }) {
@@ -20,7 +20,7 @@ export function SandboxApprovalCard({ asking }: { readonly asking: Asking }) {
         This code asks to run <code className="font-mono">{invocation.id}</code>, which needs your
         approval.
       </p>
-      <DefaultActionApproval invocation={invocation} answer={answer} />
+      <ActionApproval invocation={invocation} answer={answer} />
     </section>
   );
 }

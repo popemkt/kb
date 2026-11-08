@@ -44,16 +44,16 @@ Server ownership lives behind the stable facade `packages/app/server/src/index.t
 re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
 implementation modules under `packages/app/server/src/` split by concern:
 
-| Module             | Owns                                                                              |
-| ------------------ | --------------------------------------------------------------------------------- |
-| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown          |
-| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback       |
-| `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery)) |
+| Module             | Owns                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown                        |
+| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback                     |
+| `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery))               |
 | `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core; logs each refusal |
-| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)        |
-| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)  |
-| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                       |
-| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                          |
+| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)                      |
+| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary)                |
+| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                                     |
+| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                                        |
 
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
@@ -272,7 +272,7 @@ be kept, never how it is sent.
   is kept by its digest the same way (`EXTENSION_PAGE_HEADERS`, `http.ts`).
 - **A tab outlives its build.** A release replaces `ui/dist`, and a tab
   opened before it keeps working: it reloads only when it cannot.
-  - *Earlier builds are still served.* When a server starts it keeps the
+  - _Earlier builds are still served._ When a server starts it keeps the
     build it serves in kb's cache (`<cache>/ui-builds`, `KB_CACHE` or the
     platform's cache directory): one directory per build, published whole,
     of which the newest eight stay. Servers sharing that cache never remove
@@ -286,7 +286,7 @@ be kept, never how it is sent.
     whatever installs kb, the server keeps its own builds. The sandbox
     frame's script is not digest-named, so a tab gets the current one
     (GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]]).
-  - *A build is not a protocol.* A build changes with every release; the
+  - _A build is not a protocol._ A build changes with every release; the
     wire a page and a server must agree on changes rarely. Every
     connection's `hello` names the server's `WIRE_PROTOCOL` (`@kb/contracts`
     → `protocol.ts`), and a tab of the same protocol keeps working whatever
@@ -297,7 +297,7 @@ be kept, never how it is sent.
     (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
     someone decides: still compatible (record the fingerprint), or not (bump
     the protocol).
-  - *A reload waits, keeps the page, and says so.* A tab reloads when the
+  - _A reload waits, keeps the page, and says so._ A tab reloads when the
     server speaks another protocol, or as a fallback when a chunk it asks
     for is gone even so (Vite's `vite:preloadError`, or a view's error
     boundary, which says "kb was updated" meanwhile). It waits until the page
@@ -2972,6 +2972,16 @@ the settings. The record of why is
   gallery.
 - The page's body loads when it is first opened, not with the shell.
 
+Settings' extension install and review behavior is specified in
+[the install plan](docs/research/2026-11-06-plugin-install-plan.md#4-trust).
+The Settings sheet, agent dock and sandbox approval cards share `ActionApproval`.
+Action-specific evidence comes from `ui.action-reviews`: the contribution names
+its action and asynchronously reads its review. While evidence is loading, has
+failed, or belongs to an older invocation, approval is disabled; decline stays
+available. A contribution may return null for an input it does not describe,
+which retains the default action review. Core Settings contributes the extension
+review for `sandbox.trust`; its diff must match the reviewed file-set digest.
+
 ### Extension UI halves
 
 A family's browser half ([DESIGN → Extension families](DESIGN.md#extension-families))
@@ -4354,7 +4364,7 @@ A PR for a backdrop reports a score against each criterion.
     a setting chooses holds over the variant's.
   - Set them in Settings → Appearance (the `variants` row under Page head),
     or `kb set sys.extension.core sys.f.backdrop.variant
-    sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
+sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
     another pins a second, and `kb unset` takes one back out.
 - **One picker.** Settings draws core's settings with the page's
   field editor, as it draws any field, so the backdrop field's own options

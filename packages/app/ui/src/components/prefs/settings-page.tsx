@@ -5,6 +5,7 @@
  * each with the page's field editor; each extension's switch and what it
  * composes are drawn in its section; a filter reads across every part.
  */
+import { ExtensionAdd, RetainedExtension } from "./extension-controls";
 import {
   DEFAULT_BACKDROP_STRENGTH,
   MOTION_EFFECTS,
@@ -40,11 +41,7 @@ import {
 import { SETTINGS_PARTS, type SettingsPart } from "@kb/views";
 import { ArrowsHorizontalIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  useExtensionReport,
-  type PanelExtensionGroup,
-  type PanelReport,
-} from "@/lib/extension-report";
+import { useExtensionReport, type PanelReport } from "@/lib/extension-report";
 import { PART_WORDS, settingsPartOf, settingsPath } from "@/lib/settings-parts";
 import { useMotionStore } from "@/stores/motion.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -266,6 +263,17 @@ export function SettingsPage({ part }: { readonly part?: SettingsPart }) {
             }
           }}
         />
+        {shown === "extensions" && needle === "" && (
+          <ExtensionAdd
+            awaiting={
+              typeof report === "object" && report !== null
+                ? report.groups
+                    .filter((group) => group.effective?.row.trusted === false)
+                    .map((group) => group.name)
+                : []
+            }
+          />
+        )}
         {needle === "" ? (
           <Part
             id={shown}
@@ -562,20 +570,17 @@ function extensionSections(
   report: PanelReport | string | null,
 ): readonly Section[] {
   const rows = typeof report === "object" && report !== null ? report.groups : [];
-  const byNode = new Map(rows.map((extension) => [extensionNodeId(extension.name), extension]));
   const known = new Set(nodes.map((node) => node.id));
   const extra = rows.filter((extension) => !known.has(extensionNodeId(extension.name)));
   return [
-    ...nodes.map(({ id, label, settings }) =>
-      extensionSection(graph, id, label, settings, byNode.get(id)),
-    ),
+    ...nodes.map(({ id, label, settings }) => extensionSection(graph, id, label, settings, report)),
     ...extra.map((extension) =>
       extensionSection(
         graph,
         extensionNodeId(extension.name),
         extension.effective?.row.label ?? extension.name,
         [],
-        extension,
+        report,
       ),
     ),
   ];
@@ -586,8 +591,10 @@ function extensionSection(
   nodeId: NodeId,
   label: string,
   settings: readonly Setting[],
-  group: PanelExtensionGroup | undefined,
+  report: PanelReport | string | null,
 ): Section {
+  const catalog = typeof report === "object" && report !== null ? report : null;
+  const group = catalog?.groups.find((item) => extensionNodeId(item.name) === nodeId);
   const extension = group?.effective;
   const name = group?.name ?? nodeId.replace(/^sys\.extension\./, "");
   const core = nodeId === CORE;
@@ -596,6 +603,7 @@ function extensionSection(
     title: label,
     caption: <span className="font-mono">{name}</span>,
     testId: `extension-${name}`,
+    anchor: `extension-review-${name}`,
     aside: <ExtensionSwitch extension={extension} />,
     rows: core
       ? [
@@ -617,7 +625,12 @@ function extensionSection(
             <SettingRow graph={graph} nodeId={nodeId} field={setting.field} label={setting.label} />
           ),
         })),
-    after: group === undefined ? null : <ExtensionDetails nodeId={nodeId} group={group} />,
+    after:
+      group !== undefined ? (
+        <ExtensionDetails nodeId={nodeId} group={group} />
+      ) : catalog !== null ? (
+        <RetainedExtension name={name} />
+      ) : null,
   };
 }
 

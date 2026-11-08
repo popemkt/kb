@@ -717,6 +717,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3KA3ASYV7KP522KAD24ZT6S`
 
+### GAP: CLI child returned no receipt in the socket surface contract
+
+- **expected** — Every CLI invocation returns its JSON receipt; failures are diagnosable without rerunning or hiding a transport fault.
+- **current** — Core CI run 42452522418 saw empty stdout in the socket/governance-required surface contract. The old helper discarded stderr and exit status. The helper now preserves those diagnostics, but the underlying child failure has not been reproduced.
+- **impact** — The full core gate can fail outside the extension UI, and the original trace cannot distinguish a child crash from a transport failure.
+- **closes** — Reproduce the empty child response with the captured exit/signal/stderr, fix its cause, and prove the surface contract without retries or quarantine.
+- **node** — `01M6WW0WE9QD8W2KCRM1NW8SHB`
+
 ### GAP: CLI pays full cold start on every invocation
 
 - **expected** — Interactive commands reach a running kb ui process instead of rebuilding the world per invocation.
@@ -791,14 +799,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
-### GAP: extension review and trust are missing from the page
-
-- **expected** — Before sandbox.trust, a person sees where the closure came from, its files and sizes, the host modules and Node/Bun builtins it imports, and on update the diff against the locked rev, on the one extension.list report (docs/research/2026-10-31-plugin-sources.md §5).
-- **current** — Catalog and CLI review, reach, diff and provenance are implemented (DESIGN.md, Core boundary & extensions). The page review sheet and agent approval card remain step 6.
-- **impact** — Trusting an installed extension means reading every file by hand; a reach disclosure is a disclosure, not containment, and an extension is owner code once trusted.
-- **closes** — Steps 5 and 6 of docs/research/2026-11-06-plugin-install-plan.md, each its own child gap.
-- **node** — `01M68NF9WGE31RYX3VB9EWHC8M`
-
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -831,6 +831,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
+
+### GAP: Git source failures do not distinguish unavailable repositories or refs
+
+- **expected** — The source port distinguishes a repository/ref that is unavailable or denied from transfer caps and transport failures, without exposing credentials.
+- **current** — The transport discards stderr and maps every nonzero Git exit to git source operation failed within its transfer limits. Adding github:popemkt/does-not-exist-xyz/ext@main therefore suggests a size limit.
+- **impact** — The marketplace UI and CLI give misleading recovery guidance for missing or inaccessible sources.
+- **closes** — Define and test a sanitized source-failure classification at the transport owner, including missing repository/ref, denied access, byte/count caps and connection failure; all adapters present that classification.
+- **node** — `01M6WXNJH2JJD9956VC408R386`
 
 ### GAP: GPU backdrops paint an opaque frame over the page's flat ground
 
@@ -1155,6 +1163,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
+### GAP: query print-roundtrip coverage quota depends on independent random samples
+
+- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
+- **current** — ir.test.ts samples 100 independently generated stores and queries, then requires at least 8 non-empty answers. CI run 42451620455 produced 7, although every round-trip comparison passed.
+- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
+- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
+- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
@@ -1413,14 +1429,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the coupling that exists cannot be seen in one place; a reviewer cannot ask what depends on canvas
 - **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
-
-### GAP: the Extensions settings page cannot add, review, trust, update or remove an installed extension
-
-- **expected** — Settings → Extensions has Add from GitHub, and a Review & trust sheet (source, files, reach, diff, digest); Trust loads the family with no restart; Update and Remove are on the row.
-- **current** — The page lists and switches families only.
-- **impact** — Trusting from an agent thread has nowhere to send the person.
-- **closes** — Step 6 of docs/research/2026-11-06-plugin-install-plan.md, with its acceptance check.
-- **node** — `01M6RTRA612RSR06HZC7DQ5S6J`
 
 ### GAP: the graph legend overlays a renderer that cannot pan
 

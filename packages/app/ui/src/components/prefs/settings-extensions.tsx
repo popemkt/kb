@@ -4,6 +4,7 @@
  * it composes, a link to another part, and while the server's report is
  * read, or why it could not be.
  */
+import { ExtensionControls } from "./extension-controls";
 import type { NodeId } from "@kb/model";
 import { type EnumOption, EnumSelect, navigate, POPOVER_VALUE_CLASS } from "@kb/ui-sdk";
 import type { SettingsPart } from "@kb/views";
@@ -140,7 +141,10 @@ export function ExtensionDetails({
   return (
     <>
       {group.effective === undefined ? null : (
-        <Composes nodeId={nodeId} extension={group.effective} />
+        <>
+          <ExtensionControls row={group.effective.row} />
+          <Composes nodeId={nodeId} extension={group.effective} />
+        </>
       )}
       {group.hidden.length === 0 ? null : (
         <Disclosure

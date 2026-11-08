@@ -23,6 +23,9 @@
   },
   "devDependencies": {
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "happy-dom": "catalog:",
+    "react-dom": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },

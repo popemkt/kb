@@ -27,6 +27,7 @@ import { loadManifest } from "@/lib/manifest";
 import { App } from "@/components/App";
 
 const ISO = "2026-10-20T00:00:00.000Z";
+const FILES = `sha256:${"cd".repeat(32)}`;
 const DIGEST = `sha256:${"ab".repeat(32)}`;
 
 const REPORT: ExtensionReport = {
@@ -115,9 +116,12 @@ describe("Settings' Extensions (acceptance)", () => {
   let root: Root;
   let asked: ActionRequest[] = [];
   let report = REPORT;
+  let marketNames = ["hello"];
+  let installFails = false;
+  let updateChanged = false;
   let waitingList: Promise<ActionResponse> | null = null;
   /** Which request the stand-in server fails, if any. */
-  let failing: "unreachable" | "footprint" | null = null;
+  let failing: "unreachable" | "footprint" | "marketplace" | null = null;
 
   beforeAll(() => {
     dom = new Window({ url: "http://localhost/" });
@@ -158,6 +162,96 @@ describe("Settings' Extensions (acceptance)", () => {
           rev: 3,
         });
       }
+      if (
+        (invocation.id === "extension.marketplace.list" && failing === "marketplace") ||
+        (invocation.id === "extension.install" && installFails)
+      )
+        return Promise.resolve({
+          status: "failed",
+          id: invocation.id,
+          rev: 3,
+          code: "invalid_input",
+          message:
+            invocation.id === "extension.install"
+              ? "Synthetic install failure"
+              : "Synthetic marketplace read failure",
+        });
+      if (invocation.id === "extension.marketplace.list")
+        return Promise.resolve({
+          status: "succeeded",
+          id: invocation.id,
+          rev: 3,
+          output: {
+            marketplaces: [
+              {
+                name: "sample",
+                scope: "store",
+                selection: {
+                  original: "popemkt/kb-plugins-sample",
+                  locked: {
+                    repo: "popemkt/kb-plugins-sample",
+                    path: "",
+                    rev: "a".repeat(40),
+                    files: FILES,
+                  },
+                },
+                entries: marketNames.map((name) => ({
+                  name,
+                  source: { path: `extensions/${name}` },
+                  description: "Synthetic entry",
+                })),
+              },
+            ],
+          },
+        });
+      if (invocation.id === "extension.update")
+        return Promise.resolve({
+          status: "succeeded",
+          id: invocation.id,
+          rev: 3,
+          output: {
+            updated: updateChanged
+              ? [
+                  {
+                    name: "hello",
+                    scope: "local",
+                    from: "a".repeat(40),
+                    to: "b".repeat(40),
+                    files: ["hello.ts"],
+                    trusted: false,
+                  },
+                ]
+              : [],
+            reload: "live",
+          },
+        });
+      if (invocation.id === "extension.diff")
+        return Promise.resolve({
+          status: "succeeded",
+          id: invocation.id,
+          rev: 3,
+          output: {
+            name: "hello",
+            from: null,
+            to: FILES,
+            files: [
+              {
+                path: "hello.ts",
+                from: null,
+                to: "export const synthetic = true;",
+                fromMode: null,
+                toMode: "100644",
+              },
+            ],
+          },
+        });
+      if (invocation.id === "sandbox.trust")
+        report = {
+          ...report,
+          extensions: report.extensions.map((row) =>
+            row.name === "hello" ? { ...row, trusted: true } : row,
+          ),
+        };
       const output =
         invocation.id === "extension.list"
           ? report
@@ -178,6 +272,9 @@ describe("Settings' Extensions (acceptance)", () => {
   beforeEach(async () => {
     asked = [];
     report = REPORT;
+    marketNames = ["hello"];
+    installFails = false;
+    updateChanged = false;
     waitingList = null;
     failing = null;
     dom.history.pushState({}, "", "/");
@@ -230,6 +327,200 @@ describe("Settings' Extensions (acceptance)", () => {
     if (fold.getAttribute("aria-expanded") === "true") return;
     await act(async () => fold.click());
   }
+
+  it.each(["Add from GitHub", "Add marketplace"])(
+    "%s uses the shared action and store scope",
+    async (title) => {
+      await openFromHeader();
+      const add = present(
+        [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+          (item) => item.textContent === title,
+        ),
+        title,
+      );
+      await act(async () => add.click());
+      const input = present(
+        container.querySelector<HTMLInputElement>(`input[aria-label="${title} source"]`),
+        "GitHub source input",
+      );
+      await act(async () => {
+        const descriptor = Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value");
+        descriptor?.set?.call(input, "github:popemkt/kb-plugins-sample/extensions/hello");
+        input.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
+        input.form?.dispatchEvent(
+          new dom.Event("submit", { bubbles: true, cancelable: true }) as unknown as Event,
+        );
+      });
+      await settle();
+      expect(asked).toContainEqual(
+        expect.objectContaining({
+          id: title === "Add marketplace" ? "extension.marketplace.add" : "extension.install",
+          input: { source: "github:popemkt/kb-plugins-sample/extensions/hello", scope: "store" },
+        }),
+      );
+    },
+  );
+
+  it("explains retained extension nodes and offers a marketplace reinstall", async () => {
+    report = { ...REPORT, extensions: REPORT.extensions.filter((row) => row.name !== "graph") };
+    marketNames = ["graph"];
+    await act(async () => loadManifest());
+    await openFromHeader();
+    expect(card("graph").textContent).toContain("Not installed. Its nodes remain.");
+    const install = present(
+      [...card("graph").querySelectorAll<HTMLButtonElement>("button")].find(
+        (item) => item.textContent === "Install graph from sample (store)",
+      ),
+      "reinstall",
+    );
+    await act(async () => install.click());
+    expect(asked).toContainEqual(
+      expect.objectContaining({
+        id: "extension.install",
+        input: { source: "graph@sample", scope: "store" },
+      }),
+    );
+  });
+
+  it("keeps install and marketplace read failures visible independently", async () => {
+    await openFromHeader();
+    installFails = true;
+    const install = present(
+      [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+        (item) => item.textContent === "Install hello",
+      ),
+      "install",
+    );
+    await act(async () => install.click());
+    await settle();
+    failing = "marketplace";
+    await act(async () => loadManifest());
+    await settle();
+    expect(container.textContent).toContain("Synthetic install failure");
+    expect(container.textContent).toContain("Synthetic marketplace read failure");
+  });
+
+  it("installs a pinned marketplace entry through the page", async () => {
+    await openFromHeader();
+    const button = present(
+      [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+        (item) => item.textContent === "Install hello",
+      ),
+      "marketplace install",
+    );
+    await act(async () => button.click());
+    await settle();
+    expect(asked).toContainEqual(
+      expect.objectContaining({
+        id: "extension.install",
+        input: { source: "hello@sample", scope: "store" },
+      }),
+    );
+  });
+
+  it("reviews the selected source and trusts its exact digest and file set", async () => {
+    report = {
+      ...REPORT,
+      extensions: REPORT.extensions.map((row) =>
+        row.name === "hello"
+          ? {
+              ...row,
+              trusted: false,
+              files: FILES,
+              origin: {
+                kind: "install" as const,
+                scope: "local" as const,
+                selection: {
+                  original: "popemkt/kb-plugins-sample/extensions/hello",
+                  locked: {
+                    repo: "popemkt/kb-plugins-sample",
+                    path: "extensions/hello",
+                    rev: "a".repeat(40),
+                    files: FILES,
+                  },
+                },
+              },
+              reach: {
+                files: [{ path: "hello.ts", bytes: 30 }],
+                page: false,
+                host: { server: [], page: [] },
+                builtins: [],
+              },
+            }
+          : row,
+      ),
+    };
+    await loadManifest();
+    await openFromHeader();
+    const jump = present(
+      container.querySelector<HTMLAnchorElement>('a[href="#extension-review-hello"]'),
+      "review jump",
+    );
+    const toggle = present(
+      card("hello").querySelector<HTMLButtonElement>('[data-settings-fold="sys.extension.hello"]'),
+      "section toggle",
+    );
+    await act(async () => toggle.click());
+    expect(card("hello").id).toBe("extension-review-hello");
+    await act(async () => jump.click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const review = present(
+      [...card("hello").querySelectorAll<HTMLButtonElement>("button")].find(
+        (item) => item.textContent === "Review & trust",
+      ),
+      "review button",
+    );
+    await act(async () => review.click());
+    await until(() => container.textContent.includes("Trust this digest"));
+    expect(container.textContent).toContain("export const synthetic = true");
+    expect(container.textContent).toContain("File set digest");
+
+    expect(container.textContent).toContain("Files and static reach");
+    const trust = present(
+      [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+        (item) => item.textContent === "Trust this digest",
+      ),
+      "trust button",
+    );
+    await act(async () => trust.click());
+    await settle();
+    expect(asked).toContainEqual(
+      expect.objectContaining({
+        id: "sandbox.trust",
+        input: { digest: DIGEST, extension: { name: "hello", files: FILES } },
+      }),
+    );
+    expect(card("hello").textContent).toContain("Trusted");
+    expect(
+      [...card("hello").querySelectorAll("button")].some((item) => item.textContent === "Review"),
+    ).toBe(true);
+
+    for (const title of ["Update", "Remove"]) {
+      const control = present(
+        [...card("hello").querySelectorAll<HTMLButtonElement>("button")].find(
+          (item) => item.textContent === title,
+        ),
+        title,
+      );
+      await act(async () => control.click());
+      await settle();
+      if (title === "Update") {
+        expect(card("hello").textContent).toContain("Already up to date.");
+        updateChanged = true;
+        await act(async () => control.click());
+        await settle();
+        expect(card("hello").textContent).toContain(
+          `Updated ${"a".repeat(40)} → ${"b".repeat(40)}; review to trust`,
+        );
+      }
+      expect(asked).toContainEqual(
+        expect.objectContaining({
+          id: `extension.${title.toLowerCase()}`,
+          input: { name: "hello", scope: "local" },
+        }),
+      );
+    }
+  });
 
   it("opens from the header's gear and draws each extension as the server reports it", async () => {
     expect(page()).toBeNull();

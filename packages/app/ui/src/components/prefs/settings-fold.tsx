@@ -27,6 +27,8 @@ export interface Row {
 export interface Section {
   readonly id: string;
   readonly title: string;
+  /** Stable address independent of whether the section body is mounted. */
+  readonly anchor?: string;
   readonly caption?: ReactNode;
   readonly aside?: ReactNode;
   readonly testId?: string;
@@ -54,6 +56,7 @@ export function Fold({
   return (
     <Disclosure
       id={section.id}
+      anchor={section.anchor}
       title={section.title}
       caption={section.caption}
       aside={section.aside}
@@ -76,6 +79,7 @@ const drawRow = (row: Row) => <div key={row.key}>{row.node}</div>;
 /** A fold: a section of a part, or one inside a section, opening as `opensBy` says until it is toggled. */
 export function Disclosure({
   id,
+  anchor,
   title,
   caption,
   aside,
@@ -86,6 +90,7 @@ export function Disclosure({
   children,
 }: {
   readonly id: string;
+  readonly anchor?: string;
   readonly title: string;
   readonly caption?: ReactNode;
   readonly aside?: ReactNode;
@@ -102,6 +107,7 @@ export function Disclosure({
   const Heading = level === "section" ? "h3" : "h4";
   return (
     <section
+      id={anchor}
       aria-label={title}
       data-settings-section={id}
       data-open={open}

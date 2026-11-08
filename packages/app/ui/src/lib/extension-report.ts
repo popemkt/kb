@@ -18,7 +18,7 @@ import {
   type FootprintRow,
   type ExtensionRow,
 } from "@kb/contracts";
-import { extensionSwitchDef } from "@kb/operations";
+import { extensionSwitchDef, extensionDiffDef, marketplaceListDef } from "@kb/operations";
 import {
   PAGE_FAMILY_KERNEL,
   latestRead,
@@ -64,7 +64,7 @@ export interface PanelReport {
 /** The catalog is parsed in one place, shared by every extension reading. */
 type CatalogRead = { readonly report: ExtensionReport } | { readonly problem: string };
 
-function readExtensionCatalog(): Promise<CatalogRead> {
+export function readExtensionCatalog(): Promise<CatalogRead> {
   return invoke("extension.list", {}).then((receipt) => {
     if (receipt.status === "failed") return { problem: receipt.message } as const;
     const parsed = ExtensionReportSchema.safeParse(receipt.output);
@@ -232,4 +232,22 @@ export async function switchExtension(name: string, on: boolean): Promise<void> 
   const receipt = await invoke(extensionSwitchDef.id, { name, on });
   if (receipt.status === "failed") toast(receipt.message);
   await loadManifest();
+}
+
+/** Cached review data must belong to the same selection the person is reviewing. */
+export function readExtensionDiff(row: ExtensionRow) {
+  return invoke(extensionDiffDef.id, { name: row.name }).then((receipt) => {
+    if (receipt.status === "failed") throw new Error(receipt.message);
+    const diff = extensionDiffDef.outputSchema.parse(receipt.output);
+    if (diff.to !== row.files)
+      throw new Error("The selected files changed while reading the review. Open it again.");
+    return diff;
+  });
+}
+
+export function readMarketplaces() {
+  return invoke(marketplaceListDef.id, {}).then((receipt) => {
+    if (receipt.status === "failed") throw new Error(receipt.message);
+    return marketplaceListDef.outputSchema.parse(receipt.output).marketplaces;
+  });
 }

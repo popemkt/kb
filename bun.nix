@@ -2411,6 +2411,10 @@
     url = "https://registry.npmjs.org/diff-match-patch/-/diff-match-patch-1.0.5.tgz";
     hash = "sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw==";
   };
+  "diff@9.0.0" = fetchurl {
+    url = "https://registry.npmjs.org/diff/-/diff-9.0.0.tgz";
+    hash = "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==";
+  };
   "dockview-core@8.4.0" = fetchurl {
     url = "https://registry.npmjs.org/dockview-core/-/dockview-core-8.4.0.tgz";
     hash = "sha512-aMYJZwxeV5HcXFVwDbSxEcNz+ECZmZKea90DsW/Q2cIQvoopy7C2oJun0uefWaghVeYxFlEsTqFf3c6cDyAUDQ==";

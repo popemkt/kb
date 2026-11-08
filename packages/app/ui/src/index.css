@@ -372,3 +372,8 @@
   scroll-behavior: auto !important;
   transition-duration: 0.01ms !important;
 }
+
+/* A native dialog's backdrop is a separate surface, outside its text-bearing panel. */
+dialog::backdrop {
+  background: color-mix(in srgb, var(--scrim) 50%, transparent);
+}
