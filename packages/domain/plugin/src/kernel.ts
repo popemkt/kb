@@ -111,6 +111,7 @@ export interface PluginState {
   readonly parent: string | null;
   /** Injected services nobody provides right now. */
   readonly missing: readonly string[];
+  readonly requirements: readonly RequirementState[];
   /** The services it provides right now, in the order it provided them. */
   readonly provides: readonly string[];
   /** Whether its apply has run to its end and it is active: what it contributed is visible. */
@@ -123,10 +124,17 @@ export interface PluginState {
  * organisation): `from` injects `service`, which `to` provides. Contributing
  * to a point is no dependency on whoever reads it.
  */
+export interface RequirementState {
+  readonly kind: "service";
+  readonly name: string;
+  readonly from: string | null;
+}
+
 export interface Dependency {
   readonly from: string;
   readonly to: string;
-  readonly service: string;
+  readonly kind: RequirementState["kind"];
+  readonly name: string;
 }
 
 export interface PluginHandle {
@@ -258,10 +266,17 @@ function changed(state: State): void {
   for (const listener of state.subscribers) listener();
 }
 
+function requirementsOf(state: State, entry: Entry): RequirementState[] {
+  return entry.inject.map((key): RequirementState => {
+    const slot = state.services.get(key.name);
+    return { kind: "service", name: key.name, from: slot?.key === key ? slot.owner : null };
+  });
+}
+
 function missingOf(state: State, entry: Entry): string[] {
-  return entry.inject
-    .filter((key) => state.services.get(key.name)?.key !== key)
-    .map((key) => key.name);
+  return requirementsOf(state, entry)
+    .filter(({ from }) => from === null)
+    .map(({ name }) => name);
 }
 
 function scopeOf(entry: Entry): Effect.Effect<Scope.Closeable, PluginError> {
@@ -298,16 +313,20 @@ const deactivate = Effect.fnUntraced(function* (state: State, entry: Entry, next
   changed(state);
 });
 
+const invalidateDependents = Effect.fnUntraced(function* (state: State) {
+  for (const dependent of state.entries.values()) {
+    if (dependent.status === "active" && missingOf(state, dependent).length > 0) {
+      yield* deactivate(state, dependent, "pending");
+    }
+  }
+});
+
 const removeService = Effect.fnUntraced(function* (state: State, name: string) {
   state.services.delete(name);
   changed(state);
   // Whoever injected it holds a reference to something that is gone: back to
   // pending, and forward again when a provider returns.
-  for (const dependent of state.entries.values()) {
-    if (dependent.status === "active" && dependent.inject.some((key) => key.name === name)) {
-      yield* deactivate(state, dependent, "pending");
-    }
-  }
+  yield* invalidateDependents(state);
 });
 
 const activate = Effect.fnUntraced(function* (state: State, entry: Entry) {
@@ -501,6 +520,14 @@ const contributeErased = Effect.fnUntraced(function* (
   return contribution;
 });
 
+function contributionsAt<C>(state: State, point: PointKey<C>): readonly Contribution<C>[] {
+  const slot = state.points.get(point.name);
+  if (slot?.key !== point) return [];
+  return slot.items
+    .filter((item) => visible(state, item.owner))
+    .map((item) => ({ ...item, value: asKeyType(point, item.value) }));
+}
+
 function contextFor(state: State, entry: Entry): PluginContext {
   return {
     name: entry.name,
@@ -540,13 +567,7 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
         { discard: true },
       ),
     ),
-    contributions: (point) => {
-      const slot = state.points.get(point.name);
-      if (slot?.key !== point) return [];
-      return slot.items
-        .filter((item) => visible(state, item.owner))
-        .map((item) => ({ ...item, value: asKeyType(point, item.value) }));
-    },
+    contributions: (point) => contributionsAt(state, point),
     lookup: (point, id) => {
       const slot = state.points.get(point.name);
       const item = slot?.key === point ? slot.byId.get(id) : undefined;
@@ -578,6 +599,7 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
         status: entry.status,
         parent: entry.parent,
         missing: missingOf(state, entry),
+        requirements: requirementsOf(state, entry),
         provides: [...state.services.values()]
           .filter((slot) => slot.owner === entry.name)
           .map((slot) => slot.key.name),
@@ -586,10 +608,9 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
       })),
     dependencies: () =>
       [...state.entries.values()].flatMap((entry) =>
-        entry.inject.flatMap((key) => {
-          const slot = state.services.get(key.name);
-          return slot?.key === key ? [{ from: entry.name, to: slot.owner, service: key.name }] : [];
-        }),
+        requirementsOf(state, entry).flatMap(({ kind, name, from }) =>
+          from === null ? [] : [{ from: entry.name, to: from, kind, name }],
+        ),
       ),
     subscribe: (listener) => {
       state.subscribers.add(listener);

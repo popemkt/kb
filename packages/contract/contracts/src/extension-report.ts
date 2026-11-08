@@ -66,19 +66,18 @@ export function organisationOf(
 ): Pick<ExtensionReportRow, "tags" | "injects" | "provides" | "failures"> {
   const own = ownedBy(family);
   const held = kernels.map(({ kernel }) => ({
-    kernel,
     plugins: kernel.plugins().filter((plugin) => own(plugin.name)),
   }));
   const plugins = held.flatMap(({ plugins: mine }) => mine);
   return {
     tags: [...new Set(plugins.flatMap((plugin) => plugin.tags))],
-    injects: held.flatMap(({ kernel, plugins: mine }) => [
-      ...kernel
-        .dependencies()
-        .filter((edge) => own(edge.from))
-        .map(({ service, to }) => ({ service, from: to })),
-      ...mine.flatMap((plugin) => plugin.missing.map((service) => ({ service, from: null }))),
-    ]),
+    injects: held.flatMap(({ plugins: mine }) => {
+      const requirements = mine.flatMap((plugin) => plugin.requirements);
+      return [
+        ...requirements.filter(({ from }) => from !== null),
+        ...requirements.filter(({ from }) => from === null),
+      ].map(({ name, from }) => ({ service: name, from }));
+    }),
     provides: plugins.flatMap((plugin) => plugin.provides),
     failures: plugins.flatMap((plugin) => (plugin.error === null ? [] : [plugin.error.message])),
   };

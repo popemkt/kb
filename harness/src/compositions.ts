@@ -29,7 +29,7 @@ interface ComposedPlugin {
 
 export interface Composition {
   readonly plugins: readonly ComposedPlugin[];
-  readonly dependencies: readonly { from: string; to: string; service: string }[];
+  readonly dependencies: readonly { from: string; to: string; kind: "service"; name: string }[];
 }
 
 export const COMPOSITIONS = ["registry", "server", "browser"] as const;

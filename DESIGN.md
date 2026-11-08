@@ -3223,8 +3223,9 @@ and it adds no field an extension author must fill in.
   it reads (`inject`), and the kernel knows who provides each service, so
   the dependency graph is `inject` joined to `provide`: an edge from a
   plugin to the provider of each service it injects
-  (`kernel.dependencies()`: `{from, to, service}`, `@kb/plugin`). An
+  (`kernel.dependencies()`: `{from, to, kind, name}`, `@kb/plugin`). An
   injected service nobody provides is the plugin's `missing`, not an edge.
+  Readiness and reporting derive from the same requirement states.
   Contributing to a point is not a dependency on the point's reader. A
   plugin reaches another only through a service it injects, never by
   importing it; the static import matrix (`familyEdgeViolation`,

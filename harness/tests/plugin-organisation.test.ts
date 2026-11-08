@@ -50,9 +50,9 @@ describe.each([...COMPOSITIONS])("the %s composition", (name) => {
   test("every dependency keeps to TAG_ALLOWS", () => {
     const { plugins, dependencies } = read();
     const tagsOf = new Map(plugins.map((plugin) => [plugin.name, plugin.tags]));
-    const violations = dependencies.flatMap(({ from, to, service }) => {
+    const violations = dependencies.flatMap(({ from, to, name: requirement }) => {
       const violation = tagEdgeViolation(tagsOf.get(from) ?? [], tagsOf.get(to) ?? []);
-      return violation === undefined ? [] : [`${from} -> ${to} (${service}): ${violation}`];
+      return violation === undefined ? [] : [`${from} -> ${to} (${requirement}): ${violation}`];
     });
     expect(violations).toEqual([]);
   });

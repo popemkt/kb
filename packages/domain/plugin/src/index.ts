@@ -3,6 +3,7 @@ export { definePlugin, isPlugin, makeKernel, namespaced } from "./kernel.ts";
 export type {
   Contribution,
   Dependency,
+  RequirementState,
   ContributionEntry,
   Kernel,
   Plugin,
