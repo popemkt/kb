@@ -13,7 +13,7 @@ import type { ExtensionRow } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import type { ViewCatalogEntry } from "@kb/views";
 import { postAction } from "@/api/action";
-import { logWarn } from "@kb/ui-sdk";
+import { latestRead, logWarn } from "@kb/ui-sdk";
 
 /** The part of `kb.manifest` the page follows. */
 export interface ServedManifest {
@@ -23,7 +23,6 @@ export interface ServedManifest {
 
 let served: ServedManifest | null = null;
 const listeners = new Set<() => void>();
-let reading = 0;
 
 /** The server's manifest now; null while no server has answered. */
 export function servedManifest(): ServedManifest | null {
@@ -74,10 +73,10 @@ export async function readManifest(): Promise<ManifestRead> {
  * default). A server that could not answer leaves the page as it was, and
  * says so in the log; it never fails the boot.
  */
-export async function loadManifest(read: Promise<ManifestRead> = readManifest()): Promise<void> {
-  const mine = ++reading;
-  const answered = await read;
-  if (mine !== reading) return;
-  if ("problem" in answered) logWarn(`[kb/manifest] ${answered.problem}`);
-  else setServedManifest(answered.manifest);
-}
+export const loadManifest = latestRead(
+  (read: Promise<ManifestRead> = readManifest()) => read,
+  (answered) => {
+    if ("problem" in answered) logWarn(`[kb/manifest] ${answered.problem}`);
+    else setServedManifest(answered.manifest);
+  },
+);
