@@ -2028,6 +2028,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
 
+### GAP: CLI child returned no receipt in the socket surface contract
+
+- **expected** — Every CLI invocation returns its JSON receipt; failures are diagnosable without rerunning or hiding a transport fault.
+- **current** — Closed: the CLI entry sets process.exitCode on every path, including unsafe launch, and lets natural shutdown drain stdout and stderr. Slow-reader regressions cover multi-MB receipts and JSON/stderr errors. Natural shutdown intentionally waits for any handles a trusted extension leaves open; extensions must release their resources.
+- **impact** — The full core gate can fail outside the extension UI, and the original trace cannot distinguish a child crash from a transport failure.
+- **closes** — Use process.exitCode and natural shutdown for every CLI exit path; prove multi-MB receipts and errors survive delayed pipe readers byte-exactly, and the surface contract passes repeatedly under parallel load.
+- **node** — `01M6WW0WE9QD8W2KCRM1NW8SHB`
+
 ### GAP: core action definitions and handlers are hand-paired
 
 - **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.
