@@ -29,7 +29,7 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
  * (`packages/app/server/tests/wire-protocol.test.ts`), so a change to any
  * of those shapes is a decision: still compatible, or the next protocol.
  */
-export const WIRE_PROTOCOL = 3;
+export const WIRE_PROTOCOL = 4;
 
 /** A prop value as the wire carries it. */
 export const PropValueSchema = z.union([

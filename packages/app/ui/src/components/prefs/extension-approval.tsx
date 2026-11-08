@@ -56,7 +56,7 @@ export function ExtensionEvidence({
   readonly row: ExtensionReportRow;
   readonly diff: ExtensionLineDiff | null;
 }) {
-  const pin = row.origin?.kind === "install" ? row.origin.selection.locked : null;
+  const pin = row.origin.kind === "install" ? row.origin.selection.locked : null;
   return (
     <div className="mt-2 space-y-3 text-label">
       <p className="text-ui font-medium">Review {row.label}</p>

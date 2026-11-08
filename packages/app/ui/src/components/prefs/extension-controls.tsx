@@ -57,7 +57,7 @@ function ReviewSheet({
       actor: "human",
       input: {
         digest: row.digest,
-        ...(row.origin?.kind === "install"
+        ...(row.origin.kind === "install"
           ? { extension: { name: row.name, files: row.files } }
           : {}),
       },
@@ -92,7 +92,7 @@ export function ExtensionControls({ row }: { readonly row: ExtensionReportRow })
   const [review, setReview] = useState(false);
   const task = useExtensionAction();
   if (row.digest === undefined) return null;
-  const scope = row.origin?.kind === "install" ? row.origin.scope : null;
+  const scope = row.origin.kind === "install" ? row.origin.scope : null;
   return (
     <div
       className="my-2 space-y-2"

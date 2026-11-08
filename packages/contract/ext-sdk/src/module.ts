@@ -55,7 +55,9 @@ function isDeclaration(value: unknown): value is ExtensionDeclaration {
 /**
  * Decode a repository extension's module, the one named `name` (its file's
  * name): its `declaration` export, whose name must be the file's, and its
- * default export, the server entry, a plugin. A module that exports no
+ * default export, the server entry, a plugin. A declaration that says it
+ * is `required` is refused: only kb's build may make that claim, so every
+ * repository extension can be switched. A module that exports no
  * entry is a family with no server-only package, so its entry is its
  * declaration's plugin, as a bundled family's is. Its seed is called by
  * the fold, and each node it returns is checked then, so a seed that
@@ -70,6 +72,11 @@ export function decodeExtensionModule(
   if (!isDeclaration(declared)) return Result.fail(`declaration: ${declarationIssue(declared)}`);
   if (declared.name !== name) {
     return Result.fail(`declaration: its name ${declared.name} must be its file's, ${name}`);
+  }
+  if (declared.required !== undefined) {
+    return Result.fail(
+      "declaration: required is kb's own build's claim; an extension from a repository, a link or an install can always be switched off",
+    );
   }
   const { seed } = declared;
   const declaration: ExtensionDeclaration =

@@ -55,7 +55,7 @@ function reported() {
     ),
     extensionRow(
       { name: "example", label: "Example", optional: { byDefault: "on" } },
-      "/root/.kb/extensions/example.ts",
+      { source: "/root/.kb/extensions/example.ts", origin: { kind: "own" } },
       loaded,
       servedAt,
     ),

@@ -8,6 +8,7 @@ import {
   EXTENSION_SDK,
   installHostModules,
   type ExtensionFailure,
+  type ExtensionOrigin,
   type LoadedExtension,
   type ExtensionRow,
 } from "@kb/contracts";
@@ -61,6 +62,8 @@ export interface ClosedExtension {
   readonly file: string;
   readonly name: string;
   readonly path: string;
+  /** How its folder was selected: the store's own, a link, or an install. */
+  readonly origin: ExtensionOrigin;
   readonly closure: DigestedClosure;
 }
 
@@ -152,7 +155,14 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
       page === undefined ? null : join(dir, page),
     ).pipe(Effect.result);
     if (Result.isFailure(closure)) failures.push({ file, error: closure.failure });
-    else result.push({ file, name, path, closure: closure.success });
+    else
+      result.push({
+        file,
+        name,
+        path,
+        origin: folder.provenance ?? { kind: "own" },
+        closure: closure.success,
+      });
   }
   for (const file of entries) {
     const name = pageOf(file);
@@ -245,7 +255,6 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
       rows.push({
         name: folder.name,
         label: folder.name,
-        optional: true,
         enabled: false,
         source: folder.name,
         origin: folder.origin,
@@ -275,7 +284,6 @@ export const readClosures = Effect.fn("kb.readClosures")(function* (
         rows.push({
           name: file.slice(0, -3),
           label: file.slice(0, -3),
-          optional: true,
           enabled: false,
           source: join(dir, file),
           origin: folder.provenance ?? { kind: "own" },
@@ -322,7 +330,7 @@ export const importClosures = Effect.fn("kb.importClosures")(function* (
 ): Effect.fn.Return<{ extensions: LoadedExtension[]; failures: ExtensionFailure[] }> {
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
-  for (const { file, name, path, closure } of closures) {
+  for (const { file, name, path, origin, closure } of closures) {
     const loaded = yield* importClosure(closure.server).pipe(Effect.result);
     if (Result.isFailure(loaded)) {
       failures.push({ file, error: loaded.failure });
@@ -346,6 +354,7 @@ export const importClosures = Effect.fn("kb.importClosures")(function* (
       declaration,
       entry,
       source: path,
+      origin,
       digest: closure.digest,
       ...(closure.page === null ? {} : { page: closure.page }),
     });

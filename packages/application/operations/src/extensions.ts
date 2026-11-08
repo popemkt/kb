@@ -4,13 +4,13 @@
  * `extension.list`, the report of every extension the host composes, and
  * `extension.settings`, the settings each extension's node has.
  *
- * `extension.switch`: turn an optional family on or off for this store
+ * `extension.switch`: turn a family on or off for this store
  * (DESIGN.md → Extension families → optional is a server-side load
  * decision). It writes the family's switch node (`switchWrites`), so the
  * registry loads the family, or leaves it out, from the next call on, and
  * `kb.manifest` reports it so. The switch is a setting of every extension's
  * node, so this is the checked verb over a write `node.update` could make
- * too: it refuses a family that is unknown or not optional, and commits
+ * too: it refuses a family that is unknown or required, and commits
  * through the same system-write rule (`persistEffect`) as every write.
  * The Extensions page's switch calls it, and so may the CLI. It changes which
  * code the server loads, which is what a governing policy would decide
@@ -54,7 +54,7 @@ export const extensionSwitchDef = {
   id: "extension.switch",
   title: "Switch an extension",
   description:
-    "Turn an optional extension (as kb.manifest lists it, optional: true) on or off for this kb: the server loads it, or leaves it out, from the next call on",
+    "Turn an extension on or off for this kb: the server loads it, or leaves it out, from the next call on. Every extension can be switched except one kb.manifest lists with `required` (its reason)",
   mode: { kind: "write" } as const,
   inputSchema: z.object({ name: z.string().min(1), on: z.boolean() }),
   outputSchema: z.object({ name: z.string(), on: z.boolean() }),
@@ -75,10 +75,10 @@ export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
       name: input.name,
     });
   }
-  if (!row.optional) {
+  if (row.required !== undefined) {
     return yield* domainError(
       "invalid_input",
-      `${input.name} is not optional: it is on wherever it is loaded`,
+      `${input.name} is required, so it is on wherever it is loaded: ${row.required}`,
       { name: input.name },
     );
   }

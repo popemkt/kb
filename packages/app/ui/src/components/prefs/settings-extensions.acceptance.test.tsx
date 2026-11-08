@@ -35,9 +35,10 @@ const REPORT: ExtensionReport = {
     {
       name: "outline",
       label: "Outline",
-      optional: false,
+      required: "Synthetic: the page cannot draw without it.",
       enabled: true,
       source: "bundled",
+      origin: { kind: "bundled" },
       tags: ["core"],
       injects: [],
       provides: [],
@@ -46,9 +47,9 @@ const REPORT: ExtensionReport = {
     {
       name: "graph",
       label: "Graph",
-      optional: true,
       enabled: true,
       source: "bundled",
+      origin: { kind: "bundled" },
       tags: ["graph"],
       injects: [{ service: "kb.index", from: null }],
       provides: [],
@@ -57,9 +58,9 @@ const REPORT: ExtensionReport = {
     {
       name: "hello",
       label: "Hello",
-      optional: false,
       enabled: true,
       source: "/repo/.kb/extensions/hello.ts",
+      origin: { kind: "own" },
       digest: DIGEST,
       tags: [],
       injects: [],

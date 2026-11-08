@@ -53,11 +53,11 @@ export function PartLink({
   );
 }
 
-/** The switch of an optional extension, or that it is required; nothing until the server reports. */
+/** The switch of an extension, or that it is required and why; nothing until the server reports. */
 export function ExtensionSwitch({ extension }: { readonly extension: PanelExtension | undefined }) {
   if (extension === undefined) return null;
   const { row } = extension;
-  return row.optional ? (
+  return row.required === undefined ? (
     <span className="flex items-center gap-2">
       {row.enabled ? null : (
         <span className="text-caption text-faint-foreground">off: contributes nothing</span>
@@ -71,7 +71,9 @@ export function ExtensionSwitch({ extension }: { readonly extension: PanelExtens
       />
     </span>
   ) : (
-    <span className="text-meta text-muted-foreground">required</span>
+    <span className="text-meta text-muted-foreground" title={row.required}>
+      required
+    </span>
   );
 }
 

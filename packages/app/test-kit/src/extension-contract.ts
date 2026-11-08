@@ -308,7 +308,7 @@ function footprintPromises(
       Effect.scoped(
         Effect.gen(function* () {
           const ctx = yield* openSession(yield* host.root);
-          const states = declaration.optional === undefined ? [true] : [false, true, false];
+          const states = declaration.required === undefined ? [false, true, false] : [true];
           for (const on of states) {
             const { kernel } = yield* host.compose(switched(declaration, on));
             const rows = familyFootprint(ctx.index, declaration.name, [
@@ -347,7 +347,7 @@ function switchPromises(
     host.compose(nodeOf).pipe(
       Effect.map(({ row, kernel }) => ({
         enabled: row?.enabled,
-        optional: row?.optional,
+        required: row?.required,
         // Held means loaded: a family may contribute nothing on this host (its
         // backdrops are the page's), and still be held.
         held: holdsFamily({ source: host.source, kernel }, entry.name),
@@ -360,14 +360,14 @@ function switchPromises(
         const on = declaration.optional?.byDefault !== "off";
         expect(yield* composed(NO_SWITCHES)).toEqual({
           enabled: on,
-          optional: declaration.optional !== undefined,
+          required: declaration.required,
           held: on,
         });
       }),
     ));
 
-  // A family is optional or required, so it is held to the one promise that reads its switch.
-  if (declaration.optional !== undefined) {
+  // A family is switchable or required, so it is held to the one promise that reads its switch.
+  if (declaration.required === undefined) {
     test("switched off, its host neither holds nor reports it; switched on, both return, on the same host", () =>
       Effect.runPromise(
         Effect.gen(function* () {
@@ -375,7 +375,7 @@ function switchPromises(
             expect({ on, ...(yield* composed(switched(declaration, on))) }).toEqual({
               on,
               enabled: on,
-              optional: true,
+              required: undefined,
               held: on,
             });
           }
@@ -387,7 +387,7 @@ function switchPromises(
         Effect.gen(function* () {
           expect(yield* composed(switched(declaration, false))).toEqual({
             enabled: true,
-            optional: false,
+            required: declaration.required,
             held: true,
           });
         }),

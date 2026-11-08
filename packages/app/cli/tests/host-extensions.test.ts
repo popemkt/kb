@@ -118,9 +118,9 @@ describe("kb ui reports the extensions it hosts", () => {
     expect(rows.find((row) => row.name === "agent")).toEqual({
       name: "agent",
       label: "Agent",
-      optional: true,
       enabled: true,
       source: "host",
+      origin: { kind: "host" },
     });
   });
 
@@ -130,7 +130,7 @@ describe("kb ui reports the extensions it hosts", () => {
       expect(await call(page, "extension.switch", { name: "agent", on: false })).toMatchObject({
         status: "succeeded",
       });
-      expect(await agentAt()).toMatchObject({ optional: true, enabled: false });
+      expect(await agentAt()).toMatchObject({ enabled: false });
       expect(await call(page, "extension.switch", { name: "agent", on: true })).toMatchObject({
         status: "succeeded",
       });

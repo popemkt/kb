@@ -2,6 +2,7 @@ export {
   ExtensionOriginSchema,
   ExtensionReachSchema,
   ExtensionReviewSchema,
+  installMarketplace,
 } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
@@ -72,9 +73,15 @@ export {
   declarationPlugin,
   familyTags,
   defineExtension,
+  extensionFrom,
   extensionRow,
 } from "./declaration.ts";
-export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
+export type {
+  ExtensionDeclaration,
+  ExtensionEntry,
+  ExtensionFrom,
+  ExtensionRow,
+} from "./declaration.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
 export {
   FOOTPRINT_SOURCES,

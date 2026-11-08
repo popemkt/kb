@@ -5,4 +5,10 @@
  */
 import { defineExtension } from "@kb/contracts";
 
-export const checkExtension = defineExtension({ name: "check", label: "Check", tags: ["core"] });
+export const checkExtension = defineExtension({
+  name: "check",
+  label: "Check",
+  tags: ["core"],
+  required:
+    "It runs the rule audit the gates rely on, so no gate can read clean because it was switched off.",
+});

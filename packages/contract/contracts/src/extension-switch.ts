@@ -1,16 +1,16 @@
 /**
- * Whether a store has an optional family on (DESIGN.md → Extension families
- * → optional is a server-side load decision). The switch is a node like any
+ * Whether a store has a family on (DESIGN.md → Extension families →
+ * optional is a server-side load decision). The switch is a node like any
  * other: the family's own node, `sys.extension.<name>`, carrying the
- * checkbox field `sys.f.extension.enabled`. The registry loads an optional
- * family only while its node says so, and `kb.manifest` reports what the
+ * checkbox field `sys.f.extension.enabled`. The registry loads a family
+ * that is not required only while its node says so, and `kb.manifest` reports what the
  * registry loaded, so the page follows the store.
  *
  * The node and the field are seeded (the fold derives every extension's
  * node from its declaration), and the node holds no switch until
  * `extension.switch` writes it the first time a person switches the family.
- * So a store nobody has switched has every optional family as its
- * declaration has it by default.
+ * So a store nobody has switched has every family as its declaration has
+ * it by default.
  */
 import { Schema } from "effect";
 import {
@@ -48,19 +48,20 @@ function switchSlots(byDefault: boolean): ConfigSlots<{ enabled: boolean }> {
 }
 
 /**
- * Whether the store `nodeOf` reads has the family on: an optional one by its
- * switch, or by its declared default where none is written; a required one
- * always, whatever its node says. A switch that does not read as a checkbox
- * reads as the default, and `report` hears why.
+ * Whether the store `nodeOf` reads has the family on: a required one always,
+ * whatever its node says; any other by its switch, or by its declared
+ * default (`on` when it declares none) where no switch is written. A switch
+ * that does not read as a checkbox reads as the default, and `report` hears
+ * why.
  */
 export function familyOn(
   declaration: ExtensionDeclaration,
   nodeOf: NodeLookup,
   report: (warning: string) => void,
 ): boolean {
-  if (declaration.optional === undefined) return true;
+  if (declaration.required !== undefined) return true;
   const props = nodeOf(extensionNodeId(declaration.name))?.props;
-  const slots = switchSlots(declaration.optional.byDefault === "on");
+  const slots = switchSlots((declaration.optional?.byDefault ?? "on") === "on");
   return decodeNodeConfig(slots, props, report)("enabled");
 }
 

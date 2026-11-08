@@ -181,6 +181,27 @@ describe("a repository extension's node", () => {
     }
   });
 
+  test("a module that declares itself required is refused: only kb's build is required", async () => {
+    resetRegistryCache();
+    const root = await rootWith({
+      "keeper.ts": extensionModule("keeper", {
+        declaration: '{ name: "keeper", label: "Keeper", required: "it says so" }',
+      }),
+    });
+    try {
+      const { families, failures } = await Effect.runPromise(
+        rootFamilies(root).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(families.filter(({ source }) => source !== "bundled")).toEqual([]);
+      expect(failures).toContainEqual({
+        file: "keeper.ts",
+        error: expect.stringContaining("can always be switched off"),
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("a module whose declaration does not fold is refused, and the store still opens", async () => {
     resetRegistryCache();
     const root = await rootWith({

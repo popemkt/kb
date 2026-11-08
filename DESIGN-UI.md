@@ -2917,10 +2917,12 @@ the settings. The record of why is
 - **Extensions** holds one section per extension node under
   `sys.extensions`, in that list's order, read from the whole graph (the
   schema, never a scoped projection), then any the server reports with
-  no node. Its heading carries the extension's switch when it is
-  optional, which calls `extension.switch` and then shows what the server
+  no node. Its heading carries the extension's switch unless it is
+  required, which calls `extension.switch` and then shows what the server
   reports (never the choice), with _off: contributes nothing_ beside it;
-  otherwise _required_. The switch is a load decision: switched off, the
+  a required one says _required_ and why, in its declaration's words.
+  Whether a family is required, and where it came from (its `origin`), is
+  the server's report; the page infers neither. The switch is a load decision: switched off, the
   extension's actions, views and MCP tools leave, which the part's lede
   says. Under the heading are its settings, exactly what `settingsOf`
   reads for its node, each drawn with the page's field editor; core's

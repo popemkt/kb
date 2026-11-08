@@ -5,4 +5,10 @@
  */
 import { defineExtension } from "@kb/contracts";
 
-export const docsExtension = defineExtension({ name: "docs", label: "Docs", tags: ["core"] });
+export const docsExtension = defineExtension({
+  name: "docs",
+  label: "Docs",
+  tags: ["core"],
+  required:
+    "Core's markdown views render with its templates, and it runs the docs check this repository's gate relies on.",
+});

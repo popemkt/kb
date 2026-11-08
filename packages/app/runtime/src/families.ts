@@ -51,6 +51,7 @@ export interface RootFamilies {
 const BUNDLED: readonly LoadedExtension[] = BUNDLED_EXTENSIONS.map((family) => ({
   ...family,
   source: "bundled",
+  origin: { kind: "bundled" },
 }));
 
 /**

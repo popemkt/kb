@@ -18,7 +18,13 @@ const AT = "2026-10-04T00:00:00.000Z";
 
 const OFF_BY_DEFAULT = defineExtension({ name: "a", label: "A", optional: { byDefault: "off" } });
 const ON_BY_DEFAULT = defineExtension({ name: "b", label: "B", optional: { byDefault: "on" } });
-const REQUIRED = defineExtension({ name: "c", label: "C" });
+const REQUIRED = defineExtension({
+  name: "c",
+  label: "C",
+  required: "synthetic: nothing runs without it",
+});
+/** A family that says nothing of its switch: on by default, and switchable. */
+const UNSAID = defineExtension({ name: "d", label: "D" });
 
 /** A store holding exactly `nodes`. */
 function store(nodes: readonly KbNode[]): NodeLookup {
@@ -64,5 +70,7 @@ describe("a family's switch", () => {
   test("a required family is on whatever its node says, so nothing that depends on it can be switched away", () => {
     expect(familyOn(REQUIRED, NO_SWITCHES, silent)).toBe(true);
     expect(familyOn(REQUIRED, switched(REQUIRED, false), silent)).toBe(true);
+    expect(familyOn(UNSAID, NO_SWITCHES, silent)).toBe(true);
+    expect(familyOn(UNSAID, switched(UNSAID, false), silent)).toBe(false);
   });
 });

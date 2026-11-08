@@ -30,11 +30,12 @@ import {
 import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
-// Older pages reject unknown notification frames. Protocol 3 reloads them
-// into a build that follows manifest-changed and refreshes its catalog.
+// Protocol 4: an extension row carries its origin (kb's build and the host
+// included) and a required family's reason in place of `optional`, which a
+// page of protocol 3 requires, so it reloads into a build that reads them.
 const RECORDED = {
-  protocol: 3,
-  fingerprint: "dc186c808951547fe76ba28c89f190d81c148286e7d20c617a8cb1594c0434eb",
+  protocol: 4,
+  fingerprint: "bf75ff91b784cdd20e3ebaba56c6c59d2b12783cb02bc1b55773de22eca2676c",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

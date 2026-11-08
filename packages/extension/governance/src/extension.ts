@@ -13,6 +13,8 @@ export const governanceExtension = defineExtension({
   name: "governance",
   label: "Governance",
   tags: ["governance"],
+  required:
+    "Every call passes through it: while it is missing kb refuses calls rather than run them unguarded.",
   seed: governanceSeedNodes,
   files: GOVERNANCE_FILES,
 });

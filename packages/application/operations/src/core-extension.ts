@@ -34,6 +34,7 @@ export const coreExtension = defineExtension({
   name: "core",
   label: "Core",
   tags: ["core"],
+  required: "kb itself: the graph, its nodes, fields and tags, search, and these settings.",
   seed: systemSeedNodes,
   views: [
     viewDef(OntologyListView),

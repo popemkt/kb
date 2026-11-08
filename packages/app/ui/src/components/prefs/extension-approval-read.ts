@@ -26,7 +26,7 @@ export function readExtensionApproval(invocation: ActionInvocation): Promise<App
       content: createElement(ExtensionEvidence, { row, diff }),
       approveLabel: "Trust this digest",
     });
-    if (row.origin?.kind !== "install") return view(null);
+    if (row.origin.kind !== "install") return view(null);
     return readExtensionDiff(row).then(extensionLineDiff).then(view);
   });
 }

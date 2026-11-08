@@ -120,8 +120,11 @@ function readPageAt(): PageKernelAt {
 /** Source scope is presentation of the catalog's declared origin, never inferred from paths. */
 export function extensionSourceLabel(row: Pick<ExtensionRow, "origin" | "source">): string {
   const origin = row.origin;
-  if (origin === undefined) return row.source;
   switch (origin.kind) {
+    case "bundled":
+      return "kb's build";
+    case "host":
+      return "kb ui host";
     case "own":
       return "own folder";
     case "link":

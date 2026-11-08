@@ -164,7 +164,10 @@ function listLines(
   const lines: string[] = [];
   for (const e of listed) {
     lines.push(`${e.name} (${e.source}${e.enabled ? "" : ", off"}) — contributes ${e.contributes}`);
-    if (e.origin !== undefined) lines.push(`  source: ${JSON.stringify(e.origin)}`);
+    // The line names where a repository extension came from; kb's build and the host are its source already.
+    if (e.origin.kind !== "bundled" && e.origin.kind !== "host")
+      lines.push(`  source: ${JSON.stringify(e.origin)}`);
+    if (e.required !== undefined) lines.push(`  required: ${e.required}`);
     if (e.shadowed !== undefined) lines.push(`  hidden: shadowed by ${e.shadowed}`);
     if (e.digest !== undefined)
       lines.push(`  ${e.trusted === true ? "trusted" : "untrusted"}: ${e.digest}`);
@@ -326,7 +329,7 @@ function reviewCommands(ext: Command): void {
               2,
             ),
           );
-          if (row.origin?.kind === "install") {
+          if (row.origin.kind === "install") {
             const diff = yield* invokeCliEffect(
               ctx,
               onWire(ACTION_INVOKE_WIRE, { id: "extension.diff", input: { name } }),
@@ -340,7 +343,7 @@ function reviewCommands(ext: Command): void {
               id: "sandbox.trust",
               input: {
                 digest: row.digest,
-                ...(row.origin?.kind === "install" && row.files !== undefined
+                ...(row.origin.kind === "install" && row.files !== undefined
                   ? { extension: { name, files: row.files } }
                   : {}),
               },
@@ -457,7 +460,7 @@ export function extensionCommands(program: Command): void {
                     ...e,
                     name: e.name,
                     source: e.source,
-                    optional: e.optional,
+                    ...(e.required === undefined ? {} : { required: e.required }),
                     enabled: e.enabled,
                     contributes: e.contributes,
                     ...(e.digest === undefined ? {} : { digest: e.digest }),
