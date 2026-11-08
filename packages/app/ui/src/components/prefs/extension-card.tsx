@@ -38,31 +38,35 @@ import { Disclosure } from "./settings-fold";
 const STATUS: Readonly<
   Record<
     ExtensionStatus,
-    { pill: { word: string; tone: string } | null; idle: string; review: string | null }
+    {
+      pill: { word: string; tone: string; dot: string } | null;
+      idle: string;
+      review: string | null;
+    }
   >
 > = {
   error: {
-    pill: { word: "Error", tone: "bg-destructive/10 text-destructive" },
+    pill: { word: "Error", tone: "bg-destructive/10", dot: "bg-destructive" },
     idle: "nothing, while it fails to load",
     review: null,
   },
   update: {
-    pill: { word: "Update available", tone: "bg-info/10 text-info" },
+    pill: { word: "Update available", tone: "bg-info/10", dot: "bg-info" },
     idle: "nothing on this page or server",
     review: "Review update",
   },
   approval: {
-    pill: { word: "Needs approval", tone: "bg-warning/10 text-warning" },
+    pill: { word: "Needs approval", tone: "bg-warning/10", dot: "bg-warning" },
     idle: "nothing until you review and trust it",
     review: "Review & trust",
   },
   off: {
-    pill: { word: "Off", tone: "bg-foreground/5 text-muted-foreground" },
+    pill: { word: "Off", tone: "bg-foreground/5", dot: "bg-faint-foreground" },
     idle: "nothing while it is off",
     review: null,
   },
   trusted: {
-    pill: { word: "Trusted", tone: "bg-success/10 text-success" },
+    pill: { word: "Trusted", tone: "bg-success/10", dot: "bg-success" },
     idle: "nothing on this page or server",
     review: null,
   },
@@ -76,8 +80,14 @@ export function StatusPill({ status }: { readonly status: ExtensionStatus }) {
   return (
     <span
       data-extension-status={status}
-      className={cn("rounded-full px-2 py-px text-label font-medium", shown.tone)}
+      // The word in the text colour, the status's colour on a dot and a tint: a status colour
+      // as text on its own tint falls below AA in the light themes.
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-px text-label font-medium text-foreground/80",
+        shown.tone,
+      )}
     >
+      <span aria-hidden className={cn("h-1.5 w-1.5 flex-none rounded-full", shown.dot)} />
       {shown.word}
     </span>
   );

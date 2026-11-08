@@ -30,8 +30,9 @@ function SourceChanges({ diff }: { readonly diff: ExtensionLineDiff }) {
                 <pre
                   key={part.at}
                   data-diff={part.added ? "added" : "removed"}
-                  className={`whitespace-pre-wrap break-all ${
-                    part.added ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                  // The text colour on the change's tint: the sign and the tint say which.
+                  className={`whitespace-pre-wrap break-all text-foreground ${
+                    part.added ? "bg-success/10" : "bg-destructive/10"
                   }`}
                 >
                   {part.value

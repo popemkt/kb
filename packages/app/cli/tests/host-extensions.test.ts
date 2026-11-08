@@ -118,6 +118,7 @@ describe("kb ui reports the extensions it hosts", () => {
     expect(rows.find((row) => row.name === "agent")).toEqual({
       name: "agent",
       label: "Agent",
+      description: expect.any(String),
       enabled: true,
       source: "host",
       origin: { kind: "host" },
