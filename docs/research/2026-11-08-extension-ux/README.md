@@ -14,8 +14,9 @@ The trial server runs this branch against `~/Projects/kb-trial-extux`, with
 `KB_HOME=/tmp/kb-trial-extux-home`, `KB_DATA=/tmp/kb-trial-extux-data` and
 `KB_CACHE=/tmp/kb-trial-extux-cache`. The sample marketplace
 (`popemkt/kb-plugins-sample`) is already added, and `hello` and `aurora` are
-installed into the store lock but not trusted. The owner can review and
-trust them from their cards, or install `tide-backdrop` from Add extension.
+installed into the store lock but not trusted, as is `tide-backdrop` from
+the sample's manifest branch. The owner can review and trust them from
+their cards.
 
 The screenshots were taken in the BB desktop browser on popemkt-personal,
 in one tab that was closed after capture. They show only the trial store.
@@ -37,18 +38,24 @@ These are the problems the pass fixes:
 | | |
 | --- | --- |
 | ![after, top](after-1.jpg) | ![after, menu and built-ins](after-2.jpg) |
-| ![after, add panel](after-add.jpg) | ![after, dark](after-dark.jpg) |
-| ![after, review sheet](after-review.jpg) | |
+| ![after, add panel](after-add.jpg) | ![after, review sheet](after-review.jpg) |
+| ![after, details, dark](after-details.jpg) | ![after, details, light](after-light.jpg) |
 | ![narrow, light](after-narrow-light.jpg) | ![narrow, dark](after-narrow-dark.jpg) |
 
 What the screenshots show:
 - The Installed shelf comes first, then Built-in.
-- Each card has a status pill, its one line and its source: the marketplace, the GitHub path, the pin linked to GitHub, and the scope.
+- Each card has a status pill, its one line, who wrote it and its source: the marketplace, the GitHub path, the pin linked to GitHub, and the scope.
 - Each card has one primary action and an overflow menu.
 - Required families show a lock and give their reason.
-- Details stay folded, with short digests to copy.
+- Details stay folded, with short digests to copy, then what the extension says about itself: author, licence, links, and one line per capability.
 - There is one Add panel: marketplace entries with Install, then a paste field.
-- The review sheet is unchanged from #125.
+- The review sheet shows the same manifest before anything is trusted, says that a page half has full page power whatever tier it declares, and lists the manifest file in the line diff.
+
+`aurora` and `hello` are pinned to the sample's commit before it had
+manifests, so every field reads _not declared_. `tide-backdrop` was
+installed from the sample's manifest branch
+([popemkt/kb-plugins-sample#1](https://github.com/popemkt/kb-plugins-sample/pull/1))
+to show a declared one. All three are untrusted.
 
 ## What could move out of built-ins?
 

@@ -72,6 +72,9 @@ function Stated({ value, link }: { readonly value: string | undefined; readonly 
   );
 }
 
+/** An extension's term list: one label column wide enough for every term, so lists stacked on a card align. */
+export const TERM_LIST = "grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-1";
+
 /**
  * What an extension says about itself (its manifest, docs/extensions/README.md):
  * who wrote it, its licence, where it lives, then each capability in plain
@@ -80,7 +83,7 @@ function Stated({ value, link }: { readonly value: string | undefined; readonly 
  */
 export function ExtensionAbout({ manifest }: { readonly manifest: ExtensionManifest | undefined }) {
   return (
-    <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1" data-extension-about>
+    <dl className={TERM_LIST} data-extension-about>
       <dt className="text-foreground/60">Author</dt>
       <Stated value={manifest?.author} />
       <dt className="text-foreground/60">License</dt>

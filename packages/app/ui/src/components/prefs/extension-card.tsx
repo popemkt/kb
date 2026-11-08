@@ -28,7 +28,7 @@ import {
   type PanelExtensionGroup,
 } from "@/lib/extension-report";
 import { BUTTON, PRIMARY_BUTTON, SCOPES, useExtensionAction } from "./extension-actions";
-import { ExtensionAbout } from "./extension-approval";
+import { ExtensionAbout, TERM_LIST } from "./extension-approval";
 import { Disclosure } from "./settings-fold";
 
 /**
@@ -497,10 +497,7 @@ export function ExtensionDetails({
       ))}
       {row === undefined ? null : (
         <Disclosure id={`${nodeId}:details`} title="Details" level="inner" opensBy={false}>
-          <dl
-            className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-meta"
-            data-testid={`details-${row.name}`}
-          >
+          <dl className={cn(TERM_LIST, "text-meta")} data-testid={`details-${row.name}`}>
             {adds.length === 0 ? (
               <Detail term="Adds">{STATUS[extensionStatus(row)].idle}</Detail>
             ) : (
