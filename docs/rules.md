@@ -730,7 +730,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — Every CLI invocation returns its JSON receipt; failures are diagnosable without rerunning or hiding a transport fault.
 - **current** — Core CI run 42452522418 saw empty stdout in the socket/governance-required surface contract. The old helper discarded stderr and exit status. The helper now preserves those diagnostics, but the underlying child failure has not been reproduced.
 - **impact** — The full core gate can fail outside the extension UI, and the original trace cannot distinguish a child crash from a transport failure.
-- **closes** — Reproduce the empty child response with the captured exit/signal/stderr, fix its cause, and prove the surface contract without retries or quarantine.
+- **closes** — The output seam guarantees what it wrote has left the process before the entry exits. Bun exposes no drain on process.stdout (writableNeedDrain stays false, the write callback fires early), so the seam needs a Bun FileSink (Bun.stdout.writer(), whose flush() awaits a pipe) or a natural exit with process.exitCode; the CLI tests that capture output by replacing process.stdout.write move to the seam with it. Prove it with a slow-reader test of a large receipt, without retries.
 - **node** — `01M6WW0WE9QD8W2KCRM1NW8SHB`
 
 ### GAP: CLI pays full cold start on every invocation
