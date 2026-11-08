@@ -235,7 +235,8 @@ test("restore checks the lock identity before publishing a source or pin index",
   await writeFile(file, JSON.stringify(lock));
   expect(await install()).toMatchObject({
     status: "failed",
-    message: expect.stringContaining("does not match its lock"),
+    code: "invalid_input",
+    message: expect.stringContaining("does not match expected"),
   });
   const index = await stat(join(data, "extensions", "refs")).catch((error: unknown) => error);
   expect(index).toMatchObject({ code: "ENOENT" });
@@ -278,15 +279,12 @@ test("a hostile committed store lock cannot select a sibling's trusted extension
     file,
     JSON.stringify({ version: 1, extensions: {}, marketplaces: {}, links: [] }),
   );
-  await writeFile(
-    join(clone.root, ".kb", "extensions.local.json"),
-    JSON.stringify({
-      version: 1,
-      extensions: {},
-      marketplaces: {},
-      links: ["../sibling/.kb/extensions"],
+  expect(
+    await invoke(clone, {
+      id: "extension.link",
+      input: { path: join(sibling, ".kb", "extensions"), scope: "local" },
     }),
-  );
+  ).toMatchObject({ status: "succeeded" });
   resetRegistryCache();
   expect(await invoke(clone, { id: "extension.list", input: {} })).toMatchObject({
     status: "succeeded",

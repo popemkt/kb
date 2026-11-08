@@ -6,6 +6,7 @@ import {
   marketplacePlan,
   pinnedMarketplaces,
   resolveExtensionRequest,
+  type PinnedMarketplace,
 } from "./extension-plans.ts";
 import {
   CodeTrust,
@@ -13,11 +14,15 @@ import {
   ExtensionStorage,
   KbCtx,
   DEFAULT_EXTENSION_SCOPE,
-  EXTENSION_SCOPES,
   ExtensionScopeSchema,
   type ActionDefinition,
   type ExtensionTransaction,
 } from "@kb/contracts";
+import {
+  readSelectionSnapshot,
+  checkSelectionSnapshot,
+  writeSelectionSnapshot,
+} from "./extension-locks.ts";
 import { domainError } from "@kb/model";
 
 export const extensionInstallDef = {
@@ -40,6 +45,16 @@ export const extensionInstallDef = {
         trusted: z.boolean(),
         ignored: z.array(z.string()),
         cached: z.boolean(),
+        marketplace: z
+          .object({
+            name: z.string(),
+            scope: ExtensionScopeSchema,
+            repo: z.string(),
+            path: z.string(),
+            rev: z.string(),
+            files: z.string(),
+          })
+          .optional(),
       }),
     ),
     reload: z.literal("restart kb ui"),
@@ -52,111 +67,111 @@ export const extensionInstallEffect = Effect.fn("extension.install")(function* (
   const compiler = yield* ExtensionCompiler;
   const trust = yield* CodeTrust;
   const { root } = yield* KbCtx;
+  const snapshot = yield* readSelectionSnapshot(root);
   const installed: z.infer<typeof extensionInstallDef.outputSchema>["installed"] = [];
-  return yield* storage.mutate(
-    Effect.fn("extension.install.write")(function* (transaction: ExtensionTransaction) {
-      const materialize = Effect.fn("extension.install.materialize")(function* (
-        pin: PinnedSource,
-        expected?: { readonly name: string; readonly files?: string },
-      ) {
-        const plan = yield* extensionPlan(pin);
-        if (
-          expected !== undefined &&
-          (plan.source.name !== expected.name ||
-            (expected.files !== undefined && plan.source.hash !== expected.files))
-        )
-          return yield* domainError(
-            "invalid_input",
-            "fetched source does not match its lock or marketplace name",
+  const record = Effect.fn("extension.install.record")(function* (
+    tx: ExtensionTransaction,
+    plan: Effect.Success<ReturnType<typeof extensionPlan>>,
+    marketplace?: PinnedMarketplace,
+  ) {
+    const tree = yield* tx.store({ kind: "extension", pin: plan.pin }, plan.source);
+    const digest = yield* compiler.compile(tree.dir, tree.name);
+    installed.push({
+      name: tree.name,
+      rev: plan.pin.rev,
+      files: tree.files,
+      digest,
+      trusted: yield* trust.attachSource(digest, { name: tree.name, files: tree.files }),
+      ignored: [...plan.source.ignored],
+      cached: plan.cached !== null,
+      ...(marketplace === undefined
+        ? {}
+        : {
+            marketplace: {
+              name: marketplace.name,
+              scope: marketplace.scope,
+              ...marketplace.selection.locked,
+            },
+          }),
+    });
+    return tree;
+  });
+  if (input.source !== undefined) {
+    const request = yield* resolveExtensionRequest(
+      input.source,
+      input.source.startsWith("github:") || input.source.startsWith("https://github.com/")
+        ? []
+        : yield* pinnedMarketplaces(snapshot),
+    );
+    const plan = yield* extensionPlan(
+      request.pin,
+      request.name === undefined ? undefined : { name: request.name },
+    );
+    const before = snapshot.find(
+      (entry) => entry.scope === (input.scope ?? DEFAULT_EXTENSION_SCOPE),
+    );
+    if (before === undefined) return yield* domainError("internal", "missing extension scope");
+    return yield* storage.mutate(
+      Effect.fn("extension.install.write")(function* (tx: ExtensionTransaction) {
+        yield* checkSelectionSnapshot(root, snapshot);
+        const tree = yield* record(tx, plan, request.marketplace);
+        if (request.marketplace !== undefined)
+          yield* tx.store(
+            { kind: "marketplace", pin: request.marketplace.selection.locked },
+            request.marketplace.source,
           );
-        const tree =
-          plan.cached ?? (yield* transaction.store({ kind: "extension", pin }, plan.source));
-        return { tree, ignored: plan.source.ignored, cached: plan.cached !== null };
-      });
-      const record = Effect.fn("extension.install.record")(function* (
-        pin: PinnedSource,
-        prepared: Effect.Success<ReturnType<typeof materialize>>,
-      ) {
-        const { tree, ignored, cached } = prepared;
-        const digest = yield* compiler.compile(tree.dir, tree.name);
-        installed.push({
-          name: tree.name,
-          rev: pin.rev,
-          files: tree.files,
-          digest,
-          trusted: (yield* trust.trusted([digest])).includes(digest),
-          ignored: [...ignored],
-          cached,
-        });
-        return undefined;
-      });
-      if (input.source !== undefined) {
-        const request = yield* resolveExtensionRequest(
-          input.source,
-          input.source.startsWith("github:") || input.source.startsWith("https://github.com/")
-            ? []
-            : yield* pinnedMarketplaces(root),
-        );
-        const prepared = yield* materialize(
-          request.pin,
-          request.name === undefined ? undefined : { name: request.name },
-        );
-        yield* record(request.pin, prepared);
-        yield* transaction.update(root, input.scope ?? DEFAULT_EXTENSION_SCOPE, (held) => ({
-          ...held,
+        yield* writeSelectionSnapshot(tx, root, before, {
+          extensions: {
+            ...before.selections.extensions,
+            [tree.name]: {
+              original: request.original,
+              locked: { ...request.pin, files: tree.files },
+            },
+          },
           marketplaces: {
-            ...held.marketplaces,
+            ...before.selections.marketplaces,
             ...(request.marketplace === undefined
               ? {}
               : { [request.marketplace.name]: request.marketplace.selection }),
           },
-          extensions: {
-            ...held.extensions,
-            [prepared.tree.name]: {
-              original: request.original,
-              locked: { ...request.pin, files: prepared.tree.files },
-            },
-          },
-        }));
-      } else {
-        const visited = new Set<string>();
-        for (const scope of EXTENSION_SCOPES) {
-          const { lock } = yield* storage.read(root, scope);
-          for (const [name, entry] of Object.entries(lock.marketplaces)) {
-            const present = yield* storage
-              .tree({ kind: "marketplace", name, files: entry.locked.files })
-              .pipe(Effect.orElseSucceed(() => null));
-            if (present !== null) continue;
-            const plan = yield* marketplacePlan(entry.locked);
-            if (plan.source.name !== name || plan.source.hash !== entry.locked.files)
-              return yield* domainError(
-                "invalid_input",
-                "fetched marketplace does not match its lock",
-              );
-            yield* transaction.store({ kind: "marketplace", pin: entry.locked }, plan.source);
-          }
-          for (const [name, entry] of Object.entries(lock.extensions)) {
-            for (const pin of [
-              entry.locked,
-              ...(entry.previous === undefined ? [] : [entry.previous]),
-            ]) {
-              const key = `${name}\0${pin.files}`;
-              if (visited.has(key)) continue;
-              visited.add(key);
-              const held = yield* storage
-                .tree({ kind: "extension", name, files: pin.files })
-                .pipe(Effect.orElseSucceed(() => null));
-              if (held === null) {
-                const prepared = yield* materialize(pin, {
-                  name,
-                  files: pin.files,
-                });
-                yield* record(pin, prepared);
-              }
-            }
-          }
-        }
+        });
+        return { installed, reload: "restart kb ui" as const };
+      }),
+    );
+  }
+  const extensions: Effect.Success<ReturnType<typeof extensionPlan>>[] = [];
+  const indexes: { pin: PinnedSource; plan: Effect.Success<ReturnType<typeof marketplacePlan>> }[] =
+    [];
+  const visited = new Set<string>();
+  for (const { selections: lock } of snapshot) {
+    for (const [name, entry] of Object.entries(lock.marketplaces)) {
+      const present = yield* storage
+        .tree({ kind: "marketplace", name, files: entry.locked.files })
+        .pipe(Effect.orElseSucceed(() => null));
+      if (present !== null) continue;
+      const plan = yield* marketplacePlan(entry.locked);
+      if (plan.source.name !== name || plan.source.hash !== entry.locked.files)
+        return yield* domainError("invalid_input", "fetched marketplace does not match its lock");
+      indexes.push({ pin: entry.locked, plan });
+    }
+    for (const [name, entry] of Object.entries(lock.extensions))
+      for (const pin of [entry.locked, ...(entry.previous === undefined ? [] : [entry.previous])]) {
+        const key = `${name}\0${pin.files}`;
+        if (visited.has(key)) continue;
+        visited.add(key);
+        const present = yield* storage
+          .tree({ kind: "extension", name, files: pin.files })
+          .pipe(Effect.orElseSucceed(() => null));
+        if (present === null)
+          extensions.push(yield* extensionPlan(pin, { name, files: pin.files }));
       }
+  }
+  return yield* storage.mutate(
+    Effect.fn("extension.install.restore")(function* (tx: ExtensionTransaction) {
+      yield* checkSelectionSnapshot(root, snapshot);
+      for (const { pin, plan } of indexes)
+        yield* tx.store({ kind: "marketplace", pin }, plan.source);
+      for (const plan of extensions) yield* record(tx, plan);
       return { installed, reload: "restart kb ui" as const };
     }),
   );

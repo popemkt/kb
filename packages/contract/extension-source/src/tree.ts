@@ -103,12 +103,24 @@ export const checkedTree = Effect.fn("source.checkedTree")(function* (
 });
 
 /** Select the extension layout once, after the raw source satisfies the transport contract. */
-export const extensionTree = Effect.fn("source.extensionTree")(function* (tree: SourceTree) {
+export const extensionTree = Effect.fn("source.extensionTree")(function* (
+  tree: SourceTree,
+  expected?: { readonly name: string; readonly files?: string },
+) {
   const selected = yield* Effect.try({
     try: () => selectedFiles(tree.files),
     catch: SourceError.from,
   });
-  return { ...selected, ...(yield* checkedTree(selected.files)) };
+  const source = { ...selected, ...(yield* checkedTree(selected.files)) };
+  if (
+    expected !== undefined &&
+    (source.name !== expected.name ||
+      (expected.files !== undefined && source.hash !== expected.files))
+  )
+    return yield* new SourceError({
+      message: `fetched extension ${source.name} does not match expected ${expected.name} or its locked file set`,
+    });
+  return source;
 });
 export const checkedExtensionTree = Effect.fn("source.checkedExtensionTree")(function* (
   objects: readonly ObjectFile[],

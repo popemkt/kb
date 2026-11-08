@@ -12,11 +12,11 @@ import {
 } from "@kb/extension-source";
 import {
   ExtensionStorage,
-  EXTENSION_SCOPES,
   type ExtensionScope,
   type ExtensionSelection,
   type ExtensionLock,
 } from "@kb/contracts";
+import type { SelectionSnapshot } from "./extension-locks.ts";
 import { domainError } from "@kb/model";
 
 export const sourceFailure = (error: { readonly message: string }) =>
@@ -28,27 +28,34 @@ export const resolveGithub = Effect.fn("extensions.resolveGithub")(function* (or
   });
   return yield* (yield* SourceReader).resolve(source).pipe(Effect.mapError(sourceFailure));
 });
-export const extensionPlan = Effect.fn("extensions.extensionPlan")(function* (pin: PinnedSource) {
+export const extensionPlan = Effect.fn("extensions.extensionPlan")(function* (
+  pin: PinnedSource,
+  expected?: { readonly name: string; readonly files?: string },
+) {
   const cached = yield* (yield* ExtensionStorage).cached({ kind: "extension", pin });
   const source =
     cached === null
-      ? yield* (yield* SourceReader)
-          .read(pin)
-          .pipe(Effect.flatMap(extensionTree), Effect.mapError(sourceFailure))
-      : yield* extensionTree(cached.source).pipe(Effect.mapError(sourceFailure));
+      ? yield* (yield* SourceReader).read(pin).pipe(
+          Effect.flatMap((tree) => extensionTree(tree, expected)),
+          Effect.mapError(sourceFailure),
+        )
+      : yield* extensionTree(cached.source, expected).pipe(Effect.mapError(sourceFailure));
   if (cached !== null && (cached.name !== source.name || cached.files !== source.hash))
     return yield* domainError(
       "invalid_input",
       "cached extension projection does not match its index",
     );
-  return { cached, source: { ...source, ignored: cached?.ignored ?? source.ignored } };
+  return { pin, cached, source: { ...source, ignored: cached?.ignored ?? source.ignored } };
 });
 export const marketplacePlan = Effect.fn("extensions.marketplacePlan")(function* (
   pin: PinnedSource,
 ) {
   const cached = yield* (yield* ExtensionStorage).cached({ kind: "marketplace", pin });
   const raw =
-    cached?.source ?? (yield* (yield* SourceReader).read(pin).pipe(Effect.mapError(sourceFailure)));
+    cached?.source ??
+    (yield* (yield* SourceReader)
+      .read({ ...pin, path: [pin.path, "kb-marketplace.json"].filter(Boolean).join("/") })
+      .pipe(Effect.mapError(sourceFailure)));
   const { index, source } = yield* marketplaceTree(raw).pipe(Effect.mapError(sourceFailure));
   if (cached !== null && (cached.name !== index.name || cached.files !== source.hash))
     return yield* domainError(
@@ -64,27 +71,41 @@ export interface PinnedMarketplace {
   readonly index: MarketplaceIndex;
   readonly source: SelectedSource;
 }
+/** A marketplace's identity is its repository and directory, independent of revision. */
+export function marketplaceIdentity(selection: ExtensionSelection): string {
+  return JSON.stringify([selection.locked.repo.toLowerCase(), selection.locked.path]);
+}
 export const marketplaceSelections = Effect.fn("extensions.marketplaceSelections")(function* (
-  root: string,
+  snapshot: readonly SelectionSnapshot[],
 ) {
-  const storage = yield* ExtensionStorage;
-  const held = new Map<
+  const groups = new Map<
     string,
-    { name: string; scope: ExtensionScope; selection: ExtensionSelection }
+    { name: string; scope: ExtensionScope; selection: ExtensionSelection }[]
   >();
-  for (const scope of EXTENSION_SCOPES) {
-    const { lock } = yield* storage.read(root, scope);
-    for (const [name, selection] of Object.entries(lock.marketplaces))
-      if (!held.has(name)) held.set(name, { name, scope, selection });
+  for (const { scope, selections } of snapshot)
+    for (const [name, selection] of Object.entries(selections.marketplaces)) {
+      const group = groups.get(name) ?? [];
+      group.push({ name, scope, selection });
+      groups.set(name, group);
+    }
+  const selected: { name: string; scope: ExtensionScope; selection: ExtensionSelection }[] = [];
+  for (const [name, group] of groups) {
+    if (new Set(group.map((entry) => marketplaceIdentity(entry.selection))).size > 1)
+      return yield* domainError(
+        "invalid_input",
+        `ambiguous marketplace ${name}: ${group.map((entry) => `${entry.scope}: ${entry.selection.locked.repo}/${entry.selection.locked.path}`).join(", ")}; remove or replace the conflicting scope selection`,
+      );
+    const first = group[0];
+    if (first !== undefined) selected.push(first);
   }
-  return [...held.values()];
+  return selected;
 });
 export const pinnedMarketplaces = Effect.fn("extensions.pinnedMarketplaces")(function* (
-  root: string,
+  snapshot: readonly SelectionSnapshot[],
 ) {
   const result: PinnedMarketplace[] = [];
   const storage = yield* ExtensionStorage;
-  for (const entry of yield* marketplaceSelections(root)) {
+  for (const entry of yield* marketplaceSelections(snapshot)) {
     const tree = yield* storage.tree({
       kind: "marketplace",
       name: entry.name,
@@ -147,9 +168,9 @@ export const resolveExtensionRequest = Effect.fn("extensions.resolveRequest")(fu
 /** A recorded marketplace install refreshes the index belonging to its own self-contained lock. */
 export const resolveRecordedRequest = Effect.fn("extensions.resolveRecorded")(function* (
   original: string,
-  root: string,
+  snapshot: readonly SelectionSnapshot[],
   scope: ExtensionScope,
-  lock: ExtensionLock,
+  lock: Pick<ExtensionLock, "marketplaces">,
 ) {
   if (original.startsWith("github:") || original.startsWith("https://github.com/"))
     return yield* resolveExtensionRequest(original, []);
@@ -158,7 +179,7 @@ export const resolveRecordedRequest = Effect.fn("extensions.resolveRecorded")(fu
     catch: (error) => domainError("invalid_input", String(error)),
   });
   const selections = new Map(
-    (yield* marketplaceSelections(root)).map((entry) => [entry.name, entry]),
+    (yield* marketplaceSelections(snapshot)).map((entry) => [entry.name, entry]),
   );
   for (const [name, selection] of Object.entries(lock.marketplaces))
     selections.set(name, { name, scope, selection });

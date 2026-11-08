@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtemp, rm, readFile, readdir, mkdir, writeFile, symlink } from "node:fs/promises";
+import { childProcessEnv } from "@kb/child-process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -20,6 +21,7 @@ let root: string;
 let ctx: KbContext;
 let reader: SourceReader["Service"];
 let refs: Map<string, string>;
+let metadataRefs: Map<string, string>;
 let reads: number;
 let restoreHome: () => void;
 const sha = (n: number) => String(n).repeat(40);
@@ -63,6 +65,10 @@ beforeEach(async () => {
     ["refs/tags/one", sha(1)],
     ["refs/tags/two", sha(2)],
   ]);
+  metadataRefs = new Map([
+    ["HEAD", sha(4)],
+    ["refs/heads/main", sha(4)],
+  ]);
   const base = memorySourceReader(
     new Map([
       [
@@ -74,6 +80,33 @@ beforeEach(async () => {
             [sha(2), repository(2)],
           ]),
           parents: new Map([[sha(2), [sha(1)]]]),
+        },
+      ],
+      [
+        "owner/metadata",
+        {
+          refs: metadataRefs,
+          revisions: new Map(
+            [4, 5, 6].map((n) => [
+              sha(n),
+              [...repository(1), file("extensions/hello/README.md", `synthetic readme ${n}`)],
+            ]),
+          ),
+          parents: new Map([
+            [sha(5), [sha(4)]],
+            [sha(6), [sha(5)]],
+          ]),
+        },
+      ],
+      [
+        "owner/imposter",
+        {
+          refs: new Map([
+            ["HEAD", sha(3)],
+            ["refs/heads/main", sha(3)],
+          ]),
+          revisions: new Map([[sha(3), repository(1)]]),
+          parents: new Map(),
         },
       ],
       [
@@ -314,4 +347,154 @@ test("collection refuses unreadable locks or trust before deleting any source", 
   expect(await request("extension.gc")).toMatchObject({ status: "failed" });
   expect(await readFile(trustFile, "utf8")).toBe('{"version":2,"trusted":[]}');
   expect(await readdir(join(data, "extensions", "store"))).toEqual(before);
+});
+
+test("gc retains an unregistered existing root's private install and reports orphan trust retirement", async () => {
+  await call("extension.install", {
+    source: "github:owner/repo/extensions/hello@main",
+    scope: "local",
+  });
+  const row = await trust("hello");
+  const b = await openKb(join(root, "b"));
+  const data = await Effect.runPromise(currentData);
+  const ledger = join(data, "trust.json");
+  const bytes = await readFile(ledger, "utf8");
+  const tree = join(data, "extensions", "store", `${row.files?.slice(7, 39)}-hello`);
+  expect(await call("extension.gc", {}, b)).toMatchObject({ retiredTrust: [], trees: [] });
+  expect(await Bun.file(join(tree, "hello.ts")).exists()).toBe(true);
+  expect(await readFile(ledger, "utf8")).toBe(bytes);
+  await rm(ctx.root, { recursive: true, force: true });
+  const collected = await call("extension.gc", {}, b);
+  expect(collected).toMatchObject({
+    retiredTrust: [{ digest: row.digest, name: "hello", files: row.files }],
+    orphanedLocalLocks: [expect.objectContaining({ root: ctx.root })],
+  });
+  expect(await Bun.file(join(tree, "hello.ts")).exists()).toBe(false);
+});
+test("a committed marketplace cannot hide a private user marketplace with the same name", async () => {
+  await call("extension.marketplace.add", { source: "github:owner/imposter@main" });
+  const hostile = await readFile(join(ctx.root, ".kb", "extensions.lock.json"), "utf8");
+  await call("extension.marketplace.remove", { name: "sample" });
+  await call("extension.marketplace.add", { source: "github:owner/repo@main", scope: "user" });
+  await writeFile(join(ctx.root, ".kb", "extensions.lock.json"), hostile);
+  const clone = join(root, "clone");
+  for (const args of [
+    ["init", "--quiet"],
+    ["add", ".kb/extensions.lock.json"],
+    [
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      "Synthetic marketplace collision",
+    ],
+    ["clone", "--quiet", ctx.root, clone],
+  ]) {
+    const git = Bun.spawnSync(["git", "-c", "core.hooksPath=/dev/null", ...args], {
+      cwd: ctx.root,
+      env: childProcessEnv("git"),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(git.exitCode, git.stderr.toString()).toBe(0);
+  }
+  const cloned = await openKb(clone);
+  for (const source of ["hello@sample", "hello"]) {
+    const result = await request("extension.install", { source }, cloned);
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.message).toContain("ambiguous marketplace sample");
+      expect(result.message).toContain("store: owner/imposter");
+      expect(result.message).toContain("user: owner/repo");
+    }
+  }
+});
+test("adding a different repository over a marketplace name requires explicit replace", async () => {
+  await call("extension.marketplace.add", { source: "github:owner/repo@main" });
+  const before = await readFile(join(ctx.root, ".kb", "extensions.lock.json"), "utf8");
+  expect(
+    await request("extension.marketplace.add", { source: "github:owner/imposter@main" }),
+  ).toMatchObject({ status: "failed", message: expect.stringContaining("--replace") });
+  expect(await readFile(join(ctx.root, ".kb", "extensions.lock.json"), "utf8")).toBe(before);
+  expect(
+    await call("extension.marketplace.add", {
+      source: "github:owner/imposter@main",
+      replace: true,
+    }),
+  ).toMatchObject({ selection: { locked: { repo: "owner/imposter" } } });
+  const installed = await call("extension.install", { source: "hello@sample" });
+  expect(installed).toMatchObject({
+    installed: [{ marketplace: { name: "sample", repo: "owner/imposter", scope: "store" } }],
+  });
+});
+test("fetching an update never holds the mutation lock and a concurrent selection change conflicts", async () => {
+  await call("extension.install", {
+    source: "github:owner/repo/extensions/hello@main",
+    scope: "local",
+  });
+  const b = await openKb(join(root, "b"));
+  advance();
+  const base = reader;
+  const started = Promise.withResolvers<void>();
+  const waiting = Promise.withResolvers<void>();
+  reader = {
+    resolve: base.resolve,
+    read: Effect.fn("fixture.blockedFetch")(function* (pin) {
+      if (pin.rev === sha(2) && pin.path === "extensions/hello") {
+        started.resolve();
+        yield* Effect.promise(() => waiting.promise);
+      }
+      return yield* base.read(pin);
+    }),
+  };
+  const updating = request("extension.update");
+  try {
+    await started.promise;
+    await Promise.race([
+      call(
+        "extension.install",
+        { source: "github:owner/repo/extensions/aurora@main", scope: "local" },
+        b,
+      ),
+      Bun.sleep(3000).then(() => {
+        throw new Error("network fetch held the global mutation lock");
+      }),
+    ]);
+    await call("extension.remove", { name: "hello", scope: "local" });
+    waiting.resolve();
+    expect(await updating).toMatchObject({ status: "failed", code: "conflict" });
+    resetRegistryCache();
+    expect((await listing()).some((row) => row.name === "hello")).toBe(false);
+  } finally {
+    waiting.resolve();
+    await updating;
+  }
+});
+
+test("successive README-only updates keep the shared executable approval and a usable diff baseline", async () => {
+  await call("extension.install", {
+    source: "github:owner/metadata/extensions/hello@main",
+    scope: "local",
+  });
+  const approved = await trust("hello");
+  const digest = approved.digest ?? "";
+  for (const revision of [5, 6]) {
+    metadataRefs.set("HEAD", sha(revision));
+    metadataRefs.set("refs/heads/main", sha(revision));
+    const update = await call("extension.update", { name: "hello", scope: "local" });
+    expect(update).toMatchObject({ updated: [{ digest, trusted: true }] });
+    await call("extension.gc");
+    expect(
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          return yield* (yield* CodeTrust).trusted([digest]);
+        }).pipe(Effect.provide(codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)))),
+      ),
+    ).toEqual([digest]);
+  }
+  resetRegistryCache();
+  expect(await call("extension.diff", { name: "hello" })).toMatchObject({ files: [] });
 });

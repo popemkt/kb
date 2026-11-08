@@ -157,16 +157,7 @@ test("kb trust import needs a terminal and imports only the displayed machine's 
 test("kb ext trust prints the compiled review and uses the terminal approval edge", async () => {
   const root = await mkdtemp(join(tmpdir(), "kb-ext-trust-"));
   const env = { ...process.env, KB_HOME: join(root, "home"), KB_DATA: join(root, "data") };
-  const cmd = [
-    process.execPath,
-    join(import.meta.dir, "../src/main.ts"),
-    "--root",
-    root,
-    "--json",
-    "ext",
-    "trust",
-    "hello",
-  ];
+  const cmd = [KB_SOURCE_BIN, "--root", root, "--json", "ext", "trust", "hello"];
   try {
     await mkdir(join(root, ".kb", "extensions"), { recursive: true });
     await writeFile(

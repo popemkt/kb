@@ -1,4 +1,4 @@
-import { trustLedger, decodeTrustFile, EMPTY } from "./trust-ledger.ts";
+import { trustLedger, decodeTrustFile, EMPTY, type TrustFile } from "./trust-ledger.ts";
 import { hostname } from "node:os";
 import { resolve } from "node:path";
 import { Effect, Layer, Option } from "effect";
@@ -15,6 +15,27 @@ export function codeTrustLayer(
     CodeTrust,
     Effect.gen(function* () {
       const { file, readFile, read, write, locked } = yield* trustLedger;
+      const recordEvidence = Effect.fn("kb.trust.recordEvidence")(function* (
+        current: TrustFile,
+        digest: string,
+        provenance?: TrustProvenance,
+      ) {
+        if (
+          current.trusted.some(
+            (record) =>
+              record.digest === digest &&
+              record.machine === machine &&
+              record.name === provenance?.name &&
+              record.files === provenance?.files,
+          )
+        )
+          return;
+        const at = yield* currentIso;
+        yield* write({
+          version: 1,
+          trusted: [{ digest, machine, at, ...provenance }, ...current.trusted],
+        });
+      });
       const records = Effect.gen(function* () {
         const current = Option.getOrElse(yield* readFile(file), () => EMPTY);
         return current.trusted.filter((record) => record.machine === machine);
@@ -32,23 +53,27 @@ export function codeTrustLayer(
           return yield* locked(
             Effect.gen(function* () {
               const current = yield* read;
-              const existing = current.trusted.find(
-                (r) => r.digest === digest && r.machine === machine,
-              );
+              yield* recordEvidence(current, digest, provenance);
+            }),
+          );
+        }),
+        attachSource: Effect.fn("kb.trust.attachSource")(function* (
+          digest: string,
+          provenance: TrustProvenance,
+        ) {
+          return yield* locked(
+            Effect.gen(function* () {
+              const decoded = yield* readFile(file);
+              if (Option.isNone(decoded)) return false;
+              const current = decoded.value;
               if (
-                existing !== undefined &&
-                (provenance === undefined ||
-                  (existing.name === provenance.name && existing.files === provenance.files))
+                !current.trusted.some(
+                  (record) => record.digest === digest && record.machine === machine,
+                )
               )
-                return;
-              const at = yield* currentIso;
-              yield* write({
-                version: 1,
-                trusted: [
-                  ...current.trusted.filter((r) => r.digest !== digest || r.machine !== machine),
-                  { digest, machine, at, ...provenance },
-                ],
-              });
+                return false;
+              yield* recordEvidence(current, digest, provenance);
+              return true;
             }),
           );
         }),
@@ -65,6 +90,7 @@ export function codeTrustLayer(
               );
               if (kept.length !== current.trusted.length)
                 yield* write({ version: 1, trusted: kept });
+              return current.trusted.filter((record) => !kept.includes(record));
             }),
           );
         }),

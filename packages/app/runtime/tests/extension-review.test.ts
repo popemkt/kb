@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
-import { CodeTrust, ExtensionReportSchema } from "@kb/contracts";
+import { CodeTrust, ExtensionReportSchema, ExtensionStorage } from "@kb/contracts";
 import { SourceReader, type ObjectFile } from "@kb/extension-source";
 import { memorySourceReader } from "@kb/source-git";
 import { extensionModule } from "@kb/test-kit";
@@ -158,7 +158,11 @@ test("a missing nearer install still reserves its name against a farther trusted
   await invoke(ctx, { id: "sandbox.trust", input: { digest: old.digest }, approved: true });
   const lock = JSON.parse(await Bun.file(join(ctx.root, ".kb", "extensions.lock.json")).text());
   lock.extensions.hello.locked.files = `sha256:${"f".repeat(64)}`;
-  await writeFile(join(ctx.root, ".kb", "extensions.local.json"), JSON.stringify(lock));
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      yield* (yield* ExtensionStorage).mutate((tx) => tx.update(ctx.root, "local", () => lock));
+    }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+  );
   resetRegistryCache();
   const listed = await rows();
   expect(listed).toHaveLength(2);

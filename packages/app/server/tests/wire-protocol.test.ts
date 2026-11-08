@@ -30,11 +30,11 @@ import {
 import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
-// Lifecycle adds actions and optional selection/running fields. Existing envelopes,
-// modes and receipts remain compatible, so the protocol stays unchanged.
+// Lifecycle adds actions and optional selection/running fields; GC adds an
+// orphaned-lock report. Old pages ignore these additions, so the protocol stays.
 const RECORDED = {
   protocol: 2,
-  fingerprint: "75ea80e149cd8e28ee5ebfe094726e3e81f0893a4d7d40febed76dd8840d64fc",
+  fingerprint: "0ebae37aecea942e09d781804fed0af14eca2acabb8a7d55f0170c200913799f",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

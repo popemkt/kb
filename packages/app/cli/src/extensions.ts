@@ -365,23 +365,34 @@ function extensionVerb(
     })
     .parse(schemaToJsonSchema(definition.inputSchema, "input"));
   const properties = schema.properties ?? {};
-  const field = Object.keys(properties).find((key) => key !== "scope");
+  const flags = Object.entries(properties)
+    .filter(([, value]) => z.object({ type: z.literal("boolean") }).safeParse(value).success)
+    .map(([key]) => key);
+  const field = Object.keys(properties).find((key) => key !== "scope" && !flags.includes(key));
   const command = parent.command(verb).description(definition.description);
   if (field !== undefined)
     command.argument(schema.required?.includes(field) === true ? `<${field}>` : `[${field}]`);
   if ("scope" in properties) command.option("--scope <scope>", EXTENSION_SCOPES.join(", "));
+  for (const flag of flags)
+    command.option(
+      `--${flag}`,
+      z.object({ description: z.string().optional() }).parse(properties[flag]).description ?? flag,
+    );
   command.action(
     kbAction((ctx, globals, args: unknown[]) => {
-      const options = z
-        .object({ scope: z.string().optional() })
-        .parse(args[field === undefined ? 0 : 1]);
+      const options = z.record(z.string(), z.unknown()).parse(args[field === undefined ? 0 : 1]);
+      const named = Object.fromEntries(
+        Object.entries(options).filter(
+          ([key, value]) => key in properties && key !== field && value !== undefined,
+        ),
+      );
       return invokeCliEffect(
         ctx,
         onWire(ACTION_INVOKE_WIRE, {
           id: definition.id,
           input: {
             ...(field === undefined || args[0] === undefined ? {} : { [field]: args[0] }),
-            ...(options.scope === undefined ? {} : { scope: options.scope }),
+            ...named,
           },
         }),
       ).pipe(

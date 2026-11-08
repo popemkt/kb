@@ -291,8 +291,7 @@ package's `src/`, with nothing carved out of it.
 ## Supply chain
 
 Child process environments are owned by `@kb/child-process`; runtime and
-source transport derive their environments from that one mechanism. Bun startup
-arguments likewise have one file, read by the shared source/release/Nix adapter.
+source transport derive their environments from that one mechanism.
 
 - Every internal dependency is `workspace:*`; every external dependency is
   `catalog:`. The catalog in the root `package.json` is the only file that
@@ -302,6 +301,32 @@ arguments likewise have one file, read by the shared source/release/Nix adapter.
 - `bunfig.toml` `[install]` sets `minimumReleaseAge` (3 days) and an explicit
   `trustedDependencies` allowlist, which is empty: nothing in this tree runs
   code at install time.
+
+### Runtime launch contract
+
+A repository's files are not authority over kb's runtime or private data. Every
+supported macOS/Linux launcher passes the exact arguments in
+`packages/infrastructure/child-process/src/kb-launch-flags.txt`, shipped verbatim
+as `lib/kb/launch-flags`: Bun does not autoload dotenv files, and uses the explicit
+empty config `/dev/null` instead of a cwd `bunfig.toml`. `bin/kb-bun` is the shared
+adapter for the checkout, release tarball and repository Nix package; it clears
+`BUN_OPTIONS` before starting Bun. Runtime `selfLaunch` is the in-process adapter
+over the same flag file, and its child environment also clears `BUN_OPTIONS`. An external
+wrapper invoking Bun directly must prepend that file's arguments before `cli.js`.
+
+The CLI entry compares `process.execArgv` with the embedded contract (no missing
+or extra arguments) before importing the CLI/runtime. A detectable unprotected
+launch exits 78 with `kb: unsafe Bun launch` and the required arguments. This
+cannot undo code a Bun preload ran before entry JS, or authenticate process state
+that already-executed code forged: the launchers provide prevention. Direct
+unprotected `bun cli.js` is unsupported. This repository ships Bun-target JS,
+not a standalone `--compile` executable.
+
+`KB startup contract` runs the same hostile-cwd property over checkout, release
+and Nix-style launchers; Nix's install check adds its actual built artifact to
+that suite. It also proves that the hostile dotenv/preload fixture really runs
+without protection, and that missing or extra startup flags refuse before a
+store opens.
 
 ## Spec-first changes
 
@@ -2821,15 +2846,20 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   `.kb/extensions/` folder with ordinary package and link resolution.
 - **Installed extension state.** `ExtensionStorage` owns one lock schema in
   three scopes: `.kb/extensions.lock.json` (store, default),
-  `.kb/extensions.local.json` (local, ignored) and `<data>/extensions/lock.json`
-  (user). Discovery order is own, local links/installs, store links/installs,
+  `<data>/extensions/local/<sha256(realpath root)>.json` (local), and
+  `<data>/extensions/lock.json` (user). The local record includes its canonical
+  `root`; a record that does not match its key is ignored, and a moved root starts
+  empty. Repository `.kb/extensions.local.json` is never read or migrated; the
+  catalog reports it once as ignored, and selections are re-added with `--scope local`. Discovery order is own, local links/installs, store links/installs,
   user links/installs. Store links are relative and must resolve inside their
   repository, including through symlinks; only local/user links may reach
   siblings or outside paths. The lock reader returns valid links and a failure for each rejected link, so one bad link never hides other links, installs or marketplaces in that lock. Writers validate the complete proposed lock before replacing it. Locks record original sources and full pinned commits
   with file-set hashes. `ExtensionStorage.mutate` gives one cross-process
   mutation capability for publishing source trees and changing scope locks,
   held through the lock write so another mutation cannot collect a newly
-  published tree before it is selected. Reads never acquire or write it.
+  published tree before it is selected. Fetching happens before the mutation;
+  publication rechecks its source-selection snapshot and refuses a conflict.
+  Reads never acquire or write the mutation lock.
   Trees live at `<data>/extensions/store/<hash-first-32>-<name>`, copied into
   private temporary directories using exclusive regular-file writes, made
   read-only and renamed into place. A version-1 pin index reuses verified trees without
@@ -2878,16 +2908,23 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   the root; store links must resolve inside it. Linking discloses that shared
   trust enables code already approved in another store.
 - **Collection is explicit and serialized with installation.** `extension.gc`
-  reads the user lock and the store/local locks for the current root and every
-  registered location in the home graph. That snapshot is read without composing
-  families or seeding stores; unreadable lock schemas stop collection. It retains
-  candidate, previous and marketplace file sets. Under the same cross-process
+  reads the user lock, store locks for the current root, home and registered
+  locations, and every valid private local lock whose recorded root exists,
+  whether registered or not. That snapshot is read without composing families or
+  seeding stores; unreadable lock schemas stop collection. It retains candidate,
+  previous and marketplace file sets. Under the same cross-process
   mutation lock it first retires this machine's unreferenced provenance trust,
   then sweeps unreferenced cache trees, pin indexes and abandoned publication
-  stages. Records without provenance and other machines' records stay. Source
+  stages. Its output lists every approval record retired. It lists orphaned local
+  locks whose recorded root no longer exists,
+  leaving those records for the person to review. Records without provenance and other machines' records stay. Source
   symlinks are never followed during collection. Nodes are never removed.
 - **Marketplaces are pinned source projections.** A strict version-1
-  `kb-marketplace.json` has one name per entry; it is cached through the same
+  `kb-marketplace.json` has one name per entry; only this regular file is fetched,
+  so neighboring extensions do not consume the index budget. A marketplace name
+  bound to different repository/path identities across scopes is ambiguous and
+  refused. Adding a different identity over a name in one scope requires explicit
+  `replace`. It is cached through the same
   source/cache contract as extensions. Relative entries resolve inside the
   index directory at its commit; external GitHub entries must name full commits.
   Locked indexes are read offline for listing and installation by name. Bare
@@ -5290,6 +5327,13 @@ sends it more than 400 messages a second.
   whose adapter (`@kb/workspace-fs`) keeps `<data>/trust.json`, shared by
   every root for this user. Each record names its machine; only this machine's
   records count. **Legacy `.kb/trust.json` is ignored by normal trust lookup.**
+  Approvals are independent records. Approving the same digest for another
+  source file set adds provenance without overwriting an earlier record or a
+  bare own-code approval. Retiring one provenance does not withdraw another
+  approval of that digest. Installing or updating code whose digest is already
+  approved atomically attaches its verified source provenance; this operation
+  cannot grant trust or revive a revoked digest. Explicit untrust withdraws all this machine's records
+  for the digest.
   Repository bytes are never a source of authority: `CodeTrust` has no root
   parameter, reads only the per-user file, and a read never writes or deletes.
   `extension.list` reports the old file as ignored when present.

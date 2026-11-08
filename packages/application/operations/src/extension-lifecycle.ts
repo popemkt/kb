@@ -7,7 +7,6 @@ import {
   ExtensionCompiler,
   KbCtx,
   KbRoots,
-  EXTENSION_SCOPES,
   DEFAULT_EXTENSION_SCOPE,
   ExtensionScopeSchema,
   ExtensionNameSchema,
@@ -22,6 +21,11 @@ import {
   sourceFailure,
   namedEntries,
 } from "./extension-plans.ts";
+import {
+  readSelectionSnapshot,
+  checkSelectionSnapshot,
+  writeSelectionSnapshot,
+} from "./extension-locks.ts";
 import { changedFiles } from "./source-diff.ts";
 
 const NamedScope = z.object({
@@ -54,19 +58,15 @@ export const extensionOutdatedEffect = Effect.fn("extension.outdated")(function*
   const reader = yield* SourceReader;
   const { root } = yield* KbCtx;
   const extensions: z.infer<typeof Change>[] = [];
-  for (const scope of EXTENSION_SCOPES) {
-    const { lock } = yield* storage.read(root, scope);
+  const snapshot = yield* readSelectionSnapshot(root);
+  for (const { scope, selections: lock } of snapshot) {
     for (const [name, entry] of namedEntries(lock.extensions, input.name)) {
-      const request = yield* resolveRecordedRequest(entry.original, root, scope, lock);
+      const request = yield* resolveRecordedRequest(entry.original, snapshot, scope, lock);
       const before = yield* storage.tree({ kind: "extension", name, files: entry.locked.files });
-      const source = yield* reader
-        .read(request.pin)
-        .pipe(Effect.flatMap(extensionTree), Effect.mapError(sourceFailure));
-      if (source.name !== name)
-        return yield* domainError(
-          "invalid_input",
-          `upstream extension changed name from ${name} to ${source.name}`,
-        );
+      const source = yield* reader.read(request.pin).pipe(
+        Effect.flatMap((tree) => extensionTree(tree, { name })),
+        Effect.mapError(sourceFailure),
+      );
       extensions.push({
         name,
         scope,
@@ -96,19 +96,46 @@ export const extensionUpdateEffect = Effect.fn("extension.update")(function* (
   const compiler = yield* ExtensionCompiler;
   const trust = yield* CodeTrust;
   const { root } = yield* KbCtx;
+  const snapshot = yield* readSelectionSnapshot(root);
   const updated: z.infer<typeof Change>[] = [];
+  const prepared: {
+    before: (typeof snapshot)[number];
+    plans: {
+      name: string;
+      entry: ExtensionSelection;
+      request: Effect.Success<ReturnType<typeof resolveRecordedRequest>>;
+      plan: Effect.Success<ReturnType<typeof extensionPlan>>;
+    }[];
+  }[] = [];
+  for (const before of snapshot.filter(
+    (entry) => input.scope === undefined || entry.scope === input.scope,
+  )) {
+    const plans: (typeof prepared)[number]["plans"] = [];
+    for (const [name, entry] of namedEntries(before.selections.extensions, input.name)) {
+      const request = yield* resolveRecordedRequest(
+        entry.original,
+        snapshot,
+        before.scope,
+        before.selections,
+      );
+      const plan = yield* extensionPlan(request.pin, { name });
+      plans.push({ name, entry, request, plan });
+    }
+    if (plans.length > 0)
+      prepared.push({
+        before,
+        plans,
+      });
+  }
+  if (input.name !== undefined && prepared.length === 0)
+    return yield* domainError("not_found", `no installed extension named ${input.name}`);
   return yield* storage.mutate(
     Effect.fn("extension.update.write")(function* (tx: ExtensionTransaction) {
-      for (const scope of input.scope === undefined ? EXTENSION_SCOPES : [input.scope]) {
-        const { lock } = yield* storage.read(root, scope);
-        for (const [name, entry] of namedEntries(lock.extensions, input.name)) {
-          const request = yield* resolveRecordedRequest(entry.original, root, scope, lock);
-          const plan = yield* extensionPlan(request.pin);
-          if (plan.source.name !== name)
-            return yield* domainError(
-              "invalid_input",
-              `upstream extension changed name from ${name} to ${plan.source.name}`,
-            );
+      yield* checkSelectionSnapshot(root, snapshot);
+      for (const group of prepared) {
+        const extensions = new Map(Object.entries(group.before.selections.extensions));
+        const marketplaces = new Map(Object.entries(group.before.selections.marketplaces));
+        for (const { name, entry, request, plan } of group.plans) {
           const previousTree = yield* storage.tree({
             kind: "extension",
             name,
@@ -116,48 +143,42 @@ export const extensionUpdateEffect = Effect.fn("extension.update")(function* (
           });
           let previous = entry.previous;
           if (previousTree !== null) {
-            const before = yield* compiler.compile(previousTree.dir, name);
-            if ((yield* trust.trusted([before])).includes(before)) previous = entry.locked;
+            const digest = yield* compiler.compile(previousTree.dir, name);
+            if ((yield* trust.trusted([digest])).includes(digest)) previous = entry.locked;
           }
-          const tree =
-            plan.cached ?? (yield* tx.store({ kind: "extension", pin: request.pin }, plan.source));
+          const tree = yield* tx.store({ kind: "extension", pin: request.pin }, plan.source);
           const digest = yield* compiler.compile(tree.dir, name);
-          if (request.marketplace !== undefined)
+          if (request.marketplace !== undefined) {
             yield* tx.store(
               { kind: "marketplace", pin: request.marketplace.selection.locked },
               request.marketplace.source,
             );
+            marketplaces.set(request.marketplace.name, request.marketplace.selection);
+          }
           const next: ExtensionSelection = {
             original: request.original,
             locked: { ...request.pin, files: tree.files },
             ...(previous === undefined || previous.files === tree.files ? {} : { previous }),
           };
-          yield* tx.update(root, scope, (held) => ({
-            ...held,
-            extensions: { ...held.extensions, [name]: next },
-            marketplaces: {
-              ...held.marketplaces,
-              ...(request.marketplace === undefined
-                ? {}
-                : { [request.marketplace.name]: request.marketplace.selection }),
-            },
-          }));
+          extensions.set(name, next);
           updated.push({
             name,
-            scope,
+            scope: group.before.scope,
             from: entry.locked.rev,
             to: request.pin.rev,
             files: changedFiles(previousTree?.source.files ?? [], plan.source.files).map(
               ({ path }) => path,
             ),
             digest,
-            trusted: (yield* trust.trusted([digest])).includes(digest),
+            trusted: yield* trust.attachSource(digest, { name, files: tree.files }),
             review: `kb ext trust ${name}`,
           });
         }
+        yield* writeSelectionSnapshot(tx, root, group.before, {
+          extensions: Object.fromEntries(extensions),
+          marketplaces: Object.fromEntries(marketplaces),
+        });
       }
-      if (input.name !== undefined && updated.length === 0)
-        return yield* domainError("not_found", `no installed extension named ${input.name}`);
       return { updated, reload: "restart kb ui" as const };
     }),
   );
@@ -235,13 +256,17 @@ export const extensionGcDef = {
   id: "extension.gc",
   title: "Collect unused extension sources",
   description:
-    "Keep every candidate, previous and marketplace source named by the user lock or any registered location. Retire this machine's unreferenced provenance trust, then remove unused trees, pin indexes and abandoned staging. Never removes nodes or trust without provenance.",
+    "Keep every candidate, previous and marketplace source named by the user lock, registered locations or any valid private local lock with an existing root. Retire this machine's unreferenced provenance trust, then remove unused trees, pin indexes and abandoned staging. Never removes nodes or trust without provenance.",
   mode: { kind: "write", outsideRoot: true } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
     trees: z.array(z.string()),
     stages: z.array(z.string()),
     retained: z.array(z.string()),
+    retiredTrust: z.array(
+      z.object({ digest: z.string(), name: z.string().optional(), files: z.string().optional() }),
+    ),
+    orphanedLocalLocks: z.array(z.object({ path: z.string(), root: z.string() })),
   }),
 } satisfies ActionDefinition;
 export const extensionGcEffect = Effect.fn("extension.gc")(function* () {
@@ -255,8 +280,12 @@ export const extensionGcEffect = Effect.fn("extension.gc")(function* () {
     Effect.fn("extension.gc.write")(function* (tx: ExtensionTransaction) {
       const plan = yield* tx.collection([root, home, ...registered]);
       const retained = [...new Set(plan.retained.map((tree) => tree.files))];
-      yield* trust.retain(retained);
-      return { ...(yield* plan.sweep), retained };
+      const retiredTrust = (yield* trust.retain(retained)).map(({ digest, name, files }) => ({
+        digest,
+        name,
+        files,
+      }));
+      return { ...(yield* plan.sweep), retained, retiredTrust };
     }),
   );
 });

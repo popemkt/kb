@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import {
   SourceError,
   SourceReader,
+  selectedPaths,
   checkedTree,
   parseSource,
   pinnedSchema,
@@ -57,11 +58,19 @@ export function gitSourceReader(base = "https://github.com"): SourceReader["Serv
           const repo = yield* verifyCommit(git, endpoint, pin, refs, dir);
           yield* ensureTrees(git, endpoint, pin, repo);
           const listing = yield* git(
-            ["ls-tree", "-r", "-z", pin.path === "" ? pin.rev : `${pin.rev}:${pin.path}`],
+            [
+              "--literal-pathspecs",
+              "ls-tree",
+              "-r",
+              "-z",
+              pin.rev,
+              "--",
+              ...(pin.path === "" ? [] : [pin.path]),
+            ],
             dir,
           );
           const entries = yield* Effect.try({
-            try: () => treeEntries(listing),
+            try: () => selectedPaths(treeEntries(listing), pin.path),
             catch: SourceError.from,
           });
           return yield* checkedTree(yield* readObjects(git, endpoint, dir, entries));
@@ -122,10 +131,7 @@ export function memorySourceReader(
           const pin = pinnedSchema.parse(source);
           const held = memoryPin(repositories.get(pin.repo), pin).revisions.get(pin.rev);
           if (held === undefined) throw new SourceError({ message: "missing revision" });
-          const prefix = pin.path === "" ? "" : `${pin.path}/`;
-          return held
-            .filter(({ path }) => path.startsWith(prefix))
-            .map((file) => ({ ...file, path: file.path.slice(prefix.length) }));
+          return selectedPaths(held, pin.path);
         },
         catch: SourceError.from,
       });

@@ -187,7 +187,25 @@ const largeRevision = commit(
   [file("ext/hello.ts"), { path: "other/huge.bin", mode: "100644", bytes: largeBytes }],
   "large-path",
 );
+const largeIndex = commit(
+  [
+    file(
+      "catalog/kb-marketplace.json",
+      JSON.stringify({ version: 1, name: "sample", extensions: [] }),
+    ),
+    ...Array.from({ length: 520 }, (_, index) => file(`catalog/extensions/file-${index}.txt`)),
+    { path: "catalog/huge.bin", mode: "100644", bytes: largeBytes },
+  ],
+  "index-with-large-neighbors",
+);
 function sourceContract(name: string, reader: SourceReader["Service"]): void {
+  test(`${name}: an exact regular-file selection excludes oversized sibling trees`, async () => {
+    const tree = await Effect.runPromise(
+      reader.read({ repo: "owner/repo", path: "catalog/kb-marketplace.json", rev: largeIndex }),
+    );
+    expect(tree.files.map((entry) => entry.path)).toEqual(["kb-marketplace.json"]);
+    expect((await Effect.runPromise(marketplaceTree(tree))).index.name).toBe("sample");
+  });
   test(`${name}: raw transport accepts an index with no extension server`, async () => {
     const raw = await Effect.runPromise(
       reader.read({ repo: "owner/repo", path: "", rev: indexOnly }),

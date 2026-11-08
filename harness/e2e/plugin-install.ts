@@ -74,8 +74,7 @@ async function pushRevision(revision: number) {
   return await sampleGit(["rev-parse", "HEAD"]);
 }
 const command = (root: string, args: string[]) => [
-  process.execPath,
-  join(repository, "packages/app/cli/src/main.ts"),
+  join(repository, "bin/kb"),
   "--root",
   root,
   "--json",

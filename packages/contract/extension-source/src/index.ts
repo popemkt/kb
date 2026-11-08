@@ -10,6 +10,7 @@ export {
   SOURCE_LIMITS,
   SourceError,
   SourceReader,
+  selectedPaths,
   fullRev,
   sourcePath,
   pinnedSchema,

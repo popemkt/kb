@@ -1,6 +1,7 @@
 #!/bin/sh
 # The shared Bun startup adapter. Flags are trusted release data, one argument per line.
 set -eu
+unset BUN_OPTIONS
 runtime=$1
 flags=$2
 entry=$3

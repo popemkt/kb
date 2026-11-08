@@ -1,4 +1,4 @@
-export { KB_LAUNCH_FLAGS } from "./kb-launch.ts";
+export { KB_LAUNCH_FLAGS, kbLaunchError, UNSAFE_KB_LAUNCH } from "./kb-launch.ts";
 /**
  * The environment of a process kb starts, the one place it is decided. A
  * child is given what its kind needs of this process's environment as it is

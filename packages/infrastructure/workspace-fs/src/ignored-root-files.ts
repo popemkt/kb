@@ -8,6 +8,10 @@ const IGNORED_FILES = [
     file: ".kb/trust.json",
     error: "legacy .kb/trust.json is ignored; trust again or use kb trust import",
   },
+  {
+    file: ".kb/extensions.local.json",
+    error: "repository .kb/extensions.local.json is ignored; re-add selections with --scope local",
+  },
 ] as const;
 export const ignoredRootFilesLayer = Layer.effect(
   IgnoredRootFiles,

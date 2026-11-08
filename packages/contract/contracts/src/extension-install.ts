@@ -59,7 +59,11 @@ export interface CachedTree extends SourceAddress {
 export interface ExtensionCollection {
   readonly retained: readonly SourceAddress[];
   readonly sweep: Effect.Effect<
-    { trees: readonly string[]; stages: readonly string[] },
+    {
+      trees: readonly string[];
+      stages: readonly string[];
+      orphanedLocalLocks: readonly { path: string; root: string }[];
+    },
     DomainError
   >;
 }

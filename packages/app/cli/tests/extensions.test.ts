@@ -442,3 +442,23 @@ describe("kb ext validate", () => {
     expect(existsSync(mark)).toBe(true);
   });
 });
+
+test("marketplace add derives the explicit replace switch from its action schema", async () => {
+  const root = await tempRoot();
+  const result = await runCli([
+    "--root",
+    root,
+    "--json",
+    "ext",
+    "marketplace",
+    "add",
+    "invalid-source",
+    "--replace",
+  ]);
+  expect(result.code).toBe(1);
+  expect(JSON.parse(result.out)).toMatchObject({
+    status: "failed",
+    code: "invalid_input",
+    message: expect.stringContaining("expected github:"),
+  });
+});
