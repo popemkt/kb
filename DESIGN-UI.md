@@ -2285,6 +2285,40 @@ both are answered from the node ⌘K menu rather than from a device switch.
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
 
+### The node menu
+
+The node menu is the node palette (`NodeCommandPalette`), opened on a row
+from its bullet or by ⌘K on a selected row. It lists the commands about
+that row: the shell's own, the rows the page derives from the graph
+(Open with…, View as…, Make default view…), and every `ui.commands`
+contribution (`CommandPoint`). Each says where it is offered (`menu`):
+
+- `{ where: "global" }`: ⌘K, which lists the command's `sys.command` node,
+  a node the family's seed declares (`seededCommand`), so the graph names
+  it and the command carries no label.
+- `{ where: "node", group, order }`: the node menu, which lists it in its
+  group, then by `order` (lower first), then in the order the commands
+  came, a family's in the order its plugin loaded. Nothing in the graph
+  names a node command, so it names itself (`chrome`, a label and an
+  icon).
+
+The groups, in the menu's order (`NODE_MENU_GROUPS`):
+
+| Group | What it holds | Its rows today |
+| --- | --- | --- |
+| `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
+| `make` | what the node is and holds | Add tag, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
+| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
+| `arrange` | where it sits | Indent, Outdent |
+| `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
+| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter… |
+| `remove` | removing it | Delete node |
+
+So a family's command takes a place among the shell's by naming it, and
+the one menu builder (`listNodeCommands`) reads the place from the
+command: no list position means anything, and no row is the shell's by
+being listed first.
+
 ### UI points: routes and views
 
 The UI is assembled from contributions to the browser's `@kb/plugin` kernel
@@ -2701,7 +2735,8 @@ until "Save workspace".
   (`@kb/views`) less the view types this page draws no page of — the same
   list the pane switcher offers. The one it opens in by default says
   "(default)". A view a tag of the node names is its tag opening, so its
-  row says "Open in Canvas" and leads the menu (`Command.leads`). A row
+  row says "Open in Canvas" and leads the menu (the `lead` group, [The
+  node menu](#the-node-menu)). A row
   moves the focused pane to `/node/<id>/<view>`, so the step is in the
   history, and writes nothing. It is reached from the keyboard as every
   node command is: the node menu is a palette, so typing "open" finds the
@@ -3174,7 +3209,8 @@ the shell.
   one home. It holds:
   - the UI points ([UI points](#ui-points-routes-and-views), [Docks](#docks)),
     `ViewSlot` and `CommandPoint`, a command contributed to the shell's
-    palette and node menu;
+    palette or its node menu, where its `menu` places it
+    ([The node menu](#the-node-menu));
   - `PaletteStepPoint` (`ui.palette-steps`), a picker step a node command
     hands the node palette to (`palette.openStep(id)`, by the contribution's
     namespaced id): its label, placeholder and icon, its candidates, whether

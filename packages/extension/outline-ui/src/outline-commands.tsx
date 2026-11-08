@@ -20,6 +20,7 @@ import {
   browserHost,
   currentContributions,
   nodeAction,
+  nodeMenu,
   SYSTEM_IDS,
   tagOpeningOf,
   ViewPoint,
@@ -62,8 +63,7 @@ const DISPLAY_CHROME: Readonly<Record<DisplayOption, { label: string; icon: Reac
 function displayCommand(option: DisplayOption): Command {
   return {
     id: `outline.display.${option}`,
-    scope: "node",
-    leads: true,
+    menu: nodeMenu("lead", 20),
     chrome: (ctx) => {
       const shown = displaying(ctx, option) === true;
       return {
@@ -82,17 +82,17 @@ function displayCommand(option: DisplayOption): Command {
 export const OUTLINE_COMMANDS: readonly Command[] = [
   {
     id: SYSTEM_IDS.cmdExpandAll,
-    scope: "global",
+    menu: { where: "global" },
     run: () => useOutlineStore.getState().expandAllInScope(),
   },
   {
     id: SYSTEM_IDS.cmdCollapseAll,
-    scope: "global",
+    menu: { where: "global" },
     run: () => useOutlineStore.getState().collapseAllInScope(),
   },
   {
     id: "outline.query-builder",
-    scope: "node",
+    menu: nodeMenu("view", 30),
     chrome: (ctx) => ({
       label:
         ctx.target.nodeId !== null && queryBuilderOpen(ctx.target.nodeId, targetQuery(ctx))

@@ -8,14 +8,17 @@
  * inline while rendering and `runPaletteCommand` branched over every id, so the
  * two re-derived availability separately and neither set was enumerable.
  *
- * Two kinds of command live here and the difference is `scope`, not shape:
+ * Two kinds of command live here and the difference is where they are
+ * offered (`menu`), which also decides their shape:
  *
  * - `global` commands are the `sys.command` nodes. The node is the source of
  *   truth for the title and the keys, so those rows carry no `chrome` — the
  *   registry binds an id to a handler and restates nothing.
  * - `node` commands act on the row the menu is anchored to. Nothing in the
- *   graph names them, so they carry their own label and icon, and their order
- *   in this list is the order the menu shows.
+ *   graph names them, so they carry their own label and icon, and their
+ *   `menu` says where the node menu lists them: a group, then an order in
+ *   it. A family's command takes a place among the shell's that way, so the
+ *   order of this list means nothing.
  *
  * The state a command needs arrives as {@link CommandContext} from the palette
  * that already holds it: `lib/` is the leaf zone, so it reads no store.
@@ -62,7 +65,10 @@ import {
   listOntologyItems,
   navigate,
   nodeAction,
+  type NodeCommand,
   type NodeCommandListing,
+  nodeMenu,
+  NODE_MENU_GROUPS,
   nodePath,
   ontologyPath,
   SETTINGS_PATH,
@@ -87,6 +93,8 @@ import {
   type LayoutTree,
 } from "@kb/views";
 import { Result } from "effect";
+
+const GLOBAL = { where: "global" } as const;
 
 const THEME_CYCLE: readonly ThemePref[] = ["light", "dark", "system"];
 
@@ -147,7 +155,7 @@ function preferredOntologyId(ctx: CommandContext): string | null {
 const GLOBAL_COMMANDS: readonly Command[] = [
   {
     id: SYSTEM_IDS.cmdAddNode,
-    scope: "global",
+    menu: GLOBAL,
     run: async (ctx) => {
       const selected = ctx.outline.selectedNodeId;
       if (selected !== null && !isSysPrefixed(selected)) {
@@ -160,7 +168,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdAddTag,
-    scope: "global",
+    menu: GLOBAL,
     run: async (ctx) => {
       const id = await browserHost().writes.defineTag("untitled-tag");
       if (id !== null) ctx.outline.zoomTo(id);
@@ -168,7 +176,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdDefineField,
-    scope: "global",
+    menu: GLOBAL,
     run: async (ctx) => {
       const id = await browserHost().writes.defineField("untitled-field");
       if (id !== null) ctx.outline.zoomTo(id);
@@ -177,13 +185,13 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   {
     // The Query tab is gone (W8a); saved queries live under sys.queries.
     id: SYSTEM_IDS.cmdGoQuery,
-    scope: "global",
+    menu: GLOBAL,
     run: (ctx) => ctx.outline.zoomTo(SYSTEM_IDS.queriesRoot),
   },
   {
     // W4: #query tag + sys.f.query starter EDN, zoomed for editing.
     id: SYSTEM_IDS.cmdNewQuery,
-    scope: "global",
+    menu: GLOBAL,
     run: async (ctx) => {
       const newId = await browserHost().writes.newQueryNode();
       if (newId !== null) ctx.outline.zoomTo(newId);
@@ -191,7 +199,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdNewOntology,
-    scope: "global",
+    menu: GLOBAL,
     run: async () => {
       const id = await browserHost().writes.defineOntology();
       if (id !== null) navigate(ontologyPath(id));
@@ -199,7 +207,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdEnterOntology,
-    scope: "global",
+    menu: GLOBAL,
     run: (ctx) => {
       const id = preferredOntologyId(ctx);
       if (id !== null) navigate(ontologyPath(id));
@@ -207,7 +215,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdExitOntology,
-    scope: "global",
+    menu: GLOBAL,
     run: (ctx) => {
       if (ctx.outline.ontologyId === null) {
         toast("Not inside an ontology");
@@ -216,20 +224,20 @@ const GLOBAL_COMMANDS: readonly Command[] = [
       ctx.outline.leaveScope();
     },
   },
-  { id: SYSTEM_IDS.cmdSettings, scope: "global", run: () => navigate(SETTINGS_PATH) },
+  { id: SYSTEM_IDS.cmdSettings, menu: GLOBAL, run: () => navigate(SETTINGS_PATH) },
   {
     id: SYSTEM_IDS.cmdExtensions,
-    scope: "global",
+    menu: GLOBAL,
     run: () => navigate(settingsPath("extensions")),
   },
   {
     id: SYSTEM_IDS.cmdToggleTheme,
-    scope: "global",
+    menu: GLOBAL,
     run: (ctx) => ctx.prefs.setTheme(nextIn(THEME_CYCLE, ctx.prefs.theme)),
   },
   {
     id: SYSTEM_IDS.cmdSwitchDesignSystem,
-    scope: "global",
+    menu: GLOBAL,
     // Through the contributed systems from the one shown, so a stale choice steps from the default.
     run: async () => {
       const host = browserHost();
@@ -242,12 +250,12 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdToggleWidth,
-    scope: "global",
+    menu: GLOBAL,
     run: (ctx) => ctx.prefs.setWidth(ctx.prefs.width === "centered" ? "full" : "centered"),
   },
   {
     id: SYSTEM_IDS.cmdDebugShowFields,
-    scope: "global",
+    menu: GLOBAL,
     run: (ctx) => {
       const nodeId = ctx.target.nodeId;
       if (nodeId === null) {
@@ -262,7 +270,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     // toolbar/frame row; if no DOM host exists it toasts and clears — never a
     // silent no-op.
     id: SYSTEM_IDS.cmdViewFilter,
-    scope: "global",
+    menu: GLOBAL,
     run: (ctx) =>
       withFrame(ctx, (frameId) => {
         ctx.ui.setViewSettingsFrameId(frameId);
@@ -270,7 +278,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdSaveWorkspace,
-    scope: "global",
+    menu: GLOBAL,
     run: async (ctx) => {
       const count = layoutPanes(ctx.workspace.layout).length;
       await ctx.workspace.save(`Workspace · ${count} ${count === 1 ? "pane" : "panes"}`);
@@ -278,7 +286,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   },
   {
     id: SYSTEM_IDS.cmdClosePane,
-    scope: "global",
+    menu: GLOBAL,
     when: (ctx) => layoutPanes(ctx.workspace.layout).length > 1,
     run: (ctx) => ctx.workspace.close(ctx.workspace.focused),
   },
@@ -293,21 +301,19 @@ function layoutOf(ctx: CommandContext): LayoutTree | null {
 }
 
 /**
- * The node menu, in the order it shows.
- *
- * The three conditional rows sit where the old splice calls put them, so a
- * static order plus `when` reproduces every combination of conditions.
+ * The shell's own node commands. Each says where the node menu lists it,
+ * and a conditional one when it is offered (`when`).
  */
-const NODE_COMMANDS: readonly Command[] = [
+const NODE_COMMANDS: readonly NodeCommand[] = [
   {
     id: "add-tag",
-    scope: "node",
+    menu: nodeMenu("make", 10),
     chrome: () => ({ label: "Add tag", icon: <HashIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-tag"),
   },
   {
     id: "turn-query",
-    scope: "node",
+    menu: nodeMenu("make", 20),
     chrome: () => ({
       label: "Turn into query",
       icon: <MagnifyingGlassIcon size={14} weight="bold" />,
@@ -328,7 +334,7 @@ const NODE_COMMANDS: readonly Command[] = [
   },
   {
     id: "turn-ref",
-    scope: "node",
+    menu: nodeMenu("make", 30),
     chrome: () => ({
       label: "Turn into reference…",
       icon: <LinkSimpleIcon size={14} weight="bold" />,
@@ -341,7 +347,7 @@ const NODE_COMMANDS: readonly Command[] = [
   },
   {
     id: "add-field",
-    scope: "node",
+    menu: nodeMenu("make", 40),
     chrome: () => ({ label: "Add field", icon: <TextTIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-field"),
   },
@@ -350,7 +356,7 @@ const NODE_COMMANDS: readonly Command[] = [
     // the display list made every node look like a non-tag and the menu
     // offered "Make supertag" on nodes that already were one.
     id: "make-supertag",
-    scope: "node",
+    menu: nodeMenu("make", 50),
     chrome: () => ({ label: "Make supertag", icon: <HashIcon size={14} weight="fill" /> }),
     when: (ctx) => {
       const node = targetNode(ctx);
@@ -369,7 +375,7 @@ const NODE_COMMANDS: readonly Command[] = [
   },
   {
     id: "search-all",
-    scope: "node",
+    menu: nodeMenu("open", 10),
     chrome: () => ({ label: "Search everything… ⌘S", icon: <MagnifyingGlassIcon size={14} /> }),
     run: (ctx) => {
       ctx.palette.close();
@@ -379,7 +385,7 @@ const NODE_COMMANDS: readonly Command[] = [
   {
     // Tana's panels: the node in a new pane to the right of the focused one.
     id: "open-beside",
-    scope: "node",
+    menu: nodeMenu("open", 20),
     chrome: () => ({ label: "Open in panel", icon: <SidebarSimpleIcon size={14} mirrored /> }),
     run: (ctx) =>
       nodeAction(ctx, (nodeId) => {
@@ -389,7 +395,7 @@ const NODE_COMMANDS: readonly Command[] = [
   {
     // A saved layout opened as the whole screen, its panes movable again.
     id: "open-as-workspace",
-    scope: "node",
+    menu: nodeMenu("open", 30),
     chrome: () => ({ label: "Open as workspace", icon: <SquaresFourIcon size={14} /> }),
     when: (ctx) => layoutOf(ctx) !== null,
     run: (ctx) => {
@@ -400,13 +406,13 @@ const NODE_COMMANDS: readonly Command[] = [
   },
   {
     id: "indent",
-    scope: "node",
+    menu: nodeMenu("arrange", 10),
     chrome: () => ({ label: "Indent", icon: <ArrowRightIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.indentNode(nodeId)),
   },
   {
     id: "outdent",
-    scope: "node",
+    menu: nodeMenu("arrange", 20),
     chrome: () => ({ label: "Outdent", icon: <ArrowBendUpLeftIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.outdentNode(nodeId)),
   },
@@ -414,7 +420,7 @@ const NODE_COMMANDS: readonly Command[] = [
     // Pinning is listing (lib/pinned); the label is the current state so the
     // row reads as a toggle rather than as a fire-and-hope command.
     id: "toggle-pin",
-    scope: "node",
+    menu: nodeMenu("mark", 10),
     chrome: (ctx) => {
       const nodeId = ctx.target.nodeId;
       const pinned = nodeId !== null && isPinned(ctx.outline.nodes, nodeId);
@@ -433,7 +439,7 @@ const NODE_COMMANDS: readonly Command[] = [
     // Per node, never global: the answer is about the node you are looking at
     // (stores/debug-fields.store).
     id: "toggle-debug-fields",
-    scope: "node",
+    menu: nodeMenu("mark", 20),
     chrome: (ctx) => {
       const nodeId = ctx.target.nodeId;
       const on = nodeId !== null && ctx.debugFields.ids.has(nodeId);
@@ -446,17 +452,13 @@ const NODE_COMMANDS: readonly Command[] = [
   },
   {
     id: "delete",
-    scope: "node",
+    menu: nodeMenu("remove", 10),
     chrome: () => ({ label: "Delete node", icon: <TrashIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.deleteNode(nodeId)),
   },
-];
-
-/** What the node menu offers last, after the views and what plugins contribute. */
-const NODE_COMMANDS_AFTER_VIEWS: readonly Command[] = [
   {
     id: "view-filter",
-    scope: "node",
+    menu: nodeMenu("view", 90),
     chrome: () => ({ label: "Filter…", icon: <MagnifyingGlassIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => ctx.ui.setViewSettingsFrameId(nodeId)),
   },
@@ -475,12 +477,12 @@ function frameViewCommands(ctx: CommandContext): {
     global: views.flatMap(({ key, picker }): Command[] =>
       picker.command === undefined
         ? []
-        : [{ id: picker.command, scope: "global", run: (c) => setGlobalFrameView(c, key) }],
+        : [{ id: picker.command, menu: GLOBAL, run: (c) => setGlobalFrameView(c, key) }],
     ),
     node: views.map(
       ({ key, picker }): Command => ({
         id: `view-as-${localIdOf(key)}`,
-        scope: "node",
+        menu: nodeMenu("view", 10),
         chrome: () => {
           const Icon = picker.icon;
           return {
@@ -534,7 +536,7 @@ function defaultViewCommands(ctx: CommandContext): readonly Command[] {
   return [...ofHost, ...ofView].map(
     ({ hostId, viewId, label }): Command => ({
       id: `make-default-view:${hostId}:${viewId}`,
-      scope: "node",
+      menu: nodeMenu("view", 20),
       chrome: () => ({ label, icon: <StarIcon size={14} /> }),
       run: async (c) => {
         c.palette.close();
@@ -563,8 +565,8 @@ function openWithCommands(ctx: CommandContext): readonly Command[] {
     return [
       {
         id: `open-with:${view}`,
-        scope: "node",
-        leads: tag !== undefined,
+        // The view a tag of the node names is how the node itself opens: it leads.
+        menu: tag === undefined ? nodeMenu("open", 40) : nodeMenu("lead", 10),
         chrome: () => ({
           label:
             tag === undefined
@@ -592,33 +594,39 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
     ...views.node,
     ...defaultViewCommands(ctx),
     ...currentContributions(CommandPoint).map(({ value }) => value),
-    ...NODE_COMMANDS_AFTER_VIEWS,
   ];
 }
 
+/** Where `menu` lists a command: its group's place, then its order in the group. */
+function menuRank(menu: NodeCommand["menu"]): readonly [number, number] {
+  return [NODE_MENU_GROUPS.indexOf(menu.group), menu.order];
+}
+
 /**
- * The commands this node offers, in order, the leading ones (`leads`)
- * first — the node menu's query over the registry. A command with no `chrome` cannot be a node command, so a
- * `scope: "node"` row without one is a programming error rather than a
- * silently missing row.
+ * The commands this node offers, in the node menu's order: by group, then
+ * by order in the group, then in the order they were listed, contributions
+ * in the order their plugins loaded. The node menu's query over the registry.
  */
 export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
-  // GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]
-  const offered = commandsFor(ctx).filter(
-    (command) => command.scope === "node" && (command.when?.(ctx) ?? true),
-  );
-  return [
-    ...offered.filter((command) => command.leads === true),
-    ...offered.filter((command) => command.leads !== true),
-  ].map((command) => {
-    const chrome = present(command.chrome, `node command ${command.id} has no chrome`)(ctx);
-    return {
-      id: command.id,
-      label: chrome.label,
-      icon: chrome.icon,
-      run: () => void runCommand(command.id, ctx),
-    };
-  });
+  return commandsFor(ctx)
+    .filter(
+      (command): command is NodeCommand =>
+        command.menu.where === "node" && (command.when?.(ctx) ?? true),
+    )
+    .toSorted((a, b) => {
+      const [groupA, orderA] = menuRank(a.menu);
+      const [groupB, orderB] = menuRank(b.menu);
+      return groupA - groupB || orderA - orderB;
+    })
+    .map((command) => {
+      const chrome = command.chrome(ctx);
+      return {
+        id: command.id,
+        label: chrome.label,
+        icon: chrome.icon,
+        run: () => void runCommand(command.id, ctx),
+      };
+    });
 }
 
 /** Run a command by id — the runner both palettes share. */

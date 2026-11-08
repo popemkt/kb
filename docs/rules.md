@@ -1534,14 +1534,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One rename across the workspace, done when the canvas packages are free to touch.
 - **node** — `01M53GQC1V4S043899SSX8Q47J`
 
-### GAP: the node menu's order is list position
-
-- **expected** — a node command declares where it sits in the menu, and the menu lists the registry's commands and every CommandPoint contribution by it
-- **current** — the registry's static list, then the views' rows, then contributions in load order, then 'Filter…'
-- **impact** — a family cannot contribute a node command to a slot: the outline's indent, outdent and 'Filter…' stay the shell's, and expand/collapse all sit after the default-view rows
-- **closes** — an order on node commands, read by the one menu builder
-- **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
-
 ### GAP: the node palette has no "Add value to <field>" command
 
 - **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
@@ -2645,6 +2637,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Ordering rules per value type (str/num/date/bool/ref/missing) are only visible by reading the whole comparator, and are not directly testable.
 - **closes** — Extract compareByField(fieldId, dir) and fold the specs with a compose helper.
 - **node** — `01M1MGCKK69CQBZQYAKRMESW5S`
+
+### GAP: the node menu's order is list position
+
+- **expected** — a node command declares where it sits in the menu, and the menu lists the registry's commands and every CommandPoint contribution by it
+- **current** — the registry's static list, then the views' rows, then contributions in load order, then 'Filter…'
+- **impact** — a family cannot contribute a node command to a slot: the outline's indent, outdent and 'Filter…' stay the shell's, and expand/collapse all sit after the default-view rows
+- **closes** — an order on node commands, read by the one menu builder
+- **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
 
 ### GAP: the outline keydown handler is a 64-branch callback
 

@@ -190,16 +190,44 @@ export interface CommandContext {
   readonly target: CommandTarget;
 }
 
-/** A command of the shell's palette and node menu. */
-export interface Command {
+/**
+ * The node menu's groups, in the order it lists them: how the node itself
+ * opens and shows, what it is and holds, where it opens, where it sits,
+ * what marks it, how its views show it, and removing it.
+ */
+export type NodeMenuGroup = "lead" | "make" | "open" | "arrange" | "mark" | "view" | "remove";
+
+/**
+ * Where a command is offered. `global`: ⌘K, which lists the `sys.command`
+ * node of the command's id, a node the family's seed declares, and so names
+ * it. `node`: the node menu, about its row, in its `group`, then by `order`
+ * (lower first), then in the order the commands were contributed.
+ */
+export type CommandMenu =
+  | { readonly where: "global" }
+  | { readonly where: "node"; readonly group: NodeMenuGroup; readonly order: number };
+
+/** A command ⌘K offers by its `sys.command` node. */
+export interface GlobalCommand {
   readonly id: string;
-  readonly scope: "global" | "node";
-  /** Absent ⇒ a `sys.command` node names this command. */
-  readonly chrome?: (ctx: CommandContext) => { readonly label: string; readonly icon: ReactNode };
+  readonly menu: { readonly where: "global" };
   /** Absent ⇒ always offered. */
   readonly when?: (ctx: CommandContext) => boolean;
   readonly run: (ctx: CommandContext) => void | Promise<void>;
 }
+
+/** A command of the node menu, which names itself. */
+export interface NodeCommand {
+  readonly id: string;
+  readonly menu: { readonly where: "node"; readonly group: NodeMenuGroup; readonly order: number };
+  readonly chrome: (ctx: CommandContext) => { readonly label: string; readonly icon: ReactNode };
+  /** Absent ⇒ always offered. */
+  readonly when?: (ctx: CommandContext) => boolean;
+  readonly run: (ctx: CommandContext) => void | Promise<void>;
+}
+
+/** A command of the shell's ⌘K palette or its node menu. */
+export type Command = GlobalCommand | NodeCommand;
 
 export declare const CommandPoint: PointKey<Command>;
 
