@@ -94,3 +94,5 @@ export {
   type Library,
   type StyleEntry,
 } from "./library.ts";
+
+export { GALLERY_POINT_DEFINITIONS } from "./point-definitions.ts";

@@ -40,6 +40,16 @@ const PROPERTIES: ReadonlyArray<readonly [string, (tail: TxTail) => void]> = [
     },
   ],
   [
+    "an identified reaction actor survives append, paging and replacement",
+    (tail) => {
+      const actor = { kind: "reaction", id: "ext.router.route" } as const;
+      tail.append(upsert("n-reaction", "reacted"), { at: AT, actor });
+      expect(tail.entries()[0]?.actor).toEqual(actor);
+      tail.adopt(tail.entries());
+      expect(tail.since(0)[0]?.actor).toEqual(actor);
+    },
+  ],
+  [
     "`since` reads the records after a rev, oldest first, all of them without a page",
     (tail) => {
       for (const id of ["a", "b", "c"]) tail.append(upsert(`n-${id}`, id), { at: AT });

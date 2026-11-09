@@ -9,10 +9,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { logContract, storeContract, tailContract } from "@kb/test-kit";
+import { logContract, storeContract, tailContract, reactionContract } from "@kb/test-kit";
 import { SqliteStore, sqliteStorePath } from "../src/index.ts";
 
 storeContract("SqliteStore", (root) => new SqliteStore(root));
+reactionContract("SqliteStore", (root) => new SqliteStore(root));
 
 const scratchRoot = Effect.acquireRelease(
   Effect.promise(() => mkdtemp(join(tmpdir(), "kb-tail-contract-"))),

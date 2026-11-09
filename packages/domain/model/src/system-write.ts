@@ -23,13 +23,8 @@
  * edit only where the write would land.
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
+import { changedFields } from "./tx.ts";
 import { refValuesOf, typeRefsOf, type NodeLike } from "./ontology.ts";
-
-/** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
-export interface NodeWrite {
-  readonly before: KbNode | undefined;
-  readonly after: KbNode | undefined;
-}
 
 /**
  * The node a setting is checked against: its id, and its props where they
@@ -78,19 +73,6 @@ export function configuresAnExtension(
   return refValuesOf(node, SYSTEM_IDS.configuresField).some(
     (target) => target === SYSTEM_IDS.extensionsRoot || isExtensionNodeId(target),
   );
-}
-
-function sameValues(
-  a: KbNode["props"][string] | undefined,
-  b: KbNode["props"][string] | undefined,
-) {
-  return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
-}
-
-/** The fields whose values differ between `before` and `after`. */
-export function changedFields(before: KbNode | undefined, after: KbNode | undefined): string[] {
-  const fields = new Set([...Object.keys(before?.props ?? {}), ...Object.keys(after?.props ?? {})]);
-  return [...fields].filter((field) => !sameValues(before?.props[field], after?.props[field]));
 }
 
 /**

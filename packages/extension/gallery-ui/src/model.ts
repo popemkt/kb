@@ -18,6 +18,7 @@
  */
 import { Effect } from "effect";
 import {
+  GALLERY_POINT_DEFINITIONS,
   enhanceInput,
   parseReflection,
   reflectInput,
@@ -25,7 +26,7 @@ import {
   type Library,
   type Reflection,
 } from "@kb/gallery";
-import { definePlugin, PointName, type PointSpec } from "@kb/plugin";
+import { definePlugin, PointName } from "@kb/plugin";
 import { ModelCompletionService, toast, type ModelCompletion } from "@kb/ui-sdk";
 
 /**
@@ -54,13 +55,7 @@ export interface ComposerModel {
 }
 
 /** Where the gallery's `model` child offers the composer's model while a completion is provided. */
-export const ComposerModelPoint = PointName<ComposerModel>()("gallery.model");
-export const COMPOSER_MODEL_POINT_SPEC: PointSpec = {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-};
+export const ComposerModelPoint = PointName<ComposerModel>()(GALLERY_POINT_DEFINITIONS.model.name);
 
 /** What the page says a use of the model needs while none is offered. */
 export const MODEL_NEEDS = "needs the agent: switch it on in Settings → Extensions, in kb ui";

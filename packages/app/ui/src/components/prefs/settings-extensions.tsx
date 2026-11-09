@@ -5,6 +5,7 @@
  * line, where it came from, why it is required), a link to another part,
  * and while the server's report is read, or why it could not be.
  */
+import { waitingForPoint } from "@kb/contracts";
 import { useState, type ReactNode } from "react";
 import { type EnumOption, EnumSelect, navigate, POPOVER_VALUE_CLASS } from "@kb/ui-sdk";
 import type { SettingsPart } from "@kb/views";
@@ -120,6 +121,13 @@ export function ExtensionLede({
   return (
     <div className="space-y-0.5" data-extension-lede>
       {description !== undefined && <p className="text-meta text-foreground/80">{description}</p>}
+      {[
+        ...new Set(row?.uses.filter(({ from }) => from === null).map(({ point }) => point) ?? []),
+      ].map((point) => (
+        <p key={point} data-waiting-point={point} className="text-meta text-muted-foreground">
+          {waitingForPoint(point)}
+        </p>
+      ))}
       {installed && row !== undefined && <SourceLine row={row} />}
       {required !== undefined && (
         <p className="text-caption text-muted-foreground">Required: {required}</p>

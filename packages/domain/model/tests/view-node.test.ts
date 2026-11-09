@@ -27,12 +27,12 @@ const carrying = (props: KbNode["props"]) => ({ props });
 describe("view options", () => {
   test("sys.f.view is one ref into sys.views; sys.f.views many refs to view nodes", () => {
     const view = seed.get(SYSTEM_IDS.viewField);
-    expect(fieldTypeOf(view?.props)).toBe("ref");
-    expect(cardinalityOf(view?.props)).toBe("one");
+    expect(fieldTypeOf(view?.props, () => undefined)).toBe("ref");
+    expect(cardinalityOf(view?.props, () => undefined)).toBe("one");
     expect(targetQueryOf(view)).toBe(VIEW_OPTION_TARGET_QUERY);
     const views = seed.get(SYSTEM_IDS.viewsField);
-    expect(fieldTypeOf(views?.props)).toBe("ref");
-    expect(cardinalityOf(views?.props)).toBe("many");
+    expect(fieldTypeOf(views?.props, () => undefined)).toBe("ref");
+    expect(cardinalityOf(views?.props, () => undefined)).toBe("many");
     expect(targetQueryOf(views)).toBe(VIEW_NODE_TARGET_QUERY);
   });
 

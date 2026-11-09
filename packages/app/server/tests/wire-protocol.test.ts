@@ -34,10 +34,15 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // included), its one-line description, and a required family's reason in
 // place of `optional`, which a page of protocol 3 requires, so it reloads
 // into a build that reads them.
-// Declared points add report metadata; previous pages ignore the additional fields.
+// The strict manifest now carries replacement claims; older pages must reload
+// before they can approve a digest without seeing its replacement lines.
+// Protocol 6: graph.changes carries identified reaction actors, alongside
+// the existing human/agent/cli/script actor strings.
+// Protocol 7: manifests carry scoped named-point dependencies and reaction
+// matches; earlier strict readers cannot decode or review those claims.
 const RECORDED = {
-  protocol: 4,
-  fingerprint: "02610a38a0532a349d23db49dbc84659976080e1e64ddaa7ad2c0c9290b76ec7",
+  protocol: 7,
+  fingerprint: "43b796716352fe945f65253276c3b7bf55e39575615bf47ac345419849707c04",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

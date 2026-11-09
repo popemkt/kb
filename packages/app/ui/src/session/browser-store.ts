@@ -6,7 +6,14 @@ import {
   type StoreFingerprint,
   type TxRecord,
 } from "@kb/contracts";
-import { rankTx, StoreState, type DomainError, type KbNode, type StoreTx } from "@kb/model";
+import {
+  writesOf,
+  rankTx,
+  StoreState,
+  type DomainError,
+  type KbNode,
+  type StoreTx,
+} from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
 
 /** In-memory persistence side of the browser's replicated kb session. */
@@ -48,11 +55,19 @@ export class BrowserStore implements EffectStore {
       const stale = staleCommitError(expected, base);
       if (stale !== null) return Effect.fail(stale);
       const applied = rankTx(this.state, tx);
+      const writes = writesOf(applied, (id) => this.state.get(id));
       this.apply(applied);
-      if (applied.upserts.length > 0 || applied.deletes.length > 0) {
-        this.txTail.append(applied, record);
-      }
-      return Effect.succeed({ base, fingerprint: String(this.generation), tx: applied });
+      const kept =
+        applied.upserts.length > 0 || applied.deletes.length > 0
+          ? this.txTail.append(applied, record)
+          : null;
+      return Effect.succeed({
+        base,
+        fingerprint: String(this.generation),
+        tx: applied,
+        record: kept,
+        writes,
+      });
     });
   }
 

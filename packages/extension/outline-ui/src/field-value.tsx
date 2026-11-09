@@ -23,93 +23,22 @@ import {
   TAG_PALETTE,
   TagChipGroup,
   useRevealMarkup,
-  type FieldContext,
+  type EditHandle,
   type Follow,
   type FollowTarget,
   type OutlineNode,
-  type PropValue,
   type RefInk,
+  type RejectedInput,
+  type ValueSurfaceProps,
 } from "@kb/ui-sdk";
 import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
-import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
+import { parseDateInput, parseDay } from "@kb/model";
 import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
-import { FieldPicker, type FieldHandle } from "./field-picker";
+import { FieldPicker } from "./field-picker";
 import { longDateLabel, relativeDateLabel } from "./date-display";
 import { formatNumber } from "./number-format";
 import { urlLabel } from "./url-label";
-import type { ValueKindSpec } from "./value-kind";
 import { DateEditor } from "./date-editor";
-
-/**
- * What a slot's keymap asks of the editor it holds. Only a caret editor has
- * one: the other editors own their keys (`EDITOR_MODES[…].keys`).
- */
-export interface EditHandle {
-  /** Enter: keep what was typed and leave the editor. */
-  commit: () => void;
-  /** Escape: put the value back and leave the editor. */
-  cancel: () => void;
-  /** Shift+Enter: a line break inside the value (text only). */
-  softBreak: () => void;
-  /** The caret is at the end of a text that is not empty. */
-  atEnd: () => boolean;
-  /** Where the caret is in the text being edited, and how long that text is. */
-  caret: () => { at: number; length: number } | null;
-  /**
-   * Where a click at a point lands in the text, measured on the value at
-   * rest — before the slot swaps it for the editor.
-   */
-  caretAtPoint: (x: number, y: number) => number | "end";
-}
-
-/** Input a kind refused, and why. */
-export interface RejectedInput {
-  readonly text: string;
-  readonly reason: string;
-}
-
-/** Everything a kind's surface is handed by the slot that holds it. */
-export interface ValueSurfaceProps {
-  /** The stored value, or the type's empty value when the slot holds none. */
-  value: PropValue;
-  /** The slot shows its placeholder rather than the value. */
-  blank: boolean;
-  /** The slot's editor is open (`ValueSlot` owns this state). */
-  editing: boolean;
-  /** Where a caret editor opens: the click's offset, or the end. */
-  caretAt: number | "end";
-  /**
-   * A key typed on the value at rest, which opened the editor: it replaces
-   * the value, as typing on a selected value does.
-   */
-  seed?: string;
-  spec: ValueKindSpec;
-  /** Pre-formatted label for a ref value, when the caller already has one. */
-  display: string;
-  /** The field this value belongs to; a ref field's option set is its own. */
-  fieldId: string;
-  /**
-   * What the value resolves against (`fieldContextOf`). A ref editor derives
-   * its option set and where it searches from this and `fieldId` itself
-   * (`refSearchOf`), so no surface passes, or can forget, either.
-   */
-  context: FieldContext;
-  /** Text the kind could not read, kept so it is never dropped (`CaretValue`). */
-  rejected: RejectedInput | null;
-  /**
-   * Leave the editor. With a parse, commit what it read — or, when it read
-   * nothing, keep `text` as rejected input; without one, nothing changed.
-   */
-  onEnd: (parsed?: ParsedValue, text?: string) => void;
-  /** Where a caret surface exposes itself to the slot's keymap. */
-  handleRef: React.Ref<EditHandle>;
-  /** The field the value belongs to, as a whole (a picker edits it). */
-  field: FieldHandle;
-  /** What an empty value says while it waits (`data-placeholder`). */
-  placeholder?: string;
-  /** Follow a pointer inside the value: a ref's bullet or tag chip. */
-  onFollow: Follow;
-}
 
 const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 

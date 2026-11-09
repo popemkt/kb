@@ -31,7 +31,8 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { useGraphStore } from "@/stores/graph.store";
 import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { FrameViewSlot, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { FrameViewSlot, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The `[[` popup asks from inside the kit (`NodeTextHost`), so the mock names the
 // module that answers, not the barrel that re-exports it.

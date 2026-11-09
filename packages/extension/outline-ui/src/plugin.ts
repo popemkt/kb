@@ -10,23 +10,35 @@ import { OutlineSnippet } from "./outline-snippet";
 import {
   BrowserHostService,
   CommandPoint,
+  currentKeymap,
   FieldEditorService,
+  KeybindingPoint,
   OverlayPoint,
   PageEditorService,
   PaletteStepPoint,
   PageProjectionService,
   provideView,
   SidebarSectionPoint,
+  subscribeUiKernel,
   SYSTEM_IDS,
   ViewPoint,
 } from "@kb/ui-sdk";
 import { ListBulletsIcon } from "@phosphor-icons/react";
 import { NodeField } from "./fields-section";
+import { outlineValueKindsPlugin } from "./slot-kind";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 import { OUTLINE_STEPS } from "./outline-steps";
+import { EDITING_BINDINGS, EDITING_CONTEXT } from "./editing-keymap";
+import { SELECTION_BINDINGS, SELECTION_CONTEXT } from "./selection-keymap";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
+
+/** Read both of the outline's keymaps, which tells any refusal (`currentKeymap`). */
+function readKeymaps(): void {
+  currentKeymap(EDITING_CONTEXT);
+  currentKeymap(SELECTION_CONTEXT);
+}
 
 /**
  * The outline's views: its page, its list frame view — shown inline, under
@@ -65,7 +77,7 @@ const OUTLINE_VIEWS = [
 /**
  * The outline: its views, the Pinned sidebar section, its expand-all and
  * collapse-all commands, its node-palette steps (add a tag, a field, a
- * reference), and the page overlay that hosts a frame's filter popover. It
+ * reference), its editing and selection keys, and the page overlay that hosts a frame's filter popover. It
  * owns no route: the page's home (`/`, `/outline/<id>`) is core's
  * (`HomeView`), shown in the store's default view type, which the outline
  * provides, so while it is loaded the home is the outline at the page's zoom.
@@ -87,6 +99,8 @@ export const outlineUiPlugin = definePlugin({
       yield* Effect.all(
         [
           ctx.plugin(outlinePlugin()),
+          // The kinds of its built-in field types, which its field editor draws.
+          ctx.plugin(outlineValueKindsPlugin),
           // The page stands in the outline while this plugin is loaded: the
           // outline is its projection, which the graph store tells of each move
           // and the shell reads rows and reveals through, and its store is the
@@ -109,6 +123,18 @@ export const outlineUiPlugin = definePlugin({
             ctx.contribute(CommandPoint, { id: command.id, value: command }),
           ),
           ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
+          // Its two keymaps, the editing row's and the selection's: bindings
+          // like any other plugin's, which the page's keymap holds first.
+          ...[...EDITING_BINDINGS, ...SELECTION_BINDINGS].map((binding) =>
+            ctx.contribute(KeybindingPoint, binding),
+          ),
+          // It reads its two keymaps whenever the page kernel moves, so a
+          // binding another plugin brings that its keymaps refuse is told
+          // then, not at the first key pressed in its context.
+          Effect.acquireRelease(
+            Effect.sync(() => subscribeUiKernel(readKeymaps)),
+            (unsubscribe) => Effect.sync(unsubscribe),
+          ),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",
             value: { order: 0, Component: ViewSettingsPopoverHost },

@@ -17,14 +17,15 @@ import {
   rowTextOf,
   useDebugFields,
   useFollow,
+  useFieldEditor,
   useGraphRead,
   useOptionPreview,
+  type FieldHandle,
 } from "@kb/ui-sdk";
 import { outlineSource, useOutlineStore } from "./outline.store";
-import { fieldGlyphOf } from "./value-views";
 import { ValueSlot } from "./value-slot";
-import { FieldPicker, type FieldHandle } from "./field-picker";
-import { VALUE_KINDS, valueKindOf } from "./value-kind";
+import { FieldPicker } from "./field-picker";
+import { useSlotKind } from "./slot-kind";
 import { arriveAt, slotAt } from "./value-slot-nav";
 import { useRowOpening } from "./row-opening";
 
@@ -86,8 +87,8 @@ export function FieldValueStack({
   instanceKey,
 }: FieldValueStackProps) {
   const { schema } = context;
-  const spec = VALUE_KINDS[valueKindOf(fieldType, fieldId, schema.get(fieldId))];
-  const many = cardinalityOf(schema.get(fieldId)?.props) === "many";
+  const { spec } = useSlotKind(fieldType, fieldId, schema);
+  const many = cardinalityOf(schema.get(fieldId)?.props, (id) => schema.get(id)) === "many";
   const { field, pending, setPending, picking, pickerQuery, setPicking, stackRef } = useFieldHandle(
     { nodeId, fieldId, values, many, instanceKey },
   );
@@ -434,6 +435,7 @@ export function NodeField({
 }: NodeFieldProps) {
   const follow = useFollow();
   const fieldType = resolveFieldTypeById(fieldId, context.schema);
+  const { icon } = useSlotKind(fieldType, fieldId, context.schema);
   const fieldNode = context.schema.get(fieldId);
   const readOnly = !isWritableField(
     context.schema.get(nodeId) ?? { id: nodeId },
@@ -447,7 +449,7 @@ export function NodeField({
     card !== null &&
     !valueOnly &&
     declaresOptionSet(fieldNode) &&
-    cardinalityOf(fieldNode?.props) === "one";
+    cardinalityOf(fieldNode?.props, (id) => context.schema.get(id)) === "one";
   const stack = (
     <FieldValueStack
       nodeId={nodeId}
@@ -464,7 +466,7 @@ export function NodeField({
     <FieldRow
       depth={depth}
       valueOnly={valueOnly}
-      icon={fieldGlyphOf(fieldType, fieldId)}
+      icon={icon}
       fieldId={fieldId}
       label={label}
       debug={debug}
@@ -492,6 +494,7 @@ export function NodeField({
 
 /** Inline field rows under a node (DESIGN-RESKIN §1.4). */
 export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps) {
+  const Field = useFieldEditor();
   // Field definitions come from the whole graph, never the scoped projection;
   // the section depends on the definitions and values it reads, not the graph.
   const context = useGraphRead();
@@ -508,7 +511,7 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   return (
     <div className="fields-section" data-fields-for={nodeId}>
       {props.map((p) => (
-        <NodeField
+        <Field
           key={p.fieldId}
           nodeId={nodeId}
           fieldId={p.fieldId}

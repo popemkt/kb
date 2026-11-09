@@ -425,10 +425,10 @@ this session is never pruned, so committed content cannot evaporate.
 **Two keymaps, one row.** The authoritative tables are r1-editor.md §3.2; the
 split is what matters here:
 
-| Mode                                             | When                         | Owner                                                                           |
-| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------- |
-| **A — active edit** (caret inside node text)     | typing                       | `outline-ui/src/use-node-keydown.ts`                                            |
-| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
+| Mode                                             | When                         | Context             | Owner                                                                           |
+| ------------------------------------------------ | ---------------------------- | ------------------- | ------------------------------------------------------------------------------- |
+| **A — active edit** (caret inside node text)     | typing                       | `outline.editing`   | `outline-ui/src/editing-keymap.ts` + `outline-ui/src/use-node-keydown.ts`       |
+| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline.selection` | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
@@ -437,6 +437,75 @@ create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
 re-entry into Mode A. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
+
+**Keybindings.** Each mode is a _context_, and its keys are contributions to
+`ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s `lib/keybindings`), the
+outline's as any plugin's. A binding is data: a context, a chord, and what it
+runs, one of the context's _intents_ by name (`split`, `indent`, `move-up`,
+`line-down`, …; the selection's `up`, `create-after`, `append`, …). An intent
+answers which of a key's meanings applies on this row (the caret, the row's
+shape); the chord that runs it is its binding's, so a built-in has an id
+(`outline.editing.split`, `outline.selection.up`) another binding can name.
+The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
+the guard that keeps a query-result row from being restructured is part of
+each structural intent, so it holds whatever chord runs it.
+
+The page's one keymap (`admitKeybindings`, read live as `currentKeymap`)
+decides a context's keys, and its rule is the point's `combine`:
+
+- a context's owner states it (`KeyContext`): its intents, and the chords
+  only it may bind (`reserved`). The outline reserves `Escape`, the text
+  host's history chord (`TEXT_HISTORY_CHORD`, ⌘Z and ⌘⇧Z) and the palette's
+  ⌘K (`PALETTE_CHORD`), so no binding can trap a person in a row;
+- the owner's bindings are held first, then the rest in load order;
+- **no two held chords overlap** (`chordsOverlap`: a common key, and a state
+  of the four modifiers both admit), but along a chain of replacements. So
+  the order bindings are listed in means nothing, and each says exactly what
+  it claims: the outline's split is `Enter` without Shift, its bare arrows
+  are `mod: false`, and typing over a selected row is any printable key the
+  selection's other bindings leave. Alt is a modifier like the others: an
+  Alt-composed character (⌥o is ø) is no outline key, so it stays native
+  unless a binding claims its chord;
+- a binding over a held chord is refused unless it names the holder in
+  `replaces` (the record's §9 default 7: an occupied chord is never taken
+  silently). A replacement takes exactly its own chord, and the holder keeps
+  the rest: `Alt-ArrowUp` replacing `outline.selection.up` moves the row,
+  and a bare ↑ still selects the row above. A replacement stands on the
+  binding it names, and on everything that one stands on, so the chord it
+  may overlap is its chain's: a second replacement of `Alt-ArrowUp` names
+  the first, and one of `Alt-Shift-ArrowUp`, which the first does not hold,
+  names the outline's. A key runs the newest binding it matches, the one
+  furthest down its chain. A replacement whose holder leaves is refused
+  until it names the binding that holds the chord then, so a key never
+  moves to a binding no one chose for it;
+- a replacement is the host's to approve (`BrowserHost.replacementApproved`).
+  kb's own code and the repository's own folder are approved by being
+  there (`replacesWithoutApproval`, read from the origin the server reports
+  for the owner's family); a linked or installed extension may bind free
+  chords, and its replacement is refused, told that it waits for
+  replacement approval, until a person can approve it on its trust sheet:
+  GAP [[01M6YFRJGV8MAF2AM34N567MBQ]];
+- a binding over a reserved chord is refused, even as a replacement, and so
+  is one that replaces a binding holding no chord it overlaps, or names an
+  intent its context lacks. The outline reads both keymaps whenever the page kernel moves, so a
+  refusal is told when the binding arrives, once a page session, naming the
+  binding, the chord and its holder. The kernel admits a binding by its id
+  alone, so a refused one stays contributed and inert:
+  GAP [[01M6Y9H5FD9GVMK9N9QBT5DNTN]].
+
+A binding runs an intent of its context, or an **action**
+(`{ action, input }`), invoked through the page's one invoke path with the
+row's node as its input's `id`, so a key meets the guards every call meets
+and a failed call is told. Through `kb-ext-sdk/page` a binding is data, its
+T0 form: `provideKeybinding(id, { context, chord: "Alt-ArrowUp", run,
+replaces })`, the chord written as text (`parseChord`: modifiers, then the
+key as `KeyboardEvent.key` names it, joined by `-`; exact, so a modifier it
+does not name must be up; a letter matches in either case, since macOS
+reports ⌘⇧S as `s`). Only the outline's two contexts exist; the
+page's own ⌘K and the canvas's keymap are not contexts yet:
+GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]. A key's action is the one shape a
+command's and a picker step's are as data (`ActionCall`, [The node
+menu](#the-node-menu)).
 
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
@@ -756,12 +825,29 @@ rows, a table's cells and a card's fields are `FieldRow` chrome around the one
 `FieldValueStack`, so none of them has its own loop of editors. Each value sits
 in a **value slot** (`ValueSlot`, `outline-ui/src/value-slot.tsx`), and
 **the slot owns every gesture**; a value's kind contributes only data. A kind
-is a row in `VALUE_KINDS` (`outline-ui/src/value-kind.ts`: its editor
-mode, how it reads as text and back, when it is blank, where it points, how its values sit
-together) and a row in the slot's view registry (its glyph and its surface).
-The surfaces in `field-value.tsx` draw and edit; none has a click or key
-handler of its own. A new type is two rows, never a component deciding its
-own clicks.
+(`@kb/ui-sdk`'s `value-kind.ts`) is a row of data (`ValueKindSpec`: its
+editor mode, how it reads as text and back, when it is blank, where it
+points, how its values sit together), the glyph its field wears and the
+surface that draws and edits its values. None of the surfaces has a click or
+key handler of its own. A new type is one more kind, never a component
+deciding its own clicks.
+
+**A type's kind is a contribution.** `ui.value-kinds` is keyed by the
+type's option node, a child of `sys.f.fieldType` (DESIGN.md → Field types).
+The outline contributes the kinds of the eight built-in types
+(`outlineValueKindsPlugin`: its rows in `value-kind.ts` and `value-views.ts`),
+and one place resolves which kind a field's values sit in (`useSlotKind`,
+`outline-ui/src/slot-kind.ts`): a field that names its own kind
+(`sys.f.color`'s swatches) or parents its options (chips) is the outline's
+own; any other field's values sit in the kind contributed for its type's
+option, and a type a family declares with no kind contributed draws as the
+built-in type it stores as (DESIGN.md → Field types). The slot, the stack and
+the field's glyph all read it. The point holds every contribution to its
+contract (`PointSpec.contract`: a type, a spec whose editor is one of the
+five and whose `text`, `parse`, `isBlank` and `follow` are functions, a
+layout, and a glyph and surface React draws), so a page half's malformed kind
+is refused where it is contributed, its plugin with it, and never reaches a
+slot: its type draws as the type it stores as.
 
 **The label column belongs to the field, not to its values.** The type glyph
 is the field's own button (`FieldRow`, labelled "Configure field <name>"). A
@@ -770,9 +856,8 @@ target, its values' kinds — so the glyph follows the field the way a bullet
 follows its node: a plain click opens it, ⌘/Ctrl-click reveals it. A row that
 stands for no field node (a preference) draws the glyph inert. `FieldRow` is
 the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
-(`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's row
-in the value views' registry (`fieldGlyphOf`), so the glyph and the editor
-come from one row.
+(`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's
+(`useSlotKind`), so the glyph and the editor come from one kind.
 
 **Three verbs, the same on every kind.**
 
@@ -2217,6 +2302,70 @@ both are answered from the node ⌘K menu rather than from a device switch.
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
 
+### The node menu
+
+The node menu is the node palette (`NodeCommandPalette`), opened on a row
+from its bullet or by ⌘K on a selected row. It lists the commands about
+that row: the shell's own, the rows the page derives from the graph
+(Open with…, View as…, Make default view…), and every `ui.commands`
+contribution (`CommandPoint`). Each says where it is offered (`menu`):
+
+- `{ where: "global" }`: ⌘K, which lists the command's `sys.command` node,
+  a node the family's seed declares (`seededCommand`), so the graph names
+  it and the command carries no label.
+- `{ where: "node", group, order }`: the node menu, which lists it in its
+  group, then by `order` (lower first), then in the order the commands
+  came, a family's in the order its plugin loaded. Nothing in the graph
+  names a node command, so it names itself (`chrome`, a label and an
+  icon).
+
+The groups, in the menu's order (`NODE_MENU_GROUPS`):
+
+| Group | What it holds | Its rows today |
+| --- | --- | --- |
+| `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
+| `make` | what the node is and holds | Add tag, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
+| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
+| `arrange` | where it sits | Indent, Outdent |
+| `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
+| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter… |
+| `remove` | removing it | Delete node |
+
+So a family's command takes a place among the shell's by naming it, and
+the one menu builder (`listNodeCommands`) reads the place from the
+command: no list position means anything, and no row is the shell's by
+being listed first.
+
+**A command and a picker step as data.** A node command may hand the
+palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,
+below). Through `kb-ext-sdk/page` both come in two forms. The T3 form is
+the one above, with functions, handed only the row (`CommandContext.target`,
+a step's anchor and pick). The T0 form is data, which the page interprets,
+so no author code runs when a person picks (`lib/command-forms`):
+
+- `provideCommand(id, { label, icon, group, order, when, run })`. `icon`
+  names one of the icons the shell's own rows draw (`IconName`), so a
+  name costs the page nothing it does not already carry. `when` is a query node, by
+  id: the command is offered on the rows whose id is in its answer's
+  first column, once the replica has answered it (`savedQueryIds`), and
+  absent, on every row. `run` is an action about the row, or a step to
+  open, by its contribution's id (`{ step: "link-to.pick" }`).
+- `providePaletteStep(id, { label, placeholder, icon, candidates, limit,
+  commit })`. `candidates` is a query node: the picker offers the nodes in
+  its answer's first column, each named by its text, less the row itself.
+  Nothing is minted from it. `commit` is an action about the row, and the
+  pick fills each `PICKED` in its input: `{ action: "node.update", input:
+  { setProps: [{ field, value: { t: "ref", v: PICKED } }] } }` links the
+  row to the node picked.
+
+An action is one shape wherever it is data (`ActionCall`, `lib/action-call`):
+a key's (Keybindings), a command's and a step's. Each is called through the
+page's one invoke path with the row's node as its input's `id`, under the
+guards every call meets, and a failed call is told (`invokeAction`). So a
+T0 command or step writes only what a person could write through that
+action, with no new action to add: a link is a ref value, and `node.update`
+already writes one.
+
 ### UI points: routes and views
 
 The UI is assembled from contributions to the browser's `@kb/plugin` kernel
@@ -2256,7 +2405,14 @@ a separate point that only points at it.
   `inline` (the view sits in the outline's flow, under the row of the frame
   it shows) or `preview` (the view draws a node in a small fixed box under
   its row; a contribution never lists it — `provideView` offers it because
-  the view's key says `preview`, the one statement of it), and, when the host draws the view from a view node, that node
+  the view's key says `preview`, the one statement of it) or `row` (the
+  view draws a node's row in place of its text, for the nodes of a tag
+  that names it; the host hands it the row as `row`, see Row views below).
+  The placement and what comes with it are one union (`Drawn`): a host at
+  `row` hands a row, and a host anywhere else hands none, so neither a
+  slot at `row` without a row nor a row at a page types, and a slot that
+  untyped code hands one anyway shows its fallback at `row` and drops the
+  row elsewhere. And, when the host draws the view from a view node, that node
   (`viewNode`, which the slot takes and the node route passes): where a view
   that edits its own settings writes them (the chart's spec editor). A view
   drawn from a view type or from code has none. The rest of the host contract (size, appearance, reduced motion,
@@ -2626,7 +2782,8 @@ until "Save workspace".
   (`@kb/views`) less the view types this page draws no page of — the same
   list the pane switcher offers. The one it opens in by default says
   "(default)". A view a tag of the node names is its tag opening, so its
-  row says "Open in Canvas" and leads the menu (`Command.leads`). A row
+  row says "Open in Canvas" and leads the menu (the `lead` group, [The
+  node menu](#the-node-menu)). A row
   moves the focused pane to `/node/<id>/<view>`, so the step is in the
   history, and writes nothing. It is reached from the keyboard as every
   node command is: the node menu is a palette, so typing "open" finds the
@@ -2665,6 +2822,31 @@ until "Save workspace".
     row's fields section, and the zoomed node's, reveal the fields of the
     tag that opens it, drawn as any other field (`RowOpening.revealed`).
   - With the family off there is no opening, so no option.
+- **Row views.** A tag may name the view its nodes are drawn as in an
+  outline, in place of their row's text: `sys.f.view.row` on the tag node,
+  a setting of every tag as `view.default` is (DESIGN.md → View nodes), so
+  a person chooses it on the tag and a declaration's claim (`tagRowViews`)
+  is only where it starts. A node is drawn as the first of its tags' row
+  views the page holds (`heldTagViewOf` in the role `row`), when the page
+  draws that view at placement `row` (`tagRowViewOf`, `useRowView`); else
+  its row is its text. It is a placement of a view like any other, never a
+  second renderer: "render `#callout` as a callout" is a view of the node,
+  drawn where its row is (the parity record, §3.1).
+  - **The text stays the outline's.** The view is drawn only while no one
+    edits the row, and the text host draws the text it holds
+    (`NodeTextHost`'s `display`): the host hands the view its row
+    (`ViewHost.row`, `RowSubject`: the node, its markdown, and its text as
+    the host drew it), and the view places that text. So pressing the text
+    edits the row where it was pressed, and while the row is edited it is
+    the text host's alone: caret, history and keys are never a plugin's.
+    The row's chips stay beside it, and the view is its own block
+    formatting context, so it sits beside them rather than under.
+  - **It is all the view reads.** A row view is handed its row, not the
+    graph; one that wants more is a page power (T3) like any page half.
+  - **Where it cannot draw, the row is its text:** params that do not
+    decode, an owner switched off, a view still loading. A view that throws
+    is contained by its slot, as every view is (promise 3).
+  - (`row-view.tsx`, `@kb/outline-ui`)
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,
@@ -3074,13 +3256,21 @@ the shell.
   one home. It holds:
   - the UI points ([UI points](#ui-points-routes-and-views), [Docks](#docks)),
     `ViewSlot` and `CommandPoint`, a command contributed to the shell's
-    palette and node menu;
+    palette or its node menu, where its `menu` places it
+    ([The node menu](#the-node-menu));
   - `PaletteStepPoint` (`ui.palette-steps`), a picker step a node command
     hands the node palette to (`palette.openStep(id)`, by the contribution's
     namespaced id): its label, placeholder and icon, its candidates, whether
     one may be minted, and its write. The outline's own add-tag, add-field
     and reference steps are its contributions (`outline.add-tag`, …), so a
-    family's steps come and go with it and the palette reads no closed list;
+    family's steps come and go with it and the palette reads no closed list.
+    A page half reaches it by `uses` and `ctx.point`, as any declared point,
+    and may write one as data (`providePaletteStep`, [The node
+    menu](#the-node-menu));
+  - `ValueKindPoint` (`ui.value-kinds`), a field type's value kind by its
+    option node: the outline's eight and a family's own types', which a
+    page half contributes with `provideValueKind` ([Field
+    values](#field-values-one-slot-grammar), DESIGN.md → Field types);
   - the primitives and the design tokens;
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions
@@ -3639,7 +3829,8 @@ the page adds no storage of its own.
   or its occurrence's own when it has one: synced, pending or error, with
   the message as its tooltip. A calendar in preview or paused says it is not
   sent. The toolbar's Sync now (`ext.routines.sync`) carries the worst state
-  showing.
+  showing, beside Sync services; with no account yet the toolbar offers
+  Set up sync instead.
 - **Time zones.** Instances are drawn on the browser's clock, and a drop is
   converted back to the routine's zone, so a routine in Berlin dragged on a
   page in Ho Chi Minh City keeps its meaning. Across a DST change a
@@ -3651,6 +3842,58 @@ the page adds no storage of its own.
 - **One-offs tick like series.** A one-off's one instance is its event, so
   its `#occurrence` on its start day is that event's own state: done sends
   it ✅ and grey, skipped cancels it.
+
+### Sync services
+
+`/calendar/sync` (`RoutinesSyncView`) lists the `#google-account` nodes as
+sync services, each with its state, and Add sync service opens a provider
+picker (Google is the one provider). Picking one adds an account node and
+opens its setup at `/calendar/sync/<account>`: a wizard of seven numbered
+steps with a progress bar, a vertical list beside the step on a wide screen
+and a horizontal one above it on a narrow one.
+
+- **Where a person is, is the account's own data.** The project id
+  (`google project`) and the steps confirmed by hand (`setup done`, options
+  project, apis, branding and audience) are fields of the account node;
+  the rest is read from what is there: the client is set when its two
+  references are, connect is done when the account's status is synced, and
+  calendars when one linked calendar is provisioned with sync on
+  (`readAccountSetup` in `@kb/routines` → `setup.ts`, the one reader). The
+  wizard opens at the first step not done, so leaving and coming back
+  resumes, and a later step stays shut until the ones before it are done.
+  Changing the project takes back what was confirmed for the old one.
+- **Each step links to the Console page it needs**, with the project
+  chosen (`?project=`), and says what the person will see there. Where kb
+  can check a step, it does: the client step shows the exact redirect URI
+  (`<public origin>/calendar/connect`) with a copy button, and Check with
+  Google and save sends the pasted id and secret to the host, which asks
+  Google's token endpoint before keeping them (`ext.routines.client`); a
+  wrong client, a deleted one, one of the wrong type or a missing redirect
+  URI each comes back as its own sentence (`setup-calls.ts`, the one table
+  of codes to words). The secret leaves the field once kept, and nothing
+  the page receives afterwards holds a value.
+- **gcloud.** When the host has `gcloud` signed in (`ext.routines.setup`
+  says so), step 1 offers to create the project and enable the Calendar API
+  for the person (`ext.routines.automate`), with the account gcloud uses
+  named before they press.
+- **Connect is the person's.** Connect with Google trusts the account's
+  binding as the person (`sandbox.trust`), asks the host for Google's URL
+  (`ext.routines.connect`) and goes there. Google sends the person back to
+  `/calendar/connect`, which hands that address to the host once
+  (`ext.routines.finish`), removes the code from the address bar at once,
+  and returns to the setup. Every write here is `approval: "required"`, so
+  an agent cannot set up, connect or remove a service, and the host offers
+  the page a binding to trust (`ext.routines.binding`) only when the
+  account names the references the host placed for it: pressing Connect
+  approves connecting the account, never a secret an earlier write pointed
+  its fields at.
+- **Calendars.** The last step lists kb's calendars and a new one by name;
+  each one picked is linked to the account, given its own Google calendar
+  (`ext.routines.provision`, under its trusted binding) and switched on.
+- **Connected.** A done service shows its state, project, where its
+  secrets are kept and its calendars, with Reconnect, Review the steps and
+  Remove. Remove asks first, then revokes Google's access, erases what the
+  host kept, pauses and unlinks its calendars and deletes the account.
 
 ### Locations
 

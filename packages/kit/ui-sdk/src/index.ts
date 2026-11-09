@@ -85,10 +85,16 @@ export { ViewScripts } from "./components/view-scripts";
 export {
   type Command,
   type CommandContext,
+  type CommandMenu,
   CommandPoint,
   type CommandTarget,
+  type GlobalCommand,
   nodeAction,
+  type NodeCommand,
   type NodeCommandListing,
+  NODE_MENU_GROUPS,
+  type NodeMenuGroup,
+  nodeMenu,
   type OutlineCommandApi,
   type PaletteStep,
   type PaletteStepGraph,
@@ -97,6 +103,15 @@ export {
   paletteStepsPlugin,
   type PaletteSurface,
 } from "./lib/command-point";
+export { type ActionCall, callInput, invokeAction, PICKED, type Picked } from "./lib/action-call";
+export {
+  type CommandForm,
+  type PaletteStepForm,
+  provideCommand,
+  providePaletteStep,
+} from "./lib/command-forms";
+export { type IconName } from "./lib/form-icons";
+export { savedQueryIds } from "./lib/saved-query";
 export {
   currentContributions,
   currentView,
@@ -152,6 +167,8 @@ export {
   useService,
   useRoute,
   ViewPoint,
+  type Drawn,
+  type RowSubject,
   type ViewProps,
 } from "./lib/plugins";
 export { decodeBackdrop, type RefusedBackdrop } from "./lib/backdrop-decode";
@@ -239,7 +256,6 @@ export {
   isValueMismatch,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
-  resolveFieldType,
   resolveFieldTypeById,
 } from "./lib/field-type";
 export { isFieldHidden, resolveVisibleProps } from "./lib/field-visibility";
@@ -319,7 +335,13 @@ export {
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
 export { UNDO_DEPTH } from "./lib/undo-depth";
-export { type FieldEditorProps, FieldEditorService, useFieldEditor } from "./lib/field-editor";
+export {
+  type FieldEditorProps,
+  type FieldRowProps,
+  FieldEditorService,
+  provideFieldEditor,
+  useFieldEditor,
+} from "./lib/field-editor";
 export {
   type FrameRowTextProps,
   type FrameSubject,
@@ -460,7 +482,30 @@ export {
 } from "./lib/graph-label";
 export { guideLineStyle, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
-export { type Chord, isPrintableKey, type KeyChordEvent, lookupChord } from "./lib/keychord";
+export {
+  type Chord,
+  chordsOverlap,
+  describeChord,
+  isPrintableKey,
+  type KeyChordEvent,
+  lookupChord,
+  matchesChord,
+  PALETTE_CHORD,
+  parseChord,
+  TEXT_HISTORY_CHORD,
+} from "./lib/keychord";
+export {
+  admitKeybindings,
+  currentKeymap,
+  type KeyContext,
+  type KeyContextId,
+  type Keybinding,
+  KeybindingPoint,
+  type Keymap,
+  type KeyRun,
+  provideKeybinding,
+  type RefusedBinding,
+} from "./lib/keybindings";
 export { logError, logWarn } from "./lib/log";
 export {
   getCaretSerializedOffset,
@@ -553,6 +598,19 @@ export {
   type PreviewSize,
 } from "./lib/option-preview";
 export {
+  provideValueKind,
+  ValueKindPoint,
+  type EditHandle,
+  type EditorMode,
+  type FieldHandle,
+  type FieldTypeKind,
+  type RejectedInput,
+  type ValueKindForm,
+  type ValueKindSpec,
+  type ValueSurfaceProps,
+  type ValueView,
+} from "./lib/value-kind";
+export {
   approach,
   approachRate,
   approachShare,
@@ -578,6 +636,8 @@ export {
 } from "./lib/pointer-over";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
-export { tagOpeningOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
+export { tagOpeningOf, tagRowViewOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
 
 export { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
+
+export { useRole, configureUiRoles, replacementApproved } from "./lib/plugins";

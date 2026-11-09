@@ -6,11 +6,19 @@
 import { ChartBarIcon } from "@phosphor-icons/react";
 import { queryDefOf } from "@kb/model";
 import { ChartView, starterChartSpec } from "@kb/chart";
-import { browserHost, nodeAction, nodePath, queryRecords, toast, type Command } from "@kb/ui-sdk";
+import {
+  browserHost,
+  nodeAction,
+  nodeMenu,
+  nodePath,
+  queryRecords,
+  toast,
+  type NodeCommand,
+} from "@kb/ui-sdk";
 
-export const addChartCommand: Command = {
+export const addChartCommand: NodeCommand = {
   id: "add-chart",
-  scope: "node",
+  menu: nodeMenu("view", 40),
   chrome: () => ({ label: "Add chart", icon: <ChartBarIcon size={14} weight="bold" /> }),
   when: (ctx) =>
     queryDefOf(

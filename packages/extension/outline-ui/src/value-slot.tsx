@@ -2,22 +2,18 @@ import { useLayoutEffect, useRef, useState } from "react";
 import {
   emptyValueForType,
   routePointerClick,
+  type EditHandle,
   type FieldContext,
+  type FieldHandle,
   type FieldType,
   type Follow,
   type PropValue,
+  type RejectedInput,
+  type ValueKindSpec,
 } from "@kb/ui-sdk";
 import type { ParsedValue } from "@kb/model";
-import type { EditHandle, RejectedInput } from "./field-value";
-import type { FieldHandle } from "./field-picker";
-import { VALUE_VIEWS } from "./value-views";
-import {
-  EDITOR_MODES,
-  toggledValue,
-  VALUE_KINDS,
-  valueKindOf,
-  type ValueKindSpec,
-} from "./value-kind";
+import { useSlotKind } from "./slot-kind";
+import { EDITOR_MODES, toggledValue } from "./value-kind";
 import { valueSlotIntent, type ValueSlotIntent } from "./value-slot-keymap";
 import { arriveAt, neighbourSlot, registerSlot, slotIndex } from "./value-slot-nav";
 
@@ -79,7 +75,7 @@ function loneField(value: PropValue | null, onCommit: (next: PropValue) => void)
  *
  * The slot owns the gestures and the kind owns only data: whether a click
  * edits or toggles, whether the slot is a Tab stop, which keys commit and
- * revert. A kind's surface (`VALUE_VIEWS`) draws the value and, while
+ * revert. A kind's surface (`useSlotKind`) draws the value and, while
  * `editing`, its editor; it has no click handler of its own. So a gesture
  * reads the same on every type, and a new type is rows in two tables rather
  * than another component deciding its own clicks.
@@ -102,8 +98,7 @@ export function ValueSlot({
   onRemove = noRemove,
   placeholder,
 }: ValueSlotProps) {
-  const kind = valueKindOf(fieldType, fieldId, context.schema.get(fieldId));
-  const spec = VALUE_KINDS[kind];
+  const { name, spec, Surface } = useSlotKind(fieldType, fieldId, context.schema);
   const shown = value ?? emptyValueForType(fieldType);
   const slot = useSlotGestures({
     spec,
@@ -115,13 +110,12 @@ export function ValueSlot({
     onRemove,
     onFollow,
   });
-  const { Surface } = VALUE_VIEWS[kind];
 
   return (
     <div
       // A value the keyboard is on reads as selected, the way a row does.
       className="min-w-0 rounded-sm outline-none focus:bg-primary/8"
-      data-value-slot={kind}
+      data-value-slot={name}
       data-editing={slot.editing ? "true" : undefined}
       {...slot.props}
     >

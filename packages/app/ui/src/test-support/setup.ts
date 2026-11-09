@@ -17,16 +17,22 @@ beforeAll(async () => {
 
 // The shell's tests run in a page: before a file's own hooks, the UI kernel
 // holds the shell's host, as the app's does, so a family reaching the page
-// through it (`browserHost()`) finds it. It is loaded once the file's module
+// through it (`browserHost()`) finds it, and the outline's kinds of the
+// built-in field types, so a field drawn on its own draws its values. It is loaded once the file's module
 // has been evaluated, so a module the file mocks is mocked for the host too,
 // and only when nothing has provided it: a file whose page loaded its own
 // plugins (the App does, as it is imported) keeps them. A test that loads
 // its own plugins keeps the host with them (`syncPagePlugins`); one that
 // syncs the kernel bare unloads it.
 beforeAll(async () => {
-  const [{ BrowserHostService, currentService, syncUiPlugins }, { browserHostUiPlugin }] =
-    await Promise.all([import("@kb/ui-sdk"), import("@/browser-host")]);
-  if (currentService(BrowserHostService) === undefined) syncUiPlugins([browserHostUiPlugin]);
+  const [
+    { BrowserHostService, currentService, syncUiPlugins },
+    { browserHostUiPlugin },
+    { outlineValueKindsPlugin },
+  ] = await Promise.all([import("@kb/ui-sdk"), import("@/browser-host"), import("@kb/outline-ui")]);
+  if (currentService(BrowserHostService) === undefined) {
+    syncUiPlugins([browserHostUiPlugin, outlineValueKindsPlugin]);
+  }
 });
 
 // Polyfill WebGL2RenderingContext for sigma.js in test environment.

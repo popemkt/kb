@@ -46,9 +46,9 @@ function readValues(path: string): Record<string, string> {
  * can write only the exact file and key the trusted reference names.
  */
 export function dotenvSecretSink(ref: DotenvRef): SecretSink {
-  return {
-    write: Effect.fn("kb.secrets.dotenv.write")(function* (value: string) {
-      if (/[\r\n\0]/.test(value)) return yield* failure(ref);
+  /** Rewrite the file under its lock with `change` applied to its variables. */
+  const rewrite = (change: (values: Record<string, string>) => Record<string, string>) =>
+    Effect.gen(function* () {
       yield* Effect.try({
         try: () => mkdirSync(dirname(ref.path), { recursive: true, mode: 0o700 }),
         catch: () => failure(ref),
@@ -67,7 +67,7 @@ export function dotenvSecretSink(ref: DotenvRef): SecretSink {
               throw error;
             values = {};
           }
-          values = { ...values, [ref.name]: value };
+          values = change(values);
           const text =
             Object.entries(values)
               .map(([key, entry]) => encodeEntry(key, entry))
@@ -81,7 +81,15 @@ export function dotenvSecretSink(ref: DotenvRef): SecretSink {
         catch: () => failure(ref),
       });
       return undefined;
-    }, Effect.scoped),
+    }).pipe(Effect.scoped);
+  return {
+    write: Effect.fn("kb.secrets.dotenv.write")(function* (value: string) {
+      if (/[\r\n\0]/.test(value)) return yield* failure(ref);
+      return yield* rewrite((values) => ({ ...values, [ref.name]: value }));
+    }),
+    erase: rewrite((values) =>
+      Object.fromEntries(Object.entries(values).filter(([key]) => key !== ref.name)),
+    ),
   };
 }
 

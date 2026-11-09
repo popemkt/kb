@@ -21,7 +21,7 @@ import { browserHostUiPlugin } from "@/browser-host";
 import { describe, expect, it } from "vitest";
 import { isFrameViewKey } from "@kb/views";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
-import { outlineUiPlugin } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionTableView } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 

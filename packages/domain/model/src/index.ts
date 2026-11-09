@@ -1,5 +1,5 @@
-export { ACTORS } from "./actor.ts";
-export type { Actor } from "./actor.ts";
+export { ACTORS, ActorSchema, actorKind } from "./actor.ts";
+export type { Actor, ActorKind } from "./actor.ts";
 export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
 export { byNodeId, canonicalJson, canonicalJsonl, canonicalJsonlOf } from "./canonical.ts";
 export {
@@ -23,12 +23,14 @@ export type { CodedError, FailureCode } from "./failure.ts";
 export {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  FIELD_TYPE_OPTIONS,
   acceptsValueKind,
   allowedRefIdsOf,
   cardinalityOf,
   childrenTargetQuery,
   declaresOptionSet,
   fieldTypeOf,
+  fieldTypeOptionOf,
   fieldTypeValue,
   isFieldType,
   migrateFieldTypeValues,
@@ -39,17 +41,15 @@ export type { Cardinality, FieldType } from "./field-type.ts";
 export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
 export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.ts";
 export {
-  changedFields,
   configures,
   configuresAnExtension,
   isWritableField,
   systemTxRefusal,
   systemWriteRefusal,
-  type NodeWrite,
 } from "./system-write.ts";
 export { settingsOf } from "./settings.ts";
 export type { Setting, SettingOption } from "./settings.ts";
-export { parseSecretRef, secretRefLabel } from "./secret-ref.ts";
+export { formatSecretRef, parseSecretRef, secretRefLabel } from "./secret-ref.ts";
 export type { SecretRef } from "./secret-ref.ts";
 export type { NodeOf } from "./system-write.ts";
 export {
@@ -249,7 +249,14 @@ export {
   seededTag,
   systemSeedNodes,
 } from "./seed.ts";
-export { foldSeed, type FoldedSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
+export {
+  claimedTagViews,
+  foldSeed,
+  TAG_VIEW_CLAIMS,
+  type FoldedSeed,
+  type SeedSource,
+  type SeedView,
+} from "./seed-fold.ts";
 export type { SeedRetirement } from "./seed-retirement.ts";
 export { themeBackdrop, themeSystem } from "./theme.ts";
 export {
@@ -268,8 +275,8 @@ export {
   type DeclaredOptionSet,
   type SeedOption,
 } from "./declared-option.ts";
-export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
-export type { KbTx, StoreTx } from "./tx.ts";
+export { applyTx, changedFields, diffTx, txIntegrityError, writesOf } from "./tx.ts";
+export type { KbTx, StoreTx, NodeWrite } from "./tx.ts";
 export { recordedTx } from "./tx.ts";
 
 export {
@@ -279,8 +286,10 @@ export {
   VIEW_OPTION_TARGET_QUERY,
   defaultViewIdOf,
   defaultViewTypeOf,
-  tagDefaultViewsOf,
-  type TagDefaultView,
+  TAG_VIEWS,
+  tagViewsOf,
+  type TagView,
+  type TagViewRole,
   familyViewIdOf,
   docsViewNameError,
   docsViewNameOf,
@@ -343,3 +352,5 @@ export {
   type DisplaySettings,
   type DisplayView,
 } from "./display.ts";
+
+export { roleNodeId, roleSelections, type RoleDefinition } from "./roles.ts";

@@ -133,3 +133,6 @@ export { coreActions } from "./core-actions.ts";
 export { isomorphicActions } from "./isomorphic-actions.ts";
 
 export { sandboxTrustDef } from "./trust.ts";
+
+export { reactionsFrom } from "./reactions.ts";
+export { MAX_REACTION_DEPTH } from "./commit-frame.ts";

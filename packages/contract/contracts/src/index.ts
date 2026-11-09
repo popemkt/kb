@@ -4,6 +4,7 @@ export {
   ExtensionReviewSchema,
   installMarketplace,
   isKbOrigin,
+  replacesWithoutApproval,
 } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
 export {
@@ -17,6 +18,8 @@ export {
   type CapabilityLine,
   type ExtensionCapabilities,
   type ExtensionManifest,
+  type RoleReplacement,
+  type PointUse,
   type PageTier,
 } from "./extension-manifest.ts";
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
@@ -245,7 +248,7 @@ export type {
 } from "./screen.ts";
 export { KbCtx, KbStore, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { NO_SECRETS, SecretError } from "./secrets.ts";
-export type { SecretSource, SecretSink } from "./secrets.ts";
+export type { SecretSource, SecretSink, SecretStore } from "./secrets.ts";
 export { GraphWrites } from "./graph-writes.ts";
 export type { GraphPlan, GraphWritesPort } from "./graph-writes.ts";
 export {
@@ -311,3 +314,23 @@ export type {
   ExtensionCollection,
   ExtensionLockRead,
 } from "./extension-install.ts";
+
+export { bundledPlugin, declaredRoles, FIELD_EDITOR_ROLE, type ProviderRole } from "./roles.ts";
+
+export { orderedRoles, type OrderedRole } from "./extension-report.ts";
+
+export { TxAfterPoint, onCommit, CurrentReactions } from "./reactions.ts";
+export type { ReactionFailure, TxChange, ReactionHost, Reactions } from "./reactions.ts";
+
+export {
+  CORE_POINT_NAMESPACES,
+  CORE_POINT_DEFINITIONS,
+  type PointDefinition,
+} from "./point-definitions.ts";
+
+export { TxMatchSchema, describeTxMatch, type TxMatch, type TxReaction } from "./tx-match.ts";
+
+export { hostCapabilities, extensionAdmissionIssue, type HostCapabilities } from "./admission.ts";
+export { waitingForPoint, PointNamesSchema } from "./point-names.ts";
+
+export { manifestAuthority } from "./manifest-authority.ts";

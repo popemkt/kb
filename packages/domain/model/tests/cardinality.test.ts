@@ -25,8 +25,8 @@ const num = (v: number) => ({ t: "num" as const, v });
 
 describe("cardinality: one", () => {
   test("absent reads as many; the declaration reads as one", () => {
-    expect(cardinalityOf(MULTI.props)).toBe("many");
-    expect(cardinalityOf(SINGLE.props)).toBe("one");
+    expect(cardinalityOf(MULTI.props, () => undefined)).toBe("many");
+    expect(cardinalityOf(SINGLE.props, () => undefined)).toBe("one");
   });
 
   test("a checkbox holds one value by its type, whatever it declares", () => {
@@ -37,8 +37,8 @@ describe("cardinality: one", () => {
       [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftCheckbox }],
       [SYSTEM_IDS.cardinalityField]: [{ t: "ref", v: SYSTEM_IDS.cardinalityMany }],
     });
-    expect(cardinalityOf(box.props)).toBe("one");
-    expect(cardinalityOf(declaredMany.props)).toBe("one");
+    expect(cardinalityOf(box.props, () => undefined)).toBe("one");
+    expect(cardinalityOf(declaredMany.props, () => undefined)).toBe("one");
     const stored = node("n", { "f.done": [{ t: "bool", v: true }] });
     const doubled = {
       ...stored,
@@ -99,7 +99,7 @@ describe("cardinality: one", () => {
       SYSTEM_IDS.hiddenField,
       SYSTEM_IDS.refTargetField,
     ]) {
-      expect(cardinalityOf(byId.get(id)?.props)).toBe("one");
+      expect(cardinalityOf(byId.get(id)?.props, () => undefined)).toBe("one");
     }
     for (const id of [
       SYSTEM_IDS.typeField,
@@ -108,7 +108,7 @@ describe("cardinality: one", () => {
       SYSTEM_IDS.viewSortField,
       SYSTEM_IDS.ontoIncludeField,
     ]) {
-      expect(cardinalityOf(byId.get(id)?.props)).toBe("many");
+      expect(cardinalityOf(byId.get(id)?.props, () => undefined)).toBe("many");
     }
   });
 });

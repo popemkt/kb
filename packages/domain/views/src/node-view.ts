@@ -12,12 +12,14 @@ import {
   defaultViewTypeOf,
   hostViewIds,
   isViewNode,
-  tagDefaultViewsOf,
+  TAG_VIEWS,
+  tagViewsOf,
   viewIdOfOption,
   viewOptionId,
   viewOptionOf,
   type NodeId,
   type NodeProps,
+  type TagViewRole,
 } from "@kb/model";
 import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
 import { HomeView, LayoutView, NodeReadView, NodeView, type NodeParams } from "./layout.ts";
@@ -160,7 +162,7 @@ function readInPlace(
  * - no `view`, and the node is a view node: that view node, shown for no node;
  * - no `view`: the node's default view (the first view node it names), or,
  *   when it names none, the first of its tags' default view types this host
- *   holds a key for (`tagDefaultViewsOf`), else the store's default view
+ *   holds a key for (`tagViewsOf`), else the store's default view
  *   type, which `sys.views` names (`defaultViewTypeOf`), each opened as if
  *   `view` named it.
  *
@@ -209,43 +211,45 @@ function throughNamed(view: string, node: NodeId, r: Resolving): Opened {
 /**
  * `node` (carried by `carrier`) in its default view: the first view node it
  * names, else its first tag's default view type this host holds
- * ({@link heldTagDefaultOf}), else the store's default view type.
+ * ({@link heldTagViewOf}), else the store's default view type.
  */
 function throughDefault(carrier: Carrier, node: NodeId, r: Resolving): Opened {
   const viewId = defaultViewIdOf(carrier);
   if (viewId !== null) return throughViewNode(viewId, node, r);
-  const tagged = heldTagDefaultOf(carrier, r.catalog.keyOf, r.lookup, r.report)?.key ?? null;
+  const tagged =
+    heldTagViewOf(carrier, "default", r.catalog.keyOf, r.lookup, r.report)?.key ?? null;
   if (tagged !== null)
     return shownPage(pageOf(tagged, {}, node, null, r.report), node, { subject: node }, r);
   return throughDefaultType(node, node, r);
 }
 
-/** A tag's default view type a host holds: the tag, and the view's key. */
-export interface HeldTagDefault {
+/** A tag's view in some role a host holds: the tag, and the view's key. */
+export interface HeldTagView {
   readonly tag: NodeId;
   readonly key: ViewKey<unknown>;
 }
 
 /**
- * The first of `carrier`'s tags' default view types a host holds (`keyOf`
+ * The first of `carrier`'s tags' views in `role` a host holds (`keyOf`
  * finds a view's key by its option, null where the host holds none), or
- * null: what a node naming no view opens in before the store's default, and
- * the handler the outline offers its row ("Open in …", its inline preview).
- * One that names no view type, or names the home, is reported and passed
- * over; one the host holds no key for (its family off) is passed over.
+ * null. In `default`: what a node naming no view opens in before the
+ * store's default, and the handler the outline offers its row ("Open in …",
+ * its inline preview). One that names no view type, or names the home, is
+ * reported and passed over; one the host holds no key for (its family off)
+ * is passed over.
  */
-export function heldTagDefaultOf(
+export function heldTagViewOf(
   carrier: Carrier | undefined,
+  role: TagViewRole,
   keyOf: (view: string) => ViewKey<unknown> | null,
   lookup: (id: NodeId) => Carrier | undefined,
   report: ConfigReport,
-): HeldTagDefault | null {
-  for (const { tag, option } of tagDefaultViewsOf(carrier, lookup)) {
+): HeldTagView | null {
+  for (const { tag, option } of tagViewsOf(carrier, role, lookup)) {
     const type = viewIdOfOption(option);
     if (type === null || type === HomeView.id) {
-      report(
-        `${tag}'s default view type ${option} is no view a node opens in (${SYSTEM_IDS.viewDefaultField})`,
-      );
+      const { field, label } = TAG_VIEWS[role];
+      report(`${tag}'s ${label} ${option} is no view a node opens in (${field})`);
       continue;
     }
     const key = keyOf(type);
@@ -431,7 +435,7 @@ export function nodeOpenings(
     target.key !== null &&
     (target.viewNode === undefined ? opening.key === target.key : opening.view === target.viewNode);
   const tagOf = new Map<string, NodeId>();
-  for (const { tag, option } of tagDefaultViewsOf(node, lookup)) {
+  for (const { tag, option } of tagViewsOf(node, "default", lookup)) {
     if (!tagOf.has(option)) tagOf.set(option, tag);
   }
   const types = catalog.items

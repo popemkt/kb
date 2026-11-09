@@ -85,7 +85,11 @@ const DATASCRIPT = /cljs\.core/;
  */
 // The routines family adds its native field/tag vocabulary; its worker remains server-side.
 // PointSpec metadata and host/cardinality admission add 1,121 measured eager bytes.
-const EAGER_BUDGET_BYTES = 2_040_900;
+// Manifest replacement admission and the served field-row SDK add 2,053 measured eager bytes.
+// Commit receipts, reaction frames and identified actor metadata add 3,246 measured eager bytes.
+// Shared capability metadata, manifest constraints and waiting status add 6,246 measured eager bytes.
+// The integrated editor, roles and routines surfaces measure 2,064,033 eager bytes.
+const EAGER_BUDGET_BYTES = 2_065_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

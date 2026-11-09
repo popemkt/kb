@@ -21,6 +21,7 @@ import { extensionNodeId, fieldTypeValue, present } from "@kb/model";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import {
   CommandPoint,
+  nodeMenu,
   currentContributions,
   PaletteStepPoint,
   SYSTEM_IDS,
@@ -76,7 +77,7 @@ const probePlugin = definePlugin({
       id: "open",
       value: {
         id: "probe.open",
-        scope: "node",
+        menu: nodeMenu("make", 100),
         chrome: () => ({ label: PROBE_LABEL, icon: null }),
         run: (c) => c.palette.openStep(probed),
       },

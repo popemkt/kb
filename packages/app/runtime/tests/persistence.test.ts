@@ -16,6 +16,7 @@ import {
   isDomainError,
   present,
   SYSTEM_IDS,
+  writesOf,
   type KbNode,
   type StoreTx,
 } from "@kb/model";
@@ -289,7 +290,14 @@ describe("reload / persist via KbStore Layer substitution", () => {
       }),
       fingerprint: Effect.succeed(null),
       txTail: new MemoryTxTail(),
-      commitEffect: (tx) => Effect.succeed({ base: null, fingerprint: null, tx }),
+      commitEffect: (tx, record) =>
+        Effect.sync(() => ({
+          base: null,
+          fingerprint: null,
+          tx,
+          record: mock.txTail.append(tx, record),
+          writes: writesOf(tx, (id) => injected.find((node) => node.id === id)),
+        })),
     };
 
     await Effect.runPromise(
@@ -316,16 +324,23 @@ describe("reload / persist via KbStore Layer substitution", () => {
       loadEffect: Effect.sync(() => [...held]),
       fingerprint: Effect.sync(() => `revision:${revision}`),
       txTail: new MemoryTxTail(),
-      commitEffect: (tx) =>
+      commitEffect: (tx, record) =>
         Effect.sync(() => {
           commits.push(tx);
           const base = `revision:${revision}`;
+          const writes = writesOf(tx, (id) => held.find((node) => node.id === id));
           const byId = new Map(held.map((n) => [n.id, n]));
           for (const id of tx.deletes) byId.delete(id);
           for (const n of tx.upserts) byId.set(n.id, n);
           held = [...byId.values()];
           revision += 1;
-          return { base, fingerprint: `revision:${revision}`, tx };
+          return {
+            base,
+            fingerprint: `revision:${revision}`,
+            tx,
+            writes,
+            record: mock.txTail.append(tx, record),
+          };
         }),
     };
 
@@ -359,7 +374,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
       loadEffect: Effect.sync(() => [...held]),
       fingerprint: Effect.sync(() => `revision:${revision}`),
       txTail: new MemoryTxTail(),
-      commitEffect: (tx) =>
+      commitEffect: (tx, record) =>
         Effect.sync(() => {
           if (!raced) {
             raced = true;
@@ -367,12 +382,19 @@ describe("reload / persist via KbStore Layer substitution", () => {
             revision += 1;
           }
           const base = `revision:${revision}`;
+          const writes = writesOf(tx, (id) => held.find((node) => node.id === id));
           const byId = new Map(held.map((n) => [n.id, n]));
           for (const id of tx.deletes) byId.delete(id);
           for (const n of tx.upserts) byId.set(n.id, n);
           held = [...byId.values()];
           revision += 1;
-          return { base, fingerprint: `revision:${revision}`, tx };
+          return {
+            base,
+            fingerprint: `revision:${revision}`,
+            tx,
+            writes,
+            record: racing.txTail.append(tx, record),
+          };
         }),
     };
 
@@ -500,7 +522,7 @@ function movingStore(path: string, moves: number) {
     loadEffect: Effect.sync(() => [...held]),
     fingerprint: Effect.sync(() => `revision:${revision}`),
     txTail: new MemoryTxTail(),
-    commitEffect: (tx, _record, expected) =>
+    commitEffect: (tx, record, expected) =>
       Effect.suspend(() => {
         if (moved < moves) {
           moved += 1;
@@ -510,11 +532,18 @@ function movingStore(path: string, moves: number) {
         const base = `revision:${revision}`;
         const stale = staleCommitError(expected, base);
         if (stale !== null) return Effect.fail(stale);
+        const writes = writesOf(tx, (id) => held.find((node) => node.id === id));
         const byId = new Map(held.map((n) => [n.id, n]));
         for (const n of tx.upserts) byId.set(n.id, n);
         held = [...byId.values()];
         revision += 1;
-        return Effect.succeed({ base, fingerprint: `revision:${revision}`, tx });
+        return Effect.succeed({
+          base,
+          fingerprint: `revision:${revision}`,
+          tx,
+          writes,
+          record: store.txTail.append(tx, record),
+        });
       }),
   };
   return { store, list: () => held.find((n) => n.id === "n.list") };

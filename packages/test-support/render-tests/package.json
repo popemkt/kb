@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {},
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests-render/server/tsconfig.json",
     "test:render": "playwright test"
   },
   "dependencies": {

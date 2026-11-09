@@ -27,7 +27,7 @@ import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { routinesExtension } from "@kb/routines";
 import { backdropsExtension } from "@kb/backdrops";
 import { backdropsUiPlugin } from "@kb/backdrops-ui";
-import { BUNDLED_FAMILIES } from "@kb/bundled";
+import { BUNDLED_FAMILIES, BUNDLED_CAPABILITIES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { locationsExtension } from "@kb/locations";
@@ -45,6 +45,8 @@ import { collectionsExtension } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import {
   EXTENSION_SDK,
+  bundledPlugin,
+  extensionAdmissionIssue,
   NO_SWITCHES,
   declarationPlugin,
   extensionRow,
@@ -62,6 +64,7 @@ import { locationsUiPlugin } from "@kb/locations-ui";
 import { outlineExtension } from "@kb/outline";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension } from "@kb/operations";
+import { useGraphStore } from "@/stores/graph.store";
 import { PluginError, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
@@ -76,6 +79,7 @@ import {
   PAGE_EXTENSION_SDK,
   paletteStepsPlugin,
   latestRead,
+  configureUiRoles,
   logWarn,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -91,7 +95,7 @@ import { webMcpUiPlugin } from "@/webmcp";
  * kernel's catalog through the same declaration the server loads them from.
  */
 export const CORE_UI_PLUGINS: readonly Plugin[] = [
-  declarationPlugin(coreExtension),
+  bundledPlugin(coreExtension, declarationPlugin(coreExtension)),
   paletteStepsPlugin,
   browserHostUiPlugin,
   designSystemsUiPlugin,
@@ -164,7 +168,7 @@ export interface BrowserExtension {
  * browser half is listed too, as `null`, so a bundled family is never left
  * out by omission: the resolver's test holds every bundled family to an entry.
  */
-export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
+const browserEntries: Readonly<Record<string, BrowserExtension | null>> = {
   [routinesExtension.name]: {
     load: () => import("@kb/routines-ui").then(({ routinesUiPlugin }) => routinesUiPlugin),
   },
@@ -191,6 +195,22 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   },
   [agentExtension.name]: { load: loadAgentEntry },
 };
+
+/** Bundled admission binds the owner's role grants at the composition boundary. */
+export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> =
+  Object.fromEntries(
+    Object.entries(browserEntries).map(([name, entry]) => {
+      const declaration = BUNDLED_FAMILIES.find((family) => family.name === name);
+      return [
+        name,
+        entry === null || declaration === undefined
+          ? entry
+          : {
+              load: async () => bundledPlugin(declaration, await entry.load()),
+            },
+      ];
+    }),
+  );
 
 /**
  * The bundled families as the page reads them while no server answers: a
@@ -230,7 +250,7 @@ function loadable(rows: readonly ExtensionRow[]): readonly ExtensionRow[] {
 function browserEntry(row: ExtensionRow): BrowserExtension | null {
   if (Object.hasOwn(BROWSER_EXTENSIONS, row.name)) return BROWSER_EXTENSIONS[row.name] ?? null;
   const { page } = row;
-  return page === undefined ? null : { load: () => importPageHalf(page, row.name) };
+  return page === undefined ? null : { load: () => importPageHalf(page, row.name, row) };
 }
 
 /**
@@ -254,14 +274,33 @@ function installPageModules(): void {
  * the closure a person trusted, which run in the page with the page's
  * power (DESIGN.md → Core boundary & extensions → repository extensions).
  */
-export async function importPageHalf(path: string, name: string): Promise<Plugin> {
+export async function importPageHalf(
+  path: string,
+  name: string,
+  selected?: Pick<ExtensionRow, "digest" | "manifest">,
+): Promise<Plugin> {
+  const issue = extensionAdmissionIssue(name, selected?.manifest, BUNDLED_CAPABILITIES, [
+    "registry",
+    "page",
+  ]);
+  if (issue !== null) throw new Error(issue);
+  // Import executes code: reject missing closure evidence here, before the kernel can check admission.
+  if ((selected?.manifest?.replaces?.length ?? 0) > 0 && selected?.digest === undefined)
+    throw new Error("replacements require a trusted closure digest");
+  const code =
+    selected?.digest === undefined
+      ? undefined
+      : {
+          digest: selected.digest,
+          manifest: selected.manifest,
+        };
   installPageModules();
   const module: unknown = await import(/* @vite-ignore */ path);
   const entry =
     typeof module === "object" && module !== null && "default" in module
       ? module.default
       : undefined;
-  const decoded = decodeExtensionPlugin(entry, name);
+  const decoded = decodeExtensionPlugin(entry, name, code);
   if (Result.isSuccess(decoded)) return decoded.success;
   throw new Error(`its page half at ${path}: ${decoded.failure}`);
 }
@@ -327,7 +366,10 @@ let settling: Promise<void> = Promise.resolve();
 /** Resolve entries first; only the latest requested set may replace the page kernel. */
 const converge = latestRead(
   (rows: readonly ExtensionRow[]) => Promise.all(loadable(rows).map(loadEntry)),
-  (entries) => syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]),
+  (entries) => {
+    syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]);
+    selectRoles();
+  },
 );
 
 /**
@@ -340,6 +382,8 @@ export async function extensionsSettled(): Promise<void> {
   if (current !== settling) await extensionsSettled();
 }
 
+const selectRoles = () => configureUiRoles((id) => useGraphStore.getState().index?.getNode(id));
+
 /**
  * Load the UI's plugins, then keep the kernel in step with the server's
  * report: a family the report drops is unloaded, and its pages and sidebar
@@ -350,6 +394,12 @@ export function startUiPlugins(): () => void {
   const sync = () => {
     settling = converge(followedExtensions());
   };
+  selectRoles();
   sync();
-  return subscribeManifest(sync);
+  const stopManifest = subscribeManifest(sync);
+  const stopGraph = useGraphStore.subscribe(selectRoles);
+  return () => {
+    stopManifest();
+    stopGraph();
+  };
 }

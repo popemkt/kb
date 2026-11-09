@@ -24,7 +24,9 @@ import type { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
 type Declared = typeof PageSurface;
 type Page = typeof PAGE_EXTENSION_SDK;
 type PointNames = {
-  [K in keyof Declared]: Declared[K] extends Surface.PointKey<unknown> ? K : never;
+  [K in keyof Declared]: Declared[K] extends Surface.PointKey<unknown> | Surface.PointName<unknown>
+    ? K
+    : never;
 }[keyof Declared];
 type ProviderNames = Extract<keyof Declared, `provide${string}`>;
 type ValueNames = Exclude<keyof Declared, PointNames | ProviderNames>;
@@ -55,6 +57,8 @@ const providers: AllTrue<{
     : false;
 }> = true;
 const values: AllTrue<{ [K in ValueNames]: Same<Served<K>, Declared[K]> }> = true;
+/** A declared point is held as a point, by what it is contributed, not as a value. */
+const declaredPoint: "PaletteStepPoint" extends PointNames ? true : false = true;
 /** The witness that it holds: a page whose backdrop dropped a member the surface still declares fails. */
 const dropsBudget: Declares<
   DataOf<Contributed<Declared["BackdropPoint"]>>,
@@ -67,19 +71,22 @@ const dropsBudget: Declares<
  * `BackdropCue` would still be one the page reads, and an author would
  * lose it with nothing red. The witness: a surface missing a cue fails.
  */
+const fieldRows: Same<UiSdk.FieldRowProps, PageSurface.FieldRowProps> = true;
+void fieldRows;
 const cues: Same<UiSdk.BackdropCue, PageSurface.BackdropCue> = true;
 const interactions: Same<UiSdk.BackdropInteraction, PageSurface.BackdropInteraction> = true;
 const dropsACue: Same<UiSdk.BackdropCue, Exclude<PageSurface.BackdropCue, "navigation">> = false;
 
 describe("the page SDK surface", () => {
   it("declares only what the page serves, exactly, in shapes the page reads", () => {
-    expect([served, points, pointData, providers, values, dropsBudget]).toEqual([
+    expect([served, points, pointData, providers, values, dropsBudget, declaredPoint]).toEqual([
       true,
       true,
       true,
       true,
       true,
       false,
+      true,
     ]);
   });
 

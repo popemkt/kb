@@ -6,14 +6,26 @@
  * the store or the DOM, so the merge/split/indent rules are readable and
  * testable without a live editor; {@link ./editing-intents} carries them out.
  *
- * Chords resolve through `lib/keychord`, the same helper the selection keymap
- * reads — one answer to "does this event match this chord", not two. The
- * keymap sits on the outline surface rather than in `lib/` because its context
+ * Its chords are the outline's contributions to `ui.keybindings`, each
+ * running one of the row's intents by name, and resolve through the page's
+ * one keymap (`currentKeymap`), as the selection's do. The keymap sits on the outline surface rather than in `lib/` because its context
  * is caret geometry: {@link VerticalNavDecision} belongs to `./caret`, and a
  * leaf module may not reach up here for it.
  */
-import { lookupChord, type Chord, type KeyChordEvent, type VerticalNavDecision } from "@kb/ui-sdk";
+import type { ContributionEntry } from "@kb/plugin";
+import { outlineExtension } from "@kb/outline";
+import {
+  PALETTE_CHORD,
+  TEXT_HISTORY_CHORD,
+  type Chord,
+  type KeyChordEvent,
+  type KeyContext,
+  type Keybinding,
+  type Keymap,
+  type VerticalNavDecision,
+} from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
+import { runActionOf, type RunAction } from "./key-action";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {
@@ -90,45 +102,31 @@ export type EditingIntent =
     }
   | { type: "select"; nodeId: string; instanceKey: string }
   /** Onto a row's field values: its first going down, its last coming up. */
-  | { type: "enterFields"; instanceKey: string; which: "first" | "last" };
+  | { type: "enterFields"; instanceKey: string; which: "first" | "last" }
+  | RunAction;
 
-interface EditingBinding {
-  readonly chord: Chord;
-  readonly toIntent: (ctx: EditingKeyContext, key: string) => EditingIntent | null;
-}
+/** An intent as its binding runs it: what it means on this row, or null to leave the key native. */
+type IntentOf = (ctx: EditingKeyContext) => EditingIntent | null;
 
-interface ResultGuardBinding {
-  readonly chord: Chord;
-  /** Second half of the row's condition, for rows that read the caret. */
-  readonly when?: (ctx: EditingKeyContext) => boolean;
-}
-
-const ARROWS = ["ArrowUp", "ArrowDown"] as const;
+const CLAIM: EditingIntent = { type: "claim" };
 
 /**
- * The chords a query-result row swallows.
- *
- * A result's place under the query is computed, not a child edge, so a
- * structural edit would restructure the node's real home — rows the user is
- * not looking at. Note the modifier: ⌘⇧↑ is listed while ⌃⇧↑ is not, because
- * only the Command spelling reorders — the Control spelling means "collapse",
- * which a result may do.
+ * An intent that restructures the outline, which a query-result row
+ * swallows where `swallows` holds. A result's place under the query is
+ * computed, not a child edge, so a structural edit would restructure the
+ * node's real home — rows the user is not looking at.
  */
-const RESULT_STRUCTURAL: readonly ResultGuardBinding[] = [
-  { chord: { key: "Tab" } },
-  { chord: { key: "Enter", shift: false } },
-  { chord: { key: ["Backspace", "Delete"], mod: true } },
-  { chord: { key: "Backspace" }, when: (ctx) => ctx.cursor === 0 },
-  // Forward delete at the end merges the next row in — a structural join too.
-  { chord: { key: "Delete" }, when: (ctx) => ctx.cursor === ctx.text.length },
-  { chord: { key: ARROWS, meta: true, shift: true } },
-];
+function structural(
+  intent: IntentOf,
+  swallows: (ctx: EditingKeyContext) => boolean = () => true,
+): IntentOf {
+  return (ctx) => (ctx.isQueryResult && swallows(ctx) ? CLAIM : intent(ctx));
+}
 
 /** Delete the subtree and hand focus to a surviving neighbour. */
 function deleteSubtree(ctx: EditingKeyContext): EditingIntent {
   return { type: "deleteSubtree", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey };
 }
-
 /**
  * Unmodified Backspace, in the order the row's shape decides it.
  *
@@ -219,79 +217,119 @@ function crossRowIntent(ctx: EditingKeyContext, key: string): EditingIntent | nu
 }
 
 /**
- * The binding set, first match wins.
- *
- * The three arrow rows are the order that matters: ⌘⇧ reorders, any other
- * command-modified arrow reveals, and the bare arrow navigates. Rows whose
- * outcome depends on the caret or the row's shape name a function rather than
- * splitting into more chords — the chord answers "which key", the function
- * answers "which of this key's meanings".
+ * The editing row's intents, by the name a binding runs them by. Each
+ * answers "which of this key's meanings" from the row's shape; the chord
+ * that runs it is its binding's.
  */
-const EDITING_KEYMAP: readonly EditingBinding[] = [
-  {
-    // Soft line break inside the node — never a split (§3.2).
-    chord: { key: "Enter", shift: true },
-    toIntent: (ctx) => ({
+const EDITING_INTENTS = new Map<string, IntentOf>([
+  // Soft line break inside the node — never a split (§3.2).
+  [
+    "soft-break",
+    (ctx) => ({
       type: "softBreak",
       nodeId: ctx.nodeId,
       instanceKey: ctx.instanceKey,
       cursor: ctx.cursor,
     }),
-  },
-  {
-    // Expanded parent ⇒ first child; otherwise sibling-after (D07). A row
-    // whose text is not its own is never cut: Enter only opens the next row.
-    chord: { key: "Enter" },
-    toIntent: (ctx) => ({
+  ],
+  // Expanded parent ⇒ first child; otherwise sibling-after (D07). A row whose
+  // text is not its own is never cut: Enter only opens the next row.
+  [
+    "split",
+    structural((ctx) => ({
       type: "split",
       nodeId: ctx.nodeId,
       cursor: ctx.ownsText(ctx.nodeId) ? ctx.cursor : "end",
-    }),
-  },
-  {
-    chord: { key: "Tab", shift: true },
-    toIntent: (ctx) => ({ type: "outdent", nodeId: ctx.nodeId, cursor: ctx.cursor }),
-  },
-  {
-    chord: { key: "Tab" },
-    toIntent: (ctx) => ({ type: "indent", nodeId: ctx.nodeId, cursor: ctx.cursor }),
-  },
-  {
-    // Delete the subtree — an offset-0 gesture: mid-text the caret check
-    // returns first, so the modifier alone never restructures a row.
-    chord: { key: "Backspace", mod: true },
-    toIntent: (ctx) => (ctx.cursor === 0 ? deleteSubtree(ctx) : null),
-  },
-  { chord: { key: "Backspace" }, toIntent: backspaceIntent },
-  { chord: { key: "Delete", mod: true }, toIntent: deleteSubtree },
-  { chord: { key: "Delete" }, toIntent: deleteIntent },
-  {
-    chord: { key: ARROWS, meta: true, shift: true },
-    toIntent: (ctx, key) =>
-      key === "ArrowUp"
-        ? { type: "moveUp", nodeId: ctx.nodeId }
-        : { type: "moveDown", nodeId: ctx.nodeId },
-  },
-  { chord: { key: ARROWS, mod: true }, toIntent: revealIntent },
-  { chord: { key: ARROWS }, toIntent: crossRowIntent },
-  {
-    // Popups handle Escape before delegating; bare Escape selects.
-    chord: { key: "Escape" },
-    toIntent: (ctx) => ({ type: "select", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey }),
-  },
+    })),
+  ],
+  ["outdent", structural((ctx) => ({ type: "outdent", nodeId: ctx.nodeId, cursor: ctx.cursor }))],
+  ["indent", structural((ctx) => ({ type: "indent", nodeId: ctx.nodeId, cursor: ctx.cursor }))],
+  // Delete the subtree — an offset-0 gesture: mid-text the caret check
+  // returns first, so the modifier alone never restructures a row.
+  ["delete-subtree-at-start", structural((ctx) => (ctx.cursor === 0 ? deleteSubtree(ctx) : null))],
+  ["backspace", structural(backspaceIntent, (ctx) => ctx.cursor === 0)],
+  ["delete-subtree", structural(deleteSubtree)],
+  // Forward delete at the end merges the next row in — a structural join too.
+  ["delete-forward", structural(deleteIntent, (ctx) => ctx.cursor === ctx.text.length)],
+  ["move-up", structural((ctx) => ({ type: "moveUp", nodeId: ctx.nodeId }))],
+  ["move-down", structural((ctx) => ({ type: "moveDown", nodeId: ctx.nodeId }))],
+  ["collapse-or-leave", (ctx) => revealIntent(ctx, "ArrowUp")],
+  ["expand", (ctx) => revealIntent(ctx, "ArrowDown")],
+  ["line-up", (ctx) => crossRowIntent(ctx, "ArrowUp")],
+  ["line-down", (ctx) => crossRowIntent(ctx, "ArrowDown")],
+  // Popups handle Escape before delegating; bare Escape selects.
+  ["select", (ctx) => ({ type: "select", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey })],
+]);
+
+/**
+ * The editing row's keys: what the row's text host hands its keydown, the
+ * text host having kept composition and its own history first. Owned by
+ * the outline, so its bindings are held first and Escape is its alone, with
+ * the history chords and the palette's ⌘K, which other bindings may never take.
+ */
+export const EDITING_CONTEXT: KeyContext = {
+  id: "outline.editing",
+  owner: outlineExtension.name,
+  intents: [...EDITING_INTENTS.keys()],
+  reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+};
+
+function editingBinding(id: string, chord: Chord, intent: string): ContributionEntry<Keybinding> {
+  return { id: `editing.${id}`, value: { context: EDITING_CONTEXT.id, chord, run: { intent } } };
+}
+
+/**
+ * The outline's editing keys, as its contributions to `ui.keybindings`.
+ * No two chords overlap, so each says exactly which keys it claims. The
+ * arrows are where that matters: ⌘⇧ reorders, any other command-modified
+ * arrow reveals (two chords: ⌘ without ⇧, and ⌃ without ⌘), and the bare
+ * arrow navigates.
+ */
+export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
+  editingBinding("soft-break", { key: "Enter", shift: true }, "soft-break"),
+  editingBinding("split", { key: "Enter", shift: false }, "split"),
+  editingBinding("outdent", { key: "Tab", shift: true }, "outdent"),
+  editingBinding("indent", { key: "Tab", shift: false }, "indent"),
+  editingBinding(
+    "delete-subtree-at-start",
+    { key: "Backspace", mod: true },
+    "delete-subtree-at-start",
+  ),
+  editingBinding("backspace", { key: "Backspace", mod: false }, "backspace"),
+  editingBinding("delete-subtree", { key: "Delete", mod: true }, "delete-subtree"),
+  editingBinding("delete-forward", { key: "Delete", mod: false }, "delete-forward"),
+  editingBinding("move-up", { key: "ArrowUp", meta: true, shift: true }, "move-up"),
+  editingBinding("move-down", { key: "ArrowDown", meta: true, shift: true }, "move-down"),
+  editingBinding(
+    "collapse-or-leave",
+    { key: "ArrowUp", meta: true, shift: false },
+    "collapse-or-leave",
+  ),
+  editingBinding(
+    "collapse-or-leave-ctrl",
+    { key: "ArrowUp", meta: false, ctrl: true },
+    "collapse-or-leave",
+  ),
+  editingBinding("expand", { key: "ArrowDown", meta: true, shift: false }, "expand"),
+  editingBinding("expand-ctrl", { key: "ArrowDown", meta: false, ctrl: true }, "expand"),
+  editingBinding("line-up", { key: "ArrowUp", mod: false }, "line-up"),
+  editingBinding("line-down", { key: "ArrowDown", mod: false }, "line-down"),
+  editingBinding("select", { key: "Escape" }, "select"),
 ];
 
 /**
- * The intent a chord means on this row, or null to leave the key to the
- * browser. A non-null intent is always claimed with `preventDefault`.
+ * The intent a chord means on this row under `keymap` (the editing
+ * context's, `currentKeymap(EDITING_CONTEXT)`), or null to leave the key to
+ * the browser. A non-null intent is always claimed with `preventDefault`.
  */
-export function mapEditingKey(ev: KeyChordEvent, ctx: EditingKeyContext): EditingIntent | null {
-  if (
-    ctx.isQueryResult &&
-    lookupChord(ev, RESULT_STRUCTURAL, (binding) => binding.when?.(ctx) ?? true) !== undefined
-  ) {
-    return { type: "claim" };
-  }
-  const binding = lookupChord(ev, EDITING_KEYMAP);
-  return binding === undefined ? null : binding.toIntent(ctx, ev.key);
+export function mapEditingKey(
+  ev: KeyChordEvent,
+  ctx: EditingKeyContext,
+  keymap: Keymap,
+): EditingIntent | null {
+  const binding = keymap.resolve(ev);
+  if (binding === undefined) return null;
+  const { run } = binding.value;
+  if ("action" in run) return runActionOf(run, ctx.nodeId);
+  return EDITING_INTENTS.get(run.intent)?.(ctx) ?? null;
 }

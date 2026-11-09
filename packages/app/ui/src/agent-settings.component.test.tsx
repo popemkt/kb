@@ -16,7 +16,7 @@ import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { AgentDock, attachChat } from "@kb/agent-ui";
-import { outlineUiPlugin } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";

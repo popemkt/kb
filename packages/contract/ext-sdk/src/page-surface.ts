@@ -8,6 +8,7 @@
  * `@kb/ui-sdk`'s `page-surface-bridge.test.ts` holds the restatement to the
  * values the page serves.
  */
+import type * as effect from "effect";
 import type {
   ComponentPropsWithoutRef,
   ComponentType,
@@ -22,28 +23,51 @@ import type {
   BackdropStrength,
   ContributionEntry,
   KnobValues,
+  NodeId,
   PlainViewKey,
   PointKey,
+  PointName,
+  PluginContext,
+  PluginError,
+  PropValue,
   SeedBackdrop,
   ViewKey,
 } from "./surface.ts";
 
 /**
  * Where a host renders a view: filling the page's box, inline in the
- * outline's flow, or as a compact read-only preview under a node's row,
- * which a view draws exactly when its key says so (`ViewKey.preview`).
+ * outline's flow, as a compact read-only preview under a node's row, which
+ * a view draws exactly when its key says so (`ViewKey.preview`), or as a
+ * node's row itself, in place of its text while no one edits it, for the
+ * nodes of a tag that names it (`tagRowViews`, `sys.f.view.row`).
  */
-export type Placement = "page" | "inline" | "preview";
+export type Placement = "page" | "inline" | "preview" | "row";
 
 /** The placements a contribution lists itself: `preview` is its key's to say. */
 export type ListedPlacement = Exclude<Placement, "preview">;
 
+/**
+ * The row a view at placement `row` draws: the node the row shows and its
+ * text, all of the graph it is handed. `text` is that text drawn as the
+ * outline draws it; pressing it edits the row there, so a view places it.
+ */
+export interface RowSubject {
+  readonly id: string;
+  /** The text as written: inline markdown, a reference as `[[id|label]]`. */
+  readonly markdown: string;
+  readonly text: ReactNode;
+}
+
+/** Where a host draws a view, with what it hands the view there: at `row`, the row it draws; elsewhere, no row. */
+export type Drawn =
+  | { readonly placement: "row"; readonly row: RowSubject }
+  | { readonly placement: Exclude<Placement, "row">; readonly row?: undefined };
+
 /** What a host guarantees a view: never a store. */
-export interface ViewHost {
-  readonly placement: Placement;
+export type ViewHost = Drawn & {
   /** The view node the host draws the view from, when it draws one. */
   readonly viewNode?: string;
-}
+};
 
 export interface ViewProps<P> {
   readonly params: P;
@@ -172,18 +196,297 @@ export interface CommandContext {
   readonly target: CommandTarget;
 }
 
-/** A command of the shell's palette and node menu. */
-export interface Command {
+/**
+ * The node menu's groups, in the order it lists them: how the node itself
+ * opens and shows, what it is and holds, where it opens, where it sits,
+ * what marks it, how its views show it, and removing it.
+ */
+export type NodeMenuGroup = "lead" | "make" | "open" | "arrange" | "mark" | "view" | "remove";
+
+/**
+ * Where a command is offered. `global`: ⌘K, which lists the `sys.command`
+ * node of the command's id, a node the family's seed declares, and so names
+ * it. `node`: the node menu, about its row, in its `group`, then by `order`
+ * (lower first), then in the order the commands were contributed.
+ */
+export type CommandMenu =
+  | { readonly where: "global" }
+  | { readonly where: "node"; readonly group: NodeMenuGroup; readonly order: number };
+
+/** A command ⌘K offers by its `sys.command` node. */
+export interface GlobalCommand {
   readonly id: string;
-  readonly scope: "global" | "node";
-  /** Absent ⇒ a `sys.command` node names this command. */
-  readonly chrome?: (ctx: CommandContext) => { readonly label: string; readonly icon: ReactNode };
+  readonly menu: { readonly where: "global" };
   /** Absent ⇒ always offered. */
   readonly when?: (ctx: CommandContext) => boolean;
   readonly run: (ctx: CommandContext) => void | Promise<void>;
 }
 
+/** A command of the node menu, which names itself. */
+export interface NodeCommand {
+  readonly id: string;
+  readonly menu: { readonly where: "node"; readonly group: NodeMenuGroup; readonly order: number };
+  readonly chrome: (ctx: CommandContext) => { readonly label: string; readonly icon: ReactNode };
+  /** Absent ⇒ always offered. */
+  readonly when?: (ctx: CommandContext) => boolean;
+  readonly run: (ctx: CommandContext) => void | Promise<void>;
+}
+
+/** A command of the shell's ⌘K palette or its node menu. */
+export type Command = GlobalCommand | NodeCommand;
+
 export declare const CommandPoint: PointKey<Command>;
+
+/**
+ * An action as data: its id, and its input. It is about a row, so the
+ * row's node is added to the input as `id`; a picker step's pick fills
+ * each {@link PICKED} in it. kb calls it through the page's one invoke
+ * path, under the guards every call meets, and tells a person when it fails.
+ */
+export interface ActionCall {
+  readonly action: string;
+  readonly input?: Readonly<Record<string, unknown>>;
+}
+
+/** Where a picker step's input takes the node the person picked. */
+export interface Picked {
+  readonly $: "picked";
+}
+
+/** The value a picker step's pick replaces, wherever it stands in the input. */
+export declare const PICKED: Picked;
+
+/** An icon a form names: one the shell's own rows draw. */
+export type IconName =
+  | "arrow-right"
+  | "check"
+  | "eye"
+  | "hash"
+  | "link"
+  | "magnifying-glass"
+  | "pin"
+  | "plus"
+  | "star"
+  | "text"
+  | "trash";
+
+/**
+ * The {@link CommandPoint} contribution for a node command written as
+ * data, its T0 form: a label, an icon by name, where the node menu lists
+ * it, a query node (by id) whose answer's first column holds the rows it is
+ * offered on (absent, every row), and what it runs: an action about the
+ * row, or a picker step to open, by its contribution's id. A group that is
+ * not the menu's, or an icon kb does not name, throws where the plugin
+ * applies.
+ */
+export declare function provideCommand(
+  id: string,
+  form: {
+    readonly label: string;
+    readonly icon?: IconName;
+    readonly group: NodeMenuGroup;
+    readonly order: number;
+    readonly when?: string;
+    readonly run: ActionCall | { readonly step: string };
+  },
+): ContributionEntry<Command>;
+
+/** What a picker step offers: a node, by id, and the text that names it. */
+export interface PickerCandidate {
+  readonly id: string;
+  readonly label: string;
+}
+
+/**
+ * One picker step of the node palette, which a node command opens by its
+ * contribution's id. As a page half writes it, it is handed the row the
+ * palette is anchored to, and the node picked or named; the rest of the
+ * page it reaches through the host API, as a command does.
+ */
+export interface PaletteStep {
+  readonly label: string;
+  readonly placeholder: string;
+  readonly icon: ReactNode;
+  /** Absent ⇒ nothing can be minted from the picker. */
+  readonly createLabel?: (name: string) => string;
+  readonly candidates: (graph: { readonly anchorId: string | null }) => PickerCandidate[];
+  /** At most this many rows; absent, every match. */
+  readonly limit?: number;
+  readonly commit: (pick: {
+    readonly targetNodeId: string;
+    readonly pickedId: string;
+    readonly creating: boolean;
+    readonly name: string;
+  }) => Promise<void>;
+}
+
+/**
+ * The node palette's picker steps, by id: a point the shell declares, so a
+ * plugin that contributes one names it in `uses` and reaches it with
+ * `ctx.point(PaletteStepPoint)`.
+ */
+export declare const PaletteStepPoint: PointName<PaletteStep>;
+
+/**
+ * The {@link PaletteStepPoint} contribution for a picker step written as
+ * data, its T0 form: the page runs the picker over the nodes a query node
+ * (by id) answers in its first column, less the row itself, each named by
+ * its text, and a pick calls `commit` about the row, the pick filling each
+ * {@link PICKED} in its input.
+ */
+export declare function providePaletteStep(
+  id: string,
+  form: {
+    readonly label: string;
+    readonly placeholder: string;
+    readonly icon?: IconName;
+    readonly candidates: string;
+    readonly limit?: number;
+    readonly commit: ActionCall;
+  },
+): ContributionEntry<PaletteStep>;
+
+/**
+ * How a value slot is edited: a caret in its text, a calendar, a picker over
+ * the field's allowed nodes, a toggle that flips it, or a swatch row that is
+ * always shown and commits on a press.
+ */
+export type EditorMode = "caret" | "calendar" | "picker" | "toggle" | "swatch";
+
+/** Raw input read as a value, or why it cannot be one. */
+export type ParsedValue =
+  | { readonly ok: true; readonly value: PropValue }
+  | { readonly ok: false; readonly reason: string };
+
+/** Where a value points: a node, or a link. */
+export type FollowTarget =
+  | { readonly kind: "node"; readonly id: string }
+  | { readonly kind: "href"; readonly href: string };
+
+/** What one value of a field type is to the slot that holds it, as data. */
+export interface ValueKindSpec {
+  readonly editor: EditorMode;
+  /** The value as its editor's text. */
+  readonly text: (value: PropValue) => string;
+  /** The editor's text as a value, or why it is not one. */
+  readonly parse: (text: string) => ParsedValue;
+  /** The slot shows its placeholder rather than the value. */
+  readonly isBlank: (value: PropValue) => boolean;
+  /** How a field's values sit together: stacked, or inline and wrapping. */
+  readonly layout: "stack" | "inline";
+  /** Where the value points, or null. */
+  readonly follow: (value: PropValue) => FollowTarget | null;
+}
+
+/**
+ * What a value kind's surface is handed by the slot that holds the value:
+ * the slot owns every gesture, and the surface draws the value and, while
+ * the slot edits, edits it. `onEnd` leaves the editor, committing what
+ * `parse` read; without one, nothing changed.
+ */
+export interface ValueSurfaceProps {
+  /** The stored value, or the type's empty value when the slot holds none. */
+  readonly value: PropValue;
+  /** The slot shows its placeholder rather than the value. */
+  readonly blank: boolean;
+  /** The slot's editor is open. */
+  readonly editing: boolean;
+  readonly spec: ValueKindSpec;
+  /** The field the value belongs to. */
+  readonly fieldId: string;
+  /** What an empty value says while it waits. */
+  readonly placeholder?: string;
+  readonly onEnd: (parsed?: ParsedValue, text?: string) => void;
+}
+
+/** What a field type contributes: its option node, its row of data, its glyph and its surface. */
+export interface FieldTypeKind {
+  /** The type's option node, a child of `sys.f.fieldType`. */
+  readonly type: NodeId;
+  readonly spec: ValueKindSpec;
+  readonly icon: Icon;
+  readonly Surface: FunctionComponent<ValueSurfaceProps>;
+}
+
+/** Field types' value kinds, by the type's option node. */
+export declare const ValueKindPoint: PointKey<FieldTypeKind>;
+
+/**
+ * The {@link ValueKindPoint} contribution for the field type a declaration
+ * declares as `id` among `FIELD_TYPE_OPTIONS` (`<name>.<local id>`): its
+ * glyph by name, its row of data and its surface. An icon kb does not name
+ * throws where the plugin applies.
+ */
+export declare function provideValueKind(
+  id: string,
+  form: {
+    readonly icon: IconName;
+    readonly spec: ValueKindSpec;
+    readonly Surface: FunctionComponent<ValueSurfaceProps>;
+  },
+): ContributionEntry<FieldTypeKind>;
+
+/**
+ * A key as a binding states it: a key name as `KeyboardEvent.key` names
+ * it (or several, or a test of the name), and the modifiers it asks about.
+ * A modifier left out is not asked about. `mod` is ⌘ or Ctrl.
+ */
+export interface Chord {
+  key?: string | readonly string[] | ((key: string) => boolean);
+  mod?: boolean;
+  meta?: boolean;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+}
+
+/**
+ * Where a key means something: the outline's row being edited, or its
+ * selection (a row selected, none edited).
+ */
+export type KeyContextId = "outline.editing" | "outline.selection";
+
+/**
+ * What a key runs: one of its context's intents by name (`outline.editing`:
+ * `split`, `indent`, `move-up`, `line-down`, …; `outline.selection`: `up`,
+ * `move-down`, `create-after`, `zoom`, …), or an action through the page's
+ * invoke path, with the row's node as its input's `id`.
+ */
+export type KeyRun = { readonly intent: string } | ActionCall;
+
+/** A key in a context, and what it runs; the binding whose held chord it takes, if any. */
+export interface Keybinding {
+  readonly context: string;
+  readonly chord: Chord;
+  readonly run: KeyRun;
+  readonly replaces?: string;
+}
+
+/**
+ * Every key of the outline's contexts. One binding per chord per context:
+ * the outline's own are held first (`outline.editing.split`,
+ * `outline.selection.up`, …). A binding over a held chord is refused, and
+ * the person told why, unless it names the holder in `replaces`; it then
+ * takes exactly its own chord, and the holder keeps the rest. `Escape`,
+ * ⌘Z, ⌘⇧Z and ⌘K are never a binding's.
+ */
+export declare const KeybindingPoint: PointKey<Keybinding>;
+
+/**
+ * The {@link KeybindingPoint} contribution for a binding written as data:
+ * its chord as text, modifiers then the key, joined by `-` (`Alt-ArrowUp`,
+ * `Mod-Shift-k`), exact, so a modifier it does not name must be up. `Mod`
+ * is ⌘ or Ctrl; a letter matches in either case, Shift being its flag.
+ */
+export declare function provideKeybinding(
+  id: string,
+  binding: {
+    readonly context: KeyContextId;
+    readonly chord: string;
+    readonly run: KeyRun;
+    readonly replaces?: string;
+  },
+): ContributionEntry<Keybinding>;
 
 /** A declared thing's key: the id its option node is named by, and its label. */
 export interface SeedOption {
@@ -373,3 +676,23 @@ export declare function meterFrames(
 
 /** Whether the owner asks for reduced motion: a backdrop then draws one still frame. */
 export declare function useReducedMotion(): boolean;
+
+/** One field row, with checked host writes and no dependency on the owning extension's code. */
+export interface FieldRowProps {
+  readonly nodeId: string;
+  readonly fieldId: string;
+  readonly label: string;
+  readonly values: PropValue[];
+  readonly valueOnly?: boolean;
+  readonly fieldType: "text" | "number" | "date" | "time" | "url" | "checkbox" | "ref" | "secret";
+  readonly readOnly: boolean;
+  readonly parse: (text: string) => { ok: true; value: PropValue } | { ok: false; reason: string };
+  readonly update: (value: PropValue, previous?: PropValue) => Promise<void>;
+  readonly remove: (value?: PropValue) => Promise<void>;
+}
+
+/** Requires the trusted manifest to declare replacement of ui.field-editor. */
+export declare function provideFieldEditor(
+  ctx: PluginContext,
+  Component: ComponentType<FieldRowProps>,
+): effect.Effect.Effect<void, PluginError>;

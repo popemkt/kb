@@ -5,7 +5,7 @@
  * governance family's own: its seed writes them; enforcement is deferred,
  * so a composition without the family has neither.
  */
-import { ACTORS, SYSTEM_IDS, type Actor, type KbNode, type NodeId } from "@kb/model";
+import { ACTORS, SYSTEM_IDS, type ActorKind, type KbNode, type NodeId } from "@kb/model";
 import { APPROVAL_DECISIONS, type ApprovalDecision } from "@kb/contracts";
 
 /**
@@ -43,11 +43,12 @@ export const GOVERNANCE_IDS = {
  * option by its id, never by its text, so renaming an option changes nothing
  * a policy decides.
  */
-export const ACTOR_OPTION_IDS: Readonly<Record<Actor, NodeId>> = {
+export const ACTOR_OPTION_IDS: Readonly<Record<ActorKind, NodeId>> = {
   human: "sys.approval.actor.human",
   agent: "sys.approval.actor.agent",
   cli: "sys.approval.actor.cli",
   script: "sys.approval.actor.script",
+  reaction: "sys.approval.actor.reaction",
 };
 export const DECISION_OPTION_IDS: Readonly<Record<ApprovalDecision, NodeId>> = {
   allow: "sys.approval.decision.allow",
@@ -61,7 +62,7 @@ export interface ApprovalPolicy {
   /** An action id, a pattern with `*` (any run of characters), or a mode word (`MODE_MATCHES`, `action-match.ts`). */
   readonly match: string;
   /** The actor it is about; `null` is every actor. */
-  readonly actor: Actor | null;
+  readonly actor: ActorKind | null;
   readonly decision: ApprovalDecision;
 }
 

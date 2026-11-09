@@ -8,14 +8,16 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { bundledSeed } from "@kb/bundled";
 import { present } from "@kb/model";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { syncPagePlugins } from "@/test-support/page-plugins";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { FieldsSection } from "@kb/outline-ui";
 
 const ISO = "2026-08-08T05:00:00.000Z";
@@ -66,7 +68,10 @@ describe("per-node debug field rows", () => {
     g.MouseEvent = dom.MouseEvent;
     g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
+    syncPagePlugins([outlineUiPlugin]);
   });
+
+  afterAll(() => syncUiPlugins([]));
 
   beforeEach(() => {
     seed();
@@ -97,6 +102,9 @@ describe("per-node debug field rows", () => {
   it("shows no debug rows until a node asks for them", async () => {
     await render();
     expect(container.querySelector('[data-fields-for="n.a"]')).toBeTruthy();
+    expect(
+      container.querySelector('[data-fields-for="n.a"] [data-field-values="f.status"]'),
+    ).toBeTruthy();
     expect(debugRows("n.a")).toBe(0);
     expect(debugRows("n.b")).toBe(0);
   });

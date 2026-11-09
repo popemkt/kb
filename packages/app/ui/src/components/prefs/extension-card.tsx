@@ -66,6 +66,11 @@ const STATUS: Readonly<
     idle: "nothing while it is off",
     review: null,
   },
+  waiting: {
+    pill: { word: "Waiting", tone: "bg-info/10", dot: "bg-info" },
+    idle: "waiting for a declared point",
+    review: null,
+  },
   trusted: {
     pill: { word: "Trusted", tone: "bg-success/10", dot: "bg-success" },
     idle: "nothing on this page or server",

@@ -102,6 +102,12 @@ export interface BrowserHost extends NodeTextPort {
   /** Make one call through the browser's one invoke path and answer its receipt. */
   readonly invoke: (id: string, input: unknown) => Promise<ActionReceipt>;
   /**
+   * Whether the plugin `owner` (a contribution's owner) may take what
+   * another holds by naming what it replaces: the host's authority, from
+   * where its family's code came from (`replacesWithoutApproval`).
+   */
+  readonly replacementApproved: (owner: string) => boolean;
+  /**
    * Called whenever the page reads the server's manifest again: the server
    * composed something new, as when an extension is installed, trusted,
    * switched or removed. What the server reports of its extensions

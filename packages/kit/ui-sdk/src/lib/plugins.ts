@@ -19,11 +19,16 @@ import {
   type ComponentType,
   type FunctionComponent,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Cause, Effect } from "effect";
-import { runtimeFootprint, type FamilyKernel, type FootprintRow } from "@kb/contracts";
-import { present } from "@kb/model";
+import {
+  CORE_POINT_DEFINITIONS,
+  runtimeFootprint,
+  type FamilyKernel,
+  type FootprintRow,
+} from "@kb/contracts";
 import {
   Point,
   makeKernel,
@@ -34,6 +39,7 @@ import {
   type Plugin,
   type PointReference,
   type ServiceKey,
+  type RoleKey,
 } from "@kb/plugin";
 import { usePath } from "./router";
 import type { PointerSource } from "./pointer-over";
@@ -45,13 +51,17 @@ import {
   type PlainViewKey,
   type ViewKey,
 } from "@kb/views";
+import { roleComponent } from "./roles";
 import { toast } from "./toast";
-import type {
-  BackdropDirection,
-  BackdropStrength,
-  KnobValues,
-  SeedBackdrop,
-  SeedOption,
+import {
+  present,
+  roleSelections,
+  type KbNode,
+  type BackdropDirection,
+  type BackdropStrength,
+  type KnobValues,
+  type SeedBackdrop,
+  type SeedOption,
 } from "@kb/model";
 import type { OutlineNode } from "./types";
 
@@ -61,24 +71,49 @@ import type { OutlineNode } from "./types";
  * under the row of the frame whose children it lays out; `preview` is a
  * compact, read-only picture of a node under its row, in a box of fixed
  * height, which a view offers exactly when its key says it draws one
- * (`ViewKey.preview`, {@link provideView}). The rest of the placements wait
- * on their first host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
+ * (`ViewKey.preview`, {@link provideView}); `row` is a node's row itself, in
+ * place of its text while no one edits it, where a tag names the view its
+ * nodes are drawn as (`sys.f.view.row`), handed the row it draws
+ * ({@link ViewHost.row}). The rest of the placements wait on their first
+ * host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
-export type Placement = "page" | "inline" | "preview";
+export type Placement = "page" | "inline" | "preview" | "row";
 
 /** The placements a contribution lists itself: `preview` is its key's to say. */
 type ListedPlacement = Exclude<Placement, "preview">;
 
+/**
+ * The row a view at placement `row` draws (DESIGN-UI.md → Row views): the
+ * node the row shows and its text, which is all of the graph such a view is
+ * handed. `text` is that text as the outline draws it, references as pills,
+ * and pressing it edits the row where it was pressed, so a view places it
+ * rather than drawing the markdown itself.
+ */
+export interface RowSubject {
+  readonly id: string;
+  /** The text as written: inline markdown, a reference as `[[id|label]]`. */
+  readonly markdown: string;
+  readonly text: ReactNode;
+}
+
+/**
+ * Where a host draws a view, with what it hands the view there: at `row`,
+ * the row it draws; at every other placement, no row. One union, so a slot
+ * at `row` without its row, or a row handed to a page, does not type.
+ */
+export type Drawn =
+  | { readonly placement: "row"; readonly row: RowSubject }
+  | { readonly placement: Exclude<Placement, "row">; readonly row?: undefined };
+
 /** What a host guarantees a view: never a store, never `ctx`. */
-export interface ViewHost {
-  readonly placement: Placement;
+export type ViewHost = Drawn & {
   /**
    * The view node the host draws the view from, when it draws one (the node
    * route opening a view node): where a view that edits its own settings
    * writes them. Absent for a view drawn from a view type or from code.
    */
   readonly viewNode?: string;
-}
+};
 
 export interface ViewProps<P> {
   readonly params: P;
@@ -115,12 +150,10 @@ export interface ProvidedView {
   readonly frame?: RouteFrame;
 }
 
-export const ViewPoint = Point<ProvidedView>()("ui.views", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const ViewPoint = Point<ProvidedView>()(
+  CORE_POINT_DEFINITIONS.view.name,
+  CORE_POINT_DEFINITIONS.view.spec,
+);
 
 /** What a view contribution says beside its key: its placements but `preview`, which the key says. */
 type ViewEntry<P> = Omit<View<P>, "key" | "placements"> & {
@@ -205,12 +238,10 @@ export interface ProvidedRoute {
   readonly entry?: string;
 }
 
-export const RoutePoint = Point<ProvidedRoute>()("ui.routes", {
-  cardinality: "chain",
-  combine: "first matching route",
-  kernel: "page",
-  tier: "T3",
-});
+export const RoutePoint = Point<ProvidedRoute>()(
+  CORE_POINT_DEFINITIONS.route.name,
+  CORE_POINT_DEFINITIONS.route.spec,
+);
 
 /** The `RoutePoint` contribution for `route`, under its view's local id. */
 /**
@@ -257,12 +288,10 @@ export interface SidebarSection {
   readonly Component: ComponentType<{ readonly route: MatchedRoute | null }>;
 }
 
-export const SidebarSectionPoint = Point<SidebarSection>()("ui.sidebar", {
-  cardinality: "list",
-  combine: "ascending order",
-  kernel: "page",
-  tier: "T3",
-});
+export const SidebarSectionPoint = Point<SidebarSection>()(
+  CORE_POINT_DEFINITIONS.sidebarSection.name,
+  CORE_POINT_DEFINITIONS.sidebarSection.spec,
+);
 
 /**
  * A dock: a tool window at the workspace's right edge, beside every page
@@ -278,12 +307,10 @@ export interface Dock {
   readonly Component: ComponentType<{ readonly onClose: () => void }>;
 }
 
-export const DockPoint = Point<Dock>()("ui.docks", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const DockPoint = Point<Dock>()(
+  CORE_POINT_DEFINITIONS.dock.name,
+  CORE_POINT_DEFINITIONS.dock.spec,
+);
 
 /**
  * A page overlay: something a plugin mounts once for the whole page, beside
@@ -297,12 +324,10 @@ export interface Overlay {
   readonly Component: ComponentType;
 }
 
-export const OverlayPoint = Point<Overlay>()("ui.overlays", {
-  cardinality: "list",
-  combine: "mount all",
-  kernel: "page",
-  tier: "T3",
-});
+export const OverlayPoint = Point<Overlay>()(
+  CORE_POINT_DEFINITIONS.overlay.name,
+  CORE_POINT_DEFINITIONS.overlay.spec,
+);
 
 /**
  * How far across the page a backdrop's frame reaches: centred under the
@@ -485,12 +510,10 @@ export interface Backdrop {
   readonly Component: ComponentType<BackdropProps>;
 }
 
-export const BackdropPoint = Point<Backdrop>()("ui.backdrops", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const BackdropPoint = Point<Backdrop>()(
+  CORE_POINT_DEFINITIONS.backdrop.name,
+  CORE_POINT_DEFINITIONS.backdrop.spec,
+);
 
 /**
  * Something a page head's backdrop offers where its owner double-clicks it
@@ -505,12 +528,10 @@ export interface BackdropAction {
   readonly run: (backdrop: string) => void;
 }
 
-export const BackdropActionPoint = Point<BackdropAction>()("ui.backdrop-actions", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const BackdropActionPoint = Point<BackdropAction>()(
+  CORE_POINT_DEFINITIONS.backdropAction.name,
+  CORE_POINT_DEFINITIONS.backdropAction.spec,
+);
 
 /**
  * The backdrop its family declares as `key`, as its page plugin contributes
@@ -586,12 +607,10 @@ export interface ThemeArtProps {
  */
 export const THEME_GESTURE_MAX_MS = 2400;
 
-export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const DesignSystemPoint = Point<DesignSystem>()(
+  CORE_POINT_DEFINITIONS.designSystem.name,
+  CORE_POINT_DEFINITIONS.designSystem.spec,
+);
 
 /** The design system its family names `key`, as its page plugin contributes it (`provideBackdrop`). */
 export function provideDesignSystem(
@@ -615,8 +634,16 @@ interface Keyed {
 }
 
 export function provideDeclared<T extends Keyed>(value: T): ContributionEntry<T> {
-  const { id } = value.key;
-  return { id: id.slice(id.indexOf(".") + 1), value };
+  return { id: declaredLocalId(value.key.id), value };
+}
+
+/**
+ * The id a family contributes a thing it declares as `id` under: its local
+ * id, so in the family's namespace the contribution answers to the declared
+ * id (`<name>.<local id>`), as a view answers to its key.
+ */
+export function declaredLocalId(id: string): string {
+  return id.slice(id.indexOf(".") + 1);
 }
 
 /**
@@ -649,6 +676,24 @@ export function syncUiPlugins(plugins: readonly Plugin[]): void {
       `UI plugin ${name} failed to ${verb}: ${failure instanceof Error ? failure.message : String(failure)}`,
     );
   }
+}
+
+/** Per-store choices derived by the host from role nodes. */
+export function configureUiRoles(
+  nodeOf: (id: string) => Pick<KbNode, "id" | "props"> | undefined,
+): void {
+  Effect.runSync(uiKernel.configureRoles(roleSelections(uiKernel.roles(), nodeOf)));
+}
+
+/** The page's admitted claim for one exact role, shared with candidate registration. */
+// GAP [[01M6YS6XH9XS4TX7S7AYWXJX3A]] prepared for the owner-blocked keybinding follow-up
+export function replacementApproved(owner: string, role: string): boolean {
+  return uiKernel.replacementApproved(owner, role);
+}
+
+/** Role consumers get a stable boundary rather than the unguarded implementation. */
+export function useRole<P extends object>(role: RoleKey<ComponentType<P>>): ComponentType<P> {
+  return roleComponent(uiKernel, role);
 }
 
 /** Called after every change to the page kernel's plugins, services or contributions. */

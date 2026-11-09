@@ -21,7 +21,8 @@ import {
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { backlinkRows, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { backlinkRows, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -115,7 +116,7 @@ describe("schema lookups under an ontology scope", () => {
     const field = schema.get("f.status");
     expect(field?.children).toEqual(["opt.open", "opt.done"]);
     expect(resolveFieldTypeById("f.status", schema)).toBe("ref");
-    expect(cardinalityOf(field?.props)).toBe("one");
+    expect(cardinalityOf(field?.props, () => undefined)).toBe("one");
     expect(formatPropValue({ t: "ref", v: "opt.done" }, schema)).toBe("Done");
     // The option set is a datalog answer: wait for the replica to give it.
     await answered(graph, (run) => resolveAllowedRefIds(field, schema, run));

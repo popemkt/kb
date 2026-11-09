@@ -13,6 +13,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import {
+  GALLERY_POINT_DEFINITIONS,
   EMPTY_LOOK,
   composePrompt,
   enhanceInput,
@@ -32,18 +33,12 @@ import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { updateDraft } from "./draft";
 import type { ComposerFrame } from "./frame";
 import { LookPanel } from "./look-panel";
-import {
-  ComposerModelPoint,
-  COMPOSER_MODEL_POINT_SPEC,
-  type ComposerModel,
-  MODEL_NEEDS,
-  galleryModelPlugin,
-} from "./model";
+import { ComposerModelPoint, type ComposerModel, MODEL_NEEDS, galleryModelPlugin } from "./model";
 const galleryPoints = definePlugin({
   name: "gallery-points",
   namespace: "gallery",
   apply: (ctx) =>
-    ctx.declare<ComposerModel>("model", COMPOSER_MODEL_POINT_SPEC).pipe(Effect.asVoid),
+    ctx.declare<ComposerModel>("model", GALLERY_POINT_DEFINITIONS.model.spec).pipe(Effect.asVoid),
 });
 
 const ENHANCE_NEEDS = `Enhance ${MODEL_NEEDS}`;

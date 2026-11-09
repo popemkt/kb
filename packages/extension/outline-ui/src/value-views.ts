@@ -7,9 +7,14 @@ import {
   TextTIcon,
   CheckSquareIcon,
   KeyIcon,
-  type Icon,
 } from "@phosphor-icons/react";
-import type { FieldType } from "@kb/ui-sdk";
+import {
+  FIELD_TYPE_OPTION_IDS,
+  FIELD_TYPES,
+  type FieldType,
+  type FieldTypeKind,
+  type ValueView,
+} from "@kb/ui-sdk";
 import {
   CheckboxSurface,
   ColorSurface,
@@ -20,24 +25,9 @@ import {
   SecretSurface,
   TextSurface,
   UrlSurface,
-  type ValueSurfaceProps,
 } from "./field-value";
-import { type ValueKind, valueKindOf } from "./value-kind";
-
-/**
- * One kind's presentation: the glyph its row wears, and the surface that
- * shows the value and, while the slot edits, edits it in place.
- *
- * Display and edit are one component per kind on purpose — every surface
- * *is* its own display until the slot opens it, which is what makes an inline
- * field feel like text rather than a form control. What a gesture does is not
- * here: the slot (`ValueSlot`) owns every gesture, for every kind.
- */
-interface ValueView {
-  /** The type glyph `FieldRow` shows in its icon slot. */
-  readonly icon: Icon;
-  readonly Surface: (props: ValueSurfaceProps) => React.ReactNode;
-}
+import { VALUE_KINDS, valueKindOf, type ValueKind } from "./value-kind";
+import type { Icon } from "@phosphor-icons/react";
 
 /**
  * The view registry: one row per value kind, keyed by the same union as the
@@ -59,15 +49,20 @@ export const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
   secret: { icon: KeyIcon, Surface: SecretSurface },
 };
 
-/** The glyph a field's row wears. */
-export type FieldGlyph = Icon;
+/**
+ * The outline's kinds of the built-in types, each for its type's option
+ * node: what it contributes to `ui.value-kinds` (`outlineValueKindsPlugin`).
+ */
+export const BUILT_IN_KINDS: readonly FieldTypeKind[] = FIELD_TYPES.map((type) => ({
+  type: FIELD_TYPE_OPTION_IDS[type],
+  spec: VALUE_KINDS[type],
+  ...VALUE_VIEWS[type],
+}));
 
 /**
- * The type glyph for a field — the icon half of its kind's row.
- *
- * `FieldRow` draws this rather than looking the row up itself, so the glyph
- * and the surface can never come from different rows.
+ * The glyph the outline's own kind of `fieldType` wears, for a field named
+ * by its type rather than resolved through `ui.value-kinds` (`useSlotKind`).
  */
-export function fieldGlyphOf(fieldType: FieldType, fieldId?: string): FieldGlyph {
+export function fieldGlyphOf(fieldType: FieldType, fieldId?: string): Icon {
   return VALUE_VIEWS[valueKindOf(fieldType, fieldId)].icon;
 }

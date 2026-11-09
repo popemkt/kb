@@ -14,6 +14,7 @@ import {
   useOptionPreview,
   usePickerKeys,
   type FieldContext,
+  type FieldHandle,
   type PickerRow,
   type PropValue,
   type RefCreation,
@@ -26,38 +27,6 @@ const inputClass = cn(
   KB_TEXT_CLASS,
   "text-foreground/70 placeholder:text-faint-foreground",
 );
-
-/**
- * What a value slot, and a field's picker, may do to the field as a whole —
- * the stack that holds the values provides it.
- */
-export interface FieldHandle {
-  /** Every value the field holds: a picker shows them checked. */
-  readonly values: readonly PropValue[];
-  /** The field holds many values: its picker toggles, and stays open. */
-  readonly many: boolean;
-  add: (value: PropValue) => void;
-  remove: (value: PropValue) => void;
-  /** Mint a node the field may point at (`refCreationOf`); its id, or null. */
-  create: (creation: RefCreation, name: string) => Promise<string | null>;
-  /** Open the field's picker, for a many-valued field (the stack draws it), with a query typed. */
-  openPicker: (query?: string) => void;
-  /** Open an empty slot for the next value, after the last. */
-  addSlot: () => void;
-  /**
-   * The keyboard leaves the field for its row: `up` past the first value
-   * (the row's text, at its end), `down` past the last (the next row), or
-   * `back` (Escape: the row, selected).
-   */
-  leave: (way: "up" | "down" | "back") => void;
-  /** A value took the keyboard: nothing else in the outline holds it now. */
-  claimKeyboard: () => void;
-  /**
-   * Put the keyboard on the value at `index` once the field has redrawn — the
-   * slot that asked may be redrawn itself (a committed value is a new one).
-   */
-  focusSlot: (index: number) => void;
-}
 
 /**
  * The one node picker, as a field's values are chosen with it: an input over

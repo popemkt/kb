@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -14,11 +15,39 @@ import {
   SyncError,
 } from "@kb/routines";
 import { routinesPlugin } from "@kb/routines-host";
+import { SecretError, type SecretStore } from "@kb/contracts";
+import { formatSecretRef } from "@kb/model";
+
+/** A secret store in memory: what the host kept, by reference text. */
+function memorySecrets() {
+  const kept = new Map<string, string>();
+  const store: SecretStore = {
+    resolve: (ref) => {
+      const value = kept.get(formatSecretRef(ref));
+      return value === undefined
+        ? Effect.fail(new SecretError({ message: "not set" }))
+        : Effect.succeed(value);
+    },
+    place: (name) => ({ kind: "sealed", name }),
+    sink: (ref) => ({
+      write: (value) => Effect.sync(() => void kept.set(formatSecretRef(ref), value)),
+      erase: Effect.sync(() => void kept.delete(formatSecretRef(ref))),
+    }),
+    describe: Effect.succeed("in memory"),
+  };
+  return { kept, store };
+}
+
+/** Where the host places an account's secret: named by a digest of the whole account id. */
+const placedRef = (account: string, secret: string) =>
+  `sealed:routines.${createHash("sha256").update(account).digest("hex").slice(0, 32)}.${secret}`;
 
 /** Real invoke, graph tail and family lifecycle; Calendar stays in memory. */
 test("routines is optional, outline fields preview through real actions, and unload stops its worker", async () => {
   const root = await mkdtemp(join(tmpdir(), "kb-routines-host-"));
   const fake = makeFakeCalendar();
+  const secrets = memorySecrets();
+  const revoked: string[] = [];
   const handle = await Effect.runPromise(
     startUi({
       root,
@@ -31,24 +60,45 @@ test("routines is optional, outline fields preview through real actions, and unl
             origin: "https://kb.test",
             runner: "host-test",
             client: () => Effect.succeed(fake.port),
-            connect: (_binding, trusted) =>
-              trusted.pipe(
-                Effect.flatMap((allowed) =>
-                  allowed
-                    ? Effect.succeed({ url: "https://consent.test", finish: () => Effect.void })
-                    : Effect.fail(new SyncError({ status: 403, code: "untrusted" })),
+            secrets: secrets.store,
+            setup: {
+              validate: (client) =>
+                client.secret === "GOCSPX-good"
+                  ? Effect.void
+                  : Effect.fail(new SyncError({ status: 401, code: "client_invalid" })),
+              connect: (account, trusted, redirectUri) =>
+                trusted.pipe(
+                  Effect.flatMap((allowed) =>
+                    allowed
+                      ? Effect.succeed({
+                          url: "https://consent.test/?redirect_uri=" + redirectUri,
+                          state: "state-1",
+                          finish: (redirect: string) =>
+                            new URL(redirect).searchParams.get("code") === "granted"
+                              ? Effect.sync(
+                                  () => void secrets.kept.set(account.refreshToken, "refresh"),
+                                )
+                              : Effect.fail(new SyncError({ status: 401, code: "consent_denied" })),
+                        })
+                      : Effect.fail(new SyncError({ status: 403, code: "untrusted" })),
+                  ),
                 ),
-              ),
+              revoke: (account) =>
+                Effect.sync(() => void revoked.push(secrets.kept.get(account.refreshToken) ?? "")),
+              automation: Effect.succeed({ installed: false, account: null }),
+              automate: () => Effect.fail(new SyncError({ status: 0, code: "gcloud_missing" })),
+            },
           }),
         },
       ],
     }).pipe(Effect.provide(bunFileSystemLayer)),
   );
   const origin = new URL(handle.url).origin;
-  const call = async (id: string, input: unknown) => {
+  /** A call the page makes (the person's), or a local program's (an agent's) with `agent`. */
+  const call = async (id: string, input: unknown, agent = false) => {
     const response = await fetch(origin + "/api/action", {
       method: "POST",
-      headers: { origin, "Content-Type": "application/json" },
+      headers: { ...(agent ? {} : { origin }), "Content-Type": "application/json" },
       body: JSON.stringify({ id, input }),
     });
     return (await response.json()) as { status: string; output?: unknown; message?: string };
@@ -105,21 +155,114 @@ test("routines is optional, outline fields preview through real actions, and unl
       ],
     });
     expect(fake.events.size).toBe(0);
-    expect((await call("ext.routines.connect", { calendar: "calendar" })).status).toBe("failed");
-    const binding = Schema.decodeUnknownSync(Schema.Struct({ digest: Schema.String }))(
-      (await call("ext.routines.binding", { calendar: "calendar" })).output,
-    );
-    expect(await call("sandbox.trust", binding)).toMatchObject({ status: "succeeded" });
-    expect(await call("ext.routines.connect", { calendar: "calendar" })).toMatchObject({
+    expect(await call("ext.routines.setup", {})).toMatchObject({
       status: "succeeded",
-      output: { url: "https://consent.test" },
+      output: {
+        redirectUri: "https://kb.test/calendar/connect",
+        store: "in memory",
+        automation: { installed: false },
+      },
     });
-    expect((await call("ext.routines.finish", { calendar: "calendar" })).status).toBe("succeeded");
+    // Keeping a credential and connecting are the person's: an agent is refused.
+    const client = { account: "account", clientId: "1-a.apps.googleusercontent.com" };
+    expect(
+      await call("ext.routines.client", { ...client, clientSecret: "GOCSPX-good" }, true),
+    ).toMatchObject({ status: "failed", code: "approval_required" });
+    expect(await call("ext.routines.connect", { account: "account" }, true)).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+    });
+    // The page is offered a binding to trust only over the host's own references;
+    // these name others (an env variable, a dotenv file), so neither binding is offered.
+    for (const node of ["account", "calendar"])
+      expect(await call("ext.routines.binding", { node })).toMatchObject({
+        status: "failed",
+        message: "secrets_foreign",
+      });
+    expect(
+      await call("ext.routines.client", { ...client, clientSecret: "GOCSPX-wrong" }),
+    ).toMatchObject({ status: "failed", message: "client_invalid" });
+    expect(secrets.kept.size).toBe(0);
+    expect(
+      await call("ext.routines.client", { ...client, clientSecret: "GOCSPX-good" }),
+    ).toMatchObject({ status: "succeeded" });
+    // Kept where the host placed them, and the account names those references, not values.
+    expect(secrets.kept.get(placedRef("account", "client-secret"))).toBe("GOCSPX-good");
+    const account = await call("node.get", { id: "account", depth: 0 });
+    expect(account).toMatchObject({
+      output: {
+        node: {
+          props: {
+            [F.clientId]: [{ t: "str", v: placedRef("account", "client-id") }],
+            [F.clientSecret]: [{ t: "str", v: placedRef("account", "client-secret") }],
+            [F.refreshToken]: [{ t: "str", v: placedRef("account", "refresh-token") }],
+          },
+        },
+      },
+    });
+    expect(JSON.stringify(account)).not.toContain("GOCSPX-good");
+    expect((await call("ext.routines.connect", { account: "account" })).status).toBe("failed");
+    const digestOf = async (node: string) =>
+      Schema.decodeUnknownSync(Schema.Struct({ digest: Schema.String }))(
+        (await call("ext.routines.binding", { node })).output,
+      );
+    expect(await call("sandbox.trust", await digestOf("account"))).toMatchObject({
+      status: "succeeded",
+    });
+    expect(await call("ext.routines.connect", { account: "account" })).toMatchObject({
+      status: "succeeded",
+      output: { url: "https://consent.test/?redirect_uri=https://kb.test/calendar/connect" },
+    });
+    const back = "https://kb.test/calendar/connect?state=state-1&code=granted";
+    expect(await call("ext.routines.finish", { redirect: back })).toMatchObject({
+      status: "succeeded",
+      output: { account: "account" },
+    });
+    expect(await call("ext.routines.finish", { redirect: back })).toMatchObject({
+      status: "failed",
+      message: "connect_expired",
+    });
+    expect(await call("node.get", { id: "account", depth: 0 })).toMatchObject({
+      output: {
+        node: { props: { [F.status]: [{ t: "ref", v: routineOption("status", "synced") }] } },
+      },
+    });
+    expect((await call("ext.routines.provision", { calendar: "calendar" })).status).toBe("failed");
+    expect(await call("sandbox.trust", await digestOf("calendar"))).toMatchObject({
+      status: "succeeded",
+    });
+    const provisioned = await call("ext.routines.provision", { calendar: "calendar" });
+    expect(provisioned).toMatchObject({ status: "succeeded" });
     const connected = await call("node.get", { id: "calendar", depth: 0 });
     expect(connected).toMatchObject({
       status: "succeeded",
       output: { node: { props: { [F.calendarId]: [{ t: "str", v: "calendar-1" }] } } },
     });
+    expect(provisioned.output).toEqual(await digestOf("calendar"));
+    expect(await call("ext.routines.remove", { account: "account" })).toMatchObject({
+      status: "succeeded",
+      output: { revoked: true },
+    });
+    expect(revoked).toEqual(["refresh"]);
+    expect(secrets.kept.size).toBe(0);
+
+    // Two accounts whose ids a lossy name would merge keep their secrets apart:
+    // removing one leaves the other's untouched.
+    for (const id of ["team/a", "team-a"]) {
+      expect(await call("node.add", { id, text: id, tags: [T.account] })).toMatchObject({
+        status: "succeeded",
+      });
+      expect(
+        await call("ext.routines.client", { ...client, account: id, clientSecret: "GOCSPX-good" }),
+      ).toMatchObject({ status: "succeeded" });
+    }
+    expect(secrets.kept.size).toBe(4);
+    expect(await call("ext.routines.remove", { account: "team/a" })).toMatchObject({
+      status: "succeeded",
+    });
+    expect([...secrets.kept.keys()].toSorted()).toEqual(
+      [placedRef("team-a", "client-id"), placedRef("team-a", "client-secret")].toSorted(),
+    );
 
     expect(await call("extension.switch", { name: "routines", on: false })).toMatchObject({
       status: "succeeded",

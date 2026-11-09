@@ -117,7 +117,7 @@ function fieldFor(
     const [only] = named;
     if (only === undefined) return { name, id: null };
     if (named.length > 1 || isSysPrefixed(only.id)) continue;
-    const type = fieldTypeOf(only.props);
+    const type = fieldTypeOf(only.props, (id) => graph.get(id));
     if (values.every((raw) => conformsToType(type, propValue(raw, type)))) {
       return { name, id: only.id };
     }
@@ -196,7 +196,7 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
   for (const [name, values] of valuesByName) {
     const found = fieldFor(graph, name, boardName, values);
     if (found.id !== null) {
-      const type = fieldTypeOf(graph.get(found.id)?.props);
+      const type = fieldTypeOf(graph.get(found.id)?.props, (id) => graph.get(id));
       fields.set(name, { field: found.name, id: found.id, made: false, type });
       continue;
     }

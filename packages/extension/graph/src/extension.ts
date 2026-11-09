@@ -1,3 +1,4 @@
+import { GRAPH_POINT_DEFINITIONS } from "./point-definitions.ts";
 /**
  * The graph family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The declaration is the one home of the family's
@@ -44,6 +45,7 @@ import {
 export const graphExtension = defineExtension({
   name: "graph",
   label: "Graph",
+  points: Object.values(GRAPH_POINT_DEFINITIONS),
   manifest: { description: "The graph page: nodes and their relationships, in five renderers." },
   tags: ["graph"],
   optional: { byDefault: "on" },

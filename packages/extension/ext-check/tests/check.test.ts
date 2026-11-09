@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Layer, Option, Stream } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import { DatascriptIndex, derivedWith } from "@kb/query";
-import { canonicalJsonl, fieldTypeValue } from "@kb/model";
+import { canonicalJsonl, fieldTypeValue, writesOf } from "@kb/model";
 import {
   kbCtxLayer,
   type EffectStore,
@@ -127,12 +127,19 @@ function fixtureContext(initial: readonly KbNode[]) {
     loadEffect: Effect.sync(() => [...stored]),
     fingerprint: Effect.sync(() => `revision:${revision}`),
     txTail: tail,
-    commitEffect: (tx) =>
+    commitEffect: (tx, record) =>
       Effect.sync(() => {
         const base = `revision:${revision}`;
+        const writes = writesOf(tx, (id) => stored.find((entry) => entry.id === id));
         stored = applyTx(stored, tx);
         revision += 1;
-        return { base, fingerprint: `revision:${revision}`, tx };
+        return {
+          base,
+          fingerprint: `revision:${revision}`,
+          tx,
+          writes,
+          record: tail.append(tx, record),
+        };
       }),
   };
   const index = new DatascriptIndex(initial, { derived: derivedWith({}) });

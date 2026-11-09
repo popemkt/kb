@@ -1,6 +1,11 @@
-import { CommandPoint } from "./lib/command-point";
+import { PICKED } from "./lib/action-call";
+import { provideCommand, providePaletteStep } from "./lib/command-forms";
+import { CommandPoint, PaletteStepPoint } from "./lib/command-point";
+import { provideFieldEditor } from "./lib/field-editor";
 import { meterFrames } from "./lib/frame-meter";
+import { KeybindingPoint, provideKeybinding } from "./lib/keybindings";
 import { useReducedMotion } from "./lib/motion";
+import { provideValueKind, ValueKindPoint } from "./lib/value-kind";
 import {
   BACKDROP_BUDGETS,
   BackdropPoint,
@@ -25,12 +30,21 @@ import {
 export const PAGE_EXTENSION_SDK = {
   ViewPoint,
   provideView,
+  provideFieldEditor,
   RoutePoint,
   provideRoute,
   SidebarSectionPoint,
   DockPoint,
   OverlayPoint,
   CommandPoint,
+  provideCommand,
+  PaletteStepPoint,
+  providePaletteStep,
+  PICKED,
+  ValueKindPoint,
+  provideValueKind,
+  KeybindingPoint,
+  provideKeybinding,
   DesignSystemPoint,
   provideDesignSystem,
   BACKDROP_BUDGETS,

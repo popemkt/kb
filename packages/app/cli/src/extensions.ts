@@ -10,6 +10,7 @@
  * of the root's extensions would be skipped, so a gate can refuse one.
  */
 import type { Command } from "commander";
+import { kernelHosts } from "@kb/plugin";
 import { Effect } from "effect";
 import { z } from "zod";
 import {
@@ -22,6 +23,7 @@ import {
   FootprintRowSchema,
   isKbOrigin,
   onWire,
+  waitingForPoint,
   type ExtensionReport,
   type ExtensionReportRow,
   type ExtensionSettings,
@@ -126,13 +128,13 @@ function settingsLines(output: unknown): readonly string[] {
 /** `extension.list`'s report, as the action answers it; empty when it answers otherwise. */
 function reportOf(output: unknown): ExtensionReport {
   const parsed = ExtensionReportSchema.safeParse(output);
-  return parsed.success ? parsed.data : { extensions: [], points: [], failures: [] };
+  return parsed.success ? parsed.data : { extensions: [], points: [], roles: [], failures: [] };
 }
 
 /** Each ordered point's listeners, in the order a host asks them. */
 function pointLines(points: ExtensionReport["points"]): string[] {
   return points.flatMap(({ point, source, spec, listeners }) => [
-    `${point} (${source}): ${spec.cardinality}, ${spec.tier}, ${typeof spec.kernel === "string" ? spec.kernel : spec.kernel.join("/")}; ${spec.combine}`,
+    `${point} (${source}): ${spec.cardinality}, ${spec.tier}, ${kernelHosts(spec).join("/")}; ${spec.combine}`,
     ...listeners.map(
       ({ owner, id, match }, at) =>
         `  ${at + 1}. ${id} (${owner})${match === undefined ? "" : ` on ${match}`}`,
@@ -155,7 +157,7 @@ function organisationLines(row: ExtensionReportRow): string[] {
         `  declares ${point} (${spec.cardinality}, ${spec.tier}): ${spec.combine}`,
     ),
     ...uses.map(({ point, from }) =>
-      from === null ? `  waiting for point ${point}` : `  uses ${point} from ${from}`,
+      from === null ? `  ${waitingForPoint(point)}` : `  uses ${point} from ${from}`,
     ),
     ...provides.map((service) => `  provides ${service}`),
     ...failures.map((failure) => `  ! ${failure}`),
@@ -168,7 +170,7 @@ function listLines(
     readonly contributes: number;
     readonly actions: readonly RegisteredAction[];
   })[],
-  { points, failures }: ExtensionReport,
+  { points, roles, failures }: ExtensionReport,
 ): string[] {
   const lines: string[] = [];
   for (const e of listed) {
@@ -187,6 +189,15 @@ function listLines(
     }
   }
   lines.push(...pointLines(points));
+  for (const role of roles) {
+    lines.push(
+      `${role.role} (${role.source}): elected ${role.elected ?? "nobody"}; selected ${role.selected ?? "best approved"}`,
+    );
+    for (const candidate of role.candidates)
+      lines.push(
+        `  ${candidate.provider}: priority ${candidate.priority}${candidate.default ? " (default)" : ""}${candidate.fault === null ? "" : `; faulted: ${candidate.fault}`}`,
+      );
+  }
   for (const f of failures) lines.push(`! ${f.file}: ${f.error} (skipped)`);
   return lines;
 }

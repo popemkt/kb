@@ -597,8 +597,9 @@ type PropValue =
   (`field-value.ts`, the one statement of it: a url is a canonical link,
   `normalizeUrl`; a time is a local wall clock in strict `HH:MM` form
   (00:00–23:59), without a date or zone; a secret is a reference to where a
-  key lives, `env:NAME`, `keychain:<service>[/<account>]` or
-  `dotenv:/absolute/path#KEY` (`secret-ref.ts`), never the key, so a
+  key lives, `env:NAME`, `keychain:<service>[/<account>]`,
+  `dotenv:/absolute/path#KEY` or `sealed:<name>` (`secret-ref.ts`;
+  [Writable host secrets](#writable-host-secrets)), never the key, so a
   pasted key is refused before it can reach a committed store; only the
   process that needs the key reads it, through its `SecretSource`, as
   [Agent packages](#agent-packages) → providers states), and every
@@ -950,6 +951,43 @@ job a supertag has. `#graph-perspective` was one and is retired: strip a
 perspective's renderer and it is no graph, so what it is is the view it
 names, a field (View nodes, below).
 
+#### Field types
+
+**A field's type is an option node, and a family may add one.** A field
+node's `sys.f.fieldType` is a ref to one of that field's children. Core
+seeds the eight built-in types (`sys.ft.text` … `sys.ft.secret`); the
+children are a declared-option kind, `FIELD_TYPE_OPTIONS` (prefix `sys.ft.`,
+[Extension families](#extension-families) → Declared options), so a family
+declares a type as it declares a backdrop, and its option `sys.ft.<name>.<local
+id>` is filed beside the eight.
+
+- **A family's type stores as a built-in one.** Its option chooses the
+  built-in type its values are stored as (`chooses: [{ kind:
+FIELD_TYPE_OPTIONS, id: "number" }]`, which the fold writes as the option's
+  own `sys.f.fieldType`). `fieldTypeOf(props, nodeOf)` reads a field of it
+  as that type, one hop and never another family's, so the write check (a
+  value's kind and form), cardinality, `kb set`'s parse and datalog read a
+  rating as a number, and the store changes nothing. The option outlives
+  its family: uninstalled, untrusted or switched off, or its declaration
+  dropping the type, opening never deletes a node the fold no longer names
+  (only a retirement the declaration states moves one), so its fields keep
+  reading as the type they store as, and their values stay what they are.
+  Only the family's guard and drawing go with it. A field whose option node
+  is itself gone (deleted, or retired with no successor) reads as text, as
+  any unknown option's does: it degrades, never breaks.
+- **Its own form is its family's to hold, on every surface.** kb's write
+  check holds a value to the kind the type stores as; what more the type
+  asks (a rating is a whole number from 1 to 5) is a commit guard the
+  family's server entry contributes ([Action registry](#action-registry) →
+  Interception), so the CLI, MCP and the page refuse the same writes.
+- **How it is drawn is its page half's.** It contributes the type's value
+  kind to `ui.value-kinds`, by the option
+  ([DESIGN-UI → Field values](DESIGN-UI.md#field-values-one-slot-grammar)),
+  as the outline does each built-in type's. A type no kind is contributed
+  for draws as the type it stores as. The kind is page code
+  (`kb-ext-sdk/page`'s `provideValueKind`: its row of data, its glyph by
+  name and its surface); no kind is offered as data alone.
+
 #### View nodes
 
 **A view someone chose is a node.** A view is a projection of the graph
@@ -1081,7 +1119,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
 - **A tag names the view type its nodes open in, before the store's.** The
   same field, `sys.f.view.default`, on a tag node: a node that names no view
   opens in the first of its tags' defaults (in the order it carries them,
-  `tagDefaultViewsOf`) that its host holds a key for, else in the store's,
+  `tagViewsOf` in the role `default`) that its host holds a key for, else in the store's,
   else core's read view. So the resolution is one chain — the node's own
   view nodes, its tags', the store's, the floor — read by
   `resolveNodeView`, and opening a node through it is opening it through
@@ -1098,6 +1136,13 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     families, and for a repository extension a declaration that does not
     fold, refused as a unit and reported (Extension families). Never
     resolved by order.
+  - **One table of roles.** A tag names a view in more than one part
+    (`TAG_VIEWS`, `@kb/model`): `default`, the view type its nodes open
+    in, and `row`, the view an outline draws their rows as
+    (`sys.f.view.row`, DESIGN-UI → Row views). Each role is a field of the
+    tag node and a table of the declaration (`TAG_VIEW_CLAIMS`), read by
+    `tagViewsOf` and `heldTagViewOf` with the role and folded by one claim
+    rule, so a role is a row of the table, never a parallel path.
   - **The person overrides it on the tag.** `sys.f.view.default` is a
     setting of the kind `sys.tag` (`sys.f.configures` naming a kind: every
     node of it), and the kind templates it, so every tag's page shows the
@@ -1120,7 +1165,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     (`nodePath`, `@kb/views`).
 - **A tag's view sets how its nodes show.** The view a node's tag opens it
   in is the node's *tag opening* (`tagOpeningOf`, `@kb/ui-sdk`: the
-  resolver's own rule `heldTagDefaultOf` over the page's view catalog, when
+  resolver's own rule `heldTagViewOf` over the page's view catalog, when
   the page draws that view as a page). Such a node is still a node: in the
   outline it is a row like any other, and a small set of *display options*
   says what more its row shows (`@kb/model` `display.ts`, the one home of
@@ -2280,7 +2325,7 @@ scope.
 
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
 - **Mode**: every action states once, as a required field, what invoking it does.
   `{kind: "read"}` changes nothing.
   `{kind: "write", approval?: "required" | "delegated"}` may change the
@@ -3154,17 +3199,20 @@ from "kb-ext-sdk"`. Types are generated from
   `effect`'s, a dev dependency of the extension's repository; its values
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
-  views, routes, sidebar sections, docks, overlays, commands, design
-  systems, backdrops with their budgets and the kit's frame meter — and
+  views, routes, sidebar sections, docks, overlays, commands, picker
+  steps, field types' value kinds, keybindings, design systems, backdrops
+  with their budgets and the kit's frame meter — and
   React's own types), written beside it. `kb-ext-sdk` carries the
-  declared-option kinds a declaration names its backdrops by
-  (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
-  `backdropVariantOptions`) and the knob schema (DESIGN-UI.md → Page-head
+  declared-option kinds a declaration names its backdrops and field types
+  by (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
+  `backdropVariantOptions`, `FIELD_TYPE_OPTIONS`) and the knob schema (DESIGN-UI.md → Page-head
   backdrops → A plugin's backdrop is a backdrop). Its values are the
   page's `PAGE_EXTENSION_SDK` object (`@kb/ui-sdk`), so
   `page-surface-bridge.test.ts` holds the restatement to them as `surface-bridge.test.ts` holds
   `kb-ext-sdk`'s, by the one set of comparisons (`bridge.ts`): the
-  surface and served object have exactly the same value names; a value is
+  surface and served object have exactly the same value names; a point,
+  static (`PointKey`) or declared (`PointName`), is held by what it is
+  contributed; a value is
   the page's own exactly, member for member in every variant and through
   optional members, so the
   host can neither drop nor change what the surface advertises, and a
@@ -3295,7 +3343,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
+manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, tagRowViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
   of what it says about itself (`manifest`, `ExtensionManifestSchema` in
   `@kb/contracts`: the one line Settings shows under its label, its author,
   links, licence and capabilities; what each field means is
@@ -3456,7 +3504,9 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     composes beside the registry, such as `kb ui`'s agent: its code is that
     host's, its seed is every store's), with `sys.views` naming the default
     view type its one provider declares (`defaultView`), and each claimed
-    tag naming the view type its one claimant declares (`tagDefaultViews`);
+    tag naming the view its one claimant declares in each role
+    (`TAG_VIEW_CLAIMS`: `tagDefaultViews` for the view type it opens in,
+    `tagRowViews` for the view its rows are drawn as, DESIGN-UI → Row views);
   - each declaration's own node, `sys.extension.<name>`, derived from it as
     a view's option is derived from its key: named by its label, holding
     the defaults of the settings the fold derives for it (the display
@@ -3599,7 +3649,9 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     ([DESIGN-UI → Design systems](DESIGN-UI.md#design-systems));
   - `GRAPH_THEME_OPTIONS` (the graph family) → `lens.theme`, options
     `sys.graph.theme.<id>`
-    ([DESIGN-UI → Graph](DESIGN-UI.md#graph-i2)).
+    ([DESIGN-UI → Graph](DESIGN-UI.md#graph-i2));
+  - `FIELD_TYPE_OPTIONS` (core) → `sys.f.fieldType`, options
+    `sys.ft.<id>` ([Field types](#field-types)).
 
   A key is `<family>.<local id>`; a key of the kind's own owner has no
   family part (core's `kb` design system). The fold files every kind any
@@ -4776,8 +4828,10 @@ The sidebar agent lives outside core, in packages that core never imports
     wrote, in the process that needs it. A credential is resolved when a
     turn starts (`resolveCredential`), through the `SecretSource`
     (`@kb/contracts`) the composition root binds. `kb ui` binds
-    `systemSecrets` (`@kb/runtime`): `env:` reads its environment, and
-    `keychain:` asks `security` on macOS or `secret-tool` on Linux, whose
+    `systemSecrets` (`@kb/runtime`): `env:` reads its environment,
+    `sealed:` opens its file in kb's data directory ([Writable host
+    secrets](#writable-host-secrets)), and `keychain:` asks `security` on
+    macOS or `secret-tool` on Linux, whose
     process is killed if it has not answered within 30 s (the keychain may
     ask the person first), so a turn never hangs on a lookup, and is given
     only what a lookup needs of the environment
@@ -5040,13 +5094,70 @@ The sidebar agent lives outside core, in packages that core never imports
 
 ### Writable host secrets
 
-`dotenv:` references read their file on each use, with no shell expansion.
-Files must be private (0600) and regular, and symlinks are refused. A
-`SecretSink` is a capability bound to one file/key; a host constructs it
-only after checking the owning action binding's machine-local trust. Writes
-serialize through an exclusive lock, preserve other variables, and replace
-the file atomically with mode 0600, using the shared whole-file write primitives
-without a backup. Values and underlying filesystem errors never appear in errors.
+A host that keeps a secret for a person (a refresh token an OAuth flow
+returns, a client secret pasted into a setup page) keeps it through one
+port, `SecretStore` (`@kb/contracts`): a `SecretSource` that also answers
+where it would keep a new secret (`place(name)`, a reference), how to write
+and erase the one a reference names (`sink(ref)`, a `SecretSink` with
+`write` and `erase`), and in words what that store is (`describe`, which a
+setup page shows beside the field). `kb ui` binds `systemSecrets`
+(`@kb/runtime`), which serves every reference kind:
+
+- **Where a new secret goes.** `place` answers the macOS Keychain on macOS
+  (`keychain:kb/<name>`) and the sealed store everywhere else
+  (`sealed:<name>`). The host chooses the name, never a node: a node is
+  data anyone may have written, so it cannot steer a write. A name a host
+  derives from a node id is a digest of the whole id, so two nodes never
+  share a secret.
+- **`sealed:<name>`** is the file `<data>/secrets/<name>.sealed` in kb's
+  per-user data directory ([Locations](#locations)), 0600 in a 0700
+  directory, never in a root. Its first line, `kb-sealed/1 <cipher>`, names
+  the cipher that sealed it, so a file opens with the cipher that made it;
+  a new write seals with the first cipher the host can use:
+  - `systemd-creds` on Linux, when `systemd-creds encrypt --user` works for
+    this user without root (systemd ≥ 256, probed once per process). The
+    key is the host's credential secret, readable by root only, and its
+    TPM2 when it has one, with no PCR policy so a firmware update keeps the
+    secret. A copied file opens on no other machine.
+  - `aes-256-gcm` otherwise: WebCrypto, a random 96-bit nonce per seal, and
+    a random 256-bit key in `<data>/secrets/key` (0600). The key is made
+    on the first seal and published whole and only where none is
+    (`durableCreateFile`, `@kb/file-write`: written and synced beside it,
+    then linked into place, which fails rather than replaces), so of two
+    writers making one at once exactly one key wins and both use it, no
+    reader sees part of one, and a crash leaves no key rather than a
+    broken one; an existing key, even a malformed one, is never replaced.
+
+  Both bind the name into the seal (the name is systemd-creds' `--name`,
+  and AES-GCM's additional data is `kb-sealed/1\0<name>`), so a file
+  renamed to another reference, or tampered with, does not open.
+- **`keychain:`** writes go to `security` on macOS through its interactive
+  mode on stdin (`security -i`), and to `secret-tool store` on Linux, with
+  the value on stdin, so no value is ever on a command line; a value
+  `security -i` cannot quote is refused. Erasing deletes the item.
+- **`dotenv:`** references read their file on each use, with no shell
+  expansion. Files must be private (0600) and regular, and symlinks are
+  refused. Writes and erases serialize through an exclusive lock, preserve
+  other variables, and replace the file atomically with mode 0600, using
+  the shared whole-file write primitives without a backup.
+- **`env:`** is read-only: writing or erasing one is refused.
+
+What each store protects against is stated, not implied. The Keychain and
+systemd-creds keep a secret from a copy of kb's files, a backup and a
+commit; any process running as the same user on the same host can still
+ask them for it (the Keychain may ask the person first). The AES-GCM
+fallback keeps it from a copied sealed file alone, a backup that leaves the
+key out, and a commit; whoever can read this user's files can read the key
+beside it. Losing the host's credential key or TPM, or the key file, loses
+what they sealed, and reconnecting writes it again.
+
+A sink is a capability bound to one reference. A host writes through one
+only for a person's own approved action (`approval: "required"`, so an
+agent's call is refused) at a reference it placed, or after checking the
+owning binding's machine-local trust when the reference is a node's. Values
+and underlying filesystem errors never appear in errors, which name the
+reference. The sealed store's promise is one property suite,
+`sealed-contract.ts` in `@kb/runtime`, run over every cipher.
 
 ## Locations
 
@@ -5617,25 +5728,24 @@ as it is. Every kind below goes through the one kernel (`@kb/plugin`) as
 a service a plugin provides and others inject, or a contribution to a
 point. A plugin reaches another through an injected service or a declared point it lists in `uses`.
 
-| Kind                             | How                                                                                                                                             | Where it runs                          | Examples                          |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------- |
-| Actions                          | `ActionPoint` (`provideAction`)                                                                                                                 | every surface, through the invoke core | each family's verbs               |
-| Policy over calls                | guards, `ActionGuardPoint` (`guardAction`)                                                                                                      | before a call and before its commit    | governance's approval and `force` |
-| Transforms of calls              | interceptors, `ActionInterceptorPoint` (`onAction`)                                                                                             | around a call's input and output       | —                                 |
-| Who the person is                | `IdentityPoint` (`identity.providers`)                                                                                                          | the `kb ui` server's request guard     | proxy header                      |
-| Views and templates              | `ViewKeyPoint`, `TemplatePoint`                                                                                                                 | server text, docs, the page            | outline, collections, docs        |
-| Page UI                          | `ui.routes`, `ui.views`, `ui.sidebar`, `ui.docks`, `ui.overlays`, `ui.commands`, `ui.palette-steps`, design systems, backdrops, option previews | the page                               | every `-ui` half                  |
-| Conversations with the page      | `ChannelPoint`, beside `UiHost`                                                                                                                 | the `kb ui` server                     | the agent sidebar                 |
-| Seed, settings, declared options | the family's declaration                                                                                                                        | the bundled fold, every store          | each family                       |
-| Family-owned seams               | a point or service a family mints                                                                                                               | wherever that family reads it          | `graph.themes`, `lab.studies`     |
-| Repository code                  | a trusted closure in `.kb/extensions/`                                                                                                          | server and page, as owner code         | a repo's own family               |
-| Untrusted code                   | scripts in the sandbox                                                                                                                          | QuickJS or a worker, with a grant      | canvas and code scripts           |
+| Kind                             | How                                                                                                                                                               | Where it runs                          | Examples                          |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------- |
+| Actions                          | `ActionPoint` (`provideAction`)                                                                                                                                   | every surface, through the invoke core | each family's verbs               |
+| Policy over calls                | guards, `ActionGuardPoint` (`guardAction`)                                                                                                                        | before a call and before its commit    | governance's approval and `force` |
+| Transforms of calls              | interceptors, `ActionInterceptorPoint` (`onAction`)                                                                                                               | around a call's input and output       | —                                 |
+| Who the person is                | `IdentityPoint` (`identity.providers`)                                                                                                                            | the `kb ui` server's request guard     | proxy header                      |
+| Views and templates              | `ViewKeyPoint`, `TemplatePoint`                                                                                                                                   | server text, docs, the page            | outline, collections, docs        |
+| Page UI                          | `ui.routes`, `ui.views`, `ui.sidebar`, `ui.docks`, `ui.overlays`, `ui.commands`, `ui.palette-steps`, `ui.keybindings`, design systems, backdrops, option previews | the page                               | every `-ui` half                  |
+| Conversations with the page      | `ChannelPoint`, beside `UiHost`                                                                                                                                   | the `kb ui` server                     | the agent sidebar                 |
+| Seed, settings, declared options | the family's declaration                                                                                                                                          | the bundled fold, every store          | each family                       |
+| Family-owned seams               | a point or service a family mints                                                                                                                                 | wherever that family reads it          | `graph.themes`, `lab.studies`     |
+| Repository code                  | a trusted closure in `.kb/extensions/`                                                                                                                            | server and page, as owner code         | a repo's own family               |
+| Untrusted code                   | scripts in the sandbox                                                                                                                                            | QuickJS or a worker, with a grant      | canvas and code scripts           |
 
 **How extensibility works, by design.**
 
 - **Another implementation is another provider, chosen by configuration.**
-  No plugin takes over a service another holds (`service-conflict`, as in
-  Cordis).
+  [Provider roles](#provider-roles) own replacement and election.
 - **Taking part is a point with a stated combination rule**, never a
   wrapped service:
   - interception: guards, strictest verdict, and interceptors, in order
@@ -5659,23 +5769,6 @@ point. A plugin reaches another through an injected service or a declared point 
 
 **Not offered, by evidence.**
 
-- **Reacting after a commit, in a plugin.**
-  - The transaction log can be subscribed to (`KbTxLog.subscribe`), but
-    only host code does: the `kb ui` server converging extension switches
-    (`app/server/src/server.ts`), and the subscription hub fanning
-    transactions to sockets (`app/server/src/session.ts`).
-  - A plugin is handed no log:
-    - `UiHost` is a root and `invoke` (`contracts/src/channel.ts`);
-    - a registry family's handlers see the session only while a call runs;
-    - a commit guard sees the writes before the commit and may refuse
-      them, not act after them.
-  - So "when a node is tagged X, do Y" runs today only out of process. A
-    program connects to `/ws` and sends `{op: "watch-tx", enabled: true}`,
-    which any wire may read. It receives each transaction's delta, and acts
-    through `POST /api/action` as an agent. That needs a running `kb ui`.
-  - An in-process seam would be a point fed by the log, after the commit,
-    with the same budgets, failure rules and nesting limit as the
-    interception points. It is not built.
 - **A storage backend from a plugin.**
   - The store is fixed when kb is assembled. `BACKENDS` in
     `app/runtime/src/store-selection.ts`, the composition root, is the one
@@ -5693,9 +5786,14 @@ point. A plugin reaches another through an injected service or a declared point 
 
 The [extensibility parity design](docs/research/2026-11-08-extensibility-parity.md#4-declared-points) motivates this contract. Every point key carries a spec: cardinality (`list`, `keyed`, `single`, or `chain`), reader combination prose, accepted kernels (`registry`, `server`, `page`), and minimum isolation tier. A point may accept multiple kernels; guards and interceptors accept registry and page, while shared declarations accept all hosts. Kernels require an explicit host and refuse contributions to another host with `wrong-kernel`. Single points accept one contribution; keyed points refuse repeated ids, aliases, or the member path named by `keyBy`. Lists and chains retain contribution order. The effective extension report includes each live point’s spec and ordered contributions.
 
+Point names and specifications live in shared `PointDefinition` values. Core's
+are `CORE_POINT_DEFINITIONS`; a family's are exported by its shared package.
+The page keys and owners read those values, so host metadata can be read
+without importing page implementation code.
+
 ### Declared point lifecycle
 
-A plugin declares one local name (without dots), or its typed name reference,
+A plugin declares one local identifier (`[\w][\w-]*`), or its typed name reference,
 through `ctx.declare(name, spec)`. Repository and installed roots are bound by
 their host to `ext.<extension-name>`; children inherit that declaration
 authority even when their contribution prefix differs. Native roots use their
@@ -5710,3 +5808,138 @@ Typed point-name references resolve through that same reader. A declaration's
 Standard Schema contract decodes contributions before admission; a failure
 refuses the plugin atomically. The extension report shows declarations, their
 specs, contributors, and waiting point requirements.
+
+
+### Capability admission
+
+An extension's digest-covered manifest can state `uses`, `replaces` and
+`reacts` before code runs. `BUNDLED_CAPABILITIES` derives the current build's
+point definitions, replaceable roles and reserved namespaces from shared
+metadata and bundled declarations. Both import paths call
+`extensionAdmissionIssue` against that same catalog. Compatibility asks for
+capabilities, with no version ranges or exemptions.
+
+A manifest point use names `{point, kernel}`. Admission refuses malformed
+names, an unsupported kernel, a missing point in a native namespace (`kb`,
+`ui`, a bundled family, or another namespace of a host point), a static SDK
+key used as a declared point, and a known point unavailable at that kernel
+or page tier. A native capability absent from this build cannot arrive by
+installing another extension. A third-party `ext.<extension>.<local>` point
+can: its absent owner is a waiting dependency, unless that owner name is
+reserved by a bundled family and therefore cannot be installed. The host binds each manifest
+use to its requested half's kernel requirements, so it does not also hold
+up the other half. Settings and CLI show `waiting for <point> from
+<extension>`, with no load error. Owner departure and arrival follow the
+same kernel lifecycle as service injection.
+
+A replacement must name a replaceable role, come from someone other than
+its default owner, and have the host and page tier the role requires.
+Reaction matches decode as `TxMatch`; a nonempty `reacts` list requires the
+registry's `tx/after` capability. A declared `reacts` list is bound into
+root authority: every descendant's reaction match must structurally equal an
+entry, including array order; import the manifest match to keep one home for
+that data. The decoded stored match is frozen so it cannot broaden later.
+Omitted `reacts` remains undeclared for existing extensions. Uses and reaction conditions appear as data
+on the trust sheet. These are compatibility and disclosure statements;
+trusted T3 code still has the owner's process power.
+
+Requirements belong in the manifest, not the code declaration. Existing
+extensions with no manifest `uses` retain their code-level `Plugin.uses`
+requirements, checked by the kernel after module decoding. Arbitrary code
+metadata cannot be known before import; this compatibility path does not
+claim otherwise. When `uses` is present in the manifest, the host binds it
+and bounds every descendant's foreign point requirements by that list. A family's
+own points remain in its declaration authority and do not block the root
+before it can declare them. New
+extensions can omit `Plugin.uses` and let that data be its only home.
+
+### Provider roles
+
+A replaceable service, single point, or cell of a keyed point is a role.
+Its spec opts in with `replaceable: true`; all other registrations retain
+one-provider conflict rules. A cell holds its bundled owner's default at
+priority 100 and host-approved candidates at their declared priority (50
+when omitted). Lower wins; ties retain registration order. Approval belongs
+to host admission, never to a plugin's own fields. Installed code cannot
+make itself a default or grant replacement authority. Host-defined role keys
+reserve their address before a provider loads; installed code cannot mint
+a lookalike key to occupy an absent owner's role. A plugin context belongs
+to one activation and retires when its scope closes, including on re-election.
+
+An installed family's replacement claims live in its digest-covered manifest
+([manifest format](docs/extensions/README.md#replacing-provider-roles)).
+[Capability admission](#capability-admission) checks compatibility before import.
+The trust sheet shows each role, priority
+and reason. Trust of those exact bytes binds the claims to both module halves;
+code cannot grant its own authority. Changing the manifest requires trust of
+its new digest. A default owner cannot replace itself.
+
+The planned keybinding bridge will consume
+`kernel.replacementApproved(owner, role)` and its native page SDK proxy. Both
+inspect the same claim helper that live candidate registration uses. Their
+production inspection consumer waits for the owner to merge the keybinding
+step, then its editor follow-up.
+GAP [[01M6YS6XH9XS4TX7S7AYWXJX3A]] tracks that prepared surface; election remains
+`kernel.role` and the role consumers.
+
+Each owner seeds `sys.role.<role>` as a role node. Core's `sys.f.provider`
+ref field configures that kind and refers to an extension's ordinary node.
+Empty means the best approved candidate. Hosts read that graph setting into
+the kernel; a stored preference cannot admit a new candidate. Role inspection
+reports the default, candidates, elected provider and any session faults.
+
+Page consumers render through `useRole`, which shares the view error boundary.
+A render failure reports `kernel.fault(role, provider, cause)`, names the
+extension in a toast, and renders the next candidate. Service calls use
+`roleCall`: a defect or budget overrun faults the candidate and retries once
+with the next one; ordinary typed failures remain the caller's result.
+A fault demotes only replacements. The bundled default is the floor: its
+failure stays in that rendered instance's error UI, or returns from that
+service call, and never hides the role globally. A replacement fault lasts
+for the page or process session, including registry rebuilds,
+or until the provider's trusted code digest changes. A stale failure carries
+its old identity and cannot demote new code. Roles must be defined beside their host key before providers load.
+`roleCall` currently has no live server role; its shared contract suite
+proves the boundary until a server consumer opts in.
+The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
+
+### Transaction reactions
+
+`tx/after` is a registry point: a list combined independently after the
+committing outer invocation settles, with minimum tier T3. The SDK's
+`onCommit` contributes a data match and an Effect callback. Matches name
+added or removed tags, changed fields, creations or deletions; any named
+condition can match. An empty match observes every committed node write.
+The host matches before calling extension code, once per transaction, and
+hands the callback transaction metadata and matching before/after writes;
+`writes` is its only copy of node data.
+
+The store receipt carries the exact local tail record and before/after
+writes from the state held under its commit exclusion. `persistEffect`
+queues that receipt only after reconciling its session index and log.
+Nested calls share one invocation frame. The outer call drains it after
+settling, including when a handler committed before subsequently failing.
+Only local commits made in that frame qualify: adopting another process's
+transactions, virtual nodes and recovered hand edits never runs reactions.
+Delivery is at most once in the committing process; a process exit before
+delivery loses the reaction. There is no replay, durable cursor or page
+kernel reaction.
+
+A reaction receives no store or log. Its `ReactionHost.invoke` goes through
+the ordinary invoke core, guards and checked commit path, with actor
+`{kind: "reaction", id}` and no person's approval. Its ordinary nested calls cannot
+manufacture approval or replace its reaction attribution; entering a sandbox
+retains the script grant and its narrower attribution. Its checked-call capability retires when the callback settles or its budget
+expires, including Effects constructed earlier but run later. A reaction is
+not fed its own writes. Other reactions can see them, with the chain capped
+at `MAX_REACTION_DEPTH = 4`, independently of the ordinary call-depth cap.
+A refused continuation is reported and stops that chain.
+
+Each matching listener runs independently with the same abortable budget
+mechanism and default budget as interception. Failure or budget exhaustion
+is logged and included in the effective extension report; neither changes
+the outer call's receipt nor prevents another listener from running. The
+CLI, MCP and page writes all wait for the local drain before receiving their
+response. A chain can add four rounds of listener budgets, plus the checked
+actions those listeners invoke. Page writes react in the server process. The
+registry stays alive through the drain.

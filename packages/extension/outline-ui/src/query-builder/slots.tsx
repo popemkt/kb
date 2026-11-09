@@ -23,8 +23,9 @@ import {
   type FieldType,
   type PickerCandidate,
   type PropValue,
+  type FieldHandle,
 } from "@kb/ui-sdk";
-import { FieldPicker, PickerInput, type FieldHandle } from "../field-picker";
+import { FieldPicker, PickerInput } from "../field-picker";
 import { ValueSlot } from "../value-slot";
 import { toggledValue } from "../value-kind";
 import { advanceFrom, neighbourSlot, slotClass, type SlotTone } from "./slot-dom";

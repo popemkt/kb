@@ -47,7 +47,10 @@ export function callWithin(
   if (caller !== undefined && (madeByScript(caller) || madeBy(request) === "script")) {
     return scriptWithin(caller, request);
   }
-  const actor = madeBy(request) ?? caller?.actor;
+  // Identified actors keep their provenance through ordinary nested calls.
+  // Entering a sandbox is still narrowed by scriptWithin above.
+  const actor =
+    typeof caller?.actor === "object" ? caller.actor : (madeBy(request) ?? caller?.actor);
   if (actor === undefined) return null;
   const session = request.session ?? caller?.session;
   const via = request.via ?? caller?.via;

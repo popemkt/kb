@@ -1,6 +1,15 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
+import { matchesChord, TEXT_HISTORY_CHORD } from "../lib/keychord";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 import {
   getCaretSerializedOffset,
@@ -64,6 +73,12 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   tagAction?: (TagChipAction & { readonly tag: string }) | undefined;
   /** Explicit local placement for non-outline hosts such as a page title. */
   initialCaret?: "end";
+  /**
+   * How the row is drawn while no one edits it, given its text as this host
+   * draws it: a row view (DESIGN-UI.md → Row views), which places the text,
+   * so pressing it still edits where it was pressed. Absent: the text.
+   */
+  display?: (text: ReactElement) => ReactNode;
   textClassName?: string;
   onBlur?: () => void;
   zoomTitleEditor?: boolean;
@@ -97,9 +112,12 @@ function seatCaret(el: HTMLElement, at: CaretAt, length: number): number {
 
 /** The text-history step a chord asks for: ⌘Z undoes, ⇧⌘Z redoes. */
 function historyChord(e: React.KeyboardEvent): "undo" | "redo" | null {
-  if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "z") return null;
+  if (!matchesChord(e, TEXT_HISTORY_CHORD)) return null;
   return e.shiftKey ? "redo" : "undo";
 }
+
+/** A row drawn as its text alone: what the host shows while no row view draws it. */
+const shownAsText = (text: ReactElement): ReactNode => text;
 
 export function NodeTextHost({
   nodeId,
@@ -109,6 +127,7 @@ export function NodeTextHost({
   tags,
   tagAction,
   initialCaret,
+  display,
   textClassName,
   onBlur,
   zoomTitleEditor,
@@ -455,10 +474,12 @@ export function NodeTextHost({
             data-zoom-title-editor={zoomTitleEditor === true ? "true" : undefined}
           />
         ) : (
-          // The same element and tree, owned by React while nothing edits it.
-          <div ref={editorRef} key="view" className={textClass} role="presentation">
-            {content ? <InlineMarkdown text={content} ink={ink} /> : "\u200B"}
-          </div>
+          (display ?? shownAsText)(
+            // The same element and tree, owned by React while nothing edits it.
+            <div ref={editorRef} key="view" className={textClass} role="presentation">
+              {content ? <InlineMarkdown text={content} ink={ink} /> : "\u200B"}
+            </div>,
+          )
         )}
 
         {refOpen && (

@@ -30,13 +30,12 @@ import type { OutlineNode, PropValue } from "./types";
 
 export { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue, type FieldType };
 
-/** Read declared type from a field definition node; default text. */
-export function resolveFieldType(fieldNode: OutlineNode | undefined): FieldType {
-  return fieldTypeOf(fieldNode?.props);
-}
-
+/**
+ * The type `fieldId`'s values are held to (`fieldTypeOf`): its declared
+ * type, a family's type read as the built-in one it stores as; default text.
+ */
 export function resolveFieldTypeById(fieldId: string, schema: SchemaIndex): FieldType {
-  return resolveFieldType(schema.get(fieldId));
+  return fieldTypeOf(schema.get(fieldId)?.props, (id) => schema.get(id));
 }
 
 /**

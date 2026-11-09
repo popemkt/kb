@@ -5,7 +5,7 @@
  * errors — is tested where that behaviour is described.
  */
 import { Effect } from "effect";
-import { logContract, storeContract, tailContract } from "@kb/test-kit";
+import { logContract, storeContract, tailContract, reactionContract } from "@kb/test-kit";
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { JsonlStore, txTailPath } from "../src/index.ts";
 
 storeContract("JsonlStore", (root) => new JsonlStore(root));
+reactionContract("JsonlStore", (root) => new JsonlStore(root));
 
 const scratchRoot = Effect.acquireRelease(
   Effect.promise(() => mkdtemp(join(tmpdir(), "kb-tail-contract-"))),

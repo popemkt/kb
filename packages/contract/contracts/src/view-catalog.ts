@@ -6,6 +6,7 @@
  * The server provides it from its registry's kernel; the page derives it from
  * `kb.manifest.views`, so both list only what the server loaded.
  */
+import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Context, type Effect } from "effect";
 import type { KbNode } from "@kb/model";
 import { Point } from "@kb/plugin";
@@ -39,12 +40,10 @@ export function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P> {
 }
 
 /** Every view a loaded plugin provides, by view id. */
-export const ViewKeyPoint = Point<ViewDef<unknown>>()("kb.views", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: ["registry", "server", "page"],
-  tier: "T3",
-});
+export const ViewKeyPoint = Point<ViewDef<unknown>>()(
+  CORE_POINT_DEFINITIONS.viewKey.name,
+  CORE_POINT_DEFINITIONS.viewKey.spec,
+);
 
 /** The views the host's loaded plugins provide: what `view.propose`, `render.view` and `kb.manifest` read. */
 export class ViewCatalog extends Context.Service<ViewCatalog, ViewCatalogOf<ViewDef<unknown>>>()(

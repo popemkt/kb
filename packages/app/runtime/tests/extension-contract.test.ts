@@ -235,6 +235,11 @@ describe("the server's entries are resolved from the one bundled list", () => {
     expect(BUNDLED_EXTENSIONS.map(({ declaration }) => declaration)).toEqual([...BUNDLED_FAMILIES]);
   });
 
+  test("pairing entries preserves their admitted identity", () => {
+    const entry = plugin("a");
+    expect(serverEntriesFor([family("a")], [entry])[0]?.entry).toBe(entry);
+  });
+
   test("a bundled family with no server entry fails", () => {
     expect(() => serverEntriesFor([family("a"), family("b")], [plugin("a")])).toThrow(
       "family b has no server entry",

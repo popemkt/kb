@@ -15,7 +15,8 @@ import { useGraphStore } from "@/stores/graph.store";
 import { OutlineListView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { outlineNodes, outlineUiPlugin, setOutlineHost, useOutlineStore } from "@kb/outline-ui";
+import { outlineNodes, setOutlineHost, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionTableView } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 

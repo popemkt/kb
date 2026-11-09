@@ -60,6 +60,7 @@ export interface KbNode {
   text: string;
   props: Record<NodeId, PropValue[]>;
   children: NodeId[];
+  order?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -171,16 +172,26 @@ export interface ServiceKey<S> {
   readonly kind: "service";
   readonly name: string;
   readonly "~type"?: S;
+  readonly spec?: ServiceSpec;
 }
 
 export type KernelHost = "registry" | "server" | "page";
 
-export interface PointSpec {
-  readonly cardinality: "list" | "keyed" | "single" | "chain";
-  readonly combine: string;
+export interface KernelSpec {
   readonly kernel: KernelHost | readonly KernelHost[];
   readonly tier: "T0" | "T1" | "T2" | "T3";
-  /** Dot-separated member path; absent means contribution id. */
+}
+
+export interface RolePolicy {
+  readonly replaceable?: boolean;
+  readonly rolePrefix?: string;
+}
+
+export interface ServiceSpec extends KernelSpec, RolePolicy {}
+
+export interface PointSpec extends KernelSpec, RolePolicy {
+  readonly cardinality: "list" | "keyed" | "single" | "chain";
+  readonly combine: string;
   readonly keyBy?: string;
   readonly contract?: effect.StandardSchema.StandardSchemaV1;
 }
@@ -205,6 +216,7 @@ export interface PointName<C> {
 export interface ContributionEntry<C> {
   readonly id: string;
   readonly aliases?: readonly string[];
+  readonly replaces?: string;
   readonly value: C;
 }
 
@@ -360,6 +372,13 @@ export interface ExtensionDeclaration {
   /** Its system nodes under frozen ids, stamped `at`. */
   readonly seed?: (at: string) => readonly KbNode[];
   /** The views it provides; its entries contribute exactly these (`declarationPlugin`). */
+  /**
+   * Its own seed nodes it files under a list node, by the list's id: a pin
+   * among the Pinned, a view among the Views, or a node only it reads (a
+   * query its commands ask) under its own node, `sys.extension.<name>`, so
+   * the outline's home does not show it.
+   */
+  readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   readonly views?: readonly ViewDef<unknown>[];
   /**
    * The tags whose nodes open in one of its own `views` before the store's
@@ -367,6 +386,13 @@ export interface ExtensionDeclaration {
    * already claims makes this one not fold, so it is refused as a unit.
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
+  /**
+   * The tags whose nodes an outline draws as one of its own `views`, in
+   * place of their row's text while no one edits it: by the tag's id, the
+   * view's key, which its page half provides at placement `row`. A tag
+   * another declaration already claims makes this one not fold.
+   */
+  readonly tagRowViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
   /**
    * The declared options it contributes, by kind (a design system, a
    * backdrop): each named by the id its page contribution answers to.
@@ -522,7 +548,12 @@ export type NoParams = { readonly [key: string]: never };
  * an agent, the owner's CLI, or code in the sandbox. kb records it on the
  * transaction the call commits, and grants nothing by it.
  */
-export type Actor = "human" | "agent" | "cli" | "script";
+export type Actor =
+  | "human"
+  | "agent"
+  | "cli"
+  | "script"
+  | { readonly kind: "reaction"; readonly id: string };
 
 /** A call as the invoke core runs it: the action, its input, and who makes it. */
 export interface ActionInvocation {
@@ -566,9 +597,19 @@ export interface GuardCall {
   readonly signal: AbortSignal;
 }
 
+/** A node as a guard reads it: what it says, its fields' values and its children. */
+export interface NodeLike {
+  readonly id: NodeId;
+  readonly text: string;
+  readonly props: Readonly<Record<NodeId, readonly PropValue[]>>;
+  readonly children: readonly NodeId[];
+}
+
 /** A call as a guard is asked about its commit: the call, and the nodes it writes. */
 export interface CommitCall extends Omit<GuardCall, "phase"> {
   readonly writes: readonly NodeWrite[];
+  /** How the writes' fields, kinds and named nodes are read: the graph before the commit. */
+  readonly nodeOf: (id: NodeId) => NodeLike | undefined;
 }
 
 /** A guard: it decides about the calls it matches, and cannot change them. */
@@ -595,6 +636,44 @@ export interface ActionInterceptor {
   readonly output?: (call: InterceptedCall, output: unknown) => effect.Effect.Effect<unknown>;
 }
 
+/** A store transaction, as recorded by the committing process. */
+export interface StoreTx {
+  upserts: KbNode[];
+  deletes: NodeId[];
+}
+export interface KbTx {
+  rev: number;
+  ops: StoreTx;
+  at: string;
+  origin?: string;
+  actor?: Actor;
+  session?: string;
+  via?: string;
+}
+export interface TxMatch {
+  readonly tagged?: readonly NodeId[];
+  readonly untagged?: readonly NodeId[];
+  readonly fields?: readonly NodeId[];
+  readonly created?: boolean;
+  readonly deleted?: boolean;
+}
+/** Frozen commit data; writes are only the nodes matched by this listener. */
+export interface TxChange {
+  readonly tx: Readonly<Omit<KbTx, "ops">>;
+  readonly writes: readonly NodeWrite[];
+}
+export interface ReactionHost {
+  readonly signal: AbortSignal;
+  readonly invoke: (
+    id: string,
+    input: Readonly<Record<string, unknown>>,
+  ) => effect.Effect.Effect<ActionReceipt>;
+}
+export interface TxReaction {
+  readonly match: TxMatch;
+  readonly react: (change: TxChange, kb: ReactionHost) => effect.Effect.Effect<void>;
+}
+
 /** The host's Effect, which a plugin's `apply` and an action's `effect` are written in. */
 export declare const Effect: typeof effect.Effect;
 /** The host's Schema, which a view key's params are written in. */
@@ -610,7 +689,7 @@ export declare function familyTags(
 ): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
-export declare function Service<S>(): (name: string) => ServiceKey<S>;
+export declare function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;
 /** Every render template, by the id a view spec names it with. */
@@ -635,6 +714,15 @@ export declare function onAction(
   hooks: Omit<ActionInterceptor, "match">,
   id?: string,
 ): effect.Effect.Effect<void, PluginError>;
+/** Matching local commits, delivered after the outer invocation settles; no page-kernel reactions. */
+export declare const TxAfterPoint: PointKey<TxReaction>;
+export declare function onCommit(
+  plugin: PluginContext,
+  match: TxMatch,
+  react: TxReaction["react"],
+  id?: string,
+): effect.Effect.Effect<void, PluginError>;
+
 export declare function provideAction(
   action: ExtensionAction,
 ): ContributionEntry<ActionContribution>;
@@ -648,6 +736,14 @@ export declare function viewKey<P>(
 ): PlainViewKey<P>;
 export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
 export declare const NoParams: effect.Schema.Decoder<NoParams>;
+/**
+ * The field types' kind: a declaration lists the types it adds under it,
+ * each choosing the built-in type it stores as (`sys.ft.number`'s option,
+ * `{ kind: FIELD_TYPE_OPTIONS, id: "number" }`). Its page half contributes
+ * the type's value kind (`kb-ext-sdk/page`'s `provideValueKind`), and a
+ * guard of its server entry holds its values to their form.
+ */
+export declare const FIELD_TYPE_OPTIONS: DeclaredOptions;
 /** The backdrops' kind: what a declaration lists its backdrops' keys under. */
 export declare const BACKDROP_OPTIONS: DeclaredOptions;
 /** The backdrops' variants' kind (`backdropVariantOptions` names them). */

@@ -12,6 +12,7 @@
  * field editor knows to lay its field out as a gallery (DESIGN-UI.md →
  * Field values → option galleries), so no surface asks for one.
  */
+import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { declaredIdOf, type DeclaredOptions, type NodeId } from "@kb/model";
 import { Point } from "@kb/plugin";
@@ -32,13 +33,10 @@ export interface OptionPreview {
   readonly Preview: ComponentType<{ readonly id: string; readonly size: PreviewSize }>;
 }
 
-export const OptionPreviewPoint = Point<OptionPreview>()("ui.option-previews", {
-  cardinality: "keyed",
-  combine: "lookup by option field",
-  kernel: "page",
-  tier: "T3",
-  keyBy: "kind.field",
-});
+export const OptionPreviewPoint = Point<OptionPreview>()(
+  CORE_POINT_DEFINITIONS.optionPreview.name,
+  CORE_POINT_DEFINITIONS.optionPreview.spec,
+);
 
 /**
  * How each option of `fieldId` is previewed at `size`, by its option

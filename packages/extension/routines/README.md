@@ -9,49 +9,57 @@ ordinary outline fields and `ext.routines.*` actions work as well.
 
 ## Owner setup (once per person)
 
-1. In your own Google Cloud project, enable the **Google Calendar API**. Configure
-   the OAuth consent screen, add `https://www.googleapis.com/auth/calendar.app.created`,
-   and set publishing status to **In production**. Google's external **Testing**
-   status expires these refresh tokens after seven days. Create an OAuth client
-   of type **Desktop app**, using your own project rather than shared credentials.
-   [Google desktop OAuth documentation](https://developers.google.com/identity/protocols/oauth2/native-app).
-2. On the shared server, create a private directory and dotenv file outside the
-   repository, for example `~/.config/secrets/kb-routines.env` (directory `0700`, file `0600`).
-   Put the downloaded desktop client ID and client secret in `GOOGLE_CLIENT_ID`
-   and `GOOGLE_CLIENT_SECRET`. Reserve `GOOGLE_REFRESH_TOKEN` for Connect to write.
-   Never put actual credentials in kb, a PR, or a sync log.
-3. Enable the family with `extension.switch {"name":"routines","on":true}`.
-   Create one `#google-account` node per person. Set **email** to its label and
-   its three secret fields to absolute references, for example:
+Setup is a wizard in the page: **Calendar → Set up sync** (or **Sync services**),
+**Add sync service → Google** ([DESIGN-UI.md → Sync services](../../../DESIGN-UI.md#sync-services)).
+Every step links to the Google Cloud Console page it needs, with your project
+already chosen, and says what you will see there. In short:
 
-   ```text
-   client id:     dotenv:/home/you/.config/secrets/kb-routines.env#GOOGLE_CLIENT_ID
-   client secret: dotenv:/home/you/.config/secrets/kb-routines.env#GOOGLE_CLIENT_SECRET
-   refresh token: dotenv:/home/you/.config/secrets/kb-routines.env#GOOGLE_REFRESH_TOKEN
-   ```
+1. **Project.** Create your own Google Cloud project (never shared
+   credentials). When `gcloud` is signed in on kb's host, the wizard offers to
+   create it and enable the API for you.
+2. **Calendar API.** Enable the Google Calendar API on it.
+3. **Consent screen.** Google Auth platform → Get started: app name, your
+   email, audience **External**.
+4. **Publish.** Audience → **Publish app**, so the status reads **In
+   production**. In Testing, Google ends the connection after seven days.
+   An app only you use stays unverified; Google's warning at sign-in is
+   expected.
+5. **OAuth client.** Clients → Create client, type **Web application**, with
+   the **Authorized redirect URI** the wizard shows
+   (`<public origin>/calendar/connect`; start kb with
+   `kb ui --public-origin https://<your-kb-host>` so it is the address you
+   open kb at). Paste the client ID and secret into the wizard, which checks
+   them with Google before keeping them.
+6. **Connect.** Connect with Google: you approve kb's binding on this host,
+   sign in with the right account, and Google sends you back to kb with a
+   refresh token kept on the host. kb asks only for
+   `https://www.googleapis.com/auth/calendar.app.created`.
+7. **Calendars.** Pick kb calendars to sync (or name a new one). Each gets its
+   own new **kb routines** Google calendar; kb never adopts an existing
+   personal calendar. Their sync is switched on.
 
-4. Create a `#calendar` node linked to that account. Leave **calendar id** empty,
-   use adapter **google**, timezone **Asia/Ho_Chi_Minh**, and sync **preview**.
-   Run `ext.routines.binding {"calendar":"<calendar-node-id>"}`. The person must
-   grant that digest through `sandbox.trust {"digest":"sha256:…"}` on the server.
-   Trust is machine-local and covers account, adapter, calendar ID and secret
-   references. Changing any of those requires a new grant.
-5. Run `ext.routines.connect` with the same calendar argument, then open its URL
-   in your own browser. Use the correct Google account. A local browser reaches
-   the loopback callback directly. For a browser on another machine, copy the
-   complete failed `http://127.0.0.1:…/callback?code=…&state=…` redirect from its
-   address bar into `ext.routines.finish {"calendar":"…","redirect":"…"}`.
-   Do not paste it into chat. A local callback uses `finish` without `redirect`.
-   Connect validates state and PKCE, saves the refresh token privately and creates
-   a new **kb routines** app calendar. It never adopts an existing personal calendar.
-6. `finish` returns the new binding digest; grant it (the newly created calendar
-   ID changes the binding). Use `kb ui --public-origin https://<your-kb-host>` so
-   event backlinks point to the shared server. Start only this server for sync.
-   Keep other kb copies in preview or paused. Set sync **on** when ready.
+Secrets never go into kb's nodes or the repository. The host keeps the client
+ID, client secret and refresh token in its secret store (DESIGN.md →
+[Writable host secrets](../../../DESIGN.md#writable-host-secrets)): the macOS
+Keychain on a Mac, and on Linux a file in kb's data directory sealed with
+`systemd-creds`, or with AES-256-GCM under a key file beside it where
+`systemd-creds` cannot seal. The account node holds only the references
+(`sealed:routines.<digest of the account id>.client-secret`, …), and the page never receives a
+value after you paste it. Agents cannot read them, and cannot set up, connect
+or remove a service: those actions require the person's approval.
 
-The email field identifies whose configuration this is; OAuth account selection
-is made in Google's consent page. Tokens stay server-side. `invalid_grant` or
-revoked authorization stops that account until Connect succeeds again.
+Run sync from one server only, and keep other kb copies in preview or paused.
+The email field labels the account and is Google's sign-in hint. `invalid_grant`
+or revoked authorization stops that account until it is connected again.
+**Remove** revokes kb's access at Google, erases the host's secrets, pauses and
+unlinks its calendars and deletes the account node.
+
+The setup actions, all `approval: "required"` except the reads:
+`ext.routines.setup {}` (redirect URI, store, gcloud),
+`ext.routines.binding {"node":"<account-or-calendar>"}` (the digest to trust),
+`ext.routines.automate {"project":"…"}`, `ext.routines.client {"account","clientId","clientSecret"}`,
+`ext.routines.connect {"account":"…"}`, `ext.routines.finish {"redirect":"…"}`,
+`ext.routines.provision {"calendar":"…"}` and `ext.routines.remove {"account":"…"}`.
 
 ## Editing and operating
 

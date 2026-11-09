@@ -245,6 +245,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Frame views that offer the page placement, or a core frame page that lays the frame out through its first frame view, chosen by the resolver when the outline is not held.
 - **node** — `01M5MWXPDDZGG2PFEGMG95HMBY`
 
+### GAP: a keybinding over a held chord is refused by the page keymap, not the kernel
+
+- **expected** — The kernel refuses a ui.keybindings contribution whose chord overlaps a held one in its context (contribution-conflict), unless it replaces the holder, so the plugin fails to apply as a unit and Settings shows the failure with its family, as for any conflict (extensibility parity record §3.3, §4.1).
+- **current** — The kernel admits every binding by id; admitKeybindings in @kb/ui-sdk decides overlap, reservation and replaces, leaves a refused binding inert, and tells the person by toast once a page session.
+- **impact** — A refused binding still shows in the family footprint as contributed; the refusal is a toast, not a load failure Settings can list.
+- **closes** — Cell claims in the kernel: step 5 declared point slots plus step 7 replaceable cells, with the overlap relation stated in the point spec, read by contributeErased.
+- **node** — `01M6Y9H5FD9GVMK9N9QBT5DNTN`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -466,12 +474,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
-### GAP: a tag's view.default picker offers view types no node opens in
+### GAP: a tag's view pickers offer view types that cannot play their part
 
-- **expected** — the picker on a tag's view.default offers only the view types a node can be shown in (showsANode), the outline among them
-- **current** — it offers every option of sys.views (the home, the canvas list, the 2D and 3D renderers); choosing one of those is reported at open and passed over, so the node opens in the store's default
+- **expected** — the picker on a tag's view.default offers only the view types a node can be shown in (showsANode), the outline among them; the one on its view.row only the views a page draws at placement row
+- **current** — both offer every option of sys.views (the home, the canvas list, the 2D and 3D renderers). A default naming one of those is reported at open and passed over, so the node opens in the store's default; a row view the page does not draw at row is passed over, so the row is its text
 - **impact** — a person can pick a choice that silently does nothing for the tag's nodes apart from a warning in the log
-- **closes** — the field's option set narrowed by what a view shows (an option filter read from the view catalog), shared by the store default and the tag default
+- **closes** — each field's option set narrowed by what a view does (an option filter read from the view catalog for the default, from the page's placements for the row), shared by the store default and the tag fields
 - **node** — `01M69DX3D78HDQJ7W5E4HGC4PJ`
 
 ### GAP: a theme cannot bring a graph look of its own
@@ -514,11 +522,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a tokens field on design-system option nodes (layer-1 token to value, typed per token kind), a painter that writes the sheet from the node, the contracts reading the node; today's sheets become the seed's values
 - **node** — `01M5SNSPSGYCF6AKWVXQS2GJQJ`
 
-### GAP: a view host is placement-only, and Placement is only page
+### GAP: a view host hands placement, view node and row only; size, appearance and reduced motion wait
 
 - **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
-- **current** — Placement is page | inline; ViewHost carries only placement. ViewSlot counts embeds by an exact (view, subject) ancestor chain plus MAX_VIEW_DEPTH=32 (slotRenders in lib/view-key.ts), and the keyboard walk asks the same rule.
-- **impact** — No view can be embedded at card, beside, float, inline or hover size yet, and a view cannot learn its box size, the appearance key or the reduced-motion preference from its host, so the shared suite cannot check those properties. Nothing breaks today, because every host asks for page placement.
+- **current** — Placement is page | inline | preview | row. ViewHost carries placement, the view node a host draws from (viewNode), and at row the row it draws (RowSubject: the node, its markdown, its text as the outline drew it). ViewSlot counts embeds by an exact (view, subject) ancestor chain plus MAX_VIEW_DEPTH=32 (slotRenders in lib/view-key.ts), and the keyboard walk asks the same rule. view-contract mounts each view at each placement it offers, a row view with a sample row.
+- **impact** — No view can be embedded at card, beside, float or hover size yet, and a view cannot learn its box size, the appearance key or the reduced-motion preference from its host, so the shared suite cannot check those properties.
 - **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, have ViewSlot measure its box, and add the matching view-contract properties.
 - **node** — `01M3EZR20H0CDF5MD01M2S26C5`
 
@@ -610,6 +618,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A person cannot switch off an untrusted extension from Settings before reviewing it (kb action-invoke extension.switch still can), and the CLI and the page cannot show an unloaded extension's switch.
 - **closes** — Report the switch on every row (familyOn over the switch node and the default for a non-bundled family), bump WIRE_PROTOCOL, and derive the UI's power action from it.
 - **node** — `01M6XAQX9VXDK3M0ZMXMQ33DFY`
+
+### GAP: an installed or linked extension cannot replace a held key, since no one can approve the replacement yet
+
+- **expected** — A binding that names what it replaces is admitted when a person approved that replacement, checked where the kernel admits a contribution and shown on the extension trust sheet (parity step 8); bundled, host and repository-root code is approved by being there.
+- **current** — admitKeybindings honours replaces only from an owner whose family the host approves (BrowserHost.replacementApproved: kb's own origins and the repository's own folder, replacesWithoutApproval); a linked or installed extension's binding that names replaces is refused and told that it waits for replacement approval.
+- **impact** — An installed extension cannot rebind a key the outline or another extension holds, even once its code is trusted; it can only bind free chords.
+- **closes** — Parity step 8: replacement approval on the trust sheet, checked at kernel admission through the role cell Sol is building (step 7), then replacementApproved reads that approval and the origin rule goes.
+- **node** — `01M6YFRJGV8MAF2AM34N567MBQ`
 
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
@@ -1099,6 +1115,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shapes show their node
 - **node** — `01M42Q9H3RA1FHZYYYP2M9QJ4V`
 
+### GAP: only the outline keymaps are keybinding contexts; the global Mod-K and the canvas keymap are fixed tables
+
+- **expected** — Every page surface whose keys mean something is a context on ui.keybindings (the parity record §3.3 names a global context), so a binding can rebind or extend it and the conflict rule covers it.
+- **current** — matchGlobalShortcut decides Mod-K in code, and canvas-ui reads its own CANVAS keymap table; both only reserve or ignore ui.keybindings.
+- **impact** — An extension cannot add a global key or a canvas key, and two mechanisms answer which key means what.
+- **closes** — A global context owned by the shell and a canvas context owned by canvas-ui, each with intents and reserved chords, read through currentKeymap.
+- **node** — `01M6Y9H6R5D9Y8TQKZJZVWX8PB`
+
 ### GAP: only view.propose checks a view node's settings against its key
 
 - **expected** — every write of a view node, from any action, is checked by its view key
@@ -1242,6 +1266,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every consumer needs bun on PATH; a machine without bun cannot run a release.
 - **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then publish.yml, the one release path, adds a compile matrix and release-smoke runs on each binary.
 - **node** — `01M56H9MA14N5TG8640BN6PHXP`
+
+### GAP: replacement approval inspection awaits the keybinding consumer
+
+- **expected** — Every published kernel and native page API has a production consumer.
+- **current** — Step 8 prepares Kernel.replacementApproved and its native page proxy at the coordinators explicit request. They share the live registration rule, but their production inspection consumer waits for the owner to merge PR 136 and the editor follow-up.
+- **impact** — The inspection surface is supported and tested before a product caller needs it.
+- **closes** — The editor follow-up after PR 136 consumes the inspection API through the kernel role path, or removes the unused inspection exports; remove their GAP markers then.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M6YS6XH9XS4TX7S7AYWXJX3A`
 
 ### GAP: repository extensions cannot ship UI
 
@@ -1510,14 +1543,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One rename across the workspace, done when the canvas packages are free to touch.
 - **node** — `01M53GQC1V4S043899SSX8Q47J`
 
-### GAP: the node menu's order is list position
-
-- **expected** — a node command declares where it sits in the menu, and the menu lists the registry's commands and every CommandPoint contribution by it
-- **current** — the registry's static list, then the views' rows, then contributions in load order, then 'Filter…'
-- **impact** — a family cannot contribute a node command to a slot: the outline's indent, outdent and 'Filter…' stay the shell's, and expand/collapse all sit after the default-view rows
-- **closes** — an order on node commands, read by the one menu builder
-- **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
-
 ### GAP: the node palette has no "Add value to <field>" command
 
 - **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
@@ -1605,6 +1630,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A GPU busy with another app's work reads as the backdrop's cost, so its quality steps down when it need not; on WebGL2 quality only falls once frames actually drop.
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
+
+### GAP: the systemd-creds sealed-store contract runs only on a host that can seal
+
+- **expected** — The sealed-store contract (packages/app/runtime/tests/sealed-contract.ts) runs over every cipher, systemd-creds included, on every machine the suite runs on, CI too.
+- **current** — sealed-secrets.test.ts joins systemd-creds to the contract only when 'systemd-creds encrypt --user' works here (systemd >= 256, a credential key the user may seal under). CI runners and macOS skip it, so only a developer host proves the cipher; its argv/stdin shape is covered there by a fake runner.
+- **impact** — A change that breaks systemd-creds sealing (argv, name binding, decrypt) can pass CI and only fail on a Linux host, where kb then falls back to nothing it can open and asks the person to reconnect.
+- **closes** — A CI job on a runner with systemd >= 256 and user credentials (or a container with systemd as PID 1) that runs the runtime suite, so hostSeals is true there and the skip goes.
+- **node** — `01M6XSXADG90BAMC22ZXWGV57D`
 
 ### GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form
 
@@ -2621,6 +2654,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Ordering rules per value type (str/num/date/bool/ref/missing) are only visible by reading the whole comparator, and are not directly testable.
 - **closes** — Extract compareByField(fieldId, dir) and fold the specs with a compose helper.
 - **node** — `01M1MGCKK69CQBZQYAKRMESW5S`
+
+### GAP: the node menu's order is list position
+
+- **expected** — a node command declares where it sits in the menu, and the menu lists the registry's commands and every CommandPoint contribution by it
+- **current** — the registry's static list, then the views' rows, then contributions in load order, then 'Filter…'
+- **impact** — a family cannot contribute a node command to a slot: the outline's indent, outdent and 'Filter…' stay the shell's, and expand/collapse all sit after the default-view rows
+- **closes** — an order on node commands, read by the one menu builder
+- **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
 
 ### GAP: the outline keydown handler is a 64-branch callback
 

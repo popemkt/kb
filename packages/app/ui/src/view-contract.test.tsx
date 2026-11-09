@@ -1,10 +1,13 @@
 /**
  * The view contract (DESIGN-UI.md → UI points: routes and views), run over
- * every view the core plugins and every browser entry contribute. A view joins
- * by being registered; a promise one view breaks turns this suite red.
+ * every view the core plugins and every browser entry contribute, and every
+ * view of the test kit's example repository extension, loaded from the bytes
+ * a server serves it as: the row view a page holds is one an extension
+ * draws. A view joins by being registered; a promise one view breaks turns
+ * this suite red.
  *
- * It checks what a view must keep in each placement it offers (a view that
- * offers one is mounted there): it is found by its key, its
+ * It checks what a view must keep in each placement it offers, mounted
+ * there (at `row` with a sample row, as the outline hands one): it is found by its key, its
  * sample is a legal value of the settings its key declares, it
  * mounts in a slot, the slot falls back while its owner is unloaded and
  * brings it back on reload, a throw under its key stays inside the slot, a
@@ -22,8 +25,9 @@ import {
   definePlugin,
   makeKernel,
   type Plugin,
+  kernelHosts,
 } from "@kb/plugin";
-import { SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
+import { foldSeed, SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
 import {
   findView,
   keptLoad,
@@ -32,17 +36,23 @@ import {
   syncUiPlugins,
   ViewPoint,
   ViewSlot,
+  type Drawn,
   type Placement,
   type ProvidedView,
+  type RowSubject,
   type ViewProps,
 } from "@kb/ui-sdk";
 import { setPostAction } from "@/api/action";
 import { NoParams, viewCatalogOf, viewKey } from "@kb/views";
-import { ViewKeyPoint } from "@kb/contracts";
+import { CORE_POINT_DEFINITIONS, ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
-import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import { loadExamplePageHalf } from "@/test-support/example-page-half";
+
+/** The example repository extension's page half, and the declaration its server half folds. */
+const EXAMPLE = await loadExamplePageHalf();
 
 const ALL_PLUGINS: readonly Plugin[] = [
   ...CORE_UI_PLUGINS,
@@ -51,7 +61,11 @@ const ALL_PLUGINS: readonly Plugin[] = [
       extension === null ? [] : [extension.load()],
     ),
   )),
+  EXAMPLE.plugin,
 ];
+
+/** Every family a server running the bundled ones and the example folds. */
+const DECLARATIONS = [...BUNDLED_DECLARATIONS, EXAMPLE.declaration];
 
 /** A kernel holding every plugin the UI can hold. */
 const KERNEL = (() => {
@@ -60,12 +74,41 @@ const KERNEL = (() => {
   return kernel;
 })();
 
+describe("the bundled point declaration contract", () => {
+  for (const family of BUNDLED_DECLARATIONS) {
+    it(`${family.name} declares exactly the page points its declaration lists`, () => {
+      const actual = KERNEL.points()
+        .filter(
+          ({ owner }) => owner === family.name || owner?.startsWith(`${family.name}/`) === true,
+        )
+        .map(({ key }) => ({ name: key.name, spec: key.spec }))
+        .toSorted((a, b) => a.name.localeCompare(b.name));
+      const expected = (family.points ?? [])
+        .filter(({ spec }) => kernelHosts(spec).includes("page"))
+        .map(({ name, spec }) => ({ name, spec }))
+        .toSorted((a, b) => a.name.localeCompare(b.name));
+      expect(actual).toEqual(expected);
+    });
+  }
+  it("the host declares exactly its named point capabilities", () => {
+    const expected = Object.values(CORE_POINT_DEFINITIONS)
+      .filter((point) => "declared" in point)
+      .map(({ name }) => name)
+      .toSorted();
+    const actual = KERNEL.points()
+      .filter(({ owner }) => owner === "ui")
+      .map(({ key }) => key.name)
+      .toSorted();
+    expect(actual).toEqual(expected);
+  });
+});
+
 /** Every view the UI can hold, with the plugin that owns it. */
 const VIEWS = KERNEL.contributions(ViewPoint);
 
 /** The views a server running every bundled family lists in `kb.manifest`. */
 const SERVED = viewCatalogOf(
-  BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
+  DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
 ).entries();
 
 /** The page's catalog, as a page served by that server derives it; what it leaves out. */
@@ -77,7 +120,7 @@ const PAGE_CATALOG = pageCatalogOf(
 );
 
 /** The seeded nodes, by id: where every view's option must be. */
-const SEED = new Map(bundledSeed().map((node) => [node.id, node]));
+const SEED = new Map(foldSeed(DECLARATIONS).nodes.map((node) => [node.id, node]));
 
 const others = (owner: string) => ALL_PLUGINS.filter((plugin) => plugin.name !== owner);
 
@@ -119,14 +162,14 @@ function throwingStandIn(provided: Contribution<ProvidedView>): Plugin {
 }
 
 /** A provider under `view`'s own key whose component embeds that same key again. */
-function selfEmbeddingStandIn(provided: Contribution<ProvidedView>): Plugin {
+function selfEmbeddingStandIn(provided: Contribution<ProvidedView>, placement: Placement): Plugin {
   const view = provided.value;
   const Embeds = () => (
     <div data-contract-nested="true">
       <ViewSlot
         view={view.key}
         params={view.sample}
-        placement={firstPlacement(view)}
+        {...drawnAt(placement)}
         fallback={<p data-contract-depth-stop="true">stop</p>}
       />
     </div>
@@ -134,11 +177,9 @@ function selfEmbeddingStandIn(provided: Contribution<ProvidedView>): Plugin {
   return standIn("contract-self-embed", provided, Embeds);
 }
 
-/** Where a property that holds whatever the placement is checks a view: the first it offers. */
-function firstPlacement(view: ProvidedView): Placement {
-  const [placement] = view.placements;
-  if (placement === undefined) throw new Error(`${view.key.id} offers no placement`);
-  return placement;
+/** A slot at `placement`, handed what a host hands there: the sample row at `row`. */
+function drawnAt(placement: Placement): Drawn {
+  return placement === "row" ? { placement, row: SAMPLE_ROW } : { placement };
 }
 
 /** Let effects and promises run until `ready` holds, or fail after a while. */
@@ -151,6 +192,22 @@ async function until(ready: () => boolean, ms = 3000): Promise<void> {
     });
   }
 }
+
+/** A view that shows the row it was handed, or `none`. */
+function RowProbe({ host }: ViewProps<unknown>): ReactElement {
+  return (
+    <div data-contract-row={host.row?.id ?? "none"} data-contract-placement={host.placement}>
+      {host.row?.text}
+    </div>
+  );
+}
+
+/** The row a contract slot at `row` hands a view: a node, its markdown, and its text as drawn. */
+const SAMPLE_ROW: RowSubject = {
+  id: "contract.row",
+  markdown: "A row's **text**",
+  text: <span data-contract-row-text="true">A row's text</span>,
+};
 
 const FALLBACK = <p data-contract-fallback="true">fallback</p>;
 const SUSPENDED = <p data-contract-suspended="true">loading</p>;
@@ -199,17 +256,17 @@ describe("view contract", () => {
     container.remove();
   });
 
-  /** A host that stays up whatever its slot does, and the slot inside it. */
-  async function mount(
-    view: ProvidedView,
-    placement: Placement = firstPlacement(view),
-  ): Promise<void> {
+  /**
+   * A host that stays up whatever its slot does, and the slot inside it. At
+   * `row` the slot hands the view a row, as the outline does.
+   */
+  async function mount(view: ProvidedView, placement: Placement): Promise<void> {
     const host: ReactElement = (
       <section data-contract-host="true">
         <ViewSlot
           view={view.key}
           params={view.sample}
-          placement={placement}
+          {...drawnAt(placement)}
           fallback={FALLBACK}
           pending={SUSPENDED}
         />
@@ -253,6 +310,11 @@ describe("view contract", () => {
       ({ id, aliases, value }) => id !== value.key.id && aliases.includes(value.key.id),
     );
     expect(aliased.map(({ value }) => value.key.id)).toContain("outline.table");
+  });
+
+  it("runs over a view drawn at every placement a host draws a view at", () => {
+    const offered = new Set(VIEWS.flatMap(({ value }) => value.placements));
+    expect([...offered].toSorted()).toEqual(["inline", "page", "preview", "row"]);
   });
 
   it("holds no view key the server does not list", () => {
@@ -300,41 +362,50 @@ describe("view contract", () => {
       },
     );
 
-    it("shows the fallback while its owner is unloaded, and comes back on reload", async () => {
-      await mount(view);
-      await settle();
-      act(() => syncUiPlugins(others(owner)));
-      expect(shown("[data-contract-fallback]")).toBe(true);
-      expect(shown("[data-contract-host]")).toBe(true);
-      act(() => syncUiPlugins(ALL_PLUGINS));
-      await settle();
-      expectViewShown();
-    });
-
-    it("keeps a throw under its key inside the slot", async () => {
-      const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
-      try {
-        act(() => syncUiPlugins([...others(owner), throwingStandIn(provided)]));
-        await mount(view);
-        expect(shown('[data-testid="view-error"]')).toBe(true);
+    it.each(view.placements)(
+      "shows the fallback at %s while its owner is unloaded, and comes back on reload",
+      async (placement) => {
+        await mount(view, placement);
+        await settle();
+        act(() => syncUiPlugins(others(owner)));
+        expect(shown("[data-contract-fallback]")).toBe(true);
         expect(shown("[data-contract-host]")).toBe(true);
-      } finally {
-        quiet.mockRestore();
-      }
-    });
+        act(() => syncUiPlugins(ALL_PLUGINS));
+        await settle();
+        expectViewShown();
+      },
+    );
 
-    it("stops a provider that embeds its own key, for the same subject, at the first repeat", async () => {
-      act(() => syncUiPlugins([...others(owner), selfEmbeddingStandIn(provided)]));
-      await mount(view);
-      expect(container.querySelectorAll("[data-contract-nested]")).toHaveLength(1);
-      expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
-      expect(shown('[data-testid="view-error"]')).toBe(false);
-    });
+    it.each(view.placements)(
+      "keeps a throw under its key inside the slot at %s",
+      async (placement) => {
+        const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+        try {
+          act(() => syncUiPlugins([...others(owner), throwingStandIn(provided)]));
+          await mount(view, placement);
+          expect(shown('[data-testid="view-error"]')).toBe(true);
+          expect(shown("[data-contract-host]")).toBe(true);
+        } finally {
+          quiet.mockRestore();
+        }
+      },
+    );
 
-    it("leaves nothing behind when it unmounts", async () => {
+    it.each(view.placements)(
+      "stops a provider that embeds its own key at %s, for the same subject, at the first repeat",
+      async (placement) => {
+        act(() => syncUiPlugins([...others(owner), selfEmbeddingStandIn(provided, placement)]));
+        await mount(view, placement);
+        expect(container.querySelectorAll("[data-contract-nested]")).toHaveLength(1);
+        expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
+        expect(shown('[data-testid="view-error"]')).toBe(false);
+      },
+    );
+
+    it.each(view.placements)("leaves nothing behind when it unmounts at %s", async (placement) => {
       const body = dom.window.document.body;
       const before = body.childNodes.length;
-      await mount(view);
+      await mount(view, placement);
       await settle();
       expectViewShown();
       act(() => root.render(<></>));
@@ -381,6 +452,43 @@ describe("view contract", () => {
         ]),
       );
     }
+
+    it("hands a view at row the row it draws, and a view at any other placement none", () => {
+      provide(provideView(KEY, { placements: ["page", "row"], sample: {}, Component: RowProbe }));
+      act(() =>
+        root.render(
+          <>
+            <ViewSlot view={KEY} params={{}} placement="row" row={SAMPLE_ROW} fallback={FALLBACK} />
+            <ViewSlot view={KEY} params={{}} placement="page" fallback={FALLBACK} />
+          </>,
+        ),
+      );
+      const [atRow, atPage] = container.querySelectorAll("[data-contract-row]");
+      expect(atRow?.getAttribute("data-contract-row")).toBe(SAMPLE_ROW.id);
+      expect(atRow?.querySelector("[data-contract-row-text]")).not.toBeNull();
+      expect(atPage?.getAttribute("data-contract-row")).toBe("none");
+    });
+
+    it("shows its fallback at row when handed no row, and hands a page no row it was handed", () => {
+      provide(provideView(KEY, { placements: ["page", "row"], sample: {}, Component: RowProbe }));
+      // What a page half's untyped JSX can still write: the types refuse both.
+      const rowless = { placement: "row" } as unknown as Drawn;
+      const pageWithRow = { placement: "page", row: SAMPLE_ROW } as unknown as Drawn;
+      act(() =>
+        root.render(
+          <>
+            <ViewSlot view={KEY} params={{}} {...rowless} fallback={FALLBACK} />
+            <ViewSlot view={KEY} params={{}} {...pageWithRow} fallback={FALLBACK} />
+          </>,
+        ),
+      );
+      expect(shown("[data-contract-fallback]")).toBe(true);
+      const drawn = container.querySelectorAll("[data-contract-row]");
+      expect(drawn).toHaveLength(1);
+      expect(drawn[0]?.getAttribute("data-contract-placement")).toBe("page");
+      expect(drawn[0]?.getAttribute("data-contract-row")).toBe("none");
+      expect(drawn[0]?.querySelector("[data-contract-row-text]")).toBeNull();
+    });
 
     it("shows a view again down its own tree, for other subjects, up to MAX_VIEW_DEPTH", () => {
       provide(

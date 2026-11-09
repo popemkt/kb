@@ -1,5 +1,12 @@
 import type { Effect, Stream } from "effect";
-import { domainError, type DomainError, type KbNode, type StoreTx } from "@kb/model";
+import {
+  domainError,
+  type DomainError,
+  type KbNode,
+  type KbTx,
+  type NodeWrite,
+  type StoreTx,
+} from "@kb/model";
 import type { TxRecord, TxTail } from "./tx-log.ts";
 
 /**
@@ -29,6 +36,10 @@ export type StoreFingerprint = string;
  * direction, since it costs a reload and never a stale index.
  */
 export interface StoreCommit {
+  /** The exact local tail record; null for an empty transaction. Never inferred from a later tail read. */
+  readonly record: KbTx | null;
+  /** The nodes this commit wrote, against the state held under the store's exclusion. */
+  readonly writes: readonly NodeWrite[];
   readonly base: StoreFingerprint | null;
   /** The store's fingerprint after the write. */
   readonly fingerprint: StoreFingerprint | null;

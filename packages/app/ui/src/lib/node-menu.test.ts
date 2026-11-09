@@ -1,4 +1,8 @@
 /**
+ * The node menu (DESIGN-UI.md → The node menu) lists its commands by
+ * group, then by order in the group, then in the order they came, so a
+ * family's command takes its place among the shell's by saying where.
+ *
  * "Open with…" (DESIGN-UI.md → Opening a node): the node menu offers each
  * way this page can open the target, the one it opens in by default marked;
  * the view a tag of it names, its tag opening, is "Open in …" and leads the
@@ -18,8 +22,12 @@ import { OUTLINE_IDS } from "@kb/outline";
 import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { canvasUiPlugin } from "@kb/canvas-ui";
-import { outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
+import { definePlugin } from "@kb/plugin";
 import {
+  CommandPoint,
+  nodeMenu,
   paletteStepsPlugin,
   getPath,
   navigate,
@@ -177,5 +185,56 @@ describe("the display toggles in the node menu", () => {
       },
     });
     expect(toggles("n.board")).toEqual(["Show preview", "Hide properties"]);
+  });
+});
+
+describe("the node menu's order", () => {
+  let dom: InstalledDom;
+  /** A family's command, placed by its `menu` alone. */
+  const placed = definePlugin({
+    name: "placed",
+    apply: (ctx) =>
+      ctx.contribute(CommandPoint, {
+        id: "between",
+        value: {
+          id: "placed.between",
+          menu: nodeMenu("make", 15),
+          chrome: () => ({ label: "Placed between", icon: null }),
+          run: () => {},
+        },
+      }),
+  });
+  beforeEach(() => {
+    dom = installDomGlobals();
+    resetOutlineStore();
+    useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+  });
+  afterEach(() => {
+    syncUiPlugins([]);
+    dom.restore();
+  });
+
+  it("is by group, then order: a contribution takes the place it names, and removing ends it", () => {
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      outlineUiPlugin,
+      layoutUiPlugin,
+      placed,
+    ]);
+    useOutlineStore.setState({ selectedNodeId: "n.plain" });
+    const labels = listNodeCommands(context()).map((c) => c.label);
+    expect(labels.slice(0, 4)).toEqual([
+      "Add tag",
+      "Placed between",
+      "Turn into query",
+      "Turn into reference…",
+    ]);
+    const at = (label: string) => labels.indexOf(label);
+    expect(at("Open in panel")).toBeLessThan(at("Open with: Outline (default)"));
+    expect(at("Open with: Outline (default)")).toBeLessThan(at("Indent"));
+    expect(at("Indent")).toBeLessThan(at("Pin"));
+    expect(at("Pin")).toBeLessThan(at("Filter…"));
+    expect(labels.at(-1)).toBe("Delete node");
   });
 });

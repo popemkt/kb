@@ -1,3 +1,4 @@
+import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Context } from "effect";
 import { z } from "zod";
 import { schemaToJsonSchema } from "@kb/model";
@@ -25,12 +26,10 @@ export interface ContextReference {
 }
 
 /** Where a family's declaration contributes its references (`ExtensionDeclaration.context`). */
-export const ContextReferencePoint = Point<ContextReference>()("kb.context", {
-  cardinality: "list",
-  combine: "all in contribution order",
-  kernel: ["registry", "server", "page"],
-  tier: "T0",
-});
+export const ContextReferencePoint = Point<ContextReference>()(
+  CORE_POINT_DEFINITIONS.contextReference.name,
+  CORE_POINT_DEFINITIONS.contextReference.spec,
+);
 
 /**
  * Core's references, which every pane reports (`PaneScreen`), in the root

@@ -9,16 +9,24 @@
  * store choreography inside a case going unwatched.
  */
 import { act } from "react";
+import { definePlugin } from "@kb/plugin";
 import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import {
+  KeybindingPoint,
+  outlineInstanceKey,
+  provideKeybinding,
+  syncUiPlugins,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { outlineNodes, outlineUiPlugin, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
+import { outlineNodes, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -102,7 +110,8 @@ describe("selection-mode dispatcher (characterization)", () => {
     });
   }
 
-  async function press(key: string, mods: Mods = {}): Promise<void> {
+  /** Press `key`; whether the page took it (`defaultPrevented`). */
+  async function press(key: string, mods: Mods = {}): Promise<boolean> {
     const ev = new dom.KeyboardEvent("keydown", {
       key,
       bubbles: true,
@@ -113,6 +122,7 @@ describe("selection-mode dispatcher (characterization)", () => {
       dom.document.body.dispatchEvent(ev);
     });
     await settle();
+    return ev.defaultPrevented;
   }
 
   it("select: an arrow moves the selection to the neighbouring instance", async () => {
@@ -243,6 +253,33 @@ describe("selection-mode dispatcher (characterization)", () => {
     await press("Backspace");
     expect(node("n.root-c")).toBeUndefined();
     expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
+  });
+
+  it("an Alt chord another plugin binds runs, and one no binding claims stays native", async () => {
+    const altZoom = definePlugin({
+      name: "alt-keys",
+      apply: (ctx) =>
+        ctx.contribute(
+          KeybindingPoint,
+          provideKeybinding("zoom", {
+            context: "outline.selection",
+            chord: "Alt-z",
+            run: { intent: "zoom" },
+          }),
+        ),
+    });
+    syncPagePlugins([outlineUiPlugin, altZoom]);
+    try {
+      selectAndMount("n.root-c");
+      const before = node("n.root-c")?.text;
+      expect(await press("o", { altKey: true })).toBe(false);
+      expect(node("n.root-c")?.text).toBe(before);
+      expect(useOutlineStore.getState().activeNodeId).toBeNull();
+      expect(await press("z", { altKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe("n.root-c");
+    } finally {
+      syncPagePlugins([outlineUiPlugin]);
+    }
   });
 
   it("an unmapped chord leaves the store alone", async () => {

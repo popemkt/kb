@@ -60,5 +60,31 @@ export {
   moveEntry,
 } from "./calendar-edits.ts";
 export type { NodeCall, Place, NewRoutine, MovePlan } from "./calendar-edits.ts";
-export { CALENDAR_MODES, CalendarParams, RoutinesCalendarView } from "./view.ts";
+export {
+  CALENDAR_MODES,
+  CalendarParams,
+  RoutinesCalendarView,
+  SyncParams,
+  RoutinesSyncView,
+  SYNC_PATH,
+  CONNECT_PATH,
+} from "./view.ts";
 export type { CalendarMode } from "./view.ts";
+export { updateNode } from "./calendar-edits.ts";
+export {
+  SETUP_STEPS,
+  CONFIRMED_STEPS,
+  PROJECT_ID,
+  readAccountSetup,
+  stepDone,
+  currentStep,
+  stepOpen,
+  addAccount,
+  chooseProject,
+  confirmStep,
+  setAccountEmail,
+  addSetupCalendar,
+  linkCalendar,
+  setCalendarSync,
+} from "./setup.ts";
+export type { SetupStep, ConfirmedStep, AccountSetup, SetupCalendar } from "./setup.ts";

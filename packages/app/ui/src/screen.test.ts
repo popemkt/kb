@@ -36,7 +36,7 @@ import { useUiStore } from "@/stores/ui.store";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes, singlePane } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { outlineUiPlugin } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 function tab(page: () => Window | null = () => window) {
   const published: ScreenState[] = [];

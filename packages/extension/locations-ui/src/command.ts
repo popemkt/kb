@@ -13,7 +13,7 @@ import { openLocation } from "./open";
 
 export const openLocationCommand: Command = {
   id: LOCATION_IDS.openCommand,
-  scope: "global",
+  menu: { where: "global" },
   run: async (ctx) => {
     ctx.palette.close();
     await openLocation(browserHost().invoke, {}, false);

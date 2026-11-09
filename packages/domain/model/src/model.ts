@@ -170,6 +170,11 @@ export const SYSTEM_IDS = {
    * `sys.views`' options, carried by `sys.views` and seeded.
    */
   viewDefaultField: "sys.f.view.default",
+  /**
+   * The view a tag's nodes are drawn as in place of their row's text: a ref
+   * to one of `sys.views`' options, carried by a tag node.
+   */
+  viewRowField: "sys.f.view.row",
   /** A docs view's template: the name of a template an extension registers (text). */
   viewTemplateField: "sys.f.view.template",
   /** A docs view's output: the repo-relative markdown path it is written to (text). */
@@ -248,6 +253,8 @@ export const SYSTEM_IDS = {
    * other. Being one of its children is what an extension's node is.
    */
   extensionsRoot: "sys.extensions",
+  roleTag: "sys.tag.role",
+  providerField: "sys.f.provider",
   /**
    * Whether an optional family is on (checkbox, one), carried by its node.
    * Absent is its declared default; `extension.switch` is its one writer.

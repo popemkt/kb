@@ -1,6 +1,8 @@
 /**
- * Durable whole-file replace with a prior-generation backup.
+ * Durable whole-file writes: a replace with a prior-generation backup, and
+ * a create that never replaces (`durableCreateFile`).
  *
+ * Replace protocol:
  * Protocol:
  * 1. write candidate to tmp via fd + fsync
  * 2. copy live → .bak (best-effort prior generation)
@@ -13,6 +15,7 @@ import {
   closeSync,
   copyFileSync,
   existsSync,
+  linkSync,
   fsyncSync,
   mkdirSync,
   openSync,
@@ -112,5 +115,48 @@ export function durableReplaceFile({ path, backupPath, body, mode }: FileReplace
       throw err;
     }
     throw mapErr(err, `durable replace ${path}`);
+  }
+}
+
+/**
+ * Create `path` with `body` whole, or leave the file already there: the
+ * body is written and synced beside it, then linked into place, which fails
+ * rather than replaces when `path` exists, so of two writers racing exactly
+ * one creates it and neither ever sees part of the other's. Returns whether
+ * this call created it; `mode` applies to the new file.
+ */
+export function durableCreateFile({
+  path,
+  body,
+  mode,
+}: Omit<FileReplacement, "backupPath">): boolean {
+  const dir = dirname(path);
+  const tmp = `${path}.${process.pid}.${tmpSeq++}.tmp`;
+  try {
+    mkdirSync(dir, { recursive: true });
+    const fd = openSync(tmp, "wx", mode);
+    try {
+      writeSync(fd, body, 0, "utf8");
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    try {
+      linkSync(tmp, path);
+    } catch (err) {
+      if (typeof err === "object" && err !== null && "code" in err && err.code === "EEXIST")
+        return false;
+      throw err;
+    }
+    fsyncDir(dir);
+    return true;
+  } catch (err) {
+    throw mapErr(err, `durable create ${path}`);
+  } finally {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      // a candidate never written has nothing to remove
+    }
   }
 }

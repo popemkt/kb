@@ -10,6 +10,9 @@
  * "nothing", an absent one says nothing at all.
  */
 import { z } from "zod";
+import { KERNEL_HOSTS } from "@kb/plugin";
+import { PointNameSchema, RoleNameSchema } from "./point-names.ts";
+import { TxMatchSchema, describeTxMatch } from "./tx-match.ts";
 export { MANIFEST_SUFFIX } from "@kb/extension-source";
 
 const Words = z.string().trim().min(1);
@@ -43,6 +46,31 @@ export const ExtensionCapabilitiesSchema = z.strictObject({
 });
 export type ExtensionCapabilities = z.infer<typeof ExtensionCapabilitiesSchema>;
 
+const RoleReplacementSchema = z.strictObject({
+  role: RoleNameSchema,
+  priority: z.number().optional(),
+  why: Words,
+});
+export type RoleReplacement = z.infer<typeof RoleReplacementSchema>;
+const RoleReplacementsSchema = z
+  .array(RoleReplacementSchema)
+  .refine((claims) => new Set(claims.map(({ role }) => role)).size === claims.length, {
+    message: "a replacement role may not be declared more than once",
+  });
+
+const PointUseSchema = z.strictObject({
+  point: PointNameSchema,
+  kernel: z.enum(KERNEL_HOSTS),
+});
+export type PointUse = z.infer<typeof PointUseSchema>;
+
+const PointUsesSchema = z
+  .array(PointUseSchema)
+  .refine(
+    (uses) => new Set(uses.map(({ point, kernel }) => `${kernel}:${point}`)).size === uses.length,
+    { message: "a point use may be declared once per kernel" },
+  );
+
 const HttpsUrl = z.url({ protocol: /^https$/ });
 
 export const ExtensionManifestSchema = z.strictObject({
@@ -53,6 +81,12 @@ export const ExtensionManifestSchema = z.strictObject({
   /** An SPDX licence id: `MIT`, `Apache-2.0`. */
   license: Words.optional(),
   capabilities: ExtensionCapabilitiesSchema.optional(),
+  /** The roles this digest asks to replace, checked before its code is imported. */
+  replaces: RoleReplacementsSchema.optional(),
+  /** Named point dependencies, scoped to the half that needs them. */
+  uses: PointUsesSchema.optional(),
+  /** Local transaction matches; requires the registry after-commit capability. */
+  reacts: z.array(TxMatchSchema).optional(),
 });
 export type ExtensionManifest = z.infer<typeof ExtensionManifestSchema>;
 
@@ -144,5 +178,23 @@ export function capabilityLines(
     line("Approvals", said.approvals, (actions) =>
       listed(actions, "asks before none of its actions", (all) => `asks before ${all}`),
     ),
+    ...(manifest?.uses === undefined
+      ? []
+      : [
+          line("Uses", manifest.uses, (uses) =>
+            uses.length === 0
+              ? "no declared points"
+              : uses.map(({ point, kernel }) => `${point} (${kernel})`).join("; "),
+          ),
+        ]),
+    ...(manifest?.reacts === undefined
+      ? []
+      : [
+          line("Reacts when", manifest.reacts, (matches) =>
+            matches.length === 0
+              ? "no local transaction changes"
+              : matches.map(describeTxMatch).join("; "),
+          ),
+        ]),
   ];
 }

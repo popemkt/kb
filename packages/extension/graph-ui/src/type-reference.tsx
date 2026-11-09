@@ -16,8 +16,10 @@ import type { ContributionEntry } from "@kb/plugin";
 import {
   browserHost,
   type EdnRunner,
+  nodeMenu,
   toast,
   type Command,
+  type NodeCommand,
   type PaletteStep,
   type PickerCandidate,
 } from "@kb/ui-sdk";
@@ -85,9 +87,9 @@ const typeReferenceStep: PaletteStep = {
 };
 
 /** The node command that opens the step, on a row with a reference left to type. */
-const typeReferenceCommand: Command = {
+const typeReferenceCommand: NodeCommand = {
   id: STEP_ID,
-  scope: "node",
+  menu: nodeMenu("make", 60),
   chrome: () => ({ label: "Type this reference…", icon: <LinkIcon size={14} weight="bold" /> }),
   when: (ctx) => {
     const { wireNodes } = ctx.outline;

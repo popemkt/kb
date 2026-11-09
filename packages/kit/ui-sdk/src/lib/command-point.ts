@@ -7,9 +7,10 @@
  * palette to is a {@link PaletteStep}, contributed through
  * {@link PaletteStepPoint} by whichever family owns it.
  */
+import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { Effect } from "effect";
 import type { ReactNode } from "react";
-import { Point, PointName, definePlugin, type PointSpec } from "@kb/plugin";
+import { Point, PointName, definePlugin } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
 import type { FrameViewKey, LayoutTree } from "@kb/views";
 import type { ThemePref, WidthPref } from "./theme";
@@ -105,13 +106,7 @@ export interface PaletteStep {
  * The node palette's picker steps, by id: a node command opens one with
  * `palette.openStep(id)`. A family's steps come and go with it.
  */
-export const PaletteStepPoint = PointName<PaletteStep>()("ui.palette-steps");
-const PALETTE_STEP_POINT_SPEC: PointSpec = {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-};
+export const PaletteStepPoint = PointName<PaletteStep>()(CORE_POINT_DEFINITIONS.paletteStep.name);
 
 /**
  * Which node a command is about.
@@ -136,43 +131,73 @@ export interface CommandContext {
   readonly palette: PaletteSurface;
 }
 
-type CommandScope = "global" | "node";
-
 /** A command's own label and icon, for commands no node names. */
 interface CommandChrome {
   readonly label: string;
   readonly icon: ReactNode;
 }
 
-export interface Command {
+/**
+ * The node menu's groups, in the order it lists them: how the node itself
+ * opens and shows, what it is and holds, where it opens, where it sits,
+ * what marks it, how its views show it, and removing it.
+ */
+export const NODE_MENU_GROUPS = [
+  "lead",
+  "make",
+  "open",
+  "arrange",
+  "mark",
+  "view",
+  "remove",
+] as const;
+
+export type NodeMenuGroup = (typeof NODE_MENU_GROUPS)[number];
+
+/**
+ * Where a command is offered (DESIGN-UI.md → The node menu). `global`: ⌘K,
+ * which lists the `sys.command` node of the command's id and so names it.
+ * `node`: the node menu, about its row, in its `group`, then by `order`
+ * (lower first), then in the order the commands were contributed.
+ */
+export type CommandMenu =
+  | { readonly where: "global" }
+  | { readonly where: "node"; readonly group: NodeMenuGroup; readonly order: number };
+
+/** The node menu's place for a command: `group`, then `order` in it. */
+export function nodeMenu(group: NodeMenuGroup, order: number): NodeCommand["menu"] {
+  return { where: "node", group, order };
+}
+
+interface CommandBase {
   readonly id: string;
-  readonly scope: CommandScope;
-  /** Absent ⇒ a `sys.command` node names this command. */
-  readonly chrome?: (ctx: CommandContext) => CommandChrome;
   /** Absent ⇒ always offered. */
   readonly when?: (ctx: CommandContext) => boolean;
-  /**
-   * The row is about how the node itself opens and shows — the view its tag
-   * opens it in, its display options — so the node menu lists it first, in
-   * the order the rest are listed in. Absent, false.
-   */
-  readonly leads?: boolean;
   readonly run: (ctx: CommandContext) => void | Promise<void>;
 }
 
+/** A command ⌘K offers by its `sys.command` node, which names it. */
+export interface GlobalCommand extends CommandBase {
+  readonly menu: { readonly where: "global" };
+}
+
+/** A command of the node menu: nothing in the graph names it, so it names itself. */
+export interface NodeCommand extends CommandBase {
+  readonly menu: Extract<CommandMenu, { readonly where: "node" }>;
+  readonly chrome: (ctx: CommandContext) => CommandChrome;
+}
+
+export type Command = GlobalCommand | NodeCommand;
+
 /**
  * Commands a plugin contributes beside its views (the chart's "Add chart").
- * The node menu lists them after the views and the default-view rows and
- * before "Filter…" (a leading one, `leads`, first), in the order their
- * plugins loaded; the runner finds them
- * by id like any other.
+ * The node menu lists them where their `menu` puts them; the runner finds
+ * them by id like any other.
  */
-export const CommandPoint = Point<Command>()("ui.commands", {
-  cardinality: "list",
-  combine: "all in contribution order",
-  kernel: "page",
-  tier: "T3",
-});
+export const CommandPoint = Point<Command>()(
+  CORE_POINT_DEFINITIONS.command.name,
+  CORE_POINT_DEFINITIONS.command.spec,
+);
 
 /** One row of the node menu: what to show, and what pressing it does. */
 export interface NodeCommandListing {
@@ -200,5 +225,6 @@ export const paletteStepsPlugin = definePlugin({
   name: "ui",
   namespace: "ui",
   tags: ["core", "ui"],
-  apply: (ctx) => ctx.declare(PaletteStepPoint, PALETTE_STEP_POINT_SPEC).pipe(Effect.asVoid),
+  apply: (ctx) =>
+    ctx.declare(PaletteStepPoint, CORE_POINT_DEFINITIONS.paletteStep.spec).pipe(Effect.asVoid),
 });

@@ -1,3 +1,4 @@
+import { EXTENSION_NAME_PATTERN } from "@kb/plugin";
 import { Effect, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import {
   EXTENSION_SDK,
   installHostModules,
   MANIFEST_SUFFIX,
+  extensionAdmissionIssue,
   type ExtensionFailure,
   type ExtensionOrigin,
   type LoadedExtension,
@@ -15,6 +17,7 @@ import {
 } from "@kb/contracts";
 import { isNotFound } from "@kb/workspace-fs";
 import { serverEntriesFor } from "./bundled.ts";
+import { BUNDLED_CAPABILITIES } from "@kb/bundled";
 import { extensionClosure, type DigestedClosure } from "./extension-closure.ts";
 
 /**
@@ -55,7 +58,6 @@ import {
 export { ownExtensionFolder } from "./extension-folder.ts";
 export type { ExtensionFolder } from "./extension-folder.ts";
 
-const NAME_RE = /^[\w][\w.-]*$/;
 const PAGE_ENTRIES = [".page.tsx", ".page.ts"];
 
 /** An extension whose closure was read: its file, its name, its server entry's path, its closure. */
@@ -144,8 +146,8 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
   const servers = entries.filter(isServerEntry).toSorted();
   for (const file of servers) {
     const name = file.slice(0, -".ts".length);
-    if (!NAME_RE.test(name)) {
-      failures.push({ file, error: "extension file name must match /^[\\w][\\w.-]*$/" });
+    if (!EXTENSION_NAME_PATTERN.test(name)) {
+      failures.push({ file, error: `extension file name must match ${EXTENSION_NAME_PATTERN}` });
       continue;
     }
     const page = entries.find((entry) => pageOf(entry) === name);
@@ -349,12 +351,25 @@ export const importClosures = Effect.fn("kb.importClosures")(function* (
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
   for (const { file, name, path, origin, closure } of closures) {
+    const issue = extensionAdmissionIssue(
+      name,
+      closure.about ?? undefined,
+      BUNDLED_CAPABILITIES,
+      closure.page === null ? ["registry"] : ["registry", "page"],
+    );
+    if (issue !== null) {
+      failures.push({ file, error: issue });
+      continue;
+    }
     const loaded = yield* importClosure(closure.server).pipe(Effect.result);
     if (Result.isFailure(loaded)) {
       failures.push({ file, error: loaded.failure });
       continue;
     }
-    const decoded = decodeExtensionModule(loaded.success, name);
+    const decoded = decodeExtensionModule(loaded.success, name, {
+      digest: closure.digest,
+      manifest: closure.about ?? undefined,
+    });
     if (Result.isFailure(decoded)) {
       failures.push({ file, error: decoded.failure });
       continue;

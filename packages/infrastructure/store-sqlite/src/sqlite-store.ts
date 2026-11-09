@@ -8,6 +8,7 @@ import {
   domainError,
   isDomainError,
   rankTx,
+  writesOf,
   StoreState,
   type DomainError,
   type KbNode,
@@ -99,21 +100,7 @@ export class SqliteStore implements EffectStore {
     record: TxRecord,
     expected?: StoreFingerprint,
   ): Effect.Effect<StoreCommit, DomainError> {
-    const connection = this.connection;
-    const path = this.path;
-    const fingerprint = this.fingerprint;
-    const txTail = this.txTail;
-    const kept = this.kept;
-    return Effect.gen(function* () {
-      const { base, applied } = yield* commitTx(
-        connection,
-        path,
-        { tx, record, expected },
-        txTail,
-        kept,
-      );
-      return { base, fingerprint: yield* fingerprint, tx: applied };
-    });
+    return commitTx(this.connection, this.path, { tx, record, expected }, this.txTail, this.kept);
   }
 
   /** Release the connection. For tests and for `store.migrate`'s teardown. */
@@ -141,10 +128,11 @@ function commitTx(
   { tx, record, expected }: CommitRequest,
   txTail: SqliteTxTail,
   kept: KeptState<StoreState>,
-): Effect.Effect<{ base: StoreFingerprint | null; applied: StoreTx }, DomainError> {
+): Effect.Effect<StoreCommit, DomainError> {
   return Effect.try({
     try: () => {
       const db = connection.open();
+      const read = db.query<NodeRow, [string]>("SELECT id, body FROM nodes WHERE id = ?");
       const drop = db.prepare<unknown, [string]>("DELETE FROM nodes WHERE id = ?");
       const upsert = db.prepare<unknown, [string, string]>(
         `INSERT INTO nodes (id, body) VALUES (?, ?)
@@ -161,6 +149,11 @@ function commitTx(
             kept.take(base) ??
             (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
           const applied = state === null ? tx : rankTx(state, tx);
+          const writes = writesOf(applied, (id) => {
+            if (state !== null) return state.get(id);
+            const row = read.get(id);
+            return row === null ? undefined : storedNode(row, path);
+          });
           for (const id of applied.deletes) drop.run(id);
           for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
           // After the rows, whose triggers have moved `rev`, so the mark the
@@ -168,19 +161,26 @@ function commitTx(
           // transaction, so on this backend the node rows and their log entry
           // are one act with no crash window between them. An empty
           // transaction is not recorded: it changes nothing and says nothing.
-          if (applied.upserts.length > 0 || applied.deletes.length > 0) {
-            txTail.appendWithin(db, applied, record);
-          }
+          const committedRecord =
+            applied.upserts.length > 0 || applied.deletes.length > 0
+              ? txTail.appendWithin(db, applied, record)
+              : null;
           // Read under the write lock, after the triggers: the state this
           // commit leaves is the one a reopen will name.
-          return { base, applied, state, after: commitMark(db) };
+          return { base, applied, state, after: commitMark(db), record: committedRecord, writes };
         })
         .immediate();
       if (committed.state !== null && committed.after !== null) {
         committed.state.apply(committed.applied);
         kept.keep(committed.after, committed.state);
       }
-      return { base: committed.base, applied: committed.applied };
+      return {
+        base: committed.base,
+        fingerprint: committed.after,
+        tx: committed.applied,
+        record: committed.record,
+        writes: committed.writes,
+      };
     },
     catch: (err) => (isDomainError(err) ? err : mapCommitError(err, path)),
   });
@@ -239,17 +239,17 @@ function loadNodes(
  */
 function storedNodes(db: Database, path: string): KbNode[] {
   const rows = db.query<NodeRow, []>("SELECT id, body FROM nodes ORDER BY id").all();
-  const nodes: KbNode[] = [];
-  for (const row of rows) {
-    try {
-      nodes.push(decodeStoredNode(JSON.parse(row.body)));
-    } catch (err) {
-      throw domainError(
-        "invalid_input",
-        `invalid node at ${path}#${row.id}: ${err instanceof Error ? err.message : String(err)}`,
-        { path, id: row.id },
-      );
-    }
+  return rows.map((row) => storedNode(row, path));
+}
+
+function storedNode(row: NodeRow, path: string): KbNode {
+  try {
+    return decodeStoredNode(JSON.parse(row.body));
+  } catch (err) {
+    throw domainError(
+      "invalid_input",
+      `invalid node at ${path}#${row.id}: ${err instanceof Error ? err.message : String(err)}`,
+      { path, id: row.id },
+    );
   }
-  return nodes;
 }

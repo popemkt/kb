@@ -13,9 +13,11 @@
 import {
   nodeTarget,
   SYSTEM_IDS,
+  type EditorMode,
   type FieldType,
   type FollowTarget,
   type PropValue,
+  type ValueKindSpec,
 } from "@kb/ui-sdk";
 import {
   declaresOptionSet,
@@ -35,17 +37,6 @@ import { numberEditText, numberSeparators } from "./number-format";
  * chips.
  */
 export type ValueKind = FieldType | "color" | "option";
-
-/**
- * How a slot is edited.
- *
- * - `caret`: the value is text, and editing puts a caret in it.
- * - `calendar`: a date input replaces the display while editing.
- * - `picker`: a search over the field's allowed nodes replaces the display.
- * - `toggle`: there is nothing to edit; activating the slot flips the value.
- * - `swatch`: the editor is always shown; activating the slot does nothing.
- */
-export type EditorMode = "caret" | "calendar" | "picker" | "toggle" | "swatch";
 
 /** What a slot's own gestures do, per editor mode. */
 interface EditorModeSpec {
@@ -71,32 +62,6 @@ export const EDITOR_MODES: Readonly<Record<EditorMode, EditorModeSpec>> = {
   toggle: { autoOpens: false, opensOnFocusWhenEmpty: false, keys: "slot" },
   swatch: { autoOpens: false, opensOnFocusWhenEmpty: false, keys: "editor" },
 };
-
-export interface ValueKindSpec {
-  readonly editor: EditorMode;
-  /** The value as its editor's text. */
-  readonly text: (value: PropValue) => string;
-  /**
-   * The editor's text as a value, or why it is not one. The typed kinds read
-   * it through `parseTypedValue`, the parser the CLI uses and the write check
-   * agrees with, so the UI accepts exactly what the store does.
-   */
-  readonly parse: (text: string) => ParsedValue;
-  /** The slot shows its placeholder rather than the value. */
-  readonly isBlank: (value: PropValue) => boolean;
-  /**
-   * How a field's values of this kind sit together: stacked one under the
-   * other, or inline and wrapping (chips), so a many-valued field of chips
-   * stays on one line.
-   */
-  readonly layout: "stack" | "inline";
-  /**
-   * Where the value points, or null for a value that points nowhere. A slot
-   * with a target follows it on ⌘/Ctrl-click anywhere and on ⌘Enter; its
-   * pointer segments follow on a plain click, as they do in node text.
-   */
-  readonly follow: (value: PropValue) => FollowTarget | null;
-}
 
 /** A scalar reads as unset when it holds its type's zero. */
 function isBlankScalar(value: PropValue): boolean {

@@ -1,7 +1,7 @@
 /**
  * A node's tag opening (DESIGN-UI.md → Opening a node → a tag's opening):
  * the view its tag opens it in — the resolver's own rule
- * (`heldTagDefaultOf`) over the page's view catalog — when this page draws
+ * (`heldTagViewOf`, in `default`) over the page's view catalog — when this page draws
  * that view as a page, with how a chooser names it, the display options it
  * offers the node here and its family's settings for them (`@kb/model`'s
  * `display.ts`). The editor's row and its node menu both read it here.
@@ -14,7 +14,7 @@ import {
   type NodeId,
   type PropValue,
 } from "@kb/model";
-import { heldTagDefaultOf, ignoreReport, type ViewKey } from "@kb/views";
+import { heldTagViewOf, ignoreReport, type HeldTagView, type ViewKey } from "@kb/views";
 import type { Contribution } from "@kb/plugin";
 import type { ProvidedView } from "./plugins";
 import type { ViewPicker } from "./view-key";
@@ -46,7 +46,7 @@ export interface TagOpening {
 
 /**
  * `node`'s tag opening: the first of its tags' default view types the
- * catalog holds (`heldTagDefaultOf`), when one of `views` (the `ViewPoint`
+ * catalog holds (`heldTagViewOf`), when one of `views` (the `ViewPoint`
  * contributions) draws it as a page; else null. Nodes are read through
  * `lookup`.
  */
@@ -56,7 +56,7 @@ export function tagOpeningOf(
   views: readonly Contribution<ProvidedView>[],
   lookup: (id: NodeId) => Carrier | undefined,
 ): TagOpening | null {
-  const held = heldTagDefaultOf(node, catalog.keyOf, lookup, ignoreReport);
+  const held = heldTagViewOf(node, "default", catalog.keyOf, lookup, ignoreReport);
   if (held === null) return null;
   const provided = views.find(
     ({ value }) => value.key === held.key && value.placements.includes("page"),
@@ -72,4 +72,24 @@ export function tagOpeningOf(
     }),
     settings: displaySettingsOf(held.key.id, lookup),
   };
+}
+
+/**
+ * The view `node`'s row is drawn as (DESIGN-UI.md → Row views): the first
+ * of its tags' row views the catalog holds (`heldTagViewOf`, in `row`), when
+ * one of `views` draws it at placement `row`; else null, and the row is its
+ * text. Nodes are read through `lookup`.
+ */
+export function tagRowViewOf(
+  node: Carrier | undefined,
+  catalog: KeyCatalog,
+  views: readonly Contribution<ProvidedView>[],
+  lookup: (id: NodeId) => Carrier | undefined,
+): HeldTagView | null {
+  const held = heldTagViewOf(node, "row", catalog.keyOf, lookup, ignoreReport);
+  if (held === null) return null;
+  const drawn = views.some(
+    ({ value }) => value.key === held.key && value.placements.includes("row"),
+  );
+  return drawn ? held : null;
 }

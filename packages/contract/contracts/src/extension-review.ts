@@ -31,6 +31,18 @@ export function isKbOrigin(origin: ExtensionOrigin): boolean {
 }
 
 /**
+ * Whether code of an origin may take a held key by naming what it
+ * replaces, with no person approving that replacement: kb's own (its build,
+ * the `kb ui` host) and the repository's own folder, whose bytes the
+ * repository holds and reviews as it reviews any code. A linked or
+ * installed extension's replacement waits for a person to approve it:
+ * GAP [[01M6YFRJGV8MAF2AM34N567MBQ]].
+ */
+export function replacesWithoutApproval(origin: ExtensionOrigin): boolean {
+  return isKbOrigin(origin) || origin.kind === "own";
+}
+
+/**
  * The marketplace an install was resolved through, or undefined for a
  * GitHub source: read from the selection's recorded request
  * (`name@marketplace`), the one place install writes it.

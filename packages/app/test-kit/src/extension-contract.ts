@@ -63,6 +63,9 @@ import {
 } from "@kb/contracts";
 import {
   SYSTEM_IDS,
+  TAG_VIEW_CLAIMS,
+  TAG_VIEWS,
+  claimedTagViews,
   ensureSystemSeed,
   extensionNodeId,
   foldSeed,
@@ -160,13 +163,12 @@ function defaultViewPromises(declaration: ExtensionDeclaration): void {
     expect(() => foldSeed(sources, CONTRACT_AT)).toThrow(/provided twice/);
   });
 
-  test("each tag it claims opens in a view it provides, and a rival claim on it is refused", () => {
-    const claims = Object.entries(declaration.tagDefaultViews ?? {});
+  test("each tag it claims shows a view it provides in its role, and a rival claim on it is refused", () => {
     const provided = (declaration.views ?? []).map(({ key }): string => key.id);
-    for (const [tag, view] of claims) {
+    for (const { role, tag, view } of claimedTagViews(declaration)) {
       expect(provided).toContain(view.id);
       const seeded = foldSeed(foldWith(declaration), CONTRACT_AT).nodes.find((n) => n.id === tag);
-      expect(seeded?.props[SYSTEM_IDS.viewDefaultField]).toEqual([
+      expect(seeded?.props[TAG_VIEWS[role].field]).toEqual([
         { t: "ref", v: viewOptionId(view.id) },
       ]);
       const rival: SeedView = { id: "contract.rival-tag-view", label: "Rival" };
@@ -176,7 +178,7 @@ function defaultViewPromises(declaration: ExtensionDeclaration): void {
           name: "contract.rival",
           label: "Rival",
           views: [{ key: rival }],
-          tagDefaultViews: { [tag]: rival },
+          [TAG_VIEW_CLAIMS[role]]: { [tag]: rival },
         },
       ];
       expect(() => foldSeed(sources, CONTRACT_AT)).toThrow(/provided twice/);
@@ -439,13 +441,18 @@ export function extensionContract(
       expect(() => foldSeed(foldWith(declaration), CONTRACT_AT)).not.toThrow();
     });
 
-    test("its node is in the fold, named by its label, and switching it writes only its switch", () => {
+    test("its node is in the fold, named by its label, holding what it files there, and switching it writes only its switch", () => {
       const fold = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
       const node = present(
         fold.find(({ id }) => id === extensionNodeId(declaration.name)),
         `${declaration.name}'s node is in the fold`,
       );
-      expect(node).toMatchObject({ text: declaration.label, props: {}, children: [] });
+      // It holds what the family files under it, and nothing else.
+      expect(node).toMatchObject({
+        text: declaration.label,
+        props: {},
+        children: declaration.files?.[node.id] ?? [],
+      });
       const list = fold.find(({ id }) => id === SYSTEM_IDS.extensionsRoot);
       expect(list?.children).toContain(node.id);
       const seeded = new Map(fold.map((seed) => [seed.id, seed]));

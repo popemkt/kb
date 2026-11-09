@@ -14,6 +14,7 @@ import {
   FootprintRowSchema,
   isKbOrigin,
   orderedPoints,
+  orderedRoles,
   organisationOf,
   type ExtensionOrigin,
   type ExtensionReport,
@@ -60,6 +61,7 @@ export interface PanelExtensionGroup {
 export interface PanelReport {
   readonly groups: readonly PanelExtensionGroup[];
   readonly points: ExtensionReport["points"];
+  readonly roles: ExtensionReport["roles"];
   readonly failures: ExtensionReport["failures"];
 }
 
@@ -163,6 +165,8 @@ function joinExtension(
       ...row,
       tags: [...new Set([...row.tags, ...onPage.tags])],
       injects: [...row.injects, ...onPage.injects],
+      uses: [...row.uses, ...onPage.uses],
+      declares: [...row.declares, ...onPage.declares],
       provides: [...row.provides, ...onPage.provides],
       failures: [...row.failures, ...onPage.failures],
     },
@@ -185,6 +189,7 @@ function joinPage(server: ServerReport, _page: PageKernelAt): PanelReport {
           : joinExtension(group.effective, server.footprint),
     })),
     points: [...server.report.points, ...orderedPoints([PAGE_FAMILY_KERNEL])],
+    roles: [...server.report.roles, ...orderedRoles([PAGE_FAMILY_KERNEL])],
     failures: server.report.failures,
   };
 }
@@ -206,11 +211,19 @@ export function extensionShelf(origin: ExtensionOrigin): ExtensionShelf {
  * its selection was never trusted; switched off; trusted at its digest; or
  * on, as kb's build is.
  */
-export type ExtensionStatus = "error" | "update" | "approval" | "off" | "trusted" | "on";
+export type ExtensionStatus =
+  | "error"
+  | "update"
+  | "approval"
+  | "off"
+  | "waiting"
+  | "trusted"
+  | "on";
 
 export function extensionStatus(row: PanelExtension["row"]): ExtensionStatus {
   if (row.failures.length > 0) return "error";
   if (row.trusted === false) return row.running === undefined ? "approval" : "update";
+  if (row.uses.some(({ from }) => from === null)) return "waiting";
   if (!row.enabled) return "off";
   return row.digest === undefined ? "on" : "trusted";
 }

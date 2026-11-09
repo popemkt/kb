@@ -142,3 +142,5 @@ export {
   GRAPH_THEME_OPTIONS,
   MATTE_THEME,
 } from "./themes.ts";
+
+export { GRAPH_POINT_DEFINITIONS } from "./point-definitions.ts";

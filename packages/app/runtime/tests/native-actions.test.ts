@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
-import { present } from "@kb/model";
+import { present, writesOf } from "@kb/model";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Exit, Fiber, Stream } from "effect";
@@ -208,10 +208,16 @@ describe("Effect-native action registry", () => {
       loadEffect: Effect.succeed(ctx.nodes),
       fingerprint: Effect.succeed(null),
       txTail: new MemoryTxTail(),
-      commitEffect: (tx) =>
+      commitEffect: (tx, record) =>
         Effect.sync(() => {
           commits.push(tx);
-          return { base: null, fingerprint: null, tx };
+          return {
+            base: null,
+            fingerprint: null,
+            tx,
+            record: fakeStore.txTail.append(tx, record),
+            writes: writesOf(tx, (id) => ctx.index.getNode(id)),
+          };
         }),
     };
 

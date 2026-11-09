@@ -5,11 +5,11 @@
  * once it is there, and they reach the shell through it alone.
  */
 import { coreExtension } from "@kb/operations";
-import { familyTags } from "@kb/contracts";
+import { familyTags, replacesWithoutApproval } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
-import { subscribeManifest } from "@/lib/manifest";
+import { servedManifest, subscribeManifest } from "@/lib/manifest";
 import { proposeView } from "@/lib/propose-view";
 import { pageCatalog } from "@/lib/view-catalog";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
@@ -33,6 +33,18 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
  * projection and editor, `subscribePage`).
  */
 const SOURCES = [usePrefsStore, useDesignSystemStore, useUiStore, useDebugFieldsStore] as const;
+
+/**
+ * Whether `owner` may replace what another holds: by its family's origin in
+ * the server's report. A page half is loaded only under its row's name, and
+ * a child plugin is named under its parent's, so a family the report does
+ * not name is the page's own build. With no server, every family is.
+ */
+export function replacementApproved(owner: string): boolean {
+  const family = owner.split("/")[0] ?? owner;
+  const row = servedManifest()?.extensions.find(({ name }) => name === family);
+  return row === undefined || replacesWithoutApproval(row.origin);
+}
 
 const host: BrowserHost = {
   // A node text port is what the shell binds its own text hosts through, so
@@ -84,6 +96,7 @@ const host: BrowserHost = {
     pageEditor().getState().activateNode(nodeId, cursorPos, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   viewCatalog: pageCatalog,
+  replacementApproved,
   writes: mutations,
   invoke,
   subscribeManifest,

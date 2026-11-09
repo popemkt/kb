@@ -16,6 +16,33 @@ export interface StoreTx {
   deletes: NodeId[];
 }
 
+/** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
+export interface NodeWrite {
+  readonly before: KbNode | undefined;
+  readonly after: KbNode | undefined;
+}
+
+function sameValues(
+  a: KbNode["props"][string] | undefined,
+  b: KbNode["props"][string] | undefined,
+) {
+  return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+}
+
+/** The fields whose values differ between `before` and `after`. */
+export function changedFields(before: KbNode | undefined, after: KbNode | undefined): string[] {
+  const fields = new Set([...Object.keys(before?.props ?? {}), ...Object.keys(after?.props ?? {})]);
+  return [...fields].filter((field) => !sameValues(before?.props[field], after?.props[field]));
+}
+
+/** Each node a transaction writes, against the state it will apply to. */
+export function writesOf(tx: StoreTx, nodeOf: (id: NodeId) => KbNode | undefined): NodeWrite[] {
+  return [
+    ...tx.upserts.map((after) => ({ before: nodeOf(after.id), after })),
+    ...tx.deletes.map((id) => ({ before: nodeOf(id), after: undefined })),
+  ];
+}
+
 /** `previous` with `tx` applied: deletes first, then upserts replace whole nodes. */
 export function applyTx(previous: readonly KbNode[], tx: StoreTx): Map<NodeId, KbNode> {
   const next = new Map(previous.map((node) => [node.id, node]));
@@ -148,7 +175,7 @@ function writtenValueError(
       // second one all the same.
       const changed = canonicalJson(values) !== canonicalJson(stored[fieldId] ?? []);
       if (changed && values.length > 1) {
-        if (cardinalityOf(next.get(fieldId)?.props) === "one") {
+        if (cardinalityOf(next.get(fieldId)?.props, (id) => next.get(id)) === "one") {
           return `node ${node.id}: field ${fieldId} holds one value and would hold ${values.length}`;
         }
       }

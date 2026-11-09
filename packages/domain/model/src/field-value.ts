@@ -195,7 +195,7 @@ export function valueConformanceError(
   value: PropValue,
   nodes: ReadonlyMap<NodeId, Pick<NodeLike, "props">>,
 ): string | null {
-  const type = fieldTypeOf(nodes.get(fieldId)?.props);
+  const type = fieldTypeOf(nodes.get(fieldId)?.props, (id) => nodes.get(id));
   if (!acceptsValueKind(type, value)) {
     return `field ${fieldId} is ${type} and cannot hold ${shownRefusedValue(type, value)}`;
   }
