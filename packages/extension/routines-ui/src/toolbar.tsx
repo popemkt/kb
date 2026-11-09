@@ -1,9 +1,17 @@
-import { CaretLeftIcon, CaretRightIcon, PlusIcon, WarningIcon } from "@phosphor-icons/react";
-import type { CalendarIssue, CalendarMode } from "@kb/routines";
-import { cn, IconButton } from "@kb/ui-sdk";
+import {
+  CaretLeftIcon,
+  CaretRightIcon,
+  PlugsConnectedIcon,
+  PlusIcon,
+  WarningIcon,
+} from "@phosphor-icons/react";
+import { ROUTINE_TAGS, type CalendarIssue, type CalendarMode } from "@kb/routines";
+import { typeRefsOf } from "@kb/model";
+import { cn, IconButton, navigate } from "@kb/ui-sdk";
 import { titleOf } from "./dates";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
 import type { CalendarModel } from "./model";
+import { syncPath } from "./routes";
 import { SYNC_DOTS, syncShown, type SyncShown } from "./sync-shown";
 import { syncNow } from "./writes";
 
@@ -49,6 +57,9 @@ export function CalendarToolbar({
   readonly onNew: () => void;
 }) {
   const summary = syncSummary(model);
+  const hasService = [...model.nodes.values()].some((node) =>
+    typeRefsOf(node).includes(ROUTINE_TAGS.account),
+  );
   return (
     <div
       className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"
@@ -95,16 +106,36 @@ export function CalendarToolbar({
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className={BUTTON_CLASS}
-          onClick={() => void syncNow()}
-          title={`Sync now · ${summary.text}`}
-          data-sync-summary={summary.state}
-        >
-          <span className={cn("h-2 w-2 rounded-full", SYNC_DOTS[summary.state])} aria-hidden />
-          {narrow ? "Sync" : `Sync now · ${summary.text}`}
-        </button>
+        {hasService ? (
+          <>
+            <button
+              type="button"
+              className={BUTTON_CLASS}
+              onClick={() => void syncNow()}
+              title={`Sync now · ${summary.text}`}
+              data-sync-summary={summary.state}
+            >
+              <span className={cn("h-2 w-2 rounded-full", SYNC_DOTS[summary.state])} aria-hidden />
+              {narrow ? "Sync" : `Sync now · ${summary.text}`}
+            </button>
+            <IconButton
+              label="Sync services"
+              icon={PlugsConnectedIcon}
+              size="md"
+              onClick={() => navigate(syncPath())}
+            />
+          </>
+        ) : (
+          <button
+            type="button"
+            className={BUTTON_CLASS}
+            onClick={() => navigate(syncPath())}
+            data-sync-summary={summary.state}
+          >
+            <PlugsConnectedIcon size={14} aria-hidden />
+            {narrow ? "Sync" : "Set up sync"}
+          </button>
+        )}
         <button
           type="button"
           className={PRIMARY_BUTTON_CLASS}

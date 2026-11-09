@@ -1631,6 +1631,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
 
+### GAP: the systemd-creds sealed-store contract runs only on a host that can seal
+
+- **expected** — The sealed-store contract (packages/app/runtime/tests/sealed-contract.ts) runs over every cipher, systemd-creds included, on every machine the suite runs on, CI too.
+- **current** — sealed-secrets.test.ts joins systemd-creds to the contract only when 'systemd-creds encrypt --user' works here (systemd >= 256, a credential key the user may seal under). CI runners and macOS skip it, so only a developer host proves the cipher; its argv/stdin shape is covered there by a fake runner.
+- **impact** — A change that breaks systemd-creds sealing (argv, name binding, decrypt) can pass CI and only fail on a Linux host, where kb then falls back to nothing it can open and asks the person to reconnect.
+- **closes** — A CI job on a runner with systemd >= 256 and user credentials (or a container with systemd as PID 1) that runs the runtime suite, so hostSeals is true there and the skip goes.
+- **node** — `01M6XSXADG90BAMC22ZXWGV57D`
+
 ### GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form
 
 - **expected** — sys.f.view.filter holds a view's narrowing as the printed :where of its conditions (printEdn), the form sys.f.query holds, so any condition the query placement can hold the narrowing can too, and both lift and lower through one IR

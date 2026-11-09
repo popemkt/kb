@@ -3829,7 +3829,8 @@ the page adds no storage of its own.
   or its occurrence's own when it has one: synced, pending or error, with
   the message as its tooltip. A calendar in preview or paused says it is not
   sent. The toolbar's Sync now (`ext.routines.sync`) carries the worst state
-  showing.
+  showing, beside Sync services; with no account yet the toolbar offers
+  Set up sync instead.
 - **Time zones.** Instances are drawn on the browser's clock, and a drop is
   converted back to the routine's zone, so a routine in Berlin dragged on a
   page in Ho Chi Minh City keeps its meaning. Across a DST change a
@@ -3841,6 +3842,58 @@ the page adds no storage of its own.
 - **One-offs tick like series.** A one-off's one instance is its event, so
   its `#occurrence` on its start day is that event's own state: done sends
   it ✅ and grey, skipped cancels it.
+
+### Sync services
+
+`/calendar/sync` (`RoutinesSyncView`) lists the `#google-account` nodes as
+sync services, each with its state, and Add sync service opens a provider
+picker (Google is the one provider). Picking one adds an account node and
+opens its setup at `/calendar/sync/<account>`: a wizard of seven numbered
+steps with a progress bar, a vertical list beside the step on a wide screen
+and a horizontal one above it on a narrow one.
+
+- **Where a person is, is the account's own data.** The project id
+  (`google project`) and the steps confirmed by hand (`setup done`, options
+  project, apis, branding and audience) are fields of the account node;
+  the rest is read from what is there: the client is set when its two
+  references are, connect is done when the account's status is synced, and
+  calendars when one linked calendar is provisioned with sync on
+  (`readAccountSetup` in `@kb/routines` → `setup.ts`, the one reader). The
+  wizard opens at the first step not done, so leaving and coming back
+  resumes, and a later step stays shut until the ones before it are done.
+  Changing the project takes back what was confirmed for the old one.
+- **Each step links to the Console page it needs**, with the project
+  chosen (`?project=`), and says what the person will see there. Where kb
+  can check a step, it does: the client step shows the exact redirect URI
+  (`<public origin>/calendar/connect`) with a copy button, and Check with
+  Google and save sends the pasted id and secret to the host, which asks
+  Google's token endpoint before keeping them (`ext.routines.client`); a
+  wrong client, a deleted one, one of the wrong type or a missing redirect
+  URI each comes back as its own sentence (`setup-calls.ts`, the one table
+  of codes to words). The secret leaves the field once kept, and nothing
+  the page receives afterwards holds a value.
+- **gcloud.** When the host has `gcloud` signed in (`ext.routines.setup`
+  says so), step 1 offers to create the project and enable the Calendar API
+  for the person (`ext.routines.automate`), with the account gcloud uses
+  named before they press.
+- **Connect is the person's.** Connect with Google trusts the account's
+  binding as the person (`sandbox.trust`), asks the host for Google's URL
+  (`ext.routines.connect`) and goes there. Google sends the person back to
+  `/calendar/connect`, which hands that address to the host once
+  (`ext.routines.finish`), removes the code from the address bar at once,
+  and returns to the setup. Every write here is `approval: "required"`, so
+  an agent cannot set up, connect or remove a service, and the host offers
+  the page a binding to trust (`ext.routines.binding`) only when the
+  account names the references the host placed for it: pressing Connect
+  approves connecting the account, never a secret an earlier write pointed
+  its fields at.
+- **Calendars.** The last step lists kb's calendars and a new one by name;
+  each one picked is linked to the account, given its own Google calendar
+  (`ext.routines.provision`, under its trusted binding) and switched on.
+- **Connected.** A done service shows its state, project, where its
+  secrets are kept and its calendars, with Reconnect, Review the steps and
+  Remove. Remove asks first, then revokes Google's access, erases what the
+  host kept, pauses and unlinks its calendars and deletes the account.
 
 ### Locations
 

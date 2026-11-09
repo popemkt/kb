@@ -1,6 +1,7 @@
-import { Context, Layer, Effect, type Scope } from "effect";
+import { Context, Layer, Effect } from "effect";
 import {
   ActionPoint,
+  type SecretStore,
   ChannelPoint,
   UiHost,
   familyTags,
@@ -12,6 +13,7 @@ import {
   routinesDeclarationPlugin,
   routinesExtension,
   type SyncError,
+  type AccountConfig,
   type CalendarBinding,
   type CalendarPort,
 } from "@kb/routines";
@@ -21,20 +23,52 @@ import { connections } from "./connections.ts";
 import { RoutineGraph } from "./graph.ts";
 import { RoutineEngine } from "./engine.ts";
 
+/** One attempt at connecting an account: Google's consent page, and how it is finished. */
 export interface ConnectStep {
   readonly url: string;
-  readonly finish: (pasted?: string) => Effect.Effect<void, SyncError>;
+  /** What names this attempt in the redirect that finishes it. */
+  readonly state: string;
+  /** Finish with the URL Google sent the person back to. */
+  readonly finish: (redirect: string) => Effect.Effect<void, SyncError>;
+}
+/** Whether the host can do the first setup steps itself (gcloud, signed in). */
+export interface SetupAutomation {
+  readonly installed: boolean;
+  readonly account: string | null;
+}
+/**
+ * What setting up a sync service asks of its provider (Google): check a
+ * client before kb keeps it, connect an account, end a connection, and do
+ * the first steps when the host can. Every call that resolves an account's
+ * secrets is handed whether its binding is trusted.
+ */
+export interface ServiceSetup {
+  readonly validate: (
+    client: { readonly id: string; readonly secret: string },
+    redirectUri: string,
+  ) => Effect.Effect<void, SyncError>;
+  readonly connect: (
+    account: AccountConfig,
+    trusted: Effect.Effect<boolean, SyncError>,
+    redirectUri: string,
+  ) => Effect.Effect<ConnectStep, SyncError>;
+  readonly revoke: (
+    account: AccountConfig,
+    trusted: Effect.Effect<boolean, SyncError>,
+  ) => Effect.Effect<void, SyncError>;
+  readonly automation: Effect.Effect<SetupAutomation>;
+  readonly automate: (project: string) => Effect.Effect<void, SyncError>;
 }
 export interface RoutinesPluginOptions {
   readonly client: (
     binding: CalendarBinding,
     trusted: Effect.Effect<boolean, SyncError>,
   ) => Effect.Effect<CalendarPort, SyncError>;
-  readonly connect: (
-    binding: CalendarBinding,
-    trusted: Effect.Effect<boolean, SyncError>,
-  ) => Effect.Effect<ConnectStep, SyncError, Scope.Scope>;
+  readonly setup: ServiceSetup;
+  /** Where the setup keeps a client and a refresh token a person handed it. */
+  readonly secrets: SecretStore;
   readonly runner: string;
+  /** The public origin: event backlinks, and the redirect URI Google sends the person back to. */
   readonly origin: string;
 }
 export function routinesPlugin(options: RoutinesPluginOptions) {
@@ -62,7 +96,12 @@ export function routinesPlugin(options: RoutinesPluginOptions) {
           ),
           RoutineEngine,
         );
-        const actions = routineActions(engine, connections(options, ui, host), scope);
+        const actions = routineActions(
+          engine,
+          connections(options, ui, host),
+          options.setup,
+          scope,
+        );
         yield* ctx.plugin(
           definePlugin({
             name: "actions",

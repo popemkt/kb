@@ -597,8 +597,9 @@ type PropValue =
   (`field-value.ts`, the one statement of it: a url is a canonical link,
   `normalizeUrl`; a time is a local wall clock in strict `HH:MM` form
   (00:00–23:59), without a date or zone; a secret is a reference to where a
-  key lives, `env:NAME`, `keychain:<service>[/<account>]` or
-  `dotenv:/absolute/path#KEY` (`secret-ref.ts`), never the key, so a
+  key lives, `env:NAME`, `keychain:<service>[/<account>]`,
+  `dotenv:/absolute/path#KEY` or `sealed:<name>` (`secret-ref.ts`;
+  [Writable host secrets](#writable-host-secrets)), never the key, so a
   pasted key is refused before it can reach a committed store; only the
   process that needs the key reads it, through its `SecretSource`, as
   [Agent packages](#agent-packages) → providers states), and every
@@ -4827,8 +4828,10 @@ The sidebar agent lives outside core, in packages that core never imports
     wrote, in the process that needs it. A credential is resolved when a
     turn starts (`resolveCredential`), through the `SecretSource`
     (`@kb/contracts`) the composition root binds. `kb ui` binds
-    `systemSecrets` (`@kb/runtime`): `env:` reads its environment, and
-    `keychain:` asks `security` on macOS or `secret-tool` on Linux, whose
+    `systemSecrets` (`@kb/runtime`): `env:` reads its environment,
+    `sealed:` opens its file in kb's data directory ([Writable host
+    secrets](#writable-host-secrets)), and `keychain:` asks `security` on
+    macOS or `secret-tool` on Linux, whose
     process is killed if it has not answered within 30 s (the keychain may
     ask the person first), so a turn never hangs on a lookup, and is given
     only what a lookup needs of the environment
@@ -5091,13 +5094,70 @@ The sidebar agent lives outside core, in packages that core never imports
 
 ### Writable host secrets
 
-`dotenv:` references read their file on each use, with no shell expansion.
-Files must be private (0600) and regular, and symlinks are refused. A
-`SecretSink` is a capability bound to one file/key; a host constructs it
-only after checking the owning action binding's machine-local trust. Writes
-serialize through an exclusive lock, preserve other variables, and replace
-the file atomically with mode 0600, using the shared whole-file write primitives
-without a backup. Values and underlying filesystem errors never appear in errors.
+A host that keeps a secret for a person (a refresh token an OAuth flow
+returns, a client secret pasted into a setup page) keeps it through one
+port, `SecretStore` (`@kb/contracts`): a `SecretSource` that also answers
+where it would keep a new secret (`place(name)`, a reference), how to write
+and erase the one a reference names (`sink(ref)`, a `SecretSink` with
+`write` and `erase`), and in words what that store is (`describe`, which a
+setup page shows beside the field). `kb ui` binds `systemSecrets`
+(`@kb/runtime`), which serves every reference kind:
+
+- **Where a new secret goes.** `place` answers the macOS Keychain on macOS
+  (`keychain:kb/<name>`) and the sealed store everywhere else
+  (`sealed:<name>`). The host chooses the name, never a node: a node is
+  data anyone may have written, so it cannot steer a write. A name a host
+  derives from a node id is a digest of the whole id, so two nodes never
+  share a secret.
+- **`sealed:<name>`** is the file `<data>/secrets/<name>.sealed` in kb's
+  per-user data directory ([Locations](#locations)), 0600 in a 0700
+  directory, never in a root. Its first line, `kb-sealed/1 <cipher>`, names
+  the cipher that sealed it, so a file opens with the cipher that made it;
+  a new write seals with the first cipher the host can use:
+  - `systemd-creds` on Linux, when `systemd-creds encrypt --user` works for
+    this user without root (systemd ≥ 256, probed once per process). The
+    key is the host's credential secret, readable by root only, and its
+    TPM2 when it has one, with no PCR policy so a firmware update keeps the
+    secret. A copied file opens on no other machine.
+  - `aes-256-gcm` otherwise: WebCrypto, a random 96-bit nonce per seal, and
+    a random 256-bit key in `<data>/secrets/key` (0600). The key is made
+    on the first seal and published whole and only where none is
+    (`durableCreateFile`, `@kb/file-write`: written and synced beside it,
+    then linked into place, which fails rather than replaces), so of two
+    writers making one at once exactly one key wins and both use it, no
+    reader sees part of one, and a crash leaves no key rather than a
+    broken one; an existing key, even a malformed one, is never replaced.
+
+  Both bind the name into the seal (the name is systemd-creds' `--name`,
+  and AES-GCM's additional data is `kb-sealed/1\0<name>`), so a file
+  renamed to another reference, or tampered with, does not open.
+- **`keychain:`** writes go to `security` on macOS through its interactive
+  mode on stdin (`security -i`), and to `secret-tool store` on Linux, with
+  the value on stdin, so no value is ever on a command line; a value
+  `security -i` cannot quote is refused. Erasing deletes the item.
+- **`dotenv:`** references read their file on each use, with no shell
+  expansion. Files must be private (0600) and regular, and symlinks are
+  refused. Writes and erases serialize through an exclusive lock, preserve
+  other variables, and replace the file atomically with mode 0600, using
+  the shared whole-file write primitives without a backup.
+- **`env:`** is read-only: writing or erasing one is refused.
+
+What each store protects against is stated, not implied. The Keychain and
+systemd-creds keep a secret from a copy of kb's files, a backup and a
+commit; any process running as the same user on the same host can still
+ask them for it (the Keychain may ask the person first). The AES-GCM
+fallback keeps it from a copied sealed file alone, a backup that leaves the
+key out, and a commit; whoever can read this user's files can read the key
+beside it. Losing the host's credential key or TPM, or the key file, loses
+what they sealed, and reconnecting writes it again.
+
+A sink is a capability bound to one reference. A host writes through one
+only for a person's own approved action (`approval: "required"`, so an
+agent's call is refused) at a reference it placed, or after checking the
+owning binding's machine-local trust when the reference is a node's. Values
+and underlying filesystem errors never appear in errors, which name the
+reference. The sealed store's promise is one property suite,
+`sealed-contract.ts` in `@kb/runtime`, run over every cipher.
 
 ## Locations
 

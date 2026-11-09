@@ -37,7 +37,8 @@ type Written = Readonly<Record<string, readonly PropValue[]>>;
 const propsOf = (written: Written) =>
   Object.entries(written).flatMap(([field, values]) => values.map((value) => ({ field, value })));
 
-function update(id: string, written: Written, text?: string): NodeCall {
+/** Replace the fields `written` names on `id` with what it holds, and its text when given. */
+export function updateNode(id: string, written: Written, text?: string): NodeCall {
   return {
     id: "node.update",
     input: {
@@ -83,7 +84,7 @@ export function editRoutine(
   );
   const text = after.title === before.title ? undefined : after.title;
   if (Object.keys(changed).length === 0 && text === undefined) return [];
-  return [update(id, changed, text)];
+  return [updateNode(id, changed, text)];
 }
 
 /** Delete a node: a routine with its occurrence facts, or one fact. */
@@ -129,14 +130,14 @@ export function setEntryState(
   const fact = factOf(entry, nodes);
   if (fact === null)
     return state === null ? [] : [addOccurrence(mint(), entry.routine, { on: entry.on, state })];
-  if (state !== null) return [update(fact.id, occurrenceWrite({ state }))];
+  if (state !== null) return [updateNode(fact.id, occurrenceWrite({ state }))];
   if (fact.movedTo === null) return [deleteNode(fact.id)];
-  return [update(fact.id, occurrenceWrite({ state: "moved" }))];
+  return [updateNode(fact.id, occurrenceWrite({ state: "moved" }))];
 }
 
 /** Change how long a routine's instances last, in minutes. */
 export function resizeEntry(entry: CalendarEntry, duration: number): readonly NodeCall[] {
-  return duration === entry.duration ? [] : [update(entry.routine, routineWrite({ duration }))];
+  return duration === entry.duration ? [] : [updateNode(entry.routine, routineWrite({ duration }))];
 }
 
 /**
@@ -167,8 +168,8 @@ function moveOne(
   if (home)
     return fact.state === "moved"
       ? [deleteNode(fact.id)]
-      : [update(fact.id, occurrenceWrite({ movedTo: "", at: "" }))];
-  return [update(fact.id, occurrenceWrite({ movedTo: to.day, at }))];
+      : [updateNode(fact.id, occurrenceWrite({ movedTo: "", at: "" }))];
+  return [updateNode(fact.id, occurrenceWrite({ movedTo: to.day, at }))];
 }
 
 /** `place` moved by `minutes`: a timed one on the clock, carrying days; an all-day one by whole days. */
@@ -205,7 +206,7 @@ function moveSeries(
   const rrule = shiftRule(routine.rrule, routine.starts, days);
   if (rrule === null) return { refused: CANNOT_SHIFT };
   const calls: NodeCall[] = [
-    update(
+    updateNode(
       node.id,
       routineWrite({
         starts: series.day,
@@ -227,7 +228,7 @@ function moveSeries(
             at: at === null || place.at === series.at ? "" : (place.at ?? ""),
           }),
     };
-    if (Object.keys(write).length > 0) calls.push(update(fact.node.id, occurrenceWrite(write)));
+    if (Object.keys(write).length > 0) calls.push(updateNode(fact.node.id, occurrenceWrite(write)));
   }
   return { calls };
 }

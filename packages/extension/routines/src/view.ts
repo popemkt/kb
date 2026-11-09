@@ -27,3 +27,29 @@ export const RoutinesCalendarView = viewKey(
       "Routines by day as a month, a week or an agenda: create, move, resize, tick done and skip their instances.",
   }),
 );
+
+export const SyncParams = Schema.Struct({
+  /** The sync service (a `#google-account` node) whose setup is open; the list when none. */
+  account: Schema.optional(Schema.String),
+  /** Opened where Google sends the person back after its consent page. */
+  returning: Schema.optional(Schema.Boolean),
+});
+export type SyncParams = typeof SyncParams.Type;
+
+export const RoutinesSyncView = viewKey(
+  "routines.sync",
+  "Sync services",
+  SyncParams.annotate({
+    description:
+      "The calendar's sync services: add one (Google), walk its setup step by step, connect it and pick the calendars it syncs.",
+  }),
+);
+
+/** The sync services page, and one service's setup under it. */
+export const SYNC_PATH = "/calendar/sync";
+/**
+ * Where Google sends the person back after its consent page: the redirect
+ * URI an OAuth client lists, at the host's public origin. The page there
+ * hands the URL it was opened at to `ext.routines.finish`.
+ */
+export const CONNECT_PATH = "/calendar/connect";

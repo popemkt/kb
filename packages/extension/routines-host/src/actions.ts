@@ -2,10 +2,10 @@ import { Effect, Scope } from "effect";
 import { z } from "zod";
 import type { ActionMode, ExtensionAction } from "@kb/contracts";
 import { domainError } from "@kb/model";
-import type { SyncError } from "@kb/routines";
-import { calendarBindingDigest } from "./binding.ts";
+import { PROJECT_ID, type SyncError } from "@kb/routines";
 import type { Connections } from "./connections.ts";
 import type { RoutineEngine } from "./engine.ts";
+import type { ServiceSetup } from "./plugin.ts";
 
 type Handler = (input: never) => Effect.Effect<unknown, SyncError, Scope.Scope>;
 interface Definition extends Omit<ExtensionAction, "effect" | "handler"> {
@@ -22,12 +22,16 @@ function action(
 }
 const read: ActionMode = { kind: "read" };
 const write: ActionMode = { kind: "write", outsideRoot: true };
+/** A write only a person makes: connecting, keeping a credential, creating in Google. */
+const personal: ActionMode = { kind: "write", outsideRoot: true, approval: "required" };
+const accountInput = z.object({ account: z.string() });
 const calendarInput = z.object({ calendar: z.string() });
 const emptyInput = z.object({});
 const ok = (work: Effect.Effect<unknown, SyncError>) => work.pipe(Effect.as({ ok: true }));
 export function routineActions(
   engine: Effect.Success<typeof RoutineEngine>,
   connection: Connections,
+  setup: ServiceSetup,
   scope: Scope.Scope,
 ): ExtensionAction[] {
   const definitions = [
@@ -40,30 +44,69 @@ export function routineActions(
     ),
     action("status", "Read routine sync status", read, emptyInput, engine.status),
     action(
-      "binding",
-      "Read calendar binding trust digest",
+      "setup",
+      "Read what setting up a sync service needs here: the redirect URI, where secrets are kept, gcloud",
       read,
-      calendarInput,
-      ({ calendar }: { calendar: string }) =>
-        connection.bindingFor(calendar).pipe(
-          Effect.flatMap(calendarBindingDigest),
-          Effect.map((digest) => ({ digest })),
-        ),
+      emptyInput,
+      () => connection.info,
+    ),
+    action(
+      "binding",
+      "Read the trust digest of a calendar's or an account's binding",
+      read,
+      z.object({ node: z.string() }),
+      ({ node }: { node: string }) =>
+        connection.digestOf(node).pipe(Effect.map((digest) => ({ digest }))),
+    ),
+    action(
+      "automate",
+      "Create the Google Cloud project and enable the Calendar API with the host's gcloud",
+      personal,
+      z.object({ project: z.string().regex(PROJECT_ID) }),
+      ({ project }: { project: string }) => ok(setup.automate(project)),
+    ),
+    action(
+      "client",
+      "Check an OAuth client with Google and keep it in the host's secret store",
+      personal,
+      accountInput.extend({ clientId: z.string(), clientSecret: z.string() }),
+      ({
+        account,
+        clientId,
+        clientSecret,
+      }: {
+        account: string;
+        clientId: string;
+        clientSecret: string;
+      }) => connection.saveClient(account, { id: clientId.trim(), secret: clientSecret.trim() }),
     ),
     action(
       "connect",
-      "Start Google desktop OAuth",
-      write,
-      calendarInput,
-      ({ calendar }: { calendar: string }) => connection.connect(calendar),
+      "Start connecting an account to Google (its consent page)",
+      personal,
+      accountInput,
+      ({ account }: { account: string }) => connection.connect(account),
     ),
     action(
       "finish",
-      "Save authorization and create the app calendar",
-      write,
-      calendarInput.extend({ redirect: z.string().optional() }),
-      ({ calendar, redirect }: { calendar: string; redirect?: string }) =>
-        connection.finish(calendar, redirect),
+      "Finish connecting with the URL Google sent the person back to",
+      personal,
+      z.object({ redirect: z.string() }),
+      ({ redirect }: { redirect: string }) => connection.finish(redirect),
+    ),
+    action(
+      "provision",
+      "Create a calendar's own Google calendar",
+      personal,
+      calendarInput,
+      ({ calendar }: { calendar: string }) => connection.provision(calendar),
+    ),
+    action(
+      "remove",
+      "Disconnect an account: revoke it at Google and erase what this host kept for it",
+      personal,
+      accountInput,
+      ({ account }: { account: string }) => connection.remove(account),
     ),
     action("sync", "Retry routine sync now", write, emptyInput, () => ok(engine.syncNow())),
     action(
