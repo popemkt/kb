@@ -9,7 +9,6 @@ import {
   nodeCandidates,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
-  resolveFieldType,
   resolveFieldTypeById,
   SYSTEM_IDS,
   wireToOutlineMap,
@@ -48,7 +47,7 @@ describe("field types", () => {
   it("defaults to text when sys.f.fieldType is absent", () => {
     const nodes = outline();
     expect(resolveFieldTypeById("field.status", schemaFor(nodes))).toBe("text");
-    expect(resolveFieldType(undefined)).toBe("text");
+    expect(resolveFieldTypeById("field.absent", schemaFor(nodes))).toBe("text");
   });
 
   it("selects editors by declared type (mismatch detection)", () => {

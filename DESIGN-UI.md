@@ -840,7 +840,9 @@ and one place resolves which kind a field's values sit in (`useSlotKind`,
 `outline-ui/src/slot-kind.ts`): a field that names its own kind
 (`sys.f.color`'s swatches) or parents its options (chips) is the outline's
 own; any other field's values sit in the kind contributed for its type's
-option. The slot, the stack and the field's glyph all read it.
+option, and a type a family declares with no kind contributed draws as the
+built-in type it stores as (DESIGN.md → Field types). The slot, the stack and
+the field's glyph all read it.
 
 **The label column belongs to the field, not to its values.** The type glyph
 is the field's own button (`FieldRow`, labelled "Configure field <name>"). A
@@ -3260,6 +3262,10 @@ the shell.
     A page half reaches it by `uses` and `ctx.point`, as any declared point,
     and may write one as data (`providePaletteStep`, [The node
     menu](#the-node-menu));
+  - `ValueKindPoint` (`ui.value-kinds`), a field type's value kind by its
+    option node: the outline's eight and a family's own types', which a
+    page half contributes with `provideValueKind` ([Field
+    values](#field-values-one-slot-grammar), DESIGN.md → Field types);
   - the primitives and the design tokens;
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions

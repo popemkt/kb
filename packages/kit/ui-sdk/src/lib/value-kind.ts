@@ -16,8 +16,10 @@
  */
 import type { ComponentType, Ref } from "react";
 import type { Icon } from "@phosphor-icons/react";
-import type { NodeId, ParsedValue } from "@kb/model";
-import { Point } from "@kb/plugin";
+import { declaredOptionId, FIELD_TYPE_OPTIONS, type NodeId, type ParsedValue } from "@kb/model";
+import { Point, type ContributionEntry } from "@kb/plugin";
+import { iconOf, type IconName } from "./form-icons";
+import { declaredLocalId } from "./plugins";
 import type { Follow, FollowTarget } from "./follow";
 import type { RefCreation } from "./refs";
 import type { FieldContext } from "./schema";
@@ -193,3 +195,25 @@ export const ValueKindPoint = Point<FieldTypeKind>()("ui.value-kinds", {
   tier: "T3",
   keyBy: "type",
 });
+
+/** A family's field type's value kind, as its page half writes it: the glyph by name. */
+export interface ValueKindForm {
+  readonly icon: IconName;
+  readonly spec: ValueKindSpec;
+  readonly Surface: ComponentType<ValueSurfaceProps>;
+}
+
+/**
+ * The {@link ValueKindPoint} contribution for the field type a declaration
+ * declares as `id` among `FIELD_TYPE_OPTIONS` (`<name>.<local id>`): its
+ * kind, for the type's option node, answering to the declared id. An icon kb does not name throws where
+ * its plugin applies.
+ */
+export function provideValueKind(
+  id: string,
+  form: ValueKindForm,
+): ContributionEntry<FieldTypeKind> {
+  const icon = iconOf(`value kind ${id}`, form.icon);
+  const type = declaredOptionId(FIELD_TYPE_OPTIONS, id);
+  return { id: declaredLocalId(id), value: { type, spec: form.spec, icon, Surface: form.Surface } };
+}

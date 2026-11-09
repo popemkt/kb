@@ -580,9 +580,19 @@ export interface GuardCall {
   readonly signal: AbortSignal;
 }
 
+/** A node as a guard reads it: what it says, its fields' values and its children. */
+export interface NodeLike {
+  readonly id: NodeId;
+  readonly text: string;
+  readonly props: Readonly<Record<NodeId, readonly PropValue[]>>;
+  readonly children: readonly NodeId[];
+}
+
 /** A call as a guard is asked about its commit: the call, and the nodes it writes. */
 export interface CommitCall extends Omit<GuardCall, "phase"> {
   readonly writes: readonly NodeWrite[];
+  /** How the writes' fields, kinds and named nodes are read: the graph before the commit. */
+  readonly nodeOf: (id: NodeId) => NodeLike | undefined;
 }
 
 /** A guard: it decides about the calls it matches, and cannot change them. */
@@ -662,6 +672,14 @@ export declare function viewKey<P>(
 ): PlainViewKey<P>;
 export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
 export declare const NoParams: effect.Schema.Decoder<NoParams>;
+/**
+ * The field types' kind: a declaration lists the types it adds under it,
+ * each choosing the built-in type it stores as (`sys.ft.number`'s option,
+ * `{ kind: FIELD_TYPE_OPTIONS, id: "number" }`). Its page half contributes
+ * the type's value kind (`kb-ext-sdk/page`'s `provideValueKind`), and a
+ * guard of its server entry holds its values to their form.
+ */
+export declare const FIELD_TYPE_OPTIONS: DeclaredOptions;
 /** The backdrops' kind: what a declaration lists its backdrops' keys under. */
 export declare const BACKDROP_OPTIONS: DeclaredOptions;
 /** The backdrops' variants' kind (`backdropVariantOptions` names them). */

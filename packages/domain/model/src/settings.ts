@@ -40,11 +40,11 @@ export interface Setting {
  * The settings of `nodeId`: every field among `nodes` that configures it,
  * the switch excluded, in id order (the same on every host and backend,
  * whatever order a store lists its nodes in). `nodeOf` resolves an option's
- * label.
+ * label, and a declared field type's option.
  */
 export function settingsOf(
   nodes: Iterable<NodeLike>,
-  nodeOf: (id: NodeId) => Pick<NodeLike, "text"> | undefined,
+  nodeOf: (id: NodeId) => Pick<NodeLike, "text" | "props"> | undefined,
   nodeId: NodeId,
 ): Setting[] {
   const settings: Setting[] = [];
@@ -55,8 +55,8 @@ export function settingsOf(
     settings.push({
       field: field.id,
       label: field.text,
-      type: fieldTypeOf(field.props),
-      cardinality: cardinalityOf(field.props),
+      type: fieldTypeOf(field.props, nodeOf),
+      cardinality: cardinalityOf(field.props, nodeOf),
       options: declaresOptionSet(field)
         ? field.children.map((id) => ({ id, label: nodeOf(id)?.text ?? id }))
         : [],

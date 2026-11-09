@@ -10,6 +10,7 @@ import {
   FIELD_TYPE_OPTION_IDS,
   FIELD_TYPE_OPTIONS,
   acceptsValueKind,
+  cardinalityOf,
   type FieldType,
   fieldTypeOf,
   fieldTypeOptionOf,
@@ -17,6 +18,7 @@ import {
   migrateFieldTypeValues,
 } from "../src/field-type.ts";
 import { declaredOptionId } from "../src/declared-option.ts";
+import { valueConformanceError } from "../src/field-value.ts";
 import { resolveFieldId } from "../src/resolve.ts";
 import { ensureSystemSeed } from "../src/seed.ts";
 import { bundledFold, bundledSeed } from "@kb/bundled";
@@ -24,6 +26,11 @@ import { bundledFold, bundledSeed } from "@kb/bundled";
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
+
+/** Props whose type slot names `option`. */
+const typed = (option: string) => ({
+  [SYSTEM_IDS.fieldTypeField]: [{ t: "ref" as const, v: option }],
+});
 
 describe("typed field seeds", () => {
   test("seeds sys.f.fieldType, sys.f.targetTag, sys.f.targetQuery as field nodes", () => {
@@ -68,9 +75,11 @@ describe("typed field seeds", () => {
       .map((n) => n.id);
     expect(undeclared).toEqual([]);
     const byId = new Map(fields.map((n) => [n.id, n]));
-    expect(fieldTypeOf(byId.get(SYSTEM_IDS.typeField)?.props)).toBe("ref");
-    expect(fieldTypeOf(byId.get(SYSTEM_IDS.hiddenField)?.props)).toBe("checkbox");
-    expect(fieldTypeOf(byId.get(SYSTEM_IDS.queryLimitField)?.props)).toBe("number");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.typeField)?.props, () => undefined)).toBe("ref");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.hiddenField)?.props, () => undefined)).toBe("checkbox");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.queryLimitField)?.props, () => undefined)).toBe(
+      "number",
+    );
   });
 
   test("every field type is a plain child of the type field — no supertag", () => {
@@ -100,7 +109,7 @@ describe("typed field seeds", () => {
       byId.get(SYSTEM_IDS.fieldTypeField),
       "expected byId.get(SYSTEM_IDS.fieldTypeField)",
     );
-    expect(fieldTypeOf(slot.props)).toBe("ref");
+    expect(fieldTypeOf(slot.props, () => undefined)).toBe("ref");
     expect(refs(slot, SYSTEM_IDS.targetTagField)).toEqual([]);
     expect(refs(slot, SYSTEM_IDS.targetQueryField)).toEqual([]);
   });
@@ -126,16 +135,21 @@ describe("typed field seeds", () => {
   test("fieldTypeOf reads both the node form and the pre-option-node string", () => {
     // Older stores hold {t:"str"}. Both collapse here, so no migration runs
     // and no downstream code learns about two representations.
-    expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")] })).toBe("number");
-    expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "number" }] })).toBe(
-      "number",
-    );
-    expect(fieldTypeOf({})).toBe("text");
-    expect(fieldTypeOf(undefined)).toBe("text");
+    expect(
+      fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")] }, () => undefined),
+    ).toBe("number");
+    expect(
+      fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "number" }] }, () => undefined),
+    ).toBe("number");
+    expect(fieldTypeOf({}, () => undefined)).toBe("text");
+    expect(fieldTypeOf(undefined, () => undefined)).toBe("text");
     // An unknown option id is not a crash and not a silent wrong type.
-    expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: "sys.ft.bogus" }] })).toBe(
-      "text",
-    );
+    expect(
+      fieldTypeOf(
+        { [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: "sys.ft.bogus" }] },
+        () => undefined,
+      ),
+    ).toBe("text");
   });
 
   test("the built-in types are options of the field types' kind, as a family's are", () => {
@@ -158,6 +172,34 @@ describe("typed field seeds", () => {
     expect(
       fieldTypeOptionOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "bogus" }] }),
     ).toBeNull();
+  });
+
+  test("a family's type stores as the built-in type its option chooses", () => {
+    const STARS = "sys.ft.x.stars";
+    const options = new Map<string, Pick<KbNode, "props">>([
+      [STARS, { props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")] } }],
+      ["sys.ft.x.chained", { props: { [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: STARS }] } }],
+      ["sys.ft.x.box", { props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")] } }],
+    ]);
+    const nodeOf = (id: string) => options.get(id);
+    expect(fieldTypeOf(typed(STARS), nodeOf)).toBe("number");
+    // One hop: a type stores as a built-in type, never as another family's.
+    expect(fieldTypeOf(typed("sys.ft.x.chained"), nodeOf)).toBe("text");
+    // Its declaration gone, its fields read as text, as an unknown option does.
+    expect(fieldTypeOf(typed(STARS), () => undefined)).toBe("text");
+    // A type that stores as a single-valued one holds one value.
+    expect(cardinalityOf(typed("sys.ft.x.box"), nodeOf)).toBe("one");
+  });
+
+  test("the write check holds a family's type to the kind it stores as", () => {
+    const graph = new Map<string, Pick<KbNode, "props">>([
+      ["sys.ft.x.stars", { props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")] } }],
+      ["f.rating", { props: { [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: "sys.ft.x.stars" }] } }],
+    ]);
+    expect(valueConformanceError("f.rating", { t: "num", v: 4 }, graph)).toBeNull();
+    expect(valueConformanceError("f.rating", { t: "str", v: "four" }, graph)).toBe(
+      'field f.rating is number and cannot hold {"t":"str","v":"four"}',
+    );
   });
 
   test("migration rewrites stored type strings to refs, and is idempotent", () => {

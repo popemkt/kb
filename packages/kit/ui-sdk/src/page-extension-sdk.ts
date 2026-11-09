@@ -4,6 +4,7 @@ import { CommandPoint, PaletteStepPoint } from "./lib/command-point";
 import { meterFrames } from "./lib/frame-meter";
 import { KeybindingPoint, provideKeybinding } from "./lib/keybindings";
 import { useReducedMotion } from "./lib/motion";
+import { provideValueKind, ValueKindPoint } from "./lib/value-kind";
 import {
   BACKDROP_BUDGETS,
   BackdropPoint,
@@ -38,6 +39,8 @@ export const PAGE_EXTENSION_SDK = {
   PaletteStepPoint,
   providePaletteStep,
   PICKED,
+  ValueKindPoint,
+  provideValueKind,
   KeybindingPoint,
   provideKeybinding,
   DesignSystemPoint,

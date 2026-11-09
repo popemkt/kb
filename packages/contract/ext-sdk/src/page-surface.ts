@@ -22,9 +22,11 @@ import type {
   BackdropStrength,
   ContributionEntry,
   KnobValues,
+  NodeId,
   PlainViewKey,
   PointKey,
   PointName,
+  PropValue,
   SeedBackdrop,
   ViewKey,
 } from "./surface.ts";
@@ -340,6 +342,86 @@ export declare function providePaletteStep(
     readonly commit: ActionCall;
   },
 ): ContributionEntry<PaletteStep>;
+
+/**
+ * How a value slot is edited: a caret in its text, a calendar, a picker over
+ * the field's allowed nodes, a toggle that flips it, or a swatch row that is
+ * always shown and commits on a press.
+ */
+export type EditorMode = "caret" | "calendar" | "picker" | "toggle" | "swatch";
+
+/** Raw input read as a value, or why it cannot be one. */
+export type ParsedValue =
+  | { readonly ok: true; readonly value: PropValue }
+  | { readonly ok: false; readonly reason: string };
+
+/** Where a value points: a node, or a link. */
+export type FollowTarget =
+  | { readonly kind: "node"; readonly id: string }
+  | { readonly kind: "href"; readonly href: string };
+
+/** What one value of a field type is to the slot that holds it, as data. */
+export interface ValueKindSpec {
+  readonly editor: EditorMode;
+  /** The value as its editor's text. */
+  readonly text: (value: PropValue) => string;
+  /** The editor's text as a value, or why it is not one. */
+  readonly parse: (text: string) => ParsedValue;
+  /** The slot shows its placeholder rather than the value. */
+  readonly isBlank: (value: PropValue) => boolean;
+  /** How a field's values sit together: stacked, or inline and wrapping. */
+  readonly layout: "stack" | "inline";
+  /** Where the value points, or null. */
+  readonly follow: (value: PropValue) => FollowTarget | null;
+}
+
+/**
+ * What a value kind's surface is handed by the slot that holds the value:
+ * the slot owns every gesture, and the surface draws the value and, while
+ * the slot edits, edits it. `onEnd` leaves the editor, committing what
+ * `parse` read; without one, nothing changed.
+ */
+export interface ValueSurfaceProps {
+  /** The stored value, or the type's empty value when the slot holds none. */
+  readonly value: PropValue;
+  /** The slot shows its placeholder rather than the value. */
+  readonly blank: boolean;
+  /** The slot's editor is open. */
+  readonly editing: boolean;
+  readonly spec: ValueKindSpec;
+  /** The field the value belongs to. */
+  readonly fieldId: string;
+  /** What an empty value says while it waits. */
+  readonly placeholder?: string;
+  readonly onEnd: (parsed?: ParsedValue, text?: string) => void;
+}
+
+/** What a field type contributes: its option node, its row of data, its glyph and its surface. */
+export interface FieldTypeKind {
+  /** The type's option node, a child of `sys.f.fieldType`. */
+  readonly type: NodeId;
+  readonly spec: ValueKindSpec;
+  readonly icon: Icon;
+  readonly Surface: FunctionComponent<ValueSurfaceProps>;
+}
+
+/** Field types' value kinds, by the type's option node. */
+export declare const ValueKindPoint: PointKey<FieldTypeKind>;
+
+/**
+ * The {@link ValueKindPoint} contribution for the field type a declaration
+ * declares as `id` among `FIELD_TYPE_OPTIONS` (`<name>.<local id>`): its
+ * glyph by name, its row of data and its surface. An icon kb does not name
+ * throws where the plugin applies.
+ */
+export declare function provideValueKind(
+  id: string,
+  form: {
+    readonly icon: IconName;
+    readonly spec: ValueKindSpec;
+    readonly Surface: FunctionComponent<ValueSurfaceProps>;
+  },
+): ContributionEntry<FieldTypeKind>;
 
 /**
  * A key as a binding states it: a key name as `KeyboardEvent.key` names

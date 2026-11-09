@@ -297,7 +297,7 @@ function applyProps(
   const replaced = new Set<NodeId>();
   for (const e of entries) {
     const fieldId = resolveFieldIn(graph, e.field);
-    const single = cardinalityOf(graph.get(fieldId)?.props) === "one";
+    const single = cardinalityOf(graph.get(fieldId)?.props, (id) => graph.get(id)) === "one";
     const list = single && !replaced.has(fieldId) ? [] : (props[fieldId] ?? []);
     if (single) replaced.add(fieldId);
     list.push(e.value);

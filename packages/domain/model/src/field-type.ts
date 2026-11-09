@@ -25,6 +25,7 @@
 import type { DeclaredOptions } from "./declared-option.ts";
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 import { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./ontology.ts";
+import type { NodeOf } from "./system-write.ts";
 
 /**
  * The field types' kind of declared option (DESIGN.md → Field types): the
@@ -147,8 +148,9 @@ const SINGLE_VALUED_TYPES: ReadonlySet<FieldType> = new Set(["checkbox"]);
  */
 export function cardinalityOf(
   props: Record<string, readonly PropValue[]> | undefined,
+  nodeOf: NodeOf,
 ): Cardinality {
-  if (SINGLE_VALUED_TYPES.has(fieldTypeOf(props))) return "one";
+  if (SINGLE_VALUED_TYPES.has(fieldTypeOf(props, nodeOf))) return "one";
   const raw = props?.[SYSTEM_IDS.cardinalityField]?.[0];
   return raw?.t === "ref" && raw.v === SYSTEM_IDS.cardinalityOne ? "one" : "many";
 }
@@ -180,19 +182,34 @@ export function fieldTypeOptionOf(
   return null;
 }
 
+/** The built-in type whose option is `option`, if it is one. */
+function builtInTypeOf(option: NodeId | null): FieldType | undefined {
+  return option === null ? undefined : FIELD_TYPE_BY_OPTION_ID[option];
+}
+
 /**
- * Read a declared type off a field node's props. Absent ⇒ text.
+ * The type a field node's values are held to, read off its props: the
+ * built-in type its type slot names, or, for a type a family declares,
+ * the built-in type that type's option chooses (its own `sys.f.fieldType`,
+ * `FIELD_TYPE_OPTIONS`): a rating stores as a number, so the write check,
+ * the CLI's parse and datalog read it as one. `nodeOf` finds the option.
+ * Absent, or naming an option that names no built-in type (its family's
+ * declaration gone) ⇒ text.
  *
  * Stores written before field types became nodes hold `{t:"str", v:"number"}`,
  * so that form still reads — there is no migration to run and no second code
  * path downstream, because both collapse to the same FieldType here.
  */
-export function fieldTypeOf(props: Record<string, readonly PropValue[]> | undefined): FieldType {
-  const raw = props?.[SYSTEM_IDS.fieldTypeField]?.[0];
-  if (!raw) return "text";
-  if (raw.t === "ref") return FIELD_TYPE_BY_OPTION_ID[raw.v] ?? "text";
-  if (raw.t === "str" && isFieldType(raw.v)) return raw.v;
-  return "text";
+export function fieldTypeOf(
+  props: Record<string, readonly PropValue[]> | undefined,
+  nodeOf: NodeOf,
+): FieldType {
+  const option = fieldTypeOptionOf(props);
+  return (
+    builtInTypeOf(option) ??
+    builtInTypeOf(option === null ? null : fieldTypeOptionOf(nodeOf(option)?.props)) ??
+    "text"
+  );
 }
 
 // ── ref target constraints ─────────────────────────────────────────────────

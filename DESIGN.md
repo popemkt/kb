@@ -950,6 +950,38 @@ job a supertag has. `#graph-perspective` was one and is retired: strip a
 perspective's renderer and it is no graph, so what it is is the view it
 names, a field (View nodes, below).
 
+#### Field types
+
+**A field's type is an option node, and a family may add one.** A field
+node's `sys.f.fieldType` is a ref to one of that field's children. Core
+seeds the eight built-in types (`sys.ft.text` … `sys.ft.secret`); the
+children are a declared-option kind, `FIELD_TYPE_OPTIONS` (prefix `sys.ft.`,
+[Extension families](#extension-families) → Declared options), so a family
+declares a type as it declares a backdrop, and its option `sys.ft.<name>.<local
+id>` is filed beside the eight.
+
+- **A family's type stores as a built-in one.** Its option chooses the
+  built-in type its values are stored as (`chooses: [{ kind:
+FIELD_TYPE_OPTIONS, id: "number" }]`, which the fold writes as the option's
+  own `sys.f.fieldType`). `fieldTypeOf(props, nodeOf)` reads a field of it
+  as that type, one hop and never another family's, so the write check (a
+  value's kind and form), cardinality, `kb set`'s parse and datalog read a
+  rating as a number, and the store changes nothing. A type whose
+  declaration is gone names an option that is no longer there, and its
+  fields read as text, as any unknown option's do: they degrade, never break.
+- **Its own form is its family's to hold, on every surface.** kb's write
+  check holds a value to the kind the type stores as; what more the type
+  asks (a rating is a whole number from 1 to 5) is a commit guard the
+  family's server entry contributes ([Action registry](#action-registry) →
+  Interception), so the CLI, MCP and the page refuse the same writes.
+- **How it is drawn is its page half's.** It contributes the type's value
+  kind to `ui.value-kinds`, by the option
+  ([DESIGN-UI → Field values](DESIGN-UI.md#field-values-one-slot-grammar)),
+  as the outline does each built-in type's. A type no kind is contributed
+  for draws as the type it stores as. The kind is page code
+  (`kb-ext-sdk/page`'s `provideValueKind`: its row of data, its glyph by
+  name and its surface); no kind is offered as data alone.
+
 #### View nodes
 
 **A view someone chose is a node.** A view is a projection of the graph
@@ -3162,12 +3194,12 @@ from "kb-ext-sdk"`. Types are generated from
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
   views, routes, sidebar sections, docks, overlays, commands, picker
-  steps, keybindings, design systems, backdrops with their budgets and the
-  kit's frame meter — and
+  steps, field types' value kinds, keybindings, design systems, backdrops
+  with their budgets and the kit's frame meter — and
   React's own types), written beside it. `kb-ext-sdk` carries the
-  declared-option kinds a declaration names its backdrops by
-  (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
-  `backdropVariantOptions`) and the knob schema (DESIGN-UI.md → Page-head
+  declared-option kinds a declaration names its backdrops and field types
+  by (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
+  `backdropVariantOptions`, `FIELD_TYPE_OPTIONS`) and the knob schema (DESIGN-UI.md → Page-head
   backdrops → A plugin's backdrop is a backdrop). Its values are the
   page's `PAGE_EXTENSION_SDK` object (`@kb/ui-sdk`), so
   `page-surface-bridge.test.ts` holds the restatement to them as `surface-bridge.test.ts` holds
@@ -3611,7 +3643,9 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     ([DESIGN-UI → Design systems](DESIGN-UI.md#design-systems));
   - `GRAPH_THEME_OPTIONS` (the graph family) → `lens.theme`, options
     `sys.graph.theme.<id>`
-    ([DESIGN-UI → Graph](DESIGN-UI.md#graph-i2)).
+    ([DESIGN-UI → Graph](DESIGN-UI.md#graph-i2));
+  - `FIELD_TYPE_OPTIONS` (core) → `sys.f.fieldType`, options
+    `sys.ft.<id>` ([Field types](#field-types)).
 
   A key is `<family>.<local id>`; a key of the kind's own owner has no
   family part (core's `kb` design system). The fold files every kind any

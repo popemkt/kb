@@ -39,7 +39,7 @@ export function relationFieldFit(
 ): RelationFieldFit {
   if (!typeRefsOf(fieldNode).includes(SYSTEM_IDS.field)) return "not-field";
   if (isSysPrefixed(fieldNode.id)) return "system";
-  if (fieldTypeOf(fieldNode.props) !== "ref") return "not-ref";
+  if (fieldTypeOf(fieldNode.props, (id) => nodes.get(id)) !== "ref") return "not-ref";
   const allowed = allowedRefIdsOf(fieldNode, nodes, runQuery);
   return allowed === null || allowed.has(target) ? "fits" : "not-allowed";
 }

@@ -106,11 +106,11 @@ export {
 export { type ActionCall, callInput, invokeAction, PICKED, type Picked } from "./lib/action-call";
 export {
   type CommandForm,
-  type IconName,
   type PaletteStepForm,
   provideCommand,
   providePaletteStep,
 } from "./lib/command-forms";
+export { type IconName } from "./lib/form-icons";
 export { savedQueryIds } from "./lib/saved-query";
 export {
   currentContributions,
@@ -256,7 +256,6 @@ export {
   isValueMismatch,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
-  resolveFieldType,
   resolveFieldTypeById,
 } from "./lib/field-type";
 export { isFieldHidden, resolveVisibleProps } from "./lib/field-visibility";
@@ -593,12 +592,14 @@ export {
   type PreviewSize,
 } from "./lib/option-preview";
 export {
+  provideValueKind,
   ValueKindPoint,
   type EditHandle,
   type EditorMode,
   type FieldHandle,
   type FieldTypeKind,
   type RejectedInput,
+  type ValueKindForm,
   type ValueKindSpec,
   type ValueSurfaceProps,
   type ValueView,

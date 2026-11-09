@@ -7,22 +7,10 @@
  * code when a person picks.
  */
 import type { ReactNode } from "react";
-import {
-  ArrowRightIcon,
-  CheckIcon,
-  EyeIcon,
-  HashIcon,
-  LinkSimpleIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  PushPinIcon,
-  StarIcon,
-  TextTIcon,
-  TrashIcon,
-  type Icon,
-} from "@phosphor-icons/react";
+import type { Icon } from "@phosphor-icons/react";
 import type { ContributionEntry } from "@kb/plugin";
 import { callInput, invokeAction, type ActionCall } from "./action-call";
+import { iconOf, type IconName } from "./form-icons";
 import {
   NODE_MENU_GROUPS,
   nodeAction,
@@ -36,33 +24,9 @@ import {
 import type { PickerCandidate } from "./picker";
 import { savedQueryIds } from "./saved-query";
 
-/**
- * The icons a form names, by name: the ones the shell's own rows already
- * draw, so a name costs the page nothing it does not carry.
- */
-const FORM_ICONS = {
-  "arrow-right": ArrowRightIcon,
-  check: CheckIcon,
-  eye: EyeIcon,
-  hash: HashIcon,
-  link: LinkSimpleIcon,
-  "magnifying-glass": MagnifyingGlassIcon,
-  pin: PushPinIcon,
-  plus: PlusIcon,
-  star: StarIcon,
-  text: TextTIcon,
-  trash: TrashIcon,
-} as const satisfies Record<string, Icon>;
-
-/** An icon a form names: one of the shell's, drawn as the shell draws its own. */
-export type IconName = keyof typeof FORM_ICONS;
-
-/** The icon `name` names, checked where the form is provided. */
-function iconOf(owner: string, name: IconName | undefined): Icon | null {
-  if (name === undefined) return null;
-  // Its own names only: a name such as `constructor` must not read through the prototype.
-  if (!Object.hasOwn(FORM_ICONS, name)) throw new Error(`${owner}: "${name}" is no icon kb names`);
-  return FORM_ICONS[name];
+/** The icon a form names, if it names one. */
+function namedIcon(owner: string, name: IconName | undefined): Icon | null {
+  return name === undefined ? null : iconOf(owner, name);
 }
 
 function drawn(icon: Icon | null, size: number): ReactNode {
@@ -102,7 +66,7 @@ export function provideCommand(id: string, form: CommandForm): ContributionEntry
   if (!(NODE_MENU_GROUPS as readonly string[]).includes(form.group)) {
     throw new Error(`command ${id}: "${form.group}" is no group of the node menu`);
   }
-  const icon = iconOf(`command ${id}`, form.icon);
+  const icon = namedIcon(`command ${id}`, form.icon);
   const { run, when } = form;
   const command: NodeCommand = {
     id,
@@ -146,7 +110,7 @@ export function providePaletteStep(
   id: string,
   form: PaletteStepForm,
 ): ContributionEntry<PaletteStep> {
-  const icon = iconOf(`palette step ${id}`, form.icon);
+  const icon = namedIcon(`palette step ${id}`, form.icon);
   const { commit } = form;
   const step: PaletteStep = {
     label: form.label,

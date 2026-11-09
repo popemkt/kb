@@ -78,9 +78,9 @@ describe("the graph's seed", () => {
     const byId = new Map(bundledSeed().map((n) => [n.id, n]));
     const declared = (id: string) => present(byId.get(id), id).props;
     for (const id of [GRAPH_IDS.lensRendererField, GRAPH_IDS.lensLinkDistanceField])
-      expect(cardinalityOf(declared(id))).toBe("one");
-    expect(cardinalityOf(declared(GRAPH_IDS.lensEdgeKindsField))).toBe("many");
-    expect(fieldTypeOf(declared(GRAPH_IDS.lensMaxNodesField))).toBe("number");
+      expect(cardinalityOf(declared(id), () => undefined)).toBe("one");
+    expect(cardinalityOf(declared(GRAPH_IDS.lensEdgeKindsField), () => undefined)).toBe("many");
+    expect(fieldTypeOf(declared(GRAPH_IDS.lensMaxNodesField), () => undefined)).toBe("number");
   });
 
   test("no #graph-perspective tag is seeded: a graph is a view node", () => {

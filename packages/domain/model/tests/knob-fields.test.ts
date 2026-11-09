@@ -119,7 +119,7 @@ describe("the fold derives a field per knob", () => {
     for (const id of ["speed", "look", "tint", "seed", "grain"]) {
       const field = byId.get(knobFieldId(HOLE_NODE, id));
       expect(field?.text).toBe(`Hole · ${HOLE.knobs?.find((k) => k.id === id)?.label}`);
-      expect(cardinalityOf(field?.props)).toBe("one");
+      expect(cardinalityOf(field?.props, () => undefined)).toBe("one");
       expect(configures(knobFieldId(HOLE_NODE, id), field, { id: HOLE_NODE })).toBe(true);
     }
   });

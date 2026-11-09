@@ -641,8 +641,16 @@ interface Keyed {
 }
 
 export function provideDeclared<T extends Keyed>(value: T): ContributionEntry<T> {
-  const { id } = value.key;
-  return { id: id.slice(id.indexOf(".") + 1), value };
+  return { id: declaredLocalId(value.key.id), value };
+}
+
+/**
+ * The id a family contributes a thing it declares as `id` under: its local
+ * id, so in the family's namespace the contribution answers to the declared
+ * id (`<name>.<local id>`), as a view answers to its key.
+ */
+export function declaredLocalId(id: string): string {
+  return id.slice(id.indexOf(".") + 1);
 }
 
 /**

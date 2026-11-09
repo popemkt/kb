@@ -27,6 +27,7 @@ import {
 import { SYSTEM_IDS, fieldTypeValue, type FieldType, type KbNode } from "@kb/model";
 import { main } from "../src/cli.ts";
 import { bundledSeed } from "@kb/bundled";
+import { writeTrustedExample } from "@kb/test-kit";
 
 describe("arg → invocation mapping", () => {
   test("mapAdd builds node.add input", () => {
@@ -292,6 +293,31 @@ describe("cli e2e (tmpdir)", () => {
     const node = JSON.parse(added.stdout).output.node;
     expect(node.props[await fieldId("estimate")]).toEqual([{ t: "num", v: 7 }]);
     expect(node.props[await fieldId("label")]).toEqual([{ t: "str", v: "7" }]);
+  });
+
+  test("a family's field type: set reads it as the type it stores as, and its guard holds its form", async () => {
+    // The example declares stars, which stores as a number, and seeds its field, rating.
+    await writeTrustedExample(root);
+    expect((await kb(["init", "--bare"])).code).toBe(0);
+    const task = JSON.parse((await kb(["add", "Task", "--id", "n.task"])).stdout).output.id;
+    const rating = async (): Promise<unknown> =>
+      JSON.parse((await kb(["get", task, "--depth", "0"])).stdout).output.node.props[
+        "example.f.rating"
+      ];
+
+    expect((await kb(["set", task, "rating", "4"])).code).toBe(0);
+    expect(await rating()).toEqual([{ t: "num", v: 4 }]);
+
+    // A number, but no rating: the family's commit guard refuses it, as it would the page's.
+    const nine = await kb(["set", task, "rating", "9"]);
+    expect(nine.code).toBe(1);
+    expect(JSON.parse(nine.stdout)).toMatchObject({ status: "failed" });
+    expect(JSON.parse(nine.stdout).message).toContain(
+      "a rating is a whole number of stars, 1 to 5",
+    );
+    // Not a number: the parse refuses it before any write.
+    expect((await kb(["set", task, "rating", "abc"])).code).toBe(2);
+    expect(await rating()).toEqual([{ t: "num", v: 4 }]);
   });
 
   test("unset parses its value as the field's declared type, and removes only that value", async () => {

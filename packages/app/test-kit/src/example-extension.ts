@@ -9,8 +9,11 @@
  * adds a sidebar section, contributes the backdrop, metered by the kit's
  * frame meter, binds keys in the outline's contexts, and adds "Link to a
  * note…" to the node menu, a command and a picker step written as data
- * over the two query nodes and the field it seeds. Its files share a helper
- * directory, so its closure holds more than its two entries.
+ * over the two query nodes and the field it seeds. It declares a field type,
+ * stars, which stores as a number: its page entry draws a field of it as
+ * five stars, and its server entry's commit guard holds every write to one
+ * to a whole number from 1 to 5. Its files share a helper directory, so its
+ * closure holds more than its two entries.
  */
 import { Effect } from "effect";
 import { writeExtensionEffect, trustExtensionEffect } from "./extension-files.ts";
@@ -22,6 +25,7 @@ export const EXAMPLE = "example";
 export const EXAMPLE_EXTENSION: Readonly<Record<string, string>> = {
   "lib/declaration.ts": `import {
   BACKDROP_OPTIONS,
+  FIELD_TYPE_OPTIONS,
   NoParams,
   defineExtension,
   viewDef,
@@ -29,6 +33,7 @@ export const EXAMPLE_EXTENSION: Readonly<Record<string, string>> = {
   type KbNode,
   type SeedBackdrop,
 } from "kb-ext-sdk";
+import { STARS, STARS_TYPE } from "./stars.ts";
 
 /** The example's page: a board, which its page half draws. */
 export const BoardView = viewKey("example.board", "Example board", NoParams);
@@ -45,6 +50,9 @@ export const LINKS = "example.f.links";
 /** Its query nodes: the \`#noted\` nodes, which the picker offers, and the rows that are not one, where the command is offered. */
 export const NOTES = "example.q.notes";
 export const UNNOTED = "example.q.unnoted";
+
+/** Its field of its own type, stars, which a row is rated by. */
+export const RATING = "example.f.rating";
 
 /** A node of the seed, made at \`at\`. */
 const seeded = (at: string, id: string, text: string, props: KbNode["props"]): KbNode => ({
@@ -78,6 +86,11 @@ export const declaration = defineExtension({
       "sys.f.type": [{ t: "ref", v: "sys.field" }],
       "sys.f.fieldType": [{ t: "ref", v: "sys.ft.ref" }],
     }),
+    seeded(at, RATING, "rating", {
+      "sys.f.type": [{ t: "ref", v: "sys.field" }],
+      "sys.f.fieldType": [{ t: "ref", v: STARS_TYPE }],
+      "sys.f.cardinality": [{ t: "ref", v: "sys.cardinality.one" }],
+    }),
     seeded(at, NOTES, "notes", {
       "sys.f.query": [
         {
@@ -102,8 +115,53 @@ export const declaration = defineExtension({
   // Its query nodes are filed under its own node, out of the outline's home.
   files: { "sys.extension.example": [NOTES, UNNOTED] },
   tagRowViews: { [NOTED]: NoteView },
-  declaredOptions: [{ kind: BACKDROP_OPTIONS, options: [Glow] }],
+  declaredOptions: [
+    { kind: BACKDROP_OPTIONS, options: [Glow] },
+    // Its type stores as a number, so the store, the CLI and datalog read it as one.
+    {
+      kind: FIELD_TYPE_OPTIONS,
+      options: [{ id: STARS, label: "stars", chooses: [{ kind: FIELD_TYPE_OPTIONS, id: "number" }] }],
+    },
+  ],
 });
+`,
+  "lib/stars.ts": `import { FIELD_TYPE_OPTIONS, type CommitCall, type NodeId, type PropValue } from "kb-ext-sdk";
+
+/** The example's field type, as its declaration names it: \`example.<local id>\`. */
+export const STARS = "example.stars";
+
+/** Its option node, which a field's type slot names. */
+export const STARS_TYPE = FIELD_TYPE_OPTIONS.prefix + STARS;
+
+/** Why a value is no rating, or null: a rating is a whole number of stars, 1 to 5. */
+export function starsError(value: PropValue): string | null {
+  const whole = value.t === "num" && Number.isInteger(value.v) && value.v >= 1 && value.v <= 5;
+  return whole ? null : "a rating is a whole number of stars, 1 to 5";
+}
+
+/** The type option a field names, as the commit will hold it. */
+function typeOf(call: CommitCall, fieldId: NodeId): NodeId | undefined {
+  const written = call.writes.find(({ after }) => after?.id === fieldId)?.after;
+  const field = written ?? call.nodeOf(fieldId);
+  const [type] = field?.props[FIELD_TYPE_OPTIONS.field] ?? [];
+  return type?.t === "ref" ? type.v : undefined;
+}
+
+/** Why a commit writes a value no field of stars may hold, or null: only the values it adds are asked. */
+export function starsRefusal(call: CommitCall): string | null {
+  for (const { before, after } of call.writes) {
+    for (const [fieldId, values] of Object.entries(after?.props ?? {})) {
+      if (typeOf(call, fieldId) !== STARS_TYPE) continue;
+      const held = new Set((before?.props[fieldId] ?? []).map((v) => JSON.stringify(v)));
+      for (const value of values) {
+        if (held.has(JSON.stringify(value))) continue;
+        const error = starsError(value);
+        if (error !== null) return \`\${fieldId}: \${error}\`;
+      }
+    }
+  }
+  return null;
+}
 `,
   "lib/glow.tsx": `import { useEffect, useRef } from "react";
 import { meterFrames, useReducedMotion, type BackdropProps } from "kb-ext-sdk/page";
@@ -168,11 +226,13 @@ export const Greeter = Service<GreeterService>()("ext.example.greeter");
   declarationPlugin,
   definePlugin,
   extensionNamespace,
+  guardAction,
   provideAction,
   type ExtensionAction,
 } from "kb-ext-sdk";
 import { declaration } from "./lib/declaration.ts";
 import { Greeter } from "./lib/greeter.ts";
+import { starsRefusal } from "./lib/stars.ts";
 
 export { declaration };
 
@@ -213,6 +273,22 @@ export default definePlugin({
         ctx.provide(Greeter, { greet: (name) => \`hello \${name}\` }),
         ctx.plugin(greeting),
         ctx.plugin(declarationPlugin(declaration)),
+        // A rating is held to its form on every surface: the page, the CLI, an agent.
+        guardAction(
+          ctx,
+          "every write",
+          {
+            commit: (call) => {
+              const refusal = starsRefusal(call);
+              return Effect.succeed(
+                refusal === null
+                  ? { decision: "allow" as const }
+                  : { decision: "deny" as const, rule: "example.stars", message: refusal },
+              );
+            },
+          },
+          "stars",
+        ),
       ],
       { discard: true },
     ),
@@ -232,7 +308,11 @@ import {
   provideCommand,
   provideKeybinding,
   providePaletteStep,
+  provideValueKind,
   provideView,
+  ValueKindPoint,
+  type ValueKindSpec,
+  type ValueSurfaceProps,
   type ViewProps,
 } from "kb-ext-sdk/page";
 import {
@@ -245,6 +325,7 @@ import {
   declaration,
 } from "./lib/declaration.ts";
 import { GlowScene } from "./lib/glow.tsx";
+import { STARS, starsError } from "./lib/stars.ts";
 
 /** Its declaration, as the page half reads it too: a test seeds a page from it. */
 export { declaration };
@@ -260,6 +341,40 @@ function Section() {
 /** A \`#noted\` row: the row's own text, as the outline drew it, set in a note. */
 function Note({ host }: ViewProps<unknown>) {
   return <aside data-example="note" data-row={host.row?.id}>{host.row?.text}</aside>;
+}
+
+/** A rating's row of data: five stars, always shown, a press setting the rating. */
+const STARS_SPEC: ValueKindSpec = {
+  editor: "swatch",
+  text: (value) => (value.t === "num" ? String(value.v) : ""),
+  parse: (text) => {
+    const value = { t: "num" as const, v: Number(text) };
+    const error = starsError(value);
+    return error === null ? { ok: true, value } : { ok: false, reason: error };
+  },
+  isBlank: (value) => value.t !== "num" || value.v === 0,
+  layout: "stack",
+  follow: () => null,
+};
+
+/** A rating: five stars, as many lit as it holds; a press on one sets it. */
+function Stars({ value, spec, onEnd }: ValueSurfaceProps) {
+  const held = value.t === "num" ? value.v : 0;
+  return (
+    <span data-example="stars" role="group" aria-label="Rating">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          aria-label={\`Rate \${n}\`}
+          aria-pressed={n <= held}
+          onClick={() => onEnd(spec.parse(String(n)), String(n))}
+        >
+          {n <= held ? "★" : "☆"}
+        </button>
+      ))}
+    </span>
+  );
 }
 
 /**
@@ -320,6 +435,10 @@ export default definePlugin({
       [
         ctx.plugin(declarationPlugin(declaration)),
         ctx.contribute(CommandPoint, LINK_COMMAND),
+        ctx.contribute(
+          ValueKindPoint,
+          provideValueKind(STARS, { icon: "star", spec: STARS_SPEC, Surface: Stars }),
+        ),
         Effect.flatMap(ctx.point(PaletteStepPoint), (steps) => ctx.contribute(steps, LINK_STEP)),
         ctx.contribute(
           ViewPoint,

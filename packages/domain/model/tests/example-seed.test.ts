@@ -45,7 +45,7 @@ describe("example content", () => {
 
     const templated = refs(task, SYSTEM_IDS.fieldsField);
     const types = templated.map((id) =>
-      fieldTypeOf(present(nodes.get(id), "expected nodes.get(id)").props),
+      fieldTypeOf(present(nodes.get(id), "expected nodes.get(id)").props, () => undefined),
     );
     expect(new Set(types)).toEqual(new Set(["ref", "date", "number", "checkbox"]));
 
@@ -55,7 +55,7 @@ describe("example content", () => {
       nodes.get(EXAMPLE_IDS.statusField),
       "expected nodes.get(EXAMPLE_IDS.statusField)",
     );
-    expect(fieldTypeOf(status.props)).toBe("ref");
+    expect(fieldTypeOf(status.props, () => undefined)).toBe("ref");
     expect(refs(status, SYSTEM_IDS.targetTagField)).toEqual([EXAMPLE_IDS.statusOptionTag]);
     for (const option of [
       EXAMPLE_IDS.statusTodo,

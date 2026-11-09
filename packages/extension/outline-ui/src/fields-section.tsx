@@ -87,7 +87,7 @@ export function FieldValueStack({
 }: FieldValueStackProps) {
   const { schema } = context;
   const { spec } = useSlotKind(fieldType, fieldId, schema);
-  const many = cardinalityOf(schema.get(fieldId)?.props) === "many";
+  const many = cardinalityOf(schema.get(fieldId)?.props, (id) => schema.get(id)) === "many";
   const { field, pending, setPending, picking, pickerQuery, setPicking, stackRef } = useFieldHandle(
     { nodeId, fieldId, values, many, instanceKey },
   );
@@ -448,7 +448,7 @@ export function NodeField({
     card !== null &&
     !valueOnly &&
     declaresOptionSet(fieldNode) &&
-    cardinalityOf(fieldNode?.props) === "one";
+    cardinalityOf(fieldNode?.props, (id) => context.schema.get(id)) === "one";
   const stack = (
     <FieldValueStack
       nodeId={nodeId}

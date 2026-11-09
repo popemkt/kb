@@ -23,7 +23,7 @@ const propValueArb: fc.Arbitrary<PropValue> = fc.oneof(
 const fieldTypeArb: fc.Arbitrary<FieldType> = fc.constantFrom(...FIELD_TYPES);
 
 describe("field-type properties (fast-check)", () => {
-  test("fieldTypeOf(fieldTypeValue(t)) round-trips for every FieldType, regardless of surrounding props", () => {
+  test("fieldTypeOf(fieldTypeValue(t), () => undefined) round-trips for every FieldType, regardless of surrounding props", () => {
     fc.assert(
       fc.property(
         fieldTypeArb,
@@ -33,7 +33,7 @@ describe("field-type properties (fast-check)", () => {
             ...noiseProps,
             [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(t)],
           };
-          expect(fieldTypeOf(props)).toBe(t);
+          expect(fieldTypeOf(props, () => undefined)).toBe(t);
         },
       ),
       { numRuns: 500 },
@@ -47,8 +47,10 @@ describe("field-type properties (fast-check)", () => {
         const legacyForm = {
           [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: t } as PropValue],
         };
-        expect(fieldTypeOf(legacyForm)).toBe(fieldTypeOf(refForm));
-        expect(fieldTypeOf(legacyForm)).toBe(t);
+        expect(fieldTypeOf(legacyForm, () => undefined)).toBe(
+          fieldTypeOf(refForm, () => undefined),
+        );
+        expect(fieldTypeOf(legacyForm, () => undefined)).toBe(t);
       }),
       { numRuns: 500 },
     );
@@ -74,7 +76,7 @@ describe("field-type properties (fast-check)", () => {
         (raw) => {
           const props: Record<string, PropValue[]> =
             raw === undefined ? {} : { [SYSTEM_IDS.fieldTypeField]: [raw] };
-          expect(fieldTypeOf(props)).toBe("text");
+          expect(fieldTypeOf(props, () => undefined)).toBe("text");
         },
       ),
       { numRuns: 500 },
@@ -138,7 +140,9 @@ describe("field-type properties (fast-check)", () => {
             "expected nodes[0].props[SYSTEM_IDS.fieldTypeField][0]",
           );
           expect(migrated).toEqual(fieldTypeValue(t));
-          expect(fieldTypeOf(present(nodes[0], "expected nodes[0]").props)).toBe(t);
+          expect(fieldTypeOf(present(nodes[0], "expected nodes[0]").props, () => undefined)).toBe(
+            t,
+          );
         },
       ),
       { numRuns: 500 },

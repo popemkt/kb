@@ -1,5 +1,10 @@
 import { Effect, Schema } from "effect";
-import { BACKDROP_OPTIONS, BACKDROP_VARIANT_OPTIONS, backdropVariantOptions } from "@kb/model";
+import {
+  BACKDROP_OPTIONS,
+  BACKDROP_VARIANT_OPTIONS,
+  backdropVariantOptions,
+  FIELD_TYPE_OPTIONS,
+} from "@kb/model";
 import { NoParams, viewKey } from "@kb/views";
 import { Point, Service, definePlugin, namespaced, type ContributionEntry } from "@kb/plugin";
 import type { NodeIndex } from "@kb/query";
@@ -152,7 +157,7 @@ export function provideTemplate(template: ExtensionTemplate): ContributionEntry<
  * the points and keys a bundled family builds with, as the host's own
  * objects, since the kernel compares keys by identity, the Effect and
  * Schema its plugins and view keys are written in, and the declared-option
- * kinds a declaration names its backdrops by. The host serves it; an
+ * kinds a declaration names its backdrops and field types by. The host serves it; an
  * extension never carries a copy. Its types are `@kb/ext-sdk`'s surface.
  */
 export const EXTENSION_SDK = {
@@ -179,4 +184,5 @@ export const EXTENSION_SDK = {
   BACKDROP_OPTIONS,
   BACKDROP_VARIANT_OPTIONS,
   backdropVariantOptions,
+  FIELD_TYPE_OPTIONS,
 } as const;
