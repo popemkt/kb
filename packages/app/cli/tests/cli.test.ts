@@ -331,7 +331,9 @@ describe("cli e2e (tmpdir)", () => {
     // type's option stays, and with it what its fields store as.
     await rm(join(root, ".kb", "extensions"), { recursive: true, force: true });
     const reopened = async (args: string[]) => {
+      // The test's own home and data, as this process holds them now.
       const child = Bun.spawn([KB_SOURCE_BIN, "--root", root, "--json", ...args], {
+        env: { ...process.env },
         stdout: "pipe",
         stderr: "pipe",
       });
