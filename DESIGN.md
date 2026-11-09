@@ -5634,8 +5634,7 @@ point. A plugin reaches another through an injected service or a declared point 
 **How extensibility works, by design.**
 
 - **Another implementation is another provider, chosen by configuration.**
-  No plugin takes over a service another holds (`service-conflict`, as in
-  Cordis).
+  [Provider roles](#provider-roles) own replacement and election.
 - **Taking part is a point with a stated combination rule**, never a
   wrapped service:
   - interception: guards, strictest verdict, and interceptors, in order
@@ -5760,5 +5759,4 @@ or until the provider's trusted code digest changes. A stale failure carries
 its old identity and cannot demote new code. Roles must be defined beside their host key before providers load.
 `roleCall` currently has no live server role; its shared contract suite
 proves the boundary until a server consumer opts in.
-The first consumer is the outline's `ui.field-editor`; no new implementation
-or provider choice is introduced with its migration.
+The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
