@@ -185,7 +185,7 @@ describe("typed field seeds", () => {
     expect(fieldTypeOf(typed(STARS), nodeOf)).toBe("number");
     // One hop: a type stores as a built-in type, never as another family's.
     expect(fieldTypeOf(typed("sys.ft.x.chained"), nodeOf)).toBe("text");
-    // Its declaration gone, its fields read as text, as an unknown option does.
+    // Its option node gone, its fields read as text, as an unknown option does.
     expect(fieldTypeOf(typed(STARS), () => undefined)).toBe("text");
     // A type that stores as a single-valued one holds one value.
     expect(cardinalityOf(typed("sys.ft.x.box"), nodeOf)).toBe("one");

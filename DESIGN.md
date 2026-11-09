@@ -966,9 +966,14 @@ FIELD_TYPE_OPTIONS, id: "number" }]`, which the fold writes as the option's
   own `sys.f.fieldType`). `fieldTypeOf(props, nodeOf)` reads a field of it
   as that type, one hop and never another family's, so the write check (a
   value's kind and form), cardinality, `kb set`'s parse and datalog read a
-  rating as a number, and the store changes nothing. A type whose
-  declaration is gone names an option that is no longer there, and its
-  fields read as text, as any unknown option's do: they degrade, never break.
+  rating as a number, and the store changes nothing. The option outlives
+  its family: uninstalled, untrusted or switched off, or its declaration
+  dropping the type, opening never deletes a node the fold no longer names
+  (only a retirement the declaration states moves one), so its fields keep
+  reading as the type they store as, and their values stay what they are.
+  Only the family's guard and drawing go with it. A field whose option node
+  is itself gone (deleted, or retired with no successor) reads as text, as
+  any unknown option's does: it degrades, never breaks.
 - **Its own form is its family's to hold, on every surface.** kb's write
   check holds a value to the kind the type stores as; what more the type
   asks (a rating is a whole number from 1 to 5) is a commit guard the

@@ -14,16 +14,21 @@
  * `sys.f.fieldType`, `FIELD_TYPE_OPTIONS`): the outline contributes the
  * built-in eight, and a family that declares a type contributes its kind.
  */
+import { Predicate, Schema } from "effect";
 import type { ComponentType, Ref } from "react";
-import type { Icon } from "@phosphor-icons/react";
+import type { Icon, IconProps } from "@phosphor-icons/react";
 import { declaredOptionId, FIELD_TYPE_OPTIONS, type NodeId, type ParsedValue } from "@kb/model";
 import { Point, type ContributionEntry } from "@kb/plugin";
+import { componentSchema } from "./component-schema";
 import { iconOf, type IconName } from "./form-icons";
 import { declaredLocalId } from "./plugins";
 import type { Follow, FollowTarget } from "./follow";
 import type { RefCreation } from "./refs";
 import type { FieldContext } from "./schema";
 import type { PropValue } from "./types";
+
+/** The ways a slot is edited, the one list of them ({@link EditorMode}). */
+const EDITOR_MODE_NAMES = ["caret", "calendar", "picker", "toggle", "swatch"] as const;
 
 /**
  * How a slot is edited.
@@ -34,7 +39,7 @@ import type { PropValue } from "./types";
  * - `toggle`: there is nothing to edit; activating the slot flips the value.
  * - `swatch`: the editor is always shown; activating the slot does nothing.
  */
-export type EditorMode = "caret" | "calendar" | "picker" | "toggle" | "swatch";
+export type EditorMode = (typeof EDITOR_MODE_NAMES)[number];
 
 export interface ValueKindSpec {
   readonly editor: EditorMode;
@@ -187,6 +192,34 @@ export interface FieldTypeKind extends ValueView {
   readonly spec: ValueKindSpec;
 }
 
+/** A function, whatever it takes: the contract can say no more of one. */
+function fn<F>() {
+  return Schema.declare((value: unknown): value is F => Predicate.isFunction(value), {
+    expected: "a function",
+  });
+}
+
+/**
+ * What every contribution to {@link ValueKindPoint} is held to before any
+ * slot reads it: a page half's is third-party code built against whichever
+ * SDK it was, and a slot calls its spec on every draw. The kernel refuses
+ * one that is not this ("invalid-contribution"), with the plugin that made
+ * it, and a field of its type draws as the type it stores as.
+ */
+const FieldTypeKindData = Schema.Struct({
+  type: Schema.String,
+  spec: Schema.Struct({
+    editor: Schema.Literals(EDITOR_MODE_NAMES),
+    text: fn<ValueKindSpec["text"]>(),
+    parse: fn<ValueKindSpec["parse"]>(),
+    isBlank: fn<ValueKindSpec["isBlank"]>(),
+    layout: Schema.Literals(["stack", "inline"]),
+    follow: fn<ValueKindSpec["follow"]>(),
+  }),
+  icon: componentSchema<IconProps>(),
+  Surface: componentSchema<ValueSurfaceProps>(),
+});
+
 /** Field types' value kinds, by the type's option node. */
 export const ValueKindPoint = Point<FieldTypeKind>()("ui.value-kinds", {
   cardinality: "keyed",
@@ -194,6 +227,7 @@ export const ValueKindPoint = Point<FieldTypeKind>()("ui.value-kinds", {
   kernel: "page",
   tier: "T3",
   keyBy: "type",
+  contract: Schema.toStandardSchemaV1(FieldTypeKindData),
 });
 
 /** A family's field type's value kind, as its page half writes it: the glyph by name. */

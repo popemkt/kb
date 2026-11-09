@@ -27,7 +27,7 @@ import {
 import { SYSTEM_IDS, fieldTypeValue, type FieldType, type KbNode } from "@kb/model";
 import { main } from "../src/cli.ts";
 import { bundledSeed } from "@kb/bundled";
-import { writeTrustedExample } from "@kb/test-kit";
+import { KB_SOURCE_BIN, writeTrustedExample } from "@kb/test-kit";
 
 describe("arg → invocation mapping", () => {
   test("mapAdd builds node.add input", () => {
@@ -318,6 +318,38 @@ describe("cli e2e (tmpdir)", () => {
     // Not a number: the parse refuses it before any write.
     expect((await kb(["set", task, "rating", "abc"])).code).toBe(2);
     expect(await rating()).toEqual([{ t: "num", v: 4 }]);
+  });
+
+  test("a family's field type outlives its declaration as the type it stores as", async () => {
+    await writeTrustedExample(root);
+    expect((await kb(["init", "--bare"])).code).toBe(0);
+    const task = JSON.parse((await kb(["add", "Task", "--id", "n.task"])).stdout).output.id;
+    expect((await kb(["set", task, "rating", "4"])).code).toBe(0);
+
+    // The family goes, and the root is opened again, by a process that never
+    // read it. Opening never deletes a node its fold no longer names, so the
+    // type's option stays, and with it what its fields store as.
+    await rm(join(root, ".kb", "extensions"), { recursive: true, force: true });
+    const reopened = async (args: string[]) => {
+      const child = Bun.spawn([KB_SOURCE_BIN, "--root", root, "--json", ...args], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const stdout = await new Response(child.stdout).text();
+      return { code: await child.exited, stdout };
+    };
+    const rating = async (): Promise<unknown> =>
+      JSON.parse((await reopened(["get", task, "--depth", "0"])).stdout).output.node.props[
+        "example.f.rating"
+      ];
+    expect((await reopened(["get", "sys.ft.example.stars", "--depth", "0"])).code).toBe(0);
+    expect(await rating()).toEqual([{ t: "num", v: 4 }]);
+
+    // Its guard went with it: a number out of its form is written. A word is
+    // still not a number, so its values never stop being what they are.
+    expect((await reopened(["set", task, "rating", "9"])).code).toBe(0);
+    expect(await rating()).toEqual([{ t: "num", v: 9 }]);
+    expect((await reopened(["set", task, "rating", "abc"])).code).toBe(2);
   });
 
   test("unset parses its value as the field's declared type, and removes only that value", async () => {

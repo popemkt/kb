@@ -193,8 +193,10 @@ function builtInTypeOf(option: NodeId | null): FieldType | undefined {
  * the built-in type that type's option chooses (its own `sys.f.fieldType`,
  * `FIELD_TYPE_OPTIONS`): a rating stores as a number, so the write check,
  * the CLI's parse and datalog read it as one. `nodeOf` finds the option.
- * Absent, or naming an option that names no built-in type (its family's
- * declaration gone) ⇒ text.
+ * Absent, or naming an option that names no built-in type, or one that is
+ * gone ⇒ text. An option outlives its family's declaration (opening never
+ * deletes what a fold no longer names), so a removed family's fields keep
+ * reading as the type they store as.
  *
  * Stores written before field types became nodes hold `{t:"str", v:"number"}`,
  * so that form still reads — there is no migration to run and no second code

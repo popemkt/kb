@@ -842,7 +842,12 @@ and one place resolves which kind a field's values sit in (`useSlotKind`,
 own; any other field's values sit in the kind contributed for its type's
 option, and a type a family declares with no kind contributed draws as the
 built-in type it stores as (DESIGN.md → Field types). The slot, the stack and
-the field's glyph all read it.
+the field's glyph all read it. The point holds every contribution to its
+contract (`PointSpec.contract`: a type, a spec whose editor is one of the
+five and whose `text`, `parse`, `isBlank` and `follow` are functions, a
+layout, and a glyph and surface React draws), so a page half's malformed kind
+is refused where it is contributed, its plugin with it, and never reaches a
+slot: its type draws as the type it stores as.
 
 **The label column belongs to the field, not to its values.** The type glyph
 is the field's own button (`FieldRow`, labelled "Configure field <name>"). A

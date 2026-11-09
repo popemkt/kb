@@ -70,7 +70,8 @@ describe("a field's value kind", () => {
   it("is its type's when nothing is contributed for its option", () => {
     const kind = slotKindOf(builtIns, "number", "f.rated", schema);
     expect(kind.name).toBe("number");
-    expect(kind.spec).toBe(VALUE_KINDS.number);
+    // The point holds what its contract read: the same row, field by field.
+    expect(kind.spec).toStrictEqual(VALUE_KINDS.number);
   });
 
   it("is the outline's own for a field that names it or parents its options", () => {

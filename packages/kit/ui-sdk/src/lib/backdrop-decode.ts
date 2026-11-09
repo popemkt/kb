@@ -12,9 +12,9 @@
  * GAP [[01M6XKP09V8E144HJBXMBV0MFK]].
  */
 import { Cause, Effect, Predicate, Result, Schema } from "effect";
-import type { FunctionComponent } from "react";
 import { BACKDROP_DIRECTIONS, BACKDROP_STRENGTHS, KnobSchema } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
+import { componentSchema } from "./component-schema";
 import {
   BACKDROP_CUE_LABELS,
   type Backdrop,
@@ -41,20 +41,7 @@ export interface ContributedBackdrops {
   readonly refused: readonly RefusedBackdrop[];
 }
 
-/** React's own tags for the components that are objects: `memo`, `forwardRef` and `lazy`. */
-const EXOTIC: ReadonlySet<unknown> = new Set([
-  Symbol.for("react.memo"),
-  Symbol.for("react.forward_ref"),
-  Symbol.for("react.lazy"),
-]);
-
-/** Anything React draws as a component: a function, or one of its exotic wrappers. */
-const Component = Schema.declare(
-  (value: unknown): value is FunctionComponent<BackdropProps> =>
-    Predicate.isFunction(value) ||
-    (Predicate.hasProperty(value, "$$typeof") && EXOTIC.has(value.$$typeof)),
-  { expected: "a component (a function, memo or forwardRef)" },
-);
+const Component = componentSchema<BackdropProps>();
 
 /** A cue the label table names: the table is where the cues are stated. */
 const Cue = Schema.declare(
