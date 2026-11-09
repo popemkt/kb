@@ -60,4 +60,4 @@ export { roleSession, type RoleSession } from "./role-session.ts";
 
 export { ROLE_KINDS } from "./roles.ts";
 
-export { EXTENSION_NAME_PATTERN } from "./keys.ts";
+export { EXTENSION_NAME_PATTERN, LOCAL_POINT_NAME_PATTERN } from "./keys.ts";

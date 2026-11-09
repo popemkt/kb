@@ -1,3 +1,4 @@
+import type { PointDefinition } from "./point-definitions.ts";
 import type { ProviderRole } from "./roles.ts";
 import {
   ExtensionOriginSchema,
@@ -66,6 +67,8 @@ export interface ExtensionDeclaration {
   readonly seed?: (at: string) => readonly KbNode[];
   /** Bundled role nodes derived by the same seed fold as views and options. */
   readonly roles?: readonly ProviderRole[];
+  /** Bundled point metadata, read before any page implementation loads. */
+  readonly points?: readonly PointDefinition[];
   /**
    * Its own seed nodes it files under core's list nodes, by the list's id
    * (`SeedSource.files`): a pin among the Pinned, a view node among the

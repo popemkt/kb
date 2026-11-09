@@ -9,7 +9,7 @@ import {
   EXTENSION_SDK,
   installHostModules,
   MANIFEST_SUFFIX,
-  replacementIssue,
+  extensionAdmissionIssue,
   type ExtensionFailure,
   type ExtensionOrigin,
   type LoadedExtension,
@@ -17,7 +17,7 @@ import {
 } from "@kb/contracts";
 import { isNotFound } from "@kb/workspace-fs";
 import { serverEntriesFor } from "./bundled.ts";
-import { BUNDLED_ROLES } from "@kb/bundled";
+import { BUNDLED_CAPABILITIES } from "@kb/bundled";
 import { extensionClosure, type DigestedClosure } from "./extension-closure.ts";
 
 /**
@@ -147,7 +147,7 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
   for (const file of servers) {
     const name = file.slice(0, -".ts".length);
     if (!EXTENSION_NAME_PATTERN.test(name)) {
-      failures.push({ file, error: "extension file name must match /^[\\w][\\w.-]*$/" });
+      failures.push({ file, error: `extension file name must match ${EXTENSION_NAME_PATTERN}` });
       continue;
     }
     const page = entries.find((entry) => pageOf(entry) === name);
@@ -351,7 +351,12 @@ export const importClosures = Effect.fn("kb.importClosures")(function* (
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
   for (const { file, name, path, origin, closure } of closures) {
-    const issue = replacementIssue(name, closure.about ?? undefined, BUNDLED_ROLES);
+    const issue = extensionAdmissionIssue(
+      name,
+      closure.about ?? undefined,
+      BUNDLED_CAPABILITIES,
+      closure.page === null ? ["registry"] : ["registry", "page"],
+    );
     if (issue !== null) {
       failures.push({ file, error: issue });
       continue;

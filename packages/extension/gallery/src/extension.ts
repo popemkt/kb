@@ -1,3 +1,4 @@
+import { GALLERY_POINT_DEFINITIONS } from "./point-definitions.ts";
 /**
  * The gallery family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The declaration is the one home of the family's name,
@@ -14,6 +15,7 @@ import { GALLERY_WORKFLOWS, GalleryView } from "./view.ts";
 export const galleryExtension = defineExtension({
   name: "gallery",
   label: "Gallery",
+  points: Object.values(GALLERY_POINT_DEFINITIONS),
   manifest: { description: "A visual composer over your own library of image references." },
   tags: ["gallery"],
   optional: { byDefault: "off" },

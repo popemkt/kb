@@ -5682,7 +5682,7 @@ without importing page implementation code.
 
 ### Declared point lifecycle
 
-A plugin declares one local name (without dots), or its typed name reference,
+A plugin declares one local identifier (`[\w][\w-]*`), or its typed name reference,
 through `ctx.declare(name, spec)`. Repository and installed roots are bound by
 their host to `ext.<extension-name>`; children inherit that declaration
 authority even when their contribution prefix differs. Native roots use their
@@ -5699,6 +5699,48 @@ refuses the plugin atomically. The extension report shows declarations, their
 specs, contributors, and waiting point requirements.
 
 
+### Capability admission
+
+An extension's digest-covered manifest can state `uses`, `replaces` and
+`reacts` before code runs. `BUNDLED_CAPABILITIES` derives the current build's
+point definitions, replaceable roles and reserved namespaces from shared
+metadata and bundled declarations. Both import paths call
+`extensionAdmissionIssue` against that same catalog. Compatibility asks for
+capabilities, with no version ranges or exemptions.
+
+A manifest point use names `{point, kernel}`. Admission refuses malformed
+names, an unsupported kernel, a missing point in a native namespace (`kb`,
+`ui`, a bundled family, or another namespace of a host point), a static SDK
+key used as a declared point, and a known point unavailable at that kernel
+or page tier. A native capability absent from this build cannot arrive by
+installing another extension. A third-party `ext.<extension>.<local>` point
+can: its absent owner is a waiting dependency. The host binds each manifest
+use to its requested half's kernel requirements, so it does not also hold
+up the other half. Settings and CLI show `waiting for <point> from
+<extension>`, with no load error. Owner departure and arrival follow the
+same kernel lifecycle as service injection.
+
+A replacement must name a replaceable role, come from someone other than
+its default owner, and have the host and page tier the role requires.
+Reaction matches decode as `TxMatch`; a nonempty `reacts` list requires the
+registry's `tx/after` capability. A declared `reacts` list is bound into
+root authority: every descendant's reaction match must structurally equal an
+entry, including array order; import the manifest match to keep one home for
+that data. The decoded stored match is frozen so it cannot broaden later.
+Omitted `reacts` remains undeclared for existing extensions. Uses and reaction conditions appear as data
+on the trust sheet. These are compatibility and disclosure statements;
+trusted T3 code still has the owner's process power.
+
+Requirements belong in the manifest, not the code declaration. Existing
+extensions with no manifest `uses` retain their code-level `Plugin.uses`
+requirements, checked by the kernel after module decoding. Arbitrary code
+metadata cannot be known before import; this compatibility path does not
+claim otherwise. When `uses` is present in the manifest, the host binds it
+and bounds every descendant's foreign point requirements by that list. A family's
+own points remain in its declaration authority and do not block the root
+before it can declare them. New
+extensions can omit `Plugin.uses` and let that data be its only home.
+
 ### Provider roles
 
 A replaceable service, single point, or cell of a keyed point is a role.
@@ -5713,9 +5755,9 @@ a lookalike key to occupy an absent owner's role. A plugin context belongs
 to one activation and retires when its scope closes, including on re-election.
 
 An installed family's replacement claims live in its digest-covered manifest
-([manifest format](docs/extensions/README.md#replacing-provider-roles)). Before
-import, admission resolves each claim against the bundled declaration catalog
-and checks its required page tier. The trust sheet shows each role, priority
+([manifest format](docs/extensions/README.md#replacing-provider-roles)).
+[Capability admission](#capability-admission) checks compatibility before import.
+The trust sheet shows each role, priority
 and reason. Trust of those exact bytes binds the claims to both module halves;
 code cannot grant its own authority. Changing the manifest requires trust of
 its new digest. A default owner cannot replace itself.

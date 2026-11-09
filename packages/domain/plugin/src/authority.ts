@@ -1,3 +1,5 @@
+import type { StandardSchemaV1 } from "effect/StandardSchema";
+import { localPointName, type PointKey, type KernelHost } from "./keys.ts";
 import { Result } from "effect";
 import type { Plugin } from "./kernel.ts";
 
@@ -14,7 +16,15 @@ interface RoleOwner {
   readonly provider: string;
 }
 
+interface PointConstraint {
+  readonly point: PointKey<unknown>;
+  readonly contract: StandardSchemaV1;
+}
+
 export interface PluginAuthority {
+  /** Undefined is undeclared; an empty list permits no foreign named points. */
+  readonly uses?: readonly { readonly point: string; readonly kernel: KernelHost }[];
+  readonly pointContracts?: readonly PointConstraint[];
   readonly pointNamespace: string;
   readonly source: "bundled" | "extension";
   readonly replacements: readonly RoleApproval[];
@@ -30,6 +40,16 @@ export function bindPluginAuthority(plugin: Plugin, authority: PluginAuthority):
     bound,
     Object.freeze({
       ...authority,
+      ...(authority.uses === undefined
+        ? {}
+        : { uses: Object.freeze(authority.uses.map((entry) => Object.freeze({ ...entry }))) }),
+      ...(authority.pointContracts === undefined
+        ? {}
+        : {
+            pointContracts: Object.freeze(
+              authority.pointContracts.map((entry) => Object.freeze({ ...entry })),
+            ),
+          }),
       defaults: Object.freeze(authority.defaults.map((entry) => Object.freeze({ ...entry }))),
       replacements: Object.freeze(
         authority.replacements.map((entry) => Object.freeze({ ...entry })),
@@ -58,4 +78,17 @@ export function replacementClaim(
   return Number.isFinite(priority)
     ? Result.succeed({ ...claim, priority })
     : Result.fail(`role ${role} requires a finite priority`);
+}
+
+/** Own points belong to this authority; foreign dependencies must be declared when bounded. */
+export function pointUseAllowed(
+  authority: PluginAuthority,
+  point: string,
+  host: KernelHost,
+): boolean {
+  return (
+    authority.uses === undefined ||
+    localPointName(authority.pointNamespace, point) !== undefined ||
+    authority.uses.some((use) => use.point === point && use.kernel === host)
+  );
 }

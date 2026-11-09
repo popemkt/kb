@@ -314,6 +314,31 @@ describe("Settings' Extensions (acceptance)", () => {
     await settle();
   }
 
+  it("shows an absent point owner as waiting, without an error", async () => {
+    report = {
+      ...REPORT,
+      failures: [],
+      extensions: REPORT.extensions.map((row) =>
+        row.name === "hello"
+          ? {
+              ...row,
+              failures: [],
+              trusted: true,
+              uses: [{ point: "ext.quotes.sources", from: null }],
+            }
+          : row,
+      ),
+    };
+    await loadManifest();
+    await openFromHeader();
+    const hello = card("hello");
+    expect(hello.querySelector('[data-extension-status="waiting"]')?.textContent).toContain(
+      "Waiting",
+    );
+    expect(hello.textContent).toContain("waiting for ext.quotes.sources from quotes");
+    expect(hello.querySelector('[role="alert"]')).toBeNull();
+  });
+
   const shelf = (id: "installed" | "builtin") =>
     present(container.querySelector(`[data-settings-section="group:${id}"]`), `${id} shelf`);
 

@@ -18,6 +18,7 @@ export {
   type ExtensionCapabilities,
   type ExtensionManifest,
   type RoleReplacement,
+  type PointUse,
   type PageTier,
 } from "./extension-manifest.ts";
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
@@ -313,24 +314,22 @@ export type {
   ExtensionLockRead,
 } from "./extension-install.ts";
 
-export {
-  bundledPlugin,
-  declaredRoles,
-  replacementIssue,
-  FIELD_EDITOR_ROLE,
-  type ProviderRole,
-} from "./roles.ts";
+export { bundledPlugin, declaredRoles, FIELD_EDITOR_ROLE, type ProviderRole } from "./roles.ts";
 
 export { orderedRoles, type OrderedRole } from "./extension-report.ts";
 
 export { TxAfterPoint, onCommit, CurrentReactions } from "./reactions.ts";
-export type {
-  ReactionFailure,
-  TxMatch,
-  TxChange,
-  TxReaction,
-  ReactionHost,
-  Reactions,
-} from "./reactions.ts";
+export type { ReactionFailure, TxChange, ReactionHost, Reactions } from "./reactions.ts";
 
-export { CORE_POINT_DEFINITIONS, type PointDefinition } from "./point-definitions.ts";
+export {
+  CORE_POINT_NAMESPACES,
+  CORE_POINT_DEFINITIONS,
+  type PointDefinition,
+} from "./point-definitions.ts";
+
+export { TxMatchSchema, describeTxMatch, type TxMatch, type TxReaction } from "./tx-match.ts";
+
+export { hostCapabilities, extensionAdmissionIssue, type HostCapabilities } from "./admission.ts";
+export { waitingForPoint, PointNamesSchema } from "./point-names.ts";
+
+export { manifestAuthority } from "./manifest-authority.ts";

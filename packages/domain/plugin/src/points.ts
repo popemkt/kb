@@ -37,11 +37,12 @@ import { checkPointSpec } from "./specs.ts";
 import type { Contribution, ContributionEntry } from "./kernel.ts";
 
 const contributionValue = Effect.fnUntraced(function* (
-  owner: string,
+  entry: Entry,
   host: KernelHost,
   point: PointKey<unknown>,
   input: unknown,
 ) {
+  const owner = entry.name;
   if (!isPointKey(point))
     return yield* refusal(
       owner,
@@ -53,9 +54,15 @@ const contributionValue = Effect.fnUntraced(function* (
     return yield* refusal(owner, "invalid-point", `${point.name} requires a PointSpec`);
   }
   yield* checkPointSpec(owner, point.spec, host);
-  return point.spec.contract === undefined
-    ? input
-    : yield* decodeContribution(owner, point.spec.contract, input);
+  const contracts = [
+    ...(point.spec.contract === undefined ? [] : [point.spec.contract]),
+    ...(entry.authority.pointContracts ?? [])
+      .filter((constraint) => constraint.point === point)
+      .map(({ contract }) => contract),
+  ];
+  let value = input;
+  for (const contract of contracts) value = yield* decodeContribution(owner, contract, value);
+  return value;
 });
 
 function memberAt(value: unknown, path: string): unknown {
@@ -227,7 +234,7 @@ export const contributeErased = Effect.fnUntraced(function* (
 ) {
   const scope = yield* scopeOf(active);
   const { entry } = active;
-  const value = yield* contributionValue(entry.name, state.host, point, item.value);
+  const value = yield* contributionValue(entry, state.host, point, item.value);
   const held = yield* Scope.provide(scope)(
     Effect.acquireRelease(
       Effect.try({

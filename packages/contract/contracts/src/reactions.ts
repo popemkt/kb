@@ -1,19 +1,12 @@
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Context, type Effect } from "effect";
 import { Point, type PluginContext, type PluginError } from "@kb/plugin";
-import type { KbTx, NodeId, NodeWrite } from "@kb/model";
+import type { KbTx, NodeWrite } from "@kb/model";
 import type { PluginFailure } from "./extension-report.ts";
 import type { ActionReceipt } from "./actions.ts";
 import { DEFAULT_BUDGET_MS, type Listener } from "./interception.ts";
 
-/** Direct tag changes, changed field values, creations or deletions; an empty object observes all writes. */
-export interface TxMatch {
-  readonly tagged?: readonly NodeId[];
-  readonly untagged?: readonly NodeId[];
-  readonly fields?: readonly NodeId[];
-  readonly created?: boolean;
-  readonly deleted?: boolean;
-}
+import type { TxMatch, TxReaction } from "./tx-match.ts";
 
 /** Frozen commit data, with only the node writes matched by this listener. */
 export interface TxChange {
@@ -28,11 +21,6 @@ export interface ReactionHost {
     id: string,
     input: Readonly<Record<string, unknown>>,
   ) => Effect.Effect<ActionReceipt>;
-}
-
-export interface TxReaction {
-  readonly match: TxMatch;
-  readonly react: (change: TxChange, kb: ReactionHost) => Effect.Effect<void>;
 }
 
 export const TxAfterPoint = Point<TxReaction>()(

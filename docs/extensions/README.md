@@ -32,11 +32,13 @@ The manifest is data, not code:
 - A declaration that says these things in code (`description`, `manifest`
   in `defineExtension`) is refused. The file is the only place they live.
 
-kb refuses an extension in three cases:
+A manifest is refused when:
 - its manifest is not JSON;
 - the manifest has a field the schema does not know;
 - the manifest's page tier contradicts the files: a `drawing`, `scene` or
   `full` tier without a page half, or `none` or `data` with one.
+
+[Capability admission](../../DESIGN.md#capability-admission) also checks its declared requirements before import.
 
 It also reports a `<name>.manifest.json` with no `<name>.ts` beside it as a
 failure.
@@ -205,3 +207,32 @@ before/after nodes. `ReactionHost.invoke` returns an action receipt, so a
 reaction decides how to handle a refused checked call. See
 [inbox-router](https://github.com/popemkt/kb-extensions/tree/feat/inbox-router/extensions/inbox-router)
 for a complete extension, including its seed nodes and manifest.
+
+## Declared capability requirements
+
+`uses` lists named points reached through `ctx.point`, with the kernel of
+the half that needs each one. The host binds those requirements; the entry
+does not need a second `uses` list. For example, a server contributor to
+quotes' installed point declares:
+
+```json
+{ "uses": [{ "point": "ext.quotes.sources", "kernel": "registry" }] }
+```
+
+A page contributor names `"kernel": "page"`. Static SDK keys such as
+`ViewPoint` are used directly, without this named-point dependency.
+The [admission contract](../../DESIGN.md#capability-admission) states when a
+requirement is refused and when its absent owner remains a waiting dependency.
+
+`reacts` lists the `TxMatch` data its `onCommit` callbacks use. Keep the match
+in one place: an extension can import its own JSON manifest and pass a
+match from `manifest.reacts` to `onCommit`. An empty object observes every
+local node write; an empty list declares no reactions. For example:
+
+```json
+{ "reacts": [{ "tagged": ["ext.inbox-router.inbox-tag"] }] }
+```
+
+The [reaction contract](../../DESIGN.md#transaction-reactions) owns delivery
+and matching. Existing code-only requirements remain supported; a manifest
+field left out remains undeclared, while an empty list declares none.

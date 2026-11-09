@@ -23,6 +23,7 @@ import {
   FootprintRowSchema,
   isKbOrigin,
   onWire,
+  waitingForPoint,
   type ExtensionReport,
   type ExtensionReportRow,
   type ExtensionSettings,
@@ -156,7 +157,7 @@ function organisationLines(row: ExtensionReportRow): string[] {
         `  declares ${point} (${spec.cardinality}, ${spec.tier}): ${spec.combine}`,
     ),
     ...uses.map(({ point, from }) =>
-      from === null ? `  waiting for point ${point}` : `  uses ${point} from ${from}`,
+      from === null ? `  ${waitingForPoint(point)}` : `  uses ${point} from ${from}`,
     ),
     ...provides.map((service) => `  provides ${service}`),
     ...failures.map((failure) => `  ! ${failure}`),

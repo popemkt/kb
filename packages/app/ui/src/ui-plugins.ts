@@ -27,7 +27,7 @@ import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { routinesExtension } from "@kb/routines";
 import { backdropsExtension } from "@kb/backdrops";
 import { backdropsUiPlugin } from "@kb/backdrops-ui";
-import { BUNDLED_FAMILIES, BUNDLED_ROLES } from "@kb/bundled";
+import { BUNDLED_FAMILIES, BUNDLED_CAPABILITIES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { locationsExtension } from "@kb/locations";
@@ -46,7 +46,7 @@ import { collectionsUiPlugin } from "@kb/collections-ui";
 import {
   EXTENSION_SDK,
   bundledPlugin,
-  replacementIssue,
+  extensionAdmissionIssue,
   NO_SWITCHES,
   declarationPlugin,
   extensionRow,
@@ -279,7 +279,10 @@ export async function importPageHalf(
   name: string,
   selected?: Pick<ExtensionRow, "digest" | "manifest">,
 ): Promise<Plugin> {
-  const issue = replacementIssue(name, selected?.manifest, BUNDLED_ROLES);
+  const issue = extensionAdmissionIssue(name, selected?.manifest, BUNDLED_CAPABILITIES, [
+    "registry",
+    "page",
+  ]);
   if (issue !== null) throw new Error(issue);
   // Import executes code: reject missing closure evidence here, before the kernel can check admission.
   if ((selected?.manifest?.replaces?.length ?? 0) > 0 && selected?.digest === undefined)

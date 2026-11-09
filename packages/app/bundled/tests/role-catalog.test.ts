@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { ExtensionManifestSchema, replacementIssue } from "@kb/contracts";
-import { BUNDLED_DECLARATIONS, BUNDLED_ROLES } from "../src/index.ts";
+import { ExtensionManifestSchema, extensionAdmissionIssue } from "@kb/contracts";
+import { BUNDLED_DECLARATIONS, BUNDLED_CAPABILITIES } from "../src/index.ts";
 
 test("every bundled replacement manifest is well-formed and targets the shared role catalog", () => {
   for (const declaration of BUNDLED_DECLARATIONS) {
@@ -9,7 +9,7 @@ test("every bundled replacement manifest is well-formed and targets the shared r
         ? undefined
         : ExtensionManifestSchema.parse(declaration.manifest);
     expect(
-      replacementIssue(declaration.name, manifest, BUNDLED_ROLES),
+      extensionAdmissionIssue(declaration.name, manifest, BUNDLED_CAPABILITIES),
       declaration.name,
     ).toBeNull();
   }

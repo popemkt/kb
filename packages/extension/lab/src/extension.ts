@@ -1,3 +1,4 @@
+import { LAB_POINT_DEFINITIONS } from "./point-definitions.ts";
 /**
  * The lab family's declaration and its shared plugin (DESIGN.md → Extension
  * families). The declaration is the one home of the family's name and
@@ -14,6 +15,7 @@ import { LabView } from "./view.ts";
 export const labExtension = defineExtension({
   name: "lab",
   label: "Lab",
+  points: Object.values(LAB_POINT_DEFINITIONS),
   manifest: { description: "A sketchbook of experimental scenes, off until you switch it on." },
   tags: ["lab"],
   optional: { byDefault: "off" },

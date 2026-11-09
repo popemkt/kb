@@ -14,14 +14,14 @@ import {
   declarationPlugin,
   extensionNamespace,
   MANIFEST_SUFFIX,
+  PointNamesSchema,
+  manifestAuthority,
   type ExtensionDeclaration,
   type ExtensionEntry,
   type ExtensionManifest,
 } from "@kb/contracts";
 import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
 import { EXTENSION_NAME_PATTERN, bindPluginAuthority, isPlugin, type Plugin } from "@kb/plugin";
-
-/** A family's name: its `ext.<name>` namespace and its node's. */
 
 /** One line, for a warning the loader prints per module: a `Schema` issue is an indented tree. */
 function oneLine(message: string): string {
@@ -35,7 +35,7 @@ const DeclarationData = Schema.Struct({
   name: Schema.String.pipe(
     Schema.check(
       Schema.makeFilter((name: string) =>
-        EXTENSION_NAME_PATTERN.test(name) ? undefined : "must match /^[\\w][\\w.-]*$/",
+        EXTENSION_NAME_PATTERN.test(name) ? undefined : `must match ${EXTENSION_NAME_PATTERN}`,
       ),
     ),
   ),
@@ -122,6 +122,10 @@ export function decodeExtensionModule(
   if (declared.name !== name) {
     return Result.fail(`declaration: its name ${declared.name} must be its file's, ${name}`);
   }
+  if (declared.points !== undefined)
+    return Result.fail(
+      "bundled point metadata is host-owned; declare extension points through ctx.declare",
+    );
   if (declared.roles !== undefined)
     return Result.fail(
       "role defaults are defined by bundled owners; replacements require host approval",
@@ -134,7 +138,9 @@ export function decodeExtensionModule(
   if (
     declared.manifest !== undefined ||
     Predicate.hasProperty(declared, "description") ||
-    Predicate.hasProperty(declared, "replaces")
+    Predicate.hasProperty(declared, "replaces") ||
+    Predicate.hasProperty(declared, "uses") ||
+    Predicate.hasProperty(declared, "reacts")
   ) {
     return Result.fail(
       `declaration: what an extension says about itself belongs in ${name}${MANIFEST_SUFFIX}, beside it, which kb reads before anyone trusts the code`,
@@ -170,17 +176,18 @@ export function decodeExtensionPlugin(
   ) {
     return Result.fail(`entry namespace must be ${namespace}`);
   }
+  const stated = entry.uses === undefined ? undefined : PointNamesSchema.safeParse(entry.uses);
+  if (stated !== undefined && !stated.success)
+    return Result.fail(`entry uses: ${stated.error.message}`);
+  const requirements = stated?.data;
   return Result.succeed(
     bindPluginAuthority(
-      { ...entry, name },
+      { ...entry, name, ...(requirements === undefined ? {} : { uses: requirements }) },
       {
         pointNamespace: namespace,
         source: "extension",
+        ...manifestAuthority(code?.manifest),
         defaults: [],
-        replacements: (code?.manifest?.replaces ?? []).map(({ role, priority }) => ({
-          role,
-          ...(priority === undefined ? {} : { priority }),
-        })),
         ...(code === undefined ? {} : { digest: code.digest }),
       },
     ),

@@ -344,3 +344,13 @@ it("refuses an unknown replacement before attempting the page import", async () 
     }),
   ).rejects.toThrow("no replaceable role");
 });
+
+it("refuses unsupported native point requests before attempting the page import", async () => {
+  for (const point of ["kb.future", "ui.future", "outline.future"])
+    await expect(
+      importPageHalf("/this-module-must-not-be-imported.js", "consumer", {
+        digest: "test-code",
+        manifest: { uses: [{ point, kernel: "page" }], capabilities: { page: "full" } },
+      }),
+    ).rejects.toThrow("no point declared");
+});

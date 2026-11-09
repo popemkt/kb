@@ -1,13 +1,20 @@
+import { TxReactionSchema } from "./tx-match.ts";
 /** Shared host point metadata, consumed by the keys in every host. */
 import type { PointSpec } from "@kb/plugin";
 
 export interface PointDefinition {
   readonly name: string;
   readonly spec: PointSpec;
+  /** Resolved through ctx.point rather than an imported host key. */
+  readonly declared?: true;
 }
+
+/** Native ownership is build policy, independent of point availability or switches. */
+export const CORE_POINT_NAMESPACES = ["kb", "ui", "action", "tx", "identity"] as const;
 
 export const CORE_POINT_DEFINITIONS = {
   paletteStep: {
+    declared: true,
     name: "ui.palette-steps",
     spec: {
       cardinality: "keyed",
@@ -19,6 +26,7 @@ export const CORE_POINT_DEFINITIONS = {
   txAfter: {
     name: "tx/after",
     spec: {
+      contract: TxReactionSchema,
       cardinality: "list",
       combine: "all, independently, after the committing invocation settles",
       kernel: "registry",

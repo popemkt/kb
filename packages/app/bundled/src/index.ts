@@ -23,7 +23,7 @@ import { chartExtension } from "@kb/chart";
 import { collectionsExtension } from "@kb/collections";
 import { checkExtension } from "@kb/check";
 import { codeExtension } from "@kb/code";
-import { declaredRoles, type ExtensionDeclaration } from "@kb/contracts";
+import { hostCapabilities, type ExtensionDeclaration } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
 import { galleryExtension } from "@kb/gallery";
 import { governanceExtension } from "@kb/governance";
@@ -81,7 +81,7 @@ export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [
 ];
 
 /** The role catalog both hosts admit against, derived from the same declarations as the seed. */
-export const BUNDLED_ROLES = declaredRoles(BUNDLED_DECLARATIONS);
+export const BUNDLED_CAPABILITIES = hostCapabilities(BUNDLED_DECLARATIONS);
 
 /**
  * The seed a store is opened with: the bundled declarations folded in order.

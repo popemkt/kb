@@ -87,7 +87,8 @@ const DATASCRIPT = /cljs\.core/;
 // PointSpec metadata and host/cardinality admission add 1,121 measured eager bytes.
 // Manifest replacement admission and the served field-row SDK add 2,053 measured eager bytes.
 // Commit receipts, reaction frames and identified actor metadata add 3,246 measured eager bytes.
-const EAGER_BUDGET_BYTES = 2_046_500;
+// Shared capability metadata, manifest constraints and waiting status add 6,246 measured eager bytes.
+const EAGER_BUDGET_BYTES = 2_053_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import {
-  declaredRoles,
+  hostCapabilities,
   FIELD_EDITOR_ROLE,
-  replacementIssue,
+  extensionAdmissionIssue,
   ExtensionManifestSchema,
   type ExtensionManifest,
 } from "../src/index.ts";
 
-const roles = declaredRoles([{ name: "outline", label: "Outline", roles: [FIELD_EDITOR_ROLE] }]);
+const roles = hostCapabilities([{ name: "outline", label: "Outline", roles: [FIELD_EDITOR_ROLE] }]);
 const manifest: ExtensionManifest = {
   replaces: [{ role: "ui.field-editor", why: "One-line rows" }],
   capabilities: { page: "full" },
@@ -37,18 +37,26 @@ test("one role has one replacement declaration", () => {
 });
 
 test("replacement admission checks the declared role and its page tier", () => {
-  expect(replacementIssue("plain-fields", manifest, roles)).toBeNull();
+  expect(extensionAdmissionIssue("plain-fields", manifest, roles)).toBeNull();
   expect(
-    replacementIssue("plain-fields", { replaces: [{ role: "ui.host", why: "hijack" }] }, roles),
+    extensionAdmissionIssue(
+      "plain-fields",
+      { replaces: [{ role: "ui.host", why: "hijack" }] },
+      roles,
+    ),
   ).toMatch(/no replaceable role/);
   expect(
-    replacementIssue("plain-fields", { ...manifest, capabilities: { page: "drawing" } }, roles),
+    extensionAdmissionIssue(
+      "plain-fields",
+      { ...manifest, capabilities: { page: "drawing" } },
+      roles,
+    ),
   ).toMatch(/requires capabilities.page: full/);
-  expect(replacementIssue("outline", manifest, roles)).toMatch(/already owns its default/);
+  expect(extensionAdmissionIssue("outline", manifest, roles)).toMatch(/already owns its default/);
 });
 
 test("server roles impose no page access requirement", () => {
-  const serverRoles = declaredRoles([
+  const serverRoles = hostCapabilities([
     {
       name: "owner",
       label: "Owner",
@@ -62,7 +70,7 @@ test("server roles impose no page access requirement", () => {
     },
   ]);
   expect(
-    replacementIssue(
+    extensionAdmissionIssue(
       "other",
       { replaces: [{ role: "server.test", why: "server provider" }] },
       serverRoles,

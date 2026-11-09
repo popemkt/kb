@@ -13,6 +13,15 @@ import type { StandardSchemaV1 } from "effect/StandardSchema";
 
 /** A plugin family name, shared by discovery and module decoding. */
 export const EXTENSION_NAME_PATTERN = /^[\w][\w.-]*$/;
+/** A point local name is one identifier within its family namespace. */
+export const LOCAL_POINT_NAME_PATTERN = /^[\w][\w-]*$/;
+
+/** A declared point has exactly one local identifier within this namespace. */
+export function localPointName(namespace: string, full: string): string | undefined {
+  const prefix = `${namespace}.`;
+  const local = full.startsWith(prefix) ? full.slice(prefix.length) : "";
+  return LOCAL_POINT_NAME_PATTERN.test(local) ? local : undefined;
+}
 
 export interface Key<Kind extends string, T> {
   readonly kind: Kind;

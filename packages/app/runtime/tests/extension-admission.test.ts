@@ -88,6 +88,51 @@ describe("admitting a root's repository extensions", () => {
     expect(failures[0]?.error).not.toContain("MODULE IMPORTED");
   });
 
+  test("native point requirements and malformed names are refused before server import", async () => {
+    for (const point of ["kb.future", "ui.future", "outline.future", "ui.bad name"]) {
+      await writeExtension(
+        root,
+        "needs.ts",
+        'throw new Error("MODULE IMPORTED");\n' + extensionModule("needs"),
+      );
+      await writeExtension(
+        root,
+        "needs.manifest.json",
+        JSON.stringify({ uses: [{ point, kernel: "registry" }] }),
+      );
+      const failures = await admit();
+      expect(failures).toHaveLength(1);
+      expect(failures[0]?.error).not.toContain("MODULE IMPORTED");
+      expect(failures[0]?.error).toMatch(/no point declared|namespaced point name/);
+    }
+  });
+
+  test("a third-party point owner may be absent without failing admission", async () => {
+    await writeExtension(root, "consumer.ts", extensionModule("consumer"));
+    await writeExtension(
+      root,
+      "consumer.manifest.json",
+      JSON.stringify({ uses: [{ point: "ext.later.sources", kernel: "registry" }] }),
+    );
+    expect(await admit()).toEqual([]);
+  });
+
+  test("a request for a missing half is refused before server import", async () => {
+    await writeExtension(
+      root,
+      "needs.ts",
+      'throw new Error("MODULE IMPORTED");\n' + extensionModule("needs"),
+    );
+    await writeExtension(
+      root,
+      "needs.manifest.json",
+      JSON.stringify({ uses: [{ point: "ext.later.sources", kernel: "page" }] }),
+    );
+    const failures = await admit();
+    expect(failures[0]?.error).toContain("unsupported page host");
+    expect(failures[0]?.error).not.toContain("MODULE IMPORTED");
+  });
+
   test("changing only the replacement claim changes the trusted digest", async () => {
     await writeExtension(root, "rows.ts", extensionModule("rows"));
     await writeExtension(root, "rows.page.ts", "export const page = true;");

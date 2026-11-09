@@ -3,7 +3,7 @@ import { checkHost, checkPointSpec } from "./specs.ts";
 import { contributeErased, contributionsAt, matchesPoint, pointValue } from "./points.ts";
 import { Effect, Exit, Scope } from "effect";
 import type { PluginError } from "./errors.ts";
-import { authorityOf } from "./authority.ts";
+import { authorityOf, pointUseAllowed, type PluginAuthority } from "./authority.ts";
 import {
   elected,
   registration,
@@ -43,6 +43,7 @@ import {
 } from "./cells.ts";
 import {
   asKeyType,
+  localPointName,
   namespaced,
   roleKeyAt,
   asPointKey,
@@ -370,20 +371,39 @@ const unloadEntry = Effect.fnUntraced(function* (state: State, target: string | 
 });
 
 /** Resolve one immutable load's metadata before activation starts. */
-function pluginEntry(plugin: Plugin, parent: Entry | null, name: string): Entry {
+function pluginEntry(plugin: Plugin, parent: Entry | null, name: string, host: KernelHost): Entry {
+  const authority: PluginAuthority = parent?.authority ??
+    authorityOf(plugin) ?? {
+      pointNamespace: plugin.namespace ?? plugin.name,
+      source: "bundled",
+      replacements: [],
+      defaults: [],
+    };
+  const declared =
+    parent === null
+      ? (authority.uses
+          ?.filter(
+            (use) =>
+              use.kernel === host &&
+              localPointName(authority.pointNamespace, use.point) === undefined,
+          )
+          .map(({ point }) => point) ?? [])
+      : [];
+  const uses = [...new Set([...(plugin.uses ?? []), ...declared])];
+  const unlisted = uses.find((point) => !pointUseAllowed(authority, point, host));
+  if (unlisted !== undefined)
+    throw refusal(
+      name,
+      "not-used",
+      `${unlisted} is not declared in the manifest's uses for the ${host} kernel`,
+    );
   return {
     name,
     namespace: plugin.namespace ?? parent?.namespace ?? plugin.name,
     tags: plugin.tags ?? parent?.tags ?? [],
     inject: [...(plugin.inject ?? [])],
-    uses: [...(plugin.uses ?? [])],
-    authority: parent?.authority ??
-      authorityOf(plugin) ?? {
-        pointNamespace: plugin.namespace ?? plugin.name,
-        source: "bundled",
-        replacements: [],
-        defaults: [],
-      },
+    uses,
+    authority,
     parent: parent?.name ?? null,
     plugin,
     apply: plugin.apply,
@@ -404,7 +424,7 @@ const loadEntry = Effect.fnUntraced(function* (
       if (parent !== null) assertActive(parent);
       if (state.entries.has(name))
         throw refusal(name, "name-taken", `a plugin named ${name} is loaded`);
-      const entry = pluginEntry(plugin, parent?.entry ?? null, name);
+      const entry = pluginEntry(plugin, parent?.entry ?? null, name, state.host);
       state.entries.set(name, entry);
       const handle: PluginHandle = {
         name,
@@ -529,17 +549,16 @@ const declarePoint = Effect.fnUntraced(function* <C>(
 ) {
   const scope = yield* scopeOf(active);
   const { entry } = active;
-  const prefix = `${entry.authority.pointNamespace}.`;
   const full =
     typeof reference === "string"
       ? namespaced(entry.authority.pointNamespace, reference)
       : reference.name;
-  const local = full.startsWith(prefix) ? full.slice(prefix.length) : "";
-  if (local.length === 0 || local.includes(".") || entry.authority.pointNamespace === "")
+  const local = localPointName(entry.authority.pointNamespace, full);
+  if (local === undefined || entry.authority.pointNamespace === "")
     return yield* refusal(
       entry.name,
       "invalid-point",
-      "declare requires one local name without dots in the family's namespace",
+      "declare requires one local identifier in the family's namespace",
     );
   if (spec.replaceable === true && entry.authority.source !== "bundled")
     return yield* refusal(

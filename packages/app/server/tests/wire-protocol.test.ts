@@ -38,9 +38,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // before they can approve a digest without seeing its replacement lines.
 // Protocol 6: graph.changes carries identified reaction actors, alongside
 // the existing human/agent/cli/script actor strings.
+// Protocol 7: manifests carry scoped named-point dependencies and reaction
+// matches; earlier strict readers cannot decode or review those claims.
 const RECORDED = {
-  protocol: 6,
-  fingerprint: "5ca9388a5638a2ab8d2fb60f69d26cceed2a5507280814f39e513a486e966505",
+  protocol: 7,
+  fingerprint: "43b796716352fe945f65253276c3b7bf55e39575615bf47ac345419849707c04",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

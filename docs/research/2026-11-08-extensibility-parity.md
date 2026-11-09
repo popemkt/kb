@@ -283,10 +283,18 @@ repeated.
   - `replaces`, the roles it asks for;
   - `reacts`, its `tx/after` matches.
 
-  Admission refuses a `uses` or `replaces` that names no point or role this
-  kb declares, before import. That is `engines.dsh` without semver: the
-  question is whether the thing it plugs into exists, not which version
-  is running. Refuse exemptions; the person's gesture is trust.
+  Admission checks manifest requirements before import. It refuses
+  unsupported host capabilities, malformed names, a `uses` in kb's native
+  namespaces (`kb.*`, `ui.*` and bundled families) that this build does not
+  declare, and a `replaces` of a non-replaceable role. Those missing native
+  points cannot appear later in this kb version. An absent third-party
+  point owner may be installed later: keep the contributor waiting, as
+  `inject` waits for a service. Settings says "waiting for <point> from
+  <extension>", without treating that dependency as an error. A manifest
+  `uses` identifies its kernel so the other half does not wait for it.
+  This is `engines.dsh` without semver: ask whether the required capability
+  exists, not which version is running. Refuse exemptions; the person's
+  gesture is trust.
 
 ### 2.8 Summary
 
@@ -885,3 +893,5 @@ Implementation follow-up (Step 7): [provider roles](../../DESIGN.md#provider-rol
 Implementation follow-up (Step 8): the [installed-role proof](2026-11-09-replacement-roles-e2e.md) covers the approved replacement and fallback contract.
 
 Implementation follow-up (Step 10): [transaction reactions](../../DESIGN.md#transaction-reactions) state the live contract; the [installed sample proof](2026-11-09-transaction-reactions-e2e.md) covers both committing surfaces.
+
+Implementation follow-up (Step 13): [capability admission](../../DESIGN.md#capability-admission) states the live contract and the absent-owner waiting policy; the [installed proof](2026-11-09-capability-admission-e2e.md) covers the Settings state and later owner arrival.
