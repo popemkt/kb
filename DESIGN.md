@@ -5675,6 +5675,11 @@ point. A plugin reaches another through an injected service or a declared point 
 
 The [extensibility parity design](docs/research/2026-11-08-extensibility-parity.md#4-declared-points) motivates this contract. Every point key carries a spec: cardinality (`list`, `keyed`, `single`, or `chain`), reader combination prose, accepted kernels (`registry`, `server`, `page`), and minimum isolation tier. A point may accept multiple kernels; guards and interceptors accept registry and page, while shared declarations accept all hosts. Kernels require an explicit host and refuse contributions to another host with `wrong-kernel`. Single points accept one contribution; keyed points refuse repeated ids, aliases, or the member path named by `keyBy`. Lists and chains retain contribution order. The effective extension report includes each live point’s spec and ordered contributions.
 
+Point names and specifications live in shared `PointDefinition` values. Core's
+are `CORE_POINT_DEFINITIONS`; a family's are exported by its shared package.
+The page keys and owners read those values, so host metadata can be read
+without importing page implementation code.
+
 ### Declared point lifecycle
 
 A plugin declares one local name (without dots), or its typed name reference,

@@ -1,3 +1,4 @@
+import { EXTENSION_NAME_PATTERN } from "@kb/plugin";
 import { Effect, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
@@ -57,7 +58,6 @@ import {
 export { ownExtensionFolder } from "./extension-folder.ts";
 export type { ExtensionFolder } from "./extension-folder.ts";
 
-const NAME_RE = /^[\w][\w.-]*$/;
 const PAGE_ENTRIES = [".page.tsx", ".page.ts"];
 
 /** An extension whose closure was read: its file, its name, its server entry's path, its closure. */
@@ -146,7 +146,7 @@ const closed = Effect.fn("kb.extensionClosures")(function* (
   const servers = entries.filter(isServerEntry).toSorted();
   for (const file of servers) {
     const name = file.slice(0, -".ts".length);
-    if (!NAME_RE.test(name)) {
+    if (!EXTENSION_NAME_PATTERN.test(name)) {
       failures.push({ file, error: "extension file name must match /^[\\w][\\w.-]*$/" });
       continue;
     }

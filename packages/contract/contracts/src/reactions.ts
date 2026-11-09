@@ -1,3 +1,4 @@
+import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Context, type Effect } from "effect";
 import { Point, type PluginContext, type PluginError } from "@kb/plugin";
 import type { KbTx, NodeId, NodeWrite } from "@kb/model";
@@ -34,12 +35,10 @@ export interface TxReaction {
   readonly react: (change: TxChange, kb: ReactionHost) => Effect.Effect<void>;
 }
 
-export const TxAfterPoint = Point<TxReaction>()("tx/after", {
-  cardinality: "list",
-  combine: "all, independently, after the committing invocation settles",
-  kernel: "registry",
-  tier: "T3",
-});
+export const TxAfterPoint = Point<TxReaction>()(
+  CORE_POINT_DEFINITIONS.txAfter.name,
+  CORE_POINT_DEFINITIONS.txAfter.spec,
+);
 
 /** Observe matching local commits after the outer call settles. */
 export function onCommit(

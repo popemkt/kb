@@ -332,3 +332,5 @@ export type {
   ReactionHost,
   Reactions,
 } from "./reactions.ts";
+
+export { CORE_POINT_DEFINITIONS, type PointDefinition } from "./point-definitions.ts";

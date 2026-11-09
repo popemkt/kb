@@ -1,7 +1,12 @@
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { GalleryView, galleryExtension, galleryPlugin } from "@kb/gallery";
+import {
+  GALLERY_POINT_DEFINITIONS,
+  GalleryView,
+  galleryExtension,
+  galleryPlugin,
+} from "@kb/gallery";
 import {
   BrowserHostService,
   provideRoute,
@@ -10,8 +15,8 @@ import {
   SidebarSectionPoint,
   ViewPoint,
 } from "@kb/ui-sdk";
-import { galleryModelPlugin, ComposerModelPoint, COMPOSER_MODEL_POINT_SPEC } from "./model";
-import { galleryMoodboardPlugin, MoodboardPoint, MOODBOARD_POINT_SPEC } from "./moodboard";
+import { galleryModelPlugin, ComposerModelPoint } from "./model";
+import { galleryMoodboardPlugin, MoodboardPoint } from "./moodboard";
 import { GALLERY_WORKFLOW_SURFACES } from "./workflows";
 import { matchGallery, GALLERY_PATH } from "./routes";
 import { GallerySection, GallerySurface } from "./surfaces";
@@ -37,8 +42,8 @@ export const galleryUiPlugin = definePlugin({
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.gen(function* () {
-      yield* ctx.declare(ComposerModelPoint, COMPOSER_MODEL_POINT_SPEC);
-      yield* ctx.declare(MoodboardPoint, MOODBOARD_POINT_SPEC);
+      yield* ctx.declare(ComposerModelPoint, GALLERY_POINT_DEFINITIONS.model.spec);
+      yield* ctx.declare(MoodboardPoint, GALLERY_POINT_DEFINITIONS.moodboard.spec);
       yield* Effect.all(
         [
           ctx.plugin(galleryPlugin()),

@@ -59,3 +59,5 @@ export { namespaced } from "./keys.ts";
 export { roleSession, type RoleSession } from "./role-session.ts";
 
 export { ROLE_KINDS } from "./roles.ts";
+
+export { EXTENSION_NAME_PATTERN } from "./keys.ts";

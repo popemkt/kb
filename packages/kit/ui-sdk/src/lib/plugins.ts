@@ -22,7 +22,12 @@ import {
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Cause, Effect } from "effect";
-import { runtimeFootprint, type FamilyKernel, type FootprintRow } from "@kb/contracts";
+import {
+  CORE_POINT_DEFINITIONS,
+  runtimeFootprint,
+  type FamilyKernel,
+  type FootprintRow,
+} from "@kb/contracts";
 import {
   Point,
   makeKernel,
@@ -119,12 +124,10 @@ export interface ProvidedView {
   readonly frame?: RouteFrame;
 }
 
-export const ViewPoint = Point<ProvidedView>()("ui.views", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const ViewPoint = Point<ProvidedView>()(
+  CORE_POINT_DEFINITIONS.view.name,
+  CORE_POINT_DEFINITIONS.view.spec,
+);
 
 /** What a view contribution says beside its key: its placements but `preview`, which the key says. */
 type ViewEntry<P> = Omit<View<P>, "key" | "placements"> & {
@@ -209,12 +212,10 @@ export interface ProvidedRoute {
   readonly entry?: string;
 }
 
-export const RoutePoint = Point<ProvidedRoute>()("ui.routes", {
-  cardinality: "chain",
-  combine: "first matching route",
-  kernel: "page",
-  tier: "T3",
-});
+export const RoutePoint = Point<ProvidedRoute>()(
+  CORE_POINT_DEFINITIONS.route.name,
+  CORE_POINT_DEFINITIONS.route.spec,
+);
 
 /** The `RoutePoint` contribution for `route`, under its view's local id. */
 /**
@@ -261,12 +262,10 @@ export interface SidebarSection {
   readonly Component: ComponentType<{ readonly route: MatchedRoute | null }>;
 }
 
-export const SidebarSectionPoint = Point<SidebarSection>()("ui.sidebar", {
-  cardinality: "list",
-  combine: "ascending order",
-  kernel: "page",
-  tier: "T3",
-});
+export const SidebarSectionPoint = Point<SidebarSection>()(
+  CORE_POINT_DEFINITIONS.sidebarSection.name,
+  CORE_POINT_DEFINITIONS.sidebarSection.spec,
+);
 
 /**
  * A dock: a tool window at the workspace's right edge, beside every page
@@ -282,12 +281,10 @@ export interface Dock {
   readonly Component: ComponentType<{ readonly onClose: () => void }>;
 }
 
-export const DockPoint = Point<Dock>()("ui.docks", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const DockPoint = Point<Dock>()(
+  CORE_POINT_DEFINITIONS.dock.name,
+  CORE_POINT_DEFINITIONS.dock.spec,
+);
 
 /**
  * A page overlay: something a plugin mounts once for the whole page, beside
@@ -301,12 +298,10 @@ export interface Overlay {
   readonly Component: ComponentType;
 }
 
-export const OverlayPoint = Point<Overlay>()("ui.overlays", {
-  cardinality: "list",
-  combine: "mount all",
-  kernel: "page",
-  tier: "T3",
-});
+export const OverlayPoint = Point<Overlay>()(
+  CORE_POINT_DEFINITIONS.overlay.name,
+  CORE_POINT_DEFINITIONS.overlay.spec,
+);
 
 /**
  * How far across the page a backdrop's frame reaches: centred under the
@@ -489,12 +484,10 @@ export interface Backdrop {
   readonly Component: ComponentType<BackdropProps>;
 }
 
-export const BackdropPoint = Point<Backdrop>()("ui.backdrops", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const BackdropPoint = Point<Backdrop>()(
+  CORE_POINT_DEFINITIONS.backdrop.name,
+  CORE_POINT_DEFINITIONS.backdrop.spec,
+);
 
 /**
  * Something a page head's backdrop offers where its owner double-clicks it
@@ -509,12 +502,10 @@ export interface BackdropAction {
   readonly run: (backdrop: string) => void;
 }
 
-export const BackdropActionPoint = Point<BackdropAction>()("ui.backdrop-actions", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const BackdropActionPoint = Point<BackdropAction>()(
+  CORE_POINT_DEFINITIONS.backdropAction.name,
+  CORE_POINT_DEFINITIONS.backdropAction.spec,
+);
 
 /**
  * The backdrop its family declares as `key`, as its page plugin contributes
@@ -590,12 +581,10 @@ export interface ThemeArtProps {
  */
 export const THEME_GESTURE_MAX_MS = 2400;
 
-export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-});
+export const DesignSystemPoint = Point<DesignSystem>()(
+  CORE_POINT_DEFINITIONS.designSystem.name,
+  CORE_POINT_DEFINITIONS.designSystem.spec,
+);
 
 /** The design system its family names `key`, as its page plugin contributes it (`provideBackdrop`). */
 export function provideDesignSystem(

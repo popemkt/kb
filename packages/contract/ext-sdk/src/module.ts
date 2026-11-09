@@ -19,10 +19,9 @@ import {
   type ExtensionManifest,
 } from "@kb/contracts";
 import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
-import { bindPluginAuthority, isPlugin, type Plugin } from "@kb/plugin";
+import { EXTENSION_NAME_PATTERN, bindPluginAuthority, isPlugin, type Plugin } from "@kb/plugin";
 
 /** A family's name: its `ext.<name>` namespace and its node's. */
-const NAME_RE = /^[\w][\w.-]*$/;
 
 /** One line, for a warning the loader prints per module: a `Schema` issue is an indented tree. */
 function oneLine(message: string): string {
@@ -36,7 +35,7 @@ const DeclarationData = Schema.Struct({
   name: Schema.String.pipe(
     Schema.check(
       Schema.makeFilter((name: string) =>
-        NAME_RE.test(name) ? undefined : "must match /^[\\w][\\w.-]*$/",
+        EXTENSION_NAME_PATTERN.test(name) ? undefined : "must match /^[\\w][\\w.-]*$/",
       ),
     ),
   ),

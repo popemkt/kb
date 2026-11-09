@@ -1,8 +1,15 @@
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { LAB_SCENE_IDS, LabView, labExtension, labPlugin, type LabSceneId } from "@kb/lab";
-import { LabStudyPoint, LAB_STUDY_POINT_SPEC } from "./kit/study-point";
+import {
+  LAB_POINT_DEFINITIONS,
+  LAB_SCENE_IDS,
+  LabView,
+  labExtension,
+  labPlugin,
+  type LabSceneId,
+} from "@kb/lab";
+import { LabStudyPoint } from "./kit/study-point";
 import { matchLab } from "./routes";
 import { LAB_STUDIES } from "./studies";
 import { LabSection, LabSurface } from "./surfaces";
@@ -61,7 +68,7 @@ export const labUiPlugin = definePlugin({
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.gen(function* () {
-      const point = yield* ctx.declare(LabStudyPoint, LAB_STUDY_POINT_SPEC);
+      const point = yield* ctx.declare(LabStudyPoint, LAB_POINT_DEFINITIONS.studies.spec);
       yield* Effect.all(
         [
           ctx.plugin(labPlugin()),

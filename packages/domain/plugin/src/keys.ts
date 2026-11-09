@@ -11,6 +11,9 @@
  */
 import type { StandardSchemaV1 } from "effect/StandardSchema";
 
+/** A plugin family name, shared by discovery and module decoding. */
+export const EXTENSION_NAME_PATTERN = /^[\w][\w.-]*$/;
+
 export interface Key<Kind extends string, T> {
   readonly kind: Kind;
   readonly name: string;

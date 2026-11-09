@@ -1,3 +1,4 @@
+import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Context, Effect } from "effect";
 import { Point, type PluginContext, type PluginError } from "@kb/plugin";
 import type { NodeId, NodeLike, NodeWrite } from "@kb/model";
@@ -89,20 +90,16 @@ export interface ActionInterceptor {
 }
 
 /** The guards plugins contribute. Every one that matches is asked; the strictest verdict holds. */
-export const ActionGuardPoint = Point<ActionGuard>()("action/guard", {
-  cardinality: "list",
-  combine: "strictest verdict",
-  kernel: ["registry", "page"],
-  tier: "T3",
-});
+export const ActionGuardPoint = Point<ActionGuard>()(
+  CORE_POINT_DEFINITIONS.actionGuard.name,
+  CORE_POINT_DEFINITIONS.actionGuard.spec,
+);
 
 /** The interceptors plugins contribute, run in order on the input and in reverse on the output. */
-export const ActionInterceptorPoint = Point<ActionInterceptor>()("action/intercept", {
-  cardinality: "chain",
-  combine: "input in order, output in reverse",
-  kernel: ["registry", "page"],
-  tier: "T3",
-});
+export const ActionInterceptorPoint = Point<ActionInterceptor>()(
+  CORE_POINT_DEFINITIONS.actionInterceptor.name,
+  CORE_POINT_DEFINITIONS.actionInterceptor.spec,
+);
 
 /** One listener as the invoke core runs it: what it is, and the plugin that contributed it. */
 export interface Listener<L> {
