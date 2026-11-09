@@ -88,7 +88,8 @@ const DATASCRIPT = /cljs\.core/;
 // Manifest replacement admission and the served field-row SDK add 2,053 measured eager bytes.
 // Commit receipts, reaction frames and identified actor metadata add 3,246 measured eager bytes.
 // Shared capability metadata, manifest constraints and waiting status add 6,246 measured eager bytes.
-const EAGER_BUDGET_BYTES = 2_053_000;
+// The integrated editor, roles and routines surfaces measure 2,064,033 eager bytes.
+const EAGER_BUDGET_BYTES = 2_065_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

@@ -96,9 +96,10 @@ describe("aes-256-gcm", () => {
     const dir = join(root, "secrets");
     const script = join(root, "seal.ts");
     // Each process seals its own name into the one store, all started at once.
+    // The temporary script uses this workspace's runtime, never Bun's global cache.
     await writeFile(
       script,
-      `import { Effect } from "effect";
+      `import { Effect } from ${JSON.stringify(import.meta.resolve("effect"))};
 import { aesGcmCipher, sealedSecrets } from ${JSON.stringify(join(import.meta.dir, "../src/index.ts"))};
 const dir = process.argv[2], name = process.argv[3];
 const store = sealedSecrets({ dir: () => dir, ciphers: [aesGcmCipher(() => dir + "/key")] });
@@ -110,7 +111,7 @@ await Effect.runPromise(store.sink({ kind: "sealed", name }).write("value-" + na
       const codes = await Promise.all(
         names.map(
           (name) =>
-            Bun.spawn([process.execPath, script, dir, name], {
+            Bun.spawn([process.execPath, "--no-install", script, dir, name], {
               cwd: import.meta.dir,
               stdout: "ignore",
               stderr: "inherit",
