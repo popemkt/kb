@@ -14,7 +14,7 @@ import type { KbNode } from "@kb/model";
  * list, so a family that joins it is held to the same promises as the rest.
  */
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import type { ExtensionDeclaration, ExtensionEntry } from "@kb/contracts";
+import { bundledPlugin, type ExtensionDeclaration, type ExtensionEntry } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { backdropsPlugin } from "@kb/backdrops";
 import { chartServerPlugin } from "@kb/chart-vega";
@@ -78,7 +78,7 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   transistorPlugin(),
   yorhaPlugin(),
   galleryServerPlugin(),
-]);
+]).map(({ declaration, entry }) => ({ declaration, entry: bundledPlugin(declaration, entry) }));
 
 /** The locations family's graph projection, selected at the server composition root. */
 export function registeredLocationPaths(nodes: readonly KbNode[]): readonly string[] {

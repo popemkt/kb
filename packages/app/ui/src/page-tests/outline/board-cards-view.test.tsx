@@ -37,10 +37,10 @@ import {
   outlineFrameSubject,
   outlineNodes,
   outlineSource,
-  outlineUiPlugin,
   ViewToolbar,
   ZoomedRootHeader,
 } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
 import { BoardCardsView, collectionsUiPlugin } from "@kb/collections-ui";
 

@@ -14,14 +14,14 @@ import {
   declarationPlugin,
   extensionNamespace,
   MANIFEST_SUFFIX,
+  PointNamesSchema,
+  manifestAuthority,
   type ExtensionDeclaration,
   type ExtensionEntry,
+  type ExtensionManifest,
 } from "@kb/contracts";
 import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
-import { bindPointNamespace, isPlugin, type Plugin } from "@kb/plugin";
-
-/** A family's name: its `ext.<name>` namespace and its node's. */
-const NAME_RE = /^[\w][\w.-]*$/;
+import { EXTENSION_NAME_PATTERN, bindPluginAuthority, isPlugin, type Plugin } from "@kb/plugin";
 
 /** One line, for a warning the loader prints per module: a `Schema` issue is an indented tree. */
 function oneLine(message: string): string {
@@ -35,7 +35,7 @@ const DeclarationData = Schema.Struct({
   name: Schema.String.pipe(
     Schema.check(
       Schema.makeFilter((name: string) =>
-        NAME_RE.test(name) ? undefined : "must match /^[\\w][\\w.-]*$/",
+        EXTENSION_NAME_PATTERN.test(name) ? undefined : `must match ${EXTENSION_NAME_PATTERN}`,
       ),
     ),
   ),
@@ -91,6 +91,12 @@ function declaredOptionsIssue(declaration: ExtensionDeclaration): string | null 
   return null;
 }
 
+/** Approval from the trusted, manifest-covered closure supplied by the host. */
+export interface ExtensionCodeApproval {
+  readonly digest: string;
+  readonly manifest?: ExtensionManifest;
+}
+
 /**
  * Decode a repository extension's module, the one named `name` (its file's
  * name): its `declaration` export, whose name must be the file's, and its
@@ -105,21 +111,37 @@ function declaredOptionsIssue(declaration: ExtensionDeclaration): string | null 
  * returns something other than nodes throws there, where its module is
  * refused.
  */
+
 export function decodeExtensionModule(
   module: unknown,
   name: string,
+  code?: ExtensionCodeApproval,
 ): Result.Result<ExtensionEntry, string> {
   const declared = Predicate.hasProperty(module, "declaration") ? module.declaration : undefined;
   if (!isDeclaration(declared)) return Result.fail(`declaration: ${declarationIssue(declared)}`);
   if (declared.name !== name) {
     return Result.fail(`declaration: its name ${declared.name} must be its file's, ${name}`);
   }
+  if (declared.points !== undefined)
+    return Result.fail(
+      "bundled point metadata is host-owned; declare extension points through ctx.declare",
+    );
+  if (declared.roles !== undefined)
+    return Result.fail(
+      "role defaults are defined by bundled owners; replacements require host approval",
+    );
   if (declared.required !== undefined) {
     return Result.fail(
       "declaration: required is kb's own build's claim; an extension from a repository, a link or an install can always be switched off",
     );
   }
-  if (declared.manifest !== undefined || Predicate.hasProperty(declared, "description")) {
+  if (
+    declared.manifest !== undefined ||
+    Predicate.hasProperty(declared, "description") ||
+    Predicate.hasProperty(declared, "replaces") ||
+    Predicate.hasProperty(declared, "uses") ||
+    Predicate.hasProperty(declared, "reacts")
+  ) {
     return Result.fail(
       `declaration: what an extension says about itself belongs in ${name}${MANIFEST_SUFFIX}, beside it, which kb reads before anyone trusts the code`,
     );
@@ -130,19 +152,18 @@ export function decodeExtensionModule(
   const declaration: ExtensionDeclaration =
     seed === undefined ? declared : { ...declared, seed: (at) => decodeSeedNodes(seed(at)) };
   const entry = Predicate.hasProperty(module, "default") ? module.default : undefined;
-  if (entry === undefined)
-    return Result.succeed({
-      declaration,
-      entry: bindPointNamespace(declarationPlugin(declaration), extensionNamespace(name)),
-    });
-  return Result.map(decodeExtensionPlugin(entry, name), (plugin) => ({
-    declaration,
-    entry: plugin,
-  }));
+  return Result.map(
+    decodeExtensionPlugin(entry === undefined ? declarationPlugin(declaration) : entry, name, code),
+    (plugin) => ({ declaration, entry: plugin }),
+  );
 }
 
 /** Bind repository and installed roots to the identity verified by their host. */
-export function decodeExtensionPlugin(entry: unknown, name: string): Result.Result<Plugin, string> {
+export function decodeExtensionPlugin(
+  entry: unknown,
+  name: string,
+  code?: ExtensionCodeApproval,
+): Result.Result<Plugin, string> {
   if (!isPlugin(entry)) return Result.fail("default export must be a plugin ({ name, apply })");
   if (entry.name !== name)
     return Result.fail(`entry name ${entry.name} must be its extension's, ${name}`);
@@ -155,5 +176,20 @@ export function decodeExtensionPlugin(entry: unknown, name: string): Result.Resu
   ) {
     return Result.fail(`entry namespace must be ${namespace}`);
   }
-  return Result.succeed(bindPointNamespace({ ...entry, name }, namespace));
+  const stated = entry.uses === undefined ? undefined : PointNamesSchema.safeParse(entry.uses);
+  if (stated !== undefined && !stated.success)
+    return Result.fail(`entry uses: ${stated.error.message}`);
+  const requirements = stated?.data;
+  return Result.succeed(
+    bindPluginAuthority(
+      { ...entry, name, ...(requirements === undefined ? {} : { uses: requirements }) },
+      {
+        pointNamespace: namespace,
+        source: "extension",
+        ...manifestAuthority(code?.manifest),
+        defaults: [],
+        ...(code === undefined ? {} : { digest: code.digest }),
+      },
+    ),
+  );
 }

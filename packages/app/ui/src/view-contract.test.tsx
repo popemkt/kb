@@ -25,6 +25,7 @@ import {
   definePlugin,
   makeKernel,
   type Plugin,
+  kernelHosts,
 } from "@kb/plugin";
 import { foldSeed, SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
 import {
@@ -43,7 +44,7 @@ import {
 } from "@kb/ui-sdk";
 import { setPostAction } from "@/api/action";
 import { NoParams, viewCatalogOf, viewKey } from "@kb/views";
-import { ViewKeyPoint } from "@kb/contracts";
+import { CORE_POINT_DEFINITIONS, ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
@@ -72,6 +73,35 @@ const KERNEL = (() => {
   Effect.runSync(Effect.forEach(ALL_PLUGINS, (plugin) => kernel.load(plugin)));
   return kernel;
 })();
+
+describe("the bundled point declaration contract", () => {
+  for (const family of BUNDLED_DECLARATIONS) {
+    it(`${family.name} declares exactly the page points its declaration lists`, () => {
+      const actual = KERNEL.points()
+        .filter(
+          ({ owner }) => owner === family.name || owner?.startsWith(`${family.name}/`) === true,
+        )
+        .map(({ key }) => ({ name: key.name, spec: key.spec }))
+        .toSorted((a, b) => a.name.localeCompare(b.name));
+      const expected = (family.points ?? [])
+        .filter(({ spec }) => kernelHosts(spec).includes("page"))
+        .map(({ name, spec }) => ({ name, spec }))
+        .toSorted((a, b) => a.name.localeCompare(b.name));
+      expect(actual).toEqual(expected);
+    });
+  }
+  it("the host declares exactly its named point capabilities", () => {
+    const expected = Object.values(CORE_POINT_DEFINITIONS)
+      .filter((point) => "declared" in point)
+      .map(({ name }) => name)
+      .toSorted();
+    const actual = KERNEL.points()
+      .filter(({ owner }) => owner === "ui")
+      .map(({ key }) => key.name)
+      .toSorted();
+    expect(actual).toEqual(expected);
+  });
+});
 
 /** Every view the UI can hold, with the plugin that owns it. */
 const VIEWS = KERNEL.contributions(ViewPoint);

@@ -16,6 +16,7 @@ import {
   MOTION_OPTION_SETTINGS,
   SYSTEM_IDS,
   extensionNodeId,
+  roleNodeId,
   motionEffectFieldId,
   settingsOf,
   type MotionChoice,
@@ -751,10 +752,51 @@ function extensionGroups(
   ];
 }
 
+/** Roles are ordinary nodes; this reading links to their provider field. */
+function roleSections(report: PanelReport | null): readonly Section[] {
+  if (report === null || report.roles.length === 0) return [];
+  return [
+    {
+      id: "providers",
+      title: "Providers",
+      caption: "roles, their candidates and the provider in use",
+      rows: report.roles.map(({ role, source, elected, candidates }) => ({
+        key: `${source} ${role}`,
+        words: `${role} ${candidates.map(({ provider }) => provider).join(" ")}`,
+        node: (
+          <div className="py-1" data-testid={`role-${source}-${role}`}>
+            <button
+              type="button"
+              className="font-mono text-meta text-muted-foreground hover:text-foreground"
+              onClick={() => navigate(`/node/${encodeURIComponent(roleNodeId(role))}`)}
+            >
+              {role}
+            </button>
+            <span className="text-meta text-faint-foreground">
+              {" "}
+              · {source} · using {elected ?? "none"}
+            </span>
+            <ul className="pl-6 text-meta text-muted-foreground">
+              {candidates.map(({ provider, priority, default: isDefault, fault }) => (
+                <li key={provider}>
+                  {provider} · priority {priority}
+                  {isDefault ? " · default" : ""}
+                  {fault === null ? "" : ` · faulted: ${fault}`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ),
+      })),
+    },
+  ];
+}
+
 /** Advanced: the listeners asked in turn, the repository extensions refused, and the CLI. */
 function advancedSections(report: PanelReport | string | null): readonly Section[] {
   const read = typeof report === "object" && report !== null ? report : null;
   return [
+    ...roleSections(read),
     ...(read === null || read.points.length === 0
       ? []
       : [

@@ -533,6 +533,7 @@ const REPORT = {
     }),
   ],
   points: [],
+  roles: [],
   failures: [],
 };
 

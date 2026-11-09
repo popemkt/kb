@@ -27,7 +27,7 @@ import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { isFrameViewKey } from "@kb/views";
 import { browserHostUiPlugin } from "@/browser-host";
-import { outlineUiPlugin } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { GRAPH_IDS } from "@kb/graph";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */

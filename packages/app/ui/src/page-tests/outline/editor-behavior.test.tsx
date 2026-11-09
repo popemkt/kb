@@ -15,13 +15,8 @@ import { useGraphStore } from "@/stores/graph.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import {
-  createTransientNode,
-  NodeBlock,
-  outlineNodes,
-  outlineUiPlugin,
-  useOutlineStore,
-} from "@kb/outline-ui";
+import { createTransientNode, NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

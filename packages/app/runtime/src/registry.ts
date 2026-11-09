@@ -8,6 +8,8 @@ import {
   ContextReferencePoint,
   CurrentContextReferences,
   CurrentInterception,
+  CurrentReactions,
+  type Reactions,
   contextReferencesOf,
   contextRefusal,
   FamilyKernels,
@@ -36,17 +38,26 @@ import {
   type ViewDef,
   familyTags,
 } from "@kb/contracts";
-import type { ActionSchemaError, DomainError } from "@kb/model";
+import { roleSelections, type ActionSchemaError, type DomainError } from "@kb/model";
 import {
   coreActions,
   coreExtension,
   interceptionFrom,
+  reactionsFrom,
   invokeReceiptWith,
   invokeWith,
   type RegisteredAction,
 } from "@kb/operations";
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
-import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
+import {
+  definePlugin,
+  makeKernel,
+  roleSession,
+  type RoleSession,
+  type Contribution,
+  type Kernel,
+  type Plugin,
+} from "@kb/plugin";
 import { GOVERNANCE_FAMILY, governanceMode } from "./deployment.ts";
 import { resetRootFamilies, rootFamilies, vouchedFamilies, type RootFamilies } from "./families.ts";
 import { writeErr } from "./output.ts";
@@ -81,6 +92,8 @@ export interface Registry extends ActionTable {
   contributions: readonly Contribution<ActionContribution>[];
   /** The guards and interceptors its plugins contribute, which every call through it goes through. */
   interception: Interception;
+  /** Local after-commit listeners and their last failed attempt. */
+  reactions: Reactions;
   /** The context references its plugins contribute, which fill a call made in a tab session. */
   references: ContextReferences;
   /** When its kernel is released: once it is replaced, and the calls that hold it have settled. */
@@ -401,8 +414,9 @@ const buildRegistry = Effect.fnUntraced(function* (
   on: readonly LoadedExtension[],
   refused: readonly ExtensionFailure[],
   required: readonly string[],
+  session: RoleSession = roleSession(),
 ): Effect.fn.Return<Registry> {
-  const kernel = makeKernel({ host: "registry" });
+  const kernel = makeKernel({ host: "registry", roleSession: session });
   const failures: ExtensionFailure[] = [...refused];
   const sources = new Map<string, string>();
 
@@ -458,6 +472,7 @@ const buildRegistry = Effect.fnUntraced(function* (
     kernel,
     contributions,
     interception: interceptionFrom(kernel, { required }),
+    reactions: reactionsFrom(kernel),
     references,
     lifetime: registryLifetime(kernel),
     actions,
@@ -477,6 +492,20 @@ const current = new Map<
   { readonly key: string; readonly registry: Effect.Effect<Registry, never, FileSystem> }
 >();
 const NO_ROOT_KEY = "no-root";
+const roleSessions = new Map<string, RoleSession>();
+function sessionFor(root: string): RoleSession {
+  let session = roleSessions.get(root);
+  if (session === undefined) {
+    session = roleSession();
+    roleSessions.set(root, session);
+  }
+  return session;
+}
+
+const withRoleChoices = Effect.fnUntraced(function* (registry: Registry, nodeOf: NodeLookup) {
+  yield* registry.kernel.configureRoles(roleSelections(registry.kernel.roles(), nodeOf));
+  return registry;
+});
 
 /**
  * Registry for a kb root: core actions + each of its families
@@ -516,12 +545,12 @@ const registryOf = Effect.fn("kb.registryOf")(function* (
     failures,
   ]);
   const held = current.get(rootKey);
-  if (held?.key === key) return yield* held.registry;
+  if (held?.key === key) return yield* withRoleChoices(yield* held.registry, nodeOf);
   // `Effect.cached` is what makes the entry a build-once value rather than a
   // recipe: concurrent callers share the one in-flight build.
   // The deployment, not the store, decides whether governance is composed (`deploys`).
   const built = yield* Effect.cached(
-    buildRegistry(families, on, failures, requiredFamilies()).pipe(
+    buildRegistry(families, on, failures, requiredFamilies(), sessionFor(rootKey)).pipe(
       Effect.map((registry) => ({
         ...registry,
         families: [
@@ -560,11 +589,11 @@ const registryOf = Effect.fn("kb.registryOf")(function* (
   );
   // Another caller may have composed this key while the build was set up.
   const replaced = current.get(rootKey);
-  if (replaced?.key === key) return yield* replaced.registry;
+  if (replaced?.key === key) return yield* withRoleChoices(yield* replaced.registry, nodeOf);
   for (const warning of unread) writeErr(`kb: extension switch ${warning} (read as its default)`);
   current.set(rootKey, { key, registry: built });
   if (replaced !== undefined) yield* (yield* replaced.registry).lifetime.retire;
-  return yield* built;
+  return yield* withRoleChoices(yield* built, nodeOf);
 });
 
 /**
@@ -652,6 +681,7 @@ const withSessionRegistry = <A, E, R>(
     if (!registry.lifetime.acquire()) return yield* withSessionRegistry(ctx, use);
     return yield* use(registry).pipe(
       Effect.provideService(CurrentInterception, registry.interception),
+      Effect.provideService(CurrentReactions, registry.reactions),
       Effect.provideService(CurrentContextReferences, registry.references),
       Effect.ensuring(registry.lifetime.settle),
     );

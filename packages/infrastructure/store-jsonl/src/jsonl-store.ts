@@ -9,9 +9,11 @@ import {
   domainError,
   ensureDomainError,
   rankTx,
+  writesOf,
   StoreState,
   type DomainError,
   type KbNode,
+  type KbTx,
   type NodeId,
   type StoreTx,
 } from "@kb/model";
@@ -184,6 +186,7 @@ export class JsonlStore implements EffectStore {
           lines: null,
         };
         const applied = rankTx(kept.state, tx);
+        const writes = writesOf(applied, (id) => kept.state.get(id));
         kept.state.apply(applied);
         const lines = kept.lines ?? linesOf(kept.state.values());
         if (kept.lines !== null) {
@@ -205,15 +208,16 @@ export class JsonlStore implements EffectStore {
         // led would hand replicas a frame for a write that never landed. An
         // empty transaction is not recorded — it costs a rev and a frame and
         // says nothing.
+        let committed: KbTx | null = null;
         if (applied.upserts.length > 0 || applied.deletes.length > 0) {
-          yield* Effect.try({
+          committed = yield* Effect.try({
             try: () => txTail.append(applied, record, fingerprint),
             catch: (err) => ensureDomainError(err),
           });
         }
 
         keeping.keep(fingerprint, { state: kept.state, lines });
-        return { base, fingerprint, tx: applied };
+        return { base, fingerprint, tx: applied, record: committed, writes };
       }),
     ).pipe(Effect.provide(BunFileSystem.layer));
   }

@@ -238,6 +238,15 @@ describe("Standard Schema v1 seam", () => {
     expect(schemaToJsonSchema(schema, "input")).toMatchObject({ type: "object" });
   });
 
+  test("Standard JSON Schema converters publish the same codec's input and output", async () => {
+    const schema = Schema.toStandardSchemaV1(
+      Schema.toStandardJSONSchemaV1(Schema.NumberFromString.check(Schema.isFinite())),
+    );
+    expect(schemaToJsonSchema(schema, "input")).toMatchObject({ type: "string" });
+    expect(schemaToJsonSchema(schema, "output")).toMatchObject({ type: "number" });
+    expect(await Effect.runPromise(parseBySchema(schema, "42"))).toBe(42);
+  });
+
   test("a defaulted field is optional to send and present in what comes out", () => {
     const schema = z.object({ name: z.string(), format: z.enum(["html", "md"]).default("html") });
     expect(schemaToJsonSchema(schema, "input")).toMatchObject({ required: ["name"] });

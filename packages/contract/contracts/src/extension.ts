@@ -1,3 +1,4 @@
+import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Effect, Schema } from "effect";
 import {
   BACKDROP_OPTIONS,
@@ -19,6 +20,7 @@ import {
 import type { ExtensionTemplate, TemplateFn } from "./template.ts";
 import type { ExtensionOrigin } from "./extension-review.ts";
 import { ViewKeyPoint, viewDef } from "./view-catalog.ts";
+import { TxAfterPoint, onCommit } from "./reactions.ts";
 import { ActionGuardPoint, ActionInterceptorPoint, guardAction, onAction } from "./interception.ts";
 
 /**
@@ -117,20 +119,16 @@ export interface ActionContribution extends Omit<ActionDefinition, "id" | "effec
 }
 
 /** Every action any loaded plugin offers: core's, bundled extensions', the repo's. */
-export const ActionPoint = Point<ActionContribution>()("kb.actions", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: ["registry", "server", "page"],
-  tier: "T3",
-});
+export const ActionPoint = Point<ActionContribution>()(
+  CORE_POINT_DEFINITIONS.action.name,
+  CORE_POINT_DEFINITIONS.action.spec,
+);
 
 /** Every render template, by the id a view spec names it with. */
-export const TemplatePoint = Point<TemplateFn>()("kb.templates", {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "registry",
-  tier: "T3",
-});
+export const TemplatePoint = Point<TemplateFn>()(
+  CORE_POINT_DEFINITIONS.template.name,
+  CORE_POINT_DEFINITIONS.template.spec,
+);
 
 /** The namespace a family's plugin contributes in, so its ids read `ext.<name>.<id>`. */
 export function extensionNamespace(name: string): string {
@@ -172,6 +170,8 @@ export const EXTENSION_SDK = {
   ActionPoint,
   ActionGuardPoint,
   ActionInterceptorPoint,
+  TxAfterPoint,
+  onCommit,
   TemplatePoint,
   ViewKeyPoint,
   guardAction,

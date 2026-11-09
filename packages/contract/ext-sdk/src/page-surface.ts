@@ -8,6 +8,7 @@
  * `@kb/ui-sdk`'s `page-surface-bridge.test.ts` holds the restatement to the
  * values the page serves.
  */
+import type * as effect from "effect";
 import type {
   ComponentPropsWithoutRef,
   ComponentType,
@@ -26,6 +27,8 @@ import type {
   PlainViewKey,
   PointKey,
   PointName,
+  PluginContext,
+  PluginError,
   PropValue,
   SeedBackdrop,
   ViewKey,
@@ -673,3 +676,23 @@ export declare function meterFrames(
 
 /** Whether the owner asks for reduced motion: a backdrop then draws one still frame. */
 export declare function useReducedMotion(): boolean;
+
+/** One field row, with checked host writes and no dependency on the owning extension's code. */
+export interface FieldRowProps {
+  readonly nodeId: string;
+  readonly fieldId: string;
+  readonly label: string;
+  readonly values: PropValue[];
+  readonly valueOnly?: boolean;
+  readonly fieldType: "text" | "number" | "date" | "time" | "url" | "checkbox" | "ref" | "secret";
+  readonly readOnly: boolean;
+  readonly parse: (text: string) => { ok: true; value: PropValue } | { ok: false; reason: string };
+  readonly update: (value: PropValue, previous?: PropValue) => Promise<void>;
+  readonly remove: (value?: PropValue) => Promise<void>;
+}
+
+/** Requires the trusted manifest to declare replacement of ui.field-editor. */
+export declare function provideFieldEditor(
+  ctx: PluginContext,
+  Component: ComponentType<FieldRowProps>,
+): effect.Effect.Effect<void, PluginError>;

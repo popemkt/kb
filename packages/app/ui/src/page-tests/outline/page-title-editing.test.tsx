@@ -16,7 +16,8 @@ import {
   usePageActivity,
   type PageActivity,
 } from "@kb/ui-sdk";
-import { OutlineEditor, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { OutlineEditor, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";

@@ -1,5 +1,5 @@
-export { ACTORS } from "./actor.ts";
-export type { Actor } from "./actor.ts";
+export { ACTORS, ActorSchema, actorKind } from "./actor.ts";
+export type { Actor, ActorKind } from "./actor.ts";
 export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
 export { byNodeId, canonicalJson, canonicalJsonl, canonicalJsonlOf } from "./canonical.ts";
 export {
@@ -41,13 +41,11 @@ export type { Cardinality, FieldType } from "./field-type.ts";
 export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
 export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.ts";
 export {
-  changedFields,
   configures,
   configuresAnExtension,
   isWritableField,
   systemTxRefusal,
   systemWriteRefusal,
-  type NodeWrite,
 } from "./system-write.ts";
 export { settingsOf } from "./settings.ts";
 export type { Setting, SettingOption } from "./settings.ts";
@@ -277,8 +275,8 @@ export {
   type DeclaredOptionSet,
   type SeedOption,
 } from "./declared-option.ts";
-export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
-export type { KbTx, StoreTx } from "./tx.ts";
+export { applyTx, changedFields, diffTx, txIntegrityError, writesOf } from "./tx.ts";
+export type { KbTx, StoreTx, NodeWrite } from "./tx.ts";
 export { recordedTx } from "./tx.ts";
 
 export {
@@ -354,3 +352,5 @@ export {
   type DisplaySettings,
   type DisplayView,
 } from "./display.ts";
+
+export { roleNodeId, roleSelections, type RoleDefinition } from "./roles.ts";

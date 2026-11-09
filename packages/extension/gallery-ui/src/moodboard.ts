@@ -6,18 +6,13 @@
  * The look panel offers "Moodboard" while the point holds it and says what
  * it needs while it does not.
  */
+import { GALLERY_POINT_DEFINITIONS } from "@kb/gallery";
 import { Effect } from "effect";
-import { definePlugin, PointName, type PointSpec } from "@kb/plugin";
+import { definePlugin, PointName } from "@kb/plugin";
 import { BoardService, type Board } from "@kb/ui-sdk";
 
 /** Where the gallery's `moodboard` child offers the page's board. */
-export const MoodboardPoint = PointName<Board>()("gallery.moodboard");
-export const MOODBOARD_POINT_SPEC: PointSpec = {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-};
+export const MoodboardPoint = PointName<Board>()(GALLERY_POINT_DEFINITIONS.moodboard.name);
 
 /** What the look panel says the moodboard needs while none is offered. */
 export const MOODBOARD_NEEDS =

@@ -40,7 +40,7 @@ export interface FamilyKernel {
   readonly source: Exclude<FootprintRow["source"], "seed">;
   readonly kernel: Pick<
     Kernel,
-    "plugins" | "dependencies" | "contributions" | "contributionsOf" | "points"
+    "plugins" | "dependencies" | "contributions" | "contributionsOf" | "points" | "roles"
   >;
 }
 

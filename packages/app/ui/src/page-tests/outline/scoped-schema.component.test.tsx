@@ -16,7 +16,8 @@ import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { FrameViewSlot, outlineNodes, outlineUiPlugin } from "@kb/outline-ui";
+import { FrameViewSlot, outlineNodes } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 
 /** A frame view and the settings its view node carries. */

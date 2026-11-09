@@ -17,6 +17,7 @@ import {
   rowTextOf,
   useDebugFields,
   useFollow,
+  useFieldEditor,
   useGraphRead,
   useOptionPreview,
   type FieldHandle,
@@ -493,6 +494,7 @@ export function NodeField({
 
 /** Inline field rows under a node (DESIGN-RESKIN §1.4). */
 export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps) {
+  const Field = useFieldEditor();
   // Field definitions come from the whole graph, never the scoped projection;
   // the section depends on the definitions and values it reads, not the graph.
   const context = useGraphRead();
@@ -509,7 +511,7 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   return (
     <div className="fields-section" data-fields-for={nodeId}>
       {props.map((p) => (
-        <NodeField
+        <Field
           key={p.fieldId}
           nodeId={nodeId}
           fieldId={p.fieldId}

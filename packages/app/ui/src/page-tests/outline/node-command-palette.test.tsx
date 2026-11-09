@@ -23,7 +23,8 @@ import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { NodeCommandPalette, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 

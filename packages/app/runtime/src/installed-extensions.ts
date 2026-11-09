@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { lstat } from "node:fs/promises";
 import { Effect, Layer, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import { BUNDLED_CAPABILITIES } from "@kb/bundled";
 import {
   EXTENSION_SCOPES,
   ExtensionCompiler,
@@ -23,7 +23,7 @@ import {
 
 /** One installed-name rule, shared by compilation and lock discovery. */
 function installableName(name: string): boolean {
-  return !BUNDLED_DECLARATIONS.some((family) => family.name === name);
+  return !BUNDLED_CAPABILITIES.extensions.includes(name);
 }
 
 export const extensionCompilerLayer = Layer.succeed(

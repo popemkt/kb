@@ -1,4 +1,8 @@
-export { decodeExtensionModule, decodeExtensionPlugin } from "./module.ts";
+export {
+  decodeExtensionModule,
+  decodeExtensionPlugin,
+  type ExtensionCodeApproval,
+} from "./module.ts";
 export { KB_SDK_DTS, KB_SDK_PAGE_DTS, KB_SDK_VERSION } from "./sdk-dts.text.ts";
 /**
  * The two modules' types, as an author reads them: what each host's bridge

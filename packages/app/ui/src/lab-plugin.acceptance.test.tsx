@@ -111,7 +111,7 @@ async function answer(invocation: ActionRequest) {
     return {
       status: "succeeded" as const,
       id: invocation.id,
-      output: { extensions, points: [], failures: [] },
+      output: { extensions, points: [], roles: [], failures: [] },
       rev: 1,
     };
   }

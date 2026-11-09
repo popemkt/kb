@@ -32,11 +32,13 @@ The manifest is data, not code:
 - A declaration that says these things in code (`description`, `manifest`
   in `defineExtension`) is refused. The file is the only place they live.
 
-kb refuses an extension in three cases:
+A manifest is refused when:
 - its manifest is not JSON;
 - the manifest has a field the schema does not know;
 - the manifest's page tier contradicts the files: a `drawing`, `scene` or
   `full` tier without a page half, or `none` or `data` with one.
+
+[Capability admission](../../DESIGN.md#capability-admission) also checks its declared requirements before import.
 
 It also reports a `<name>.manifest.json` with no `<name>.ts` beside it as a
 failure.
@@ -58,7 +60,7 @@ is different from declaring nothing:
 Declare an empty list when the answer is "none". A person reads _not
 declared_ as "the author did not say", and should.
 
-The manifest is the author's word. kb shows it; it does not enforce it. A
+Descriptive reach fields are the author's word. kb shows them; it does not enforce them. A
 trusted extension with a page half still has the page's full power until
 the isolation tiers land (GAP `01M6WVFMGB5PP2AANF0E5R921V`), and the review
 sheet says so beside it.
@@ -73,6 +75,7 @@ sheet says so beside it.
 | `repository` | Where its source lives. An `https:` URL. | `"https://github.com/owner/repo"` |
 | `license` | An SPDX licence id. | `"MIT"`, `"Apache-2.0"` |
 | `capabilities` | What it reaches beyond what kb gives every extension. See below. | |
+| `replaces` | [Provider role claims](#replacing-provider-roles). | |
 
 kb works out two things itself, so a manifest never declares them:
 - **origin**: built in, linked, the store's own folder, or installed;
@@ -158,3 +161,78 @@ A backdrop, which is a page half and nothing else:
   }
 }
 ```
+
+## Replacing provider roles
+
+`replaces` is an optional manifest array. Each entry names a `role` and a
+nonempty `why`, and may set a finite numeric `priority`. The [provider role contract](../../DESIGN.md#provider-roles)
+owns admission, approval, election and recovery.
+
+```json
+{
+  "replaces": [{"role": "ui.field-editor", "priority": 50, "why": "One-line field rows"}],
+  "capabilities": {"page": "full"}
+}
+```
+
+Put the claim in `<name>.manifest.json`, which kb reads before importing code;
+it is not a property of the code's `declaration` export. A field-row provider
+imports `provideFieldEditor` from `kb-ext-sdk/page` and calls it with its plugin
+context and a React component. Its `FieldRowProps` carry the row's values, type
+and writeability. Its `parse` callback uses kb's field-value parser; `update`
+and `remove` use the host's normal checked write path. Reference values are
+node ids; providers may resolve or edit them as their interface requires. The component runs with full page power.
+
+## Reacting to commits
+
+Use `onCommit` from `kb-ext-sdk` in the server plugin's `apply`. The
+[transaction reaction contract](../../DESIGN.md#transaction-reactions) owns
+delivery, matching, budgets and authority. For example:
+
+```ts
+onCommit(ctx, { tagged: ["ext.inbox-router.inbox-tag"] },
+  Effect.fn("inbox-router.route")(function* (change, kb) {
+    for (const { after } of change.writes) {
+      if (after === undefined) continue;
+      const receipt = yield* kb.invoke("node.update", {
+        id: after.id, parent: "ext.inbox-router.inbox",
+      });
+      if (receipt.status === "failed") return yield* Effect.die(new Error(receipt.message));
+    }
+  }), "route");
+```
+
+`TxChange.tx` carries transaction metadata; `writes` carries matching frozen
+before/after nodes. `ReactionHost.invoke` returns an action receipt, so a
+reaction decides how to handle a refused checked call. See
+[inbox-router](https://github.com/popemkt/kb-extensions/tree/feat/inbox-router/extensions/inbox-router)
+for a complete extension, including its seed nodes and manifest.
+
+## Declared capability requirements
+
+`uses` lists named points reached through `ctx.point`, with the kernel of
+the half that needs each one. The host binds those requirements; the entry
+does not need a second `uses` list. For example, a server contributor to
+quotes' installed point declares:
+
+```json
+{ "uses": [{ "point": "ext.quotes.sources", "kernel": "registry" }] }
+```
+
+A page contributor names `"kernel": "page"`. Static SDK keys such as
+`ViewPoint` are used directly, without this named-point dependency.
+The [admission contract](../../DESIGN.md#capability-admission) states when a
+requirement is refused and when its absent owner remains a waiting dependency.
+
+`reacts` lists the `TxMatch` data its `onCommit` callbacks use. Keep the match
+in one place: an extension can import its own JSON manifest and pass a
+match from `manifest.reacts` to `onCommit`. An empty object observes every
+local node write; an empty list declares no reactions. For example:
+
+```json
+{ "reacts": [{ "tagged": ["ext.inbox-router.inbox-tag"] }] }
+```
+
+The [reaction contract](../../DESIGN.md#transaction-reactions) owns delivery
+and matching. Existing code-only requirements remain supported; a manifest
+field left out remains undeclared, while an empty list declares none.

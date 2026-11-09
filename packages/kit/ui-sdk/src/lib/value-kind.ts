@@ -14,6 +14,7 @@
  * `sys.f.fieldType`, `FIELD_TYPE_OPTIONS`): the outline contributes the
  * built-in eight, and a family that declares a type contributes its kind.
  */
+import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { Predicate, Schema } from "effect";
 import type { ComponentType, Ref } from "react";
 import type { Icon, IconProps } from "@phosphor-icons/react";
@@ -221,12 +222,8 @@ const FieldTypeKindData = Schema.Struct({
 });
 
 /** Field types' value kinds, by the type's option node. */
-export const ValueKindPoint = Point<FieldTypeKind>()("ui.value-kinds", {
-  cardinality: "keyed",
-  combine: "lookup by field-type option",
-  kernel: "page",
-  tier: "T3",
-  keyBy: "type",
+export const ValueKindPoint = Point<FieldTypeKind>()(CORE_POINT_DEFINITIONS.valueKind.name, {
+  ...CORE_POINT_DEFINITIONS.valueKind.spec,
   contract: Schema.toStandardSchemaV1(FieldTypeKindData),
 });
 

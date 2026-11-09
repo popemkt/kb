@@ -46,6 +46,8 @@ interface ViewErrorBoundaryProps {
   resetKey?: string;
   title?: string;
   fallback?: ReactNode;
+  /** A provider failure is reported by its role consumer. */
+  onError?: (error: Error) => void;
 }
 
 interface ViewErrorBoundaryState {
@@ -56,6 +58,10 @@ interface ViewErrorBoundaryState {
   resetKey: string | undefined;
 }
 
+function renderError(cause: unknown): Error {
+  return cause instanceof Error ? cause : new Error(String(cause), { cause });
+}
+
 /**
  * Localized boundary for a lazily loaded view's chunk.
  * Shell chrome (sidebar, header, palette) stays outside this tree.
@@ -64,8 +70,9 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
   override state: ViewErrorBoundaryState = { error: null, updating: false, resetKey: undefined };
 
   static getDerivedStateFromError(
-    error: Error,
+    cause: unknown,
   ): Pick<ViewErrorBoundaryState, "error" | "updating"> {
+    const error = renderError(cause);
     return { error, updating: isMissingChunk(error) };
   }
 
@@ -77,13 +84,15 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
     return { error: null, updating: false, resetKey: props.resetKey };
   }
 
-  override componentDidCatch(error: Error, info: ErrorInfo): void {
+  override componentDidCatch(cause: unknown, info: ErrorInfo): void {
+    const error = renderError(cause);
     // A view of a build the server no longer keeps is not a crash: the page
     // reloads into the new one once it is idle (`lib/stale-build`). When
     // this build was reloaded for already, the failure is shown as one.
     if (reloadForNewBuild(error)) return;
     if (this.state.updating) this.setState({ updating: false });
     logError("ViewErrorBoundary caught", error, info.componentStack);
+    this.props.onError?.(error);
   }
 
   private retry = (): void => {
@@ -104,7 +113,7 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
       );
     if (this.state.error) {
       const { fallback } = this.props;
-      if (fallback !== undefined && fallback !== null) return fallback;
+      if (fallback !== undefined) return fallback;
       return (
         <ViewError
           title={this.props.title}

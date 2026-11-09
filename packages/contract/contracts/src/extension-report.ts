@@ -11,7 +11,13 @@
  */
 import { Context } from "effect";
 import { z } from "zod";
-import { KERNEL_HOSTS, POINT_CARDINALITIES, POINT_TIERS, type PointKey } from "@kb/plugin";
+import {
+  KERNEL_HOSTS,
+  POINT_CARDINALITIES,
+  POINT_TIERS,
+  ROLE_KINDS,
+  type PointKey,
+} from "@kb/plugin";
 import { ExtensionRowSchema } from "./declaration.ts";
 import type { ExtensionFailure } from "./extension.ts";
 import { FOOTPRINT_SOURCES, type FamilyKernel } from "./footprint.ts";
@@ -21,6 +27,8 @@ const PointSpecSchema = z.object({
   kernel: z.union([z.enum(KERNEL_HOSTS), z.array(z.enum(KERNEL_HOSTS)).readonly()]),
   tier: z.enum(POINT_TIERS),
   keyBy: z.string().optional(),
+  replaceable: z.boolean().optional(),
+  rolePrefix: z.string().optional(),
 });
 
 const ExtensionReportRowSchema = ExtensionRowSchema.extend({
@@ -43,9 +51,39 @@ const OrderedPointSchema = z.object({
   listeners: z.array(z.object({ owner: z.string(), id: z.string(), match: z.string().optional() })),
 });
 
+const OrderedRoleSchema = z.object({
+  role: z.string(),
+  kind: z.enum(ROLE_KINDS),
+  owner: z.string().nullable(),
+  selected: z.string().nullable(),
+  elected: z.string().nullable(),
+  source: z.enum(FOOTPRINT_SOURCES).exclude(["seed"]),
+  candidates: z
+    .array(
+      z.object({
+        owner: z.string(),
+        provider: z.string(),
+        priority: z.number(),
+        default: z.boolean(),
+        fault: z.string().nullable(),
+      }),
+    )
+    .readonly(),
+});
+
+export type OrderedRole = z.infer<typeof OrderedRoleSchema>;
+
+/** Effective roles, including faulted candidates, in each host's own order. */
+export function orderedRoles(kernels: readonly FamilyKernel[]): OrderedRole[] {
+  return kernels.flatMap(({ source, kernel }) =>
+    kernel.roles().map((role) => ({ ...role, source })),
+  );
+}
+
 export const ExtensionReportSchema = z.object({
   extensions: z.array(ExtensionReportRowSchema),
   points: z.array(OrderedPointSchema),
+  roles: z.array(OrderedRoleSchema),
   /** The repository modules discovery refused, each skipped: one not trusted names its digest. */
   failures: z.array(z.object({ file: z.string(), error: z.string() })),
 });
@@ -64,10 +102,17 @@ export class ExtensionFailures extends Context.Service<
 const ownedBy = (family: string) => (name: string) =>
   name === family || name.startsWith(`${family}/`);
 
+/** A host-observed failure of a running plugin, without changing its admission state. */
+export interface PluginFailure {
+  readonly owner: string;
+  readonly message: string;
+}
+
 /** How `family`'s plugins sit among the others in `kernels`. */
 export function organisationOf(
   family: string,
   kernels: readonly FamilyKernel[],
+  runtimeFailures: readonly PluginFailure[] = [],
 ): Pick<ExtensionReportRow, "tags" | "injects" | "provides" | "failures" | "declares" | "uses"> {
   const own = ownedBy(family);
   const held = kernels.map(({ kernel }) => ({
@@ -97,13 +142,24 @@ export function organisationOf(
       .filter(({ kind }) => kind === "service")
       .map(({ name, from }) => ({ service: name, from })),
     provides: plugins.flatMap((plugin) => plugin.provides),
-    failures: plugins.flatMap((plugin) => (plugin.error === null ? [] : [plugin.error.message])),
+    failures: [
+      ...plugins.flatMap((plugin) => (plugin.error === null ? [] : [plugin.error.message])),
+      ...runtimeFailures.filter(({ owner }) => own(owner)).map(({ message }) => message),
+    ],
   };
 }
 
 function describeSpec(point: PointKey<unknown>): z.infer<typeof PointSpecSchema> {
-  const { cardinality, combine, kernel, tier, keyBy } = point.spec;
-  return { cardinality, combine, kernel, tier, ...(keyBy === undefined ? {} : { keyBy }) };
+  const { cardinality, combine, kernel, tier, keyBy, replaceable, rolePrefix } = point.spec;
+  return {
+    cardinality,
+    combine,
+    kernel,
+    tier,
+    ...(keyBy === undefined ? {} : { keyBy }),
+    ...(replaceable === undefined ? {} : { replaceable }),
+    ...(rolePrefix === undefined ? {} : { rolePrefix }),
+  };
 }
 
 function listenersAt(

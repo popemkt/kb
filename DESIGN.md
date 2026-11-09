@@ -2324,7 +2324,7 @@ scope.
 
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
 - **Mode**: every action states once, as a required field, what invoking it does.
   `{kind: "read"}` changes nothing.
   `{kind: "write", approval?: "required" | "delegated"}` may change the
@@ -5685,8 +5685,7 @@ point. A plugin reaches another through an injected service or a declared point 
 **How extensibility works, by design.**
 
 - **Another implementation is another provider, chosen by configuration.**
-  No plugin takes over a service another holds (`service-conflict`, as in
-  Cordis).
+  [Provider roles](#provider-roles) own replacement and election.
 - **Taking part is a point with a stated combination rule**, never a
   wrapped service:
   - interception: guards, strictest verdict, and interceptors, in order
@@ -5710,23 +5709,6 @@ point. A plugin reaches another through an injected service or a declared point 
 
 **Not offered, by evidence.**
 
-- **Reacting after a commit, in a plugin.**
-  - The transaction log can be subscribed to (`KbTxLog.subscribe`), but
-    only host code does: the `kb ui` server converging extension switches
-    (`app/server/src/server.ts`), and the subscription hub fanning
-    transactions to sockets (`app/server/src/session.ts`).
-  - A plugin is handed no log:
-    - `UiHost` is a root and `invoke` (`contracts/src/channel.ts`);
-    - a registry family's handlers see the session only while a call runs;
-    - a commit guard sees the writes before the commit and may refuse
-      them, not act after them.
-  - So "when a node is tagged X, do Y" runs today only out of process. A
-    program connects to `/ws` and sends `{op: "watch-tx", enabled: true}`,
-    which any wire may read. It receives each transaction's delta, and acts
-    through `POST /api/action` as an agent. That needs a running `kb ui`.
-  - An in-process seam would be a point fed by the log, after the commit,
-    with the same budgets, failure rules and nesting limit as the
-    interception points. It is not built.
 - **A storage backend from a plugin.**
   - The store is fixed when kb is assembled. `BACKENDS` in
     `app/runtime/src/store-selection.ts`, the composition root, is the one
@@ -5744,9 +5726,14 @@ point. A plugin reaches another through an injected service or a declared point 
 
 The [extensibility parity design](docs/research/2026-11-08-extensibility-parity.md#4-declared-points) motivates this contract. Every point key carries a spec: cardinality (`list`, `keyed`, `single`, or `chain`), reader combination prose, accepted kernels (`registry`, `server`, `page`), and minimum isolation tier. A point may accept multiple kernels; guards and interceptors accept registry and page, while shared declarations accept all hosts. Kernels require an explicit host and refuse contributions to another host with `wrong-kernel`. Single points accept one contribution; keyed points refuse repeated ids, aliases, or the member path named by `keyBy`. Lists and chains retain contribution order. The effective extension report includes each live point’s spec and ordered contributions.
 
+Point names and specifications live in shared `PointDefinition` values. Core's
+are `CORE_POINT_DEFINITIONS`; a family's are exported by its shared package.
+The page keys and owners read those values, so host metadata can be read
+without importing page implementation code.
+
 ### Declared point lifecycle
 
-A plugin declares one local name (without dots), or its typed name reference,
+A plugin declares one local identifier (`[\w][\w-]*`), or its typed name reference,
 through `ctx.declare(name, spec)`. Repository and installed roots are bound by
 their host to `ext.<extension-name>`; children inherit that declaration
 authority even when their contribution prefix differs. Native roots use their
@@ -5761,3 +5748,138 @@ Typed point-name references resolve through that same reader. A declaration's
 Standard Schema contract decodes contributions before admission; a failure
 refuses the plugin atomically. The extension report shows declarations, their
 specs, contributors, and waiting point requirements.
+
+
+### Capability admission
+
+An extension's digest-covered manifest can state `uses`, `replaces` and
+`reacts` before code runs. `BUNDLED_CAPABILITIES` derives the current build's
+point definitions, replaceable roles and reserved namespaces from shared
+metadata and bundled declarations. Both import paths call
+`extensionAdmissionIssue` against that same catalog. Compatibility asks for
+capabilities, with no version ranges or exemptions.
+
+A manifest point use names `{point, kernel}`. Admission refuses malformed
+names, an unsupported kernel, a missing point in a native namespace (`kb`,
+`ui`, a bundled family, or another namespace of a host point), a static SDK
+key used as a declared point, and a known point unavailable at that kernel
+or page tier. A native capability absent from this build cannot arrive by
+installing another extension. A third-party `ext.<extension>.<local>` point
+can: its absent owner is a waiting dependency, unless that owner name is
+reserved by a bundled family and therefore cannot be installed. The host binds each manifest
+use to its requested half's kernel requirements, so it does not also hold
+up the other half. Settings and CLI show `waiting for <point> from
+<extension>`, with no load error. Owner departure and arrival follow the
+same kernel lifecycle as service injection.
+
+A replacement must name a replaceable role, come from someone other than
+its default owner, and have the host and page tier the role requires.
+Reaction matches decode as `TxMatch`; a nonempty `reacts` list requires the
+registry's `tx/after` capability. A declared `reacts` list is bound into
+root authority: every descendant's reaction match must structurally equal an
+entry, including array order; import the manifest match to keep one home for
+that data. The decoded stored match is frozen so it cannot broaden later.
+Omitted `reacts` remains undeclared for existing extensions. Uses and reaction conditions appear as data
+on the trust sheet. These are compatibility and disclosure statements;
+trusted T3 code still has the owner's process power.
+
+Requirements belong in the manifest, not the code declaration. Existing
+extensions with no manifest `uses` retain their code-level `Plugin.uses`
+requirements, checked by the kernel after module decoding. Arbitrary code
+metadata cannot be known before import; this compatibility path does not
+claim otherwise. When `uses` is present in the manifest, the host binds it
+and bounds every descendant's foreign point requirements by that list. A family's
+own points remain in its declaration authority and do not block the root
+before it can declare them. New
+extensions can omit `Plugin.uses` and let that data be its only home.
+
+### Provider roles
+
+A replaceable service, single point, or cell of a keyed point is a role.
+Its spec opts in with `replaceable: true`; all other registrations retain
+one-provider conflict rules. A cell holds its bundled owner's default at
+priority 100 and host-approved candidates at their declared priority (50
+when omitted). Lower wins; ties retain registration order. Approval belongs
+to host admission, never to a plugin's own fields. Installed code cannot
+make itself a default or grant replacement authority. Host-defined role keys
+reserve their address before a provider loads; installed code cannot mint
+a lookalike key to occupy an absent owner's role. A plugin context belongs
+to one activation and retires when its scope closes, including on re-election.
+
+An installed family's replacement claims live in its digest-covered manifest
+([manifest format](docs/extensions/README.md#replacing-provider-roles)).
+[Capability admission](#capability-admission) checks compatibility before import.
+The trust sheet shows each role, priority
+and reason. Trust of those exact bytes binds the claims to both module halves;
+code cannot grant its own authority. Changing the manifest requires trust of
+its new digest. A default owner cannot replace itself.
+
+The planned keybinding bridge will consume
+`kernel.replacementApproved(owner, role)` and its native page SDK proxy. Both
+inspect the same claim helper that live candidate registration uses. Their
+production inspection consumer waits for the owner to merge the keybinding
+step, then its editor follow-up.
+GAP [[01M6YS6XH9XS4TX7S7AYWXJX3A]] tracks that prepared surface; election remains
+`kernel.role` and the role consumers.
+
+Each owner seeds `sys.role.<role>` as a role node. Core's `sys.f.provider`
+ref field configures that kind and refers to an extension's ordinary node.
+Empty means the best approved candidate. Hosts read that graph setting into
+the kernel; a stored preference cannot admit a new candidate. Role inspection
+reports the default, candidates, elected provider and any session faults.
+
+Page consumers render through `useRole`, which shares the view error boundary.
+A render failure reports `kernel.fault(role, provider, cause)`, names the
+extension in a toast, and renders the next candidate. Service calls use
+`roleCall`: a defect or budget overrun faults the candidate and retries once
+with the next one; ordinary typed failures remain the caller's result.
+A fault demotes only replacements. The bundled default is the floor: its
+failure stays in that rendered instance's error UI, or returns from that
+service call, and never hides the role globally. A replacement fault lasts
+for the page or process session, including registry rebuilds,
+or until the provider's trusted code digest changes. A stale failure carries
+its old identity and cannot demote new code. Roles must be defined beside their host key before providers load.
+`roleCall` currently has no live server role; its shared contract suite
+proves the boundary until a server consumer opts in.
+The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
+
+### Transaction reactions
+
+`tx/after` is a registry point: a list combined independently after the
+committing outer invocation settles, with minimum tier T3. The SDK's
+`onCommit` contributes a data match and an Effect callback. Matches name
+added or removed tags, changed fields, creations or deletions; any named
+condition can match. An empty match observes every committed node write.
+The host matches before calling extension code, once per transaction, and
+hands the callback transaction metadata and matching before/after writes;
+`writes` is its only copy of node data.
+
+The store receipt carries the exact local tail record and before/after
+writes from the state held under its commit exclusion. `persistEffect`
+queues that receipt only after reconciling its session index and log.
+Nested calls share one invocation frame. The outer call drains it after
+settling, including when a handler committed before subsequently failing.
+Only local commits made in that frame qualify: adopting another process's
+transactions, virtual nodes and recovered hand edits never runs reactions.
+Delivery is at most once in the committing process; a process exit before
+delivery loses the reaction. There is no replay, durable cursor or page
+kernel reaction.
+
+A reaction receives no store or log. Its `ReactionHost.invoke` goes through
+the ordinary invoke core, guards and checked commit path, with actor
+`{kind: "reaction", id}` and no person's approval. Its ordinary nested calls cannot
+manufacture approval or replace its reaction attribution; entering a sandbox
+retains the script grant and its narrower attribution. Its checked-call capability retires when the callback settles or its budget
+expires, including Effects constructed earlier but run later. A reaction is
+not fed its own writes. Other reactions can see them, with the chain capped
+at `MAX_REACTION_DEPTH = 4`, independently of the ordinary call-depth cap.
+A refused continuation is reported and stops that chain.
+
+Each matching listener runs independently with the same abortable budget
+mechanism and default budget as interception. Failure or budget exhaustion
+is logged and included in the effective extension report; neither changes
+the outer call's receipt nor prevents another listener from running. The
+CLI, MCP and page writes all wait for the local drain before receiving their
+response. A chain can add four rounds of listener budgets, plus the checked
+actions those listeners invoke. Page writes react in the server process. The
+registry stays alive through the drain.

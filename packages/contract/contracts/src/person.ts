@@ -1,3 +1,4 @@
+import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { z } from "zod";
 import { Point } from "@kb/plugin";
 
@@ -37,9 +38,7 @@ export interface IdentityProvider {
  * dependencies first, then load order) and takes the first answer (Cordis's
  * `bail`); when every one passes, or there is none, the request is nobody's.
  */
-export const IdentityPoint = Point<IdentityProvider>()("identity.providers", {
-  cardinality: "chain",
-  combine: "first non-null answer",
-  kernel: "server",
-  tier: "T3",
-});
+export const IdentityPoint = Point<IdentityProvider>()(
+  CORE_POINT_DEFINITIONS.identity.name,
+  CORE_POINT_DEFINITIONS.identity.spec,
+);

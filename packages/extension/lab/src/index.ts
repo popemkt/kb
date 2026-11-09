@@ -6,3 +6,5 @@
  */
 export { LAB_SCENE_IDS, LabParams, LabView, type LabSceneId } from "./view.ts";
 export { labExtension, labPlugin } from "./extension.ts";
+
+export { LAB_POINT_DEFINITIONS } from "./point-definitions.ts";

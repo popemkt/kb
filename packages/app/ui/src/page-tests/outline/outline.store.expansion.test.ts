@@ -11,7 +11,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));

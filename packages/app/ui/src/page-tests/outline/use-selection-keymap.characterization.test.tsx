@@ -25,7 +25,8 @@ import { useGraphStore } from "@/stores/graph.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { outlineNodes, outlineUiPlugin, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
+import { outlineNodes, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

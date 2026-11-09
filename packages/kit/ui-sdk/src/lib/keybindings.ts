@@ -14,6 +14,7 @@
  * a reserved chord is the owner's alone. A refusal is told to the person,
  * by name, once a page session.
  */
+import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import type { ContributionEntry, Contribution } from "@kb/plugin";
 import { Point } from "@kb/plugin";
 import { chordsOverlap, describeChord, matchesChord, parseChord } from "./keychord";
@@ -36,13 +37,10 @@ export interface Keybinding {
   readonly replaces?: string;
 }
 
-export const KeybindingPoint = Point<Keybinding>()("ui.keybindings", {
-  cardinality: "keyed",
-  combine:
-    "one binding per chord per context: the context owner's first, then load order; an overlapping or reserved chord is refused unless the binding replaces its holder",
-  kernel: "page",
-  tier: "T0",
-});
+export const KeybindingPoint = Point<Keybinding>()(
+  CORE_POINT_DEFINITIONS.keybinding.name,
+  CORE_POINT_DEFINITIONS.keybinding.spec,
+);
 
 /** The contexts a binding may name: the outline's row being edited, and its selection. */
 export type KeyContextId = "outline.editing" | "outline.selection";

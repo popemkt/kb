@@ -7,9 +7,10 @@
  * palette to is a {@link PaletteStep}, contributed through
  * {@link PaletteStepPoint} by whichever family owns it.
  */
+import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { Effect } from "effect";
 import type { ReactNode } from "react";
-import { Point, PointName, definePlugin, type PointSpec } from "@kb/plugin";
+import { Point, PointName, definePlugin } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
 import type { FrameViewKey, LayoutTree } from "@kb/views";
 import type { ThemePref, WidthPref } from "./theme";
@@ -105,13 +106,7 @@ export interface PaletteStep {
  * The node palette's picker steps, by id: a node command opens one with
  * `palette.openStep(id)`. A family's steps come and go with it.
  */
-export const PaletteStepPoint = PointName<PaletteStep>()("ui.palette-steps");
-const PALETTE_STEP_POINT_SPEC: PointSpec = {
-  cardinality: "keyed",
-  combine: "lookup by contribution id",
-  kernel: "page",
-  tier: "T3",
-};
+export const PaletteStepPoint = PointName<PaletteStep>()(CORE_POINT_DEFINITIONS.paletteStep.name);
 
 /**
  * Which node a command is about.
@@ -199,12 +194,10 @@ export type Command = GlobalCommand | NodeCommand;
  * The node menu lists them where their `menu` puts them; the runner finds
  * them by id like any other.
  */
-export const CommandPoint = Point<Command>()("ui.commands", {
-  cardinality: "list",
-  combine: "node menu: by group, then order, then contribution order; ⌘K: by sys.command node",
-  kernel: "page",
-  tier: "T3",
-});
+export const CommandPoint = Point<Command>()(
+  CORE_POINT_DEFINITIONS.command.name,
+  CORE_POINT_DEFINITIONS.command.spec,
+);
 
 /** One row of the node menu: what to show, and what pressing it does. */
 export interface NodeCommandListing {
@@ -232,5 +225,6 @@ export const paletteStepsPlugin = definePlugin({
   name: "ui",
   namespace: "ui",
   tags: ["core", "ui"],
-  apply: (ctx) => ctx.declare(PaletteStepPoint, PALETTE_STEP_POINT_SPEC).pipe(Effect.asVoid),
+  apply: (ctx) =>
+    ctx.declare(PaletteStepPoint, CORE_POINT_DEFINITIONS.paletteStep.spec).pipe(Effect.asVoid),
 });

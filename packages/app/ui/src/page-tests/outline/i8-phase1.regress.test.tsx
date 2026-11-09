@@ -25,9 +25,9 @@ import {
   NodeBlock,
   OutlineEditor,
   outlineNodes,
-  outlineUiPlugin,
   useOutlineStore,
 } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 function seed() {
   resetOutlineStore();

@@ -21,7 +21,8 @@ import {
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { backlinkRows, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { backlinkRows, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

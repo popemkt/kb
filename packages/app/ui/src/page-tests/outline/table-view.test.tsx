@@ -24,10 +24,10 @@ import {
   outlineFrameSubject,
   outlineNodes,
   outlineSource,
-  outlineUiPlugin,
   useOutlineStore,
   ViewToolbar,
 } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionTableView } from "@kb/collections";
 import { collectionsUiPlugin, TableView } from "@kb/collections-ui";
 

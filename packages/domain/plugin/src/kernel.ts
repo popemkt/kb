@@ -1,12 +1,55 @@
-import { Cause, Effect, Exit, Scope, Predicate } from "effect";
-import { PluginError, type PluginErrorReason } from "./errors.ts";
+import { roleSession as newRoleSession, type RoleSession } from "./role-session.ts";
+import { checkHost, checkPointSpec } from "./specs.ts";
+import { contributeErased, contributionsAt, matchesPoint, pointValue } from "./points.ts";
+import { Effect, Exit, Scope } from "effect";
+import type { PluginError } from "./errors.ts";
+import { authorityOf, pointUseAllowed, type PluginAuthority } from "./authority.ts";
+import {
+  elected,
+  registration,
+  canOccupy,
+  roleCell,
+  readRole,
+  roleStates,
+  configureRoles,
+  faultRole,
+  replacementApproved,
+  type RoleState,
+  type RoleCandidate,
+  type RoleProvider,
+} from "./roles.ts";
+import {
+  changed,
+  visible,
+  refusal,
+  failureOf,
+  pointSlot,
+  scopeOf,
+  assertActive,
+  pluginFailure,
+  alive,
+  claim,
+  type State,
+  type Entry,
+  type Activation,
+  type ServiceSlot,
+} from "./state.ts";
+import {
+  registrationCell,
+  cellEntries,
+  addCandidate,
+  removeCandidate,
+  type Registration,
+} from "./cells.ts";
 import {
   asKeyType,
+  localPointName,
+  namespaced,
+  roleKeyAt,
   asPointKey,
   pointKey,
-  isPointKey,
+  type RoleKey,
   type AnyServiceKey,
-  type Key,
   type PointKey,
   type PointReference,
   type PointName,
@@ -20,6 +63,8 @@ export interface ContributionEntry<C> {
   readonly id: string;
   /** Extra ids this contribution also answers to, taken as written (compat shims). */
   readonly aliases?: readonly string[];
+  /** Full role name of the keyed cell this entry asks to replace. Not approval. */
+  readonly replaces?: string;
   readonly value: C;
 }
 
@@ -84,15 +129,6 @@ export interface Plugin {
   readonly tags?: readonly string[];
   /** Runs with the plugin's scope as `Scope`: `acquireRelease` in here is released on unload. */
   readonly apply: (this: void, ctx: PluginContext) => Effect.Effect<void, PluginError, Scope.Scope>;
-}
-
-const pointNamespaces = new WeakMap<Plugin, string>();
-
-/** Host admission binds declaration authority without changing contribution ids. */
-export function bindPointNamespace(plugin: Plugin, namespace: string): Plugin {
-  const bound = { ...plugin };
-  pointNamespaces.set(bound, namespace);
-  return bound;
 }
 
 export function definePlugin(plugin: Plugin): Plugin {
@@ -186,6 +222,17 @@ export interface Kernel {
   readonly contributionsOf: (owner: string) => readonly PointContribution[];
   readonly points: () => readonly PointState[];
   readonly service: <S>(key: ServiceKey<S>) => S | undefined;
+  readonly role: <C>(key: RoleKey<C>) => RoleCandidate<C> | undefined;
+  readonly roles: () => readonly RoleState[];
+  /** Whether this loaded family holds a host-approved claim for this exact role. */
+  // GAP [[01M6YS6XH9XS4TX7S7AYWXJX3A]] the editor follow-up supplies the production inspection consumer
+  readonly replacementApproved: (owner: string, role: string) => boolean;
+  readonly configureRoles: (preferences: ReadonlyMap<string, string>) => Effect.Effect<void>;
+  readonly fault: (
+    role: string | RoleKey<unknown>,
+    provider: RoleProvider,
+    cause: unknown,
+  ) => Effect.Effect<boolean>;
   readonly plugins: () => readonly PluginState[];
   /**
    * Whether `plugin`, this very value, is what the kernel holds under its
@@ -209,92 +256,23 @@ export interface PointState {
   readonly owner: string | null;
 }
 
-interface Entry {
-  readonly name: string;
-  readonly namespace: string;
-  readonly tags: readonly string[];
-  readonly inject: readonly AnyServiceKey[];
-  readonly uses: readonly string[];
-  readonly pointNamespace: string;
-  readonly parent: string | null;
-  /** The value it was loaded as. */
-  readonly plugin: Plugin;
-  readonly apply: Plugin["apply"];
-  status: PluginStatus;
-  /**
-   * Whether `apply` has run to its end and the plugin is still active: what
-   * it contributed is visible from then until it starts to go, all at once
-   * either way.
-   */
-  applied: boolean;
-  error: PluginError | null;
-  /** Open while `active`; everything the plugin registered hangs off it. */
-  scope: Scope.Closeable | null;
-}
-
-interface ServiceSlot {
-  readonly key: AnyServiceKey;
-  readonly owner: string;
-  readonly impl: unknown;
-}
-
-interface PointSlot {
-  readonly key: PointKey<unknown>;
-  readonly items: Contribution<unknown>[];
-  /** Ids and aliases, so a lookup and a conflict check are one read. */
-  readonly byId: Map<string, Contribution<unknown>>;
-}
-
-function refusal(plugin: string, reason: PluginErrorReason, message: string): PluginError {
-  return new PluginError({ plugin, reason, message });
-}
-
-function failureOf(plugin: string, cause: Cause.Cause<PluginError>): PluginError {
-  const squashed = Cause.squash(cause);
-  if (squashed instanceof PluginError) return squashed;
-  return refusal(
-    plugin,
-    "apply-failed",
-    squashed instanceof Error ? squashed.message : String(squashed),
-  );
-}
-
-/** The id a contribution `id` takes in `namespace`: `<namespace>.<id>`, or `id` in the root one. */
-export function namespaced(namespace: string, id: string): string {
-  return namespace === "" ? id : `${namespace}.${id}`;
-}
-
-/** Everything a kernel knows, mutated only inside the effects below. */
-interface State {
-  readonly host: KernelHost;
-  readonly entries: Map<string, Entry>;
-  readonly services: Map<string, ServiceSlot>;
-  readonly points: Map<string, PointSlot>;
-  readonly subscribers: Set<() => void>;
-  version: number;
-}
-
-/**
- * Whether what `owner` contributed is visible: it and every plugin that
- * loaded it have applied, so a reader never sees part of a plugin's
- * contributions, while it loads or while it goes.
- */
-function visible(state: State, owner: string): boolean {
-  const entry = state.entries.get(owner);
-  if (entry === undefined || !entry.applied) return false;
-  return entry.parent === null || visible(state, entry.parent);
-}
-
-function changed(state: State): void {
-  state.version++;
-  for (const listener of state.subscribers) listener();
+function serviceProvider(
+  state: State,
+  slot: ServiceSlot | undefined,
+): Registration<unknown> | undefined {
+  const candidate = slot === undefined ? undefined : elected(state, slot.cell);
+  return candidate !== undefined && alive(state, candidate.owner) ? candidate : undefined;
 }
 
 function requirementsOf(state: State, entry: Entry): RequirementState[] {
   return [
     ...entry.inject.map((key): RequirementState => {
       const slot = state.services.get(key.name);
-      return { kind: "service", name: key.name, from: slot?.key === key ? slot.owner : null };
+      return {
+        kind: "service",
+        name: key.name,
+        from: slot?.key === key ? (serviceProvider(state, slot)?.owner ?? null) : null,
+      };
     }),
     ...entry.uses.map(
       (name): RequirementState => ({
@@ -312,76 +290,54 @@ function missingOf(state: State, entry: Entry): string[] {
     .map((requirement) => requirement.name);
 }
 
-function scopeOf(entry: Entry): Effect.Effect<Scope.Closeable, PluginError> {
-  return entry.scope === null
-    ? Effect.fail(refusal(entry.name, "not-loaded", `plugin ${entry.name} is not active`))
-    : Effect.succeed(entry.scope);
-}
-
-/** The slot's key must be this very key object: one name, one meaning. */
-function claim<K extends string>(
-  owner: string,
-  slotKey: Key<K, unknown> | undefined,
-  key: Key<K, unknown>,
-): Effect.Effect<void, PluginError> {
-  return slotKey === undefined || slotKey === key
-    ? Effect.void
-    : Effect.fail(
-        refusal(owner, "key-mismatch", `two different ${key.kind} keys are named ${key.name}`),
-      );
-}
-
 const deactivate = Effect.fnUntraced(function* (state: State, entry: Entry, next: PluginStatus) {
-  const scope = entry.scope;
-  // Marked inactive, and the kernel moved, before its finalizers run: a
-  // finalizer that reaches back into the kernel, and a reader that keeps
-  // what it read until the kernel moves, both see a plugin already on its
-  // way out, and no reader sees half of what it contributed. It moves again
-  // once the finalizers have taken back what the plugin registered.
-  entry.scope = null;
-  entry.applied = false;
+  const active = entry.activation;
   entry.status = next;
+  if (active === null || active.phase === "closing") return;
+  active.phase = "closing";
   changed(state);
-  if (scope !== null) yield* Scope.close(scope, Exit.void);
+  yield* Scope.close(active.scope, Exit.void);
+  if (entry.activation === active) entry.activation = null;
   changed(state);
 });
 
 const invalidateDependents = Effect.fnUntraced(function* (state: State) {
   for (const dependent of state.entries.values()) {
-    if (dependent.status === "active" && missingOf(state, dependent).length > 0) {
+    const current = requirementsOf(state, dependent);
+    const moved = current.some(
+      (requirement, index) => requirement.from !== dependent.activation?.bound[index]?.from,
+    );
+    if (dependent.status === "active" && (moved || current.some(({ from }) => from === null))) {
       yield* deactivate(state, dependent, "pending");
     }
   }
 });
 
-const removeService = Effect.fnUntraced(function* (state: State, name: string) {
-  state.services.delete(name);
-  changed(state);
-  // Whoever injected it holds a reference to something that is gone: back to
-  // pending, and forward again when a provider returns.
-  yield* invalidateDependents(state);
-});
-
 const activate = Effect.fnUntraced(function* (state: State, entry: Entry) {
   const scope = yield* Scope.make();
-  entry.scope = scope;
+  const active: Activation = {
+    entry,
+    scope,
+    bound: requirementsOf(state, entry),
+    phase: "applying",
+  };
+  entry.activation = active;
   entry.status = "active";
   entry.error = null;
   changed(state);
   const apply = entry.apply;
-  const exit = yield* Effect.exit(Scope.provide(scope)(apply(contextFor(state, entry))));
-  if (entry.scope !== scope) return;
+  const exit = yield* Effect.exit(Scope.provide(scope)(apply(contextFor(state, active))));
+  if (entry.activation !== active || active.phase === "closing") return;
   if (Exit.isSuccess(exit)) {
-    entry.applied = true;
+    active.phase = "active";
     changed(state);
     return;
   }
-  // A failed apply leaves nothing behind: closing its scope undoes every
-  // registration it made before it failed.
-  entry.scope = null;
+  active.phase = "closing";
   entry.status = "failed";
   entry.error = failureOf(entry.name, exit.cause);
   yield* Scope.close(scope, exit);
+  if (entry.activation === active) entry.activation = null;
   changed(state);
 });
 
@@ -390,319 +346,272 @@ const reconcile = Effect.fnUntraced(function* (state: State) {
   const next = (): Entry | undefined =>
     state.entries
       .values()
-      .find((entry) => entry.status === "pending" && missingOf(state, entry).length === 0);
-  for (let ready = next(); ready !== undefined; ready = next()) yield* activate(state, ready);
+      .find(
+        (entry) =>
+          entry.status === "pending" &&
+          entry.activation === null &&
+          missingOf(state, entry).length === 0,
+      );
+  yield* invalidateDependents(state);
+  for (let ready = next(); ready !== undefined; ready = next()) {
+    yield* activate(state, ready);
+    yield* invalidateDependents(state);
+  }
 });
 
-const unloadEntry = Effect.fnUntraced(function* (state: State, name: string) {
+const unloadEntry = Effect.fnUntraced(function* (state: State, target: string | Entry) {
+  const name = typeof target === "string" ? target : target.name;
   const entry = state.entries.get(name);
-  if (entry === undefined) {
-    return yield* refusal(name, "not-loaded", `no plugin named ${name}`);
-  }
+  if (typeof target !== "string" && entry !== target) return undefined;
+  if (entry === undefined) return yield* refusal(name, "not-loaded", `no plugin named ${name}`);
   yield* deactivate(state, entry, entry.status);
-  state.entries.delete(name);
+  if (state.entries.get(name) === entry) state.entries.delete(name);
   changed(state);
   return undefined;
 });
 
 /** Resolve one immutable load's metadata before activation starts. */
-function pluginEntry(plugin: Plugin, parent: Entry | null, name: string): Entry {
+function pluginEntry(plugin: Plugin, parent: Entry | null, name: string, host: KernelHost): Entry {
+  const authority: PluginAuthority = parent?.authority ??
+    authorityOf(plugin) ?? {
+      pointNamespace: plugin.namespace ?? plugin.name,
+      source: "bundled",
+      replacements: [],
+      defaults: [],
+    };
+  const declared =
+    parent === null
+      ? (authority.uses
+          ?.filter(
+            (use) =>
+              use.kernel === host &&
+              localPointName(authority.pointNamespace, use.point) === undefined,
+          )
+          .map(({ point }) => point) ?? [])
+      : [];
+  const uses = [...new Set([...(plugin.uses ?? []), ...declared])];
+  const unlisted = uses.find((point) => !pointUseAllowed(authority, point, host));
+  if (unlisted !== undefined)
+    throw refusal(
+      name,
+      "not-used",
+      `${unlisted} is not declared in the manifest's uses for the ${host} kernel`,
+    );
   return {
     name,
     namespace: plugin.namespace ?? parent?.namespace ?? plugin.name,
     tags: plugin.tags ?? parent?.tags ?? [],
     inject: [...(plugin.inject ?? [])],
-    uses: [...(plugin.uses ?? [])],
-    pointNamespace:
-      parent?.pointNamespace ?? pointNamespaces.get(plugin) ?? plugin.namespace ?? plugin.name,
+    uses,
+    authority,
     parent: parent?.name ?? null,
     plugin,
     apply: plugin.apply,
     status: "pending",
-    applied: false,
     error: null,
-    scope: null,
+    activation: null,
   };
 }
 
-const loadEntry = Effect.fnUntraced(function* (state: State, plugin: Plugin, parent: Entry | null) {
-  const name = parent === null ? plugin.name : `${parent.name}/${plugin.name}`;
-  if (state.entries.has(name)) {
-    return yield* refusal(name, "name-taken", `a plugin named ${name} is loaded`);
-  }
-  // A child is torn down by its parent's scope, so the parent must be live
-  // before the child exists at all.
-  const parentScope = parent === null ? null : yield* scopeOf(parent);
-  const entry = pluginEntry(plugin, parent, name);
-  state.entries.set(name, entry);
+const loadEntry = Effect.fnUntraced(function* (
+  state: State,
+  plugin: Plugin,
+  parent: Activation | null,
+) {
+  const name = parent === null ? plugin.name : `${parent.entry.name}/${plugin.name}`;
+  const acquire = Effect.try({
+    try: () => {
+      if (parent !== null) assertActive(parent);
+      if (state.entries.has(name))
+        throw refusal(name, "name-taken", `a plugin named ${name} is loaded`);
+      const entry = pluginEntry(plugin, parent?.entry ?? null, name, state.host);
+      state.entries.set(name, entry);
+      const handle: PluginHandle = {
+        name,
+        unload: unloadEntry(state, entry).pipe(
+          Effect.catchTag("Kb/PluginError", () => Effect.void),
+          Effect.andThen(() => reconcile(state)),
+        ),
+      };
+      return { entry, handle };
+    },
+    catch: (cause) => pluginFailure(name, cause),
+  });
+  const held =
+    parent === null
+      ? yield* acquire
+      : yield* Scope.provide(parent.scope)(
+          Effect.acquireRelease(acquire, ({ entry }) =>
+            unloadEntry(state, entry).pipe(Effect.catchTag("Kb/PluginError", () => Effect.void)),
+          ),
+        );
   changed(state);
-  const handle: PluginHandle = {
-    name,
-    unload: unloadEntry(state, name).pipe(Effect.catchTag("Kb/PluginError", () => Effect.void)),
-  };
-  if (parentScope !== null) yield* Scope.addFinalizer(parentScope, handle.unload);
   yield* reconcile(state);
-  if (entry.status === "failed" && entry.error !== null) return yield* entry.error;
-  return handle;
+  if (held.entry.status === "failed" && held.entry.error !== null) return yield* held.entry.error;
+  return held.handle;
 });
 
 const provideErased = Effect.fnUntraced(function* (
   state: State,
-  entry: Entry,
+  active: Activation,
   key: AnyServiceKey,
   impl: unknown,
 ) {
-  const scope = yield* scopeOf(entry);
-  const existing = state.services.get(key.name);
-  yield* claim(entry.name, existing?.key, key);
-  if (existing !== undefined) {
-    return yield* refusal(
-      entry.name,
-      "service-conflict",
-      `service ${key.name} is already provided by ${existing.owner}`,
-    );
-  }
-  state.services.set(key.name, { key, owner: entry.name, impl });
-  yield* Scope.addFinalizer(scope, removeService(state, key.name));
+  const scope = yield* scopeOf(active);
+  const { entry } = active;
+  if (key.spec !== undefined) yield* checkHost(entry.name, key.spec, state.host);
+  yield* Scope.provide(scope)(
+    Effect.acquireRelease(
+      Effect.try({
+        try: () => {
+          assertActive(active);
+          if (roleKeyAt(key.name, key, state.host) === false)
+            throw refusal(entry.name, "key-mismatch", `service ${key.name} is a host-defined role`);
+          const existing = state.services.get(key.name);
+          claim(entry.name, existing?.key, key);
+          const role = key.spec?.replaceable === true ? key.name : null;
+          if (role !== null) {
+            claim<"service" | "point">(entry.name, roleCell(state, role)?.key, key);
+            if (roleKeyAt(role, key, state.host) !== true)
+              throw refusal(entry.name, "invalid-point", `role ${role} needs its host definition`);
+          }
+          const candidate = registration(state, entry, role, impl, "service-conflict");
+          canOccupy(existing?.cell, candidate, "service-conflict");
+          const slot = existing ?? { key, cell: registrationCell(candidate, role) };
+          if (existing !== undefined) addCandidate(slot.cell, candidate);
+          state.services.set(key.name, slot);
+          return { slot, candidate };
+        },
+        catch: (cause) => pluginFailure(entry.name, cause),
+      }),
+      ({ slot, candidate }) =>
+        Effect.gen(function* () {
+          removeCandidate(slot.cell, candidate);
+          if (slot.cell.entries.length === 0 && state.services.get(key.name) === slot)
+            state.services.delete(key.name);
+          changed(state);
+          yield* invalidateDependents(state);
+        }),
+    ),
+  );
   changed(state);
-  // A new service can be the last thing a pending plugin was waiting for; it
-  // activates once this plugin's load is done with the kernel.
-  return undefined;
 });
 
-const getErased = Effect.fnUntraced(function* (state: State, entry: Entry, key: AnyServiceKey) {
-  if (!entry.inject.includes(key)) {
-    return yield* refusal(
-      entry.name,
-      "not-injected",
-      `${entry.name} reads ${key.name} without declaring it in inject`,
-    );
-  }
-  const slot = state.services.get(key.name);
-  if (slot?.key !== key) {
-    return yield* refusal(entry.name, "not-loaded", `service ${key.name} is not provided`);
-  }
-  return slot.impl;
-});
-
-const checkPointHost = Effect.fnUntraced(function* (
-  owner: string,
-  spec: PointSpec,
-  host: KernelHost,
-) {
-  const hosts = typeof spec.kernel === "string" ? [spec.kernel] : spec.kernel;
-  if (!hosts.includes(host)) {
-    return yield* refusal(
-      owner,
-      "wrong-kernel",
-      `point requires ${hosts.join(" or ")}; this kernel is ${host}`,
-    );
-  }
-  return undefined;
-});
-
-const contributionValue = Effect.fnUntraced(function* (
-  owner: string,
-  host: KernelHost,
-  point: PointKey<unknown>,
-  input: unknown,
-) {
-  if (!isPointKey(point))
-    return yield* refusal(
-      owner,
-      "invalid-point",
-      "point keys must come from the host or ctx.declare",
-    );
-  // oxlint-disable-next-line typescript/no-unnecessary-condition -- installed JavaScript may use a pre-PointSpec SDK
-  if (point.spec === undefined) {
-    return yield* refusal(owner, "invalid-point", `${point.name} requires a PointSpec`);
-  }
-  yield* checkPointHost(owner, point.spec, host);
-  return point.spec.contract === undefined
-    ? input
-    : yield* decodeContribution(owner, point.spec.contract, input);
-});
-
-const contributeErased = Effect.fnUntraced(function* (
+const getErased = Effect.fnUntraced(function* (
   state: State,
-  entry: Entry,
-  point: PointKey<unknown>,
-  item: ContributionEntry<unknown>,
+  active: Activation,
+  key: AnyServiceKey,
 ) {
-  const scope = yield* scopeOf(entry);
-  const value = yield* contributionValue(entry.name, state.host, point, item.value);
-  if (entry.scope !== scope)
-    return yield* refusal(
-      entry.name,
-      "not-loaded",
-      "plugin activation changed while validating its contribution",
-    );
-  const existing = state.points.get(point.name);
-  if (point.declarer !== null) {
-    if (existing?.key !== point)
-      return yield* refusal(entry.name, "not-loaded", `point ${point.name} is retired`);
-    if (point.declarer !== entry.name && !entry.uses.includes(point.name))
-      return yield* refusal(entry.name, "not-used", `${point.name} must be listed in uses`);
-  }
-  yield* claim(entry.name, existing?.key, point);
-  const slot: PointSlot = existing ?? { key: point, items: [], byId: new Map() };
-  const contribution: Contribution<unknown> = {
-    id: namespaced(entry.namespace, item.id),
-    aliases: item.aliases ?? [],
-    owner: entry.name,
-    value,
-  };
-  const ids = [contribution.id, ...contribution.aliases];
-  const clash = ids.find((id) => slot.byId.has(id));
-  if (clash !== undefined) {
-    return yield* refusal(
-      entry.name,
-      "contribution-conflict",
-      `${point.name} already has ${clash} (from ${slot.byId.get(clash)?.owner ?? "?"})`,
-    );
-  }
-  if (point.spec.cardinality === "single" && slot.items.length > 0) {
-    return yield* refusal(
-      entry.name,
-      "contribution-conflict",
-      `${point.name} accepts only one contribution`,
-    );
-  }
-  if (point.spec.cardinality === "keyed" && point.spec.keyBy !== undefined) {
-    const keyBy = point.spec.keyBy;
-    const member = (candidate: unknown): unknown =>
-      keyBy
-        .split(".")
-        .reduce<unknown>(
-          (current, key) => (Predicate.isObject(current) ? current[key] : undefined),
-          candidate,
-        );
-    const key = member(value);
-    if (key === undefined || slot.items.some((held) => Object.is(member(held.value), key))) {
-      return yield* refusal(
-        entry.name,
-        "contribution-conflict",
-        `${point.name} requires a unique ${keyBy}`,
-      );
-    }
-  }
-  state.points.set(point.name, slot);
-  slot.items.push(contribution);
-  for (const id of ids) slot.byId.set(id, contribution);
-  yield* Scope.addFinalizer(
-    scope,
-    Effect.sync(() => {
-      slot.items.splice(slot.items.indexOf(contribution), 1);
-      for (const id of ids) slot.byId.delete(id);
-      changed(state);
-    }),
-  );
-  changed(state);
-  return contribution;
-});
-
-function matchesPoint<C>(slot: PointSlot | undefined, point: PointReference<C>): boolean {
-  return (
-    slot !== undefined &&
-    (point.kind === "point-name" ? slot.key.declarer !== null : slot.key === point)
-  );
-}
-function contributionsAt<C>(state: State, point: PointReference<C>): readonly Contribution<C>[] {
-  const slot = state.points.get(point.name);
-  if (!matchesPoint(slot, point) || slot === undefined) return [];
-  return slot.items
-    .filter((item) => visible(state, item.owner))
-    .map((item) => ({ ...item, value: asKeyType(point, item.value) }));
-}
-
-const decodeContribution = Effect.fn("plugin.decodeContribution")(function* (
-  owner: string,
-  contract: NonNullable<PointSpec["contract"]>,
-  value: unknown,
-) {
-  const invalid = (cause: unknown) => refusal(owner, "invalid-contribution", String(cause));
-  const decode = yield* Effect.try({
+  return yield* Effect.try({
     try: () => {
-      const checked = contract["~standard"].validate(value);
-      return Predicate.isPromise(checked)
-        ? Effect.tryPromise({ try: () => checked, catch: invalid })
-        : Effect.succeed(checked);
+      const entry = assertActive(active);
+      if (!entry.inject.includes(key))
+        throw refusal(
+          entry.name,
+          "not-injected",
+          `${entry.name} reads ${key.name} without declaring it in inject`,
+        );
+      const slot = state.services.get(key.name);
+      const provider = serviceProvider(state, slot);
+      if (slot?.key !== key || provider === undefined)
+        throw refusal(entry.name, "not-loaded", `service ${key.name} is not provided`);
+      return provider.value;
     },
-    catch: invalid,
+    catch: (cause) => pluginFailure(active.entry.name, cause),
   });
-  const result = yield* decode;
-  if (result.issues !== undefined)
-    return yield* invalid(result.issues.map((issue) => issue.message).join("; "));
-  return result.value;
 });
 
-const namedPoint = Effect.fn("plugin.point")(function* <C>(
+const namedPoint = Effect.fnUntraced(function* <C>(
   state: State,
-  entry: Entry,
+  active: Activation,
   reference: string | PointName<C>,
 ) {
-  const name = typeof reference === "string" ? reference : reference.name;
-  const slot = state.points.get(name);
-  if (!entry.uses.includes(name) && slot?.key.declarer !== entry.name) {
-    return yield* refusal(entry.name, "not-used", `${name} must be listed in uses`);
-  }
-  if (slot === undefined || slot.key.declarer === null)
-    return yield* refusal(entry.name, "not-loaded", `point ${name} is not declared`);
-  return asPointKey<C>(slot.key);
+  return yield* Effect.try({
+    try: () => {
+      const entry = assertActive(active);
+      const name = typeof reference === "string" ? reference : reference.name;
+      const slot = state.points.get(name);
+      if (!entry.uses.includes(name) && slot?.key.declarer !== entry.name)
+        throw refusal(entry.name, "not-used", `${name} must be listed in uses`);
+      if (slot === undefined || slot.key.declarer === null)
+        throw refusal(entry.name, "not-loaded", `point ${name} is not declared`);
+      return asPointKey<C>(slot.key);
+    },
+    catch: (cause) => pluginFailure(active.entry.name, cause),
+  });
 });
 
-const declarePoint = Effect.fn("plugin.declare")(function* <C>(
+const declarePoint = Effect.fnUntraced(function* <C>(
   state: State,
-  entry: Entry,
+  active: Activation,
   reference: string | PointName<C>,
   spec: PointSpec,
 ) {
-  const scope = yield* scopeOf(entry);
-  const prefix = `${entry.pointNamespace}.`;
+  const scope = yield* scopeOf(active);
+  const { entry } = active;
   const full =
-    typeof reference === "string" ? namespaced(entry.pointNamespace, reference) : reference.name;
-  const local = full.startsWith(prefix) ? full.slice(prefix.length) : "";
-  if (local.length === 0 || local.includes(".") || entry.pointNamespace === "") {
+    typeof reference === "string"
+      ? namespaced(entry.authority.pointNamespace, reference)
+      : reference.name;
+  const local = localPointName(entry.authority.pointNamespace, full);
+  if (local === undefined || entry.authority.pointNamespace === "")
     return yield* refusal(
       entry.name,
       "invalid-point",
-      "declare requires one local name without dots in the family's namespace",
+      "declare requires one local identifier in the family's namespace",
     );
-  }
-  yield* checkPointHost(entry.name, spec, state.host);
-  if (state.points.has(full))
-    return yield* refusal(entry.name, "point-conflict", `point ${full} is already registered`);
+  if (spec.replaceable === true && entry.authority.source !== "bundled")
+    return yield* refusal(
+      entry.name,
+      "invalid-point",
+      "replaceable points require a bundled host role definition",
+    );
   const key = pointKey<C>(full, spec, entry.name);
-  state.points.set(full, { key, items: [], byId: new Map() });
-  yield* Scope.addFinalizer(
-    scope,
-    Effect.gen(function* () {
-      state.points.delete(full);
-      changed(state);
-      yield* invalidateDependents(state);
-    }),
+  yield* checkPointSpec(entry.name, key.spec, state.host);
+  yield* Scope.provide(scope)(
+    Effect.acquireRelease(
+      Effect.try({
+        try: () => {
+          assertActive(active);
+          if (state.points.has(full))
+            throw refusal(entry.name, "point-conflict", `point ${full} is already registered`);
+          state.points.set(full, pointSlot(key));
+        },
+        catch: (cause) => pluginFailure(entry.name, cause),
+      }),
+      () =>
+        Effect.gen(function* () {
+          if (state.points.get(full)?.key === key) state.points.delete(full);
+          changed(state);
+          yield* invalidateDependents(state);
+        }),
+    ),
   );
   changed(state);
   return key;
 });
 
-function contextFor(state: State, entry: Entry): PluginContext {
+function contextFor(state: State, active: Activation): PluginContext {
+  const { entry } = active;
   return {
     name: entry.name,
     namespace: entry.namespace,
-    declare: (name, spec) => declarePoint(state, entry, name, spec),
-    point: (name) => namedPoint(state, entry, name),
-    contributions: (point) => contributionsAt(state, point),
-    get: (key) => getErased(state, entry, key).pipe(Effect.map((impl) => asKeyType(key, impl))),
-    provide: (key, impl) => provideErased(state, entry, key, impl),
+    declare: (name, spec) => declarePoint(state, active, name, spec),
+    point: (name) => namedPoint(state, active, name),
+    contributions: (point) =>
+      entry.activation === active && active.phase !== "closing"
+        ? contributionsAt(state, point)
+        : [],
+    get: (key) => getErased(state, active, key).pipe(Effect.map((impl) => asKeyType(key, impl))),
+    provide: (key, impl) => provideErased(state, active, key, impl),
     contribute: (point, item) =>
-      contributeErased(state, entry, point, item).pipe(
+      contributeErased(state, active, point, item).pipe(
         Effect.map((contribution) => ({
           ...contribution,
           value: asKeyType(point, contribution.value),
         })),
       ),
-    plugin: (child) => loadEntry(state, child, entry),
+    plugin: (child) => loadEntry(state, child, active),
   };
 }
 
@@ -711,18 +620,26 @@ function contextFor(state: State, entry: Entry): PluginContext {
  * State is plain maps mutated only inside the kernel's own effects, and read
  * synchronously, so a UI can render from it without running an Effect.
  */
-export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
+export function makeKernel({
+  host,
+  roleSession,
+}: {
+  readonly host: KernelHost;
+  readonly roleSession?: RoleSession;
+}): Kernel {
   const state: State = {
     host,
     entries: new Map(),
     services: new Map(),
     points: new Map(),
     subscribers: new Set(),
+    roleSelections: new Map(),
+    roleSession: roleSession ?? newRoleSession(),
     version: 0,
   };
   return {
     load: (plugin) => loadEntry(state, plugin, null),
-    unload: (name) => unloadEntry(state, name),
+    unload: (name) => unloadEntry(state, name).pipe(Effect.andThen(() => reconcile(state))),
     shutdown: Effect.suspend(() =>
       Effect.forEach(
         [...state.entries.values()].filter((entry) => entry.parent === null).toReversed(),
@@ -734,30 +651,59 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
     contributions: (point) => contributionsAt(state, point),
     lookup: (point, id) => {
       const slot = state.points.get(point.name);
-      const item = matchesPoint(slot, point) ? slot?.byId.get(id) : undefined;
-      return item === undefined || !visible(state, item.owner)
-        ? undefined
-        : { ...item, value: asKeyType(point, item.value) };
+      const cell = matchesPoint(slot, point) ? slot?.byId.get(id) : undefined;
+      const candidate = cell === undefined ? undefined : elected(state, cell);
+      if (cell === undefined || candidate === undefined || !visible(state, candidate.owner))
+        return undefined;
+      const item = pointValue(cell, candidate);
+      return { ...item, value: asKeyType(point, item.value) };
     },
     contributionsOf: (owner) =>
       [...state.points.values()].flatMap((slot) =>
-        slot.items
+        cellEntries(slot.cells)
           .filter((item) => item.owner === owner || item.owner.startsWith(`${owner}/`))
           .filter((item) => visible(state, item.owner))
-          .map(({ id, aliases, owner: by }) => ({ point: slot.key.name, id, aliases, owner: by })),
+          .map(({ value, owner: by }) => ({
+            point: slot.key.name,
+            id: value.id,
+            aliases: value.aliases,
+            owner: by,
+          })),
       ),
     points: () =>
       [...state.points.values()]
         .filter((slot) =>
           slot.key.declarer !== null
             ? visible(state, slot.key.declarer)
-            : slot.items.some((item) => visible(state, item.owner)),
+            : cellEntries(slot.cells).some((item) => visible(state, item.owner)),
         )
         .map(({ key }) => ({ key, owner: key.declarer ?? null })),
     service: (key) => {
       const slot = state.services.get(key.name);
-      return slot?.key === key ? asKeyType(key, slot.impl) : undefined;
+      const provider = serviceProvider(state, slot);
+      return slot?.key === key && provider !== undefined
+        ? asKeyType(key, provider.value)
+        : undefined;
     },
+    role: (role) => readRole(state, role),
+    roles: () => roleStates(state),
+    replacementApproved: (owner, role) => replacementApproved(state, owner, role),
+    configureRoles: (preferences) =>
+      Effect.gen(function* () {
+        configureRoles(state, preferences);
+        yield* reconcile(state);
+      }),
+    fault: (role, provider, cause) =>
+      Effect.gen(function* () {
+        const faulted = faultRole(
+          state,
+          typeof role === "string" ? role : role.name,
+          provider,
+          cause,
+        );
+        if (faulted) yield* reconcile(state);
+        return faulted;
+      }),
     holds: (plugin) => state.entries.get(plugin.name)?.plugin === plugin,
     plugins: () =>
       [...state.entries.values()].map((entry) => ({
@@ -769,9 +715,9 @@ export function makeKernel({ host }: { readonly host: KernelHost }): Kernel {
         missing: missingOf(state, entry),
         requirements: requirementsOf(state, entry),
         provides: [...state.services.values()]
-          .filter((slot) => slot.owner === entry.name)
+          .filter((slot) => slot.cell.entries.some((provider) => provider.owner === entry.name))
           .map((slot) => slot.key.name),
-        applied: entry.applied,
+        applied: entry.activation?.phase === "active",
         error: entry.error,
       })),
     dependencies: () =>

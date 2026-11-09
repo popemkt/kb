@@ -14,7 +14,7 @@
  * the outline at its frame (`frameViewKey`), and the collection views are
  * another family's, which may not reach this package.
  */
-import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
+import { declarationPlugin, defineExtension, viewDef, FIELD_EDITOR_ROLE } from "@kb/contracts";
 import { DISPLAY_OPTIONS, seededField } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
@@ -28,6 +28,7 @@ export const outlineExtension = defineExtension({
   },
   optional: { byDefault: "on" },
   tags: ["outline"],
+  roles: [FIELD_EDITOR_ROLE],
   defaultView: OutlineView,
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
   // A node's own display toggles: the editor's, never drawn as field rows.

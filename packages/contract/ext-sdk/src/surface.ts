@@ -60,6 +60,7 @@ export interface KbNode {
   text: string;
   props: Record<NodeId, PropValue[]>;
   children: NodeId[];
+  order?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -171,16 +172,26 @@ export interface ServiceKey<S> {
   readonly kind: "service";
   readonly name: string;
   readonly "~type"?: S;
+  readonly spec?: ServiceSpec;
 }
 
 export type KernelHost = "registry" | "server" | "page";
 
-export interface PointSpec {
-  readonly cardinality: "list" | "keyed" | "single" | "chain";
-  readonly combine: string;
+export interface KernelSpec {
   readonly kernel: KernelHost | readonly KernelHost[];
   readonly tier: "T0" | "T1" | "T2" | "T3";
-  /** Dot-separated member path; absent means contribution id. */
+}
+
+export interface RolePolicy {
+  readonly replaceable?: boolean;
+  readonly rolePrefix?: string;
+}
+
+export interface ServiceSpec extends KernelSpec, RolePolicy {}
+
+export interface PointSpec extends KernelSpec, RolePolicy {
+  readonly cardinality: "list" | "keyed" | "single" | "chain";
+  readonly combine: string;
   readonly keyBy?: string;
   readonly contract?: effect.StandardSchema.StandardSchemaV1;
 }
@@ -205,6 +216,7 @@ export interface PointName<C> {
 export interface ContributionEntry<C> {
   readonly id: string;
   readonly aliases?: readonly string[];
+  readonly replaces?: string;
   readonly value: C;
 }
 
@@ -536,7 +548,12 @@ export type NoParams = { readonly [key: string]: never };
  * an agent, the owner's CLI, or code in the sandbox. kb records it on the
  * transaction the call commits, and grants nothing by it.
  */
-export type Actor = "human" | "agent" | "cli" | "script";
+export type Actor =
+  | "human"
+  | "agent"
+  | "cli"
+  | "script"
+  | { readonly kind: "reaction"; readonly id: string };
 
 /** A call as the invoke core runs it: the action, its input, and who makes it. */
 export interface ActionInvocation {
@@ -619,6 +636,44 @@ export interface ActionInterceptor {
   readonly output?: (call: InterceptedCall, output: unknown) => effect.Effect.Effect<unknown>;
 }
 
+/** A store transaction, as recorded by the committing process. */
+export interface StoreTx {
+  upserts: KbNode[];
+  deletes: NodeId[];
+}
+export interface KbTx {
+  rev: number;
+  ops: StoreTx;
+  at: string;
+  origin?: string;
+  actor?: Actor;
+  session?: string;
+  via?: string;
+}
+export interface TxMatch {
+  readonly tagged?: readonly NodeId[];
+  readonly untagged?: readonly NodeId[];
+  readonly fields?: readonly NodeId[];
+  readonly created?: boolean;
+  readonly deleted?: boolean;
+}
+/** Frozen commit data; writes are only the nodes matched by this listener. */
+export interface TxChange {
+  readonly tx: Readonly<Omit<KbTx, "ops">>;
+  readonly writes: readonly NodeWrite[];
+}
+export interface ReactionHost {
+  readonly signal: AbortSignal;
+  readonly invoke: (
+    id: string,
+    input: Readonly<Record<string, unknown>>,
+  ) => effect.Effect.Effect<ActionReceipt>;
+}
+export interface TxReaction {
+  readonly match: TxMatch;
+  readonly react: (change: TxChange, kb: ReactionHost) => effect.Effect.Effect<void>;
+}
+
 /** The host's Effect, which a plugin's `apply` and an action's `effect` are written in. */
 export declare const Effect: typeof effect.Effect;
 /** The host's Schema, which a view key's params are written in. */
@@ -634,7 +689,7 @@ export declare function familyTags(
 ): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
-export declare function Service<S>(): (name: string) => ServiceKey<S>;
+export declare function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;
 /** Every render template, by the id a view spec names it with. */
@@ -659,6 +714,15 @@ export declare function onAction(
   hooks: Omit<ActionInterceptor, "match">,
   id?: string,
 ): effect.Effect.Effect<void, PluginError>;
+/** Matching local commits, delivered after the outer invocation settles; no page-kernel reactions. */
+export declare const TxAfterPoint: PointKey<TxReaction>;
+export declare function onCommit(
+  plugin: PluginContext,
+  match: TxMatch,
+  react: TxReaction["react"],
+  id?: string,
+): effect.Effect.Effect<void, PluginError>;
+
 export declare function provideAction(
   action: ExtensionAction,
 ): ContributionEntry<ActionContribution>;

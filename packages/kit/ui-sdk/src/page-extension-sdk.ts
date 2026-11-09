@@ -1,6 +1,7 @@
 import { PICKED } from "./lib/action-call";
 import { provideCommand, providePaletteStep } from "./lib/command-forms";
 import { CommandPoint, PaletteStepPoint } from "./lib/command-point";
+import { provideFieldEditor } from "./lib/field-editor";
 import { meterFrames } from "./lib/frame-meter";
 import { KeybindingPoint, provideKeybinding } from "./lib/keybindings";
 import { useReducedMotion } from "./lib/motion";
@@ -29,6 +30,7 @@ import {
 export const PAGE_EXTENSION_SDK = {
   ViewPoint,
   provideView,
+  provideFieldEditor,
   RoutePoint,
   provideRoute,
   SidebarSectionPoint,

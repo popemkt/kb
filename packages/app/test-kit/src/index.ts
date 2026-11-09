@@ -54,3 +54,5 @@ export {
   writeTrustedExampleEffect,
 } from "./example-extension.ts";
 export { EXAMPLE_PAGE_MODULE, examplePageHalf, examplePageModule } from "./example-page.ts";
+
+export { reactionContract } from "./reaction-contract.ts";
