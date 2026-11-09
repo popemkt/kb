@@ -2401,6 +2401,36 @@ T0 command or step writes only what a person could write through that
 action, with no new action to add: a link is a ref value, and `node.update`
 already writes one.
 
+### Paste and drop
+
+What a paste or a drop brings into a row's text is offered to a chain, and
+the browser's own paste or drop runs only when nothing claims it
+(`lib/ingest`).
+
+- **The outline declares the chain.** `outline.ingest`, a point in the
+  outline family's point definitions (`OUTLINE_POINT_DEFINITIONS`), holds
+  handlers. A page half reaches it by name, through `uses` and
+  `ctx.point<IngestHandler>("outline.ingest")`.
+- **A handler's match is data.** It names the gestures it takes (`paste`,
+  `drop`) and the data's types (`text/plain`, `Files`). It may add a
+  regular expression its text must match. A pattern that does not compile
+  takes nothing.
+- **The first match claims.** Handlers are tried by priority, higher first,
+  and in the order contributed on a tie. The first whose match holds claims
+  the gesture, so the browser's own does not run. While data is dragged
+  over a row, it is accepted when some handler takes its types; its data
+  cannot be read until it is dropped.
+- **A handler never writes.** It says what the gesture makes, as data
+  (`IngestOutcome`), and the page writes it at the row: the node the
+  row's text is (`shownNodeId`). A dropped file is kept as an asset and
+  linked from that text (`attachFileToNode`). A claim that fails is told,
+  and writes nothing.
+- **The outline's own handlers are contributions.** It contributes the
+  drop of a file (`ATTACH_FILE`) as any family would.
+- **A text host offers each gesture through its port** (`IngestPort`,
+  bound by the surface that draws it). A row's port is the chain at that
+  row (`useRowIngest`). A canvas card's takes a dropped file alone.
+
 ### UI points: routes and views
 
 The UI is assembled from contributions to the browser's `@kb/plugin` kernel

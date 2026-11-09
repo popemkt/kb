@@ -7,8 +7,8 @@
  * page's `BrowserHost` are two bindings of one body.
  *
  * The text's writes are not here: which node a surface's text belongs to is
- * the surface's to say (`shownNodeId`), so it passes `onChange`,
- * `onAttachFile` and `onRemoveTag` itself.
+ * the surface's to say (`shownNodeId`), so it passes `onChange`, `ingest`
+ * and `onRemoveTag` itself.
  */
 import { useSyncExternalStore } from "react";
 import { useFollowThrough, type CarryOutFollow } from "../lib/follow";
