@@ -322,3 +322,13 @@ export {
 } from "./roles.ts";
 
 export { orderedRoles, type OrderedRole } from "./extension-report.ts";
+
+export { TxAfterPoint, onCommit, CurrentReactions } from "./reactions.ts";
+export type {
+  ReactionFailure,
+  TxMatch,
+  TxChange,
+  TxReaction,
+  ReactionHost,
+  Reactions,
+} from "./reactions.ts";

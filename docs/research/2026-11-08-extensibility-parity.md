@@ -883,3 +883,5 @@ Implementation follow-up (Step 5): finding B is closed by [declared point lifecy
 Implementation follow-up (Step 7): [provider roles](../../DESIGN.md#provider-roles) state the live contract.
 
 Implementation follow-up (Step 8): the [installed-role proof](2026-11-09-replacement-roles-e2e.md) covers the approved replacement and fallback contract.
+
+Implementation follow-up (Step 10): [transaction reactions](../../DESIGN.md#transaction-reactions) state the live contract; the [installed sample proof](2026-11-09-transaction-reactions-e2e.md) covers both committing surfaces.

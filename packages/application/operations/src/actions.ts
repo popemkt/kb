@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { z } from "zod";
 import {
   type ActionDefinition,
@@ -10,6 +10,7 @@ import {
 } from "@kb/contracts";
 import {
   ResolveError,
+  ActorSchema,
   SYSTEM_IDS,
   cardinalityOf,
   currentIso,
@@ -217,14 +218,16 @@ const GRAPH_CHANGES_MAX = 500;
 /** The most recorded ops one `graph.changes` answer decodes (TxPage.maxBytes). */
 const GRAPH_CHANGES_BYTES = 4 * 1024 * 1024;
 
-const ChangeSchema = z.object({
-  rev: z.number(),
-  at: z.string(),
-  actor: z.string().optional(),
-  session: z.string().optional(),
-  via: z.string().optional(),
-  wrote: z.array(z.object({ id: z.string(), text: z.string(), tags: z.array(z.string()) })),
-  deleted: z.array(z.string()),
+const ChangeSchema = Schema.Struct({
+  rev: Schema.Finite,
+  at: Schema.String,
+  actor: Schema.optionalKey(ActorSchema),
+  session: Schema.optionalKey(Schema.String),
+  via: Schema.optionalKey(Schema.String),
+  wrote: Schema.Array(
+    Schema.Struct({ id: Schema.String, text: Schema.String, tags: Schema.Array(Schema.String) }),
+  ),
+  deleted: Schema.Array(Schema.String),
 });
 
 export const graphChangesDef = {
@@ -238,12 +241,16 @@ export const graphChangesDef = {
     viaPrefix: z.string().min(1).optional(),
     limit: z.number().int().positive().max(GRAPH_CHANGES_MAX).optional(),
   }),
-  outputSchema: z.object({
-    head: z.number(),
-    through: z.number(),
-    complete: z.boolean(),
-    changes: z.array(ChangeSchema),
-  }),
+  outputSchema: Schema.toStandardSchemaV1(
+    Schema.toStandardJSONSchemaV1(
+      Schema.Struct({
+        head: Schema.Finite,
+        through: Schema.Finite,
+        complete: Schema.Boolean,
+        changes: Schema.Array(ChangeSchema),
+      }),
+    ),
+  ),
 } satisfies ActionDefinition;
 
 function nodeById(ctx: KbContext<NodeIndex>, id: NodeId): KbNode | undefined {
@@ -709,7 +716,7 @@ function tagIdsOf(node: KbNode): string[] {
  */
 export const graphChangesEffect = Effect.fn("graph.changes")(function* (
   input: z.infer<typeof graphChangesDef.inputSchema>,
-): Effect.fn.Return<z.infer<typeof graphChangesDef.outputSchema>, DomainError, KbCtx> {
+): Effect.fn.Return<typeof graphChangesDef.outputSchema.Type, DomainError, KbCtx> {
   const { log } = yield* KbCtx;
   log.refresh();
   const head = log.head;

@@ -32,6 +32,7 @@ import {
   domainError,
   recordedTx,
   type KbTx,
+  type Actor,
   type StoreTx,
 } from "@kb/model";
 import {
@@ -60,10 +61,17 @@ function toKbTx(row: TxRow): KbTx {
     at: row.at,
     ops: JSON.parse(row.ops),
     ...(row.origin === null ? {} : { origin: row.origin }),
-    ...(row.actor === null ? {} : { actor: row.actor }),
+    ...(row.actor === null
+      ? {}
+      : { actor: row.actor.startsWith("{") ? JSON.parse(row.actor) : row.actor }),
     ...(row.session === null ? {} : { session: row.session }),
     ...(row.via === null ? {} : { via: row.via }),
   });
+}
+
+/** Preserve the legacy scalar representation; identified actors use JSON in the same column. */
+function sqlActor(actor: Actor | undefined): string | null {
+  return actor === undefined ? null : typeof actor === "string" ? actor : canonicalJson(actor);
 }
 
 export class SqliteTxTail implements TxTail {
@@ -167,7 +175,7 @@ export class SqliteTxTail implements TxTail {
           tx.rev,
           tx.at,
           tx.origin ?? null,
-          tx.actor ?? null,
+          sqlActor(tx.actor),
           tx.session ?? null,
           tx.via ?? null,
           canonicalJson(tx.ops),
@@ -194,7 +202,7 @@ export class SqliteTxTail implements TxTail {
       rev,
       record.at,
       record.origin ?? null,
-      record.actor ?? null,
+      sqlActor(record.actor),
       record.session ?? null,
       record.via ?? null,
       canonicalJson(ops),

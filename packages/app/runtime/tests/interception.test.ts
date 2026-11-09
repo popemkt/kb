@@ -610,7 +610,7 @@ describe("order and lifecycle", () => {
 describe("calls inside calls", () => {
   test("each nested call is guarded again, as its caller, and nesting stops at the depth limit", async () => {
     ran = 0;
-    const actors: string[] = [];
+    const actors: ActionInvocation["actor"][] = [];
     const counting = guard(
       "counting",
       {

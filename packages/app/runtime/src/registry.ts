@@ -8,6 +8,8 @@ import {
   ContextReferencePoint,
   CurrentContextReferences,
   CurrentInterception,
+  CurrentReactions,
+  type Reactions,
   contextReferencesOf,
   contextRefusal,
   FamilyKernels,
@@ -41,6 +43,7 @@ import {
   coreActions,
   coreExtension,
   interceptionFrom,
+  reactionsFrom,
   invokeReceiptWith,
   invokeWith,
   type RegisteredAction,
@@ -89,6 +92,8 @@ export interface Registry extends ActionTable {
   contributions: readonly Contribution<ActionContribution>[];
   /** The guards and interceptors its plugins contribute, which every call through it goes through. */
   interception: Interception;
+  /** Local after-commit listeners and their last failed attempt. */
+  reactions: Reactions;
   /** The context references its plugins contribute, which fill a call made in a tab session. */
   references: ContextReferences;
   /** When its kernel is released: once it is replaced, and the calls that hold it have settled. */
@@ -467,6 +472,7 @@ const buildRegistry = Effect.fnUntraced(function* (
     kernel,
     contributions,
     interception: interceptionFrom(kernel, { required }),
+    reactions: reactionsFrom(kernel),
     references,
     lifetime: registryLifetime(kernel),
     actions,
@@ -675,6 +681,7 @@ const withSessionRegistry = <A, E, R>(
     if (!registry.lifetime.acquire()) return yield* withSessionRegistry(ctx, use);
     return yield* use(registry).pipe(
       Effect.provideService(CurrentInterception, registry.interception),
+      Effect.provideService(CurrentReactions, registry.reactions),
       Effect.provideService(CurrentContextReferences, registry.references),
       Effect.ensuring(registry.lifetime.settle),
     );

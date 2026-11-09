@@ -62,6 +62,7 @@ import {
   unfoldedSeedNodesSurviveOpening,
   viewTypeOrderSurvivesOpening,
 } from "./seed-opening-contract.ts";
+import { commitReceiptNamesItsWrite, tailRecordsWhoCommitted } from "./commit-record-contract.ts";
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
 import { commitAfterAnotherWriterMergesIntoIt } from "./writers-contract.ts";
 
@@ -200,6 +201,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ],
   ["a merged position and content survive a commit and reload", mergedConcernsSurviveCommit],
   ["a commit touches only the nodes that changed", commitTouchesOnlyChanges],
+  [
+    "a commit returns its own tail record and exact before/after writes",
+    commitReceiptNamesItsWrite,
+  ],
   [
     "a commit after another writer's merges into what it left and settles against it",
     commitAfterAnotherWriterMergesIntoIt,
@@ -831,53 +836,6 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
           expect(both.status).toBe("failed");
         }
         expect(yield* held).toEqual([num(96)]);
-      }),
-    ),
-  );
-}
-
-/**
- * Who made a commit, the tab session it was made in and the caller's `via`
- * label are recorded on its tail entry, durably and only when said: a record
- * naming them reads back with them from another store over the same files,
- * one naming none reads back with no key, and a call made through the invoke
- * core records all three without its caller saying more.
- */
-function tailRecordsWhoCommitted(makeStore: StoreFactory): Promise<void> {
-  return Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const root = yield* backendRoot(makeStore);
-        const store = makeStore(root);
-        yield* store.commitEffect(
-          { upserts: [plainNode("n-agent", "a")], deletes: [] },
-          { at: AT, actor: "agent", session: "tab.a", via: "job:a" },
-        );
-        yield* store.commitEffect({ upserts: [plainNode("n-none", "b")], deletes: [] }, { at: AT });
-        const [agent, none] = makeStore(root).txTail.entries().slice(-2);
-        expect(agent?.actor).toBe("agent");
-        expect(agent?.session).toBe("tab.a");
-        expect(agent?.via).toBe("job:a");
-        expect(none !== undefined && ("actor" in none || "session" in none || "via" in none)).toBe(
-          false,
-        );
-
-        const ctx = yield* openSession(root);
-        const made = yield* invokeReceiptEffect(
-          ctx,
-          onWire(IN_PROCESS_WIRE, {
-            id: "node.add",
-            input: { id: "n-cli", text: "c" },
-            session: "tab.b",
-            via: "job:b",
-          }),
-        ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
-        expect(made.status).toBe("succeeded");
-        expect(makeStore(root).txTail.entries().at(-1)).toMatchObject({
-          actor: "cli",
-          session: "tab.b",
-          via: "job:b",
-        });
       }),
     ),
   );

@@ -1,6 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import type { ActionMode, EXTENSION_SDK, ExtensionDeclaration } from "@kb/contracts";
-import type { BackdropVariant, FailureCode, Knob, NumberKnob, SeedBackdrop } from "@kb/model";
+import type {
+  TxChange,
+  ReactionHost,
+  TxMatch,
+  ActionMode,
+  EXTENSION_SDK,
+  ExtensionDeclaration,
+} from "@kb/contracts";
+import type {
+  Actor,
+  BackdropVariant,
+  FailureCode,
+  Knob,
+  NumberKnob,
+  SeedBackdrop,
+} from "@kb/model";
 import type {
   Plugin,
   PointSpec,
@@ -35,6 +49,14 @@ const roleSpecs: [
 void roleSpecs;
 void spec;
 void host;
+const reactions: [
+  Same<Surface.TxChange, TxChange>,
+  Same<Surface.ReactionHost, ReactionHost>,
+  Same<Surface.TxMatch, TxMatch>,
+] = [true, true, true];
+void reactions;
+const actor: Same<Surface.Actor, Actor> = true;
+void actor;
 const modes: Same<Surface.ActionMode, ActionMode> = true;
 const codes: Same<Surface.FailureCode, FailureCode> = true;
 /** A backdrop's key and its knobs, as an author declares them, are the model's own. */

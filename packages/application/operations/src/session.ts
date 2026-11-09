@@ -20,6 +20,7 @@ import {
   type StoreCommit,
   type StoreFingerprint,
 } from "@kb/contracts";
+import { CurrentCommitFrame } from "./commit-frame.ts";
 import { guardCommit, refusalOf } from "./interception.ts";
 import { scriptWriteRefusal } from "./script-reach.ts";
 
@@ -188,20 +189,27 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
     { at: yield* currentIso, origin, ...actor, ...where, ...label },
     expected,
   );
-  if (commit.base !== null && commit.base === caughtUpTo) {
-    // The store's version of the delta: it carries the ranks the commit
-    // settled, which `tx` may not.
-    ctx.index.applyTx(commit.tx);
-    if (commit.fingerprint !== null) seen.set(ctx, commit.fingerprint);
-  } else {
-    // The commit merged into a store this session had not read, so the file it
-    // wrote holds nodes our delta does not mention. Applying only `tx` would
-    // leave the index short of them and the stamp would call that current.
-    // Forget the stamp and read what was actually written.
-    seen.delete(ctx);
-    yield* reloadEffect(ctx);
-  }
-  ctx.log.refresh();
+  // Once durable, reconciliation and receipt capture finish even if the caller is interrupted.
+  yield* Effect.uninterruptible(
+    Effect.gen(function* () {
+      if (commit.base !== null && commit.base === caughtUpTo) {
+        // The store's version of the delta: it carries the ranks the commit
+        // settled, which `tx` may not.
+        ctx.index.applyTx(commit.tx);
+        if (commit.fingerprint !== null) seen.set(ctx, commit.fingerprint);
+      } else {
+        // The commit merged into a store this session had not read, so the file it
+        // wrote holds nodes our delta does not mention. Applying only `tx` would
+        // leave the index short of them and the stamp would call that current.
+        // Forget the stamp and read what was actually written.
+        seen.delete(ctx);
+        yield* reloadEffect(ctx);
+      }
+      ctx.log.refresh();
+      const frame = yield* CurrentCommitFrame;
+      if (frame !== null) yield* frame.capture(commit);
+    }),
+  );
   return commit;
 });
 

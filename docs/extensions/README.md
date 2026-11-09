@@ -180,3 +180,28 @@ context and a React component. Its `FieldRowProps` carry the row's values, type
 and writeability. Its `parse` callback uses kb's field-value parser; `update`
 and `remove` use the host's normal checked write path. Reference values are
 node ids; providers may resolve or edit them as their interface requires. The component runs with full page power.
+
+## Reacting to commits
+
+Use `onCommit` from `kb-ext-sdk` in the server plugin's `apply`. The
+[transaction reaction contract](../../DESIGN.md#transaction-reactions) owns
+delivery, matching, budgets and authority. For example:
+
+```ts
+onCommit(ctx, { tagged: ["ext.inbox-router.inbox-tag"] },
+  Effect.fn("inbox-router.route")(function* (change, kb) {
+    for (const { after } of change.writes) {
+      if (after === undefined) continue;
+      const receipt = yield* kb.invoke("node.update", {
+        id: after.id, parent: "ext.inbox-router.inbox",
+      });
+      if (receipt.status === "failed") return yield* Effect.die(new Error(receipt.message));
+    }
+  }), "route");
+```
+
+`TxChange.tx` carries transaction metadata; `writes` carries matching frozen
+before/after nodes. `ReactionHost.invoke` returns an action receipt, so a
+reaction decides how to handle a refused checked call. See
+[inbox-router](https://github.com/popemkt/kb-extensions/tree/feat/inbox-router/extensions/inbox-router)
+for a complete extension, including its seed nodes and manifest.

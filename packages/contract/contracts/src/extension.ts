@@ -14,6 +14,7 @@ import {
 import type { ExtensionTemplate, TemplateFn } from "./template.ts";
 import type { ExtensionOrigin } from "./extension-review.ts";
 import { ViewKeyPoint, viewDef } from "./view-catalog.ts";
+import { TxAfterPoint, onCommit } from "./reactions.ts";
 import { ActionGuardPoint, ActionInterceptorPoint, guardAction, onAction } from "./interception.ts";
 
 /**
@@ -167,6 +168,8 @@ export const EXTENSION_SDK = {
   ActionPoint,
   ActionGuardPoint,
   ActionInterceptorPoint,
+  TxAfterPoint,
+  onCommit,
   TemplatePoint,
   ViewKeyPoint,
   guardAction,

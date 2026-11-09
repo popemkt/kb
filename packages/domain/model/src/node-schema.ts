@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import type { ParseOptions } from "effect/SchemaAST";
-import { ACTORS } from "./actor.ts";
+import { ActorSchema } from "./actor.ts";
 
 /**
  * Internal Effect Schema for JSONL node rows.
@@ -94,7 +94,7 @@ const KbTxSchema = Schema.Struct({
   rev: Schema.Finite,
   at: Schema.String,
   origin: Schema.optionalKey(Schema.String),
-  actor: Schema.optionalKey(Schema.Literals(ACTORS)),
+  actor: Schema.optionalKey(ActorSchema),
   session: Schema.optionalKey(Schema.String),
   via: Schema.optionalKey(Schema.String),
   ops: Schema.Struct({

@@ -11,6 +11,7 @@ import {
   type ExtensionPromiseHandler,
   type KbContext,
   CurrentCall,
+  CurrentReactions,
   CurrentContextReferences,
   CurrentInterception,
   approvalSubject,
@@ -34,6 +35,7 @@ import {
   refusalOf,
   sealedPart,
 } from "./interception.ts";
+import { CurrentCommitFrame, commitFrame } from "./commit-frame.ts";
 import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { fillFromSession, withContextHint } from "./context-fill.ts";
 /**
@@ -154,7 +156,26 @@ export const MAX_CALL_DEPTH = 16;
  * Native handlers are composed directly (scoped); legacy Promise handlers are
  * the only path that uses `tryPromise`.
  */
-export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
+export const invokeWith = Effect.fnUntraced(function* <R>(
+  actions: ReadonlyMap<string, RegisteredAction<R>>,
+  ctx: KbContext<NodeIndex>,
+  asked: ActionInvocation,
+): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
+  const inherited = yield* CurrentCommitFrame;
+  if (inherited !== null && inherited.open()) return yield* invokeCall(actions, ctx, asked);
+  const services = yield* Effect.context<R>();
+  const held = commitFrame(
+    yield* CurrentReactions,
+    (invocation) => invokeReceiptWith(actions, ctx, invocation),
+    services,
+  );
+  return yield* invokeCall(actions, ctx, asked).pipe(
+    Effect.onExit(() => held.drain),
+    Effect.provideService(CurrentCommitFrame, held.frame),
+  );
+});
+
+const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext<NodeIndex>,
   asked: ActionInvocation,

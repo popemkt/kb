@@ -20,6 +20,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 import {
   ExtensionCatalog,
+  CurrentReactions,
   ExtensionFailures,
   IgnoredRootFiles,
   ExtensionReportSchema,
@@ -181,10 +182,11 @@ export const extensionListEffect = Effect.fn("extension.list")(function* (): Eff
   ExtensionCatalog | ExtensionFailures | FamilyKernels | IgnoredRootFiles | KbCtx
 > {
   const kernels = yield* FamilyKernels;
+  const failures = (yield* CurrentReactions).failures();
   return {
     extensions: (yield* ExtensionCatalog).map((row) => ({
       ...row,
-      ...organisationOf(row.name, kernels),
+      ...organisationOf(row.name, kernels, failures),
     })),
     points: orderedPoints(kernels),
     roles: orderedRoles(kernels),

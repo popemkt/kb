@@ -2280,7 +2280,7 @@ scope.
 
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
 - **Mode**: every action states once, as a required field, what invoking it does.
   `{kind: "read"}` changes nothing.
   `{kind: "write", approval?: "required" | "delegated"}` may change the
@@ -5658,23 +5658,6 @@ point. A plugin reaches another through an injected service or a declared point 
 
 **Not offered, by evidence.**
 
-- **Reacting after a commit, in a plugin.**
-  - The transaction log can be subscribed to (`KbTxLog.subscribe`), but
-    only host code does: the `kb ui` server converging extension switches
-    (`app/server/src/server.ts`), and the subscription hub fanning
-    transactions to sockets (`app/server/src/session.ts`).
-  - A plugin is handed no log:
-    - `UiHost` is a root and `invoke` (`contracts/src/channel.ts`);
-    - a registry family's handlers see the session only while a call runs;
-    - a commit guard sees the writes before the commit and may refuse
-      them, not act after them.
-  - So "when a node is tagged X, do Y" runs today only out of process. A
-    program connects to `/ws` and sends `{op: "watch-tx", enabled: true}`,
-    which any wire may read. It receives each transaction's delta, and acts
-    through `POST /api/action` as an agent. That needs a running `kb ui`.
-  - An in-process seam would be a point fed by the log, after the commit,
-    with the same budgets, failure rules and nesting limit as the
-    interception points. It is not built.
 - **A storage backend from a plugin.**
   - The store is fixed when kb is assembled. `BACKENDS` in
     `app/runtime/src/store-selection.ts`, the composition root, is the one
@@ -5760,3 +5743,44 @@ its old identity and cannot demote new code. Roles must be defined beside their 
 `roleCall` currently has no live server role; its shared contract suite
 proves the boundary until a server consumer opts in.
 The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
+
+### Transaction reactions
+
+`tx/after` is a registry point: a list combined independently after the
+committing outer invocation settles, with minimum tier T3. The SDK's
+`onCommit` contributes a data match and an Effect callback. Matches name
+added or removed tags, changed fields, creations or deletions; any named
+condition can match. An empty match observes every committed node write.
+The host matches before calling extension code, once per transaction, and
+hands the callback transaction metadata and matching before/after writes;
+`writes` is its only copy of node data.
+
+The store receipt carries the exact local tail record and before/after
+writes from the state held under its commit exclusion. `persistEffect`
+queues that receipt only after reconciling its session index and log.
+Nested calls share one invocation frame. The outer call drains it after
+settling, including when a handler committed before subsequently failing.
+Only local commits made in that frame qualify: adopting another process's
+transactions, virtual nodes and recovered hand edits never runs reactions.
+Delivery is at most once in the committing process; a process exit before
+delivery loses the reaction. There is no replay, durable cursor or page
+kernel reaction.
+
+A reaction receives no store or log. Its `ReactionHost.invoke` goes through
+the ordinary invoke core, guards and checked commit path, with actor
+`{kind: "reaction", id}` and no person's approval. Its ordinary nested calls cannot
+manufacture approval or replace its reaction attribution; entering a sandbox
+retains the script grant and its narrower attribution. Its checked-call capability retires when the callback settles or its budget
+expires, including Effects constructed earlier but run later. A reaction is
+not fed its own writes. Other reactions can see them, with the chain capped
+at `MAX_REACTION_DEPTH = 4`, independently of the ordinary call-depth cap.
+A refused continuation is reported and stops that chain.
+
+Each matching listener runs independently with the same abortable budget
+mechanism and default budget as interception. Failure or budget exhaustion
+is logged and included in the effective extension report; neither changes
+the outer call's receipt nor prevents another listener from running. The
+CLI, MCP and page writes all wait for the local drain before receiving their
+response. A chain can add four rounds of listener budgets, plus the checked
+actions those listeners invoke. Page writes react in the server process. The
+registry stays alive through the drain.

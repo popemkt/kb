@@ -192,7 +192,7 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
         const title =
           (yield* manifest(ctx.root)).find((entry) => entry.id === call.id)?.title ?? call.id;
         tty.output.write(
-          `${call.actor}: ${title} (${call.id}) ${JSON.stringify(call.input)}\n${receipt.message}\n`,
+          `${typeof call.actor === "string" ? call.actor : JSON.stringify(call.actor)}: ${title} (${call.id}) ${JSON.stringify(call.input)}\n${receipt.message}\n`,
         );
         const answer = yield* Effect.promise(() =>
           tty.terminal.question("Approve this call? [y/N] "),

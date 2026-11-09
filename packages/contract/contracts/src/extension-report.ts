@@ -102,10 +102,17 @@ export class ExtensionFailures extends Context.Service<
 const ownedBy = (family: string) => (name: string) =>
   name === family || name.startsWith(`${family}/`);
 
+/** A host-observed failure of a running plugin, without changing its admission state. */
+export interface PluginFailure {
+  readonly owner: string;
+  readonly message: string;
+}
+
 /** How `family`'s plugins sit among the others in `kernels`. */
 export function organisationOf(
   family: string,
   kernels: readonly FamilyKernel[],
+  runtimeFailures: readonly PluginFailure[] = [],
 ): Pick<ExtensionReportRow, "tags" | "injects" | "provides" | "failures" | "declares" | "uses"> {
   const own = ownedBy(family);
   const held = kernels.map(({ kernel }) => ({
@@ -135,7 +142,10 @@ export function organisationOf(
       .filter(({ kind }) => kind === "service")
       .map(({ name, from }) => ({ service: name, from })),
     provides: plugins.flatMap((plugin) => plugin.provides),
-    failures: plugins.flatMap((plugin) => (plugin.error === null ? [] : [plugin.error.message])),
+    failures: [
+      ...plugins.flatMap((plugin) => (plugin.error === null ? [] : [plugin.error.message])),
+      ...runtimeFailures.filter(({ owner }) => own(owner)).map(({ message }) => message),
+    ],
   };
 }
 
