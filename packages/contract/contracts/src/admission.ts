@@ -1,3 +1,4 @@
+import { pointOwner } from "./point-names.ts";
 import { KERNEL_HOSTS, kernelHosts, type KernelHost, type KernelSpec } from "@kb/plugin";
 import type { ExtensionDeclaration } from "./declaration.ts";
 import {
@@ -18,16 +19,20 @@ export interface HostCapabilities {
   readonly points: readonly PointDefinition[];
   readonly roles: readonly DeclaredRole[];
   readonly namespaces: readonly string[];
+  /** Family names no installed or repository extension can take. */
+  readonly extensions: readonly string[];
 }
 
 /** The same definitions create keys, declare family points, grant defaults and admit consumers. */
 export function hostCapabilities(declarations: readonly ExtensionDeclaration[]): HostCapabilities {
+  const extensions = declarations.map(({ name }) => name);
   const points = [
     ...Object.values(CORE_POINT_DEFINITIONS),
     ...declarations.flatMap(({ points: declared }) => declared ?? []),
   ];
   return {
     points,
+    extensions,
     roles: declaredRoles(declarations),
     namespaces: [...new Set([...CORE_POINT_NAMESPACES, ...declarations.map(({ name }) => name)])],
   };
@@ -71,6 +76,9 @@ function pointUseIssue(
     if (native) return `${label}: no point declared by this kb`;
     if (!use.point.startsWith("ext."))
       return `${label}: third-party points must be named ext.<extension>.<local>`;
+    const owner = pointOwner(use.point);
+    if (catalog.extensions.includes(owner))
+      return `${label}: ${owner} is bundled and cannot own an installed point`;
     return null;
   }
   if (target.declared !== true) return `${label}: this is a static SDK point, not a declared point`;

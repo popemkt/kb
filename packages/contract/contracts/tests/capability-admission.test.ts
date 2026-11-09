@@ -137,3 +137,12 @@ test("every core point belongs to an explicitly reserved native namespace", () =
       name,
     ).toBe(true);
 });
+
+test("a reserved bundled name cannot be the owner of a future installed point", () => {
+  expect(extensionAdmissionIssue("consumer", request("ext.owner.sources"), catalog)).toContain(
+    "owner is bundled",
+  );
+  expect(
+    extensionAdmissionIssue("consumer", request("ext.owner.extra.sources"), catalog),
+  ).toBeNull();
+});

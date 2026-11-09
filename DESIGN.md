@@ -5714,7 +5714,8 @@ names, an unsupported kernel, a missing point in a native namespace (`kb`,
 key used as a declared point, and a known point unavailable at that kernel
 or page tier. A native capability absent from this build cannot arrive by
 installing another extension. A third-party `ext.<extension>.<local>` point
-can: its absent owner is a waiting dependency. The host binds each manifest
+can: its absent owner is a waiting dependency, unless that owner name is
+reserved by a bundled family and therefore cannot be installed. The host binds each manifest
 use to its requested half's kernel requirements, so it does not also hold
 up the other half. Settings and CLI show `waiting for <point> from
 <extension>`, with no load error. Owner departure and arrival follow the

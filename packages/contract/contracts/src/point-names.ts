@@ -23,7 +23,7 @@ export const PointNamesSchema = z.array(PointNameSchema).readonly();
 export const RoleNameSchema = z.string().regex(ROLE_NAME_PATTERN, "expected a role name");
 
 /** Local declarations contain no dots, so the last dot separates the exact owner namespace. */
-function pointOwner(name: string): string {
+export function pointOwner(name: string): string {
   const namespace = name.slice(0, Math.max(name.lastIndexOf("."), name.lastIndexOf("/")));
   return namespace.startsWith("ext.") ? namespace.slice(4) : namespace;
 }

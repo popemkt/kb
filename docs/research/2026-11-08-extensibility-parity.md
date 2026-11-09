@@ -288,7 +288,8 @@ repeated.
   namespaces (`kb.*`, `ui.*` and bundled families) that this build does not
   declare, and a `replaces` of a non-replaceable role. Those missing native
   points cannot appear later in this kb version. An absent third-party
-  point owner may be installed later: keep the contributor waiting, as
+  point owner may be installed later (unless its name is reserved by a
+  bundled family): keep the contributor waiting, as
   `inject` waits for a service. Settings says "waiting for <point> from
   <extension>", without treating that dependency as an error. A manifest
   `uses` identifies its kernel so the other half does not wait for it.
