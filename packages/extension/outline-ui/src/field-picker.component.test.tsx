@@ -28,8 +28,9 @@ import {
   type FieldContext,
   type PropValue,
   type RefCreation,
+  type FieldHandle,
 } from "@kb/ui-sdk";
-import { FieldPicker, type FieldHandle } from "./field-picker";
+import { FieldPicker } from "./field-picker";
 
 const ISO = "2026-09-28T00:00:00.000Z";
 const wire = (partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireNode => ({

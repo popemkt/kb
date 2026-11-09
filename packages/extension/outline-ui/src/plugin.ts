@@ -25,6 +25,7 @@ import {
 } from "@kb/ui-sdk";
 import { ListBulletsIcon } from "@phosphor-icons/react";
 import { NodeField } from "./fields-section";
+import { outlineValueKindsPlugin } from "./slot-kind";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 import { OUTLINE_STEPS } from "./outline-steps";
@@ -98,6 +99,8 @@ export const outlineUiPlugin = definePlugin({
       yield* Effect.all(
         [
           ctx.plugin(outlinePlugin()),
+          // The kinds of its built-in field types, which its field editor draws.
+          ctx.plugin(outlineValueKindsPlugin),
           // The page stands in the outline while this plugin is loaded: the
           // outline is its projection, which the graph store tells of each move
           // and the shell reads rows and reveals through, and its store is the

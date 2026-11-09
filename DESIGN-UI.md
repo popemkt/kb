@@ -825,12 +825,22 @@ rows, a table's cells and a card's fields are `FieldRow` chrome around the one
 `FieldValueStack`, so none of them has its own loop of editors. Each value sits
 in a **value slot** (`ValueSlot`, `outline-ui/src/value-slot.tsx`), and
 **the slot owns every gesture**; a value's kind contributes only data. A kind
-is a row in `VALUE_KINDS` (`outline-ui/src/value-kind.ts`: its editor
-mode, how it reads as text and back, when it is blank, where it points, how its values sit
-together) and a row in the slot's view registry (its glyph and its surface).
-The surfaces in `field-value.tsx` draw and edit; none has a click or key
-handler of its own. A new type is two rows, never a component deciding its
-own clicks.
+(`@kb/ui-sdk`'s `value-kind.ts`) is a row of data (`ValueKindSpec`: its
+editor mode, how it reads as text and back, when it is blank, where it
+points, how its values sit together), the glyph its field wears and the
+surface that draws and edits its values. None of the surfaces has a click or
+key handler of its own. A new type is one more kind, never a component
+deciding its own clicks.
+
+**A type's kind is a contribution.** `ui.value-kinds` is keyed by the
+type's option node, a child of `sys.f.fieldType` (DESIGN.md → Field types).
+The outline contributes the kinds of the eight built-in types
+(`outlineValueKindsPlugin`: its rows in `value-kind.ts` and `value-views.ts`),
+and one place resolves which kind a field's values sit in (`useSlotKind`,
+`outline-ui/src/slot-kind.ts`): a field that names its own kind
+(`sys.f.color`'s swatches) or parents its options (chips) is the outline's
+own; any other field's values sit in the kind contributed for its type's
+option. The slot, the stack and the field's glyph all read it.
 
 **The label column belongs to the field, not to its values.** The type glyph
 is the field's own button (`FieldRow`, labelled "Configure field <name>"). A
@@ -839,9 +849,8 @@ target, its values' kinds — so the glyph follows the field the way a bullet
 follows its node: a plain click opens it, ⌘/Ctrl-click reveals it. A row that
 stands for no field node (a preference) draws the glyph inert. `FieldRow` is
 the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
-(`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's row
-in the value views' registry (`fieldGlyphOf`), so the glyph and the editor
-come from one row.
+(`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's
+(`useSlotKind`), so the glyph and the editor come from one kind.
 
 **Three verbs, the same on every kind.**
 

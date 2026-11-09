@@ -22,10 +22,21 @@
  * `ontology.ts`), and its node shape carries no badges at all, so that class of
  * leak is not expressible here.
  */
+import type { DeclaredOptions } from "./declared-option.ts";
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 import { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./ontology.ts";
 
-/** Declared type → option node id. */
+/**
+ * The field types' kind of declared option (DESIGN.md → Field types): the
+ * children of `sys.f.fieldType`. Core seeds the built-in eight, and a
+ * family declares more under the same field, as it declares a backdrop.
+ */
+export const FIELD_TYPE_OPTIONS: DeclaredOptions = {
+  field: SYSTEM_IDS.fieldTypeField,
+  prefix: "sys.ft.",
+};
+
+/** Declared type → option node id: each built-in type's option among {@link FIELD_TYPE_OPTIONS}. */
 export const FIELD_TYPE_OPTION_IDS = {
   text: SYSTEM_IDS.ftText,
   number: SYSTEM_IDS.ftNumber,
@@ -153,6 +164,20 @@ export function cardinalityValue(cardinality: Cardinality): PropValue {
 /** The value written into a field node's type slot. */
 export function fieldTypeValue(type: FieldType): PropValue {
   return { t: "ref", v: FIELD_TYPE_OPTION_IDS[type] };
+}
+
+/**
+ * The option node a field node's type slot names, or null when it names
+ * none. The legacy string form names its built-in type's option, as
+ * {@link fieldTypeOf} reads it.
+ */
+export function fieldTypeOptionOf(
+  props: Record<string, readonly PropValue[]> | undefined,
+): NodeId | null {
+  const raw = props?.[SYSTEM_IDS.fieldTypeField]?.[0];
+  if (raw?.t === "ref") return raw.v;
+  if (raw?.t === "str" && isFieldType(raw.v)) return FIELD_TYPE_OPTION_IDS[raw.v];
+  return null;
 }
 
 /**

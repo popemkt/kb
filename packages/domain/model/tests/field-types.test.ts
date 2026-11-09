@@ -8,12 +8,15 @@ import {
   declaresOptionSet,
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  FIELD_TYPE_OPTIONS,
   acceptsValueKind,
   type FieldType,
   fieldTypeOf,
+  fieldTypeOptionOf,
   fieldTypeValue,
   migrateFieldTypeValues,
 } from "../src/field-type.ts";
+import { declaredOptionId } from "../src/declared-option.ts";
 import { resolveFieldId } from "../src/resolve.ts";
 import { ensureSystemSeed } from "../src/seed.ts";
 import { bundledFold, bundledSeed } from "@kb/bundled";
@@ -133,6 +136,28 @@ describe("typed field seeds", () => {
     expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: "sys.ft.bogus" }] })).toBe(
       "text",
     );
+  });
+
+  test("the built-in types are options of the field types' kind, as a family's are", () => {
+    for (const type of FIELD_TYPES) {
+      expect<string>(FIELD_TYPE_OPTION_IDS[type]).toBe(declaredOptionId(FIELD_TYPE_OPTIONS, type));
+    }
+    expect(FIELD_TYPE_OPTIONS.field).toBe(SYSTEM_IDS.fieldTypeField);
+  });
+
+  test("fieldTypeOptionOf names the option a type slot holds, in either form", () => {
+    expect(fieldTypeOptionOf({ [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("date")] })).toBe(
+      SYSTEM_IDS.ftDate,
+    );
+    expect(fieldTypeOptionOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "date" }] })).toBe(
+      SYSTEM_IDS.ftDate,
+    );
+    const declared = { [SYSTEM_IDS.fieldTypeField]: [{ t: "ref" as const, v: "sys.ft.x.stars" }] };
+    expect(fieldTypeOptionOf(declared)).toBe("sys.ft.x.stars");
+    expect(fieldTypeOptionOf({})).toBeNull();
+    expect(
+      fieldTypeOptionOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "bogus" }] }),
+    ).toBeNull();
   });
 
   test("migration rewrites stored type strings to refs, and is idempotent", () => {

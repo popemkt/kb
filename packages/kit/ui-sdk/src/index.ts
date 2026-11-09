@@ -593,6 +593,17 @@ export {
   type PreviewSize,
 } from "./lib/option-preview";
 export {
+  ValueKindPoint,
+  type EditHandle,
+  type EditorMode,
+  type FieldHandle,
+  type FieldTypeKind,
+  type RejectedInput,
+  type ValueKindSpec,
+  type ValueSurfaceProps,
+  type ValueView,
+} from "./lib/value-kind";
+export {
   approach,
   approachRate,
   approachShare,
