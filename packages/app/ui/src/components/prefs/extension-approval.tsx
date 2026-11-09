@@ -1,5 +1,6 @@
 /** The pinned extension evidence shared by every approval surface, and what an extension says about itself. */
 import { capabilityLines, type ExtensionManifest, type ExtensionReportRow } from "@kb/contracts";
+import { DEFAULT_REPLACEMENT_PRIORITY } from "@kb/plugin";
 import { extensionSourceLabel } from "@/lib/extension-report";
 import type { ExtensionLineDiff } from "@/lib/extension-line-diff";
 
@@ -92,6 +93,14 @@ export function ExtensionAbout({ manifest }: { readonly manifest: ExtensionManif
       <Stated value={manifest?.homepage} link />
       <dt className="text-foreground/60">Repository</dt>
       <Stated value={manifest?.repository} link />
+      {(manifest?.replaces ?? []).map(({ role, priority, why }) => (
+        <div key={role} className="contents" data-replacement-role={role}>
+          <dt className="text-foreground/60">Replaces</dt>
+          <dd>
+            {role} · priority {priority ?? DEFAULT_REPLACEMENT_PRIORITY} · {why}
+          </dd>
+        </div>
+      ))}
       <dt className="col-span-2 mt-1 font-medium text-foreground/80">What it says it reaches</dt>
       {capabilityLines(manifest).map(({ label, text, said }) => (
         <div key={label} className="contents" data-capability={label} data-said={said}>

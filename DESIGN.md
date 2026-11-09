@@ -5725,6 +5725,22 @@ reserve their address before a provider loads; installed code cannot mint
 a lookalike key to occupy an absent owner's role. A plugin context belongs
 to one activation and retires when its scope closes, including on re-election.
 
+An installed family's replacement claims live in its digest-covered manifest
+([manifest format](docs/extensions/README.md#replacing-provider-roles)). Before
+import, admission resolves each claim against the bundled declaration catalog
+and checks its required page tier. The trust sheet shows each role, priority
+and reason. Trust of those exact bytes binds the claims to both module halves;
+code cannot grant its own authority. Changing the manifest requires trust of
+its new digest. A default owner cannot replace itself.
+
+The planned keybinding bridge will consume
+`kernel.replacementApproved(owner, role)` and its native page SDK proxy. Both
+inspect the same claim helper that live candidate registration uses. Their
+production inspection consumer waits for the owner to merge the keybinding
+step, then its editor follow-up.
+GAP [[01M6YS6XH9XS4TX7S7AYWXJX3A]] tracks that prepared surface; election remains
+`kernel.role` and the role consumers.
+
 Each owner seeds `sys.role.<role>` as a role node. Core's `sys.f.provider`
 ref field configures that kind and refers to an extension's ordinary node.
 Empty means the best approved candidate. Hosts read that graph setting into

@@ -67,6 +67,8 @@ const dropsBudget: Declares<
  * `BackdropCue` would still be one the page reads, and an author would
  * lose it with nothing red. The witness: a surface missing a cue fails.
  */
+const fieldRows: Same<UiSdk.FieldRowProps, PageSurface.FieldRowProps> = true;
+void fieldRows;
 const cues: Same<UiSdk.BackdropCue, PageSurface.BackdropCue> = true;
 const interactions: Same<UiSdk.BackdropInteraction, PageSurface.BackdropInteraction> = true;
 const dropsACue: Same<UiSdk.BackdropCue, Exclude<PageSurface.BackdropCue, "navigation">> = false;

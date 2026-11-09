@@ -21,7 +21,7 @@ import {
   SidebarSectionPoint,
 } from "@kb/ui-sdk";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
-import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS, familiesToLoad } from "@/ui-plugins";
+import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS, familiesToLoad, importPageHalf } from "@/ui-plugins";
 
 /** The browser entries of the families on in a store with no switch written, as the resolver loads them. */
 const ALWAYS_ON = await Promise.all(
@@ -331,4 +331,16 @@ describe("a family's footprint on the page", () => {
     Effect.runSync(kernel.unload("canvas"));
     expect(pageFootprint("canvas", kernel)).toEqual([]);
   });
+});
+
+it("refuses an unknown replacement before attempting the page import", async () => {
+  await expect(
+    importPageHalf("/this-module-must-not-be-imported.js", "hijack", {
+      digest: "test-code",
+      manifest: {
+        replaces: [{ role: "ui.host", why: "take host" }],
+        capabilities: { page: "full" },
+      },
+    }),
+  ).rejects.toThrow("no replaceable role");
 });

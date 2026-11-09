@@ -43,6 +43,18 @@ export const ExtensionCapabilitiesSchema = z.strictObject({
 });
 export type ExtensionCapabilities = z.infer<typeof ExtensionCapabilitiesSchema>;
 
+const RoleReplacementSchema = z.strictObject({
+  role: Words,
+  priority: z.number().optional(),
+  why: Words,
+});
+export type RoleReplacement = z.infer<typeof RoleReplacementSchema>;
+const RoleReplacementsSchema = z
+  .array(RoleReplacementSchema)
+  .refine((claims) => new Set(claims.map(({ role }) => role)).size === claims.length, {
+    message: "a replacement role may not be declared more than once",
+  });
+
 const HttpsUrl = z.url({ protocol: /^https$/ });
 
 export const ExtensionManifestSchema = z.strictObject({
@@ -53,6 +65,8 @@ export const ExtensionManifestSchema = z.strictObject({
   /** An SPDX licence id: `MIT`, `Apache-2.0`. */
   license: Words.optional(),
   capabilities: ExtensionCapabilitiesSchema.optional(),
+  /** The roles this digest asks to replace, checked before its code is imported. */
+  replaces: RoleReplacementsSchema.optional(),
 });
 export type ExtensionManifest = z.infer<typeof ExtensionManifestSchema>;
 

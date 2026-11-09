@@ -36,7 +36,12 @@ export type {
   ServiceKey,
 } from "./keys.ts";
 
-export { bindPluginAuthority, type PluginAuthority, type RoleApproval } from "./authority.ts";
+export {
+  bindPluginAuthority,
+  DEFAULT_REPLACEMENT_PRIORITY,
+  type PluginAuthority,
+  type RoleApproval,
+} from "./authority.ts";
 export { type RoleCandidate, type RoleState, type RoleProvider } from "./roles.ts";
 export {
   Role,

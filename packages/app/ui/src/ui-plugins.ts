@@ -27,7 +27,7 @@ import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { routinesExtension } from "@kb/routines";
 import { backdropsExtension } from "@kb/backdrops";
 import { backdropsUiPlugin } from "@kb/backdrops-ui";
-import { BUNDLED_FAMILIES } from "@kb/bundled";
+import { BUNDLED_FAMILIES, BUNDLED_ROLES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { locationsExtension } from "@kb/locations";
@@ -46,6 +46,7 @@ import { collectionsUiPlugin } from "@kb/collections-ui";
 import {
   EXTENSION_SDK,
   bundledPlugin,
+  replacementIssue,
   NO_SWITCHES,
   declarationPlugin,
   extensionRow,
@@ -249,7 +250,7 @@ function loadable(rows: readonly ExtensionRow[]): readonly ExtensionRow[] {
 function browserEntry(row: ExtensionRow): BrowserExtension | null {
   if (Object.hasOwn(BROWSER_EXTENSIONS, row.name)) return BROWSER_EXTENSIONS[row.name] ?? null;
   const { page } = row;
-  return page === undefined ? null : { load: () => importPageHalf(page, row.name) };
+  return page === undefined ? null : { load: () => importPageHalf(page, row.name, row) };
 }
 
 /**
@@ -273,14 +274,30 @@ function installPageModules(): void {
  * the closure a person trusted, which run in the page with the page's
  * power (DESIGN.md → Core boundary & extensions → repository extensions).
  */
-export async function importPageHalf(path: string, name: string): Promise<Plugin> {
+export async function importPageHalf(
+  path: string,
+  name: string,
+  selected?: Pick<ExtensionRow, "digest" | "manifest">,
+): Promise<Plugin> {
+  const issue = replacementIssue(name, selected?.manifest, BUNDLED_ROLES);
+  if (issue !== null) throw new Error(issue);
+  // Import executes code: reject missing closure evidence here, before the kernel can check admission.
+  if ((selected?.manifest?.replaces?.length ?? 0) > 0 && selected?.digest === undefined)
+    throw new Error("replacements require a trusted closure digest");
+  const code =
+    selected?.digest === undefined
+      ? undefined
+      : {
+          digest: selected.digest,
+          manifest: selected.manifest,
+        };
   installPageModules();
   const module: unknown = await import(/* @vite-ignore */ path);
   const entry =
     typeof module === "object" && module !== null && "default" in module
       ? module.default
       : undefined;
-  const decoded = decodeExtensionPlugin(entry, name);
+  const decoded = decodeExtensionPlugin(entry, name, code);
   if (Result.isSuccess(decoded)) return decoded.success;
   throw new Error(`its page half at ${path}: ${decoded.failure}`);
 }

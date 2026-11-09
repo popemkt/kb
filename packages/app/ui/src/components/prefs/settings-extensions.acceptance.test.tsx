@@ -29,7 +29,11 @@ function installedHello(): ExtensionReport {
             trusted: false,
             failures: [],
             files: FILES,
-            manifest: { author: "Ada", capabilities: { network: { hosts: [] } } },
+            manifest: {
+              author: "Ada",
+              capabilities: { network: { hosts: [] }, page: "full" },
+              replaces: [{ role: "ui.field-editor", priority: 50, why: "One-line field rows" }],
+            },
             origin: {
               kind: "install" as const,
               scope: "local" as const,
@@ -472,6 +476,9 @@ describe("Settings' Extensions (acceptance)", () => {
     // What it says about itself, in words; what it leaves out reads "not declared".
     const said = [...container.querySelectorAll("[data-capability]")].map((l) => l.textContent);
     expect(said.slice(0, 2)).toEqual(["Networkno network access", "Storagenot declared"]);
+    expect(container.querySelector('[data-replacement-role="ui.field-editor"]')?.textContent).toBe(
+      "Replacesui.field-editor · priority 50 · One-line field rows",
+    );
     // Opening the sheet trusts nothing.
     expect(asked.some(({ id }) => id === "sandbox.trust")).toBe(false);
     await act(async () => buttonIn(container, "Trust this digest").click());

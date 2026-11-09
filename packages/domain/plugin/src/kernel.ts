@@ -13,6 +13,7 @@ import {
   roleStates,
   configureRoles,
   faultRole,
+  replacementApproved,
   type RoleState,
   type RoleCandidate,
   type RoleProvider,
@@ -222,6 +223,9 @@ export interface Kernel {
   readonly service: <S>(key: ServiceKey<S>) => S | undefined;
   readonly role: <C>(key: RoleKey<C>) => RoleCandidate<C> | undefined;
   readonly roles: () => readonly RoleState[];
+  /** Whether this loaded family holds a host-approved claim for this exact role. */
+  // GAP [[01M6YS6XH9XS4TX7S7AYWXJX3A]] the editor follow-up supplies the production inspection consumer
+  readonly replacementApproved: (owner: string, role: string) => boolean;
   readonly configureRoles: (preferences: ReadonlyMap<string, string>) => Effect.Effect<void>;
   readonly fault: (
     role: string | RoleKey<unknown>,
@@ -664,6 +668,7 @@ export function makeKernel({
     },
     role: (role) => readRole(state, role),
     roles: () => roleStates(state),
+    replacementApproved: (owner, role) => replacementApproved(state, owner, role),
     configureRoles: (preferences) =>
       Effect.gen(function* () {
         configureRoles(state, preferences);

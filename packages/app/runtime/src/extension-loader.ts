@@ -8,6 +8,7 @@ import {
   EXTENSION_SDK,
   installHostModules,
   MANIFEST_SUFFIX,
+  replacementIssue,
   type ExtensionFailure,
   type ExtensionOrigin,
   type LoadedExtension,
@@ -15,6 +16,7 @@ import {
 } from "@kb/contracts";
 import { isNotFound } from "@kb/workspace-fs";
 import { serverEntriesFor } from "./bundled.ts";
+import { BUNDLED_ROLES } from "@kb/bundled";
 import { extensionClosure, type DigestedClosure } from "./extension-closure.ts";
 
 /**
@@ -349,12 +351,20 @@ export const importClosures = Effect.fn("kb.importClosures")(function* (
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
   for (const { file, name, path, origin, closure } of closures) {
+    const issue = replacementIssue(name, closure.about ?? undefined, BUNDLED_ROLES);
+    if (issue !== null) {
+      failures.push({ file, error: issue });
+      continue;
+    }
     const loaded = yield* importClosure(closure.server).pipe(Effect.result);
     if (Result.isFailure(loaded)) {
       failures.push({ file, error: loaded.failure });
       continue;
     }
-    const decoded = decodeExtensionModule(loaded.success, name);
+    const decoded = decodeExtensionModule(loaded.success, name, {
+      digest: closure.digest,
+      manifest: closure.about ?? undefined,
+    });
     if (Result.isFailure(decoded)) {
       failures.push({ file, error: decoded.failure });
       continue;

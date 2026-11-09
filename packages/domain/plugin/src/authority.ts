@@ -1,6 +1,8 @@
 import { Result } from "effect";
 import type { Plugin } from "./kernel.ts";
 
+export const DEFAULT_REPLACEMENT_PRIORITY = 50;
+
 /** Candidate approval is a host capability, never a field supplied by a plugin. */
 export interface RoleApproval {
   readonly role: string;
@@ -48,9 +50,11 @@ export function replacementClaim(
 ): Result.Result<(RoleApproval & { readonly priority: number }) | undefined, string> {
   const claim = authority.replacements.find((entry) => entry.role === role);
   if (claim === undefined) return Result.succeed(undefined);
+  if (authority.defaults.some((entry) => entry.role === role))
+    return Result.fail(`role ${role} already belongs to its default provider`);
   if (authority.source === "extension" && authority.digest === undefined)
     return Result.fail(`role ${role} requires authority for trusted code`);
-  const priority = claim.priority ?? 50;
+  const priority = claim.priority ?? DEFAULT_REPLACEMENT_PRIORITY;
   return Number.isFinite(priority)
     ? Result.succeed({ ...claim, priority })
     : Result.fail(`role ${role} requires a finite priority`);

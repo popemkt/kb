@@ -662,6 +662,12 @@ export function configureUiRoles(
   Effect.runSync(uiKernel.configureRoles(roleSelections(uiKernel.roles(), nodeOf)));
 }
 
+/** The page's admitted claim for one exact role, shared with candidate registration. */
+// GAP [[01M6YS6XH9XS4TX7S7AYWXJX3A]] prepared for the owner-blocked keybinding follow-up
+export function replacementApproved(owner: string, role: string): boolean {
+  return uiKernel.replacementApproved(owner, role);
+}
+
 /** Role consumers get a stable boundary rather than the unguarded implementation. */
 export function useRole<P extends object>(role: RoleKey<ComponentType<P>>): ComponentType<P> {
   return roleComponent(uiKernel, role);

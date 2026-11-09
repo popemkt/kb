@@ -69,7 +69,7 @@ function owner(f: Fixture): Plugin {
   );
 }
 
-function replacement(f: Fixture, value = "replacement", priority = 50): Plugin {
+function replacement(f: Fixture, value = "replacement", priority?: number): Plugin {
   return bindPluginAuthority(
     {
       name: "replacement",
@@ -80,7 +80,7 @@ function replacement(f: Fixture, value = "replacement", priority = 50): Plugin {
       pointNamespace: "replacement",
       source: "bundled",
       digest: value,
-      replacements: [{ role: f.role.name, priority }],
+      replacements: [{ role: f.role.name, ...(priority === undefined ? {} : { priority }) }],
       defaults: [],
     },
   );
@@ -156,6 +156,79 @@ for (const kind of ["service", "single", "keyed"] as const) {
       expect(Exit.isFailure(run(Effect.exit(f.kernel.load(failed))))).toBe(true);
       expect(f.kernel.roles()[0]?.candidates).toHaveLength(1);
       expect(f.kernel.role(f.role)?.value).toBe("default");
+      run(f.kernel.shutdown);
+    });
+
+    test("approval inspection reads the exact claim held by the loaded family", () => {
+      const f = fixture(kind);
+      run(f.kernel.load(owner(f)));
+      expect(f.kernel.replacementApproved("owner", f.role.name)).toBe(false);
+      expect(f.kernel.replacementApproved("replacement", f.role.name)).toBe(false);
+      run(f.kernel.load(replacement(f)));
+      expect(f.kernel.replacementApproved("replacement", f.role.name)).toBe(true);
+      expect(
+        f.kernel.roles()[0]?.candidates.find((candidate) => candidate.provider === "replacement")
+          ?.priority,
+      ).toBe(50);
+      expect(f.kernel.replacementApproved("replacement", "ui.host")).toBe(false);
+      run(f.kernel.unload("replacement"));
+      expect(f.kernel.replacementApproved("replacement", f.role.name)).toBe(false);
+      run(f.kernel.shutdown);
+    });
+
+    test("a child's approval is its family's claim, and not another family's", () => {
+      const f = fixture(kind);
+      run(f.kernel.load(owner(f)));
+      const parent = bindPluginAuthority(
+        {
+          name: "replacement",
+          namespace: "",
+          apply: (ctx) =>
+            ctx
+              .plugin({
+                name: "keys",
+                apply: (child) => f.give(child, "child", true).pipe(Effect.asVoid),
+              })
+              .pipe(Effect.asVoid),
+        },
+        {
+          pointNamespace: "replacement",
+          source: "extension",
+          digest: "trusted-code",
+          replacements: [{ role: f.role.name }],
+          defaults: [],
+        },
+      );
+      run(f.kernel.load(parent));
+      expect(f.kernel.role(f.role)?.value).toBe("child");
+      expect(f.kernel.replacementApproved("replacement/keys", f.role.name)).toBe(true);
+      expect(f.kernel.replacementApproved("owner", f.role.name)).toBe(false);
+      run(f.kernel.unload("replacement"));
+      expect(f.kernel.replacementApproved("replacement/keys", f.role.name)).toBe(false);
+      run(f.kernel.shutdown);
+    });
+
+    test("a default owner cannot relabel itself as a replacement", () => {
+      const f = fixture(kind);
+      const attempt = bindPluginAuthority(
+        {
+          name: "owner",
+          namespace: "",
+          apply: (ctx) => f.give(ctx, "self replacement").pipe(Effect.asVoid),
+        },
+        {
+          pointNamespace: "owner",
+          source: "bundled",
+          defaults: [{ role: f.role.name, provider: "owner" }],
+          replacements: [{ role: f.role.name }],
+        },
+      );
+      expect(Exit.isFailure(run(Effect.exit(f.kernel.load(attempt))))).toBe(true);
+      expect(f.kernel.replacementApproved("owner", f.role.name)).toBe(false);
+      expect(f.kernel.roles()).toEqual([]);
+      run(f.kernel.unload("owner"));
+      run(f.kernel.load(owner(f)));
+      expect(f.kernel.role(f.role)?.default).toBe(true);
       run(f.kernel.shutdown);
     });
 

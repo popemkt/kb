@@ -17,6 +17,7 @@ export {
   type CapabilityLine,
   type ExtensionCapabilities,
   type ExtensionManifest,
+  type RoleReplacement,
   type PageTier,
 } from "./extension-manifest.ts";
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
@@ -312,6 +313,12 @@ export type {
   ExtensionLockRead,
 } from "./extension-install.ts";
 
-export { bundledPlugin, FIELD_EDITOR_ROLE, type ProviderRole } from "./roles.ts";
+export {
+  bundledPlugin,
+  declaredRoles,
+  replacementIssue,
+  FIELD_EDITOR_ROLE,
+  type ProviderRole,
+} from "./roles.ts";
 
 export { orderedRoles, type OrderedRole } from "./extension-report.ts";

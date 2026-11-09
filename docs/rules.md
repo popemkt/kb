@@ -1243,6 +1243,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then publish.yml, the one release path, adds a compile matrix and release-smoke runs on each binary.
 - **node** — `01M56H9MA14N5TG8640BN6PHXP`
 
+### GAP: replacement approval inspection awaits the keybinding consumer
+
+- **expected** — Every published kernel and native page API has a production consumer.
+- **current** — Step 8 prepares Kernel.replacementApproved and its native page proxy at the coordinators explicit request. They share the live registration rule, but their production inspection consumer waits for the owner to merge PR 136 and the editor follow-up.
+- **impact** — The inspection surface is supported and tested before a product caller needs it.
+- **closes** — The editor follow-up after PR 136 consumes the inspection API through the kernel role path, or removes the unused inspection exports; remove their GAP markers then.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M6YS6XH9XS4TX7S7AYWXJX3A`
+
 ### GAP: repository extensions cannot ship UI
 
 - **expected** — A .kb/extensions module can carry a browser half (<name>.ui.tsx) that the server builds to ESM, serves at /ext/<name>/ui.js and the UI loads into its kernel at runtime, sharing the host's React through import-map shims, reloaded on change.

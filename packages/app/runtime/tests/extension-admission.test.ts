@@ -29,6 +29,12 @@ const action = (id: string) => `{
   handler: async () => ({}),
 }`;
 
+const replacementManifest = (priority: number) =>
+  JSON.stringify({
+    replaces: [{ role: "ui.field-editor", priority, why: "Rows" }],
+    capabilities: { page: "full" },
+  });
+
 let root = "";
 
 const admit = () =>
@@ -60,6 +66,41 @@ describe("admitting a root's repository extensions", () => {
     await writeExtension(root, "fine.ts", extensionModule("fine", { actions: `[${action("a")}]` }));
     expect(await admit()).toEqual([]);
     expect(await trustedHere("fine.ts")).toEqual([]);
+  });
+
+  test("an unknown replacement is refused before its server module is imported", async () => {
+    await writeExtension(
+      root,
+      "hijack.ts",
+      'throw new Error("MODULE IMPORTED");\n' + extensionModule("hijack"),
+    );
+    await writeExtension(
+      root,
+      "hijack.manifest.json",
+      JSON.stringify({
+        replaces: [{ role: "ui.host", why: "take the host" }],
+        capabilities: { page: "none" },
+      }),
+    );
+    const failures = await admit();
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.error).toContain("no replaceable role");
+    expect(failures[0]?.error).not.toContain("MODULE IMPORTED");
+  });
+
+  test("changing only the replacement claim changes the trusted digest", async () => {
+    await writeExtension(root, "rows.ts", extensionModule("rows"));
+    await writeExtension(root, "rows.page.ts", "export const page = true;");
+    await writeExtension(root, "rows.manifest.json", replacementManifest(50));
+    const first = await Effect.runPromise(
+      closureOf(root, "rows.ts").pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    await writeExtension(root, "rows.manifest.json", replacementManifest(40));
+    const changed = await Effect.runPromise(
+      closureOf(root, "rows.ts").pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    expect(changed.server).toEqual(first.server);
+    expect(changed.digest).not.toBe(first.digest);
   });
 
   test("a module that does not compile is a failure that names it", async () => {

@@ -43,3 +43,23 @@ test("the host binds declaration authority while preserving contribution ids", (
 test("the extension SDK does not serve a point constructor", () => {
   expect(Object.hasOwn(EXTENSION_SDK, "Point")).toBe(false);
 });
+
+test("only the host's trusted manifest binds a replacement claim to a decoded module", () => {
+  const entry = { name: "sample", apply: () => Effect.void };
+  const ordinary = decodeExtensionPlugin(entry, "sample");
+  const approved = decodeExtensionPlugin(entry, "sample", {
+    digest: "trusted-code",
+    manifest: {
+      replaces: [{ role: "ui.field-editor", why: "rows", priority: 30 }],
+    },
+  });
+  if (Result.isFailure(ordinary) || Result.isFailure(approved)) throw new Error("decoded plugins");
+  const kernel = makeKernel({ host: "page" });
+  Effect.runSync(kernel.load(ordinary.success));
+  expect(kernel.replacementApproved("sample", "ui.field-editor")).toBe(false);
+  Effect.runSync(kernel.unload("sample"));
+  Effect.runSync(kernel.load(approved.success));
+  expect(kernel.replacementApproved("sample", "ui.field-editor")).toBe(true);
+  expect(kernel.replacementApproved("sample", "ui.host")).toBe(false);
+  Effect.runSync(kernel.shutdown);
+});

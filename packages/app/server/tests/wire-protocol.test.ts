@@ -34,10 +34,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // included), its one-line description, and a required family's reason in
 // place of `optional`, which a page of protocol 3 requires, so it reloads
 // into a build that reads them.
-// Declared points and roles add report metadata; previous pages ignore the additional fields.
+// The strict manifest now carries replacement claims; older pages must reload
+// before they can approve a digest without seeing its replacement lines.
 const RECORDED = {
-  protocol: 4,
-  fingerprint: "dfcb5b9c90357206cda87281b62b0e6d820bc71067b4c317f7fba98f61f706c9",
+  protocol: 5,
+  fingerprint: "5f9892be539e53c66e306b55f7352fafbdb70c35b9d06c484ddc01a48adb67ee",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

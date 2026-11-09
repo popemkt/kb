@@ -209,3 +209,11 @@ export function canOccupy<T>(
   }
   return undefined;
 }
+
+/** Inspection uses the same bound claim as candidate admission, never an origin heuristic. */
+export function replacementApproved(state: State, owner: string, role: string): boolean {
+  const entry = state.entries.get(owner);
+  if (entry === undefined) return false;
+  const claim = replacementClaim(rootEntry(state, entry).authority, role);
+  return Result.isSuccess(claim) && claim.success !== undefined;
+}

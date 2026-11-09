@@ -319,7 +319,13 @@ export {
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
 export { UNDO_DEPTH } from "./lib/undo-depth";
-export { type FieldEditorProps, FieldEditorService, useFieldEditor } from "./lib/field-editor";
+export {
+  type FieldEditorProps,
+  type FieldRowProps,
+  FieldEditorService,
+  provideFieldEditor,
+  useFieldEditor,
+} from "./lib/field-editor";
 export {
   type FrameRowTextProps,
   type FrameSubject,
@@ -582,4 +588,4 @@ export { tagOpeningOf, type KeyCatalog, type TagOpening } from "./lib/tag-openin
 
 export { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
 
-export { useRole, configureUiRoles } from "./lib/plugins";
+export { useRole, configureUiRoles, replacementApproved } from "./lib/plugins";

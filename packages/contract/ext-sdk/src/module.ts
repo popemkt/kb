@@ -16,6 +16,7 @@ import {
   MANIFEST_SUFFIX,
   type ExtensionDeclaration,
   type ExtensionEntry,
+  type ExtensionManifest,
 } from "@kb/contracts";
 import { KbNodeSchema, KnobSchema, knobSchemaError } from "@kb/model";
 import { bindPluginAuthority, isPlugin, type Plugin } from "@kb/plugin";
@@ -91,6 +92,12 @@ function declaredOptionsIssue(declaration: ExtensionDeclaration): string | null 
   return null;
 }
 
+/** Approval from the trusted, manifest-covered closure supplied by the host. */
+export interface ExtensionCodeApproval {
+  readonly digest: string;
+  readonly manifest?: ExtensionManifest;
+}
+
 /**
  * Decode a repository extension's module, the one named `name` (its file's
  * name): its `declaration` export, whose name must be the file's, and its
@@ -105,9 +112,11 @@ function declaredOptionsIssue(declaration: ExtensionDeclaration): string | null 
  * returns something other than nodes throws there, where its module is
  * refused.
  */
+
 export function decodeExtensionModule(
   module: unknown,
   name: string,
+  code?: ExtensionCodeApproval,
 ): Result.Result<ExtensionEntry, string> {
   const declared = Predicate.hasProperty(module, "declaration") ? module.declaration : undefined;
   if (!isDeclaration(declared)) return Result.fail(`declaration: ${declarationIssue(declared)}`);
@@ -123,7 +132,11 @@ export function decodeExtensionModule(
       "declaration: required is kb's own build's claim; an extension from a repository, a link or an install can always be switched off",
     );
   }
-  if (declared.manifest !== undefined || Predicate.hasProperty(declared, "description")) {
+  if (
+    declared.manifest !== undefined ||
+    Predicate.hasProperty(declared, "description") ||
+    Predicate.hasProperty(declared, "replaces")
+  ) {
     return Result.fail(
       `declaration: what an extension says about itself belongs in ${name}${MANIFEST_SUFFIX}, beside it, which kb reads before anyone trusts the code`,
     );
@@ -135,13 +148,17 @@ export function decodeExtensionModule(
     seed === undefined ? declared : { ...declared, seed: (at) => decodeSeedNodes(seed(at)) };
   const entry = Predicate.hasProperty(module, "default") ? module.default : undefined;
   return Result.map(
-    decodeExtensionPlugin(entry === undefined ? declarationPlugin(declaration) : entry, name),
+    decodeExtensionPlugin(entry === undefined ? declarationPlugin(declaration) : entry, name, code),
     (plugin) => ({ declaration, entry: plugin }),
   );
 }
 
 /** Bind repository and installed roots to the identity verified by their host. */
-export function decodeExtensionPlugin(entry: unknown, name: string): Result.Result<Plugin, string> {
+export function decodeExtensionPlugin(
+  entry: unknown,
+  name: string,
+  code?: ExtensionCodeApproval,
+): Result.Result<Plugin, string> {
   if (!isPlugin(entry)) return Result.fail("default export must be a plugin ({ name, apply })");
   if (entry.name !== name)
     return Result.fail(`entry name ${entry.name} must be its extension's, ${name}`);
@@ -157,7 +174,16 @@ export function decodeExtensionPlugin(entry: unknown, name: string): Result.Resu
   return Result.succeed(
     bindPluginAuthority(
       { ...entry, name },
-      { pointNamespace: namespace, source: "extension", replacements: [], defaults: [] },
+      {
+        pointNamespace: namespace,
+        source: "extension",
+        defaults: [],
+        replacements: (code?.manifest?.replaces ?? []).map(({ role, priority }) => ({
+          role,
+          ...(priority === undefined ? {} : { priority }),
+        })),
+        ...(code === undefined ? {} : { digest: code.digest }),
+      },
     ),
   );
 }

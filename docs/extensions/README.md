@@ -58,7 +58,7 @@ is different from declaring nothing:
 Declare an empty list when the answer is "none". A person reads _not
 declared_ as "the author did not say", and should.
 
-The manifest is the author's word. kb shows it; it does not enforce it. A
+Descriptive reach fields are the author's word. kb shows them; it does not enforce them. A
 trusted extension with a page half still has the page's full power until
 the isolation tiers land (GAP `01M6WVFMGB5PP2AANF0E5R921V`), and the review
 sheet says so beside it.
@@ -73,6 +73,7 @@ sheet says so beside it.
 | `repository` | Where its source lives. An `https:` URL. | `"https://github.com/owner/repo"` |
 | `license` | An SPDX licence id. | `"MIT"`, `"Apache-2.0"` |
 | `capabilities` | What it reaches beyond what kb gives every extension. See below. | |
+| `replaces` | [Provider role claims](#replacing-provider-roles). | |
 
 kb works out two things itself, so a manifest never declares them:
 - **origin**: built in, linked, the store's own folder, or installed;
@@ -158,3 +159,24 @@ A backdrop, which is a page half and nothing else:
   }
 }
 ```
+
+## Replacing provider roles
+
+`replaces` is an optional manifest array. Each entry names a `role` and a
+nonempty `why`, and may set a finite numeric `priority`. The [provider role contract](../../DESIGN.md#provider-roles)
+owns admission, approval, election and recovery.
+
+```json
+{
+  "replaces": [{"role": "ui.field-editor", "priority": 50, "why": "One-line field rows"}],
+  "capabilities": {"page": "full"}
+}
+```
+
+Put the claim in `<name>.manifest.json`, which kb reads before importing code;
+it is not a property of the code's `declaration` export. A field-row provider
+imports `provideFieldEditor` from `kb-ext-sdk/page` and calls it with its plugin
+context and a React component. Its `FieldRowProps` carry the row's values, type
+and writeability. Its `parse` callback uses kb's field-value parser; `update`
+and `remove` use the host's normal checked write path. Reference values are
+node ids; providers may resolve or edit them as their interface requires. The component runs with full page power.

@@ -1,3 +1,4 @@
+import { provideFieldEditor } from "./lib/field-editor";
 import { CommandPoint } from "./lib/command-point";
 import { meterFrames } from "./lib/frame-meter";
 import { useReducedMotion } from "./lib/motion";
@@ -25,6 +26,7 @@ import {
 export const PAGE_EXTENSION_SDK = {
   ViewPoint,
   provideView,
+  provideFieldEditor,
   RoutePoint,
   provideRoute,
   SidebarSectionPoint,
