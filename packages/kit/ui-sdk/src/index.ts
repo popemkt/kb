@@ -454,6 +454,19 @@ export {
   type KeyRun,
   provideKeybinding,
 } from "./lib/keybindings";
+export {
+  ATTACH_FILE,
+  claimantOf,
+  ingestedOf,
+  ingestPort,
+  type Ingested,
+  type IngestGesture,
+  type IngestHandler,
+  type IngestMatch,
+  type IngestOutcome,
+  type IngestPort,
+  type IngestSite,
+} from "./lib/ingest";
 export { logError, logWarn } from "./lib/log";
 export {
   getCaretSerializedOffset,

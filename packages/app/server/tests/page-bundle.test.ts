@@ -164,6 +164,8 @@ const DATASCRIPT = /cljs\.core/;
 // Tracking the validator's actual graph dependencies measures 1,843,078 bytes.
 // Preserving absent versus present binding data measures 1,843,086 bytes.
 // browser color-token port
+// A row's paste and drop as one chain: the outline's ingest point, each row's port onto it,
+// and the claim by a match written as data. MEASURE_173
 const EAGER_BUDGET_BYTES = 1_845_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */

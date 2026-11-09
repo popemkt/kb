@@ -5,3 +5,4 @@
  */
 export { outlineExtension, outlinePlugin } from "./extension.ts";
 export { OUTLINE_IDS } from "./ids.ts";
+export { OUTLINE_POINT_DEFINITIONS } from "./point-definitions.ts";
