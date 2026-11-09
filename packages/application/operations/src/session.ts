@@ -6,6 +6,7 @@ import {
   domainError,
   systemTxRefusal,
   txIntegrityError,
+  writesOf,
   type KbNode,
   type NodeId,
   type StoreTx,
@@ -165,10 +166,7 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
     if (outOfReach !== null) {
       return yield* domainError("forbidden", outOfReach.message, outOfReach.details);
     }
-    const writes = [
-      ...tx.upserts.map((after) => ({ before: ctx.index.getNode(after.id), after })),
-      ...tx.deletes.map((id) => ({ before: ctx.index.getNode(id), after: undefined })),
-    ];
+    const writes = writesOf(tx, (id) => ctx.index.getNode(id));
     const outcome = yield* guardCommit(yield* CurrentInterception, {
       ctx,
       ...call,
