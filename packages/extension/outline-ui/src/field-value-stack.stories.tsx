@@ -1,5 +1,6 @@
 import { fieldContextOf, type FieldContext, type NodeMap, schemaOfGraph } from "@kb/ui-sdk";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { withValueKinds } from "./story-kinds";
 import { FieldValueStack } from "./fields-section";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
@@ -12,6 +13,7 @@ const emptyNodes: NodeMap = new Map();
 const meta = {
   title: "Outline/FieldValueStack",
   component: FieldValueStack,
+  beforeEach: withValueKinds,
   args: {
     nodeId: "n.subject",
     fieldId: "field.status",

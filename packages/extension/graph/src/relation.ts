@@ -57,7 +57,7 @@ export function typedRelation(
   const held = source.props[typing.field] ?? [];
   if (held.some((value) => value.t === "ref" && value.v === typing.target))
     return Result.succeed(null);
-  if (cardinalityOf(fieldNode.props) === "one" && held.length > 0)
+  if (cardinalityOf(fieldNode.props, (id) => nodes.get(id)) === "one" && held.length > 0)
     return refuse(
       "conflict",
       `${typing.field} holds one value, and ${typing.source} already has it`,

@@ -27,7 +27,13 @@ import {
 import { displaySettingFields, displaySettingValues } from "./display.ts";
 import { knobFields } from "./knob-fields.ts";
 import type { SeedRetirement } from "./seed-retirement.ts";
-import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
+import {
+  TAG_VIEWS,
+  VIEW_FAMILY_VALUES,
+  viewOptionId,
+  type TagViewRole,
+  type ViewFamily,
+} from "./view-node.ts";
 
 /**
  * A view as the seed names it: its id, the label its option node carries,
@@ -59,10 +65,12 @@ export interface SeedSource {
   readonly seed?: (at: string) => readonly KbNode[];
   readonly views?: readonly { readonly key: SeedView }[];
   /**
-   * Its own seed nodes it files under another source's list node, by that
-   * list's id: the fold appends each id to the list's children, after those
-   * it already has, in source order. A pin among the Pinned, a view node
-   * among the Views. The nodes stay this source's.
+   * Its own seed nodes it files under a list node, by that list's id: the
+   * fold appends each id to the list's children, after those it already
+   * has, in source order. A pin among the Pinned, a view node among the
+   * Views, or a node only the source reads (a query its commands ask)
+   * under its own node, `extensionNodeId(name)`, so the outline's home
+   * does not show it. The nodes stay this source's.
    */
   readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   /** The declared options it contributes, by kind; the fold derives each one's option node. */
@@ -81,6 +89,13 @@ export interface SeedSource {
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, SeedView>>;
   /**
+   * The tags whose nodes an outline draws as one of this source's own
+   * `views`, in place of their row's text: by the tag node's id, the view's
+   * key. The fold writes each as that tag node's `sys.f.view.row`; a tag two
+   * sources claim is refused.
+   */
+  readonly tagRowViews?: Readonly<Record<NodeId, SeedView>>;
+  /**
    * The seeded ids it renamed or removed since a store could have been
    * seeded with them, each with what replaced it, if anything, and the
    * labels it changed: its rows of the retirement table (`SeedRetirement`),
@@ -90,24 +105,59 @@ export interface SeedSource {
 }
 
 /**
- * One source's claim on the default view type of one carrier node: the node
- * whose `sys.f.view.default` the fold writes (`sys.views` for the store's),
- * and which of the source's own views it names.
+ * Where a source claims views for its tags, by the part they play
+ * (`TAG_VIEWS`): the key of its own table for each role, by the tag's id
+ * the view's key.
  */
-interface DefaultViewClaim {
+export const TAG_VIEW_CLAIMS = {
+  default: "tagDefaultViews",
+  row: "tagRowViews",
+} as const satisfies Record<TagViewRole, keyof SeedSource>;
+
+/** Every role a tag's view plays, in the order `TAG_VIEWS` lists them. */
+const TAG_VIEW_ROLES = Object.keys(TAG_VIEWS).filter(
+  (role): role is TagViewRole => role in TAG_VIEW_CLAIMS,
+);
+
+/** Every view `source` claims for a tag, role by role: the role, the tag, the view. */
+export function claimedTagViews(
+  source: SeedSource,
+): { readonly role: TagViewRole; readonly tag: NodeId; readonly view: SeedView }[] {
+  return TAG_VIEW_ROLES.flatMap((role) =>
+    Object.entries(source[TAG_VIEW_CLAIMS[role]] ?? {}).map(([tag, view]) => ({ role, tag, view })),
+  );
+}
+
+/**
+ * One source's claim on a view one carrier node names: the node and the
+ * field the fold writes (`sys.views`' `sys.f.view.default` for the store's
+ * default, a tag's field of its role for a tag's), what the field is
+ * called, and which of the source's own views it names.
+ */
+interface ViewClaim {
   readonly on: NodeId;
+  readonly field: NodeId;
+  readonly label: string;
   readonly view: SeedView;
   readonly by: SeedSource;
 }
 
-/** Every default view type `sources` claim, in source order: the store's, then each tag's. */
-function defaultViewClaims(sources: readonly SeedSource[]): DefaultViewClaim[] {
+/** Every view `sources` claim, in source order: the store's default, then each tag's, role by role. */
+function viewClaims(sources: readonly SeedSource[]): ViewClaim[] {
   return sources.flatMap((source) => [
     ...(source.defaultView === undefined
       ? []
-      : [{ on: SYSTEM_IDS.viewsRoot, view: source.defaultView, by: source }]),
-    ...Object.entries(source.tagDefaultViews ?? {}).map(([on, view]) => ({
-      on,
+      : [
+          {
+            on: SYSTEM_IDS.viewsRoot,
+            ...TAG_VIEWS.default,
+            view: source.defaultView,
+            by: source,
+          },
+        ]),
+    ...claimedTagViews(source).map(({ role, tag, view }) => ({
+      on: tag,
+      ...TAG_VIEWS[role],
       view,
       by: source,
     })),
@@ -115,40 +165,42 @@ function defaultViewClaims(sources: readonly SeedSource[]): DefaultViewClaim[] {
 }
 
 /**
- * The `sys.f.view.default` each claimed carrier holds, by its id: the one
- * claim on it, which must name one of its source's own views on a node the
- * fold seeds. Two claims on one carrier, a claim on a node no source seeds,
- * or one naming a view its source does not provide is a bundling defect, so
- * it throws; a repository extension's is refused like any declaration that
- * does not fold. A carrier no source claims names no default (`sys.views`
- * naming none, a node that names no view opens as broken: DESIGN.md → View
- * nodes).
+ * The view fields each claimed carrier holds, by its id: for each field,
+ * the one claim on it, which must name one of its source's own views on a
+ * node the fold seeds. Two claims on one carrier's field, a claim on a node
+ * no source seeds, or one naming a view its source does not provide is a
+ * bundling defect, so it throws; a repository extension's is refused like
+ * any declaration that does not fold. A carrier no source claims names no
+ * view (`sys.views` naming no default, a node that names no view opens as
+ * broken: DESIGN.md → View nodes).
  */
-function defaultViewProps(
+function viewClaimProps(
   sources: readonly SeedSource[],
   seeded: ReadonlyMap<NodeId, string>,
 ): Map<NodeId, KbNode["props"]> {
-  const byCarrier = Map.groupBy(defaultViewClaims(sources), (claim) => claim.on);
+  const byField = Map.groupBy(viewClaims(sources), (claim) => `${claim.on}\u0000${claim.field}`);
   const props = new Map<NodeId, KbNode["props"]>();
-  for (const [on, claims] of byCarrier) {
+  for (const claims of byField.values()) {
     const [claim, second] = claims;
     if (claim === undefined) continue;
+    const { on, field, label } = claim;
     if (second !== undefined) {
       throw new Error(
-        `the default view type of ${on} is provided twice (${claims.map((c) => c.by.name).join(", ")})`,
+        `the ${label} of ${on} is provided twice (${claims.map((c) => c.by.name).join(", ")})`,
       );
     }
     const by = claim.by.name;
     if (!(claim.by.views ?? []).some(({ key }) => key.id === claim.view.id)) {
       throw new Error(
-        `${by} names ${claim.view.id} the default view of ${on} but provides no such view`,
+        `${by} names ${claim.view.id} the ${label} of ${on} but provides no such view`,
       );
     }
     if (!seeded.has(on)) {
-      throw new Error(`${by} names the default view of ${on}, which the seed does not hold`);
+      throw new Error(`${by} names the ${label} of ${on}, which the seed does not hold`);
     }
     props.set(on, {
-      [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: viewOptionId(claim.view.id) }],
+      ...props.get(on),
+      [field]: [{ t: "ref", v: viewOptionId(claim.view.id) }],
     });
   }
   return props;
@@ -366,8 +418,8 @@ function retiredRows(
  * same order; every source's declared options as option nodes, children of
  * the field of their kind (`declaredKinds`: `sys.f.backdrop`,
  * `sys.f.design-system`, or a family's own) in the same order; with
- * each claimed carrier naming the default view type its one claimant
- * declares (`defaultViewProps`: `sys.views` names the store's). Each derived node is placed right after its list. Each node's owner comes with it ({@link FoldedSeed}).
+ * each claimed carrier naming the views its claimants declare, one per
+ * field (`viewClaimProps`: `sys.views` names the store's default). Each derived node is placed right after its list. Each node's owner comes with it ({@link FoldedSeed}).
  * Pure data: it opens nothing, and it throws on an id two sources declare,
  * because that is a bundling defect no store can repair.
  */
@@ -385,11 +437,14 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     knobs: knobsOf(source, at),
     own: extensionNode(source, at),
   }));
+  // A source's own node is a list its `files` may name, so it is filed with the rest.
+  const owns = new Set(parts.map((part) => part.own.id));
+  const filed = withFiled(
+    [...parts.flatMap((part) => part.seed), ...parts.map((part) => part.own)],
+    parts,
+  );
   const withViews = fileUnder(
-    withFiled(
-      parts.flatMap((part) => part.seed),
-      parts,
-    ),
+    filed.filter((node) => !owns.has(node.id)),
     SYSTEM_IDS.viewsRoot,
     parts.flatMap((part) => part.options),
   );
@@ -405,7 +460,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   const folded = fileUnder(
     [...withDeclared, ...parts.flatMap((part) => part.knobs)],
     SYSTEM_IDS.extensionsRoot,
-    parts.map((part) => part.own),
+    filed.filter((node) => owns.has(node.id)),
   );
   const seen = new Map<NodeId, string>();
   for (const node of folded) {
@@ -414,12 +469,12 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   }
   // Read once every id is known to have one owner, so a doubled source is
   // refused for its ids first.
-  const defaults = defaultViewProps(sources, seen);
+  const claimed = viewClaimProps(sources, seen);
   const retired = retiredRows(sources, seen);
   return {
     nodes: folded.map((node) => {
-      const claimed = defaults.get(node.id);
-      return claimed === undefined ? node : { ...node, props: { ...node.props, ...claimed } };
+      const props = claimed.get(node.id);
+      return props === undefined ? node : { ...node, props: { ...node.props, ...props } };
     }),
     owners: new Map(
       parts.flatMap((part) =>

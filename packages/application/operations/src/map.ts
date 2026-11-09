@@ -44,7 +44,8 @@ export function declaredTypes(nodes: KbNode[]): DeclaredTypes {
   return (field) => {
     try {
       const id = resolveFieldId(nodes, field);
-      return fieldTypeOf(nodes.find((node) => node.id === id)?.props);
+      const nodeOf = (nodeId: string) => nodes.find((node) => node.id === nodeId);
+      return fieldTypeOf(nodeOf(id)?.props, nodeOf);
     } catch (err) {
       if (err instanceof ResolveError && err.code === "not_found") return "text";
       throw err;

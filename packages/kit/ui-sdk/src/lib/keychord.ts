@@ -1,15 +1,17 @@
 /**
- * Chord matching, once, for both outline keymaps.
+ * Chord matching, once, for every keymap.
  *
- * A keymap is a list of `{ chord, … }` rows resolved first-match, exactly the
- * order an `if`/`switch` chain resolves in — which is what makes replacing a
- * chain with a table behaviour-preserving. The chord itself is a set of
- * optional constraints: a constraint that is absent is not asked about, so
- * `{ key: "Enter" }` claims Enter with or without Shift, and `{ alt: false }`
- * claims only the unmodified form.
+ * A chord is a set of optional constraints: a constraint that is absent is
+ * not asked about, so `{ key: "Enter" }` claims Enter with or without Shift,
+ * and `{ alt: false }` claims only the unmodified form. A local keymap (a
+ * picker's, a value slot's) is a list of `{ chord, … }` rows resolved
+ * first-match by {@link lookupChord}, exactly the order an `if`/`switch`
+ * chain resolves in. The outline's two keymaps are bindings to
+ * `ui.keybindings` instead (`./keybindings`), whose chords may not overlap
+ * ({@link chordsOverlap}), so their order means nothing.
  *
- * Both keymaps read this module rather than each testing `event.metaKey`
- * themselves: "does this event match this chord" is one question, so it has one
+ * Every keymap reads this module rather than testing `event.metaKey`
+ * itself: "does this event match this chord" is one question, so it has one
  * answer.
  */
 
@@ -33,10 +35,12 @@ export interface Chord {
    *
    * {@link Chord.meta} exists beside it because the editing keymap
    * distinguishes them: ⌘⇧↑ reorders a row while ⌃⇧↑ collapses it. Ask with
-   * `mod` unless a binding genuinely means the Command key.
+   * `mod` unless a binding genuinely means the Command key, or {@link
+   * Chord.ctrl} the Control key.
    */
   mod?: boolean;
   meta?: boolean;
+  ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
 }
@@ -57,16 +61,141 @@ function flagMatches(required: boolean | undefined, actual: boolean): boolean {
   return required === undefined || required === actual;
 }
 
-/** True when `ev` satisfies every constraint the chord states. */
-function matchesChord(ev: KeyChordEvent, chord: Chord): boolean {
+/** The four modifiers a chord constrains, as an event holds them. */
+interface Modifiers {
+  readonly meta: boolean;
+  readonly ctrl: boolean;
+  readonly shift: boolean;
+  readonly alt: boolean;
+}
+
+function modifiersMatch(chord: Chord, mods: Modifiers): boolean {
   return (
-    keyMatches(chord.key, ev.key) &&
-    flagMatches(chord.mod, ev.metaKey === true || ev.ctrlKey === true) &&
-    flagMatches(chord.meta, ev.metaKey === true) &&
-    flagMatches(chord.shift, ev.shiftKey === true) &&
-    flagMatches(chord.alt, ev.altKey === true)
+    flagMatches(chord.mod, mods.meta || mods.ctrl) &&
+    flagMatches(chord.meta, mods.meta) &&
+    flagMatches(chord.ctrl, mods.ctrl) &&
+    flagMatches(chord.shift, mods.shift) &&
+    flagMatches(chord.alt, mods.alt)
   );
 }
+
+/** True when `ev` satisfies every constraint the chord states. */
+export function matchesChord(ev: KeyChordEvent, chord: Chord): boolean {
+  return (
+    keyMatches(chord.key, ev.key) &&
+    modifiersMatch(chord, {
+      meta: ev.metaKey === true,
+      ctrl: ev.ctrlKey === true,
+      shift: ev.shiftKey === true,
+      alt: ev.altKey === true,
+    })
+  );
+}
+
+/** Every state the four modifiers can be in: 16, so overlap is decided exactly. */
+const MODIFIER_STATES: readonly Modifiers[] = Array.from({ length: 16 }, (_, bits) => ({
+  meta: (bits & 1) !== 0,
+  ctrl: (bits & 2) !== 0,
+  shift: (bits & 4) !== 0,
+  alt: (bits & 8) !== 0,
+}));
+
+/** The key names a match lists, or null for one that lists none (any key, a predicate). */
+function listedKeys(match: KeyMatch | undefined): readonly string[] | null {
+  if (match === undefined || typeof match === "function") return null;
+  return typeof match === "string" ? [match] : match;
+}
+
+/**
+ * Whether two key matches admit a common key. Listed names are compared
+ * exactly; a listed name against a predicate asks the predicate; two
+ * matches that list nothing (any key, or two predicates) are taken to
+ * overlap, since no finite check can tell them apart.
+ */
+function keysOverlap(a: KeyMatch | undefined, b: KeyMatch | undefined): boolean {
+  const listedA = listedKeys(a);
+  const listedB = listedKeys(b);
+  if (listedA !== null) return listedA.some((key) => keyMatches(b, key));
+  if (listedB !== null) return listedB.some((key) => keyMatches(a, key));
+  return true;
+}
+
+/**
+ * Whether one key event could match both chords: they admit a common key,
+ * and some state of the four modifiers satisfies both. A keymap whose
+ * chords never overlap means the same in any order.
+ */
+export function chordsOverlap(a: Chord, b: Chord): boolean {
+  return (
+    keysOverlap(a.key, b.key) &&
+    MODIFIER_STATES.some((mods) => modifiersMatch(a, mods) && modifiersMatch(b, mods))
+  );
+}
+
+const MODIFIER_TOKENS = ["Mod", "Meta", "Ctrl", "Shift", "Alt"] as const;
+type ModifierToken = (typeof MODIFIER_TOKENS)[number];
+
+function isModifierToken(token: string): token is ModifierToken {
+  return MODIFIER_TOKENS.some((name) => name === token);
+}
+
+/**
+ * A chord written as data, `Mod-Shift-ArrowUp`: modifiers, then a key as
+ * `KeyboardEvent.key` names it, joined by `-` (the key `-` itself is
+ * written last, `Ctrl--`). The chord is exact: a modifier it does not name
+ * must be up, so `Alt-ArrowUp` is not `Alt-Shift-ArrowUp`. `Mod` is the
+ * platform's command modifier (⌘ or Ctrl). A letter matches in either
+ * case, since the case an event carries with a modifier held differs by
+ * platform (⌘⇧S arrives as `s` on macOS): Shift is its flag, never its
+ * case. Null for text that is not a chord: an unknown or repeated
+ * modifier, or no key.
+ */
+export function parseChord(text: string): Chord | null {
+  const keyPart = text.endsWith("--") ? "-" : text.slice(text.lastIndexOf("-") + 1);
+  const modifierPart = text.slice(0, text.length - keyPart.length);
+  const tokens = modifierPart === "" ? [] : modifierPart.slice(0, -1).split("-");
+  if (keyPart === "" || !tokens.every(isModifierToken)) return null;
+  if (new Set(tokens).size !== tokens.length) return null;
+  const has = (token: ModifierToken): boolean => tokens.includes(token);
+  if (has("Mod") && (has("Meta") || has("Ctrl"))) return null;
+  const shift = has("Shift");
+  const lower = keyPart.toLowerCase();
+  const upper = keyPart.toUpperCase();
+  const key = keyPart.length === 1 && lower !== upper ? [lower, upper] : keyPart;
+  return has("Mod")
+    ? { key, mod: true, shift, alt: has("Alt") }
+    : { key, meta: has("Meta"), ctrl: has("Ctrl"), shift, alt: has("Alt") };
+}
+
+/** A key match as a person reads it: a letter matched in either case reads as the letter. */
+function keyName(key: KeyMatch | undefined): string {
+  if (key === undefined) return "any key";
+  if (typeof key === "function") return "a typed character";
+  const names = [key].flat();
+  const [first, second] = names;
+  if (names.length === 2 && first !== undefined && first.toUpperCase() === second) return first;
+  return names.join("/");
+}
+
+/** A chord as a person reads it in a message: its constraints, `Mod-Shift-ArrowUp`. */
+export function describeChord(chord: Chord): string {
+  const flags: string[] = [];
+  if (chord.mod === true) flags.push("Mod");
+  if (chord.meta === true) flags.push("Meta");
+  if (chord.ctrl === true) flags.push("Ctrl");
+  if (chord.shift === true) flags.push("Shift");
+  if (chord.alt === true) flags.push("Alt");
+  return [...flags, keyName(chord.key)].join("-");
+}
+
+/**
+ * The text host's own undo and redo, ⌘Z and ⌘⇧Z (`NodeTextHost`): a row's
+ * history is never a binding's, so no keymap may take it.
+ */
+export const TEXT_HISTORY_CHORD: Chord = { key: ["z", "Z"], mod: true, alt: false };
+
+/** The palette's ⌘K (`matchGlobalShortcut`): one key the whole page answers. */
+export const PALETTE_CHORD: Chord = { key: ["k", "K"], mod: true };
 
 /** Anything a keymap table holds: a chord, plus whatever the map does with it. */
 interface ChordBinding {

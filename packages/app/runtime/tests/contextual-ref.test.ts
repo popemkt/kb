@@ -51,7 +51,7 @@ describe("seed: the ref.target field, and no #ref tag", () => {
       SYSTEM_IDS.field,
     ]);
     // The type is DECLARED through the normal fieldType mechanism, never assumed.
-    expect(fieldTypeOf(present(field, "expected field").props)).toBe("ref");
+    expect(fieldTypeOf(present(field, "expected field").props, () => undefined)).toBe("ref");
   });
 
   test("seeds no `ref` supertag — a node with no target is not a reference", () => {
@@ -76,7 +76,7 @@ describe("seed: the ref.target field, and no #ref tag", () => {
       healed.nodes.find((n) => n.id === SYSTEM_IDS.refTargetField),
       "expected the seeded ref.target field",
     );
-    expect(fieldTypeOf(field.props)).toBe("ref");
+    expect(fieldTypeOf(field.props, () => undefined)).toBe("ref");
   });
 });
 

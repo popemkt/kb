@@ -23,12 +23,14 @@ export type { CodedError, FailureCode } from "./failure.ts";
 export {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  FIELD_TYPE_OPTIONS,
   acceptsValueKind,
   allowedRefIdsOf,
   cardinalityOf,
   childrenTargetQuery,
   declaresOptionSet,
   fieldTypeOf,
+  fieldTypeOptionOf,
   fieldTypeValue,
   isFieldType,
   migrateFieldTypeValues,
@@ -249,7 +251,14 @@ export {
   seededTag,
   systemSeedNodes,
 } from "./seed.ts";
-export { foldSeed, type FoldedSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
+export {
+  claimedTagViews,
+  foldSeed,
+  TAG_VIEW_CLAIMS,
+  type FoldedSeed,
+  type SeedSource,
+  type SeedView,
+} from "./seed-fold.ts";
 export type { SeedRetirement } from "./seed-retirement.ts";
 export { themeBackdrop, themeSystem } from "./theme.ts";
 export {
@@ -279,8 +288,10 @@ export {
   VIEW_OPTION_TARGET_QUERY,
   defaultViewIdOf,
   defaultViewTypeOf,
-  tagDefaultViewsOf,
-  type TagDefaultView,
+  TAG_VIEWS,
+  tagViewsOf,
+  type TagView,
+  type TagViewRole,
   familyViewIdOf,
   docsViewNameError,
   docsViewNameOf,

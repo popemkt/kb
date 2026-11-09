@@ -70,6 +70,6 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
     // not because the field section special-cases its id.
     expect(fields).not.toContain("SYSTEM_IDS.hiddenField");
     const hidden = bundledSeed().find((n) => n.id === SYSTEM_IDS.hiddenField);
-    expect(fieldTypeOf(hidden?.props)).toBe("checkbox");
+    expect(fieldTypeOf(hidden?.props, () => undefined)).toBe("checkbox");
   });
 });

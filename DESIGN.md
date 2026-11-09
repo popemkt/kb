@@ -950,6 +950,43 @@ job a supertag has. `#graph-perspective` was one and is retired: strip a
 perspective's renderer and it is no graph, so what it is is the view it
 names, a field (View nodes, below).
 
+#### Field types
+
+**A field's type is an option node, and a family may add one.** A field
+node's `sys.f.fieldType` is a ref to one of that field's children. Core
+seeds the eight built-in types (`sys.ft.text` … `sys.ft.secret`); the
+children are a declared-option kind, `FIELD_TYPE_OPTIONS` (prefix `sys.ft.`,
+[Extension families](#extension-families) → Declared options), so a family
+declares a type as it declares a backdrop, and its option `sys.ft.<name>.<local
+id>` is filed beside the eight.
+
+- **A family's type stores as a built-in one.** Its option chooses the
+  built-in type its values are stored as (`chooses: [{ kind:
+FIELD_TYPE_OPTIONS, id: "number" }]`, which the fold writes as the option's
+  own `sys.f.fieldType`). `fieldTypeOf(props, nodeOf)` reads a field of it
+  as that type, one hop and never another family's, so the write check (a
+  value's kind and form), cardinality, `kb set`'s parse and datalog read a
+  rating as a number, and the store changes nothing. The option outlives
+  its family: uninstalled, untrusted or switched off, or its declaration
+  dropping the type, opening never deletes a node the fold no longer names
+  (only a retirement the declaration states moves one), so its fields keep
+  reading as the type they store as, and their values stay what they are.
+  Only the family's guard and drawing go with it. A field whose option node
+  is itself gone (deleted, or retired with no successor) reads as text, as
+  any unknown option's does: it degrades, never breaks.
+- **Its own form is its family's to hold, on every surface.** kb's write
+  check holds a value to the kind the type stores as; what more the type
+  asks (a rating is a whole number from 1 to 5) is a commit guard the
+  family's server entry contributes ([Action registry](#action-registry) →
+  Interception), so the CLI, MCP and the page refuse the same writes.
+- **How it is drawn is its page half's.** It contributes the type's value
+  kind to `ui.value-kinds`, by the option
+  ([DESIGN-UI → Field values](DESIGN-UI.md#field-values-one-slot-grammar)),
+  as the outline does each built-in type's. A type no kind is contributed
+  for draws as the type it stores as. The kind is page code
+  (`kb-ext-sdk/page`'s `provideValueKind`: its row of data, its glyph by
+  name and its surface); no kind is offered as data alone.
+
 #### View nodes
 
 **A view someone chose is a node.** A view is a projection of the graph
@@ -1081,7 +1118,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
 - **A tag names the view type its nodes open in, before the store's.** The
   same field, `sys.f.view.default`, on a tag node: a node that names no view
   opens in the first of its tags' defaults (in the order it carries them,
-  `tagDefaultViewsOf`) that its host holds a key for, else in the store's,
+  `tagViewsOf` in the role `default`) that its host holds a key for, else in the store's,
   else core's read view. So the resolution is one chain — the node's own
   view nodes, its tags', the store's, the floor — read by
   `resolveNodeView`, and opening a node through it is opening it through
@@ -1098,6 +1135,13 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     families, and for a repository extension a declaration that does not
     fold, refused as a unit and reported (Extension families). Never
     resolved by order.
+  - **One table of roles.** A tag names a view in more than one part
+    (`TAG_VIEWS`, `@kb/model`): `default`, the view type its nodes open
+    in, and `row`, the view an outline draws their rows as
+    (`sys.f.view.row`, DESIGN-UI → Row views). Each role is a field of the
+    tag node and a table of the declaration (`TAG_VIEW_CLAIMS`), read by
+    `tagViewsOf` and `heldTagViewOf` with the role and folded by one claim
+    rule, so a role is a row of the table, never a parallel path.
   - **The person overrides it on the tag.** `sys.f.view.default` is a
     setting of the kind `sys.tag` (`sys.f.configures` naming a kind: every
     node of it), and the kind templates it, so every tag's page shows the
@@ -1120,7 +1164,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     (`nodePath`, `@kb/views`).
 - **A tag's view sets how its nodes show.** The view a node's tag opens it
   in is the node's *tag opening* (`tagOpeningOf`, `@kb/ui-sdk`: the
-  resolver's own rule `heldTagDefaultOf` over the page's view catalog, when
+  resolver's own rule `heldTagViewOf` over the page's view catalog, when
   the page draws that view as a page). Such a node is still a node: in the
   outline it is a row like any other, and a small set of *display options*
   says what more its row shows (`@kb/model` `display.ts`, the one home of
@@ -3154,17 +3198,20 @@ from "kb-ext-sdk"`. Types are generated from
   `effect`'s, a dev dependency of the extension's repository; its values
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
-  views, routes, sidebar sections, docks, overlays, commands, design
-  systems, backdrops with their budgets and the kit's frame meter — and
+  views, routes, sidebar sections, docks, overlays, commands, picker
+  steps, field types' value kinds, keybindings, design systems, backdrops
+  with their budgets and the kit's frame meter — and
   React's own types), written beside it. `kb-ext-sdk` carries the
-  declared-option kinds a declaration names its backdrops by
-  (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
-  `backdropVariantOptions`) and the knob schema (DESIGN-UI.md → Page-head
+  declared-option kinds a declaration names its backdrops and field types
+  by (`BACKDROP_OPTIONS`, `BACKDROP_VARIANT_OPTIONS`,
+  `backdropVariantOptions`, `FIELD_TYPE_OPTIONS`) and the knob schema (DESIGN-UI.md → Page-head
   backdrops → A plugin's backdrop is a backdrop). Its values are the
   page's `PAGE_EXTENSION_SDK` object (`@kb/ui-sdk`), so
   `page-surface-bridge.test.ts` holds the restatement to them as `surface-bridge.test.ts` holds
   `kb-ext-sdk`'s, by the one set of comparisons (`bridge.ts`): the
-  surface and served object have exactly the same value names; a value is
+  surface and served object have exactly the same value names; a point,
+  static (`PointKey`) or declared (`PointName`), is held by what it is
+  contributed; a value is
   the page's own exactly, member for member in every variant and through
   optional members, so the
   host can neither drop nor change what the surface advertises, and a
@@ -3295,7 +3342,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
+manifest?, optional?, required?, seed?, views?, defaultView?, tagDefaultViews?, tagRowViews?, refCarriers?, declaredOptions?})` in `@kb/<family>` is the one home of its name,
   of what it says about itself (`manifest`, `ExtensionManifestSchema` in
   `@kb/contracts`: the one line Settings shows under its label, its author,
   links, licence and capabilities; what each field means is
@@ -3456,7 +3503,9 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     composes beside the registry, such as `kb ui`'s agent: its code is that
     host's, its seed is every store's), with `sys.views` naming the default
     view type its one provider declares (`defaultView`), and each claimed
-    tag naming the view type its one claimant declares (`tagDefaultViews`);
+    tag naming the view its one claimant declares in each role
+    (`TAG_VIEW_CLAIMS`: `tagDefaultViews` for the view type it opens in,
+    `tagRowViews` for the view its rows are drawn as, DESIGN-UI → Row views);
   - each declaration's own node, `sys.extension.<name>`, derived from it as
     a view's option is derived from its key: named by its label, holding
     the defaults of the settings the fold derives for it (the display
@@ -3599,7 +3648,9 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     ([DESIGN-UI → Design systems](DESIGN-UI.md#design-systems));
   - `GRAPH_THEME_OPTIONS` (the graph family) → `lens.theme`, options
     `sys.graph.theme.<id>`
-    ([DESIGN-UI → Graph](DESIGN-UI.md#graph-i2)).
+    ([DESIGN-UI → Graph](DESIGN-UI.md#graph-i2));
+  - `FIELD_TYPE_OPTIONS` (core) → `sys.f.fieldType`, options
+    `sys.ft.<id>` ([Field types](#field-types)).
 
   A key is `<family>.<local id>`; a key of the kind's own owner has no
   family part (core's `kb` design system). The fold files every kind any
@@ -5617,19 +5668,19 @@ as it is. Every kind below goes through the one kernel (`@kb/plugin`) as
 a service a plugin provides and others inject, or a contribution to a
 point. A plugin reaches another through an injected service or a declared point it lists in `uses`.
 
-| Kind                             | How                                                                                                                                             | Where it runs                          | Examples                          |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------- |
-| Actions                          | `ActionPoint` (`provideAction`)                                                                                                                 | every surface, through the invoke core | each family's verbs               |
-| Policy over calls                | guards, `ActionGuardPoint` (`guardAction`)                                                                                                      | before a call and before its commit    | governance's approval and `force` |
-| Transforms of calls              | interceptors, `ActionInterceptorPoint` (`onAction`)                                                                                             | around a call's input and output       | —                                 |
-| Who the person is                | `IdentityPoint` (`identity.providers`)                                                                                                          | the `kb ui` server's request guard     | proxy header                      |
-| Views and templates              | `ViewKeyPoint`, `TemplatePoint`                                                                                                                 | server text, docs, the page            | outline, collections, docs        |
-| Page UI                          | `ui.routes`, `ui.views`, `ui.sidebar`, `ui.docks`, `ui.overlays`, `ui.commands`, `ui.palette-steps`, design systems, backdrops, option previews | the page                               | every `-ui` half                  |
-| Conversations with the page      | `ChannelPoint`, beside `UiHost`                                                                                                                 | the `kb ui` server                     | the agent sidebar                 |
-| Seed, settings, declared options | the family's declaration                                                                                                                        | the bundled fold, every store          | each family                       |
-| Family-owned seams               | a point or service a family mints                                                                                                               | wherever that family reads it          | `graph.themes`, `lab.studies`     |
-| Repository code                  | a trusted closure in `.kb/extensions/`                                                                                                          | server and page, as owner code         | a repo's own family               |
-| Untrusted code                   | scripts in the sandbox                                                                                                                          | QuickJS or a worker, with a grant      | canvas and code scripts           |
+| Kind                             | How                                                                                                                                                               | Where it runs                          | Examples                          |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------- |
+| Actions                          | `ActionPoint` (`provideAction`)                                                                                                                                   | every surface, through the invoke core | each family's verbs               |
+| Policy over calls                | guards, `ActionGuardPoint` (`guardAction`)                                                                                                                        | before a call and before its commit    | governance's approval and `force` |
+| Transforms of calls              | interceptors, `ActionInterceptorPoint` (`onAction`)                                                                                                               | around a call's input and output       | —                                 |
+| Who the person is                | `IdentityPoint` (`identity.providers`)                                                                                                                            | the `kb ui` server's request guard     | proxy header                      |
+| Views and templates              | `ViewKeyPoint`, `TemplatePoint`                                                                                                                                   | server text, docs, the page            | outline, collections, docs        |
+| Page UI                          | `ui.routes`, `ui.views`, `ui.sidebar`, `ui.docks`, `ui.overlays`, `ui.commands`, `ui.palette-steps`, `ui.keybindings`, design systems, backdrops, option previews | the page                               | every `-ui` half                  |
+| Conversations with the page      | `ChannelPoint`, beside `UiHost`                                                                                                                                   | the `kb ui` server                     | the agent sidebar                 |
+| Seed, settings, declared options | the family's declaration                                                                                                                                          | the bundled fold, every store          | each family                       |
+| Family-owned seams               | a point or service a family mints                                                                                                                                 | wherever that family reads it          | `graph.themes`, `lab.studies`     |
+| Repository code                  | a trusted closure in `.kb/extensions/`                                                                                                                            | server and page, as owner code         | a repo's own family               |
+| Untrusted code                   | scripts in the sandbox                                                                                                                                            | QuickJS or a worker, with a grant      | canvas and code scripts           |
 
 **How extensibility works, by design.**
 

@@ -1,12 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
+import { admitKeybindings } from "@kb/ui-sdk";
+import { outlineKeybindings } from "./test-support/keybindings";
 import {
-  mapSelectionKey,
+  mapSelectionKey as mapUnder,
+  SELECTION_CONTEXT,
   type SelectionKeyAction,
+  type SelectionKeyContext,
   type SelectionKeyEvent,
   type SelectionNodeInfo,
 } from "./selection-keymap";
 import type { VisibleInstance } from "./visible-instances";
+
+/** A host that approves every owner replacing what another holds. */
+const ANYONE = () => true;
+
+/** The selection's keymap as the page holds it with the outline alone loaded. */
+const keymap = admitKeybindings(SELECTION_CONTEXT, outlineKeybindings(), ANYONE);
+
+function mapSelectionKey(ev: SelectionKeyEvent, context: SelectionKeyContext) {
+  return mapUnder(ev, context, keymap);
+}
 
 const instances: VisibleInstance[] = [
   { nodeId: "a", instanceKey: "tree/a" },
@@ -306,6 +320,8 @@ describe("mapSelectionKey chord table (characterization)", () => {
       { type: "append", nodeId: "b", instanceKey: "tree/b", char: "!" },
     ],
     ["Alt+x composes natively", key("x", { altKey: true }), "b", null],
+    ["Alt+o composes natively", key("o", { altKey: true }), "b", null],
+    ["Alt+Space stays native", key(" ", { altKey: true }), "b", null],
     ["F5 is not printable", key("F5"), "b", null],
     ["ArrowRight-like unknown names are not printable", key("PageDown"), "b", null],
   ];

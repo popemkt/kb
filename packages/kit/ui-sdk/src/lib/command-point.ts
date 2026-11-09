@@ -136,40 +136,72 @@ export interface CommandContext {
   readonly palette: PaletteSurface;
 }
 
-type CommandScope = "global" | "node";
-
 /** A command's own label and icon, for commands no node names. */
 interface CommandChrome {
   readonly label: string;
   readonly icon: ReactNode;
 }
 
-export interface Command {
+/**
+ * The node menu's groups, in the order it lists them: how the node itself
+ * opens and shows, what it is and holds, where it opens, where it sits,
+ * what marks it, how its views show it, and removing it.
+ */
+export const NODE_MENU_GROUPS = [
+  "lead",
+  "make",
+  "open",
+  "arrange",
+  "mark",
+  "view",
+  "remove",
+] as const;
+
+export type NodeMenuGroup = (typeof NODE_MENU_GROUPS)[number];
+
+/**
+ * Where a command is offered (DESIGN-UI.md → The node menu). `global`: ⌘K,
+ * which lists the `sys.command` node of the command's id and so names it.
+ * `node`: the node menu, about its row, in its `group`, then by `order`
+ * (lower first), then in the order the commands were contributed.
+ */
+export type CommandMenu =
+  | { readonly where: "global" }
+  | { readonly where: "node"; readonly group: NodeMenuGroup; readonly order: number };
+
+/** The node menu's place for a command: `group`, then `order` in it. */
+export function nodeMenu(group: NodeMenuGroup, order: number): NodeCommand["menu"] {
+  return { where: "node", group, order };
+}
+
+interface CommandBase {
   readonly id: string;
-  readonly scope: CommandScope;
-  /** Absent ⇒ a `sys.command` node names this command. */
-  readonly chrome?: (ctx: CommandContext) => CommandChrome;
   /** Absent ⇒ always offered. */
   readonly when?: (ctx: CommandContext) => boolean;
-  /**
-   * The row is about how the node itself opens and shows — the view its tag
-   * opens it in, its display options — so the node menu lists it first, in
-   * the order the rest are listed in. Absent, false.
-   */
-  readonly leads?: boolean;
   readonly run: (ctx: CommandContext) => void | Promise<void>;
 }
 
+/** A command ⌘K offers by its `sys.command` node, which names it. */
+export interface GlobalCommand extends CommandBase {
+  readonly menu: { readonly where: "global" };
+}
+
+/** A command of the node menu: nothing in the graph names it, so it names itself. */
+export interface NodeCommand extends CommandBase {
+  readonly menu: Extract<CommandMenu, { readonly where: "node" }>;
+  readonly chrome: (ctx: CommandContext) => CommandChrome;
+}
+
+export type Command = GlobalCommand | NodeCommand;
+
 /**
  * Commands a plugin contributes beside its views (the chart's "Add chart").
- * The node menu lists them after the views and the default-view rows and
- * before "Filter…" (a leading one, `leads`, first), in the order their
- * plugins loaded; the runner finds them
- * by id like any other.
+ * The node menu lists them where their `menu` puts them; the runner finds
+ * them by id like any other.
  */
 export const CommandPoint = Point<Command>()("ui.commands", {
   cardinality: "list",
-  combine: "all in contribution order",
+  combine: "node menu: by group, then order, then contribution order; ⌘K: by sys.command node",
   kernel: "page",
   tier: "T3",
 });

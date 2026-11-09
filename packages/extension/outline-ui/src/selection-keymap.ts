@@ -2,8 +2,21 @@
  * Selection-mode keymap (nxus / DESIGN-REFINE §2 W1; r1 §3.2 Mode B).
  * Active only when a node is selected and not being edited.
  */
-import { isPrintableKey, lookupChord, type Chord, type KeyChordEvent } from "@kb/ui-sdk";
+import type { ContributionEntry } from "@kb/plugin";
+import { outlineExtension } from "@kb/outline";
+import {
+  chordsOverlap,
+  isPrintableKey,
+  PALETTE_CHORD,
+  TEXT_HISTORY_CHORD,
+  type Chord,
+  type KeyChordEvent,
+  type KeyContext,
+  type Keybinding,
+  type Keymap,
+} from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
+import { runActionOf, type RunAction } from "./key-action";
 
 /** Selection mode reads the same event shape every keymap reads. */
 export type SelectionKeyEvent = KeyChordEvent;
@@ -27,7 +40,8 @@ export type SelectionKeyAction =
   | { type: "delete"; nodeId: string; instanceKey: string }
   | { type: "append"; nodeId: string; instanceKey: string; char: string }
   /** Onto a row's field values: its first going down, its last coming up. */
-  | { type: "enterFields"; instanceKey: string; which: "first" | "last" };
+  | { type: "enterFields"; instanceKey: string; which: "first" | "last" }
+  | RunAction;
 
 export interface SelectionNodeInfo {
   collapsed: boolean;
@@ -64,11 +78,8 @@ interface SelectionTarget {
   readonly info: SelectionNodeInfo | undefined;
 }
 
-interface SelectionBinding {
-  readonly chord: Chord;
-  /** The action for this chord, or null when the chord resolves to nothing. */
-  readonly toAction: (target: SelectionTarget) => SelectionKeyAction | null;
-}
+/** An intent as its binding runs it: the action it means for the selection, or null. */
+type IntentOf = (target: SelectionTarget) => SelectionKeyAction | null;
 
 /** The three names a space bar arrives under. */
 const SPACE_KEYS = [" ", "Space", "Spacebar"] as const;
@@ -112,78 +123,121 @@ function openOrDescend({ nodeId, instanceKey, info }: SelectionTarget): Selectio
   return info.childIds.length > 0 ? { type: "selectFirstChild", nodeId, instanceKey } : null;
 }
 
+/** The selection's intents, by the name a binding runs them by. */
+const SELECTION_INTENTS = new Map<string, IntentOf>([
+  ["move-up", ({ nodeId }) => ({ type: "moveUp", nodeId })],
+  ["move-down", ({ nodeId }) => ({ type: "moveDown", nodeId })],
+  ["zoom", ({ nodeId, instanceKey }) => ({ type: "zoom", nodeId, instanceKey })],
+  ["up", upOrIntoFields],
+  ["down", downOrIntoFields],
+  ["close-or-climb", closeOrClimb],
+  ["open-or-descend", openOrDescend],
+  ["edit", ({ nodeId, instanceKey }) => ({ type: "edit", nodeId, instanceKey })],
+  ["toggle-collapse", ({ nodeId }) => ({ type: "toggleCollapse", nodeId })],
+  ["outdent", ({ nodeId }) => ({ type: "outdent", nodeId })],
+  ["indent", ({ nodeId }) => ({ type: "indent", nodeId })],
+  ["create-after", ({ nodeId }) => ({ type: "createAfter", nodeId })],
+  ["create-before", ({ nodeId }) => ({ type: "createBefore", nodeId })],
+  ["delete", ({ nodeId, instanceKey }) => ({ type: "delete", nodeId, instanceKey })],
+  ["clear", () => ({ type: "clear" })],
+  [
+    "append",
+    ({ nodeId, instanceKey, key }) => ({ type: "append", nodeId, instanceKey, char: key }),
+  ],
+]);
+
 /**
- * The binding set, first match wins (DESIGN-REFINE §2 W1; r1 §3.2 Mode B).
- *
- * Order carries meaning twice over. The modifier combos come first, and the
- * bare `{ mod: true }` row after them is the cutoff: every other modified
- * chord belongs to the browser or the app shell, so it resolves to nothing
- * rather than falling through to the unmodified binding of the same key.
- * Below the cutoff, the more specific chord of a shared key precedes the
- * general one (⇧⇥ before ⇥), and the printable row is last because it claims
- * every remaining single character.
+ * The selection's keys, read while a row is selected and none is edited.
+ * Owned by the outline, so its bindings are held first and Escape is its
+ * alone, with the history chords and the palette's ⌘K.
  */
-const SELECTION_KEYMAP: readonly SelectionBinding[] = [
-  {
-    chord: { key: "ArrowUp", mod: true, shift: true },
-    toAction: ({ nodeId }) => ({ type: "moveUp", nodeId }),
-  },
-  {
-    chord: { key: "ArrowDown", mod: true, shift: true },
-    toAction: ({ nodeId }) => ({ type: "moveDown", nodeId }),
-  },
-  {
-    chord: { key: ".", mod: true },
-    toAction: ({ nodeId, instanceKey }) => ({ type: "zoom", nodeId, instanceKey }),
-  },
-  { chord: { mod: true }, toAction: () => null },
-  { chord: { key: "ArrowUp" }, toAction: upOrIntoFields },
-  { chord: { key: "ArrowDown" }, toAction: downOrIntoFields },
-  { chord: { key: "ArrowLeft" }, toAction: closeOrClimb },
-  { chord: { key: "ArrowRight" }, toAction: openOrDescend },
-  {
-    chord: { key: "Enter" },
-    toAction: ({ nodeId, instanceKey }) => ({ type: "edit", nodeId, instanceKey }),
-  },
-  { chord: { key: SPACE_KEYS }, toAction: ({ nodeId }) => ({ type: "toggleCollapse", nodeId }) },
-  { chord: { key: "Tab", shift: true }, toAction: ({ nodeId }) => ({ type: "outdent", nodeId }) },
-  { chord: { key: "Tab" }, toAction: ({ nodeId }) => ({ type: "indent", nodeId }) },
-  { chord: { key: "o" }, toAction: ({ nodeId }) => ({ type: "createAfter", nodeId }) },
+export const SELECTION_CONTEXT: KeyContext = {
+  id: "outline.selection",
+  owner: outlineExtension.name,
+  intents: [...SELECTION_INTENTS.keys()],
+  reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+};
+
+function selectionBinding(
+  id: string,
+  chord: Chord,
+  intent: string = id,
+): ContributionEntry<Keybinding> {
+  return {
+    id: `selection.${id}`,
+    value: { context: SELECTION_CONTEXT.id, chord, run: { intent } },
+  };
+}
+
+/**
+ * The bindings typing over a row yields to: a character one of them claims
+ * is not typed. A character key says `alt: false`, so an Alt-composed glyph
+ * (⌥o is ø) is never one of the outline's keys and stays native unless a
+ * binding claims its chord.
+ */
+const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
+  selectionBinding("move-up", { key: "ArrowUp", mod: true, shift: true }),
+  selectionBinding("move-down", { key: "ArrowDown", mod: true, shift: true }),
+  selectionBinding("zoom", { key: ".", mod: true }),
+  selectionBinding("up", { key: "ArrowUp", mod: false }),
+  selectionBinding("down", { key: "ArrowDown", mod: false }),
+  selectionBinding("close-or-climb", { key: "ArrowLeft", mod: false }),
+  selectionBinding("open-or-descend", { key: "ArrowRight", mod: false }),
+  selectionBinding("edit", { key: "Enter", mod: false }),
+  selectionBinding("toggle-collapse", { key: SPACE_KEYS, mod: false, alt: false }),
+  selectionBinding("outdent", { key: "Tab", shift: true, mod: false }),
+  selectionBinding("indent", { key: "Tab", shift: false, mod: false }),
+  selectionBinding("create-after", { key: "o", mod: false, alt: false }),
   // Shift+o: a new empty row directly above. Case is the binding, so this is
   // its own row rather than a `shift` constraint on the one above.
-  { chord: { key: "O" }, toAction: ({ nodeId }) => ({ type: "createBefore", nodeId }) },
-  {
-    chord: { key: ["Backspace", "Delete"] },
-    toAction: ({ nodeId, instanceKey }) => ({ type: "delete", nodeId, instanceKey }),
-  },
-  { chord: { key: "Escape" }, toAction: () => ({ type: "clear" }) },
-  {
-    // Typing over a selected row edits it with the character appended. Alt is
-    // excluded so Alt-composed glyphs stay native.
-    chord: { key: isPrintableKey, alt: false },
-    toAction: ({ nodeId, instanceKey, key }) => ({
-      type: "append",
-      nodeId,
-      instanceKey,
-      char: key,
-    }),
-  },
+  selectionBinding("create-before", { key: "O", mod: false, alt: false }),
+  selectionBinding("delete", { key: ["Backspace", "Delete"], mod: false }),
+  selectionBinding("clear", { key: "Escape", mod: false }),
 ];
 
 /**
- * Map a keydown to a selection action, or null if not handled.
+ * The outline's selection keys, as its contributions to `ui.keybindings`
+ * (DESIGN-REFINE §2 W1; r1 §3.2 Mode B). No two chords overlap. Every
+ * binding but ⌘⇧↑/↓ and ⌘. says `mod: false`, so any other command chord
+ * resolves to nothing and stays the browser's or the shell's. Typing over a
+ * selected row edits it with the character appended: any printable key but
+ * those the bindings above claim, with Alt excluded so Alt-composed glyphs
+ * stay native. The keymap alone says which keys are the selection's: an
+ * event no binding resolves is left to the page, Alt or not.
+ */
+export const SELECTION_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
+  ...SELECTION_KEYS,
+  selectionBinding("append", {
+    key: (key) =>
+      isPrintableKey(key) &&
+      !SELECTION_KEYS.some(({ value }) =>
+        chordsOverlap(value.chord, { key, mod: false, alt: false }),
+      ),
+    mod: false,
+    alt: false,
+  }),
+];
+
+/**
+ * Map a keydown to a selection action under `keymap` (the selection
+ * context's, `currentKeymap(SELECTION_CONTEXT)`), or null if not handled.
  * Caller should preventDefault when a non-null action is returned.
  */
 export function mapSelectionKey(
   ev: SelectionKeyEvent,
   ctx: SelectionKeyContext,
+  keymap: Keymap,
 ): SelectionKeyAction | null {
   const { selectedNodeId, selectedInstanceKey, activeNodeId } = ctx;
   if (selectedNodeId === null || selectedInstanceKey === null || activeNodeId !== null) return null;
 
-  const binding = lookupChord(ev, SELECTION_KEYMAP);
+  const binding = keymap.resolve(ev);
   if (binding === undefined) return null;
-  return binding.toAction({
+  const { run } = binding.value;
+  if ("action" in run) return runActionOf(run, selectedNodeId);
+  const intent = SELECTION_INTENTS.get(run.intent);
+  if (intent === undefined) return null;
+  return intent({
     ctx,
     key: ev.key,
     nodeId: selectedNodeId,

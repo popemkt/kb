@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import {
   browserHost,
+  currentKeymap,
   getCaretSerializedOffset,
   isQueryResultInstance,
   readCaretGeometry,
@@ -11,7 +12,7 @@ import {
 } from "@kb/ui-sdk";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { applyEditingIntent } from "./editing-intents";
-import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
+import { EDITING_CONTEXT, mapEditingKey, type EditingKeyContext } from "./editing-keymap";
 import { fieldSlotCount } from "./value-slot-nav";
 
 export interface UseNodeKeyDownArgs {
@@ -63,7 +64,8 @@ function readEditingContext(args: {
  * Mode A structural keymap (r1 §3.2) — shared by list rows and table cells.
  *
  * Three parts, each with one job: read the row's shape, map the chord to an
- * intent ({@link ./editing-keymap}), carry the intent out
+ * intent through the editing context's keymap ({@link ./editing-keymap}),
+ * carry the intent out
  * ({@link ./editing-intents}). Vertical navigation reads visual-line geometry,
  * never naive extremes, and an intent always claims the key.
  */
@@ -80,6 +82,7 @@ export function useNodeKeyDown({ nodeId, instanceKey }: UseNodeKeyDownArgs) {
           altKey: e.altKey,
         },
         readEditingContext({ nodeId, instanceKey, editable }),
+        currentKeymap(EDITING_CONTEXT),
       );
       if (intent === null) return;
       e.preventDefault();

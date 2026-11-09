@@ -32,7 +32,7 @@ export function graphBindingOptions(
     .map(([value, v]) => ({ value, label: v.label as string }));
   const fieldOptions = [...fields]
     .filter(([id, types]) => {
-      const declared = fieldTypeOf(byId.get(id)?.props);
+      const declared = fieldTypeOf(byId.get(id)?.props, (option) => byId.get(option));
       return kind === "number"
         ? declared === "number" || types.has("num")
         : kind === "relationship"

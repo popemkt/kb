@@ -203,8 +203,9 @@ const itemProps = Effect.fnUntraced(function* (
       Effect.mapError(atLine(field.line)),
     );
     const props = graph.get(fieldId)?.props;
-    const type = fieldTypeOf(props);
-    const single = cardinalityOf(props) === "one";
+    const nodeOf = (id: NodeId) => graph.get(id);
+    const type = fieldTypeOf(props, nodeOf);
+    const single = cardinalityOf(props, nodeOf) === "one";
     for (const { line, raw } of field.values) {
       if (single && held.has(fieldId)) {
         return yield* domainError(

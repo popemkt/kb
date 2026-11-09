@@ -3,10 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { startUi } from "@kb/server";
-import { FIXTURE_TIMESTAMP, renderFixtureNodes } from "./fixture.ts";
+import { FIXTURE_TIMESTAMP, renderFixtureNodes } from "../fixture.ts";
 import { bundledSeed } from "@kb/bundled";
+import { writeTrustedExample } from "@kb/test-kit";
+import { EXAMPLE_ARG } from "../harness-server.ts";
 
 /*
+ * The harness's server, run by Bun (`harness-server.ts` spawns it), so it
+ * compiles against Bun alone: the specs beside the fixture compile against
+ * a DOM, for what they evaluate in the page.
+ *
  * The store a spec sees is the system seed plus the render fixture, and
  * nothing else. It is built from `bundledSeed()` rather than copied from
  * the working tree's `.kb`, so what a spec counts cannot move when someone
@@ -25,6 +31,10 @@ await writeFile(
 // of its own, removed with the scratch root, never in the person's.
 process.env.KB_HOME = join(scratchRoot, "home");
 process.env.KB_DATA = join(scratchRoot, "data");
+
+// A spec that asks for it (`HarnessOptions.example`) sees the example
+// repository extension, trusted in this scratch home's trust store.
+if (process.argv.includes(EXAMPLE_ARG)) await writeTrustedExample(scratchRoot);
 
 const server = await Effect.runPromise(
   startUi({

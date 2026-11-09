@@ -148,7 +148,7 @@ function writtenValueError(
       // second one all the same.
       const changed = canonicalJson(values) !== canonicalJson(stored[fieldId] ?? []);
       if (changed && values.length > 1) {
-        if (cardinalityOf(next.get(fieldId)?.props) === "one") {
+        if (cardinalityOf(next.get(fieldId)?.props, (id) => next.get(id)) === "one") {
           return `node ${node.id}: field ${fieldId} holds one value and would hold ${values.length}`;
         }
       }

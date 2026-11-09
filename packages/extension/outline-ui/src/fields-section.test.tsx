@@ -11,13 +11,19 @@ import {
   type NodeMap,
   type PropValue,
   schemaOfGraph,
+  syncUiPlugins,
 } from "@kb/ui-sdk";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FieldValueStack } from "./fields-section";
 import { bundledSeed } from "@kb/bundled";
+import { outlineValueKindsPlugin } from "./slot-kind";
+
+// The outline's kinds of the built-in field types, which its field editor draws.
+beforeAll(() => syncUiPlugins([outlineValueKindsPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, queries: QueryAnswers | null = null): FieldContext {

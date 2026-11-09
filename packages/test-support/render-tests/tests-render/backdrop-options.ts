@@ -2,7 +2,7 @@ import { bundledSeed } from "@kb/bundled";
 import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
 import { FIXTURE_TIMESTAMP } from "./fixture.ts";
 
-// The same seed as server.ts, read at discovery time so every contributed
+// The same seed as server/server.ts, read at discovery time so every contributed
 // option becomes a schedulable test rather than an iteration inside one.
 export const backdropOptions =
   bundledSeed(FIXTURE_TIMESTAMP).find((node) => node.id === SYSTEM_IDS.backdropField)?.children ??

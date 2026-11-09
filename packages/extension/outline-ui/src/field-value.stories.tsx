@@ -1,5 +1,6 @@
 import { fieldContextOf, type FieldContext, type NodeMap, schemaOfGraph } from "@kb/ui-sdk";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { withValueKinds } from "./story-kinds";
 import { ValueSlot } from "./value-slot";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
@@ -13,6 +14,7 @@ const noop = (): void => undefined;
 const meta = {
   title: "Outline/ValueSlot",
   component: ValueSlot,
+  beforeEach: withValueKinds,
 } satisfies Meta<typeof ValueSlot>;
 
 export default meta;

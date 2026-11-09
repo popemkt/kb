@@ -360,6 +360,13 @@ export interface ExtensionDeclaration {
   /** Its system nodes under frozen ids, stamped `at`. */
   readonly seed?: (at: string) => readonly KbNode[];
   /** The views it provides; its entries contribute exactly these (`declarationPlugin`). */
+  /**
+   * Its own seed nodes it files under a list node, by the list's id: a pin
+   * among the Pinned, a view among the Views, or a node only it reads (a
+   * query its commands ask) under its own node, `sys.extension.<name>`, so
+   * the outline's home does not show it.
+   */
+  readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   readonly views?: readonly ViewDef<unknown>[];
   /**
    * The tags whose nodes open in one of its own `views` before the store's
@@ -367,6 +374,13 @@ export interface ExtensionDeclaration {
    * already claims makes this one not fold, so it is refused as a unit.
    */
   readonly tagDefaultViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
+  /**
+   * The tags whose nodes an outline draws as one of its own `views`, in
+   * place of their row's text while no one edits it: by the tag's id, the
+   * view's key, which its page half provides at placement `row`. A tag
+   * another declaration already claims makes this one not fold.
+   */
+  readonly tagRowViews?: Readonly<Record<NodeId, ViewKey<unknown>>>;
   /**
    * The declared options it contributes, by kind (a design system, a
    * backdrop): each named by the id its page contribution answers to.
@@ -566,9 +580,19 @@ export interface GuardCall {
   readonly signal: AbortSignal;
 }
 
+/** A node as a guard reads it: what it says, its fields' values and its children. */
+export interface NodeLike {
+  readonly id: NodeId;
+  readonly text: string;
+  readonly props: Readonly<Record<NodeId, readonly PropValue[]>>;
+  readonly children: readonly NodeId[];
+}
+
 /** A call as a guard is asked about its commit: the call, and the nodes it writes. */
 export interface CommitCall extends Omit<GuardCall, "phase"> {
   readonly writes: readonly NodeWrite[];
+  /** How the writes' fields, kinds and named nodes are read: the graph before the commit. */
+  readonly nodeOf: (id: NodeId) => NodeLike | undefined;
 }
 
 /** A guard: it decides about the calls it matches, and cannot change them. */
@@ -648,6 +672,14 @@ export declare function viewKey<P>(
 ): PlainViewKey<P>;
 export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
 export declare const NoParams: effect.Schema.Decoder<NoParams>;
+/**
+ * The field types' kind: a declaration lists the types it adds under it,
+ * each choosing the built-in type it stores as (`sys.ft.number`'s option,
+ * `{ kind: FIELD_TYPE_OPTIONS, id: "number" }`). Its page half contributes
+ * the type's value kind (`kb-ext-sdk/page`'s `provideValueKind`), and a
+ * guard of its server entry holds its values to their form.
+ */
+export declare const FIELD_TYPE_OPTIONS: DeclaredOptions;
 /** The backdrops' kind: what a declaration lists its backdrops' keys under. */
 export declare const BACKDROP_OPTIONS: DeclaredOptions;
 /** The backdrops' variants' kind (`backdropVariantOptions` names them). */

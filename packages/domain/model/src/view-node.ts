@@ -82,26 +82,45 @@ export function defaultViewTypeOf(views: Carrier | undefined): NodeId | null {
   return firstRefOf(views, SYSTEM_IDS.viewDefaultField);
 }
 
-/** One tag's default view type, as a node of it reads it: the tag, and the option it names. */
-export interface TagDefaultView {
+/**
+ * The views a tag names for its nodes, by the part each plays: the field of
+ * the tag node that names it, and what the part is called. `default` is the
+ * view type a node that names no view opens in (`sys.f.view.default`, the
+ * field `sys.views` names the store's in, {@link defaultViewTypeOf}); `row`
+ * is the view its nodes are drawn as in an outline, in place of their row's
+ * text (`sys.f.view.row`, DESIGN-UI.md → Row views). Each is a ref to a
+ * view's option, which a declaration claims for its tags and
+ * a person may change on the tag (DESIGN.md → View nodes).
+ */
+export const TAG_VIEWS = {
+  default: { field: SYSTEM_IDS.viewDefaultField, label: "default view type" },
+  row: { field: SYSTEM_IDS.viewRowField, label: "row view" },
+} as const;
+
+/** A part a tag's view plays for its nodes ({@link TAG_VIEWS}). */
+export type TagViewRole = keyof typeof TAG_VIEWS;
+
+/** One tag's view in some role, as a node of it reads it: the tag, and the option it names. */
+export interface TagView {
   readonly tag: NodeId;
   readonly option: NodeId;
 }
 
 /**
- * The default view types of `node`'s tags, in the order it carries them:
- * each tag (a `sys.f.type` ref) whose node names one in
- * `sys.f.view.default`, the field `sys.views` names the store's in
- * ({@link defaultViewTypeOf}). A node that names no view opens in the first
- * of these its host can show, before the store's. `lookup` reads a node.
+ * The views `node`'s tags name in `role`, in the order it carries them:
+ * each tag (a `sys.f.type` ref) whose node names one in the role's field
+ * ({@link TAG_VIEWS}). For `default`, a node that names no view opens
+ * in the first of these its host can show, before the store's. `lookup`
+ * reads a node.
  */
-export function tagDefaultViewsOf(
+export function tagViewsOf(
   node: Carrier | undefined,
+  role: TagViewRole,
   lookup: (id: NodeId) => Carrier | undefined,
-): TagDefaultView[] {
+): TagView[] {
   return (node?.props[SYSTEM_IDS.typeField] ?? []).flatMap((value) => {
     if (value.t !== "ref") return [];
-    const option = defaultViewTypeOf(lookup(value.v));
+    const option = firstRefOf(lookup(value.v), TAG_VIEWS[role].field);
     return option === null ? [] : [{ tag: value.v, option }];
   });
 }

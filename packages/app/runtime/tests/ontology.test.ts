@@ -556,6 +556,7 @@ describe("ontology seed", () => {
           byId.get(SYSTEM_IDS.ontoIncludeField),
           "expected byId.get(SYSTEM_IDS.ontoIncludeField)",
         ).props,
+        () => undefined,
       ),
     ).toBe("ref");
     expect(
@@ -571,6 +572,7 @@ describe("ontology seed", () => {
       fieldTypeOf(
         present(byId.get(SYSTEM_IDS.ontoQueryField), "expected byId.get(SYSTEM_IDS.ontoQueryField)")
           .props,
+        () => undefined,
       ),
     ).toBe("text");
 

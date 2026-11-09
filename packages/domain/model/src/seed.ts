@@ -228,6 +228,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.colorField },
       { t: "ref", v: SYSTEM_IDS.hiddenField },
       { t: "ref", v: SYSTEM_IDS.viewDefaultField },
+      { t: "ref", v: SYSTEM_IDS.viewRowField },
     ],
   });
 
@@ -353,6 +354,23 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const viewDefaultField = refQueryField(
     SYSTEM_IDS.viewDefaultField,
     "view.default",
+    VIEW_OPTION_TARGET_QUERY,
+    {
+      one: true,
+      props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
+    },
+  );
+  /*
+   * The view a tag's nodes are drawn as in an outline, in place of their
+   * row's text while no one edits it (one option, held by the tag node):
+   * a setting of every tag, as `view.default` is, so a person chooses it in
+   * the editor and a declaration's claim (`tagRowViews`) is only where it
+   * starts (DESIGN-UI → Row views).
+   */
+  // GAP [[01M69DX3D78HDQJ7W5E4HGC4PJ]] its options are every view type, not only those drawn as a row
+  const viewRowField = refQueryField(
+    SYSTEM_IDS.viewRowField,
+    "view.row",
     VIEW_OPTION_TARGET_QUERY,
     {
       one: true,
@@ -584,6 +602,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewField,
     viewsField,
     viewDefaultField,
+    viewRowField,
     viewTemplateField,
     viewOutputField,
     viewSavedQueryField,
