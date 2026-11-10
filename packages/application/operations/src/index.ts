@@ -45,6 +45,8 @@ export {
   nodeUpdateEffect,
   nodeDeleteDef,
   nodeDeleteEffect,
+  nodeMergeDef,
+  nodeMergeEffect,
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
