@@ -42,7 +42,7 @@ export function routineActions(
       emptyInput,
       () => engine.preview,
     ),
-    action("status", "Read routine sync status", read, emptyInput, engine.status),
+    action("status", "Read event sync status", read, emptyInput, engine.status),
     action(
       "setup",
       "Read what setting up a sync service needs here: the redirect URI, where secrets are kept, gcloud",
@@ -108,7 +108,7 @@ export function routineActions(
       accountInput,
       ({ account }: { account: string }) => connection.remove(account),
     ),
-    action("sync", "Retry routine sync now", write, emptyInput, () => ok(engine.syncNow())),
+    action("sync", "Retry event sync now", write, emptyInput, () => ok(engine.syncNow())),
     action(
       "release",
       "Release these held deletion plans",

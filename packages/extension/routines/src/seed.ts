@@ -1,7 +1,14 @@
 import { Record } from "effect";
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
-import { seededField, seededTag, SYSTEM_IDS, type FieldType, type KbNode } from "@kb/model";
+import {
+  extensionNodeId,
+  seededField,
+  seededTag,
+  SYSTEM_IDS,
+  type FieldType,
+  type KbNode,
+} from "@kb/model";
 import { RoutinesCalendarView, RoutinesSyncView } from "./view.ts";
 
 function field(
@@ -18,7 +25,8 @@ function field(label: string, type: FieldType, options: readonly string[] = [], 
   return { label, type, options, one };
 }
 const fields = {
-  rrule: field("rrule", "text"),
+  /** The series' rule (RRULE); empty for an event that happens once. */
+  rrule: field("repeat", "text"),
   starts: field("starts", "date"),
   at: field("at", "time"),
   duration: field("duration", "number"),
@@ -71,7 +79,7 @@ export function routineOption(fieldKey: RoutineField, value: string): string {
 const tags: readonly [string, string, readonly RoutineField[]][] = [
   [
     ROUTINE_TAGS.routine,
-    "routine",
+    "event",
     [
       "rrule",
       "starts",
@@ -163,13 +171,20 @@ export function routinesSeed(at: string): readonly KbNode[] {
 }
 export const routinesExtension = defineExtension({
   name: "routines",
-  label: "Routines",
+  label: "Events",
   manifest: {
-    description: "Routines and their occurrences on a calendar, synced with Google Calendar.",
+    description: "Events and their occurrences on a calendar, synced with Google Calendar.",
   },
-  tags: ["routine", "occurrence", "calendar", "google-account"],
+  tags: ["event", "occurrence", "calendar", "google-account"],
   optional: { byDefault: "off" },
   seed: routinesSeed,
+  retires: [
+    // Routines became events, a routine an event and its rule the event's
+    // repeat: labels only, so every id stays.
+    { from: extensionNodeId("routines"), to: extensionNodeId("routines"), text: "Routines" },
+    { from: ROUTINE_TAGS.routine, to: ROUTINE_TAGS.routine, text: "routine" },
+    { from: ROUTINE_FIELDS.rrule, to: ROUTINE_FIELDS.rrule, text: "rrule" },
+  ],
   views: [viewDef(RoutinesCalendarView), viewDef(RoutinesSyncView)],
 });
 
