@@ -46,6 +46,7 @@ function UnicornBackdrop({ opacity, pointer }: Pick<BackdropProps, "opacity" | "
     return () => {
       disposed = true;
       if (frame !== 0) cancelAnimationFrame(frame);
+      // A scene still starting goes with its element, and the runtime's own start throws on it: GAP [[01M73AAXHQQ24FM7EMDA3H1J6R]].
       controller.abort();
       watch.dispose();
       scene?.destroy();

@@ -1,7 +1,11 @@
-# Routines → Google Calendar (phase 1)
+# Events → Google Calendar (phase 1)
 
 The canonical design is [routines → Google Calendar](../../../docs/research/2026-11-02-kb-routines-gcal.md)
-([design PR #97](https://github.com/popemkt/kb/pull/97)).
+([design PR #97](https://github.com/popemkt/kb/pull/97)), and its restructure
+into events is [§6 of the data plane design](../../../docs/research/2026-11-10-data-plane-fields-events.md)
+([design PR #149](https://github.com/popemkt/kb/pull/149)). The family is
+labelled **Events** and keeps its id, `routines`, as every id it seeds keeps
+its own: what changed is labels, retired by the seed where nobody edited them.
 This family is hosted by `kb ui`, off by default. Its browser half,
 `@kb/routines-ui`, is the month, week and agenda calendar at `/calendar`
 ([DESIGN-UI.md → The routines calendar](../../../DESIGN-UI.md#the-routines-calendar));
@@ -71,9 +75,10 @@ The setup actions, all `approval: "required"` except the reads:
 
 ## Editing and operating
 
-Tag a node `#routine`, choose its calendar, **starts**, optional **at** (`HH:MM`),
-**duration** in minutes and an RRULE body such as `FREQ=WEEKLY;BYDAY=MO,WE,FR`.
-An empty RRULE is a one-off; an empty time is all-day. **repeats from** currently
+Tag a node `#event` (`sys.tag.routine`, which read `#routine` before), choose its
+calendar, **starts**, optional **at** (`HH:MM`), **duration** in minutes and a
+**repeat**, an RRULE body such as `FREQ=WEEKLY;BYDAY=MO,WE,FR`.
+An empty repeat is a one-off; an empty time is all-day. **repeats from** currently
 supports **schedule** only. A completion-based rule reports an invalid rule.
 Add child `#occurrence` nodes with original **on** date, state **done**, **skipped**
 or **moved**, and (for moves) **moved to** plus optional **at**. One fact per day.

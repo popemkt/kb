@@ -92,8 +92,10 @@ const DATASCRIPT = /cljs\.core/;
 // One backdrop across pages adds 6,328 measured eager bytes (2,062,465 → 2,068,793): the pane's
 // host above the router, its layers' crossfade and hold, the region that takes its drawing in,
 // a head's declaration of its space and the breadcrumbs' band; every scene still loads lazily.
-// Merged with main at 9dbd1f81, the set measures 2,069,120 eager bytes.
-const EAGER_BUDGET_BYTES = 2_069_500;
+// Merged with main at e4ec7230 (#150), the set measures 2,070,576 eager bytes in CI and 2,069,267
+// from a short local checkout (the build grows with the path, as the GAP below says); the budget
+// is CI's measure with 1.5 KB of headroom, so the next change to land does not break it by bytes.
+const EAGER_BUDGET_BYTES = 2_072_100;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

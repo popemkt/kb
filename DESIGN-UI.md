@@ -3775,7 +3775,7 @@ which also lists the workflows judged and not built.
 ### The routines calendar
 
 The routines family's browser half (`@kb/routines-ui`, `/calendar`) draws
-every `#routine`'s instances as a calendar: a month, a week or an agenda of
+every `#event`'s instances as a calendar: a month, a week or an agenda of
 the next two weeks, open at the day the URL names
 (`/calendar/<mode>/<day>`). A narrow screen opens on the agenda, and the
 week is the default elsewhere. The model and its Google sync are the
