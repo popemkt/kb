@@ -132,10 +132,12 @@ const TITLE_CLASS = cn(
  * person's children and fields, and its settings are the person's.
  */
 function OwnedBy({ id }: { id: string }) {
-  const { ownerOf, outline } = useGraphRead();
+  // The owner is named as a ref value is, against the whole graph: a scope
+  // that lists this node need not list the family that seeds it.
+  const { ownerOf, schema } = useGraphRead();
   const follow = useFollow();
   const ownerId = ownerOf(id);
-  const owner = ownerId === null ? undefined : outline.get(ownerId);
+  const owner = ownerId === null ? undefined : schema.get(ownerId);
   if (owner === undefined) return null;
   return (
     <div

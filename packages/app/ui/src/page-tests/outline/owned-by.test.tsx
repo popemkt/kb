@@ -1,14 +1,15 @@
 /**
  * A seeded node's page says who owns it: its owner's node (`:node/owner`,
  * read through `GraphRead.ownerOf`) as a chip under the title, by the
- * owner's label as it stands. A person's node has none.
+ * owner's label as it stands, whether or not a scope lists the owner. A
+ * person's node has none.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { syncUiPlugins } from "@kb/ui-sdk";
-import { extensionNodeId } from "@kb/model";
+import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { extensionNodeId, present } from "@kb/model";
 import { OutlineEditor } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { setPostAction } from "@/api/action";
@@ -22,6 +23,18 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 const AT = "2026-08-08T05:00:00.000Z";
 /** Core's own node: the family that seeds `sys.field`. */
 const CORE = extensionNodeId("core");
+/** A scope that lists `sys.field` and not Core, the family that seeds it. */
+const FIELD_SCOPE = {
+  id: "o.field",
+  text: "Field",
+  props: {
+    [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.ontologyTag }],
+    [SYSTEM_IDS.ontoMemberField]: [{ t: "ref" as const, v: "sys.field" }],
+  },
+  children: [],
+  createdAt: AT,
+  updatedAt: AT,
+};
 
 describe("a page's owner chip", () => {
   let dom: Window;
@@ -77,6 +90,19 @@ describe("a page's owner chip", () => {
     // The owner's label is the person's; the chip reads it as it stands.
     await act(() => mutations.updateNodeContent(CORE, "Kernel"));
     expect(chip()?.textContent).toBe("Owned byKernel");
+  });
+
+  it("names the owner under a scope that lists the node but not its owner", async () => {
+    const graph = useGraphStore.getState();
+    graph.hydrateFromWire([...graph.wireNodes, FIELD_SCOPE], fixtureGraph.rev, "fixtures");
+    act(() => useGraphStore.getState().setOntologyScope(FIELD_SCOPE.id));
+    const members = present(useGraphStore.getState().ontologyMembers, "the scope's members");
+    expect([members.has("sys.field"), members.has(CORE)]).toEqual([true, false]);
+    await act(async () => {
+      root.render(<OutlineEditor root="sys.field" />);
+    });
+    expect(chip()?.dataset["ownedBy"]).toBe(CORE);
+    expect(chip()?.textContent).toBe("Owned byCore");
   });
 
   it("is absent from a person's node", async () => {
