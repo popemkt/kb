@@ -2368,7 +2368,12 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     - A guard (`ActionGuardPoint`, `action/guard`; `guardAction(plugin,
 match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       asked before an action runs (`before`) and again before the call
-      commits (`commit`, with the commit's actual writes). The invoke core
+      commits (`commit`, with the commit's actual writes). A commit lands
+      only on the state its `commit` guards, integrity check and
+      system-write rule were asked over (`persistEffect` commits
+      conditionally, and catches up and asks again when the store moved),
+      so a verdict such as days' one node per key holds against every
+      concurrent writer, on every store backend. The invoke core
       holds the call as sealed data from the start — the invocation and
       its input, and the action, a copy of the definition's id, mode and
       batch parts — and `CurrentCall` carries that, so no reader can

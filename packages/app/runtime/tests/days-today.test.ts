@@ -52,6 +52,18 @@ function output(receipt: ActionReceipt): { id: string; made: string[] } {
   return receipt.output as { id: string; made: string[] };
 }
 
+/** A plain `node.add` that hand-keys its node as the day `2026-11-10`. */
+function keyedAdd(id: string) {
+  return {
+    id: "node.add",
+    input: {
+      id,
+      text: id,
+      props: [{ field: DAYS_IDS.keyField, value: { t: "str", v: "2026-11-10" } }],
+    },
+  };
+}
+
 function daysContract(backend: StoreBackend) {
   const freshKb = async () => openKb(await freshRoot(backend));
   describe(`ext.days.today (${backend})`, () => {
@@ -144,6 +156,17 @@ function daysContract(backend: StoreBackend) {
       const [journal] = refValuesOf(family, DAYS_IDS.journalField);
       const made = present(first?.made.length === 4 ? first : second, "the call that made the day");
       expect(journal).toBe(made.made[0]);
+    });
+
+    test("two callers hand-keying one day at once on one root: one lands, one is refused", async () => {
+      const root = await freshRoot(backend);
+      const [a, b] = await Promise.all([openKb(root), openKb(root)]);
+      const receipts = await Promise.all([
+        invoke(a, keyedAdd("manual.a")),
+        invoke(b, keyedAdd("manual.b")),
+      ]);
+      expect(receipts.map((r) => r.status).toSorted()).toEqual(["failed", "succeeded"]);
+      expect(await holdersOf(root, "2026-11-10")).toHaveLength(1);
     });
 
     test("two clones that each made one day merge into one node per period", async () => {
