@@ -1,7 +1,11 @@
-# Routines → Google Calendar (phase 1)
+# Events → Google Calendar (phase 1)
 
 The canonical design is [routines → Google Calendar](../../../docs/research/2026-11-02-kb-routines-gcal.md)
-([design PR #97](https://github.com/popemkt/kb/pull/97)).
+([design PR #97](https://github.com/popemkt/kb/pull/97)), and its restructure
+into events is [§6 of the data plane design](../../../docs/research/2026-11-10-data-plane-fields-events.md)
+([design PR #149](https://github.com/popemkt/kb/pull/149)). The family is
+labelled **Events** and keeps its id, `routines`, as every id it seeds keeps
+its own: what changed is labels, retired by the seed where nobody edited them.
 This family is hosted by `kb ui`, off by default. Its browser half,
 `@kb/routines-ui`, is the month, week and agenda calendar at `/calendar`
 ([DESIGN-UI.md → The routines calendar](../../../DESIGN-UI.md#the-routines-calendar));
@@ -12,7 +16,10 @@ ordinary outline fields and `ext.routines.*` actions work as well.
 Setup is a wizard in the page: **Calendar → Set up sync** (or **Sync services**),
 **Add sync service → Google** ([DESIGN-UI.md → Sync services](../../../DESIGN-UI.md#sync-services)).
 Every step links to the Google Cloud Console page it needs, with your project
-already chosen, and says what you will see there. In short:
+already chosen, and says what you will see there. A project you already have,
+with the Calendar API on, its app published and a Web OAuth client, skips
+steps 2–5: name it in step 1, then add kb's redirect URI to that client in
+step 6. A new project goes the whole way; in short:
 
 1. **Project.** Create your own Google Cloud project (never shared
    credentials). When `gcloud` is signed in on kb's host, the wizard offers to
@@ -20,21 +27,26 @@ already chosen, and says what you will see there. In short:
 2. **Calendar API.** Enable the Google Calendar API on it.
 3. **Consent screen.** Google Auth platform → Get started: app name, your
    email, audience **External**.
-4. **Publish.** Audience → **Publish app**, so the status reads **In
+4. **Branding.** Google Auth platform → Branding: fill the application home
+   page, privacy policy link and terms of service link, and list their
+   domain under **Authorized domains**; leave the logo empty, since an
+   uploaded logo sends the app to verification. The pages must be public on
+   one domain (a tailnet address won't do); the wizard offers text for them.
+5. **Publish.** Audience → **Publish app**, so the status reads **In
    production**. In Testing, Google ends the connection after seven days.
    An app only you use stays unverified; Google's warning at sign-in is
    expected.
-5. **OAuth client.** Clients → Create client, type **Web application**, with
+6. **OAuth client.** Clients → Create client, type **Web application**, with
    the **Authorized redirect URI** the wizard shows
    (`<public origin>/calendar/connect`; start kb with
    `kb ui --public-origin https://<your-kb-host>` so it is the address you
    open kb at). Paste the client ID and secret into the wizard, which checks
    them with Google before keeping them.
-6. **Connect.** Connect with Google: you approve kb's binding on this host,
+7. **Connect.** Connect with Google: you approve kb's binding on this host,
    sign in with the right account, and Google sends you back to kb with a
    refresh token kept on the host. kb asks only for
    `https://www.googleapis.com/auth/calendar.app.created`.
-7. **Calendars.** Pick kb calendars to sync (or name a new one). Each gets its
+8. **Calendars.** Pick kb calendars to sync (or name a new one). Each gets its
    own new **kb routines** Google calendar; kb never adopts an existing
    personal calendar. Their sync is switched on.
 
@@ -63,9 +75,10 @@ The setup actions, all `approval: "required"` except the reads:
 
 ## Editing and operating
 
-Tag a node `#routine`, choose its calendar, **starts**, optional **at** (`HH:MM`),
-**duration** in minutes and an RRULE body such as `FREQ=WEEKLY;BYDAY=MO,WE,FR`.
-An empty RRULE is a one-off; an empty time is all-day. **repeats from** currently
+Tag a node `#event` (`sys.tag.routine`, which read `#routine` before), choose its
+calendar, **starts**, optional **at** (`HH:MM`), **duration** in minutes and a
+**repeat**, an RRULE body such as `FREQ=WEEKLY;BYDAY=MO,WE,FR`.
+An empty repeat is a one-off; an empty time is all-day. **repeats from** currently
 supports **schedule** only. A completion-based rule reports an invalid rule.
 Add child `#occurrence` nodes with original **on** date, state **done**, **skipped**
 or **moved**, and (for moves) **moved to** plus optional **at**. One fact per day.

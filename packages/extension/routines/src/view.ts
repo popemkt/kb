@@ -24,7 +24,7 @@ export const RoutinesCalendarView = viewKey(
   "Calendar",
   CalendarParams.annotate({
     description:
-      "Routines by day as a month, a week or an agenda: create, move, resize, tick done and skip their instances.",
+      "Events by day as a month, a week or an agenda: create, move, resize, tick done and skip their instances.",
   }),
 );
 

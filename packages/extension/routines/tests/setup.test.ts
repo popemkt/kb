@@ -11,6 +11,8 @@ import {
   addAccount,
   addSetupCalendar,
   chooseProject,
+  confirmedBy,
+  projectSource,
   confirmStep,
   currentStep,
   linkCalendar,
@@ -113,10 +115,10 @@ describe("sync service setup", () => {
 
   test("the steps advance in order, each from what the nodes hold, and resume there", () => {
     const w = walk();
-    w.apply(chooseProject(w.setup(), "kb-routines-me"));
+    w.apply(chooseProject(w.setup(), "kb-routines-me", "new"));
     expect(w.setup().project).toBe("kb-routines-me");
     expect(currentStep(w.setup())).toBe("apis");
-    for (const step of ["apis", "branding", "audience"] as const) {
+    for (const step of ["apis", "branding", "domain", "audience"] as const) {
       w.apply(confirmStep(w.setup(), step, true));
       // Read afresh from the nodes: what a page opened later sees.
       expect(stepDone(w.setup(), step)).toBe(true);
@@ -139,25 +141,73 @@ describe("sync service setup", () => {
 
   test("another project takes back the steps confirmed about the old one", () => {
     const w = walk();
-    w.apply(chooseProject(w.setup(), "kb-routines-me"));
+    w.apply(chooseProject(w.setup(), "kb-routines-me", "new"));
     w.apply(confirmStep(w.setup(), "apis", true));
     w.apply(confirmStep(w.setup(), "branding", true));
-    w.apply(chooseProject(w.setup(), "kb-routines-me"));
+    w.apply(chooseProject(w.setup(), "kb-routines-me", "new"));
     expect([...w.setup().confirmed].toSorted()).toEqual(["apis", "branding", "project"]);
-    w.apply(chooseProject(w.setup(), "kb-routines-two"));
+    w.apply(chooseProject(w.setup(), "kb-routines-two", "new"));
     expect([...w.setup().confirmed]).toEqual(["project"]);
     expect(currentStep(w.setup())).toBe("apis");
   });
 
   test("a confirmation taken back reopens its step, and nothing after it is skipped to", () => {
     const w = walk();
-    w.apply(chooseProject(w.setup(), "kb-routines-me"));
+    w.apply(chooseProject(w.setup(), "kb-routines-me", "new"));
     for (const step of ["apis", "branding", "audience"] as const)
       w.apply(confirmStep(w.setup(), step, true));
     w.apply(confirmStep(w.setup(), "branding", false));
     expect(currentStep(w.setup())).toBe("branding");
     expect(stepOpen(w.setup(), "audience")).toBe(true);
     expect(stepOpen(w.setup(), "client")).toBe(false);
+  });
+
+  test("the Branding page step strands no account: one part-way resumes there, one published keeps its place", () => {
+    // Part-way, as the owner's live account was: the consent screen done, not yet published.
+    const partWay = walk();
+    partWay.apply(chooseProject(partWay.setup(), "kb-routines-me", "new"));
+    for (const step of ["apis", "branding"] as const)
+      partWay.apply(confirmStep(partWay.setup(), step, true));
+    expect(currentStep(partWay.setup())).toBe("domain");
+    expect(stepOpen(partWay.setup(), "audience")).toBe(false);
+    partWay.apply(confirmStep(partWay.setup(), "domain", true));
+    expect(currentStep(partWay.setup())).toBe("audience");
+
+    // Published before the step was listed: its confirmations name no Branding page.
+    const published = walk();
+    published.apply(chooseProject(published.setup(), "kb-routines-me", "new"));
+    for (const step of ["apis", "branding", "audience"] as const)
+      published.apply(confirmStep(published.setup(), step, true));
+    published.host.keepClient();
+    published.host.connected("synced");
+    expect([...published.setup().confirmed]).not.toContain("domain");
+    expect(stepDone(published.setup(), "domain")).toBe(true);
+    expect(currentStep(published.setup())).toBe("calendars");
+    expect(SETUP_STEPS.every((step) => stepOpen(published.setup(), step))).toBe(true);
+    // Taking the publish back reopens the Branding page with it.
+    published.apply(confirmStep(published.setup(), "audience", false));
+    expect(stepDone(published.setup(), "domain")).toBe(false);
+  });
+
+  test("a project the person already had goes straight to the client, and a new one takes the long way back", () => {
+    const w = walk();
+    w.apply(chooseProject(w.setup(), "tanaint-ops", "existing"));
+    expect(projectSource(w.setup())).toBe("existing");
+    expect(currentStep(w.setup())).toBe("client");
+    for (const step of ["apis", "branding", "domain", "audience"] as const)
+      expect(confirmedBy(w.setup(), step)).toBe("existing");
+    w.host.keepClient();
+    w.host.connected("synced");
+    expect(currentStep(w.setup())).toBe("calendars");
+    // Saying it is a new project after all takes back what `existing` vouched for.
+    w.apply(chooseProject(w.setup(), "tanaint-ops", "new"));
+    expect(projectSource(w.setup())).toBe("new");
+    expect([...w.setup().confirmed]).toEqual(["project"]);
+    expect(currentStep(w.setup())).toBe("apis");
+    // Naming another project takes `existing` back too, as it was about the old one.
+    w.apply(chooseProject(w.setup(), "tanaint-ops", "existing"));
+    w.apply(chooseProject(w.setup(), "kb-routines-me", "new"));
+    expect([...w.setup().confirmed]).toEqual(["project"]);
   });
 
   test("a failed connection is the account's problem, and connect is not done", () => {

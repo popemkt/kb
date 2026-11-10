@@ -6,9 +6,15 @@
  * so leaving and coming back resumes where the data says, in this kb.
  *
  * - The steps kb cannot see in Google before it holds credentials (the
- *   project, its APIs, its branding and its audience) are the person's own
- *   word, kept as the account's `setup done` options. Naming another project
- *   takes that word back, since it was about the old one.
+ *   project, its APIs, its consent screen, its Branding page and its
+ *   audience) are the person's own word, kept as the account's `setup done`
+ *   options. Naming another project takes that word back, since it was
+ *   about the old one. One word can vouch for others ({@link confirmedBy}):
+ *   publishing needs a complete Branding page, so a publish confirmed
+ *   counts that page done too, and an account that published before the
+ *   step was listed keeps its place; a project the person already had
+ *   (`existing`) is set up and published, so it counts every step up to the
+ *   client done.
  * - The client is done when the account names its client id and secret,
  *   which the host writes only after Google accepted them.
  * - Connected is the account's own sync status, which the host writes when
@@ -32,13 +38,14 @@ export const SETUP_STEPS = [
   "project",
   "apis",
   "branding",
+  "domain",
   "audience",
   "client",
   "connect",
   "calendars",
 ] as const;
 export type SetupStep = (typeof SETUP_STEPS)[number];
-/** The steps a person confirms by hand. */
+/** What a person confirms by hand: a step, or that the project is one they already had. */
 export type ConfirmedStep = RoutineOption<"setup">;
 export const CONFIRMED_STEPS: readonly ConfirmedStep[] = optionsFor("setup");
 
@@ -109,12 +116,31 @@ export function readAccountSetup(
   };
 }
 
+/** What else a confirmation vouches for, beyond itself. */
+const COVERS: Readonly<Partial<Record<ConfirmedStep, readonly ConfirmedStep[]>>> = {
+  audience: ["domain"],
+  existing: ["apis", "branding", "domain", "audience"],
+};
+
+/** The confirmation that makes `step` confirmed: its own, one that vouches for it, or null. */
+export function confirmedBy(setup: AccountSetup, step: ConfirmedStep): ConfirmedStep | null {
+  if (setup.confirmed.has(step)) return step;
+  return (
+    CONFIRMED_STEPS.find(
+      (each) => setup.confirmed.has(each) && (COVERS[each]?.includes(step) ?? false),
+    ) ?? null
+  );
+}
+
+const held = (step: ConfirmedStep) => (setup: AccountSetup) => confirmedBy(setup, step) !== null;
+
 /** What makes each step done, as the account says. */
 const DONE: Readonly<Record<SetupStep, (setup: AccountSetup) => boolean>> = {
-  project: (setup) => setup.project !== "" && setup.confirmed.has("project"),
-  apis: (setup) => setup.confirmed.has("apis"),
-  branding: (setup) => setup.confirmed.has("branding"),
-  audience: (setup) => setup.confirmed.has("audience"),
+  project: (setup) => setup.project !== "" && held("project")(setup),
+  apis: held("apis"),
+  branding: held("branding"),
+  domain: held("domain"),
+  audience: held("audience"),
   client: (setup) => setup.credentials,
   connect: (setup) => setup.connected,
   calendars: (setup) =>
@@ -153,15 +179,30 @@ export function addAccount(id: string, name: string): NodeCall {
 const confirmations = (steps: Iterable<ConfirmedStep>) =>
   [...steps].map((step) => ({ t: "ref" as const, v: routineOption("setup", step) }));
 
+/** Where the account's project came from: made for kb, or one the person already had. */
+export type ProjectSource = "new" | "existing";
+
+export function projectSource(setup: AccountSetup): ProjectSource {
+  return setup.confirmed.has("existing") ? "existing" : "new";
+}
+
 /**
- * Name the account's project and confirm it. Another project than the one
- * named takes back every step confirmed about the old one.
+ * Name the account's project, confirm it, and say where it came from.
+ * Another project than the one named takes back every step confirmed about
+ * the old one.
  */
-export function chooseProject(setup: AccountSetup, project: string): NodeCall {
-  const kept = setup.project === project ? setup.confirmed : new Set<ConfirmedStep>();
+export function chooseProject(
+  setup: AccountSetup,
+  project: string,
+  source: ProjectSource,
+): NodeCall {
+  const next = new Set<ConfirmedStep>(setup.project === project ? setup.confirmed : []);
+  next.add("project");
+  if (source === "existing") next.add("existing");
+  else next.delete("existing");
   return updateNode(setup.id, {
     [F.project]: [{ t: "str", v: project }],
-    [F.setup]: confirmations(new Set([...kept, "project"])),
+    [F.setup]: confirmations(CONFIRMED_STEPS.filter((each) => next.has(each))),
   });
 }
 

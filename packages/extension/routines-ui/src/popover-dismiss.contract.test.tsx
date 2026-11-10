@@ -1,8 +1,9 @@
 /**
  * The calendar's popovers, each run through the dismiss contract
  * (`dismissContract`, DESIGN-UI.md → Cross-surface polish → Popovers dismiss
- * one way): the modal every dialog is (the editor, the move prompt), and an
- * instance's popover, which its chip toggles.
+ * one way): the modal every dialog is (the editor, the move prompt), an
+ * instance's popover, which its chip toggles, and the editor's day and time
+ * pickers, which their fields toggle.
  */
 import { useState } from "react";
 import { afterAll, beforeAll } from "vitest";
@@ -15,9 +16,11 @@ import {
   testBrowserHost,
   testHostPlugin,
 } from "@kb/ui-test-kit";
+import { DateField } from "./date-field";
 import { Dialog } from "./dialog";
 import { EntryPopover } from "./entry-popover";
 import type { CalendarModel } from "./model";
+import { TimeField } from "./time-field";
 
 // The popover opens its routine in the outline through its host: here, a test host.
 beforeAll(() => syncUiPlugins([testHostPlugin(testBrowserHost())]));
@@ -72,6 +75,7 @@ function Chip() {
           element={element}
           model={MODEL}
           zone={ZONE}
+          today="2026-11-04"
           actions={{ setState: noop, moveOne: noop, edit: noop }}
           onClose={() => setElement(null)}
         />
@@ -93,6 +97,20 @@ dismissContract({
       </UntilDismissed>,
       find('[data-testid="dialog"]'),
       null,
+    ),
+  "packages/extension/routines-ui/src/date-field.tsx": (host) =>
+    renderPopover(
+      host,
+      <DateField label="Day" value="2026-11-04" today="2026-11-04" onChange={noop} />,
+      find("[data-date-picker]"),
+      () => document.querySelector<HTMLElement>('[aria-label="Day"]'),
+    ),
+  "packages/extension/routines-ui/src/time-field.tsx": (host) =>
+    renderPopover(
+      host,
+      <TimeField label="Starts" value="09:00" onChange={noop} />,
+      find("[data-time-list]"),
+      () => document.querySelector<HTMLElement>('[aria-label="Starts"]'),
     ),
   "packages/extension/routines-ui/src/entry-popover.tsx": (host) =>
     renderPopover(host, <Chip />, find('[data-testid="entry-popover"]'), () =>
