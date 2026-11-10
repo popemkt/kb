@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect } from "react";
 import {
   browserHost,
   isTextEntry,
+  nodeTagColors,
   OpenNodeContext,
   type OutlineNode,
   useFrameView,
@@ -98,7 +99,16 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
       <div className="outline-editor px-2 pb-40">
-        <Breadcrumbs root={rootProp} />
+        {/* The head's space holds the breadcrumbs over the backdrop; the title stands under it.
+            Its colour is an ambient wash, not an identity readout: one tag colour is enough, and
+            which one comes from the tag-colour owner. */}
+        <PageBackdrop
+          color={nodeTagColors(root)[0] ?? "var(--primary)"}
+          node={root}
+          className="pb-2"
+        >
+          <Breadcrumbs root={rootProp} />
+        </PageBackdrop>
         <ZoomedRootHeader node={root} view={rootView?.key ?? null} />
 
         {rootRows}
@@ -133,10 +143,9 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
   return (
     <div className="outline-editor px-2 pb-40">
-      <div className="relative">
-        <PageBackdrop color="var(--primary)" />
+      <PageBackdrop color="var(--primary)">
         <Breadcrumbs root={rootProp} />
-      </div>
+      </PageBackdrop>
 
       {rootRows}
 

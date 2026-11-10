@@ -45,6 +45,7 @@ import {
   DesignSystemPoint,
   type DesignSystem,
   familyViews,
+  uiKernelReader,
   useContributions,
   ViewPoint,
   type Backdrop,
@@ -93,8 +94,13 @@ export function useShownDesignSystem(): DesignSystem | null {
   return shownDesignSystem(systems, core?.props)?.value ?? null;
 }
 
-/** Each list `BackdropPoint` held, read once, whoever reads it. */
-const backdropsRead = new WeakMap<readonly Contribution<Backdrop>[], ContributedBackdrops>();
+/**
+ * `BackdropPoint` as the kernel held it at its version, read once, whoever
+ * reads it: each reader of a point holds its own array of it, so the read is
+ * kept by the kernel's version, not by the array. A head and the pane's host
+ * that draws it then hold the same backdrop, not two copies of one.
+ */
+const backdropsRead = new Map<number, ContributedBackdrops>();
 
 /**
  * The backdrops the page can draw, and those it refused (DESIGN-UI.md →
@@ -104,10 +110,12 @@ const backdropsRead = new WeakMap<readonly Contribution<Backdrop>[], Contributed
  */
 export function useBackdrops(): ContributedBackdrops {
   const contributed = useContributions(BackdropPoint);
-  const known = backdropsRead.get(contributed);
+  const version = uiKernelReader.version();
+  const known = backdropsRead.get(version);
   if (known !== undefined) return known;
   const read = readBackdrops(contributed);
-  backdropsRead.set(contributed, read);
+  backdropsRead.clear();
+  backdropsRead.set(version, read);
   return read;
 }
 
@@ -125,17 +133,23 @@ export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
   const core = useNode(extensionNodeId("core"));
   const system = useShownDesignSystem();
   const theme = useNode(system === null ? undefined : designSystemOptionId(system.key.id));
-  const choice = backdropChoice(
-    [node?.props, core?.props, theme?.props],
-    backdrops.map(({ value }) => value.key.id),
-  );
-  return {
-    backdrop: chosenDeclared(backdrops, choice.backdrop),
-    strength: choice.strength,
-    direction: choice.direction,
-    art: choice.art === null ? null : assetUrl(choice.art),
-    variants: choice.variants,
-  };
+  const own = node?.props;
+  const coreProps = core?.props;
+  const themeProps = theme?.props;
+  // One object while nothing it reads changes, so a head declares it to its host only when it changes.
+  return useMemo(() => {
+    const choice = backdropChoice(
+      [own, coreProps, themeProps],
+      backdrops.map(({ value }) => value.key.id),
+    );
+    return {
+      backdrop: chosenDeclared(backdrops, choice.backdrop),
+      strength: choice.strength,
+      direction: choice.direction,
+      art: choice.art === null ? null : assetUrl(choice.art),
+      variants: choice.variants,
+    };
+  }, [backdrops, own, coreProps, themeProps]);
 }
 
 /**

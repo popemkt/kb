@@ -18,7 +18,7 @@ import type { ExtensionManifest } from "./extension-manifest.ts";
 import { Context, Effect } from "effect";
 import { z } from "zod";
 import type { DeclaredOptionSet, KbNode, NodeId, SeedRetirement } from "@kb/model";
-import type { FieldRefCarrier } from "@kb/query";
+import type { ValueRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
@@ -130,7 +130,7 @@ export interface ExtensionDeclaration {
    * relation reads them as carriers (`:node/mentions`, `derivedWith` in
    * `@kb/query`), so a node's References show what points at it this way.
    */
-  readonly refCarriers?: readonly FieldRefCarrier[];
+  readonly refCarriers?: readonly ValueRefCarrier[];
 }
 
 /** A family's declaration, as written in its shared package. */

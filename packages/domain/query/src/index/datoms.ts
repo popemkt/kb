@@ -1,5 +1,5 @@
 import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
-import type { DerivedRef } from "./derived.ts";
+import type { DerivedRef, FieldTypes } from "./derived.ts";
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
@@ -66,14 +66,18 @@ export interface NodeDatoms {
   refs: Set<NodeId>;
 }
 
-/** What each derived attribute's carriers read off `node`: the ids it points at by them, in order. */
+/**
+ * What each derived attribute's carriers read off `node`, its fields typed
+ * by `types`: the ids it points at by them, in order.
+ */
 function carriedBy(
   node: KbNode,
   derived: readonly DerivedRef[],
+  types: FieldTypes,
 ): { readonly attr: string; readonly ids: readonly NodeId[] }[] {
   return derived.map(({ attr, carriers }) => ({
     attr,
-    ids: carriers.flatMap((carrier) => [...carrier.refsOf(node)]),
+    ids: carriers.flatMap((carrier) => [...carrier.refsOf(node, types)]),
   }));
 }
 
@@ -97,21 +101,30 @@ function pointedAt(node: KbNode, carried: ReturnType<typeof carriedBy>): Set<Nod
  * derived attribute — resolvable or not: the `refs` of its datoms, read
  * without building them, so a node only planned can be asked too.
  */
-export function nodeRefs(node: KbNode, derived: readonly DerivedRef[]): Set<NodeId> {
-  return pointedAt(node, carriedBy(node, derived));
+export function nodeRefs(
+  node: KbNode,
+  derived: readonly DerivedRef[],
+  types: FieldTypes,
+): Set<NodeId> {
+  return pointedAt(node, carriedBy(node, derived, types));
 }
 
 /**
  * One node → its datoms: what it states, then each derived ref attribute in
- * `derived` from its carriers. Pure in (node, ids, derived): the index owns
- * all three.
+ * `derived` from its carriers, its fields typed by `types`. Pure in (node,
+ * ids, derived, types): the index owns all four.
  */
-export function nodeToDatoms(node: KbNode, ids: IdMap, derived: readonly DerivedRef[]): NodeDatoms {
+export function nodeToDatoms(
+  node: KbNode,
+  ids: IdMap,
+  derived: readonly DerivedRef[],
+  types: FieldTypes,
+): NodeDatoms {
   const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
   const datoms: Datom[] = [];
   const attrs = new Set<string>();
   const refAttrs = new Set<string>();
-  const carried = carriedBy(node, derived);
+  const carried = carriedBy(node, derived, types);
   const refs = pointedAt(node, carried);
 
   datoms.push([eid, ":node/id", node.id]);

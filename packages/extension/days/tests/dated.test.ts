@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS, type NodeLike } from "@kb/model";
-import { datedOn, datesOf } from "../src/index.ts";
+import { dateDayReferences, datedOn, datesOf } from "../src/index.ts";
 
 function node(id: string, props: NodeLike["props"] = {}): NodeLike {
   return { id, text: id, props, children: [] };
@@ -51,5 +51,15 @@ describe("datedOn", () => {
       { id: "task", field: "due" },
       { id: "talk", field: "starts" },
     ]);
+  });
+});
+
+describe("dateDayReferences", () => {
+  test("a date field's value names its day's node; any other value names nothing", () => {
+    expect(dateDayReferences({ t: "str", v: "2026-11-12" }, { type: "date" })).toEqual([
+      "days.2026-11-12",
+    ]);
+    expect(dateDayReferences({ t: "str", v: "" }, { type: "date" })).toEqual([]);
+    expect(dateDayReferences({ t: "str", v: "2026-11-12" }, { type: "text" })).toEqual([]);
   });
 });
