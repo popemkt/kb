@@ -554,7 +554,9 @@ type PropValue =
   write to a virtual node (`NodeIndex.isVirtual`: a saved query, read
   from its `.kb/queries/*.edn`), whatever its id, because it is
   file-backed: a stored copy would shadow the file and drift from it, so
-  the file is where it changes. `force` is meant as the owner's:
+  the file is where it changes. The page's index is not told which nodes
+  are virtual yet, so on the page only the server refuses such a write
+  (GAP [[01M73BRQC9ZSQHG9RWDCRQ6CEK]]). `force` is meant as the owner's:
   the governance family's force guard would refuse it from a caller that
   acts for the owner, and is not contributed for now ([Action
   registry](#action-registry) → Current stance).
