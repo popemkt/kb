@@ -10,7 +10,6 @@ import {
   addRoutine,
   DEFAULT_ROUTINE_ZONE,
   deleteNode,
-  describeRepeat,
   editRoutine,
   knownZone,
   project,
@@ -398,9 +397,7 @@ export function RoutineEditor({
           today={today}
           onUnreadable={(changes) => setUnreadable((now) => ({ ...now, ...changes }))}
         />
-        <Field
-          label={`Repeat · ${describeRepeat(settings.rrule, settings.until, settings.starts === "" ? "1970-01-01" : settings.starts)}`}
-        >
+        <Field label="Repeat">
           <RepeatPicker
             starts={settings.starts}
             value={settings}

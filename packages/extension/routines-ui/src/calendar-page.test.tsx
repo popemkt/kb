@@ -314,6 +314,35 @@ describe("creating", () => {
     await click($('[role="switch"][aria-label="All day"]'));
     expect(valueOf('[aria-label="Starts"]')).toBe("14:00");
   });
+  test("the repeat is said in words only when its option does not already say it", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    await click(button("New"));
+    expect(valueOf('select[aria-label="Repeat"]')).toBe("none");
+    expect(document.querySelector("[data-repeat-summary]")).toBeNull();
+    await click(button("Cancel"));
+    pointer("pointerdown", chip("gym/2026-11-02"), y(7) + 10);
+    pointer("pointerup", chip("gym/2026-11-02"), y(7) + 10);
+    await click(button("Edit routine"));
+    expect(valueOf('select[aria-label="Repeat"]')).toBe("custom");
+    expect($("[data-repeat-summary]").textContent).toBe("Every week on Mon, Wed");
+  });
+  test("a routine ending at midnight lasts to midnight on its day; one past midnight ends the next day", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR]);
+    await click(button("New"));
+    fill("Title", "Late call");
+    fill("Starts", "23:30");
+    expect(valueOf('[aria-label="Ends"]')).toBe("00:00");
+    expect($("[data-routine-length]").textContent).toBe("30 min");
+    fill("Ends", "00:30");
+    expect($("[data-routine-length]").textContent).toBe("1 h, ends the next day");
+    fill("Ends", "00:00");
+    await click(button("Save"));
+    expect([propOf(writes()[0], F.at), propOf(writes()[0], F.duration)]).toEqual([["23:30"], [30]]);
+    const late = $('button[data-entry$="/2026-11-04"]');
+    expect(column("2026-11-04").contains(late)).toBe(true);
+    expect(late.getAttribute("aria-label")).toBe("Late call, 23:30–00:00");
+    expect(column("2026-11-05").querySelector("[data-entry]")).toBeNull();
+  });
   test("an end time is picked from a list that starts after the start, by keys", async () => {
     open("/calendar/week/2026-11-02", [CALENDAR]);
     await click(button("New"));

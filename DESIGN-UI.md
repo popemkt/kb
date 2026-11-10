@@ -3830,7 +3830,8 @@ the page adds no storage of its own.
   how long each would last; moving the start keeps the length. Then the
   repeat (presets read back from the rule, a custom frequency, interval,
   weekdays and monthly by day or weekday, ends never, on a day or after a
-  count, and the raw rule) and the calendar, and for a routine its sync
+  count, and the raw rule, said in words below its choice when the choice
+  does not already say it) and the calendar, and for a routine its sync
   state, Open in Google Calendar and Sync now. What stops Save is said in
   words, one problem at a time: no day, a time that isn't one yet, an end
   at the start, a repeat that ends before it starts, a rule the engine
