@@ -5255,7 +5255,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   `test` — what `bun test` and Vitest give the process and every child it
   starts — must name its home in `KB_HOME`, and resolving the home without
   it is a defect, not a fallback. The test preload names one per run
-  (`@kb/test-kit`'s `test-home.ts`), so a test that registers a root writes
+  (`@kb/test-kit`'s `test-home.ts`, in its `preload.ts`, which the root's
+  and every `bun test` package's `bunfig.toml` name), so a test that registers a root writes
   only there, and one that starts a kb child without passing that on fails
   instead of writing to the person's.
 - **The data is nodes.** In the home store: the tag `sys.tag.kb-location`

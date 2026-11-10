@@ -236,6 +236,20 @@ export function bunfigTestIgnores(): string[] {
   return Array.isArray(ignores) ? ignores.map(String) : [];
 }
 
+/**
+ * The `bunfig.toml` every `bun test` package carries, word for word. Bun
+ * reads the config of the directory it runs in and no other, and resolves a
+ * preload against that directory, so a suite run from its package directory
+ * names the run's one preload list (`@kb/test-kit`'s `preload.ts`) here, as
+ * the root's `bunfig.toml` does for a root run.
+ */
+export const PACKAGE_BUNFIG = `# A bun test run from this package's directory preloads what a root run
+# does: the one list, packages/app/test-kit/src/preload.ts (the root
+# bunfig.toml says why). Held to this text by harness/tests/test-preload.test.ts.
+[test]
+preload = ["../../app/test-kit/src/preload.ts"]
+`;
+
 export interface Tsconfig {
   extends?: string;
   include?: string[];
