@@ -38,6 +38,21 @@ export function fieldTypesIn(nodeOf: (id: NodeId) => KbNode | undefined): FieldT
 }
 
 /**
+ * What a carrier may read of the graph beyond the node it reads. The index
+ * that hands it over knows what each read depends on, so it reads a node
+ * again when any of that changes.
+ */
+export interface GraphReads {
+  /** Each field's declared type (`FieldTypes`). */
+  readonly fieldType: FieldTypes;
+}
+
+/** {@link GraphReads} over the graph `nodeOf` reads, remembering nothing. */
+export function graphReadsIn(nodeOf: (id: NodeId) => KbNode | undefined): GraphReads {
+  return { fieldType: fieldTypesIn(nodeOf) };
+}
+
+/**
  * One reference a carrier reads off a node: the id it names, and the field
  * whose value names it. A reference in no field (the node's own text, the
  * owner a host hands the index) has none.
@@ -55,7 +70,7 @@ export interface CarriedRef {
  * or stops existing, or when a field it holds changes type.
  */
 export interface RefCarrier {
-  readonly refsOf: (node: KbNode, types: FieldTypes) => Iterable<CarriedRef>;
+  readonly refsOf: (node: KbNode, reads: GraphReads) => Iterable<CarriedRef>;
 }
 
 /**
@@ -144,11 +159,11 @@ export interface ValueRefCarrier {
 /** `carrier` as a node's carrier: what each value it reads points at, in prop order. */
 function valueCarrier({ field, refsOf }: ValueRefCarrier): RefCarrier {
   return {
-    refsOf: (node, types) =>
+    refsOf: (node, reads) =>
       Object.entries(node.props)
         .filter(([held]) => field === undefined || held === field)
         .flatMap(([held, values]) => {
-          const at: ValueField = { id: held, type: types(held) };
+          const at: ValueField = { id: held, type: reads.fieldType(held) };
           return values.flatMap((value) =>
             [...refsOf(value, at)].map((id) => ({ id, field: held })),
           );

@@ -1,6 +1,6 @@
 import type { FieldType, KbNode, NodeId, StoreTx } from "@kb/model";
 import { nodeRefs, referenceFields } from "./datoms.ts";
-import { fieldTypesIn, type DerivedRef, type FieldTypes } from "./derived.ts";
+import { fieldTypesIn, type DerivedRef, type FieldTypes, type GraphReads } from "./derived.ts";
 import type { NodeIndex } from "./index.ts";
 
 function byId(a: KbNode, b: KbNode): number {
@@ -85,6 +85,9 @@ export class NodeTable implements NodeIndex {
     return type;
   };
 
+  /** What carriers read of the table beyond the node (`GraphReads`). */
+  readonly reads: GraphReads = { fieldType: this.fieldTypes };
+
   /** The full index replaces its definition while keeping this node table. */
   setDerived(derived: readonly DerivedRef[]): void {
     this.#derived = derived;
@@ -101,8 +104,7 @@ export class NodeTable implements NodeIndex {
     this.#refsTo = new Map();
     this.#types = new Map();
     this.#typeReaders = new Map();
-    for (const node of merged)
-      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.fieldTypes));
+    for (const node of merged) this.#setRefs(node.id, nodeRefs(node, this.#derived, this.reads));
     this.#generation += 1;
   }
 
@@ -138,7 +140,7 @@ export class NodeTable implements NodeIndex {
       }
     }
     for (const node of restated.values())
-      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.fieldTypes));
+      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.reads));
     this.#generation += 1;
     return { created, removed, restated: [...restated.values()] };
   }
@@ -152,11 +154,11 @@ export class NodeTable implements NodeIndex {
   }
 
   referencesOf(node: KbNode): ReadonlySet<NodeId> {
-    return nodeRefs(node, this.#derived, this.fieldTypes);
+    return nodeRefs(node, this.#derived, this.reads);
   }
 
   referenceFields(node: KbNode, target: NodeId): ReadonlySet<NodeId> {
-    return referenceFields(node, target, this.#derived, this.fieldTypes);
+    return referenceFields(node, target, this.#derived, this.reads);
   }
 
   getNode(id: NodeId): KbNode | undefined {
