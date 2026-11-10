@@ -1738,6 +1738,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M39YM7FQ9S231XW8JBA5MG0E`
 
+### GAP: theme head art meets the breadcrumbs in a narrow head
+
+- **expected** — Theme art drawn in a page head (Transistor OVC terminal, ZZZ broadcast sign) is composed for the head with its breadcrumbs inside the space, so in a narrow head it keeps the head band clear as it does in a wide one
+- **current** — The head space now holds the breadcrumbs over the backdrop; art that a narrow head placed at the top of the frame (OVC terminal at top 26px, the broadcast sign) reaches under the breadcrumbs and their scrim, which covers part of it
+- **impact** — In a side panel or on a phone, the top of that art is hidden behind the breadcrumbs scrim; the breadcrumbs stay readable
+- **closes** — Recompose those themes narrow-head art below the head band (or let a backdrop presentation reserve the band), checked by a narrow-width screenshot per theme
+- **node** — `01M7355M039ESNZV6N85EV8BQ2`
+
 ### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
 
 - **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
