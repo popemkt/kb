@@ -125,7 +125,7 @@ describe("DatascriptIndex", () => {
   test("a field a family says carries references feeds the same relation, on both paths", () => {
     // A field whose text value lists ids, as a canvas document lists its cards.
     const derived = derivedWith({
-      fields: [
+      carriers: [
         { field: "f.doc", refsOf: (value) => (value.t === "str" ? value.v.split(",") : []) },
       ],
     });

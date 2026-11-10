@@ -4,7 +4,13 @@ export type { ClockSampler, EdnExecutor } from "./datascript.ts";
 export { DatascriptIndex } from "./index/datascript-index.ts";
 export type { IndexOptions } from "./index/index.ts";
 export { derivedWith, nodeMentions } from "./index/derived.ts";
-export type { DerivedRef, DerivedSources, FieldRefCarrier } from "./index/derived.ts";
+export type {
+  DerivedRef,
+  DerivedSources,
+  FieldTypes,
+  ValueField,
+  ValueRefCarrier,
+} from "./index/derived.ts";
 export { KbIndexService } from "./index/index.ts";
 export type { DatalogAnswer, KbIndex, NodeIndex } from "./index/index.ts";
 export { NodeTable } from "./index/node-table.ts";

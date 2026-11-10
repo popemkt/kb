@@ -694,9 +694,18 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   attribute is cardinality-many) — same shape as Logseq `:block/refs`
   (parse-at-transact). A new way of pointing at a node is a carrier added to
   that entry, and a new derived relation is an entry; the build has no
-  second pass beside the table. A family adds a carrier by declaring a
-  field whose values carry references (`refCarriers`, `FieldRefCarrier`;
-  Extension families), which `derivedWith` adds to the mention entry. The UI renders inactive text refs as
+  second pass beside the table. A family adds a carrier by declaring
+  values that carry references (`refCarriers`, `ValueRefCarrier`;
+  Extension families), which `derivedWith` adds to the mention entry: one
+  field's values (`field`, as canvas reads its document field) or every
+  field's (no `field`, as a date carrier reads any date-typed field). The
+  carrier reads each value with the field it is in, the field's id and
+  declared type (`ValueField`, typed by `fieldTypeOf`), because a date and
+  a text are both stored as `{t:"str"}` and only the field says which. A
+  carrier reads nothing else of the graph, so the index knows when to read
+  a node again: when it changes, when a target it names starts or stops
+  existing, and when a field it holds changes type (`NodeTable.change`). A
+  field's other edits, its label say, read no holder again. The UI renders inactive text refs as
   accent links (click = zoom, ⌘/Ctrl-click = jump); the relationship itself is
   queryable, not UI-only. Example — nodes that reference a target:
 

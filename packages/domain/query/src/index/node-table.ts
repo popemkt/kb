@@ -1,6 +1,6 @@
 import type { KbNode, NodeId, StoreTx } from "@kb/model";
 import { nodeRefs } from "./datoms.ts";
-import type { DerivedRef } from "./derived.ts";
+import { fieldTypesIn, type DerivedRef, type FieldTypes } from "./derived.ts";
 import type { NodeIndex } from "./index.ts";
 
 function byId(a: KbNode, b: KbNode): number {
@@ -10,9 +10,10 @@ function byId(a: KbNode, b: KbNode): number {
 /**
  * What one transaction changed in the table, for a query engine kept over
  * it: the ids that appeared and vanished, and every node whose derived
- * facts must be restated — the upserts, and each referrer of an id that
+ * facts must be restated — the upserts, each referrer of an id that
  * appeared or vanished, since a node's facts depend on whether its targets
- * exist.
+ * exist, and each referrer of a field whose type changed, since a carrier
+ * reads a value with its field's type (`FieldTypes`).
  */
 export interface NodeChange {
   readonly created: readonly NodeId[];
@@ -49,6 +50,12 @@ export class NodeTable implements NodeIndex {
     return this.#generation;
   }
 
+  /**
+   * Each field's declared type in the table as it stands, read as every
+   * surface reads it (`fieldTypeOf`): what carriers are handed.
+   */
+  readonly fieldTypes: FieldTypes = fieldTypesIn((id) => this.#nodes.get(id));
+
   /** The full index replaces its definition while keeping this node table. */
   setDerived(derived: readonly DerivedRef[]): void {
     this.#derived = derived;
@@ -63,7 +70,8 @@ export class NodeTable implements NodeIndex {
     this.#nodes = new Map(merged.map((n) => [n.id, n]));
     this.#refsFrom = new Map();
     this.#refsTo = new Map();
-    for (const node of merged) this.#setRefs(node.id, nodeRefs(node, this.#derived));
+    for (const node of merged)
+      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.fieldTypes));
     this.#generation += 1;
   }
 
@@ -79,6 +87,7 @@ export class NodeTable implements NodeIndex {
     const created = tx.upserts.filter((n) => !this.#nodes.has(n.id)).map((n) => n.id);
     const removed = tx.deletes.filter((id) => this.#nodes.has(id));
     if (created.length === 0 && removed.length === 0 && tx.upserts.length === 0) return null;
+    const typed = this.#typesOf(tx.upserts);
 
     for (const id of removed) this.#setRefs(id, new Set());
     for (const node of tx.upserts) this.#nodes.set(node.id, node);
@@ -88,13 +97,17 @@ export class NodeTable implements NodeIndex {
 
     const restated = new Map<NodeId, KbNode>();
     for (const node of tx.upserts) restated.set(node.id, node);
-    for (const id of [...created, ...removed]) {
+    const retyped = [...typed]
+      .filter(([id, type]) => this.fieldTypes(id) !== type)
+      .map(([id]) => id);
+    for (const id of [...created, ...removed, ...retyped]) {
       for (const referrer of this.#refsTo.get(id) ?? []) {
         const node = this.#nodes.get(referrer);
         if (node !== undefined) restated.set(referrer, node);
       }
     }
-    for (const node of restated.values()) this.#setRefs(node.id, nodeRefs(node, this.#derived));
+    for (const node of restated.values())
+      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.fieldTypes));
     this.#generation += 1;
     return { created, removed, restated: [...restated.values()] };
   }
@@ -108,7 +121,7 @@ export class NodeTable implements NodeIndex {
   }
 
   referencesOf(node: KbNode): ReadonlySet<NodeId> {
-    return nodeRefs(node, this.#derived);
+    return nodeRefs(node, this.#derived, this.fieldTypes);
   }
 
   getNode(id: NodeId): KbNode | undefined {
@@ -146,6 +159,20 @@ export class NodeTable implements NodeIndex {
     }
     hits.sort(byId);
     return limit !== undefined && hits.length > limit ? hits.slice(0, limit) : hits;
+  }
+
+  /**
+   * The type each node `upserts` replaces had as a field, before the
+   * replacement: compared after it, a change names the fields whose
+   * holders' carriers must be read again. A type option's own built-in
+   * type is its owner's to change (a `sys.*` value), so only the field's
+   * choice of option is compared.
+   */
+  #typesOf(upserts: readonly KbNode[]): Map<NodeId, ReturnType<FieldTypes>> {
+    const types = new Map<NodeId, ReturnType<FieldTypes>>();
+    for (const node of upserts)
+      if (this.#nodes.has(node.id)) types.set(node.id, this.fieldTypes(node.id));
+    return types;
   }
 
   #setRefs(id: NodeId, refs: Set<NodeId>): void {
