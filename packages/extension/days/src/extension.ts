@@ -8,6 +8,7 @@ import { Effect } from "effect";
 import {
   ActionPoint,
   CAPTURE_TARGET_ROLE,
+  DATE_TARGET_ROLE,
   LANDING_ROLE,
   declarationPlugin,
   defineExtension,
@@ -37,6 +38,11 @@ export const daysExtension = defineExtension({
         role: CAPTURE_TARGET_ROLE.role,
         priority: 50,
         why: "A node made with no chosen place lands in today's node",
+      },
+      {
+        role: DATE_TARGET_ROLE.role,
+        priority: 50,
+        why: "A followed date opens its day's node, made if need be",
       },
       {
         role: LANDING_ROLE.role,

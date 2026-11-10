@@ -358,10 +358,11 @@ export type ParsedValue =
   | { readonly ok: true; readonly value: PropValue }
   | { readonly ok: false; readonly reason: string };
 
-/** Where a value points: a node, or a link. */
+/** Where a value points: a node, a link, or a date, which leads where the page's date target says. */
 export type FollowTarget =
   | { readonly kind: "node"; readonly id: string }
-  | { readonly kind: "href"; readonly href: string };
+  | { readonly kind: "href"; readonly href: string }
+  | { readonly kind: "date"; readonly date: string };
 
 /** What one value of a field type is to the slot that holds it, as data. */
 export interface ValueKindSpec {

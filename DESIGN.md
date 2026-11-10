@@ -5440,6 +5440,8 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
     dated before its day exists is mentioned once the day is made. The
     carrier names the day by its derived id, `days.<date>`, so a day held
     under another id is not mentioned (GAP [[01M73N2FPM7GGCX6H62V6PE8JG]]).
+    Following a date value opens its day, made if need be: days replaces
+    the page role `ui.date-target` ([Provider roles](#provider-roles)).
   - The day page's "Dated this day" (DESIGN-UI.md →
     [Days](./DESIGN-UI.md#days)) reads the graph by key, so it lists those
     too.
@@ -6069,7 +6071,10 @@ goes under. Core owns it and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →
-[Days](./DESIGN-UI.md#days)).
+[Days](./DESIGN-UI.md#days)). The fourth is `ui.date-target`, the node a
+followed date value opens (a `date` follow target, DESIGN-UI.md → Field
+values). Core owns it and leads nowhere, and days replaces it with the
+date's day, made if need be.
 
 ### Transaction reactions
 

@@ -126,7 +126,9 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
     parse: (text) => parseTypedValue(text, "date", { today: todayLocal() }),
     isBlank: (value) => value.t !== "str" || value.v === "",
     layout: "stack",
-    follow: nowhere,
+    // A date leads where the page's date target says: its day, with days on.
+    follow: (value) =>
+      value.t === "str" && value.v !== "" ? { kind: "date", date: value.v } : null,
   },
   checkbox: {
     editor: "toggle",

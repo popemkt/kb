@@ -9,6 +9,7 @@ import {
   browserHost,
   CaptureTargetService,
   CommandPoint,
+  DateTargetService,
   LandingService,
   provideView,
   SidebarSectionPoint,
@@ -17,7 +18,7 @@ import {
 import { goToTodayCommand } from "./command";
 import { DaySectionPoint } from "./sections";
 import { TodaySection } from "./section";
-import { todayNode } from "./today";
+import { dayNode, todayNode } from "./today";
 
 /**
  * The day page, in a chunk of its own: the page fetches it the first time a
@@ -74,8 +75,9 @@ async function landOnToday(): Promise<string | null> {
  * The days family's page entry (DESIGN-UI.md → Days). It loads the family's
  * plugin as a child, so the day page's key, `ext.days.today` and the
  * one-node-per-key guard are the page kernel's too, and adds the day page
- * with its sections point, the Today row, ⌘K "Go to today", and its replacements of the capture
- * target and the landing: today's node.
+ * with its sections point, the Today row, ⌘K "Go to today", and its
+ * replacements of three roles: the capture target and the landing answer
+ * today's node, and the date target a date's own day.
  */
 export const daysUiPlugin = definePlugin({
   name: daysExtension.name,
@@ -97,6 +99,7 @@ export const daysUiPlugin = definePlugin({
         ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
         ctx.provide(CaptureTargetService, todayNode),
         ctx.provide(LandingService, landOnToday),
+        ctx.provide(DateTargetService, dayNode),
       ],
       { discard: true },
     ),
