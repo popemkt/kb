@@ -215,7 +215,7 @@ export function App() {
       // asks no server at all.
       const manifest = fixturesForced() ? null : readManifest();
       const { snapshot, source } = await loadGraph();
-      hydrateFromWire(snapshot.nodes, snapshot.rev, source);
+      hydrateFromWire(snapshot.nodes, snapshot.rev, source, snapshot.virtual);
       if (source === "api" && manifest !== null) {
         await loadManifest(manifest);
         await extensionsSettled();

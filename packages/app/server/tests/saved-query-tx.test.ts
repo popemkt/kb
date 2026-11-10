@@ -76,6 +76,9 @@ describe("saved queries are a logged transaction", () => {
 
       expect(ctx.log.head).toBe(before + 1);
       const frame = txFrames(client).at(-1);
+      // It says it is the virtual set's, so a client keeps it out of its store.
+      expect(frame?.virtual).toBe(true);
+      expect(hub.snapshot.virtual?.toSorted()).toEqual([SYSTEM_IDS.queriesRoot, "sys.query.todos"]);
       expect(frame?.upserts.map((n) => n.id).toSorted()).toEqual([
         SYSTEM_IDS.queriesRoot,
         "sys.query.todos",
@@ -136,6 +139,7 @@ describe("saved queries are a logged transaction", () => {
       const caught = txFrames(client);
       expect(caught).toHaveLength(1);
       expect(caught[0]?.upserts.map((n) => n.id)).toContain("sys.query.todos");
+      expect(caught[0]?.virtual).toBe(true);
       expect(hub.snapshot.nodes.some((n) => n.id === "sys.query.todos")).toBe(true);
     } finally {
       await rm(dir, { recursive: true, force: true });

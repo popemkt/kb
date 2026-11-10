@@ -10,6 +10,7 @@ import { declarationPlugin, type ScreensPort } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import {
+  browserReplica,
   invoke,
   invokeLocal,
   invokeSettled,
@@ -18,6 +19,9 @@ import {
   waitForBrowserPushes,
 } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
+
+/** The page's index as the graph store holds it now. */
+const index = () => useGraphStore.getState().index;
 
 describe("browser action runtime", () => {
   afterEach(() => {
@@ -199,5 +203,60 @@ describe("browser action runtime", () => {
     expect(receipt.status).toBe("succeeded");
     await waitForBrowserPushes();
     expect(since).toHaveBeenCalledExactlyOnceWith(7);
+  });
+
+  it("holds a snapshot's virtual nodes as virtual through frames and a reinstall, and refuses a local write to one", async () => {
+    const probe = {
+      id: "sys.query.probe",
+      text: "probe",
+      props: {},
+      children: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const nodes = [...structuredClone(fixtureGraph.nodes), probe];
+    useGraphStore.getState().hydrateFromWire(nodes, 1, "api", [probe.id]);
+    const post = vi.fn();
+    setPostAction(post);
+
+    // The page shows it, its index answers over it, and holds it as the server does.
+    expect(useGraphStore.getState().wireNodes.some((n) => n.id === probe.id)).toBe(true);
+    expect(index()?.isVirtual(probe.id)).toBe(true);
+    expect(
+      index()
+        ?.storedNodes()
+        .some((n) => n.id === probe.id),
+    ).toBe(false);
+    const refused = await invoke("node.update", { id: probe.id, text: "mine" });
+    expect(refused).toMatchObject({ status: "failed", code: "forbidden" });
+    expect(index()?.getNode(probe.id)?.text).toBe("probe");
+    await waitForBrowserPushes();
+    expect(post).not.toHaveBeenCalled();
+
+    // A frame of the virtual set keeps it virtual; a stored write of the id takes it out.
+    const replica = browserReplica();
+    replica?.receive({
+      op: "tx",
+      rev: 2,
+      upserts: [{ ...probe, text: "renamed in its file" }],
+      deletes: [],
+      virtual: true,
+    });
+    expect(index()?.getNode(probe.id)?.text).toBe("renamed in its file");
+    expect(index()?.isVirtual(probe.id)).toBe(true);
+    replica?.receive({ op: "tx", rev: 3, upserts: [{ ...probe, text: "stored" }], deletes: [] });
+    expect(index()?.isVirtual(probe.id)).toBe(false);
+    expect(
+      index()
+        ?.storedNodes()
+        .some((n) => n.id === probe.id),
+    ).toBe(true);
+
+    // A snapshot installed after a reconnect says again which nodes are virtual.
+    replica?.receive({ op: "snapshot-required", head: 9 });
+    replica?.receive({ op: "snapshot", snapshot: { rev: 9, nodes, virtual: [probe.id] } });
+    expect(index()?.isVirtual(probe.id)).toBe(true);
+    expect(index()?.getNode(probe.id)?.text).toBe("probe");
+    expect(useGraphStore.getState().wireNodes.some((n) => n.id === probe.id)).toBe(true);
   });
 });

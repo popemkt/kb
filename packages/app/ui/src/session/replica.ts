@@ -28,10 +28,14 @@ export type SyncPhase =
   /** The server answered `snapshot-required`; only an installed snapshot leaves this. */
   | { readonly tag: "awaiting-snapshot"; readonly fetching: boolean; readonly failures: number };
 
-/** Where the machine's decisions land: the visible replica. */
+/**
+ * Where the machine's decisions land: the visible replica. `virtual`, the
+ * whole virtual set (the nodes served from a source that is not the store),
+ * comes with an apply that moved it and with every install.
+ */
 export interface ReplicaView {
-  apply(tx: StoreTx, rev: number): void;
-  install(nodes: KbNode[], rev: number): void;
+  apply(tx: StoreTx, rev: number, virtual?: readonly KbNode[]): void;
+  install(nodes: KbNode[], rev: number, virtual: readonly KbNode[]): void;
   /** The node as the replica shows it now, which for a held id is its local image. */
   local(id: string): KbNode | undefined;
   /** A frame made elsewhere changed what the page shows (none of it this page's held writes). */
@@ -69,14 +73,24 @@ export class BrowserReplica {
   private readonly taken = new Map<string, KbNode | null>();
   /** The rev the view was last given; a frame that changes nothing still moves it. */
   private shownRev: number;
+  /**
+   * The ids of the server image the server holds as virtual: what a snapshot
+   * names, what a virtual frame adds or removes, and what a stored write of
+   * the same id takes out of the set, as the server's index does.
+   */
+  private readonly virtual: Set<string>;
+  /** The virtual set moved since the view was last given it. */
+  private virtualMoved = false;
 
   constructor(
     nodes: readonly KbNode[],
     rev: number,
     view: ReplicaView,
     link: () => ReplicaLink | null,
+    virtual: Iterable<string> = [],
   ) {
     this.server = new Map(nodes.map((node) => [node.id, node]));
+    this.virtual = new Set(virtual);
     this.rev = rev;
     this.shownRev = rev;
     this.view = view;
@@ -167,6 +181,7 @@ export class BrowserReplica {
     }
     for (const id of tx.deletes) this.server.delete(id);
     for (const node of tx.upserts) this.server.set(node.id, node);
+    this.moveVirtual(tx);
     this.rev = tx.rev;
     this.phase = LIVE;
     const shown: StoreTx = {
@@ -181,6 +196,9 @@ export class BrowserReplica {
   private install(snapshot: GraphSnapshot): void {
     this.server.clear();
     for (const node of snapshot.nodes) this.server.set(node.id, node);
+    this.virtual.clear();
+    for (const id of snapshot.virtual ?? []) this.virtual.add(id);
+    this.virtualMoved = false;
     this.rev = snapshot.rev;
     for (const hold of this.confirmedBy(this.rev)) this.holds.delete(hold);
     const shown = new Map(this.server);
@@ -195,9 +213,26 @@ export class BrowserReplica {
     // The snapshot is the whole visible replica: nothing taken before it stands.
     this.taken.clear();
     this.shownRev = this.rev;
-    this.view.install(sortWireNodes([...shown.values()]), this.rev);
+    this.view.install(sortWireNodes([...shown.values()]), this.rev, this.virtualNodes());
     // Frames were ignored while the snapshot was awaited; ask for any after it.
     this.link()?.since(this.rev);
+  }
+
+  /** What `tx` does to the virtual set: a virtual frame is the set's; any other write takes its ids out. */
+  private moveVirtual(tx: Extract<GraphMessage, { op: "tx" }>): void {
+    if (tx.virtual === true) {
+      for (const id of tx.deletes) this.virtual.delete(id);
+      for (const node of tx.upserts) this.virtual.add(node.id);
+      this.virtualMoved = true;
+      return;
+    }
+    for (const id of [...tx.deletes, ...tx.upserts.map((node) => node.id)])
+      if (this.virtual.delete(id)) this.virtualMoved = true;
+  }
+
+  /** The virtual set as the server image holds it. */
+  private virtualNodes(): KbNode[] {
+    return [...this.virtual].flatMap((id) => this.server.get(id) ?? []);
   }
 
   private fetch(awaiting: Extract<SyncPhase, { tag: "awaiting-snapshot" }>): void {
@@ -256,6 +291,8 @@ export class BrowserReplica {
     }
     this.taken.clear();
     this.shownRev = this.rev;
-    this.view.apply({ upserts, deletes }, this.rev);
+    const virtual = this.virtualMoved ? this.virtualNodes() : undefined;
+    this.virtualMoved = false;
+    this.view.apply({ upserts, deletes }, this.rev, virtual);
   }
 }
