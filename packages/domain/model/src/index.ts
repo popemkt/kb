@@ -124,6 +124,7 @@ export { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.
 export {
   isA,
   kindsOf,
+  nodesOfKind,
   tagChains,
   templateFieldsOf,
   type KindsLookup,

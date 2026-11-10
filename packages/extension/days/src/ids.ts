@@ -17,6 +17,10 @@ export const DAYS_IDS = {
   keyField: "sys.f.days.key",
   /** Setting: the node a journal's years go under; empty until the first day is made. */
   journalField: "sys.f.days.journal",
+  /** Setting: the tag a new day gets, `#day` or a tag of the person's that extends it. */
+  dayTagField: "sys.f.days.dayTag",
+  /** Setting: the tag a new week gets, `#week` or a tag that extends it. */
+  weekTagField: "sys.f.days.weekTag",
   /** Setting: where a page that opens at the root goes. */
   openOnField: "sys.f.days.openOn",
   openOnToday: "sys.f.days.openOn.today",
@@ -27,6 +31,8 @@ export const DAYS_IDS = {
   todayCommand: "sys.cmd.days.today",
   /** The commit guard that keeps one node per key. */
   uniqueKeyGuard: "ext.days.unique-key",
+  /** The commit guard that keeps the day and week tag settings to tags that extend the base. */
+  periodTagGuard: "ext.days.period-tag",
 } as const;
 
 /**

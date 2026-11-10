@@ -92,6 +92,19 @@ export function isA(
 }
 
 /**
+ * The nodes of `nodes` that are a `tag`, in the map's order: every node of
+ * the tag and of each tag that extends it, as one scan that walks each
+ * chain once. The map is the graph the chains are read in.
+ */
+export function nodesOfKind<N extends Pick<NodeLike, "props">>(
+  nodes: ReadonlyMap<NodeId, N>,
+  tag: NodeId,
+): N[] {
+  const { isA: is } = tagChains((id) => nodes.get(id));
+  return [...nodes.values()].filter((node) => is(node, tag));
+}
+
+/**
  * The fields the templates of `tags` and of their chains name
  * (`sys.f.fields`), each once: the first tag's own in its order, then its
  * ancestors', then each next tag's that are not there yet. What a node of

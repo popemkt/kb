@@ -22,7 +22,7 @@
 import { createHash } from "node:crypto";
 import { Clock, DateTime, Effect, Result } from "effect";
 import { onWire, type SecretStore, type UiHostService } from "@kb/contracts";
-import { formatSecretRef, typeRefsOf, type SecretRef } from "@kb/model";
+import { formatSecretRef, isA, type SecretRef } from "@kb/model";
 import {
   type AccountConfig,
   CONNECT_PATH,
@@ -80,8 +80,9 @@ function setupGraph(ui: UiHostService, host: RoutineHost, secrets: SecretStore) 
     return undefined;
   });
   const tagged = Effect.fn("routines.setup.node")(function* (id: string, tag: string) {
-    const node = (yield* host.read).get(id);
-    if (node === undefined || !typeRefsOf(node).includes(tag))
+    const nodes = yield* host.read;
+    const node = nodes.get(id);
+    if (node === undefined || !isA(node, tag, (each) => nodes.get(each)))
       return yield* new SyncError({ status: 404, code: "not_found" });
     return node;
   });
@@ -111,8 +112,9 @@ function setupGraph(ui: UiHostService, host: RoutineHost, secrets: SecretStore) 
    * that names the host's own references (`ownsSecrets`).
    */
   const digestOf = Effect.fn("routines.binding.digest")(function* (id: string) {
-    const node = (yield* host.read).get(id);
-    if (node !== undefined && typeRefsOf(node).includes(T.account)) {
+    const nodes = yield* host.read;
+    const node = nodes.get(id);
+    if (node !== undefined && isA(node, T.account, (each) => nodes.get(each))) {
       const account = yield* accountOf(id);
       if (!ownsSecrets(secrets, account)) return yield* foreign;
       return yield* accountBindingDigest(account);
