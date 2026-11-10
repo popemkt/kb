@@ -3967,7 +3967,10 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   `days.sections`, in ascending `order`. A section is `{order, title,
   Component}`, and its component is given the day node and its key. Days
   never imports a family that shows something on a day; that family
-  contributes a section (the events section is one). Days fills:
+  contributes a section (the events section is one). Days fills two:
+  - **Dated this day** (`order: 20`): every node holding the day in a
+    date-typed field, whatever the field and whichever family made it,
+    each with the field's name beside it (`datedOn` in `@kb/days`).
   - **Made or edited this day** (`order: 30`): the nodes whose created or
     updated instant falls within the local day, newest first. Schema, the
     period nodes and `sys.*` nodes are left out.

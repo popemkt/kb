@@ -5414,8 +5414,16 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   Another family may claim the role the same way (an inbox, say). The
   server's `node.add` without a parent does not ask it yet (GAP
   [[01M7357PSG9XZH0JBFDHV6DM2T]]).
+- **A node is dated a day by any date field.** The days a node holds are
+  its values in date-typed fields, whichever field and family (`datesOf`):
+  the field's type says a value is a date, and a date value is stored as
+  its `YYYY-MM-DD` text, which is the day's key. There is no shared date
+  field. The day page's "Dated this day" reads this one function
+  (DESIGN-UI.md → [Days](./DESIGN-UI.md#days)). The date → day reference
+  (a date value in a day's References and `kb backlinks`) waits on carriers
+  that read a value with its field node, and will read the same function.
 - **The day page's sections are a declared point,** `days.sections` (page
-  kernel, a list in ascending order). Days fills its own, and a family that
+  kernel, a list in ascending order). Days fills two, and a family that
   shows something on a day contributes a section rather than days
   importing it.
 - **No month nodes yet.** A month is not on the path to a day, and no view
