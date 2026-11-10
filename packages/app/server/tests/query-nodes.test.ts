@@ -136,7 +136,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
     expect(afterIds.has("sys.query.all-nodes")).toBe(true);
     expect(afterIds.has("test-real")).toBe(true);
 
-    // sys.* write-guard: materialized query nodes are read-only.
+    // A materialized query node is its .edn file's: the commit refuses a write to it.
     const guard = await fetch(`${handle.url}/api/action`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -145,8 +145,8 @@ describe("W4 saved-query surfacing via kb ui server", () => {
         input: { id: "sys.query.all-nodes", text: "nope" },
       }),
     });
-    const receipt = (await guard.json()) as { status: string };
-    expect(receipt.status).toBe("failed");
+    const receipt = (await guard.json()) as { status: string; code?: string };
+    expect(receipt).toMatchObject({ status: "failed", code: "forbidden" });
 
     const jsonlAfter = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     expect(jsonlAfter).not.toContain("sys.query.");

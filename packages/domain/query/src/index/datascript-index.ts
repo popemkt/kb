@@ -271,6 +271,10 @@ export class DatascriptIndex implements KbIndex {
     return this.#table.storedNodes();
   }
 
+  isVirtual(id: NodeId): boolean {
+    return this.#table.isVirtual(id);
+  }
+
   search(text: string, limit?: number): Array<KbNode> {
     return this.#table.search(text, limit);
   }

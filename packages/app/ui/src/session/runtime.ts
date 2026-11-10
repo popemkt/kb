@@ -136,6 +136,7 @@ export function replaceBrowserSession(
   queries: QueryAnswers,
   view: BrowserSessionView,
 ): void {
+  // GAP [[01M73BRQC9ZSQHG9RWDCRQ6CEK]]: the snapshot does not say which nodes are virtual, so they are stored here.
   const store = new BrowserStore(nodes);
   const ctx: KbContext<NodeIndex> = {
     root: "browser",

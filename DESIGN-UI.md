@@ -3965,7 +3965,8 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   It draws the day's own outline, with its title, fields and children, then
   **Made or edited this day**: the nodes whose created or updated instant
   falls within the local day, newest first. Schema, the period nodes and
-  `sys.*` nodes are left out. Each row opens its node.
+  `sys.*` nodes are left out. Each row opens its node. The page is its own
+  chunk, fetched the first time a day opens.
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
   node is open.

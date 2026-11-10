@@ -502,6 +502,22 @@ type PropValue =
 - **Tags (supertags) are nodes** typed `sys.tag`, holding a `sys.f.fields`
   prop listing field-node refs they template. Applying a tag = adding a
   `sys.f.type` ref prop. Multiple tags per node allowed.
+- **A tag extends tags** (`sys.f.extends`, many, in order: a setting of
+  every tag, and an additive list on a seeded one), and a node of it is a
+  node of each. A node's _chips_ are its `sys.f.type` refs; its _kinds_ are
+  those tags and their chains, and every question of membership is asked of
+  the kinds (`kindsOf`, `isA` in `@kb/model`'s `tag-kinds.ts`, the one
+  reader). A chain (`tagAncestors`) is the tag, then its parents breadth
+  first in declared order, each once, so a diamond reaches a shared tag once
+  and a cycle ends where it closes; nothing graph-shaped throws. Nearer
+  wins wherever a chain is read in order: a node shows its tags' own fields,
+  then their ancestors' (`templateFieldsOf`; a tag cannot drop a field it
+  inherits), opens in its own tag's view before an ancestor's (`tagViewsOf`),
+  is a target of a field that targets an ancestor (`allowedRefIdsOf`), and a
+  member of an ontology that includes one. Inheritance is read, never
+  copied, so a field a family adds to its tag reaches every subtype at once
+  (the seed unions what it ships into a seeded tag's additive lists, after
+  the person's).
 - **Ref targets are declared on the field node**, by exactly one of three
   carriers: `sys.f.targetQuery` (general form — parameter-free EDN whose rows
   name node ids), `sys.f.targetTag` (sugar — union of the listed tags'
@@ -517,7 +533,9 @@ type PropValue =
   `@kb/model` — same posture as the ontology resolver.
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
-  checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`) and return
+  checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`, through the
+  chains it names: `kindsOf`; datalog does not follow a chain yet, GAP
+  [[01M738XHYKHDFFCN8DK595Z15T]]) and return
   everything it names, seeded ids included: `sys.f.fieldType` legitimately
   targets six `sys.ft.*` options and `sys.f.onto.include` legitimately targets
   every supertag. Display surfaces then decide what to _show_: an unconstrained
@@ -527,19 +545,36 @@ type PropValue =
   badge list back as membership reports every supertag as untagged, which is
   what once left `sys.f.onto.include` with an empty allowed set. Write
   protection is a third, separate concern (`isSysPrefixed` + `--force`);
-  referencing a `sys.*` node as a _value_ is not a write to it. The one
-  write a person makes to a `sys.*` node without `--force` is a value of a
-  field that configures it (`sys.f.configures`, naming the node, the
-  extensions' list for every extension's node, or a kind for every node of
-  it — `sys.f.view.default` configures `sys.tag`; [Extension
-  families](#extension-families) → configuration), stated once in
-  `@kb/model`'s `system-write.ts` and checked by the commit itself
+  referencing a `sys.*` node as a _value_ is not a write to it. A person
+  writes three things of a `sys.*` node without `--force`, as
+  [data-plane freedom](AGENTS.md#data-plane-freedom) asks: its text (a
+  label is cosmetic; the seed keeps an edited one), their own ids in its
+  additive lists — its children and its tag's template, `sys.f.fields` —
+  where every `sys.*` id the list held stays, in its order (ownership
+  follows the id, so the rule reads no record of what was seeded), and a
+  value of a field that configures it (`sys.f.configures`, naming the
+  node, the extensions' list for every extension's node, or a kind for
+  every node of it — `sys.f.view.default` configures `sys.tag`; [Extension
+  families](#extension-families) → configuration). Minting or deleting
+  one, its rank, and any other field are its owner's. The rule is
+  actor-neutral: "a person" is whoever makes the call, so an agent over MCP
+  or HTTP, a family's action and a reaction get the same freedom as the
+  page, and the rule only narrows what the commit refuses; every guard,
+  intercept and approval a call passes through still applies to it. The
+  rule is stated once in `@kb/model`'s `system-write.ts` and checked by the
+  commit itself
   (`persistEffect`, the rule's one owner, over every transaction's upserts
   and deletes), so no action meets it by remembering to call a guard. A
   commit that is not a person's write says which it is (`systemWrites`):
   `forced`, the owner's `--force`, or `system`, kb's own code writing the
   schema it owns (`views.migrate`, the locations family minting its nodes
-  in the home store, a test fixture). `force` is meant as the owner's:
+  in the home store, a test fixture). The same commit refuses a person's
+  write to a virtual node (`NodeIndex.isVirtual`: a saved query, read
+  from its `.kb/queries/*.edn`), whatever its id, because it is
+  file-backed: a stored copy would shadow the file and drift from it, so
+  the file is where it changes. The page's index is not told which nodes
+  are virtual yet, so on the page only the server refuses such a write
+  (GAP [[01M73BRQC9ZSQHG9RWDCRQ6CEK]]). `force` is meant as the owner's:
   the governance family's force guard would refuse it from a caller that
   acts for the owner, and is not contributed for now ([Action
   registry](#action-registry) → Current stance).
@@ -3469,11 +3504,13 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     rows and `kb set` write its values on the extension's node,
     though the node is `sys.*`, because the write rule
     (`systemWriteRefusal`, `@kb/model`) admits exactly the values of fields
-    that configure the node being written. Its text, its children, its rank
-    and every other field stay write-protected, which is narrower than
-    [data-plane freedom](AGENTS.md#data-plane-freedom) asks:
-    additive edits (GAP [[01M7342V3W6X9PFNWVZ92WD7SF]]) and
-    labels (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
+    that configure the node being written, beside its text and a person's
+    additions to its lists ([Data model](#data-model--everything-is-a-node)
+    states the rule). Its
+    rank and every other field stay its owner's. The page does not yet offer
+    every write the rule admits: additive edits
+    (GAP [[01M7342V3W6X9PFNWVZ92WD7SF]]) and labels
+    (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
     The invoke core checks
     every commit against the rule, on the server and on the page's replica,
     and the page's field rows read `isWritableField` to offer an edit only

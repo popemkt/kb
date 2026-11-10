@@ -52,6 +52,7 @@ import {
   openKb,
 } from "@kb/runtime";
 import { FAKE_TAB_SCREEN, FakeTab } from "./fake-tab.ts";
+import { seedGoldenNodes } from "./seed-golden.ts";
 
 /** One listed action, as a surface's own listing states it. */
 export interface ListedAction {
@@ -289,6 +290,11 @@ interface SurfaceCase {
   readonly core: (invocation: ActionRequest) => Effect.Effect<ActionReceipt>;
   /** The surface's receipt for the call, or `null` when its wire cannot make it. */
   readonly via: (invocation: ActionRequest) => Effect.Effect<ActionReceipt | null>;
+}
+
+/** What became of a call: not made by the surface's wire, refused with its code, or run. */
+function outcomeOf(receipt: ActionReceipt | null): string {
+  return receipt === null ? "uncallable" : receipt.status === "failed" ? receipt.code : "ran";
 }
 
 /** What the contract runs over: how a root is served, and the surfaces by name. */
@@ -553,12 +559,15 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
             name,
             read: { node: { text: "Core", props: { [SETTING_FIELD]: [{ t: "str", v: name }] } } },
           });
-          // The same node is still write-protected beyond its settings.
-          const renamed = yield* via({
+          // A field that is not one of its settings is still its owner's: its kind, here.
+          const retyped = yield* via({
             id: "node.update",
-            input: { id: EXTENSION_NODE, text: "renamed" },
+            input: {
+              id: EXTENSION_NODE,
+              setProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } }],
+            },
           });
-          expect({ name, code: renamed?.status === "failed" ? renamed.code : "ran" }).toEqual({
+          expect({ name, code: retyped?.status === "failed" ? retyped.code : "ran" }).toEqual({
             name,
             code: "forbidden",
           });
@@ -566,29 +575,42 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
       ),
   ],
   [
-    "the commit holds every action to the system-write rule: no surface renames, deletes or " +
-      "files under a system node without force, whichever action plans the write",
+    "the commit holds every action to the system-write rule: a system node takes a person's " +
+      "label and child without force, and no surface deletes it or moves what it ships",
     (set) =>
       overSurfaces(set, ({ name, surface, via }) =>
         Effect.gen(function* () {
           const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
-          const writes: readonly ActionRequest[] = [
-            { id: "node.update", input: { id: EXTENSION_NODE, text: "renamed" } },
-            { id: "node.delete", input: { id: EXTENSION_NODE } },
-            { id: "node.addTree", input: { outline: "- filed", parent: EXTENSION_NODE } },
-          ];
-          for (const write of writes) {
-            const receipt = yield* via(write);
-            const outcome =
-              receipt === null ? "uncallable" : receipt.status === "failed" ? receipt.code : "ran";
+          const expectOutcome = Effect.fnUntraced(function* (
+            write: ActionRequest,
+            expected: "ran" | "forbidden",
+          ) {
+            const outcome = outcomeOf(yield* via(write));
             // Only a surface that does not list the action may be unable to make it.
             const uncallable = outcome === "uncallable" && !listed.has(write.id);
-            expect({ name, action: write.id, outcome }).toEqual({
+            expect({ name, action: write.id, input: write.input, outcome }).toEqual({
               name,
               action: write.id,
-              outcome: uncallable ? outcome : "forbidden",
+              input: write.input,
+              outcome: uncallable ? outcome : expected,
             });
-          }
+          });
+          // A list a system node ships: core's view types, as a fresh store seeds them.
+          const list = SYSTEM_IDS.viewsRoot;
+          const [first, second] =
+            seedGoldenNodes().find((node) => node.id === list)?.children ?? [];
+          if (first === undefined || second === undefined) throw new Error(`${list} ships no list`);
+          const mine: readonly ActionRequest[] = [
+            { id: "node.update", input: { id: list, text: `View types, as ${name} calls them` } },
+            { id: "node.addTree", input: { outline: `- filed by ${name}`, parent: list } },
+          ];
+          const its: readonly ActionRequest[] = [
+            { id: "node.delete", input: { id: EXTENSION_NODE } },
+            { id: "node.update", input: { id: second, parent: list, position: 0 } },
+            { id: "node.update", input: { id: first, parent: null } },
+          ];
+          for (const write of mine) yield* expectOutcome(write, "ran");
+          for (const write of its) yield* expectOutcome(write, "forbidden");
         }),
       ),
   ],

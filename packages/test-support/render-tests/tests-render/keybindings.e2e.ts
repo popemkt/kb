@@ -3,7 +3,8 @@
 // A trusted repository extension's keys, end to end (DESIGN-UI.md →
 // Keybindings): the test kit's example extension, installed and trusted in
 // the scratch root, binds Alt-↑ over the outline's own chords by naming
-// what it replaces, and ⌘⇧Y to kb's `node.update`. Real key events reach
+// what it replaces, ⌘⇧Y to kb's `node.update`, and ⌘⇧J to a rating of no
+// stars that its own guard refuses. Real key events reach
 // the outline's dispatch, the action goes through the server's invoke path
 // and its guards, and the store is read back over the API.
 import type { APIRequestContext, Page } from "playwright/test";
@@ -18,17 +19,19 @@ const leaf = (n: number) => `render.fixture.node.${n}`;
 async function node(
   request: APIRequestContext,
   id: string,
-): Promise<{ text: string; children: string[] }> {
+): Promise<{ text: string; children: string[]; props: Record<string, unknown> }> {
   const response = await request.post("/api/action", { data: { id: "node.get", input: { id } } });
   const receipt = (await response.json()) as {
     status: string;
     message?: string;
-    output?: { node: { text: string; children: readonly { id: string }[] } };
+    output?: {
+      node: { text: string; children: readonly { id: string }[]; props: Record<string, unknown> };
+    };
   };
   expect(receipt.status, receipt.message).toBe("succeeded");
   if (receipt.output === undefined) throw new Error(`node.get ${id} answered nothing`);
-  const { text, children } = receipt.output.node;
-  return { text, children: children.map((child) => child.id) };
+  const { text, children, props } = receipt.output.node;
+  return { text, children: children.map((child) => child.id), props };
 }
 
 /** The fixture root's page, once the example's page half has loaded beside it. */
@@ -82,18 +85,13 @@ test("a key whose action a guard refuses changes nothing, and the person is told
   page,
   request,
 }) => {
-  // The views list's rows are system nodes, which no call may write unforced.
-  await page.goto("/node/sys.views");
-  await expect(page.locator('[data-example="section"]')).toBeVisible();
-  const row = page.getByRole("treeitem").and(page.locator('[data-node-id^="sys.view."]')).first();
-  await expect(row).toBeVisible();
-  const id = await row.getAttribute("data-node-id");
-  if (id === null) throw new Error("the row names no node");
-  const before = (await node(request, id)).text;
-  // A system row is read-only: a press on its text selects it rather than editing it.
-  await row.locator(".node-content").first().click();
-  await expect(page.locator(`[data-node-id="${id}"][data-selected="true"]`)).toBeVisible();
-  await page.keyboard.press("ControlOrMeta+Shift+Y");
-  await expect(page.getByText(/^node\.update failed: /)).toBeVisible();
-  expect((await node(request, id)).text).toBe(before);
+  // No stars is no rating: the example's stars guard refuses the write on every surface.
+  await openRoot(page);
+  await edit(page, leaf(2));
+  await page.keyboard.press("Escape");
+  await expect(page.locator(`[data-node-id="${leaf(2)}"][data-selected="true"]`)).toBeVisible();
+  const before = (await node(request, leaf(2))).props;
+  await page.keyboard.press("ControlOrMeta+Shift+J");
+  await expect(page.getByText(/^Not saved: .*a rating is a whole number of stars/)).toBeVisible();
+  expect((await node(request, leaf(2))).props).toEqual(before);
 });

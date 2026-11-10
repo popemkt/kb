@@ -116,13 +116,19 @@ export {
   isOntologyNode,
   listOntologyNodes,
   ontologyClosureMode,
-  refValuesOf,
   resolveOntology,
-  strValueOf,
-  typeRefsOf,
   wouldCreateExtendsCycle,
 } from "./ontology.ts";
-export type { MemberReason, NodeLike, OntologyResolution } from "./ontology.ts";
+export type { MemberReason, OntologyResolution } from "./ontology.ts";
+export { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
+export {
+  isA,
+  kindsOf,
+  tagChains,
+  templateFieldsOf,
+  type KindsLookup,
+  type TagChains,
+} from "./tag-kinds.ts";
 export { IndexedNodes, ScannedNodes } from "./node-graph.ts";
 export { StoreState } from "./store-state.ts";
 export type { NodeGraph } from "./node-graph.ts";

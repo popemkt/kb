@@ -321,6 +321,7 @@ import {
   LINKS,
   NOTES,
   NoteView,
+  RATING,
   UNNOTED,
   declaration,
 } from "./lib/declaration.ts";
@@ -379,9 +380,10 @@ function Stars({ value, spec, onEnd }: ValueSurfaceProps) {
 
 /**
  * Its keys: Alt-↑ moves the row in both of the outline's contexts, each
- * taking a chord the outline holds by naming the binding it replaces; and
+ * taking a chord the outline holds by naming the binding it replaces;
  * ⌘⇧Y on a selected row runs kb's own \`node.update\` on it, through the
- * page's invoke path and its guards.
+ * page's invoke path and its guards; and ⌘⇧J rates the row no stars, a
+ * write its own stars guard refuses on that same path.
  */
 const KEYS = [
   provideKeybinding("move-up", {
@@ -400,6 +402,14 @@ const KEYS = [
     context: "outline.selection",
     chord: "Mod-Shift-y",
     run: { action: "node.update", input: { text: "Stamped by the example" } },
+  }),
+  provideKeybinding("unrate", {
+    context: "outline.selection",
+    chord: "Mod-Shift-j",
+    run: {
+      action: "node.update",
+      input: { setProps: [{ field: RATING, value: { t: "num", v: 0 } }] },
+    },
   }),
 ];
 
