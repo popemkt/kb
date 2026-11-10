@@ -11,6 +11,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Rule | Home | Scope | Principle | Enforcement | Gate |
 |---|---|---|---|---|---|
 | Generated docs are data | AGENTS.md#kb--repo-knowledge-base | repo | docs/rules.md and docs/todos.md are materialized from kb nodes; the data is edited and the files are regenerated, never the other way round. | hook | — |
+| Data-plane freedom: additive edits | AGENTS.md#data-plane-freedom | repo | On any node, a sys.* or plugin node included, a person may add a field to a tag's template, a child, an option to an open option set, a tag that extends it, or a setting, and may take back what they added. What a family ships is kept: its seeded fields, options and children, in their order. | ci | — |
+| Data-plane freedom: labels are cosmetic | AGENTS.md#data-plane-freedom | repo | A node's text is the person's to change, a sys.* or plugin tag's, field's or option's included, without force. Ids are identity: code, queries, docs and agents name nodes by id, so a rename changes what is shown, never what is meant. | ci | — |
 | Lab principles: measured bounds | DESIGN-UI.md#lab-principles | packages/extension/lab-ui lab scene | The measurable lab principles hold as tests: the timing tokens are mirrored and inside their bounds (follow 300–600ms, ambient periods 8s or more; M5, M4), Embers pops within its budget (M4), and each study either runs on three's WebGL2 fallback without WebGPU or says why it cannot start (T1). | ci | — |
 | Compiler strictness contract | DESIGN.md#compiler-strictness-contract | repo | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
 | Core names no feature | DESIGN.md#extension-families | packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; every extension package is loaded, by a value import, by a root of each host its scope runs in; and a family's browser half is its one @kb/<family>-ui package, a surface of @kb/ui named for a family being a deferred breach (CORE_BROWSER_HALVES). Not checked yet: that core packages hold no feature vocabulary (the open extension-boundaries gaps). | harness | — |
@@ -38,9 +40,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Admission gate | AGENTS.md#gate-run-first | repo | Every commit is admitted through the one pre-commit gate; a missing tool is restored, never worked around. | prose | — |
 | Batch related changes in one reviewable PR | docs/ci.md#batches | repo | Related changes land together, with separate structural and behavior commits. | prose | — |
 | Canonical statements | AGENTS.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
-| Data-plane freedom: additive edits | AGENTS.md#data-plane-freedom | repo | On any node, a sys.* or plugin node included, a person may add a field to a tag's template, a child, an option to an open option set, a tag that extends it, or a setting, and may take back what they added. What a family ships is kept: its seeded fields, options and children, in their order. | prose | A store-contract property that a person's additive edit to every seeded node commits without force, and that removing or reordering a seeded value or child is refused. |
 | Data-plane freedom: constrain before you lock | AGENTS.md#data-plane-freedom | repo | A family protects its data first by the field's constraints, enforced at the commit on every surface: the type and its form, the option source (children, a tag, a query), a closed option set, the family's commit guard. It locks only its identity and structure (its ids, its seeded nodes, what they ship) and values it declares it manages because they mirror something outside the person's hand. | prose | The commit enforcing a ref field's target constraint, and a declared managed-by field option the commit reads, each with a contract property. |
-| Data-plane freedom: labels are cosmetic | AGENTS.md#data-plane-freedom | repo | A node's text is the person's to change, a sys.* or plugin tag's, field's or option's included, without force. Ids are identity: code, queries, docs and agents name nodes by id, so a rename changes what is shown, never what is meant. | prose | A store-contract property that a text-only write to a seeded node commits without force and that a later open keeps it. |
 | Domain typing — discriminator over optional | DESIGN.md#domain-typing--effect-schema | repo | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | DESIGN.md#domain-typing--effect-schema | repo | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |
 | Domain typing — one canonical schema | DESIGN.md#domain-typing--effect-schema | repo | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
@@ -1293,9 +1293,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: renaming a sys.* or plugin node's label needs force
 
 - **expected** — A text-only write to a seeded node commits without force; the seed keeps the edited label (it already does on open).
-- **current** — systemWriteRefusal refuses any change to a sys.* node's text, and the zoomed header shows a padlock on its title.
+- **current** — The commit admits a text-only write to a sys.* node, and a store-contract property proves the label survives the next open, but the zoomed header still shows a padlock on a seeded node's title and the editor does not let it be edited.
 - **impact** — A person cannot call the events tag habit, or a status option Waiting, in their own words without overriding the whole protection.
-- **closes** — Admit text in systemWriteRefusal for sys.* nodes, replace the padlock with an owned-by note, and prove with a store-contract property that the edited text survives the next open.
+- **closes** — Replace the padlock with an owned-by note that names the node's family, and let a seeded node's title be edited as any node's is.
 - **rule** — Data-plane freedom: labels are cosmetic
 - **node** — `01M7342W0CNMFK152YEFNJHPP4`
 
@@ -1675,9 +1675,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the system-write rule refuses additive edits to seeded nodes
 
 - **expected** — A person's field added to a seeded tag's template, a child under a seeded node and an option under a seeded field commit without force; removing or reordering what the seed ships is refused.
-- **current** — systemWriteRefusal admits only values of fields that configure the node; every other field, the children and the rank of a sys.* node need force, and the editor hides Add field on seeded tags and toasts that sys.* nodes are read-only.
+- **current** — The commit admits a person's ids in a seeded node's children and template and keeps every seeded id there in order (systemWriteRefusal, proven over every surface by the surface contract), but the editor still hides Add field on seeded tags, refuses a child under a seeded node before it reaches the commit (isSysPrefixed guards in the page), and toasts that sys.* nodes are read-only.
 - **impact** — A person cannot add a field to a family's tag (a Location on the events tag), an option to its option set, or a child under it, so extending a plugin's model means forking it.
-- **closes** — systemWriteRefusal keeps every sys.* id a seeded list held, in order, and admits the person's ids in sys.f.fields, sys.f.extends and children; the editor offers the additive gestures on every node.
+- **closes** — The editor offers the additive gestures on every node, Add field on a seeded tag and a child under a seeded node, asking the commit's rule instead of isSysPrefixed, and its refusals name the owner; sys.f.extends joins the additive fields with tag extension.
 - **rule** — Data-plane freedom: additive edits
 - **node** — `01M7342V3W6X9PFNWVZ92WD7SF`
 
