@@ -40,6 +40,7 @@ import {
   type PointReference,
   type ServiceKey,
   type RoleKey,
+  roleCall,
 } from "@kb/plugin";
 import { usePath } from "./router";
 import type { PointerSource } from "./pointer-over";
@@ -694,6 +695,22 @@ export function replacementApproved(owner: string, role: string): boolean {
 /** Role consumers get a stable boundary rather than the unguarded implementation. */
 export function useRole<P extends object>(role: RoleKey<ComponentType<P>>): ComponentType<P> {
   return roleComponent(uiKernel, role);
+}
+
+/**
+ * Call a page service role's elected provider (`roleCall`): a replacement
+ * that dies or overruns `budgetMs` is demoted and the next candidate tried,
+ * down to the role's default. A call that fails there rejects; the role's
+ * failure is the caller's to report, never a second default path.
+ */
+export function callPageRole<C, A>(
+  role: RoleKey<C>,
+  invoke: (provider: C) => Promise<A>,
+  budgetMs: number,
+): Promise<A> {
+  return Effect.runPromise(
+    roleCall(uiKernel, role, (provider) => Effect.promise(() => invoke(provider)), budgetMs),
+  );
 }
 
 /** Called after every change to the page kernel's plugins, services or contributions. */

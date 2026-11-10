@@ -3955,6 +3955,42 @@ reports the family on.
   Listing the rows inside ⌘K waits on a palette step a command can hand a
   list of choices to (GAP [[01M53VP7RKJG53B305MM26AYVG]]).
 
+### Days
+
+The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
+[Days](./DESIGN.md#days)). It loads while the server reports the family on.
+
+- **The day page** is `#day`'s default view (`days.day`, a tag view, so a
+  day opens in it at `/node/<id>` and a person may choose another there).
+  It draws the day's own outline, with its title, fields and children, then
+  **Made or edited this day**: the nodes whose created or updated instant
+  falls within the local day, newest first. Schema, the period nodes and
+  `sys.*` nodes are left out. Each row opens its node.
+- **The Today row** sits under Home in the sidebar (`order: 5`) and opens
+  today's node, making it if need be. It is the active row while today's
+  node is open.
+- **⌘K "Go to today"** is the `sys.command` node the family seeds
+  (`sys.cmd.days.today`). A direct key waits on a global key context a
+  family can contribute to (GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]).
+- **Opening on today.** Where a page that loads at the root opens is the
+  page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
+  Core owns it and stays home, and days replaces it. Days answers today's
+  node, making it if need be, unless the family's setting `open on`
+  (`sys.f.days.openOn`: `today` or `home`; empty reads as `today`) says
+  home. The shell asks once per page load, when the graph and the
+  families' plugins are first in (`landOnce`), so switching days on later,
+  or reloading a plugin, never moves the page. The shell asks only while
+  the page is at `/` with nothing in its URL, and moves only if the page
+  has not moved by the time the answer comes. The move replaces the root's
+  history entry, so Back leaves the page.
+- **The capture target's replacement** answers today's node through
+  `ext.days.today`, with the page's local day. ⌘K "Add node" with nothing
+  selected and a picker's "create" row for a new top-level node both go
+  through the role (`captureNode`), so either lands in today. When the
+  action refuses or the node never reaches the page, the replacement fails
+  rather than answering the top level itself: the role demotes it and
+  core's default answers.
+
 ## Design tokens
 
 A whole design system (colour, type, faces, weights, radius, elevation,

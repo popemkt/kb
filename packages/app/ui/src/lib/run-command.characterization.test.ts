@@ -144,13 +144,16 @@ describe("palette command routing (characterization)", () => {
     expect(useGraphStore.getState().wireNodes.length).toBe(before + 1);
   });
 
-  it("add-node with nothing selected mints a root row and jumps to it", async () => {
+  it("add-node with nothing selected mints an empty root row and jumps to it", async () => {
     const before = useGraphStore.getState().wireNodes.length;
     await run(SYSTEM_IDS.cmdAddNode);
     const after = useOutlineStore.getState();
     const graph = useGraphStore.getState();
     expect(graph.wireNodes.length).toBe(before + 1);
     expect(after.selectedNodeId).not.toBeNull();
+    // What the person types is the whole text: "Untitled" is how a read view
+    // shows an empty node, never a value the command writes.
+    expect(node(after.selectedNodeId ?? "")?.text).toBe("");
   });
 
   it("add-tag mints a supertag and zooms to it", async () => {

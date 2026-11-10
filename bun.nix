@@ -650,6 +650,8 @@
   "@kb/collections" = copyPathToStore ./packages/extension/collections;
   "@kb/collections-ui" = copyPathToStore ./packages/extension/collections-ui;
   "@kb/contracts" = copyPathToStore ./packages/contract/contracts;
+  "@kb/days" = copyPathToStore ./packages/extension/days;
+  "@kb/days-ui" = copyPathToStore ./packages/extension/days-ui;
   "@kb/docs" = copyPathToStore ./packages/extension/docs;
   "@kb/ext-canvas" = copyPathToStore ./packages/extension/ext-canvas;
   "@kb/ext-check" = copyPathToStore ./packages/extension/ext-check;

@@ -89,13 +89,16 @@ const DATASCRIPT = /cljs\.core/;
 // Commit receipts, reaction frames and identified actor metadata add 3,246 measured eager bytes.
 // Shared capability metadata, manifest constraints and waiting status add 6,246 measured eager bytes.
 // The integrated editor, roles and routines surfaces measure 2,064,033 eager bytes.
-// One backdrop across pages adds 6,328 measured eager bytes (2,062,465 → 2,068,793): the pane's
-// host above the router, its layers' crossfade and hold, the region that takes its drawing in,
-// a head's declaration of its space and the breadcrumbs' band; every scene still loads lazily.
-// Merged with main at e4ec7230 (#150), the set measures 2,070,576 eager bytes in CI and 2,069,267
-// from a short local checkout (the build grows with the path, as the GAP below says); the budget
-// is CI's measure with 1.5 KB of headroom, so the next change to land does not break it by bytes.
-const EAGER_BUDGET_BYTES = 2_072_100;
+// The days family adds 12,724 measured eager bytes (2,062,465 → 2,075,189): its
+// declaration and seed, which the page folds, its day page, Today row and
+// command, and core's capture-target and landing roles with their defaults.
+// One backdrop across pages adds the pane's host above the router, its layers' crossfade and
+// hold, a head's declaration of its space and the breadcrumbs' band; every scene still loads lazily.
+// Merged with main at 145f8fc9 (#152), the set measures 2,081,183 eager bytes from a short local
+// checkout; CI measured 1,309 bytes more than such a checkout on the last merge (the build grows
+// with the path, as the GAP below says), so about 2,082,500 there. The budget is that with 1.5 KB
+// of headroom, so the next change to land does not break it by bytes.
+const EAGER_BUDGET_BYTES = 2_084_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

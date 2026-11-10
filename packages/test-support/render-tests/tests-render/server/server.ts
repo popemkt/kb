@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { startUi } from "@kb/server";
 import { FIXTURE_TIMESTAMP, renderFixtureNodes } from "../fixture.ts";
 import { bundledSeed } from "@kb/bundled";
+import { extensionNodeId, SYSTEM_IDS, type KbNode } from "@kb/model";
 import { writeTrustedExample } from "@kb/test-kit";
 import { EXAMPLE_ARG } from "../harness-server.ts";
 
@@ -21,7 +22,20 @@ import { EXAMPLE_ARG } from "../harness-server.ts";
 const scratchRoot = await mkdtemp(join(tmpdir(), "kb-render-harness-"));
 const scratchKb = join(scratchRoot, ".kb");
 await mkdir(scratchKb);
-const fixtureNodes = [...bundledSeed(FIXTURE_TIMESTAMP), ...renderFixtureNodes()];
+/*
+ * The specs are about core and the projections, so the store has the days
+ * family switched off, as a person may switch it: a page that opens at the
+ * root shows home and a capture goes to the top level (DESIGN.md → Days).
+ */
+const DAYS_NODE = extensionNodeId("days");
+const switchedOff = (node: KbNode): KbNode =>
+  node.id === DAYS_NODE
+    ? {
+        ...node,
+        props: { ...node.props, [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: false }] },
+      }
+    : node;
+const fixtureNodes = [...bundledSeed(FIXTURE_TIMESTAMP).map(switchedOff), ...renderFixtureNodes()];
 await writeFile(
   join(scratchKb, "nodes.jsonl"),
   `${fixtureNodes.map((node) => JSON.stringify(node)).join("\n")}\n`,

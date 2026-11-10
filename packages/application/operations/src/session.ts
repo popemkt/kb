@@ -110,11 +110,16 @@ export interface PersistOptions {
  * checked against the graph the commit will actually merge into.
  *
  * The catch-up cannot be the whole answer, though: it happens outside the
- * store's lock, so a write can still land between it and the merge. That is
- * why the commit reports the state it merged into. When that is the state this
- * session had read, the local delta is the whole difference and the index
- * takes it directly; when it is not, the index is rebuilt from the store
- * rather than stamped as current on a guess.
+ * store's lock, so a write can still land between it and the merge. So the
+ * commit is conditional on the state the checks below read (the store's
+ * conditional commit): a commit's integrity, system-write rule and guards
+ * hold for the state it lands on, whoever else writes at the same time, and
+ * a guard's "one node per key" is a promise across processes, not a hope.
+ * When the store moved, the same transaction is caught up, checked and
+ * committed again, a few times, before the `conflict` is the caller's. A
+ * caller that names its own `expected` (a write planned from what it read,
+ * {@link persistPlannedEffect}) gets that state or the conflict, and plans
+ * again itself.
  *
  * The transaction is recorded by the commit itself: the store's tail is
  * durable and the store is the only thing that can make the node write and
@@ -143,11 +148,37 @@ export interface PersistOptions {
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext<NodeIndex>,
   tx: StoreTx,
-  { systemWrites = "checked", expected }: PersistOptions = {},
+  options: PersistOptions = {},
+): Effect.fn.Return<StoreCommit, DomainError, KbStore> {
+  for (let attempt = 1; ; attempt++) {
+    const landed = yield* persistAttempt(ctx, tx, options).pipe(
+      Effect.map((commit) => ({ commit })),
+      Effect.catchIf(
+        (err) =>
+          err.code === "conflict" && options.expected === undefined && attempt < CHECKED_ATTEMPTS,
+        () => Effect.succeed(null),
+      ),
+    );
+    if (landed !== null) return landed.commit;
+  }
+});
+
+/** How many times a transaction is checked again over a store that moved under it. */
+const CHECKED_ATTEMPTS = 5;
+
+/**
+ * One attempt of {@link persistEffect}: catch up, check, and commit on the
+ * state the checks read, or on the caller's `expected`.
+ */
+const persistAttempt = Effect.fn("kb.persist.attempt")(function* (
+  ctx: KbContext<NodeIndex>,
+  tx: StoreTx,
+  { systemWrites = "checked", expected }: PersistOptions,
 ): Effect.fn.Return<StoreCommit, DomainError, KbStore> {
   const store = yield* KbStore;
   const origin = yield* TxOrigin;
   yield* reloadEffect(ctx);
+  const checkedOn = expected ?? seen.get(ctx);
   const integrityError = txIntegrityError(ctx.nodes, tx);
   if (integrityError !== null && integrityError !== "") {
     return yield* domainError("invalid_input", `invalid graph transaction: ${integrityError}`);
@@ -187,7 +218,7 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   const commit = yield* store.commitEffect(
     tx,
     { at: yield* currentIso, origin, ...actor, ...where, ...label },
-    expected,
+    checkedOn,
   );
   // Once durable, reconciliation and receipt capture finish even if the caller is interrupted.
   yield* Effect.uninterruptible(
