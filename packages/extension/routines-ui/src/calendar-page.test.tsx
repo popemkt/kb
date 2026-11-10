@@ -189,6 +189,13 @@ function fill(label: string, value: string): void {
     input.dispatchEvent(new window.KeyboardEvent("keyup", { bubbles: true, key: "e" }));
   });
 }
+/** A key pressed where focus is, as a person's is. */
+const press = (key: string) =>
+  act(() => {
+    document.activeElement?.dispatchEvent(
+      new window.KeyboardEvent("keydown", { key, bubbles: true }),
+    );
+  });
 const writes = () => calls.filter((call) => call.id.startsWith("node."));
 const propOf = (call: Call | undefined, field: string) =>
   [
@@ -242,8 +249,9 @@ describe("creating", () => {
     open("/calendar/week/2026-11-04", [CALENDAR]);
     pointer("pointerdown", column("2026-11-04"), y(9) + 10);
     pointer("pointerup", column("2026-11-04"), y(9) + 10);
-    expect(valueOf('[aria-label="Date"]')).toBe("2026-11-04");
-    expect(valueOf('[aria-label="Time"]')).toBe("09:00");
+    expect($('[aria-label="Date"]').dataset["value"]).toBe("2026-11-04");
+    expect(valueOf('[aria-label="Starts"]')).toBe("09:00");
+    expect(valueOf('[aria-label="Ends"]')).toBe("09:30");
     expect(valueOf('select[aria-label="Calendar"]')).toBe("cal");
     fill("Title", "Read");
     await click(button("Save"));
@@ -261,9 +269,93 @@ describe("creating", () => {
   test("a drag across slots makes it last as long as the drag", async () => {
     open("/calendar/week/2026-11-04", [CALENDAR]);
     drag(column("2026-11-05"), y(10) + 5, column("2026-11-05"), y(11.5) + 5);
-    expect(valueOf('[aria-label="Duration in minutes"]')).toBe("105");
+    expect(valueOf('[aria-label="Ends"]')).toBe("11:45");
+    expect($("[data-routine-length]").textContent).toBe("1 h 45 min");
     await click(button("Save"));
     expect(propOf(writes()[0], F.duration)).toEqual([105]);
+  });
+  test("New starts today at the next half hour for half an hour, or at nine on a week without today", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR]);
+    await click(button("New"));
+    expect($('[aria-label="Date"]').dataset["value"]).toBe("2026-11-04");
+    expect([valueOf('[aria-label="Starts"]'), valueOf('[aria-label="Ends"]')]).toEqual([
+      "10:30",
+      "11:00",
+    ]);
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Title");
+    await click(button("Cancel"));
+    open("/calendar/week/2026-11-16", [CALENDAR]);
+    await click(button("New"));
+    expect($('[aria-label="Date"]').dataset["value"]).toBe("2026-11-16");
+    expect(valueOf('[aria-label="Starts"]')).toBe("09:00");
+  });
+  test("times are typed or picked, the end moves with the start, and what is wrong is said in words", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR]);
+    await click(button("New"));
+    fill("Starts", "2pm");
+    expect([valueOf('[aria-label="Starts"]'), valueOf('[aria-label="Ends"]')]).toEqual([
+      "2pm",
+      "14:30",
+    ]);
+    fill("Ends", "1530");
+    expect($("[data-routine-length]").textContent).toBe("1 h 30 min");
+    fill("Ends", "25:00");
+    expect($("[data-editor-problem]").textContent).toBe(
+      "The end time isn't a time yet. Type it as 10:00, 1000 or 10pm.",
+    );
+    expect(button("Save").disabled).toBe(true);
+    fill("Ends", "14:00");
+    expect($("[data-editor-problem]").textContent).toBe("It has to end after it starts.");
+    fill("Ends", "15:00");
+    expect(document.querySelector("[data-editor-problem]")).toBeNull();
+    // All day hides the times, and switching it off gives the time back.
+    await click($('[role="switch"][aria-label="All day"]'));
+    expect(document.querySelector('[aria-label="Starts"]')).toBeNull();
+    await click($('[role="switch"][aria-label="All day"]'));
+    expect(valueOf('[aria-label="Starts"]')).toBe("14:00");
+  });
+  test("an end time is picked from a list that starts after the start, by keys", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR]);
+    await click(button("New"));
+    const ends = $('[aria-label="Ends"]');
+    act(() => ends.focus());
+    press("ArrowDown");
+    const listed = [...document.querySelectorAll("[data-time-list] [data-time]")];
+    expect(listed[0]?.textContent).toBe("10:4515 min");
+    expect(document.querySelector('[data-time-list] [aria-selected="true"]')?.textContent).toBe(
+      "11:0030 min",
+    );
+    press("ArrowDown");
+    press("ArrowDown");
+    press("Enter");
+    expect(document.querySelector("[data-time-list]")).toBeNull();
+    expect(valueOf('[aria-label="Ends"]')).toBe("11:30");
+    expect($("[data-routine-length]").textContent).toBe("1 h");
+    expect($('[data-testid="routine-editor"]')).toBeDefined();
+  });
+  test("the day is picked from a month by keys, and Escape closes the month before the editor", async () => {
+    open("/calendar/week/2026-11-02", [CALENDAR]);
+    await click(button("New"));
+    await click($('[aria-label="Date"]'));
+    expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-04");
+    press("ArrowDown");
+    press("ArrowRight");
+    expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-12");
+    press("Escape");
+    expect(document.querySelector("[data-date-picker]")).toBeNull();
+    expect($('[data-testid="routine-editor"]')).toBeDefined();
+    await click($('[aria-label="Date"]'));
+    press("ArrowDown");
+    await click($("[data-date-picker] [data-day]:focus"));
+    expect($('[aria-label="Date"]').dataset["value"]).toBe("2026-11-11");
+    fill("Title", "Dentist");
+    // Enter in a field saves.
+    await act(async () => {
+      $('[aria-label="Title"]').closest("form")?.requestSubmit();
+      await Promise.resolve();
+    });
+    await settle();
+    expect(propOf(writes()[0], F.starts)).toEqual(["2026-11-11"]);
   });
 });
 
@@ -351,12 +443,13 @@ describe("moving and resizing", () => {
     expect(writes()).toEqual([]);
     root = createRoot(document.body.appendChild(document.createElement("div")));
   });
-  test("a move to a cleared day waits for a day", async () => {
+  test("a move to a time that isn't one waits, and says so", async () => {
     open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
     pointer("pointerdown", chip("gym/2026-11-02"), y(7) + 10);
     pointer("pointerup", chip("gym/2026-11-02"), y(7) + 10);
     await click(button("Move this one…"));
-    fill("Move to day", "");
+    fill("Move to time", "25:99");
+    expect($("[data-move-form]").textContent).toContain("That isn't a time yet.");
     const move = button("Move");
     expect(move.disabled).toBe(true);
     await click(move);
@@ -486,7 +579,9 @@ describe("sync status", () => {
     const link = $('[data-testid="entry-popover"] a');
     expect(link.getAttribute("href")).toBe("https://calendar.google.com/event?eid=x");
     expect(link.getAttribute("target")).toBe("_blank");
-    await click($("[data-sync-summary]"));
+    // The status is read, not pressed: Sync now is its own button.
+    expect($("[data-sync-summary]").tagName).toBe("SPAN");
+    await click($("[data-sync-now]"));
     expect(calls.at(-1)).toEqual({ id: "ext.routines.sync", input: {} });
     await click(button("Sync services"));
     expect(getPath()).toBe("/calendar/sync");
@@ -555,17 +650,31 @@ describe("a DST week", () => {
 });
 
 describe("the page", () => {
-  test("the week opens at seven, or at the hour of anything earlier, and a short one stays readable", () => {
+  test("the week's header, all-day row and hours are one grid in one scroller", () => {
     open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
-    const scroller = () => $('[data-calendar-layout="week"] .overflow-y-auto');
-    expect(scroller().scrollTop).toBe(7 * HOUR_PX);
+    const scroller = $("[data-calendar-scroller]");
+    const head = $('[data-calendar-head="2026-11-02"]');
+    const allDay = $('[data-calendar-day="2026-11-02"]:not([data-calendar-timed])');
+    const timed = $('[data-calendar-day="2026-11-02"][data-calendar-timed]');
+    // A scrollbar narrows every row alike only when every row is in the scroller.
+    for (const row of [head, allDay, timed]) expect(scroller.contains(row)).toBe(true);
+    const columns = new Set(
+      [head, allDay, timed].map((cell) => cell.parentElement?.className.split(" ")[1]),
+    );
+    expect(columns).toEqual(new Set(["grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]"]));
+  });
+  test("the week opens just above seven, or above the hour of anything earlier, and a short one stays readable", () => {
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    const scroller = () => $("[data-calendar-scroller]");
+    // A little above the hour, so its label is drawn whole under the header.
+    expect(scroller().scrollTop).toBe(7 * HOUR_PX - 10);
     const early = routine("early", "Standup", {
       [F.starts]: [str("2026-11-03")],
       [F.at]: [str("05:45")],
       [F.duration]: [num(15)],
     });
     open("/calendar/week/2026-11-02", [CALENDAR, GYM, early]);
-    expect(scroller().scrollTop).toBe(5 * HOUR_PX);
+    expect(scroller().scrollTop).toBe(5 * HOUR_PX - 10);
     const short = chip("early/2026-11-03");
     expect(short.parentElement?.style.height).toBe(`${String((25 / 60) * HOUR_PX)}px`);
     expect(short.className).toContain("items-center");

@@ -21,9 +21,12 @@ import {
 import { cn } from "@kb/ui-sdk";
 import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
 import type { CalendarModel } from "./model";
+import { DateField } from "./date-field";
 import { FIELD_CLASS, RepeatPicker } from "./repeat-picker";
 import { StatusDot } from "./status-dot";
 import { syncShown } from "./sync-shown";
+import { TimeField } from "./time-field";
+import { clockOf, lengthBetween, lengthText, minutesOf } from "./time-text";
 import { mintId, runCalls, syncNow } from "./writes";
 
 /** What the editor opens: a routine, or a new one with the settings it starts from. */
@@ -125,62 +128,133 @@ function Field({ label, children }: { readonly label: string; readonly children:
   );
 }
 
+/** The All day switch: a routine with no time is on its days, not at an hour. */
+function AllDaySwitch({
+  on,
+  onChange,
+}: {
+  readonly on: boolean;
+  readonly onChange: (on: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label="All day"
+      onClick={() => onChange(!on)}
+      className="inline-flex h-8 items-center gap-2 rounded-md px-1 text-ui text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors",
+          on ? "border-primary bg-primary" : "border-input bg-muted",
+        )}
+      >
+        <span
+          className={cn(
+            "h-3 w-3 rounded-full bg-background shadow-edge transition-transform",
+            on ? "translate-x-3" : "translate-x-0.5",
+          )}
+        />
+      </span>
+      All day
+    </button>
+  );
+}
+
+/** Which time fields hold text that is not a time yet. */
+interface Unreadable {
+  readonly start: boolean;
+  readonly end: boolean;
+}
+
 function WhenFields({
   settings,
   set,
+  today,
+  onUnreadable,
 }: {
   readonly settings: RoutineSettings;
   readonly set: (changes: Partial<RoutineSettings>) => void;
+  readonly today: string;
+  readonly onUnreadable: (changes: Partial<Unreadable>) => void;
 }) {
+  const allDay = settings.at === "";
+  // The time it had before All day, given back when All day is switched off.
+  const [lastAt, setLastAt] = useState(allDay ? "09:00" : settings.at);
+  const ends = allDay ? "" : clockOf(minutesOf(settings.at) + settings.duration);
+  const nextDay = !allDay && minutesOf(settings.at) + settings.duration > 24 * 60;
   return (
-    <>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Date">
-          <input
-            type="date"
-            aria-label="Date"
-            className={FIELD_CLASS}
+    <div className="flex flex-col gap-2" data-routine-when="">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Day">
+          <DateField
+            label="Date"
             value={settings.starts}
-            onChange={(event) => set({ starts: event.target.value })}
+            today={today}
+            onChange={(starts) => set({ starts })}
           />
         </Field>
-        <Field label="Time">
-          <input
-            type="time"
-            aria-label="Time"
-            step={300}
-            className={FIELD_CLASS}
-            disabled={settings.at === ""}
-            value={settings.at}
-            onChange={(event) => set({ at: event.target.value })}
-          />
-        </Field>
+        <AllDaySwitch
+          on={allDay}
+          onChange={(on) => {
+            if (on) setLastAt(settings.at);
+            onUnreadable({ start: false, end: false });
+            set({ at: on ? "" : lastAt });
+          }}
+        />
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1.5 text-ui text-foreground">
-          <input
-            type="checkbox"
-            aria-label="All day"
-            checked={settings.at === ""}
-            onChange={(event) => set({ at: event.target.checked ? "" : "09:00" })}
-          />
-          All day
-        </label>
-        <label className="flex items-center gap-1.5 text-ui text-foreground">
-          <input
-            type="number"
-            aria-label="Duration in minutes"
-            min={5}
-            step={5}
-            className={cn(FIELD_CLASS, "w-20")}
-            value={settings.duration}
-            onChange={(event) => set({ duration: Number(event.target.value) })}
-          />
-          minutes
-        </label>
-      </div>
-    </>
+      {allDay ? null : (
+        <div className="flex flex-wrap items-end gap-2">
+          <Field label="Starts">
+            <TimeField
+              label="Starts"
+              value={settings.at}
+              onChange={(at) => set({ at })}
+              onText={(readable) => onUnreadable({ start: !readable })}
+            />
+          </Field>
+          <span className="pb-1.5 text-muted-foreground" aria-hidden>
+            –
+          </span>
+          <Field label="Ends">
+            <TimeField
+              label="Ends"
+              value={ends}
+              onChange={(end) => set({ duration: lengthBetween(settings.at, end) })}
+              onText={(readable) => onUnreadable({ end: !readable })}
+              hint={(time) => lengthText(lengthBetween(settings.at, time))}
+              after={settings.at}
+            />
+          </Field>
+          <span className="pb-1.5 text-meta text-muted-foreground" data-routine-length="">
+            {lengthText(settings.duration)}
+            {nextDay ? ", ends the next day" : ""}
+          </span>
+        </div>
+      )}
+    </div>
   );
+}
+
+/** What stops the draft from being saved, in words, or null when nothing does. */
+function problemOf(
+  settings: RoutineSettings,
+  unreadable: Unreadable,
+  sends: boolean,
+): string | null {
+  if (settings.starts === "") return "Choose the day it starts.";
+  if (settings.at !== "" && unreadable.start)
+    return "The start time isn't a time yet. Type it as 9:30, 930 or 9:30pm.";
+  if (settings.at !== "" && unreadable.end)
+    return "The end time isn't a time yet. Type it as 10:00, 1000 or 10pm.";
+  if (settings.at !== "" && settings.duration <= 0) return "It has to end after it starts.";
+  if (settings.until !== "" && settings.until < settings.starts)
+    return "The repeat ends before the day it starts. Move the end day, or the start.";
+  if (!sends) return "kb can't send this repeat as it stands. Pick a preset, or check the rule.";
+  return null;
 }
 
 function EditorButtons({
@@ -205,7 +279,11 @@ function EditorButtons({
         >
           {confirmDelete ? "Delete it and its history" : "Delete"}
         </button>
-      ) : null}
+      ) : (
+        <span className="mr-auto text-meta text-muted-foreground" data-editor-keys="">
+          Enter saves · Esc closes
+        </span>
+      )}
       <button type="button" className={BUTTON_CLASS} onClick={onClose}>
         Cancel
       </button>
@@ -216,20 +294,54 @@ function EditorButtons({
   );
 }
 
+/** Which calendar the routine is on, or none, which syncs nothing. */
+function CalendarField({
+  model,
+  value,
+  onChange,
+}: {
+  readonly model: CalendarModel;
+  readonly value: string;
+  readonly onChange: (calendar: string) => void;
+}) {
+  return (
+    <Field label="Calendar">
+      <select
+        aria-label="Calendar"
+        className={FIELD_CLASS}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">No calendar (not synced)</option>
+        {[...model.calendars.values()].map((calendar) => (
+          <option key={calendar.id} value={calendar.id}>
+            {calendar.name}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
 export function RoutineEditor({
   target,
   model,
+  today,
   onClose,
 }: {
   readonly target: EditorTarget;
   readonly model: CalendarModel;
+  /** Today on the page's clock, which the date picker marks. */
+  readonly today: string;
   readonly onClose: () => void;
 }) {
   const [start] = useState(() => startOf(target, model));
   const [title, setTitle] = useState(start.title);
   const [settings, setSettings] = useState(start.settings);
+  const [unreadable, setUnreadable] = useState<Unreadable>({ start: false, end: false });
   const set = (changes: Partial<RoutineSettings>) => setSettings((now) => ({ ...now, ...changes }));
-  const ok = sendable(title, settings, DEFAULT_ROUTINE_ZONE);
+  const problem = problemOf(settings, unreadable, sendable(title, settings, DEFAULT_ROUTINE_ZONE));
+  const ok = problem === null;
   const save = async () => {
     const calls =
       target.kind === "new"
@@ -262,18 +374,30 @@ export function RoutineEditor({
           event.preventDefault();
           if (ok) void save();
         }}
+        onKeyDown={(event) => {
+          // Enter in a field saves as a form does; with a modifier it saves from anywhere.
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            event.currentTarget.requestSubmit();
+          }
+        }}
       >
         <Field label="Title">
           <input
             autoFocus
             aria-label="Title"
-            className={FIELD_CLASS}
+            className={cn(FIELD_CLASS, "h-9 text-lead")}
             value={title}
             placeholder="Morning run"
             onChange={(event) => setTitle(event.target.value)}
           />
         </Field>
-        <WhenFields settings={settings} set={set} />
+        <WhenFields
+          settings={settings}
+          set={set}
+          today={today}
+          onUnreadable={(changes) => setUnreadable((now) => ({ ...now, ...changes }))}
+        />
         <Field
           label={`Repeat · ${describeRepeat(settings.rrule, settings.until, settings.starts === "" ? "1970-01-01" : settings.starts)}`}
         >
@@ -283,21 +407,11 @@ export function RoutineEditor({
             onChange={(value) => set(value)}
           />
         </Field>
-        <Field label="Calendar">
-          <select
-            aria-label="Calendar"
-            className={FIELD_CLASS}
-            value={settings.calendar}
-            onChange={(event) => set({ calendar: event.target.value })}
-          >
-            <option value="">No calendar (not synced)</option>
-            {[...model.calendars.values()].map((calendar) => (
-              <option key={calendar.id} value={calendar.id}>
-                {calendar.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <CalendarField
+          model={model}
+          value={settings.calendar}
+          onChange={(calendar) => set({ calendar })}
+        />
         {target.kind === "routine" ? (
           <SyncRow id={target.id} model={model} calendar={settings.calendar} />
         ) : null}
@@ -306,9 +420,9 @@ export function RoutineEditor({
             Some fields could not be read: {start.warnings.join("; ")}
           </p>
         ) : null}
-        {ok ? null : (
-          <p className="text-meta text-destructive" role="alert">
-            kb cannot send this routine yet: check its date, time and repeat.
+        {problem === null ? null : (
+          <p className="text-meta text-destructive" role="alert" data-editor-problem="">
+            {problem}
           </p>
         )}
         <EditorButtons
