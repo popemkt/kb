@@ -18,6 +18,7 @@ import {
   viewDef,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
+import { dateDayReferences } from "./dated.ts";
 import { DAYS_IDS } from "./ids.ts";
 import { DAYS_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { daysSeed } from "./seed.ts";
@@ -51,6 +52,7 @@ export const daysExtension = defineExtension({
   views: [viewDef(DayView)],
   points: Object.values(DAYS_POINT_DEFINITIONS),
   tagDefaultViews: { [DAYS_IDS.dayTag]: DayView },
+  refCarriers: [{ refsOf: dateDayReferences }],
 });
 
 export function daysPlugin(): Plugin {
