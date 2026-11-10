@@ -69,6 +69,7 @@ export function planDay(
   const make: NewPeriodNode[] = [];
   const add = (node: Omit<NewPeriodNode, "id">): string => {
     const derived = periodNodeId(node.key);
+    // GAP [[01M73N2FPM7GGCX6H62V6PE8JG]] a day under a fresh id is not what a date value mentions
     const id = nodes.has(derived) ? fresh() : derived;
     make.push({ id, ...node });
     return id;

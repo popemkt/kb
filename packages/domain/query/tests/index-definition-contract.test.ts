@@ -29,7 +29,7 @@ for (const implementation of implementations)
       expect(index.referencesOf(first)).not.toContain("b");
       const before = index.generation;
       const derived = derivedWith({
-        fields: [{ field: "f.carrier", refsOf: (value) => (value.t === "str" ? [value.v] : []) }],
+        carriers: [{ field: "f.carrier", refsOf: (value) => (value.t === "str" ? [value.v] : []) }],
         owners: new Map([["a", "c"]]),
       });
       index.setDerived(derived);

@@ -125,7 +125,7 @@ export class DatascriptIndex implements KbIndex {
     this.#refAttrs = new Set();
     const datoms: Datom[] = [];
     for (const node of merged) {
-      const built = nodeToDatoms(node, this.#ids, this.#derived);
+      const built = nodeToDatoms(node, this.#ids, this.#derived, this.#table.fieldTypes);
       datoms.push(...built.datoms);
       for (const attr of built.attrs) this.#attrs.add(attr);
       for (const attr of built.refAttrs) this.#refAttrs.add(attr);
@@ -151,7 +151,7 @@ export class DatascriptIndex implements KbIndex {
     let grown = false;
     let revived = false;
     for (const node of change.restated) {
-      const built = nodeToDatoms(node, this.#ids, this.#derived);
+      const built = nodeToDatoms(node, this.#ids, this.#derived, this.#table.fieldTypes);
       for (const attr of built.attrs) {
         if (!this.#attrs.has(attr)) grown = true;
       }
