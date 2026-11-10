@@ -7,7 +7,9 @@
  *
  * The property is the bundler's, not the import graph's: a module reachable
  * from the page is dropped when no export of it is used, so only a build can
- * say what the page carries. This builds the UI into a scratch directory.
+ * say what the page carries. This builds the UI into a scratch directory,
+ * as the page ships it: a production build, which names no path of the
+ * checkout, so the measure is the same wherever the checkout lives.
  *
  * Red case: export `DatascriptIndex` from `@kb/ui-sdk`'s index again (its namespace
  * is the page's `kb-ext-sdk` host module, so every export of it is live).
@@ -15,14 +17,18 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { UI_ROOT } from "../src/paths.ts";
+
+/** The checkout the page is built from: no byte of what it ships may depend on where it lives. */
+const CHECKOUT = resolve(UI_ROOT, "..", "..", "..");
 
 /** DataScript is compiled ClojureScript: its runtime names `cljs.core` throughout, and nothing else of kb's does. */
 const DATASCRIPT = /cljs\.core/;
 
 /**
- * The eager set's raw bytes may not pass this (1.76 MB when it was set, from
+ * The eager set's raw bytes may not pass this. The history below is of the
+ * test-mode build, whose numbers ran about 260 KB above what ships (1.76 MB when it was set, from
  * 2.23 MB with DataScript; raised by 10 KB for the motion options' seed
  * fields and their mode, whose painter loads lazily, as the Settings page does;
  * raised by 3 KB for the backdrop gallery's eager half, core's backdrop
@@ -99,7 +105,12 @@ const DATASCRIPT = /cljs\.core/;
 // Tag extension measures 2,078,173 in CI (173 over 2,078,000): `sys.f.extends`
 // in the seed the page folds, and the one memoized reader of a node's kinds
 // (`tagChains`); the budget is that number plus about 1.5 KB.
-const EAGER_BUDGET_BYTES = 2_079_700;
+// Measured on the build the page ships (NODE_ENV=production) since the test
+// spawns it so, rather than the test-mode build every number above was taken
+// on: the same tree measures 1,810,346 eager bytes from ~/Projects/… and from
+// /tmp/…, and the budget keeps about 1.5 KB of headroom over it. A raise from
+// here is a production measurement.
+const EAGER_BUDGET_BYTES = 1_811_900;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
@@ -112,9 +123,12 @@ describe("the page's eager bundle", () => {
   test("carries no DataScript, and stays inside its byte budget", async () => {
     const out = await mkdtemp(join(tmpdir(), "kb-page-bundle-"));
     try {
-      // GAP [[01M66K9DRY5A9RYHFD99QCQTE8]] a test-mode build, whose size grows with the checkout's path
+      // The build the page ships (`bun run build` sets no NODE_ENV, so Vite's
+      // production mode): not the test-mode build `bun test`'s NODE_ENV would ask
+      // for, which names each module's absolute path.
       const build = Bun.spawnSync(["bun", "x", "vp", "build", "--outDir", out, "--emptyOutDir"], {
         cwd: UI_ROOT,
+        env: { ...process.env, NODE_ENV: "production" },
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -125,12 +139,16 @@ describe("the page's eager bundle", () => {
 
       let bytes = 0;
       const withDataScript: string[] = [];
+      const withCheckout: string[] = [];
       for (const chunk of chunks) {
         const code = await readFile(join(out, chunk), "utf8");
         bytes += Buffer.byteLength(code);
         if (DATASCRIPT.test(code)) withDataScript.push(chunk);
+        if (code.includes(CHECKOUT)) withCheckout.push(chunk);
       }
       expect(withDataScript, "an eager chunk carries DataScript").toEqual([]);
+      // What is measured is what ships, wherever the checkout lives.
+      expect(withCheckout, "an eager chunk names the checkout's path").toEqual([]);
       expect(bytes, `the eager set is ${bytes} bytes`).toBeLessThanOrEqual(EAGER_BUDGET_BYTES);
     } finally {
       await rm(out, { recursive: true, force: true });
